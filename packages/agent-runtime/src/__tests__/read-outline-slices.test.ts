@@ -49,11 +49,15 @@ const myArrow = (y: string) => {
 
     const result = output[0].value
     expect(result.path).toBe('test.ts')
-    expect(result.outline).toContain('Line 2: import { something } from \'./somewhere\'')
-    expect(result.outline).toContain('Line 4: type MyType')
-    expect(result.outline).toContain('Line 8: interface MyInterface')
-    expect(result.outline).toContain('Line 12: class MyClass')
-    expect(result.outline).toContain('Line 19: function myFunction(...)')
+    // AST-backed outline: imports as header lines, definitions with line spans.
+    expect(result.outline).toContain("Line 2: import { something } from './somewhere'")
+    expect(result.outline).toContain('type MyType')
+    expect(result.outline).toContain('interface MyInterface')
+    expect(result.outline).toContain('class MyClass')
+    expect(result.outline).toContain('method myMethod')
+    expect(result.outline).toContain('function myFunction')
+    // Spans are real ranges (start-end), not single lines.
+    expect(result.outline).toMatch(/Lines 12-\d+: class MyClass/)
   })
 
   it('returns error message if file does not exist', async () => {

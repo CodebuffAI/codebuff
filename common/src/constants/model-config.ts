@@ -10,7 +10,6 @@ export const ALLOWED_MODEL_PREFIXES = [
 ] as const
 
 export const costModes = [
-  'free',
   'lite',
   'normal',
   'max',

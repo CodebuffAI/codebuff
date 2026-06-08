@@ -1,6 +1,6 @@
 import { IndexManager } from '@codebuff/indexer'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
-import { CodebuffClient, LOCAL_MODE_API_KEY, loadProviderConfigSync } from '@codebuff/sdk'
+import { CodebuffClient, LOCAL_MODE_API_KEY, loadProviderConfigSync, createConfiguredEmbedder } from '@codebuff/sdk'
 
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
@@ -106,18 +106,29 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
             },
           ]
         }
-        const manager = IndexManager.getInstance(projectRoot, indexingConfig)
+        // Wire a provider-backed embedder when semantic indexing is enabled so
+        // the index can build vectors and blend semantic hits into results.
+        const embedder =
+          indexingConfig.semantic?.enabled && indexingConfig.semantic?.model
+            ? (createConfiguredEmbedder(indexingConfig.semantic.model) ?? undefined)
+            : undefined
+        const manager = IndexManager.getInstance(
+          projectRoot,
+          indexingConfig,
+          embedder,
+        )
         await manager.waitUntilReady(2_000)
-        const result = manager.query(input.query ?? '', {
+        const result = await manager.queryBlended(input.query ?? '', {
           limit: input.limit,
           fileTypes: input.fileTypes,
           mode: input.mode,
           from: input.from,
           to: input.to,
         })
-        const semanticNotice = indexingConfig.semantic?.enabled
-          ? ' Semantic indexing is configured but not implemented yet, so results are metadata-only.'
-          : ''
+        const semanticNotice =
+          indexingConfig.semantic?.enabled && !manager.isSemanticReady()
+            ? ' Semantic indexing is enabled but unavailable (no routable embedding model or vectors not yet built); results are metadata-only.'
+            : ''
         const results = result.results.map((item) => {
           const output: JSONObject = {
             path: item.path,

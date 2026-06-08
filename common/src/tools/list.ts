@@ -26,6 +26,7 @@ import { readSlicesParams } from './params/tool/read-slices'
 import { readProposalWorkspaceParams } from './params/tool/read-proposal-workspace'
 import { readSubtreeParams } from './params/tool/read-subtree'
 import { replaceRangeParams } from './params/tool/replace-range'
+import { rewriteSymbolParams } from './params/tool/rewrite-symbol'
 import { renderUIParams } from './params/tool/render-ui'
 import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
@@ -73,6 +74,7 @@ export const toolParams = {
   read_proposal_workspace: readProposalWorkspaceParams,
   read_subtree: readSubtreeParams,
   replace_range: replaceRangeParams,
+  rewrite_symbol: rewriteSymbolParams,
   render_ui: renderUIParams,
   run_file_change_hooks: runFileChangeHooksParams,
   run_terminal_command: runTerminalCommandParams,

@@ -18,4 +18,12 @@ export { queryIndex, evaluateQueryIndexQuality } from './query'
 export { walkProject } from './file-walker'
 export type { WalkedFile } from './file-walker'
 export type { QueryOptions, QueryQualityCase, QueryQualityReport } from './query'
-export { isSemanticIndexingAvailable } from './semantic'
+export {
+  isSemanticIndexingAvailable,
+  cosineSimilarity,
+  buildFileVectors,
+  semanticSearch,
+  blendSemanticScores,
+  fileEmbeddingText,
+} from './semantic'
+export type { EmbedFn, FileVector, SemanticHit } from './semantic'

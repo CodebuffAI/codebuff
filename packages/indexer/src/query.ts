@@ -130,11 +130,12 @@ function querySearch(
   }
 
   const directResults = new Map<string, QueryIndexResult>()
+  const idf = computeIdfForTokens(index, tokens)
 
   for (const file of Object.values(index.files)) {
     if (!matchesFileType(file, fileTypes)) continue
 
-    const result = scoreFile(file, tokens)
+    const result = scoreFile(file, tokens, idf)
     if (result.score > 0) {
       directResults.set(file.path, result)
     }
@@ -233,7 +234,11 @@ function queryPath(
     })
 }
 
-function scoreFile(file: IndexedFile, tokens: string[]): QueryIndexResult {
+function scoreFile(
+  file: IndexedFile,
+  tokens: string[],
+  idf?: Map<string, number>,
+): QueryIndexResult {
   let score = 0
   const matchedOn = new Set<QueryIndexResult['matchedOn'][number]>()
 
@@ -242,17 +247,26 @@ function scoreFile(file: IndexedFile, tokens: string[]): QueryIndexResult {
   const fileName = pathSegments[pathSegments.length - 1] ?? ''
 
   for (const token of tokens) {
+    // Inverse document frequency: rare tokens discriminate, ubiquitous tokens
+    // (e.g. "config", "index") barely move the score so they stop flooding
+    // results. Defaults to 1 when no corpus stats were supplied.
+    const weight = idf?.get(token) ?? 1
+
     if (fileName.includes(token)) {
-      score += 5
+      score += 5 * weight
       matchedOn.add('path')
     } else if (normalizedPath.includes(token)) {
-      score += 2
+      score += 2 * weight
       matchedOn.add('path')
     }
 
     for (const sym of file.symbols) {
-      if (sym.toLowerCase().includes(token) || token.includes(sym.toLowerCase())) {
-        score += 3
+      const symLower = sym.toLowerCase()
+      // Forward substring (token inside a longer symbol) is the common case.
+      // The reverse (symbol inside the token) is only allowed for substantial
+      // symbols — otherwise a 1-2 char symbol matches almost every token.
+      if (symLower.includes(token) || (symLower.length >= 4 && token.includes(symLower))) {
+        score += 3 * weight
         matchedOn.add('symbol')
         break
       }
@@ -260,7 +274,7 @@ function scoreFile(file: IndexedFile, tokens: string[]): QueryIndexResult {
 
     for (const h of file.headings) {
       if (h.toLowerCase().includes(token)) {
-        score += 2.5
+        score += 2.5 * weight
         matchedOn.add('heading')
         break
       }
@@ -268,7 +282,7 @@ function scoreFile(file: IndexedFile, tokens: string[]): QueryIndexResult {
 
     for (const concept of file.concepts) {
       if (concept.includes(token)) {
-        score += 1.5
+        score += 1.5 * weight
         matchedOn.add('concept')
         break
       }
@@ -276,7 +290,7 @@ function scoreFile(file: IndexedFile, tokens: string[]): QueryIndexResult {
 
     for (const imp of file.imports) {
       if (imp.toLowerCase().includes(token)) {
-        score += 1
+        score += 1 * weight
         matchedOn.add('import')
         break
       }
@@ -294,6 +308,53 @@ function scoreFile(file: IndexedFile, tokens: string[]): QueryIndexResult {
     symbols: file.symbols.slice(0, 10),
     headings: file.headings.slice(0, 5),
   }
+}
+
+/**
+ * Smoothed inverse document frequency per query token over the indexed corpus.
+ * A token appearing in few files gets a high weight; one appearing nearly
+ * everywhere gets a weight near 1. Only query tokens are scored, so this is
+ * O(files × queryTokens).
+ */
+function computeIdfForTokens(
+  index: MetadataIndex,
+  tokens: string[],
+): Map<string, number> {
+  const files = Object.values(index.files)
+  const total = files.length
+  const idf = new Map<string, number>()
+  if (total === 0) {
+    for (const token of tokens) idf.set(token, 1)
+    return idf
+  }
+
+  for (const token of tokens) {
+    let df = 0
+    for (const file of files) {
+      if (fileContainsToken(file, token)) df++
+    }
+    // log((N+1)/(df+1)) + 1 — always >= ~0.005, rare tokens ~log(N), and a
+    // +1 floor keeps every match contributing at least its base weight.
+    idf.set(token, Math.log((total + 1) / (df + 1)) + 1)
+  }
+  return idf
+}
+
+function fileContainsToken(file: IndexedFile, token: string): boolean {
+  if (file.path.toLowerCase().replace(/\\/g, '/').includes(token)) return true
+  for (const sym of file.symbols) {
+    if (sym.toLowerCase().includes(token)) return true
+  }
+  for (const h of file.headings) {
+    if (h.toLowerCase().includes(token)) return true
+  }
+  for (const concept of file.concepts) {
+    if (concept.includes(token)) return true
+  }
+  for (const imp of file.imports) {
+    if (imp.toLowerCase().includes(token)) return true
+  }
+  return false
 }
 
 function scoreGraphNeighborhood(
@@ -416,9 +477,10 @@ function findSeedPaths(
   fileTypes?: string[],
 ): string[] {
   if (explicitPath && index.files[explicitPath]) return [explicitPath]
+  const idf = computeIdfForTokens(index, tokens)
   return Object.values(index.files)
     .filter((file) => matchesFileType(file, fileTypes))
-    .map((file) => scoreFile(file, tokens))
+    .map((file) => scoreFile(file, tokens, idf))
     .filter((result) => result.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)

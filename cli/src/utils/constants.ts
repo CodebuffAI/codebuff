@@ -156,5 +156,5 @@ export const AGENT_MODE_TO_COST_MODE = {
   PLAN: 'normal',
 } as const satisfies Record<
   AgentMode,
-  'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
+  'lite' | 'normal' | 'max' | 'experimental' | 'ask'
 >

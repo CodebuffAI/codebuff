@@ -1,5 +1,10 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
+import {
+  getFileStructure,
+  renderStructureOutline,
+} from '../../../structural-read'
+
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 
@@ -27,6 +32,30 @@ export const handleReadOutline = (async (
     }
   }
 
+  // Preferred path: accurate, multi-language structure from tree-sitter.
+  const structure = await getFileStructure(rawContent, path)
+  if (structure !== null) {
+    const outline = renderStructureOutline(rawContent, structure)
+    return {
+      output: jsonToolResult({
+        path,
+        outline:
+          outline || '[No structural components found in this file]',
+      }),
+    }
+  }
+
+  // Fallback: regex heuristic for files with no tree-sitter grammar (or when
+  // tree-sitter is unavailable in this environment). TS/JS-oriented.
+  return {
+    output: jsonToolResult({
+      path,
+      outline: regexOutline(rawContent),
+    }),
+  }
+}) satisfies CodebuffToolHandlerFunction<any>
+
+function regexOutline(rawContent: string): string {
   const lines = rawContent.split(/\r?\n/)
   const outlineLines: string[] = []
 
@@ -36,7 +65,6 @@ export const handleReadOutline = (async (
     const line = lines[i]
     const trimmed = line.trim()
 
-    // Skip multi-line comments
     if (trimmed.startsWith('/*')) {
       inCommentBlock = true
     }
@@ -50,18 +78,22 @@ export const handleReadOutline = (async (
       continue
     }
 
-    // Match imports
     if (trimmed.startsWith('import ')) {
       outlineLines.push(`Line ${i + 1}: ${trimmed}`)
       continue
     }
 
-    // Match class, interface, type, function, and method definitions
     const classMatch = trimmed.match(/^(export\s+)?(default\s+)?class\s+(\w+)/)
-    const interfaceMatch = trimmed.match(/^(export\s+)?(default\s+)?interface\s+(\w+)/)
+    const interfaceMatch = trimmed.match(
+      /^(export\s+)?(default\s+)?interface\s+(\w+)/,
+    )
     const typeMatch = trimmed.match(/^(export\s+)?type\s+(\w+)/)
-    const functionMatch = trimmed.match(/^(export\s+)?(async\s+)?function\s+(\w+)\s*\(/)
-    const arrowFuncMatch = trimmed.match(/^(export\s+)?const\s+(\w+)\s*=\s*(async\s*)?\([^)]*\)\s*=>/)
+    const functionMatch = trimmed.match(
+      /^(export\s+)?(async\s+)?function\s+(\w+)\s*\(/,
+    )
+    const arrowFuncMatch = trimmed.match(
+      /^(export\s+)?const\s+(\w+)\s*=\s*(async\s*)?\([^)]*\)\s*=>/,
+    )
     const methodMatch = trimmed.match(/^\s*(async\s+)?(\w+)\s*\([^)]*\)\s*(\{|\b)/)
 
     if (classMatch) {
@@ -74,16 +106,14 @@ export const handleReadOutline = (async (
       outlineLines.push(`Line ${i + 1}: function ${functionMatch[3]}(...)`)
     } else if (arrowFuncMatch) {
       outlineLines.push(`Line ${i + 1}: const ${arrowFuncMatch[2]} = (...) =>`)
-    } else if (methodMatch && !['if', 'for', 'while', 'switch', 'catch'].includes(methodMatch[2])) {
+    } else if (
+      methodMatch &&
+      !['if', 'for', 'while', 'switch', 'catch'].includes(methodMatch[2])
+    ) {
       const indent = ' '.repeat(line.length - trimmed.length)
       outlineLines.push(`${indent}Line ${i + 1}: method ${methodMatch[2]}(...)`)
     }
   }
 
-  return {
-    output: jsonToolResult({
-      path,
-      outline: outlineLines.join('\n') || '[No structural components found in this file]',
-    }),
-  }
-}) satisfies CodebuffToolHandlerFunction<any>
+  return outlineLines.join('\n') || '[No structural components found in this file]'
+}

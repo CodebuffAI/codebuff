@@ -30,6 +30,7 @@ import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFileForEdit, getFiles } from './tools/read-files'
 import { replaceRange } from './tools/replace-range'
 import { runTerminalCommand } from './tools/run-terminal-command'
+import { runFileChangeHooks } from './tools/file-change-hooks'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
@@ -113,6 +114,11 @@ export type CodebuffClientOptions = {
 
   overrideTools?: ClientToolOverrides
   customToolDefinitions?: CustomToolDefinition[]
+
+  /** Called after a file-mutating tool (write_file/str_replace/edit_transaction/
+   *  apply_patch/replace_range) runs, so a host can invalidate caches such as
+   *  the codebase index. Best-effort; never blocks the tool result. */
+  onFilesChanged?: () => void
 
   fsSource?: Source<CodebuffFileSystem>
   spawnSource?: Source<CodebuffSpawn>
@@ -201,6 +207,7 @@ async function runOnce({
   fileFilter,
   overrideTools,
   customToolDefinitions,
+  onFilesChanged,
 
   fsSource = () => require('fs').promises,
   spawnSource,
@@ -388,6 +395,7 @@ async function runOnce({
           mcpConfig,
         },
         overrides: overrideTools ?? {},
+        onFilesChanged,
         customToolDefinitions: customToolDefinitions
           ? Object.fromEntries(
               customToolDefinitions.map((def) => [def.toolName, def]),
@@ -617,6 +625,7 @@ async function handleToolCall({
   cwd,
   fs,
   env,
+  onFilesChanged,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -624,6 +633,7 @@ async function handleToolCall({
   cwd?: string
   fs: CodebuffFileSystem
   env?: Record<string, string>
+  onFilesChanged?: () => void
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -741,15 +751,11 @@ async function handleToolCall({
         fs,
       })
     } else if (toolName === 'run_file_change_hooks') {
-      // No-op: SDK doesn't run file change hooks
-      result = [
-        {
-          type: 'json',
-          value: {
-            message: 'File change hooks are not supported in SDK mode',
-          },
-        },
-      ]
+      result = await runFileChangeHooks({
+        files: (input as { files?: string[] }).files ?? [],
+        cwd: requireCwd(cwd, 'run_file_change_hooks'),
+        env,
+      })
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
@@ -772,6 +778,20 @@ async function handleToolCall({
         },
       },
     ]
+  }
+  if (
+    onFilesChanged &&
+    (toolName === 'write_file' ||
+      toolName === 'str_replace' ||
+      toolName === 'edit_transaction' ||
+      toolName === 'apply_patch' ||
+      toolName === 'replace_range')
+  ) {
+    try {
+      onFilesChanged()
+    } catch {
+      // Cache invalidation is best-effort; never fail a tool result over it.
+    }
   }
   return {
     output: result,

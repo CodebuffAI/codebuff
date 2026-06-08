@@ -61,7 +61,7 @@ export interface RelatedFile {
 export interface QueryIndexResult {
   path: string
   score: number
-  matchedOn: Array<'symbol' | 'path' | 'heading' | 'import' | 'graph' | 'concept'>
+  matchedOn: Array<'symbol' | 'path' | 'heading' | 'import' | 'graph' | 'concept' | 'semantic'>
   symbols?: string[]
   headings?: string[]
   relatedFiles?: RelatedFile[]

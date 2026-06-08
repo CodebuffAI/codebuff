@@ -1,6 +1,8 @@
 import { buildMetadataIndex, updateMetadataIndex } from './metadata-indexer'
 import { isIndexReady, isIndexStale, loadIndex, saveIndex } from './index-store'
 import { queryIndex } from './query'
+import { buildFileVectors, semanticSearch, blendSemanticScores } from './semantic'
+import type { EmbedFn, FileVector, SemanticHit } from './semantic'
 import type { IndexingConfig, MetadataIndex, QueryIndexMode, QueryIndexResult } from './types'
 
 export class IndexManager {
@@ -9,6 +11,9 @@ export class IndexManager {
   private index: MetadataIndex | null = null
   private buildPromise: Promise<void> | null = null
   private lastBuildAttempt = 0
+  private forceRefresh = false
+  private embed?: EmbedFn
+  private fileVectors: FileVector[] = []
   private readonly MIN_RETRY_INTERVAL_MS = 30_000
 
   private constructor(
@@ -16,13 +21,21 @@ export class IndexManager {
     private readonly config: IndexingConfig,
   ) {}
 
-  static getInstance(projectRoot: string, config: IndexingConfig = {}): IndexManager {
+  static getInstance(
+    projectRoot: string,
+    config: IndexingConfig = {},
+    embed?: EmbedFn,
+  ): IndexManager {
     const key = IndexManager.getInstanceKey(projectRoot, config)
     let instance = IndexManager.instances.get(key)
     if (!instance) {
       instance = new IndexManager(projectRoot, config)
       IndexManager.instances.set(key, instance)
     }
+    // Wire an embedder the first time one is supplied (the CLI builds it from
+    // the BYOK provider config). Kept out of the instance key so providing it
+    // does not fork the singleton.
+    if (embed && !instance.embed) instance.embed = embed
     return instance
   }
 
@@ -48,16 +61,32 @@ export class IndexManager {
    */
   ensureBuilt(): void {
     if (this.config.enabled === false) return
-    if (this.config.semantic?.enabled) {
+    if (this.config.semantic?.enabled && !this.embed) {
       console.debug(
-        '[indexer] semantic indexing is configured but not implemented yet; using metadata index only.',
+        '[indexer] semantic indexing is enabled but no embedder was provided; using metadata index only.',
       )
     }
     if (this.buildPromise) return
-    if (Date.now() - this.lastBuildAttempt < this.MIN_RETRY_INTERVAL_MS) return
+    if (
+      !this.forceRefresh &&
+      Date.now() - this.lastBuildAttempt < this.MIN_RETRY_INTERVAL_MS
+    ) {
+      return
+    }
+    this.forceRefresh = false
     this.buildPromise = this._build().finally(() => {
       this.buildPromise = null
     })
+  }
+
+  /**
+   * Signal that on-disk files changed (e.g. the agent just edited code), so the
+   * next {@link waitUntilReady}/{@link query} performs an incremental refresh
+   * even if the index is not yet time-stale. Cheap and path-less: the
+   * incremental update detects exactly which files changed by mtime/hash.
+   */
+  markStale(): void {
+    this.forceRefresh = true
   }
 
   /**
@@ -65,7 +94,13 @@ export class IndexManager {
    * Starts a build if needed.
    */
   async waitUntilReady(timeoutMs = 30_000): Promise<void> {
-    if (isIndexReady(this.index) && !isIndexStale(this.index)) return
+    if (
+      isIndexReady(this.index) &&
+      !isIndexStale(this.index) &&
+      !this.forceRefresh
+    ) {
+      return
+    }
     this.ensureBuilt()
     if (!this.buildPromise) return
     await Promise.race([
@@ -97,6 +132,51 @@ export class IndexManager {
     }
   }
 
+  /**
+   * Like {@link query} but blends semantic-similarity hits into the lexical
+   * ranking when semantic indexing is ready. Async because it embeds the query.
+   * Falls back to pure lexical results when semantic is unavailable.
+   */
+  async queryBlended(
+    query: string,
+    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string } = {},
+  ): Promise<{ results: QueryIndexResult[]; ready: boolean; totalIndexed: number; indexAge: number }> {
+    const lexical = this.query(query, options)
+    if (!lexical.ready || !this.index || !this.isSemanticReady()) {
+      return lexical
+    }
+    // Semantic blending only applies to free-text search, not graph traversal.
+    if (options.mode && options.mode !== 'search' && options.mode !== 'explain') {
+      return lexical
+    }
+
+    const limit = options.limit ?? 20
+    const semantic = await this.searchSemantic(query, limit)
+    if (semantic.length === 0) return lexical
+
+    const lexByPath = new Map(lexical.results.map((r) => [r.path, r]))
+    const blended = blendSemanticScores(
+      lexical.results.map((r) => ({ path: r.path, score: r.score })),
+      semantic,
+    ).slice(0, limit)
+
+    const results: QueryIndexResult[] = blended.map(({ path, score }) => {
+      const existing = lexByPath.get(path)
+      if (existing) return { ...existing, score }
+      // Semantic-only hit: surface it with file metadata from the index.
+      const file = this.index!.files[path]
+      return {
+        path,
+        score,
+        matchedOn: ['semantic'],
+        symbols: file?.symbols.slice(0, 10),
+        headings: file?.headings.slice(0, 5),
+      }
+    })
+
+    return { ...lexical, results }
+  }
+
   private async _build(): Promise<void> {
     if (this.config.enabled === false) return
     this.lastBuildAttempt = Date.now()
@@ -111,9 +191,50 @@ export class IndexManager {
       }
       await saveIndex(index, this.projectRoot, cacheDir)
       this.index = index
+      await this._buildVectors(index)
     } catch (err) {
       // Index build failures are never fatal
       console.debug('[indexer] build failed:', err)
+    }
+  }
+
+  /**
+   * Embed all indexed files when semantic indexing is enabled and an embedder
+   * is wired. Non-fatal: a failure here leaves lexical search fully functional.
+   */
+  private async _buildVectors(index: MetadataIndex): Promise<void> {
+    if (!this.config.semantic?.enabled || !this.embed) return
+    try {
+      this.fileVectors = await buildFileVectors(
+        Object.values(index.files),
+        this.embed,
+      )
+    } catch (err) {
+      console.debug('[indexer] semantic vector build failed:', err)
+      this.fileVectors = []
+    }
+  }
+
+  /** True when semantic search can run (enabled, embedder wired, vectors built). */
+  isSemanticReady(): boolean {
+    return Boolean(
+      this.config.semantic?.enabled &&
+        this.embed &&
+        this.fileVectors.length > 0,
+    )
+  }
+
+  /**
+   * Rank indexed files by semantic similarity to the query. Returns [] when
+   * semantic indexing is unavailable, so callers can fall back to lexical-only.
+   */
+  async searchSemantic(query: string, limit = 20): Promise<SemanticHit[]> {
+    if (!this.isSemanticReady() || !this.embed) return []
+    try {
+      return await semanticSearch(query, this.fileVectors, this.embed, limit)
+    } catch (err) {
+      console.debug('[indexer] semantic search failed:', err)
+      return []
     }
   }
 }

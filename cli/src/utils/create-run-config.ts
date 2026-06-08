@@ -1,7 +1,10 @@
 import path from 'path'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { IndexManager } from '@codebuff/indexer'
+import { loadProviderConfigSync } from '@codebuff/sdk'
 
+import { getProjectRoot } from '../project-files'
 import {
   createEventHandler,
   createStreamChunkHandler,
@@ -25,7 +28,7 @@ export type CreateRunConfigParams = {
   agentDefinitions: AgentDefinition[]
   eventHandlerState: EventHandlerState
   signal: AbortSignal
-  costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
+  costMode?: 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
   extraCodebuffMetadata?: Record<string, string>
 }
 
@@ -119,6 +122,17 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     signal: params.signal,
     costMode,
     extraCodebuffMetadata,
+    // Keep the codebase index fresh: after the agent edits files, force the
+    // next query_index to incrementally refresh instead of serving stale results.
+    onFilesChanged: () => {
+      try {
+        const indexingConfig = loadProviderConfigSync().config.indexing
+        if (indexingConfig.enabled === false) return
+        IndexManager.getInstance(getProjectRoot(), indexingConfig).markStale()
+      } catch {
+        // Best-effort; never let index bookkeeping affect the run.
+      }
+    },
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

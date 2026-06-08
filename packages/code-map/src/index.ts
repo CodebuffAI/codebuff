@@ -1,4 +1,5 @@
 import './types'
 export * from './parse'
 export * from './languages'
+export * from './structure'
 export { setTreeSitterWasmPath } from './init-node'

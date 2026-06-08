@@ -60,42 +60,66 @@ export interface FileTokenData {
   tokenCallers: TokenCallerMap
 }
 
+/** Raw per-file parse output, cacheable so unchanged files skip re-parsing. */
+export interface ParsedFileTokens {
+  identifiers: string[]
+  calls: string[]
+  numLines: number
+}
+
 export async function getFileTokenScores(
   projectRoot: string,
   filePaths: string[],
   readFile?: SourceReader,
-): Promise<FileTokenData> {
+  reuseParsed?: Record<string, ParsedFileTokens>,
+): Promise<FileTokenData & { parsed: Record<string, ParsedFileTokens> }> {
   const startTime = Date.now()
   const tokenScores: Record<string, Record<string, number>> = {}
   const externalCalls: Record<string, number> = {}
   const fileCallsMap = new Map<string, string[]>()
+  const parsedByPath: Record<string, ParsedFileTokens> = {}
   let parsedFiles = 0
   let totalParsedBytes = 0
 
   for (const filePath of filePaths) {
-    if (
-      parsedFiles >= MAX_PARSE_FILES ||
-      totalParsedBytes >= MAX_TOTAL_PARSE_BYTES
-    ) {
-      break
+    const fullPath = path.join(projectRoot, filePath)
+
+    // Incremental fast path: reuse a prior parse for an unchanged file. The
+    // caller is responsible for only passing reuse entries for files whose
+    // content has not changed (verified by hash/mtime in the indexer).
+    const reused = reuseParsed?.[filePath]
+    let parsed: ParsedFileTokens
+    if (reused) {
+      parsed = reused
+    } else {
+      if (
+        parsedFiles >= MAX_PARSE_FILES ||
+        totalParsedBytes >= MAX_TOTAL_PARSE_BYTES
+      ) {
+        break
+      }
+      const languageConfig = await getLanguageConfig(fullPath)
+      if (!languageConfig) continue
+
+      const result = await parseTokensForScoring({
+        filePath,
+        fullPath,
+        languageConfig,
+        readFile,
+        remainingBytes: MAX_TOTAL_PARSE_BYTES - totalParsedBytes,
+      })
+      if (result.skipped) continue
+
+      parsedFiles++
+      totalParsedBytes += result.bytes
+      parsed = {
+        identifiers: result.identifiers,
+        calls: result.calls,
+        numLines: result.numLines,
+      }
     }
 
-    const fullPath = path.join(projectRoot, filePath)
-    const languageConfig = await getLanguageConfig(fullPath)
-    if (!languageConfig) continue
-
-    const parsed = await parseTokensForScoring({
-      filePath,
-      fullPath,
-      languageConfig,
-      readFile,
-      remainingBytes: MAX_TOTAL_PARSE_BYTES - totalParsedBytes,
-    })
-    if (parsed.skipped) continue
-
-    parsedFiles++
-    totalParsedBytes += parsed.bytes
-
+    parsedByPath[filePath] = parsed
     const { scores, calls } = scoreFileTokens(fullPath, parsed)
     tokenScores[filePath] = scores
     fileCallsMap.set(filePath, calls)
@@ -129,7 +153,7 @@ export async function getFileTokenScores(
     }
   }
 
-  return { tokenScores, tokenCallers }
+  return { tokenScores, tokenCallers, parsed: parsedByPath }
 }
 
 export function parseTokens(

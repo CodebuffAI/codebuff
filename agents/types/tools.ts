@@ -19,9 +19,12 @@ export type ToolName =
   | 'query_index'
   | 'read_docs'
   | 'read_files'
+  | 'read_outline'
+  | 'read_slices'
   | 'read_proposal_workspace'
   | 'read_subtree'
   | 'replace_range'
+  | 'rewrite_symbol'
   | 'render_ui'
   | 'run_file_change_hooks'
   | 'run_terminal_command'
@@ -58,9 +61,12 @@ export interface ToolParamsMap {
   query_index: QueryIndexParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
+  read_outline: ReadOutlineParams
+  read_slices: ReadSlicesParams
   read_proposal_workspace: ReadProposalWorkspaceParams
   read_subtree: ReadSubtreeParams
   replace_range: ReplaceRangeParams
+  rewrite_symbol: RewriteSymbolParams
   render_ui: RenderUiParams
   run_file_change_hooks: RunFileChangeHooksParams
   run_terminal_command: RunTerminalCommandParams
@@ -106,6 +112,24 @@ export interface ApplyPatchParams {
         type: 'delete_file'
         path: string
       }
+}
+
+/**
+ * Apply a smart self-healing unified diff patch with fuzzy line alignment, AST-aware syntax auto-correction, and preflight compile validation.
+ */
+export interface ApplySmartPatchParams {
+  /** File path to apply the smart patch to, relative to the project root. */
+  path: string
+  /** The unified diff patch hunk(s) containing the changes. Lines prefixed with - are deleted, lines with + are inserted, and lines with space are context. */
+  patch: string
+  /** Max lines of surrounding context displacement to allow when matching target patch region (Layer B). */
+  fuzzFactor?: number
+  /** If true, auto-heal minor syntax formatting or closing/bracket mismatches (Layer C). */
+  autoHeal?: boolean
+  /** If true, run virtual preflight syntax/compile checks before writing changes to disk. */
+  preflightCompile?: boolean
+  /** If true, apply a hunk at its line number when no unique fuzzy match is found. Defaults to false so smart patches fail closed instead of risking misplaced edits. */
+  allowPositionalFallback?: boolean
 }
 
 /**
@@ -378,16 +402,16 @@ export interface ProposeWriteFileParams {
 }
 
 /**
- * Query the local codebase graph index to find relevant files by natural language or keyword.
+ * Query the local codebase graph index to find relevant files ranked by symbol names, imports, headings, paths, doc concepts, and graph relationships. The index is built automatically on startup.
  */
 export interface QueryIndexParams {
-  /** Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. */
+  /** Natural language query or keyword terms describing the files you are looking for. Optional for graph modes when from/to paths are provided. For example: "authentication", "database migrations", "editor proposal logic", "React components". */
   query?: string
   /** Maximum number of results to return. Defaults to 20. */
   limit?: number
-  /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"]. */
+  /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only. */
   fileTypes?: string[]
-  /** Graph query mode. search ranks files, neighbors returns adjacent graph files, path returns a graph path, and explain includes ranking rationale. */
+  /** Graph query mode. search returns ranked files, neighbors returns adjacent graph files, path returns a graph path between files, and explain includes ranking rationale. */
   mode?: 'search' | 'neighbors' | 'path' | 'explain'
   /** Optional source file path for neighbors/path mode. */
   from?: string
@@ -425,6 +449,24 @@ export interface ReadFilesParams {
 }
 
 /**
+ * Generate an outline of imports, exports, classes, methods, and function signatures in a source file without reading the entire implementation.
+ */
+export interface ReadOutlineParams {
+  /** File path to generate the AST-like outline for, relative to the project root. */
+  path: string
+}
+
+/**
+ * Read only the specific implementation/code slices for specified symbol names in a file rather than the whole file.
+ */
+export interface ReadSlicesParams {
+  /** File path to extract slices from, relative to the project root. */
+  path: string
+  /** Symbol names (functions, classes, interfaces, methods) to extract code slices for. */
+  symbols: string[]
+}
+
+/**
  * Read files from your in-progress proposal workspace (your own proposed changes), not the real on-disk workspace.
  */
 export interface ReadProposalWorkspaceParams {
@@ -456,6 +498,20 @@ export interface ReplaceRangeParams {
   expectedHash: string
   /** Complete replacement content for the selected line range. */
   newContent: string
+}
+
+/**
+ * Replace a whole symbol's definition by name using the file's syntax tree, without copying its current text. Resolves the exact AST range and applies it through the safe str_replace path (atomic, anchored).
+ */
+export interface RewriteSymbolParams {
+  /** File path containing the symbol, relative to the project root. */
+  path: string
+  /** Name of the function/class/method/type/interface to replace (as shown by read_outline). */
+  symbol: string
+  /** The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). */
+  content: string
+  /** When multiple top-level symbols share this name, the 1-indexed one to replace. */
+  occurrence?: number
 }
 
 /**
@@ -564,19 +620,6 @@ export interface SpawnAgentsParams {
 /**
  * Replace strings in a file with new strings.
  */
-export interface ApplySmartPatchParams {
-  /** File path to apply the smart patch to, relative to the project root. */
-  path: string
-  /** Unified diff patch hunk(s) containing the changes. */
-  patch: string
-  /** Max lines of surrounding context displacement to allow when matching target patch region. */
-  fuzzFactor?: number
-  /** If true, auto-heal minor syntax formatting or closing/bracket mismatches when supported. */
-  autoHeal?: boolean
-  /** If true, run virtual preflight syntax checks before writing changes to disk. */
-  preflightCompile?: boolean
-}
-
 export interface StrReplaceParams {
   /** The path to the file to edit. */
   path: string
@@ -643,11 +686,11 @@ export interface ThinkDeeplyParams {
 export interface WebSearchParams {
   /** The search query to find relevant web content. Required unless url is provided. */
   query?: string
-  /** A specific URL to fetch and read the full text content of. When provided, fetches this page directly instead of searching. */
+  /** A specific URL to fetch and read the full text content of. When provided, fetches this page directly instead of searching. Useful for reading documentation, GitHub READMEs, blog posts, or any public web page. */
   url?: string
   /** Search depth - 'standard' for quick results, 'deep' for more comprehensive search. Default is 'standard'. Ignored when url is provided. */
   depth?: 'standard' | 'deep'
-  /** When fetching a URL, also extract and return links found on the page. Default: true. */
+  /** When fetching a URL, also extract and return links found on the page. Enables navigation by letting you see what pages are linked. Default: true. */
   include_links?: boolean
   /** Maximum number of links to extract when include_links is true. Default: 40. */
   max_links?: number

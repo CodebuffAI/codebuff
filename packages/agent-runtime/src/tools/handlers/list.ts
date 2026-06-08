@@ -23,6 +23,7 @@ import { handleReadSlices } from './tool/read-slices'
 import { handleReadProposalWorkspace } from './tool/read-proposal-workspace'
 import { handleReadSubtree } from './tool/read-subtree'
 import { handleReplaceRange } from './tool/replace-range'
+import { handleRewriteSymbol } from './tool/rewrite-symbol'
 import { handleRenderUI } from './tool/render-ui'
 import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
@@ -78,6 +79,7 @@ export const codebuffToolHandlers = {
   read_proposal_workspace: handleReadProposalWorkspace,
   read_subtree: handleReadSubtree,
   replace_range: handleReplaceRange,
+  rewrite_symbol: handleRewriteSymbol,
   render_ui: handleRenderUI,
   run_file_change_hooks: handleRunFileChangeHooks,
   run_terminal_command: handleRunTerminalCommand,

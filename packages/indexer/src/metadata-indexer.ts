@@ -14,6 +14,7 @@ import type {
   IndexNode,
   MetadataIndex,
 } from './types'
+import type { ParsedFileTokens } from '@codebuff/code-map'
 
 const CODE_EXTENSIONS = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
@@ -22,8 +23,33 @@ const CODE_EXTENSIONS = new Set([
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.rst'])
 
-const IMPORT_REGEX = /(?:import|require)\s+(?:[\s\S]*?from\s+)?['"]([^'"]+)['"]/g
+// Captures the module specifier from: `import … from 'x'`, `export … from 'x'`
+// (re-exports), `require('x')` / `import('x')` (dynamic), and `import 'x'`
+// (side-effect). The {0,500} bound avoids catastrophic backtracking.
+const IMPORT_REGEX =
+  /(?:\b(?:import|export)\b[\s\S]{0,500}?\bfrom\s+['"]([^'"]+)['"])|(?:\b(?:require|import)\s*\(\s*['"]([^'"]+)['"])|(?:\bimport\s+['"]([^'"]+)['"])/g
 const MARKDOWN_LINK_REGEX = /\[[^\]]+\]\(([^)]+)\)/g
+
+/**
+ * In-process cache of raw tree-sitter parse output per file, keyed by project
+ * root. Lets incremental rebuilds re-parse ONLY changed files instead of the
+ * whole project (the cross-file call graph is recomputed cheaply from the
+ * merged set). Lost on process restart — the first build of a session is a
+ * full parse, which is correct, just not free.
+ */
+const parsedCacheByRoot = new Map<string, Record<string, ParsedFileTokens>>()
+
+/** Cache of resolved tsconfig path aliases per project root. */
+const tsAliasCacheByRoot = new Map<string, TsAliasMap>()
+
+function getParsedCache(projectRoot: string): Record<string, ParsedFileTokens> {
+  let cache = parsedCacheByRoot.get(projectRoot)
+  if (!cache) {
+    cache = {}
+    parsedCacheByRoot.set(projectRoot, cache)
+  }
+  return cache
+}
 
 export async function buildMetadataIndex(
   projectRoot: string,
@@ -42,6 +68,7 @@ export async function buildMetadataIndex(
       const data = await getFileTokenScores(projectRoot, codeFilePaths)
       tokenScores = data.tokenScores
       tokenCallers = data.tokenCallers
+      parsedCacheByRoot.set(projectRoot, data.parsed)
     } catch {
       // code-map parse errors are non-fatal; proceed with empty symbols
     }
@@ -109,6 +136,7 @@ export async function updateMetadataIndex(
       graph: buildGraph(
         metadataOnlyChange ? updatedFiles : existing.files,
         extractTokenCallers(existing.graph),
+        loadTsAliases(projectRoot),
       ),
     }
   }
@@ -117,13 +145,32 @@ export async function updateMetadataIndex(
     .filter((f) => CODE_EXTENSIONS.has(f.ext))
     .map((f) => f.relativePath)
 
+  // Only changed code files need re-parsing; reuse cached parse output for the
+  // rest. The global token scores + call graph are then recomputed from the
+  // merged set (cheap, no tree-sitter). This avoids a full project re-parse on
+  // every incremental update (e.g. after each agent edit).
+  const changedPathSet = new Set(changedFiles.map((f) => f.relativePath))
+  const previousCache = getParsedCache(projectRoot)
+  const reuseParsed: Record<string, ParsedFileTokens> = {}
+  for (const codePath of allCodeFilePaths) {
+    if (!changedPathSet.has(codePath) && previousCache[codePath]) {
+      reuseParsed[codePath] = previousCache[codePath]
+    }
+  }
+
   let tokenScores: Record<string, Record<string, number>> = {}
   let tokenCallers: Record<string, Record<string, string[]>> = {}
   if (allCodeFilePaths.length > 0) {
     try {
-      const data = await getFileTokenScores(projectRoot, allCodeFilePaths)
+      const data = await getFileTokenScores(
+        projectRoot,
+        allCodeFilePaths,
+        undefined,
+        reuseParsed,
+      )
       tokenScores = data.tokenScores
       tokenCallers = data.tokenCallers
+      parsedCacheByRoot.set(projectRoot, data.parsed)
     } catch {
       // non-fatal
     }
@@ -180,7 +227,9 @@ async function indexWalkedFile(params: {
   const headings = DOC_EXTENSIONS.has(params.ext) ? extractHeadings(content) : []
   const concepts = DOC_EXTENSIONS.has(params.ext)
     ? extractConcepts(content, headings)
-    : []
+    : CODE_EXTENSIONS.has(params.ext)
+      ? extractCodeComments(content)
+      : []
 
   return {
     path: params.relativePath,
@@ -200,19 +249,21 @@ function createMetadataIndex(
   files: Record<string, IndexedFile>,
   tokenCallers: Record<string, Record<string, string[]>>,
 ): MetadataIndex {
+  const aliases = loadTsAliases(projectRoot)
   return {
     version: '2',
     projectRoot,
     builtAt: Date.now(),
     fileCount: Object.keys(files).length,
     files,
-    graph: buildGraph(files, tokenCallers),
+    graph: buildGraph(files, tokenCallers, aliases),
   }
 }
 
 function buildGraph(
   files: Record<string, IndexedFile>,
   tokenCallers: Record<string, Record<string, string[]>>,
+  aliases?: TsAliasMap,
 ): IndexGraph {
   const nodes: Record<string, IndexNode> = {}
   const edges: IndexEdge[] = []
@@ -231,7 +282,7 @@ function buildGraph(
       const importId = importNodeId(importPath)
       nodes[importId] ??= { id: importId, type: 'import', label: importPath }
       edges.push({ from: fileId, to: importId, type: 'imports', weight: 0.7, label: importPath })
-      const resolved = resolveImportToFile(file.path, importPath, files)
+      const resolved = resolveImportToFile(file.path, importPath, files, aliases)
       if (resolved) {
         edges.push({
           from: fileId,
@@ -311,7 +362,7 @@ function extractImports(content: string): string[] {
   const regex = new RegExp(IMPORT_REGEX.source, 'g')
   let match: RegExpExecArray | null
   while ((match = regex.exec(content)) !== null) {
-    const importPath = match[1]
+    const importPath = match[1] ?? match[2] ?? match[3]
     if (importPath && !imports.includes(importPath)) {
       imports.push(importPath)
     }
@@ -355,6 +406,38 @@ function conceptTokens(text: string): string[] {
     .filter((token) => token.length >= 3)
 }
 
+/**
+ * Extract concept tokens from code comments/docstrings so queries matching
+ * phrases in commentary (not just symbol names) have recall. Handles `//` and
+ * `/* *\/` (C-family), `#` line comments (Python/Ruby/Go shebang-style), and
+ * triple-quoted docstrings. Capped to bound index growth.
+ */
+function extractCodeComments(content: string): string[] {
+  const concepts = new Set<string>()
+  const add = (text: string) => {
+    for (const token of conceptTokens(text)) concepts.add(token)
+  }
+
+  // Block comments and triple-quoted docstrings.
+  const blockRegex = /\/\*[\s\S]*?\*\/|"""[\s\S]*?"""|'''[\s\S]*?'''/g
+  let match: RegExpExecArray | null
+  while ((match = blockRegex.exec(content)) !== null && concepts.size < 200) {
+    add(match[0])
+  }
+
+  // Line comments: `// ...` anywhere, or a line that (after trimming) starts
+  // with `#` (avoids matching TS private fields like `this.#x`).
+  for (const line of content.split('\n')) {
+    if (concepts.size >= 200) break
+    const slashIdx = line.indexOf('//')
+    if (slashIdx >= 0) add(line.slice(slashIdx + 2))
+    const trimmed = line.trimStart()
+    if (trimmed.startsWith('#')) add(trimmed.slice(1))
+  }
+
+  return Array.from(concepts).filter(Boolean).slice(0, 120)
+}
+
 function normalizeConcept(text: string): string {
   return text
     .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -391,28 +474,139 @@ function conceptNodeId(concept: string): string {
   return `concept:${concept}`
 }
 
+export type TsAliasMap = Record<string, string[]>
+
+function stripJsonComments(text: string): string {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+    .replace(/,(\s*[}\]])/g, '$1')
+}
+
+/**
+ * Load tsconfig `compilerOptions.paths` aliases (following `extends`), so the
+ * import graph can resolve workspace-internal aliases like "@codebuff/common/*".
+ * Tolerant: comments/trailing commas are stripped, and any failure yields no
+ * aliases (relative-import resolution still works). Cached per root.
+ */
+function loadTsAliases(projectRoot: string): TsAliasMap {
+  const cached = tsAliasCacheByRoot.get(projectRoot)
+  if (cached) return cached
+
+  const aliases: TsAliasMap = {}
+  try {
+    let configPath: string = path.join(projectRoot, 'tsconfig.json')
+    const visited = new Set<string>()
+    while (configPath && !visited.has(configPath) && fs.existsSync(configPath)) {
+      visited.add(configPath)
+      const raw = JSON.parse(
+        stripJsonComments(fs.readFileSync(configPath, 'utf8')),
+      )
+      const paths = raw?.compilerOptions?.paths
+      if (paths && typeof paths === 'object') {
+        for (const [key, value] of Object.entries(paths)) {
+          // Closest config wins; do not let a base config override.
+          if (!(key in aliases) && Array.isArray(value)) {
+            aliases[key] = (value as string[]).map((t) =>
+              t.replace(/^\.\//, '').replace(/\\/g, '/'),
+            )
+          }
+        }
+      }
+      const ext = raw?.extends
+      configPath =
+        typeof ext === 'string'
+          ? path.resolve(path.dirname(configPath), ext)
+          : ''
+    }
+  } catch {
+    // No aliases on parse/read failure.
+  }
+
+  tsAliasCacheByRoot.set(projectRoot, aliases)
+  return aliases
+}
+
+function resolveModuleCandidates(
+  base: string,
+  files: Record<string, IndexedFile>,
+): string | null {
+  const normalized = base.replace(/^\.\//, '')
+  const candidates = [
+    normalized,
+    `${normalized}.ts`,
+    `${normalized}.tsx`,
+    `${normalized}.js`,
+    `${normalized}.jsx`,
+    `${normalized}.mjs`,
+    `${normalized}.cjs`,
+    `${normalized}/index.ts`,
+    `${normalized}/index.tsx`,
+    `${normalized}/index.js`,
+    `${normalized}/index.jsx`,
+  ]
+  return candidates.find((candidate) => files[candidate]) ?? null
+}
+
+/**
+ * Resolve a non-relative import via tsconfig `paths` aliases (e.g.
+ * "@codebuff/common/util/x" -> "common/src/util/x"). Supports both wildcard
+ * (`@scope/*`) and exact (`@scope/sdk`) patterns. Targets are interpreted
+ * relative to the project root (baseUrl="." in this repo).
+ */
+function resolveAliasImport(
+  importPath: string,
+  aliases: TsAliasMap,
+  files: Record<string, IndexedFile>,
+): string | null {
+  for (const [pattern, targets] of Object.entries(aliases)) {
+    const starIndex = pattern.indexOf('*')
+    if (starIndex >= 0) {
+      const prefix = pattern.slice(0, starIndex)
+      const suffix = pattern.slice(starIndex + 1)
+      if (
+        importPath.startsWith(prefix) &&
+        importPath.endsWith(suffix) &&
+        importPath.length >= prefix.length + suffix.length
+      ) {
+        const middle = importPath.slice(
+          prefix.length,
+          importPath.length - suffix.length,
+        )
+        for (const target of targets) {
+          const base = target.replace('*', middle)
+          const resolved = resolveModuleCandidates(base, files)
+          if (resolved) return resolved
+        }
+      }
+    } else if (importPath === pattern) {
+      for (const target of targets) {
+        const resolved = resolveModuleCandidates(target, files)
+        if (resolved) return resolved
+      }
+    }
+  }
+  return null
+}
+
 function resolveImportToFile(
   fromFilePath: string,
   importPath: string,
   files: Record<string, IndexedFile>,
+  aliases?: TsAliasMap,
 ): string | null {
-  if (!importPath.startsWith('.')) return null
-  const fromDir = path.posix.dirname(fromFilePath.replace(/\\/g, '/'))
-  const normalizedBase = path.posix.normalize(path.posix.join(fromDir, importPath))
-  const candidates = [
-    normalizedBase,
-    `${normalizedBase}.ts`,
-    `${normalizedBase}.tsx`,
-    `${normalizedBase}.js`,
-    `${normalizedBase}.jsx`,
-    `${normalizedBase}.mjs`,
-    `${normalizedBase}.cjs`,
-    `${normalizedBase}/index.ts`,
-    `${normalizedBase}/index.tsx`,
-    `${normalizedBase}/index.js`,
-    `${normalizedBase}/index.jsx`,
-  ]
-  return candidates.find((candidate) => files[candidate]) ?? null
+  if (importPath.startsWith('.')) {
+    const fromDir = path.posix.dirname(fromFilePath.replace(/\\/g, '/'))
+    const normalizedBase = path.posix.normalize(
+      path.posix.join(fromDir, importPath),
+    )
+    return resolveModuleCandidates(normalizedBase, files)
+  }
+  // Non-relative: try tsconfig path aliases (workspace-internal imports).
+  if (aliases) {
+    return resolveAliasImport(importPath, aliases, files)
+  }
+  return null
 }
 
 function dedupeEdges(edges: IndexEdge[]): IndexEdge[] {

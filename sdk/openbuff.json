@@ -27,5 +27,6 @@
     "semantic": {
       "enabled": false
     }
-  }
+  },
+  "fileChangeHooks": []
 }

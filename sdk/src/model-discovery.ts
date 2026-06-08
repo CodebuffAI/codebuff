@@ -242,9 +242,9 @@ export function getProviderDiscoveryConfig(
   providerId: string,
   provider: ProviderConfig,
 ): ModelDiscoveryConfig | undefined {
+  if (provider.type !== 'openai-compatible') return undefined
   const providerDiscovery = provider.discovery
   if (providerDiscovery) return providerDiscovery
-  if (provider.type !== 'openai-compatible') return undefined
   if (
     providerId === 'openrouter' ||
     provider.baseURL.includes('openrouter.ai')

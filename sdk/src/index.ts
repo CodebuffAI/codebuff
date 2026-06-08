@@ -106,3 +106,5 @@ export {
 export {
   resetChatGptOAuthRateLimit,
 } from './impl/model-provider'
+export { createConfiguredEmbedder } from './impl/embeddings'
+export type { EmbedFn } from './impl/embeddings'

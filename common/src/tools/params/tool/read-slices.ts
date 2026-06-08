@@ -44,9 +44,13 @@ export const readSlicesParams = {
       slices: z.array(
         z.object({
           symbol: z.string(),
+          kind: z.string().optional(),
           content: z.string(),
           startLine: z.number(),
           endLine: z.number(),
+          /** Read capability token for this slice's exact range. Pass as
+           *  basedOnRead on a follow-up large-file str_replace with no re-read. */
+          readCapability: z.string().optional(),
         }),
       ),
     }),

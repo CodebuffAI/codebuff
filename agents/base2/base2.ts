@@ -59,13 +59,17 @@ export function createBase2(
       'query_index',
       'read_files',
       'read_subtree',
+      'read_outline',
+      'read_slices',
       !isFast && 'write_todos',
       !isFast && !noAskUser && 'suggest_followups',
       'str_replace',
+      'rewrite_symbol',
       'edit_transaction',
       'write_file',
       'propose_str_replace',
       'propose_write_file',
+      'run_file_change_hooks',
       !noAskUser && 'ask_user',
       'skill',
       'set_output',
@@ -133,6 +137,7 @@ export function createBase2(
     - If you added files or functions meant to replace existing code, then you should also remove the previous code.
 - **Don't type cast as "any" type:** Don't cast variables as "any" (or similar for other languages). This is a bad practice as it leads to bugs. Exception: when the value can truly be any type.
 - **Prefer str_replace to write_file:** str_replace is more efficient for targeted changes and gives more feedback. Only use write_file for new files or when necessary to rewrite the entire file.
+- **Prefer rewrite_symbol for whole-symbol edits:** To replace an entire function, class, method, or type, use rewrite_symbol with the symbol name and its full new body — it locates the exact definition from the syntax tree, so you don't copy the old text and the edit can't drift. Use str_replace for partial/in-body edits or files rewrite_symbol can't parse (it falls back with guidance).
 - **Use edit_transaction for related edits:** When edits across multiple files, or multiple dependent edits in one file, must stay consistent, prefer edit_transaction so the runtime can preflight them together and apply them as an atomic client-side batch. Use structured operations like insert_import/remove_import for TypeScript import-only changes when available; use str_replace for simple one-file text changes.
 - **Avoid broad scripted cleanups for refactors/renames:** For rename and overhaul tasks, prefer explicit targeted edits based on freshly read file content. Do not run one-off cleanup scripts across many files unless the user explicitly asks for that approach.
 
@@ -302,6 +307,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         }
       }
 
+      const changedFiles = new Set<string>()
+      let editsHappened = false
+      let verifyAttempts = 0
+      const MAX_VERIFY_ATTEMPTS = 2
+
       while (true) {
         yield {
           toolName: 'spawn_agent_inline',
@@ -312,8 +322,100 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           includeToolCall: false,
         } as any
 
-        const { stepsComplete } = yield 'STEP'
-        if (stepsComplete) break
+        const stepResult = yield 'STEP'
+        const { stepsComplete } = stepResult
+        const files = extractChangedFiles(
+          (stepResult as any) && (stepResult as any).toolResult,
+        )
+        if (files.length > 0) {
+          editsHappened = true
+          for (const f of files) changedFiles.add(f)
+        }
+
+        if (!stepsComplete) continue
+
+        // Verification gate: after the model thinks it's done, run configured
+        // file-change hooks (typecheck/lint/test). If any failed, surface the
+        // failures and keep the turn open so the model fixes them — bounded by
+        // MAX_VERIFY_ATTEMPTS so a persistently-failing hook can't loop forever.
+        // No-op when no edits happened or no hooks are configured (the tool
+        // returns an empty result set).
+        if (editsHappened && verifyAttempts < MAX_VERIFY_ATTEMPTS) {
+          verifyAttempts++
+          const verify = yield {
+            toolName: 'run_file_change_hooks',
+            input: { files: Array.from(changedFiles) },
+          } as any
+          const failures = collectHookFailures(
+            (verify as any) && (verify as any).toolResult,
+          )
+          if (failures.length > 0) {
+            editsHappened = false
+            changedFiles.clear()
+            yield {
+              toolName: 'add_message',
+              input: {
+                role: 'user',
+                content: [
+                  'Verification gate: configured file-change hooks failed. These are blocking — fix them before ending your turn:',
+                  '',
+                  ...failures,
+                  '',
+                  'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
+                ].join('\n'),
+              },
+              includeToolCall: false,
+            } as any
+            continue
+          }
+        }
+        break
+      }
+
+      function extractChangedFiles(toolResult: unknown): string[] {
+        const out: string[] = []
+        if (!Array.isArray(toolResult)) return out
+        for (const part of toolResult) {
+          const value =
+            part && (part as any).type === 'json' ? (part as any).value : undefined
+          if (value && typeof value === 'object') {
+            if (typeof (value as any).file === 'string') out.push((value as any).file)
+            const results = (value as any).results
+            if (Array.isArray(results)) {
+              for (const r of results) {
+                if (r && typeof r.file === 'string') out.push(r.file)
+              }
+            }
+          }
+        }
+        return out
+      }
+
+      function collectHookFailures(toolResult: unknown): string[] {
+        const failures: string[] = []
+        if (!Array.isArray(toolResult)) return failures
+        for (const part of toolResult) {
+          const value =
+            part && (part as any).type === 'json' ? (part as any).value : undefined
+          const hooks = Array.isArray(value) ? value : []
+          for (const hook of hooks) {
+            if (!hook || typeof hook !== 'object') continue
+            if (typeof (hook as any).errorMessage === 'string') {
+              failures.push((hook as any).errorMessage)
+              continue
+            }
+            const exitCode = (hook as any).exitCode
+            if (typeof exitCode === 'number' && exitCode !== 0) {
+              const name = (hook as any).hookName ?? 'hook'
+              const detail = [(hook as any).stdout, (hook as any).stderr]
+                .filter(Boolean)
+                .join('\n')
+                .slice(0, 2000)
+              failures.push(`- ${name} failed (exit ${exitCode}):\n${detail}`)
+            }
+          }
+        }
+        return failures
       }
 
       function shouldProactivelyQueryIndex(value: unknown): value is string {
@@ -327,7 +429,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, and mode: 'path' to connect two known files. Then verify the best candidates and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, and mode: 'path' to connect two known files. Then verify the best candidates and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. For a large file, call read_outline first to see its structure (functions/classes/methods with line ranges, works across languages) and read_slices to pull just the specific symbols you need instead of the whole file. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
   isSonnet,
