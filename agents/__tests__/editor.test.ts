@@ -131,13 +131,13 @@ describe('editor agent', () => {
     test('has correct tool names', () => {
       expect(editor.toolNames).toContain('read_files')
       expect(editor.toolNames).toContain('read_outline')
-      expect(editor.toolNames).toContain('read_slices')
       expect(editor.toolNames).toContain('write_file')
       expect(editor.toolNames).toContain('str_replace')
       expect(editor.toolNames).toContain('rewrite_symbol')
       expect(editor.toolNames).toContain('edit_transaction')
       expect(editor.toolNames).toContain('set_output')
-      expect(editor.toolNames).toHaveLength(8)
+      expect(editor.toolNames).not.toContain('read_slices')
+      expect(editor.toolNames).toHaveLength(7)
     })
   })
 
@@ -517,7 +517,6 @@ describe('editor agent', () => {
       expect(implementor.toolNames).toEqual([
         'read_files',
         'read_outline',
-        'read_slices',
         'read_proposal_workspace',
         'code_search',
         'glob',
@@ -537,7 +536,6 @@ describe('editor agent', () => {
       expect(proposalImplementor1.toolNames).toEqual([
         'read_files',
         'read_outline',
-        'read_slices',
         'read_proposal_workspace',
         'code_search',
         'glob',
