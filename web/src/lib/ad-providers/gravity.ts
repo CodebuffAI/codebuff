@@ -24,6 +24,10 @@ const WAITING_ROOM_PLACEMENT_IDS = [
   'waiting-room-3',
   'waiting-room-4',
 ]
+const FREEBUFF_WEB_CHAT_PLACEMENT_IDS = [
+  'Web-Chat-After-User-Message',
+  'Web-Chat-After-Assistant-Message',
+]
 const FREEBUFF_CLI_AD_UNIT_EXPERIMENT = 'freebuff-cli-ad-unit-v1'
 
 type GravityRawAd = {
@@ -34,6 +38,7 @@ type GravityRawAd = {
   favicon: string
   clickUrl: string
   impUrl: string
+  placement_id?: string
   payout?: number
 }
 
@@ -46,6 +51,7 @@ function normalize(raw: GravityRawAd): NormalizedAd {
     favicon: raw.favicon,
     clickUrl: raw.clickUrl,
     impUrl: raw.impUrl,
+    placementId: raw.placement_id,
     payout: raw.payout,
   }
 }
@@ -127,6 +133,9 @@ function hashEmail(email: string | null): string | undefined {
 
 function getPlacementIds(input: FetchAdInput): string[] {
   if (input.surface === 'waiting_room') return WAITING_ROOM_PLACEMENT_IDS
+  if (input.surface === 'freebuff_web_chat') {
+    return FREEBUFF_WEB_CHAT_PLACEMENT_IDS
+  }
 
   if (useSingleAdUnit(input.userId)) {
     return SINGLE_AD_PLACEMENT_IDS
@@ -158,7 +167,10 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
       const placementIds = getPlacementIds(input)
 
       const placements = placementIds.map((id) => ({
-        placement: 'below_response',
+        placement:
+          input.surface === 'freebuff_web_chat'
+            ? 'inline_response'
+            : 'below_response',
         placement_id: id,
       }))
 

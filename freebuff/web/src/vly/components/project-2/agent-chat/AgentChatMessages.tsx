@@ -69,7 +69,7 @@ import {
 } from '@/vly/components/ui/popover'
 import { toast } from 'sonner'
 import {
-  fetchGravityAd,
+  fetchGravityAds,
   type GravityAd,
   type GravityAdMessage,
 } from './GravityAdSlot'
@@ -326,6 +326,14 @@ type AgentMessageForAd =
 
 type AgentAdPlacement = 'agent-chat-after-user' | 'agent-chat-after-assistant'
 
+const GRAVITY_CHAT_PLACEMENT_TO_AGENT_PLACEMENT: Record<
+  string,
+  AgentAdPlacement
+> = {
+  'Web-Chat-After-User-Message': 'agent-chat-after-user',
+  'Web-Chat-After-Assistant-Message': 'agent-chat-after-assistant',
+}
+
 function getAssistantTextForAd(message: AgentMessageForAd): string {
   return (message.assistant_stream ?? [])
     .filter(
@@ -382,6 +390,14 @@ function recordAdClick(ad: { impUrl: string }) {
   }).catch((error) => {
     console.warn('[AgentChatMessages] Failed to record ad click', error)
   })
+}
+
+function getAdCreativeIdentity(ad: {
+  adText: string
+  title: string
+  url: string
+}): string {
+  return `${ad.url}\n${ad.title}\n${ad.adText}`
 }
 
 // Lightweight markdown renderer - optimized for performance
@@ -1839,44 +1855,75 @@ export const AgentChatMessages = forwardRef<
     })
     let cancelled = false
 
-    missingPlacements.forEach((placementId) => {
-      void fetchGravityAd(
-        gravityMessages,
-        `${project.active_agent_thread}-${sourceMessageId}-${placementId}`,
-        false,
-      )
-        .then(async (ad) => {
-          if (cancelled || !ad) return
+    void fetchGravityAds(
+      gravityMessages,
+      `${project.active_agent_thread}-${sourceMessageId}`,
+      false,
+      undefined,
+      undefined,
+      'freebuff_web_chat',
+    )
+      .then(async (ads) => {
+        if (cancelled) return
 
-          await persistAgentAdMessage({
-            sourceMessageId,
-            ad: {
-              provider: ad.provider ?? 'gravity',
-              adText: ad.adText,
-              title: ad.title,
-              cta: ad.cta,
-              ...(ad.brandName ? { brandName: ad.brandName } : {}),
-              url: ad.url,
-              ...(ad.favicon
-                ? { favicon: ad.favicon, imageUrl: ad.favicon }
-                : {}),
-              clickUrl: ad.clickUrl,
-              impUrl: ad.impUrl,
-              placementId,
-              servedAt: Date.now(),
-            },
-          })
+        const seenCreativeIds = new Set(
+          Object.values(existingAds)
+            .filter((ad): ad is PersistedAgentAd => !!ad)
+            .map(getAdCreativeIdentity),
+        )
+        const uniqueAds = ads.filter((ad) => {
+          const identity = getAdCreativeIdentity(ad)
+          if (seenCreativeIds.has(identity)) return false
+          seenCreativeIds.add(identity)
+          return true
         })
-        .catch((error) => {
+        const adsByPlacement = new Map<AgentAdPlacement, GravityAd>()
+        const unassignedAds: GravityAd[] = []
+        uniqueAds.forEach((ad) => {
+          const placementId = ad.placementId
+            ? GRAVITY_CHAT_PLACEMENT_TO_AGENT_PLACEMENT[ad.placementId]
+            : undefined
+          if (placementId && missingPlacements.includes(placementId)) {
+            adsByPlacement.set(placementId, ad)
+          } else {
+            unassignedAds.push(ad)
+          }
+        })
+
+        await Promise.all(
+          missingPlacements.map(async (placementId) => {
+            const ad = adsByPlacement.get(placementId) ?? unassignedAds.shift()
+            if (!ad) return
+
+            await persistAgentAdMessage({
+              sourceMessageId,
+              ad: {
+                provider: ad.provider ?? 'gravity',
+                adText: ad.adText,
+                title: ad.title,
+                cta: ad.cta,
+                ...(ad.brandName ? { brandName: ad.brandName } : {}),
+                url: ad.url,
+                ...(ad.favicon
+                  ? { favicon: ad.favicon, imageUrl: ad.favicon }
+                  : {}),
+                clickUrl: ad.clickUrl,
+                impUrl: ad.impUrl,
+                placementId,
+                servedAt: Date.now(),
+              },
+            })
+          }),
+        )
+      })
+      .catch((error) => {
+        missingPlacements.forEach((placementId) => {
           attemptedAdSourceIdsRef.current.delete(
             `${sourceMessageId}:${placementId}`,
           )
-          console.warn(
-            '[AgentChatMessages] Failed to persist Gravity ad',
-            error,
-          )
         })
-    })
+        console.warn('[AgentChatMessages] Failed to persist Gravity ads', error)
+      })
 
     return () => {
       cancelled = true

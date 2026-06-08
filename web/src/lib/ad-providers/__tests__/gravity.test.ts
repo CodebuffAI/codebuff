@@ -99,6 +99,24 @@ describe('Gravity ad provider', () => {
     ])
   })
 
+  test('requests both Freebuff Web chat placements in one auction', async () => {
+    const body = await fetchGravityRequestBody({
+      userId: 'b',
+      surface: 'freebuff_web_chat',
+    })
+
+    expect(body.placements).toEqual([
+      {
+        placement: 'inline_response',
+        placement_id: 'Web-Chat-After-User-Message',
+      },
+      {
+        placement: 'inline_response',
+        placement_id: 'Web-Chat-After-Assistant-Message',
+      },
+    ])
+  })
+
   test('passes browser Gravity context with server-trusted user and device data', async () => {
     const body = await fetchGravityRequestBody({
       userId: 'server-user-id',

@@ -20,6 +20,8 @@ export type NormalizedAd = {
   url: string
   favicon: string
   clickUrl: string
+  /** Provider placement id used to map multi-placement responses to UI slots. */
+  placementId?: string
   /** Primary impression pixel URL. Fired once when the ad becomes visible. */
   impUrl: string
   /**
@@ -47,7 +49,7 @@ export type AdDeviceInfo = {
 
 export type GravityContext = Record<string, unknown>
 
-export type AdSurface = 'waiting_room'
+export type AdSurface = 'waiting_room' | 'freebuff_web_chat'
 
 export type FetchAdInput = {
   userId: string

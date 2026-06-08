@@ -19,8 +19,11 @@ export type GravityAd = {
   favicon?: string
   impUrl: string
   clickUrl: string
+  placementId?: string
   provider?: string
 }
+
+export type GravityAdSurface = 'freebuff_web_chat'
 
 export type GravityContext = {
   sessionId: string
@@ -102,13 +105,52 @@ const PLACEMENT_SIDEBAR = 'project-sidebar'
  * The route forwards to Codebuff's ads API so provider fallback and ad
  * impression logging remain consistent with the CLI.
  */
-export async function fetchGravityAd(
+function parseGravityAds(data: unknown): GravityAd[] {
+  if (
+    typeof data !== 'object' ||
+    data === null ||
+    !Array.isArray((data as { ads?: unknown }).ads)
+  ) {
+    return []
+  }
+
+  const provider = (data as { provider?: string }).provider
+  return (data as { ads: unknown[] }).ads.flatMap((raw) => {
+    if (
+      typeof raw !== 'object' ||
+      raw === null ||
+      typeof (raw as { adText?: unknown }).adText !== 'string' ||
+      typeof (raw as { impUrl?: unknown }).impUrl !== 'string' ||
+      typeof (raw as { clickUrl?: unknown }).clickUrl !== 'string'
+    ) {
+      return []
+    }
+
+    return [
+      {
+        adText: (raw as { adText: string }).adText,
+        title: (raw as { title?: string }).title ?? '',
+        cta: (raw as { cta?: string }).cta ?? '',
+        brandName: (raw as { brandName?: string }).brandName ?? '',
+        url: (raw as { url?: string }).url ?? '',
+        favicon: (raw as { favicon?: string }).favicon,
+        impUrl: (raw as { impUrl: string }).impUrl,
+        clickUrl: (raw as { clickUrl: string }).clickUrl,
+        placementId: (raw as { placementId?: string }).placementId,
+        provider,
+      },
+    ]
+  })
+}
+
+export async function fetchGravityAds(
   messages: GravityAdMessage[],
   sessionId: string,
   testAd: boolean,
   placement?: 'center' | 'sidebar',
   gravityContext?: GravityContext,
-): Promise<GravityAd | null> {
+  surface?: GravityAdSurface,
+): Promise<GravityAd[]> {
   const placementId =
     placement === 'center'
       ? PLACEMENT_CENTER
@@ -132,6 +174,7 @@ export async function fetchGravityAd(
           },
         }
       : {}),
+    ...(surface ? { surface } : {}),
   }
 
   try {
@@ -162,47 +205,42 @@ export async function fetchGravityAd(
       console.log(
         `[GravityAdSlot] No ad returned for ${placementId} (status: ${res.status})`,
       )
-      return null
+      return []
     }
 
     const data = (await res.json()) as unknown
     console.log(`[GravityAdSlot] Data for ${placementId}:`, data)
 
-    if (
-      typeof data !== 'object' ||
-      data === null ||
-      !Array.isArray((data as { ads?: unknown }).ads) ||
-      (data as { ads: unknown[] }).ads.length === 0
-    ) {
+    const ads = parseGravityAds(data)
+    if (ads.length === 0) {
       console.log(`[GravityAdSlot] Empty or invalid data for ${placementId}`)
-      return null
+      return []
     }
 
-    const first = (data as { ads: unknown[] }).ads[0]
-    if (
-      typeof first !== 'object' ||
-      first === null ||
-      typeof (first as { adText?: unknown }).adText !== 'string' ||
-      typeof (first as { impUrl?: unknown }).impUrl !== 'string' ||
-      typeof (first as { clickUrl?: unknown }).clickUrl !== 'string'
-    ) {
-      return null
-    }
-
-    return {
-      adText: (first as { adText: string }).adText,
-      title: (first as { title?: string }).title ?? '',
-      cta: (first as { cta?: string }).cta ?? '',
-      brandName: (first as { brandName?: string }).brandName ?? '',
-      url: (first as { url?: string }).url ?? '',
-      favicon: (first as { favicon?: string }).favicon,
-      impUrl: (first as { impUrl: string }).impUrl,
-      clickUrl: (first as { clickUrl: string }).clickUrl,
-      provider: (data as { provider?: string }).provider,
-    }
+    return ads
   } catch {
-    return null
+    return []
   }
+}
+
+export async function fetchGravityAd(
+  messages: GravityAdMessage[],
+  sessionId: string,
+  testAd: boolean,
+  placement?: 'center' | 'sidebar',
+  gravityContext?: GravityContext,
+): Promise<GravityAd | null> {
+  return (
+    (
+      await fetchGravityAds(
+        messages,
+        sessionId,
+        testAd,
+        placement,
+        gravityContext,
+      )
+    )[0] ?? null
+  )
 }
 
 type GravityAdSlotProps = {
@@ -213,7 +251,7 @@ type GravityAdSlotProps = {
   testAd?: boolean
   /** "featured" = larger (e.g. in chat); "compact" = smaller (sidebar); "default" = standard (center) */
   variant?: 'default' | 'featured' | 'compact'
-  /** Placement for Gravity: "center" | "sidebar" for project center/sidebar; omit for chat (below_response). */
+  /** Placement for Gravity: "center" | "sidebar" for project center/sidebar; omit for chat. */
   placement?: 'center' | 'sidebar'
   /** Called when an ad is successfully loaded and rendered (e.g. to show disclaimer only when ad is visible). */
   onAdRendered?: () => void

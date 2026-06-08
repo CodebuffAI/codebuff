@@ -39,7 +39,7 @@ const gravityContextSchema = z.record(z.string(), z.unknown())
 const providerSchema = z
   .enum(['gravity', 'carbon', 'zeroclick'])
   .default('gravity')
-const surfaceSchema = z.enum(['waiting_room'])
+const surfaceSchema = z.enum(['waiting_room', 'freebuff_web_chat'])
 
 const bodySchema = z.object({
   provider: providerSchema.optional(),
