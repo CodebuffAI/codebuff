@@ -69,6 +69,7 @@ interface ChatMessageProps {
   message: Message;
   onRollback?: () => Promise<void>;
   shouldShowLoadingState: boolean;
+  loadingActivityKey?: string;
   onSendMessage?: (message: string) => void;
   projectSemanticIdentifier?: string;
 }
@@ -759,12 +760,14 @@ const IntegrationSetupPanel: React.FC<{
 const AssistantMessageContent: React.FC<{
   message: Message;
   shouldShowLoadingState: boolean;
+  loadingActivityKey?: string;
   onSendMessage?: (message: string) => void;
   projectSemanticIdentifier?: string;
   onRollback?: () => Promise<void>;
 }> = ({
   message,
   shouldShowLoadingState,
+  loadingActivityKey,
   projectSemanticIdentifier,
   onRollback,
 }) => {
@@ -867,7 +870,7 @@ const AssistantMessageContent: React.FC<{
   }, [hasThinking, details?.thinking]);
 
   if (shouldShowLoadingState) {
-    return <ThinkingState />;
+    return <ThinkingState activityKey={loadingActivityKey} />;
   }
 
   return (
@@ -972,6 +975,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   message,
   onRollback,
   shouldShowLoadingState,
+  loadingActivityKey,
   onSendMessage,
   projectSemanticIdentifier,
 }) => {
@@ -1006,6 +1010,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
         <AssistantMessageContent
           message={message}
           shouldShowLoadingState={shouldShowLoadingState}
+          loadingActivityKey={loadingActivityKey}
           onSendMessage={onSendMessage}
           projectSemanticIdentifier={projectSemanticIdentifier}
           onRollback={onRollback}

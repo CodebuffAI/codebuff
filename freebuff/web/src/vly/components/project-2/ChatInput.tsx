@@ -919,7 +919,6 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                         <FreebuffModelSelector
                           selectedModelId={selectedFreebuffModel ?? ""}
                           onModelChange={onFreebuffModelChange}
-                          disabled={isProcessing}
                           compact={compactMode}
                         />
                       )}

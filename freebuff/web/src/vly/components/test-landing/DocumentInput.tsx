@@ -390,24 +390,21 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
 
   return (
     <>
-      {/* Google Docs Style Document Container */}
       <div className="animate-fade-in relative mx-auto w-full max-w-[816px]">
-        {/* Document Paper */}
         <div
-          className="relative overflow-hidden rounded-lg bg-white shadow-[0_1px_3px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.24)]"
+          className="relative overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20 ring-1 ring-border/30"
           style={{
             fontFamily: "'Roboto', 'Arial', sans-serif",
           }}
         >
-          {/* Document Header - Ruler Style */}
-          <div className="flex items-center justify-between border-b border-gray-200 bg-[#F9FBFD] px-4 py-2">
+          <div className="flex items-center justify-between border-b border-border/30 px-4 py-2.5">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-[#4285F4]" />
-              <span className="text-xs font-medium text-gray-500">
+              <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.65)]" />
+              <span className="text-xs font-medium text-muted-foreground">
                 Type your idea → full-stack web app
               </span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-gray-400">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
               <span>Freebuff Web</span>
             </div>
           </div>
@@ -426,7 +423,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 {uploadedImages.map((image, index) => (
                   <div
                     key={index}
-                    className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200"
+                    className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg ring-1 ring-border/40"
                   >
                     <Image
                       src={image}
@@ -452,7 +449,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
             {/* Textarea with placeholder */}
             <div className="relative">
               {userInput === "" && (
-                <div className="pointer-events-none absolute inset-0 text-left text-lg leading-7 text-gray-400">
+                <div className="pointer-events-none absolute inset-0 text-left text-lg leading-7 text-muted-foreground/55">
                   <TypingAnimation />
                 </div>
               )}
@@ -463,7 +460,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder=""
-                className="w-full resize-none border-none bg-transparent text-left text-lg leading-7 text-gray-800 outline-none placeholder:text-gray-400"
+                className="w-full resize-none border-none bg-transparent text-left text-lg leading-7 text-foreground outline-none placeholder:text-muted-foreground/55"
                 style={{
                   minHeight: "140px",
                   fontFamily: "'Roboto', 'Arial', sans-serif",
@@ -488,7 +485,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                       updateUserInput(suggestion);
                       inputRef.current?.focus();
                     }}
-                    className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-600 transition-all hover:border-[#1a73e8] hover:bg-blue-50 hover:text-[#1a73e8]"
+                    className="rounded-full bg-muted/65 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                   >
                     {suggestion}
                   </button>
@@ -497,8 +494,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
             )}
           </div>
 
-          {/* Document Footer - Bottom Toolbar */}
-          <div className="border-t border-gray-200 bg-[#F9FBFD] px-4 py-3">
+          <div className="border-t border-border/30 px-4 py-3">
             <div className="flex items-center justify-between">
               {/* Left side - Action buttons */}
               <div className="flex items-center gap-2">
@@ -506,10 +502,10 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsThemePickerOpen(true)}
-                  className={`group flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors hover:border-primary/70 hover:bg-primary/10 ${
+                  className={`group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-primary/10 hover:text-primary ${
                     selectedTheme
-                      ? "border-primary/70 bg-primary/10 text-primary"
-                      : "border-gray-300 text-gray-600"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted/65 text-muted-foreground"
                   }`}
                 >
                   <Palette className="h-4 w-4" />
@@ -522,7 +518,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 <button
                   type="button"
                   onClick={triggerImageUpload}
-                  className="group flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-all hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
+                  className="group flex items-center gap-2 rounded-full bg-muted/65 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                 >
                   <ImagePlus className="h-4 w-4" />
                   <span className="hidden sm:inline">Add image</span>
@@ -536,8 +532,8 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 disabled={isLoading || !userInput.trim()}
                 className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
                   isLoading || !userInput.trim()
-                    ? "cursor-not-allowed border border-gray-500 bg-gray-200 text-gray-700"
-                    : "bg-[#1a73e8] text-white hover:bg-[#1557b0]"
+                    ? "cursor-not-allowed bg-muted text-muted-foreground"
+                    : "bg-primary text-primary-foreground hover:bg-primary/85"
                 }`}
               >
                 {isLoading ? (
@@ -552,20 +548,11 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
             </div>
 
             {/* Hint text */}
-            <p className="mt-2 text-center text-xs text-gray-400">
-              Press{" "}
-              <kbd className="rounded bg-gray-200 px-1 py-0.5 font-mono text-[10px]">
-                Enter
-              </kbd>{" "}
-              to submit •{" "}
-              <kbd className="rounded bg-gray-200 px-1 py-0.5 font-mono text-[10px]">
-                Shift+Enter
-              </kbd>{" "}
-              for new line
+            <p className="mt-2 text-center text-xs text-muted-foreground/70">
+              Enter to create · Shift+Enter for new line
             </p>
           </div>
         </div>
-
       </div>
 
       {/* Hidden file input */}

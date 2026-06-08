@@ -336,6 +336,9 @@ function ProjectWrapper({
   // Derive the initial active entry point from entryPoints
   // Use empty array fallback to handle undefined entryPoints
   const entryPointsArray = useMemo(() => entryPoints ?? [], [entryPoints]);
+  const hasGeneratedProjectContent =
+    Boolean(project?.preview_url || project?.pretty_preview_url) ||
+    entryPointsArray.length > 0;
   const firstEntryPointId =
     entryPointsArray.length > 0 ? entryPointsArray[0]._id : null;
   const [activeEntryPoint, setActiveEntryPoint] =
@@ -598,22 +601,27 @@ function ProjectWrapper({
     const initialState = project.state;
     initialProjectStateRef.current = initialState ?? "active";
     const looksLikeFirstBuild =
-      initialState === "processing" || initialState === "initializing";
+      !hasGeneratedProjectContent &&
+      (initialState === "processing" || initialState === "initializing");
     if (looksLikeFirstBuild) {
       setHasRevealedIframe(false);
     }
-  }, [project]);
+  }, [hasGeneratedProjectContent, project]);
 
   useEffect(() => {
     if (hasRevealedIframe) return;
     if (project === undefined || project === null) return;
+    if (hasGeneratedProjectContent) {
+      setHasRevealedIframe(true);
+      return;
+    }
     const state = project.state;
     if (state !== "processing" && state !== "initializing") {
       setHasRevealedIframe(true);
       // Refresh iframe once the build settles so it picks up the new server.
       setIframeRefreshKey((k) => k + 1);
     }
-  }, [hasRevealedIframe, project]);
+  }, [hasGeneratedProjectContent, hasRevealedIframe, project]);
 
   // ── Chat expand / collapse via explicit, intentional triggers ───────
   // Per design feedback we no longer auto-expand on any pointerdown in the

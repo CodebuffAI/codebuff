@@ -9,7 +9,6 @@ import {
   Settings,
   Activity,
   Home,
-  FolderKanban,
   Globe,
   LogOut,
   Rocket,
@@ -242,10 +241,10 @@ export function TopBar({
               <button
                 type="button"
                 onClick={() => router.push('/web/dashboard')}
-                aria-label="Project"
+                aria-label="Home"
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <FolderKanban className="h-4 w-4" />
+                <Home className="h-4 w-4" />
               </button>
             </TooltipTrigger>
             <TooltipContent
@@ -253,7 +252,7 @@ export function TopBar({
               sideOffset={6}
               className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
             >
-              Project
+              Home
             </TooltipContent>
           </Tooltip>
         </div>

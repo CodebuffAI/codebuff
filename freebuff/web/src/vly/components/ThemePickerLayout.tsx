@@ -31,7 +31,7 @@ export function ThemePickerLayout({
   );
 
   return (
-    <div className="flex max-h-[88vh] w-[min(1120px,94vw)] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl shadow-black/40">
+    <div className="flex max-h-[88vh] w-[min(1040px,94vw)] flex-col overflow-hidden rounded-xl bg-background shadow-2xl shadow-black/50 ring-1 ring-border/30">
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;
@@ -49,19 +49,20 @@ export function ThemePickerLayout({
         }
       `}</style>
 
-      {/* Header - Fixed */}
-      <div className="relative flex w-full flex-shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-5 py-4 sm:px-6">
+      <div className="relative flex w-full flex-shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-6">
         <div>
-          <h2 className="font-['Geist'] text-xl font-medium leading-tight text-foreground sm:text-2xl">
+          <h2 className="font-['Geist'] text-xl font-medium leading-tight text-foreground">
             {title}
           </h2>
-          <p className="mt-1 font-['Geist'] text-sm text-muted-foreground">
-            {subtitle}
-          </p>
+          {subtitle && (
+            <p className="mt-1 font-['Geist'] text-sm text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
         </div>
         <button
           onClick={onClose}
-          className="group flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="group flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Close theme picker"
         >
           <svg
@@ -80,25 +81,20 @@ export function ThemePickerLayout({
         </button>
       </div>
 
-      {/* Theme Grid - Scrollable */}
       <div
-        className="custom-scrollbar flex-1 overflow-y-auto bg-background px-5 py-5 sm:px-6"
+        className="custom-scrollbar flex-1 overflow-y-auto px-5 pb-5 sm:px-6"
         style={{
           scrollbarWidth: "thin",
           scrollbarColor: "hsl(var(--border)) hsl(var(--background))",
         }}
       >
-        {/* Recommended Section */}
-        <div className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
-            <h3 className="font-['Geist'] text-sm font-semibold text-foreground">
+        <div className="mb-5">
+          <div className="mb-2">
+            <h3 className="font-['Geist'] text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Recommended
             </h3>
-            <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              Curated
-            </span>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {featuredThemes.map((theme) => (
               <ThemeCard
                 key={theme}
@@ -114,17 +110,13 @@ export function ThemePickerLayout({
           </div>
         </div>
 
-        {/* All Themes Section */}
         <div>
-          <div className="mb-3 flex items-center gap-2">
-            <h3 className="font-['Geist'] text-sm font-semibold text-foreground">
-              All Themes
+          <div className="mb-2">
+            <h3 className="font-['Geist'] text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              More styles
             </h3>
-            <span className="text-sm text-muted-foreground">
-              ({remainingThemes.length} more)
-            </span>
           </div>
-          <div className="grid grid-cols-1 gap-3 pb-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {remainingThemes.map((theme) => (
               <ThemeCard
                 key={theme}
@@ -141,8 +133,7 @@ export function ThemePickerLayout({
         </div>
       </div>
 
-      {/* Footer Actions - Fixed at bottom */}
-      <div className="flex w-full flex-shrink-0 items-center justify-between gap-4 border-t border-border bg-background px-5 py-4 sm:px-6">
+      <div className="flex w-full flex-shrink-0 items-center justify-between gap-4 bg-card/30 px-5 py-3 sm:px-6">
         {footerContent}
       </div>
     </div>

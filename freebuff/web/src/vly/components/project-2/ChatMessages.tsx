@@ -231,6 +231,31 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
       [sortedMessages],
     );
 
+    const loadingActivityKey = useMemo(() => {
+      for (let i = sortedMessages.length - 1; i >= 0; i--) {
+        const message = sortedMessages[i];
+        const isEmptyAssistantPlaceholder =
+          message.role === "assistant" &&
+          !message.content &&
+          !(message as any).has_execution_details &&
+          !message.message_state;
+
+        if (isEmptyAssistantPlaceholder) continue;
+
+        return [
+          message._id,
+          message.date,
+          message.message_state?.timestamp ?? "",
+          message.message_state?.status ?? "",
+          (message as any).has_execution_details ? "execution" : "",
+          (message as any).has_thinking ? "thinking" : "",
+          (message as any).has_usage ? "usage" : "",
+        ].join(":");
+      }
+
+      return undefined;
+    }, [sortedMessages]);
+
     const shouldShowCompactionSuccess = useMemo(() => {
       if (isCompactingHistory || !lastUserMessage) {
         return false;
@@ -438,6 +463,7 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
                           <MemoizedChatMessage
                             message={message}
                             shouldShowLoadingState={shouldShowLoadingState}
+                            loadingActivityKey={loadingActivityKey}
                             onRollback={rollbackCallback}
                             onSendMessage={onSendMessage}
                             projectSemanticIdentifier={

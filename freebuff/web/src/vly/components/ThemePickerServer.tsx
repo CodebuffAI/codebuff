@@ -21,28 +21,19 @@ function ThemePickerServer({
 }: ThemePickerServerProps) {
   const footerContent = (
     <>
-      <div className="text-sm text-gray-500">
-        {selectedTheme ? (
-          <span>
-            Selected:{" "}
-            <span className="font-semibold text-gray-700">{selectedTheme}</span>
-          </span>
-        ) : (
-          <span>No theme selected</span>
-        )}
+      <div className="text-sm text-muted-foreground">
+        {selectedTheme || "No style selected"}
       </div>
 
-      <div className="flex gap-3">
-        {selectedTheme && (
-          <button
-            type="button"
-            className="rounded-lg border border-gray-300 px-4 py-2 font-['Geist'] text-sm font-medium text-gray-600 transition-all hover:border-gray-400 hover:bg-gray-50"
-            onClick={() => onThemeSelect?.("")}
-          >
-            Clear Selection
-          </button>
-        )}
-      </div>
+      {selectedTheme && (
+        <button
+          type="button"
+          className="rounded-md bg-muted px-3 py-1.5 font-['Geist'] text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+          onClick={() => onThemeSelect?.("")}
+        >
+          Clear
+        </button>
+      )}
     </>
   );
 
@@ -50,10 +41,10 @@ function ThemePickerServer({
     <ThemePickerLayout
       title={
         <>
-          Choose Your <span className="text-[#7CFF3F]">Theme</span>
+          Choose a <span className="text-primary">style</span>
         </>
       }
-      subtitle="Select a visual style for your project"
+      subtitle=""
       selectedTheme={selectedTheme}
       isSubmitting={isSubmitting}
       hoveredTheme={hoveredTheme}

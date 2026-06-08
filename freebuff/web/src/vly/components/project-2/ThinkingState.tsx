@@ -39,75 +39,80 @@ function getSoftProgress(elapsedMs: number) {
 
 function getEstimatedTokens(elapsedMs: number) {
   const seconds = elapsedMs / 1000;
-  const base = 240;
-  const estimated = base + Math.floor(Math.log1p(seconds) * 520 + seconds * 22);
-  return Math.min(9800, estimated);
+  const estimated = 75000 + seconds * 180000 + seconds * seconds * 12000;
+  return Math.floor(estimated / 25000) * 25000;
 }
 
 function formatTokenCount(tokens: number) {
   if (tokens < 1000) return `${tokens.toLocaleString()} tokens`;
+  if (tokens >= 1000000) {
+    return `${(tokens / 1000000).toFixed(1).replace(/\.0$/, "")}M tokens`;
+  }
   return `${(tokens / 1000).toFixed(1).replace(/\.0$/, "")}k tokens`;
 }
 
-export const ThinkingState: React.FC = React.memo(() => {
-  const [elapsedTime, setElapsedTime] = useState(0);
+export const ThinkingState: React.FC<{ activityKey?: string }> = React.memo(
+  ({ activityKey }) => {
+    const [elapsedTime, setElapsedTime] = useState(0);
 
-  useEffect(() => {
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      setElapsedTime(Date.now() - startedAt);
-    }, 250);
+    useEffect(() => {
+      setElapsedTime(0);
+      const startedAt = Date.now();
+      const timer = setInterval(() => {
+        setElapsedTime(Date.now() - startedAt);
+      }, 150);
 
-    return () => clearInterval(timer);
-  }, []);
+      return () => clearInterval(timer);
+    }, [activityKey]);
 
-  const currentStageIndex = useMemo(
-    () =>
-      THINKING_STAGES.findLastIndex((stage) => elapsedTime >= stage.startsAt),
-    [elapsedTime],
-  );
-  const currentStage = THINKING_STAGES[Math.max(0, currentStageIndex)];
-  const progress = useMemo(() => getSoftProgress(elapsedTime), [elapsedTime]);
-  const estimatedTokens = useMemo(
-    () => getEstimatedTokens(elapsedTime),
-    [elapsedTime],
-  );
+    const currentStageIndex = useMemo(
+      () =>
+        THINKING_STAGES.findLastIndex((stage) => elapsedTime >= stage.startsAt),
+      [elapsedTime],
+    );
+    const currentStage = THINKING_STAGES[Math.max(0, currentStageIndex)];
+    const progress = useMemo(() => getSoftProgress(elapsedTime), [elapsedTime]);
+    const estimatedTokens = useMemo(
+      () => getEstimatedTokens(elapsedTime),
+      [elapsedTime],
+    );
 
-  return (
-    <div className="my-2 w-full max-w-lg">
-      <div className="flex items-center gap-3">
-        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
-          <img
-            src="/logo-icon.png"
-            alt="Freebuff"
-            className="h-7 w-7 animate-pulse object-contain opacity-90"
-          />
-          <Loader className="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-spin text-primary" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span className="truncate">
-              <span className="font-medium text-foreground/90">
-                {currentStage.label}
-              </span>
-              <span className="mx-1.5 text-muted-foreground/45">·</span>
-              <span>{formatTokenCount(estimatedTokens)}</span>
-            </span>
-            <span className="shrink-0 font-mono tabular-nums">
-              {formatElapsed(elapsedTime)}
-            </span>
-          </div>
-          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted/70">
-            <div
-              className="h-full rounded-full bg-primary/70 transition-all duration-500 ease-out"
-              style={{ width: `${progress}%` }}
+    return (
+      <div className="my-2 w-full max-w-lg">
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+            <img
+              src="/logo-icon.png"
+              alt="Freebuff"
+              className="h-7 w-7 animate-pulse object-contain opacity-90"
             />
+            <Loader className="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-spin text-primary" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span className="truncate">
+                <span className="font-medium text-foreground/90">
+                  {currentStage.label}
+                </span>
+                <span className="mx-1.5 text-muted-foreground/45">·</span>
+                <span>{formatTokenCount(estimatedTokens)}</span>
+              </span>
+              <span className="shrink-0 font-mono tabular-nums">
+                {formatElapsed(elapsedTime)}
+              </span>
+            </div>
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted/70">
+              <div
+                className="h-full rounded-full bg-primary/70 transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 ThinkingState.displayName = "ThinkingState";

@@ -1627,10 +1627,10 @@ export function ThemeCard({
       type="button"
       disabled={isSubmitting}
       aria-pressed={isSelected}
-      className={`group relative overflow-hidden border bg-card text-left transition-colors duration-150 ${
+      className={`group relative overflow-hidden bg-card/70 text-left transition-all duration-150 ${
         isSelected
-          ? "border-primary bg-primary/5"
-          : "border-border hover:border-primary/60 hover:bg-muted/35"
+          ? "ring-2 ring-primary"
+          : "ring-1 ring-border/20 hover:bg-muted/40 hover:ring-primary/40"
       } ${isCompact ? "rounded-lg" : "rounded-xl"} ${
         isSubmitting ? "cursor-not-allowed opacity-50" : ""
       }`}
@@ -1638,81 +1638,29 @@ export function ThemeCard({
       onMouseEnter={() => onHover?.(theme)}
       onMouseLeave={() => onHover?.(null)}
     >
-      {isSelected && (
-        <div className="absolute right-2 top-2 z-10 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
-          Selected
-        </div>
-      )}
-
-      <div className={`w-full overflow-hidden ${isCompact ? "h-24" : "h-36"}`}>
+      <div className={`w-full overflow-hidden ${isCompact ? "h-24" : "h-32"}`}>
         <ThemePreview theme={theme} isHovered={isHovered} size={size} />
       </div>
 
-      <div
-        className={`border-t border-border bg-card ${isCompact ? "p-3" : "p-3.5"}`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-start gap-2">
-              <span
-                className={`${isCompact ? "mt-1 h-2.5 w-2.5" : "mt-1 h-3 w-3"} flex-shrink-0 rounded-full border border-border`}
-                style={{ backgroundColor: metadata.colors.primary }}
-              />
-
-              <div className="min-w-0">
-                <div
-                  className={`${isCompact ? "text-sm" : "text-base"} font-semibold leading-snug text-foreground`}
-                >
-                  {theme}
-                </div>
-                <p
-                  className={`${isCompact ? "mt-1 line-clamp-2 text-xs" : "mt-1 line-clamp-2 text-sm"} leading-snug text-muted-foreground`}
-                >
-                  {isCompact ? metadata.vibe : metadata.description}
-                </p>
-              </div>
-            </div>
-
-            {isCompact ? (
-              <div className="mt-2 text-[11px] font-medium text-muted-foreground">
-                {metadata.font}
-              </div>
-            ) : (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {metadata.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {isSelected ? (
-            <div
-              className={`flex flex-shrink-0 items-center justify-center rounded-full border border-primary bg-primary ${isCompact ? "h-4 w-4" : "h-5 w-5"}`}
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+        <span className="truncate text-sm font-medium text-foreground/90">
+          {theme}
+        </span>
+        {isSelected && (
+          <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-primary">
+            <svg
+              className="h-2.5 w-2.5 text-primary-foreground"
+              fill="currentColor"
+              viewBox="0 0 20 20"
             >
-              <svg
-                className={`${isCompact ? "h-2.5 w-2.5" : "h-3 w-3"} text-primary-foreground`}
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-          ) : !isCompact ? (
-            <span className="rounded-full border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground">
-              {metadata.font}
-            </span>
-          ) : null}
-        </div>
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        )}
       </div>
     </button>
   );

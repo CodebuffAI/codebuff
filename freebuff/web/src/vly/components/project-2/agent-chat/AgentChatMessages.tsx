@@ -73,22 +73,6 @@ import {
   type GravityAd,
   type GravityAdMessage,
 } from './GravityAdSlot'
-import { ThinkingState } from '../ThinkingState'
-
-// Helper function to format credits in thousands (10k, 100k, 1M)
-const formatCreditsDisplay = (credits: number): string => {
-  if (credits < 1000) {
-    return `${credits} credits`
-  } else if (credits < 1000000) {
-    const k = credits / 1000
-    return k >= 100
-      ? `${Math.round(k)}k credits`
-      : `${k.toFixed(1).replace(/\.0$/, '')}k credits`
-  } else {
-    const m = credits / 1000000
-    return `${m.toFixed(1).replace(/\.0$/, '')}M credits`
-  }
-}
 
 // Map plan IDs to tier names
 const PLAN_ID_TO_TIER: Record<string, TierName> = {
@@ -161,47 +145,6 @@ interface AgentChatMessagesProps {
     | undefined
   loadMoreThreadMessages?: (n: number) => void
   onRestoreMessage?: (message: string) => void
-}
-
-const ThinkingIndicator: React.FC = () => {
-  return <ThinkingState />
-}
-
-// Message State Badge Component - Compact and subtle
-const MessageStateBadge: React.FC<{ state: string; stateMessage?: string }> = ({
-  state,
-  stateMessage,
-}) => {
-  const stateColors = {
-    Processing: 'text-primary',
-    Completed: 'text-emerald-400',
-    Paused: 'text-amber-300',
-    Cancelled: 'text-muted-foreground',
-    Error: 'text-red-400',
-  }
-
-  // Show "Thinking" instead of "Processing"
-  const displayText =
-    state === 'Processing'
-      ? 'Thinking'
-      : state === 'Paused'
-        ? 'Waiting for you'
-        : state
-
-  return (
-    <span
-      className={cn(
-        'text-xs font-normal',
-        stateColors[state as keyof typeof stateColors] ||
-          'text-muted-foreground',
-      )}
-    >
-      {displayText}
-      {stateMessage && (
-        <span className="ml-1 opacity-70">({stateMessage})</span>
-      )}
-    </span>
-  )
 }
 
 // Type for assistant stream item
@@ -707,6 +650,16 @@ const AssistantStreamItem: React.FC<{
 
 const TEXT_TYPES = new Set(['text', 'assistant'])
 
+const isSuggestFollowupsItem = (item: AssistantStreamItemType) => {
+  return [item.title, item.description?.split(':')[0]]
+    .filter((value): value is string => !!value)
+    .some(
+      (value) =>
+        value.trim().toLowerCase().replace(/[_-]+/g, ' ') ===
+        'suggest followups',
+    )
+}
+
 type StreamGroup =
   | { kind: 'text'; items: AssistantStreamItemType[] }
   | { kind: 'ask_user'; items: AssistantStreamItemType[] }
@@ -847,7 +800,8 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
   isAfterActivity?: boolean
-}> = ({ items, isAfterActivity = false }) => {
+  isBeforeActivity?: boolean
+}> = ({ items, isAfterActivity = false, isBeforeActivity = false }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
   const detailedItems = useMemo(
@@ -866,7 +820,10 @@ const ActivityGroup: React.FC<{
   return (
     <div
       className="my-2.5"
-      style={isAfterActivity ? { marginTop: 0 } : undefined}
+      style={{
+        ...(isAfterActivity ? { marginTop: 0 } : {}),
+        ...(isBeforeActivity ? { marginBottom: 0 } : {}),
+      }}
     >
       <Collapsible
         open={hasDetails && isExpanded}
@@ -875,7 +832,7 @@ const ActivityGroup: React.FC<{
         <CollapsibleTrigger
           disabled={!hasDetails}
           className={cn(
-            'flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs font-medium transition-colors',
+            'flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs font-medium opacity-45 transition-colors',
             hasError
               ? 'text-red-400 hover:text-red-300'
               : 'text-muted-foreground hover:text-foreground/80',
@@ -897,7 +854,7 @@ const ActivityGroup: React.FC<{
         </CollapsibleTrigger>
         {hasDetails && (
           <CollapsibleContent>
-            <div className="ml-1 mt-2 space-y-2 border-l-2 border-border/60 pl-3">
+            <div className="ml-1 mt-2 space-y-2 border-l-2 border-border/60 pl-3 opacity-45">
               {detailedItems.map((item, index) => (
                 <AssistantStreamItem key={index} item={item} />
               ))}
@@ -1382,6 +1339,31 @@ const CompactPaywallBump: React.FC = () => {
 
 type PersistedAgentAd = NonNullable<AgentMessageForAd['ad_payload']>
 type AdsByPlacement = Partial<Record<AgentAdPlacement, PersistedAgentAd>>
+type LiveAgentAds = {
+  sourceMessageId: string
+  sourceCreationTime: number
+  userMessage: string
+  ads: AdsByPlacement
+}
+
+function toPersistedAgentAd(
+  ad: GravityAd,
+  placementId: AgentAdPlacement,
+): PersistedAgentAd {
+  return {
+    provider: ad.provider ?? 'gravity',
+    adText: ad.adText,
+    title: ad.title,
+    cta: ad.cta,
+    ...(ad.brandName ? { brandName: ad.brandName } : {}),
+    url: ad.url,
+    ...(ad.favicon ? { favicon: ad.favicon, imageUrl: ad.favicon } : {}),
+    clickUrl: ad.clickUrl,
+    impUrl: ad.impUrl,
+    placementId,
+    servedAt: Date.now(),
+  }
+}
 
 const AgentAdMessage: React.FC<{
   ad: PersistedAgentAd
@@ -1506,7 +1488,7 @@ const AgentMessageCard: React.FC<{
     isPromptTimeLimitText(message.state_message) ||
     assistantStream.some(isPromptTimeLimitItem)
   const visibleAssistantStream = assistantStream.filter(
-    (item) => !isPromptTimeLimitItem(item),
+    (item) => !isPromptTimeLimitItem(item) && !isSuggestFollowupsItem(item),
   )
   const hasStream = visibleAssistantStream.length > 0
   const isAskUserPaused = String(message.state) === 'Paused'
@@ -1650,45 +1632,16 @@ const AgentMessageCard: React.FC<{
                   key={index}
                   items={group.items}
                   isAfterActivity={groups[index - 1]?.kind === 'activity'}
+                  isBeforeActivity={groups[index + 1]?.kind === 'activity'}
                 />
               ),
           )}
-        </div>
-      ) : isStreaming ? (
-        // Show thinking indicator when waiting for first response (no stream yet)
-        <div className="mb-2">
-          <ThinkingIndicator />
         </div>
       ) : null}
 
       {isPromptTimeLimit && (
         <TimeLimitContinuePanel onContinue={onContinueAfterTimeout} />
       )}
-
-      {/* Status and metadata at the bottom — compact and subtle */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        {isStreaming && hasStream && <ThinkingIndicator />}
-        {!isStreaming && !isPromptTimeLimit && (
-          <MessageStateBadge
-            state={String(message.state)}
-            stateMessage={message.state_message}
-          />
-        )}
-        {!isStreaming && isPromptTimeLimit && (
-          <span className="text-muted-foreground">Waiting for you</span>
-        )}
-        {message.credits_deducted !== undefined &&
-          message.credits_deducted > 0 && (
-            <span className="font-mono text-muted-foreground">
-              {formatCreditsDisplay(message.credits_deducted)}
-            </span>
-          )}
-        {message.model_used && (
-          <span className="font-mono text-muted-foreground">
-            {message.model_used}
-          </span>
-        )}
-      </div>
 
       {/* Show compact paywall bump when insufficient credits */}
       {isPaywallMessage && <CompactPaywallBump />}
@@ -1774,6 +1727,8 @@ export const AgentChatMessages = forwardRef<
     api.coding_agent.cli_agent.agent_message.persistAgentAdMessage,
   )
   const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set())
+  const adFetchAttemptCountsRef = useRef<Map<string, number>>(new Map())
+  const [liveAgentAds, setLiveAgentAds] = useState<LiveAgentAds | null>(null)
 
   const adsBySourceMessageId = useMemo(() => {
     const ads = new Map<string, AdsByPlacement>()
@@ -1801,6 +1756,30 @@ export const AgentChatMessages = forwardRef<
       return !visibleMessageIds.has(message.ad_source_message_id)
     })
   }, [sortedMessages])
+
+  const adsForRenderingBySourceMessageId = useMemo(() => {
+    const ads = new Map(adsBySourceMessageId)
+    if (!liveAgentAds) return ads
+
+    let matchingMessage = sortedMessages.find(
+      (message) => message._id === liveAgentAds.sourceMessageId,
+    )
+    if (!matchingMessage) {
+      matchingMessage = [...sortedMessages].reverse().find(
+        (message) =>
+          message.user_message?.trim() === liveAgentAds.userMessage &&
+          Math.abs(message._creationTime - liveAgentAds.sourceCreationTime) <
+            60000,
+      )
+    }
+    if (!matchingMessage) return ads
+
+    ads.set(matchingMessage._id, {
+      ...liveAgentAds.ads,
+      ...(ads.get(matchingMessage._id) ?? {}),
+    })
+    return ads
+  }, [adsBySourceMessageId, liveAgentAds, sortedMessages])
 
   const latestRenderableMessageId = useMemo(() => {
     for (let i = messagesForRendering.length - 1; i >= 0; i--) {
@@ -1843,18 +1822,23 @@ export const AgentChatMessages = forwardRef<
     ]
     const missingPlacements = placements.filter((placementId) => {
       if (existingAds[placementId]) return false
-      return !attemptedAdSourceIdsRef.current.has(
-        `${sourceMessageId}:${placementId}`,
+      const attemptKey = `${sourceMessageId}:${placementId}`
+      return (
+        !attemptedAdSourceIdsRef.current.has(attemptKey) &&
+        (adFetchAttemptCountsRef.current.get(attemptKey) ?? 0) < 3
       )
     })
 
     if (missingPlacements.length === 0) return
 
     missingPlacements.forEach((placementId) => {
-      attemptedAdSourceIdsRef.current.add(`${sourceMessageId}:${placementId}`)
+      const attemptKey = `${sourceMessageId}:${placementId}`
+      attemptedAdSourceIdsRef.current.add(attemptKey)
+      adFetchAttemptCountsRef.current.set(
+        attemptKey,
+        (adFetchAttemptCountsRef.current.get(attemptKey) ?? 0) + 1,
+      )
     })
-    let cancelled = false
-
     void fetchGravityAds(
       gravityMessages,
       `${project.active_agent_thread}-${sourceMessageId}`,
@@ -1864,8 +1848,6 @@ export const AgentChatMessages = forwardRef<
       'freebuff_web_chat',
     )
       .then(async (ads) => {
-        if (cancelled) return
-
         const seenCreativeIds = new Set(
           Object.values(existingAds)
             .filter((ad): ad is PersistedAgentAd => !!ad)
@@ -1890,31 +1872,51 @@ export const AgentChatMessages = forwardRef<
           }
         })
 
-        await Promise.all(
+        const fetchedAds: AdsByPlacement = {}
+        missingPlacements.forEach((placementId) => {
+          const ad = adsByPlacement.get(placementId) ?? unassignedAds.shift()
+          if (!ad) return
+          fetchedAds[placementId] = toPersistedAgentAd(ad, placementId)
+        })
+        if (Object.keys(fetchedAds).length > 0) {
+          setLiveAgentAds({
+            sourceMessageId,
+            sourceCreationTime: sourceMessageForAd._creationTime,
+            userMessage: sourceMessageForAd.user_message?.trim() ?? '',
+            ads: fetchedAds,
+          })
+          missingPlacements
+            .filter((placementId) => !fetchedAds[placementId])
+            .forEach((placementId) => {
+              attemptedAdSourceIdsRef.current.delete(
+                `${sourceMessageId}:${placementId}`,
+              )
+            })
+        } else {
+          missingPlacements.forEach((placementId) => {
+            attemptedAdSourceIdsRef.current.delete(
+              `${sourceMessageId}:${placementId}`,
+            )
+          })
+          return
+        }
+
+        const persistenceResults = await Promise.allSettled(
           missingPlacements.map(async (placementId) => {
-            const ad = adsByPlacement.get(placementId) ?? unassignedAds.shift()
+            const ad = fetchedAds[placementId]
             if (!ad) return
 
             await persistAgentAdMessage({
               sourceMessageId,
-              ad: {
-                provider: ad.provider ?? 'gravity',
-                adText: ad.adText,
-                title: ad.title,
-                cta: ad.cta,
-                ...(ad.brandName ? { brandName: ad.brandName } : {}),
-                url: ad.url,
-                ...(ad.favicon
-                  ? { favicon: ad.favicon, imageUrl: ad.favicon }
-                  : {}),
-                clickUrl: ad.clickUrl,
-                impUrl: ad.impUrl,
-                placementId,
-                servedAt: Date.now(),
-              },
+              ad,
             })
           }),
         )
+        if (persistenceResults.some((result) => result.status === 'rejected')) {
+          console.warn(
+            '[AgentChatMessages] Rendered Gravity ads before persistence completed',
+          )
+        }
       })
       .catch((error) => {
         missingPlacements.forEach((placementId) => {
@@ -1922,12 +1924,8 @@ export const AgentChatMessages = forwardRef<
             `${sourceMessageId}:${placementId}`,
           )
         })
-        console.warn('[AgentChatMessages] Failed to persist Gravity ads', error)
+        console.warn('[AgentChatMessages] Failed to fetch Gravity ads', error)
       })
-
-    return () => {
-      cancelled = true
-    }
   }, [
     adsBySourceMessageId,
     persistAgentAdMessage,
@@ -2165,7 +2163,7 @@ export const AgentChatMessages = forwardRef<
                     <AgentMessageCard
                       key={message._id}
                       message={message}
-                      ads={adsBySourceMessageId.get(message._id)}
+                      ads={adsForRenderingBySourceMessageId.get(message._id)}
                       isLatestMessage={
                         message._id === latestRenderableMessageId
                       }

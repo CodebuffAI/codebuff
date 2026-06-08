@@ -84,33 +84,22 @@ export default function ThemeConfirmationModal({
         <ThemePickerLayout
           title={
             <>
-              Wait! Do you want to add a{" "}
-              <span className="text-primary">Style</span>?
+              Choose a <span className="text-primary">style</span>
             </>
           }
-          subtitle="Select a visual theme to enhance your project"
+          subtitle=""
           hoveredTheme={hoveredTheme}
           onThemeSelect={handleThemeSelect}
           onThemeHover={setHoveredTheme}
           onClose={onClose}
           footerContent={
-            <>
-              <div className="text-sm text-muted-foreground">
-                <span>
-                  Choose a theme to style your project, or skip to continue
-                </span>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  className="rounded-lg border border-border bg-card px-4 py-2 font-['Geist'] text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                  onClick={onSkip}
-                >
-                  No thanks, continue
-                </button>
-              </div>
-            </>
+            <button
+              type="button"
+              className="ml-auto rounded-md bg-muted px-3 py-1.5 font-['Geist'] text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+              onClick={onSkip}
+            >
+              Skip
+            </button>
           }
         />
       </motion.div>

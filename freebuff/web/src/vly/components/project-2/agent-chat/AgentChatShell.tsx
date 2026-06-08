@@ -629,7 +629,7 @@ export function AgentChatShell({
                 inline switcher, no Codex chips). The Pencil edit affordance
                 stays subtle and only appears on hover.
               */}
-              <div className="group flex-shrink-0 border-b border-border/40 bg-transparent px-3 py-3 sm:px-4">
+              <div className="group flex-shrink-0 bg-transparent px-3 py-3 sm:px-4">
                 <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -688,7 +688,7 @@ export function AgentChatShell({
                         />
                       ) : (
                         <>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/90">
+                          <span className="min-w-0 truncate text-sm font-medium text-foreground/90">
                             {activeThread.title ||
                               `Thread ${new Date(activeThread.last_edited_timestamp).toLocaleString()}`}
                           </span>
