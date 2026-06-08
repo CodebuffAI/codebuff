@@ -17,7 +17,6 @@ export const createBestOfNImplementor = (options: {
   const readOnlyToolNames: AllToolNames[] = [
     'read_files',
     'read_outline',
-    'read_slices',
     'read_proposal_workspace',
     'code_search',
     'glob',

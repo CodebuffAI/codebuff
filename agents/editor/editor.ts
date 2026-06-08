@@ -40,7 +40,6 @@ export const createCodeEditor = (options: {
     toolNames: [
       'read_files',
       'read_outline',
-      'read_slices',
       'write_file',
       'str_replace',
       'rewrite_symbol',
@@ -56,7 +55,7 @@ export const createCodeEditor = (options: {
 Your task is to write out ALL the code changes needed to complete the user's request, across every file that must change.
 
 You may make edits across multiple turns. After each edit you will see whether it applied successfully:
-- To replace an entire function/class/method/type, prefer rewrite_symbol (name + full new body): it finds the exact definition from the syntax tree, so you don't copy old text and it can't drift. For large files, read_outline shows the structure and read_slices pulls a specific symbol's current body. Use str_replace for partial in-body edits.
+- To replace an entire function/class/method/type, prefer rewrite_symbol (name + full new body): it finds the exact definition from the syntax tree, so you don't copy old text and it can't drift. For large files, read_outline shows the structure and read_files with a symbols selector pulls a specific symbol's current body. Use str_replace for partial in-body edits.
 - If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or fall back to write_file with the complete file content.
 - Use edit_transaction when edits across multiple files, dependent edits in one file, or import-only TypeScript edits must be preflighted together and applied atomically. Prefer str_replace for simple one-file text changes, and write_file for new files or major rewrites.
 - Keep editing until the entire request is implemented across all files. Do not stop after a single file when more files still need changes.

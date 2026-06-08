@@ -446,6 +446,13 @@ export interface ReadFilesParams {
     /** 1-indexed inclusive end line. Defaults to the last line. */
     endLine?: number
   }[]
+  /** Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit. */
+  symbols?: {
+    /** File path to extract symbol slices from, relative to the project root. */
+    path: string
+    /** Symbol names (functions, classes, interfaces, methods) to slice. */
+    names: string[]
+  }[]
 }
 
 /**

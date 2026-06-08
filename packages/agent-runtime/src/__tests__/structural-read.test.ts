@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { handleReadOutline } from '../tools/handlers/tool/read-outline'
 import { handleReadSlices } from '../tools/handlers/tool/read-slices'
 import { processStrReplace } from '../process-str-replace'
+import { extractSlices } from '../structural-read'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -110,5 +111,25 @@ describe('read_slices handler (AST-backed + capability tokens)', () => {
       requestOptionalFile: async () => null,
     } as any)
     expect(outputJson(result).slices).toEqual([])
+  })
+})
+
+describe('extractSlices (shared core for read_files symbols + read_slices)', () => {
+  test('extracts symbol spans with reusable capability tokens', async () => {
+    const slices = await extractSlices(TS_SRC, 'svc.ts', ['greet', 'Service'])
+    expect(slices).toHaveLength(2)
+
+    const greet = slices.find((s) => s.symbol === 'greet')!
+    expect(greet).toMatchObject({ symbol: 'greet', startLine: 3, endLine: 6 })
+    expect(greet.content).toContain('return msg + name')
+    expect(greet.readCapability).toMatch(/^cap\./)
+
+    const service = slices.find((s) => s.symbol === 'Service')!
+    expect(service).toMatchObject({ symbol: 'Service', startLine: 8, endLine: 12 })
+  })
+
+  test('omits symbols that are not found', async () => {
+    const slices = await extractSlices(TS_SRC, 'svc.ts', ['doesNotExist'])
+    expect(slices).toEqual([])
   })
 })

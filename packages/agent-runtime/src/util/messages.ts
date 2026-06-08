@@ -417,8 +417,8 @@ export function getPreviouslyReadFiles(params: {
           ).content[0].value.filter(
             (
               file,
-            ): file is typeof file & { contentOmittedForLength: undefined } =>
-              !('contentOmittedForLength' in file),
+            ): file is Extract<typeof file, { content: string }> =>
+              'content' in file,
           ),
         )
       } catch (error) {
@@ -440,8 +440,8 @@ export function getPreviouslyReadFiles(params: {
           ...v.filter(
             (
               file,
-            ): file is typeof file & { contentOmittedForLength: undefined } =>
-              !('contentOmittedForLength' in file),
+            ): file is Extract<typeof file, { content: string }> =>
+              'content' in file,
           ),
         )
       } catch (error) {

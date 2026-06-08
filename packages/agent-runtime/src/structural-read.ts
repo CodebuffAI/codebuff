@@ -95,3 +95,151 @@ export function renderStructureOutline(
   }
   return lines.join('\n')
 }
+
+export type ExtractedSlice = {
+  symbol: string
+  kind?: string
+  content: string
+  startLine: number
+  endLine: number
+  readCapability?: string
+}
+
+const DEFAULT_MAX_MATCHES_PER_SYMBOL = 5
+
+/**
+ * Extract code slices for the given symbol names from a file's raw content,
+ * preferring tree-sitter structure and falling back to a regex heuristic for
+ * unparseable files or symbols the parser doesn't surface. Each slice carries a
+ * readCapability minted identically to read_files ranges, so it can be reused
+ * as basedOnRead on a follow-up large-file edit with no re-read.
+ *
+ * Shared by read_files (symbols mode) and the deprecated read_slices alias.
+ */
+export async function extractSlices(
+  rawContent: string,
+  filePath: string,
+  symbols: string[],
+  maxMatchesPerSymbol: number = DEFAULT_MAX_MATCHES_PER_SYMBOL,
+): Promise<ExtractedSlice[]> {
+  const slices: ExtractedSlice[] = []
+  const structure = await getFileStructure(rawContent, filePath)
+
+  for (const symbol of symbols) {
+    const astMatches =
+      structure
+        ?.filter((s) => s.name === symbol)
+        .slice(0, maxMatchesPerSymbol) ?? []
+
+    if (astMatches.length > 0) {
+      for (const match of astMatches) {
+        const { readCapability, sliceContent } = mintSliceCapability({
+          content: rawContent,
+          startLine: match.startLine,
+          endLine: match.endLine,
+        })
+        slices.push({
+          symbol,
+          kind: match.kind,
+          content: sliceContent,
+          startLine: match.startLine,
+          endLine: match.endLine,
+          readCapability,
+        })
+      }
+      continue
+    }
+
+    const fallback = regexSlice(rawContent, symbol, filePath)
+    if (fallback) {
+      const { readCapability, sliceContent } = mintSliceCapability({
+        content: rawContent,
+        startLine: fallback.startLine,
+        endLine: fallback.endLine,
+      })
+      slices.push({
+        symbol,
+        content: sliceContent,
+        startLine: fallback.startLine,
+        endLine: fallback.endLine,
+        readCapability,
+      })
+    }
+  }
+
+  return slices
+}
+
+/**
+ * Heuristic single-symbol slicer used only when tree-sitter cannot provide a
+ * range. Returns a 1-indexed inclusive line span or null. Brace-based for
+ * C-family languages, indentation-based for Python.
+ */
+function regexSlice(
+  rawContent: string,
+  symbol: string,
+  filePath: string,
+): { startLine: number; endLine: number } | null {
+  const lines = rawContent.split(/\r?\n/)
+  const isPython = filePath.endsWith('.py')
+  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const symbolRegex = new RegExp(`\\b${escaped}\\b`)
+
+  let startLine = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (symbolRegex.test(lines[i])) {
+      const line = lines[i]
+      if (
+        /\b(function|class|const|let|var|def|interface|type|struct|fn|func)\b/.test(
+          line,
+        ) ||
+        /^\s*\w+\s*\(/.test(line)
+      ) {
+        startLine = i
+        break
+      }
+    }
+  }
+  if (startLine === -1) {
+    for (let i = 0; i < lines.length; i++) {
+      if (symbolRegex.test(lines[i])) {
+        startLine = i
+        break
+      }
+    }
+  }
+  if (startLine === -1) return null
+
+  let endLine = startLine
+  if (isPython) {
+    const startIndent =
+      lines[startLine].length - lines[startLine].trimStart().length
+    for (let j = startLine + 1; j < lines.length; j++) {
+      const trimmed = lines[j].trim()
+      if (trimmed.length === 0) {
+        endLine = j
+        continue
+      }
+      const indent = lines[j].length - lines[j].trimStart().length
+      if (indent <= startIndent) break
+      endLine = j
+    }
+  } else {
+    let braceCount = 0
+    let foundBrace = false
+    for (let j = startLine; j < lines.length; j++) {
+      for (const char of lines[j]) {
+        if (char === '{') {
+          braceCount++
+          foundBrace = true
+        } else if (char === '}') {
+          braceCount--
+        }
+      }
+      endLine = j
+      if (foundBrace && braceCount <= 0) break
+    }
+  }
+
+  return { startLine: startLine + 1, endLine: endLine + 1 }
+}

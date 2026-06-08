@@ -9,10 +9,14 @@ import { createCodeEditor } from './editor/editor'
  * `toolNames`, so no agent can ever call it. (This is exactly what happened to
  * read_outline / read_slices / rewrite_symbol on first add.)
  *
+ * read_slices has since been folded into read_files's `symbols` mode and is now
+ * a deprecated alias the shipped agents no longer list, so it is intentionally
+ * absent from the required set below.
+ *
  * The orchestrator (base2, all modes) must expose the structural read/edit
  * tools, and the direct code editor must expose the structural edit tools.
  */
-const STRUCTURAL_READ_TOOLS = ['read_outline', 'read_slices'] as const
+const STRUCTURAL_READ_TOOLS = ['read_outline'] as const
 const STRUCTURAL_EDIT_TOOLS = ['rewrite_symbol'] as const
 
 describe('agent tool reachability', () => {

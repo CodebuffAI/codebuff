@@ -14,6 +14,21 @@ export const fileContentsSchema = z.union([
     path: z.string(),
     contentOmittedForLength: z.literal(true),
   }),
+  z.object({
+    path: z.string(),
+    slices: z.array(
+      z.object({
+        symbol: z.string(),
+        kind: z.string().optional(),
+        content: z.string(),
+        startLine: z.number(),
+        endLine: z.number(),
+        /** Read capability token for this slice's exact range; pass as
+         *  basedOnRead on a follow-up large-file str_replace with no re-read. */
+        readCapability: z.string().optional(),
+      }),
+    ),
+  }),
 ])
 
 const toolName = 'read_files'
@@ -58,18 +73,38 @@ const inputSchema = z
       .describe(
         'Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine.',
       ),
+    symbols: z
+      .array(
+        z.object({
+          path: z
+            .string()
+            .min(1)
+            .describe('File path to extract symbol slices from, relative to the project root.'),
+          names: z
+            .preprocess(
+              coerceToArray,
+              z.array(z.string().min(1)),
+            )
+            .describe('Symbol names (functions, classes, interfaces, methods) to slice.'),
+        }),
+      )
+      .optional()
+      .describe(
+        'Optional: instead of (or in addition to) whole files, pull just the implementation slices for named symbols. Prefer this over a full read when you already know which functions/classes you need, especially in large files. Each returned slice includes its line range and a readCapability you can reuse as basedOnRead on a later edit.',
+      ),
   })
   .describe(
     `Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
   )
 const description = `
-Read files from disk. For large files, prefer ranges over full-file reads before editing.
+Read files from disk. For large files, prefer ranges or symbol slices over full-file reads before editing.
 
 Important:
 - Full reads may be truncated for large files; do not edit from truncated content.
+- Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods (each with its line range and a readCapability) instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
 - Range reads return a header with startLine, endLine, and rangeHash.
 - Use replace_range for medium/large line-count-changing edits, copying expectedHash from rangeHash.
-- For large-file str_replace, copy basedOnRead from a fresh range read: startLine, endLine, hash: rangeHash.
+- For large-file str_replace, copy basedOnRead from a fresh range read or symbol slice: startLine, endLine, hash: rangeHash (or the slice's readCapability).
 - For large-file apply_patch, include basedOnRead capabilities for every touched hunk, copied from fresh range read headers.
 
 Example:
@@ -79,6 +114,7 @@ ${$getNativeToolCallExampleString({
   input: {
     paths: ['path/to/file1.ts', 'path/to/file2.ts'],
     ranges: [{ path: 'path/to/large-file.ts', startLine: 120, endLine: 160 }],
+    symbols: [{ path: 'path/to/large-file.ts', names: ['loadConfig'] }],
   },
   endsAgentStep,
 })}
