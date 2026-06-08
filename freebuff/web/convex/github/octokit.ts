@@ -27,13 +27,11 @@ export const handleGitHubCallback = action({
     message: string;
     returnUrl?: string;
   }> => {
-    // Get the current user
     const user = await getAuthUser(ctx);
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
 
-    // Verify state and get user
+    // Verify state and resolve the owning user.
+    // For installation callbacks, we allow user resolution via state so the
+    // flow remains robust even if auth cookies are unavailable on redirect.
     const stateInfo: {
       user_id: any;
       state_id: any;
@@ -42,13 +40,13 @@ export const handleGitHubCallback = action({
       internal.github.auth.verifyOAuthStateInternal,
       {
         state: args.state,
-        userId: user._id,
+        userId: user?._id,
         isInstallationCallback: true,
       },
     );
 
     if (!stateInfo) {
-      throw new Error("Invalid OAuth state");
+      throw new Error("Invalid or expired OAuth state");
     }
 
     // For GitHub App installation, we get the installation_id directly
