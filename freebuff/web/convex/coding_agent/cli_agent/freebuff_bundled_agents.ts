@@ -142,15 +142,6 @@ const base2FreeMinimaxM3 = withFreebuffWebSystemPromptAppendix({
   displayName: 'Buffy the MiniMax M3 Free Orchestrator',
 })
 
-const base2FreeMinimaxM3 = {
-  ...createBase2('free', {
-    model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-    noReview: true,
-  }),
-  id: 'base2-free-minimax-m3',
-  displayName: 'Buffy the MiniMax M3 Free Orchestrator',
-}
-
 /**
  * Maps a Freebuff model id (as shown in the web/CLI model switcher) to the
  * bundled base2-free agent that pins that model. Used by executeFreebuff to
