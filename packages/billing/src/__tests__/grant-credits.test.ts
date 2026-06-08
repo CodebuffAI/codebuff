@@ -679,4 +679,27 @@ describe('grant-credits', () => {
       })
     })
   })
+
+  describe('referral deprecation guard', () => {
+    it('refuses to grant non-legacy referral credits', async () => {
+      await mockModule('@codebuff/internal/db', () => ({ default: {} }))
+
+      const { grantCreditOperation } = await import('../grant-credits')
+
+      // tx is provided so the global db is never touched; the guard throws
+      // before any DB access, so the tx mock is never exercised.
+      await expect(
+        grantCreditOperation({
+          userId: 'would-be-referrer',
+          amount: 500,
+          type: 'referral',
+          description: 'New referral bonus',
+          expiresAt: null,
+          operationId: 'referral-would-be-referrer-1',
+          tx: createTxMock(null) as any,
+          logger,
+        }),
+      ).rejects.toThrow(/New referrals are disabled/)
+    })
+  })
 })

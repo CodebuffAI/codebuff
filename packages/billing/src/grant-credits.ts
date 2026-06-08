@@ -135,6 +135,20 @@ async function executeGrantCreditOperation(params: {
     logger,
   } = params
 
+  // Referrals are deprecated (removed in #519). Grandfathered users still
+  // receive their recurring `referral_legacy` credits, but no NEW non-legacy
+  // `referral` credits may ever be minted again. This function is the single
+  // choke point for every credit grant, so guarding here guarantees that even
+  // if referral-creation code is reintroduced by mistake, it cannot award
+  // referral bonuses. (Driven by the referral/ad credit-farm abuse.)
+  if (type === 'referral') {
+    throw new Error(
+      `Refusing to grant deprecated non-legacy 'referral' credits ` +
+        `(userId=${userId}, operationId=${operationId}). New referrals are ` +
+        `disabled; only 'referral_legacy' grants are permitted.`,
+    )
+  }
+
   const now = new Date()
 
   // First check for any negative balances.
