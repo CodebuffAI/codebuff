@@ -38,7 +38,9 @@ function getSoftProgress(elapsedMs: number) {
 }
 
 function getEstimatedTokens(elapsedMs: number) {
-  const seconds = elapsedMs / 1000;
+  // This is only a soft visual estimate. Keep it deliberately slow so the UI
+  // does not imply millions of tokens were used after only a few seconds.
+  const seconds = elapsedMs / 10000;
   const estimated = 75000 + seconds * 180000 + seconds * seconds * 12000;
   return Math.floor(estimated / 25000) * 25000;
 }

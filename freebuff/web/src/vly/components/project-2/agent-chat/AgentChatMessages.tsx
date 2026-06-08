@@ -205,7 +205,11 @@ export function parseAskUserQuestions(content: string): AskUserQuestion[] {
           question: text,
           ...(header ? { header } : {}),
           options,
-          multiSelect: question?.multiSelect === true,
+          multiSelect:
+            question?.multiSelect === true ||
+            question?.multi_select === true ||
+            question?.allowMultiple === true ||
+            question?.allow_multiple === true,
         }
       })
       .filter((question: AskUserQuestion | null): question is AskUserQuestion =>

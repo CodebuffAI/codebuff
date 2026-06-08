@@ -188,7 +188,7 @@ export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
  *  guaranteed-available id for resolution / auto-fallbacks should use
  *  FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from

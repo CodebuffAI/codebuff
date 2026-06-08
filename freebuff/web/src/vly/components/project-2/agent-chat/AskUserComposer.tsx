@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Loader } from "lucide-react";
 import { Button } from "@/vly/components/ui/button";
 import { cn } from "@/vly/lib/utils";
@@ -21,6 +21,7 @@ export function AskUserComposer({
 }: AskUserComposerProps) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, AskUserAnswer>>({});
+  const answersRef = useRef<Record<number, AskUserAnswer>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Expanded descriptions, keyed by `${questionIndex}:${label}` so each
   // question tracks its own expansions. Toggled explicitly by click (no hover).
@@ -30,6 +31,7 @@ export function AskUserComposer({
   useEffect(() => {
     setQuestionIndex(0);
     setAnswers({});
+    answersRef.current = {};
     setExpanded({});
     setIsSubmitting(false);
   }, [questionsKey]);
@@ -41,6 +43,11 @@ export function AskUserComposer({
   const hasAnswer = answer.selected.length > 0 || !!answer.custom.trim();
   const isLastQuestion = questionIndex === questions.length - 1;
 
+  const commitAnswers = (nextAnswers: Record<number, AskUserAnswer>) => {
+    answersRef.current = nextAnswers;
+    setAnswers(nextAnswers);
+  };
+
   const updateAnswer = (next: Partial<AskUserAnswer>) => {
     setAnswers((current) => ({
       ...current,
@@ -50,6 +57,14 @@ export function AskUserComposer({
         ...next,
       },
     }));
+    answersRef.current = {
+      ...answersRef.current,
+      [questionIndex]: {
+        selected: answersRef.current[questionIndex]?.selected ?? [],
+        custom: answersRef.current[questionIndex]?.custom ?? "",
+        ...next,
+      },
+    };
   };
 
   const toggleOption = (label: string) => {
@@ -73,7 +88,17 @@ export function AskUserComposer({
   };
 
   const handleContinue = async () => {
-    if (!hasAnswer || isSubmitting) return;
+    const currentAnswer = answersRef.current[questionIndex] ?? answer;
+    const hasCurrentAnswer =
+      currentAnswer.selected.length > 0 || !!currentAnswer.custom.trim();
+    if (!hasCurrentAnswer || isSubmitting) return;
+
+    const nextAnswers = {
+      ...answersRef.current,
+      [questionIndex]: currentAnswer,
+    };
+    commitAnswers(nextAnswers);
+
     if (!isLastQuestion) {
       setQuestionIndex((current) => current + 1);
       return;
@@ -81,7 +106,7 @@ export function AskUserComposer({
 
     setIsSubmitting(true);
     try {
-      await onSubmit(formatAskUserResumeMessage(questions, answers));
+      await onSubmit(formatAskUserResumeMessage(questions, nextAnswers));
     } finally {
       setIsSubmitting(false);
     }
@@ -89,9 +114,38 @@ export function AskUserComposer({
 
   const handleSkip = async () => {
     if (isSubmitting) return;
+    const currentAnswer = answersRef.current[questionIndex] ?? answer;
+    const hasCurrentAnswer =
+      currentAnswer.selected.length > 0 || !!currentAnswer.custom.trim();
+
+    // If the user has already selected or typed something, "Skip" should not
+    // discard it. Treat the click like Continue so selected options are sent.
+    if (hasCurrentAnswer) {
+      await handleContinue();
+      return;
+    }
+
+    const nextAnswers = {
+      ...answersRef.current,
+      [questionIndex]: { selected: [], custom: "" },
+    };
+    commitAnswers(nextAnswers);
+
+    if (!isLastQuestion) {
+      setQuestionIndex((current) => current + 1);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await onSubmit("Use reasonable defaults and continue.");
+      const hasAnyAnswer = Object.values(nextAnswers).some(
+        (value) => value.selected.length > 0 || !!value.custom.trim(),
+      );
+      await onSubmit(
+        hasAnyAnswer
+          ? formatAskUserResumeMessage(questions, nextAnswers)
+          : "Use reasonable defaults and continue.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -196,16 +250,18 @@ export function AskUserComposer({
           placeholder="Or type an answer"
           className="h-9 min-w-0 flex-1 border-0 border-b border-border/50 bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/70"
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={isSubmitting}
-          onClick={handleSkip}
-          className="text-muted-foreground"
-        >
-          Skip
-        </Button>
+        {!hasAnswer && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={handleSkip}
+            className="text-muted-foreground"
+          >
+            Use default
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"

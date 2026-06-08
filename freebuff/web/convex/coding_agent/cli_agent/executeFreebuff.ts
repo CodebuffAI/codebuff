@@ -401,7 +401,11 @@ function sanitizeAskUserQuestions(value: unknown): AskUserQuestion[] {
         question,
         ...(header ? { header } : {}),
         options,
-        multiSelect: record.multiSelect === true,
+        multiSelect:
+          record.multiSelect === true ||
+          record.multi_select === true ||
+          record.allowMultiple === true ||
+          record.allow_multiple === true,
       }
     })
     .filter((question): question is AskUserQuestion => question !== null)
