@@ -145,6 +145,7 @@ interface AgentChatMessagesProps {
     | undefined
   loadMoreThreadMessages?: (n: number) => void
   onRestoreMessage?: (message: string) => void
+  onActiveAskUserQuestionsChange?: (questions: AskUserQuestion[]) => void
 }
 
 // Type for assistant stream item
@@ -158,24 +159,24 @@ type AssistantStreamItemType = {
 
 const TIME_LIMIT_CONTINUE_MESSAGE = 'continue'
 
-type AskUserOption = {
+export type AskUserOption = {
   label: string
   description?: string
 }
 
-type AskUserQuestion = {
+export type AskUserQuestion = {
   question: string
   header?: string
   options: AskUserOption[]
   multiSelect?: boolean
 }
 
-type AskUserAnswer = {
+export type AskUserAnswer = {
   selected: string[]
   custom: string
 }
 
-function parseAskUserQuestions(content: string): AskUserQuestion[] {
+export function parseAskUserQuestions(content: string): AskUserQuestion[] {
   try {
     const parsed = JSON.parse(content)
     const questions = Array.isArray(parsed) ? parsed : parsed?.questions
@@ -214,14 +215,11 @@ function parseAskUserQuestions(content: string): AskUserQuestion[] {
   }
 }
 
-function formatAskUserResumeMessage(
+export function formatAskUserResumeMessage(
   questions: AskUserQuestion[],
   answers: Record<number, AskUserAnswer>,
 ) {
-  const lines = [
-    'Here are my answers to your paused questions. Continue from the saved Freebuff run state.',
-    '',
-  ]
+  const lines: string[] = []
 
   questions.forEach((question, index) => {
     const answer = answers[index]
@@ -232,9 +230,11 @@ function formatAskUserResumeMessage(
       custom ? custom : '',
     ].filter(Boolean)
 
-    lines.push(`${index + 1}. ${question.question}`)
-    lines.push(`Answer: ${parts.join(' | ') || 'No answer provided'}`)
-    lines.push('')
+    lines.push(
+      `${question.header || `Answer ${index + 1}`}: ${
+        parts.join(' | ') || 'No answer provided'
+      }`,
+    )
   })
 
   return lines.join('\n').trim()
@@ -660,6 +660,11 @@ const isSuggestFollowupsItem = (item: AssistantStreamItemType) => {
     )
 }
 
+const isAskUserStatusItem = (item: AssistantStreamItemType) =>
+  item.type === 'status' &&
+  (item.title?.trim().toLowerCase() === 'ask user' ||
+    item.content.trim().toLowerCase() === 'waiting for your answer')
+
 type StreamGroup =
   | { kind: 'text'; items: AssistantStreamItemType[] }
   | { kind: 'ask_user'; items: AssistantStreamItemType[] }
@@ -909,182 +914,6 @@ const TimeLimitContinuePanel: React.FC<{
             <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : (
             <Play className="mr-1.5 h-3.5 w-3.5" />
-          )}
-          Continue
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-const AskUserPanel: React.FC<{
-  item: AssistantStreamItemType
-  isActive: boolean
-  onSubmit?: (message: string) => void | Promise<unknown>
-}> = ({ item, isActive, onSubmit }) => {
-  const questions = useMemo(
-    () => parseAskUserQuestions(item.content),
-    [item.content],
-  )
-  const [answers, setAnswers] = useState<Record<number, AskUserAnswer>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  if (questions.length === 0) return null
-
-  const updateAnswer = (index: number, next: Partial<AskUserAnswer>) => {
-    setAnswers((current) => ({
-      ...current,
-      [index]: {
-        selected: current[index]?.selected ?? [],
-        custom: current[index]?.custom ?? '',
-        ...next,
-      },
-    }))
-  }
-
-  const toggleOption = (
-    question: AskUserQuestion,
-    questionIndex: number,
-    label: string,
-  ) => {
-    const current = answers[questionIndex]?.selected ?? []
-    if (question.multiSelect) {
-      updateAnswer(questionIndex, {
-        selected: current.includes(label)
-          ? current.filter((value) => value !== label)
-          : [...current, label],
-      })
-    } else {
-      updateAnswer(questionIndex, { selected: [label] })
-    }
-  }
-
-  const hasEveryAnswer = questions.every((_, index) => {
-    const answer = answers[index]
-    return !!answer && (answer.selected.length > 0 || answer.custom.trim())
-  })
-
-  const handleSubmit = async () => {
-    if (!onSubmit || !isActive || !hasEveryAnswer || isSubmitting) return
-    setIsSubmitting(true)
-    try {
-      await onSubmit(formatAskUserResumeMessage(questions, answers))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleSkip = async () => {
-    if (!onSubmit || !isActive || isSubmitting) return
-    setIsSubmitting(true)
-    try {
-      await onSubmit(
-        'I am skipping the paused questions. Make reasonable default choices and continue from the saved Freebuff run state.',
-      )
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="mb-4 mt-2 rounded-lg border border-border bg-muted/25 px-4 py-3">
-      <div className="mb-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Freebuff needs your input
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Answer these questions to continue from the saved run state.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {questions.map((question, questionIndex) => {
-          const answer = answers[questionIndex] ?? {
-            selected: [],
-            custom: '',
-          }
-
-          return (
-            <div key={questionIndex} className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                {question.header && (
-                  <span className="rounded bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {question.header}
-                  </span>
-                )}
-                <div className="text-sm font-medium text-foreground">
-                  {question.question}
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                {question.options.map((option) => {
-                  const selected = answer.selected.includes(option.label)
-                  return (
-                    <button
-                      key={option.label}
-                      type="button"
-                      disabled={!isActive || isSubmitting}
-                      onClick={() =>
-                        toggleOption(question, questionIndex, option.label)
-                      }
-                      className={cn(
-                        'rounded-md border px-3 py-2 text-left text-sm transition-colors',
-                        selected
-                          ? 'border-primary bg-primary/15 text-foreground'
-                          : 'border-border bg-background/40 text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground',
-                        (!isActive || isSubmitting) &&
-                          'cursor-not-allowed opacity-60',
-                      )}
-                    >
-                      <div className="font-medium">{option.label}</div>
-                      {option.description && (
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-                          {option.description}
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <input
-                value={answer.custom}
-                disabled={!isActive || isSubmitting}
-                onChange={(event) =>
-                  updateAnswer(questionIndex, { custom: event.target.value })
-                }
-                placeholder="Or type a custom answer..."
-                className="h-9 w-full rounded-md border border-border bg-background/50 px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-        {!isActive && (
-          <span className="mr-auto self-center text-xs text-muted-foreground">
-            This question was answered or superseded by a later message.
-          </span>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!isActive || isSubmitting}
-          onClick={handleSkip}
-        >
-          Skip
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={!isActive || !hasEveryAnswer || isSubmitting}
-          onClick={handleSubmit}
-        >
-          {isSubmitting && (
-            <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           )}
           Continue
         </Button>
@@ -1463,17 +1292,13 @@ const AgentMessageCard: React.FC<{
         typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
       >[0]
   ads?: AdsByPlacement
-  isLatestMessage?: boolean
   onRollback?: () => Promise<void>
   onContinueAfterTimeout?: () => void | Promise<unknown>
-  onAskUserAnswer?: (message: string) => void | Promise<unknown>
 }> = ({
   message,
   ads,
-  isLatestMessage = false,
   onRollback,
   onContinueAfterTimeout,
-  onAskUserAnswer,
 }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
@@ -1488,11 +1313,13 @@ const AgentMessageCard: React.FC<{
     isPromptTimeLimitText(message.state_message) ||
     assistantStream.some(isPromptTimeLimitItem)
   const visibleAssistantStream = assistantStream.filter(
-    (item) => !isPromptTimeLimitItem(item) && !isSuggestFollowupsItem(item),
+    (item) =>
+      item.type !== 'ask_user' &&
+      !isAskUserStatusItem(item) &&
+      !isPromptTimeLimitItem(item) &&
+      !isSuggestFollowupsItem(item),
   )
   const hasStream = visibleAssistantStream.length > 0
-  const isAskUserPaused = String(message.state) === 'Paused'
-
   const hasCheckpoint =
     message.commit_hash &&
     message.commit_hash !== 'creating' &&
@@ -1607,7 +1434,7 @@ const AgentMessageCard: React.FC<{
       {ads?.['agent-chat-after-user'] && (
         <AgentAdMessage
           ad={ads['agent-chat-after-user']}
-          className="-mt-1 mb-4"
+          className="my-3"
         />
       )}
 
@@ -1620,13 +1447,6 @@ const AgentMessageCard: React.FC<{
             (group, index, groups) =>
               group.kind === 'text' ? (
                 <TextGroup key={index} items={group.items} />
-              ) : group.kind === 'ask_user' ? (
-                <AskUserPanel
-                  key={index}
-                  item={group.items[group.items.length - 1]}
-                  isActive={isAskUserPaused && isLatestMessage}
-                  onSubmit={onAskUserAnswer}
-                />
               ) : (
                 <ActivityGroup
                   key={index}
@@ -1649,7 +1469,7 @@ const AgentMessageCard: React.FC<{
       {!isStreaming && ads?.['agent-chat-after-assistant'] && (
         <AgentAdMessage
           ad={ads['agent-chat-after-assistant']}
-          className="mt-4"
+          className="my-5"
         />
       )}
     </div>
@@ -1660,7 +1480,13 @@ export const AgentChatMessages = forwardRef<
   AgentChatMessagesRef,
   AgentChatMessagesProps
 >(function AgentChatMessages(
-  { project, projectSemanticIdentifier, onSendMessage, onRestoreMessage },
+  {
+    project,
+    projectSemanticIdentifier,
+    onSendMessage,
+    onRestoreMessage,
+    onActiveAskUserQuestionsChange,
+  },
   ref,
 ) {
   // All hooks must be called unconditionally before any early returns
@@ -1723,6 +1549,24 @@ export const AgentChatMessages = forwardRef<
     return allMessages.sort((a, b) => a._creationTime - b._creationTime)
   }, [filteredThreadMessages, filteredStreamedMessages])
 
+  const activeAskUserQuestions = useMemo(() => {
+    for (let i = sortedMessages.length - 1; i >= 0; i--) {
+      const message = sortedMessages[i]
+      if (message.ad_payload) continue
+      if (String(message.state) !== 'Paused') return []
+      const askUserItem = (
+        (message.assistant_stream ?? []) as AssistantStreamItemType[]
+      ).findLast((item) => item.type === 'ask_user')
+      if (askUserItem) return parseAskUserQuestions(askUserItem.content)
+      return []
+    }
+    return []
+  }, [sortedMessages])
+
+  useEffect(() => {
+    onActiveAskUserQuestionsChange?.(activeAskUserQuestions)
+  }, [activeAskUserQuestions, onActiveAskUserQuestionsChange])
+
   const persistAgentAdMessage = useMutation(
     api.coding_agent.cli_agent.agent_message.persistAgentAdMessage,
   )
@@ -1780,14 +1624,6 @@ export const AgentChatMessages = forwardRef<
     })
     return ads
   }, [adsBySourceMessageId, liveAgentAds, sortedMessages])
-
-  const latestRenderableMessageId = useMemo(() => {
-    for (let i = messagesForRendering.length - 1; i >= 0; i--) {
-      const message = messagesForRendering[i]
-      if (!message.ad_payload) return message._id
-    }
-    return undefined
-  }, [messagesForRendering])
 
   const sourceMessageForAd = useMemo(() => {
     for (let i = sortedMessages.length - 1; i >= 0; i--) {
@@ -2164,14 +2000,10 @@ export const AgentChatMessages = forwardRef<
                       key={message._id}
                       message={message}
                       ads={adsForRenderingBySourceMessageId.get(message._id)}
-                      isLatestMessage={
-                        message._id === latestRenderableMessageId
-                      }
                       onRollback={rollbackCallbacks.get(message._id)}
                       onContinueAfterTimeout={() =>
                         onSendMessage(TIME_LIMIT_CONTINUE_MESSAGE)
                       }
-                      onAskUserAnswer={onSendMessage}
                     />
                   ))}
                 </>

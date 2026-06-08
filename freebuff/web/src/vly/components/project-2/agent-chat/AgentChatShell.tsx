@@ -1,6 +1,11 @@
 "use client";
 
-import { AgentChatMessages, AgentChatMessagesRef } from "./AgentChatMessages";
+import {
+  AgentChatMessages,
+  AgentChatMessagesRef,
+  type AskUserQuestion,
+} from "./AgentChatMessages";
+import { AskUserComposer } from "./AskUserComposer";
 import { ChatSkeleton } from "../ChatSkeleton";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -304,6 +309,18 @@ export function AgentChatShell({
 
   // State to track message to restore to input
   const [messageToRestore, setMessageToRestore] = useState<string | null>(null);
+  const [activeAskUserQuestions, setActiveAskUserQuestions] = useState<
+    AskUserQuestion[]
+  >([]);
+  const handleActiveAskUserQuestionsChange = useCallback(
+    (questions: AskUserQuestion[]) => {
+      setActiveAskUserQuestions(questions);
+    },
+    [],
+  );
+  useEffect(() => {
+    setActiveAskUserQuestions([]);
+  }, [project?.active_agent_thread]);
 
   // Selected open-source Freebuff model. Starts at the default for a stable
   // first render, then hydrates from localStorage on mount so the user's last
@@ -824,6 +841,9 @@ export function AgentChatShell({
                   onSendMessage={(message) => handleSendMessage(message, [])}
                   onCreateNewThread={handleCreateNewThread}
                   onRestoreMessage={setMessageToRestore}
+                  onActiveAskUserQuestionsChange={
+                    handleActiveAskUserQuestionsChange
+                  }
                 />
               </Suspense>
 
@@ -953,7 +973,18 @@ export function AgentChatShell({
                  - Not self-hosted + (Convex paused OR no agent credits) → CreditOverlay
                  - Self-hosted + no agent credits → CreditOverlay
                  - Otherwise → show ChatInput */}
-              {(isSelfHosted === false && isConvexPaused) ||
+              {activeAskUserQuestions.length > 0 ? (
+                <div className="flex-shrink-0 border-t border-border/20 bg-transparent pt-3">
+                  <AskUserComposer
+                    questions={activeAskUserQuestions}
+                    onSubmit={async (message) => {
+                      const sent = await handleSendMessage(message, []);
+                      if (sent) setActiveAskUserQuestions([]);
+                      return sent;
+                    }}
+                  />
+                </div>
+              ) : (isSelfHosted === false && isConvexPaused) ||
               (!canUseAgent && !creditCheckLoading) ? (
                 <div className="mx-4 mb-4 mt-2 flex max-h-[400px] min-h-0 flex-shrink-0">
                   <CreditOverlay

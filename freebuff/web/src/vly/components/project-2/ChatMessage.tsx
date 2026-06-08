@@ -875,11 +875,6 @@ const AssistantMessageContent: React.FC<{
 
   return (
     <div className="space-y-1">
-      {message.model_semantic_name && (
-        <div className="-mb-0.5 select-none text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-          MODEL: {message.model_semantic_name}
-        </div>
-      )}
       {hasThinking && (
         <Collapsible open={showThinking} onOpenChange={setShowThinking}>
           <CollapsibleTrigger className="group mt-1 inline-flex max-w-full items-center gap-2 text-left text-xs text-zinc-500 transition-colors hover:text-zinc-600">
