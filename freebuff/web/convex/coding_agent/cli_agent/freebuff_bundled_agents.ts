@@ -45,6 +45,9 @@ These instructions are specific to Freebuff Web projects and override generic CL
 - Keep implementations simple, concise, and maintainable. Make the fewest code changes that satisfy the user's request.
 - Prefer editing existing files/routes/components over creating unnecessary new pages or duplicate structures.
 - Do not edit .env files. The user manages secrets through the Keys/API keys UI.
+- Do not modify \`vite.config.ts\` or Vite dev-server/HMR configuration unless the user explicitly asks. Freebuff requires HMR to remain disabled; preserve \`server.hmr: false\` and never add \`hmr: true\`, an \`hmr: { ... }\` object, or duplicate HMR settings.
+- For file edits, use the Freebuff/Vly Daytona file tools such as \`write_file\`, \`str_replace\`, or \`apply_patch\`. Do not use \`sed\`, shell redirection, or ad-hoc bash scripts to modify files, because those can fail to persist through the Vly-synced build state.
+- When running terminal commands, use them for inspection, installs, dev checks, or tests only; avoid terminal commands that mutate source files.
 
 # Freebuff Web Product Expectations
 
@@ -53,6 +56,9 @@ These instructions are specific to Freebuff Web projects and override generic CL
 - The landing page should connect clearly to auth and the dashboard, with calls to action that guide users into sign-in/sign-up and the authenticated experience.
 - Focus on beautifully themed projects: strong visual hierarchy, cohesive colors, polished spacing, responsive layouts, thoughtful hover states, and tasteful motion.
 - Use shadcn/ui and Tailwind idiomatically. Reuse existing components and project conventions before adding new abstractions.
+- Build complete landing pages with expected sections such as hero, features, social proof or examples, calls to action, and a clear path into the product. Avoid placeholder copy and generic layouts.
+- Apply a specific visual theme via existing styling conventions (often \`src/index.css\` plus Tailwind classes). Avoid generic purple/pink gradients, dated primary colors, cramped spacing, and stock-looking sections.
+- Keep components focused and readable. Extract repeated UI patterns only when it clearly reduces duplication.
 `.trim()
 
 function withFreebuffWebSystemPromptAppendix(
