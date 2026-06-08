@@ -109,7 +109,7 @@ export default function CommunityHome() {
               </div>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {featuredPosts.map((post) => (
                 <ProjectCard key={post._id} post={post} variant="featured" />
               ))}
@@ -118,7 +118,7 @@ export default function CommunityHome() {
         )}
 
         {/* Trending & Top Creators Grid */}
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid gap-10 lg:grid-cols-3">
           {/* Trending Projects */}
           <div className="lg:col-span-2">
             <div className="mb-6 flex items-center justify-between">
@@ -143,7 +143,7 @@ export default function CommunityHome() {
             </div>
 
             {!trendingPosts ? (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2">
                 {[...Array(4)].map((_, i) => (
                   <Skeleton key={i} className="h-72 rounded-2xl bg-muted/40" />
                 ))}
@@ -165,7 +165,7 @@ export default function CommunityHome() {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2">
                 {trendingPosts.slice(0, 4).map((post) => (
                   <ProjectCard key={post._id} post={post} />
                 ))}

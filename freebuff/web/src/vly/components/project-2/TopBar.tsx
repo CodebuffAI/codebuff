@@ -21,6 +21,7 @@ import { InviteDialog } from './InviteDialog'
 import { DeploymentDialog } from './deployment/DeploymentDialog'
 import { EditableProjectName } from './EditableProjectName'
 import { BetaBadge } from '@/vly/components/app-shell/BetaBadge'
+import { DiscordIcon } from '@/vly/components/app-shell/DiscordIcon'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -90,7 +91,10 @@ export function TopBar({
         projectId: project._id,
         title:
           project.name || project.semantic_identifier || 'Untitled Project',
-        description: 'A project built with Freebuff',
+        // Leave the description blank rather than stamping every auto-published
+        // project with the same boilerplate line. The card falls back to a
+        // subtle label when no real description exists.
+        description: '',
         tags: [],
       })
       toast.success('Published to community.')
@@ -255,6 +259,22 @@ export function TopBar({
               Home
             </TooltipContent>
           </Tooltip>
+
+          {/* Beta notice — Discord button with the report-issues text to its
+              right. Text collapses on narrow screens; the icon stays clickable. */}
+          <a
+            href="https://discord.gg/yXG3w7wxfs"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="This is a beta: report issues in our Discord"
+            className="flex h-8 min-w-0 shrink items-center gap-2 rounded-md px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <DiscordIcon className="h-4 w-4 shrink-0 text-[#5865F2]" />
+            <span className="hidden truncate text-xs font-medium md:inline">
+              This is a beta: report issues in our{' '}
+              <span className="text-primary">Discord</span>
+            </span>
+          </a>
         </div>
 
         {/* ── Right: icon actions ──────────────────────────────────────── */}

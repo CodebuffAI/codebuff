@@ -42,11 +42,25 @@ interface ProjectCardProps {
   variant?: "default" | "compact" | "featured";
 }
 
+// Boilerplate descriptions that used to be auto-stamped on every published
+// project. We treat these as "no description" so cards don't all repeat the
+// same line.
+const GENERIC_DESCRIPTIONS = new Set([
+  "a project built with freebuff",
+  "a project built with codebuff",
+  "a project built with vly",
+]);
+
 export default function ProjectCard({
   post,
   showRank,
   variant = "default",
 }: ProjectCardProps) {
+  const rawDescription = (post.description ?? "").trim();
+  const hasDescription =
+    rawDescription.length > 0 &&
+    !GENERIC_DESCRIPTIONS.has(rawDescription.toLowerCase());
+
   const [isLiking, setIsLiking] = useState(false);
   const [optimisticLiked, setOptimisticLiked] = useState(post.hasLiked);
   const [optimisticLikes, setOptimisticLikes] = useState(post.likesCount);
@@ -131,7 +145,7 @@ export default function ProjectCard({
     <Link
       href={`/web/community/project/${post._id}`}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-lg border border-border/50 bg-muted/20 transition-colors",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-muted/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20",
         variant === "featured"
           ? "hover:border-primary/45 hover:bg-muted/35"
           : "hover:border-border hover:bg-muted/30",
@@ -179,18 +193,24 @@ export default function ProjectCard({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-5">
         {/* Title & Description */}
-        <h3 className="mb-1 line-clamp-1 text-lg font-medium text-foreground group-hover:text-primary">
+        <h3 className="mb-1.5 line-clamp-1 text-lg font-semibold tracking-tight text-foreground group-hover:text-primary">
           {post.title}
         </h3>
-        <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
-          {post.description}
-        </p>
+        {hasDescription ? (
+          <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+            {rawDescription}
+          </p>
+        ) : (
+          <p className="mb-4 text-sm text-muted-foreground/60">
+            Published by {post.userName}
+          </p>
+        )}
 
         {/* Tags */}
         {post.tags.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
+          <div className="mb-4 flex flex-wrap gap-1.5">
             {post.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
@@ -208,7 +228,7 @@ export default function ProjectCard({
         )}
 
         {/* Author & Stats */}
-        <div className="mt-auto flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between border-t border-border/40 pt-3">
           <button
             onClick={(e) => {
               e.preventDefault();
