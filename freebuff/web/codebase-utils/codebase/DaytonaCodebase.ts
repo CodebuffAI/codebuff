@@ -590,40 +590,11 @@ export class DaytonaCodebase
         }
       }
 
-      // 4. Ensure server.hmr is fully disabled
-      const hasHmrDisabled = /server\s*:\s*\{[\s\S]*?hmr\s*:\s*false/.test(
-        updatedConfig,
-      );
-
-      if (!hasHmrDisabled) {
-        if (/server\s*:\s*\{[\s\S]*?hmr\s*:\s*\{/.test(updatedConfig)) {
-          const withHmrDisabled = updatedConfig.replace(
-            /hmr\s*:\s*\{[\s\S]*?\}/,
-            "hmr: false",
-          );
-          if (withHmrDisabled !== updatedConfig) {
-            updatedConfig = withHmrDisabled;
-            changed = true;
-          }
-        } else if (/server\s*:\s*\{/.test(updatedConfig)) {
-          const withHmrDisabled = updatedConfig.replace(
-            /server\s*:\s*\{/,
-            "server: {\n    hmr: false,",
-          );
-          if (withHmrDisabled !== updatedConfig) {
-            updatedConfig = withHmrDisabled;
-            changed = true;
-          }
-        } else {
-          const withServerConfig = updatedConfig.replace(
-            /defineConfig\(\s*\{/,
-            "defineConfig({\n  server: {\n    hmr: false,\n  },",
-          );
-          if (withServerConfig !== updatedConfig) {
-            updatedConfig = withServerConfig;
-            changed = true;
-          }
-        }
+      // 4. Only patch explicit hmr:true -> hmr:false. Do not touch any other shape.
+      const withHmrDisabled = updatedConfig.replace(/\bhmr\s*:\s*true\b/g, "hmr: false");
+      if (withHmrDisabled !== updatedConfig) {
+        updatedConfig = withHmrDisabled;
+        changed = true;
       }
 
       // 5. Write only if changed
