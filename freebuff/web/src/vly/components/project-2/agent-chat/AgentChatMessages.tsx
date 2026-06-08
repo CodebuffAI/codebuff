@@ -810,7 +810,11 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
 
   if (item.type === 'tool_result') return true
 
-  if (item.type === 'result' || item.type === 'system' || item.type === 'other') {
+  if (
+    item.type === 'result' ||
+    item.type === 'system' ||
+    item.type === 'other'
+  ) {
     return item.content.trim().length > 40 || item.content.includes('\n')
   }
 
@@ -826,7 +830,8 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
 // individual entries remain independently expandable.
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
-}> = ({ items }) => {
+  isAfterActivity?: boolean
+}> = ({ items, isAfterActivity = false }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
   const detailedItems = useMemo(
@@ -843,7 +848,10 @@ const ActivityGroup: React.FC<{
   const Icon = hasError ? TriangleAlert : usesTools ? Wrench : null
 
   return (
-    <div className="my-2.5">
+    <div
+      className="my-2.5"
+      style={isAfterActivity ? { marginTop: 0 } : undefined}
+    >
       <Collapsible
         open={hasDetails && isExpanded}
         onOpenChange={(open) => hasDetails && setIsExpanded(open)}
@@ -1102,7 +1110,9 @@ const AskUserPanel: React.FC<{
           disabled={!isActive || !hasEveryAnswer || isSubmitting}
           onClick={handleSubmit}
         >
-          {isSubmitting && <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+          {isSubmitting && (
+            <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          )}
           Continue
         </Button>
       </div>
@@ -1608,19 +1618,24 @@ const AgentMessageCard: React.FC<{
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
         <div className="space-y-3">
-          {groupStreamItems(visibleAssistantStream).map((group, index) =>
-            group.kind === 'text' ? (
-              <TextGroup key={index} items={group.items} />
-            ) : group.kind === 'ask_user' ? (
-              <AskUserPanel
-                key={index}
-                item={group.items[group.items.length - 1]}
-                isActive={isAskUserPaused && isLatestMessage}
-                onSubmit={onAskUserAnswer}
-              />
-            ) : (
-              <ActivityGroup key={index} items={group.items} />
-            ),
+          {groupStreamItems(visibleAssistantStream).map(
+            (group, index, groups) =>
+              group.kind === 'text' ? (
+                <TextGroup key={index} items={group.items} />
+              ) : group.kind === 'ask_user' ? (
+                <AskUserPanel
+                  key={index}
+                  item={group.items[group.items.length - 1]}
+                  isActive={isAskUserPaused && isLatestMessage}
+                  onSubmit={onAskUserAnswer}
+                />
+              ) : (
+                <ActivityGroup
+                  key={index}
+                  items={group.items}
+                  isAfterActivity={groups[index - 1]?.kind === 'activity'}
+                />
+              ),
           )}
         </div>
       ) : isStreaming ? (
@@ -1856,7 +1871,10 @@ export const AgentChatMessages = forwardRef<
           attemptedAdSourceIdsRef.current.delete(
             `${sourceMessageId}:${placementId}`,
           )
-          console.warn('[AgentChatMessages] Failed to persist Gravity ad', error)
+          console.warn(
+            '[AgentChatMessages] Failed to persist Gravity ad',
+            error,
+          )
         })
     })
 
@@ -2101,7 +2119,9 @@ export const AgentChatMessages = forwardRef<
                       key={message._id}
                       message={message}
                       ads={adsBySourceMessageId.get(message._id)}
-                      isLatestMessage={message._id === latestRenderableMessageId}
+                      isLatestMessage={
+                        message._id === latestRenderableMessageId
+                      }
                       onRollback={rollbackCallbacks.get(message._id)}
                       onContinueAfterTimeout={() =>
                         onSendMessage(TIME_LIMIT_CONTINUE_MESSAGE)
