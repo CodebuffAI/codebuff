@@ -12,7 +12,7 @@ export const handleGitHubCallback = action({
   args: {
     installation_id: v.string(),
     setup_action: v.optional(v.string()),
-    state: v.string(),
+    state: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -27,35 +27,47 @@ export const handleGitHubCallback = action({
     message: string;
     returnUrl?: string;
   }> => {
-    // Get the current user
     const user = await getAuthUser(ctx);
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
-
-    // Verify state and get user
-    const stateInfo: {
-      user_id: any;
-      state_id: any;
-      return_url?: string;
-    } | null = await ctx.runQuery(
-      internal.github.auth.verifyOAuthStateInternal,
-      {
-        state: args.state,
-        userId: user._id,
-        isInstallationCallback: true,
-      },
-    );
-
-    if (!stateInfo) {
-      throw new Error("Invalid OAuth state");
-    }
 
     // For GitHub App installation, we get the installation_id directly
     const installationId = parseInt(args.installation_id);
 
     if (isNaN(installationId)) {
       throw new Error("Invalid installation ID");
+    }
+
+    let stateInfo:
+      | {
+          user_id: any;
+          state_id: any;
+          return_url?: string;
+        }
+      | null = null;
+
+    if (args.state) {
+      // Verify state and resolve the owning user.
+      // For installation callbacks, we allow user resolution via state so the
+      // flow remains robust even if auth cookies are unavailable on redirect.
+      stateInfo = await ctx.runQuery(internal.github.auth.verifyOAuthStateInternal, {
+        state: args.state,
+        userId: user?._id,
+        isInstallationCallback: true,
+      });
+
+      if (!stateInfo) {
+        throw new Error("Invalid or expired OAuth state");
+      }
+    } else {
+      // Fallback flow: GitHub can return installation callback links without
+      // our state. In this case we require an authenticated user.
+      if (!user) {
+        throw new Error("Unauthorized");
+      }
+    }
+
+    const targetUserId = stateInfo?.user_id ?? user?._id;
+    if (!targetUserId) {
+      throw new Error("Unable to resolve user for GitHub installation callback");
     }
 
     try {
@@ -99,7 +111,7 @@ export const handleGitHubCallback = action({
       const existingConnection = await ctx.runQuery(
         internal.github.auth.getGitHubConnectionWithTokensInternal,
         {
-          userId: stateInfo.user_id,
+          userId: targetUserId,
         },
       );
 
@@ -123,16 +135,18 @@ export const handleGitHubCallback = action({
       );
 
       // Mark OAuth state as used to prevent replay attacks
-      await ctx.runMutation(internal.github.auth.markOAuthStateAsUsed, {
-        stateId: stateInfo.state_id,
-      });
+      if (stateInfo?.state_id) {
+        await ctx.runMutation(internal.github.auth.markOAuthStateAsUsed, {
+          stateId: stateInfo.state_id,
+        });
+      }
 
       console.log("GitHub App installation completed successfully");
 
       return {
         success: true,
         message: "GitHub App installed successfully",
-        returnUrl: stateInfo.return_url,
+        returnUrl: stateInfo?.return_url,
       };
     } catch (error) {
       console.error("GitHub App installation error:", error);
@@ -143,21 +157,21 @@ export const handleGitHubCallback = action({
           return {
             success: false,
             message: "GitHub authentication failed. Please try again.",
-            returnUrl: stateInfo.return_url,
+            returnUrl: stateInfo?.return_url,
           };
         } else if (error.message.includes("403")) {
           return {
             success: false,
             message:
               "Insufficient permissions. Please check your GitHub App installation.",
-            returnUrl: stateInfo.return_url,
+            returnUrl: stateInfo?.return_url,
           };
         } else if (error.message.includes("404")) {
           return {
             success: false,
             message:
               "GitHub App installation not found. Please reinstall the app.",
-            returnUrl: stateInfo.return_url,
+            returnUrl: stateInfo?.return_url,
           };
         }
       }
@@ -165,7 +179,7 @@ export const handleGitHubCallback = action({
       return {
         success: false,
         message: `GitHub App installation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        returnUrl: stateInfo.return_url,
+        returnUrl: stateInfo?.return_url,
       };
     }
   },

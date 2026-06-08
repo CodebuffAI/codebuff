@@ -377,7 +377,7 @@ export const getGitHubConnectionWithTokensInternal = internalQuery({
 export const verifyOAuthStateInternal = internalQuery({
   args: {
     state: v.string(),
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
     isInstallationCallback: v.optional(v.boolean()),
   },
   returns: v.union(
@@ -409,8 +409,17 @@ export const verifyOAuthStateInternal = internalQuery({
       (Date.now() - stateRecord.created_at) / 60000,
     );
 
+    if (!args.userId && !args.isInstallationCallback) {
+      console.warn(
+        `[OAuth State Validation Failed] reason=missing_user_context, callback_type=${callbackType}, state_prefix=${statePrefix}, state_age_minutes=${stateAgeMinutes}`,
+      );
+      return null;
+    }
+
+    const effectiveUserId = args.userId ?? stateRecord.user_id;
+
     // User mismatch - someone trying to use another user's state
-    if (stateRecord.user_id !== args.userId) {
+    if (args.userId && stateRecord.user_id !== args.userId) {
       console.warn(
         `[OAuth State Validation Failed] reason=user_mismatch, callback_type=${callbackType}, state_prefix=${statePrefix}, expected_user=${stateRecord.user_id}, actual_user=${args.userId}, state_age_minutes=${stateAgeMinutes}, likely_cause=wrong_user_session`,
       );
@@ -434,30 +443,30 @@ export const verifyOAuthStateInternal = internalQuery({
 
         if (tempUsedAt < fiveMinutesAgo) {
           console.warn(
-            `[OAuth State Validation Failed] reason=temp_state_expired, callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${args.userId}, state_age_minutes=${stateAgeMinutes}, likely_cause=installation_took_too_long`,
+            `[OAuth State Validation Failed] reason=temp_state_expired, callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${effectiveUserId}, state_age_minutes=${stateAgeMinutes}, likely_cause=installation_took_too_long`,
           );
           return null;
         }
 
         console.log(
-          `[OAuth State Validation Success] callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${args.userId}, state_age_minutes=${stateAgeMinutes}, note=reusing_temp_state_for_installation`,
+          `[OAuth State Validation Success] callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${effectiveUserId}, state_age_minutes=${stateAgeMinutes}, note=reusing_temp_state_for_installation`,
         );
       } else {
         // Reject reuse for OAuth callback (prevent replay attacks)
         console.warn(
-          `[OAuth State Validation Failed] reason=temp_state_reuse_attempt, callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${args.userId}, state_age_minutes=${stateAgeMinutes}, likely_cause=page_refresh_during_flow`,
+          `[OAuth State Validation Failed] reason=temp_state_reuse_attempt, callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${effectiveUserId}, state_age_minutes=${stateAgeMinutes}, likely_cause=page_refresh_during_flow`,
         );
         return null;
       }
     } else {
       // Normal case - state is valid and unused
       console.log(
-        `[OAuth State Validation Success] callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${args.userId}, state_age_minutes=${stateAgeMinutes}`,
+        `[OAuth State Validation Success] callback_type=${callbackType}, state_prefix=${statePrefix}, user_id=${effectiveUserId}, state_age_minutes=${stateAgeMinutes}`,
       );
     }
 
     return {
-      user_id: args.userId,
+      user_id: effectiveUserId,
       state_id: stateRecord._id,
       return_url: stateRecord.return_url,
     };
