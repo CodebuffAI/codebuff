@@ -446,8 +446,22 @@ function isAskUserPauseError(error: unknown) {
   return isAskUserPauseMessage(getErrorMessage(error))
 }
 
+const PROJECT_PATH_PREFIXES = ['/home/daytona/codebase/', '/home/daytona/codebase']
+
+function stripProjectPrefix(filePath: string) {
+  for (const prefix of PROJECT_PATH_PREFIXES) {
+    if (filePath.startsWith(prefix)) {
+      return filePath.slice(prefix.length)
+    }
+  }
+  return filePath
+}
+
 function normalizePath(value: unknown) {
-  return typeof value === 'string' ? value : ''
+  if (typeof value !== 'string') {
+    return ''
+  }
+  return stripProjectPrefix(value)
 }
 
 function assertProjectPath(filePath: string) {
