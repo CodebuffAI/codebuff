@@ -167,8 +167,12 @@ export async function callMainPrompt(
   const { action, promptId, sendAction, logger } = params
   const { fileContext } = action.sessionState
 
-  // Enforce server-side state authority: reset creditsUsed to 0
-  // The server controls cost tracking, clients cannot manipulate this value
+  // Start this turn's cost accounting fresh. creditsUsed/directCreditsUsed
+  // accumulate the cost of the current prompt (see onCostCalculated in
+  // run-agent-step) and are surfaced as totalCost, so resetting here scopes the
+  // reported cost to this turn rather than the whole session. (Historically
+  // this also enforced server-authoritative credit state; under BYOK there is
+  // no server and this is purely local per-turn cost accounting.)
   action.sessionState.mainAgentState.creditsUsed = 0
   action.sessionState.mainAgentState.directCreditsUsed = 0
 
