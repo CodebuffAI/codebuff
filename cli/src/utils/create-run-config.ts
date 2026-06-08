@@ -96,6 +96,22 @@ export function isSensitiveFile(filePath: string): boolean {
   )
 }
 
+/**
+ * Resolve the per-run agent step cap. Configurable via `maxAgentSteps` in
+ * openbuff.json; falls back to MAX_AGENT_STEPS_DEFAULT when unset or unreadable.
+ */
+function resolveMaxAgentSteps(): number {
+  try {
+    const configured = loadProviderConfigSync().config.maxAgentSteps
+    if (typeof configured === 'number' && configured > 0) {
+      return Math.floor(configured)
+    }
+  } catch {
+    // Best-effort; never let config loading break run creation.
+  }
+  return MAX_AGENT_STEPS_DEFAULT
+}
+
 export const createRunConfig = (params: CreateRunConfigParams) => {
   const {
     logger,
@@ -116,7 +132,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     content,
     previousRun: previousRunState ?? undefined,
     agentDefinitions,
-    maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
+    maxAgentSteps: resolveMaxAgentSteps(),
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
     signal: params.signal,

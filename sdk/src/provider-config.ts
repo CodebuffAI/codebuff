@@ -394,6 +394,13 @@ export const providerConfigFileSchema = z
         }),
       )
       .default([]),
+    /**
+     * Maximum number of agent steps in a single run before the loop stops.
+     * Unset → MAX_AGENT_STEPS_DEFAULT. Raise it for large migrations; the
+     * runtime warns as the run approaches the cap so work can be checkpointed
+     * and resumed instead of stopping silently.
+     */
+    maxAgentSteps: z.number().int().positive().max(100000).optional(),
   })
   .transform((config) => {
     const agents: Record<string, string> = {}
@@ -539,6 +546,11 @@ export const providerConfigFileSchema = z
       agentReasoningEfforts,
       indexing: config.indexing,
       fileChangeHooks: config.fileChangeHooks,
+      // Optional in the resolved config: omitted unless explicitly set, so
+      // callers fall back to MAX_AGENT_STEPS_DEFAULT.
+      ...(config.maxAgentSteps !== undefined && {
+        maxAgentSteps: config.maxAgentSteps,
+      }),
       ...(config.editorMultiPrompt && {
         editorMultiPrompt: {
           ...config.editorMultiPrompt,
@@ -615,6 +627,7 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
     },
   },
   fileChangeHooks: [],
+  maxAgentSteps: undefined,
 })
 
 function normalizeConfigFragmentPaths(value: unknown): string[] {
@@ -842,6 +855,7 @@ function mergeProviderConfigs(
     fileChangeHooks: override.fileChangeHooks?.length
       ? override.fileChangeHooks
       : base.fileChangeHooks,
+    maxAgentSteps: override.maxAgentSteps ?? base.maxAgentSteps,
   }
 }
 

@@ -87,7 +87,10 @@ export function createBase2(
       (isDefault || isMax) && 'general-agent',
       isMax && 'thinker-best-of-n',
       isDefault && 'editor',
-      isMax && 'editor-multi-prompt',
+      // editor-multi-prompt is the primary editor in max mode and the
+      // escalation target in default mode (see the verification-gate failure
+      // path in handleSteps and the reviewer-blocker recovery guidance).
+      (isDefault || isMax) && 'editor-multi-prompt',
       'tmux-cli',
       'browser-use',
       isDefault && 'code-reviewer',
@@ -148,7 +151,7 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 1. **Failed edit circuit breaker:** If \`str_replace\` or \`write_file\` reports an error, do not retry an edit to that file from memory. First re-read the exact current file region with \`read_files\` (use \`ranges\` for large files), then make one minimal edit based on the fresh text.
 2. **Stale-context guard:** Before editing a file after any intervening edit, failed edit, test failure, or reviewer comment involving that file, re-read the exact relevant lines. Do not rely on earlier snippets or mental snapshots.
 3. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
-4. **Reviewer blockers are blocking:** If a reviewer asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), do that next or explicitly explain why it is not applicable. Do not continue implementing or finalize while a reviewer blocker is unresolved.
+4. **Reviewer blockers are blocking:** If a reviewer asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), do that next or explicitly explain why it is not applicable. Do not continue implementing or finalize while a reviewer blocker is unresolved. If a reviewer returns a blocking failure on a change you made with a single-shot editor (or your own str_replace/write_file edits), prefer escalating the fix to the editor-multi-prompt agent, which drafts multiple implementations and selects the best, instead of repeating the same approach.
 5. **Loop detection:** If the same edit or validation fails twice, stop the current approach. Summarize the current diff, the exact repeated failure, and the next deterministic action before proceeding.
 6. **Parallelism discipline:** Parallelize context gathering, tests, and review only when they do not depend on each other. During a fragile debug/fix loop, run read → one edit → validation sequentially to avoid state drift.
 7. **Validation/review join discipline:** A reviewer spawned in parallel with tests/typechecks can only provide static code review; it cannot know validation results that are still running. Do not treat parallel reviewer approval as final approval until validation has completed. If validation fails or times out, fix or rerun validation before finalizing, regardless of reviewer output. For fragile harness/editor changes, prefer running validation first, then run reviewer with the validation summary.
@@ -362,6 +365,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                   ...failures,
                   '',
                   'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
+                  'If these failures followed a single-shot edit, escalate the fix to the editor-multi-prompt agent (it drafts several implementations and selects the best) rather than repeating the same edit yourself.',
                 ].join('\n'),
               },
               includeToolCall: false,

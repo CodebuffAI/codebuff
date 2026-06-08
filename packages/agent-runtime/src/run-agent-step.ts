@@ -243,7 +243,7 @@ export const runAgentStep = async (
         ...expireMessages(agentState.messageHistory, 'userPrompt'),
         userMessage(
           withSystemTags(
-            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps.`,
+            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps in openbuff.json. If the task is incomplete, any todos recorded with write_todos and the persisted run state let the user resume it on the next turn.`,
           ),
         ),
       ],
@@ -253,6 +253,23 @@ export const runAgentStep = async (
       fullResponse: STEP_WARNING_MESSAGE,
       shouldEndTurn: true,
       messageId: null,
+    }
+  }
+
+  // Near-cap checkpoint nudge. stepsRemaining decrements by exactly 1 per step,
+  // so the equality check fires at most once — a few steps before the cap — for
+  // long-running tasks. It injects a one-time system note so the agent records
+  // remaining work with write_todos and reaches a clean, consistent stopping
+  // point (resumable next turn via persisted run state) instead of being cut
+  // off mid-edit when stepsRemaining hits 0.
+  if (agentState.stepsRemaining === NEAR_STEP_CAP_WARNING_THRESHOLD) {
+    onResponseChunk(`${NEAR_STEP_CAP_WARNING_MESSAGE}\n\n`)
+    agentState = {
+      ...agentState,
+      messageHistory: [
+        ...agentState.messageHistory,
+        userMessage(withSystemTags(NEAR_STEP_CAP_WARNING_MESSAGE)),
+      ],
     }
   }
 
@@ -1238,4 +1255,17 @@ const STEP_WARNING_MESSAGE = [
   "I've made quite a few responses in a row.",
   "Let me pause here to make sure we're still on the right track.",
   "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+].join(' ')
+
+/**
+ * How many steps before the cap the one-time near-cap checkpoint nudge fires.
+ * Compared with `===` against the per-step-decrementing stepsRemaining, so it
+ * triggers at most once and only for runs whose budget exceeds this threshold.
+ */
+const NEAR_STEP_CAP_WARNING_THRESHOLD = 15
+
+const NEAR_STEP_CAP_WARNING_MESSAGE = [
+  'Heads up: this turn is approaching its maximum number of agent steps.',
+  'If the task is not nearly complete, record the remaining work now with the write_todos tool and bring the current change to a clean, consistent stopping point — no half-applied edits.',
+  'Your todos and run state are persisted, so the user can resume on the next turn. The cap is configurable via maxAgentSteps in openbuff.json.',
 ].join(' ')
