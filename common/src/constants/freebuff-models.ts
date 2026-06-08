@@ -155,6 +155,7 @@ const MINIMAX_M3_MODEL = {
   displayName: 'MiniMax M3',
   tagline: 'Smartest & multimodal',
   availability: 'always',
+  warning: 'Collects data for training',
   premium: true,
   multimodal: true,
 } as const satisfies FreebuffModelOption
@@ -171,9 +172,9 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
+  MINIMAX_M3_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   KIMI_MODEL,
-  MINIMAX_M3_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   MINIMAX_MODEL,
