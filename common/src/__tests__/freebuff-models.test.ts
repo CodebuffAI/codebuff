@@ -29,8 +29,8 @@ import { minimaxModels } from '../constants/model-config'
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
-  test('defaults and falls back to DeepSeek V4 Flash for new clients', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  test('defaults to DeepSeek V4 Pro, falls back to DeepSeek V4 Flash for new clients', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
@@ -110,18 +110,22 @@ describe('freebuff model availability', () => {
     }
   })
 
-  test('MiniMax M3 is not supported for freebuff sessions', () => {
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+  test('MiniMax M3 is a selectable premium model in full mode', () => {
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       MINIMAX_M3_MODEL_ID,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
       MINIMAX_M3_MODEL_ID,
     )
-    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
-    expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(
+      getFreebuffModelsForAccessTier('full').map((m) => m.id),
+    ).toContain(MINIMAX_M3_MODEL_ID)
+    expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
-    ).toBe(false)
+    ).toBe(true)
   })
 
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {

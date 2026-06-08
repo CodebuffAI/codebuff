@@ -40,6 +40,9 @@ describe('free mode agent model allowlist', () => {
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(
       'base2-free-mimo',
     )
+    expect(getFreebuffRootAgentIdForModel(MINIMAX_M3_MODEL_ID)).toBe(
+      'base2-free-minimax-m3',
+    )
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
@@ -97,6 +100,15 @@ describe('free mode agent model allowlist', () => {
         `${FREEBUFF_MIMO_V25_MODEL_ID}-20260527`,
       ),
     ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel('base2-free-minimax-m3', MINIMAX_M3_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'base2-free-minimax-m3',
+        FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(false)
   })
 
   test('allows each freebuff reviewer agent only with its configured model', () => {
