@@ -38,9 +38,8 @@ export const FreebuffActiveSessionSummary: React.FC<
       : 'premium sessions'
   // recentCount already includes the active session's 1.0-unit reservation
   // (written as an admit row at promotion), so it reflects everything counted
-  // against the quota — spent plus in-flight. Show what's left to start.
-  const remaining = Math.max(0, quota.limit - quota.recentCount)
-
+  // against the quota — spent plus in-flight. Show it as the total used to match
+  // the model selection menu and the other session-status screens.
   return (
     <box
       style={{
@@ -52,11 +51,11 @@ export const FreebuffActiveSessionSummary: React.FC<
     >
       <text style={{ wrapMode: 'word', fg: theme.muted }}>
         <span fg={theme.foreground}>
-          {formatSessionUnits(remaining)} of {quota.limit}
+          {formatSessionUnits(quota.recentCount)} of {quota.limit}
         </span>
         <span fg={theme.muted}>
           {' '}
-          {label} left · resets in {resetCountdown}
+          {label} used · resets in {resetCountdown}
         </span>
       </text>
     </box>
