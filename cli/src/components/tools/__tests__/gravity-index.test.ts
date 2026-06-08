@@ -10,7 +10,7 @@ describe('getGravityIndexParts', () => {
         query: 'transactional email for a Next.js app',
       }),
     ).toEqual({
-      name: 'Services · Search',
+      name: 'Search services',
       description: 'transactional email for a Next.js app',
     })
   })
@@ -23,7 +23,7 @@ describe('getGravityIndexParts', () => {
         q: 'send',
       }),
     ).toEqual({
-      name: 'Services · Browse',
+      name: 'Browse services',
       description: 'Email · send',
     })
   })
@@ -35,7 +35,7 @@ describe('getGravityIndexParts', () => {
         slug: 'sendgrid',
       }),
     ).toEqual({
-      name: 'Services · Fetch',
+      name: 'Fetch service',
       description: 'sendgrid',
     })
   })
@@ -47,18 +47,18 @@ describe('getGravityIndexParts', () => {
         integrated_slug: 'sendgrid',
       }),
     ).toEqual({
-      name: 'Services · Report',
+      name: 'Report integration',
       description: 'sendgrid integration',
     })
   })
 
   test('names the action even when the target is missing', () => {
     expect(getGravityIndexParts({ action: 'search' })).toEqual({
-      name: 'Services · Search',
+      name: 'Search services',
       description: '',
     })
     expect(getGravityIndexParts({ action: 'list_categories' })).toEqual({
-      name: 'Services · Categories',
+      name: 'List service categories',
       description: '',
     })
   })
