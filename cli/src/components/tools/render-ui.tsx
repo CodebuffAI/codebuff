@@ -31,21 +31,21 @@ const isRenderUIButtonWidget = (
   )
 }
 
+/**
+ * The button is an accent-colored outline with a matching label. It stays
+ * unfilled in every state — a fill would bleed past the rounded corners — so
+ * hover is signalled by underlining the label rather than inverting the fill.
+ */
 const getButtonColors = (
   theme: ReturnType<typeof useTheme>,
   variant: RenderUIButtonVariant,
-  isHovered: boolean,
 ) => {
-  if (variant === 'secondary') {
-    return {
-      backgroundColor: isHovered ? theme.surfaceHover : theme.surface,
-      foregroundColor: theme.foreground,
-    }
-  }
-
+  const accent = variant === 'secondary' ? theme.secondary : theme.primary
   return {
-    backgroundColor: theme.primary,
-    foregroundColor: theme.name === 'dark' ? '#111827' : '#ffffff',
+    // Unfilled: the interior shows the terminal background in every state.
+    backgroundColor: undefined,
+    foregroundColor: accent,
+    borderColor: accent,
   }
 }
 
@@ -57,10 +57,9 @@ const RenderUIButton = ({ widget }: { widget: RenderUIButtonWidget }) => {
   const [isClicked, setIsClicked] = useState(false)
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const variant = widget.variant ?? 'primary'
-  const { backgroundColor, foregroundColor } = getButtonColors(
+  const { backgroundColor, foregroundColor, borderColor } = getButtonColors(
     theme,
     variant,
-    isHovered,
   )
 
   useEffect(() => {
@@ -83,11 +82,13 @@ const RenderUIButton = ({ widget }: { widget: RenderUIButtonWidget }) => {
     )
   }, [widget.link])
 
+  // Bold reads as a button label; underline on hover signals it's clickable;
+  // dim briefly on click to acknowledge the press.
   const textAttributes = isClicked
     ? TextAttributes.DIM
     : isHovered
-      ? TextAttributes.BOLD
-      : undefined
+      ? TextAttributes.BOLD | TextAttributes.UNDERLINE
+      : TextAttributes.BOLD
 
   return (
     <box
@@ -102,6 +103,8 @@ const RenderUIButton = ({ widget }: { widget: RenderUIButtonWidget }) => {
         onMouseOut={() => setIsHovered(false)}
         style={{
           backgroundColor,
+          borderStyle: 'rounded',
+          borderColor,
           paddingLeft: 1,
           paddingRight: 1,
         }}
@@ -110,6 +113,8 @@ const RenderUIButton = ({ widget }: { widget: RenderUIButtonWidget }) => {
           <span fg={foregroundColor} attributes={textAttributes}>
             {widget.text}
           </span>
+          {/* Trailing arrow signals the button opens an external link. */}
+          <span fg={foregroundColor} attributes={textAttributes}>{' ↗'}</span>
         </text>
       </Button>
     </box>
