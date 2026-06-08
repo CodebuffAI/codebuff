@@ -56,19 +56,33 @@ export const saveMessageAndStartWorkflow = mutation({
 
       const { user, project } = gates;
 
-      // Check if project is terminated (e.g., due to GitHub sync conflicts)
+      // Check if project is terminated due to an unresolved GitHub sync conflict.
+      // If the terminated flag is stale, clear it and continue.
       if (project.terminated) {
-        console.log("[CLIAgent] Project is terminated, blocking new message", {
-          projectId: project._id,
-        });
-        return {
-          success: false as const,
-          error: {
-            kind: "PROJECT_TERMINATED",
-            message:
-              "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
+        const hasUnresolvedConflicts = await ctx.runQuery(
+          internal.github.sync.status.hasUnresolvedConflicts,
+          {
+            projectId: project._id,
           },
-        };
+        );
+
+        if (hasUnresolvedConflicts) {
+          console.log("[CLIAgent] Project is terminated, blocking new message", {
+            projectId: project._id,
+          });
+          return {
+            success: false as const,
+            error: {
+              kind: "PROJECT_TERMINATED",
+              message:
+                "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
+            },
+          };
+        }
+
+        await ctx.db.patch(project._id, {
+          terminated: false,
+        });
       }
 
       // Get or create agent thread

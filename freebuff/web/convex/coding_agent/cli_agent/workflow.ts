@@ -127,18 +127,31 @@ export const cliAgentWorkflow = workflow.define({
         },
       );
 
-      // Check if project is terminated (e.g., due to GitHub sync conflicts)
-      // This check ensures we respect termination even if it happens during workflow execution
+      // Check if project is terminated due to unresolved GitHub sync conflicts.
+      // If termination is stale, clear and continue the workflow.
       if (project.terminated) {
-        console.log(
-          "[CLIAgentWorkflow] Project is terminated, aborting workflow",
-          { projectId: args.projectId },
+        const hasUnresolvedConflicts = await ctx.runQuery(
+          internal.github.sync.status.hasUnresolvedConflicts,
+          {
+            projectId: args.projectId,
+          },
         );
-        return {
-          success: false,
-          error:
-            "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
-        };
+
+        if (hasUnresolvedConflicts) {
+          console.log(
+            "[CLIAgentWorkflow] Project is terminated, aborting workflow",
+            { projectId: args.projectId },
+          );
+          return {
+            success: false,
+            error:
+              "Project is terminated due to GitHub sync conflicts. Please resolve conflicts before continuing.",
+          };
+        }
+
+        await ctx.runMutation(internal.project.setStateDone, {
+          projectId: args.projectId,
+        });
       }
 
       // Execute the agent command in the Daytona environment

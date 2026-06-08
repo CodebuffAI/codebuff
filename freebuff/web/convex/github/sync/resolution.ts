@@ -147,6 +147,10 @@ export const resolveDivergenceInternal = internalAction({
       });
 
       if (result.success) {
+        await ctx.runMutation(internal.project.setStateDone, {
+          projectId: args.projectId,
+        });
+
         return {
           success: true,
           message: result.message,

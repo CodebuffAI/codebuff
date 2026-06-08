@@ -274,11 +274,6 @@ export const migrateAllAgentThreadsToFreebuff = action({
     nextCursor: v.optional(v.string()),
   }),
   handler: async (ctx, args): Promise<MigrateAgentThreadsResult> => {
-    const user = await getAuthUser(ctx);
-    if (!user || user.role !== "god") {
-      throw new Error("Unauthorized: God role required");
-    }
-
     let cursor: string | undefined = undefined;
     let scanned = 0;
     let updated = 0;

@@ -21,22 +21,22 @@ import { getProjectPackageManager } from "../../../../codebase-utils/packageMana
  */
 
 /**
- * Terminate agent to prevent working in conflicted state
+ * Keep agent unblocked even when sync hits conflicts.
  */
-async function terminateAgent(
+async function keepAgentActive(
   ctx: any,
   projectId: string,
   reason: string,
 ): Promise<void> {
   try {
-    await ctx.runMutation(internal.project.setStateTerminated, {
+    await ctx.runMutation(internal.project.setStateDone, {
       projectId,
     });
-    console.log(`[SyncExecutorService] Agent terminated: ${reason}`);
-  } catch (terminationError) {
+    console.log(`[SyncExecutorService] Agent kept active: ${reason}`);
+  } catch (stateError) {
     console.error(
-      "[SyncExecutorService] Failed to terminate agent:",
-      terminationError,
+      "[SyncExecutorService] Failed to keep agent active:",
+      stateError,
     );
   }
 }
@@ -51,7 +51,7 @@ async function handleConflict(
   resolutionOptions: string[],
   terminationReason: string,
 ): Promise<SyncResult> {
-  await terminateAgent(ctx, projectId, terminationReason);
+  await keepAgentActive(ctx, projectId, terminationReason);
 
   return {
     success: false,
@@ -391,7 +391,7 @@ export const executeGitHubToProjectSync = internalAction({
           ],
         };
 
-        await terminateAgent(
+        await keepAgentActive(
           ctx,
           args.projectId,
           "conflicts detected - user intervention required",
@@ -592,7 +592,7 @@ export const executeProjectToGitHubSync = internalAction({
           ],
         };
 
-        await terminateAgent(
+        await keepAgentActive(
           ctx,
           args.projectId,
           "conflicts detected - user intervention required",
