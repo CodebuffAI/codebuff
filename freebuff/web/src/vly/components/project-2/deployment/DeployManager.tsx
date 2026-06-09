@@ -284,9 +284,35 @@ const DeploymentManager = ({
     }
   });
 
+  const handleRedeploy = useCallback(async () => {
+    if (!prodSlug || isRedeploying) {
+      return;
+    }
+
+    setIsRedeploying(true);
+    try {
+      await redeploy({
+        projectId: projectId as Id<"project">,
+        slug: prodSlug,
+      });
+
+      // Notify parent that deploy was triggered (for community publishing)
+      if (onDeployTriggered) {
+        onDeployTriggered();
+      }
+    } finally {
+      setIsRedeploying(false);
+    }
+  }, [isRedeploying, onDeployTriggered, prodSlug, projectId, redeploy]);
+
+  const isAnotherDeploymentRunning = deployments.some(
+    (deployment) =>
+      deployment.state === "deploying" || deployment.state === "cancelling",
+  );
+
   return (
-    <div className="flex min-h-0 flex-col justify-between">
-      <div className="flex flex-col gap-3 overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
         <span className="text-sm font-semibold">Latest deployment</span>
         {deployments.map((deployment) => (
           <div
@@ -430,66 +456,47 @@ const DeploymentManager = ({
             </div>
           </div>
         ))}
+
+        {/* Build error indicator */}
+        {unresolvedBuildErrors && unresolvedBuildErrors.length > 0 && (
+          <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <span className="text-sm font-semibold text-amber-200">
+                Build errors detected
+              </span>
+            </div>
+            <p className="mb-2 text-xs text-amber-100/80">
+              {unresolvedBuildErrors.length} unresolved build error
+              {unresolvedBuildErrors.length > 1 ? "s" : ""} found. These can
+              be automatically fixed by the AI agent.
+            </p>
+            <p className="text-xs font-medium text-amber-100/80">
+              Check the chat panel for error details and click "Fix" to resolve
+              them.
+            </p>
+          </div>
+        )}
+
+        {/* Compact listing link - shows after successful deployment AND published to community */}
+        {hasActiveDeployment && communityPost && (
+          <button
+            onClick={() =>
+              window.open(`/web/community/project/${communityPost._id}`, "_blank")
+            }
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            View Community Listing
+            <ExternalLink className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
-      {/* Build error indicator */}
-      {unresolvedBuildErrors && unresolvedBuildErrors.length > 0 && (
-        <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-          <div className="mb-2 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-semibold text-amber-200">
-              Build errors detected
-            </span>
-          </div>
-          <p className="mb-2 text-xs text-amber-100/80">
-            {unresolvedBuildErrors.length} unresolved build error
-            {unresolvedBuildErrors.length > 1 ? "s" : ""} found. These can be
-            automatically fixed by the AI agent.
-          </p>
-          <p className="text-xs font-medium text-amber-100/80">
-            Check the chat panel for error details and click "Fix" to resolve
-            them.
-          </p>
-        </div>
-      )}
-
-      {/* Compact listing link - shows after successful deployment AND published to community */}
-      {hasActiveDeployment && communityPost && (
-        <button
-          onClick={() =>
-            window.open(`/web/community/project/${communityPost._id}`, "_blank")
-          }
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-        >
-          <Globe className="h-3.5 w-3.5" />
-          View Community Listing
-          <ExternalLink className="h-3 w-3" />
-        </button>
-      )}
-
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end border-t border-border/60 pt-3">
         <Button
-          disabled={
-            isRedeploying || deployments.some((d) => d.state === "deploying")
-          }
-          onClick={async () => {
-            if (prodSlug && !isRedeploying) {
-              setIsRedeploying(true);
-              try {
-                await redeploy({
-                  projectId: projectId as Id<"project">,
-                  slug: prodSlug,
-                });
-
-                // Notify parent that deploy was triggered (for community publishing)
-                if (onDeployTriggered) {
-                  onDeployTriggered();
-                }
-              } finally {
-                setIsRedeploying(false);
-              }
-            }
-          }}
+          disabled={!prodSlug || isRedeploying || isAnotherDeploymentRunning}
+          onClick={handleRedeploy}
           variant="default"
         >
           {isRedeploying ? (

@@ -207,7 +207,7 @@ function DeploymentPanel({
         <TabsContent
           value="deployments"
           className={cn(
-            "min-h-0 overflow-y-auto pt-4",
+            "flex min-h-0 flex-col overflow-hidden pt-4",
             isSettings ? "flex-1" : "max-h-[55vh]",
           )}
         >
