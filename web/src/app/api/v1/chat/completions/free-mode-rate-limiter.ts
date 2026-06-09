@@ -29,12 +29,42 @@ export const FREE_MODE_RATE_LIMITS = {
   PER_DAY: 4_000,
 } as const
 
+/**
+ * Extra per-user caps that apply ONLY to free-mode requests on premium models
+ * (DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6, MiniMax M3).
+ *
+ * Why this exists: the intended premium allowance is
+ * FREEBUFF_PREMIUM_SESSION_LIMIT (5) sessions/Pacific-day, but that cap is only
+ * enforced when an `agent_run` is created (triggerGates → rateLimiter). Callers
+ * who script the OpenAI-compatible `/v1/chat/completions` endpoint directly
+ * never create an agent_run, so they bypass it entirely and hammer premium
+ * models for free (observed: thousands of premium calls/day across sock
+ * accounts). This cap is checked on EVERY free-mode premium request at the
+ * endpoint, independent of the agent-run path, so it cannot be bypassed.
+ *
+ * Sizing: the intended allowance is 5 premium sessions/Pacific-day, and a user
+ * can legitimately spend all 5 in a short burst, so we only cap the daily
+ * total (no separate sub-day premium window). Short bursts are still bounded by
+ * the general windows above (≤250/30min, ≤2000/5h). PER_DAY is sized so ~5
+ * premium coding sessions — root + reviewer/file-picker subagents on premium
+ * models, up to a few hundred steps each — stay well under it. Tune to trade
+ * off legit power-user headroom vs. how hard abuse is throttled.
+ */
+export const FREE_MODE_PREMIUM_RATE_LIMITS = {
+  /** Max premium-model requests per 1-day window */
+  PER_DAY: 1_200,
+} as const
+
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
 
 interface RateWindow {
   name: string
+  /** Stable, unique key used for both the in-memory map slot and the Redis key
+   *  suffix. Premium windows use a `premium:`-prefixed key so they never
+   *  collide with the general windows that share the same windowMs. */
+  key: string
   windowMs: number
   maxRequests: number
 }
@@ -65,6 +95,10 @@ export type RateLimitResult =
 export interface ConfiguredRateLimitOptions {
   redisUrl?: string | null
   redisClient?: RedisRateLimitClient
+  /** When true, also enforce the premium-model windows
+   *  (FREE_MODE_PREMIUM_RATE_LIMITS). Set for free-mode requests on premium
+   *  models. */
+  premium?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -79,36 +113,61 @@ const DAY_MS = 24 * HOUR_MS
 const RATE_WINDOWS: RateWindow[] = [
   {
     name: '1 second',
+    key: String(1 * SECOND_MS),
     windowMs: 1 * SECOND_MS,
     maxRequests: FREE_MODE_RATE_LIMITS.PER_SECOND,
   },
   {
     name: '1 minute',
+    key: String(1 * MINUTE_MS),
     windowMs: 1 * MINUTE_MS,
     maxRequests: FREE_MODE_RATE_LIMITS.PER_MINUTE,
   },
   {
     name: '30 minutes',
+    key: String(30 * MINUTE_MS),
     windowMs: 30 * MINUTE_MS,
     maxRequests: FREE_MODE_RATE_LIMITS.PER_30_MINUTES,
   },
   {
     name: '5 hours',
+    key: String(5 * HOUR_MS),
     windowMs: 5 * HOUR_MS,
     maxRequests: FREE_MODE_RATE_LIMITS.PER_5_HOURS,
   },
   {
     name: '1 day',
+    key: String(1 * DAY_MS),
     windowMs: 1 * DAY_MS,
     maxRequests: FREE_MODE_RATE_LIMITS.PER_DAY,
   },
 ]
 
+/** Premium-only windows, appended to the general windows for premium-model
+ *  requests. Distinct `key`/`name` so they get their own counters. */
+const PREMIUM_RATE_WINDOWS: RateWindow[] = [
+  {
+    name: 'premium 1 day',
+    key: `premium:${1 * DAY_MS}`,
+    windowMs: 1 * DAY_MS,
+    maxRequests: FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY,
+  },
+]
+
+/** Every window that can appear in a tracker, used for cleanup lookups. */
+const ALL_WINDOWS: RateWindow[] = [...RATE_WINDOWS, ...PREMIUM_RATE_WINDOWS]
+
+/** Windows to enforce for a request. Premium requests get the general windows
+ *  PLUS the premium windows; non-premium requests get only the general ones. */
+function windowsForRequest(premium: boolean): RateWindow[] {
+  return premium ? ALL_WINDOWS : RATE_WINDOWS
+}
+
 // ---------------------------------------------------------------------------
 // In-memory state
 // ---------------------------------------------------------------------------
 
-// userId -> (windowName -> tracker)
+// userId -> (window.key -> tracker)
 const userWindows = new Map<string, Map<string, WindowTracker>>()
 
 let lastCleanupTime = 0
@@ -163,14 +222,14 @@ let redisClientUrl: string | null = null
 function cleanupExpiredEntries(): void {
   const now = Date.now()
   for (const [userId, windows] of userWindows) {
-    for (const [windowName, tracker] of windows) {
-      const matchingWindow = RATE_WINDOWS.find((w) => w.name === windowName)
+    for (const [windowKey, tracker] of windows) {
+      const matchingWindow = ALL_WINDOWS.find((w) => w.key === windowKey)
       if (!matchingWindow) {
-        windows.delete(windowName)
+        windows.delete(windowKey)
         continue
       }
       if (now - tracker.windowStart >= matchingWindow.windowMs) {
-        windows.delete(windowName)
+        windows.delete(windowKey)
       }
     }
     if (windows.size === 0) {
@@ -224,7 +283,7 @@ function resetRedisClientForUrl(redisUrl: string): void {
 }
 
 function getRedisKey(userId: string, rateWindow: RateWindow): string {
-  return `${REDIS_KEY_PREFIX}:${encodeURIComponent(userId)}:${rateWindow.windowMs}`
+  return `${REDIS_KEY_PREFIX}:${encodeURIComponent(userId)}:${rateWindow.key}`
 }
 
 function parseRedisRateLimitResult(result: unknown): RateLimitResult {
@@ -242,9 +301,10 @@ function parseRedisRateLimitResult(result: unknown): RateLimitResult {
 export async function checkRedisFreeModeRateLimit(
   userId: string,
   redis: RedisRateLimitClient,
+  windows: RateWindow[] = RATE_WINDOWS,
 ): Promise<RateLimitResult> {
-  const keys = RATE_WINDOWS.map((rateWindow) => getRedisKey(userId, rateWindow))
-  const args = RATE_WINDOWS.flatMap((rateWindow) => [
+  const keys = windows.map((rateWindow) => getRedisKey(userId, rateWindow))
+  const args = windows.flatMap((rateWindow) => [
     rateWindow.name,
     rateWindow.windowMs,
     rateWindow.maxRequests,
@@ -254,7 +314,7 @@ export async function checkRedisFreeModeRateLimit(
     REDIS_RATE_LIMIT_SCRIPT,
     keys.length,
     ...keys,
-    String(RATE_WINDOWS.length),
+    String(windows.length),
     ...args,
   )
 
@@ -265,6 +325,7 @@ export async function checkConfiguredFreeModeRateLimit(
   userId: string,
   options: ConfiguredRateLimitOptions = {},
 ): Promise<RateLimitResult> {
+  const premium = options.premium ?? false
   try {
     const redis = options.redisClient
       ? options.redisClient
@@ -273,15 +334,19 @@ export async function checkConfiguredFreeModeRateLimit(
         : null
 
     if (!redis) {
-      return checkFreeModeRateLimit(userId)
+      return checkFreeModeRateLimit(userId, { premium })
     }
 
-    return await checkRedisFreeModeRateLimit(userId, redis)
+    return await checkRedisFreeModeRateLimit(
+      userId,
+      redis,
+      windowsForRequest(premium),
+    )
   } catch {
     if (options.redisUrl && !options.redisClient) {
       resetRedisClientForUrl(options.redisUrl)
     }
-    return checkFreeModeRateLimit(userId)
+    return checkFreeModeRateLimit(userId, { premium })
   }
 }
 
@@ -295,8 +360,12 @@ export async function checkConfiguredFreeModeRateLimit(
  * If the request is allowed, each window's counter is incremented.
  * If any window is exceeded, the request is rejected and no counters change.
  */
-export function checkFreeModeRateLimit(userId: string): RateLimitResult {
+export function checkFreeModeRateLimit(
+  userId: string,
+  options: { premium?: boolean } = {},
+): RateLimitResult {
   const now = Date.now()
+  const activeWindows = windowsForRequest(options.premium ?? false)
 
   // Periodic cleanup to prevent memory leaks
   if (now - lastCleanupTime > CLEANUP_INTERVAL_MS) {
@@ -311,12 +380,12 @@ export function checkFreeModeRateLimit(userId: string): RateLimitResult {
   }
 
   // First pass: check all windows without mutating
-  for (const rateWindow of RATE_WINDOWS) {
-    let tracker = windows.get(rateWindow.name)
+  for (const rateWindow of activeWindows) {
+    let tracker = windows.get(rateWindow.key)
 
     // Reset the window if it has expired
     if (tracker && now - tracker.windowStart >= rateWindow.windowMs) {
-      windows.delete(rateWindow.name)
+      windows.delete(rateWindow.key)
       tracker = undefined
     }
 
@@ -333,11 +402,11 @@ export function checkFreeModeRateLimit(userId: string): RateLimitResult {
   }
 
   // Second pass: increment all window counters (request is allowed)
-  for (const rateWindow of RATE_WINDOWS) {
-    let tracker = windows.get(rateWindow.name)
+  for (const rateWindow of activeWindows) {
+    let tracker = windows.get(rateWindow.key)
     if (!tracker) {
       tracker = { count: 0, windowStart: now }
-      windows.set(rateWindow.name, tracker)
+      windows.set(rateWindow.key, tracker)
     }
     tracker.count++
   }
