@@ -37,6 +37,11 @@ export const saveMessageAndStartWorkflow = mutation({
     }),
   ),
   handler: async (ctx, args) => {
+    // Track partial writes so the catch block can roll them back. Without
+    // this, a failure after "mark processing" leaves the thread permanently
+    // stuck in a Processing state that blocks all future sends.
+    let threadIdForCleanup: Id<"agent_thread"> | undefined;
+    let messageIdForCleanup: Id<"agent_message"> | undefined;
     try {
       const normalizedAgentType = "Freebuff" as const;
 
@@ -162,6 +167,7 @@ export const saveMessageAndStartWorkflow = mutation({
           images: args.images,
         },
       );
+      messageIdForCleanup = messageId;
 
       // Mark thread as processing
       await ctx.runMutation(
@@ -172,6 +178,7 @@ export const saveMessageAndStartWorkflow = mutation({
           isProcessing: true,
         },
       );
+      threadIdForCleanup = threadId;
 
       // Update message state to Processing (also sets isStreaming=true)
       // Note: Message is already created with isStreaming=true, but this ensures consistency
@@ -261,6 +268,35 @@ export const saveMessageAndStartWorkflow = mutation({
       );
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
+
+      // Roll back partial writes so the thread isn't stuck "Processing" and
+      // the message doesn't show a phantom streaming state forever.
+      try {
+        if (messageIdForCleanup) {
+          await ctx.runMutation(
+            internal.coding_agent.cli_agent.agent_message
+              .updateAgentMessageState,
+            {
+              messageId: messageIdForCleanup,
+              state: "Error",
+              stateMessage: errorMessage,
+            },
+          );
+        }
+        if (threadIdForCleanup) {
+          await ctx.runMutation(
+            internal.coding_agent.cli_agent.agent_thread
+              .updateAgentThreadProcessing,
+            { threadId: threadIdForCleanup, isProcessing: false },
+          );
+        }
+      } catch (cleanupError) {
+        console.error(
+          "[CLIAgent] Failed to roll back processing state after error:",
+          cleanupError,
+        );
+      }
+
       return {
         success: false as const,
         error: {

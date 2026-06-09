@@ -665,6 +665,32 @@ const isSuggestFollowupsItem = (item: AssistantStreamItemType) => {
     )
 }
 
+type SuggestedFollowup = { prompt: string; label?: string }
+
+// Suggest-followups stream items written by the Freebuff bridge carry a JSON
+// payload of `{ followups: [{ prompt, label? }] }`. Older items only contain
+// placeholder text ("Running tool") — parsing those fails and renders nothing.
+const parseSuggestedFollowups = (content: string): SuggestedFollowup[] => {
+  try {
+    const parsed = JSON.parse(content)
+    const list = Array.isArray(parsed?.followups) ? parsed.followups : []
+    return list
+      .filter(
+        (f: unknown): f is { prompt: string; label?: unknown } =>
+          typeof (f as { prompt?: unknown })?.prompt === 'string' &&
+          !!(f as { prompt: string }).prompt.trim(),
+      )
+      .map((f: { prompt: string; label?: unknown }) => ({
+        prompt: f.prompt,
+        label:
+          typeof f.label === 'string' && f.label.trim() ? f.label : undefined,
+      }))
+      .slice(0, 4)
+  } catch {
+    return []
+  }
+}
+
 const isAskUserStatusItem = (item: AssistantStreamItemType) =>
   item.type === 'status' &&
   (item.title?.trim().toLowerCase() === 'ask user' ||
@@ -1291,11 +1317,14 @@ const AgentMessageCard: React.FC<{
   ads?: AdsByPlacement
   onRollback?: () => Promise<void>
   onContinueAfterTimeout?: () => void | Promise<unknown>
+  /** Resends this message's prompt. Only provided for the latest failed run. */
+  onRetry?: () => void
 }> = ({
   message,
   ads,
   onRollback,
   onContinueAfterTimeout,
+  onRetry,
 }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
@@ -1478,6 +1507,35 @@ const AgentMessageCard: React.FC<{
       {/* Show compact paywall bump when insufficient credits */}
       {isPaywallMessage && <CompactPaywallBump />}
 
+      {/* Inline error card for failed runs (credits case handled above) */}
+      {message.state === 'Error' && !isPaywallMessage && (
+        <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-3">
+          <div className="flex items-start gap-2.5">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-foreground">
+                This run failed
+              </div>
+              {message.state_message && (
+                <div className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground">
+                  {message.state_message}
+                </div>
+              )}
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <Undo className="h-3 w-3" />
+                  Retry
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {!isStreaming && ads?.['agent-chat-after-assistant'] && (
         <AgentAdMessage
           ad={ads['agent-chat-after-assistant']}
@@ -1578,6 +1636,23 @@ export const AgentChatMessages = forwardRef<
   useEffect(() => {
     onActiveAskUserQuestionsChange?.(activeAskUserQuestions)
   }, [activeAskUserQuestions, onActiveAskUserQuestionsChange])
+
+  // Clickable follow-up suggestions from the latest completed run. Only shown
+  // while the latest message is Completed — sending anything (including a
+  // chip) starts a new run, which hides them again.
+  const latestFollowups = useMemo(() => {
+    for (let i = sortedMessages.length - 1; i >= 0; i--) {
+      const message = sortedMessages[i]
+      if (message.ad_payload) continue
+      if (String(message.state) !== 'Completed') return []
+      const item = (
+        (message.assistant_stream ?? []) as AssistantStreamItemType[]
+      ).findLast(isSuggestFollowupsItem)
+      if (!item) return []
+      return parseSuggestedFollowups(item.content)
+    }
+    return []
+  }, [sortedMessages])
 
   const persistAgentAdMessage = useMutation(
     api.coding_agent.cli_agent.agent_message.persistAgentAdMessage,
@@ -2007,17 +2082,52 @@ export const AgentChatMessages = forwardRef<
                 </div>
               ) : (
                 <>
-                  {messagesForRendering.map((message) => (
-                    <AgentMessageCard
-                      key={message._id}
-                      message={message}
-                      ads={adsForRenderingBySourceMessageId.get(message._id)}
-                      onRollback={rollbackCallbacks.get(message._id)}
-                      onContinueAfterTimeout={() =>
-                        onSendMessage(TIME_LIMIT_CONTINUE_MESSAGE)
-                      }
-                    />
-                  ))}
+                  {messagesForRendering.map((message, index) => {
+                    // Inline retry only for the latest message: failed runs
+                    // earlier in history aren't actionable anymore.
+                    const retryPrompt =
+                      index === messagesForRendering.length - 1 &&
+                      String(message.state) === 'Error' &&
+                      message.user_message
+                        ? message.user_message
+                        : undefined
+                    return (
+                      <AgentMessageCard
+                        key={message._id}
+                        message={message}
+                        ads={adsForRenderingBySourceMessageId.get(message._id)}
+                        onRollback={rollbackCallbacks.get(message._id)}
+                        onContinueAfterTimeout={() =>
+                          onSendMessage(TIME_LIMIT_CONTINUE_MESSAGE)
+                        }
+                        onRetry={
+                          retryPrompt
+                            ? () => void onSendMessage(retryPrompt)
+                            : undefined
+                        }
+                      />
+                    )
+                  })}
+
+                  {/* Follow-up suggestion chips from the latest completed run */}
+                  {latestFollowups.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {latestFollowups.map((followup) => (
+                        <button
+                          key={followup.prompt}
+                          type="button"
+                          title={followup.prompt}
+                          onClick={() => void onSendMessage(followup.prompt)}
+                          className="max-w-full truncate rounded-full border border-border/50 bg-card/40 px-3 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+                        >
+                          {followup.label ??
+                            (followup.prompt.length > 64
+                              ? `${followup.prompt.slice(0, 61)}…`
+                              : followup.prompt)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 

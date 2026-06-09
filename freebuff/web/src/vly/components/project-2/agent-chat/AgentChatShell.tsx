@@ -48,6 +48,7 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   resolveFreebuffModel,
 } from "@codebuff/common/constants/freebuff-models";
+import { resolveVisibleFreebuffModel } from "@/vly/components/project-2/FreebuffModelSelector";
 
 const FREEBUFF_MODEL_STORAGE_KEY = "freebuff:selectedModel";
 
@@ -333,12 +334,14 @@ export function AgentChatShell({
     selectedFreebuffModelRef.current = selectedFreebuffModel;
   }, [selectedFreebuffModel]);
 
-  // Restore the last used model from localStorage once on mount.
+  // Restore the last used model from localStorage once on mount. Hidden
+  // models (removed from the picker) are mapped back to the default so the
+  // user isn't silently pinned to a model they can no longer see.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(FREEBUFF_MODEL_STORAGE_KEY);
     if (stored) {
-      setSelectedFreebuffModel(resolveFreebuffModel(stored));
+      setSelectedFreebuffModel(resolveVisibleFreebuffModel(stored));
     }
   }, []);
 

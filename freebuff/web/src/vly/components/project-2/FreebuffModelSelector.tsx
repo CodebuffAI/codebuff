@@ -23,6 +23,7 @@ import {
   getFreebuffModel,
   isFreebuffPremiumModelId,
   isFreebuffMultimodalModelId,
+  resolveFreebuffModel,
   type FreebuffModelOption,
 } from "@codebuff/common/constants/freebuff-models";
 import { api } from "@/convex/_generated/api";
@@ -42,6 +43,17 @@ const HIDDEN_MODEL_IDS = new Set<string>([FREEBUFF_KIMI_MODEL_ID]);
 const VISIBLE_MODELS = FREEBUFF_MODELS.filter(
   (m) => !HIDDEN_MODEL_IDS.has(m.id),
 );
+
+/**
+ * Like {@link resolveFreebuffModel}, but additionally maps models hidden from
+ * the web picker (still valid backend IDs) to the default model, so a stale
+ * localStorage value can't keep a user pinned to a model they can no longer
+ * see or change in the UI.
+ */
+export function resolveVisibleFreebuffModel(modelId: string): string {
+  const resolved = resolveFreebuffModel(modelId);
+  return HIDDEN_MODEL_IDS.has(resolved) ? DEFAULT_FREEBUFF_MODEL_ID : resolved;
+}
 const PREMIUM_MODELS = VISIBLE_MODELS.filter((m) =>
   isFreebuffPremiumModelId(m.id),
 );
@@ -52,19 +64,23 @@ const UNLIMITED_MODELS = VISIBLE_MODELS.filter(
 const ModelRow: React.FC<{
   model: FreebuffModelOption;
   isSelected: boolean;
+  disabled?: boolean;
   onSelect: () => void;
-}> = ({ model, isSelected, onSelect }) => {
+}> = ({ model, isSelected, disabled = false, onSelect }) => {
   const multimodal = isFreebuffMultimodalModelId(model.id);
 
   return (
     <DropdownMenuItem
+      disabled={disabled}
       onSelect={(e) => {
         e.preventDefault();
+        if (disabled) return;
         onSelect();
       }}
       className={cn(
         "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2",
         isSelected && "bg-accent",
+        disabled && "cursor-not-allowed opacity-50",
       )}
     >
       <Check
@@ -152,6 +168,9 @@ export function FreebuffModelSelector({
                 key={model.id}
                 model={model}
                 isSelected={model.id === current.id}
+                // Out of premium quota for today — the server would reject the
+                // send anyway, so don't let users pick a doomed model.
+                disabled={premiumRemaining === 0}
                 onSelect={() => onModelChange(model.id)}
               />
             ))}

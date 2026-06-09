@@ -469,6 +469,12 @@ export default function HomeClient() {
 
           <nav className="flex items-center space-x-1">
             <Link
+              href="/web"
+              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white text-sm"
+            >
+              Web
+            </Link>
+            <Link
               href="/blog"
               className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white text-sm"
             >

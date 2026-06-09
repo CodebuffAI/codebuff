@@ -865,6 +865,26 @@ export const runFreebuffAgent = internalAction({
           await checkCancelled()
           if (event.type === 'tool_call') {
             await eventBuffer.flush()
+            // Persist the actual followup prompts so the web UI can render
+            // clickable suggestion chips. (Hidden from the activity stream by
+            // the existing suggest-followups filter on the frontend.)
+            if (event.toolName === 'suggest_followups') {
+              const followups = Array.isArray(event.input?.followups)
+                ? event.input.followups
+                : []
+              if (followups.length > 0) {
+                await recordRunEvent({
+                  ctx,
+                  ...args,
+                  event: {
+                    type: 'status',
+                    title: 'Suggest followups',
+                    content: JSON.stringify({ followups }),
+                  },
+                })
+              }
+              return
+            }
             await recordRunEvent({
               ctx,
               ...args,

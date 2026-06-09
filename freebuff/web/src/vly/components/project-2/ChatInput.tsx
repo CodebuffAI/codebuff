@@ -58,6 +58,18 @@ import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPres
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const IMAGE_TYPE_ERROR_MESSAGE = "Please upload a JPG, PNG, WebP, or GIF image";
+
+function isAllowedImageFile(file: File): boolean {
+  return ALLOWED_IMAGE_MIME_TYPES.has(file.type);
+}
+
 interface ChatInputProps {
   isProcessing: boolean;
   handleSendMessage: (
@@ -423,8 +435,8 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
       try {
         // Process images one by one
         for (const file of Array.from(files)) {
-          if (!file.type.startsWith("image/")) {
-            alert("Please select only image files");
+          if (!isAllowedImageFile(file)) {
+            toast.error(IMAGE_TYPE_ERROR_MESSAGE);
             continue;
           }
 
@@ -590,8 +602,14 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                 headers: { "Content-Type": pendingImage.file.type },
                 body: pendingImage.file,
               });
+              if (!result.ok) {
+                throw new Error(`Upload failed with status ${result.status}`);
+              }
 
               const { storageId } = await result.json();
+              if (!storageId) {
+                throw new Error("Upload response missing storageId");
+              }
               newImageIds.push(storageId as Id<"_storage">);
 
               // Clean up preview URL
@@ -829,7 +847,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
 
                       for (let i = 0; i < items.length; i++) {
                         const item = items[i];
-                        if (item.type.startsWith("image/")) {
+                        if (ALLOWED_IMAGE_MIME_TYPES.has(item.type)) {
                           const file = item.getAsFile();
                           if (file) {
                             imageFiles.push(file);
@@ -1023,7 +1041,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileSelect}
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
                         multiple
                         className="hidden"
                       />

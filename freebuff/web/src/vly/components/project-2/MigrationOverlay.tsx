@@ -52,6 +52,10 @@ export function MigrationOverlay({
     api.daytona_migration.management.migrateLegacyProjectToNewDaytona,
   );
 
+  // Whether the current attempt has reported any non-failed status — used to
+  // tell a fresh failure apart from a stale "failed" left by a prior attempt.
+  const sawNonFailedStatusRef = useRef(false);
+
   // Kick off the migration once the project is loaded.
   useEffect(() => {
     if (!project || migrationStarted || error) return;
@@ -65,6 +69,7 @@ export function MigrationOverlay({
     }
 
     setMigrationStarted(true);
+    sawNonFailedStatusRef.current = false;
     const migrationPromise = isDaytona
       ? migrateLegacyDaytonaToNew({ projectId: project._id })
       : migrateToDaytona({ projectId: project._id });
@@ -119,6 +124,28 @@ export function MigrationOverlay({
       return () => clearTimeout(timeout);
     }
   }, [project, daytonaServer, migrationStarted, onComplete]);
+
+  // The action can also fail server-side without its promise rejecting (e.g.
+  // a timeout that flips migration_status to "failed"). Surface the error UI
+  // instead of leaving the progress bar parked at ~95% forever. A stale
+  // "failed" status from a previous attempt is ignored until this attempt
+  // has reported a non-failed status of its own.
+  useEffect(() => {
+    if (!migrationStarted || error) return;
+    const status = project?.migration_status;
+    if (status && status !== "failed") {
+      sawNonFailedStatusRef.current = true;
+      return;
+    }
+    if (status === "failed" && sawNonFailedStatusRef.current) {
+      const migrationError = (project as { migration_error?: string })
+        .migration_error;
+      setError(
+        migrationError ||
+          "The migration did not complete. Please retry — your project data is safe.",
+      );
+    }
+  }, [project, migrationStarted, error]);
 
   if (error) {
     return (

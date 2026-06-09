@@ -45,6 +45,18 @@ const PROJECT_SUGGESTIONS: { label: string; prompt: string }[] = [
   },
 ];
 
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const IMAGE_TYPE_ERROR_MESSAGE = "Please upload a JPG, PNG, WebP, or GIF image";
+
+function isAllowedImageFile(file: File): boolean {
+  return ALLOWED_IMAGE_MIME_TYPES.has(file.type);
+}
+
 // Typing animation for placeholder
 const TypingAnimation = memo(() => {
   const suggestions = [
@@ -127,6 +139,9 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
   onSuccess,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  // Number of image uploads still in flight — submitting is blocked until
+  // they finish so a fast submit can't create the project without its images.
+  const [pendingUploads, setPendingUploads] = useState(0);
   const [isThemeConfirmationOpen, setIsThemeConfirmationOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,46 +188,59 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
     textarea.style.height = `${newHeight}px`;
   }, [userInput]);
 
+  const uploadImageFile = useCallback(
+    async (file: File) => {
+      setPendingUploads((n) => n + 1);
+      try {
+        const [postUrl, dataUrl] = await Promise.all([
+          generateUploadUrl(),
+          new Promise<string>((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.onload = (e) => resolve(e.target?.result as string);
+            fileReader.onerror = reject;
+            fileReader.readAsDataURL(file);
+          }),
+        ]);
+
+        const result = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!result.ok) {
+          throw new Error(`Upload failed with status ${result.status}`);
+        }
+
+        const { storageId } = await result.json();
+        if (!storageId) {
+          throw new Error("Upload response missing storageId");
+        }
+        addImages([dataUrl], [storageId]);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        toast.error("Failed to upload image. Please try again.");
+      } finally {
+        setPendingUploads((n) => n - 1);
+      }
+    },
+    [generateUploadUrl, addImages],
+  );
+
   const handleImageUpload = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
+    (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files;
       if (files) {
-        const fileProcessingPromises = Array.from(files).map(async (file) => {
-          if (!file.type.startsWith("image/")) {
-            toast.error("Please select only image files");
-            return;
+        for (const file of Array.from(files)) {
+          if (!isAllowedImageFile(file)) {
+            toast.error(IMAGE_TYPE_ERROR_MESSAGE);
+            continue;
           }
-
-          try {
-            const [postUrl, dataUrl] = await Promise.all([
-              generateUploadUrl(),
-              new Promise<string>((resolve, reject) => {
-                const fileReader = new FileReader();
-                fileReader.onload = (e) => resolve(e.target?.result as string);
-                fileReader.onerror = reject;
-                fileReader.readAsDataURL(file);
-              }),
-            ]);
-
-            const result = await fetch(postUrl, {
-              method: "POST",
-              headers: { "Content-Type": file.type },
-              body: file,
-            });
-
-            const { storageId } = await result.json();
-            addImages([dataUrl], [storageId]);
-          } catch (error) {
-            console.error("Error uploading image:", error);
-            toast.error("Failed to upload image. Please try again.");
-          }
-        });
-
-        Promise.all(fileProcessingPromises);
+          void uploadImageFile(file);
+        }
       }
       event.target.value = "";
     },
-    [generateUploadUrl, addImages],
+    [uploadImageFile],
   );
 
   const triggerImageUpload = useCallback(() => {
@@ -302,7 +330,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.type.startsWith("image/")) {
+        if (ALLOWED_IMAGE_MIME_TYPES.has(item.type)) {
           const file = item.getAsFile();
           if (file) {
             imageFiles.push(file);
@@ -312,41 +340,21 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
 
       if (imageFiles.length > 0) {
         e.preventDefault();
-
-        const imageProcessingPromises = imageFiles.map(async (file) => {
-          try {
-            const [postUrl, dataUrl] = await Promise.all([
-              generateUploadUrl(),
-              new Promise<string>((resolve, reject) => {
-                const fileReader = new FileReader();
-                fileReader.onload = (e) => resolve(e.target?.result as string);
-                fileReader.onerror = reject;
-                fileReader.readAsDataURL(file);
-              }),
-            ]);
-
-            const result = await fetch(postUrl, {
-              method: "POST",
-              headers: { "Content-Type": file.type },
-              body: file,
-            });
-
-            const { storageId } = await result.json();
-            addImages([dataUrl], [storageId]);
-          } catch (error) {
-            console.error("Error uploading pasted image:", error);
-            toast.error("Failed to upload pasted image. Please try again.");
-          }
-        });
-
-        Promise.all(imageProcessingPromises);
+        for (const file of imageFiles) {
+          void uploadImageFile(file);
+        }
       }
     },
-    [generateUploadUrl, addImages],
+    [uploadImageFile],
   );
 
   const handleStartProject = useCallback(async () => {
     if (!userInput.trim()) return;
+
+    if (pendingUploads > 0) {
+      toast.info("Hang on — still uploading your images…");
+      return;
+    }
 
     if (!selectedTheme) {
       setIsThemeConfirmationOpen(true);
@@ -359,7 +367,13 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
     }
 
     await createProjectWithCurrentState();
-  }, [userInput, user, selectedTheme, createProjectWithCurrentState]);
+  }, [
+    userInput,
+    user,
+    selectedTheme,
+    pendingUploads,
+    createProjectWithCurrentState,
+  ]);
 
   const proceedToCreateOrSignIn = useCallback(
     (themeToUse?: string) => {
@@ -513,15 +527,18 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 e.stopPropagation();
                 handleStartProject();
               }}
-              disabled={isLoading || !userInput.trim()}
+              disabled={isLoading || pendingUploads > 0 || !userInput.trim()}
               aria-label="Create project"
+              title={
+                pendingUploads > 0 ? "Uploading images…" : "Create project"
+              }
               className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-                isLoading || !userInput.trim()
+                isLoading || pendingUploads > 0 || !userInput.trim()
                   ? "cursor-not-allowed bg-muted text-muted-foreground"
                   : "bg-primary text-primary-foreground hover:bg-primary/85"
               }`}
             >
-              {isLoading ? (
+              {isLoading || pendingUploads > 0 ? (
                 <Loader className="h-4 w-4 animate-spin" />
               ) : (
                 <ArrowUp className="h-[18px] w-[18px]" />
@@ -554,7 +571,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
         multiple
         onChange={handleImageUpload}
         className="hidden"

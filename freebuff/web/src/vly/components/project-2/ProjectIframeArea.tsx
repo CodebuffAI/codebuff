@@ -31,6 +31,8 @@ import {
   Plug,
   Component,
   Maximize2,
+  History,
+  RotateCw,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { FunctionReturnType } from 'convex/server'
@@ -110,6 +112,11 @@ interface ProjectIframeAreaProps {
    * sandboxed preview misbehaves.
    */
   openInNewTab?: () => void
+  /**
+   * Mobile-only: reloads the preview iframe on its current route (bumps the
+   * same refreshTrigger the desktop refresh button uses).
+   */
+  onRefresh?: () => void
 }
 
 /** Primary tabs that swap the right-hand iframe surface. */
@@ -118,6 +125,7 @@ const TOP_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'database', label: 'Data', Icon: Database },
   { id: 'logs', label: 'Logs', Icon: ScrollText },
   { id: 'editor', label: 'Editor', Icon: Code2 },
+  { id: 'versions', label: 'Versions', Icon: History },
   { id: 'keys', label: 'API Keys', Icon: KeyRound },
   { id: 'integrations', label: 'Integrations', Icon: Plug },
   { id: 'ui-components', label: 'UI', Icon: Component },
@@ -139,6 +147,7 @@ export function ProjectIframeArea({
   onClickToTest,
   hideTabs = false,
   openInNewTab,
+  onRefresh,
 }: ProjectIframeAreaProps) {
   const { isPlatformAdmin } = useIsPlatformAdmin()
   const isNonPreviewTab = activeTab !== 'preview'
@@ -192,35 +201,47 @@ export function ProjectIframeArea({
           to chat", so we don't duplicate that affordance here — this
           single pill keeps the iframe surface as uncluttered as
           possible while still encouraging real-world testing. */}
-      {hideTabs && openInNewTab && (
+      {hideTabs && (openInNewTab || onRefresh) && (
         <div
-          className="pointer-events-none absolute right-3 top-3 z-40 flex items-center gap-1"
+          className="pointer-events-none absolute right-3 top-3 z-40 flex items-center gap-1.5"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <button
-            type="button"
-            onClick={openInNewTab}
-            className="pointer-events-auto flex h-9 items-center gap-1.5 rounded-full bg-primary/95 px-3.5 text-xs font-semibold text-primary-foreground shadow-lg shadow-black/30 backdrop-blur transition-all active:scale-[0.97] hover:bg-primary"
-            aria-label="Open preview in new tab"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-muted/90 text-foreground shadow-lg shadow-black/30 backdrop-blur transition-all active:scale-[0.97] hover:bg-muted"
+              aria-label="Refresh preview"
             >
-              <path d="M15 3h6v6" />
-              <path d="M10 14 21 3" />
-              <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-            </svg>
-            Open in new tab
-          </button>
+              <RotateCw className="h-4 w-4" />
+            </button>
+          )}
+          {openInNewTab && (
+            <button
+              type="button"
+              onClick={openInNewTab}
+              className="pointer-events-auto flex h-9 items-center gap-1.5 rounded-full bg-primary/95 px-3.5 text-xs font-semibold text-primary-foreground shadow-lg shadow-black/30 backdrop-blur transition-all active:scale-[0.97] hover:bg-primary"
+              aria-label="Open preview in new tab"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 3h6v6" />
+                <path d="M10 14 21 3" />
+                <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+              </svg>
+              Open in new tab
+            </button>
+          )}
         </div>
       )}
 

@@ -25,7 +25,16 @@ export const create = mutation({
       }),
     }),
   ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    | { success: true; semanticIdentifier: string }
+    | {
+        success: false;
+        error: { kind: string; retryAfter?: number; message?: string };
+      }
+  > => {
     console.log("Starting project creation action");
     try {
       // requires auth. will throw without auth
@@ -127,7 +136,14 @@ export const create = mutation({
 
       // Use Freebuff for initial generation so new projects start on the
       // agent_thread workflow instead of the legacy VLY agent cycle.
-      await ctx.runMutation(
+      // Explicit annotation breaks the circular type inference between this
+      // mutation's return type and the generated `api` object.
+      const workflowResult:
+        | { success: true }
+        | {
+            success: false;
+            error: { kind: string; retryAfter?: number; message?: string };
+          } = await ctx.runMutation(
         api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
         {
           projectSemanticIdentifier: assignedProject.semantic_identifier,
@@ -137,6 +153,27 @@ export const create = mutation({
           _skipRateLimitCheck: true, // Skip rate limit check - already checked above
         },
       );
+
+      // Surface a failed initial workflow instead of silently dropping the
+      // user on a project with no generation running.
+      if (!workflowResult.success) {
+        console.error(
+          "Initial Freebuff workflow failed to start:",
+          workflowResult.error,
+        );
+        return {
+          success: false as const,
+          error: {
+            kind: workflowResult.error.kind,
+            ...(workflowResult.error.retryAfter !== undefined && {
+              retryAfter: workflowResult.error.retryAfter,
+            }),
+            message:
+              workflowResult.error.message ||
+              "Project setup could not start the first build. Please try again.",
+          },
+        };
+      }
 
       // generate project name and initialize new project
       await ctx.scheduler.runAfter(

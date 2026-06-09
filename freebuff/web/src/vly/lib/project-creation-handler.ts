@@ -73,7 +73,7 @@ export function handleProjectCreationResult(
       error.message?.toLowerCase().includes('project limit') ||
       error.message?.toLowerCase().includes('max projects')
     ) {
-      void onProjectLimit
+      onProjectLimit?.()
       toast.error(error.message || 'Unable to create project right now.', {
         duration: 6000,
       })

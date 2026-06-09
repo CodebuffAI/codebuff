@@ -651,7 +651,9 @@ ${message}`;
         agentType: "Freebuff",
       });
       // On success the project's active_agent_thread is set and project-2
-      // re-renders AgentChatShell, unmounting this component.
+      // re-renders AgentChatShell, unmounting this component. If that swap
+      // doesn't happen for any reason, don't leave the button stuck spinning.
+      window.setTimeout(() => setIsStartingFreebuff(false), 3000);
     } catch {
       toast.error("Failed to start Freebuff agent");
       setIsStartingFreebuff(false);

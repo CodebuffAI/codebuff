@@ -14,6 +14,7 @@ import {
   Rocket,
   Github,
   User,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { FunctionReturnType } from 'convex/server'
 import { api } from '@/convex/_generated/api'
@@ -109,6 +110,20 @@ export function TopBar({
   const openPreviewInNewTab = () => {
     const url = getExternalPreviewUrl(project) ?? ''
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const copyPreviewUrl = async () => {
+    const url = getExternalPreviewUrl(project) ?? ''
+    if (!url) {
+      toast.error('No preview URL available yet.')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Preview URL copied to clipboard.')
+    } catch {
+      toast.error('Could not copy the URL. Please copy it manually.')
+    }
   }
 
   const openSettings = () => {
@@ -286,6 +301,11 @@ export function TopBar({
             onClick={openPreviewInNewTab}
           >
             <Eye className="h-4 w-4" />
+          </IconButton>
+
+          {/* Copy the live preview URL */}
+          <IconButton label="Copy preview URL" onClick={copyPreviewUrl}>
+            <LinkIcon className="h-4 w-4" />
           </IconButton>
 
           {/* Share - opens invite dialog */}
