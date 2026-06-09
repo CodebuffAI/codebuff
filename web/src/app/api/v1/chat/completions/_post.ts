@@ -1,16 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
-import {
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
-  isFreebuffModelAllowedForAccessTier,
-  isSupportedFreebuffModelId,
-} from '@codebuff/common/constants/freebuff-models'
-import {
-  isFreebuffGeminiThinkerAgent,
-  isFreebuffRootAgent,
-  isFreeMode,
-  isFreeModeAllowedAgentModel,
-} from '@codebuff/common/constants/free-agents'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
@@ -89,18 +78,8 @@ import {
   handleOpenRouterStream,
   OpenRouterError,
 } from '@/llm-api/openrouter'
-import { checkSessionAdmissible } from '@/server/free-session/public-api'
-import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
-import { getFreeModeAccessTier } from '@/server/free-mode-country'
-
-import type { SessionGateResult } from '@/server/free-session/public-api'
-import type {
-  FreeModeCountryAccess,
-  FreeModeCountryAccessOptions,
-} from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
 import { withDefaultProperties } from '@codebuff/common/analytics'
-import { checkFreeModeRateLimit as defaultCheckFreeModeRateLimit } from './free-mode-rate-limiter'
 
 export const formatQuotaResetCountdown = (
   nextQuotaReset: string | null | undefined,

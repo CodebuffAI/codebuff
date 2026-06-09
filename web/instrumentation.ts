@@ -45,14 +45,4 @@ export async function register() {
   })
 
   logger.info({}, '[Instrumentation] Global error handlers registered')
-
-  // DB-touching admission module uses `postgres`, which imports Node built-ins
-  // like `crypto`. Gate on NEXT_RUNTIME so the edge bundle doesn't try to
-  // resolve them.
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { startFreeSessionAdmission } = await import(
-      '@/server/free-session/admission'
-    )
-    startFreeSessionAdmission()
-  }
 }
