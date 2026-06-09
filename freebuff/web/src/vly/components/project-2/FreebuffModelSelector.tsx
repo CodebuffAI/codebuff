@@ -19,7 +19,6 @@ import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import {
   FREEBUFF_MODELS,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
   DEFAULT_FREEBUFF_MODEL_ID,
   getFreebuffModel,
   isFreebuffPremiumModelId,
@@ -38,10 +37,7 @@ interface FreebuffModelSelectorProps {
 
 // Models still supported by the backend/CLI but intentionally hidden from the
 // web picker to keep the list short.
-const HIDDEN_MODEL_IDS = new Set<string>([
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
-]);
+const HIDDEN_MODEL_IDS = new Set<string>([FREEBUFF_KIMI_MODEL_ID]);
 
 const VISIBLE_MODELS = FREEBUFF_MODELS.filter(
   (m) => !HIDDEN_MODEL_IDS.has(m.id),

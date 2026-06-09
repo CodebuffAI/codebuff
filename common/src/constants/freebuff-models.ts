@@ -45,8 +45,11 @@ export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
+/** Legacy: removed from the pickers on 2026-06-09 in favor of MiniMax M3, but
+ *  still server-supported so old clients keep working. Drop from
+ *  SUPPORTED_FREEBUFF_MODELS after ~2026-06-16. */
 export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
-/** Premium tier; routes to MiniMax's official API (distinct from the m2.7 id). */
+/** Routes to MiniMax's official API (distinct from the m2.7 id). */
 export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -141,6 +144,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
+/** Legacy (not in FREEBUFF_MODELS): see FREEBUFF_MINIMAX_MODEL_ID. */
 const MINIMAX_MODEL = {
   id: FREEBUFF_MINIMAX_MODEL_ID,
   displayName: 'MiniMax M2.7',
@@ -156,7 +160,7 @@ const MINIMAX_M3_MODEL = {
   tagline: 'Smartest & multimodal',
   availability: 'always',
   warning: 'Collects data for training',
-  premium: true,
+  premium: false,
   multimodal: true,
 } as const satisfies FreebuffModelOption
 
@@ -172,19 +176,17 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
-  MINIMAX_M3_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   KIMI_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
-  MINIMAX_MODEL,
+  MINIMAX_M3_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
 ] as const
 
 /** Models that accept image input. Used to decide whether uploaded images are
