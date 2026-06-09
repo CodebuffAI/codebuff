@@ -90,27 +90,45 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('Kimi and MiniMax M2.7 are selectable in full mode', () => {
-    for (const restoredModel of [
+  test('Kimi is selectable in full mode', () => {
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_KIMI_MODEL_ID,
-      FREEBUFF_MINIMAX_MODEL_ID,
-    ]) {
-      expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
-        restoredModel,
-      )
-      expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(restoredModel)
-      expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
-        restoredModel,
-      )
-      expect(isFreebuffModelId(restoredModel)).toBe(true)
-      expect(isSupportedFreebuffModelId(restoredModel)).toBe(true)
-      expect(isFreebuffModelAllowedForAccessTier(restoredModel, 'full')).toBe(
-        true,
-      )
-    }
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_KIMI_MODEL_ID,
+    )
+    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
+      FREEBUFF_KIMI_MODEL_ID,
+    )
+    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(isSupportedFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(
+      isFreebuffModelAllowedForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
+    ).toBe(true)
   })
 
-  test('MiniMax M3 is a selectable premium model in full mode', () => {
+  test('MiniMax M2.7 is legacy: hidden from pickers but still served for old clients', () => {
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_MINIMAX_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_MINIMAX_MODEL_ID,
+    )
+    expect(
+      getFreebuffModelsForAccessTier('full').map((m) => m.id),
+    ).not.toContain(FREEBUFF_MINIMAX_MODEL_ID)
+    expect(isFreebuffModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(false)
+    expect(isSupportedFreebuffModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(true)
+    // Old clients with a saved M2.7 selection must still be admitted.
+    expect(
+      isFreebuffModelAllowedForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'full'),
+    ).toBe(true)
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'full'),
+    ).toBe(FREEBUFF_MINIMAX_MODEL_ID)
+  })
+
+  test('MiniMax M3 is a selectable unlimited model, last in the unlimited section', () => {
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       MINIMAX_M3_MODEL_ID,
     )
@@ -122,10 +140,15 @@ describe('freebuff model availability', () => {
     ).toContain(MINIMAX_M3_MODEL_ID)
     expect(isFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
     expect(isSupportedFreebuffModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
-    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
+    // Pickers split sections by the premium flag while preserving array order,
+    // so "last unlimited entry" means last in FREEBUFF_MODELS overall.
+    expect(FREEBUFF_MODELS[FREEBUFF_MODELS.length - 1]!.id).toBe(
+      MINIMAX_M3_MODEL_ID,
+    )
   })
 
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
