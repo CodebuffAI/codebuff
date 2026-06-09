@@ -312,8 +312,25 @@ const DeploymentManager = ({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="text-sm font-semibold">Latest deployment</span>
+        <Button
+          disabled={!prodSlug || isRedeploying || isAnotherDeploymentRunning}
+          onClick={handleRedeploy}
+          variant="default"
+          size="sm"
+        >
+          {isRedeploying ? (
+            <div className="flex items-center gap-2">
+              <Loader className="animate-spin" /> Redeploying...
+            </div>
+          ) : (
+            <span>Redeploy</span>
+          )}
+        </Button>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
         {deployments.map((deployment) => (
           <div
             className="flex flex-col rounded-md border border-border/70 bg-muted/20 p-3"
@@ -491,22 +508,6 @@ const DeploymentManager = ({
             <ExternalLink className="h-3 w-3" />
           </button>
         )}
-      </div>
-
-      <div className="mt-4 flex justify-end border-t border-border/60 pt-3">
-        <Button
-          disabled={!prodSlug || isRedeploying || isAnotherDeploymentRunning}
-          onClick={handleRedeploy}
-          variant="default"
-        >
-          {isRedeploying ? (
-            <div className="flex items-center gap-2">
-              <Loader className="animate-spin" /> Redeploying...
-            </div>
-          ) : (
-            <span>Redeploy</span>
-          )}
-        </Button>
       </div>
     </div>
   );
