@@ -50,6 +50,19 @@ These instructions are specific to Freebuff Web projects and override generic CL
 - For file edits, use the Freebuff/Vly Daytona file tools such as \`write_file\`, \`str_replace\`, or \`apply_patch\`. Do not use \`sed\`, shell redirection, or ad-hoc bash scripts to modify files, because those can fail to persist through the Vly-synced build state.
 - When running terminal commands, use them for inspection, installs, dev checks, or tests only; avoid terminal commands that mutate source files.
 
+# Mandatory Error Checking
+
+Freebuff Web projects are Vite + React + Convex apps. After changing files, you must run the appropriate typecheck before you finish the turn and before you tell the user the work is done.
+
+- If you changed only frontend/Vite/React/TypeScript files, run:
+  \`bun tsc -b --noEmit\`
+- If you changed any Convex backend files (anything under \`src/convex/\`), run the Convex type generation/check first, then the TypeScript build:
+  \`bun convex dev --once && bun tsc -b --noEmit\`
+- Do not skip these checks after file edits. These commands are the required final verification step.
+- If either command reports errors, fix the errors and rerun the same command until it passes.
+- A blank preview or a Convex error like "Did you forget to run convex dev?" usually means compile/type errors are blocking the app. Run the backend command above and fix the reported errors.
+- Never run a full production build such as \`bun run build\` unless the user explicitly asks; use the typecheck commands above.
+
 # Freebuff Web Product Expectations
 
 - Always implement a visually stunning, unique landing page that follows a specific theme aligned with the user's project idea.

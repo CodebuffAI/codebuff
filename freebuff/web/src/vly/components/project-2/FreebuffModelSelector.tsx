@@ -18,7 +18,6 @@ import { ChevronDown, ImageIcon, Check, Sparkles } from "lucide-react";
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import {
   FREEBUFF_MODELS,
-  FREEBUFF_KIMI_MODEL_ID,
   DEFAULT_FREEBUFF_MODEL_ID,
   getFreebuffModel,
   isFreebuffPremiumModelId,
@@ -36,28 +35,18 @@ interface FreebuffModelSelectorProps {
   compact?: boolean;
 }
 
-// Models still supported by the backend/CLI but intentionally hidden from the
-// web picker to keep the list short.
-const HIDDEN_MODEL_IDS = new Set<string>([FREEBUFF_KIMI_MODEL_ID]);
-
-const VISIBLE_MODELS = FREEBUFF_MODELS.filter(
-  (m) => !HIDDEN_MODEL_IDS.has(m.id),
-);
-
 /**
- * Like {@link resolveFreebuffModel}, but additionally maps models hidden from
- * the web picker (still valid backend IDs) to the default model, so a stale
- * localStorage value can't keep a user pinned to a model they can no longer
- * see or change in the UI.
+ * Keep a web-specific resolver for localStorage hydration. There are no hidden
+ * web models right now (Kimi and MiniMax M3 should both be selectable), but the
+ * wrapper keeps stale/unknown IDs pinned to the shared Freebuff fallback.
  */
 export function resolveVisibleFreebuffModel(modelId: string): string {
-  const resolved = resolveFreebuffModel(modelId);
-  return HIDDEN_MODEL_IDS.has(resolved) ? DEFAULT_FREEBUFF_MODEL_ID : resolved;
+  return resolveFreebuffModel(modelId);
 }
-const PREMIUM_MODELS = VISIBLE_MODELS.filter((m) =>
+const PREMIUM_MODELS = FREEBUFF_MODELS.filter((m) =>
   isFreebuffPremiumModelId(m.id),
 );
-const UNLIMITED_MODELS = VISIBLE_MODELS.filter(
+const UNLIMITED_MODELS = FREEBUFF_MODELS.filter(
   (m) => !isFreebuffPremiumModelId(m.id),
 );
 
