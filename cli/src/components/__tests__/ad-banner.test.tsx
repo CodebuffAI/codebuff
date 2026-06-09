@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getAdDisplayLabel } from '../choice-ad-banner'
+import { getAdDisplayLabel } from '../ad-banner'
 
-describe('choice ad banner display label', () => {
+describe('ad banner display label', () => {
   test('uses the display domain when the ad has a URL', () => {
     expect(
       getAdDisplayLabel({

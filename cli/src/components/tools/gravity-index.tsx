@@ -6,26 +6,23 @@ import type { ToolRenderConfig } from './types'
 const asTrimmedString = (value: unknown): string =>
   typeof value === 'string' ? value.trim() : ''
 
-const BRAND = 'Services'
-
-/** Bold "Services · <Verb>" prefix that names the action like a CLI subcommand. */
-const withSubcommand = (verb: string): string => `${BRAND} · ${verb}`
+const DEFAULT_NAME = 'Services'
 
 export interface GravityIndexParts {
-  /** Bold label: the brand plus the action subcommand. */
+  /** Bold label naming the action in plain verb-first language. */
   name: string
   /** Non-bold target the action operates on (query, slug, category). May be empty. */
   description: string
 }
 
 /**
- * Splits a gravity_index tool call into a bold "Service Catalog · <Verb>" label
- * and the plain target it acts on, so the action reads as one bold unit instead
- * of repeating the verb in non-bold text after the brand.
+ * Splits a gravity_index tool call into a bold verb-first label (e.g.
+ * "Search services") and the plain target it acts on, so the action reads as
+ * a single natural phrase instead of a "Brand · Verb" subcommand.
  */
 export const getGravityIndexParts = (input: unknown): GravityIndexParts => {
   if (!input || typeof input !== 'object') {
-    return { name: BRAND, description: '' }
+    return { name: DEFAULT_NAME, description: '' }
   }
 
   const params = input as Record<string, unknown>
@@ -34,33 +31,33 @@ export const getGravityIndexParts = (input: unknown): GravityIndexParts => {
   switch (action) {
     case 'search':
       return {
-        name: withSubcommand('Search'),
+        name: 'Search services',
         description: asTrimmedString(params.query),
       }
     case 'browse': {
       const category = asTrimmedString(params.category)
       const keyword = asTrimmedString(params.q)
       return {
-        name: withSubcommand('Browse'),
+        name: 'Browse services',
         description: [category, keyword].filter(Boolean).join(' · '),
       }
     }
     case 'list_categories':
-      return { name: withSubcommand('Categories'), description: '' }
+      return { name: 'List service categories', description: '' }
     case 'get_service':
       return {
-        name: withSubcommand('Fetch'),
+        name: 'Fetch service',
         description: asTrimmedString(params.slug),
       }
     case 'report_integration': {
       const slug = asTrimmedString(params.integrated_slug)
       return {
-        name: withSubcommand('Report'),
+        name: 'Report integration',
         description: slug ? `${slug} integration` : 'integration',
       }
     }
     default:
-      return { name: BRAND, description: '' }
+      return { name: DEFAULT_NAME, description: '' }
   }
 }
 

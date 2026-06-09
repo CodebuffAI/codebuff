@@ -329,6 +329,11 @@ The `disabled` response means the server has the waiting room turned off. CLI tr
 
 ## Abuse Resistance Summary
 
+This table covers the **waiting-room / session** attack surface. For finding and
+actioning accounts that script the free chat-completions endpoint directly
+(proxy/farm abuse, detection scripts, and the ban playbook), see
+[`freebuff-abuse-detection.md`](./freebuff-abuse-detection.md).
+
 | Attack                                                        | Mitigation                                                                                                                                                                       |
 | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CLI keeps submitting new prompts past `expires_at`            | Trusted client; bounded by 30-min hard cutoff at `expires_at + grace`. After that the gate returns `session_expired` and the user must re-queue.                                 |

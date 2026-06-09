@@ -42,3 +42,4 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Alway
 - `docs/environment-variables.md` — Env var rules, DI helpers, loading order
 - `docs/agents-and-tools.md` — Agent system, shell shims, tool definitions
 - `docs/patterns/handle-steps-generators.md` — handleSteps generator patterns and spawn_agents tool calls
+- `docs/freebuff-abuse-detection.md` — Finding/actioning free-mode endpoint abuse: detection scripts, signals, ban playbook

@@ -76,10 +76,33 @@ function getTarCommand(packageManager: ProjectPackageManager): string {
     packageManager === "pnpm"
       ? "--exclude='codebase/pnpm-lock.yaml' --exclude='codebase/pnpm-lock.yml'"
       : "--exclude='codebase/bun.lock'";
+  const commonExcludes = [
+    "--exclude='codebase/node_modules'",
+    "--exclude='codebase/.git'",
+    "--exclude='codebase/.next'",
+    "--exclude='codebase/dist'",
+    "--exclude='codebase/build'",
+    "--exclude='codebase/coverage'",
+    "--exclude='codebase/.turbo'",
+    "--exclude='codebase/.cache'",
+    "--exclude='codebase/.pnpm-store'",
+    "--exclude='codebase/isolate'",
+    "--exclude='codebase/.isolate'",
+    "--exclude='*.md'",
+    "--exclude='*.mp3'",
+    "--exclude='*.mp4'",
+    "--exclude='*.jpg'",
+    "--exclude='*.jpeg'",
+    "--exclude='*.png'",
+    "--exclude='*.gif'",
+    "--exclude='*.svg'",
+    "--exclude='*.ico'",
+    "--exclude='*.webp'",
+  ].join(" ");
 
   return [
     `rm -f ${MIGRATION_ARCHIVE_PATH}`,
-    `tar -czf ${MIGRATION_ARCHIVE_PATH} --exclude='codebase/node_modules' ${lockfileExcludes} -C /home/daytona codebase`,
+    `tar -czf ${MIGRATION_ARCHIVE_PATH} ${commonExcludes} ${lockfileExcludes} -C /home/daytona codebase`,
   ].join(" && ");
 }
 

@@ -1,0 +1,129 @@
+# Freebuff Abuse Detection
+
+How to find, judge, and action accounts abusing free mode. Companion to
+[`freebuff-waiting-room.md`](./freebuff-waiting-room.md) (sessions, admission,
+quotas) — this doc is the **operational playbook** for the recurring problem of
+people scripting the free endpoint instead of coding through the CLI.
+
+## The core abuse: scripting the raw endpoint
+
+Free mode is meant to be used through the freebuff CLI, which runs an agent loop
+(root orchestrator + subagents) and creates `agent_run` / `agent_step` rows.
+Abusers instead call the OpenAI-compatible `POST /api/v1/chat/completions`
+endpoint directly with `codebuff_metadata.cost_mode = 'free'`, using it as a
+free LLM proxy for non-coding apps (chatbots, release-notes generators,
+translation, essay mills) — often reselling premium models.
+
+### Why the per-session caps don't stop it
+
+The **5 premium-sessions/Pacific-day** cap (`FREEBUFF_PREMIUM_SESSION_LIMIT`) is
+enforced only at **session admission** (`canStartSession` in
+`web/src/server/free-session/public-api.ts`) and on the **agent-run path**
+(`triggerGates` → `rateLimiter` in the freebuff Convex backend). Two gaps let
+direct callers around it:
+
+1. A direct chat-completions call never creates an `agent_run`, so the agent-run
+   cap is never consulted.
+2. The session cap limits the **number of sessions**, not messages. One admitted
+   session (default ~60 min + 30 min grace) permits **unlimited** premium
+   messages, and a session keys on `userId + active_instance_id` — **not**
+   `client_id` — so a single session can proxy unlimited downstream callers.
+
+Net effect: within the rules, one account could fire thousands of premium
+messages/day for free.
+
+### What plugs it (enforced at the endpoint, bypass-proof)
+
+Both live in `web/src/app/api/v1/chat/completions/_post.ts`:
+
+- **Premium-model daily cap** — `FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY` (1200)
+  in `free-mode-rate-limiter.ts`, checked on every free-mode premium request
+  regardless of the agent-run path. Burst is bounded by the existing
+  model-agnostic windows (`FREE_MODE_RATE_LIMITS`: ≤250/30min, ≤2000/5h,
+  4000/day).
+- **CLI-required gate** — free-mode **root**-agent requests must carry the CLI's
+  "You are Buffy" system prompt (`requestHasFreebuffSystemMarker`). Missing →
+  `403 free_mode_cli_required` (a friendly nudge to `npm i -g freebuff`, **not**
+  a ban). Scoped to root agents; subagents are constrained by the agent-hierarchy
+  gate.
+
+## Detection scripts
+
+All read-only; run against prod via Infisical. Live in `scripts/`.
+
+| Script | Purpose | Example |
+|---|---|---|
+| `find-freebuff-api-suspects.ts` | Scores accounts by proxy/farm fingerprints over a lookback window. **Start here.** | `infisical run --env=prod --silent -- bun scripts/find-freebuff-api-suspects.ts --hours 336 --min-score 50` |
+| `inspect-freebuff-traces.ts` | Dumps stored request/response traces, `repo_url`, agent-step counts, models/agents for specific emails. Use to **confirm** before banning. | `… bun scripts/inspect-freebuff-traces.ts a@b.com c@d.com` |
+| `top-freebuff-users.ts` | Raw volume leaderboard for a given agent (message counts, tokens, time-of-day). | `… bun scripts/top-freebuff-users.ts 336 50 base2-free` |
+| `ban-freebuff-bots.ts` | Bans an email list (`banned=true` + clears `free_session`). **Dry-runs by default**; `--commit` to apply. | `… bun scripts/ban-freebuff-bots.ts list.txt` then `… --commit` |
+| `unban-freebuff-users.ts` | Reverses bans by email. | `… bun scripts/unban-freebuff-users.ts a@b.com` |
+
+## The signals (data model)
+
+Everything keys off three tables (`packages/internal/src/db/schema.ts`):
+`message` (per LLM call: `client_id`, `client_request_id` = run id, `agent_id`,
+`model`, `repo_url`, `request`/`response` JSON, `credits`), `agent_run`
+(`total_steps`, status), and `agent_step` (one row per real agent step, joined to
+`message` by `message_id`).
+
+| Signal | Real CLI coding | Scripted abuse |
+|---|---|---|
+| `client_id` per run | one, reused across the session | a distinct id **per message** (proxy), or msgs==runs (single-shot) |
+| `agent_step` rows | one per message (`msgs ≈ steps`) | ~0 (`msgs_with_agent_step ≈ 0`) |
+| `repo_url` | set | almost always null |
+| messages per run | many (a coding session) | 1 (single-shot) or thousands held open |
+| system prompt | starts with "You are Buffy" | arbitrary app/proxy prompt |
+| trace content | code, tool calls, file context | app-backend output (JSON APIs, chat, essays), often non-English, no code |
+
+### Two fingerprints
+
+- **Proxy fanout** — many distinct `client_id`s inside one run held open for
+  hours/days; ~0 agent steps; null `repo_url`. A reseller forwarding many users
+  through one freebuff session. Strongest single tell: `maxClientIdsPerRun` in
+  the dozens-to-thousands.
+- **Bulk / farm** — `messageCount == runCount` (one message per run), ~0 agent
+  steps, often coordinated same-day account batches with bot-generated display
+  names. Single-shot completion scripting.
+
+The suspect scorer in `find-freebuff-api-suspects.ts` encodes both, with
+dampeners for tenured accounts and a "real-steps" legit-power-user signal — read
+its scoring comment block before tuning thresholds.
+
+## Judgment / escalation playbook
+
+1. **Run the suspect scan** (`--min-score 50` is a good ban-candidate cut;
+   `--min-score 1 --json` to see the whole scored population).
+2. **Confirm with traces** (`inspect-freebuff-traces.ts`) — verify null
+   `repo_url`, ~0 agent steps, and non-coding response content. Account display
+   names are often self-incriminating (numbered "dummy"/"proxy" handles,
+   bot-generated CamelCase, shared names across a ring).
+3. **Ban the high-confidence set** — `ban-freebuff-bots.ts` (dry-run first, then
+   `--commit`). High confidence = proxy fanout (`maxClientIdsPerRun ≥ 10` and
+   ≥90% missing steps) or bulk/farm (`≥400 msgs`, ≥95% missing steps).
+4. **Hold for manual review** — tenured accounts (>60d), corporate/edu domains
+   (real identity), and low-volume accounts. Same fingerprint, higher false-ban
+   cost. Check these by hand.
+5. **Watch the escalation tell** — now that the CLI-required gate is live, a
+   caller who **injects the "You are Buffy" marker but still produces no agent
+   steps** is deliberately evading detection → strong ban signal. The suspect
+   scan's missing-step ratio surfaces these.
+
+## Operational hygiene
+
+- **Do not commit account identifiers** (emails) to the repo. Keep ban lists and
+  raw scan output as out-of-band operational records. Redacted, count-only
+  summaries (methodology + category counts) are fine — see
+  `scripts/FREEBUFF_ABUSE_FINDINGS.md`.
+- Bans are **reversible** (`unban-freebuff-users.ts`); when unsure, lean on the
+  friendly `free_mode_cli_required` gate (which only blocks, never bans) and the
+  manual-review bucket rather than a hard ban.
+
+## Tuning knobs
+
+| Knob | Where | Note |
+|---|---|---|
+| `FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY` | `free-mode-rate-limiter.ts` | Premium messages/day/user. Sized for ~5 premium sessions. |
+| `FREE_MODE_RATE_LIMITS` | `free-mode-rate-limiter.ts` | Model-agnostic burst/volume windows. |
+| `FREEBUFF_PREMIUM_SESSION_LIMIT` | `common/src/constants/freebuff-models.ts` | Premium sessions/Pacific-day at admission. |
+| Suspect score thresholds | `find-freebuff-api-suspects.ts` (`getScore`) | Proxy/farm cutoffs and dampeners. |

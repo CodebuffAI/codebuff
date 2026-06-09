@@ -6,6 +6,7 @@ import {
   Clock3,
   Gauge,
   RefreshCw,
+  Rocket,
   Zap,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -26,6 +27,15 @@ function formatLatency(ms: number | null | undefined): string {
   if (ms == null) return '-'
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`
+}
+
+function formatTokensPerSecond(
+  tps: number | null | undefined,
+  options: { unit?: boolean } = {},
+): string {
+  if (!tps) return '-'
+  const value = formatCount(Math.round(tps))
+  return options.unit === false ? value : `${value} tok/s`
 }
 
 function formatCount(count: number): string {
@@ -147,7 +157,7 @@ function ModelLatencyRow({
   const width = `${Math.max(3, Math.round((model.p95TtftMs / maxP95) * 100))}%`
 
   return (
-    <div className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-4 md:grid-cols-[minmax(180px,1fr)_120px_120px_minmax(180px,1.1fr)] md:items-center">
+    <div className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-4 md:grid-cols-[minmax(180px,1fr)_110px_110px_110px_minmax(180px,1.1fr)] md:items-center">
       <div className="min-w-0">
         <div className="truncate font-medium text-white">
           {model.displayName}
@@ -172,6 +182,15 @@ function ModelLatencyRow({
         </div>
         <div className="mt-1 font-mono text-lg text-white">
           {formatLatency(model.p95TtftMs)}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs uppercase tracking-[0.14em] text-white/38">
+          Tok/s
+        </div>
+        <div className="mt-1 font-mono text-lg text-white">
+          {formatTokensPerSecond(model.tokensPerSecond, { unit: false })}
         </div>
       </div>
 
@@ -276,8 +295,8 @@ export default function LatencyClient({
               Model latency
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/58 md:text-base">
-              Time to first token from the last 24 hours, grouped by Freebuff
-              model.
+              Time to first token and output throughput from the last 24 hours,
+              grouped by Freebuff model.
             </p>
           </div>
 
@@ -290,7 +309,7 @@ export default function LatencyClient({
           </div>
         </header>
 
-        <section className="grid gap-3 md:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryMetric
             icon={Gauge}
             label="Median TTFT"
@@ -302,6 +321,12 @@ export default function LatencyClient({
             label="P95 TTFT"
             value={formatLatency(stats.overall?.p95TtftMs)}
             detail="Slower tail across all models"
+          />
+          <SummaryMetric
+            icon={Rocket}
+            label="Output speed"
+            value={formatTokensPerSecond(stats.overall?.tokensPerSecond)}
+            detail="Output tokens per second after TTFT"
           />
           <SummaryMetric
             icon={Zap}

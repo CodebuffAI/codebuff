@@ -12,6 +12,7 @@ import {
   checkConfiguredFreeModeRateLimit,
   checkFreeModeRateLimit,
   checkRedisFreeModeRateLimit,
+  FREE_MODE_PREMIUM_RATE_LIMITS,
   FREE_MODE_RATE_LIMITS,
   resetFreeModeRateLimits,
 } from '../free-mode-rate-limiter'
@@ -38,14 +39,46 @@ describe('free-mode-rate-limiter', () => {
     fakeNow += ms
   }
 
-  function makeRequests(userId: string, count: number) {
+  function makeRequests(
+    userId: string,
+    count: number,
+    options: { premium?: boolean } = {},
+  ) {
     for (let i = 0; i < count; i++) {
       if (i > 0) {
         advanceTime(1 * SECOND_MS + 1)
       }
-      const result = checkFreeModeRateLimit(userId)
+      const result = checkFreeModeRateLimit(userId, options)
       if (result.limited) {
         throw new Error(`Unexpectedly rate limited on request ${i + 1}`)
+      }
+    }
+  }
+
+  // Send `count` premium requests within a single day, spreading across the
+  // general 30-minute / 1-minute / 1-second windows so only the premium daily
+  // window can be the limiting factor. `count` must stay under the general
+  // 5-hour limit (2000) so the general windows never trip first.
+  function sendPremiumWithinOneDay(userId: string, count: number) {
+    const per30Min = FREE_MODE_RATE_LIMITS.PER_30_MINUTES
+    const perMinute = FREE_MODE_RATE_LIMITS.PER_MINUTE
+    let sent = 0
+    while (sent < count) {
+      const subWindowStart = fakeNow
+      const batchFor30Min = Math.min(per30Min, count - sent)
+      let sentIn30Min = 0
+      while (sentIn30Min < batchFor30Min) {
+        const batch = Math.min(perMinute, batchFor30Min - sentIn30Min)
+        makeRequests(userId, batch, { premium: true })
+        sentIn30Min += batch
+        if (sentIn30Min < batchFor30Min) {
+          advanceTime(1 * MINUTE_MS + 1)
+        }
+      }
+      sent += sentIn30Min
+      if (sent < count) {
+        const elapsed = fakeNow - subWindowStart
+        advanceTime(30 * MINUTE_MS - elapsed + 1)
       }
     }
   }
@@ -317,6 +350,61 @@ describe('free-mode-rate-limiter', () => {
     })
   })
 
+  describe('premium model windows', () => {
+    it('limits premium requests at the premium daily window', () => {
+      sendPremiumWithinOneDay('user-1', FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY)
+      // Advance past the general 1-minute window so it isn't the limiter.
+      advanceTime(1 * MINUTE_MS + 1)
+
+      const result = checkFreeModeRateLimit('user-1', { premium: true })
+      expect(result.limited).toBe(true)
+      if (result.limited) {
+        expect(result.windowName).toBe('premium 1 day')
+      }
+    })
+
+    it('does not apply premium windows to non-premium requests', () => {
+      // Exhaust the premium daily window.
+      sendPremiumWithinOneDay('user-1', FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY)
+      advanceTime(1 * MINUTE_MS + 1)
+
+      // Premium request is now blocked...
+      expect(checkFreeModeRateLimit('user-1', { premium: true }).limited).toBe(
+        true,
+      )
+
+      // ...but a non-premium request (which only consumes the general windows,
+      // still well under their limits) is allowed.
+      const nonPremium = checkFreeModeRateLimit('user-1', { premium: false })
+      expect(nonPremium.limited).toBe(false)
+    })
+
+    it('premium requests still consume the general windows', () => {
+      // The general per-second window (2) should still trip first for a burst.
+      for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+        expect(
+          checkFreeModeRateLimit('user-1', { premium: true }).limited,
+        ).toBe(false)
+      }
+      const result = checkFreeModeRateLimit('user-1', { premium: true })
+      expect(result.limited).toBe(true)
+      if (result.limited) {
+        expect(result.windowName).toBe('1 second')
+      }
+    })
+
+    it('isolates premium counters between users', () => {
+      sendPremiumWithinOneDay('user-1', FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY)
+      advanceTime(1 * MINUTE_MS + 1)
+      expect(checkFreeModeRateLimit('user-1', { premium: true }).limited).toBe(
+        true,
+      )
+      expect(checkFreeModeRateLimit('user-2', { premium: true }).limited).toBe(
+        false,
+      )
+    })
+  })
+
   describe('resetFreeModeRateLimits', () => {
     it('clears all rate limit state', () => {
       for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
@@ -392,6 +480,50 @@ describe('free-mode-rate-limiter', () => {
         windowName: '1 minute',
         retryAfterMs: 12_345,
       })
+    })
+
+    it('adds the premium daily window when premium=true', async () => {
+      const evalMock = mock(async () => [0])
+      const redis = { eval: evalMock }
+
+      await checkConfiguredFreeModeRateLimit('user-1', {
+        redisClient: redis,
+        premium: true,
+      })
+
+      const callArgs = evalMock.mock.calls[0] as unknown as [
+        string,
+        number,
+        ...Array<string | number>,
+      ]
+      // 5 general + 1 premium (daily) window.
+      expect(callArgs[1]).toBe(6)
+      const keys = callArgs.slice(2, 8)
+      expect(keys).toContain(
+        `free-mode-rate-limit:v1:user-1:premium:${24 * HOUR_MS}`,
+      )
+      // No separate sub-day premium window.
+      expect(
+        (keys as string[]).filter((k) => k.includes('premium')).length,
+      ).toBe(1)
+    })
+
+    it('omits the premium windows when premium is not set', async () => {
+      const evalMock = mock(async () => [0])
+      const redis = { eval: evalMock }
+
+      await checkConfiguredFreeModeRateLimit('user-1', {
+        redisClient: redis,
+      })
+
+      const callArgs = evalMock.mock.calls[0] as unknown as [
+        string,
+        number,
+        ...Array<string | number>,
+      ]
+      expect(callArgs[1]).toBe(5)
+      const keys = callArgs.slice(2, 7) as string[]
+      expect(keys.some((k) => k.includes('premium'))).toBe(false)
     })
   })
 

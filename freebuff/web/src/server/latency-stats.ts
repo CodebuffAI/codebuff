@@ -15,6 +15,7 @@ export interface FreebuffLatencyModelStats {
   sampleCount: number
   p50TtftMs: number
   p95TtftMs: number
+  tokensPerSecond: number
   hourly: FreebuffLatencyHourlyPoint[]
 }
 
@@ -22,6 +23,7 @@ export interface FreebuffLatencyOverallStats {
   sampleCount: number
   p50TtftMs: number
   p95TtftMs: number
+  tokensPerSecond: number
 }
 
 export interface FreebuffLatencyStats {
@@ -38,6 +40,7 @@ type SummaryRow = {
   sampleCount: number
   p50TtftMs: number
   p95TtftMs: number
+  tokensPerSecond: number
 }
 
 type HourlyRow = {
@@ -101,6 +104,7 @@ function normalizeOverall(row: OverallRow | undefined) {
     sampleCount: toNumber(row.sampleCount),
     p50TtftMs: toNumber(row.p50TtftMs),
     p95TtftMs: toNumber(row.p95TtftMs),
+    tokensPerSecond: toNumber(row.tokensPerSecond),
   }
 }
 
@@ -130,6 +134,12 @@ export async function getFreebuffLatencyStats(
     sql`${schema.message.ttft_ms} >= 0`,
   )
 
+  // Output throughput: total output tokens / total generation time (latency
+  // after the first token), in tokens per second. Only rows with a recorded
+  // latency greater than TTFT contribute, so the denominator stays positive.
+  const validThroughput = sql`${schema.message.latency_ms} IS NOT NULL AND ${schema.message.latency_ms} > ${schema.message.ttft_ms}`
+  const tokensPerSecondSql = sql<number>`COALESCE(ROUND((SUM(${schema.message.output_tokens}) FILTER (WHERE ${validThroughput}))::numeric * 1000 / NULLIF(SUM(${schema.message.latency_ms} - ${schema.message.ttft_ms}) FILTER (WHERE ${validThroughput}), 0), 1), 0)`
+
   const [summaryRows, hourlyRows, overallRows] = await Promise.all([
     db
       .select({
@@ -137,6 +147,7 @@ export async function getFreebuffLatencyStats(
         sampleCount: sql<number>`COUNT(*)::int`,
         p50TtftMs: sql<number>`ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY ${schema.message.ttft_ms}))::int`,
         p95TtftMs: sql<number>`ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${schema.message.ttft_ms}))::int`,
+        tokensPerSecond: tokensPerSecondSql,
       })
       .from(schema.message)
       .where(recentFreebuffMessages)
@@ -156,6 +167,7 @@ export async function getFreebuffLatencyStats(
         sampleCount: sql<number>`COUNT(*)::int`,
         p50TtftMs: sql<number>`COALESCE(ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY ${schema.message.ttft_ms}))::int, 0)`,
         p95TtftMs: sql<number>`COALESCE(ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${schema.message.ttft_ms}))::int, 0)`,
+        tokensPerSecond: tokensPerSecondSql,
       })
       .from(schema.message)
       .where(recentFreebuffMessages),
@@ -190,6 +202,7 @@ export async function getFreebuffLatencyStats(
         sampleCount: toNumber(row.sampleCount),
         p50TtftMs: toNumber(row.p50TtftMs),
         p95TtftMs: toNumber(row.p95TtftMs),
+        tokensPerSecond: toNumber(row.tokensPerSecond),
         hourly: hours.map(
           (hour) => modelHours?.get(hour) ?? emptyHourlyPoint(hour),
         ),

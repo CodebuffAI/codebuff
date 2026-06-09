@@ -9,6 +9,7 @@ import {
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   DEFAULT_FREEBUFF_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 import codeReviewerDeepseek from '../../../../../agents/reviewer/code-reviewer-deepseek'
@@ -132,6 +133,15 @@ const base2FreeMinimax = withFreebuffWebSystemPromptAppendix({
   displayName: 'Buffy the MiniMax Free Orchestrator',
 })
 
+const base2FreeMinimaxM3 = withFreebuffWebSystemPromptAppendix({
+  ...createBase2('free', {
+    model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+    noReview: true,
+  }),
+  id: 'base2-free-minimax-m3',
+  displayName: 'Buffy the MiniMax M3 Free Orchestrator',
+})
+
 /**
  * Maps a Freebuff model id (as shown in the web/CLI model switcher) to the
  * bundled base2-free agent that pins that model. Used by executeFreebuff to
@@ -145,6 +155,7 @@ export const FREEBUFF_MODEL_TO_AGENT_ID: Record<string, string> = {
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
   [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free-minimax',
+  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
 }
 
 /** Resolve a selected Freebuff model id to the bundled agent id to run. Falls
@@ -164,6 +175,7 @@ export const bundledAgentDefinitions = [
   base2FreeMimo,
   base2FreeMimoPro,
   base2FreeMinimax,
+  base2FreeMinimaxM3,
   basher,
   browserUse,
   contextPruner,

@@ -11,12 +11,6 @@ import type {
 } from './types'
 
 const GRAVITY_URL = 'https://server.trygravity.ai/api/v1/ad'
-const CHOICE_PLACEMENT_IDS = [
-  'choice-ad-1',
-  'choice-ad-2',
-  'choice-ad-3',
-  'choice-ad-4',
-]
 const SINGLE_AD_PLACEMENT_IDS = ['Single-Ad-Unit-1']
 const WAITING_ROOM_PLACEMENT_IDS = [
   'waiting-room-1',
@@ -28,7 +22,6 @@ const FREEBUFF_WEB_CHAT_PLACEMENT_IDS = [
   'Web-Chat-After-User-Message',
   'Web-Chat-After-Assistant-Message',
 ]
-const FREEBUFF_CLI_AD_UNIT_EXPERIMENT = 'freebuff-cli-ad-unit-v1'
 
 type GravityRawAd = {
   adText: string
@@ -92,14 +85,6 @@ function prepareGravityMessages(messages: AdMessage[]): AdMessage[] {
   return buildArray(lastAssistant, lastUser)
 }
 
-function useSingleAdUnit(userId: string): boolean {
-  const hash = createHash('sha256')
-    .update(`${FREEBUFF_CLI_AD_UNIT_EXPERIMENT}:${userId}`)
-    .digest()
-
-  return hash[0] >= 128
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -137,11 +122,7 @@ function getPlacementIds(input: FetchAdInput): string[] {
     return FREEBUFF_WEB_CHAT_PLACEMENT_IDS
   }
 
-  if (useSingleAdUnit(input.userId)) {
-    return SINGLE_AD_PLACEMENT_IDS
-  }
-
-  return CHOICE_PLACEMENT_IDS
+  return SINGLE_AD_PLACEMENT_IDS
 }
 
 export function createGravityProvider(config: { apiKey: string }): AdProvider {

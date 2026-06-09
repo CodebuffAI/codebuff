@@ -36,7 +36,10 @@ export const FreebuffActiveSessionSummary: React.FC<
     'accessTier' in session && session.accessTier === 'limited'
       ? 'sessions'
       : 'premium sessions'
-
+  // recentCount already includes the active session's 1.0-unit reservation
+  // (written as an admit row at promotion), so it reflects everything counted
+  // against the quota — spent plus in-flight. Show it as the total used to match
+  // the model selection menu and the other session-status screens.
   return (
     <box
       style={{
@@ -52,7 +55,7 @@ export const FreebuffActiveSessionSummary: React.FC<
         </span>
         <span fg={theme.muted}>
           {' '}
-          {label} used today · resets in {resetCountdown}
+          {label} used · resets in {resetCountdown}
         </span>
       </text>
     </box>

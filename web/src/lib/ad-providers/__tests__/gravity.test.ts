@@ -50,23 +50,9 @@ async function fetchGravityRequestBody(
 }
 
 describe('Gravity ad provider', () => {
-  test('keeps existing choice placements for half of users', async () => {
+  test('serves the single chat ad to all users', async () => {
     const body = await fetchGravityRequestBody({
       userId: 'a',
-      requestUserAgent: 'Freebuff-CLI/0.0.88',
-    })
-
-    expect(body.placements).toEqual([
-      { placement: 'below_response', placement_id: 'choice-ad-1' },
-      { placement: 'below_response', placement_id: 'choice-ad-2' },
-      { placement: 'below_response', placement_id: 'choice-ad-3' },
-      { placement: 'below_response', placement_id: 'choice-ad-4' },
-    ])
-  })
-
-  test('uses the single-ad placement for half of users', async () => {
-    const body = await fetchGravityRequestBody({
-      userId: 'b',
       requestUserAgent: 'Freebuff-CLI/0.0.88',
     })
 
@@ -75,7 +61,7 @@ describe('Gravity ad provider', () => {
     ])
   })
 
-  test('buckets Codebuff CLI users into the experiment alongside Freebuff CLI', async () => {
+  test('serves the single chat ad to Codebuff CLI users too', async () => {
     const codebuffBody = await fetchGravityRequestBody({
       userId: 'b',
       requestUserAgent: 'Codebuff-CLI/0.0.88',
@@ -85,7 +71,7 @@ describe('Gravity ad provider', () => {
     ])
   })
 
-  test('does not apply the single-ad experiment to the waiting room surface', async () => {
+  test('uses the waiting room placements for the waiting room surface', async () => {
     const waitingRoomBody = await fetchGravityRequestBody({
       userId: 'b',
       requestUserAgent: 'Freebuff-CLI/0.0.88',

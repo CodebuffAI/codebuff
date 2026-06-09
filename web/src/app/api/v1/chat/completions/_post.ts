@@ -5,6 +5,7 @@ import {
   FREEBUFF_FORCE_LIMITED_MODE,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   isFreebuffModelAllowedForAccessTier,
+  isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 import {
@@ -177,6 +178,7 @@ export type CheckSessionAdmissibleFn = typeof checkSessionAdmissible
 export type EndUserSessionFn = typeof endUserSession
 export type CheckFreeModeRateLimitFn = (
   userId: string,
+  options?: { premium?: boolean },
 ) => RateLimitResult | Promise<RateLimitResult>
 export type ResolveFreeModeCountryAccessFn = (
   userId: string,
@@ -218,8 +220,48 @@ function getChatCompletionsProvider(model: string): ChatCompletionsProvider {
   return 'openrouter'
 }
 
-const defaultCheckFreeModeRateLimit: CheckFreeModeRateLimitFn = (userId) =>
-  checkConfiguredFreeModeRateLimit(userId, { redisUrl: env.REDIS_URL })
+const defaultCheckFreeModeRateLimit: CheckFreeModeRateLimitFn = (
+  userId,
+  options,
+) =>
+  checkConfiguredFreeModeRateLimit(userId, {
+    redisUrl: env.REDIS_URL,
+    premium: options?.premium,
+  })
+
+/** Marker present in the freebuff CLI's root-orchestrator system prompt (see
+ *  agents/base2/base2.ts → createBase2: "You are Buffy, ..."). Scripted callers
+ *  hitting the raw endpoint won't reproduce it, so we use it to reject (not ban)
+ *  free-mode root requests that bypass the CLI. Matched case-insensitively. */
+const FREEBUFF_SYSTEM_PROMPT_MARKER = 'you are buffy'
+
+/** True when any system message in the request contains the freebuff CLI
+ *  orchestrator marker. Handles both string and content-part array shapes. */
+function requestHasFreebuffSystemMarker(
+  body: ChatCompletionRequestBody,
+): boolean {
+  const messages = Array.isArray(body.messages) ? body.messages : []
+  for (const message of messages) {
+    if (!message || message.role !== 'system') continue
+    const content = message.content
+    let text = ''
+    if (typeof content === 'string') {
+      text = content
+    } else if (Array.isArray(content)) {
+      text = content
+        .map((part) =>
+          part && typeof part === 'object' && 'text' in part
+            ? ((part as { text?: string }).text ?? '')
+            : '',
+        )
+        .join(' ')
+    }
+    if (text.toLowerCase().includes(FREEBUFF_SYSTEM_PROMPT_MARKER)) {
+      return true
+    }
+  }
+  return false
+}
 
 function sampleSuccessLogger(logger: Logger, sampled: boolean): Logger {
   if (sampled) return logger
@@ -646,6 +688,40 @@ export async function postChatCompletions(params: {
       )
     }
 
+    // Free-mode root requests must carry the real freebuff CLI system prompt
+    // (starts with "You are Buffy"). Scripted callers hitting the raw endpoint
+    // won't have it, so reject — but do NOT ban — with a friendly nudge to use
+    // the CLI. Honest users self-correct; abusers learn the behavior is
+    // detectable. Scoped to root agents because subagents (file-picker,
+    // code-reviewer, browser-use, …) legitimately use other prompts; non-root
+    // free agents are constrained by the hierarchy gate below instead. A caller
+    // that injects the marker but still produces no agent steps is then a clear
+    // ban candidate (see scripts/find-freebuff-api-suspects.ts).
+    if (
+      isFreeModeRequest &&
+      isFreebuffRootAgent(agentId) &&
+      !requestHasFreebuffSystemMarker(typedBody)
+    ) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'free_mode_cli_required',
+          agentId,
+          model: typedBody.model,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'free_mode_cli_required',
+          message:
+            'Free mode is only available through the freebuff CLI. Install it with `npm i -g freebuff`, then run `freebuff`. Calling the API directly is not supported and may get your account banned.',
+        },
+        { status: 403 },
+      )
+    }
+
     if (isFreeModeRequest && !isFreebuffRootAgent(agentId)) {
       const rootRunId = ancestorRunIds[0]
       const rootRun = rootRunId
@@ -742,9 +818,14 @@ export async function postChatCompletions(params: {
       }
     }
 
-    // Rate limit free mode requests (after validation so invalid requests don't consume quota)
+    // Rate limit free mode requests (after validation so invalid requests don't consume quota).
+    // Premium models additionally enforce FREE_MODE_PREMIUM_RATE_LIMITS, so direct
+    // endpoint callers can't exceed the intended premium allowance by skipping the
+    // agent-run path where the per-session premium cap is normally checked.
     if (isFreeModeRequest) {
-      const rateLimitResult = await checkFreeModeRateLimit(userId)
+      const rateLimitResult = await checkFreeModeRateLimit(userId, {
+        premium: isFreebuffPremiumModelId(typedBody.model),
+      })
       if (rateLimitResult.limited) {
         const retryAfterSeconds = Math.ceil(rateLimitResult.retryAfterMs / 1000)
         const resetTime = new Date(
@@ -763,10 +844,16 @@ export async function postChatCompletions(params: {
           logger,
         })
 
+        const isPremiumWindow =
+          rateLimitResult.windowName.startsWith('premium ')
+        const message = isPremiumWindow
+          ? `Daily free premium-model limit reached. Switch to a standard model (e.g. DeepSeek V4 Flash or MiniMax) or try again ${resetCountdown}.`
+          : `Free mode rate limit exceeded (${rateLimitResult.windowName} limit). Try again ${resetCountdown}.`
+
         return NextResponse.json(
           {
             error: 'free_mode_rate_limited',
-            message: `Free mode rate limit exceeded (${rateLimitResult.windowName} limit). Try again ${resetCountdown}.`,
+            message,
           },
           {
             status: 429,

@@ -102,12 +102,37 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     req: Parameters<typeof getFreeModeCountryAccess>[0],
     options: Parameters<typeof getFreeModeCountryAccess>[1],
   ) => getFreeModeCountryAccess(req, options)
-  const postChatCompletionsForTest = (
+  // The real freebuff CLI always sends the "You are Buffy" root system prompt,
+  // which the endpoint now requires for free-mode root requests. Most tests
+  // here omit `messages` because they exercise unrelated gates, so default the
+  // marker in for free-mode bodies that don't set their own messages. Tests
+  // that specifically exercise the marker gate pass explicit `messages`.
+  const withDefaultBuffyPrompt = async (req: NextRequest): Promise<NextRequest> => {
+    let parsed: any
+    try {
+      parsed = JSON.parse(await req.clone().text())
+    } catch {
+      return req
+    }
+    if (parsed?.codebuff_metadata?.cost_mode !== 'free') return req
+    if (Array.isArray(parsed.messages) && parsed.messages.length > 0) return req
+    parsed.messages = [
+      { role: 'system', content: 'You are Buffy, a strategic assistant.' },
+    ]
+    return new NextRequest(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: JSON.stringify(parsed),
+    })
+  }
+
+  const postChatCompletionsForTest = async (
     params: Parameters<typeof postChatCompletions>[0],
   ) =>
     postChatCompletions({
       resolveFreeModeCountryAccess: mockResolveFreeModeCountryAccess,
       ...params,
+      req: await withDefaultBuffyPrompt(params.req),
     })
 
   const allowedFreeModeHeaders = (apiKey: string) => ({
@@ -900,6 +925,96 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             body: JSON.stringify({
               model: 'minimax/minimax-m2.7',
               stream: false,
+              codebuff_metadata: {
+                run_id: 'run-free',
+                client_id: 'test-client-id-123',
+                cost_mode: 'free',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: mockFetch,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+          checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        })
+
+        expect(response.status).toBe(200)
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it('rejects a free-mode root request whose system prompt lacks the Buffy marker', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: allowedFreeModeHeaders('test-api-key-new-free'),
+          body: JSON.stringify({
+            model: 'minimax/minimax-m2.7',
+            stream: false,
+            // Explicit non-Buffy system prompt: simulates a scripted caller
+            // proxying the raw endpoint. The wrapper does not inject a default
+            // because messages are already present.
+            messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+            codebuff_metadata: {
+              run_id: 'run-free',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const checkSessionAdmissible = mock(async () => {
+        throw new Error('marker gate should run before the session gate')
+      })
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible,
+      })
+
+      expect(response.status).toBe(403)
+      const body = await response.json()
+      expect(body.error).toBe('free_mode_cli_required')
+      expect(body.message).toContain('npm i -g freebuff')
+    })
+
+    it(
+      'allows a free-mode root request that includes the Buffy marker',
+      async () => {
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: allowedFreeModeHeaders('test-api-key-new-free'),
+            body: JSON.stringify({
+              model: 'minimax/minimax-m2.7',
+              stream: false,
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are Buffy, a strategic assistant that orchestrates complex coding tasks.',
+                },
+                { role: 'user', content: 'hello' },
+              ],
               codebuff_metadata: {
                 run_id: 'run-free',
                 client_id: 'test-client-id-123',
