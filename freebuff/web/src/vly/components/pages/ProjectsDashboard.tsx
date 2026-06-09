@@ -122,20 +122,40 @@ export default function ProjectsDashboard() {
   }
 
   return (
-    <AppShell title="Projects">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <AppShell>
+      {/* ── Freebuff-y ambient background (primary-color glow + grid) ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[460px] overflow-hidden"
+      >
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 60% at 50% -10%, hsl(var(--primary) / 0.18), transparent 60%)',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, hsl(var(--primary) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--primary) / 0.5) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+            maskImage: 'linear-gradient(to bottom, black, transparent)',
+            WebkitMaskImage: 'linear-gradient(to bottom, black, transparent)',
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
-        <section className="mb-10">
+        <section className="mb-12">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="font-['Geist'] text-3xl font-normal leading-none text-foreground sm:text-4xl">
+            <h2 className="font-['Geist'] text-3xl font-normal leading-tight text-foreground sm:text-4xl">
               What do you want to build?
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-              Describe your idea and Freebuff scaffolds a working app — add a
-              theme or reference images to guide the look.
-            </p>
           </div>
-          <div className="mx-auto mt-6 max-w-3xl">
+          <div className="mx-auto mt-7 max-w-3xl">
             <HeroStorageProvider>
               <DocumentInput setIsThemePickerOpen={setIsThemePickerOpen} />
               <Suspense fallback={null}>

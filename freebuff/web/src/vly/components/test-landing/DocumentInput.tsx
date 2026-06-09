@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, memo, useRef } from "react";
 import Image from "next/image";
 import { ThemeBadge } from "../ui/ThemeBadge";
-import { Loader, ArrowRight, Palette, ImagePlus } from "lucide-react";
+import { Loader, ArrowUp, Palette, ImagePlus } from "lucide-react";
 // Suggestions can be added if needed in the future
 // import { allSuggestions, getRandomSuggestions, getDefaultSuggestions } from "../landing-4/suggestions";
 import { useSharedHeroStorage } from "@/vly/hooks/useSharedHeroStorage";
@@ -21,12 +21,37 @@ import ThemeConfirmationModal from "../ThemeConfirmationModal";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleProjectCreationResult } from "@/vly/lib/project-creation-handler";
 
+// Practical starter prompts shown as chips below the composer.
+const PROJECT_SUGGESTIONS: { label: string; prompt: string }[] = [
+  {
+    label: "Waitlist landing page",
+    prompt:
+      "A waitlist landing page for a new product with a bold hero, feature highlights, and an email signup form.",
+  },
+  {
+    label: "Support ticket system",
+    prompt:
+      "A support ticket system where customers can submit tickets and an agent dashboard can triage and reply to them.",
+  },
+  {
+    label: "Blog",
+    prompt:
+      "A blog with a clean editorial theme, a post list, individual post pages, and tags.",
+  },
+  {
+    label: "Booking app",
+    prompt:
+      "A booking app for a small studio where clients can pick a service, choose a time slot, and confirm an appointment.",
+  },
+];
+
 // Typing animation for placeholder
 const TypingAnimation = memo(() => {
   const suggestions = [
-    "build a realtime collaboration app...",
-    "create an e-commerce marketplace...",
-    "make a social media dashboard...",
+    "a waitlist landing page for a new product...",
+    "a support ticket system for my team...",
+    "a blog with a clean editorial theme...",
+    "a booking app for a small studio...",
   ];
   const [displayed, setDisplayed] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -83,14 +108,9 @@ const TypingAnimation = memo(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!mounted)
-    return <span className="opacity-50">Start typing your idea...</span>;
+  if (!mounted) return <span>Ask Freebuff to create…</span>;
 
-  return (
-    <span className="opacity-50">
-      {displayed || "Start typing your idea..."}
-    </span>
-  );
+  return <span>{displayed || "Ask Freebuff to create…"}</span>;
 });
 
 TypingAnimation.displayName = "TypingAnimation";
@@ -391,45 +411,28 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
   return (
     <>
       <div className="animate-fade-in relative mx-auto w-full max-w-[816px]">
+        {/* Lovable-style input box */}
         <div
-          className="relative overflow-hidden rounded-xl bg-card shadow-lg shadow-black/20 ring-1 ring-border/30"
-          style={{
-            fontFamily: "'Roboto', 'Arial', sans-serif",
-          }}
+          className="relative cursor-text rounded-2xl bg-card/80 shadow-xl shadow-black/20 ring-1 ring-border/40 backdrop-blur transition-colors focus-within:ring-primary/45"
+          onClick={() => inputRef.current?.focus()}
         >
-          <div className="flex items-center justify-between border-b border-border/30 px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.65)]" />
-              <span className="text-xs font-medium text-muted-foreground">
-                Type your idea → full-stack web app
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
-              <span>Freebuff Web</span>
-            </div>
-          </div>
-
-          {/* Document Body */}
-          <div
-            className="relative min-h-[280px] cursor-text px-12 py-8"
-            onClick={() => inputRef.current?.focus()}
-          >
+          <div className="px-4 pt-4 sm:px-5 sm:pt-5">
             {/* Uploaded images and theme badge */}
             {(selectedTheme || uploadedImages.length > 0) && (
-              <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 {selectedTheme && (
                   <ThemeBadge theme={selectedTheme} onRemove={removeTheme} />
                 )}
                 {uploadedImages.map((image, index) => (
                   <div
                     key={index}
-                    className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg ring-1 ring-border/40"
+                    className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg ring-1 ring-border/40"
                   >
                     <Image
                       src={image}
                       alt={`Uploaded ${index + 1}`}
                       fill
-                      sizes="64px"
+                      sizes="56px"
                       className="object-cover"
                     />
                     <button
@@ -449,7 +452,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
             {/* Textarea with placeholder */}
             <div className="relative">
               {userInput === "" && (
-                <div className="pointer-events-none absolute inset-0 text-left text-lg leading-7 text-muted-foreground/55">
+                <div className="pointer-events-none absolute inset-0 text-left text-base leading-7 text-muted-foreground">
                   <TypingAnimation />
                 </div>
               )}
@@ -460,99 +463,91 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder=""
-                className="w-full resize-none border-none bg-transparent text-left text-lg leading-7 text-foreground outline-none placeholder:text-muted-foreground/55"
-                style={{
-                  minHeight: "140px",
-                  fontFamily: "'Roboto', 'Arial', sans-serif",
-                }}
+                className="w-full resize-none border-none bg-transparent text-left text-base leading-7 text-foreground outline-none"
+                style={{ minHeight: "76px" }}
                 disabled={isLoading}
               />
             </div>
-
-            {/* Suggestion chips - only show when input is empty */}
-            {userInput === "" && (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {[
-                  "Multiplayer Gamified Learning",
-                  "Custom Slack Application",
-                  "Online shop with live chat",
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      updateUserInput(suggestion);
-                      inputRef.current?.focus();
-                    }}
-                    className="rounded-full bg-muted/65 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          <div className="border-t border-border/30 px-4 py-3">
-            <div className="flex items-center justify-between">
-              {/* Left side - Action buttons */}
-              <div className="flex items-center gap-2">
-                {/* Theme Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsThemePickerOpen(true)}
-                  className={`group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors hover:bg-primary/10 hover:text-primary ${
-                    selectedTheme
-                      ? "bg-primary/10 text-primary"
-                      : "bg-muted/65 text-muted-foreground"
-                  }`}
-                >
-                  <Palette className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {selectedTheme ? "Theme applied" : "Add theme"}
-                  </span>
-                </button>
-
-                {/* Upload Image Button */}
-                <button
-                  type="button"
-                  onClick={triggerImageUpload}
-                  className="group flex items-center gap-2 rounded-full bg-muted/65 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                >
-                  <ImagePlus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Add image</span>
-                </button>
-              </div>
-
-              {/* Right side - Submit button */}
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
+            <div className="flex items-center gap-1.5">
+              {/* Upload Image Button */}
               <button
                 type="button"
-                onClick={handleStartProject}
-                disabled={isLoading || !userInput.trim()}
-                className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
-                  isLoading || !userInput.trim()
-                    ? "cursor-not-allowed bg-muted text-muted-foreground"
-                    : "bg-primary text-primary-foreground hover:bg-primary/85"
-                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerImageUpload();
+                }}
+                className="flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                title="Add image"
               >
-                {isLoading ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span>Create</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
+                <ImagePlus className="h-[18px] w-[18px]" />
+                <span className="hidden sm:inline">Image</span>
+              </button>
+
+              {/* Theme Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsThemePickerOpen(true);
+                }}
+                className={`flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm transition-colors ${
+                  selectedTheme
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
+                title="Add theme"
+              >
+                <Palette className="h-[18px] w-[18px]" />
+                <span className="hidden sm:inline">Theme</span>
               </button>
             </div>
 
-            {/* Hint text */}
-            <p className="mt-2 text-center text-xs text-muted-foreground/70">
-              Enter to create · Shift+Enter for new line
-            </p>
+            {/* Submit button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStartProject();
+              }}
+              disabled={isLoading || !userInput.trim()}
+              aria-label="Create project"
+              className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                isLoading || !userInput.trim()
+                  ? "cursor-not-allowed bg-muted text-muted-foreground"
+                  : "bg-primary text-primary-foreground hover:bg-primary/85"
+              }`}
+            >
+              {isLoading ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUp className="h-[18px] w-[18px]" />
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Suggestion chips - only show when input is empty */}
+        {userInput === "" && (
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {PROJECT_SUGGESTIONS.map((suggestion) => (
+              <button
+                key={suggestion.label}
+                type="button"
+                onClick={() => {
+                  updateUserInput(suggestion.prompt);
+                  inputRef.current?.focus();
+                }}
+                className="rounded-full border border-border/50 bg-card/40 px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+              >
+                {suggestion.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Hidden file input */}
