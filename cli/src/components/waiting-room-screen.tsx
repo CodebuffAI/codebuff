@@ -3,7 +3,7 @@ import { useKeyboard, useRenderer } from '@opentui/react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from './button'
-import { ChoiceAdBanner, CHOICE_AD_BANNER_HEIGHT } from './choice-ad-banner'
+import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import {
@@ -406,7 +406,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // estimate, no blanket safety row) so the scrollbox fills the available
   // space with no dead band below it:
   //   - top bar: paddingTop 1 + the ✕ row = 2
-  //   - ad banner: CHOICE_AD_BANNER_HEIGHT, only when shown
+  //   - ad banner: AD_CARD_HEIGHT, only when shown
   //   - main box: its paddingTop (text-logo tier only) + paddingBottom 1
   //   - logo block: lines + marginBottom 1 (always, when shown) + gap (full)
   //   - the prompt/counter (landing) or the position panel (queued)
@@ -422,7 +422,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       ? 0
       : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
   const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
-  const adRows = showAds ? CHOICE_AD_BANNER_HEIGHT : 0
+  const adRows = showAds ? AD_CARD_HEIGHT : 0
   // Streak is rendered inline as a one-line row directly under the counter
   // (landing) or title (queued), with the same bottom margin as its neighbor
   // so the picker still sits flush below it.
@@ -757,7 +757,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           style={{
             width: '100%',
             flexShrink: 0,
-            height: CHOICE_AD_BANNER_HEIGHT,
+            height: AD_CARD_HEIGHT,
           }}
         >
           {ads ? (
