@@ -427,9 +427,9 @@
 
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 
-    "@posthog/core": ["@posthog/core@1.31.4", "", { "dependencies": { "@posthog/types": "1.385.0" } }, "sha512-Xq/XmltsX+uUKf1aK4JwbDtVEzyCZS0/orv9myU2OJz8SmlO6Z2w2/V9iThzmHPIHUQup7oCb9iudJM86RamNA=="],
+    "@posthog/core": ["@posthog/core@1.32.0", "", { "dependencies": { "@posthog/types": "1.386.0" } }, "sha512-ObLtuhf3QgWP6UyyuiLGBPlVaQw2h4wYC3I4cg9m7UfveaY5vqtpqEYNOdpcuYlQYIVkoSYxu9Wsokmmg9q4nA=="],
 
-    "@posthog/types": ["@posthog/types@1.385.0", "", {}, "sha512-MLtq/d5HnGqMqLW2HU6OAILnty1PDRaUQePMNWCGF+eYdPY9/Ki1h8oKy0PffO/sNV3GsqIthLQ/ESFllNlcwA=="],
+    "@posthog/types": ["@posthog/types@1.386.0", "", {}, "sha512-v2ywYj9gYQ4C2nyTkk54evord9p54ezXCKQNtyqoIQjxmF+Plpum1JGVunAeNeAUWgMuWWEwGu/1VcbOJsLnLw=="],
 
     "@rtsao/scc": ["@rtsao/scc@1.1.0", "", {}, "sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g=="],
 
@@ -1307,7 +1307,7 @@
 
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
-    "posthog-node": ["posthog-node@5.36.13", "", { "dependencies": { "@posthog/core": "1.31.4" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-Evyy5F9seWnDHL4DRKuWEVTdYhDC5dvjhRLD+Xs5G0GcEH/LDD/yyTVz1cqNKRM1do+tiK4J6pmHFaBYUhqzpg=="],
+    "posthog-node": ["posthog-node@5.36.14", "", { "dependencies": { "@posthog/core": "1.32.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-3HisrhpcSBHOzTWW3UAVLKwz52YWTbfHeqJ4vergpc05diOKGlz0ckXkQnDZ/a8OJ/UGa3JZyDzkRlVBGeg7IA=="],
 
     "preact": ["preact@10.29.2", "", {}, "sha512-7tNmwg/7mzzAoB/8kSg6Hl37JraAZw3Z3A0JSY7VXlZwo82Xn0G7wKbNNs2qoF4ZEEsQGTwDAroNdqKs1ofJxQ=="],
 
@@ -1656,6 +1656,8 @@
     "@opentui/core/diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
     "@opentui/core/strip-ansi": ["strip-ansi@7.1.2", "", { "dependencies": { "ansi-regex": "^6.0.1" } }, "sha512-gmBGslpoQJtgnMAvOVqGZpEz9dyoKTCzy2nfz/n8aIFhN/jCE/rCmcxabB6jOOHV+0WNnylOxaxBQPSvcWklhA=="],
+
+    "@types/diff/diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
     "@typescript-eslint/eslint-plugin/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
