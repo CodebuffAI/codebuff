@@ -125,6 +125,18 @@ describe('free mode agent model allowlist', () => {
       ),
     ).toBe(false)
     expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-minimax-m3',
+        MINIMAX_M3_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        'code-reviewer-minimax-m3',
+        FREEBUFF_MINIMAX_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
       isFreeModeAllowedAgentModel('code-reviewer-kimi', FREEBUFF_KIMI_MODEL_ID),
     ).toBe(true)
     expect(

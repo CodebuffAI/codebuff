@@ -431,9 +431,9 @@
 
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 
-    "@posthog/core": ["@posthog/core@1.32.0", "", { "dependencies": { "@posthog/types": "1.386.0" } }, "sha512-ObLtuhf3QgWP6UyyuiLGBPlVaQw2h4wYC3I4cg9m7UfveaY5vqtpqEYNOdpcuYlQYIVkoSYxu9Wsokmmg9q4nA=="],
+    "@posthog/core": ["@posthog/core@1.32.1", "", { "dependencies": { "@posthog/types": "1.386.1" } }, "sha512-ELq0TQ/MCCj1bY/oFsX53HV6GjRgtzcixhvcPG3Rv+0tU+NaS5Seg1f4cRpfFDTQlIN0Fu+r9oHnFcnXrg7Eew=="],
 
-    "@posthog/types": ["@posthog/types@1.386.0", "", {}, "sha512-v2ywYj9gYQ4C2nyTkk54evord9p54ezXCKQNtyqoIQjxmF+Plpum1JGVunAeNeAUWgMuWWEwGu/1VcbOJsLnLw=="],
+    "@posthog/types": ["@posthog/types@1.386.1", "", {}, "sha512-dsv3xOpKdJIIzcHLzSQ2SZtOvoN2zQMs2thrppTC5e3IVkJUxey+6bY9zOt8FoWHCwQ6jJbNtOp0lVanfbPNeA=="],
 
     "@rtsao/scc": ["@rtsao/scc@1.1.0", "", {}, "sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g=="],
 
@@ -1321,7 +1321,7 @@
 
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
-    "posthog-node": ["posthog-node@5.36.14", "", { "dependencies": { "@posthog/core": "1.32.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-3HisrhpcSBHOzTWW3UAVLKwz52YWTbfHeqJ4vergpc05diOKGlz0ckXkQnDZ/a8OJ/UGa3JZyDzkRlVBGeg7IA=="],
+    "posthog-node": ["posthog-node@5.36.15", "", { "dependencies": { "@posthog/core": "1.32.1" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-rEy0HWxJCPo06UkAv5vgo0VkFsQdQa6yX74LhBRYUjG1QFEAm39PcVzSmiX4YH2x6+OJzZ0UZ17g+wU1fzvmZQ=="],
 
     "preact": ["preact@10.29.2", "", {}, "sha512-7tNmwg/7mzzAoB/8kSg6Hl37JraAZw3Z3A0JSY7VXlZwo82Xn0G7wKbNNs2qoF4ZEEsQGTwDAroNdqKs1ofJxQ=="],
 
