@@ -677,6 +677,7 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
       meta?: boolean
       shift?: boolean
       option?: boolean
+      source?: 'raw' | 'kitty'
     },
     hasBackslashBeforeCursor: boolean = false,
   ): 'newline' | 'submit' | 'ignore' {
@@ -697,7 +698,9 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     if (!isEnterKey && !isCtrlJ) return 'ignore'
 
     const isAltLikeModifier = isAltModifier(key)
+    const isKittyKey = key.source === 'kitty'
     const hasEscapePrefix =
+      !isKittyKey &&
       typeof key.sequence === 'string' &&
       key.sequence.length > 0 &&
       key.sequence.charCodeAt(0) === 0x1b
@@ -710,7 +713,7 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
       !key.option &&
       !isAltLikeModifier &&
       (!hasEscapePrefix || keypadEnter) &&
-      (key.sequence === '\r' || keypadEnter) &&
+      (key.sequence === '\r' || keypadEnter || isKittyKey) &&
       !hasBackslashBeforeCursor
     const isShiftEnter =
       isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
@@ -982,6 +985,67 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     }
 
     expect(getEnterKeyAction(key, false)).toBe('submit')
+  })
+
+  // --- Kitty keyboard protocol tests ---
+  // Some terminals (e.g. VSCode-fork embedded terminals on Linux) encode a
+  // plain Enter press as CSI u (\x1b[13u) once the kitty protocol is active.
+  // The escape prefix must not be mistaken for Alt+Enter in that case.
+
+  test('Kitty CSI-u plain Enter submits', () => {
+    const key = {
+      name: 'return',
+      sequence: '\x1b[13u',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+      source: 'kitty' as const,
+    }
+
+    expect(getEnterKeyAction(key, false)).toBe('submit')
+  })
+
+  test('Kitty Shift+Enter inserts newline', () => {
+    const key = {
+      name: 'return',
+      sequence: '\x1b[13;2u',
+      ctrl: false,
+      meta: false,
+      shift: true,
+      option: false,
+      source: 'kitty' as const,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Kitty Alt+Enter inserts newline', () => {
+    const key = {
+      name: 'return',
+      sequence: '\x1b[13;3u',
+      ctrl: false,
+      meta: true,
+      shift: false,
+      option: true,
+      source: 'kitty' as const,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Kitty plain Enter with backslash before cursor inserts newline', () => {
+    const key = {
+      name: 'return',
+      sequence: '\x1b[13u',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+      source: 'kitty' as const,
+    }
+
+    expect(getEnterKeyAction(key, true)).toBe('newline')
   })
 
   // --- Non-Enter key tests ---
