@@ -56,6 +56,22 @@ export default function AdminDashboard() {
 
   const timeRangeHook = useTimeRange('24h')
 
+  // Bump every minute so the "past hour" live-user window advances even
+  // without data changes (Convex queries don't re-run on wall-clock time).
+  const [engagementRefreshKey, setEngagementRefreshKey] = useState(0)
+  useEffect(() => {
+    const interval = setInterval(
+      () => setEngagementRefreshKey((k) => k + 1),
+      60_000,
+    )
+    return () => clearInterval(interval)
+  }, [])
+
+  const engagementStats = useQuery(
+    api.activity.getEngagementStats,
+    isAdmin ? { refreshKey: engagementRefreshKey, historyDays: 30 } : 'skip',
+  )
+
   const dashboardStats = useQuery(
     api.admin_stats.getDashboardStats,
     isAdmin && timeRangeHook.timeRangeValues
@@ -311,6 +327,63 @@ export default function AdminDashboard() {
           <AdminProjectOwnershipManager />
         </div>
 
+        {/* Engagement Grid */}
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Live Users (past hour) */}
+          <Card className="border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Live Users (past hour)
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <CountUp
+                      end={engagementStats?.live.usersPastHour ?? 0}
+                      className="text-2xl font-bold text-black"
+                    />
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Unique users who sent a message in the last 60 min
+                  </p>
+                </div>
+                <div className="rounded-full bg-green-50 p-2">
+                  <Activity className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Active Today (DAU) */}
+          <Card className="border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Active Today (DAU)
+                  </p>
+                  <div className="mt-1 flex items-center">
+                    <CountUp
+                      end={engagementStats?.today.activeUsers ?? 0}
+                      className="text-2xl font-bold text-black"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Unique users who sent a message today (UTC)
+                  </p>
+                </div>
+                <div className="rounded-full bg-gray-100 p-2">
+                  <Zap className="h-5 w-5 text-gray-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Stats Grid */}
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Users */}
@@ -403,6 +476,94 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Daily Breakdown */}
+        <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <BarChart3 className="h-5 w-5 text-gray-600" />
+              Daily Breakdown
+              <span className="text-xs font-normal text-gray-500">
+                (UTC days, saved nightly)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="py-2 pr-4 font-medium">Day</th>
+                    <th className="py-2 pr-4 font-medium">Active Users</th>
+                    <th className="py-2 pr-4 font-medium">Signups</th>
+                    <th className="py-2 pr-4 font-medium">New Projects</th>
+                    <th className="py-2 pr-4 font-medium">Total Users</th>
+                    <th className="py-2 font-medium">Total Projects</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Today (in progress, live from aggregates) */}
+                  {engagementStats && (
+                    <tr className="border-b border-gray-100 bg-green-50/40">
+                      <td className="py-2 pr-4 font-medium text-black">
+                        {engagementStats.today.day}
+                        <Badge className="ml-2 border-green-200 bg-green-100 text-[10px] text-green-700">
+                          TODAY
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {engagementStats.today.activeUsers}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {engagementStats.today.newUsers}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {engagementStats.today.newProjects}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {engagementStats.totals.users}
+                      </td>
+                      <td className="py-2 text-black">
+                        {engagementStats.totals.projects}
+                      </td>
+                    </tr>
+                  )}
+                  {/* Saved history (excludes today; snapshot runs after UTC midnight) */}
+                  {engagementStats?.history
+                    .filter((row) => row.day !== engagementStats.today.day)
+                    .map((row) => (
+                      <tr key={row.day} className="border-b border-gray-100">
+                        <td className="py-2 pr-4 font-medium text-black">
+                          {row.day}
+                        </td>
+                        <td className="py-2 pr-4 text-black">
+                          {row.activeUsers}
+                        </td>
+                        <td className="py-2 pr-4 text-black">{row.newUsers}</td>
+                        <td className="py-2 pr-4 text-black">
+                          {row.newProjects}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-600">
+                          {row.totalUsers}
+                        </td>
+                        <td className="py-2 text-gray-600">
+                          {row.totalProjects}
+                        </td>
+                      </tr>
+                    ))}
+                  {engagementStats && engagementStats.history.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-gray-500">
+                        No saved daily snapshots yet — history is saved nightly
+                        at 00:05 UTC.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Live Activity Stream */}
         <Card className="border border-gray-200 bg-white shadow-sm">

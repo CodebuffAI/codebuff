@@ -36,4 +36,13 @@ crons.interval(
   internal.coding_agent.freebuff_bridge_mutations.sweepTimedOutFreebuffRuns,
 )
 
+// Persist yesterday's engagement metrics (DAU, signups, projects, totals)
+// shortly after UTC midnight so history survives aggregate rebuilds.
+crons.daily(
+  'snapshot daily stats',
+  { hourUTC: 0, minuteUTC: 5 },
+  internal.activity.snapshotDailyStats,
+  {},
+)
+
 export default crons

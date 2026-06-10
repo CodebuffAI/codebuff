@@ -61,6 +61,13 @@ export const saveMessageAndStartWorkflow = mutation({
 
       const { user, project } = gates;
 
+      // Engagement metrics: record this user as active. Scheduled so it runs
+      // in its own transaction and can never break the send; the schedule is
+      // rolled back automatically if this mutation throws.
+      await ctx.scheduler.runAfter(0, internal.activity.recordActivity, {
+        userId: user._id,
+      });
+
       // Check if project is terminated due to an unresolved GitHub sync conflict.
       // If the terminated flag is stale, clear it and continue.
       if (project.terminated) {

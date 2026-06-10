@@ -10,6 +10,7 @@
 
 import type * as abstractor_agent from "../abstractor/agent.js";
 import type * as abstractor_routeSync from "../abstractor/routeSync.js";
+import type * as activity from "../activity.js";
 import type * as admin from "../admin.js";
 import type * as adminReferralDashboard from "../adminReferralDashboard.js";
 import type * as admin_stats from "../admin_stats.js";
@@ -222,6 +223,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "abstractor/agent": typeof abstractor_agent;
   "abstractor/routeSync": typeof abstractor_routeSync;
+  activity: typeof activity;
   admin: typeof admin;
   adminReferralDashboard: typeof adminReferralDashboard;
   admin_stats: typeof admin_stats;
@@ -459,6 +461,8 @@ export declare const components: {
   freebuffAgentWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"freebuffAgentWorkpool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   allUsersAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"allUsersAggregate">;
+  userActivityAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"userActivityAggregate">;
+  activeUsersByDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"activeUsersByDayAggregate">;
   usersByRoleAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"usersByRoleAggregate">;
   usersByTierAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"usersByTierAggregate">;
   usersByDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"usersByDayAggregate">;

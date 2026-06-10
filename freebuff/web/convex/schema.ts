@@ -1314,6 +1314,36 @@ export default defineSchema(
     })
       .index('by_requester_and_email', ['requester_user_id', 'email'])
       .index('by_expires_at', ['expires_at']),
+
+    // One row per user, updated on every Freebuff message send. Counted via
+    // the userActivityAggregate (keyed by last_active_at) so "live users in
+    // the past hour" is an O(log n) aggregate range count — never a scan.
+    user_activity: defineTable({
+      user_id: v.id('users'),
+      last_active_at: v.number(), // ms timestamp of most recent message send
+    }).index('by_user', ['user_id']),
+
+    // One row per (user, UTC day) inserted on the user's first message send
+    // of that day. Counted via activeUsersByDayAggregate (keyed by day) so
+    // daily-active-user counts are aggregate prefix counts — never a scan.
+    user_activity_daily: defineTable({
+      user_id: v.id('users'),
+      day: v.string(), // UTC day key YYYY-MM-DD
+    })
+      .index('by_user_and_day', ['user_id', 'day'])
+      .index('by_day', ['day']),
+
+    // Immutable daily metrics snapshots written by a cron just after UTC
+    // midnight. Keeps history durable even if aggregates are cleared/rebuilt.
+    daily_stats: defineTable({
+      day: v.string(), // UTC day key YYYY-MM-DD (the day being summarized)
+      active_users: v.number(), // unique users who sent >= 1 message that day
+      new_users: v.number(), // signups that day
+      new_projects: v.number(), // projects created that day
+      total_users: v.number(), // running total at snapshot time
+      total_projects: v.number(), // running total at snapshot time
+      created_at: v.number(),
+    }).index('by_day', ['day']),
   },
   {
     schemaValidation: false, // TODO: turn back to true

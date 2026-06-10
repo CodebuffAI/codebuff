@@ -52,6 +52,32 @@ export const allUsers = new TableAggregate<{
 });
 
 /**
+ * Aggregate user_activity rows keyed by last_active_at.
+ * Lets us count "users active since T" (e.g. live users in the past hour)
+ * as an O(log n) range count. One row per user, so counts are unique users.
+ */
+export const userActivityByTime = new TableAggregate<{
+  Key: [number]; // last_active_at (ms timestamp)
+  DataModel: DataModel;
+  TableName: "user_activity";
+}>(components.userActivityAggregate, {
+  sortKey: (doc) => [doc.last_active_at],
+});
+
+/**
+ * Aggregate user_activity_daily rows keyed by day.
+ * One row per (user, day), so a prefix count for a day = unique active users
+ * that day (DAU) without any table scan.
+ */
+export const activeUsersByDay = new TableAggregate<{
+  Key: [string]; // Day key in format YYYY-MM-DD
+  DataModel: DataModel;
+  TableName: "user_activity_daily";
+}>(components.activeUsersByDayAggregate, {
+  sortKey: (doc) => [doc.day],
+});
+
+/**
  * Aggregate all projects (no partitioning)
  * This gives us a total project count
  */
@@ -192,6 +218,8 @@ export const clearAllAggregates = internalMutation({
     await allConvexInstances.clear(ctx);
     await pausedProjectsByActive.clear(ctx);
     await pausedUsersByActive.clear(ctx);
+    await userActivityByTime.clear(ctx);
+    await activeUsersByDay.clear(ctx);
 
     console.log("✅ All aggregate data structures cleared");
   },

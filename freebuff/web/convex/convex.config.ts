@@ -20,6 +20,8 @@ app.use(rateLimiter)
 // Separate aggregate instances to avoid data interference and improve throughput
 // Each aggregate type gets its own component to prevent count conflicts
 app.use(aggregate, { name: 'allUsersAggregate' })
+app.use(aggregate, { name: 'userActivityAggregate' })
+app.use(aggregate, { name: 'activeUsersByDayAggregate' })
 app.use(aggregate, { name: 'usersByRoleAggregate' })
 app.use(aggregate, { name: 'usersByTierAggregate' })
 app.use(aggregate, { name: 'usersByDayAggregate' })
