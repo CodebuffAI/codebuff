@@ -32,4 +32,64 @@ describe('extractApiErrorDetails', () => {
         'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
     })
   })
+
+  it('extracts details from OpenAI-style nested error objects', () => {
+    const apiError = new Error('Too Many Requests') as Error & {
+      statusCode: number
+      responseBody: string
+    }
+    apiError.statusCode = 429
+    apiError.responseBody = JSON.stringify({
+      error: {
+        message: 'Model is at capacity. Please try again later.',
+        code: null,
+        type: 'rate_limit_error',
+      },
+    })
+
+    expect(extractApiErrorDetails(apiError)).toEqual({
+      statusCode: 429,
+      errorCode: 'rate_limit_error',
+      message: 'Model is at capacity. Please try again later.',
+    })
+  })
+
+  it('prefers nested error code over type when both are strings', () => {
+    const apiError = new Error('Too Many Requests') as Error & {
+      statusCode: number
+      responseBody: string
+    }
+    apiError.statusCode = 429
+    apiError.responseBody = JSON.stringify({
+      error: {
+        message: 'Slow down.',
+        code: 'rate_limited',
+        type: 'rate_limit_error',
+      },
+    })
+
+    expect(extractApiErrorDetails(apiError)).toEqual({
+      statusCode: 429,
+      errorCode: 'rate_limited',
+      message: 'Slow down.',
+    })
+  })
+
+  it('keeps top-level string fields when both shapes are present', () => {
+    const apiError = new Error('Too Many Requests') as Error & {
+      statusCode: number
+      responseBody: string
+    }
+    apiError.statusCode = 429
+    apiError.responseBody = JSON.stringify({
+      error: 'free_mode_rate_limited',
+      message: 'Free mode rate limit exceeded (1 minute limit).',
+    })
+
+    expect(extractApiErrorDetails(apiError)).toEqual({
+      statusCode: 429,
+      errorCode: 'free_mode_rate_limited',
+      message: 'Free mode rate limit exceeded (1 minute limit).',
+    })
+  })
 })
