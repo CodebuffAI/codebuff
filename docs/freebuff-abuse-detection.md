@@ -53,7 +53,8 @@ All read-only; run against prod via Infisical. Live in `scripts/`.
 
 | Script | Purpose | Example |
 |---|---|---|
-| `find-freebuff-api-suspects.ts` | Scores accounts by proxy/farm fingerprints over a lookback window. **Start here.** | `infisical run --env=prod --silent -- bun scripts/find-freebuff-api-suspects.ts --hours 336 --min-score 50` |
+| `find-freebuff-api-suspects.ts` | Scores **individual accounts** by proxy/farm request fingerprints over a lookback window. **Start here.** | `infisical run --env=prod --silent -- bun scripts/find-freebuff-api-suspects.ts --hours 336 --min-score 50` |
+| `find-freebuff-sock-clusters.ts` | Groups **accounts into rings** by two shared-identity signals: `fingerprint_id` and `client_ip_hash`. Catches coordinated socks the per-account scorer sees one-at-a-time. | `… bun scripts/find-freebuff-sock-clusters.ts --min-users 4 --only-unbanned` |
 | `inspect-freebuff-traces.ts` | Dumps stored request/response traces, `repo_url`, agent-step counts, models/agents for specific emails. Use to **confirm** before banning. | `… bun scripts/inspect-freebuff-traces.ts a@b.com c@d.com` |
 | `top-freebuff-users.ts` | Raw volume leaderboard for a given agent (message counts, tokens, time-of-day). | `… bun scripts/top-freebuff-users.ts 336 50 base2-free` |
 | `ban-freebuff-bots.ts` | Bans an email list (`banned=true` + clears `free_session`). **Dry-runs by default**; `--commit` to apply. | `… bun scripts/ban-freebuff-bots.ts list.txt` then `… --commit` |
@@ -90,21 +91,61 @@ The suspect scorer in `find-freebuff-api-suspects.ts` encodes both, with
 dampeners for tenured accounts and a "real-steps" legit-power-user signal — read
 its scoring comment block before tuning thresholds.
 
+### Cross-account ring signals (`find-freebuff-sock-clusters.ts`)
+
+The per-account scorer judges one account at a time; rings hide by keeping each
+member under the per-account caps. Two **shared-identity** signals group accounts
+into rings. Both feed human review — neither is a ban-on-sight, and (per the
+investigation on 2026-06-10) **neither is wired into a request-time rate limit**:
+
+- **`fingerprint_id` sharing** — accounts whose CLI `session` rows point at the
+  same `fingerprint.id`. A farm run from one CLI install shares one
+  fingerprint_id (the BPS ring = 8 accounts/1 fp all banned; STT Bandung = 9/1).
+  Distinct real machines get distinct fingerprint_ids, so a university/shared-NAT
+  does **not** cluster here — **but** baked-image cloud environments (Google
+  Cloud Qwiklabs, Codespaces, Docker) share one fingerprint across many unrelated
+  real users. The discriminator is **account-creation span**: a farm registers
+  its accounts in minutes-to-hours (the `FARM?`/TIGHT flag = ≥4 accounts within
+  48h); a shared cloud env accretes real users over weeks-to-months (`qwiklabs.net`
+  over 16 days, 0 banned). `sig_hash` is null for ~2/3 of fingerprints, so key on
+  `fingerprint_id`, not `sig_hash`. Two more caveats: it's defeated by per-account
+  fingerprint rotation, and a tight cluster is **not** proof of botting — it also
+  catches one developer (or a small team) running several accounts to multiply the
+  free quota, who may be doing entirely real coding. Always trace-confirm content
+  before actioning a cluster (see playbook step 3).
+- **`client_ip_hash` sharing** — accounts sharing an egress IP hash. Catches
+  IP-stable farms, but **high false-positive**: universities, bootcamps, and CGNAT
+  carriers legitimately share one IP across many users (measured: many 10–120-user
+  IPs with **0** banned). Read the **banned-% and domain diversity**: high banned-%
+  + one/two domains = farm; low banned-% + diverse/edu domains = shared NAT — review,
+  do **not** bulk-ban. This is why a hard per-IP rate limit was rejected: it would
+  throttle thousands of legit shared-network users for catches that detection
+  already makes.
+
 ## Judgment / escalation playbook
 
 1. **Run the suspect scan** (`--min-score 50` is a good ban-candidate cut;
    `--min-score 1 --json` to see the whole scored population).
-2. **Confirm with traces** (`inspect-freebuff-traces.ts`) — verify null
+2. **Run the cluster scan** (`find-freebuff-sock-clusters.ts --only-unbanned`)
+   to catch coordinated rings that hide under the per-account caps. Triage the
+   `FARM?`/TIGHT fingerprint clusters and high-banned-% IP clusters; **ignore**
+   wide-span 0-banned fingerprint clusters (cloud envs) and low-banned-% diverse
+   IP clusters (shared NAT/edu).
+3. **Confirm with traces** (`inspect-freebuff-traces.ts`) — verify null
    `repo_url`, ~0 agent steps, and non-coding response content. Account display
    names are often self-incriminating (numbered "dummy"/"proxy" handles,
-   bot-generated CamelCase, shared names across a ring).
-3. **Ban the high-confidence set** — `ban-freebuff-bots.ts` (dry-run first, then
+   bot-generated CamelCase, shared names across a ring). **This step is
+   load-bearing for cluster hits**: a shared fingerprint also flags real coders
+   multi-accounting (observed 2026-06-10 — several tight clusters turned out to
+   be genuine Android/web dev with ~100% agent-step coverage). Never bulk-ban a
+   cluster on the identity signal alone; trace-confirm non-coding content first.
+4. **Ban the high-confidence set** — `ban-freebuff-bots.ts` (dry-run first, then
    `--commit`). High confidence = proxy fanout (`maxClientIdsPerRun ≥ 10` and
    ≥90% missing steps) or bulk/farm (`≥400 msgs`, ≥95% missing steps).
-4. **Hold for manual review** — tenured accounts (>60d), corporate/edu domains
+5. **Hold for manual review** — tenured accounts (>60d), corporate/edu domains
    (real identity), and low-volume accounts. Same fingerprint, higher false-ban
    cost. Check these by hand.
-5. **Watch the escalation tell** — now that the CLI-required gate is live, a
+6. **Watch the escalation tell** — now that the CLI-required gate is live, a
    caller who **injects the "You are Buffy" marker but still produces no agent
    steps** is deliberately evading detection → strong ban signal. The suspect
    scan's missing-step ratio surfaces these.
