@@ -19,6 +19,9 @@ export * from './usage-service'
 // Credit delegation
 export * from './credit-delegation'
 
+// Referral qualification (GitHub bright-line)
+export * from './referral-qualification'
+
 // Subscription
 export * from './subscription'
 

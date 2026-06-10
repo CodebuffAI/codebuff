@@ -210,6 +210,59 @@ export const referral = pgTable(
   (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })],
 )
 
+// Caches the GitHub "bright line" referral-qualification result, and enforces
+// burn-once. Keyed by the immutable GitHub numeric user id (NOT the freebuff
+// user id) so the record survives account deletion / re-signup / email changes:
+// a given GitHub account can only ever earn one referral bonus.
+export const referralQualification = pgTable(
+  'referral_qualification',
+  {
+    // Immutable GitHub numeric user id (account.providerAccountId for provider
+    // 'github'). The durable identity we key everything on.
+    github_user_id: text('github_user_id').primaryKey(),
+    // The freebuff user this GitHub account currently belongs to. Nullable with
+    // set-null on delete so the qualification/burn-once record outlives the user
+    // row (recreating an account must not reset burn-once).
+    user_id: text('user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    // Denormalized cache of the bright-line result. Qualification is DERIVED on
+    // read from the stored facts below + the current policy, so these two are
+    // just an indexable convenience kept in sync; they are not the source of
+    // truth and may lag a policy change until the next read.
+    qualified: boolean('qualified').notNull(),
+    reason: text('reason'),
+    // --- GitHub facts (the source of truth). Stored so qualification can be
+    // re-derived and future signals/tiers computed without re-crawling. The two
+    // timestamps are non-forgeable GitHub server-set dates the bright line uses.
+    github_account_created_at: timestamp('github_account_created_at', {
+      mode: 'date',
+    }),
+    oldest_public_repo_created_at: timestamp('oldest_public_repo_created_at', {
+      mode: 'date',
+    }),
+    // Extra public signals captured on the same API call, for future tiering /
+    // threshold experiments without a re-crawl. Nullable (unknown / not fetched).
+    github_followers: integer('github_followers'),
+    github_public_repos: integer('github_public_repos'),
+    github_two_factor_enabled: boolean('github_two_factor_enabled'),
+    // When we last fetched facts from GitHub (drives the negative-result TTL).
+    checked_at: timestamp('checked_at', { mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    // Burn-once: set the first time this GitHub account is consumed to grant a
+    // referral bonus. A non-null value means it can never earn another.
+    bonus_consumed_at: timestamp('bonus_consumed_at', { mode: 'date' }),
+    // The freebuff user that earned the bonus credited to this GitHub account
+    // (the referred user), kept for auditability.
+    bonus_consumed_by_user_id: text('bonus_consumed_by_user_id').references(
+      () => user.id,
+      { onDelete: 'set null' },
+    ),
+  },
+  (table) => [index('idx_referral_qualification_user').on(table.user_id)],
+)
+
 export const fingerprint = pgTable('fingerprint', {
   id: text('id').primaryKey(),
   sig_hash: text('sig_hash'),
