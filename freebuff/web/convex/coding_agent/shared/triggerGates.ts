@@ -38,6 +38,13 @@ interface GateArgs {
   freebuffModel?: string;
 }
 
+function getRateLimitKeyForUser(user: User): string {
+  // The React hook API keys rate limits by ctx.auth.getUserIdentity().subject.
+  // Store that same value on users as freebuff_user_id/clerk_id, and consume the
+  // server-side buckets with it so UI counters decrement when messages send.
+  return user.freebuff_user_id ?? user.clerk_id ?? user._id;
+}
+
 export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   const user = await getAuthUser(args.ctx);
   if (!user) {
@@ -48,6 +55,7 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   }
 
   const isPlatformAdmin = user.role === "god" || user.role === "admin";
+  const rateLimitKey = getRateLimitKeyForUser(user);
 
   if (!args.skipRateLimitCheck) {
     // Freebuff agent chat is gated by its own stricter bucket
@@ -56,8 +64,8 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     // shared userMessages bucket so their behavior is unchanged.
     const rl =
       args.agentType === "Freebuff"
-        ? await checkFreebuffRateLimit(args.ctx, user._id)
-        : await checkUserRateLimit(args.ctx, user._id);
+        ? await checkFreebuffRateLimit(args.ctx, rateLimitKey)
+        : await checkUserRateLimit(args.ctx, rateLimitKey);
     if (!rl.success) return { ok: false, error: rl.error };
   }
 
@@ -108,17 +116,16 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     }
   }
 
-  // Premium open-source models carry a stricter daily quota. Enforced only for
-  // the Freebuff agent on a premium model, and skipped for platform admins /
-  // when rate limiting is bypassed. Done last so we only consume the premium
-  // allowance once the rest of the gates have passed.
+  // Premium open-source models carry a stricter daily quota. Enforced for every
+  // Freebuff send on a premium model, including platform admins, so the UI
+  // counter reflects real usage and reaches zero consistently. Done last so we
+  // only consume the premium allowance once the rest of the gates have passed.
   if (
     !args.skipRateLimitCheck &&
-    !isPlatformAdmin &&
     args.agentType === "Freebuff" &&
     isFreebuffPremiumModelId(args.freebuffModel)
   ) {
-    const premium = await checkPremiumModelRateLimit(args.ctx, user._id);
+    const premium = await checkPremiumModelRateLimit(args.ctx, rateLimitKey);
     if (!premium.success) return { ok: false, error: premium.error };
   }
 

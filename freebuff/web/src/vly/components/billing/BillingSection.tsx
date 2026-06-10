@@ -63,9 +63,11 @@ export function BillingSection({
   const { fireSuccess } = useConfetti()
 
   // Feature flags
-  // Freebuff Web integrations and referrals are always enabled
+  // Freebuff Web integrations are always enabled.
+  // Referrals are hidden for now: the referrals dashboard is admin-only, so we
+  // don't surface the referral button to regular users.
   const vlyIntegrationsEnabled = true
-  const referralsEnabled = true
+  const referralsEnabled = false
   const { enabled: organizationsEnabled } = useFeatureFlag(
     'organizations_enabled',
   )

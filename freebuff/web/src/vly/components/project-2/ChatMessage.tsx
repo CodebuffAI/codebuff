@@ -53,7 +53,6 @@ import {
 import { useAssetsCache } from "@/vly/hooks/useAssetsCache";
 import { EnvVarEditor } from "./EnvVarsDialog";
 import { useAction } from "convex/react";
-import { CreditOverlay } from "./CreditOverlay";
 import { toast } from "sonner";
 
 type Message = FunctionReturnType<typeof api.project.getThreadMessages>[number];
@@ -914,24 +913,12 @@ const AssistantMessageContent: React.FC<{
 
       {/* Message State Display - always visible when present, even during streaming */}
       {message.message_state && (
-        <>
-          <MessageStateDisplay
-            status={message.message_state.status}
-            message={message.message_state.message}
-            color={message.message_state.color}
-            timestamp={message.message_state.timestamp}
-          />
-          {/* Show CreditOverlay when status is insufficient_credits */}
-          {message.message_state.status === "insufficient_credits" && (
-            <div className="mt-3">
-              <CreditOverlay
-                onUpgradeClick={() => {
-                  window.open("/web/dashboard", "_blank");
-                }}
-              />
-            </div>
-          )}
-        </>
+        <MessageStateDisplay
+          status={message.message_state.status}
+          message={message.message_state.message}
+          color={message.message_state.color}
+          timestamp={message.message_state.timestamp}
+        />
       )}
 
       {/* Integration Setup Panels - Show one for each attached integration */}

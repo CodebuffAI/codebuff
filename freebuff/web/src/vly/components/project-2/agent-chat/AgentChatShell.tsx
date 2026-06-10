@@ -18,8 +18,6 @@ import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
 import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
 import { AgentThreadList } from "./AgentThreadList";
 import { ChatInput } from "../ChatInput";
-import { CreditOverlay } from "../CreditOverlay";
-import { useCreditCheck } from "@/vly/hooks/useCreditCheck";
 import {
   ChevronLeft,
   X,
@@ -189,22 +187,6 @@ export function AgentChatShell({
       : internalIsSelectingElement;
   const setIsSelectingElement =
     externalSetIsSelectingElement || setInternalIsSelectingElement;
-
-  // Credit + pause checking for agent gating
-  const {
-    canUseAgent,
-    isLoading: creditCheckLoading,
-    isPlatformAdmin,
-  } = useCreditCheck();
-  const isSelfHosted = useQuery(
-    api.convex_oauth.connections.isProjectSelfHosted,
-    project ? { projectId: project._id } : "skip",
-  );
-  const pauseRecord = useQuery(
-    api.deployment_queries.getCurrentUserPauseStatus,
-  );
-  const isConvexPaused =
-    !isPlatformAdmin && pauseRecord !== null && pauseRecord !== undefined;
 
   // Use persistent chat storage for selectedNodeInfo
   const { selectedNodeInfo, updateSelectedNodeInfo } = useChatStorageContext();
@@ -972,10 +954,6 @@ export function AgentChatShell({
                 </div>
               )}
 
-              {/* Chat Input gating:
-                 - Not self-hosted + (Convex paused OR no agent credits) → CreditOverlay
-                 - Self-hosted + no agent credits → CreditOverlay
-                 - Otherwise → show ChatInput */}
               {activeAskUserQuestions.length > 0 ? (
                 <div className="flex-shrink-0 border-t border-border/20 bg-transparent pt-3">
                   <AskUserComposer
@@ -985,20 +963,6 @@ export function AgentChatShell({
                       if (sent) setActiveAskUserQuestions([]);
                       return sent;
                     }}
-                  />
-                </div>
-              ) : (isSelfHosted === false && isConvexPaused) ||
-              (!canUseAgent && !creditCheckLoading) ? (
-                <div className="mx-4 mb-4 mt-2 flex max-h-[400px] min-h-0 flex-shrink-0">
-                  <CreditOverlay
-                    onUpgradeClick={() => {
-                      window.open("/web/dashboard", "_blank");
-                    }}
-                    reason={
-                      isSelfHosted === false && isConvexPaused
-                        ? "convex_paused"
-                        : "no_agent_credits"
-                    }
                   />
                 </div>
               ) : (

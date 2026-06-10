@@ -3,7 +3,6 @@ import { dirname, resolve } from 'node:path'
 
 const AUTUMN_API_URL = 'https://api.useautumn.com/v1'
 const AUTUMN_API_VERSION = '2.3.0'
-const STRIPE_API_URL = 'https://api.stripe.com/v1'
 const MAX_ATTEMPTS = 4
 
 type Environment = 'live' | 'sandbox'
@@ -20,56 +19,35 @@ type AutumnSubscription = {
   planId?: string
   plan_id?: string
   status?: string
+  canceled_at?: number | null
+  canceledAt?: number | null
+  auto_enable?: boolean
+  autoEnable?: boolean
 }
 
 type AutumnCustomer = {
   id: string
   email?: string
   env?: string
-  stripeId?: string
-  stripe_id?: string
-  processors?: {
-    stripe?: {
-      id?: string
-    }
-  }
   subscriptions?: AutumnSubscription[]
-}
-
-type StripeSubscription = {
-  id: string
-  status: string
-}
-
-type StripeSubscriptionSchedule = {
-  id: string
-  status: string
 }
 
 type CustomerResult = {
   autumnCustomerId: string
   email?: string
-  stripeCustomerId?: string
-  autumnSubscriptions: Array<{
+  subscriptions: Array<{
     id?: string
     planId?: string
     status?: string
-    action: 'would_cancel' | 'cancelled' | 'failed'
+    action:
+      | 'already_cancelling'
+      | 'would_cancel'
+      | 'cancelled'
+      | 'failed'
+    cancelAction?: 'cancel_end_of_cycle' | 'cancel_immediately'
     error?: string
   }>
-  stripeSubscriptions: Array<{
-    id: string
-    status: string
-    action: 'already_terminal' | 'would_cancel' | 'cancelled' | 'failed'
-    error?: string
-  }>
-  stripeSchedules: Array<{
-    id: string
-    status: string
-    action: 'already_terminal' | 'would_cancel' | 'cancelled' | 'failed'
-    error?: string
-  }>
-  status: 'skipped' | 'would_cancel' | 'cancelled' | 'failed' | 'unresolved'
+  status: 'skipped' | 'would_cancel' | 'cancelled' | 'failed'
   error?: string
 }
 
@@ -83,10 +61,7 @@ type Report = {
     customersWithSubscriptions: number
     customersCancelled: number
     customersFailed: number
-    customersUnresolved: number
-    stripeSubscriptionsCancelled: number
-    stripeSchedulesCancelled: number
-    autumnSubscriptionsCancelled: number
+    subscriptionsCancelled: number
   }
   customers: CustomerResult[]
 }
@@ -96,7 +71,7 @@ function usage(exitCode = 1): never {
   bun scripts/cancel-all-autumn-subscriptions.ts [options]
 
 Options:
-  --environment <live|sandbox>  Target Autumn/Stripe environment. Default: live.
+  --environment <live|sandbox>  Target Autumn environment. Default: live.
   --customer-id <id>            Only inspect/cancel one exact Autumn customer ID.
   --report <path>               JSON audit report path.
   --execute                     Actually cancel subscriptions. Default is dry-run.
@@ -105,14 +80,19 @@ Options:
 
 Required environment variables:
   AUTUMN_SECRET_KEY             Autumn secret key for the selected environment.
-  STRIPE_SECRET_KEY             Matching Stripe secret key.
 
 Cancellation behavior:
-  1. Stripe subscriptions and schedules are cancelled immediately with
-     prorate=false and invoice_now=false, so the script creates no refund or
-     final invoice.
-  2. Autumn is then updated with no_billing_changes=true, so Autumn does not
-     make a second billing change.
+  All cancellation goes through Autumn's billing.update endpoint. Autumn owns
+  the underlying Stripe subscription and cancels it itself; this script never
+  calls Stripe directly.
+
+  Only PAID plans (base price or priced items) are cancelled. Free plans,
+  earn rewards, and referral rewards are left untouched.
+
+  - active subscriptions:    cancel_action=cancel_end_of_cycle
+                             (customer keeps access until period end, no refund)
+  - scheduled subscriptions: cancel_action=cancel_immediately
+                             (not yet billed, so this just removes the schedule)
 
 Always run a dry-run first. Use --customer-id with a test customer before
 executing against every live customer.`)
@@ -190,15 +170,6 @@ function requireEnv(name: string): string {
   return value
 }
 
-function assertMatchingStripeKey(key: string, environment: Environment) {
-  const expectedPrefix = environment === 'live' ? 'sk_live_' : 'sk_test_'
-  if (!key.startsWith(expectedPrefix)) {
-    throw new Error(
-      `STRIPE_SECRET_KEY must start with ${expectedPrefix} for ${environment}`,
-    )
-  }
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -258,16 +229,39 @@ function autumnHeaders(secretKey: string) {
   }
 }
 
-function stripeHeaders(secretKey: string) {
-  return {
-    Authorization: `Bearer ${secretKey}`,
-    'Content-Type': 'application/x-www-form-urlencoded',
-  }
+async function listPaidPlanIds(secretKey: string): Promise<Set<string>> {
+  const response = await requestJson<{
+    list: Array<{
+      id: string
+      price?: unknown
+      items?: Array<{ price?: unknown }>
+    }>
+  }>(
+    `${AUTUMN_API_URL}/plans`,
+    { headers: autumnHeaders(secretKey) },
+    'Autumn list plans',
+  )
+  // Only plans with a base price or priced items bill the customer. Free
+  // plans (defaults, earn rewards, referral rewards) are left untouched.
+  return new Set(
+    response.list
+      .filter(
+        (plan) =>
+          Boolean(plan.price) || (plan.items ?? []).some((item) => item.price),
+      )
+      .map((plan) => plan.id),
+  )
 }
 
-async function listAutumnCustomers(
+async function listSubscribedAutumnCustomers(
   secretKey: string,
+  paidPlanIds: Set<string>,
 ): Promise<AutumnCustomer[]> {
+  const planIds = [...paidPlanIds]
+  console.log(
+    `[autumn-cancel] filtering customers subscribed to ${planIds.length} paid plan(s)`,
+  )
+
   const customers: AutumnCustomer[] = []
   let cursor: string | undefined
 
@@ -281,7 +275,11 @@ async function listAutumnCustomers(
       {
         method: 'POST',
         headers: autumnHeaders(secretKey),
-        body: JSON.stringify({ limit: 5000, start_cursor: cursor ?? '' }),
+        body: JSON.stringify({
+          limit: 1000,
+          start_cursor: cursor ?? '',
+          plans: planIds.map((id) => ({ id })),
+        }),
       },
       'Autumn customers.list',
     )
@@ -292,99 +290,32 @@ async function listAutumnCustomers(
   return customers
 }
 
-async function listStripeSubscriptions(
+async function getAutumnCustomer(
   secretKey: string,
-  stripeCustomerId: string,
-): Promise<StripeSubscription[]> {
-  const subscriptions: StripeSubscription[] = []
-  let startingAfter: string | undefined
-
-  do {
-    const query = new URLSearchParams({
-      customer: stripeCustomerId,
-      status: 'all',
-      limit: '100',
-    })
-    if (startingAfter) query.set('starting_after', startingAfter)
-
-    const response = await requestJson<{
-      data: StripeSubscription[]
-      has_more: boolean
-    }>(
-      `${STRIPE_API_URL}/subscriptions?${query}`,
-      { headers: stripeHeaders(secretKey) },
-      `Stripe list subscriptions for ${stripeCustomerId}`,
-    )
-    subscriptions.push(...response.data)
-    startingAfter = response.has_more ? response.data.at(-1)?.id : undefined
-  } while (startingAfter)
-
-  return subscriptions
-}
-
-async function listStripeSubscriptionSchedules(
-  secretKey: string,
-  stripeCustomerId: string,
-): Promise<StripeSubscriptionSchedule[]> {
-  const schedules: StripeSubscriptionSchedule[] = []
-  let startingAfter: string | undefined
-
-  do {
-    const query = new URLSearchParams({
-      customer: stripeCustomerId,
-      limit: '100',
-    })
-    if (startingAfter) query.set('starting_after', startingAfter)
-
-    const response = await requestJson<{
-      data: StripeSubscriptionSchedule[]
-      has_more: boolean
-    }>(
-      `${STRIPE_API_URL}/subscription_schedules?${query}`,
-      { headers: stripeHeaders(secretKey) },
-      `Stripe list subscription schedules for ${stripeCustomerId}`,
-    )
-    schedules.push(...response.data)
-    startingAfter = response.has_more ? response.data.at(-1)?.id : undefined
-  } while (startingAfter)
-
-  return schedules
-}
-
-async function cancelStripeSubscription(secretKey: string, id: string) {
-  await requestJson(
-    `${STRIPE_API_URL}/subscriptions/${encodeURIComponent(id)}`,
-    {
-      method: 'DELETE',
-      headers: stripeHeaders(secretKey),
-      body: new URLSearchParams({
-        invoice_now: 'false',
-        prorate: 'false',
-      }),
-    },
-    `Stripe cancel subscription ${id}`,
+  customerId: string,
+): Promise<AutumnCustomer> {
+  return await requestJson<AutumnCustomer>(
+    `${AUTUMN_API_URL}/customers/${encodeURIComponent(customerId)}`,
+    { headers: autumnHeaders(secretKey) },
+    `Autumn get customer ${customerId}`,
   )
 }
 
-async function cancelStripeSubscriptionSchedule(secretKey: string, id: string) {
-  await requestJson(
-    `${STRIPE_API_URL}/subscription_schedules/${encodeURIComponent(id)}/cancel`,
-    {
-      method: 'POST',
-      headers: stripeHeaders(secretKey),
-      body: new URLSearchParams({
-        invoice_now: 'false',
-        prorate: 'false',
-      }),
-    },
-    `Stripe cancel subscription schedule ${id}`,
-  )
+function cancelActionFor(
+  subscription: AutumnSubscription,
+): 'cancel_end_of_cycle' | 'cancel_immediately' {
+  // Scheduled plans have not billed yet; cancelling them immediately just
+  // removes the schedule and cannot trigger a refund.
+  return subscription.status === 'scheduled'
+    ? 'cancel_immediately'
+    : 'cancel_end_of_cycle'
 }
 
 async function cancelAutumnSubscription(
   secretKey: string,
   customerId: string,
   subscription: AutumnSubscription,
+  cancelAction: 'cancel_end_of_cycle' | 'cancel_immediately',
 ) {
   const planId = subscription.planId ?? subscription.plan_id
   const identifier = subscription.id
@@ -396,6 +327,8 @@ async function cancelAutumnSubscription(
     throw new Error('Autumn subscription has neither id nor planId')
   }
 
+  // No no_billing_changes flag: Autumn applies the change to the underlying
+  // Stripe subscription itself, so the Stripe side is cancelled by Autumn.
   await requestJson(
     `${AUTUMN_API_URL}/billing.update`,
     {
@@ -404,170 +337,92 @@ async function cancelAutumnSubscription(
       body: JSON.stringify({
         customer_id: customerId,
         ...identifier,
-        cancel_action: 'cancel_immediately',
-        no_billing_changes: true,
+        cancel_action: cancelAction,
       }),
     },
     `Autumn cancel subscription ${subscription.id ?? planId}`,
   )
 }
 
-function activeAutumnSubscriptions(customer: AutumnCustomer) {
-  return (customer.subscriptions ?? []).filter(
-    (subscription) =>
-      subscription.status === 'active' || subscription.status === 'scheduled',
-  )
+function isAlreadyCancelling(subscription: AutumnSubscription) {
+  return Boolean(subscription.canceled_at ?? subscription.canceledAt)
 }
 
-function autumnStripeCustomerId(customer: AutumnCustomer) {
-  return (
-    customer.processors?.stripe?.id ?? customer.stripeId ?? customer.stripe_id
-  )
-}
-
-function isTerminalStripeSubscription(subscription: StripeSubscription) {
-  return (
-    subscription.status === 'canceled' ||
-    subscription.status === 'incomplete_expired'
-  )
-}
-
-function isTerminalStripeSchedule(schedule: StripeSubscriptionSchedule) {
-  return (
-    schedule.status === 'canceled' ||
-    schedule.status === 'completed' ||
-    schedule.status === 'released'
-  )
+function activeAutumnSubscriptions(
+  customer: AutumnCustomer,
+  paidPlanIds: Set<string>,
+) {
+  return (customer.subscriptions ?? []).filter((subscription) => {
+    const planId = subscription.planId ?? subscription.plan_id
+    return (
+      (subscription.status === 'active' ||
+        subscription.status === 'scheduled') &&
+      planId !== undefined &&
+      paidPlanIds.has(planId)
+    )
+  })
 }
 
 async function processCustomer(args: {
   autumnKey: string
-  stripeKey: string
   customer: AutumnCustomer
+  paidPlanIds: Set<string>
   execute: boolean
 }): Promise<CustomerResult> {
-  const { autumnKey, stripeKey, customer, execute } = args
-  const autumnSubscriptions = activeAutumnSubscriptions(customer)
-  const stripeCustomerId = autumnStripeCustomerId(customer)
+  const { autumnKey, customer, paidPlanIds, execute } = args
+  const subscriptions = activeAutumnSubscriptions(customer, paidPlanIds)
   const result: CustomerResult = {
     autumnCustomerId: customer.id,
     email: customer.email,
-    stripeCustomerId,
-    autumnSubscriptions: autumnSubscriptions.map((subscription) => ({
-      ...subscription,
-      action: 'would_cancel',
+    subscriptions: subscriptions.map((subscription) => ({
+      id: subscription.id,
+      planId: subscription.planId ?? subscription.plan_id,
+      status: subscription.status,
+      action: isAlreadyCancelling(subscription)
+        ? 'already_cancelling'
+        : 'would_cancel',
+      cancelAction: isAlreadyCancelling(subscription)
+        ? undefined
+        : cancelActionFor(subscription),
     })),
-    stripeSubscriptions: [],
-    stripeSchedules: [],
-    status: execute ? 'cancelled' : 'would_cancel',
+    status: 'would_cancel',
   }
 
-  if (!stripeCustomerId) {
+  if (subscriptions.length === 0) {
     result.status = 'skipped'
-    result.error =
-      'No Stripe customer ID; there is no Stripe subscription to cancel'
+    result.error = 'No active or scheduled paid Autumn subscriptions'
     return result
   }
 
-  let stripeSubscriptions: StripeSubscription[]
-  let stripeSchedules: StripeSubscriptionSchedule[]
-  try {
-    ;[stripeSubscriptions, stripeSchedules] = await Promise.all([
-      listStripeSubscriptions(stripeKey, stripeCustomerId),
-      listStripeSubscriptionSchedules(stripeKey, stripeCustomerId),
-    ])
-  } catch (error) {
-    result.status = 'failed'
-    result.error = errorMessage(error)
-    return result
-  }
-
-  if (stripeSubscriptions.length === 0 && stripeSchedules.length === 0) {
+  if (result.subscriptions.every(({ action }) => action === 'already_cancelling')) {
     result.status = 'skipped'
-    result.error = 'Stripe customer has no subscriptions'
+    result.error = 'All subscriptions are already pending cancellation'
     return result
   }
-
-  result.stripeSubscriptions = stripeSubscriptions.map((subscription) => ({
-    ...subscription,
-    action: isTerminalStripeSubscription(subscription)
-      ? 'already_terminal'
-      : 'would_cancel',
-  }))
-  result.stripeSchedules = stripeSchedules.map((schedule) => ({
-    ...schedule,
-    action: isTerminalStripeSchedule(schedule)
-      ? 'already_terminal'
-      : 'would_cancel',
-  }))
 
   if (!execute) return result
 
-  for (const schedule of result.stripeSchedules) {
-    if (schedule.action === 'already_terminal') continue
+  for (const [index, entry] of result.subscriptions.entries()) {
+    if (entry.action !== 'would_cancel' || !entry.cancelAction) continue
     try {
-      await cancelStripeSubscriptionSchedule(stripeKey, schedule.id)
-      schedule.action = 'cancelled'
+      await cancelAutumnSubscription(
+        autumnKey,
+        customer.id,
+        subscriptions[index],
+        entry.cancelAction,
+      )
+      entry.action = 'cancelled'
     } catch (error) {
-      schedule.action = 'failed'
-      schedule.error = errorMessage(error)
+      entry.action = 'failed'
+      entry.error = errorMessage(error)
     }
   }
 
-  // Canceling an active schedule can also cancel its subscription. Refresh
-  // subscriptions before canceling the remaining standalone subscriptions.
-  try {
-    stripeSubscriptions = await listStripeSubscriptions(
-      stripeKey,
-      stripeCustomerId,
-    )
-  } catch (error) {
+  if (result.subscriptions.some(({ action }) => action === 'failed')) {
     result.status = 'failed'
-    result.error = `Could not refresh Stripe subscriptions after schedule cancellation: ${errorMessage(error)}`
-    return result
-  }
-  result.stripeSubscriptions = stripeSubscriptions.map((subscription) => ({
-    ...subscription,
-    action: isTerminalStripeSubscription(subscription)
-      ? 'already_terminal'
-      : 'would_cancel',
-  }))
-
-  for (const subscription of result.stripeSubscriptions) {
-    if (subscription.action === 'already_terminal') continue
-    try {
-      await cancelStripeSubscription(stripeKey, subscription.id)
-      subscription.action = 'cancelled'
-    } catch (error) {
-      subscription.action = 'failed'
-      subscription.error = errorMessage(error)
-    }
-  }
-
-  if (
-    result.stripeSubscriptions.some(({ action }) => action === 'failed') ||
-    result.stripeSchedules.some(({ action }) => action === 'failed')
-  ) {
-    result.status = 'failed'
-    result.error =
-      'At least one Stripe subscription failed to cancel; Autumn was not updated'
-    return result
-  }
-
-  for (const subscription of result.autumnSubscriptions) {
-    try {
-      await cancelAutumnSubscription(autumnKey, customer.id, subscription)
-      subscription.action = 'cancelled'
-    } catch (error) {
-      subscription.action = 'failed'
-      subscription.error = errorMessage(error)
-    }
-  }
-
-  if (result.autumnSubscriptions.some(({ action }) => action === 'failed')) {
-    result.status = 'failed'
-    result.error =
-      'Stripe renewal is cancelled, but at least one Autumn subscription failed to update'
+    result.error = 'At least one Autumn subscription failed to cancel'
+  } else {
+    result.status = 'cancelled'
   }
 
   return result
@@ -580,19 +435,9 @@ function summarize(report: Report) {
     }
     if (customer.status === 'cancelled') report.summary.customersCancelled += 1
     if (customer.status === 'failed') report.summary.customersFailed += 1
-    if (customer.status === 'unresolved')
-      report.summary.customersUnresolved += 1
-    report.summary.stripeSubscriptionsCancelled +=
-      customer.stripeSubscriptions.filter(
-        ({ action }) => action === 'cancelled',
-      ).length
-    report.summary.stripeSchedulesCancelled += customer.stripeSchedules.filter(
+    report.summary.subscriptionsCancelled += customer.subscriptions.filter(
       ({ action }) => action === 'cancelled',
     ).length
-    report.summary.autumnSubscriptionsCancelled +=
-      customer.autumnSubscriptions.filter(
-        ({ action }) => action === 'cancelled',
-      ).length
   }
 }
 
@@ -606,24 +451,30 @@ async function writeReport(path: string, report: Report) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   const autumnKey = requireEnv('AUTUMN_SECRET_KEY')
-  const stripeKey = requireEnv('STRIPE_SECRET_KEY')
-  assertMatchingStripeKey(stripeKey, options.environment)
 
   console.log(
     `[autumn-cancel] ${options.execute ? 'EXECUTE' : 'DRY RUN'}: ${options.environment}`,
   )
-  console.log('[autumn-cancel] loading Autumn customers')
+  const paidPlanIds = await listPaidPlanIds(autumnKey)
 
-  const allCustomers = await listAutumnCustomers(autumnKey)
-  const customers = allCustomers.filter(
-    (customer) =>
-      customer.env === options.environment &&
-      (!options.customerId || customer.id === options.customerId),
-  )
-
-  if (options.customerId && customers.length !== 1) {
-    throw new Error(
-      `Expected exactly one ${options.environment} Autumn customer with ID ${options.customerId}; found ${customers.length}`,
+  let customers: AutumnCustomer[]
+  if (options.customerId) {
+    console.log(`[autumn-cancel] loading customer ${options.customerId}`)
+    const customer = await getAutumnCustomer(autumnKey, options.customerId)
+    if (customer.env && customer.env !== options.environment) {
+      throw new Error(
+        `Customer ${options.customerId} belongs to env ${customer.env}, not ${options.environment}`,
+      )
+    }
+    customers = [customer]
+  } else {
+    console.log('[autumn-cancel] loading subscribed Autumn customers')
+    const allCustomers = await listSubscribedAutumnCustomers(
+      autumnKey,
+      paidPlanIds,
+    )
+    customers = allCustomers.filter(
+      (customer) => customer.env === options.environment,
     )
   }
 
@@ -637,25 +488,22 @@ async function main() {
       customersWithSubscriptions: 0,
       customersCancelled: 0,
       customersFailed: 0,
-      customersUnresolved: 0,
-      stripeSubscriptionsCancelled: 0,
-      stripeSchedulesCancelled: 0,
-      autumnSubscriptionsCancelled: 0,
+      subscriptionsCancelled: 0,
     },
     customers: [],
   }
 
   for (const [index, customer] of customers.entries()) {
-    const subscriptions = activeAutumnSubscriptions(customer)
+    const subscriptions = activeAutumnSubscriptions(customer, paidPlanIds)
 
     console.log(
-      `[autumn-cancel] ${index + 1}/${customers.length} ${customer.id} (${subscriptions.length} Autumn subscription(s))`,
+      `[autumn-cancel] ${index + 1}/${customers.length} ${customer.id} (${subscriptions.length} paid Autumn subscription(s))`,
     )
     report.customers.push(
       await processCustomer({
         autumnKey,
-        stripeKey,
         customer,
+        paidPlanIds,
         execute: options.execute,
       }),
     )
@@ -672,10 +520,7 @@ async function main() {
     )
   }
 
-  if (
-    report.summary.customersFailed > 0 ||
-    report.summary.customersUnresolved > 0
-  ) {
+  if (report.summary.customersFailed > 0) {
     process.exitCode = 1
   }
 }

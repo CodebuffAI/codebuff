@@ -97,7 +97,7 @@ const STATUS_CONFIGS = {
   },
   insufficient_credits: {
     icon: Coins,
-    label: "Out of Credits",
+    label: "Limit Reached",
     defaultColor: "yellow" as const,
     bgColor: "bg-amber-50",
     textColor: "text-amber-700",

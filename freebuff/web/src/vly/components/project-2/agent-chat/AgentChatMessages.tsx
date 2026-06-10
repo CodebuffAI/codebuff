@@ -45,28 +45,6 @@ import {
 import { Button } from '@/vly/components/ui/button'
 import { cn } from '@/vly/lib/utils'
 import { FunctionReturnType } from 'convex/server'
-import { UpgradePrompt } from '@/vly/components/billing/FeatureGate'
-import { useCustomer } from '@/vly/lib/billing-disabled-react'
-import { getActivePlan } from '@/vly/lib/billing'
-import {
-  freePlan,
-  oneTimeCreditPack,
-  recurringCreditPack,
-} from '@/vly/autumn.config'
-import { PLAN_BASE_CREDITS, type TierName } from '@/vly/autumn/constants'
-import { useDirectPlanCheckout } from '@/vly/hooks/useDirectPlanCheckout'
-import { useCreditsBalance } from '@/vly/hooks/useCreditCheck'
-import {
-  formatCredits,
-  getNextTier,
-  getFormattedPriceWithPeriod,
-} from '@/vly/autumn/helpers'
-import { Coins, ArrowRight, Plus } from 'lucide-react'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/vly/components/ui/popover'
 import { toast } from 'sonner'
 import {
   fetchGravityAds,
@@ -74,45 +52,6 @@ import {
   type GravityAdMessage,
 } from './GravityAdSlot'
 import { ThinkingState } from '../ThinkingState'
-
-// Map plan IDs to tier names
-const PLAN_ID_TO_TIER: Record<string, TierName> = {
-  free_plan: 'free',
-  starter_plan: 'starter',
-  hobby_plan: 'hobby',
-  business_plan: 'business',
-  scale_plan: 'scale',
-  priority_plan: 'priority',
-  ultra_plan: 'ultra',
-  max_plan: 'max',
-  unlimited_plan: 'unlimited',
-  enterprise_plan: 'unlimited',
-  // Legacy mappings
-  hobby_custom_plan: 'hobby',
-  pro_custom_plan: 'business',
-  pro_plan: 'business',
-  team_plan: 'scale',
-  team_custom_plan: 'scale',
-}
-
-// Credit pack options - one-time and recurring
-const ONE_TIME_CREDIT_PACK = {
-  product: oneTimeCreditPack,
-  label: '15M Credits (One-Time)',
-  amount: '15,000,000 credits',
-  price: '$15',
-  isRecurring: false,
-}
-
-const RECURRING_CREDIT_PACK = {
-  product: recurringCreditPack,
-  label: '15M Credits (Monthly)',
-  amount: '15,000,000 credits/mo',
-  price: '$12/mo',
-  isRecurring: true,
-}
-
-const CREDIT_PACK_OPTIONS = [RECURRING_CREDIT_PACK, ONE_TIME_CREDIT_PACK]
 
 // Scroll to Bottom Button Component
 const ScrollToBottomButton: React.FC<{ onClick: () => void }> = ({
@@ -945,250 +884,6 @@ const TimeLimitContinuePanel: React.FC<{
   )
 }
 
-// Compact Paywall Component for in-chat display - matches CreditOverlay format
-const CompactPaywallBump: React.FC = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
-  const [isPurchasing, setIsPurchasing] = useState<string | null>(null)
-  const { customer, refetch } = useCustomer()
-  const { directPlanCheckout } = useDirectPlanCheckout()
-  const { planName, isLoading } = useCreditsBalance()
-
-  // Get current tier from plan ID
-  const getCurrentTier = (): TierName => {
-    if (!customer?.products) return 'free'
-    const { planId } = getActivePlan(customer.products, customer, freePlan.id)
-    return PLAN_ID_TO_TIER[planId] || 'free'
-  }
-
-  const currentTier = getCurrentTier()
-  const nextTierDef = getNextTier(currentTier)
-  const isOnFreePlan = currentTier === 'free'
-  const nextTierName = nextTierDef ? nextTierDef.name : null
-  const nextTierPrice = nextTierDef ? nextTierDef.basePrice : 0
-  const nextTierCredits = nextTierDef ? nextTierDef.creditsIncluded : 0
-
-  // Determine target tier for dialog - support all tiers including hidden ones
-  const validTiers: (
-    | 'Starter'
-    | 'Hobby'
-    | 'Business'
-    | 'Scale'
-    | 'Priority'
-    | 'Ultra'
-    | 'Max'
-    | 'Unlimited'
-  )[] = [
-    'Starter',
-    'Hobby',
-    'Business',
-    'Scale',
-    'Priority',
-    'Ultra',
-    'Max',
-    'Unlimited',
-  ]
-  const targetTier:
-    | 'Starter'
-    | 'Hobby'
-    | 'Business'
-    | 'Scale'
-    | 'Priority'
-    | 'Ultra'
-    | 'Max'
-    | 'Unlimited' = isOnFreePlan
-    ? 'Starter'
-    : nextTierName && validTiers.includes(nextTierName as any)
-      ? (nextTierName as
-          | 'Starter'
-          | 'Hobby'
-          | 'Business'
-          | 'Scale'
-          | 'Priority'
-          | 'Ultra'
-          | 'Max'
-          | 'Unlimited')
-      : 'Hobby'
-
-  const handleViewPlans = (e?: React.MouseEvent) => {
-    e?.preventDefault()
-    e?.stopPropagation()
-    setIsDialogOpen(true)
-  }
-
-  const handleBuyOneTimePack = async (productId: string) => {
-    setIsPurchasing(productId)
-    setIsPopoverOpen(false)
-
-    try {
-      await directPlanCheckout({
-        productId,
-        productName: 'One-Time Credit Pack',
-        isSubscriptionUpgrade: false,
-      })
-      toast.success('Credits purchased successfully!')
-      await refetch()
-    } catch (error: any) {
-      const redirectUrl =
-        error?.url || error?.data?.url || (error as any)?.checkout_url
-      if (redirectUrl) {
-        window.location.href = redirectUrl
-        return
-      }
-      const errorMessage =
-        error?.message ||
-        error?.data?.message ||
-        'Failed to purchase credits. Please try again.'
-      toast.error(errorMessage)
-    } finally {
-      setIsPurchasing(null)
-    }
-  }
-
-  if (isLoading) {
-    return null
-  }
-
-  return (
-    <>
-      <div className="mt-3 w-full max-w-full overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-3 shadow-sm">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
-            <Coins className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <h4 className="break-words text-sm font-semibold text-amber-900">
-              Out of Agent Credits
-            </h4>
-            <p className="mt-0.5 break-words text-xs leading-relaxed text-amber-800">
-              {isOnFreePlan
-                ? "You've used all your Free credits. Choose an option below to continue building."
-                : `You've used all your ${planName} credits. Choose an option below to continue building.`}
-            </p>
-            <div className="mt-3 space-y-2">
-              <div className="flex flex-col gap-2">
-                {/* View tier option - opens dialog first */}
-                {nextTierDef && nextTierName && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleViewPlans}
-                    className="h-8 w-full bg-amber-600 text-xs font-medium text-white hover:bg-amber-700"
-                  >
-                    <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
-                    <span className="truncate">
-                      View {nextTierName} (${nextTierPrice}/mo)
-                    </span>
-                  </Button>
-                )}
-
-                {/* One-time credit pack option */}
-                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isPurchasing !== null}
-                      className="h-8 w-full border-amber-300 bg-white text-xs font-medium text-amber-700 hover:bg-amber-50"
-                    >
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      <span className="truncate">Buy One-Time Pack</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-3" align="start">
-                    <div className="space-y-3">
-                      <div>
-                        <h4 className="text-sm font-semibold text-zinc-900">
-                          One-Time Credit Packs
-                        </h4>
-                        <p className="mt-1 text-xs text-zinc-600">
-                          Get more credits without changing your plan
-                        </p>
-                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2">
-                          <p className="text-[10px] font-medium text-amber-800">
-                            💡 <strong>Better value:</strong> Upgrading your
-                            tier gives you more credits per dollar with
-                            recurring monthly credits.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        {CREDIT_PACK_OPTIONS.map((pack) => (
-                          <button
-                            key={pack.product.id}
-                            onClick={() =>
-                              handleBuyOneTimePack(pack.product.id)
-                            }
-                            disabled={isPurchasing !== null}
-                            className="group flex w-full items-center justify-between rounded-lg border border-amber-200/60 bg-gradient-to-r from-amber-50/60 to-white/60 p-3 text-left transition-all hover:border-amber-300/80 hover:from-amber-100/80 hover:to-amber-50/80 hover:shadow-sm active:scale-[0.98] disabled:opacity-50"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <div className="text-sm font-semibold text-zinc-900">
-                                  {pack.label}
-                                </div>
-                                {pack.isRecurring && (
-                                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
-                                    Best Value
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-zinc-600">
-                                {pack.amount}
-                              </div>
-                            </div>
-                            <div className="ml-3 flex items-center gap-2">
-                              {isPurchasing === pack.product.id && (
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
-                              )}
-                              <div className="text-sm font-bold text-amber-700">
-                                {pack.price}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="break-words text-[11px] leading-relaxed text-amber-600">
-                💡 Your work is saved -{' '}
-                {nextTierDef
-                  ? `upgrade to ${nextTierName} for ${formatCredits(nextTierCredits)} credits/month (better value) or `
-                  : ''}
-                buy a one-time pack
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Upgrade to {targetTier} Plan</DialogTitle>
-          </DialogHeader>
-          {/* UpgradePrompt with hidden title and no border - buttons are built-in below price */}
-          <div className="mt-2">
-            <UpgradePrompt
-              requiredPlan={targetTier}
-              message={
-                isOnFreePlan
-                  ? `You've used all your free credits (4M one-time). Upgrade to ${targetTier} plan (${getFormattedPriceWithPeriod('starter')}) to get ${formatCredits(PLAN_BASE_CREDITS.starter)} credits every month and continue building with AI assistance.`
-                  : `Upgrade to ${targetTier} plan to get more credits and continue building with AI assistance.`
-              }
-              showUpgradeButton={true}
-              hideTitle={true}
-              borderless={true}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  )
-}
-
 type PersistedAgentAd = NonNullable<AgentMessageForAd['ad_payload']>
 type AdsByPlacement = Partial<Record<AgentAdPlacement, PersistedAgentAd>>
 type LiveAgentAds = {
@@ -1358,12 +1053,6 @@ const AgentMessageCard: React.FC<{
 
   const shouldShowUndo = !!onRollback
 
-  // Check if this is an insufficient credits/paywall message
-  const isPaywallMessage =
-    message.state === 'Error' &&
-    message.state_message &&
-    message.state_message.toLowerCase().includes('insufficient credits')
-
   return (
     <div
       className={cn(
@@ -1504,11 +1193,8 @@ const AgentMessageCard: React.FC<{
         <TimeLimitContinuePanel onContinue={onContinueAfterTimeout} />
       )}
 
-      {/* Show compact paywall bump when insufficient credits */}
-      {isPaywallMessage && <CompactPaywallBump />}
-
-      {/* Inline error card for failed runs (credits case handled above) */}
-      {message.state === 'Error' && !isPaywallMessage && (
+      {/* Inline error card for failed runs */}
+      {message.state === 'Error' && (
         <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-3">
           <div className="flex items-start gap-2.5">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />

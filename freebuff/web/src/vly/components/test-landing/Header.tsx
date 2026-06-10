@@ -106,10 +106,6 @@ export const Header: React.FC<HeaderProps> = ({
       external: true,
     },
     {
-      label: 'Pricing',
-      href: '/web/pricing',
-    },
-    {
       label: 'Contact',
       href: '/web/contact',
     },

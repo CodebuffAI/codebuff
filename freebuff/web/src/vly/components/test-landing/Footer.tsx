@@ -83,12 +83,6 @@ export const Footer: React.FC<FooterProps> = ({
               Discord
             </button>
             <Link
-              href="/web/pricing"
-              className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
-            >
-              Pricing
-            </Link>
-            <Link
               href="/web/privacy"
               className="text-sm font-medium text-foreground/75 transition-colors hover:text-primary"
             >

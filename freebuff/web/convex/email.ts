@@ -23,10 +23,6 @@ function getAppBaseUrl(): string {
   return rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl
 }
 
-function getEarnPageUrl(): string {
-  return `${getAppBaseUrl()}/earn`
-}
-
 function firstNameFromDisplayName(name?: string | null): string {
   const trimmed = (name ?? '').trim()
   if (!trimmed) {
@@ -159,7 +155,6 @@ export const sendWelcomeEmailInternal = internalAction({
     }
 
     const resend = new Resend(apiKey)
-    const earnPageUrl = getEarnPageUrl()
     const firstName = firstNameFromDisplayName(user.name)
 
     const subject = 'Welcome to Freebuff'
@@ -172,7 +167,7 @@ export const sendWelcomeEmailInternal = internalAction({
       '',
       `You can also get live support from our team in our Discord: ${DISCORD_INVITE_URL}`,
       '',
-      `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more here: ${earnPageUrl}`,
+      `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits.`,
       '',
       'If you get stuck, want help, or have feedback, just reply to this email.',
       '',
@@ -186,7 +181,7 @@ export const sendWelcomeEmailInternal = internalAction({
         <p>Welcome to Freebuff. My name is James, and I’ll be your point of contact here.</p>
         <p>You can email me any time at <a href="mailto:${FREEBUFF_REPLY_TO_EMAIL}">${FREEBUFF_REPLY_TO_EMAIL}</a>.</p>
         <p>You can also get live support from our team in our <a href="${DISCORD_INVITE_URL}">Discord</a>.</p>
-        <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more <a href="${earnPageUrl}">here</a>.</p>
+        <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits.</p>
         <p>If you get stuck, want help, or have feedback, just reply to this email.</p>
         <p>Excited to see what you build with us,</p>
         <p>James</p>

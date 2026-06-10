@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Compact Referral/Earn Button Component
- * Always routes users to the dedicated Earn dashboard.
+ * Compact Referral Button Component
+ * Always routes users to the dedicated referrals dashboard.
  */
 
 import { Gift, ArrowUpRight } from "lucide-react";
@@ -30,7 +30,7 @@ export function CompactReferralButton({
         </span>
       </div>
       <button
-        onClick={() => router.push("/web/earn")}
+        onClick={() => router.push("/web/referrals")}
         className="group relative flex h-6 w-full items-center justify-center gap-1 overflow-hidden rounded-md border border-emerald-300 bg-gradient-to-r from-emerald-600 to-teal-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm outline outline-1 outline-emerald-400/40 transition-all duration-200 hover:shadow-md hover:outline-emerald-400/60 active:scale-95"
       >
         <ArrowUpRight className="h-3 w-3" />

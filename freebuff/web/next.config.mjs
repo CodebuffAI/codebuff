@@ -142,11 +142,6 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/earn/:path*',
-        destination: '/web/earn/:path*',
-        permanent: false,
-      },
-      {
         source: '/pricing',
         destination: '/web/pricing',
         permanent: false,

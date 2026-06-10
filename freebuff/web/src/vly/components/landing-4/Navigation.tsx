@@ -87,11 +87,6 @@ export default function Navigation({
       showWhenSignedOut: true,
     },
     {
-      label: "Pricing",
-      href: "/web/pricing",
-      onClick: () => handleNavigate("/web/pricing"),
-    },
-    {
       label: "Discord",
       onClick: handleOpenDiscord,
     },

@@ -123,7 +123,7 @@ export default function AdminReferralsPage() {
 
   // Redirect non-admin users
   if (user && !isAdmin) {
-    router.push("/web/referrals");
+    router.push("/web");
     return null;
   }
 

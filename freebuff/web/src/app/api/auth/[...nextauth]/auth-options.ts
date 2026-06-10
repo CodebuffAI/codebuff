@@ -31,15 +31,6 @@ const FREEBUFF_FROM_EMAIL = 'James from Freebuff <james@mail.freebuff.app>'
 const FREEBUFF_REPLY_TO_EMAIL = 'support@codebuff.com'
 const DISCORD_INVITE_URL = 'https://discord.gg/yXG3w7wxfs'
 
-function getFreebuffAppUrl(): string {
-  const rawUrl =
-    process.env.NEXT_PUBLIC_FREEBUFF_APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL ||
-    'https://freebuff.app'
-  return rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl
-}
-
 function firstNameFromDisplayName(name?: string | null): string {
   const trimmed = (name ?? '').trim()
   if (!trimmed) {
@@ -71,7 +62,6 @@ async function sendFreebuffWelcomeEmail(params: {
   }
 
   const firstName = firstNameFromDisplayName(params.name)
-  const earnPageUrl = `${getFreebuffAppUrl()}/earn`
   const subject = 'Welcome to Freebuff'
   const text = [
     `Hi ${firstName},`,
@@ -82,7 +72,7 @@ async function sendFreebuffWelcomeEmail(params: {
     '',
     `You can also get live support from our team in our Discord: ${DISCORD_INVITE_URL}`,
     '',
-    `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more here: ${earnPageUrl}`,
+    `Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits.`,
     '',
     'If you get stuck, want help, or have feedback, just reply to this email.',
     '',
@@ -96,7 +86,7 @@ async function sendFreebuffWelcomeEmail(params: {
       <p>Welcome to Freebuff. My name is James, and I’ll be your point of contact here.</p>
       <p>You can email me any time at <a href="mailto:${FREEBUFF_REPLY_TO_EMAIL}">${FREEBUFF_REPLY_TO_EMAIL}</a>.</p>
       <p>You can also get live support from our team in our <a href="${DISCORD_INVITE_URL}">Discord</a>.</p>
-      <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits. You can also earn more <a href="${earnPageUrl}">here</a>.</p>
+      <p>Freebuff is the free coding agent from Codebuff. You can use it to build, fix, and ship projects without worrying about credits.</p>
       <p>If you get stuck, want help, or have feedback, just reply to this email.</p>
       <p>Excited to see what you build with us,</p>
       <p>James</p>

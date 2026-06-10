@@ -7,7 +7,6 @@ import { AgentThreadList } from "./agent-chat/AgentThreadList";
 import DivergenceResolutionDialog from "@/vly/components/project-2/DivergenceResolutionDialog";
 import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
 import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
-import { useCreditCheck } from "@/vly/hooks/useCreditCheck";
 import {
   ModelDisclaimerDialog,
   hasAcknowledgedDisclaimer,
@@ -185,24 +184,6 @@ export function ChatShell({
     getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime,
   });
   const retryAt = status?.retryAt;
-
-  // Credit checking
-  const {
-    canUseAgent,
-    isLoading: creditCheckLoading,
-    isPlatformAdmin,
-  } = useCreditCheck();
-
-  // Pause + self-hosted checking
-  const pauseRecord = useQuery(
-    api.deployment_queries.getCurrentUserPauseStatus,
-  );
-  const isConvexPaused =
-    !isPlatformAdmin && pauseRecord !== null && pauseRecord !== undefined;
-  const isSelfHosted = useQuery(
-    api.convex_oauth.connections.isProjectSelfHosted,
-    project ? { projectId: project._id } : "skip",
-  );
 
   // Log when credit checking component mounts
   useEffect(() => {
@@ -1153,18 +1134,6 @@ ${message}`;
             {/* Legacy chats are read-only: suggestion chips and the automated
                 runtime/build error fixers are intentionally not rendered here so
                 nothing can dispatch work to the retired agent. */}
-
-            {/* Credit warning banner - shows when credits are low but not empty */}
-            {/* COMMENTED OUT: If users are on plans with overage pricing, they should be able to continue using the service even when below threshold */}
-            {/* {canUseAgent && creditsRemaining < 100000 && !creditCheckLoading && (
-        <CreditWarningBanner
-          threshold={100000}
-          onUpgradeClick={() => {
-            // Navigate to billing page or trigger upgrade flow
-            window.open("/web/dashboard", "_blank");
-          }}
-        />
-      )} */}
 
             {/* Legacy chats are read-only. The original "vly agent 2.0" has been
                 retired, so we remove the input entirely and offer a single

@@ -157,8 +157,7 @@ export const BountySubmissionResultEmail: React.FC<
     <p>This is an automated reply. Please do not reply to this email.</p>
     <p>
       <a href="https://discord.gg/yXG3w7wxfs">Join Discord</a> to contact the
-      founders. View your bounties at{" "}
-      <a href="https://freebuff.com/earn">Freebuff Web/earn</a>.
+      founders.
     </p>
   </div>
 );
