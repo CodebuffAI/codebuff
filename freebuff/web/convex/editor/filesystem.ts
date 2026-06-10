@@ -10,8 +10,6 @@ import {
   validateAndFixCronIntervals,
   isCronsFile,
 } from "../coding_agent/agent/process/cronValidator";
-import { internal } from "../_generated/api";
-import { VersioningService } from "../services/VersioningService";
 export const listFiles = action({
   args: {
     projectId: v.id("project"),
@@ -248,51 +246,43 @@ export const readFile = action({
         // For text files, read as text
         content = await codebase.readFile(args.path);
 
-        // Special handling for JSX/TSX files and common config files
-        if (ext === "jsx" || (ext === "js" && content.includes("jsx"))) {
-          language = "javascript"; // Use javascript for JSX to avoid strict parsing
-        } else if (ext === "tsx" || (ext === "ts" && content.includes("<"))) {
-          language = "javascript"; // Use javascript for TSX to avoid strict parsing
-        } else {
-          const languageMap: Record<string, string> = {
-            js: "javascript",
-            jsx: "javascript",
-            ts: "javascript", // Use javascript instead of typescript for more lenient parsing
-            tsx: "javascript",
-            css: "css",
-            scss: "scss",
-            less: "less",
-            html: "html",
-            json: "json",
-            md: "markdown",
-            py: "python",
-            java: "java",
-            c: "c",
-            cpp: "cpp",
-            cs: "csharp",
-            php: "php",
-            rb: "ruby",
-            go: "go",
-            rs: "rust",
-            swift: "swift",
-            kt: "kotlin",
-            yaml: "yaml",
-            yml: "yaml",
-            xml: "xml",
-            svg: "xml", // SVG files are XML-based
-            sql: "sql",
-            sh: "shell",
-            bash: "shell",
-            dockerfile: "dockerfile",
-            gitignore: "gitignore",
-          };
+        const languageMap: Record<string, string> = {
+          js: "javascript",
+          jsx: "javascript",
+          ts: "typescript",
+          tsx: "typescript",
+          css: "css",
+          scss: "scss",
+          less: "less",
+          html: "html",
+          json: "json",
+          md: "markdown",
+          py: "python",
+          java: "java",
+          c: "c",
+          cpp: "cpp",
+          cs: "csharp",
+          php: "php",
+          rb: "ruby",
+          go: "go",
+          rs: "rust",
+          swift: "swift",
+          kt: "kotlin",
+          yaml: "yaml",
+          yml: "yaml",
+          xml: "xml",
+          svg: "xml",
+          sql: "sql",
+          sh: "shell",
+          bash: "shell",
+          dockerfile: "dockerfile",
+          gitignore: "gitignore",
+        };
 
-          // Check for special filenames
-          if (fileName.includes("dockerfile")) language = "dockerfile";
-          else if (fileName.includes("gitignore")) language = "gitignore";
-          else if (fileName.includes("package.json")) language = "json";
-          else language = languageMap[ext] || "plaintext";
-        }
+        if (fileName.includes("dockerfile")) language = "dockerfile";
+        else if (fileName.includes("gitignore")) language = "gitignore";
+        else if (fileName.includes("package.json")) language = "json";
+        else language = languageMap[ext] || "plaintext";
 
         return {
           content,
@@ -304,6 +294,185 @@ export const readFile = action({
       console.error("Error reading file");
       throw new Error("Failed to read file");
     }
+  },
+});
+
+export const searchInFiles = action({
+  args: {
+    projectId: v.id("project"),
+    query: v.string(),
+    caseSensitive: v.optional(v.boolean()),
+    wholeWord: v.optional(v.boolean()),
+    regex: v.optional(v.boolean()),
+    maxResults: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      path: v.string(),
+      line: v.number(),
+      column: v.number(),
+      preview: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const query = args.query.trim();
+    if (!query) return [];
+
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const project = await getVerifiedAccessProject(
+      ctx,
+      user._id,
+      undefined,
+      args.projectId,
+    );
+
+    if (!project || !project.sandbox_id) {
+      throw new Error("Project not found or has no sandbox");
+    }
+
+    const codebase = await initializeCodebase(
+      project.sandbox_id,
+      project.packageManager,
+    );
+
+    const runCommandImpl = (codebase as any).runCommand as
+      | ((
+          command: string,
+          timeout?: number,
+        ) => Promise<{ output: string; exitCode?: number }>)
+      | undefined;
+
+    if (!runCommandImpl) {
+      throw new Error("Search is not supported for this sandbox type");
+    }
+
+    const runCommand = (command: string, timeout?: number) =>
+      runCommandImpl.call(codebase, command, timeout);
+
+    const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+    const maxResults = Math.min(Math.max(args.maxResults ?? 200, 1), 1000);
+
+    const flags: string[] = [
+      "--line-number",
+      "--column",
+      "--no-heading",
+      "--color",
+      "never",
+      "--max-count",
+      String(maxResults),
+      "--glob",
+      shellQuote("!.git"),
+      "--glob",
+      shellQuote("!node_modules"),
+    ];
+
+    if (args.caseSensitive) {
+      flags.push("--case-sensitive");
+    } else {
+      flags.push("--ignore-case");
+    }
+
+    if (args.wholeWord) flags.push("--word-regexp");
+    if (!args.regex) flags.push("--fixed-strings");
+
+    const parseMatches = (
+      output: string,
+      parser: (raw: string) => {
+        path: string;
+        line: number;
+        column: number;
+        preview: string;
+      } | null,
+    ) => {
+      const lines = output.split("\n").filter(Boolean);
+      const matches: Array<{
+        path: string;
+        line: number;
+        column: number;
+        preview: string;
+      }> = [];
+
+      for (const raw of lines) {
+        const parsed = parser(raw);
+        if (!parsed) continue;
+        matches.push(parsed);
+        if (matches.length >= maxResults) break;
+      }
+
+      return matches;
+    };
+
+    const command = `rg ${flags.join(" ")} ${shellQuote(query)} .`;
+    const result = await runCommand(command, 30000);
+
+    if (result.exitCode === 1 || !result.output?.trim()) {
+      return [];
+    }
+
+    if (
+      result.exitCode &&
+      result.exitCode !== 0 &&
+      /rg: .*not found|command not found/i.test(result.output)
+    ) {
+      const grepFlags: string[] = [
+        "-R",
+        "-n",
+        "--exclude-dir=.git",
+        "--exclude-dir=node_modules",
+      ];
+
+      if (!args.caseSensitive) grepFlags.push("-i");
+      if (args.wholeWord) grepFlags.push("-w");
+      if (args.regex) {
+        grepFlags.push("-E");
+      } else {
+        grepFlags.push("-F");
+      }
+
+      const grepCommand = `grep ${grepFlags.join(" ")} -- ${shellQuote(query)} .`;
+      const grepResult = await runCommand(grepCommand, 30000);
+
+      if (grepResult.exitCode === 1 || !grepResult.output?.trim()) {
+        return [];
+      }
+
+      if (grepResult.exitCode && grepResult.exitCode !== 0) {
+        throw new Error(`Search failed: ${grepResult.output}`);
+      }
+
+      return parseMatches(grepResult.output, (raw) => {
+        const parsed = raw.match(/^(.*?):(\d+):(.*)$/);
+        if (!parsed) return null;
+        const [, path, line, preview] = parsed;
+        return {
+          path,
+          line: Number(line),
+          column: 1,
+          preview,
+        };
+      });
+    }
+
+    if (result.exitCode && result.exitCode !== 0) {
+      throw new Error(`Search failed: ${result.output}`);
+    }
+
+    return parseMatches(result.output, (raw) => {
+      const parsed = raw.match(/^(.*?):(\d+):(\d+):(.*)$/);
+      if (!parsed) return null;
+
+      const [, path, line, column, preview] = parsed;
+      return {
+        path,
+        line: Number(line),
+        column: Number(column),
+        preview,
+      };
+    });
   },
 });
 
@@ -711,90 +880,5 @@ export const godModeDeleteFile = action({
     });
 
     return { success: true };
-  },
-});
-
-/**
- * Commit editor changes and sync to GitHub
- * Called after a file is saved in the Monaco editor
- */
-export const commitAndSyncEditorChange = action({
-  args: {
-    projectId: v.id("project"),
-    filePath: v.string(),
-  },
-  returns: v.object({
-    success: v.boolean(),
-    commitHash: v.optional(v.string()),
-    error: v.optional(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    try {
-      // Get authenticated user
-      const user = await getAuthUser(ctx);
-      if (!user) {
-        throw new Error("Not authenticated");
-      }
-
-      // Verify user has access to project
-      const project = await getVerifiedAccessProject(
-        ctx,
-        user._id,
-        undefined,
-        args.projectId,
-      );
-
-      if (!project) {
-        throw new Error("Project not found");
-      }
-
-      // Create commit message
-      const fileName = args.filePath.split("/").pop() || args.filePath;
-      const commitMessage = `Update ${fileName} via editor`;
-
-      console.log(`[Editor] Creating commit for file save: ${args.filePath}`);
-
-      // Use VersioningService to create checkpoint (handles commit + GitHub sync)
-      const versioningService = new VersioningService(ctx);
-      const result = await versioningService.createCheckpoint(
-        args.projectId,
-        commitMessage,
-      );
-
-      if (result.success && result.checkpointId) {
-        console.log(
-          `[Editor] Successfully created commit: ${result.checkpointId}`,
-        );
-
-        // Schedule GitHub sync (non-blocking)
-        await ctx.scheduler.runAfter(
-          0,
-          internal.codesandbox.versionControl.syncCommitToGitHub,
-          {
-            projectId: args.projectId,
-            commitHash: result.checkpointId,
-          },
-        );
-
-        return {
-          success: true,
-          commitHash: result.checkpointId,
-        };
-      } else {
-        console.warn(
-          `[Editor] Failed to create commit: ${result.error || "Unknown error"}`,
-        );
-        return {
-          success: false,
-          error: result.error || "Failed to create commit",
-        };
-      }
-    } catch (error: any) {
-      console.error("[Editor] Error committing and syncing:", error);
-      return {
-        success: false,
-        error: error.message || "Failed to commit changes",
-      };
-    }
   },
 });

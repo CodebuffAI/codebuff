@@ -54,14 +54,17 @@ interface FileNode {
 interface FileExplorerProps {
   projectId: Id<"project">;
   onFileSelect: (path: string) => void;
+  onFileHover?: (path: string) => void;
   selectedFile?: string;
 }
 
 export function FileExplorer({
   projectId,
   onFileSelect,
+  onFileHover,
   selectedFile,
 }: FileExplorerProps) {
+  const cacheKey = `vscode-editor:fileTree:${String(projectId)}`;
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
@@ -93,15 +96,38 @@ export function FileExplorer({
     [listFiles, projectId],
   );
 
-  const refreshFileTree = useCallback(async () => {
-    setLoading(true);
+  const refreshFileTree = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
+
     const rootFiles = await loadDirectory("./");
     setFileTree(rootFiles);
     setLoading(false);
-  }, [loadDirectory]);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(cacheKey, JSON.stringify(rootFiles));
+    }
+  }, [cacheKey, loadDirectory]);
 
   useEffect(() => {
-    refreshFileTree();
+    let hasCachedTree = false;
+    if (typeof window !== "undefined") {
+      const cachedTree = window.sessionStorage.getItem(cacheKey);
+      if (cachedTree) {
+        try {
+          const parsed = JSON.parse(cachedTree) as FileNode[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setFileTree(parsed);
+            setLoading(false);
+            hasCachedTree = true;
+          }
+        } catch {
+          // ignore malformed cache and refetch
+        }
+      }
+    }
+
+    void refreshFileTree({ silent: hasCachedTree });
   }, [refreshFileTree]);
 
   const toggleDirectory = async (node: FileNode, parentPath: string[] = []) => {
@@ -311,8 +337,8 @@ export function FileExplorer({
         <ContextMenu>
           <ContextMenuTrigger>
             <div
-              className={`flex cursor-pointer items-center gap-1 px-2 py-1 hover:bg-slate-100 ${
-                isSelected ? "bg-slate-200" : ""
+              className={`flex cursor-pointer items-center gap-1 px-2 py-1 ${
+                isSelected ? "bg-[#37373d]" : "hover:bg-[#2a2d2e]"
               }`}
               style={{ paddingLeft: `${level * 16 + 8}px` }}
               onClick={() => {
@@ -320,6 +346,11 @@ export function FileExplorer({
                   toggleDirectory(node, parentPath);
                 } else if (node.type === "file") {
                   onFileSelect(pathStr);
+                }
+              }}
+              onMouseEnter={() => {
+                if (node.type === "file") {
+                  onFileHover?.(pathStr);
                 }
               }}
             >
@@ -344,9 +375,9 @@ export function FileExplorer({
                   {getFileIcon(node.name)}
                 </>
               )}
-              <span className="flex-1 truncate text-xs">{node.name}</span>
+              <span className="flex-1 truncate text-xs text-[#d4d4d4]">{node.name}</span>
               {node.size !== undefined && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-[#858585]">
                   {(node.size / 1024).toFixed(1)}KB
                 </span>
               )}
@@ -397,14 +428,16 @@ export function FileExplorer({
   };
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-slate-50">
-      <div className="flex items-center justify-between border-b p-2">
-        <span className="text-xs font-semibold">Files</span>
+    <div className="flex h-full w-full flex-col bg-[#1e1e1e]">
+      <div className="flex items-center justify-between border-b border-[#2d2d30] p-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-[#cccccc]">
+          Explorer
+        </span>
         <div className="flex gap-1">
           <Button
             size="icon"
             variant="ghost"
-            className="h-6 w-6"
+            className="h-6 w-6 text-[#bcbcbc] hover:bg-[#2a2d2e]"
             onClick={() =>
               setNewItemDialog({ open: true, type: "file", parentPath: "" })
             }
@@ -414,8 +447,10 @@ export function FileExplorer({
           <Button
             size="icon"
             variant="ghost"
-            className="h-6 w-6"
-            onClick={refreshFileTree}
+            className="h-6 w-6 text-[#bcbcbc] hover:bg-[#2a2d2e]"
+            onClick={() => {
+              void refreshFileTree();
+            }}
           >
             <RefreshCw className="h-3 w-3" />
           </Button>
@@ -428,7 +463,7 @@ export function FileExplorer({
             <Loader className="h-4 w-4 animate-spin" />
           </div>
         ) : fileTree.length === 0 ? (
-          <div className="p-4 text-center text-xs text-gray-500">
+          <div className="p-4 text-center text-xs text-[#858585]">
             No files found
           </div>
         ) : (

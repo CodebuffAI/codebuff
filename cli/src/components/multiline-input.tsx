@@ -573,7 +573,13 @@ export const MultilineInput = forwardRef<
       if (!isEnterKey && !isCtrlJ) return false
 
       const isAltLikeModifier = isAltModifier(key)
+      // Kitty-protocol keyboards encode plain Enter as an escape sequence
+      // (e.g. \x1b[13u) but report modifiers reliably, so the escape-prefix
+      // and raw \r/\n heuristics (which exist to catch legacy Alt+Enter)
+      // must not apply to kitty events.
+      const isKittyKey = key.source === 'kitty'
       const hasEscapePrefix =
+        !isKittyKey &&
         typeof key.sequence === 'string' &&
         key.sequence.length > 0 &&
         key.sequence.charCodeAt(0) === 0x1b
@@ -589,7 +595,10 @@ export const MultilineInput = forwardRef<
         !key.option &&
         !isAltLikeModifier &&
         (!hasEscapePrefix || keypadEnter) &&
-        (key.sequence === '\r' || key.sequence === '\n' || keypadEnter) &&
+        (key.sequence === '\r' ||
+          key.sequence === '\n' ||
+          keypadEnter ||
+          isKittyKey) &&
         !hasBackslashBeforeCursor
       const isShiftEnter = isEnterKey && Boolean(key.shift)
       const isOptionEnter =
