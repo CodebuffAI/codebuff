@@ -225,6 +225,26 @@ export function parseApiErrorResponseBody(responseBody: unknown): {
     ) {
       result.message = (parsed as { message: string }).message
     }
+    // OpenAI-style nested error object: { error: { message, code, type } }.
+    // Upstream provider errors (Fireworks, OpenRouter, etc.) are relayed to
+    // the client in this shape.
+    if (
+      'error' in parsed &&
+      typeof (parsed as { error: unknown }).error === 'object' &&
+      (parsed as { error: unknown }).error !== null
+    ) {
+      const nested = (parsed as { error: Record<string, unknown> }).error
+      if (result.errorCode === undefined) {
+        if (typeof nested.code === 'string') {
+          result.errorCode = nested.code
+        } else if (typeof nested.type === 'string') {
+          result.errorCode = nested.type
+        }
+      }
+      if (result.message === undefined && typeof nested.message === 'string') {
+        result.message = nested.message
+      }
+    }
     if (
       'countryCode' in parsed &&
       typeof (parsed as { countryCode: unknown }).countryCode === 'string'

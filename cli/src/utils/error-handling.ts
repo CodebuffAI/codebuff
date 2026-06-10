@@ -121,7 +121,24 @@ export const getFreebuffRateLimitErrorMessage = (
   const details = getCliApiErrorDetails(error)
   if (details.statusCode !== 429) return null
   if (details.errorCode === 'free_mode_rate_limited') {
+    // Our own rate limiter's message is already user-facing and includes the
+    // retry countdown — show it verbatim.
     return details.message ?? FREEBUFF_RATE_LIMIT_MESSAGE
+  }
+  // Other 429s (e.g. relayed upstream capacity errors) keep the branded
+  // message but include the server detail so users aren't left guessing.
+  // Only trust messages parsed from a server response body, or the curated
+  // message on an agent-run output object — top-level messages on raw thrown
+  // errors are HTTP status text or retry-wrapper noise.
+  const isRunOutputObject =
+    !!error &&
+    typeof error === 'object' &&
+    (error as { type?: unknown }).type === 'error'
+  const detail =
+    extractApiErrorDetails(error).message ??
+    (isRunOutputObject ? details.message : undefined)
+  if (detail && !/^too many requests\.?$/i.test(detail)) {
+    return `${FREEBUFF_RATE_LIMIT_MESSAGE} (${detail})`
   }
   return FREEBUFF_RATE_LIMIT_MESSAGE
 }

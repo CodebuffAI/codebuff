@@ -39,7 +39,7 @@ Both live in `web/src/app/api/v1/chat/completions/_post.ts`:
 - **Premium-model daily cap** — `FREE_MODE_PREMIUM_RATE_LIMITS.PER_DAY` (1200)
   in `free-mode-rate-limiter.ts`, checked on every free-mode premium request
   regardless of the agent-run path. Burst is bounded by the existing
-  model-agnostic windows (`FREE_MODE_RATE_LIMITS`: ≤250/30min, ≤2000/5h,
+  model-agnostic windows (`FREE_MODE_RATE_LIMITS`: ≤350/30min, ≤2000/5h,
   4000/day).
 - **CLI-required gate** — free-mode **root**-agent requests must carry the CLI's
   "You are Buffy" system prompt (`requestHasFreebuffSystemMarker`). Missing →

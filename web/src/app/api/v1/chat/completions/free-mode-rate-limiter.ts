@@ -18,11 +18,11 @@
 
 export const FREE_MODE_RATE_LIMITS = {
   /** Max requests per 1-second window */
-  PER_SECOND: 2,
+  PER_SECOND: 3,
   /** Max requests per 1-minute window */
-  PER_MINUTE: 25,
+  PER_MINUTE: 40,
   /** Max requests per 30-minute window */
-  PER_30_MINUTES: 250,
+  PER_30_MINUTES: 350,
   /** Max requests per 5-hour window */
   PER_5_HOURS: 2_000,
   /** Max requests per 1-day window */
@@ -45,7 +45,7 @@ export const FREE_MODE_RATE_LIMITS = {
  * Sizing: the intended allowance is 5 premium sessions/Pacific-day, and a user
  * can legitimately spend all 5 in a short burst, so we only cap the daily
  * total (no separate sub-day premium window). Short bursts are still bounded by
- * the general windows above (≤250/30min, ≤2000/5h). PER_DAY is sized so ~5
+ * the general windows above (≤350/30min, ≤2000/5h). PER_DAY is sized so ~5
  * premium coding sessions — root + reviewer/file-picker subagents on premium
  * models, up to a few hundred steps each — stay well under it. Tune to trade
  * off legit power-user headroom vs. how hard abuse is throttled.

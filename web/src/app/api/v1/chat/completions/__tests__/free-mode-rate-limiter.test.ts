@@ -58,7 +58,9 @@ describe('free-mode-rate-limiter', () => {
   // Send `count` premium requests within a single day, spreading across the
   // general 30-minute / 1-minute / 1-second windows so only the premium daily
   // window can be the limiting factor. `count` must stay under the general
-  // 5-hour limit (2000) so the general windows never trip first.
+  // 5-hour limit (2000) so the general windows never trip first. Always ends
+  // just past a 30-minute boundary so follow-up probe requests aren't blocked
+  // by a general window that the final batch filled exactly.
   function sendPremiumWithinOneDay(userId: string, count: number) {
     const per30Min = FREE_MODE_RATE_LIMITS.PER_30_MINUTES
     const perMinute = FREE_MODE_RATE_LIMITS.PER_MINUTE
@@ -76,10 +78,8 @@ describe('free-mode-rate-limiter', () => {
         }
       }
       sent += sentIn30Min
-      if (sent < count) {
-        const elapsed = fakeNow - subWindowStart
-        advanceTime(30 * MINUTE_MS - elapsed + 1)
-      }
+      const elapsed = fakeNow - subWindowStart
+      advanceTime(30 * MINUTE_MS - elapsed + 1)
     }
   }
 

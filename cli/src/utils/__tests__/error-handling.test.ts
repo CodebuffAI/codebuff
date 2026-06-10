@@ -228,6 +228,46 @@ describe('error-handling', () => {
         }),
       ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
     })
+
+    test('appends detail from agent-run output objects for untyped 429s', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          type: 'error',
+          statusCode: 429,
+          message: 'Model is at capacity. Please try again later.',
+        }),
+      ).toBe(
+        `${FREEBUFF_RATE_LIMIT_MESSAGE} (Model is at capacity. Please try again later.)`,
+      )
+    })
+
+    test('appends detail from OpenAI-style nested provider error bodies', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          statusCode: 429,
+          message: 'Too Many Requests',
+          responseBody: JSON.stringify({
+            error: {
+              message: 'Model is at capacity. Please try again later.',
+              code: null,
+              type: 'rate_limit_error',
+            },
+          }),
+        }),
+      ).toBe(
+        `${FREEBUFF_RATE_LIMIT_MESSAGE} (Model is at capacity. Please try again later.)`,
+      )
+    })
+
+    test('does not echo bare HTTP status text from output objects', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          type: 'error',
+          statusCode: 429,
+          message: 'Too Many Requests',
+        }),
+      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+    })
   })
 
   describe('getCountryBlockFromFreeModeError', () => {
