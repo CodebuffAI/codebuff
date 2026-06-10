@@ -38,10 +38,6 @@ export function useProjectConnection({
           semanticIdentifier,
         });
 
-        if (!options.silentSuccessToast) {
-          toast.success("✅ Project connected successfully");
-        }
-
         return {
           success: true as const,
         };
@@ -84,7 +80,6 @@ export function useProjectConnection({
   useEffect(() => {
     if (query.isSuccess && !hasToasted.current) {
       hasToasted.current = true;
-      toast.success("✅ Project connected successfully");
       onSuccess?.();
     } else if (query.isError && !hasToasted.current) {
       hasToasted.current = true;

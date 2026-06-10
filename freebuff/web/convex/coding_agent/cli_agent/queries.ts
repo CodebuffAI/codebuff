@@ -67,6 +67,55 @@ export const getAgentThreadMessages = query({
   },
 });
 
+export const getLatestAgentCommitHashForProject = query({
+  args: {
+    projectId: v.id("project"),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      return null;
+    }
+
+    const projectData = await getVerifiedAccessProject(
+      ctx,
+      user._id,
+      undefined,
+      args.projectId,
+    );
+
+    if (!projectData?.active_agent_thread) {
+      return null;
+    }
+
+    const recentMessages = await ctx.db
+      .query("agent_message")
+      .withIndex("by_thread_active", (q) =>
+        q
+          .eq("thread_id", projectData.active_agent_thread!)
+          .eq("isStreaming", false)
+          .eq("deactivated", false),
+      )
+      .order("desc")
+      .take(40);
+
+    const messageWithCommit = recentMessages.find((message) =>
+      Boolean(message.commit_hash),
+    );
+
+    if (!messageWithCommit?.commit_hash) {
+      return null;
+    }
+
+    return {
+      commitHash: messageWithCommit.commit_hash,
+      threadId: messageWithCommit.thread_id,
+      messageId: messageWithCommit._id,
+      createdAt: messageWithCommit._creationTime,
+    };
+  },
+});
+
 // Paginated agent thread messages for infinite scroll
 export const listAgentThreadMessages = query({
   args: {

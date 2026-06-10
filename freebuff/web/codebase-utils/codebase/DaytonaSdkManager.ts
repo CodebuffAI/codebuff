@@ -45,9 +45,6 @@ class DaytonaSdkManager {
     }
 
     const apiUrl = process.env[apiUrlEnvName];
-    console.log(
-      `[DaytonaSdkManager] Initializing SDK for server=${server} apiUrl=${apiUrl ?? "default"}`,
-    );
     const sdk = apiUrl
       ? new Daytona({ apiKey, serverUrl: apiUrl })
       : new Daytona({ apiKey });

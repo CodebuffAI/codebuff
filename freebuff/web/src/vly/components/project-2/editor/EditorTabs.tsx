@@ -31,7 +31,7 @@ export function EditorTabs({
   };
 
   return (
-    <div className="flex items-center overflow-x-auto border-b bg-gray-50">
+    <div className="flex items-center overflow-x-auto border-b border-[#2d2d30] bg-[#1e1e1e]">
       <div className="flex">
         {tabs.map((tab) => {
           const isActive = tab.path === activeTab;
@@ -40,14 +40,14 @@ export function EditorTabs({
           return (
             <div
               key={tab.path}
-              className={`group relative flex cursor-pointer items-center gap-1 border-r px-3 py-1.5 transition-colors ${
-                isActive
-                  ? "border-b-2 border-b-blue-500 bg-white"
-                  : "hover:bg-gray-100"
-              } `}
+               className={`group relative flex cursor-pointer items-center gap-1 border-r border-[#2d2d30] px-3 py-1.5 transition-colors ${
+                 isActive
+                   ? "border-b-2 border-b-blue-500 bg-[#1f1f1f]"
+                   : "hover:bg-[#2a2d2e]"
+               } `}
               onClick={() => onTabSelect(tab.path)}
             >
-              <span className="select-none text-xs">
+              <span className="select-none text-xs text-[#cccccc]">
                 {fileName}
                 {tab.hasChanges && (
                   <span className="ml-1 text-orange-500">●</span>
