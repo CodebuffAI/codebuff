@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 
 import type { ChatMessage } from './types'
 
+import { BlockList } from './agent-blocks'
 import { Markdown } from './markdown'
 
 export function MessageList(props: { messages: ChatMessage[] }) {
@@ -44,7 +45,9 @@ export function MessageList(props: { messages: ChatMessage[] }) {
             </div>
           ) : (
             <div key={message.id} className="text-[15px] leading-7">
-              {message.content ? (
+              {message.blocks?.length ? (
+                <BlockList blocks={message.blocks} />
+              ) : message.content ? (
                 <Markdown text={message.content} />
               ) : message.streaming ? (
                 <span

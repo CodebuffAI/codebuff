@@ -6,7 +6,7 @@ const definition: SecretAgentDefinition = {
   id: 'researcher-web',
   publisher,
   model: 'google/gemini-3.1-flash-lite-preview',
-  displayName: 'Weeb',
+  displayName: 'Web Researcher',
   spawnerPrompt: `Browses the web to find relevant information.`,
   inputSchema: {
     prompt: {

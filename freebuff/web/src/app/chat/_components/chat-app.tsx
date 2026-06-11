@@ -7,6 +7,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ChatMessage, ThreadSummary } from './types'
 
+import {
+  BlockTreeBuilder,
+  isChatBlockArray,
+  isChatStreamEvent,
+} from '@/app/chat/blocks'
 import { DEFAULT_CHAT_MODEL_ID, isChatModelId } from '@/app/chat/models'
 import { cn } from '@/lib/utils'
 import { Composer } from './composer'
@@ -68,6 +73,7 @@ export function ChatApp() {
         id: m.id,
         role: m.role,
         content: m.content,
+        blocks: isChatBlockArray(m.blocks) ? m.blocks : undefined,
       })),
     )
     if (data.thread?.model && isChatModelId(data.thread.model)) {
@@ -146,15 +152,21 @@ export function ChatApp() {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
-        let text = ''
         let sawTerminalEvent = false
+        // Folds delta/agent_* events into the renderable tree; only used for
+        // rendering once a subagent appears, otherwise plain text wins.
+        const blockTree = new BlockTreeBuilder()
+        const assistantView = () => ({
+          content: blockTree.rootText,
+          blocks: blockTree.hasAgentBlocks ? blockTree.snapshot() : undefined,
+        })
 
-        // Coalesce delta flushes to one per frame; re-parsing the full
+        // Coalesce stream flushes to one per frame; re-parsing the full
         // markdown on every token is the hot path on long answers.
         let flushScheduled = false
         const flushText = () => {
           flushScheduled = false
-          setAssistant({ content: text })
+          setAssistant(assistantView())
         }
         const scheduleFlush = () => {
           if (flushScheduled) return
@@ -180,13 +192,14 @@ export function ChatApp() {
               setActiveThreadId(event.threadId)
               viewedThreadRef.current = event.threadId
               writeThreadIdToUrl(event.threadId)
-            } else if (event.type === 'delta') {
-              text += event.text
+            } else if (isChatStreamEvent(event)) {
+              blockTree.apply(event)
               scheduleFlush()
             } else if (event.type === 'error') {
               sawTerminalEvent = true
+              blockTree.finalize()
               setAssistant({
-                content: text,
+                ...assistantView(),
                 streaming: false,
                 error: event.message,
               })
@@ -195,8 +208,9 @@ export function ChatApp() {
             }
           }
         }
+        blockTree.finalize()
         setAssistant({
-          content: text,
+          ...assistantView(),
           streaming: false,
           // EOF without a terminal event = the connection dropped mid-answer.
           ...(sawTerminalEvent

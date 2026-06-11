@@ -146,6 +146,7 @@ export async function listMessages(threadId: string) {
       id: chatMessage.id,
       role: chatMessage.role,
       content: chatMessage.content,
+      blocks: chatMessage.blocks,
       model: chatMessage.model,
       created_at: chatMessage.created_at,
     })
@@ -161,6 +162,8 @@ export async function insertMessage(params: {
   userId: string
   role: ChatRole
   content: string
+  /** Block tree for assistant turns with subagent activity. */
+  blocks?: unknown
   model?: string
 }) {
   const [message] = await db
@@ -170,6 +173,7 @@ export async function insertMessage(params: {
       user_id: params.userId,
       role: params.role,
       content: params.content,
+      blocks: params.blocks,
       model: params.model,
     })
     .returning()

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
 
+import { BlockTreeBuilder } from '@/app/chat/blocks'
 import {
   CHAT_MESSAGE_MAX_CHARS,
   deriveThreadTitle,
@@ -164,8 +165,10 @@ export async function POST(request: NextRequest) {
       controller.enqueue(
         sseEncode({ type: 'meta', threadId, title: thread.title }),
       )
-      let assistantText = ''
       let runState: unknown
+      // Mirrors the client's tree so subagent activity survives reloads
+      // (and client disconnects) via chat_message.blocks.
+      const blockTree = new BlockTreeBuilder()
       const enqueueGenericError = () => {
         try {
           controller.enqueue(
@@ -187,10 +190,10 @@ export async function POST(request: NextRequest) {
           userId,
           threadId,
           signal: request.signal,
-          onTextDelta: (text) => {
-            assistantText += text
+          onEvent: (event) => {
+            blockTree.apply(event)
             try {
-              controller.enqueue(sseEncode({ type: 'delta', text }))
+              controller.enqueue(sseEncode(event))
             } catch {
               // Client disconnected; keep accumulating so we can persist.
             }
@@ -207,16 +210,20 @@ export async function POST(request: NextRequest) {
           enqueueGenericError()
         }
       }
-      if (assistantText.length > 0) {
+      const assistantText = blockTree.rootText
+      if (assistantText.length > 0 || blockTree.hasAgentBlocks) {
         // Note: on an errored/aborted run, runState stays at the previous
         // turn, so this partial text is visible in the transcript but absent
         // from the agent's replayed history. chat_message is the UI's source
         // of truth; run_state is the agent's.
+        blockTree.finalize()
         await insertMessage({
           threadId,
           userId,
           role: 'assistant',
           content: assistantText,
+          // Plain-text turns skip the column; the UI falls back to content.
+          blocks: blockTree.hasAgentBlocks ? blockTree.blocks : undefined,
           model,
         })
       }

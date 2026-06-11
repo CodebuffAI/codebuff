@@ -1190,6 +1190,9 @@ export const chatMessage = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     role: chatMessageRoleEnum('role').notNull(),
     content: text('content').notNull(),
+    // Block tree (text/tool/agent blocks) for assistant turns that spawned
+    // subagents; null for plain-text turns. See freebuff/web chat blocks.ts.
+    blocks: jsonb('blocks'),
     model: text('model'),
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
       .notNull()
