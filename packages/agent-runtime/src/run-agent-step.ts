@@ -21,7 +21,10 @@ import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
-import { runProgrammaticStep } from './run-programmatic-step'
+import {
+  clearProgrammaticRunState,
+  runProgrammaticStep,
+} from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { buildAgentToolSet } from './templates/prompts'
@@ -1209,6 +1212,11 @@ export async function loopAgentSteps(
         }),
       },
     }
+  } finally {
+    // The endTurn path inside runProgrammaticStep handles normal completion,
+    // but abort/error exits (e.g. chat SSE disconnects) would otherwise leak
+    // the run's generator, STEP_ALL flag, and proposed file content forever.
+    clearProgrammaticRunState(runId)
   }
 }
 
