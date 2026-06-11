@@ -14,7 +14,7 @@ const bodySchema = z.object({
   messages: z.array(messageSchema).optional().default([]),
   sessionId: z.string().optional(),
   gravity_context: z.record(z.string(), z.unknown()).optional(),
-  surface: z.enum(['freebuff_web_chat']).optional(),
+  surface: z.enum(['freebuff_web_chat', 'chat_assistant']).optional(),
 })
 
 export async function POST(request: NextRequest) {

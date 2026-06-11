@@ -103,6 +103,20 @@ describe('Gravity ad provider', () => {
     ])
   })
 
+  test('requests the single chat assistant placement for the chat assistant surface', async () => {
+    const body = await fetchGravityRequestBody({
+      userId: 'b',
+      surface: 'chat_assistant',
+    })
+
+    expect(body.placements).toEqual([
+      {
+        placement: 'inline_response',
+        placement_id: 'Chat-Assistant-Above-Input',
+      },
+    ])
+  })
+
   test('passes browser Gravity context with server-trusted user and device data', async () => {
     const body = await fetchGravityRequestBody({
       userId: 'server-user-id',

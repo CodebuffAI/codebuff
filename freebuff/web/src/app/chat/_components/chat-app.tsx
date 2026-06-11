@@ -14,6 +14,7 @@ import {
 } from '@/app/chat/blocks'
 import { DEFAULT_CHAT_MODEL_ID, isChatModelId } from '@/app/chat/models'
 import { cn } from '@/lib/utils'
+import { ChatAds } from './chat-ads'
 import { Composer } from './composer'
 import { MessageList } from './message-list'
 
@@ -37,6 +38,12 @@ export function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // Last message the user sent; each send restarts the ad rotation cycle.
+  // seq distinguishes repeat sends of identical text.
+  const [adSeed, setAdSeed] = useState<{
+    seq: number
+    content: string
+  } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   // The thread whose messages are on screen; guards against stale loads.
   const viewedThreadRef = useRef<string | null>(null)
@@ -114,6 +121,7 @@ export function ChatApp() {
       }
       setMessages((prev) => [...prev, userMessage, assistantMessage])
       setStreaming(true)
+      setAdSeed((prev) => ({ seq: (prev?.seq ?? 0) + 1, content }))
 
       const controller = new AbortController()
       abortRef.current = controller
@@ -460,7 +468,10 @@ export function ChatApp() {
           <>
             <MessageList messages={messages} />
             <div className="px-4 pb-4">
-              <div className="mx-auto w-full max-w-3xl">{composer}</div>
+              <div className="mx-auto w-full max-w-3xl">
+                <ChatAds seed={adSeed} />
+                {composer}
+              </div>
             </div>
           </>
         )}

@@ -49,7 +49,13 @@ export type AdDeviceInfo = {
 
 export type GravityContext = Record<string, unknown>
 
-export type AdSurface = 'waiting_room' | 'freebuff_web_chat'
+export const AD_SURFACES = [
+  'waiting_room',
+  'freebuff_web_chat',
+  'chat_assistant',
+] as const
+
+export type AdSurface = (typeof AD_SURFACES)[number]
 
 export type FetchAdInput = {
   userId: string

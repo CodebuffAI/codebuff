@@ -22,6 +22,9 @@ const FREEBUFF_WEB_CHAT_PLACEMENT_IDS = [
   'Web-Chat-After-User-Message',
   'Web-Chat-After-Assistant-Message',
 ]
+// General-purpose chat assistant (freebuff.com/chat), not a developer surface.
+// One slot above the composer; the client re-auctions it to rotate ads.
+const CHAT_ASSISTANT_PLACEMENT_IDS = ['Chat-Assistant-Above-Input']
 
 type GravityRawAd = {
   adText: string
@@ -121,6 +124,7 @@ function getPlacementIds(input: FetchAdInput): string[] {
   if (input.surface === 'freebuff_web_chat') {
     return FREEBUFF_WEB_CHAT_PLACEMENT_IDS
   }
+  if (input.surface === 'chat_assistant') return CHAT_ASSISTANT_PLACEMENT_IDS
 
   return SINGLE_AD_PLACEMENT_IDS
 }
@@ -147,11 +151,13 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
 
       const placementIds = getPlacementIds(input)
 
+      const placementType =
+        input.surface === 'freebuff_web_chat' ||
+        input.surface === 'chat_assistant'
+          ? 'inline_response'
+          : 'below_response'
       const placements = placementIds.map((id) => ({
-        placement:
-          input.surface === 'freebuff_web_chat'
-            ? 'inline_response'
-            : 'below_response',
+        placement: placementType,
         placement_id: id,
       }))
 

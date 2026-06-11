@@ -8,6 +8,7 @@ import { requireUserFromApiKey } from '../_helpers'
 
 import { createCarbonProvider } from '@/lib/ad-providers/carbon'
 import { createGravityProvider } from '@/lib/ad-providers/gravity'
+import { AD_SURFACES } from '@/lib/ad-providers/types'
 import { createZeroClickProvider } from '@/lib/ad-providers/zeroclick'
 
 import type {
@@ -39,7 +40,7 @@ const gravityContextSchema = z.record(z.string(), z.unknown())
 const providerSchema = z
   .enum(['gravity', 'carbon', 'zeroclick'])
   .default('gravity')
-const surfaceSchema = z.enum(['waiting_room', 'freebuff_web_chat'])
+const surfaceSchema = z.enum(AD_SURFACES)
 
 const bodySchema = z.object({
   provider: providerSchema.optional(),

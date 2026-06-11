@@ -52,7 +52,9 @@ const result = await client.run({
   agent: 'researcher-web',
   agentDefinitions: [researcherWeb],
   maxAgentSteps: 12,
-  handleEvent: (event) => events.push(event),
+  handleEvent: (event) => {
+    events.push(event)
+  },
   prompt,
 })
 
@@ -89,5 +91,3 @@ if (output.type === 'error') {
 } else {
   console.log(JSON.stringify(output, null, 2).slice(0, 4000))
 }
-
-client.closeConnection?.()
