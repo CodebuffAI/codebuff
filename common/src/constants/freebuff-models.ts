@@ -236,6 +236,60 @@ export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
 
 export type FreebuffAccessTier = 'full' | 'limited'
 
+/** Access tier carried in the Freebuff Web Convex JWT. Extends the CLI tier
+ *  with 'blocked' (Tor / corroborated anonymous network): the app still
+ *  loads, but every agent send is rejected server-side. */
+export type FreebuffWebAccessTier = FreebuffAccessTier | 'blocked'
+
+/** Freebuff Web limited-tier session pool. Deliberately separate from the
+ *  CLI's Postgres-backed session pool — enforced entirely in Convex. */
+export const FREEBUFF_WEB_LIMITED_SESSION_LIMIT = 5
+export const FREEBUFF_WEB_LIMITED_SESSION_LENGTH_MS = 60 * 60 * 1000
+
+/** Models exempt from Freebuff Web geo limits: geo-limited users can run
+ *  these without consuming limited sessions. Matches the shared limited
+ *  model set (DeepSeek V4 Flash, MiMo 2.5); every other model stays
+ *  geo-gated. Web-only — the CLI's limited pool is unaffected. */
+export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+] as const
+
+export function isFreebuffWebGeoExemptModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS.some((modelId) => modelId === id)
+}
+
+/** Models a limited-tier Freebuff Web user may select: the geo-exempt models
+ *  (unlimited) plus the shared limited set (session-gated). */
+export const FREEBUFF_WEB_LIMITED_MODEL_IDS = [
+  ...new Set<string>([
+    ...FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS,
+    ...LIMITED_FREEBUFF_MODEL_IDS,
+  ]),
+]
+
+export function isFreebuffWebModelAllowedForLimitedTier(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === id)
+}
+
+/** Coerce a limited-tier Freebuff Web selection (premium ids, stale
+ *  localStorage values) to an allowed model. Falls back to the limited
+ *  default (DeepSeek V4 Flash), which is geo-exempt, so limited users land
+ *  on unlimited usage. */
+export function resolveFreebuffWebModelForLimitedTier(
+  id: string | null | undefined,
+): string {
+  return isFreebuffWebModelAllowedForLimitedTier(id)
+    ? (id as string)
+    : LIMITED_FREEBUFF_MODEL_ID
+}
+
 export function getFreebuffModelsForAccessTier(
   accessTier: FreebuffAccessTier | null | undefined,
 ): readonly FreebuffModelOption[] {
