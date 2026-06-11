@@ -171,6 +171,21 @@ export function supportsCacheControl(model: Model): boolean {
   return !nonCacheableModels.includes(model)
 }
 
+/**
+ * Claude 4.6+ (including Fable) rejects requests whose final message is an
+ * assistant message ("This model does not support assistant message prefill"),
+ * e.g. when routed through Amazon Bedrock. Older Claude models and other
+ * providers accept a trailing assistant message as a prefill to continue from.
+ */
+export function supportsAssistantPrefill(model: Model): boolean {
+  const match = model.match(/claude-(?:[a-z]+-)?(\d+(?:[.-]\d+)?)/)
+  if (!match) {
+    return true
+  }
+  const version = parseFloat(match[1].replace('-', '.'))
+  return version < 4.6
+}
+
 export function getModelFromShortName(
   modelName: string | undefined,
 ): Model | undefined {

@@ -1,6 +1,9 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { shouldUseLocalTokenCountForFreebuffDeepseekFlash } from '@codebuff/common/constants/free-agents'
-import { supportsCacheControl } from '@codebuff/common/old-constants'
+import {
+  supportsAssistantPrefill,
+  supportsCacheControl,
+} from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import {
@@ -257,6 +260,23 @@ export const runAgentStep = async (
   agentState.messageHistory = agentMessagesUntruncated
 
   const { model } = agentTemplate
+
+  // A step can start with the history ending on an assistant message — e.g. a
+  // continuation after a think-only response for an agent with no stepPrompt.
+  // Claude 4.6+ rejects such requests as unsupported assistant prefill, so end
+  // the conversation with a user message instead.
+  const lastMessage =
+    agentState.messageHistory[agentState.messageHistory.length - 1]
+  if (lastMessage?.role === 'assistant' && !supportsAssistantPrefill(model)) {
+    agentState.messageHistory = [
+      ...agentState.messageHistory,
+      userMessage({
+        content: withSystemTags('Continue from where you left off.'),
+        timeToLive: 'agentStep' as const,
+        keepDuringTruncation: true,
+      }),
+    ]
+  }
 
   let stepCreditsUsed = 0
 
