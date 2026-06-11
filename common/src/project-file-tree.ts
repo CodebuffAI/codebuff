@@ -40,6 +40,21 @@ function logFileTreeError(
 
 export const DEFAULT_MAX_FILES = 10_000
 
+// When the project root is the home directory (or an ancestor), a full scan
+// could crawl the user's entire disk. Instead of disabling the file tree
+// entirely, do a shallow capped scan so @ mentions still surface
+// `project/docs/file.md`-style paths.
+export const SHALLOW_SCAN_MAX_DEPTH = 3
+const SHALLOW_SCAN_MAX_FILES = 2_000
+const SHALLOW_SCAN_MAX_DIRS = 500
+
+/** Whether `getProjectFileTree` will shallow-scan this root (see above). */
+export function isShallowScanRoot(
+  projectRoot: string | undefined,
+): projectRoot is string {
+  return !!projectRoot && !isValidProjectRoot(projectRoot)
+}
+
 export async function getProjectFileTree(params: {
   projectRoot: string
   maxFiles?: number
@@ -48,6 +63,8 @@ export async function getProjectFileTree(params: {
   const withDefaults = { maxFiles: DEFAULT_MAX_FILES, ...params }
   const { projectRoot, fs } = withDefaults
   let { maxFiles } = withDefaults
+  let maxDepth = Infinity
+  let maxDirs = Infinity
 
   const _start = Date.now()
   const defaultIgnore = ignore.default()
@@ -55,9 +72,11 @@ export async function getProjectFileTree(params: {
     defaultIgnore.add(pattern)
   }
 
-  if (!isValidProjectRoot(projectRoot)) {
+  if (isShallowScanRoot(projectRoot)) {
     defaultIgnore.add('.*')
-    maxFiles = 0
+    maxDepth = SHALLOW_SCAN_MAX_DEPTH
+    maxFiles = Math.min(maxFiles, SHALLOW_SCAN_MAX_FILES)
+    maxDirs = SHALLOW_SCAN_MAX_DIRS
   }
 
   const root: DirectoryNode = {
@@ -70,17 +89,21 @@ export async function getProjectFileTree(params: {
     node: DirectoryNode
     fullPath: string
     ignore: ignore.Ignore
+    depth: number
   }[] = [
     {
       node: root,
       fullPath: projectRoot,
       ignore: defaultIgnore,
+      depth: 0,
     },
   ]
   let totalFiles = 0
+  let dirsScanned = 0
 
-  while (queue.length > 0 && totalFiles < maxFiles) {
-    const { node, fullPath, ignore: currentIgnore } = queue.shift()!
+  while (queue.length > 0 && totalFiles < maxFiles && dirsScanned < maxDirs) {
+    const { node, fullPath, ignore: currentIgnore, depth } = queue.shift()!
+    dirsScanned++
     const parsedIgnore = await parseGitignore({
       fullDirPath: fullPath,
       projectRoot,
@@ -111,11 +134,16 @@ export async function getProjectFileTree(params: {
               filePath: relativeFilePath,
             }
             node.children.push(childNode)
-            queue.push({
-              node: childNode,
-              fullPath: filePath,
-              ignore: mergedIgnore,
-            })
+            // Past maxDepth the directory still shows up as a node above, but
+            // its contents are not scanned.
+            if (depth + 1 < maxDepth) {
+              queue.push({
+                node: childNode,
+                fullPath: filePath,
+                ignore: mergedIgnore,
+                depth: depth + 1,
+              })
+            }
           } else {
             const lastReadTime = stats.atimeMs
             node.children.push({
