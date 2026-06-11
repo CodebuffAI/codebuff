@@ -29,8 +29,8 @@ import { minimaxModels } from '../constants/model-config'
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 
 describe('freebuff model availability', () => {
-  test('defaults to Kimi K2.6, falls back to DeepSeek V4 Flash for new clients', () => {
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_KIMI_MODEL_ID)
+  test('defaults to MiniMax M3, falls back to DeepSeek V4 Flash for new clients', () => {
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(MINIMAX_M3_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
