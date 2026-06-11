@@ -421,6 +421,27 @@
       "when": 1781132606572,
       "tag": "0059_cheerful_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1781144537933,
+      "tag": "0060_romantic_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1781151391020,
+      "tag": "0061_amused_franklin_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1781153738040,
+      "tag": "0062_lucky_aaron_stack",
+      "breakpoints": true
     }
   ]
 }

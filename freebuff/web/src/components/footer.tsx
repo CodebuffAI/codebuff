@@ -8,6 +8,7 @@ export function Footer() {
   const pathname = usePathname()
 
   if (pathname === '/live') return null
+  if (pathname === '/chat' || pathname.startsWith('/chat/')) return null
 
   return (
     <footer className="w-full">

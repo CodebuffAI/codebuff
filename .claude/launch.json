@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "freebuff-web",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "--cwd",
+        "freebuff/web",
+        "dev"
+      ],
+      "port": 3002,
+      "autoPort": false
+    },
+    {
+      "name": "codebuff-web",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "--cwd",
+        "web",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": false
+    }
+  ]
+}

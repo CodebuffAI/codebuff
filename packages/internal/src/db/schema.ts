@@ -1131,3 +1131,104 @@ export const freeSessionAdmit = pgTable(
     ),
   ],
 )
+
+export const chatMessageRoleEnum = pgEnum('chat_message_role', [
+  'user',
+  'assistant',
+])
+
+/**
+ * Freebuff web chat (freebuff.com/chat). One row per conversation in the
+ * sidebar. Messages live in `chat_message`.
+ */
+export const chatThread = pgTable(
+  'chat_thread',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull().default('New chat'),
+    model: text('model').notNull(),
+    // Serialized SDK RunState; passed back as `previousRun` so the base-chat
+    // agent continues the conversation with its native message history.
+    run_state: jsonb('run_state'),
+    // While set in the future, a response is being generated for this thread.
+    // Claimed atomically before each run so concurrent sends can't clobber
+    // run_state; expires on its own if the server dies mid-run.
+    run_claimed_until: timestamp('run_claimed_until', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Sidebar listing: WHERE user_id=$1 ORDER BY updated_at DESC
+    index('idx_chat_thread_user_updated').on(table.user_id, table.updated_at),
+  ],
+)
+
+export const chatMessage = pgTable(
+  'chat_message',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => chatThread.id, { onDelete: 'cascade' }),
+    // Denormalized from chat_thread for cheap per-user rate-limit counts.
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: chatMessageRoleEnum('role').notNull(),
+    content: text('content').notNull(),
+    model: text('model'),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_chat_message_thread_created').on(
+      table.thread_id,
+      table.created_at,
+    ),
+    // Rate-limit lookup: WHERE user_id=$1 AND role='user' AND created_at > $cutoff
+    index('idx_chat_message_user_created').on(table.user_id, table.created_at),
+  ],
+)
+
+/**
+ * Append-only ledger for chat rate limiting. One row per accepted user
+ * message. Deliberately NOT tied to chat_thread/chat_message: deleting a
+ * thread cascades away its messages, which would otherwise reset the
+ * user's rate-limit counters (unlimited free LLM via send → delete → repeat).
+ */
+export const chatUsageEvent = pgTable(
+  'chat_usage_event',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Rate-limit lookup: WHERE user_id=$1 AND created_at > $cutoff
+    index('idx_chat_usage_event_user_created').on(
+      table.user_id,
+      table.created_at,
+    ),
+  ],
+)

@@ -196,3 +196,104 @@
     text-shadow: none;
   }
 }
+
+/* ── freebuff.com/chat markdown ─────────────────────────────────────── */
+.chat-markdown > *:first-child {
+  margin-top: 0;
+}
+.chat-markdown > *:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown p {
+  margin: 0.75rem 0;
+}
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+.chat-markdown h1 {
+  font-size: 1.25rem;
+}
+.chat-markdown h2 {
+  font-size: 1.125rem;
+}
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-size: 1rem;
+}
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+.chat-markdown ul {
+  list-style: disc;
+}
+.chat-markdown ol {
+  list-style: decimal;
+}
+.chat-markdown li {
+  margin: 0.25rem 0;
+}
+.chat-markdown li > ul,
+.chat-markdown li > ol {
+  margin: 0.25rem 0;
+}
+.chat-markdown code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  background: hsl(0 0% 100% / 0.08);
+  border-radius: 0.3rem;
+  padding: 0.15em 0.35em;
+}
+.chat-markdown pre {
+  margin: 0.875rem 0;
+  padding: 0.875rem 1rem;
+  background: hsl(0 0% 100% / 0.04);
+  border: 1px solid hsl(0 0% 100% / 0.08);
+  border-radius: 0.75rem;
+  overflow-x: auto;
+}
+.chat-markdown pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.chat-markdown blockquote {
+  margin: 0.875rem 0;
+  padding-left: 1rem;
+  border-left: 2px solid hsl(0 0% 100% / 0.2);
+  color: hsl(var(--muted-foreground));
+}
+.chat-markdown a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.chat-markdown a:hover {
+  color: hsl(var(--foreground));
+}
+.chat-markdown table {
+  margin: 0.875rem 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid hsl(0 0% 100% / 0.1);
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+}
+.chat-markdown th {
+  background: hsl(0 0% 100% / 0.04);
+  font-weight: 600;
+}
+.chat-markdown hr {
+  margin: 1.25rem 0;
+  border-color: hsl(0 0% 100% / 0.1);
+}

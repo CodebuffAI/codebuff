@@ -33,6 +33,11 @@ const nextConfig = {
     'pino',
     'thread-stream',
     'pino-pretty',
+    // Reads its data files from node_modules at runtime; must stay unbundled.
+    'geoip-lite',
+    // Ships WASM modules (tree-sitter, quickjs) that bundlers can't resolve;
+    // loaded from its built dist at runtime (see prepare:workspace).
+    '@codebuff/sdk',
     '@codebuff/code-map',
     '@codebuff/code-map/parse',
     '@codebuff/code-map/languages',
@@ -49,7 +54,9 @@ const nextConfig = {
     // Keep Turbopack scoped to this Next app. Letting it infer the monorepo
     // lockfile root makes local Vly dev crawl and cache the whole repo.
     root:
-      process.env.NODE_ENV === 'production' ? monorepoRoot : import.meta.dirname,
+      process.env.NODE_ENV === 'production'
+        ? monorepoRoot
+        : import.meta.dirname,
   },
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }

@@ -1,0 +1,1 @@
+ALTER TABLE "chat_thread" ADD COLUMN "run_state" jsonb;

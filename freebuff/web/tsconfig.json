@@ -24,8 +24,6 @@
     ],
     "paths": {
       "!/*": ["./convex/*"],
-      "@codebuff/sdk": ["../../sdk/src/index.ts"],
-      "@codebuff/sdk/*": ["../../sdk/*"],
       "@/convex/*": ["./convex/*"],
       "@/lib/PostHogProvider": ["./src/lib/PostHogProvider.tsx"],
       "@/lib/SessionProvider": ["./src/lib/SessionProvider.tsx"],
