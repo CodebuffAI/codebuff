@@ -106,6 +106,9 @@ const buildGravityIndexRequest = (
             query: input.query,
             ...(input.search_id ? { search_id: input.search_id } : {}),
             ...(input.context ? { context: input.context } : {}),
+            // Relevance-first ranking with a small boost for services that
+            // have an active CPA campaign.
+            monetization: { mode: 'boost_cpa' },
             ...attribution,
           }),
           signal,

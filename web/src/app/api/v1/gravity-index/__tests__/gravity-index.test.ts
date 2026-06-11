@@ -184,6 +184,7 @@ describe('/api/v1/gravity-index POST endpoint', () => {
     })
     expect(JSON.parse(String(init.body))).toEqual({
       query: 'transactional email',
+      monetization: { mode: 'boost_cpa' },
       external_session_id: 'session-1',
       external_user_id_hash: sha256('user-1'),
       email_hash: sha256('user@example.com'),
