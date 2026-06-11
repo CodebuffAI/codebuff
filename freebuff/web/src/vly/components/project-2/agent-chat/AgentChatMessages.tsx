@@ -661,7 +661,8 @@ const groupStreamItems = (stream: AssistantStreamItemType[]): StreamGroup[] => {
 
 const TextGroup: React.FC<{
   items: AssistantStreamItemType[]
-}> = React.memo(({ items }) => {
+  isStreaming?: boolean
+}> = React.memo(({ items, isStreaming = false }) => {
   const fullText = useMemo(
     () => items.map((item) => item.content ?? '').join(''),
     [items],
@@ -676,7 +677,13 @@ const TextGroup: React.FC<{
           {firstTitle}
         </div>
       )}
-      <SimpleMarkdown text={fullText} />
+      {isStreaming ? (
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
+          {fullText}
+        </p>
+      ) : (
+        <SimpleMarkdown text={fullText} />
+      )}
     </div>
   )
 })
@@ -1050,6 +1057,10 @@ const AgentMessageCard: React.FC<{
     message.commit_hash &&
     message.commit_hash !== 'creating' &&
     message.commit_hash !== 'failed'
+  const groupedVisibleAssistantStream = useMemo(
+    () => groupStreamItems(visibleAssistantStream),
+    [visibleAssistantStream],
+  )
 
   const shouldShowUndo = !!onRollback
 
@@ -1172,9 +1183,13 @@ const AgentMessageCard: React.FC<{
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
         <div className="space-y-2">
-          {groupStreamItems(visibleAssistantStream).map((group, index) =>
+          {groupedVisibleAssistantStream.map((group, index) =>
             group.kind === 'text' ? (
-              <TextGroup key={index} items={group.items} />
+              <TextGroup
+                key={index}
+                items={group.items}
+                isStreaming={isStreaming}
+              />
             ) : (
               <ActivityGroup key={index} items={group.items} />
             ),
