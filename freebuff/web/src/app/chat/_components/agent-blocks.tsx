@@ -45,10 +45,9 @@ function lastTextSnippet(blocks: ChatBlock[]): string {
 
 function AgentBox({ agent }: { agent: AgentBlock }) {
   const running = agent.status === 'running'
-  // Open while the agent works so its activity streams in view; collapse to
-  // a summary row when it finishes, unless the user toggled it themselves.
-  const [userOpen, setUserOpen] = useState<boolean | null>(null)
-  const open = userOpen ?? running
+  // Collapsed until the user opens it; while running, the summary row shows
+  // the latest activity snippet so progress is still visible.
+  const [open, setOpen] = useState(false)
 
   const preview = open
     ? undefined
@@ -65,7 +64,7 @@ function AgentBox({ agent }: { agent: AgentBlock }) {
     >
       <button
         type="button"
-        onClick={() => setUserOpen(!open)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/[0.04] transition-colors"
       >
