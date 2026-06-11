@@ -128,7 +128,7 @@ export function createBase2(
       'basher',
       isDefault && 'thinker',
       (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
-      isMax && 'thinker-best-of-n-opus',
+      isMax && 'thinker-best-of-n-fable',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
       'tmux-cli',
@@ -206,7 +206,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     (isDefault || isMax) &&
-      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
+      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-fable'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     isFree &&

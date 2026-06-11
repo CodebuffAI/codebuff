@@ -1,7 +1,7 @@
 import { createThinkerBestOfN } from './thinker-best-of-n'
 
 const definition = {
-  ...createThinkerBestOfN('opus'),
-  id: 'thinker-best-of-n-opus',
+  ...createThinkerBestOfN('fable'),
+  id: 'thinker-best-of-n-fable',
 }
 export default definition

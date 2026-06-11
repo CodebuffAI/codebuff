@@ -3,11 +3,12 @@ import { publisher } from '../../constants'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export const createBestOfNImplementor = (options: {
-  model: 'sonnet' | 'opus' | 'gpt-5' | 'gemini'
+  model: 'sonnet' | 'opus' | 'fable' | 'gpt-5' | 'gemini'
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
   const isSonnet = model === 'sonnet'
   const isOpus = model === 'opus'
+  const isFable = model === 'fable'
   const isGpt5 = model === 'gpt-5'
   const isGemini = model === 'gemini'
 
@@ -16,11 +17,13 @@ export const createBestOfNImplementor = (options: {
     model: isSonnet
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
-        ? 'anthropic/claude-opus-4.7'
-        : isGemini
-          ? 'google/gemini-3-pro-preview'
-          : 'openai/gpt-5.1',
-    ...(isOpus && {
+        ? 'anthropic/claude-opus-4.8'
+        : isFable
+          ? 'anthropic/claude-fable-5'
+          : isGemini
+            ? 'google/gemini-3-pro-preview'
+            : 'openai/gpt-5.1',
+    ...((isOpus || isFable) && {
       providerOptions: {
         only: ['amazon-bedrock'],
       },

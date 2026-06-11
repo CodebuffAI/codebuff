@@ -7,6 +7,7 @@ import type {
 export const IMPLEMENTOR_AGENT_IDS = [
   'editor-implementor',
   'editor-implementor-opus',
+  'editor-implementor-fable',
   'editor-implementor-gemini',
   'editor-implementor-gpt-5',
 ] as const
@@ -67,7 +68,9 @@ export const getImplementorDisplayName = (
   index?: number,
 ): string => {
   let baseName = 'Implementor'
-  if (agentType.includes('editor-implementor-opus')) {
+  if (agentType.includes('editor-implementor-fable')) {
+    baseName = 'Fable'
+  } else if (agentType.includes('editor-implementor-opus')) {
     baseName = 'Opus'
   } else if (agentType.includes('editor-implementor-gemini')) {
     baseName = 'Gemini'

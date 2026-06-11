@@ -29,7 +29,7 @@ describe('thinker agent', () => {
     })
 
     test('uses opus model', () => {
-      expect(thinker.model).toBe('anthropic/claude-opus-4.7')
+      expect(thinker.model).toBe('anthropic/claude-opus-4.8')
     })
 
     test('has output mode set to structured_output', () => {

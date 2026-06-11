@@ -26,7 +26,7 @@ describe('editor agent', () => {
     })
 
     test('uses opus model by default', () => {
-      expect(editor.model).toBe('anthropic/claude-opus-4.7')
+      expect(editor.model).toBe('anthropic/claude-opus-4.8')
     })
 
     test('has output mode set to structured_output', () => {
@@ -52,7 +52,7 @@ describe('editor agent', () => {
   describe('createCodeEditor', () => {
     test('creates opus editor by default', () => {
       const opusEditor = createCodeEditor({ model: 'opus' })
-      expect(opusEditor.model).toBe('anthropic/claude-opus-4.7')
+      expect(opusEditor.model).toBe('anthropic/claude-opus-4.8')
     })
 
     test('creates gpt-5 editor', () => {
