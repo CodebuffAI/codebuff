@@ -7,6 +7,7 @@ import type { NextRequest } from 'next/server'
 
 const bodySchema = z.object({
   impUrl: z.url(),
+  surface: z.enum(['chat', 'web']).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     fallbackBody: { success: false },
     body: {
       impUrl: parsed.data.impUrl,
-      surface: 'chat',
+      surface: parsed.data.surface ?? 'chat',
     },
   })
 }

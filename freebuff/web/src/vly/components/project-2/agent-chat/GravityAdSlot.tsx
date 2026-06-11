@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/vly/lib/utils'
+import { recordAdEvent } from '@/lib/record-ad-event'
 
 const AD_COOLDOWN_MS = 60_000
 const AD_DEBOUNCE_MS = 2_000
@@ -94,6 +95,10 @@ async function buildGravityContext(params: {
     },
   }
 }
+
+// Impressions already reported, so a re-rendered or remounted slot doesn't
+// double-report. (The server dedupes too; this just avoids redundant requests.)
+const reportedImpUrls = new Set<string>()
 
 /** Placement ID sent to Gravity for reporting/targeting. */
 const PLACEMENT_CHAT = 'agent-chat-below-response'
@@ -342,6 +347,15 @@ export function GravityAdSlot({
     return () => observer.disconnect()
   }, [ad])
 
+  // Report the impression server-side once the ad is in view; the server
+  // fires Gravity's pixel itself, so tracking works even with ad blockers.
+  useEffect(() => {
+    if (!shouldFireImpression || !ad) return
+    if (reportedImpUrls.has(ad.impUrl)) return
+    reportedImpUrls.add(ad.impUrl)
+    recordAdEvent('impression', ad.impUrl, 'web')
+  }, [shouldFireImpression, ad])
+
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -436,21 +450,12 @@ export function GravityAdSlot({
         className,
       )}
     >
-      {shouldFireImpression && (
-        <img
-          src={ad.impUrl}
-          alt=""
-          width={1}
-          height={1}
-          className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-0"
-          loading="eager"
-        />
-      )}
       {/* Clicks: redirect to clickUrl; Gravity handles attribution and redirects to the landing page */}
       <a
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
+        onClick={() => recordAdEvent('click', ad.impUrl, 'web')}
         className="group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline outline-none transition-colors hover:border-primary/40 hover:bg-muted/30 focus:ring-2 focus:ring-primary/30"
       >
         <div

@@ -4,6 +4,8 @@ import { ExternalLink } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
+import { recordAdEvent } from '@/lib/record-ad-event'
+
 const ROTATE_INTERVAL_MS = 60_000
 const FETCH_TIMEOUT_MS = 5_000
 /** Auctions per cycle; the slot pauses after this many until the next send. */
@@ -52,17 +54,6 @@ function buildGravityContext(sessionId: string) {
         : {}),
     },
   }
-}
-
-/** Reports the ad event server-side; for impressions the server fires
- * Gravity's pixel itself, so tracking works even with client ad blockers. */
-function recordAdEvent(event: 'impression' | 'click', impUrl: string) {
-  fetch(`/api/ads/${event}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ impUrl }),
-    keepalive: true,
-  }).catch(() => {})
 }
 
 export type ChatAdSeed = {
@@ -151,7 +142,7 @@ export const ChatAds = memo(function ChatAds({
   useEffect(() => {
     if (!ad || reportedImpUrls.current.has(ad.impUrl)) return
     reportedImpUrls.current.add(ad.impUrl)
-    recordAdEvent('impression', ad.impUrl)
+    recordAdEvent('impression', ad.impUrl, 'chat')
   }, [ad])
 
   if (!ad) return null
@@ -168,7 +159,7 @@ export const ChatAds = memo(function ChatAds({
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        onClick={() => recordAdEvent('click', ad.impUrl)}
+        onClick={() => recordAdEvent('click', ad.impUrl, 'chat')}
         className="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5 text-xs font-medium text-muted-foreground">

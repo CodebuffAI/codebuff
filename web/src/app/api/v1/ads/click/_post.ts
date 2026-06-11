@@ -17,7 +17,7 @@ import type { NextRequest } from 'next/server'
 
 const bodySchema = z.object({
   impUrl: z.url(),
-  surface: z.enum(['chat', 'waiting_room']).optional(),
+  surface: z.enum(['chat', 'web', 'waiting_room']).optional(),
 })
 
 export async function postAdClick(params: {

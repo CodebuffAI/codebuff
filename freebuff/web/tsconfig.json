@@ -34,6 +34,7 @@
       "@/lib/freebuff-public-env": ["./src/lib/freebuff-public-env.ts"],
       "@/lib/freebuff-server-env": ["./src/lib/freebuff-server-env.ts"],
       "@/lib/vly-convex-jwt": ["./src/lib/vly-convex-jwt.ts"],
+      "@/lib/record-ad-event": ["./src/lib/record-ad-event.ts"],
       "@/lib/blog/*": ["./src/lib/blog/*"],
       "@/components/blog/*": ["./src/components/blog/*"],
       "@/components/background-beams": [
