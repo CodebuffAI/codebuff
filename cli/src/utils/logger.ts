@@ -133,12 +133,19 @@ function sendAnalyticsAndLog(
       projectRoot = undefined
     }
     if (projectRoot) {
-      const logTarget =
-        IS_DEV
-          ? path.join(projectRoot, 'debug', 'cli.jsonl')
-          : path.join(getCurrentChatDir(), 'log.jsonl')
+      let logTarget: string | undefined
+      try {
+        logTarget =
+          IS_DEV
+            ? path.join(projectRoot, 'debug', 'cli.jsonl')
+            : path.join(getCurrentChatDir(), 'log.jsonl')
+      } catch {
+        // skip file logging if chat directory can't be created
+      }
 
-      setLogPath(logTarget)
+      if (logTarget) {
+        setLogPath(logTarget)
+      }
     }
   }
 
