@@ -213,11 +213,12 @@ export function ChatApp() {
         let buffer = ''
         let sawTerminalEvent = false
         // Folds delta/agent_* events into the renderable tree; only used for
-        // rendering once a subagent appears, otherwise plain text wins.
+        // rendering once a subagent or tool call appears, otherwise plain
+        // text wins.
         const blockTree = new BlockTreeBuilder()
         const assistantView = () => ({
           content: blockTree.rootText,
-          blocks: blockTree.hasAgentBlocks ? blockTree.snapshot() : undefined,
+          blocks: blockTree.hasActivityBlocks ? blockTree.snapshot() : undefined,
         })
 
         // Coalesce stream flushes to one per frame; re-parsing the full

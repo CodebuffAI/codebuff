@@ -10,12 +10,18 @@
 
 export type TextBlock = { type: 'text'; text: string }
 
+/** Input-dependent status verbs (e.g. "Finding services"/"Found services" for
+ *  a gravity_index search). Tools without verbs fall back to per-tool-name
+ *  defaults in the UI. */
+export type ToolVerbs = { running: string; done: string }
+
 export type ToolBlock = {
   type: 'tool'
   toolCallId: string
   toolName: string
   /** Human-readable summary of the call, e.g. the search query or URL. */
   label: string
+  verbs?: ToolVerbs
   status: 'running' | 'done'
 }
 
@@ -47,10 +53,13 @@ export type ChatStreamEvent =
   | { type: 'agent_finish'; agentId: string }
   | {
       type: 'agent_tool'
-      agentId: string
+      /** Omitted for the root agent's own tool calls, which render as
+       *  top-level rows rather than inside an agent box. */
+      agentId?: string
       toolCallId: string
       toolName: string
       label: string
+      verbs?: ToolVerbs
     }
   | { type: 'agent_tool_done'; toolCallId: string }
 
@@ -71,18 +80,59 @@ export function isChatStreamEvent(event: {
   return CHAT_STREAM_EVENT_TYPES.has(event.type)
 }
 
-/** Human-readable summary of a subagent tool call, shown in ToolBlock rows. */
-export function toolCallLabel(
+const asTrimmedString = (value: unknown): string =>
+  typeof value === 'string' ? value.trim() : ''
+
+/** Human-readable summary of a tool call (label shown next to the status
+ *  verb), plus input-dependent verbs for tools whose action varies. */
+export function toolCallDisplay(
   toolName: string,
   input: Record<string, unknown>,
-): string {
-  if (toolName === 'web_search' && typeof input.query === 'string') {
-    return input.query
+): { label: string; verbs?: ToolVerbs } {
+  if (toolName === 'web_search') {
+    return { label: asTrimmedString(input.query) }
   }
-  if (toolName === 'read_url' && typeof input.url === 'string') {
-    return input.url
+  if (toolName === 'read_url') {
+    return { label: asTrimmedString(input.url) }
   }
-  return ''
+  if (toolName === 'gravity_index') {
+    switch (input.action) {
+      case 'search':
+        return {
+          label: asTrimmedString(input.query),
+          verbs: { running: 'Finding services', done: 'Found services' },
+        }
+      case 'browse':
+        return {
+          label: [asTrimmedString(input.category), asTrimmedString(input.q)]
+            .filter(Boolean)
+            .join(' · '),
+          verbs: { running: 'Browsing services', done: 'Browsed services' },
+        }
+      case 'list_categories':
+        return {
+          label: '',
+          verbs: {
+            running: 'Listing service categories',
+            done: 'Listed service categories',
+          },
+        }
+      case 'get_service':
+        return {
+          label: asTrimmedString(input.slug),
+          verbs: { running: 'Fetching service', done: 'Fetched service' },
+        }
+      case 'report_integration':
+        return {
+          label: asTrimmedString(input.integrated_slug),
+          verbs: {
+            running: 'Reporting integration',
+            done: 'Reported integration',
+          },
+        }
+    }
+  }
+  return { label: '' }
 }
 
 function appendText(blocks: ChatBlock[], text: string) {
@@ -128,16 +178,23 @@ export class BlockTreeBuilder {
         break
       }
       case 'agent_tool': {
-        const agent = this.agents.get(event.agentId)
-        if (!agent) break
         const tool: ToolBlock = {
           type: 'tool',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           label: event.label,
+          ...(event.verbs ? { verbs: event.verbs } : {}),
           status: 'running',
         }
-        agent.blocks.push(tool)
+        if (event.agentId) {
+          // Tool calls attributed to an agent we never saw start are dropped.
+          const agent = this.agents.get(event.agentId)
+          if (!agent) break
+          agent.blocks.push(tool)
+        } else {
+          // The root agent's own tool calls render as top-level rows.
+          this.blocks.push(tool)
+        }
         this.tools.set(event.toolCallId, tool)
         break
       }
@@ -154,9 +211,10 @@ export class BlockTreeBuilder {
     }
   }
 
-  /** True once any subagent has appeared (plain-text turns skip blocks). */
-  get hasAgentBlocks() {
-    return this.agents.size > 0
+  /** True once any subagent or tool call has appeared (plain-text turns skip
+   *  blocks). */
+  get hasActivityBlocks() {
+    return this.agents.size > 0 || this.tools.size > 0
   }
 
   /** The root agent's own text (excludes subagent output) — what gets

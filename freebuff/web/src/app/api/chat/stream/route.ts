@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
         }
       }
       const assistantText = blockTree.rootText
-      if (assistantText.length > 0 || blockTree.hasAgentBlocks) {
+      if (assistantText.length > 0 || blockTree.hasActivityBlocks) {
         // Note: on an errored/aborted run, runState stays at the previous
         // turn, so this partial text is visible in the transcript but absent
         // from the agent's replayed history. chat_message is the UI's source
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
           role: 'assistant',
           content: assistantText,
           // Plain-text turns skip the column; the UI falls back to content.
-          blocks: blockTree.hasAgentBlocks ? blockTree.blocks : undefined,
+          blocks: blockTree.hasActivityBlocks ? blockTree.blocks : undefined,
           model,
         })
       }

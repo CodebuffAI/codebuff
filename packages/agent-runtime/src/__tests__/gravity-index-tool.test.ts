@@ -148,6 +148,60 @@ describe('gravity_index tool', () => {
     )
   })
 
+  test('tags base-chat traffic with the freebuff_chat surface', async () => {
+    const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
+      result: { search_id: 'search-1' },
+    })
+
+    mockAgentStream([
+      createToolCallChunk('gravity_index', {
+        action: 'search',
+        query: 'transactional email for Next.js',
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
+
+    const fileContext = {
+      ...mockFileContext,
+      agentTemplates: {
+        'base-chat': {
+          ...gravityTestAgent,
+          id: 'base-chat',
+          displayName: 'Freebuff Chat',
+        },
+      },
+    }
+    const sessionState = getInitialSessionState(fileContext)
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'base-chat',
+    }
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      ...agentRuntimeImpl,
+      fileContext,
+    })
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'base-chat',
+      fileContext,
+      localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['base-chat'],
+      agentState,
+      prompt: 'Find an email provider',
+    })
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          metadata: expect.objectContaining({
+            surface: 'freebuff_chat',
+          }),
+        }),
+      }),
+    )
+  })
+
   test('stores recommendation and setup URL in tool output', async () => {
     spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: {

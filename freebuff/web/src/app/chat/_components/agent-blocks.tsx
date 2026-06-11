@@ -1,6 +1,13 @@
 'use client'
 
-import { ChevronRight, Globe, Loader2, Search, Wrench } from 'lucide-react'
+import {
+  ChevronRight,
+  Compass,
+  Globe,
+  Loader2,
+  Search,
+  Wrench,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import type { AgentBlock, ChatBlock, ToolBlock } from '@/app/chat/blocks'
@@ -107,22 +114,25 @@ function AgentBox({ agent }: { agent: AgentBlock }) {
   )
 }
 
+// Per-tool icon and fallback verbs. Tools whose verbs depend on the input
+// (gravity_index) carry them on the block instead, so only the icon is set
+// here.
 const TOOL_META: Record<
   string,
-  { icon: LucideIcon; running: string; done: string }
+  { icon: LucideIcon; running?: string; done?: string }
 > = {
   web_search: { icon: Search, running: 'Searching', done: 'Searched' },
   read_url: { icon: Globe, running: 'Reading', done: 'Read' },
+  gravity_index: { icon: Compass },
 }
 
 function ToolRow({ tool }: { tool: ToolBlock }) {
-  const meta = TOOL_META[tool.toolName] ?? {
-    icon: Wrench,
-    running: tool.toolName,
-    done: tool.toolName,
-  }
+  const meta = TOOL_META[tool.toolName] ?? { icon: Wrench }
   const Icon = meta.icon
-  const verb = tool.status === 'running' ? meta.running : meta.done
+  const verb =
+    (tool.status === 'running'
+      ? (tool.verbs?.running ?? meta.running)
+      : (tool.verbs?.done ?? meta.done)) ?? tool.toolName
   return (
     <div className="flex min-w-0 items-center gap-2 text-[13px] text-muted-foreground">
       {tool.status === 'running' ? (

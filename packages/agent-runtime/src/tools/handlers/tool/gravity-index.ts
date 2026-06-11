@@ -7,6 +7,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { JSONObject, JSONValue } from '@codebuff/common/types/json'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -24,9 +25,15 @@ const omitUndefined = (value: Record<string, JSONValue | undefined>) => {
 const isJSONObject = (value: JSONValue | undefined): value is JSONObject =>
   !!value && typeof value === 'object' && !Array.isArray(value)
 
+/** Gravity attribution surface, so clicks/conversions are attributable to the
+ *  product the request came from rather than all reading as CLI traffic. */
+const gravitySurface = (agentTemplate: { id: string }): string =>
+  agentTemplate.id === 'base-chat' ? 'freebuff_chat' : 'codebuff_cli'
+
 export const handleGravityIndex = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'gravity_index'>
+  agentTemplate: AgentTemplate
   logger: Logger
   apiKey: string
 
@@ -47,6 +54,7 @@ export const handleGravityIndex = (async (params: {
   const {
     previousToolCallFinished,
     toolCall,
+    agentTemplate,
     agentStepId,
     apiKey,
     clientSessionId,
@@ -84,7 +92,7 @@ export const handleGravityIndex = (async (params: {
     const metadata = {
       ...existingMetadata,
       ...omitUndefined({
-        surface: 'codebuff_cli',
+        surface: gravitySurface(agentTemplate),
         tool_call_id: toolCall.toolCallId,
         agent_step_id: agentStepId,
         fingerprint_id: fingerprintId,

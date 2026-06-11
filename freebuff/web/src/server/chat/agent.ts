@@ -7,7 +7,7 @@ import researcherWebAgent from '../../../../../agents/researcher/researcher-web'
 import { CHAT_MODELS } from '@/app/chat/models'
 import { logger } from '@/util/logger'
 
-import { toolCallLabel } from '@/app/chat/blocks'
+import { toolCallDisplay } from '@/app/chat/blocks'
 
 import type { ChatStreamEvent } from '@/app/chat/blocks'
 
@@ -146,22 +146,25 @@ export async function runChatAgent(params: {
       } else if (event.type === 'subagent_finish') {
         params.onEvent({ type: 'agent_finish', agentId: event.agentId })
       } else if (event.type === 'tool_call') {
-        // Only tool calls made by a subagent reach the UI; the root agent's
-        // own calls (spawning) are covered by agent_start instead.
-        if (
-          !event.agentId ||
-          !subagentIds.has(event.agentId) ||
-          HIDDEN_TOOL_NAMES.has(event.toolName)
-        ) {
+        if (HIDDEN_TOOL_NAMES.has(event.toolName)) {
           return
         }
+        // Tool calls carry the calling agent's id; anything not tracked as a
+        // subagent is the root agent, whose calls (e.g. gravity_index) render
+        // as top-level rows — agent_tool without an agentId.
+        const subagentId =
+          event.agentId && subagentIds.has(event.agentId)
+            ? event.agentId
+            : undefined
         forwardedToolCallIds.add(event.toolCallId)
+        const { label, verbs } = toolCallDisplay(event.toolName, event.input)
         params.onEvent({
           type: 'agent_tool',
-          agentId: event.agentId,
+          ...(subagentId ? { agentId: subagentId } : {}),
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          label: toolCallLabel(event.toolName, event.input),
+          label,
+          ...(verbs ? { verbs } : {}),
         })
       } else if (event.type === 'tool_result') {
         if (!forwardedToolCallIds.has(event.toolCallId)) return
