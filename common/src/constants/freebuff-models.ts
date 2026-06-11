@@ -203,11 +203,13 @@ export type SupportedFreebuffModelId =
   (typeof SUPPORTED_FREEBUFF_MODELS)[number]['id']
 export type FreebuffPremiumModelId = (typeof FREEBUFF_PREMIUM_MODEL_IDS)[number]
 
-/** What new freebuff users see selected in the picker. Callers that need a
- *  guaranteed-available id for resolution / auto-fallbacks should use
- *  FALLBACK_FREEBUFF_MODEL_ID instead. */
+/** What new freebuff users see selected in the picker. MiniMax M3 is the
+ *  strongest unlimited model (smartest & multimodal), so new users get good
+ *  quality without burning the 5/day premium quota on routine messages.
+ *  Callers that need a guaranteed-available id for resolution /
+ *  auto-fallbacks should use FALLBACK_FREEBUFF_MODEL_ID instead. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_KIMI_MODEL_ID
+  FREEBUFF_MINIMAX_M3_MODEL_ID
 
 /** Always-available fallback used when the requested model can't be served
  *  right now (unknown id, deployment hours closed, etc.). Kept distinct from
