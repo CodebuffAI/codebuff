@@ -243,7 +243,7 @@ export const runAgentStep = async (
         ...expireMessages(agentState.messageHistory, 'userPrompt'),
         userMessage(
           withSystemTags(
-            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps in openbuff.json. If the task is incomplete, any todos recorded with write_todos and the persisted run state let the user resume it on the next turn.`,
+            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps in openbuff.json. If the task is incomplete, the user can resume on the next turn.`,
           ),
         ),
       ],
@@ -259,16 +259,21 @@ export const runAgentStep = async (
   // Near-cap checkpoint nudge. stepsRemaining decrements by exactly 1 per step,
   // so the equality check fires at most once — a few steps before the cap — for
   // long-running tasks. It injects a one-time system note so the agent records
-  // remaining work with write_todos and reaches a clean, consistent stopping
-  // point (resumable next turn via persisted run state) instead of being cut
-  // off mid-edit when stepsRemaining hits 0.
+  // remaining work (via write_todos if available) and reaches a clean,
+  // consistent stopping point (resumable next turn via persisted run state)
+  // instead of being cut off mid-edit when stepsRemaining hits 0.
   if (agentState.stepsRemaining === NEAR_STEP_CAP_WARNING_THRESHOLD) {
-    onResponseChunk(`${NEAR_STEP_CAP_WARNING_MESSAGE}\n\n`)
+    const hasWriteTodos =
+      agentTemplate.toolNames.includes('write_todos')
+    const warningMessage = hasWriteTodos
+      ? NEAR_STEP_CAP_WARNING_MESSAGE
+      : NEAR_STEP_CAP_WARNING_MESSAGE_NO_WRITE_TODOS
+    onResponseChunk(`${warningMessage}\n\n`)
     agentState = {
       ...agentState,
       messageHistory: [
         ...agentState.messageHistory,
-        userMessage(withSystemTags(NEAR_STEP_CAP_WARNING_MESSAGE)),
+        userMessage(withSystemTags(warningMessage)),
       ],
     }
   }
@@ -1268,4 +1273,10 @@ const NEAR_STEP_CAP_WARNING_MESSAGE = [
   'Heads up: this turn is approaching its maximum number of agent steps.',
   'If the task is not nearly complete, record the remaining work now with the write_todos tool and bring the current change to a clean, consistent stopping point — no half-applied edits.',
   'Your todos and run state are persisted, so the user can resume on the next turn. The cap is configurable via maxAgentSteps in openbuff.json.',
+].join(' ')
+
+const NEAR_STEP_CAP_WARNING_MESSAGE_NO_WRITE_TODOS = [
+  'Heads up: this turn is approaching its maximum number of agent steps.',
+  'If the task is not nearly complete, bring the current change to a clean, consistent stopping point — no half-applied edits.',
+  'When you stop, the user can resume on the next turn. The cap is configurable via maxAgentSteps in openbuff.json.',
 ].join(' ')

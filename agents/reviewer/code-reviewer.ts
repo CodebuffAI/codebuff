@@ -85,12 +85,13 @@ Before providing your review, use <think></think> tags to think through the code
 Be extremely concise.`,
 
   handleSteps: function* () {
-    // Allow a few steps so the reviewer can deterministically read the exact
-    // final files (including ranged reads for large files) before producing its
-    // feedback, instead of being forced to review from whatever partial diff
-    // context happened to be in the prompt. Bounded to avoid runaway loops.
-    const maxReviewSteps = 5
-    for (let step = 0; step < maxReviewSteps; step++) {
+    // Allow the reviewer to deterministically read the exact final files
+    // (including ranged reads for large files) before producing its feedback,
+    // instead of being forced to review from whatever partial diff context
+    // happened to be in the prompt. Unbounded: stepsRemaining (default 200,
+    // configurable via maxAgentSteps in openbuff.json) already prevents runaway
+    // loops.
+    while (true) {
       const result = yield 'STEP'
       if (result.stepsComplete) break
     }

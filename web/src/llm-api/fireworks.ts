@@ -1,12 +1,24 @@
 import { Agent } from 'undici'
 
-import {
-  FREEBUFF_DEPLOYMENT_HOURS_LABEL,
-  isFreebuffDeploymentHours,
-} from '@codebuff/common/constants/freebuff-models'
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
+
+/** Human-readable label for the Fireworks custom-deployment window. */
+const DEPLOYMENT_HOURS_LABEL = '9 AM–5 PM ET/PT'
+
+/**
+ * Returns true when the current time falls inside the Fireworks deployment
+ * window: 9 AM–5 PM ET (UTC-5/4) to 5 PM PT (UTC-8/7).
+ * ET open = 14:00 UTC (winter) / 13:00 UTC (summer).
+ * PT close = 01:00 UTC next day (winter) / 00:00 UTC (summer).
+ * We use a fixed conservative window of 13:00–01:00 UTC.
+ */
+function isDeploymentWindow(now: Date): boolean {
+  const hour = now.getUTCHours()
+  // 13:00 UTC to 00:59 UTC next day
+  return hour >= 13 || hour < 1
+}
 
 import { FIREWORKS_DEPLOYMENT_MAP } from './fireworks-config'
 import {
@@ -39,7 +51,7 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
 
-/** Models that stay limited to freebuff deployment hours even on serverless. */
+/** Models that are availability-gated to the custom deployment window. */
 const FIREWORKS_HOURS_GATED_MODELS = new Set<string>(['z-ai/glm-5.1'])
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
@@ -47,7 +59,7 @@ const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
 
 /** Check if current time is within deployment hours: daily, 9am ET to 5pm PT. */
 export function isDeploymentHours(now: Date = new Date()): boolean {
-  return isFreebuffDeploymentHours(now)
+  return isDeploymentWindow(now)
 }
 
 /**
@@ -861,7 +873,7 @@ export async function createFireworksRequestWithFallback(params: {
     return new Response(
       JSON.stringify({
         error: {
-          message: `${originalModel} is only available during ${FREEBUFF_DEPLOYMENT_HOURS_LABEL}. Use minimax/minimax-m2.7 outside those hours.`,
+          message: `${originalModel} is only available during ${DEPLOYMENT_HOURS_LABEL}. Use minimax/minimax-m2.7 outside those hours.`,
           code: 'DEPLOYMENT_OUTSIDE_HOURS',
           type: 'availability_error',
         },

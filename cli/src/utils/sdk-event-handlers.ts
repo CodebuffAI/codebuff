@@ -36,6 +36,10 @@ import {
   destinationFromChunkEvent,
   processTextChunk,
 } from './stream-chunk-processor'
+import {
+  computeCompletionSummary,
+  formatCompletionSummary,
+} from './completion-summary'
 
 import type { AgentMode } from './constants'
 import type { MessageUpdater } from './message-updater'
@@ -50,6 +54,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeEvent as SDKEvent,
   PrintModeFinish,
+  PrintModePhase,
   PrintModeSubagentFinish,
   PrintModeSubagentStart,
   PrintModeToolCall,
@@ -92,7 +97,7 @@ export type MessageState = {
 }
 
 export type SubagentState = {
-  addActiveSubagent: (id: string) => void
+  addActiveSubagent: (id: string, agentType?: string) => void
   removeActiveSubagent: (id: string) => void
 }
 
@@ -184,7 +189,7 @@ const handleSubagentStart = (
     return
   }
 
-  state.subagents.addActiveSubagent(event.agentId)
+  state.subagents.addActiveSubagent(event.agentId, event.agentType)
 
   const spawnAgentMatch = findMatchingSpawnAgent(
     state.streaming.streamRefs.state.spawnAgentsMap,
@@ -708,10 +713,42 @@ const handleToolResult = (
   updateStreamingAgents(state, { remove: event.toolCallId })
 }
 
+const handlePhase = (
+  state: EventHandlerState,
+  event: PrintModePhase,
+) => {
+  // Phase events provide structured progress info for the status bar.
+  // The detail field carries a human-readable description (e.g. "reading 5 files").
+  // These are stored on the stream refs so the status bar can read them.
+  state.streaming.streamRefs.setters.setPhase({
+    phase: event.phase,
+    detail: event.detail,
+  })
+}
+
 const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
   if (typeof event.totalCost === 'number' && state.onTotalCost) {
     state.onTotalCost(event.totalCost)
   }
+
+  // Compute and append a completion summary as a text block.
+  state.message.updater.updateAiMessageBlocks((blocks) => {
+    // Walk the accumulated blocks to tally what happened
+    const summary = computeCompletionSummary(blocks)
+    if (!summary) return blocks
+
+    const formatted = formatCompletionSummary(summary)
+    if (!formatted) return blocks
+
+    return [
+      ...blocks,
+      {
+        type: 'text' as const,
+        textType: 'text' as const,
+        content: formatted,
+      },
+    ]
+  })
 }
 
 export const createStreamChunkHandler =
@@ -757,5 +794,6 @@ export const createEventHandler =
       .with({ type: 'tool_call' }, (e) => handleToolCall(state, e))
       .with({ type: 'tool_result' }, (e) => handleToolResult(state, e))
       .with({ type: 'finish' }, (e) => handleFinish(state, e))
+      .with({ type: 'phase' }, (e) => handlePhase(state, e))
       .otherwise(() => undefined)
   }

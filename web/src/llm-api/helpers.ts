@@ -1,13 +1,5 @@
 import { setupBigQuery } from '@codebuff/bigquery'
-import {
-  consumeCreditsAndAddAgentStep,
-  recordMessageWithoutBilling,
-} from '@codebuff/billing'
-import {
-  isFreeAgent,
-  isFreeMode,
-  isFreeModeAllowedAgentModel,
-} from '@codebuff/common/constants/free-agents'
+import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -138,50 +130,7 @@ export async function consumeCreditsForMessage(params: {
   } = params
 
   // Calculate initial credits based on cost
-  const initialCredits = Math.round(usageData.cost * 100 * (1 + PROFIT_MARGIN))
-
-  // FREE mode: only specific agents using their expected models cost 0 credits
-  // This is the strictest check - validates:
-  // 1. The cost mode is 'free'
-  // 2. The agent is in the allowed free-mode agents list
-  // 3. The model matches what that specific agent is allowed to use
-  // 4. The agent is either internal or published by 'codebuff' (prevents publisher spoofing)
-  const isFreeModeAndAllowed =
-    isFreeMode(costMode) && isFreeModeAllowedAgentModel(agentId, model)
-
-  // Free tier agents (like file-picker) also don't charge credits for small requests
-  // This is separate from FREE mode and helps with BYOK users
-  // Also validates publisher to prevent spoofing attacks
-  const isFreeAgentSmallRequest = isFreeAgent(agentId) && initialCredits < 5
-
-  const credits =
-    isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
-
-  if (isFreeModeAndAllowed) {
-    await recordMessageWithoutBilling({
-      messageId,
-      userId,
-      agentId,
-      clientId,
-      clientRequestId,
-      startTime,
-      model,
-      reasoningText,
-      response: responseText,
-      cost: usageData.cost,
-      credits: 0,
-      inputTokens: usageData.inputTokens,
-      cacheCreationInputTokens: null,
-      cacheReadInputTokens: usageData.cacheReadInputTokens,
-      reasoningTokens:
-        usageData.reasoningTokens > 0 ? usageData.reasoningTokens : null,
-      outputTokens: usageData.outputTokens,
-      byok,
-      logger,
-      ttftMs: ttftMs ?? null,
-    })
-    return 0
-  }
+  const credits = Math.round(usageData.cost * 100 * (1 + PROFIT_MARGIN))
 
   await consumeCreditsAndAddAgentStep({
     messageId,

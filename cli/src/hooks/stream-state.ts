@@ -1,6 +1,11 @@
 // Mutable container for stream-local state shared across handlers.
 export type SpawnAgentInfo = { index: number; agentType: string }
 
+export type PhaseInfo = {
+  phase: string
+  detail?: string
+}
+
 type StreamState = {
   rootStreamBuffer: string
   agentStreamAccumulators: Map<string, string>
@@ -8,6 +13,7 @@ type StreamState = {
   planExtracted: boolean
   wasAbortedByUser: boolean
   spawnAgentsMap: Map<string, SpawnAgentInfo>
+  phase: PhaseInfo | null
 }
 
 export type StreamController = {
@@ -23,6 +29,7 @@ export type StreamController = {
     setWasAbortedByUser: (value: boolean) => void
     setSpawnAgentInfo: (agentId: string, info: SpawnAgentInfo) => void
     removeSpawnAgentInfo: (agentId: string) => void
+    setPhase: (info: PhaseInfo | null) => void
   }
 }
 
@@ -38,6 +45,7 @@ export const createStreamController = (): StreamController => {
     planExtracted: false,
     wasAbortedByUser: false,
     spawnAgentsMap: new Map(),
+    phase: null,
   }
 
   const reset = () => {
@@ -47,6 +55,7 @@ export const createStreamController = (): StreamController => {
     state.planExtracted = false
     state.wasAbortedByUser = false
     state.spawnAgentsMap = new Map()
+    state.phase = null
   }
 
   const setters = {
@@ -76,6 +85,9 @@ export const createStreamController = (): StreamController => {
     },
     removeSpawnAgentInfo: (agentId: string) => {
       state.spawnAgentsMap.delete(agentId)
+    },
+    setPhase: (info: PhaseInfo | null) => {
+      state.phase = info
     },
   }
 

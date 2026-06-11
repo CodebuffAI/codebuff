@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "types": ["bun", "node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/react",
+    "paths": {
+      "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@codebuff/common/*": ["../common/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

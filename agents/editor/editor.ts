@@ -183,10 +183,10 @@ Write out your complete implementation now, formatting all changes as tool calls
 
       // Keep stepping while the model is still emitting edit tool calls so it
       // can implement multi-file changes and recover from failed str_replaces.
-      // Bounded to avoid runaway loops on models that never stop calling tools.
-      const maxEditSteps = 12
+      // Unbounded: stepsRemaining (default 200, configurable via maxAgentSteps
+      // in openbuff.json) already prevents runaway loops.
       let agentState = initialAgentState
-      for (let step = 0; step < maxEditSteps; step++) {
+      while (true) {
         const result = yield 'STEP'
         agentState = result.agentState
         if (result.stepsComplete) break

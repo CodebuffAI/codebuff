@@ -1,3 +1,5 @@
+import { getPhaseLabel } from './status-label'
+
 import type { StreamStatus } from '../hooks/use-message-queue'
 
 export type StatusIndicatorState =
@@ -6,8 +8,8 @@ export type StatusIndicatorState =
   | { kind: 'ctrlC' }
   | { kind: 'connecting' }
   | { kind: 'retrying' }
-  | { kind: 'waiting' }
-  | { kind: 'streaming' }
+  | { kind: 'waiting'; phaseLabel?: string }
+  | { kind: 'streaming'; phaseLabel?: string }
   | { kind: 'reconnected' }
   | { kind: 'paused' }
 
@@ -30,6 +32,10 @@ export type StatusIndicatorStateArgs = {
    * When true, hides the "working..." and "thinking..." indicators.
    */
   isAskUserActive?: boolean
+  /**
+   * Map of active agent IDs to agent types, used to derive a phase-aware label.
+   */
+  activeAgentTypes?: Map<string, string>
 }
 
 /**
@@ -55,6 +61,7 @@ export const getStatusIndicatorState = ({
   isRetrying = false,
   showReconnectionMessage = false,
   isAskUserActive = false,
+  activeAgentTypes,
 }: StatusIndicatorStateArgs): StatusIndicatorState => {
   if (nextCtrlCWillExit) {
     return { kind: 'ctrlC' }
@@ -88,12 +95,18 @@ export const getStatusIndicatorState = ({
     return { kind: 'paused' }
   }
 
+  // Derive phase-aware label from active agent types
+  const phaseLabel =
+    activeAgentTypes && activeAgentTypes.size > 0
+      ? getPhaseLabel(new Set(activeAgentTypes.values()))
+      : undefined
+
   if (streamStatus === 'waiting') {
-    return { kind: 'waiting' }
+    return { kind: 'waiting', phaseLabel }
   }
 
   if (streamStatus === 'streaming') {
-    return { kind: 'streaming' }
+    return { kind: 'streaming', phaseLabel }
   }
 
   return { kind: 'idle' }

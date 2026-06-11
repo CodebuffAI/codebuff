@@ -63,6 +63,7 @@ const createStreamRefs = (): {
     planExtracted: false,
     wasAbortedByUser: false,
     spawnAgentsMap: new Map<string, SpawnAgentInfo>(),
+    phase: null,
   }
 
   const controller = {
@@ -96,6 +97,7 @@ const createStreamRefs = (): {
       removeSpawnAgentInfo: (agentId: string) => {
         state.spawnAgentsMap.delete(agentId)
       },
+      setPhase: (_info: any) => {},
     },
   }
 

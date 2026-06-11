@@ -61,6 +61,8 @@ export type ChatStoreState = {
   inputFocused: boolean
   isFocusSupported: boolean
   activeSubagents: Set<string>
+  /** Maps agent ID -> agent type for active subagents */
+  activeAgentTypes: Map<string, string>
   isChainInProgress: boolean
   slashSelectedIndex: number
   agentSelectedIndex: number
@@ -128,6 +130,11 @@ type ChatStoreActions = {
   setActiveSubagents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
   ) => void
+  setActiveAgentTypes: (
+    value:
+      | Map<string, string>
+      | ((prev: Map<string, string>) => Map<string, string>),
+  ) => void
   setIsChainInProgress: (active: boolean) => void
   setSlashSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
@@ -182,6 +189,7 @@ const initialState: ChatStoreState = {
   inputFocused: true, // Cursor visible by default
   isFocusSupported: false, // Don't blink until terminal support is detected
   activeSubagents: new Set<string>(),
+  activeAgentTypes: new Map<string, string>(),
   isChainInProgress: false,
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
@@ -251,6 +259,12 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.activeSubagents =
           typeof value === 'function' ? value(state.activeSubagents) : value
+      }),
+
+    setActiveAgentTypes: (value) =>
+      set((state) => {
+        state.activeAgentTypes =
+          typeof value === 'function' ? value(state.activeAgentTypes) : value
       }),
 
     setIsChainInProgress: (active) =>
@@ -494,6 +508,7 @@ export const useChatStore = create<ChatStore>()(
         state.inputFocused = initialState.inputFocused
         state.isFocusSupported = initialState.isFocusSupported
         state.activeSubagents = new Set(initialState.activeSubagents)
+        state.activeAgentTypes = new Map(initialState.activeAgentTypes)
         state.isChainInProgress = initialState.isChainInProgress
         state.slashSelectedIndex = initialState.slashSelectedIndex
         state.agentSelectedIndex = initialState.agentSelectedIndex

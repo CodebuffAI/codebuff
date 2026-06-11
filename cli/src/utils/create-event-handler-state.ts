@@ -16,7 +16,7 @@ export type CreateEventHandlerStateParams = {
   aiMessageId: string
   updater: MessageUpdater
   hasReceivedContentRef: MutableRefObject<boolean>
-  addActiveSubagent: (id: string) => void
+  addActiveSubagent: (id: string, agentType?: string) => void
   removeActiveSubagent: (id: string) => void
   agentMode: AgentMode
   setHasReceivedPlanResponse: (value: boolean) => void

@@ -121,7 +121,7 @@ export const StatusBar = ({
       case 'waiting':
         return (
           <ShimmerText
-            text="thinking..."
+            text={statusIndicatorState.phaseLabel || 'thinking...'}
             interval={SHIMMER_INTERVAL_MS}
             primaryColor={theme.secondary}
           />
@@ -130,7 +130,7 @@ export const StatusBar = ({
       case 'streaming':
         return (
           <ShimmerText
-            text="working..."
+            text={statusIndicatorState.phaseLabel || 'working...'}
             interval={SHIMMER_INTERVAL_MS}
             primaryColor={theme.secondary}
           />

@@ -97,10 +97,26 @@ export type PrintModeReasoningDelta = z.infer<
   typeof printModeReasoningDeltaSchema
 >
 
+export const printModePhaseSchema = z.object({
+  type: z.literal('phase'),
+  phase: z.enum([
+    'gathering_context',
+    'planning',
+    'editing',
+    'reviewing',
+    'validating',
+    'summarizing',
+    'complete',
+  ]),
+  detail: z.string().optional(),
+})
+export type PrintModePhase = z.infer<typeof printModePhaseSchema>
+
 export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeDownloadStatusSchema,
   printModeErrorSchema,
   printModeFinishSchema,
+  printModePhaseSchema,
   printModeStartSchema,
   printModeSubagentFinishSchema,
   printModeSubagentStartSchema,

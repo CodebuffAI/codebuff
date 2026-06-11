@@ -127,6 +127,7 @@ export const useSendMessage = ({
     setInputFocused,
     setStreamingAgents,
     setActiveSubagents,
+    setActiveAgentTypes,
     setIsChainInProgress,
     setHasReceivedPlanResponse,
     setLastMessageMode,
@@ -181,17 +182,29 @@ export const useSendMessage = ({
   )
 
   const addActiveSubagent = useCallback(
-    (subagentId: string) => {
+    (subagentId: string, agentType?: string) => {
       updateActiveSubagents((next) => next.add(subagentId))
+      if (agentType) {
+        setActiveAgentTypes((prev) => {
+          const next = new Map(prev)
+          next.set(subagentId, agentType)
+          return next
+        })
+      }
     },
-    [updateActiveSubagents],
+    [updateActiveSubagents, setActiveAgentTypes],
   )
 
   const removeActiveSubagent = useCallback(
     (subagentId: string) => {
       updateActiveSubagents((next) => next.delete(subagentId))
+      setActiveAgentTypes((prev) => {
+        const next = new Map(prev)
+        next.delete(subagentId)
+        return next
+      })
     },
-    [updateActiveSubagents],
+    [updateActiveSubagents, setActiveAgentTypes],
   )
 
   function clearMessages() {

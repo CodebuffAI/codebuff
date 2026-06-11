@@ -177,6 +177,9 @@ export const Chat = ({
     }
   }, [initialMode, setAgentMode])
 
+  // Additional selector for active agent types to derive phase-aware status labels
+  const activeAgentTypes = useChatStore((state) => state.activeAgentTypes)
+
   // Use extracted chat messages hook for message tree and pagination
   const {
     messageTree,
@@ -1281,6 +1284,7 @@ export const Chat = ({
     showReconnectionMessage,
     isRetrying,
     isAskUserActive: askUserState !== null,
+    activeAgentTypes,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
