@@ -1,6 +1,7 @@
 import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { truncateString } from '@codebuff/common/util/string'
 import z from 'zod/v4'
 
 import { WEBSITE_URL } from '../constants'
@@ -355,6 +356,7 @@ export async function finishAgentRun(
     totalSteps,
     directCredits,
     totalCredits,
+    errorMessage,
     logger,
   } = params
 
@@ -375,6 +377,11 @@ export async function finishAgentRun(
           totalSteps,
           directCredits,
           totalCredits,
+          // Truncate: errorMessage can include a full stack trace
+          errorMessage:
+            errorMessage === undefined
+              ? undefined
+              : truncateString(errorMessage, 5000),
         }),
       },
       logger,

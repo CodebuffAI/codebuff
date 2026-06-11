@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { extractApiErrorDetails } from '../error'
+import { extractApiErrorDetails, isFetchIdleTimeoutError } from '../error'
 
 describe('extractApiErrorDetails', () => {
   it('extracts structured details from nested retry errors', () => {
@@ -91,5 +91,37 @@ describe('extractApiErrorDetails', () => {
       errorCode: 'free_mode_rate_limited',
       message: 'Free mode rate limit exceeded (1 minute limit).',
     })
+  })
+})
+
+describe('isFetchIdleTimeoutError', () => {
+  it('detects a DOMException-style TimeoutError by name', () => {
+    const error = new Error('The operation timed out.')
+    error.name = 'TimeoutError'
+    expect(isFetchIdleTimeoutError(error)).toBe(true)
+  })
+
+  it('detects the Bun timeout message without the TimeoutError name', () => {
+    expect(isFetchIdleTimeoutError(new Error('The operation timed out.'))).toBe(
+      true,
+    )
+  })
+
+  it('detects a timeout nested inside an AI SDK RetryError wrapper', () => {
+    const timeoutError = new Error('The operation timed out.')
+    timeoutError.name = 'TimeoutError'
+    const retryError = new Error(
+      'Failed after 3 attempts.',
+    ) as Error & { errors: unknown[] }
+    retryError.errors = [timeoutError]
+    expect(isFetchIdleTimeoutError(retryError)).toBe(true)
+  })
+
+  it('returns false for unrelated errors', () => {
+    expect(isFetchIdleTimeoutError(new Error('Internal Server Error'))).toBe(
+      false,
+    )
+    expect(isFetchIdleTimeoutError(undefined)).toBe(false)
+    expect(isFetchIdleTimeoutError('The operation timed out.')).toBe(false)
   })
 })
