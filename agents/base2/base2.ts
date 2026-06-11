@@ -56,7 +56,9 @@ export function createBase2(
       ? deepseekModels.deepseekV4Flash
       : mode === 'free'
         ? FREEBUFF_MINIMAX_MODEL_ID
-        : 'anthropic/claude-opus-4.7')
+        : isMax
+          ? 'anthropic/claude-fable-5'
+          : 'anthropic/claude-opus-4.8')
   // Smart freebuff model variants (Kimi, DeepSeek) can offload deeper
   // reasoning. Fast MiniMax omits the extra round trip by construction.
   const hasFreeGeminiThinker =
