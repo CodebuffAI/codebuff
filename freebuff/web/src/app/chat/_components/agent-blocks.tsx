@@ -45,15 +45,13 @@ function lastTextSnippet(blocks: ChatBlock[]): string {
 
 function AgentBox({ agent }: { agent: AgentBlock }) {
   const running = agent.status === 'running'
-  // Collapsed until the user opens it; while running, the summary row shows
-  // the latest activity snippet so progress is still visible.
+  // Collapsed until the user opens it; the summary row shows the prompt so
+  // it's clear what the agent is working on.
   const [open, setOpen] = useState(false)
 
   const preview = open
     ? undefined
-    : running
-      ? lastTextSnippet(agent.blocks)
-      : agent.prompt
+    : agent.prompt || lastTextSnippet(agent.blocks)
 
   return (
     <div
