@@ -2,9 +2,9 @@ import { randomBytes } from 'node:crypto'
 
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { FREEBUFF_WEB_SERVICE_ACCOUNT_EMAIL } from '@codebuff/internal/freebuff/web-service-account'
 import { eq } from 'drizzle-orm'
 
-const SERVICE_EMAIL = 'freebuff-web-service@codebuff.internal'
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
 async function main() {
@@ -18,7 +18,7 @@ async function main() {
   const [existingUser] = await db
     .select({ id: schema.user.id, email: schema.user.email })
     .from(schema.user)
-    .where(eq(schema.user.email, SERVICE_EMAIL))
+    .where(eq(schema.user.email, FREEBUFF_WEB_SERVICE_ACCOUNT_EMAIL))
     .limit(1)
 
   const user =
@@ -27,7 +27,7 @@ async function main() {
       await db
         .insert(schema.user)
         .values({
-          email: SERVICE_EMAIL,
+          email: FREEBUFF_WEB_SERVICE_ACCOUNT_EMAIL,
           name: 'Freebuff Web Service',
           emailVerified: new Date(),
         })
@@ -55,7 +55,7 @@ async function main() {
   console.log(`FREEBUFF_WEB_SERVICE_USER_ID=${user.id}`)
   console.log(`CODEBUFF_API_KEY=${apiKey}`)
   console.log(
-    '\nSet FREEBUFF_WEB_SERVICE_USER_ID only on the Codebuff API server. Set CODEBUFF_API_KEY only in the Freebuff Web Convex deployment.',
+    '\nSet FREEBUFF_WEB_SERVICE_USER_ID only on the Codebuff API server. Set CODEBUFF_API_KEY only in the Freebuff Web Convex deployment. The freebuff.com web server needs no env var: it reads this PAT from the shared database (cached up to 60s, so a rotation may take a minute to propagate there).',
   )
 }
 

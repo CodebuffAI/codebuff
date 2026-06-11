@@ -39,6 +39,14 @@ Redeploy the Codebuff API after setting the service user ID. Convex actions
 read the API key at runtime, so updating the Convex environment is sufficient
 for a key rotation.
 
+The freebuff.com web server (the `/chat` product) does **not** need the key in
+its environment: it looks up the account's current PAT from the shared
+Postgres via
+`@codebuff/internal/freebuff/web-service-account.getFreebuffWebServiceAccountApiKey`,
+cached in-process for up to 60 seconds. Setting `CODEBUFF_API_KEY` there acts
+as an explicit override (used in local dev via `.env.local`). After a
+rotation, in-flight servers converge on the new PAT within the cache window.
+
 Never expose `CODEBUFF_API_KEY` through a `NEXT_PUBLIC_*` variable or send it
 to the browser. Browser origin headers are not an authentication boundary.
 

@@ -1,3 +1,5 @@
+import { getCachedFreebuffWebServiceAccountApiKey } from '@codebuff/internal/freebuff/web-service-account'
+
 import type { AgentDefinition, RunState } from '@codebuff/sdk'
 
 import baseChatAgent from '../../../../../agents/base-chat'
@@ -21,6 +23,24 @@ function loadSdk(): Promise<SdkModule> {
     /* webpackIgnore: true */ /* turbopackIgnore: true */ '@codebuff/sdk'
   )
   return sdkPromise
+}
+
+/** The service-account PAT is read from the shared DB (cached in
+ *  @codebuff/internal) so it never has to be distributed through this
+ *  server's environment. An explicit CODEBUFF_API_KEY (local dev,
+ *  emergencies) overrides the lookup. */
+async function getChatApiKey(): Promise<string> {
+  const envKey = process.env.CODEBUFF_API_KEY
+  if (envKey) {
+    return envKey
+  }
+  const key = await getCachedFreebuffWebServiceAccountApiKey()
+  if (!key) {
+    throw new Error(
+      'No Freebuff Web service account credential found. Provision one with scripts/create-freebuff-web-service-account.ts or set CODEBUFF_API_KEY.',
+    )
+  }
+  return key
 }
 
 export interface ChatAgentResult {
@@ -58,10 +78,7 @@ export async function runChatAgent(params: {
   /** Normalized stream of root text deltas and subagent activity. */
   onEvent: (event: ChatStreamEvent) => void
 }): Promise<ChatAgentResult> {
-  const apiKey = process.env.CODEBUFF_API_KEY
-  if (!apiKey) {
-    throw new Error('CODEBUFF_API_KEY is not configured')
-  }
+  const [apiKey, { run }] = await Promise.all([getChatApiKey(), loadSdk()])
 
   const backendModel = CHAT_MODELS.find((m) => m.id === params.model)?.backendId
   if (!backendModel) {
@@ -85,7 +102,6 @@ export async function runChatAgent(params: {
   const subagentIds = new Set<string>()
   const forwardedToolCallIds = new Set<string>()
 
-  const { run } = await loadSdk()
   const runState = await run({
     apiKey,
     fingerprintId: `freebuff-chat-${params.userId}`,
