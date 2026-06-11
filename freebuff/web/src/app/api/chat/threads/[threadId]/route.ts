@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import { getChatUserId } from '@/server/chat/auth'
+import { CHAT_DISABLED, chatDisabledResponse } from '@/server/chat/disabled'
 import {
   deleteThread,
   getThread,
@@ -16,6 +17,9 @@ export const dynamic = 'force-dynamic'
 type Params = { params: Promise<{ threadId: string }> }
 
 export async function GET(_request: NextRequest, { params }: Params) {
+  if (CHAT_DISABLED) {
+    return chatDisabledResponse()
+  }
   const userId = await getChatUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -30,6 +34,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
+  if (CHAT_DISABLED) {
+    return chatDisabledResponse()
+  }
   const userId = await getChatUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -48,6 +55,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: Params) {
+  if (CHAT_DISABLED) {
+    return chatDisabledResponse()
+  }
   const userId = await getChatUserId()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

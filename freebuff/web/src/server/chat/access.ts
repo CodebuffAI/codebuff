@@ -1,7 +1,5 @@
 import { FREEBUFF_FORCE_LIMITED_MODE } from '@codebuff/common/constants/freebuff-models'
 import { env } from '@codebuff/internal/env'
-import { getCachedFreeModeCountryAccess } from '@codebuff/internal/freebuff/free-mode-country-access-cache'
-import { getFreeModeAccessTier } from '@codebuff/internal/freebuff/free-mode-country'
 
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type { FreeModeRequestLike } from '@codebuff/internal/freebuff/free-mode-country'
@@ -19,6 +17,14 @@ export async function getChatAccessTier(
   req: FreeModeRequestLike,
 ): Promise<FreebuffAccessTier> {
   try {
+    // Loaded lazily: free-mode-country pulls in geoip-lite, which eagerly
+    // reads its ~110 MB database into memory. Keep that off the module graph
+    // so it only loads once chat actually serves a request.
+    const [{ getCachedFreeModeCountryAccess }, { getFreeModeAccessTier }] =
+      await Promise.all([
+        import('@codebuff/internal/freebuff/free-mode-country-access-cache'),
+        import('@codebuff/internal/freebuff/free-mode-country'),
+      ])
     const access = await getCachedFreeModeCountryAccess({
       userId,
       req,

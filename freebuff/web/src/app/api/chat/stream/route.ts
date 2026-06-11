@@ -12,6 +12,7 @@ import {
 import { getChatAccessTier } from '@/server/chat/access'
 import { runChatAgent } from '@/server/chat/agent'
 import { getChatUserId } from '@/server/chat/auth'
+import { CHAT_DISABLED, chatDisabledResponse } from '@/server/chat/disabled'
 import { consumeChatRateLimit } from '@/server/chat/limits'
 import {
   claimThreadRun,
@@ -43,6 +44,9 @@ function sseEncode(payload: unknown): Uint8Array {
 }
 
 export async function POST(request: NextRequest) {
+  if (CHAT_DISABLED) {
+    return chatDisabledResponse()
+  }
   const userId = await getChatUserId()
   if (!userId) {
     return NextResponse.json(
