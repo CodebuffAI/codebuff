@@ -12,6 +12,8 @@ import {
 import { cn } from '@/lib/utils'
 
 export function Composer(props: {
+  value: string
+  onChange: (value: string) => void
   onSend: (content: string) => void
   onStop: () => void
   streaming: boolean
@@ -21,7 +23,7 @@ export function Composer(props: {
   canSelectModel: boolean
   autoFocus?: boolean
 }) {
-  const [value, setValue] = useState('')
+  const { value, onChange } = props
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -57,11 +59,14 @@ export function Composer(props: {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }
 
+  // Covers typing and external value changes (draft restored, cleared on send).
+  useEffect(() => {
+    resize()
+  }, [value])
+
   const submit = () => {
     const content = value.trim()
     if (!content || props.streaming) return
-    setValue('')
-    requestAnimationFrame(resize)
     props.onSend(content)
   }
 
@@ -75,10 +80,7 @@ export function Composer(props: {
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(e) => {
-          setValue(e.target.value)
-          resize()
-        }}
+        onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault()

@@ -28,6 +28,34 @@ function writeThreadIdToUrl(threadId: string | null) {
   window.history.replaceState(null, '', url)
 }
 
+// Unsent composer text is kept per-thread in localStorage so switching
+// threads (or reloading the page) never loses what you typed.
+const DRAFT_STORAGE_PREFIX = 'freebuff_chat_draft:'
+
+function draftStorageKey(threadId: string | null) {
+  return `${DRAFT_STORAGE_PREFIX}${threadId ?? 'new'}`
+}
+
+function readDraft(threadId: string | null): string {
+  try {
+    return localStorage.getItem(draftStorageKey(threadId)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function writeDraft(threadId: string | null, text: string) {
+  try {
+    if (text) {
+      localStorage.setItem(draftStorageKey(threadId), text)
+    } else {
+      localStorage.removeItem(draftStorageKey(threadId))
+    }
+  } catch {
+    // Storage may be unavailable (private mode, quota); drafts just won't persist.
+  }
+}
+
 export function ChatApp() {
   const [threads, setThreads] = useState<ThreadSummary[]>([])
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
@@ -44,9 +72,19 @@ export function ChatApp() {
     seq: number
     content: string
   } | null>(null)
+  const [draft, setDraft] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   // The thread whose messages are on screen; guards against stale loads.
   const viewedThreadRef = useRef<string | null>(null)
+  // Which thread the current draft belongs to. Tracked separately from
+  // activeThreadId so that when a new chat gets its server-assigned id
+  // mid-stream, in-progress typing keeps saving under the right key.
+  const draftThreadRef = useRef<string | null>(null)
+
+  const changeDraft = useCallback((text: string) => {
+    setDraft(text)
+    writeDraft(draftThreadRef.current, text)
+  }, [])
 
   const refreshThreads = useCallback(async () => {
     const res = await fetch('/api/chat/threads')
@@ -62,6 +100,8 @@ export function ChatApp() {
     setActiveThreadId(threadId)
     setSidebarOpen(false)
     viewedThreadRef.current = threadId
+    draftThreadRef.current = threadId
+    setDraft(readDraft(threadId))
     writeThreadIdToUrl(threadId)
     if (!threadId) {
       setMessages([])
@@ -93,6 +133,8 @@ export function ChatApp() {
     const initial = readThreadIdFromUrl()
     if (initial) {
       openThread(initial)
+    } else {
+      setDraft(readDraft(null))
     }
   }, [refreshThreads, openThread])
 
@@ -120,6 +162,8 @@ export function ChatApp() {
         streaming: true,
       }
       setMessages((prev) => [...prev, userMessage, assistantMessage])
+      setDraft('')
+      writeDraft(draftThreadRef.current, '')
       setStreaming(true)
       setAdSeed((prev) => ({ seq: (prev?.seq ?? 0) + 1, content }))
 
@@ -200,6 +244,14 @@ export function ChatApp() {
               setActiveThreadId(event.threadId)
               viewedThreadRef.current = event.threadId
               writeThreadIdToUrl(event.threadId)
+              // Re-home any follow-up typing from the "new chat" draft slot
+              // to the thread the server just created.
+              if (draftThreadRef.current === null) {
+                const pending = readDraft(null)
+                draftThreadRef.current = event.threadId
+                writeDraft(null, '')
+                if (pending) writeDraft(event.threadId, pending)
+              }
             } else if (isChatStreamEvent(event)) {
               blockTree.apply(event)
               scheduleFlush()
@@ -255,6 +307,7 @@ export function ChatApp() {
     async (threadId: string) => {
       setThreads((prev) => prev.filter((t) => t.id !== threadId))
       setConfirmDeleteId(null)
+      writeDraft(threadId, '')
       if (activeThreadId === threadId) {
         openThread(null)
       }
@@ -294,6 +347,8 @@ export function ChatApp() {
 
   const composer = (
     <Composer
+      value={draft}
+      onChange={changeDraft}
       onSend={send}
       onStop={stop}
       streaming={streaming}
