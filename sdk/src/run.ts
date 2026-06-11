@@ -19,7 +19,11 @@ import {
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
-import { extractApiErrorDetails } from '@codebuff/common/util/error'
+import {
+  FETCH_IDLE_TIMEOUT_USER_MESSAGE,
+  extractApiErrorDetails,
+  isFetchIdleTimeoutError,
+} from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { executeComposioToolViaServer } from './composio'
@@ -561,8 +565,11 @@ async function runOnce({
     },
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
-    let errorMessage =
-      error instanceof Error ? error.message : String(error ?? '')
+    let errorMessage = isFetchIdleTimeoutError(error)
+      ? FETCH_IDLE_TIMEOUT_USER_MESSAGE
+      : error instanceof Error
+        ? error.message
+        : String(error ?? '')
     const apiErrorDetails = extractApiErrorDetails(error)
     const statusCode = apiErrorDetails.statusCode ?? getErrorStatusCode(error)
     const {

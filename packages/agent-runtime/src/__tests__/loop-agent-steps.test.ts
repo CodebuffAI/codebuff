@@ -1102,5 +1102,39 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         expect(result.output.statusCode).toBe(409)
       }
     })
+
+    it('should explain fetch idle timeouts instead of showing the raw runtime message', async () => {
+      const llmOnlyTemplate = {
+        ...mockTemplate,
+        handleSteps: undefined,
+      }
+
+      const localAgentTemplates = {
+        'test-agent': llmOnlyTemplate,
+      }
+
+      // Bun aborts a fetch after 5 minutes without receiving bytes, throwing a
+      // DOMException named TimeoutError with this exact message.
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        const timeoutError = new Error('The operation timed out.')
+        timeoutError.name = 'TimeoutError'
+        throw timeoutError
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        localAgentTemplates,
+      })
+
+      expect(result.output.type).toBe('error')
+      if (result.output.type === 'error') {
+        expect(result.output.message).toContain(
+          'no data was received from the server for 5 minutes',
+        )
+        expect(result.output.message).not.toContain('Agent run error:')
+        expect(result.output.message).not.toBe('The operation timed out.')
+      }
+    })
   })
 })

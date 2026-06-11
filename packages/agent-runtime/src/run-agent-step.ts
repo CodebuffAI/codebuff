@@ -8,9 +8,11 @@ import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constan
 import { buildArray } from '@codebuff/common/util/array'
 import {
   AbortError,
+  FETCH_IDLE_TIMEOUT_USER_MESSAGE,
   extractApiErrorDetails,
   getErrorObject,
   isAbortError,
+  isFetchIdleTimeoutError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
@@ -1163,14 +1165,19 @@ export async function loopAgentSteps(
     )
 
     const apiErrorDetails = extractApiErrorDetails(error)
+    const isIdleTimeout = isFetchIdleTimeoutError(error)
     const hasServerMessage = apiErrorDetails.message !== undefined
-    const fallbackMessage =
-      error instanceof Error
-        ? error.message +
-          (apiErrorDetails.statusCode === undefined && error.stack
-            ? `\n\n${error.stack}`
-            : '')
-        : String(error)
+    let fallbackMessage: string
+    if (isIdleTimeout) {
+      fallbackMessage = FETCH_IDLE_TIMEOUT_USER_MESSAGE
+    } else if (error instanceof Error) {
+      const includeStack =
+        apiErrorDetails.statusCode === undefined && error.stack
+      fallbackMessage =
+        error.message + (includeStack ? `\n\n${error.stack}` : '')
+    } else {
+      fallbackMessage = String(error)
+    }
     const errorMessage = apiErrorDetails.message ?? fallbackMessage
     const statusCode = apiErrorDetails.statusCode
 
@@ -1194,9 +1201,10 @@ export async function loopAgentSteps(
       agentState: currentAgentState,
       output: {
         type: 'error',
-        message: hasServerMessage
-          ? errorMessage
-          : 'Agent run error: ' + errorMessage,
+        message:
+          hasServerMessage || isIdleTimeout
+            ? errorMessage
+            : 'Agent run error: ' + errorMessage,
         ...(statusCode !== undefined && { statusCode }),
         ...(apiErrorDetails.errorCode !== undefined && {
           error: apiErrorDetails.errorCode,
