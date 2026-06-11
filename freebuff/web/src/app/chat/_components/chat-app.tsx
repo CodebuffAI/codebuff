@@ -60,6 +60,10 @@ export function ChatApp() {
   const [threads, setThreads] = useState<ThreadSummary[]>([])
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  // The thread `messages` belongs to. Unlike activeThreadId (which flips as
+  // soon as a sidebar item is clicked), this updates together with setMessages
+  // so MessageList can restore the right scroll position for the content.
+  const [viewThreadId, setViewThreadId] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
   const [model, setModel] = useState(DEFAULT_CHAT_MODEL_ID)
   const [canSelectModel, setCanSelectModel] = useState(false)
@@ -105,16 +109,19 @@ export function ChatApp() {
     writeThreadIdToUrl(threadId)
     if (!threadId) {
       setMessages([])
+      setViewThreadId(null)
       return
     }
     const res = await fetch(`/api/chat/threads/${threadId}`)
     if (viewedThreadRef.current !== threadId) return
     if (!res.ok) {
       setMessages([])
+      setViewThreadId(threadId)
       return
     }
     const data = await res.json()
     if (viewedThreadRef.current !== threadId) return
+    setViewThreadId(threadId)
     setMessages(
       data.messages.map((m: any) => ({
         id: m.id,
@@ -242,6 +249,7 @@ export function ChatApp() {
             }
             if (event.type === 'meta' && !threadIdAtSend) {
               setActiveThreadId(event.threadId)
+              setViewThreadId(event.threadId)
               viewedThreadRef.current = event.threadId
               writeThreadIdToUrl(event.threadId)
               // Re-home any follow-up typing from the "new chat" draft slot
@@ -521,7 +529,7 @@ export function ChatApp() {
           </div>
         ) : (
           <>
-            <MessageList messages={messages} />
+            <MessageList threadId={viewThreadId} messages={messages} />
             <div className="px-4 pb-4">
               <div className="mx-auto w-full max-w-3xl">
                 <ChatAds seed={adSeed} />

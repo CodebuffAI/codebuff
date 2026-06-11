@@ -1,34 +1,69 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 import type { ChatMessage } from './types'
 
 import { BlockList } from './agent-blocks'
 import { Markdown } from './markdown'
 
-export function MessageList(props: { messages: ChatMessage[] }) {
+// Scroll positions per thread, so switching chats in the sidebar brings you
+// back to where you left off. Module-level: survives MessageList unmounting
+// (e.g. visiting the empty "new chat" view) for the lifetime of the page.
+// A null threadId (brand-new chat, mid-first-stream) isn't tracked — it has
+// no stable identity yet and just follows the bottom.
+const scrollPositions = new Map<string, number>()
+
+function isNearBottom(el: HTMLElement) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 80
+}
+
+export function MessageList(props: {
+  /**
+   * The thread the rendered messages belong to. Must be updated in the same
+   * render as `messages` so scroll restoration runs against the right content.
+   */
+  threadId: string | null
+  messages: ChatMessage[]
+}) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedToBottom = useRef(true)
+  // The thread whose scroll position has been restored into the container.
+  const restoredThreadRef = useRef<string | null | undefined>(undefined)
+
+  const threadId = props.threadId
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     const onScroll = () => {
-      pinnedToBottom.current =
-        el.scrollHeight - el.scrollTop - el.clientHeight < 80
+      pinnedToBottom.current = isNearBottom(el)
+      if (threadId) scrollPositions.set(threadId, el.scrollTop)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [threadId])
+
+  // On thread switch (or first mount), restore the saved position; threads
+  // without one open at the bottom. Layout effect so the jump isn't visible.
+  useLayoutEffect(() => {
+    if (restoredThreadRef.current === threadId) return
+    restoredThreadRef.current = threadId
+    const el = scrollRef.current
+    if (!el) return
+    const saved = threadId ? scrollPositions.get(threadId) : undefined
+    el.scrollTop = saved !== undefined ? saved : el.scrollHeight
+    pinnedToBottom.current = isNearBottom(el)
+  }, [threadId])
 
   // Follow the stream unless the user scrolled up.
   useEffect(() => {
     const el = scrollRef.current
     if (el && pinnedToBottom.current) {
       el.scrollTop = el.scrollHeight
+      if (threadId) scrollPositions.set(threadId, el.scrollTop)
     }
-  }, [props.messages])
+  }, [threadId, props.messages])
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto">
