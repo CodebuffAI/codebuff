@@ -130,6 +130,17 @@ export async function runChatAgent(params: {
           agentId: chunk.agentId,
           text: chunk.chunk,
         })
+      } else if (chunk.type === 'reasoning_chunk') {
+        // Empty ancestorRunIds = the root agent itself is thinking.
+        if (chunk.ancestorRunIds.length === 0) {
+          params.onEvent({ type: 'reasoning_delta', text: chunk.chunk })
+        } else {
+          params.onEvent({
+            type: 'agent_reasoning_delta',
+            agentId: chunk.agentId,
+            text: chunk.chunk,
+          })
+        }
       }
     },
     handleEvent: (event) => {

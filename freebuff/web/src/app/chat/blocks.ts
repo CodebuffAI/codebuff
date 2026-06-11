@@ -10,6 +10,13 @@
 
 export type TextBlock = { type: 'text'; text: string }
 
+export type ThinkingBlock = {
+  type: 'thinking'
+  text: string
+  /** Running while reasoning tokens are still streaming into this block. */
+  status: 'running' | 'done'
+}
+
 /** Input-dependent status verbs (e.g. "Finding services"/"Found services" for
  *  a gravity_index search). Tools without verbs fall back to per-tool-name
  *  defaults in the UI. */
@@ -36,11 +43,13 @@ export type AgentBlock = {
   blocks: ChatBlock[]
 }
 
-export type ChatBlock = TextBlock | ToolBlock | AgentBlock
+export type ChatBlock = TextBlock | ThinkingBlock | ToolBlock | AgentBlock
 
 /** Normalized streaming events sent over SSE (alongside meta/error/done). */
 export type ChatStreamEvent =
   | { type: 'delta'; text: string }
+  | { type: 'reasoning_delta'; text: string }
+  | { type: 'agent_reasoning_delta'; agentId: string; text: string }
   | {
       type: 'agent_start'
       agentId: string
@@ -65,6 +74,8 @@ export type ChatStreamEvent =
 
 const CHAT_STREAM_EVENT_TYPES = new Set<string>([
   'delta',
+  'reasoning_delta',
+  'agent_reasoning_delta',
   'agent_start',
   'agent_delta',
   'agent_finish',
@@ -135,12 +146,31 @@ export function toolCallDisplay(
   return { label: '' }
 }
 
+/** Any non-reasoning content ends the current run of thinking, so later
+ *  reasoning starts a fresh block instead of merging into the old one. */
+function closeOpenThinking(blocks: ChatBlock[]) {
+  const last = blocks[blocks.length - 1]
+  if (last?.type === 'thinking' && last.status === 'running') {
+    last.status = 'done'
+  }
+}
+
 function appendText(blocks: ChatBlock[], text: string) {
+  closeOpenThinking(blocks)
   const last = blocks[blocks.length - 1]
   if (last?.type === 'text') {
     last.text += text
   } else {
     blocks.push({ type: 'text', text })
+  }
+}
+
+function appendThinking(blocks: ChatBlock[], text: string) {
+  const last = blocks[blocks.length - 1]
+  if (last?.type === 'thinking' && last.status === 'running') {
+    last.text += text
+  } else {
+    blocks.push({ type: 'thinking', text, status: 'running' })
   }
 }
 
@@ -153,6 +183,15 @@ export class BlockTreeBuilder {
     switch (event.type) {
       case 'delta': {
         appendText(this.blocks, event.text)
+        break
+      }
+      case 'reasoning_delta': {
+        appendThinking(this.blocks, event.text)
+        break
+      }
+      case 'agent_reasoning_delta': {
+        const agent = this.agents.get(event.agentId)
+        if (agent) appendThinking(agent.blocks, event.text)
         break
       }
       case 'agent_start': {
@@ -168,7 +207,9 @@ export class BlockTreeBuilder {
         const parent = event.parentAgentId
           ? this.agents.get(event.parentAgentId)
           : undefined
-        ;(parent?.blocks ?? this.blocks).push(agent)
+        const siblings = parent?.blocks ?? this.blocks
+        closeOpenThinking(siblings)
+        siblings.push(agent)
         this.agents.set(event.agentId, agent)
         break
       }
@@ -190,9 +231,11 @@ export class BlockTreeBuilder {
           // Tool calls attributed to an agent we never saw start are dropped.
           const agent = this.agents.get(event.agentId)
           if (!agent) break
+          closeOpenThinking(agent.blocks)
           agent.blocks.push(tool)
         } else {
           // The root agent's own tool calls render as top-level rows.
+          closeOpenThinking(this.blocks)
           this.blocks.push(tool)
         }
         this.tools.set(event.toolCallId, tool)
@@ -205,16 +248,24 @@ export class BlockTreeBuilder {
       }
       case 'agent_finish': {
         const agent = this.agents.get(event.agentId)
-        if (agent) agent.status = 'done'
+        if (agent) {
+          agent.status = 'done'
+          closeOpenThinking(agent.blocks)
+        }
         break
       }
     }
   }
 
-  /** True once any subagent or tool call has appeared (plain-text turns skip
-   *  blocks). */
+  /** True once the turn needs block rendering — a subagent, tool call, or
+   *  any thinking. Pure-text turns stay on the plain `content` path. (Agent
+   *  thinking lives inside an agent block, so checking the root suffices.) */
   get hasActivityBlocks() {
-    return this.agents.size > 0 || this.tools.size > 0
+    return (
+      this.agents.size > 0 ||
+      this.tools.size > 0 ||
+      this.blocks.some((b) => b.type === 'thinking')
+    )
   }
 
   /** The root agent's own text (excludes subagent output) — what gets
@@ -229,6 +280,13 @@ export class BlockTreeBuilder {
   finalize() {
     for (const agent of this.agents.values()) agent.status = 'done'
     for (const tool of this.tools.values()) tool.status = 'done'
+    const closeAll = (blocks: ChatBlock[]) => {
+      for (const block of blocks) {
+        if (block.type === 'thinking') block.status = 'done'
+        if (block.type === 'agent') closeAll(block.blocks)
+      }
+    }
+    closeAll(this.blocks)
   }
 
   /** Immutable copy safe to hand to React state. */
@@ -245,7 +303,9 @@ export function isChatBlockArray(value: unknown): value is ChatBlock[] {
       (b) =>
         b &&
         typeof b === 'object' &&
-        ['text', 'tool', 'agent'].includes((b as { type?: string }).type ?? ''),
+        ['text', 'thinking', 'tool', 'agent'].includes(
+          (b as { type?: string }).type ?? '',
+        ),
     )
   )
 }

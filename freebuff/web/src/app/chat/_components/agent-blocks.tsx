@@ -15,10 +15,17 @@ import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Markdown } from './markdown'
+import { ThinkingRow } from './thinking-block'
 
-/** Renders a block tree: markdown text, tool-call rows, and nested
- *  collapsible agent boxes (mirrors the CLI's agent branches). */
-export function BlockList(props: { blocks: ChatBlock[]; nested?: boolean }) {
+/** Renders a block tree: markdown text, thinking rows, tool-call rows, and
+ *  nested collapsible agent boxes (mirrors the CLI's agent branches). */
+export function BlockList(props: {
+  blocks: ChatBlock[]
+  nested?: boolean
+  /** This tree belongs to the latest assistant turn — thinking rows show
+   *  their tail preview instead of collapsing. */
+  latest?: boolean
+}) {
   return (
     <div className={cn('space-y-3', props.nested && 'space-y-2.5')}>
       {props.blocks.map((block, i) => {
@@ -27,10 +34,17 @@ export function BlockList(props: { blocks: ChatBlock[]; nested?: boolean }) {
             <Markdown key={i} text={block.text} />
           ) : null
         }
+        if (block.type === 'thinking') {
+          return (
+            <ThinkingRow key={i} block={block} autoPreview={!!props.latest} />
+          )
+        }
         if (block.type === 'tool') {
           return <ToolRow key={block.toolCallId} tool={block} />
         }
-        return <AgentBox key={block.agentId} agent={block} />
+        return (
+          <AgentBox key={block.agentId} agent={block} latest={props.latest} />
+        )
       })}
     </div>
   )
@@ -50,7 +64,7 @@ function lastTextSnippet(blocks: ChatBlock[]): string {
   return ''
 }
 
-function AgentBox({ agent }: { agent: AgentBlock }) {
+function AgentBox({ agent, latest }: { agent: AgentBlock; latest?: boolean }) {
   const running = agent.status === 'running'
   // Collapsed until the user opens it; the summary row shows the prompt so
   // it's clear what the agent is working on.
@@ -102,7 +116,7 @@ function AgentBox({ agent }: { agent: AgentBlock }) {
               {agent.prompt}
             </p>
           )}
-          <BlockList blocks={agent.blocks} nested />
+          <BlockList blocks={agent.blocks} nested latest={latest} />
           {running && agent.blocks.length === 0 && (
             <p className="animate-pulse text-[13px] text-muted-foreground/60">
               working…

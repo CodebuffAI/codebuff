@@ -88,6 +88,40 @@ describe('BlockTreeBuilder', () => {
     expect(child.blocks).toEqual([{ type: 'text', text: 'deep' }])
   })
 
+  it('groups reasoning into thinking blocks closed by other content', () => {
+    const tree = new BlockTreeBuilder()
+    tree.apply({ type: 'reasoning_delta', text: 'Hmm, ' })
+    tree.apply({ type: 'reasoning_delta', text: 'let me think.' })
+    tree.apply({ type: 'delta', text: 'Answer.' })
+    // Reasoning after text starts a fresh thinking block.
+    tree.apply({ type: 'reasoning_delta', text: 'More thinking.' })
+
+    expect(tree.hasActivityBlocks).toBe(true)
+    expect(tree.blocks).toEqual([
+      { type: 'thinking', text: 'Hmm, let me think.', status: 'done' },
+      { type: 'text', text: 'Answer.' },
+      { type: 'thinking', text: 'More thinking.', status: 'running' },
+    ])
+    // Thinking is excluded from the persisted plain-text content.
+    expect(tree.rootText).toBe('Answer.')
+    expect(isChatBlockArray(tree.snapshot())).toBe(true)
+  })
+
+  it('routes subagent reasoning into the agent block, closed on finish', () => {
+    const tree = new BlockTreeBuilder()
+    tree.apply({ type: 'agent_start', agentId: 'a1', name: 'A', agentType: 'a' })
+    tree.apply({ type: 'agent_reasoning_delta', agentId: 'a1', text: 'why' })
+    // Unknown agents are dropped.
+    tree.apply({ type: 'agent_reasoning_delta', agentId: 'nope', text: 'x' })
+    tree.apply({ type: 'agent_finish', agentId: 'a1' })
+
+    const agent = tree.blocks[0] as AgentBlock
+    expect(agent.blocks).toEqual([
+      { type: 'thinking', text: 'why', status: 'done' },
+    ])
+    expect(tree.blocks).toHaveLength(1)
+  })
+
   it('renders the root agent tool calls as top-level rows', () => {
     const tree = new BlockTreeBuilder()
     tree.apply({ type: 'delta', text: 'Let me check the catalog.' })
