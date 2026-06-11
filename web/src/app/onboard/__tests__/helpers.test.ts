@@ -8,6 +8,7 @@ import {
   getConsumedCliAuthCodeTokenIdentifier,
   getConsumedCliAuthCodeTokenValue,
   isAuthCodeExpired,
+  isLikelyTruncatedCliAuthCodeToken,
   isOpaqueCliAuthCodeToken,
   parseAuthCode,
   resolveCliAuthCode,
@@ -227,7 +228,7 @@ describe('onboard/_helpers', () => {
       )
     })
 
-    test('identifies 43 character base64url browser tokens only', () => {
+    test('identifies base64url browser tokens only', () => {
       const opaqueToken = 'A'.repeat(41) + '-_'
       const signedAuthCode = buildCliAuthCode(
         testFingerprintId,
@@ -237,9 +238,37 @@ describe('onboard/_helpers', () => {
 
       expect(isOpaqueCliAuthCodeToken(opaqueToken)).toBe(true)
       expect(isOpaqueCliAuthCodeToken(` ${opaqueToken}\n`)).toBe(true)
+      // Current issued length: randomBytes(16) -> 22 chars.
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(22))).toBe(true)
+      // Truncated tokens still get the DB lookup so we can show a clear error.
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(39))).toBe(true)
       expect(isOpaqueCliAuthCodeToken(signedAuthCode)).toBe(false)
-      expect(isOpaqueCliAuthCodeToken('A'.repeat(42))).toBe(false)
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(15))).toBe(false)
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(65))).toBe(false)
       expect(isOpaqueCliAuthCodeToken(`${'A'.repeat(42)}.`)).toBe(false)
+    })
+
+    test('flags wrong-length base64url codes as likely truncated', () => {
+      // A 43-char token that lost its last 4 chars to terminal line wrapping.
+      expect(
+        isLikelyTruncatedCliAuthCodeToken(
+          'W2_ID75J0f7-8VbdfIlane3wUf0ku6RZP03L3md',
+        ),
+      ).toBe(true)
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(15))).toBe(true)
+
+      // Exact issued lengths are not "truncated".
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(22))).toBe(false)
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(43))).toBe(false)
+
+      // Signed codes and junk don't count.
+      expect(
+        isLikelyTruncatedCliAuthCodeToken(
+          buildCliAuthCode(testFingerprintId, '1704067200000', 'a'.repeat(64)),
+        ),
+      ).toBe(false)
+      expect(isLikelyTruncatedCliAuthCodeToken('short')).toBe(false)
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(70))).toBe(false)
     })
 
     test('hashes auth codes for log correlation without logging the token', () => {

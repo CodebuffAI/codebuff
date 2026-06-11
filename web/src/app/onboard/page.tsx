@@ -12,7 +12,9 @@ import {
   hasCliSessionForAuthHash,
 } from './_db'
 import {
+  getCliAuthCodeHashPrefix,
   isAuthCodeExpired,
+  isLikelyTruncatedCliAuthCodeToken,
   parseAuthCode,
   resolveCliAuthCode,
   validateAuthCode,
@@ -27,6 +29,23 @@ interface PageProps {
   searchParams?: Promise<{
     auth_code?: string
   }>
+}
+
+function TruncatedLinkCard() {
+  return (
+    <CardWithBeams
+      title="Your login link was cut off"
+      description="The code in this link is incomplete — it was likely split across two lines in your terminal."
+      content={
+        <p>
+          Go back to your terminal and press <strong>c</strong> to copy the
+          full login link (or carefully select the entire URL, including any
+          characters that wrapped onto the next line), then paste it into your
+          browser.
+        </p>
+      }
+    />
+  )
 }
 
 const Onboard = async ({ searchParams }: PageProps) => {
@@ -70,6 +89,20 @@ const Onboard = async ({ searchParams }: PageProps) => {
   }
 
   if (authCodeResolution.status === 'missing') {
+    logger.info(
+      {
+        authCodeLength: authCode.length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        likelyTruncated: isLikelyTruncatedCliAuthCodeToken(authCode),
+        userId: user.id,
+      },
+      'Missing Codebuff CLI auth code token',
+    )
+
+    if (isLikelyTruncatedCliAuthCodeToken(authCode)) {
+      return <TruncatedLinkCard />
+    }
+
     return (
       <CardWithBeams
         title="This login link has expired"
@@ -90,6 +123,23 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (!valid) {
+    logger.warn(
+      {
+        authCodeLength: authCode.length,
+        authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
+        resolvedOpaqueToken: authCodeResolution.resolvedOpaqueToken,
+        likelyTruncated: isLikelyTruncatedCliAuthCodeToken(authCode),
+        dotCount: authCode.match(/\./g)?.length ?? 0,
+        hyphenCount: authCode.match(/-/g)?.length ?? 0,
+        userId: user.id,
+      },
+      'Invalid Codebuff CLI auth code',
+    )
+
+    if (isLikelyTruncatedCliAuthCodeToken(authCode)) {
+      return <TruncatedLinkCard />
+    }
+
     return (
       <CardWithBeams
         title="Uh-oh, spaghettio!"

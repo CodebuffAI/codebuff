@@ -15,6 +15,7 @@ import {
 import {
   getCliAuthCodeHashPrefix,
   isAuthCodeExpired,
+  isLikelyTruncatedCliAuthCodeToken,
   isOpaqueCliAuthCodeToken,
   parseAuthCode,
   resolveCliAuthCode,
@@ -67,6 +68,16 @@ function StatusCard({
         </Card>
       </div>
     </main>
+  )
+}
+
+function TruncatedLinkCard() {
+  return (
+    <StatusCard
+      title="Your login link was cut off"
+      description="The code in this link is incomplete — it was likely split across two lines in your terminal."
+      message="Go back to your terminal and press c to copy the full login link (or carefully select the entire URL, including any characters that wrapped onto the next line), then paste it into your browser."
+    />
   )
 }
 
@@ -133,10 +144,15 @@ const Onboard = async ({ searchParams }: PageProps) => {
         authCodeTrimmedLength: authCode.trim().length,
         authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
         isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        likelyTruncated: isLikelyTruncatedCliAuthCodeToken(authCode),
         userId: user.id,
       },
       'Missing Freebuff CLI auth code token',
     )
+
+    if (isLikelyTruncatedCliAuthCodeToken(authCode)) {
+      return <TruncatedLinkCard />
+    }
 
     return (
       <StatusCard
@@ -171,6 +187,7 @@ const Onboard = async ({ searchParams }: PageProps) => {
         authCodeHashPrefix: getCliAuthCodeHashPrefix(authCode),
         resolvedAuthCodeHashPrefix: getCliAuthCodeHashPrefix(resolvedAuthCode),
         isOpaqueAuthCodeToken: isOpaqueCliAuthCodeToken(authCode),
+        likelyTruncated: isLikelyTruncatedCliAuthCodeToken(authCode),
         authCodeResolutionStatus,
         resolvedAuthCode: resolvedOpaqueToken,
         resolvedOpaqueToken,
@@ -194,6 +211,10 @@ const Onboard = async ({ searchParams }: PageProps) => {
       },
       'Invalid Freebuff CLI auth code',
     )
+
+    if (isLikelyTruncatedCliAuthCodeToken(authCode)) {
+      return <TruncatedLinkCard />
+    }
 
     return (
       <StatusCard

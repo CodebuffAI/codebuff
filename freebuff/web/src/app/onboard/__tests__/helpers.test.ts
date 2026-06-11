@@ -9,6 +9,7 @@ import {
   getConsumedCliAuthCodeTokenValue,
   isAuthCodeExpired,
   isCliAuthCodeCandidate,
+  isLikelyTruncatedCliAuthCodeToken,
   isOpaqueCliAuthCodeToken,
   parseAuthCode,
   resolveCliAuthCode,
@@ -100,7 +101,7 @@ describe('freebuff onboard/_helpers', () => {
       )
     })
 
-    test('identifies 43 character base64url browser tokens only', () => {
+    test('identifies base64url browser tokens only', () => {
       const opaqueToken = 'A'.repeat(41) + '-_'
       const signedAuthCode = buildCliAuthCode(
         testFingerprintId,
@@ -110,9 +111,39 @@ describe('freebuff onboard/_helpers', () => {
 
       expect(isOpaqueCliAuthCodeToken(opaqueToken)).toBe(true)
       expect(isOpaqueCliAuthCodeToken(` ${opaqueToken}\n`)).toBe(true)
+      // Current issued length: randomBytes(16) -> 22 chars.
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(22))).toBe(true)
+      // Truncated tokens still get the DB lookup so we can show a clear error.
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(39))).toBe(true)
       expect(isOpaqueCliAuthCodeToken(signedAuthCode)).toBe(false)
-      expect(isOpaqueCliAuthCodeToken('A'.repeat(42))).toBe(false)
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(15))).toBe(false)
+      expect(isOpaqueCliAuthCodeToken('A'.repeat(65))).toBe(false)
       expect(isOpaqueCliAuthCodeToken(`${'A'.repeat(42)}.`)).toBe(false)
+    })
+
+    test('flags wrong-length base64url codes as likely truncated', () => {
+      // A 43-char token that lost its last 4 chars to terminal line wrapping.
+      expect(
+        isLikelyTruncatedCliAuthCodeToken(
+          'W2_ID75J0f7-8VbdfIlane3wUf0ku6RZP03L3md',
+        ),
+      ).toBe(true)
+      expect(
+        isLikelyTruncatedCliAuthCodeToken('F0xe_Mt2yA2az_LUXGxlBsGDIgJ'),
+      ).toBe(true)
+
+      // Exact issued lengths are not "truncated".
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(22))).toBe(false)
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(43))).toBe(false)
+
+      // Signed codes and junk don't count.
+      expect(
+        isLikelyTruncatedCliAuthCodeToken(
+          buildCliAuthCode(testFingerprintId, '1704067200000', 'a'.repeat(64)),
+        ),
+      ).toBe(false)
+      expect(isLikelyTruncatedCliAuthCodeToken('short')).toBe(false)
+      expect(isLikelyTruncatedCliAuthCodeToken('A'.repeat(70))).toBe(false)
     })
 
     test('identifies auth code candidates by supported shapes', () => {
@@ -129,8 +160,11 @@ describe('freebuff onboard/_helpers', () => {
       expect(isCliAuthCodeCandidate(opaqueToken)).toBe(true)
       expect(isCliAuthCodeCandidate(signedAuthCode)).toBe(true)
       expect(isCliAuthCodeCandidate(legacyAuthCode)).toBe(true)
-      expect(isCliAuthCodeCandidate(crypto.randomUUID())).toBe(false)
-      expect(isCliAuthCodeCandidate('F0xe_Mt2yA2az_LUXGxlBsGDIgJ')).toBe(false)
+      // Truncated tokens count as candidates so /onboard can explain the
+      // cut-off link instead of silently dropping the code at /login.
+      expect(isCliAuthCodeCandidate('F0xe_Mt2yA2az_LUXGxlBsGDIgJ')).toBe(true)
+      expect(isCliAuthCodeCandidate('not base64url!')).toBe(false)
+      expect(isCliAuthCodeCandidate('short')).toBe(false)
       expect(
         isCliAuthCodeCandidate(
           buildCliAuthCode(testFingerprintId, 'not-a-number', 'a'.repeat(64)),

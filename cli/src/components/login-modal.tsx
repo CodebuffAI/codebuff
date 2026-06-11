@@ -1,5 +1,11 @@
 import { useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { Button } from './button'
 import { useLoginMutation } from '../hooks/use-auth-query'
@@ -209,11 +215,13 @@ export const LoginModal = ({
     maxUrlWidth,
   } = calculateResponsiveLayout(terminalWidth, terminalHeight)
 
-  // Format login URL lines
-  const formatLoginUrlLines = useCallback(
-    (text: string, width?: number) => formatUrl(text, width ?? maxUrlWidth),
-    [maxUrlWidth],
+  const loginUrlLines = useMemo(
+    () => (loginUrl ? formatUrl(loginUrl, maxUrlWidth) : []),
+    [loginUrl, maxUrlWidth],
   )
+  // A wrapped URL is a trap: terminal link detection and drag-select only
+  // capture the first row, so the auth code arrives truncated.
+  const loginUrlWrapped = loginUrlLines.length > 1
 
   // Use custom hook for sheen animation
   const blockColor = getLogoBlockColor(theme.name)
@@ -381,7 +389,7 @@ export const LoginModal = ({
                 alignItems: 'flex-start',
               }}
             >
-              {formatLoginUrlLines(loginUrl, maxUrlWidth).map((line, index) => (
+              {loginUrlLines.map((line, index) => (
                 <text key={index} style={{ wrapMode: 'none' }}>
                   <span
                     fg={
@@ -397,6 +405,14 @@ export const LoginModal = ({
                 </text>
               ))}
             </box>
+            {loginUrlWrapped && (
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.warning}>
+                  ⚠ The link wraps across lines — clicking it will cut it off.
+                  Press c to copy the full link instead.
+                </span>
+              </text>
+            )}
             <box
               style={{
                 flexDirection: 'column',

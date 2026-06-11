@@ -10,6 +10,7 @@ import { z } from 'zod/v4'
 
 import {
   buildCliAuthCode,
+  CLI_AUTH_CODE_TOKEN_BYTES,
   getCliAuthCodeHashPrefix,
   getCliAuthCodeTokenIdentifier,
 } from '@/app/onboard/_helpers'
@@ -68,7 +69,8 @@ export async function POST(req: Request) {
       expiresAt.toString(),
       fingerprintHash,
     )
-    const loginToken = randomBytes(32).toString('base64url')
+    const loginToken =
+      randomBytes(CLI_AUTH_CODE_TOKEN_BYTES).toString('base64url')
 
     await db.insert(schema.verificationToken).values({
       identifier: getCliAuthCodeTokenIdentifier(loginToken),
