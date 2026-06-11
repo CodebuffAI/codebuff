@@ -291,7 +291,7 @@ export function ChatApp() {
       streaming={streaming}
       model={model}
       onModelChange={setModel}
-      showModelSelector={canSelectModel}
+      canSelectModel={canSelectModel}
       autoFocus
     />
   )
@@ -404,8 +404,8 @@ export function ChatApp() {
         </ul>
       </nav>
       <div className="border-t border-white/5 px-4 py-3">
-        <p className="text-[11px] leading-relaxed text-muted-foreground/60">
-          Free AI chat by Freebuff.{' '}
+        <p className="truncate text-[11px] leading-relaxed text-muted-foreground/60">
+          By Freebuff ·{' '}
           <Link href="/" className="underline hover:text-muted-foreground">
             Try the coding agent →
           </Link>

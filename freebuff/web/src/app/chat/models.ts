@@ -14,26 +14,32 @@ export interface ChatModelOption {
   id: string
   /** Model id sent through the agent framework / completions endpoint. */
   backendId: string
+  /** Picker label: the speed/capability tier the user chooses on. */
   label: string
-  tagline: string
+  /** Display name of the underlying model. */
+  modelName: string
 }
 
 export const CHAT_MODELS: ChatModelOption[] = [
   {
     id: 'deepseek-v4-flash',
     backendId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    label: 'DeepSeek Flash',
-    tagline: 'Fast · everyday questions',
+    label: 'Fast',
+    modelName: 'DeepSeek Flash',
   },
   {
     id: 'deepseek-v4-pro',
     backendId: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    label: 'DeepSeek Pro',
-    tagline: 'Smartest · complex work',
+    label: 'Smartest',
+    modelName: 'DeepSeek Pro',
   },
 ]
 
 export const DEFAULT_CHAT_MODEL_ID = 'deepseek-v4-flash'
+
+export function getChatModelById(id: string): ChatModelOption {
+  return CHAT_MODELS.find((m) => m.id === id) ?? CHAT_MODELS[0]
+}
 
 export function isChatModelId(id: string): boolean {
   return CHAT_MODELS.some((m) => m.id === id)

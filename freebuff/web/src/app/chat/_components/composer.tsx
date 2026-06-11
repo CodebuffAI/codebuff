@@ -3,7 +3,12 @@
 import { ArrowUp, ChevronDown, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-import { CHAT_MESSAGE_MAX_CHARS, CHAT_MODELS } from '@/app/chat/models'
+import {
+  CHAT_MESSAGE_MAX_CHARS,
+  CHAT_MODELS,
+  DEFAULT_CHAT_MODEL_ID,
+  getChatModelById,
+} from '@/app/chat/models'
 import { cn } from '@/lib/utils'
 
 export function Composer(props: {
@@ -12,7 +17,8 @@ export function Composer(props: {
   streaming: boolean
   model: string
   onModelChange: (model: string) => void
-  showModelSelector: boolean
+  /** When false (limited access), a plain model-name label replaces the switcher. */
+  canSelectModel: boolean
   autoFocus?: boolean
 }) {
   const [value, setValue] = useState('')
@@ -59,8 +65,10 @@ export function Composer(props: {
     props.onSend(content)
   }
 
-  const selectedModel =
-    CHAT_MODELS.find((m) => m.id === props.model) ?? CHAT_MODELS[0]
+  const selectedModel = getChatModelById(props.model)
+  // Limited users are pinned server-side to the default model (even if an
+  // old thread stored another), so the static label shows the default.
+  const defaultModel = getChatModelById(DEFAULT_CHAT_MODEL_ID)
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] focus-within:border-white/20 transition-colors shadow-lg shadow-black/20">
@@ -83,7 +91,11 @@ export function Composer(props: {
         className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-6 text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
       />
       <div className="flex items-center justify-between px-2.5 pb-2.5 pt-1">
-        {props.showModelSelector ? (
+        {!props.canSelectModel ? (
+          <span className="px-2.5 py-1.5 text-xs text-muted-foreground">
+            {defaultModel.modelName}
+          </span>
+        ) : (
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -113,15 +125,13 @@ export function Composer(props: {
                   >
                     <span className="text-sm text-foreground">{m.label}</span>
                     <span className="text-xs text-muted-foreground">
-                      {m.tagline}
+                      {m.modelName}
                     </span>
                   </button>
                 ))}
               </div>
             )}
           </div>
-        ) : (
-          <div />
         )}
         {props.streaming ? (
           <button
