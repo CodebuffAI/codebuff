@@ -19,6 +19,8 @@ interface SuggestionMenuProps {
   maxVisible: number
   prefix?: string
   onItemClick?: (index: number) => void
+  /** Muted hint line rendered below the suggestions */
+  footer?: string
 }
 
 export const SuggestionMenu = ({
@@ -27,6 +29,7 @@ export const SuggestionMenu = ({
   maxVisible,
   prefix = '/',
   onItemClick,
+  footer,
 }: SuggestionMenuProps) => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
@@ -202,6 +205,11 @@ export const SuggestionMenu = ({
       onMouseOut={() => setHoveredIndex(null)}
     >
       {visibleItems.map(renderSuggestionItem)}
+      {footer ? (
+        <box style={{ paddingLeft: 1, paddingRight: 1 }}>
+          <text style={{ fg: theme.muted, wrapMode: 'word' }}>{footer}</text>
+        </box>
+      ) : null}
     </box>
   )
 }

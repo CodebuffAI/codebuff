@@ -22,6 +22,10 @@ export function getProjectRoot() {
   return projectRoot
 }
 
+export function tryGetProjectRoot() {
+  return projectRoot
+}
+
 export function getCurrentChatId() {
   if (!currentChatId) {
     currentChatId = new Date().toISOString().replace(/:/g, '-')

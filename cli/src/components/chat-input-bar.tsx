@@ -1,3 +1,7 @@
+import {
+  isShallowScanRoot,
+  SHALLOW_SCAN_MAX_DEPTH,
+} from '@codebuff/common/project-file-tree'
 import React from 'react'
 
 import { AgentModeToggle } from './agent-mode-toggle'
@@ -10,6 +14,7 @@ import { PublishContainer } from './publish-container'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
+import { tryGetProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { shouldInterceptChatInputKey } from '../utils/chat-input-key-intercept'
 import { getInputModeConfig } from '../utils/input-modes'
@@ -117,6 +122,12 @@ export const ChatInputBar = ({
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
   const hasAnyPreview = hasSuggestionMenu
+
+  // In the home directory (or an ancestor) the file tree is only scanned a few
+  // levels deep, so tell the user why deeper files don't show up.
+  const mentionMenuFooter = isShallowScanRoot(tryGetProjectRoot())
+    ? `Files shown up to ${SHALLOW_SCAN_MAX_DEPTH} levels deep — open a project folder for full results`
+    : undefined
 
   // Increase menu size on larger screen heights
   const normalModeMaxVisible = terminalHeight > 35 ? 15 : 10
@@ -311,6 +322,7 @@ export const ChatInputBar = ({
             maxVisible={5}
             prefix="@"
             onItemClick={onMentionItemClick}
+            footer={mentionMenuFooter}
           />
         ) : null}
         <box
@@ -394,6 +406,7 @@ export const ChatInputBar = ({
             maxVisible={normalModeMaxVisible}
             prefix="@"
             onItemClick={onMentionItemClick}
+            footer={mentionMenuFooter}
           />
         ) : null}
         <box
