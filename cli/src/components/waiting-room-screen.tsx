@@ -107,11 +107,17 @@ const formatPrivacySignalList = (
   return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
 }
 
-const getLimitedModeReason = (
+// Tone matters here: this is shown to users who, through no fault of their
+// own, get the smaller model set. Frame it as model *availability* ("aren't
+// available in BR yet"), never as restricted *access* ("limited mode",
+// "blocked") — clear enough to answer "why these models?" for someone who
+// goes looking, quiet enough to ignore for someone who doesn't. The VPN case
+// is the one the user can act on, so it leads with the action.
+const getLimitedModeNotice = (
   session: FreebuffSessionResponse | null,
 ): string | null => {
   if (!session || !('countryBlockReason' in session)) {
-    return 'reduced free model access'
+    return "Some models aren't available on this connection"
   }
 
   const countryCode =
@@ -123,19 +129,19 @@ const getLimitedModeReason = (
 
   switch (session.countryBlockReason) {
     case 'anonymous_network':
-      return `${formatPrivacySignalList(
+      return `Using a ${formatPrivacySignalList(
         session.ipPrivacySignals ?? undefined,
-      )} detected`
+      )}? More models are available on a direct connection`
     case 'country_not_allowed':
-      return `based on detected country${countryCode ? `: ${countryCode}` : ''}`
+      return `Some models aren't available in ${countryCode ?? 'your region'} yet`
     case 'anonymized_or_unknown_country':
     case 'missing_client_ip':
     case 'unresolved_client_ip':
-      return 'location could not be verified'
+      return "We couldn't confirm your region, so we're showing models available everywhere"
     case 'ip_privacy_lookup_failed':
-      return 'network check could not finish'
+      return "We couldn't finish a network check, so we're showing models available everywhere"
     default:
-      return 'reduced free model access'
+      return "Some models aren't available on this connection"
   }
 }
 
@@ -344,8 +350,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const isQueued = session?.status === 'queued'
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
-  const limitedModeReason =
-    accessTier === 'limited' ? getLimitedModeReason(session) : null
+  const limitedModeNotice =
+    accessTier === 'limited' ? getLimitedModeNotice(session) : null
   // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
   // state: show the picker with live N-in-line hints and a prompt. Picking a
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
@@ -389,7 +395,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     accessTier === 'limited'
       ? FREEBUFF_LIMITED_SESSION_LIMIT
       : FREEBUFF_PREMIUM_SESSION_LIMIT
-  const sessionLabel = 'premium sessions'
+  const sessionLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)
   const sessionResetAt = getFreebuffPremiumResetAt({
     rateLimitsByModel,
@@ -486,12 +492,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
         }}
       >
         <box>
-          {limitedModeReason && (
+          {limitedModeNotice && (
             <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-              <span fg={theme.secondary} attributes={TextAttributes.BOLD}>
-                Limited mode
-              </span>
-              <span fg={theme.muted}> · {limitedModeReason}</span>
+              {limitedModeNotice}
             </text>
           )}
         </box>
