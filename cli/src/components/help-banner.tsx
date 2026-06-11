@@ -94,6 +94,10 @@ export const HelpBanner = () => {
               Use @ to reference agents to spawn or files to read
             </text>
             <text style={{ fg: theme.muted }}>
+              Drag to select text — it copies automatically (or click ⎘ on a
+              message)
+            </text>
+            <text style={{ fg: theme.muted }}>
               Esc to cancel the current response
             </text>
           </box>

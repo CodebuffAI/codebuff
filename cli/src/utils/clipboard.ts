@@ -96,16 +96,20 @@ export async function copyTextToClipboard(
     return
   }
 
+  const osc52Blocked = isOsc52Blocked()
   try {
+    const tryCopyViaAnyOsc52 = () =>
+      !osc52Blocked && (tryCopyViaRenderer(text) || tryCopyViaOsc52(text))
+
     let copied: boolean
     if (isRemoteSession()) {
       // Remote/SSH: prefer renderer OSC 52 (through render pipeline),
       // then our manual OSC 52, then platform tools
-      copied = tryCopyViaRenderer(text) || tryCopyViaOsc52(text) || tryCopyViaPlatformTool(text)
+      copied = tryCopyViaAnyOsc52() || tryCopyViaPlatformTool(text)
     } else {
       // Local: prefer platform tools (reliable with tmux),
       // then renderer OSC 52, then our manual OSC 52 as fallback
-      copied = tryCopyViaPlatformTool(text) || tryCopyViaRenderer(text) || tryCopyViaOsc52(text)
+      copied = tryCopyViaPlatformTool(text) || tryCopyViaAnyOsc52()
     }
 
     if (!copied) {
@@ -123,10 +127,17 @@ export async function copyTextToClipboard(
     }
   } catch (error) {
     logger.error(error, 'Failed to copy to clipboard')
-    if (!suppressGlobalMessage) {
-      showClipboardMessage(errorMessage ?? 'Failed to copy to clipboard', {
-        durationMs,
-      })
+    // When the terminal drops OSC 52 and no platform tool exists (e.g.
+    // Codespaces), the Shift+drag guidance is the only way the user can copy,
+    // so show it even for callers that suppress routine messages.
+    if (!suppressGlobalMessage || osc52Blocked) {
+      showClipboardMessage(
+        osc52Blocked
+          ? OSC52_BLOCKED_MESSAGE
+          : (errorMessage ?? 'Failed to copy to clipboard'),
+        // Give the longer guidance message extra time to be read
+        { durationMs: durationMs ?? (osc52Blocked ? 6000 : undefined) },
+      )
     }
     throw error
   }
@@ -151,6 +162,21 @@ export function clearClipboardMessage() {
 export function isRemoteSession(): boolean {
   const env = getCliEnv()
   return !!(env.SSH_CLIENT || env.SSH_TTY || env.SSH_CONNECTION)
+}
+
+export const OSC52_BLOCKED_MESSAGE =
+  'Copy is blocked by this terminal — hold Shift and drag to select, then copy normally'
+
+// GitHub Codespaces and VS Code remote (SSH/tunnel) terminals silently drop
+// OSC 52 sequences, so a "successful" write never reaches the user's
+// clipboard. Local VS Code terminals (including devcontainers) honor OSC 52.
+// https://github.com/microsoft/vscode-remote-release/issues/11475
+export function isOsc52Blocked(): boolean {
+  const env = getCliEnv()
+  return (
+    env.TERM_PROGRAM === 'vscode' &&
+    (env.CODESPACES === 'true' || isRemoteSession())
+  )
 }
 
 function tryCopyViaPlatformTool(text: string): boolean {

@@ -29,6 +29,7 @@ export const getCliEnv = (): CliEnv => ({
   SSH_CLIENT: process.env.SSH_CLIENT,
   SSH_TTY: process.env.SSH_TTY,
   SSH_CONNECTION: process.env.SSH_CONNECTION,
+  CODESPACES: process.env.CODESPACES,
 
   // Terminal detection
   KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,

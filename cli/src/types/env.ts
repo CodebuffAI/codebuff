@@ -25,6 +25,7 @@ export type CliEnv = BaseEnv & {
   SSH_CLIENT?: string
   SSH_TTY?: string
   SSH_CONNECTION?: string
+  CODESPACES?: string
 
   // Display server detection (Linux headless check)
   DISPLAY?: string
