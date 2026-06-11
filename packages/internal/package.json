@@ -59,9 +59,9 @@
     "msw": "^2.12.1",
     "postgres": "^3.4.7",
     "server-only": "0.0.1",
-    "geoip-lite": "^2.0.0"
+    "geoip-country": "^5.0.0"
   },
   "devDependencies": {
-    "@types/geoip-lite": "^1.4.4"
+    "@types/geoip-country": "^5.0.0"
   }
 }

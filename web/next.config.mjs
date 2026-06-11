@@ -36,7 +36,7 @@ const nextConfig = {
       'encoding',
       'perf_hooks',
       'async_hooks',
-      'geoip-lite',
+      'geoip-country',
     )
 
     // Externalize code-map package to avoid bundling tree-sitter WASM files

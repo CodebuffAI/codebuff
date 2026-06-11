@@ -34,7 +34,7 @@ const nextConfig = {
     'thread-stream',
     'pino-pretty',
     // Reads its data files from node_modules at runtime; must stay unbundled.
-    'geoip-lite',
+    'geoip-country',
     // Ships WASM modules (tree-sitter, quickjs) that bundlers can't resolve;
     // loaded from its built dist at runtime (see prepare:workspace).
     '@codebuff/sdk',

@@ -17,13 +17,32 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { DatabaseAgentCache } from '@codebuff/common/types/contracts/database'
 import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 
-const databaseAgentCache: DatabaseAgentCache = new Map()
+const DATABASE_AGENT_CACHE_MAX_ENTRIES = 200
+
+/** Insertion-order (FIFO) eviction so the cache can't grow without bound in
+ *  long-lived processes (e.g. the freebuff chat server, which runs the agent
+ *  runtime in-process). Templates are large — prompts plus handleSteps source. */
+class BoundedAgentCache extends Map<string, AgentTemplate | null> {
+  override set(key: string, value: AgentTemplate | null): this {
+    if (!this.has(key)) {
+      while (this.size >= DATABASE_AGENT_CACHE_MAX_ENTRIES) {
+        const oldestKey = this.keys().next().value
+        if (oldestKey === undefined) break
+        this.delete(oldestKey)
+      }
+    }
+    return super.set(key, value)
+  }
+}
+
+const databaseAgentCache: DatabaseAgentCache = new BoundedAgentCache()
 
 export function getAgentRuntimeImpl(
   params: {

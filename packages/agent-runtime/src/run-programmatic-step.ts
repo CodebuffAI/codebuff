@@ -44,6 +44,20 @@ export function clearAgentGeneratorCache(params: { logger: Logger }) {
   runIdToStepAll.clear()
 }
 
+/**
+ * Release all module-level state held for a run: the handleSteps generator
+ * (whose closure retains the full agent state and message history), the
+ * STEP_ALL flag, and any proposed file content. Safe to call for runs with
+ * no programmatic state. Must run whenever a run's loop exits — including
+ * abort and error paths, not just endTurn — or the state leaks for the
+ * lifetime of the process.
+ */
+export function clearProgrammaticRunState(runId: string): void {
+  delete runIdToGenerator[runId]
+  runIdToStepAll.delete(runId)
+  clearProposedContentForRun(runId)
+}
+
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
   params: {
@@ -376,9 +390,7 @@ export async function runProgrammaticStep(
     }
   } finally {
     if (endTurn) {
-      delete runIdToGenerator[agentState.runId]
-      runIdToStepAll.delete(agentState.runId)
-      clearProposedContentForRun(agentState.runId)
+      clearProgrammaticRunState(agentState.runId)
     }
   }
 }

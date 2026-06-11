@@ -1,6 +1,5 @@
 import { createHmac } from 'node:crypto'
 
-import geoip from 'geoip-lite'
 import {
   FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS,
   isFreebuffHardBlockedPrivacySignal,
@@ -996,6 +995,11 @@ export async function getFreeModeCountryAccess(
       clientIpHash,
     }
   } else {
+    // Loaded lazily: geoip-country reads its country database (~19 MB RSS)
+    // into memory at require time, and this fallback is only reachable when
+    // Cloudflare's cf-ipcountry header is absent — never in production
+    // behind Cloudflare.
+    const { default: geoip } = await import('geoip-country')
     const geoipCountry = geoip.lookup(clientIp)?.country ?? null
     if (!geoipCountry) {
       return {

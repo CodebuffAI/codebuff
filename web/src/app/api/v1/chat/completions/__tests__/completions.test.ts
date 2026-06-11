@@ -1048,7 +1048,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           'limited model enforcement should run before session gate',
         )
       })
-      // Use a TEST-NET-1 IP (RFC 5737) that geoip-lite cannot resolve, with
+      // Use a TEST-NET-1 IP (RFC 5737) that geoip-country cannot resolve, with
       // no cf-ipcountry header. This avoids the dev-only localhost bypass
       // (which kicks in when there is no cf-ipcountry AND no/loopback IP).
       const req = new NextRequest(
