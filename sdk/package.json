@@ -65,6 +65,7 @@
     "diff": "8.0.3",
     "gray-matter": "^4.0.3",
     "ignore": "7.0.5",
+    "ipaddr.js": "^1.9.1",
     "micromatch": "^4.0.8",
     "web-tree-sitter": "0.25.10",
     "ws": "^8.18.0",

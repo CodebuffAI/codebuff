@@ -1,8 +1,12 @@
+import { assertUrlAllowed, type HostLookup } from './ssrf'
+
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const DEFAULT_MAX_CHARS = 20_000
 const MAX_RESPONSE_BYTES = 2_000_000
 const FETCH_TIMEOUT_MS = 20_000
+const MAX_REDIRECTS = 5
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const USER_AGENT =
   'Mozilla/5.0 (compatible; CodebuffResearchBot/1.0; +https://codebuff.com)'
 
@@ -17,10 +21,6 @@ function errorResult(
   errorMessage: string,
 ): ReadUrlOutput {
   return [{ type: 'json', value: { ...(url ? { url } : {}), errorMessage } }]
-}
-
-function isAllowedUrl(url: URL): boolean {
-  return url.protocol === 'http:' || url.protocol === 'https:'
 }
 
 function getHeader(headers: Headers, name: string): string | undefined {
@@ -326,10 +326,20 @@ export async function readUrl({
   url,
   max_chars = DEFAULT_MAX_CHARS,
   fetch: fetchImpl = globalThis.fetch,
+  lookupHost,
+  resolveDns = fetchImpl === globalThis.fetch,
 }: {
   url: string
   max_chars?: number
   fetch?: FetchLike
+  /** Override hostname resolution (defaults to node:dns). */
+  lookupHost?: HostLookup
+  /**
+   * Whether to DNS-resolve hostnames for SSRF checks. Defaults to true only
+   * when using the real global fetch; a caller-supplied fetch (e.g. a test
+   * stub) skips resolution but IP-literal hosts are still rejected.
+   */
+  resolveDns?: boolean
 }): Promise<ReadUrlOutput> {
   let parsedUrl: URL
   try {
@@ -338,24 +348,58 @@ export async function readUrl({
     return errorResult(url, 'Invalid URL')
   }
 
-  if (!isAllowedUrl(parsedUrl)) {
-    return errorResult(url, 'Only http:// and https:// URLs are supported')
-  }
-
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const response = await fetchImpl(parsedUrl.toString(), {
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        accept:
-          'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.8',
-        'accept-language': 'en-US,en;q=0.9',
-        'user-agent': USER_AGENT,
-      },
-    })
+    // Follow redirects manually so every hop is re-validated against the SSRF
+    // policy — a public URL must not be able to 30x its way to an internal one.
+    let currentUrl = parsedUrl
+    let response: Response
+    for (let redirects = 0; ; redirects++) {
+      try {
+        // NOTE: this resolves the hostname for validation; `fetch` resolves it
+        // again independently, so a short-TTL attacker domain could rebind
+        // between the two (DNS-rebinding TOCTOU). Fully closing that needs
+        // IP-pinning (an undici dispatcher), which Bun's fetch ignores, so it's
+        // an accepted residual gap — the common literal/internal-host vectors
+        // are still blocked.
+        await assertUrlAllowed(currentUrl, { lookupHost, resolveDns })
+      } catch (error) {
+        return errorResult(
+          url,
+          error instanceof Error ? error.message : 'Blocked URL',
+        )
+      }
+
+      response = await fetchImpl(currentUrl.toString(), {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          accept:
+            'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.8',
+          'accept-language': 'en-US,en;q=0.9',
+          'user-agent': USER_AGENT,
+        },
+      })
+
+      if (!REDIRECT_STATUSES.has(response.status)) {
+        break
+      }
+
+      const location = getHeader(response.headers, 'location')
+      if (!location) {
+        break
+      }
+      if (redirects >= MAX_REDIRECTS) {
+        return errorResult(url, `Too many redirects (>${MAX_REDIRECTS})`)
+      }
+      try {
+        currentUrl = new URL(location, currentUrl)
+      } catch {
+        return errorResult(url, `Invalid redirect location: ${location}`)
+      }
+    }
 
     if (!response.ok) {
       return errorResult(
@@ -385,7 +429,7 @@ export async function readUrl({
         type: 'json',
         value: {
           url,
-          finalUrl: response.url || parsedUrl.toString(),
+          finalUrl: response.url || currentUrl.toString(),
           status: response.status,
           ...(contentType ? { contentType } : {}),
           ...(extracted.title ? { title: extracted.title } : {}),
