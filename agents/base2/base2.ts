@@ -603,6 +603,8 @@ function buildImplementationStepPrompt({
     isFree &&
       !noReview &&
       `You must spawn a ${freeCodeReviewerAgentId} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+    (isDefault || isMax || (isFree && !noReview)) &&
+      `Don't spawn a code reviewer if you haven't made code changes, e.g. when you only wrote a plan or answered a question.`,
     `When the user request is complete, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !noAskUser &&
       `At the end of your turn, you must use the suggest_followups tool to suggest around 3 next steps the user might want to take even if the user just asks a question.`,
