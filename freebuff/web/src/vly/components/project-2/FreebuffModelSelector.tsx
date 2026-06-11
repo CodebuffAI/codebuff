@@ -14,15 +14,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/vly/components/ui/tooltip";
-import { ChevronDown, ImageIcon, Check, Sparkles } from "lucide-react";
+import { ChevronDown, ImageIcon, Check, Sparkles, Globe } from "lucide-react";
 import { useRateLimit } from "@convex-dev/rate-limiter/react";
+import { useQuery } from "convex/react";
 import {
   FREEBUFF_MODELS,
   DEFAULT_FREEBUFF_MODEL_ID,
+  FREEBUFF_WEB_LIMITED_MODEL_IDS,
   getFreebuffModel,
   isFreebuffPremiumModelId,
   isFreebuffMultimodalModelId,
+  isFreebuffWebModelAllowedForLimitedTier,
   resolveFreebuffModel,
+  resolveFreebuffWebModelForLimitedTier,
   type FreebuffModelOption,
 } from "@codebuff/common/constants/freebuff-models";
 import { api } from "@/convex/_generated/api";
@@ -125,6 +129,25 @@ export function FreebuffModelSelector({
     ? Math.max(0, Math.floor(premiumStatus.value))
     : null;
 
+  // Geo-derived access tier. Limited regions only get the limited model set
+  // plus a daily session quota; the server enforces both, this mirrors it.
+  const accessStatus = useQuery(api.webAccess.getWebAccessStatus, {});
+  const isLimitedTier = accessStatus?.accessTier === "limited";
+
+  // Coerce a saved selection (e.g. premium id from localStorage) that the
+  // limited tier can't use, so the UI matches what the server will run.
+  React.useEffect(() => {
+    if (!isLimitedTier) return;
+    if (isFreebuffWebModelAllowedForLimitedTier(selectedModelId)) return;
+    onModelChange(resolveFreebuffWebModelForLimitedTier(selectedModelId));
+  }, [isLimitedTier, selectedModelId, onModelChange]);
+
+  // The whole limited-tier set is geo-exempt (DeepSeek V4 Flash, MiMo 2.5):
+  // limited regions get these models with no session quota.
+  const limitedTierModels = FREEBUFF_MODELS.filter((m) =>
+    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((id) => id === m.id),
+  );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
@@ -143,44 +166,73 @@ export function FreebuffModelSelector({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72 p-1.5">
-        {PREMIUM_MODELS.length > 0 && (
+        {isLimitedTier ? (
           <>
-            <DropdownMenuLabel className="flex items-center justify-between px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                Premium
-              </span>
-              {premiumRemaining !== null && (
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium normal-case tabular-nums text-amber-600">
-                  {premiumRemaining} left today
+            <div className="mx-1 mb-1.5 flex items-start gap-2 rounded-md bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
+              <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="font-medium">
+                  Limited access in your region
                 </span>
-              )}
+                <span className="text-[11px] opacity-80">
+                  These models are free to use with no daily limits
+                </span>
+              </div>
+            </div>
+            <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Available models
             </DropdownMenuLabel>
-            {PREMIUM_MODELS.map((model) => (
+            {limitedTierModels.map((model) => (
               <ModelRow
                 key={model.id}
                 model={model}
                 isSelected={model.id === current.id}
-                // Out of premium quota for today — the server would reject the
-                // send anyway, so don't let users pick a doomed model.
-                disabled={premiumRemaining === 0}
                 onSelect={() => onModelChange(model.id)}
               />
             ))}
-            <DropdownMenuSeparator className="my-1.5" />
+          </>
+        ) : (
+          <>
+            {PREMIUM_MODELS.length > 0 && (
+              <>
+                <DropdownMenuLabel className="flex items-center justify-between px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    Premium
+                  </span>
+                  {premiumRemaining !== null && (
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium normal-case tabular-nums text-amber-600">
+                      {premiumRemaining} left today
+                    </span>
+                  )}
+                </DropdownMenuLabel>
+                {PREMIUM_MODELS.map((model) => (
+                  <ModelRow
+                    key={model.id}
+                    model={model}
+                    isSelected={model.id === current.id}
+                    // Out of premium quota for today — the server would reject
+                    // the send anyway, so don't let users pick a doomed model.
+                    disabled={premiumRemaining === 0}
+                    onSelect={() => onModelChange(model.id)}
+                  />
+                ))}
+                <DropdownMenuSeparator className="my-1.5" />
+              </>
+            )}
+            <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Unlimited
+            </DropdownMenuLabel>
+            {UNLIMITED_MODELS.map((model) => (
+              <ModelRow
+                key={model.id}
+                model={model}
+                isSelected={model.id === current.id}
+                onSelect={() => onModelChange(model.id)}
+              />
+            ))}
           </>
         )}
-        <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Unlimited
-        </DropdownMenuLabel>
-        {UNLIMITED_MODELS.map((model) => (
-          <ModelRow
-            key={model.id}
-            model={model}
-            isSelected={model.id === current.id}
-            onSelect={() => onModelChange(model.id)}
-          />
-        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

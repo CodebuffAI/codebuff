@@ -449,6 +449,13 @@
       "when": 1781156012278,
       "tag": "0063_wide_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1781163176185,
+      "tag": "0064_flawless_rumiko_fujikawa",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,8 @@
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 
+import { db } from '../db'
+import * as schema from '../db/schema'
 import {
   extractClientIp,
   getFreeModeCountryAccess,
@@ -13,12 +13,12 @@ import {
   hashClientIp,
   IPINFO_PRIVACY_CACHE_TTL_MS,
   shouldHardBlockFreeModeAccess,
-} from './free-mode-country'
+} from './country-access'
 
 import type {
   FreeModeCountryAccess,
   FreeModeCountryAccessOptions,
-} from './free-mode-country'
+} from './country-access'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const FREE_MODE_COUNTRY_CACHE_ALLOWED_TTL_MS =
@@ -78,6 +78,10 @@ export function expiresAtForCountryAccess(
     (access.ipPrivacy?.signals.length ?? 0) > 0
   ) {
     ttlMs = FREE_MODE_COUNTRY_CACHE_SPUR_CLEARED_TTL_MS
+  } else if (access.allowed && access.clientHints?.suspicious) {
+    // Allowed despite suspicious browser hints: re-verify sooner than the
+    // normal allowed TTL.
+    ttlMs = FREE_MODE_COUNTRY_CACHE_ANONYMOUS_NETWORK_TTL_MS
   } else if (access.allowed) {
     ttlMs = FREE_MODE_COUNTRY_CACHE_ALLOWED_TTL_MS
   } else if (
@@ -172,6 +176,10 @@ export const dbFreeModeCountryAccessCacheStore: FreeModeCountryAccessCacheStore 
           risk_score: riskScore,
           privacy_decision: privacyDecision,
           privacy_provider_decision: privacyProviderDecision,
+          client_timezone: access.clientHints?.timezone ?? null,
+          client_tz_country: access.clientHints?.hintCountry ?? null,
+          client_languages: access.clientHints?.languages?.join(',') ?? null,
+          client_hints_suspicious: access.clientHints?.suspicious ?? null,
           checked_at: now,
           expires_at: expiresAt,
           created_at: now,
@@ -199,6 +207,10 @@ export const dbFreeModeCountryAccessCacheStore: FreeModeCountryAccessCacheStore 
             risk_score: riskScore,
             privacy_decision: privacyDecision,
             privacy_provider_decision: privacyProviderDecision,
+            client_timezone: access.clientHints?.timezone ?? null,
+            client_tz_country: access.clientHints?.hintCountry ?? null,
+            client_languages: access.clientHints?.languages?.join(',') ?? null,
+            client_hints_suspicious: access.clientHints?.suspicious ?? null,
             checked_at: now,
             expires_at: expiresAt,
             updated_at: now,

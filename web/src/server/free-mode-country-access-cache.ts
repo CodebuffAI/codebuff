@@ -1,4 +1,4 @@
-// Moved to @codebuff/internal so freebuff/web (freebuff.com/chat) can share
-// the same country/privacy access policy. Re-exported here to keep existing
-// imports and tests stable.
-export * from '@codebuff/internal/freebuff/free-mode-country-access-cache'
+// Shared implementation lives in @codebuff/internal so the Freebuff Web app
+// (freebuff/web) reuses the same Postgres-backed country-access cache. This
+// module is a re-export to keep existing imports unchanged.
+export * from '@codebuff/internal/free-mode-country/access-cache'

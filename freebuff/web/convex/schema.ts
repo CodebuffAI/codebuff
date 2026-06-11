@@ -1333,6 +1333,20 @@ export default defineSchema(
       .index('by_user_and_day', ['user_id', 'day'])
       .index('by_day', ['day']),
 
+    // Limited-tier (non-allowlisted-country) usage sessions for Freebuff Web.
+    // One row per started session: the first message starts a 1-hour session,
+    // messages within the hour ride free, and at most
+    // FREEBUFF_WEB_LIMITED_SESSION_LIMIT sessions start per Pacific day.
+    // Deliberately a separate pool from the CLI's Postgres-backed sessions.
+    web_limited_sessions: defineTable({
+      user_id: v.id('users'),
+      started_at: v.number(), // ms timestamp
+      expires_at: v.number(), // started_at + session length (1h)
+      day: v.string(), // Pacific day key YYYY-MM-DD
+    })
+      .index('by_user_and_expires', ['user_id', 'expires_at'])
+      .index('by_user_and_day', ['user_id', 'day']),
+
     // Immutable daily metrics snapshots written by a cron just after UTC
     // midnight. Keeps history durable even if aggregates are cleared/rebuilt.
     daily_stats: defineTable({

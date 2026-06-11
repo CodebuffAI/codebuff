@@ -157,10 +157,13 @@ export const saveMessageAndStartWorkflow = mutation({
       }
 
       // Persist the selected Freebuff model on the thread so the workflow and
-      // any follow-up messages run the matching bundled agent.
-      if (args.freebuffModel) {
+      // any follow-up messages run the matching bundled agent. Use the
+      // gate-resolved model: limited-tier (geo) users get premium selections
+      // coerced to a limited-tier model.
+      const resolvedFreebuffModel = gates.freebuffModel;
+      if (resolvedFreebuffModel) {
         await ctx.db.patch(threadId, {
-          selected_freebuff_model: args.freebuffModel,
+          selected_freebuff_model: resolvedFreebuffModel,
         });
       }
 

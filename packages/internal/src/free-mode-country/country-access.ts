@@ -5,6 +5,13 @@ import {
   isFreebuffHardBlockedPrivacySignal,
 } from '@codebuff/common/util/freebuff-privacy'
 
+import { FREE_MODE_ALLOWED_COUNTRIES } from './allowed-countries'
+import {
+  evaluateClientHints,
+  type ClientHintsInput,
+  type ClientHintsEvaluation,
+} from './client-hints'
+
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreebuffCountryBlockReason,
@@ -15,39 +22,11 @@ import type {
   FreebuffSpurStatus,
 } from '@codebuff/common/types/freebuff-session'
 
-/** Structural request type so this module works from any server app
- *  (NextRequest satisfies it). Only header access is needed. */
-export type FreeModeRequestLike = {
-  headers: { get(name: string): string | null }
-}
+/** Anything with a Headers object — satisfied structurally by NextRequest,
+ *  Fetch API Request, or a plain `{ headers }` wrapper. */
+export type HeadersCarrier = { headers: Headers }
 
-export const FREE_MODE_ALLOWED_COUNTRIES = new Set([
-  'US',
-  'CA',
-  'GB',
-  'AU',
-  'NZ',
-  'NO',
-  'SE',
-  'NL',
-  'DK',
-  'DE',
-  'FR',
-  'IT',
-  'ES',
-  'PT',
-  'FI',
-  'BE',
-  'LU',
-  'LI',
-  'CH',
-  'AT',
-  'SG',
-  'MT',
-  'IL',
-  'IE',
-  'IS',
-])
+export { FREE_MODE_ALLOWED_COUNTRIES }
 
 const CLOUDFLARE_TOR_COUNTRY = 'T1'
 const CLOUDFLARE_ANONYMIZED_OR_UNKNOWN_COUNTRIES = new Set([
@@ -81,6 +60,9 @@ export type FreeModeCountryAccess = {
   riskScore?: number | null
   hasClientIp: boolean
   clientIpHash: string | null
+  /** Browser-supplied hints evaluation (web surface only). Downgrade-only:
+   *  suspicious hints escalate to provider checks but never grant access. */
+  clientHints?: ClientHintsEvaluation | null
 }
 
 export type LookupIpPrivacyFn = (
@@ -123,6 +105,11 @@ export type FreeModeCountryAccessOptions = {
    *  for these requests (clientIpHash is nulled) so flipping the flag takes
    *  effect on the next request without manual cache eviction. */
   forceLimited?: boolean
+  /** Optional client-supplied hints (browser timezone/languages). Spoofable,
+   *  so they only escalate scrutiny — a clean IP verdict with suspicious
+   *  hints triggers the Spur/Scamalytics second-opinion chain. They never
+   *  upgrade a limited/blocked verdict. */
+  clientHints?: ClientHintsInput | null
 }
 
 const LOCALHOST_IPS = new Set(['::1', '::ffff:127.0.0.1'])
@@ -446,7 +433,7 @@ export function getFreeModePrivacyProviderDecision(
   return 'not_checked'
 }
 
-export function extractClientIp(req: FreeModeRequestLike): string | undefined {
+export function extractClientIp(req: HeadersCarrier): string | undefined {
   const cfConnectingIp = req.headers.get('cf-connecting-ip')?.trim()
   if (cfConnectingIp) return cfConnectingIp
 
@@ -906,7 +893,7 @@ const NOT_CHECKED_SCAMALYTICS_CONTEXT = {
 }
 
 export async function getFreeModeCountryAccess(
-  req: FreeModeRequestLike,
+  req: HeadersCarrier,
   options: FreeModeCountryAccessOptions,
 ): Promise<FreeModeCountryAccess> {
   const cfCountry = req.headers.get('cf-ipcountry')?.toUpperCase() ?? null
@@ -1027,6 +1014,13 @@ export async function getFreeModeCountryAccess(
     }
   }
 
+  const clientHints = options.clientHints
+    ? evaluateClientHints({
+        ...options.clientHints,
+        ipCountryCode: baseAccess.countryCode,
+      })
+    : null
+
   if (!FREE_MODE_ALLOWED_COUNTRIES.has(baseAccess.countryCode)) {
     return {
       ...baseAccess,
@@ -1036,6 +1030,7 @@ export async function getFreeModeCountryAccess(
       ...NOT_CHECKED_SPUR_CONTEXT,
       ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
       clientIpHash,
+      clientHints,
     }
   }
 
@@ -1076,6 +1071,7 @@ export async function getFreeModeCountryAccess(
       ...NOT_CHECKED_SPUR_CONTEXT,
       ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
       clientIpHash,
+      clientHints,
     }
   }
 
@@ -1110,6 +1106,7 @@ export async function getFreeModeCountryAccess(
         spurStatus,
         ...scamalyticsContext,
         clientIpHash,
+        clientHints,
       }
     }
 
@@ -1122,6 +1119,57 @@ export async function getFreeModeCountryAccess(
       spurStatus,
       ...scamalyticsContext,
       clientIpHash,
+      clientHints,
+    }
+  }
+
+  // IPinfo is clean, but client-supplied hints (browser timezone/languages)
+  // look inconsistent with the IP country — escalate to the second-opinion
+  // providers. Spur is strong on exactly this case: residential VPN exits
+  // IPinfo misses. Either provider flagging the IP downgrades to limited;
+  // provider failures do NOT downgrade here since the primary verdict was
+  // clean and hints are client-controlled.
+  if (clientHints?.suspicious) {
+    const [
+      { privacy: spurIpPrivacy, status: spurStatus },
+      { risk: scamalyticsIpRisk, status: scamalyticsStatus },
+    ] = await Promise.all([
+      lookupSpurPrivacyStatus(clientIp, options),
+      lookupScamalyticsStatus(clientIp, options),
+    ])
+    const scamalyticsContext = {
+      scamalyticsIpPrivacy: scamalyticsIpRisk
+        ? { signals: scamalyticsIpRisk.signals }
+        : null,
+      scamalyticsStatus,
+      scamalyticsScore: scamalyticsIpRisk?.score ?? null,
+      scamalyticsRisk: scamalyticsIpRisk?.risk ?? null,
+    }
+
+    if (spurStatus === 'suspicious' || scamalyticsStatus === 'suspicious') {
+      return {
+        ...baseAccess,
+        allowed: false,
+        blockReason: 'anonymous_network',
+        ipPrivacy,
+        spurIpPrivacy,
+        spurStatus,
+        ...scamalyticsContext,
+        clientIpHash,
+        clientHints,
+      }
+    }
+
+    return {
+      ...baseAccess,
+      allowed: true,
+      blockReason: null,
+      ipPrivacy,
+      spurIpPrivacy,
+      spurStatus,
+      ...scamalyticsContext,
+      clientIpHash,
+      clientHints,
     }
   }
 
@@ -1133,5 +1181,6 @@ export async function getFreeModeCountryAccess(
     spurIpPrivacy: null,
     spurStatus: 'not_checked',
     clientIpHash,
+    clientHints,
   }
 }

@@ -2,7 +2,7 @@ import { FREEBUFF_FORCE_LIMITED_MODE } from '@codebuff/common/constants/freebuff
 import { env } from '@codebuff/internal/env'
 
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
-import type { FreeModeRequestLike } from '@codebuff/internal/freebuff/free-mode-country'
+import type { HeadersCarrier } from '@codebuff/internal/free-mode-country/country-access'
 
 import { logger } from '@/util/logger'
 
@@ -14,7 +14,7 @@ import { logger } from '@/util/logger'
  */
 export async function getChatAccessTier(
   userId: string,
-  req: FreeModeRequestLike,
+  req: HeadersCarrier,
 ): Promise<FreebuffAccessTier> {
   try {
     // Loaded lazily so the free-mode policy modules (and their DB schema
@@ -22,8 +22,8 @@ export async function getChatAccessTier(
     // request.
     const [{ getCachedFreeModeCountryAccess }, { getFreeModeAccessTier }] =
       await Promise.all([
-        import('@codebuff/internal/freebuff/free-mode-country-access-cache'),
-        import('@codebuff/internal/freebuff/free-mode-country'),
+        import('@codebuff/internal/free-mode-country/access-cache'),
+        import('@codebuff/internal/free-mode-country/country-access'),
       ])
     const access = await getCachedFreeModeCountryAccess({
       userId,

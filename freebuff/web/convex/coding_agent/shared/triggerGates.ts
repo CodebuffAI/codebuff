@@ -4,7 +4,14 @@ import { internal } from "../../_generated/api";
 import { getAuthUser } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
 import { checkUserRateLimit, checkPremiumModelRateLimit, checkFreebuffRateLimit } from "../rateLimiter";
-import { isFreebuffPremiumModelId } from "@codebuff/common/constants/freebuff-models";
+import {
+  isFreebuffPremiumModelId,
+  isFreebuffWebGeoExemptModelId,
+  resolveFreebuffWebModelForLimitedTier,
+} from "@codebuff/common/constants/freebuff-models";
+import { checkLimitedSessionGate, getWebAccessTier } from "./geoAccess";
+
+import type { FreebuffWebAccessTier } from "@codebuff/common/constants/freebuff-models";
 
 type User = NonNullable<Awaited<ReturnType<typeof getAuthUser>>>;
 type Project = NonNullable<
@@ -17,6 +24,10 @@ interface GateSuccess {
   project: Project;
   isPlatformAdmin: boolean;
   isSelfHosted: boolean;
+  accessTier: FreebuffWebAccessTier;
+  /** Freebuff model after tier enforcement. Limited-tier users get premium /
+   *  unknown selections coerced to a limited-tier model (mirrors the CLI). */
+  freebuffModel?: string;
 }
 
 interface GateFailure {
@@ -56,6 +67,31 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
 
   const isPlatformAdmin = user.role === "god" || user.role === "admin";
   const rateLimitKey = getRateLimitKeyForUser(user);
+
+  // Geographic access tier, resolved by the Next.js token route and carried
+  // as a tamper-proof JWT claim. God-role users are exempt from all geo
+  // enforcement — checked against the users row, so it can't be spoofed.
+  const accessTier: FreebuffWebAccessTier =
+    user.role === "god" ? "full" : await getWebAccessTier(args.ctx);
+
+  if (accessTier === "blocked") {
+    return {
+      ok: false,
+      error: {
+        kind: "GeoBlocked",
+        message:
+          "Access from anonymous networks (Tor, residential proxies) is not supported. Please disable any VPN or proxy and try again.",
+      },
+    };
+  }
+
+  // Limited tier may only use the geo-exempt + limited model set; coerce
+  // anything else (premium ids, stale localStorage selections) instead of
+  // rejecting, matching the CLI's behavior.
+  const freebuffModel =
+    args.agentType === "Freebuff" && accessTier === "limited"
+      ? resolveFreebuffWebModelForLimitedTier(args.freebuffModel)
+      : args.freebuffModel;
 
   if (!args.skipRateLimitCheck) {
     // Freebuff agent chat is gated by its own stricter bucket
@@ -123,11 +159,34 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   if (
     !args.skipRateLimitCheck &&
     args.agentType === "Freebuff" &&
-    isFreebuffPremiumModelId(args.freebuffModel)
+    isFreebuffPremiumModelId(freebuffModel)
   ) {
     const premium = await checkPremiumModelRateLimit(args.ctx, rateLimitKey);
     if (!premium.success) return { ok: false, error: premium.error };
   }
 
-  return { ok: true, user, project, isPlatformAdmin, isSelfHosted };
+  // Limited tier: 5 one-hour sessions per Pacific day. Done last so a send
+  // that fails an earlier gate never consumes a session start. Geo-exempt
+  // Freebuff models (DeepSeek V4 Flash, MiMo 2.5) bypass the session pool
+  // entirely — limited regions get unlimited usage on those.
+  const isGeoExemptFreebuffSend =
+    args.agentType === "Freebuff" && isFreebuffWebGeoExemptModelId(freebuffModel);
+  if (
+    !args.skipRateLimitCheck &&
+    accessTier === "limited" &&
+    !isGeoExemptFreebuffSend
+  ) {
+    const session = await checkLimitedSessionGate(args.ctx, user._id);
+    if (!session.success) return { ok: false, error: session.error };
+  }
+
+  return {
+    ok: true,
+    user,
+    project,
+    isPlatformAdmin,
+    isSelfHosted,
+    accessTier,
+    freebuffModel,
+  };
 }

@@ -1060,6 +1060,12 @@ export const freeModeCountryAccessCache = pgTable(
     privacy_provider_decision: text(
       'privacy_provider_decision',
     ).$type<FreebuffPrivacyProviderDecision | null>(),
+    // Browser-supplied hints recorded at check time (web surface only).
+    // Downgrade-only signals; persisted for tuning before tightening.
+    client_timezone: text('client_timezone'),
+    client_tz_country: text('client_tz_country'),
+    client_languages: text('client_languages'),
+    client_hints_suspicious: boolean('client_hints_suspicious'),
     checked_at: timestamp('checked_at', {
       mode: 'date',
       withTimezone: true,

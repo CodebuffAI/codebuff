@@ -82,6 +82,11 @@ export async function signVlyConvexToken(params: {
   email: string
   name?: string | null
   image?: string | null
+  /** Geo-derived Freebuff Web access tier ('full' | 'limited' | 'blocked').
+   *  Resolved server-side from request headers; read by Convex via
+   *  ctx.auth.getUserIdentity() as a custom claim. */
+  accessTier?: string | null
+  countryCode?: string | null
 }) {
   const { privateKey } = await getKeyPair()
   const now = Math.floor(Date.now() / 1000)
@@ -90,6 +95,8 @@ export async function signVlyConvexToken(params: {
     email: params.email.trim().toLowerCase(),
     name: params.name ?? undefined,
     picture: params.image ?? undefined,
+    access_tier: params.accessTier ?? undefined,
+    country_code: params.countryCode ?? undefined,
   })
     .setProtectedHeader({
       alg: VLY_CONVEX_JWT_ALGORITHM,

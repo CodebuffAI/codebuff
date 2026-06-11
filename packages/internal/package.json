@@ -22,6 +22,12 @@
       "types": "./src/loops/index.ts",
       "default": "./src/loops/index.ts"
     },
+    "./free-mode-country": {
+      "bun": "./src/free-mode-country/index.ts",
+      "import": "./src/free-mode-country/index.ts",
+      "types": "./src/free-mode-country/index.ts",
+      "default": "./src/free-mode-country/index.ts"
+    },
     "./env": {
       "react-server": "./src/env.react-server.ts",
       "browser": "./src/env.browser.ts",
@@ -53,13 +59,14 @@
   },
   "dependencies": {
     "@codebuff/common": "workspace:*",
+    "countries-and-timezones": "^3.9.0",
     "drizzle-kit": "0.31.8",
     "drizzle-orm": "0.45.1",
+    "geoip-country": "^5.0.0",
     "loops": "^5.0.1",
     "msw": "^2.12.1",
     "postgres": "^3.4.7",
-    "server-only": "0.0.1",
-    "geoip-country": "^5.0.0"
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@types/geoip-country": "^5.0.0"

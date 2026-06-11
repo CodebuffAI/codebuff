@@ -90,6 +90,7 @@ import type * as coding_agent_models_standard_model from "../coding_agent/models
 import type * as coding_agent_models_ultra_cheap_model from "../coding_agent/models/ultra_cheap_model.js";
 import type * as coding_agent_rateLimiter from "../coding_agent/rateLimiter.js";
 import type * as coding_agent_shared_base_knowledge from "../coding_agent/shared/base_knowledge.js";
+import type * as coding_agent_shared_geoAccess from "../coding_agent/shared/geoAccess.js";
 import type * as coding_agent_shared_triggerGates from "../coding_agent/shared/triggerGates.js";
 import type * as coding_agent_terminationThrottle from "../coding_agent/terminationThrottle.js";
 import type * as coding_agent_trigger from "../coding_agent/trigger.js";
@@ -213,6 +214,7 @@ import type * as utils_registry from "../utils/registry.js";
 import type * as utils_registry_validators from "../utils/registry_validators.js";
 import type * as utils_themeUtils from "../utils/themeUtils.js";
 import type * as versioning_checkpoint from "../versioning/checkpoint.js";
+import type * as webAccess from "../webAccess.js";
 
 import type {
   ApiFromModules,
@@ -303,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/models/ultra_cheap_model": typeof coding_agent_models_ultra_cheap_model;
   "coding_agent/rateLimiter": typeof coding_agent_rateLimiter;
   "coding_agent/shared/base_knowledge": typeof coding_agent_shared_base_knowledge;
+  "coding_agent/shared/geoAccess": typeof coding_agent_shared_geoAccess;
   "coding_agent/shared/triggerGates": typeof coding_agent_shared_triggerGates;
   "coding_agent/terminationThrottle": typeof coding_agent_terminationThrottle;
   "coding_agent/trigger": typeof coding_agent_trigger;
@@ -426,6 +429,7 @@ declare const fullApi: ApiFromModules<{
   "utils/registry_validators": typeof utils_registry_validators;
   "utils/themeUtils": typeof utils_themeUtils;
   "versioning/checkpoint": typeof versioning_checkpoint;
+  webAccess: typeof webAccess;
 }>;
 
 /**

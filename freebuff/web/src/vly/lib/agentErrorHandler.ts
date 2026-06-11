@@ -22,6 +22,20 @@ export function handleAgentSendError(error: AgentError): void {
         { duration: 6000 },
       );
       break;
+    case "LimitedRateLimited":
+      toast.error(
+        error.message ||
+          `You've used all your sessions for today. Sessions reset in ${formatRetryTime(error.retryAfter || 0)}.`,
+        { duration: 6000 },
+      );
+      break;
+    case "GeoBlocked":
+      toast.error(
+        error.message ||
+          "Access from anonymous networks is not supported. Please disable any VPN or proxy and try again.",
+        { duration: 6000 },
+      );
+      break;
     case "CONTENT_MODERATION":
       toast.error(error.message || "This content is not allowed.", {
         duration: 6000,
