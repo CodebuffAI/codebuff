@@ -13,6 +13,9 @@ export const create = mutation({
     displayMessage: v.optional(v.string()),
     images: v.optional(v.array(v.id("_storage"))),
     agentMode: v.optional(agentModeValidator),
+    /** Selected open-source Freebuff model id for the initial generation.
+     *  Persisted on the new thread; defaults server-side when omitted. */
+    freebuffModel: v.optional(v.string()),
   },
   returns: v.union(
     v.object({ success: v.literal(true), semanticIdentifier: v.string() }),
@@ -149,6 +152,7 @@ export const create = mutation({
           projectSemanticIdentifier: assignedProject.semantic_identifier,
           message: args.initialDocumentContent,
           ...(args.images && { images: args.images }),
+          ...(args.freebuffModel && { freebuffModel: args.freebuffModel }),
           agentType: "Freebuff" as any,
           _skipRateLimitCheck: true, // Skip rate limit check - already checked above
         },

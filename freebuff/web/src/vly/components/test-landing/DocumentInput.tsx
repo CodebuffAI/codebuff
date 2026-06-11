@@ -20,6 +20,15 @@ import { preloadFont } from "@/vly/lib/googleFonts";
 import ThemeConfirmationModal from "../ThemeConfirmationModal";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleProjectCreationResult } from "@/vly/lib/project-creation-handler";
+import {
+  FreebuffModelSelector,
+  FREEBUFF_MODEL_STORAGE_KEY,
+  resolveVisibleFreebuffModel,
+} from "@/vly/components/project-2/FreebuffModelSelector";
+import {
+  DEFAULT_FREEBUFF_MODEL_ID,
+  resolveFreebuffModel,
+} from "@codebuff/common/constants/freebuff-models";
 
 // Practical starter prompts shown as chips below the composer.
 const PROJECT_SUGGESTIONS: { label: string; prompt: string }[] = [
@@ -164,6 +173,32 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
   const router = useRouter();
   const createProject = useMutation(api.codesandbox.create.create);
 
+  // Selected Freebuff model for the initial generation. Shares the same
+  // localStorage key as the project chat so the picker remembers the user's
+  // last used model across both surfaces. Starts at the default for a stable
+  // first render, then hydrates on mount (avoids SSR/hydration mismatch).
+  const [selectedFreebuffModel, setSelectedFreebuffModel] = useState<string>(
+    DEFAULT_FREEBUFF_MODEL_ID,
+  );
+  const selectedFreebuffModelRef = useRef(selectedFreebuffModel);
+  useEffect(() => {
+    selectedFreebuffModelRef.current = selectedFreebuffModel;
+  }, [selectedFreebuffModel]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(FREEBUFF_MODEL_STORAGE_KEY);
+    if (stored) {
+      setSelectedFreebuffModel(resolveVisibleFreebuffModel(stored));
+    }
+  }, []);
+  const handleFreebuffModelChange = useCallback((modelId: string) => {
+    const resolved = resolveFreebuffModel(modelId);
+    setSelectedFreebuffModel(resolved);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(FREEBUFF_MODEL_STORAGE_KEY, resolved);
+    }
+  }, []);
+
   // Check rate limit status proactively
   const { status } = useRateLimit(api.coding_agent.rateLimiter.getRateLimit, {
     getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime,
@@ -269,6 +304,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
           initialDocumentContent: finalPrompt,
           displayMessage: userInput,
           agentMode: "POWERFUL",
+          freebuffModel: selectedFreebuffModelRef.current,
           ...(uploadedImageIds.length > 0 ? { images: uploadedImageIds } : {}),
         });
 
@@ -518,6 +554,15 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 <Palette className="h-[18px] w-[18px]" />
                 <span className="hidden sm:inline">Theme</span>
               </button>
+
+              {/* Model selector */}
+              <div onClick={(e) => e.stopPropagation()}>
+                <FreebuffModelSelector
+                  selectedModelId={selectedFreebuffModel}
+                  onModelChange={handleFreebuffModelChange}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
             {/* Submit button */}

@@ -43,6 +43,10 @@ interface FreebuffModelSelectorProps {
 export function resolveVisibleFreebuffModel(modelId: string): string {
   return resolveFreebuffModel(modelId);
 }
+
+/** Shared localStorage key so the dashboard composer and the project chat
+ *  remember the same "last used model" selection. */
+export const FREEBUFF_MODEL_STORAGE_KEY = "freebuff:selectedModel";
 const PREMIUM_MODELS = FREEBUFF_MODELS.filter((m) =>
   isFreebuffPremiumModelId(m.id),
 );

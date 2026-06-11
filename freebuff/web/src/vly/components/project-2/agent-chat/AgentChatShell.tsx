@@ -46,9 +46,10 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   resolveFreebuffModel,
 } from "@codebuff/common/constants/freebuff-models";
-import { resolveVisibleFreebuffModel } from "@/vly/components/project-2/FreebuffModelSelector";
-
-const FREEBUFF_MODEL_STORAGE_KEY = "freebuff:selectedModel";
+import {
+  FREEBUFF_MODEL_STORAGE_KEY,
+  resolveVisibleFreebuffModel,
+} from "@/vly/components/project-2/FreebuffModelSelector";
 
 // Compact, subtle runtime errors component for agent chat
 const CompactRuntimeErrors: React.FC<{
