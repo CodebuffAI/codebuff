@@ -1,5 +1,5 @@
 import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -23,7 +23,8 @@ export interface ChatModelOption {
 export const CHAT_MODELS: ChatModelOption[] = [
   {
     id: 'deepseek-v4-flash',
-    backendId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    // Served by Fireworks (faster than DeepSeek direct, worth it for chat).
+    backendId: FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID,
     label: 'Fast',
     modelName: 'DeepSeek Flash',
   },

@@ -44,6 +44,12 @@ export const FREEBUFF_DEPLOYMENT_HOURS_LABEL = '9am ET-5pm PT every day'
 export const FREEBUFF_GEMINI_PRO_MODEL_ID = 'google/gemini-3.1-pro-preview'
 export const FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID = 'deepseek/deepseek-v4-pro'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
+/** DeepSeek V4 Flash served by Fireworks instead of DeepSeek's direct API.
+ *  Used only by freebuff.com/chat, where Fireworks' faster inference is worth
+ *  a slightly less capable serving stack. Not in SUPPORTED_FREEBUFF_MODELS or
+ *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
+export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
+  'fireworks/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
 /** Legacy: removed from the pickers on 2026-06-09 in favor of MiniMax M3, but
  *  still server-supported so old clients keep working. Drop from

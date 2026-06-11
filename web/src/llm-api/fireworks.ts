@@ -32,8 +32,10 @@ const fireworksAgent = new Agent({
   bodyTimeout: 0,
 })
 
-/** Map from OpenRouter model IDs to Fireworks standard API model IDs */
-const FIREWORKS_MODEL_MAP: Record<string, string> = {
+/** Map from internal model IDs to Fireworks standard API model IDs */
+export const FIREWORKS_MODEL_MAP: Record<string, string> = {
+  // freebuff chat's DeepSeek V4 Flash (CLI/web builder use DeepSeek direct)
+  'fireworks/deepseek-v4-flash': 'accounts/fireworks/models/deepseek-v4-flash',
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
   'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
@@ -170,7 +172,12 @@ interface FireworksPricing {
   outputCostPerToken: number
 }
 
-const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
+export const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
+  'fireworks/deepseek-v4-flash': {
+    inputCostPerToken: 0.14 / 1_000_000,
+    cachedInputCostPerToken: 0.028 / 1_000_000,
+    outputCostPerToken: 0.28 / 1_000_000,
+  },
   'minimax/minimax-m2.5': {
     inputCostPerToken: 0.3 / 1_000_000,
     cachedInputCostPerToken: 0.03 / 1_000_000,

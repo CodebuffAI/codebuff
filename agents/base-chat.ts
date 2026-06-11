@@ -1,4 +1,4 @@
-import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import { FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 
 import { publisher } from './constants'
 
@@ -13,7 +13,7 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'base-chat',
   publisher,
-  model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  model: FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID,
   displayName: 'Freebuff Chat',
   spawnerPrompt: 'General-purpose chat assistant for freebuff.com/chat.',
   inputSchema: {

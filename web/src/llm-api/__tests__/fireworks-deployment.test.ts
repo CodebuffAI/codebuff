@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import {
   createFireworksRequestWithFallback,
   DEPLOYMENT_COOLDOWN_MS,
+  FIREWORKS_MODEL_MAP,
+  FIREWORKS_PRICING_MAP,
   isDeploymentHours,
   isDeploymentCoolingDown,
   markDeploymentScalingUp,
@@ -797,5 +799,15 @@ describe('Fireworks deployment routing', () => {
       expect(fetchCalls).toEqual([DEPLOYMENT_MODEL_ID, STANDARD_MODEL_ID])
       expect(logger.warn).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('fireworks pricing coverage', () => {
+  it('every routed model has an explicit pricing entry', () => {
+    // Unknown models silently fall back to Kimi pricing, which would
+    // mis-meter cost — every FIREWORKS_MODEL_MAP key must be priced.
+    for (const model of Object.keys(FIREWORKS_MODEL_MAP)) {
+      expect(FIREWORKS_PRICING_MAP[model]).toBeDefined()
+    }
   })
 })
