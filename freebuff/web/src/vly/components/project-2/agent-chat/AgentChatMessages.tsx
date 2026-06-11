@@ -781,13 +781,21 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
 // individual entries remain independently expandable.
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
-}> = ({ items }) => {
+  isStreaming?: boolean
+}> = ({ items, isStreaming = false }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
   const detailedItems = useMemo(
     () => items.filter(isDetailedActivityItem),
     [items],
   )
+  const livePreview = useMemo(() => {
+    if (!isStreaming || detailedItems.length === 0) return ''
+    const latestContent = detailedItems[detailedItems.length - 1]?.content ?? ''
+    const trimmed = latestContent.trim()
+    if (!trimmed) return ''
+    return trimmed.length > 220 ? `${trimmed.slice(0, 217)}...` : trimmed
+  }, [detailedItems, isStreaming])
   const hasDetails = detailedItems.length > 0
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
@@ -806,7 +814,8 @@ const ActivityGroup: React.FC<{
         <CollapsibleTrigger
           disabled={!hasDetails}
           className={cn(
-            'flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs font-medium opacity-45 transition-colors',
+            'flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs font-medium transition-colors',
+            isStreaming ? 'opacity-80' : 'opacity-45',
             hasError
               ? 'text-red-400 hover:text-red-300'
               : 'text-muted-foreground hover:text-foreground/80',
@@ -836,6 +845,11 @@ const ActivityGroup: React.FC<{
           </CollapsibleContent>
         )}
       </Collapsible>
+      {livePreview && (
+        <p className="ml-5 mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
+          {livePreview}
+        </p>
+      )}
     </div>
   )
 }
@@ -1191,7 +1205,11 @@ const AgentMessageCard: React.FC<{
                 isStreaming={isStreaming}
               />
             ) : (
-              <ActivityGroup key={index} items={group.items} />
+              <ActivityGroup
+                key={index}
+                items={group.items}
+                isStreaming={isStreaming}
+              />
             ),
           )}
         </div>
