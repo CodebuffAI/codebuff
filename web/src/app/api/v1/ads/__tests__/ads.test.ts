@@ -78,7 +78,7 @@ describe('/api/v1/ads POST endpoint', () => {
     })
   }
 
-  test('falls back from Gravity to ZeroClick to Carbon', async () => {
+  test('falls back from Gravity to ZeroClick to Carbon in the waiting room', async () => {
     const upstreamUrls: string[] = []
     const fetchMock = mock(
       async (url: string | URL | Request): Promise<Response> => {
@@ -118,6 +118,7 @@ describe('/api/v1/ads POST endpoint', () => {
         messages: [],
         sessionId: 'session-123',
         userAgent: 'Mozilla/5.0',
+        surface: 'waiting_room',
       }),
       getUserInfoFromApiKey,
       logger,
@@ -189,6 +190,7 @@ describe('/api/v1/ads POST endpoint', () => {
         provider: 'gravity',
         messages: [],
         userAgent: 'Mozilla/5.0',
+        surface: 'waiting_room',
       }),
       getUserInfoFromApiKey,
       logger,
@@ -211,4 +213,57 @@ describe('/api/v1/ads POST endpoint', () => {
     expect(body.provider).toBe('carbon')
     expect(body.ads).toHaveLength(1)
   })
+
+  test.each([
+    ['agent chat (no surface)', undefined],
+    ['web chat', 'freebuff_web_chat'],
+    ['chat assistant', 'chat_assistant'],
+  ] as const)(
+    '%s only queries Gravity, returning no ads on no fill',
+    async (_name, surface) => {
+      const upstreamUrls: string[] = []
+      const fetchMock = mock(
+        async (url: string | URL | Request): Promise<Response> => {
+          const urlString = String(url)
+          upstreamUrls.push(urlString)
+
+          if (urlString.includes('server.trygravity.ai')) {
+            return new Response(null, { status: 204 })
+          }
+
+          return new Response('unexpected upstream', { status: 500 })
+        },
+      )
+
+      const response = await postAds({
+        req: createRequest({
+          provider: 'gravity',
+          messages: [],
+          sessionId: 'session-123',
+          userAgent: 'Mozilla/5.0',
+          ...(surface ? { surface } : {}),
+        }),
+        getUserInfoFromApiKey,
+        logger,
+        loggerWithContext,
+        trackEvent,
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+        serverEnv: {
+          GRAVITY_API_KEY: 'gravity-key',
+          ZEROCLICK_API_KEY: 'zeroclick-key',
+          CARBON_ZONE_KEY: 'carbon-zone',
+          CB_ENVIRONMENT: 'prod',
+        },
+      })
+
+      expect(response.status).toBe(200)
+      expect(upstreamUrls).toHaveLength(1)
+      expect(upstreamUrls[0]).toContain('server.trygravity.ai')
+
+      const body = await response.json()
+      expect(body.provider).toBe('gravity')
+      expect(body.ads).toHaveLength(0)
+      expect(insertedRows).toHaveLength(0)
+    },
+  )
 })

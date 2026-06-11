@@ -14,6 +14,7 @@ import { createZeroClickProvider } from '@/lib/ad-providers/zeroclick'
 import type {
   AdProvider,
   AdProviderId,
+  AdSurface,
   NormalizedAd,
 } from '@/lib/ad-providers/types'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -68,6 +69,21 @@ const providerFallbacks: Record<AdProviderId, AdProviderId[]> = {
   gravity: ['gravity', 'zeroclick', 'carbon'],
   zeroclick: ['zeroclick', 'carbon'],
   carbon: ['carbon'],
+}
+
+/**
+ * Gravity requires that no other network's ads appear during chat. Chat
+ * surfaces (the CLI agent chat — the only caller that omits `surface` — and
+ * the web chat surfaces) are gravity-exclusive: no fill -> no ads, and the
+ * client keeps showing its cached ad or none. Only the waiting room keeps
+ * the fallback chain.
+ */
+function getProvidersToTry(
+  providerId: AdProviderId,
+  surface: AdSurface | undefined,
+): AdProviderId[] {
+  if (surface !== 'waiting_room') return ['gravity']
+  return providerFallbacks[providerId]
 }
 
 function createConfiguredProvider(
@@ -209,7 +225,10 @@ export async function postAds(params: {
     parsedBody.userAgent ?? req.headers.get('user-agent') ?? undefined
   const requestUserAgent = req.headers.get('user-agent') ?? undefined
 
-  for (const providerToTry of providerFallbacks[providerId]) {
+  for (const providerToTry of getProvidersToTry(
+    providerId,
+    parsedBody.surface,
+  )) {
     const provider = createConfiguredProvider(providerToTry, serverEnv, logger)
     if (!provider) continue
 
