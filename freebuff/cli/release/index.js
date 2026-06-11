@@ -705,6 +705,11 @@ function printSpawnFailure(err) {
   console.error('')
 }
 
+function exitOnSpawnFailure(err) {
+  printSpawnFailure(err)
+  process.exit(1)
+}
+
 function spawnInstalledBinary(options = {}) {
   if (!fs.existsSync(CONFIG.binaryPath)) {
     try {
@@ -716,19 +721,24 @@ function spawnInstalledBinary(options = {}) {
       `downloaded binary is missing at ${CONFIG.binaryPath}`,
     )
     error.code = 'BINARY_MISSING'
-    printSpawnFailure(error)
-    process.exit(1)
+    exitOnSpawnFailure(error)
   }
 
-  const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
-    stdio: 'inherit',
-    ...options,
-  })
+  // spawn() only emits 'error' asynchronously for a few errno values
+  // (EACCES, EAGAIN, EMFILE, ENFILE, ENOENT); everything else — notably
+  // UNKNOWN on Windows when antivirus or Smart App Control blocks the
+  // exe or the download is corrupt — is thrown synchronously.
+  let child
+  try {
+    child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+      stdio: 'inherit',
+      ...options,
+    })
+  } catch (err) {
+    exitOnSpawnFailure(err)
+  }
 
-  child.on('error', (err) => {
-    printSpawnFailure(err)
-    process.exit(1)
-  })
+  child.on('error', exitOnSpawnFailure)
 
   return child
 }
