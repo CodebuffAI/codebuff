@@ -12,7 +12,7 @@ type CodeEditorVariant =
 
 const EDITOR_MODEL_BY_VARIANT: Record<CodeEditorVariant, string> = {
   'gpt-5': 'openai/gpt-5.1',
-  opus: 'anthropic/claude-opus-4.7',
+  opus: 'anthropic/claude-opus-4.8',
   glm: 'z-ai/glm-5.1',
   kimi: 'moonshotai/kimi-k2.6',
   deepseek: 'deepseek/deepseek-v4-pro',

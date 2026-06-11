@@ -14,7 +14,7 @@ export function createCodeReviewerMultiPrompt(): Omit<
 > {
   return {
     publisher,
-    model: 'anthropic/claude-opus-4.7',
+    model: 'anthropic/claude-fable-5',
     providerOptions: {
       only: ['amazon-bedrock'],
     },
@@ -26,7 +26,7 @@ export function createCodeReviewerMultiPrompt(): Omit<
     inheritParentSystemPrompt: true,
 
     toolNames: ['spawn_agents', 'set_output'],
-    spawnableAgents: ['code-reviewer'],
+    spawnableAgents: ['code-reviewer-fable'],
 
     inputSchema: {
       params: {
@@ -88,7 +88,7 @@ function* handleStepsMultiPrompt({
   // Spawn one code-reviewer per prompt
   const reviewerAgents: { agent_type: string; prompt: string }[] = prompts.map(
     (prompt) => ({
-      agent_type: 'code-reviewer',
+      agent_type: 'code-reviewer-fable',
       prompt: `Review the above code changes with the following focus: ${prompt}`,
     }),
   )
