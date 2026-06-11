@@ -1,3 +1,9 @@
+import {
+  getReferralScore,
+  redeemReferralCode,
+  REDEEM_REFERRAL_ERROR_MESSAGES,
+  REDEEM_REFERRAL_ERROR_STATUS,
+} from '@codebuff/billing/referral-program'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
@@ -7,6 +13,7 @@ import { z } from 'zod/v4'
 
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 
+import { logger } from '@/util/logger'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits' | 'is_legacy'>
@@ -21,6 +28,8 @@ const ReferralSchema = z.object({
 export type ReferralData = {
   referrals: Referral[]
   referredBy?: Referral
+  /** Completed v2 referrals made + 1 if the user was referred (and completed). */
+  referralScore: number
 }
 
 export async function GET() {
@@ -81,6 +90,8 @@ export async function GET() {
         return ReferralSchema.parse(users[0])
       })
 
+    const referralScore = await getReferralScore({ userId: session.user.id })
+
     const referralData: ReferralData = {
       referrals: referrals.reduce((acc, referral) => {
         const result = ReferralSchema.safeParse(referral)
@@ -90,6 +101,7 @@ export async function GET() {
         return acc
       }, [] as Referral[]),
       referredBy,
+      referralScore,
     }
 
     return NextResponse.json(referralData)
@@ -100,4 +112,45 @@ export async function GET() {
       { status: 500 },
     )
   }
+}
+
+const RedeemBodySchema = z.object({
+  referralCode: z.string().min(1).max(100),
+})
+
+/**
+ * Redeem a referral code for the signed-in user. Creates a PENDING referral —
+ * no reward is granted until the referred user passes the qualification +
+ * activation gate (evaluated automatically after freebuff usage).
+ */
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const parsed = RedeemBodySchema.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Missing or invalid referralCode' },
+      { status: 400 },
+    )
+  }
+
+  const result = await redeemReferralCode({
+    userId: session.user.id,
+    referralCode: parsed.data.referralCode,
+    logger,
+  })
+
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        error: REDEEM_REFERRAL_ERROR_MESSAGES[result.error],
+        code: result.error,
+      },
+      { status: REDEEM_REFERRAL_ERROR_STATUS[result.error] },
+    )
+  }
+  return NextResponse.json({ status: 'pending', referrerId: result.referrerId })
 }

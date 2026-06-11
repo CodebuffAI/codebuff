@@ -22,6 +22,9 @@ export * from './credit-delegation'
 // Referral qualification (GitHub bright-line)
 export * from './referral-qualification'
 
+// Referral program v2 (redeem, activation gate, completion, score)
+export * from './referral-program'
+
 // Subscription
 export * from './subscription'
 

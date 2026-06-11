@@ -414,6 +414,13 @@
       "when": 1781129689886,
       "tag": "0058_zippy_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1781132606572,
+      "tag": "0059_cheerful_kang",
+      "breakpoints": true
     }
   ]
 }

@@ -206,8 +206,24 @@ export const referral = pgTable(
       .notNull()
       .defaultNow(),
     completed_at: timestamp('completed_at', { mode: 'date' }),
+    // Referral-program-v2 completion marker: set when the referred user passed
+    // the full gate (GitHub bright line + burn-once + full-access activation).
+    // Null on all legacy/old-program rows, so the referral score counts only
+    // rows where this is set. See packages/billing/src/referral-program.ts.
+    qualified_at: timestamp('qualified_at', { mode: 'date' }),
   },
-  (table) => [primaryKey({ columns: [table.referrer_id, table.referred_id] })],
+  (table) => [
+    primaryKey({ columns: [table.referrer_id, table.referred_id] }),
+    // Score reads: count qualified referrals per referrer / referred.
+    index('idx_referral_qualified_referrer').on(
+      table.referrer_id,
+      table.qualified_at,
+    ),
+    index('idx_referral_qualified_referred').on(
+      table.referred_id,
+      table.qualified_at,
+    ),
+  ],
 )
 
 // Caches the GitHub "bright line" referral-qualification result, and enforces
