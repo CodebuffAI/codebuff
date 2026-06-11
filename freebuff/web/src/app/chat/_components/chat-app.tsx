@@ -371,7 +371,7 @@ export function ChatApp() {
                     type="button"
                     onClick={() => openThread(thread.id)}
                     className={cn(
-                      'w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                      'w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-colors group-hover:pr-14 group-focus-within:pr-14',
                       thread.id === activeThreadId
                         ? 'bg-white/10 text-foreground'
                         : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
