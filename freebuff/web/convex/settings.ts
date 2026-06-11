@@ -1,10 +1,28 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { getAuthUser } from "./users";
+
+export const getInternal = internalQuery({
+  args: {
+    key: v.string(),
+    defaultValue: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const setting = await ctx.db
+      .query("settings")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .first();
+
+    return setting?.value ?? args.defaultValue ?? false;
+  },
+});
 
 // Get a setting
 export const get = query({
-  args: { key: v.string() },
+  args: {
+    key: v.string(),
+    defaultValue: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
     if (!user) {
@@ -16,7 +34,7 @@ export const get = query({
       .withIndex("by_key", (q) => q.eq("key", args.key))
       .first();
 
-    return setting?.value ?? false;
+    return setting?.value ?? args.defaultValue ?? false;
   },
 });
 

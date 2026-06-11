@@ -1,5 +1,6 @@
 import { configureUsageLogging, createDeployKey } from "!/convex_management";
 import axios, { isAxiosError } from "axios";
+import { internal } from "../convex/_generated/api";
 import { ActionCtx } from "../convex/_generated/server";
 import { Failure, Result, Success } from "../lib/utils";
 import { injectBranding } from "./branding/branding-injector";
@@ -520,6 +521,14 @@ export async function deployCodebaseProd(
     DeploymentError
   >
 > {
+  const isProdBrandingInjectionEnabled = await ctx.runQuery(
+    internal.settings.getInternal,
+    {
+      key: "prod_branding_injection_enabled",
+      defaultValue: true,
+    },
+  );
+
   try {
     await setLog("Setting up Convex prod deployment...");
   } catch (error) {
@@ -576,7 +585,7 @@ export async function deployCodebaseProd(
       120_000,
     );
 
-    if (!skipBranding) {
+    if (!skipBranding && isProdBrandingInjectionEnabled) {
       try {
         const html = await codebase.readFile("dist/index.html");
         const updatedHtml = injectBranding(html);
@@ -584,6 +593,10 @@ export async function deployCodebaseProd(
       } catch (err) {
         console.error("Branding injection failed:", err);
       }
+    } else if (!isProdBrandingInjectionEnabled) {
+      console.log(
+        "[Deploy] Skipping branding injection - disabled by admin setting",
+      );
     } else {
       console.log(
         "[Deploy] Skipping branding injection - user has no_vlyai_branding feature",

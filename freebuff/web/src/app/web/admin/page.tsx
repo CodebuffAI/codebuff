@@ -1,7 +1,7 @@
 'use client'
 
 import { api } from '@/convex/_generated/api'
-import { useQuery } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { useSignedInUser } from '@/vly/hooks/use-user'
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/vly/components/ui/card'
 import { Badge } from '@/vly/components/ui/badge'
+import { Button } from '@/vly/components/ui/button'
 import { Skeleton } from '@/vly/components/ui/skeleton'
 import { CountUp } from '@/vly/components/CountUp'
 import { Confetti } from '@/vly/components/Confetti'
@@ -48,6 +49,10 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [integrationStatusFilter, setIntegrationStatusFilter] =
     useState<string>('pending')
+  const [isUpdatingDaytonaMigrationToggle, setIsUpdatingDaytonaMigrationToggle] =
+    useState(false)
+  const [isUpdatingBrandingInjectionToggle, setIsUpdatingBrandingInjectionToggle] =
+    useState(false)
   const [selectedTicketId, setSelectedTicketId] =
     useState<Id<'tickets'> | null>(null)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(
@@ -90,6 +95,47 @@ export default function AdminDashboard() {
         }
       : 'skip',
   )
+  const daytonaMigrationEnabled = useQuery(api.settings.get, {
+    key: 'daytona_migration_enabled',
+    defaultValue: true,
+  })
+  const prodBrandingInjectionEnabled = useQuery(api.settings.get, {
+    key: 'prod_branding_injection_enabled',
+    defaultValue: true,
+  })
+  const updateSetting = useMutation(api.settings.update)
+
+  const toggleDaytonaMigration = async () => {
+    if (daytonaMigrationEnabled === undefined) {
+      return
+    }
+
+    setIsUpdatingDaytonaMigrationToggle(true)
+    try {
+      await updateSetting({
+        key: 'daytona_migration_enabled',
+        value: !daytonaMigrationEnabled,
+      })
+    } finally {
+      setIsUpdatingDaytonaMigrationToggle(false)
+    }
+  }
+
+  const toggleProdBrandingInjection = async () => {
+    if (prodBrandingInjectionEnabled === undefined) {
+      return
+    }
+
+    setIsUpdatingBrandingInjectionToggle(true)
+    try {
+      await updateSetting({
+        key: 'prod_branding_injection_enabled',
+        value: !prodBrandingInjectionEnabled,
+      })
+    } finally {
+      setIsUpdatingBrandingInjectionToggle(false)
+    }
+  }
 
   // Celebration effects for project count changes
   const { showConfetti, resetConfetti } = useCountCelebration({
@@ -383,6 +429,86 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+        <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <Zap className="h-5 w-5 text-gray-600" />
+              Migration Controls
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-black">Daytona Migration</p>
+                <p className="text-xs text-gray-600">
+                  Global switch for legacy Daytona migration across all projects.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={
+                    daytonaMigrationEnabled
+                      ? 'border-green-200 bg-green-100 text-green-700'
+                      : 'border-gray-200 bg-gray-100 text-gray-700'
+                  }
+                >
+                  {daytonaMigrationEnabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    daytonaMigrationEnabled === undefined ||
+                    isUpdatingDaytonaMigrationToggle
+                  }
+                  onClick={toggleDaytonaMigration}
+                >
+                  {isUpdatingDaytonaMigrationToggle
+                    ? 'Updating...'
+                    : daytonaMigrationEnabled
+                      ? 'Turn Off'
+                      : 'Turn On'}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-black">Prod Branding Injection</p>
+                <p className="text-xs text-gray-600">
+                  Global switch for applying branding to `dist/index.html` on prod deploy.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={
+                    prodBrandingInjectionEnabled
+                      ? 'border-green-200 bg-green-100 text-green-700'
+                      : 'border-gray-200 bg-gray-100 text-gray-700'
+                  }
+                >
+                  {prodBrandingInjectionEnabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    prodBrandingInjectionEnabled === undefined ||
+                    isUpdatingBrandingInjectionToggle
+                  }
+                  onClick={toggleProdBrandingInjection}
+                >
+                  {isUpdatingBrandingInjectionToggle
+                    ? 'Updating...'
+                    : prodBrandingInjectionEnabled
+                      ? 'Turn Off'
+                      : 'Turn On'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Grid */}
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

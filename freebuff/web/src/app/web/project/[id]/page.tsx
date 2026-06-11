@@ -35,6 +35,10 @@ export default function ProjectPage() {
 
   // Fetch project data to check if migration is needed
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
+  const daytonaMigrationEnabled = useQuery(api.settings.get, {
+    key: "daytona_migration_enabled",
+    defaultValue: true,
+  });
   const daytonaServer = project
     ? (project as { daytona_server?: "legacy" | "new" }).daytona_server
     : undefined;
@@ -69,7 +73,9 @@ export default function ProjectPage() {
   // migrated to the new Daytona server. Instead of redirecting to a separate
   // full-screen route, we render a non-closable popup over the project page.
   const needsMigration = useMemo(() => {
-    if (!project || !project.sandbox_id) return false;
+    if (!project || !project.sandbox_id || daytonaMigrationEnabled !== true) {
+      return false;
+    }
 
     const isLegacyCodeSandbox = !project.sandbox_id.startsWith("daytona:");
     const isLegacyDaytona =
@@ -78,7 +84,7 @@ export default function ProjectPage() {
       project.migration_status !== "done";
 
     return isLegacyCodeSandbox || isLegacyDaytona;
-  }, [project, daytonaServer]);
+  }, [project, daytonaServer, daytonaMigrationEnabled]);
 
   // Remove publish param from URL after deployment dialog is triggered
   useEffect(() => {

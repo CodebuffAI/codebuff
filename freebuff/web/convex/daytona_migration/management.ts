@@ -27,6 +27,7 @@ type MigrationResult =
     };
 
 const self = (internal as any).daytona_migration.management;
+const DAYTONA_MIGRATION_ENABLED_SETTING_KEY = "daytona_migration_enabled";
 
 async function openSandboxWithRetries(sdk: Daytona, sandboxId: string) {
   const maxAttempts = 8;
@@ -163,6 +164,11 @@ async function detectDaytonaServerForSandboxId(
   );
 }
 
+function isMissingGitRepositoryError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("not a git repository");
+}
+
 export const resolveProjectDaytonaServer = action({
   args: {
     projectId: v.id("project"),
@@ -222,6 +228,22 @@ export const migrateAllLegacyProjectsToNewServer = internalAction({
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const isMigrationEnabled = await ctx.runQuery(internal.settings.getInternal, {
+      key: DAYTONA_MIGRATION_ENABLED_SETTING_KEY,
+      defaultValue: true,
+    });
+
+    if (!isMigrationEnabled) {
+      console.log(
+        "[DaytonaMigration][Backfill] skipped because migration is disabled",
+      );
+      return {
+        status: "disabled",
+        scanned: args.scanned ?? 0,
+        updated: args.updated ?? 0,
+      };
+    }
+
     const totalScanned = args.scanned ?? 0;
     const totalUpdated = args.updated ?? 0;
     const page: LegacyBackfillPage = await ctx.runQuery(
@@ -284,6 +306,22 @@ export const startMigrateAllLegacyProjectsToNewServer = internalAction({
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const isMigrationEnabled = await ctx.runQuery(internal.settings.getInternal, {
+      key: DAYTONA_MIGRATION_ENABLED_SETTING_KEY,
+      defaultValue: true,
+    });
+
+    if (!isMigrationEnabled) {
+      console.log(
+        "[DaytonaMigration][Backfill] not started because migration is disabled",
+      );
+      return {
+        status: "disabled",
+        pageSize: args.pageSize ?? 200,
+        dryRun: args.dryRun === true,
+      };
+    }
+
     await ctx.scheduler.runAfter(0, self.migrateAllLegacyProjectsToNewServer, {
       pageSize: args.pageSize,
       dryRun: args.dryRun,
@@ -310,10 +348,18 @@ export const migrateLegacyProjectToNewDaytona = action({
       `[DaytonaMigration] start projectId=${args.projectId} action=migrateLegacyProjectToNewDaytona`,
     );
 
+    const isMigrationEnabled = await ctx.runQuery(internal.settings.getInternal, {
+      key: DAYTONA_MIGRATION_ENABLED_SETTING_KEY,
+      defaultValue: true,
+    });
+    if (!isMigrationEnabled) {
+      throw new Error("Daytona migration is currently disabled by admin");
+    }
+
     const project: Doc<"project"> | null = await ctx.runQuery(
       internal.project.getProject,
       {
-      projectId: args.projectId,
+        projectId: args.projectId,
       },
     );
 
@@ -507,18 +553,28 @@ export const migrateLegacyProjectToNewDaytona = action({
         targetSandboxId,
       });
 
-      const newCodebase = await initializeCodebase(
-        `daytona:${targetSandboxId}`,
-        targetPackageManager,
-        "new",
-      );
-      console.log("[DaytonaMigration] initialized target codebase abstraction");
+      try {
+        const newCodebase = await initializeCodebase(
+          `daytona:${targetSandboxId}`,
+          targetPackageManager,
+          "new",
+        );
+        console.log("[DaytonaMigration] initialized target codebase abstraction");
 
-      if (!hasDevServer(newCodebase)) {
-        throw new Error("Target codebase does not support dev server management");
+        if (!hasDevServer(newCodebase)) {
+          throw new Error("Target codebase does not support dev server management");
+        }
+        await newCodebase.restartDevServer();
+        console.log("[DaytonaMigration] target dev server restarted successfully");
+      } catch (error) {
+        if (!isMissingGitRepositoryError(error)) {
+          throw error;
+        }
+
+        console.log(
+          "[DaytonaMigration] skipping dev server restart because .git is missing in migrated codebase",
+        );
       }
-      await newCodebase.restartDevServer();
-      console.log("[DaytonaMigration] target dev server restarted successfully");
 
       const previewDomain = `5173-${targetSandboxId}.proxy.daytona.works`;
       const previewUrl = `https://${previewDomain}`;

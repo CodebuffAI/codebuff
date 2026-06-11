@@ -450,7 +450,11 @@ function isAskUserPauseError(error: unknown) {
   return isAskUserPauseMessage(getErrorMessage(error))
 }
 
-const PROJECT_PATH_PREFIXES = ['/home/daytona/codebase/', '/home/daytona/codebase']
+const SANDBOX_PROJECT_ROOT = '/home/daytona/codebase'
+const PROJECT_PATH_PREFIXES = [
+  `${SANDBOX_PROJECT_ROOT}/`,
+  SANDBOX_PROJECT_ROOT,
+]
 
 function stripProjectPrefix(filePath: string) {
   for (const prefix of PROJECT_PATH_PREFIXES) {
@@ -845,6 +849,7 @@ export const runFreebuffAgent = internalAction({
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
         fingerprintId: args.projectId,
+        cwd: SANDBOX_PROJECT_ROOT,
         agent: args.agentId ?? 'base2-free',
         // Cast bypasses a cross-package AgentDefinition type drift between
         // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
