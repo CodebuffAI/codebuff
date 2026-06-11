@@ -33,6 +33,7 @@ docs/bot-detection.md
 
 # Infisical config (user-specific)
 .infisical.json
+.gstack/
 
 # Buffbench DEBUG_ERROR dumps
 evals/buffbench/*-error-*.json
