@@ -186,20 +186,22 @@ export const ChatAds = memo(function ChatAds({
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs text-muted-foreground">
+          <span className="line-clamp-2 text-xs text-muted-foreground">
             <span className="font-medium text-foreground/90">
               {ad.title || hostname}
             </span>
             {ad.adText && <> — {ad.adText}</>}
           </span>
-          <span className="mt-0.5 flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground/60">
-            Sponsored
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+            {ad.cta || 'Learn more'}
+            <ExternalLink className="h-3 w-3" />
+          </span>
+          <span className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground/60">
+            Ad
             {hostname && <span className="normal-case">{hostname}</span>}
           </span>
-        </span>
-        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-          {ad.cta || 'Learn more'}
-          <ExternalLink className="h-3 w-3" />
         </span>
       </a>
     </div>
