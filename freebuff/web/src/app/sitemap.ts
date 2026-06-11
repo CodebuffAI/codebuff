@@ -16,19 +16,60 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date().toISOString()
 
   const staticEntries: MetadataRoute.Sitemap = [
-    { url: `${siteUrl}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
+    {
+      url: `${siteUrl}/`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 1,
+    },
     {
       url: `${siteUrl}${blogConfig.basePath}`,
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.9,
     },
-    { url: `${siteUrl}/web`, lastModified: now, changeFrequency: 'daily', priority: 0.95 },
-    { url: `${siteUrl}/web/pricing`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${siteUrl}/web/community`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
-    { url: `${siteUrl}/web/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${siteUrl}/web/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
-    { url: `${siteUrl}/web/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+    {
+      url: `${siteUrl}/get-started`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
+      url: `${siteUrl}/web`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.95,
+    },
+    {
+      url: `${siteUrl}/web/pricing`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${siteUrl}/web/community`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.7,
+    },
+    {
+      url: `${siteUrl}/web/contact`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${siteUrl}/web/privacy`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
+      url: `${siteUrl}/web/terms`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
   ]
 
   const postEntries: MetadataRoute.Sitemap = getAllPosts().map((post) => ({

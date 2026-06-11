@@ -32,6 +32,7 @@
       "@/lib/cli-auth-code-shape": ["./src/lib/cli-auth-code-shape.ts"],
       "@/lib/constant": ["./src/lib/constant.ts"],
       "@/lib/fonts": ["./src/lib/fonts.ts"],
+      "@/lib/home-faqs": ["./src/lib/home-faqs.ts"],
       "@/lib/freebuff-public-env": ["./src/lib/freebuff-public-env.ts"],
       "@/lib/freebuff-server-env": ["./src/lib/freebuff-server-env.ts"],
       "@/lib/vly-convex-jwt": ["./src/lib/vly-convex-jwt.ts"],

@@ -3,10 +3,12 @@ import HomeClient from './home-client'
 import type { Metadata } from 'next'
 
 import { siteConfig } from '@/lib/constant'
+import { homeFaqs } from '@/lib/home-faqs'
 
 export async function generateMetadata(): Promise<Metadata> {
   const canonicalUrl = siteConfig.url()
-  const title = 'Freebuff — the free coding agent (free Claude Code, Codex, Cursor & Lovable alternative)'
+  const title =
+    'Freebuff — the free coding agent (free Claude Code, Codex, Cursor & Lovable alternative)'
   const description = siteConfig.description
 
   return {
@@ -34,12 +36,17 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+// Escape "<" so content can never terminate the script element (XSS hardening).
+function jsonLd(data: object): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c')
+}
+
 function SoftwareJsonLd({ siteUrl }: { siteUrl: string }) {
   return (
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify({
+        __html: jsonLd({
           '@context': 'https://schema.org',
           '@type': 'SoftwareApplication',
           name: 'Freebuff',
@@ -62,6 +69,36 @@ function SoftwareJsonLd({ siteUrl }: { siteUrl: string }) {
           url: siteUrl,
           softwareVersion: '1.0',
           downloadUrl: siteUrl,
+          installUrl: `${siteUrl}/get-started`,
+          featureList: [
+            'Free CLI coding agent for the terminal',
+            'Free full-stack web app builder (Freebuff Web)',
+            '9 specialized subagents including code review and browser testing',
+            'No subscription or credit card required',
+          ],
+          sameAs: [
+            'https://codebuff.com',
+            'https://www.npmjs.com/package/freebuff',
+          ],
+        }),
+      }}
+    />
+  )
+}
+
+function FaqJsonLd() {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: jsonLd({
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: homeFaqs.map((faq) => ({
+            '@type': 'Question',
+            name: faq.question,
+            acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+          })),
         }),
       }}
     />
@@ -73,6 +110,7 @@ export default function HomePage() {
   return (
     <>
       <SoftwareJsonLd siteUrl={siteUrl} />
+      <FaqJsonLd />
       <HomeClient />
     </>
   )
