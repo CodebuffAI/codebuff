@@ -1,15 +1,13 @@
 'use client'
 
 import { ExternalLink } from 'lucide-react'
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 const ROTATE_INTERVAL_MS = 60_000
 const FETCH_TIMEOUT_MS = 5_000
 /** Auctions per cycle; the slot pauses after this many until the next send. */
 const MAX_AD_FETCHES = 3
-/** Impression pixels kept mounted for dedupe; oldest dropped beyond this. */
-const MAX_TRACKED_IMPRESSIONS = 30
 
 const adSchema = z.object({
   adText: z.string(),
@@ -56,8 +54,10 @@ function buildGravityContext(sessionId: string) {
   }
 }
 
-function recordAdClick(impUrl: string) {
-  fetch('/api/ads/click', {
+/** Reports the ad event server-side; for impressions the server fires
+ * Gravity's pixel itself, so tracking works even with client ad blockers. */
+function recordAdEvent(event: 'impression' | 'click', impUrl: string) {
+  fetch(`/api/ads/${event}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ impUrl }),
@@ -89,9 +89,9 @@ export const ChatAds = memo(function ChatAds({
       `chat-${Math.random().toString(36).slice(2)}`,
   )
   const [ad, setAd] = useState<ChatAd | null>(null)
-  // Impression pixels stay mounted once fired so a repeated ad doesn't
-  // double-fire its pixel.
-  const [firedImpUrls, setFiredImpUrls] = useState<string[]>([])
+  // Impressions already reported, so a repeated ad doesn't double-report.
+  // (The server dedupes too; this just avoids redundant requests.)
+  const reportedImpUrls = useRef(new Set<string>())
   const [faviconErrors, setFaviconErrors] = useState<Record<string, boolean>>(
     {},
   )
@@ -149,12 +149,9 @@ export const ChatAds = memo(function ChatAds({
   }, [seed, sessionId])
 
   useEffect(() => {
-    if (!ad) return
-    setFiredImpUrls((prev) =>
-      prev.includes(ad.impUrl)
-        ? prev
-        : [...prev, ad.impUrl].slice(-MAX_TRACKED_IMPRESSIONS),
-    )
+    if (!ad || reportedImpUrls.current.has(ad.impUrl)) return
+    reportedImpUrls.current.add(ad.impUrl)
+    recordAdEvent('impression', ad.impUrl)
   }, [ad])
 
   if (!ad) return null
@@ -166,23 +163,12 @@ export const ChatAds = memo(function ChatAds({
 
   return (
     <div className="mb-2">
-      {firedImpUrls.map((impUrl) => (
-        <img
-          key={impUrl}
-          src={impUrl}
-          alt=""
-          width={1}
-          height={1}
-          className="pointer-events-none absolute h-px w-px opacity-0"
-          loading="eager"
-        />
-      ))}
       <a
         key={ad.clickUrl}
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        onClick={() => recordAdClick(ad.impUrl)}
+        onClick={() => recordAdEvent('click', ad.impUrl)}
         className="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5 text-xs font-medium text-muted-foreground">
