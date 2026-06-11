@@ -35,6 +35,7 @@ import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
 import { IS_FREEBUFF } from './utils/constants'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
+import { trimOversizedChatLogs } from './utils/chat-history'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
@@ -244,6 +245,11 @@ async function main(): Promise<void> {
   if (clearLogs) {
     clearLogFile()
   }
+
+  // Reclaim disk from oversized debug logs left by older versions that logged
+  // the full conversation to log.jsonl. Deferred to keep the stat sweep over
+  // chat directories off the startup path.
+  setTimeout(trimOversizedChatLogs, 0)
 
   const queryClient = createQueryClient()
 

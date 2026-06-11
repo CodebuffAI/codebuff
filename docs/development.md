@@ -35,6 +35,8 @@ NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3001
 
 Logs are in `debug/console/` (`db.log`, `studio.log`, `sdk.log`, `web.log`).
 
+The CLI writes summary logs to `debug/cli.jsonl` in dev (per-chat `log.jsonl` in prod). Full agent message histories go to a separate trace: `debug/trace.jsonl` in dev, or the chat directory's `trace.jsonl` when `CODEBUFF_TRACE=1` is set in prod. The trace has one message per line (each written once, including full image attachments), so it's readable with a terminal JSONL viewer. `--clear-logs` clears both files.
+
 ## Package Management
 
 - Use `bun install`, `bun run ...` (avoid `npm`).

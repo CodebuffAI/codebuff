@@ -21,6 +21,9 @@ import {
 } from './analytics'
 import { getCurrentChatDir, getProjectRoot } from '../project-files'
 
+/** Name of the per-chat debug log file written in production builds */
+export const CHAT_LOG_FILENAME = 'log.jsonl'
+
 export interface LoggerContext {
   userId?: string
   userEmail?: string
@@ -97,13 +100,14 @@ function setLogPath(p: string): void {
 
 export function clearLogFile(): void {
   const projectRoot = getProjectRoot()
-  const defaultLog = path.join(projectRoot, 'debug', 'cli.jsonl')
+  const debugDir = path.join(projectRoot, 'debug')
   const targets = new Set<string>()
 
   if (logPath) {
     targets.add(logPath)
   }
-  targets.add(defaultLog)
+  targets.add(path.join(debugDir, 'cli.jsonl'))
+  targets.add(path.join(debugDir, 'trace.jsonl'))
 
   for (const target of targets) {
     try {
@@ -136,7 +140,7 @@ function sendAnalyticsAndLog(
       const logTarget =
         IS_DEV
           ? path.join(projectRoot, 'debug', 'cli.jsonl')
-          : path.join(getCurrentChatDir(), 'log.jsonl')
+          : path.join(getCurrentChatDir(), CHAT_LOG_FILENAME)
 
       setLogPath(logTarget)
     }

@@ -139,7 +139,18 @@ export async function mainPrompt(
     costMode,
   })
 
-  logger.debug({ output }, 'Main prompt finished')
+  // Log a summary only: output can contain the full conversation
+  // (type 'allMessages'), which bloats log files on long chats.
+  logger.debug(
+    {
+      outputType: output?.type,
+      messageCount:
+        output && 'value' in output && Array.isArray(output.value)
+          ? output.value.length
+          : undefined,
+    },
+    'Main prompt finished',
+  )
 
   return {
     sessionState: {

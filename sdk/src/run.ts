@@ -45,6 +45,7 @@ import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { PublishedClientToolName } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type {
@@ -130,6 +131,10 @@ export type CodebuffClientOptions = {
   fsSource?: Source<CodebuffFileSystem>
   spawnSource?: Source<CodebuffSpawn>
   logger?: Logger
+  /** Optional debug trace of agent message histories. Called with the full
+   *  history at each agent step boundary; implementations should append each
+   *  message once (see TraceWriter). */
+  traceWriter?: TraceWriter
 }
 
 export type ImageContent = {
@@ -218,6 +223,7 @@ async function runOnce({
   fsSource = () => require('fs').promises,
   spawnSource,
   logger,
+  traceWriter,
 
   agent,
   prompt,
@@ -391,6 +397,7 @@ async function runOnce({
 
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
+    traceWriter,
     apiKey,
     handleStepsLogChunk: () => {
       // Does nothing for now

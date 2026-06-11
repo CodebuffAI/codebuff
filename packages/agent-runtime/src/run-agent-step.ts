@@ -54,6 +54,7 @@ import type {
   PromptAiSdkFn,
 } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
   Message,
@@ -123,6 +124,7 @@ export const runAgentStep = async (
 
     trackEvent: TrackEventFn
     promptAiSdk: PromptAiSdkFn
+    traceWriter?: TraceWriter
   } & ParamsExcluding<
     typeof processStream,
     | 'agentContext'
@@ -351,6 +353,21 @@ export const runAgentStep = async (
       }
     : undefined
 
+  // Full message histories go to the trace writer, which appends each message
+  // exactly once (see TraceWriter).
+  params.traceWriter?.recordStep({
+    agentId: agentState.agentId,
+    agentType: String(agentType),
+    runId: agentState.runId,
+    userInputId,
+    step: iterationNum,
+    system,
+    messages: agentState.messageHistory,
+  })
+
+  // Log a summary only: the full message history, system prompt, and agent
+  // template are large and logging them every step bloats log files
+  // quadratically over the course of a chat.
   logger.debug(
     {
       iteration: iterationNum,
@@ -358,14 +375,12 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
       contextTokenCount: agentState.contextTokenCount,
-      agentMessages: agentState.messageHistory.concat().reverse(),
-      system,
+      messageCount: agentState.messageHistory.length,
       prompt,
       params: spawnParams,
-      agentContext,
       systemTokens,
-      agentTemplate,
-      tools: params.tools,
+      agentTemplateId: agentTemplate.id,
+      toolNames: params.tools ? Object.keys(params.tools) : undefined,
     },
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
@@ -446,7 +461,6 @@ export const runAgentStep = async (
 
   const {
     fullResponse: fullResponseAfterStream,
-    fullResponseChunks,
     hadToolCallError,
     messageId,
     toolCalls,
@@ -535,6 +549,17 @@ export const runAgentStep = async (
     agentContext,
   }
 
+  // Capture the assistant response and tool results added during this step
+  params.traceWriter?.recordStep({
+    agentId: agentState.agentId,
+    agentType: String(agentType),
+    runId: agentState.runId,
+    userInputId,
+    step: iterationNum,
+    system,
+    messages: agentState.messageHistory,
+  })
+
   logger.debug(
     {
       iteration: iterationNum,
@@ -544,13 +569,11 @@ export const runAgentStep = async (
       shouldEndTurn,
       duration: Date.now() - startTime,
       fullResponse,
-      finalMessageHistoryWithToolResults: agentState.messageHistory
-        .concat()
-        .reverse(),
+      // Summarize instead of logging the full message history: logging it
+      // every step bloats log files quadratically over the course of a chat.
+      messageCount: agentState.messageHistory.length,
       toolCalls,
       toolResults,
-      agentContext,
-      fullResponseChunks,
       stepCreditsUsed,
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,

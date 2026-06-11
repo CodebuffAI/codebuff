@@ -74,6 +74,7 @@ export type CliEnv = BaseEnv & {
   CODEBUFF_RG_PATH?: string
   CODEBUFF_SCROLL_MULTIPLIER?: string
   CODEBUFF_PERF_TEST?: string
+  CODEBUFF_TRACE?: string
   FREEBUFF_MODE?: string
 }
 

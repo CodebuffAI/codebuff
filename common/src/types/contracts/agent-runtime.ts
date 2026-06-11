@@ -24,6 +24,7 @@ import type {
   PromptAiSdkStructuredFn,
 } from './llm'
 import type { Logger } from './logger'
+import type { TraceWriter } from './trace'
 
 /** Shared dependencies */
 export type AgentRuntimeDeps = {
@@ -54,6 +55,8 @@ export type AgentRuntimeDeps = {
 
   // Other
   logger: Logger
+  /** Optional debug trace of agent message histories (see TraceWriter) */
+  traceWriter?: TraceWriter
   fetch: typeof globalThis.fetch
 }
 
