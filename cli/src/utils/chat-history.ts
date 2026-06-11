@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import path from 'path'
 
+import { CHAT_LOG_FILENAME, logger } from './logger'
 import { getProjectDataDir } from '../project-files'
-import { logger } from './logger'
 
 import type { ChatMessage } from '../types/chat'
 
@@ -120,6 +120,48 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
       'Failed to list chats',
     )
     return []
+  }
+}
+
+// Older CLI versions logged the full conversation (including attachments) to
+// log.jsonl on every step, leaving multi-GB files in chat directories. Delete
+// any log file over this cap; with summary-only logging, healthy logs stay
+// far below it.
+const MAX_LOG_FILE_BYTES = 10 * 1024 * 1024
+// Only delete logs from chats untouched for this long, so debug logs for
+// recent chats stay available.
+const MIN_LOG_AGE_MS = 14 * 24 * 60 * 60 * 1000
+
+/**
+ * Delete oversized log.jsonl files from chat directories that haven't been
+ * touched in 14+ days. Only debug logs are removed — chat history files are
+ * untouched.
+ */
+export function trimOversizedChatLogs(): void {
+  let chatsDir: string
+  let chatIds: string[]
+  try {
+    chatsDir = getChatsDir()
+    chatIds = fs.readdirSync(chatsDir)
+  } catch {
+    return // No project root set or no chats directory yet
+  }
+
+  const deleteBefore = Date.now() - MIN_LOG_AGE_MS
+  for (const chatId of chatIds) {
+    const logFile = path.join(chatsDir, chatId, CHAT_LOG_FILENAME)
+    try {
+      const stats = fs.statSync(logFile, { throwIfNoEntry: false })
+      if (
+        stats &&
+        stats.size > MAX_LOG_FILE_BYTES &&
+        stats.mtimeMs < deleteBefore
+      ) {
+        fs.unlinkSync(logFile)
+      }
+    } catch {
+      // Ignore errors for individual files
+    }
   }
 }
 

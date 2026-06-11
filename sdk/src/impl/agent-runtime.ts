@@ -20,6 +20,7 @@ import type {
 import type { DatabaseAgentCache } from '@codebuff/common/types/contracts/database'
 import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 
 const databaseAgentCache: DatabaseAgentCache = new Map()
@@ -27,6 +28,7 @@ const databaseAgentCache: DatabaseAgentCache = new Map()
 export function getAgentRuntimeImpl(
   params: {
     logger?: Logger
+    traceWriter?: TraceWriter
     apiKey: string
     clientEnv?: ClientEnv
   } & Pick<
@@ -42,6 +44,7 @@ export function getAgentRuntimeImpl(
 ): AgentRuntimeDeps & AgentRuntimeScopedDeps {
   const {
     logger,
+    traceWriter,
     apiKey,
     clientEnv = clientEnvDefault,
     handleStepsLogChunk,
@@ -99,6 +102,7 @@ export function getAgentRuntimeImpl(
 
     // Other
     logger: logger ?? noopLogger,
+    traceWriter,
     fetch: globalThis.fetch,
 
     // Client (WebSocket)

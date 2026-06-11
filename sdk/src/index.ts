@@ -16,6 +16,7 @@ export type {
   TextContent,
   ImageContent,
 } from './run'
+export type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'
 // Agent type exports
 export type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'

@@ -347,6 +347,34 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(result.agentState).toBeDefined()
   })
 
+  it('should pass the full message history to the traceWriter when provided', async () => {
+    const recordedSteps: Array<{ agentId: string; messages: unknown[] }> = []
+    const traceWriter = {
+      recordStep: (params: { agentId: string; messages: unknown[] }) => {
+        recordedSteps.push(params)
+      },
+    }
+
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      traceWriter,
+      agentType: 'test-agent',
+      localAgentTemplates: {
+        'test-agent': { ...mockTemplate, handleSteps: undefined },
+      },
+    })
+
+    expect(result.agentState).toBeDefined()
+    // Called at least at the start and end of the step
+    expect(recordedSteps.length).toBeGreaterThanOrEqual(2)
+    expect(recordedSteps[0]!.agentId).toBe('test-agent-id')
+    // End-of-step call sees the assistant response appended to the history
+    const lastMessages = recordedSteps[recordedSteps.length - 1]!.messages
+    expect(lastMessages.length).toBeGreaterThan(
+      recordedSteps[0]!.messages.length,
+    )
+  })
+
   it('should handle programmatic agent error and still call LLM', async () => {
     // Test error handling in programmatic step - should still allow LLM to run
 

@@ -467,8 +467,25 @@ export const useSendMessage = ({
               : undefined,
         })
 
+        // Log a summary only: the full run config contains the entire
+        // conversation history and attachments, which bloats log.jsonl.
         logger.info(
-          { runConfig },
+          {
+            runConfig: {
+              agent:
+                typeof resolvedAgent === 'string'
+                  ? resolvedAgent
+                  : resolvedAgent.id,
+              promptLength: effectivePrompt.length,
+              contentBlockCount: messageContent?.length ?? 0,
+              previousMessageCount:
+                previousRunStateRef.current?.sessionState?.mainAgentState
+                  .messageHistory.length ?? 0,
+              agentDefinitionCount: agentDefinitions.length,
+              costMode: runConfig.costMode,
+              maxAgentSteps: runConfig.maxAgentSteps,
+            },
+          },
           '[send-message] Sending message with sdk run config',
         )
         const runState = await client.run(runConfig)
