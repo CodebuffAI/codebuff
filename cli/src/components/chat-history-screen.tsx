@@ -12,11 +12,8 @@ import {
   formatRelativeTime,
   getAllChats,
 } from '../utils/chat-history'
-<<<<<<< HEAD
 import { createTextPasteHandler } from '../utils/strings'
-=======
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
->>>>>>> cbd3fde33 (Fix numpad input handling (#727))
 
 import type { SelectableListItem } from './selectable-list'
 

@@ -15,11 +15,8 @@ import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { formatCwd } from '../utils/path-helpers'
 import { loadRecentProjects } from '../utils/recent-projects'
-<<<<<<< HEAD
 import { createTextPasteHandler } from '../utils/strings'
-=======
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
->>>>>>> cbd3fde33 (Fix numpad input handling (#727))
 import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 
 import type { SelectableListItem } from './selectable-list'

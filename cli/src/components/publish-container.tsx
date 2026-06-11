@@ -15,11 +15,8 @@ import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { usePublishStore } from '../state/publish-store'
 import { loadLocalAgents, loadAgentDefinitions } from '../utils/local-agent-registry'
-<<<<<<< HEAD
 import { createTextPasteHandler } from '../utils/strings'
-=======
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
->>>>>>> cbd3fde33 (Fix numpad input handling (#727))
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 
