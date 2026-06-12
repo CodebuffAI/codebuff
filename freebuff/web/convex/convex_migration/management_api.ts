@@ -3,6 +3,48 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { SelfHostedDeployment } from "../lib/self_hosted_deployment";
 
+const getDeploymentList = (response: any): any[] => {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response?.deployments)) {
+    return response.deployments;
+  }
+
+  return [];
+};
+
+const getDeploymentName = (deployment: any): string | null => {
+  return (
+    deployment?.name ??
+    deployment?.deploymentName ??
+    deployment?.deployment_name ??
+    null
+  );
+};
+
+const isProdDeployment = (deployment: any): boolean => {
+  const type =
+    deployment?.deploymentType ??
+    deployment?.deployment_type ??
+    deployment?.type ??
+    null;
+
+  const reference =
+    deployment?.deploymentReference ??
+    deployment?.deployment_reference ??
+    deployment?.reference ??
+    null;
+
+  return (
+    type === "prod" ||
+    type === "production" ||
+    reference === "default_prod" ||
+    reference === "prod"
+  );
+};
+
 /**
  * Management API helpers for Convex migration
  * Handles project creation, deployment, and configuration
@@ -370,13 +412,67 @@ export const createProdDeployment = internalAction({
       );
 
       if (!response.ok) {
-        throw new Error(
-          `Failed to create prod deployment: ${response.status} ${responseText}`,
+        let responseJson: any = null;
+        try {
+          responseJson = JSON.parse(responseText);
+        } catch {
+          responseJson = null;
+        }
+
+        const alreadyExists =
+          response.status === 400 &&
+          responseJson?.code === "DeploymentAlreadyExists";
+
+        if (!alreadyExists) {
+          throw new Error(
+            `Failed to create prod deployment: ${response.status} ${responseText}`,
+          );
+        }
+
+        console.log(
+          "[Management API] Prod deployment already exists, fetching existing deployment...",
         );
+
+        const deploymentsResponse: any = await ctx.runAction(
+          internal.convex_migration.management_api.listDeployments,
+          {
+            accessToken: args.accessToken,
+            projectId: args.projectId,
+          },
+        );
+
+        const prodDeployment = getDeploymentList(deploymentsResponse).find(
+          isProdDeployment,
+        );
+        const deploymentName = getDeploymentName(prodDeployment);
+
+        if (!deploymentName) {
+          throw new Error(
+            "Prod deployment already exists but could not be resolved from list_deployments response",
+          );
+        }
+
+        const deploymentUrl =
+          prodDeployment?.deploymentUrl ??
+          (await SelfHostedDeployment.resolveUrl(
+            deploymentName,
+            args.accessToken,
+          ));
+
+        return {
+          deploymentName,
+          deploymentUrl,
+        };
       }
 
       const deployment = JSON.parse(responseText);
-      const deploymentName = deployment.name || deployment.deploymentName;
+      const deploymentName = getDeploymentName(deployment);
+
+      if (!deploymentName) {
+        throw new Error(
+          `Failed to parse prod deployment name from response: ${responseText}`,
+        );
+      }
 
       console.log("[Management API] Prod deployment created:", deploymentName);
 
@@ -537,21 +633,20 @@ export const setupUserConvexProject = internalAction({
       );
 
       // Parse deployments - identify dev and prod separately
-      const deploymentList = Array.isArray(deploymentsResponse)
-        ? deploymentsResponse
-        : deploymentsResponse.deployments || [];
+      const deploymentList = getDeploymentList(deploymentsResponse);
 
       let devDeployment: any = null;
       let prodDeployment: any = null;
 
       for (const d of deploymentList) {
-        const type = d.deploymentType || d.deployment_type || d.type || "dev";
-        const name = d.name || d.deploymentName || d.deployment_name;
+        const type =
+          d.deploymentType || d.deployment_type || d.type || "development";
+        const name = getDeploymentName(d);
 
-        if (type === "prod" || type === "production") {
+        if (isProdDeployment(d) && name) {
           prodDeployment = { name, type: "prod" };
           console.log("[Management API] Found existing prod deployment:", name);
-        } else if (type === "dev" || type === "development") {
+        } else if ((type === "dev" || type === "development") && name) {
           devDeployment = { name, type: "dev" };
           console.log("[Management API] Found existing dev deployment:", name);
         }
