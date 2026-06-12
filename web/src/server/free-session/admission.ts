@@ -155,10 +155,37 @@ export async function runAdmissionTick(
 let interval: ReturnType<typeof setInterval> | null = null
 let inFlight = false
 
-function runTick() {
+/** A tick that runs longer than this is presumed hung. Ticks normally finish
+ *  in well under a second; 60s is far past any healthy run but short enough
+ *  that the loop recovers within a few intervals. */
+export const TICK_WATCHDOG_MS = 60_000
+
+export function runTick(
+  deps?: AdmissionDeps,
+  watchdogMs: number = TICK_WATCHDOG_MS,
+): Promise<void> | undefined {
   if (inFlight) return
   inFlight = true
-  runAdmissionTick()
+  // The inFlight guard prevents overlapping ticks, but it means a single tick
+  // that hangs (an await that never settles — e.g. a DB query or upstream
+  // fetch without a timeout) silently stops ALL sweeping and admission until
+  // the process restarts. The watchdog releases the guard after watchdogMs so
+  // the next interval firing starts fresh. The hung tick is abandoned, not
+  // cancelled — if it ever completes it must not clear a newer tick's guard,
+  // hence the tripped flag. A late completion racing a newer tick is
+  // harmless: sweeps are idempotent and admission is serialized by a
+  // per-model advisory lock.
+  let watchdogTripped = false
+  const watchdog = setTimeout(() => {
+    watchdogTripped = true
+    inFlight = false
+    logger.error(
+      { watchdogMs },
+      '[FreeSessionAdmission] tick exceeded watchdog timeout — abandoning it so future ticks can run',
+    )
+  }, watchdogMs)
+  if (typeof watchdog.unref === 'function') watchdog.unref()
+  return runAdmissionTick(deps)
     .then((result) => {
       // Emit every tick so per-model queue depth and active counts form a
       // continuous time-series that can be charted over time.
@@ -172,6 +199,7 @@ function runTick() {
           queueDepthByModel: result.queueDepthByModel,
           activeCountByModel: result.activeCountByModel,
           skipped: result.skipped,
+          abandonedByWatchdog: watchdogTripped || undefined,
         },
         '[FreeSessionAdmission] tick',
       )
@@ -183,7 +211,8 @@ function runTick() {
       )
     })
     .finally(() => {
-      inFlight = false
+      clearTimeout(watchdog)
+      if (!watchdogTripped) inFlight = false
     })
 }
 

@@ -1,6 +1,11 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
+import { sleep } from '@codebuff/common/util/promise'
 
-import { runAdmissionTick } from '../admission'
+import {
+  __resetFreeSessionAdmissionForTests,
+  runAdmissionTick,
+  runTick,
+} from '../admission'
 
 import type { AdmissionDeps } from '../admission'
 import type { FireworksHealth, FleetHealth } from '../fireworks-health'
@@ -160,5 +165,69 @@ describe('runAdmissionTick', () => {
     expect(result.evictedBanned).toBe(2)
     expect(result.admitted).toBe(0)
     expect(result.skipped).toBe('unhealthy')
+  })
+})
+
+describe('runTick watchdog', () => {
+  afterEach(() => {
+    __resetFreeSessionAdmissionForTests()
+  })
+
+  test('a hung tick no longer blocks subsequent ticks after the watchdog trips', async () => {
+    const hungDeps = makeAdmissionDeps({
+      // Never settles — simulates a DB query or upstream fetch with no timeout.
+      sweepExpired: () => new Promise<number>(() => {}),
+    })
+    void runTick(hungDeps, 20)
+
+    // Before the watchdog trips, the inFlight guard rejects new ticks.
+    const blockedDeps = makeAdmissionDeps()
+    expect(runTick(blockedDeps, 20)).toBeUndefined()
+    expect(blockedDeps.calls.admit).toBe(0)
+
+    await sleep(40)
+
+    // After the trip, a fresh tick runs to completion.
+    const freshDeps = makeAdmissionDeps()
+    await runTick(freshDeps, 1000)
+    expect(freshDeps.calls.admit).toBe(1)
+  })
+
+  test('a tick that completes normally clears the guard without tripping the watchdog', async () => {
+    const first = makeAdmissionDeps()
+    await runTick(first, 1000)
+    expect(first.calls.admit).toBe(1)
+
+    const second = makeAdmissionDeps()
+    await runTick(second, 1000)
+    expect(second.calls.admit).toBe(1)
+  })
+
+  test('a late-completing abandoned tick does not clear a newer tick’s guard', async () => {
+    let resolveHang: (n: number) => void = () => {}
+    const hungDeps = makeAdmissionDeps({
+      sweepExpired: () => new Promise<number>((r) => (resolveHang = r)),
+    })
+    const hungTick = runTick(hungDeps, 20)
+
+    await sleep(40) // watchdog trips, guard released
+
+    // Start a slow-but-healthy second tick, then let the abandoned first
+    // tick complete while the second is still in flight.
+    let resolveSecond: (n: number) => void = () => {}
+    const secondDeps = makeAdmissionDeps({
+      sweepExpired: () => new Promise<number>((r) => (resolveSecond = r)),
+    })
+    const secondTick = runTick(secondDeps, 10_000)
+    resolveHang(0)
+    await hungTick
+
+    // The second tick still holds the guard: a third tick is rejected.
+    const thirdDeps = makeAdmissionDeps()
+    expect(runTick(thirdDeps, 1000)).toBeUndefined()
+    expect(thirdDeps.calls.admit).toBe(0)
+
+    resolveSecond(0)
+    await secondTick
   })
 })
