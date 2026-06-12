@@ -13,7 +13,7 @@ export const homeFaqs = [
   {
     question: 'What models do you use?',
     answer:
-      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n\nLimited mode uses DeepSeek V4 Flash only.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- MiMo 2.5 Pro: smartest and multimodal, but slower.\n- Kimi K2.6: balanced and multimodal.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n- MiMo 2.5: multimodal.\n- MiniMax M3: smartest unlimited model, multimodal. Its API collects data for training.\n\nLimited mode uses DeepSeek V4 Flash and MiMo 2.5.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
@@ -23,7 +23,7 @@ export const homeFaqs = [
   {
     question: 'What is limited mode?',
     answer:
-      'Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash only, with 5 one-hour sessions per day.',
+      'Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 5 one-hour sessions per day.',
   },
   {
     question: 'Are you training on my data?',
