@@ -107,12 +107,26 @@ const formatPrivacySignalList = (
   return `${labels.slice(0, -1).join(', ')}, or ${labels[labels.length - 1]}`
 }
 
+/** "BR" → "Brazil". Falls back to the raw code when the runtime can't
+ *  resolve it (malformed code, missing ICU data). */
+const formatCountryName = (countryCode: string): string => {
+  try {
+    return (
+      new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) ??
+      countryCode
+    )
+  } catch {
+    return countryCode
+  }
+}
+
 // Tone matters here: this is shown to users who, through no fault of their
 // own, get the smaller model set. Frame it as model *availability* ("aren't
 // available in BR yet"), never as restricted *access* ("limited mode",
 // "blocked") — clear enough to answer "why these models?" for someone who
 // goes looking, quiet enough to ignore for someone who doesn't. The VPN case
-// is the one the user can act on, so it leads with the action.
+// is the one the user can act on, so it leads with the action. Rendered
+// directly under the model list — that's where "why these models?" gets asked.
 const getLimitedModeNotice = (
   session: FreebuffSessionResponse | null,
 ): string | null => {
@@ -133,7 +147,9 @@ const getLimitedModeNotice = (
         session.ipPrivacySignals ?? undefined,
       )}? More models are available on a direct connection`
     case 'country_not_allowed':
-      return `Some models aren't available in ${countryCode ?? 'your region'} yet`
+      return `Some models aren't available in ${
+        countryCode ? formatCountryName(countryCode) : 'your region'
+      } yet`
     case 'anonymized_or_unknown_country':
     case 'missing_client_ip':
     case 'unresolved_client_ip':
@@ -266,19 +282,19 @@ const TakeoverPrompt: React.FC = () => {
  *  doesn't jump once they earn their first day. */
 const StreakInlineLine: React.FC<{
   streak: number
-  marginBottom: number
-}> = ({ streak, marginBottom }) => {
+  marginTop: number
+}> = ({ streak, marginTop }) => {
   const theme = useTheme()
 
   if (streak <= 0) {
-    return <text style={{ marginBottom, flexShrink: 0 }}> </text>
+    return <text style={{ marginTop, flexShrink: 0 }}> </text>
   }
 
   return (
     <text
       style={{
         fg: theme.muted,
-        marginBottom,
+        marginTop,
         flexShrink: 0,
         wrapMode: 'none',
       }}
@@ -350,8 +366,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const isQueued = session?.status === 'queued'
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
+  // Hidden in compact terminals: the notice is nice-to-have context, and
+  // below 22 rows every line competes with the picker itself.
   const limitedModeNotice =
-    accessTier === 'limited' ? getLimitedModeNotice(session) : null
+    accessTier === 'limited' && !compact ? getLimitedModeNotice(session) : null
   // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
   // state: show the picker with live N-in-line hints and a prompt. Picking a
   // model triggers joinFreebuffQueue, which POSTs and transitions us to
@@ -429,18 +447,22 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       : logoLines + 1 /* marginBottom */ + (logoMode === 'full' ? 1 : 0)
   const mainPaddingRows = (logoMode === 'text' ? 1 : 0) + 1
   const adRows = showAds ? AD_CARD_HEIGHT : 0
-  // Streak is rendered inline as a one-line row directly under the counter
-  // (landing) or title (queued), with the same bottom margin as its neighbor
-  // so the picker still sits flush below it.
-  const streakLandingRows = reserveStreakSlot ? 1 + textMarginBottom : 0
-  const streakQueuedRows = reserveStreakSlot ? 1 + 1 : 0
+  // Status lines render below the picker, each with marginTop 1: the session
+  // counter (landing only), then the limited-mode notice, then the streak.
+  // They still eat into the picker's height budget regardless of being above
+  // or below it.
+  const streakRows = reserveStreakSlot ? 1 + 1 : 0
+  const noticeRows = limitedModeNotice
+    ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
+    : 0
+  const belowPickerRows = streakRows + noticeRows
+  const counterRows = 1 /* marginTop */ + wrappedRows(counterText)
   const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
   const landingTextRows =
     wrappedRows('Pick a model to start') +
     textMarginBottom +
-    wrappedRows(counterText) +
-    textMarginBottom +
-    streakLandingRows
+    counterRows +
+    belowPickerRows
   const queuedTitleText =
     session?.status === 'queued' && session.position === 1
       ? "You're next in line"
@@ -449,7 +471,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     wrappedRows(queuedTitleText) +
     1 +
     4 /* position panel */ +
-    streakQueuedRows
+    belowPickerRows
   const selectorMaxHeight = Math.max(
     3,
     terminalHeight -
@@ -491,13 +513,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           flexShrink: 0,
         }}
       >
-        <box>
-          {limitedModeNotice && (
-            <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-              {limitedModeNotice}
-            </text>
-          )}
-        </box>
+        {/* Empty spacer: justifyContent space-between needs a left sibling to
+            keep the ✕ pushed to the right. */}
+        <box />
         <Button
           onClick={exitFreebuffCleanly}
           onMouseOver={() => setExitHover(true)}
@@ -577,10 +595,11 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   Pick a model to start
                 </span>
               </text>
+              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
               <text
                 style={{
                   fg: theme.muted,
-                  marginBottom: textMarginBottom,
+                  marginTop: 1,
                   wrapMode: 'word',
                 }}
               >
@@ -593,13 +612,16 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   resets in {sessionResetCountdown}
                 </span>
               </text>
-              {reserveStreakSlot && !compact && (
-                <StreakInlineLine
-                  streak={streak}
-                  marginBottom={textMarginBottom}
-                />
+              {limitedModeNotice && (
+                <text
+                  style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
+                >
+                  {limitedModeNotice}
+                </text>
               )}
-              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
+              {reserveStreakSlot && (
+                <StreakInlineLine streak={streak} marginTop={1} />
+              )}
             </box>
           )}
 
@@ -622,11 +644,17 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               >
                 {queuedTitleText}
               </text>
-              {reserveStreakSlot && (
-                <StreakInlineLine streak={streak} marginBottom={1} />
-              )}
-
               <FreebuffModelSelector maxHeight={selectorMaxHeight} />
+              {limitedModeNotice && (
+                <text
+                  style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
+                >
+                  {limitedModeNotice}
+                </text>
+              )}
+              {reserveStreakSlot && (
+                <StreakInlineLine streak={streak} marginTop={1} />
+              )}
 
               <box
                 style={{
