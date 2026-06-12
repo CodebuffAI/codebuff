@@ -4,7 +4,7 @@ import {
   getZonedParts,
   type ZonedDateParts,
 } from '../util/zoned-time'
-import { mimoModels, minimaxModels } from './model-config'
+import { mimoModels, minimaxModels, moonshotModels } from './model-config'
 
 /**
  * Models a freebuff user can pick between in the waiting-room model selector.
@@ -50,7 +50,7 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
  *  the free-mode allowlists — the CLI and web builder keep DeepSeek direct. */
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
-export const FREEBUFF_KIMI_MODEL_ID = 'moonshotai/kimi-k2.6'
+export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK26
 /** Legacy: removed from the pickers on 2026-06-09 in favor of MiniMax M3, but
  *  still server-supported so old clients keep working. Drop from
  *  SUPPORTED_FREEBUFF_MODELS after ~2026-06-16. */
