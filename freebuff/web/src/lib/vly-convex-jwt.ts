@@ -87,6 +87,10 @@ export async function signVlyConvexToken(params: {
    *  ctx.auth.getUserIdentity() as a custom claim. */
   accessTier?: string | null
   countryCode?: string | null
+  /** Web referral score from the shared Postgres referral ledger (qualified
+   *  web referrals made + 1 if the user was themselves referred). Read by
+   *  Convex to size tier-scaled rate limits and perks. */
+  webReferralScore?: number | null
 }) {
   const { privateKey } = await getKeyPair()
   const now = Math.floor(Date.now() / 1000)
@@ -97,6 +101,7 @@ export async function signVlyConvexToken(params: {
     picture: params.image ?? undefined,
     access_tier: params.accessTier ?? undefined,
     country_code: params.countryCode ?? undefined,
+    web_referral_score: params.webReferralScore ?? undefined,
   })
     .setProtectedHeader({
       alg: VLY_CONVEX_JWT_ALGORITHM,

@@ -521,13 +521,25 @@ export async function getReferralQualification(params: {
  * `githubUserId` is the referred user's immutable GitHub id (from
  * getReferralQualification). Burning it here is what stops one good account
  * from being recycled across re-signups to farm bonuses.
+ *
+ * The burn-once ledger is shared across referral programs: a GitHub identity
+ * earns at most one bonus EVER, whether via the CLI or Freebuff Web program.
+ * `requireBrightLine` (default true) additionally requires the stored
+ * bright-line `qualified` column; programs with their own bar (web) pass
+ * false after verifying their policy against the stored facts.
  */
 export async function tryConsumeReferralBonus(params: {
   githubUserId: string
   consumedByUserId: string
+  requireBrightLine?: boolean
   now?: Date
 }): Promise<boolean> {
-  const { githubUserId, consumedByUserId, now = new Date() } = params
+  const {
+    githubUserId,
+    consumedByUserId,
+    requireBrightLine = true,
+    now = new Date(),
+  } = params
 
   const consumed = await db
     .update(schema.referralQualification)
@@ -538,7 +550,9 @@ export async function tryConsumeReferralBonus(params: {
     .where(
       and(
         eq(schema.referralQualification.github_user_id, githubUserId),
-        eq(schema.referralQualification.qualified, true),
+        ...(requireBrightLine
+          ? [eq(schema.referralQualification.qualified, true)]
+          : []),
         isNull(schema.referralQualification.bonus_consumed_at),
       ),
     )

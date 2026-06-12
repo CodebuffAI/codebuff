@@ -600,46 +600,38 @@ export const deployOnFreestyle = internalAction({
       }
       const envVars = await codebase.getEnvVars()
 
-      // Check if user has access to no_vlyai_branding feature (Starter tier and above)
-      // Uses REST API fallback since internalActions may not have auth context
+      // Watermark removal is a referral perk: deploys skip the "Powered by
+      // Freebuff" branding once the project owner's referral tier unlocks it
+      // (see FREEBUFF_REFERRAL_TIERS) or when the owner is a platform admin.
+      // The global kill-switch (isProdBrandingInjectionEnabled) still applies
+      // in prodDeployments.ts.
       let skipBranding = false
       try {
-        const { hasFeatureAccessForCustomer } =
-          await import('../lib/featureAccessControl')
+        const { getReferralTier } = await import(
+          '@codebuff/common/constants/freebuff-referral-tiers'
+        )
 
-        let customerId: string | null = null
+        const ownerMember = await ctx.runQuery(
+          internal.github.auth.getProjectOwner,
+          { projectId: args.projectId },
+        )
+        const owner = ownerMember
+          ? await ctx.runQuery(internal.users.get, {
+              userId: ownerMember.user,
+            })
+          : null
 
-        try {
-          const identity = await ctx.auth.getUserIdentity()
-          if (identity) {
-            const orgId =
-              (identity as any)?.org_id ||
-              (identity as any)?.organizationId ||
-              (identity as any)?.organization?.id ||
-              (identity as any)?.activeOrganizationId
-            customerId = orgId || identity.subject
-          }
-        } catch {
-          // No auth context in internalAction
-        }
-
-        if (!customerId && (project as any).organization_id) {
-          customerId = (project as any).organization_id
-        }
-
-        if (customerId) {
-          skipBranding = await hasFeatureAccessForCustomer(
-            customerId,
-            'no_vlyai_branding',
-          )
-        }
+        const isPlatformAdmin =
+          owner?.role === 'god' || owner?.role === 'admin'
+        const ownerTier = getReferralTier(owner?.qualified_referral_count)
+        skipBranding = isPlatformAdmin || ownerTier.removesWatermark
 
         console.log(
-          `[Deploy] User has no_vlyai_branding access: ${skipBranding}`,
+          `[Deploy] Branding skip check: ownerTier=${ownerTier.tier}, admin=${isPlatformAdmin}, skipBranding=${skipBranding}`,
         )
       } catch (brandingCheckError) {
         console.error(
-          '[Deploy] Failed to check branding feature access:',
+          '[Deploy] Failed to check branding referral tier:',
           brandingCheckError,
         )
         skipBranding = false

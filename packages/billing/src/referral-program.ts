@@ -1,3 +1,7 @@
+import {
+  FREEBUFF_WEB_REFERRAL_LIMIT,
+  isGithubAccountOldEnoughForReferral,
+} from '@codebuff/common/constants/freebuff-referral-tiers'
 import { getFreebuffUsageDateKey } from '@codebuff/common/util/freebuff-streak'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -39,6 +43,20 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 /** Only signups this recent can be attributed to a referral code. */
 export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
+
+/**
+ * Which referral program a `referral` row belongs to. Both programs share the
+ * same token (`user.referral_code`), redemption flow, and burn-once ledger,
+ * but have different qualification bars — so completions are scored per
+ * program and never cross-pollinate perks:
+ *
+ * - 'cli': GitHub bright line (12-month account + 6-month repo) + full-access
+ *   activation. Perks: daily Opus allowance.
+ * - 'web': Freebuff Web — GitHub account age only (see
+ *   MIN_GITHUB_ACCOUNT_AGE_MONTHS in common). Perks: tiered daily model
+ *   limits + watermark removal.
+ */
+export type ReferralProgram = 'cli' | 'web'
 
 export type RedeemReferralError =
   | 'invalid_code'
@@ -98,9 +116,16 @@ export async function redeemReferralCode(params: {
   userId: string
   referralCode: string
   logger: Logger
+  program?: ReferralProgram
   now?: Date
 }): Promise<RedeemReferralResult> {
-  const { userId, referralCode, logger, now = new Date() } = params
+  const {
+    userId,
+    referralCode,
+    logger,
+    program = 'cli',
+    now = new Date(),
+  } = params
 
   // The first three lookups are independent of each other; run them together.
   const [[referrer], [referred], [alreadyReferred]] = await Promise.all([
@@ -157,15 +182,24 @@ export async function redeemReferralCode(params: {
         ),
       )
       .limit(1),
-    // Referral limit counts every attributed signup (pending + completed) so a
-    // referrer can't bank unlimited pendings.
+    // Referral limit counts every attributed signup (pending + completed) so
+    // a referrer can't bank unlimited pendings. Counted per program so each
+    // program's cap is independent: CLI uses the per-user referral_limit
+    // column, web uses the fixed cap sized for its deeper tier ladder.
     db
       .select({ n: count() })
       .from(schema.referral)
-      .where(eq(schema.referral.referrer_id, referrer.id)),
+      .where(
+        and(
+          eq(schema.referral.referrer_id, referrer.id),
+          eq(schema.referral.program, program),
+        ),
+      ),
   ])
   if (reverse) return { ok: false, error: 'reverse_referral' }
-  if (referrerCount >= referrer.referralLimit) {
+  const referralLimit =
+    program === 'web' ? FREEBUFF_WEB_REFERRAL_LIMIT : referrer.referralLimit
+  if (referrerCount >= referralLimit) {
     return { ok: false, error: 'referrer_limit_reached' }
   }
 
@@ -180,12 +214,13 @@ export async function redeemReferralCode(params: {
       status: 'pending',
       credits: 0,
       is_legacy: false,
+      program,
       created_at: now,
     })
     .onConflictDoNothing()
 
   logger.info(
-    { userId, referrerId: referrer.id },
+    { userId, referrerId: referrer.id, program },
     'Referral code redeemed; referral pending qualification',
   )
   return { ok: true, referrerId: referrer.id }
@@ -289,6 +324,7 @@ export async function evaluateReferralForReferredUser(params: {
       and(
         eq(schema.referral.referred_id, userId),
         eq(schema.referral.status, 'pending'),
+        eq(schema.referral.program, 'cli'),
       ),
     )
     .limit(1)
@@ -332,12 +368,98 @@ export async function evaluateReferralForReferredUser(params: {
       and(
         eq(schema.referral.referred_id, userId),
         eq(schema.referral.status, 'pending'),
+        eq(schema.referral.program, 'cli'),
       ),
     )
 
   logger.info(
     { userId, referrerId: pending.referrerId },
     'Referral completed: referred user passed qualification + activation',
+  )
+  return { outcome: 'completed', referrerId: pending.referrerId }
+}
+
+/**
+ * Evaluate the referred user's pending Freebuff Web referral and complete it
+ * if the web gate passes: GitHub account at least
+ * MIN_GITHUB_ACCOUNT_AGE_MONTHS old (no repo requirement — web perks cost
+ * less than CLI Opus access) + the shared burn-once ledger. Idempotent and
+ * cheap to re-run: completed referrals return no_pending_referral and the
+ * GitHub facts are cached. A too-new account stays pending, so it ages in on
+ * a later evaluation.
+ */
+export async function evaluateWebReferralForReferredUser(params: {
+  userId: string
+  logger: Logger
+  now?: Date
+  fetchFn?: typeof fetch
+}): Promise<ReferralEvaluation> {
+  const { userId, logger, now = new Date(), fetchFn } = params
+
+  const [pending] = await db
+    .select({ referrerId: schema.referral.referrer_id })
+    .from(schema.referral)
+    .where(
+      and(
+        eq(schema.referral.referred_id, userId),
+        eq(schema.referral.status, 'pending'),
+        eq(schema.referral.program, 'web'),
+      ),
+    )
+    .limit(1)
+  if (!pending) return { outcome: 'no_pending_referral' }
+
+  // Reuse the shared GitHub facts cache; only the policy applied differs.
+  const qualification = await getReferralQualification({
+    userId,
+    logger,
+    now,
+    fetchFn,
+  })
+  if (!qualification.githubUserId) {
+    return {
+      outcome: 'not_qualified',
+      reason: qualification.reason ?? 'no_github_account',
+    }
+  }
+  if (
+    !isGithubAccountOldEnoughForReferral(
+      qualification.accountCreatedAt?.getTime(),
+      now.getTime(),
+    )
+  ) {
+    return { outcome: 'not_qualified', reason: 'account_too_new' }
+  }
+
+  // Burn-once across BOTH programs: one GitHub identity, one bonus, ever.
+  const burned = await tryConsumeReferralBonus({
+    githubUserId: qualification.githubUserId,
+    consumedByUserId: userId,
+    requireBrightLine: false,
+    now,
+  })
+  if (!burned) {
+    logger.warn(
+      { userId, githubUserId: qualification.githubUserId },
+      'Web referral gate passed but GitHub identity already consumed a bonus',
+    )
+    return { outcome: 'bonus_already_consumed' }
+  }
+
+  await db
+    .update(schema.referral)
+    .set({ status: 'completed', completed_at: now, qualified_at: now })
+    .where(
+      and(
+        eq(schema.referral.referred_id, userId),
+        eq(schema.referral.status, 'pending'),
+        eq(schema.referral.program, 'web'),
+      ),
+    )
+
+  logger.info(
+    { userId, referrerId: pending.referrerId },
+    'Web referral completed: referred GitHub account met the age requirement',
   )
   return { outcome: 'completed', referrerId: pending.referrerId }
 }
@@ -357,7 +479,12 @@ export async function evaluatePendingReferrals(params: {
   const pendings = await db
     .select({ referredId: schema.referral.referred_id })
     .from(schema.referral)
-    .where(eq(schema.referral.status, 'pending'))
+    .where(
+      and(
+        eq(schema.referral.status, 'pending'),
+        eq(schema.referral.program, 'cli'),
+      ),
+    )
     .orderBy(schema.referral.created_at)
     .limit(limit)
 
@@ -384,25 +511,31 @@ export async function evaluatePendingReferrals(params: {
 /**
  * The referral score: completed (v2-qualified) referrals you made, plus 1 if
  * you were yourself referred and your own referral completed. Downstream
- * perks (e.g. daily Opus allowance) are sized from this number at read time —
- * no credits, no stored balance, nothing to claw back if a referral is later
- * revoked (revocation = clearing qualified_at).
+ * perks (e.g. daily Opus allowance, Freebuff Web tier) are sized from this
+ * number at read time — no credits, no stored balance, nothing to claw back
+ * if a referral is later revoked (revocation = clearing qualified_at).
+ *
+ * Scored per program: each program's perks only count referrals qualified
+ * under that program's own bar.
  */
 export async function getReferralScore(params: {
   userId: string
+  program?: ReferralProgram
 }): Promise<number> {
-  const { userId } = params
+  const { userId, program = 'cli' } = params
 
   const [row] = await db
     .select({
       referredCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${schema.referral}
         WHERE ${schema.referral.referrer_id} = ${userId}
+          AND ${schema.referral.program} = ${program}
           AND ${schema.referral.qualified_at} IS NOT NULL
       )`,
       wasReferred: sql<boolean>`EXISTS (
         SELECT 1 FROM ${schema.referral}
         WHERE ${schema.referral.referred_id} = ${userId}
+          AND ${schema.referral.program} = ${program}
           AND ${schema.referral.qualified_at} IS NOT NULL
       )`,
     })

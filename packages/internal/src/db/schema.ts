@@ -202,6 +202,10 @@ export const referral = pgTable(
     status: ReferralStatus('status').notNull().default('pending'),
     credits: integer('credits').notNull(),
     is_legacy: boolean('is_legacy').notNull().default(false),
+    // Which referral program attributed this signup. The CLI program ('cli')
+    // and Freebuff Web ('web') share the token + ledger but have different
+    // qualification bars, so scores are computed per program.
+    program: text('program').notNull().default('cli'),
     created_at: timestamp('created_at', { mode: 'date' })
       .notNull()
       .defaultNow(),

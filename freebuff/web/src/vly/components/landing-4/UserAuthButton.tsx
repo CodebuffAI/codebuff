@@ -16,7 +16,7 @@ import {
 } from '@/vly/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/vly/components/ui/avatar'
 import { Switch } from '@/vly/components/ui/switch'
-import { Beaker, Loader2 } from 'lucide-react'
+import { Beaker, Gift, Loader2 } from 'lucide-react'
 import { useSignedInUser } from '@/vly/hooks/use-user'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -106,6 +106,17 @@ export default function UserAuthButton({ mounted }: UserAuthButtonProps) {
                 }}
               >
                 Dashboard
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer px-4 py-2 text-sm !text-gray-600 hover:!bg-gray-100 hover:!text-gray-900 data-[highlighted]:!bg-gray-100 data-[highlighted]:!text-gray-900"
+                onClick={() => {
+                  window.location.href = '/web/referrals'
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Gift className="h-4 w-4" />
+                  <span>Refer friends</span>
+                </div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

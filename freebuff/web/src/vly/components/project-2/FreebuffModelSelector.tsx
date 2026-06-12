@@ -29,6 +29,11 @@ import {
   resolveFreebuffWebModelForLimitedTier,
   type FreebuffModelOption,
 } from "@codebuff/common/constants/freebuff-models";
+import {
+  getNextReferralTier,
+  getReferralTier,
+} from "@codebuff/common/constants/freebuff-referral-tiers";
+import Link from "next/link";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/vly/lib/utils";
 
@@ -129,6 +134,23 @@ export function FreebuffModelSelector({
     ? Math.max(0, Math.floor(premiumStatus.value))
     : null;
 
+  // Standard (non-premium) models share a tier-scaled daily quota too.
+  const { check: checkStandardLimit } = useRateLimit(
+    api.coding_agent.rateLimiter.getStandardModelRateLimit,
+    { getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime },
+  );
+  const standardStatus = checkStandardLimit?.();
+  const standardRemaining = standardStatus
+    ? Math.max(0, Math.floor(standardStatus.value))
+    : null;
+
+  // Referral tier progress for the subtle "refer friends" footer: how many
+  // more qualified referrals unlock the next limit bump.
+  const viewer = useQuery(api.users.viewer);
+  const referralCount = viewer?.qualified_referral_count ?? 0;
+  const nextTier = viewer ? getNextReferralTier(referralCount) : null;
+  const currentTier = getReferralTier(referralCount);
+
   // Geo-derived access tier. Limited regions only get the limited model set
   // plus a daily session quota; the server enforces both, this mirrors it.
   const accessStatus = useQuery(api.webAccess.getWebAccessStatus, {});
@@ -175,7 +197,7 @@ export function FreebuffModelSelector({
                   Limited access in your region
                 </span>
                 <span className="text-[11px] opacity-80">
-                  These models are free to use with no daily limits
+                  These models are free to use with generous daily limits
                 </span>
               </div>
             </div>
@@ -220,17 +242,65 @@ export function FreebuffModelSelector({
                 <DropdownMenuSeparator className="my-1.5" />
               </>
             )}
-            <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Unlimited
+            <DropdownMenuLabel className="flex items-center justify-between px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Standard</span>
+              {standardRemaining !== null && (
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium normal-case tabular-nums text-amber-600">
+                  {standardRemaining} left today
+                </span>
+              )}
             </DropdownMenuLabel>
             {UNLIMITED_MODELS.map((model) => (
               <ModelRow
                 key={model.id}
                 model={model}
                 isSelected={model.id === current.id}
+                // Standard daily quota exhausted — sends would be rejected.
+                disabled={standardRemaining === 0}
                 onSelect={() => onModelChange(model.id)}
               />
             ))}
+            {nextTier && (
+              <>
+                <DropdownMenuSeparator className="my-1.5" />
+                {/* Subtle next-tier nudge: progress toward the next referral
+                    tier and the limits it unlocks. */}
+                <Link
+                  href="/web/referrals"
+                  className="mx-1 mb-0.5 flex flex-col gap-1.5 rounded-md px-2.5 py-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate">
+                      Refer {nextTier.referralsRequired - referralCount} more{" "}
+                      {nextTier.referralsRequired - referralCount === 1
+                        ? "friend"
+                        : "friends"}{" "}
+                      → {nextTier.standardModelDailyLimit} standard ·{" "}
+                      {nextTier.premiumModelDailyLimit} premium / day
+                    </span>
+                    <span className="shrink-0 tabular-nums opacity-70">
+                      {referralCount}/{nextTier.referralsRequired}
+                    </span>
+                  </span>
+                  <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-primary/60"
+                      style={{
+                        width: `${Math.min(100, (referralCount / nextTier.referralsRequired) * 100)}%`,
+                      }}
+                    />
+                  </span>
+                </Link>
+              </>
+            )}
+            {!nextTier && currentTier.tier > 0 && (
+              <>
+                <DropdownMenuSeparator className="my-1.5" />
+                <div className="mx-1 mb-0.5 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                  Max referral tier unlocked
+                </div>
+              </>
+            )}
           </>
         )}
       </DropdownMenuContent>

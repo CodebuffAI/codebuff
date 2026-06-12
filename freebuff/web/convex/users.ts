@@ -138,6 +138,16 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
   const normalizedEmail = normalizeEmail(email)
   const freebuffUserId = identity.subject
 
+  // Web referral score claim minted by the convex-token route from the
+  // shared Postgres referral ledger. Synced onto the user doc so rate limits
+  // and perks (which may look up users other than the caller, e.g. project
+  // owners) can read it without auth context.
+  const claims = identity as Record<string, unknown>
+  const webReferralScore =
+    typeof claims.web_referral_score === 'number'
+      ? claims.web_referral_score
+      : undefined
+
   const { user, userByFreebuffId } = await resolveUserByFreebuffIdOrEmail(ctx, {
     freebuffUserId,
     email: normalizedEmail,
@@ -155,10 +165,18 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
       email?: string
       profile_image?: string
       freebuff_user_id?: string
+      qualified_referral_count?: number
     } = {}
 
     if (user.freebuff_user_id !== freebuffUserId) {
       patchData.freebuff_user_id = freebuffUserId
+    }
+
+    if (
+      webReferralScore !== undefined &&
+      user.qualified_referral_count !== webReferralScore
+    ) {
+      patchData.qualified_referral_count = webReferralScore
     }
 
     // If we've seen this identity before but the name has changed, patch the value.
@@ -213,7 +231,9 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
     }
   }
 
-  // If it's a new identity, create a new `User`.
+  // If it's a new identity, create a new `User`. The web referral ledger
+  // itself lives in Postgres (shared with the CLI program); the score claim
+  // is just denormalized here for tier-scaled limits and perks.
   const newUserId = await ctx.db.insert('users', {
     name: identity.name ?? '<Anonymous>',
     clerk_id: freebuffUserId,
@@ -221,6 +241,7 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
     profile_image: identity.pictureUrl,
     email: normalizedEmail,
     referral_code: validReferralCode,
+    qualified_referral_count: webReferralScore,
   })
 
   // Update aggregates for new user

@@ -3,7 +3,12 @@ import type { Id } from "../../_generated/dataModel";
 import { internal } from "../../_generated/api";
 import { getAuthUser } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
-import { checkUserRateLimit, checkPremiumModelRateLimit, checkFreebuffRateLimit } from "../rateLimiter";
+import {
+  checkUserRateLimit,
+  checkPremiumModelRateLimit,
+  checkStandardModelRateLimit,
+  checkFreebuffRateLimit,
+} from "../rateLimiter";
 import {
   isFreebuffPremiumModelId,
   isFreebuffWebGeoExemptModelId,
@@ -152,17 +157,24 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     }
   }
 
-  // Premium open-source models carry a stricter daily quota. Enforced for every
-  // Freebuff send on a premium model, including platform admins, so the UI
-  // counter reflects real usage and reaches zero consistently. Done last so we
-  // only consume the premium allowance once the rest of the gates have passed.
-  if (
-    !args.skipRateLimitCheck &&
-    args.agentType === "Freebuff" &&
-    isFreebuffPremiumModelId(freebuffModel)
-  ) {
-    const premium = await checkPremiumModelRateLimit(args.ctx, rateLimitKey);
-    if (!premium.success) return { ok: false, error: premium.error };
+  // Every Freebuff send consumes a daily model quota whose rate scales with
+  // the user's referral tier: premium models burn the strict premium bucket,
+  // everything else burns the (very generous) standard bucket. Enforced for
+  // everyone, including platform admins, so UI counters reflect real usage.
+  // Done late so we only consume the allowance once the other gates pass.
+  if (!args.skipRateLimitCheck && args.agentType === "Freebuff") {
+    const daily = isFreebuffPremiumModelId(freebuffModel)
+      ? await checkPremiumModelRateLimit(
+          args.ctx,
+          rateLimitKey,
+          user.qualified_referral_count,
+        )
+      : await checkStandardModelRateLimit(
+          args.ctx,
+          rateLimitKey,
+          user.qualified_referral_count,
+        );
+    if (!daily.success) return { ok: false, error: daily.error };
   }
 
   // Limited tier: 5 one-hour sessions per Pacific day. Done last so a send

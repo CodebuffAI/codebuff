@@ -1,9 +1,8 @@
 import { cookies } from "next/headers";
 
 const REFERRAL_COOKIE_NAME = "vly_referral_code";
-// Configurable timeout - currently set to 24 hours
-// Change this value to adjust the attribution window
-export const REFERRAL_ATTRIBUTION_WINDOW_HOURS = 24;
+// Configurable timeout - change this value to adjust the attribution window
+export const REFERRAL_ATTRIBUTION_WINDOW_HOURS = 7 * 24;
 const COOKIE_MAX_AGE = REFERRAL_ATTRIBUTION_WINDOW_HOURS * 60 * 60; // Convert hours to seconds
 
 export async function setReferralCode(code: string) {

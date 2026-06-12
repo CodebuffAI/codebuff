@@ -80,6 +80,9 @@ export default defineSchema(
       codex_auth_mode: v.optional(v.string()), // Last observed auth_mode from ~/.codex/auth.json
       codex_auth_last_refresh: v.optional(v.string()), // Last observed refresh timestamp from ~/.codex/auth.json
       codex_auth_updated_at: v.optional(v.number()), // Last time auth fingerprint metadata was updated
+      // Web referral score synced from the Postgres referral ledger via the
+      // web_referral_score JWT claim. Drives tier-scaled limits and perks.
+      qualified_referral_count: v.optional(v.number()),
     })
       .index('by_clerk_id', ['clerk_id'])
       .index('by_freebuff_user_id', ['freebuff_user_id'])

@@ -5,6 +5,7 @@ import Script from 'next/script'
 
 import { OrganizationJsonLd, WebSiteJsonLd } from '@/components/blog/json-ld'
 import { Footer } from '@/components/footer'
+import { ReferralCodeCapture } from '@/components/referral-code-capture'
 import { ReferrerTracker } from '@/components/referrer-tracker'
 import { ThemeProvider } from '@/components/theme-provider'
 import { blogConfig } from '@/lib/blog/config'
@@ -127,6 +128,7 @@ export default function RootLayout({
           <SessionProvider>
             <PostHogProvider>
               <ReferrerTracker />
+              <ReferralCodeCapture />
               <div className="flex-grow">{children}</div>
               <Footer />
             </PostHogProvider>

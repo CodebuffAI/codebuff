@@ -45,6 +45,9 @@
       "@/components/hero-grid": ["./src/components/hero-grid.tsx"],
       "@/components/icons": ["./src/components/icons.tsx"],
       "@/components/login/*": ["./src/components/login/*"],
+      "@/components/referral-code-capture": [
+        "./src/components/referral-code-capture.tsx"
+      ],
       "@/components/referrer-tracker": [
         "./src/components/referrer-tracker.tsx"
       ],

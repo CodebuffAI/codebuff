@@ -1,0 +1,1 @@
+ALTER TABLE "referral" ADD COLUMN "program" text DEFAULT 'cli' NOT NULL;

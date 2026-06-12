@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { signVlyConvexToken } from '@/lib/vly-convex-jwt'
 import { resolveFreebuffWebGeoAccess } from '@/server/geo'
+import { syncWebReferralState } from '@/server/web-referrals'
+import { logger } from '@/util/logger'
 
 import type { NextRequest } from 'next/server'
 
@@ -21,10 +23,23 @@ export async function GET(req: NextRequest) {
   // only place in the browser -> Convex path where request headers (country,
   // IP, client hints) are visible, and the token refreshes every <=10 min so
   // the tier tracks IP changes without extra requests.
-  const geoAccess = await resolveFreebuffWebGeoAccess({
-    userId: user.id,
-    headers: req.headers,
-  })
+  const [geoAccess, webReferralScore] = await Promise.all([
+    resolveFreebuffWebGeoAccess({
+      userId: user.id,
+      headers: req.headers,
+    }),
+    // Web referrals live in the shared Postgres referral ledger; the score
+    // rides along as a JWT claim so Convex can size tier-scaled limits
+    // without its own referral bookkeeping. This also redeems the referral
+    // attribution cookie and ages in any pending referral.
+    syncWebReferralState({ userId: user.id }).catch((error) => {
+      logger.warn(
+        { error, userId: user.id },
+        'Failed to sync web referral state; defaulting score to 0',
+      )
+      return 0
+    }),
+  ])
 
   const token = await signVlyConvexToken({
     userId: user.id,
@@ -33,6 +48,7 @@ export async function GET(req: NextRequest) {
     image: user.image,
     accessTier: geoAccess.accessTier,
     countryCode: geoAccess.countryCode,
+    webReferralScore,
   })
 
   return NextResponse.json({ token })

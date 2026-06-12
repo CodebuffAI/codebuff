@@ -1,10 +1,39 @@
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter";
-import { FREEBUFF_PREMIUM_SESSION_LIMIT } from "@codebuff/common/constants/freebuff-models";
+import {
+  getReferralTier,
+  type FreebuffReferralTier,
+} from "@codebuff/common/constants/freebuff-referral-tiers";
 import { components } from "../_generated/api";
-import type { MutationCtx, ActionCtx } from "../_generated/server";
+import { query } from "../_generated/server";
+import { getAuthUser } from "../users";
+import type { MutationCtx, ActionCtx, QueryCtx } from "../_generated/server";
 import type { GenericQueryCtx, GenericDataModel } from "convex/server";
+import { v } from "convex/values";
 
 const DAY = 24 * HOUR;
+
+// Daily per-model-class quotas are NOT in the static config map below:
+// their rate scales with the user's referral tier, so every check passes an
+// inline `config` (supported by @convex-dev/rate-limiter for dynamic
+// configs). Usage state is keyed by these bucket names either way.
+const PREMIUM_MODEL_BUCKET = "premiumModelMessages";
+const STANDARD_MODEL_BUCKET = "standardModelMessages";
+
+function premiumModelConfig(tier: FreebuffReferralTier) {
+  return {
+    kind: "fixed window" as const,
+    rate: tier.premiumModelDailyLimit,
+    period: DAY,
+  };
+}
+
+function standardModelConfig(tier: FreebuffReferralTier) {
+  return {
+    kind: "fixed window" as const,
+    rate: tier.standardModelDailyLimit,
+    period: DAY,
+  };
+}
 
 // Initialize rate limiter with token bucket for smooth rate limiting
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
@@ -18,14 +47,6 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     rate: 20, // Refill 20 tokens per hour
     period: HOUR,
     capacity: 10, // Maximum 10 tokens can be held (burst limit)
-  },
-  // Premium open-source models (DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6)
-  // share a stricter daily quota on top of the normal per-message limit.
-  // Fixed window so it behaves like a "N per day" allowance.
-  premiumModelMessages: {
-    kind: "fixed window",
-    rate: FREEBUFF_PREMIUM_SESSION_LIMIT,
-    period: DAY,
   },
   // Freebuff agent chat: 20 messages per 3 hours, full burst.
   // Capacity equals rate so a fresh user can fire all 20 immediately,
@@ -59,9 +80,10 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
 
 // Helper function to get user ID for rate limiting
 // Uses Clerk ID as the rate limit key since it uniquely identifies users
-async function getUserIdForRateLimit(
-  ctx: GenericQueryCtx<GenericDataModel>,
-): Promise<string> {
+// Accepts any ctx with auth (typed QueryCtx or the generic hookAPI ctx).
+async function getUserIdForRateLimit(ctx: {
+  auth: Pick<GenericQueryCtx<GenericDataModel>["auth"], "getUserIdentity">;
+}): Promise<string> {
   const identity = await ctx.auth.getUserIdentity();
   return identity?.subject ?? "anonymous";
 }
@@ -75,14 +97,55 @@ export const { getRateLimit, getServerTime } = rateLimiter.hookAPI(
   },
 );
 
-// Read-only hook for the premium-model daily quota so the UI can show how many
-// premium runs remain today without consuming any.
-export const { getRateLimit: getPremiumModelRateLimit } = rateLimiter.hookAPI(
-  "premiumModelMessages",
-  {
-    key: getUserIdForRateLimit,
+/** Resolve the caller's referral tier (drives the daily model quotas). */
+async function getReferralTierForCaller(
+  ctx: QueryCtx,
+): Promise<FreebuffReferralTier> {
+  const user = await getAuthUser(ctx);
+  return getReferralTier(user?.qualified_referral_count);
+}
+
+// Validator matching the args the useRateLimit React hook sends. The
+// server ignores the client-sent key/config and derives both itself so a
+// client can't inspect someone else's quota or spoof a bigger limit.
+const rateLimitHookArgs = {
+  name: v.optional(v.string()),
+  key: v.optional(v.string()),
+  sampleShards: v.optional(v.number()),
+  config: v.optional(v.any()),
+};
+
+// Read-only query for the premium-model daily quota so the UI can show how
+// many premium runs remain today without consuming any. Tier-aware: the
+// rate in the returned config reflects the caller's referral tier.
+export const getPremiumModelRateLimit = query({
+  args: rateLimitHookArgs,
+  handler: async (ctx) => {
+    const [key, tier] = await Promise.all([
+      getUserIdForRateLimit(ctx),
+      getReferralTierForCaller(ctx),
+    ]);
+    return await rateLimiter.getValue(ctx, PREMIUM_MODEL_BUCKET, {
+      key,
+      config: premiumModelConfig(tier),
+    });
   },
-);
+});
+
+// Same for the standard-model daily quota (all non-premium Freebuff models).
+export const getStandardModelRateLimit = query({
+  args: rateLimitHookArgs,
+  handler: async (ctx) => {
+    const [key, tier] = await Promise.all([
+      getUserIdForRateLimit(ctx),
+      getReferralTierForCaller(ctx),
+    ]);
+    return await rateLimiter.getValue(ctx, STANDARD_MODEL_BUCKET, {
+      key,
+      config: standardModelConfig(tier),
+    });
+  },
+});
 // Hook API bound to the Freebuff-only bucket. Lets AgentChatShell (or any other
 // Freebuff-specific UI) display a proactive countdown that reflects the
 // 20-per-3-hours cap rather than the legacy userMessages bucket.
@@ -141,30 +204,74 @@ export async function checkUserRateLimit(
 /**
  * Check (and consume) the daily premium-model quota for a user. Call this only
  * when the user is actually sending a message on a premium model so we don't
- * burn the allowance on unlimited models.
+ * burn the allowance on unlimited models. The daily rate scales with the
+ * user's referral tier.
  * @param ctx - Convex mutation context
  * @param userId - User ID to check premium limits for
+ * @param qualifiedReferralCount - The user's qualified referral count
  * @returns RateLimitResult indicating success or a premium-limit error
  */
 export async function checkPremiumModelRateLimit(
   ctx: MutationCtx,
   userId: string,
+  qualifiedReferralCount?: number | null,
 ): Promise<RateLimitResult> {
-  const status = await rateLimiter.limit(ctx, "premiumModelMessages", {
+  const tier = getReferralTier(qualifiedReferralCount);
+  const status = await rateLimiter.limit(ctx, PREMIUM_MODEL_BUCKET, {
     key: userId,
+    config: premiumModelConfig(tier),
     throws: false,
   });
 
   if (!status.ok) {
     console.log(
-      `[RateLimit] User ${userId} hit premium model daily limit, retry after: ${status.retryAfter}ms`,
+      `[RateLimit] User ${userId} hit premium model daily limit (tier ${tier.tier}), retry after: ${status.retryAfter}ms`,
     );
     return {
       success: false,
       error: {
         kind: "PremiumRateLimited",
         retryAfter: status.retryAfter,
-        message: `You've used all ${FREEBUFF_PREMIUM_SESSION_LIMIT} premium model runs for today. Switch to an unlimited model or try again later.`,
+        message: `You've used all ${tier.premiumModelDailyLimit} premium model runs for today. Switch to a standard model, or refer friends to raise your daily limits.`,
+      },
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Check (and consume) the daily standard-model quota for a user. Applies to
+ * every non-premium Freebuff model. The cap is deliberately very high (see
+ * FREEBUFF_REFERRAL_TIERS) so normal users never hit it; it exists to stop
+ * abuse and to give referrals a meaningful unlock.
+ * @param ctx - Convex mutation context
+ * @param userId - User ID to check standard limits for
+ * @param qualifiedReferralCount - The user's qualified referral count
+ * @returns RateLimitResult indicating success or a standard-limit error
+ */
+export async function checkStandardModelRateLimit(
+  ctx: MutationCtx,
+  userId: string,
+  qualifiedReferralCount?: number | null,
+): Promise<RateLimitResult> {
+  const tier = getReferralTier(qualifiedReferralCount);
+  const status = await rateLimiter.limit(ctx, STANDARD_MODEL_BUCKET, {
+    key: userId,
+    config: standardModelConfig(tier),
+    throws: false,
+  });
+
+  if (!status.ok) {
+    console.log(
+      `[RateLimit] User ${userId} hit standard model daily limit (tier ${tier.tier}), retry after: ${status.retryAfter}ms`,
+    );
+    return {
+      success: false,
+      error: {
+        kind: "StandardRateLimited",
+        retryAfter: status.retryAfter,
+        message: `You've used all ${tier.standardModelDailyLimit} messages for today. Refer friends to raise your daily limits.`,
       },
     };
   }

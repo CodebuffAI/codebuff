@@ -12,6 +12,7 @@ import {
 export function useSignedInUser() {
   const { isLoading, isAuthenticated } = useConvexAuth()
   const [referralCode, setReferralCode] = useState<string | undefined>()
+  const [referralCodeLoaded, setReferralCodeLoaded] = useState(false)
   const hasAttemptedUserLink = useRef(false)
 
   // When this state is set we know the server
@@ -21,17 +22,19 @@ export function useSignedInUser() {
 
   useEffect(() => {
     // Get referral code from cookie on mount
-    getReferralCodeFromCookie().then((code) => {
-      if (code) {
-        setReferralCode(code)
-      }
-    })
+    getReferralCodeFromCookie()
+      .then((code) => {
+        if (code) {
+          setReferralCode(code)
+        }
+      })
+      .finally(() => setReferralCodeLoaded(true))
   }, [])
 
   useEffect(() => {
-    // Wait for Convex auth to finish loading
-    if (isLoading || user === undefined) {
-      // still loading - Convex auth or query is not ready
+    // Wait for Convex auth and the referral-cookie fetch to finish loading,
+    // otherwise user creation can race ahead and drop the referral code.
+    if (isLoading || user === undefined || !referralCodeLoaded) {
       return
     }
 
@@ -83,7 +86,14 @@ export function useSignedInUser() {
       }
       attemptCreateUser()
     }
-  }, [user, isAuthenticated, createUser, isLoading, referralCode])
+  }, [
+    user,
+    isAuthenticated,
+    createUser,
+    isLoading,
+    referralCode,
+    referralCodeLoaded,
+  ])
 
   return user
 }
