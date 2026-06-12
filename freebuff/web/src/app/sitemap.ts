@@ -1,6 +1,7 @@
 import { blogConfig } from '@/lib/blog/config'
 import { getAllPosts } from '@/lib/blog/registry'
 import { siteConfig } from '@/lib/constant'
+import { getCommunitySitemapData } from '@/server/community-seo'
 
 import type { MetadataRoute } from 'next'
 
@@ -11,7 +12,7 @@ import type { MetadataRoute } from 'next'
  * published blog post. The nested /web/sitemap.xml exists for legacy
  * Search Console submissions; this one is the authoritative source.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = siteConfig.url()
   const now = new Date().toISOString()
 
@@ -35,10 +36,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
-      url: `${siteUrl}/web`,
+      url: `${siteUrl}/live`,
       lastModified: now,
       changeFrequency: 'daily',
-      priority: 0.95,
+      priority: 0.75,
+    },
+    {
+      url: `${siteUrl}/web/about`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.8,
     },
     {
       url: `${siteUrl}/web/pricing`,
@@ -51,6 +58,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.7,
+    },
+    {
+      url: `${siteUrl}/web/community/explore`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.65,
+    },
+    {
+      url: `${siteUrl}/web/community/leaderboard`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.6,
     },
     {
       url: `${siteUrl}/web/contact`,
@@ -79,5 +98,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: post.featured ? 0.85 : 0.7,
   }))
 
-  return [...staticEntries, ...postEntries]
+  const communityData = await getCommunitySitemapData()
+  const communityProjectEntries: MetadataRoute.Sitemap = communityData.posts.map(
+    (post) => ({
+      url: `${siteUrl}/web/community/project/${post._id}`,
+      lastModified: new Date(post.updatedAt).toISOString(),
+      changeFrequency: 'weekly',
+      priority: 0.55,
+    }),
+  )
+  const communityProfileEntries: MetadataRoute.Sitemap = communityData.users.map(
+    (user) => ({
+      url: `${siteUrl}/web/community/profile/${user._id}`,
+      lastModified: new Date(user.updatedAt).toISOString(),
+      changeFrequency: 'weekly',
+      priority: 0.45,
+    }),
+  )
+
+  return [
+    ...staticEntries,
+    ...postEntries,
+    ...communityProjectEntries,
+    ...communityProfileEntries,
+  ]
 }

@@ -24,16 +24,28 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar"
 import { Button } from "@/vly/components/ui/button";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import ProjectCard from "./ProjectCard";
+import type {
+  CommunityPostCardData,
+  CommunityProfileData,
+} from "@/vly/lib/community-types";
 
 interface UserProfileProps {
   userId: Id<"users">;
+  initialProfile?: CommunityProfileData | null;
+  initialPosts?: CommunityPostCardData[];
 }
 
-export default function UserProfile({ userId }: UserProfileProps) {
+export default function UserProfile({
+  userId,
+  initialProfile,
+  initialPosts = [],
+}: UserProfileProps) {
   const [optimisticFollowing, setOptimisticFollowing] = useState(false);
 
-  const profile = useQuery(api.community.getUserProfile, { userId });
-  const posts = useQuery(api.community.getUserPosts, { userId, limit: 20 });
+  const profileQuery = useQuery(api.community.getUserProfile, { userId });
+  const postsQuery = useQuery(api.community.getUserPosts, { userId, limit: 20 });
+  const profile = profileQuery ?? initialProfile;
+  const posts = postsQuery ?? initialPosts;
 
   const followUser = useMutation(api.community.followUser);
   const unfollowUser = useMutation(api.community.unfollowUser);
@@ -217,7 +229,7 @@ export default function UserProfile({ userId }: UserProfileProps) {
           </span>
         </div>
 
-        {posts === undefined ? (
+        {postsQuery === undefined && initialPosts.length === 0 ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {[0, 1, 2, 3].map((index) => (
               <Skeleton key={index} className="h-72 rounded-lg bg-muted/35" />

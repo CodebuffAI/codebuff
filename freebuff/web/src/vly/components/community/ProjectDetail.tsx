@@ -52,12 +52,25 @@ import {
 import { cn } from "@/vly/lib/utils";
 import { FeaturePaywallDialog } from "@/vly/components/billing/FeaturePaywallDialog";
 import { useFeatureAccess } from "@/vly/hooks/useFeatureAccess";
+import type {
+  CommunityCommentData,
+  CommunityPostCardData,
+  CommunityPostDetailData,
+} from "@/vly/lib/community-types";
 
 interface ProjectDetailProps {
   postId: Id<"community_posts">;
+  initialPost?: CommunityPostDetailData | null;
+  initialComments?: CommunityCommentData[];
+  initialRelatedPosts?: CommunityPostCardData[];
 }
 
-export default function ProjectDetail({ postId }: ProjectDetailProps) {
+export default function ProjectDetail({
+  postId,
+  initialPost,
+  initialComments = [],
+  initialRelatedPosts = [],
+}: ProjectDetailProps) {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -74,12 +87,15 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
 
-  const post = useQuery(api.community.getPost, { postId });
-  const comments = useQuery(api.community.getComments, { postId });
-  const relatedPosts = useQuery(api.community.getRelatedPosts, {
+  const postQuery = useQuery(api.community.getPost, { postId });
+  const commentsQuery = useQuery(api.community.getComments, { postId });
+  const relatedPostsQuery = useQuery(api.community.getRelatedPosts, {
     postId,
     limit: 8,
   });
+  const post = postQuery ?? initialPost;
+  const comments = commentsQuery ?? initialComments;
+  const relatedPosts = relatedPostsQuery ?? initialRelatedPosts;
 
   const likePost = useMutation(api.community.likePost);
   const unlikePost = useMutation(api.community.unlikePost);
@@ -796,7 +812,7 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
               </div>
 
               {/* Comments list */}
-              {comments === undefined ? (
+              {commentsQuery === undefined && initialComments.length === 0 ? (
                 <div className="space-y-4">
                   {[...Array(3)].map((_, i) => (
                     <Skeleton key={i} className="h-20 rounded-lg bg-gray-100" />
@@ -866,7 +882,7 @@ export default function ProjectDetail({ postId }: ProjectDetailProps) {
               More Projects
             </h3>
 
-            {relatedPosts === undefined ? (
+            {relatedPostsQuery === undefined && initialRelatedPosts.length === 0 ? (
               <div className="space-y-3">
                 {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-24 rounded-lg bg-gray-100" />

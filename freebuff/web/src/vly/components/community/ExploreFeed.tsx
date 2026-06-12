@@ -17,12 +17,19 @@ import {
 } from "@/vly/components/ui/select";
 import ProjectCard from "./ProjectCard";
 import PublishProjectDialog from "./PublishProjectDialog";
+import type { CommunityPostCardData } from "@/vly/lib/community-types";
 
 type SortOption = "recent" | "popular" | "trending";
 
-export default function ExploreFeed() {
+export default function ExploreFeed({
+  initialPosts = [],
+  initialSearchQuery,
+}: {
+  initialPosts?: CommunityPostCardData[];
+  initialSearchQuery?: string;
+}) {
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || "";
+  const initialQuery = searchParams.get("q") || initialSearchQuery || "";
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
@@ -60,7 +67,8 @@ export default function ExploreFeed() {
       ? trendingPosts
       : explorePosts?.posts;
 
-  const isLoading = !currentPosts;
+  const postsToRender = currentPosts ?? initialPosts;
+  const isLoading = !currentPosts && initialPosts.length === 0;
 
   return (
     <div className="min-h-full pb-20">
@@ -118,7 +126,7 @@ export default function ExploreFeed() {
       <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
         {debouncedQuery && (
           <p className="mb-6 text-sm text-muted-foreground">
-            {searchResults?.length || 0} results for "{debouncedQuery}"
+            {postsToRender.length} results for "{debouncedQuery}"
           </p>
         )}
 
@@ -128,9 +136,9 @@ export default function ExploreFeed() {
               <Skeleton key={i} className="h-80 rounded-lg bg-muted/35" />
             ))}
           </div>
-        ) : currentPosts && currentPosts.length > 0 ? (
+        ) : postsToRender.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {currentPosts.map((post) => (
+            {postsToRender.map((post) => (
               <ProjectCard key={post._id} post={post} />
             ))}
           </div>

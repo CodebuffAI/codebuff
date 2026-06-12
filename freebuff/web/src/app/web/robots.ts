@@ -21,8 +21,6 @@ export default function robots(): MetadataRoute.Robots {
           '/web/referrals',
           '/sso-callback',
           '/test',
-          '/web/community/profile/',
-          '/web/community/project/',
         ],
       },
     ],

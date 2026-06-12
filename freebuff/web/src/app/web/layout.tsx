@@ -1,6 +1,7 @@
 import './globals.css'
 
 import { getServerSession } from 'next-auth'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ThemeProvider } from 'next-themes'
 
@@ -13,14 +14,36 @@ import { ReactScanProvider } from '@/vly/components/ReactScanProvider'
 import { Toaster } from '@/vly/components/ui/sonner'
 import { TooltipProvider } from '@/vly/components/ui/tooltip'
 
+const PUBLIC_WEB_PATHS = [
+  '/web/about',
+  '/web/pricing',
+  '/web/community',
+  '/web/contact',
+  '/web/privacy',
+  '/web/terms',
+]
+
+function isPublicWebPath(pathname: string | null) {
+  if (!pathname) {
+    return true
+  }
+
+  return PUBLIC_WEB_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  )
+}
+
 export default async function WebLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions)
+  const headerStore = await headers()
+  const pathname = headerStore.get('x-pathname')
+  const requiresAuth = !isPublicWebPath(pathname)
+  const session = requiresAuth ? await getServerSession(authOptions) : null
 
-  if (!session?.user?.id) {
+  if (requiresAuth && !session?.user?.id) {
     redirect('/login?callbackUrl=/web')
   }
 

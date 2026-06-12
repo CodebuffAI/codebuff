@@ -23,7 +23,6 @@ export default function robots(): MetadataRoute.Robots {
     '/sso-callback',
     '/callback',
     '/invite/',
-    '/live',
   ]
 
   const aiAndSearchBots = [

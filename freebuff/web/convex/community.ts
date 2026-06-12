@@ -33,6 +33,61 @@ async function getPostScreenshotUrl(
 // POSTS
 // ============================================
 
+// Public community URLs for sitemap generation.
+export const getPublicPostsForSitemap = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    posts: v.array(
+      v.object({
+        _id: v.id("community_posts"),
+        userId: v.id("users"),
+        updatedAt: v.number(),
+      }),
+    ),
+    users: v.array(
+      v.object({
+        _id: v.id("users"),
+        updatedAt: v.number(),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const limit = args.limit || 500;
+    const posts = await ctx.db
+      .query("community_posts")
+      .withIndex("by_published_at")
+      .order("desc")
+      .take(limit * 2);
+
+    const publicPosts = posts
+      .filter((post) => post.isPublic !== false)
+      .slice(0, limit);
+
+    const usersById = new Map<Id<"users">, number>();
+    for (const post of publicPosts) {
+      const timestamp = post.updatedAt ?? post.publishedAt;
+      usersById.set(
+        post.userId,
+        Math.max(usersById.get(post.userId) ?? 0, timestamp),
+      );
+    }
+
+    return {
+      posts: publicPosts.map((post) => ({
+        _id: post._id,
+        userId: post.userId,
+        updatedAt: post.updatedAt ?? post.publishedAt,
+      })),
+      users: Array.from(usersById.entries()).map(([userId, updatedAt]) => ({
+        _id: userId,
+        updatedAt,
+      })),
+    };
+  },
+});
+
 // Publish a project to the community
 export const publishProject = mutation({
   args: {

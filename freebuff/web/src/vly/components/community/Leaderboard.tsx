@@ -18,6 +18,10 @@ import { Skeleton } from "@/vly/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/vly/components/ui/tabs";
 import ProjectCard from "./ProjectCard";
 import { cn } from "@/vly/lib/utils";
+import type {
+  CommunityCreatorData,
+  CommunityPostCardData,
+} from "@/vly/lib/community-types";
 
 const getRankIcon = (rank: number) => {
   switch (rank) {
@@ -45,9 +49,19 @@ const getRankStyle = (rank: number) => {
   }
 };
 
-export default function Leaderboard() {
-  const topProjects = useQuery(api.community.getTopProjects, { limit: 10 });
-  const topCreators = useQuery(api.community.getTopCreators, { limit: 10 });
+export default function Leaderboard({
+  initialTopProjects = [],
+  initialTopCreators = [],
+}: {
+  initialTopProjects?: CommunityPostCardData[];
+  initialTopCreators?: CommunityCreatorData[];
+}) {
+  const topProjectsQuery = useQuery(api.community.getTopProjects, {
+    limit: 10,
+  });
+  const topCreatorsQuery = useQuery(api.community.getTopCreators, { limit: 10 });
+  const topProjects = topProjectsQuery ?? initialTopProjects;
+  const topCreators = topCreatorsQuery ?? initialTopCreators;
 
   return (
     <div className="min-h-full pb-20">
@@ -100,7 +114,7 @@ export default function Leaderboard() {
 
           {/* Top Projects */}
           <TabsContent value="projects" className="mt-0">
-            {topProjects === undefined ? (
+            {topProjectsQuery === undefined && initialTopProjects.length === 0 ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-80 rounded-lg bg-muted/35" />
@@ -136,54 +150,57 @@ export default function Leaderboard() {
                 {/* Rest of leaderboard */}
                 {topProjects.length > 3 && (
                   <div className="space-y-3">
-                    {topProjects.slice(3).map((post) => (
-                      <Link
-                        key={post._id}
-                        href={`/web/community/project/${post._id}`}
-                        className={cn(
-                          "group flex items-center gap-4 rounded-lg border p-4 transition-colors hover:border-primary/35 hover:bg-muted/30",
-                          getRankStyle(post.rank),
-                        )}
-                      >
-                        {/* Rank */}
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border/50 bg-background/55 font-mono text-lg font-bold text-muted-foreground">
-                          {post.rank}
-                        </div>
-
-                        {/* Thumbnail */}
-                        <div className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted/45">
-                          {post.screenshotUrl ? (
-                            <img
-                              src={post.screenshotUrl}
-                              alt={post.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                              No preview
-                            </div>
+                    {topProjects.slice(3).map((post, index) => {
+                      const rank = post.rank ?? index + 4;
+                      return (
+                        <Link
+                          key={post._id}
+                          href={`/web/community/project/${post._id}`}
+                          className={cn(
+                            "group flex items-center gap-4 rounded-lg border p-4 transition-colors hover:border-primary/35 hover:bg-muted/30",
+                            getRankStyle(rank),
                           )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="min-w-0 flex-1">
-                          <h4 className="truncate font-medium text-foreground group-hover:text-primary">
-                            {post.title}
-                          </h4>
-                          <div className="text-sm text-muted-foreground">
-                            by {post.userName}
+                        >
+                          {/* Rank */}
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border/50 bg-background/55 font-mono text-lg font-bold text-muted-foreground">
+                            {rank}
                           </div>
-                        </div>
 
-                        {/* Stats */}
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Heart className="h-4 w-4" />
-                            <span>{post.likesCount}</span>
+                          {/* Thumbnail */}
+                          <div className="relative h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted/45">
+                            {post.screenshotUrl ? (
+                              <img
+                                src={post.screenshotUrl}
+                                alt={post.title}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                                No preview
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </Link>
-                    ))}
+
+                          {/* Info */}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate font-medium text-foreground group-hover:text-primary">
+                              {post.title}
+                            </h4>
+                            <div className="text-sm text-muted-foreground">
+                              by {post.userName}
+                            </div>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Heart className="h-4 w-4" />
+                              <span>{post.likesCount}</span>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -192,7 +209,7 @@ export default function Leaderboard() {
 
           {/* Top Creators */}
           <TabsContent value="creators" className="mt-0">
-            {topCreators === undefined ? (
+            {topCreatorsQuery === undefined && initialTopCreators.length === 0 ? (
               <div className="space-y-4">
                 {[...Array(10)].map((_, i) => (
                   <Skeleton key={i} className="h-20 rounded-lg bg-muted/35" />

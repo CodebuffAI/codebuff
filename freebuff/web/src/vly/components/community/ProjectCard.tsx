@@ -12,32 +12,12 @@ import {
 } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/vly/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
+import type { CommunityPostCardData } from "@/vly/lib/community-types";
 
 interface ProjectCardProps {
-  post: {
-    _id: Id<"community_posts">;
-    projectId: Id<"project">;
-    userId: Id<"users">;
-    title: string;
-    description: string;
-    tags: string[];
-    screenshotUrl?: string;
-    previewUrl?: string;
-    likesCount: number;
-    commentsCount: number;
-    viewsCount: number;
-    featured?: boolean;
-    isPublic?: boolean;
-    publishedAt: number;
-    userName: string;
-    userImage?: string;
-    isPaidUser: boolean;
-    communityBadgeTier?: number;
-    hasLiked: boolean;
-  };
+  post: CommunityPostCardData;
   showRank?: number;
   variant?: "default" | "compact" | "featured";
 }

@@ -20,15 +20,34 @@ import { Input } from "@/vly/components/ui/input";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import ProjectCard from "./ProjectCard";
 import PublishProjectDialog from "./PublishProjectDialog";
+import type {
+  CommunityCreatorData,
+  CommunityPostCardData,
+} from "@/vly/lib/community-types";
 
-export default function CommunityHome() {
+export default function CommunityHome({
+  initialFeaturedPosts = [],
+  initialTrendingPosts = [],
+  initialTopCreators = [],
+}: {
+  initialFeaturedPosts?: CommunityPostCardData[];
+  initialTrendingPosts?: CommunityPostCardData[];
+  initialTopCreators?: CommunityCreatorData[];
+}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPublishDialog, setShowPublishDialog] = useState(false);
 
-  const featuredPosts = useQuery(api.community.getFeaturedPosts, { limit: 4 });
-  const trendingPosts = useQuery(api.community.getTrendingPosts, { limit: 6 });
-  const topCreators = useQuery(api.community.getTopCreators, { limit: 5 });
+  const featuredPostsQuery = useQuery(api.community.getFeaturedPosts, {
+    limit: 4,
+  });
+  const trendingPostsQuery = useQuery(api.community.getTrendingPosts, {
+    limit: 6,
+  });
+  const topCreatorsQuery = useQuery(api.community.getTopCreators, { limit: 5 });
   const currentUserId = useQuery(api.community.getCurrentUserId);
+  const featuredPosts = featuredPostsQuery ?? initialFeaturedPosts;
+  const trendingPosts = trendingPostsQuery ?? initialTrendingPosts;
+  const topCreators = topCreatorsQuery ?? initialTopCreators;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
