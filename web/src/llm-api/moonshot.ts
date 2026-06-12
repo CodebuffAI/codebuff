@@ -1,6 +1,7 @@
 import { Agent } from 'undici'
 
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
+import { moonshotModels } from '@codebuff/common/constants/model-config'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
@@ -36,13 +37,28 @@ interface MoonshotPricing {
 }
 
 const MOONSHOT_MODEL_MAP: Record<string, string> = {
-  'moonshotai/kimi-k2.6': 'kimi-k2.6',
+  [moonshotModels.kimiK26]: 'kimi-k2.6',
+  [moonshotModels.kimiK27Code]: 'kimi-k2.7-code',
+}
+
+/** kimi-k2.7-code defaults to a 1024-token output cap when max_tokens is
+ *  omitted (finish_reason 'length'), silently truncating agent turns
+ *  mid-reasoning before any tool call. kimi-k2.6 has no such low default, so
+ *  only k2.7-code needs an explicit floor. 32768 matches the largest outputs
+ *  we see from k2.6 in production. */
+const MOONSHOT_DEFAULT_MAX_TOKENS: Record<string, number> = {
+  [moonshotModels.kimiK27Code]: 32768,
 }
 
 const MOONSHOT_PRICING: Record<string, MoonshotPricing> = {
-  'moonshotai/kimi-k2.6': {
+  [moonshotModels.kimiK26]: {
     inputCostPerToken: 0.95 / 1_000_000,
     cachedInputCostPerToken: 0.16 / 1_000_000,
+    outputCostPerToken: 4.0 / 1_000_000,
+  },
+  [moonshotModels.kimiK27Code]: {
+    inputCostPerToken: 0.95 / 1_000_000,
+    cachedInputCostPerToken: 0.19 / 1_000_000,
     outputCostPerToken: 4.0 / 1_000_000,
   },
 }
@@ -122,6 +138,15 @@ export function buildMoonshotRequestBody(
   }
 
   moonshotBody.thinking = createMoonshotThinking(moonshotBody)
+
+  const defaultMaxTokens = MOONSHOT_DEFAULT_MAX_TOKENS[originalModel]
+  if (
+    defaultMaxTokens !== undefined &&
+    moonshotBody.max_tokens == null &&
+    moonshotBody.max_completion_tokens == null
+  ) {
+    moonshotBody.max_tokens = defaultMaxTokens
+  }
 
   delete moonshotBody.reasoning
   delete moonshotBody.reasoning_effort

@@ -12,11 +12,8 @@ type MoonshotRequestBody = Omit<ChatCompletionRequestBody, 'messages'> & {
   >
 }
 
-function buildBody(body: MoonshotRequestBody) {
-  return buildMoonshotRequestBody(
-    body as ChatCompletionRequestBody,
-    'moonshotai/kimi-k2.6',
-  )
+function buildBody(body: MoonshotRequestBody, model = 'moonshotai/kimi-k2.6') {
+  return buildMoonshotRequestBody(body as ChatCompletionRequestBody, model)
 }
 
 describe('buildMoonshotRequestBody', () => {
@@ -78,5 +75,40 @@ describe('buildMoonshotRequestBody', () => {
 
     expect(body.thinking).toEqual({ type: 'disabled' })
     expect(body.reasoning).toBeUndefined()
+  })
+
+  it('defaults max_tokens for kimi-k2.7-code when the request omits it', () => {
+    const body = buildBody(
+      {
+        model: 'moonshotai/kimi-k2.7-code',
+        messages: [{ role: 'user', content: 'hello' }],
+      },
+      'moonshotai/kimi-k2.7-code',
+    )
+
+    expect(body.model).toBe('kimi-k2.7-code')
+    expect(body.max_tokens).toBe(32768)
+  })
+
+  it('respects an explicit max_tokens for kimi-k2.7-code', () => {
+    const body = buildBody(
+      {
+        model: 'moonshotai/kimi-k2.7-code',
+        messages: [{ role: 'user', content: 'hello' }],
+        max_tokens: 2048,
+      },
+      'moonshotai/kimi-k2.7-code',
+    )
+
+    expect(body.max_tokens).toBe(2048)
+  })
+
+  it('does not add a max_tokens default for kimi-k2.6', () => {
+    const body = buildBody({
+      model: 'moonshotai/kimi-k2.6',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+
+    expect(body.max_tokens).toBeUndefined()
   })
 })

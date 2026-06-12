@@ -85,6 +85,13 @@ export const minimaxModels = {
 } as const
 export type MiniMaxModel = (typeof minimaxModels)[keyof typeof minimaxModels]
 
+export const moonshotModels = {
+  kimiK26: 'moonshotai/kimi-k2.6',
+  kimiK27Code: 'moonshotai/kimi-k2.7-code',
+} as const
+export type MoonshotModel =
+  (typeof moonshotModels)[keyof typeof moonshotModels]
+
 // Vertex uses "endpoint IDs" for finetuned models, which are just integers
 export const finetunedVertexModels = {
   ft_filepicker_003: '196166068534771712',
