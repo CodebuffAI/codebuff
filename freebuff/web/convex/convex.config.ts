@@ -13,7 +13,6 @@ app.use(workflow)
 app.use(migrations)
 
 app.use(workpool, { name: 'migrationWorkpool' })
-app.use(workpool, { name: 'freebuffAgentWorkpool' })
 
 app.use(rateLimiter)
 

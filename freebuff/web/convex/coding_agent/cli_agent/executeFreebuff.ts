@@ -1,13 +1,12 @@
 'use node'
 
-import { Workpool } from '@convex-dev/workpool'
 import { run } from '@codebuff/sdk'
 import { applyPatch } from 'diff'
 import { v } from 'convex/values'
 
 import { isFreebuffMultimodalModelId } from '@codebuff/common/constants/freebuff-models'
 
-import { components, internal } from '../../_generated/api'
+import { internal } from '../../_generated/api'
 import { Id } from '!/_generated/dataModel'
 import { ActionCtx, internalAction } from '!/_generated/server'
 import { DaytonaCodebase } from '../../../codebase-utils/codebase/DaytonaCodebase'
@@ -16,32 +15,6 @@ import {
   bundledAgentDefinitions,
   resolveFreebuffAgentId,
 } from './freebuff_bundled_agents'
-
-export interface ExecuteFreebuffArgs {
-  projectId: Id<'project'>
-  threadId: Id<'agent_thread'>
-  messageId: Id<'agent_message'>
-  sandboxId: string
-  activeSessionId: string | undefined
-  executingUserId: Id<'users'>
-  userMessage: string
-  images: Id<'_storage'>[] | undefined
-  freebuffModel: string | undefined
-}
-
-export interface ExecuteFreebuffResult {
-  success: boolean
-  error?: string
-  sessionId?: string
-}
-
-const freebuffAgentWorkpool = new Workpool(
-  (components as any).freebuffAgentWorkpool,
-  {
-    maxParallelism: 3,
-    retryActionsByDefault: false,
-  },
-)
 
 function requireEnv(name: string) {
   const value = process.env[name]
@@ -52,7 +25,7 @@ function requireEnv(name: string) {
 async function readStoredRunState(
   ctx: ActionCtx,
   threadId: Id<'agent_thread'>,
-) {
+): Promise<any | undefined> {
   const thread = await ctx.runQuery(
     internal.coding_agent.cli_agent.agent_thread.getAgentThread,
     { threadId },
@@ -62,7 +35,116 @@ async function readStoredRunState(
 
   const blob = await ctx.storage.get(storageId)
   if (!blob) return undefined
-  return JSON.parse(await blob.text())
+  return normalizeStoredRunState(JSON.parse(await blob.text())) as any
+}
+
+const MAX_PREVIOUS_RUN_MESSAGES = 8
+const MAX_MESSAGE_CONTENT_CHARS = 1600
+
+function clipText(value: string) {
+  if (value.length <= MAX_MESSAGE_CONTENT_CHARS) return value
+  return value.slice(-MAX_MESSAGE_CONTENT_CHARS)
+}
+
+function sanitizeMessageContent(content: unknown): unknown {
+  if (typeof content === 'string') {
+    return clipText(content)
+  }
+
+  if (!Array.isArray(content)) return content
+
+  return content.map((item) => {
+    if (!item || typeof item !== 'object') return item
+    const record = { ...(item as Record<string, unknown>) }
+    if (typeof record.text === 'string') {
+      record.text = clipText(record.text)
+    }
+    if (typeof record.content === 'string') {
+      record.content = clipText(record.content)
+    }
+    return record
+  })
+}
+
+function pruneMessageHistory(history: unknown[]) {
+  const allowedRoles = new Set(['user', 'assistant'])
+  return history
+    .filter((entry) => {
+      if (!entry || typeof entry !== 'object') return false
+      const role = (entry as { role?: unknown }).role
+      return typeof role === 'string' && allowedRoles.has(role)
+    })
+    .map((entry) => {
+      const record = { ...(entry as Record<string, unknown>) }
+      record.content = sanitizeMessageContent(record.content)
+      delete record.toolCalls
+      delete record.tool_calls
+      delete record.reasoning
+      delete record.thinking
+      return record
+    })
+    .slice(-MAX_PREVIOUS_RUN_MESSAGES)
+}
+
+function normalizeStoredRunState(runState: unknown) {
+  if (!runState || typeof runState !== 'object') return undefined
+
+  const typedRunState = runState as {
+    sessionState?: {
+      fileContext?: {
+        fileTree?: unknown[]
+        fileTokenScores?: Record<string, unknown>
+        tokenCallers?: Record<string, unknown>
+        recentlyReadFiles?: unknown[]
+      }
+      mainAgentState?: {
+        messageHistory?: unknown[]
+        pendingToolCalls?: unknown[]
+        queuedToolCalls?: unknown[]
+      }
+    }
+    traceSessionId?: string
+    output?: { type?: unknown; message?: unknown }
+  }
+
+  if (!typedRunState.sessionState) return undefined
+
+  const history = typedRunState.sessionState.mainAgentState?.messageHistory
+  if (Array.isArray(history)) {
+    typedRunState.sessionState.mainAgentState!.messageHistory =
+      pruneMessageHistory(history)
+  }
+
+  // Drop heavyweight cached indexing state from previous runs. This avoids
+  // dragging huge stale context into simple follow-up prompts.
+  if (typedRunState.sessionState.fileContext) {
+    typedRunState.sessionState.fileContext.fileTree = []
+    typedRunState.sessionState.fileContext.fileTokenScores = {}
+    typedRunState.sessionState.fileContext.tokenCallers = {}
+    typedRunState.sessionState.fileContext.recentlyReadFiles = []
+  }
+
+  if (typedRunState.sessionState.mainAgentState) {
+    typedRunState.sessionState.mainAgentState.pendingToolCalls = []
+    typedRunState.sessionState.mainAgentState.queuedToolCalls = []
+  }
+
+  return {
+    sessionState: typedRunState.sessionState,
+    traceSessionId: typedRunState.traceSessionId,
+    // SDK resume only needs `sessionState` + `traceSessionId`. Keep a tiny
+    // output envelope so persisted blobs don't carry huge allMessages payloads.
+    output: {
+      type:
+        typeof typedRunState.output?.type === 'string'
+          ? typedRunState.output.type
+          : 'error',
+      message:
+        typeof typedRunState.output?.message === 'string'
+          ? clipText(typedRunState.output.message)
+          : 'Previous run output trimmed',
+    },
+  }
 }
 
 type SdkImageContent = {
@@ -119,91 +201,6 @@ async function loadImageContents(
     }
   }
   return contents
-}
-
-export async function executeFreebuff(
-  ctx: ActionCtx,
-  _codebase: DaytonaCodebase,
-  args: ExecuteFreebuffArgs,
-): Promise<ExecuteFreebuffResult> {
-  try {
-    requireEnv('CODEBUFF_API_KEY')
-
-    const runId = crypto.randomUUID()
-    const agentId = resolveFreebuffAgentId(args.freebuffModel)
-    const supportsImages = isFreebuffMultimodalModelId(args.freebuffModel)
-
-    // Vision-capable models get real multimodal content (handled in the
-    // workpool action). Text-only models fall back to inlining image URLs so
-    // the model at least has a reference.
-    const userMessage = supportsImages
-      ? args.userMessage
-      : await appendImageUrlsToMessage(ctx, args.userMessage, args.images)
-
-    await ctx.runMutation(
-      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
-        .createFreebuffAgentRun,
-      {
-        runId,
-        userId: args.executingUserId,
-        projectId: args.projectId,
-        threadId: args.threadId,
-        messageId: args.messageId,
-      },
-    )
-
-    const workId = await freebuffAgentWorkpool.enqueueAction(
-      ctx,
-      (internal as any).coding_agent.cli_agent.executeFreebuff.runFreebuffAgent,
-      {
-        runId,
-        userId: args.executingUserId,
-        projectId: args.projectId,
-        threadId: args.threadId,
-        messageId: args.messageId,
-        userMessage,
-        agentId,
-        images: supportsImages ? args.images : undefined,
-      },
-      { retry: false },
-    )
-
-    // Record which model this message ran on so the UI can display it.
-    if (args.freebuffModel) {
-      await ctx.runMutation(
-        (internal as any).coding_agent.cli_agent.agent_message
-          .updateAgentMessageModel,
-        {
-          messageId: args.messageId,
-          modelUsed: args.freebuffModel,
-        },
-      )
-    }
-
-    await ctx.runMutation(
-      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
-        .setFreebuffAgentRunWorkId,
-      {
-        runId,
-        workId: String(workId),
-      },
-    )
-
-    await ctx.runMutation(
-      internal.coding_agent.cli_agent.agent_message.updateAgentMessageSessionId,
-      {
-        messageId: args.messageId,
-        sessionId: runId,
-      },
-    )
-
-    return { success: true, sessionId: runId }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
 }
 
 function installPromiseWithResolversPolyfill() {
@@ -319,7 +316,7 @@ function createRunEventBuffer(params: {
       flushPromise = flushPromise.then(flushNow).catch((error) => {
         console.error('[vly-freebuff-workpool] stream flush failed', error)
       })
-    }, 150)
+    }, 350)
   }
 
   const append = (event: BufferedDelta) => {
@@ -504,11 +501,38 @@ function parseCreateDiff(diff: string) {
 }
 
 function buildFreebuffOverrideTools(
-  codebase: DaytonaCodebase,
+  getCodebase: () => Promise<DaytonaCodebase>,
   options: {
     onAskUser?: (input: unknown) => never
   } = {},
 ) {
+  const writeFileTool = async (input: any) => {
+    const codebase = await getCodebase()
+    const filePath = normalizePath(input?.path)
+    assertProjectPath(filePath)
+    const content = String(input?.content ?? '')
+    if (input?.type === 'patch') {
+      const oldContent = await codebase.readFile(filePath)
+      const newContent = applyPatch(oldContent, content)
+      if (newContent === false) {
+        return asJson({
+          file: filePath,
+          errorMessage: 'Failed to apply patch.',
+        })
+      }
+      await codebase.writeFile(filePath, newContent)
+      return asJson({
+        file: filePath,
+        message: 'Applied patch through Vly Daytona tools.',
+      })
+    }
+    await codebase.writeFile(filePath, content)
+    return asJson({
+      file: filePath,
+      message: 'Wrote file through Vly Daytona tools.',
+    })
+  }
+
   return {
     ask_user: async (input: any) => {
       if (options.onAskUser) {
@@ -521,6 +545,7 @@ function buildFreebuffOverrideTools(
     },
 
     read_files: async (input: any) => {
+      const codebase = await getCodebase()
       const filePaths = Array.isArray(input?.filePaths) ? input.filePaths : []
       const results: Record<string, string | null> = {}
       for (const filePath of filePaths) {
@@ -535,40 +560,15 @@ function buildFreebuffOverrideTools(
       return results
     },
 
-    write_file: async (input: any) => {
-      const filePath = normalizePath(input?.path)
-      assertProjectPath(filePath)
-      const content = String(input?.content ?? '')
-      if (input?.type === 'patch') {
-        const oldContent = await codebase.readFile(filePath)
-        const newContent = applyPatch(oldContent, content)
-        if (newContent === false) {
-          return asJson({
-            file: filePath,
-            errorMessage: 'Failed to apply patch.',
-          })
-        }
-        await codebase.writeFile(filePath, newContent)
-        return asJson({
-          file: filePath,
-          message: 'Applied patch through Vly Daytona tools.',
-        })
-      }
-      await codebase.writeFile(filePath, content)
-      return asJson({
-        file: filePath,
-        message: 'Wrote file through Vly Daytona tools.',
-      })
-    },
+    write_file: writeFileTool,
 
     str_replace: async (input: any) => {
+      const codebase = await getCodebase()
       const filePath = normalizePath(input?.path)
       assertProjectPath(filePath)
 
       if (input?.content !== undefined || input?.type === 'patch') {
-        return await (
-          buildFreebuffOverrideTools(codebase, options) as any
-        ).write_file(input)
+        return await writeFileTool(input)
       }
 
       const oldString = String(input?.old_str ?? input?.oldString ?? '')
@@ -596,6 +596,7 @@ function buildFreebuffOverrideTools(
     },
 
     apply_patch: async (input: any) => {
+      const codebase = await getCodebase()
       const operation = input?.operation
       const filePath = normalizePath(operation?.path)
       assertProjectPath(filePath)
@@ -634,6 +635,7 @@ function buildFreebuffOverrideTools(
     },
 
     run_terminal_command: async (input: any) => {
+      const codebase = await getCodebase()
       const command = String(input?.command ?? '')
       if (commandIsBlocked(command)) {
         return asJson({
@@ -653,6 +655,7 @@ function buildFreebuffOverrideTools(
     },
 
     list_directory: async (input: any) => {
+      const codebase = await getCodebase()
       const directoryPath = normalizePath(input?.path ?? '.')
       const prefix =
         directoryPath === '.' || directoryPath === ''
@@ -666,6 +669,7 @@ function buildFreebuffOverrideTools(
     },
 
     glob: async (input: any) => {
+      const codebase = await getCodebase()
       const pattern = String(input?.pattern ?? '**/*')
       const matcher = globToRegExp(pattern)
       const files = await codebase.getAllFilePaths()
@@ -675,6 +679,7 @@ function buildFreebuffOverrideTools(
     },
 
     code_search: async (input: any) => {
+      const codebase = await getCodebase()
       const query = String(input?.query ?? '')
       const escaped = query.replace(/'/g, "'\\''")
       const result = await codebase.runCommand(
@@ -697,7 +702,11 @@ async function persistRunState(
   runState: unknown,
 ): Promise<Id<'_storage'> | undefined> {
   try {
-    const blob = new Blob([JSON.stringify(runState)], {
+    const normalizedRunState = normalizeStoredRunState(runState)
+    if (!normalizedRunState) {
+      return undefined
+    }
+    const blob = new Blob([JSON.stringify(normalizedRunState)], {
       type: 'application/json',
     })
     return await ctx.storage.store(blob)
@@ -718,33 +727,26 @@ function buildCommitMessage(userMessage: string): string {
 // apart from the 9-minute time-limit abort.
 const CANCELLED_BY_USER = 'freebuff_cancelled_by_user'
 
-// Cancel an in-flight Freebuff run when the user terminates the thread. Marks
-// the run ledger as cancelled (which the running action polls to abort itself)
-// and best-effort cancels the underlying workpool item so a queued run never
-// starts.
-export const cancelFreebuffRun = internalAction({
-  args: {
-    runId: v.string(),
-  },
+// Pinged by cron to keep this Node bundle's runtime warm. Loading this module
+// is the expensive part of a cold start (~5-9s: @codebuff/sdk + all bundled
+// agent definitions), so a periodic no-op invocation keeps the module cache
+// hot and first-message latency in the warm path (~2-3s instead of ~13-16s).
+export const warmFreebuffRuntime = internalAction({
+  args: {},
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const { workId } = await ctx.runMutation(
-      (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
-        .cancelFreebuffAgentRunByRunId,
-      { runId: args.runId },
-    )
-
-    if (workId) {
-      try {
-        await freebuffAgentWorkpool.cancel(ctx, workId as any)
-      } catch (error) {
-        console.warn('[vly-freebuff-workpool] failed to cancel work', error)
-      }
-    }
-
+  handler: async () => {
+    // Touch the heavyweight imports so bundlers can't tree-shake them out of
+    // the warm path.
+    void run
+    void bundledAgentDefinitions.length
     return null
   },
 })
+
+// Cancellation lives in `freebuff_agent_run_mutations.cancelFreebuffAgentRunByRunId`
+// — that mutation marks the run as cancelled (the running action polls this
+// and aborts itself) and calls `ctx.scheduler.cancel` for runs that haven't
+// started yet. Removing the wrapper action here saves a Node hop on cancel.
 
 export const runFreebuffAgent = internalAction({
   args: {
@@ -754,8 +756,10 @@ export const runFreebuffAgent = internalAction({
     threadId: v.id('agent_thread'),
     messageId: v.id('agent_message'),
     userMessage: v.string(),
-    agentId: v.optional(v.string()),
+    freebuffModel: v.optional(v.string()),
     images: v.optional(v.array(v.id('_storage'))),
+    sandboxId: v.string(),
+    packageManager: v.optional(v.union(v.literal('bun'), v.literal('pnpm'))),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -801,6 +805,33 @@ export const runFreebuffAgent = internalAction({
     // thread) from the stream/event callbacks and abort the run ourselves.
     let cancelledByUser = false
     let lastCancelCheck = 0
+    let lastToolStatusAt = 0
+    let lastToolStatusKey = ''
+
+    const maybeRecordToolStatus = async (toolName: string | undefined) => {
+      const title = toolName === 'ask_user' ? 'Ask user' : (toolName ?? 'Tool')
+      const content =
+        toolName === 'ask_user' ? 'Waiting for your answer' : 'Running tool'
+      const key = `${title}|${content}`
+      const now = Date.now()
+
+      if (key === lastToolStatusKey && now - lastToolStatusAt < 1500) {
+        return
+      }
+
+      lastToolStatusKey = key
+      lastToolStatusAt = now
+      await recordRunEvent({
+        ctx,
+        ...args,
+        event: {
+          type: 'status',
+          title,
+          content,
+        },
+      })
+    }
+
     const checkCancelled = async () => {
       if (abortController.signal.aborted) return
       const now = Date.now()
@@ -824,43 +855,55 @@ export const runFreebuffAgent = internalAction({
     try {
       installPromiseWithResolversPolyfill()
 
-      const project = await ctx.runQuery(internal.project.getProject, {
-        projectId: args.projectId,
-      })
-      if (!project) throw new Error('Project not found')
-
-      const codebase = await initializeCodebase(
-        project.sandbox_id,
-        project.packageManager,
-      )
-      if (!(codebase instanceof DaytonaCodebase)) {
-        throw new Error('Freebuff requires a Daytona-backed project')
+      let codebasePromise: Promise<DaytonaCodebase> | undefined
+      const getCodebase = async () => {
+        if (!codebasePromise) {
+          codebasePromise = (async () => {
+            const codebase = await initializeCodebase(
+              args.sandboxId,
+              args.packageManager,
+            )
+            if (!(codebase instanceof DaytonaCodebase)) {
+              throw new Error('Freebuff requires a Daytona-backed project')
+            }
+            return codebase
+          })()
+        }
+        return codebasePromise
       }
 
-      const imageContents = await loadImageContents(ctx, args.images)
+      const agentId = resolveFreebuffAgentId(args.freebuffModel)
+      const supportsImages = isFreebuffMultimodalModelId(args.freebuffModel)
+
+      // Vision-capable models get real multimodal content. Text-only models
+      // fall back to inlining image URLs so the model at least has a reference.
+      const userMessage = supportsImages
+        ? args.userMessage
+        : await appendImageUrlsToMessage(ctx, args.userMessage, args.images)
+
+      const imageContents = supportsImages
+        ? await loadImageContents(ctx, args.images)
+        : []
       const multimodalContent =
         imageContents.length > 0
-          ? [
-              { type: 'text' as const, text: args.userMessage },
-              ...imageContents,
-            ]
+          ? [{ type: 'text' as const, text: userMessage }, ...imageContents]
           : undefined
 
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
         fingerprintId: args.projectId,
         cwd: SANDBOX_PROJECT_ROOT,
-        agent: args.agentId ?? 'base2-free',
+        agent: agentId,
         // Cast bypasses a cross-package AgentDefinition type drift between
         // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
         // union). Runtime shape is identical.
         agentDefinitions: bundledAgentDefinitions as any,
-        prompt: args.userMessage,
+        prompt: userMessage,
         ...(multimodalContent ? { content: multimodalContent } : {}),
         previousRun: await readStoredRunState(ctx, args.threadId),
         costMode: 'normal',
         signal: abortController.signal,
-        overrideTools: buildFreebuffOverrideTools(codebase, {
+        overrideTools: buildFreebuffOverrideTools(getCodebase, {
           onAskUser: (input) => {
             pendingAskUserQuestions = sanitizeAskUserQuestions(input)
             throw createAskUserPauseError(input)
@@ -869,11 +912,11 @@ export const runFreebuffAgent = internalAction({
         handleEvent: async (event: any) => {
           await checkCancelled()
           if (event.type === 'tool_call') {
-            await eventBuffer.flush()
             // Persist the actual followup prompts so the web UI can render
             // clickable suggestion chips. (Hidden from the activity stream by
             // the existing suggest-followups filter on the frontend.)
             if (event.toolName === 'suggest_followups') {
+              await eventBuffer.flush()
               const followups = Array.isArray(event.input?.followups)
                 ? event.input.followups
                 : []
@@ -890,21 +933,11 @@ export const runFreebuffAgent = internalAction({
               }
               return
             }
-            await recordRunEvent({
-              ctx,
-              ...args,
-              event: {
-                type: 'status',
-                title:
-                  event.toolName === 'ask_user'
-                    ? 'Ask user'
-                    : (event.toolName ?? 'Tool'),
-                content:
-                  event.toolName === 'ask_user'
-                    ? 'Waiting for your answer'
-                    : 'Running tool',
-              },
-            })
+
+            if (event.toolName === 'ask_user') {
+              await eventBuffer.flush()
+            }
+            await maybeRecordToolStatus(event.toolName)
           }
         },
         handleStreamChunk: async (chunk: any) => {

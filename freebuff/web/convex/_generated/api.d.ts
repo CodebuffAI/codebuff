@@ -462,7 +462,6 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   migrationWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"migrationWorkpool">;
-  freebuffAgentWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"freebuffAgentWorkpool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   allUsersAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"allUsersAggregate">;
   userActivityAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"userActivityAggregate">;

@@ -36,6 +36,16 @@ crons.interval(
   internal.coding_agent.freebuff_bridge_mutations.sweepTimedOutFreebuffRuns,
 )
 
+// Keep the Freebuff agent Node bundle warm. Cold-loading it (@codebuff/sdk +
+// all bundled agent definitions) costs ~5-9s, which used to land on the first
+// user message after an idle period.
+crons.interval(
+  'warm freebuff agent runtime',
+  { minutes: 2 },
+  internal.coding_agent.cli_agent.executeFreebuff.warmFreebuffRuntime,
+  {},
+)
+
 // Persist yesterday's engagement metrics (DAU, signups, projects, totals)
 // shortly after UTC midnight so history survives aggregate rebuilds.
 crons.daily(

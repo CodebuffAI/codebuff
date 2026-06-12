@@ -7,7 +7,6 @@ import { initializeCodebase } from "../../../codebase-utils/codebase/initializeC
 import { DaytonaCodebase } from "../../../codebase-utils/codebase/DaytonaCodebase";
 import { executeClaudeCode } from "./executeClaudeCode";
 import { executeCodex } from "./executeCodex";
-import { executeFreebuff } from "./executeFreebuff";
 import { executeGemini } from "./executeGemini";
 import { getAuthUser } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
@@ -44,6 +43,7 @@ export const execute = internalAction({
     userMessage: v.string(), // User message content
     images: v.optional(v.array(v.id("_storage"))), // Image storage IDs
     freebuffModel: v.optional(v.string()), // Selected open-source model (Freebuff only)
+    packageManager: v.optional(v.union(v.literal("bun"), v.literal("pnpm"))),
   },
   returns: v.object({
     success: v.boolean(),
@@ -54,6 +54,15 @@ export const execute = internalAction({
     // Extract Daytona sandbox ID from sandbox_id (format: "daytona:xxx")
     if (!args.sandboxId || !args.sandboxId.startsWith("daytona:")) {
       throw new Error("Project does not have a Daytona sandbox");
+    }
+
+    // Freebuff no longer routes through here: the send mutation enqueues
+    // runFreebuffAgent into the workpool directly (see trigger.ts), skipping
+    // this action's Node cold start entirely.
+    if (args.agentType === "Freebuff") {
+      throw new Error(
+        "Freebuff runs are enqueued directly from the trigger mutation",
+      );
     }
 
     const daytonaSandboxId = args.sandboxId.slice("daytona:".length);
@@ -68,20 +77,7 @@ export const execute = internalAction({
       );
     }
 
-    // Route to appropriate execution function based on agent type
-    if (args.agentType === "Freebuff") {
-      return await executeFreebuff(ctx, codebase, {
-        projectId: args.projectId,
-        threadId: args.threadId,
-        messageId: args.messageId,
-        sandboxId: args.sandboxId,
-        activeSessionId: args.activeSessionId,
-        executingUserId: args.executingUserId,
-        userMessage: args.userMessage,
-        images: args.images,
-        freebuffModel: args.freebuffModel,
-      });
-    } else if (args.agentType === "Claude Code") {
+    if (args.agentType === "Claude Code") {
       return await executeClaudeCode(ctx, codebase, {
         projectId: args.projectId,
         threadId: args.threadId,

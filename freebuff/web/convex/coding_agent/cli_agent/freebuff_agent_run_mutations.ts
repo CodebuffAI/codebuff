@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 
 import { internalMutation, internalQuery } from '!/_generated/server'
+import { Id } from '!/_generated/dataModel'
 
 // Statuses that mean the run is finished and must not be transitioned again.
 const TERMINAL_RUN_STATUSES = new Set([
@@ -68,9 +69,11 @@ export const markFreebuffAgentRunRunning = internalMutation({
   },
 })
 
-// Mark a run as cancelled (user terminated the thread). Returns the work_id so
-// the caller can best-effort cancel the underlying workpool item. No-op if the
-// run is already in a terminal state.
+// Mark a run as cancelled (user terminated the thread). If the run was
+// scheduled but hasn't started yet, also cancels the pending Convex scheduler
+// invocation so it never runs. If it's already running, the action polls the
+// run ledger and aborts itself cooperatively. No-op when the run is already in
+// a terminal state.
 export const cancelFreebuffAgentRunByRunId = internalMutation({
   args: {
     runId: v.string(),
@@ -89,6 +92,23 @@ export const cancelFreebuffAgentRunByRunId = internalMutation({
         last_event_at: Date.now(),
       })
     }
+
+    // Stored work_id holds the Convex scheduler function id (carryover field
+    // name from the workpool era). Best-effort cancel — throws once the
+    // scheduled function has completed, which is fine to swallow.
+    if (runDoc.work_id) {
+      try {
+        await ctx.scheduler.cancel(
+          runDoc.work_id as unknown as Id<'_scheduled_functions'>,
+        )
+      } catch (error) {
+        console.warn(
+          '[vly-freebuff-cancel] failed to cancel scheduled run',
+          error,
+        )
+      }
+    }
+
     return { workId: runDoc.work_id }
   },
 })

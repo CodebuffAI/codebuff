@@ -3,10 +3,15 @@ import { v } from "convex/values";
 import { Id } from "!/_generated/dataModel";
 import { internal } from "../../_generated/api";
 import { createAgentThread } from "./agent_thread";
-import { workflow } from "./workflow";
 import { runTriggerGates } from "../shared/triggerGates";
 
-// Main entry point for CLI agent - saves message and starts workflow
+// Main entry point for the agent - saves message and schedules the agent run.
+// We use Convex's built-in scheduler (no concurrency cap) instead of a workpool
+// (capped queue) so a fourth concurrent user never waits behind three running
+// turns. Hard crashes are caught by `sweepTimedOutFreebuffRuns` (every minute).
+// History: this used to go through a durable workflow plus an intermediate
+// `execute` Node action; those hops added scheduler round-trips and a second
+// Node cold start (~7-14s total) before the agent could start.
 export const saveMessageAndStartWorkflow = mutation({
   args: {
     projectSemanticIdentifier: v.optional(v.string()),
@@ -97,6 +102,18 @@ export const saveMessageAndStartWorkflow = mutation({
         });
       }
 
+      // Fail fast before creating any thread/message state: the agent runs
+      // inside the project's Daytona sandbox.
+      if (!project.sandbox_id || !project.sandbox_id.startsWith("daytona:")) {
+        return {
+          success: false as const,
+          error: {
+            kind: "NO_SANDBOX",
+            message: "Project does not have a Daytona sandbox",
+          },
+        };
+      }
+
       // Get or create agent thread
       let threadId: Id<"agent_thread"> | undefined =
         project.active_agent_thread;
@@ -156,8 +173,8 @@ export const saveMessageAndStartWorkflow = mutation({
         };
       }
 
-      // Persist the selected Freebuff model on the thread so the workflow and
-      // any follow-up messages run the matching bundled agent. Use the
+      // Persist the selected Freebuff model on the thread so this run and any
+      // follow-up messages run the matching bundled agent. Use the
       // gate-resolved model: limited-tier (geo) users get premium selections
       // coerced to a limited-tier model.
       const resolvedFreebuffModel = gates.freebuffModel;
@@ -167,17 +184,33 @@ export const saveMessageAndStartWorkflow = mutation({
         });
       }
 
-      // Create agent message first (no session ID set here)
+      // The Freebuff runId doubles as the message session_id. Setting it at
+      // creation time (instead of from the agent action later) saves a
+      // round-trip and means cancel works even before the action starts.
+      const runId = crypto.randomUUID();
+
+      // Create agent message (already isStreaming=true, state=Processing)
       const messageId = await ctx.runMutation(
         internal.coding_agent.cli_agent.agent_message.createAgentMessage,
         {
           threadId,
           userMessage: args.message,
-          sessionId: undefined, // Session ID will be set by the workflow
+          sessionId: runId,
           images: args.images,
         },
       );
       messageIdForCleanup = messageId;
+
+      if (resolvedFreebuffModel) {
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_message
+            .updateAgentMessageModel,
+          {
+            messageId,
+            modelUsed: resolvedFreebuffModel,
+          },
+        );
+      }
 
       // Mark thread as processing
       await ctx.runMutation(
@@ -189,16 +222,6 @@ export const saveMessageAndStartWorkflow = mutation({
         },
       );
       threadIdForCleanup = threadId;
-
-      // Update message state to Processing (also sets isStreaming=true)
-      // Note: Message is already created with isStreaming=true, but this ensures consistency
-      await ctx.runMutation(
-        internal.coding_agent.cli_agent.agent_message.updateAgentMessageState,
-        {
-          messageId,
-          state: "Processing",
-        },
-      );
 
       // Schedule checkpoint creation for non-first messages (runs asynchronously)
       if (!isNewThread) {
@@ -214,37 +237,49 @@ export const saveMessageAndStartWorkflow = mutation({
         );
       }
 
-      // Start workflow
-      const workflowId = await workflow.start(
-        ctx,
-        internal.coding_agent.cli_agent.workflow.cliAgentWorkflow,
+      // Run ledger entry (queued) — powers cancellation, the timeout sweep
+      // cron, and the latency instrumentation (queued_at → started_at).
+      await ctx.runMutation(
+        internal.coding_agent.cli_agent.freebuff_agent_run_mutations
+          .createFreebuffAgentRun,
         {
-          messageId,
-          threadId,
-          projectId: project._id,
+          runId,
           userId: user._id,
-          agentType: normalizedAgentType,
-        },
-        {
-          onComplete:
-            internal.coding_agent.cli_agent.workflow.handleWorkflowComplete,
-          context: {
-            threadId,
-            messageId,
-            projectId: project._id,
-            userId: user._id,
-            agentType: normalizedAgentType,
-          },
+          projectId: project._id,
+          threadId,
+          messageId,
         },
       );
 
-      // Update thread with workflow ID
-      await ctx.runMutation(
-        internal.coding_agent.cli_agent.agent_thread
-          .updateAgentThreadWorkflowId,
+      // Enqueue the agent action directly via the Convex scheduler. There is
+      // no per-pool concurrency cap, so concurrent users never queue behind
+      // each other — every send schedules its own action immediately.
+      const scheduledId = await ctx.scheduler.runAfter(
+        0,
+        internal.coding_agent.cli_agent.executeFreebuff.runFreebuffAgent,
         {
+          runId,
+          userId: user._id,
+          projectId: project._id,
           threadId,
-          workflowId,
+          messageId,
+          userMessage: args.message,
+          freebuffModel: resolvedFreebuffModel,
+          images: args.images,
+          sandboxId: project.sandbox_id,
+          packageManager: project.packageManager,
+        },
+      );
+
+      // Stored on the run ledger so cancel can call `scheduler.cancel(...)` if
+      // the user terminates before the action picks it up. (Field is named
+      // `work_id` for backwards compatibility with rows from the workpool era.)
+      await ctx.runMutation(
+        internal.coding_agent.cli_agent.freebuff_agent_run_mutations
+          .setFreebuffAgentRunWorkId,
+        {
+          runId,
+          workId: String(scheduledId),
         },
       );
 

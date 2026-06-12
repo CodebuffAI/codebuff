@@ -496,14 +496,16 @@ export const cancelAgentMessage = action({
       }
     }
 
-    // For Freebuff threads the real work runs in a workpool action that the
-    // workflow does not await, so workflow.cancel above can't stop it. Mark the
-    // run cancelled (the running action polls this and aborts itself) and
-    // best-effort cancel the workpool item. session_id holds the Freebuff runId.
+    // For Freebuff threads the real work runs in a scheduled Node action that
+    // the workflow.cancel above can't stop. Mark the run cancelled (the
+    // running action polls this and aborts itself cooperatively) and the
+    // mutation also calls scheduler.cancel for runs that haven't started yet.
+    // session_id holds the Freebuff runId.
     if (thread.agent_type === 'Freebuff' && message.session_id) {
       try {
-        await ctx.runAction(
-          internal.coding_agent.cli_agent.executeFreebuff.cancelFreebuffRun,
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.freebuff_agent_run_mutations
+            .cancelFreebuffAgentRunByRunId,
           { runId: message.session_id },
         )
       } catch (error) {
