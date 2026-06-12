@@ -11,6 +11,7 @@ import React, {
 import { Button } from './button'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelsForAccessTier,
   isFreebuffModelAvailable,
@@ -28,6 +29,10 @@ import {
   freebuffModelNavigationDirectionForKey,
   nextFreebuffModelId,
 } from '../utils/freebuff-model-navigation'
+import {
+  formatFreebuffPremiumResetCountdown,
+  getFreebuffPremiumResetAt,
+} from '../utils/freebuff-premium-reset'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
@@ -36,10 +41,12 @@ import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 // Section grouping: model rows keep their product/availability tiers, but all
 // selectable Freebuff models share the same daily session quota.
 // Putting the tier on a section header lets each row drop its redundant
-// "Premium"/"Unlimited" chip. The shared 0/5 counter lives in the page title
-// (rendered by the parent), not the section header — this picker is purely a
-// list of choices grouped by tier. Empty sections are filtered so a model set
-// with no premium (or no unlimited) entries doesn't render an orphan header.
+// "Premium"/"Unlimited" chip. The shared 0/5 counter renders below the picker
+// (by the parent, landing only); headers carry only what the counter can't:
+// "no daily limit" on UNLIMITED, and a reset countdown on PREMIUM once the
+// quota is exhausted (the moment its rows grey out). Empty sections are
+// filtered so a model set with no premium (or no unlimited) entries doesn't
+// render an orphan header.
 //
 // `label` may be empty: limited-tier users only see the constrained model set,
 // so the "LIMITED" header would just leak the internal tier name without
@@ -62,8 +69,8 @@ type Section = {
  * Space) commits the focused row. Mouse click commits in one step.
  *
  * Layout: rows are grouped into PREMIUM / UNLIMITED sections so the tier is
- * visible without a per-row chip; the shared 0/5 counter sits inside the
- * PREMIUM section header. Names align in a column so taglines line up across
+ * visible without a per-row chip; the shared 0/5 counter renders below the
+ * picker (by the parent). Names align in a column so taglines line up across
  * rows. On narrow terminals the secondary details (warning / deployment
  * hours) drop onto an indented second line under the row.
  *
@@ -169,6 +176,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
 
   const committedModelId = session?.status === 'queued' ? session.model : null
   const rateLimitsByModel = getRateLimitsByModel(session)
+
+  // PREMIUM-header reset countdown, shown only once the shared quota is
+  // exhausted — that's when the premium rows grey out, and (in the queued
+  // state) the only place that explains why. All premium models share one
+  // pool; the server replicates the same snapshot under every model id, so
+  // any entry has the right count.
+  const sharedRateLimit = rateLimitsByModel
+    ? Object.values(rateLimitsByModel)[0]
+    : undefined
+  const premiumExhausted =
+    (sharedRateLimit?.recentCount ?? 0) >= FREEBUFF_PREMIUM_SESSION_LIMIT
+  const premiumResetCountdown = premiumExhausted
+    ? formatFreebuffPremiumResetCountdown(
+        getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
+        now,
+      )
+    : null
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
@@ -455,8 +479,22 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         marginTop: sectionIdx === 0 ? 0 : SECTION_GAP,
       }}
     >
+      {/* wrapMode 'none' pins headers to one row — the offset math above
+          assumes exactly 1 row per header, so a wrap would desync the
+          focused-row auto-scroll. */}
       {section.label && (
-        <text style={{ fg: theme.muted }}>{section.label}</text>
+        <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+          {section.label}
+          {section.key === 'premium' && premiumResetCountdown && (
+            <span fg={theme.secondary}>
+              {' '}
+              · resets in {premiumResetCountdown}
+            </span>
+          )}
+          {section.key === 'unlimited' && (
+            <span fg={theme.muted}> · no daily limit</span>
+          )}
+        </text>
       )}
       {section.models.map(renderModelButton)}
     </box>
