@@ -12,6 +12,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 const DEFAULT_TIMEOUT_MS = 120_000
 const EXPECTED_KEYWORD = 'useActionState'
+const RESEARCHER_WEB_MAX_AGENT_STEPS = 10
 
 function loadEnvValue(name: string): string | undefined {
   if (process.env[name] && process.env[name] !== 'test') {
@@ -158,13 +159,13 @@ describe('researcher-web SDK integration', () => {
       const result = await client.run({
         agent: 'researcher-web',
         agentDefinitions: [researcherWeb],
-        maxAgentSteps: 8,
+        maxAgentSteps: RESEARCHER_WEB_MAX_AGENT_STEPS,
         handleEvent: (event) => {
           events.push(event)
         },
         prompt: [
           'Use web search to answer this React docs question.',
-          'After searching, fetch the most relevant React docs page with read_url before answering.',
+          'After searching, fetch exactly three relevant React docs pages with read_url before answering.',
           'In React 19, which hook returns state, a form action, and an isPending value for form actions?',
           'Answer with the exact hook name and one short sentence.',
         ].join(' '),
