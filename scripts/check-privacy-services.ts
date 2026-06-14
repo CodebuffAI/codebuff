@@ -65,8 +65,13 @@ async function run() {
     'spur',
     `https://api.spur.us/v2/context/${encodeURIComponent(ip)}`,
     { headers: { Token: spurToken ?? '' } },
-    (r) =>
-      `x-balance/quota headers: ${JSON.stringify(Object.fromEntries([...r.headers].filter(([k]) => /balance|quota|limit|remain/i.test(k))))}`,
+    (r) => {
+      const matched: Record<string, string> = {}
+      r.headers.forEach((value, key) => {
+        if (/balance|quota|limit|remain/i.test(key)) matched[key] = value
+      })
+      return `x-balance/quota headers: ${JSON.stringify(matched)}`
+    },
   )
 
   await checkService(

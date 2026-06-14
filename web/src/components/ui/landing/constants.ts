@@ -95,6 +95,6 @@ export const ANIMATION = {
   },
   scale: {
     duration: 0.8,
-    ease: [0.165, 0.84, 0.44, 1],
+    ease: [0.165, 0.84, 0.44, 1] as [number, number, number, number],
   },
 }
