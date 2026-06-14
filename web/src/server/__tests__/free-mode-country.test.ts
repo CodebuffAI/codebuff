@@ -529,6 +529,90 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
+  test('allows soft-only IPinfo signals when both second-opinion providers are unavailable', async () => {
+    // Regression guard: a legitimate user (e.g. Apple iCloud Private Relay =>
+    // `relay`, or a cloud dev box => `hosting`) must not be dropped into limited
+    // mode just because Spur and Scamalytics cannot be reached. Soft signals are
+    // only downgraded on an AFFIRMATIVE suspicious verdict, never on provider
+    // failure.
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['relay', 'hosting'],
+        }),
+        lookupSpurIpPrivacy: async () => {
+          throw new Error('spur unavailable')
+        },
+        lookupScamalyticsIpRisk: async () => {
+          throw new Error('scamalytics unavailable')
+        },
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
+    expect(access.spurStatus).toBe('failed')
+    expect(access.scamalyticsStatus).toBe('failed')
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('still limits soft-only IPinfo signals when a provider affirmatively flags the IP', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['hosting'],
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupScamalyticsIpRisk: async () => {
+          throw new Error('scamalytics unavailable')
+        },
+      },
+    )
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+    expect(access.spurStatus).toBe('suspicious')
+  })
+
+  test('keeps hard IPinfo signals limited when both providers are unavailable', async () => {
+    // Contrast with the soft-signal case: a genuine anonymizer signal from
+    // IPinfo (vpn/proxy/tor/res_proxy) must still require an affirmative clear,
+    // so a provider outage does not let real VPN traffic through.
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({
+          signals: ['vpn'],
+        }),
+        lookupSpurIpPrivacy: async () => {
+          throw new Error('spur unavailable')
+        },
+        lookupScamalyticsIpRisk: async () => {
+          throw new Error('scamalytics unavailable')
+        },
+      },
+    )
+    expect(access.allowed).toBe(false)
+    expect(access.blockReason).toBe('anonymous_network')
+  })
+
   test('allows allowlisted countries when privacy lookup finds no anonymous signals', async () => {
     const access = await getFreeModeCountryAccess(
       makeReq({

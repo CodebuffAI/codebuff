@@ -1096,7 +1096,23 @@ export async function getFreeModeCountryAccess(
       scamalyticsRisk: scamalyticsIpRisk?.risk ?? null,
     }
 
-    if (spurStatus === 'clean' || scamalyticsStatus === 'clean') {
+    // Hard IPinfo signals (vpn/proxy/tor/res_proxy) are genuine anonymizer
+    // detections: keep the strict rule that a second opinion must affirmatively
+    // clear the IP, so a provider being down does NOT let real VPN traffic in.
+    //
+    // Soft-only signals (relay/hosting/anonymous/service) are noisy and
+    // false-positive prone — `relay` is Apple iCloud Private Relay (a default
+    // consumer feature) and `hosting` catches legit cloud dev environments.
+    // For those we only downgrade when a provider AFFIRMATIVELY flags the IP as
+    // suspicious; a `failed`/unavailable provider no longer blocks the user.
+    // This keeps legitimate users in allowed countries out of limited mode when
+    // a second-opinion provider (e.g. Scamalytics) is unavailable.
+    const ipinfoHasHardSignal = hasHardBlockedPrivacySignal(ipPrivacy)
+    const cleared = ipinfoHasHardSignal
+      ? spurStatus === 'clean' || scamalyticsStatus === 'clean'
+      : spurStatus !== 'suspicious' && scamalyticsStatus !== 'suspicious'
+
+    if (cleared) {
       return {
         ...baseAccess,
         allowed: true,
