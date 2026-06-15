@@ -695,6 +695,57 @@ function buildFreebuffOverrideTools(
 }
 
 // Abort the SDK run a minute before the 10-minute cron sweep so the SDK has
+/** Friendly activity-stream titles for gravity_index calls so the run feed
+ *  reads naturally ("Finding services: payments for React") instead of
+ *  showing the raw tool name. Verbs mirror toolCallDisplay in
+ *  freebuff/web/src/app/chat/blocks.ts. */
+function gravityIndexStatusEvent(input: unknown): {
+  title: string
+  content: string
+} {
+  const record =
+    input && typeof input === 'object' && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {}
+  const str = (value: unknown): string =>
+    typeof value === 'string' ? value.trim() : ''
+  switch (record.action) {
+    case 'search':
+      return {
+        title: 'Finding services',
+        content: str(record.query) || 'Searching the integration catalog',
+      }
+    case 'browse':
+      return {
+        title: 'Browsing services',
+        content:
+          [str(record.category), str(record.q)].filter(Boolean).join(' · ') ||
+          'Browsing the integration catalog',
+      }
+    case 'list_categories':
+      return {
+        title: 'Browsing services',
+        content: 'Listing integration categories',
+      }
+    case 'get_service':
+      return {
+        title: 'Fetching service details',
+        content: str(record.slug) || 'Fetching service details',
+      }
+    case 'report_integration':
+      return {
+        title: 'Reporting integration',
+        content:
+          str(record.integrated_slug) || 'Reporting completed integration',
+      }
+    default:
+      return {
+        title: 'Finding services',
+        content: 'Using the integration catalog',
+      }
+  }
+}
+
 const FREEBUFF_RUN_TIMEOUT_MS = 9 * 60 * 1000
 
 async function persistRunState(
@@ -808,10 +859,18 @@ export const runFreebuffAgent = internalAction({
     let lastToolStatusAt = 0
     let lastToolStatusKey = ''
 
-    const maybeRecordToolStatus = async (toolName: string | undefined) => {
-      const title = toolName === 'ask_user' ? 'Ask user' : (toolName ?? 'Tool')
-      const content =
-        toolName === 'ask_user' ? 'Waiting for your answer' : 'Running tool'
+    const maybeRecordToolStatus = async (
+      toolName: string | undefined,
+      input: unknown,
+    ) => {
+      const { title, content } =
+        toolName === 'gravity_index'
+          ? gravityIndexStatusEvent(input)
+          : {
+              title: toolName === 'ask_user' ? 'Ask user' : (toolName ?? 'Tool'),
+              content:
+                toolName === 'ask_user' ? 'Waiting for your answer' : 'Running tool',
+            }
       const key = `${title}|${content}`
       const now = Date.now()
 
@@ -937,7 +996,7 @@ export const runFreebuffAgent = internalAction({
             if (event.toolName === 'ask_user') {
               await eventBuffer.flush()
             }
-            await maybeRecordToolStatus(event.toolName)
+            await maybeRecordToolStatus(event.toolName, event.input)
           }
         },
         handleStreamChunk: async (chunk: any) => {

@@ -90,9 +90,11 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     };
   }
 
-  // Limited tier may only use the geo-exempt + limited model set; coerce
-  // anything else (premium ids, stale localStorage selections) instead of
-  // rejecting, matching the CLI's behavior.
+  // Limited-region users may only use the geo-exempt free model set; coerce
+  // anything else (premium ids, stale localStorage selections) before model
+  // quota checks. This means referral tiers still raise limited regions'
+  // standard/free-model daily quota, but never unlock premium-model usage
+  // there. Full/allowed regions keep both standard and premium tier scaling.
   const freebuffModel =
     args.agentType === "Freebuff" && accessTier === "limited"
       ? resolveFreebuffWebModelForLimitedTier(args.freebuffModel)
@@ -159,8 +161,9 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
 
   // Every Freebuff send consumes a daily model quota whose rate scales with
   // the user's referral tier: premium models burn the strict premium bucket,
-  // everything else burns the (very generous) standard bucket. Enforced for
-  // everyone, including platform admins, so UI counters reflect real usage.
+  // everything else burns the standard/free bucket. Limited-region sends have
+  // already been coerced to the allowed free model set above, so referrals only
+  // scale the free-model bucket for India/other limited regions.
   // Done late so we only consume the allowance once the other gates pass.
   if (!args.skipRateLimitCheck && args.agentType === "Freebuff") {
     const daily = isFreebuffPremiumModelId(freebuffModel)

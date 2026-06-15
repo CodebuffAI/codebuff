@@ -6,8 +6,6 @@ import { Button } from "@/vly/components/ui/button";
 import { Plus } from "lucide-react";
 import { Integrations } from "./integrations/Integrations";
 import { IntegrationsLibrary } from "./integrations/IntegrationsLibrary";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 
 interface IntegrationsViewProps {
   semanticIdentifier: string;
@@ -15,12 +13,6 @@ interface IntegrationsViewProps {
 
 function IntegrationsView({ semanticIdentifier }: IntegrationsViewProps) {
   const [activeTab, setActiveTab] = useState("your-integrations");
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState<
-    string | null
-  >(null);
-
-  // Get user for god mode check
-  const user = useQuery(api.users.viewer);
 
   return (
     <div className="flex w-full flex-col">
@@ -83,19 +75,12 @@ function IntegrationsView({ semanticIdentifier }: IntegrationsViewProps) {
           <TabsContent value="your-integrations" className="m-0 h-full">
             <Integrations
               semanticIdentifier={semanticIdentifier}
-              selectedIntegrationId={selectedIntegrationId}
+              selectedIntegrationId={null}
             />
           </TabsContent>
 
           <TabsContent value="library" className="m-0 h-full">
-            <IntegrationsLibrary
-              semanticIdentifier={semanticIdentifier}
-              onIntegrationAdded={(integrationId) => {
-                setActiveTab("your-integrations");
-                setSelectedIntegrationId(integrationId);
-              }}
-              isGodMode={user?.role === "god"}
-            />
+            <IntegrationsLibrary semanticIdentifier={semanticIdentifier} />
           </TabsContent>
         </div>
       </Tabs>
