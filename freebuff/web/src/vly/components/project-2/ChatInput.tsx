@@ -250,38 +250,6 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
       }
     }, [restoreMessage, updateEditorValue]);
 
-    useEffect(() => {
-      if (typeof window === "undefined") return;
-      const draftKey = `chat-draft-${projectSemanticIdentifier}`;
-      const draft = window.localStorage.getItem(draftKey);
-      if (!draft) return;
-
-      const lines = draft.split("\n");
-      const newValue =
-        lines.length > 0
-          ? lines.map((line) => ({
-              type: "paragraph" as const,
-              children: [{ text: line }],
-            }))
-          : [
-              {
-                type: "paragraph" as const,
-                children: [{ text: draft }],
-              },
-            ];
-
-      if (newValue.length === 0) {
-        newValue.push({
-          type: "paragraph" as const,
-          children: [{ text: "" }],
-        });
-      }
-
-      updateEditorValue(newValue);
-      setEditorKey((prev) => prev + 1);
-      window.localStorage.removeItem(draftKey);
-    }, [projectSemanticIdentifier, updateEditorValue]);
-
     // Track focus state of the editor
     useEffect(() => {
       const container = editorContainerRef.current;
