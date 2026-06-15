@@ -6,6 +6,7 @@ import * as path from 'path'
 import {
   __clearJobsForTest,
   __registerJobForTest,
+  __sweepOrphanedJobFilesForTest,
   getBackgroundJob,
   readNewJobOutput,
   type BackgroundJob,
@@ -106,6 +107,66 @@ describe('checkJob', () => {
   test('returns an error for an unknown job id', async () => {
     const result = value(await checkJob({ jobId: 'does-not-exist' }))
     expect(result.errorMessage).toContain('does-not-exist')
+  })
+
+  test('sweeps stale completed job files but preserves running recoverable jobs', () => {
+    const oldCompletedJobId = `job-stale-completed-${++counter}`
+    const oldRunningJobId = `job-stale-running-${++counter}`
+    const oldCompletedLog = path.join(os.tmpdir(), `openbuff-${oldCompletedJobId}.log`)
+    const oldCompletedMetadata = path.join(
+      os.tmpdir(),
+      `openbuff-${oldCompletedJobId}.json`,
+    )
+    const oldRunningLog = path.join(os.tmpdir(), `openbuff-${oldRunningJobId}.log`)
+    const oldRunningMetadata = path.join(
+      os.tmpdir(),
+      `openbuff-${oldRunningJobId}.json`,
+    )
+    const oldTime = Date.now() - 25 * 60 * 60 * 1000
+
+    fs.writeFileSync(oldCompletedLog, 'old completed\n')
+    fs.writeFileSync(
+      oldCompletedMetadata,
+      JSON.stringify({
+        jobId: oldCompletedJobId,
+        command: 'completed job',
+        processId: null,
+        logFile: oldCompletedLog,
+        status: 'completed',
+        exitCode: 0,
+        startedAt: 123,
+      }),
+    )
+    fs.writeFileSync(oldRunningLog, 'old running\n')
+    fs.writeFileSync(
+      oldRunningMetadata,
+      JSON.stringify({
+        jobId: oldRunningJobId,
+        command: 'running job',
+        processId: process.pid,
+        logFile: oldRunningLog,
+        status: 'running',
+        exitCode: null,
+        startedAt: 123,
+      }),
+    )
+    fs.utimesSync(oldCompletedLog, oldTime / 1000, oldTime / 1000)
+    fs.utimesSync(oldCompletedMetadata, oldTime / 1000, oldTime / 1000)
+    fs.utimesSync(oldRunningLog, oldTime / 1000, oldTime / 1000)
+    fs.utimesSync(oldRunningMetadata, oldTime / 1000, oldTime / 1000)
+    tempFiles.push(
+      oldCompletedLog,
+      oldCompletedMetadata,
+      oldRunningLog,
+      oldRunningMetadata,
+    )
+
+    __sweepOrphanedJobFilesForTest()
+
+    expect(fs.existsSync(oldCompletedLog)).toBe(false)
+    expect(fs.existsSync(oldCompletedMetadata)).toBe(false)
+    expect(fs.existsSync(oldRunningLog)).toBe(true)
+    expect(fs.existsSync(oldRunningMetadata)).toBe(true)
   })
 
   test('recovers a job from persisted metadata and log file', async () => {

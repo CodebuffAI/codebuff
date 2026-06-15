@@ -31,6 +31,83 @@ export interface BackgroundJob {
 const jobs = new Map<string, BackgroundJob>()
 let jobCounter = 0
 
+/**
+ * Max age of orphaned background-job log/metadata files in /tmp before they
+ * are eligible for cleanup on the next startBackgroundJob call. Set to 24h to
+ * preserve recently-completed jobs for short-lived recovery while preventing
+ * unbounded accumulation across CLI sessions.
+ */
+const ORPHANED_JOB_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000
+let orphanedJobFilesSwept = false
+
+/**
+ * Best-effort cleanup of stale `openbuff-job-*.{log,json}` files left in the
+ * OS temp dir by previous CLI sessions. Runs once per process, lazily on the
+ * first background-job spawn, and never throws.
+ */
+function sweepOrphanedJobFiles(): void {
+  if (orphanedJobFilesSwept) return
+  orphanedJobFilesSwept = true
+  sweepOrphanedJobFilesForTest()
+}
+
+function shouldPreserveJobMetadata(metadataFile: string): boolean {
+  try {
+    const metadata = JSON.parse(
+      fs.readFileSync(metadataFile, 'utf8'),
+    ) as Partial<BackgroundJobMetadata>
+    if (metadata.status !== 'running') return false
+    if (metadata.processId === null || metadata.processId === undefined) {
+      // Be conservative when we cannot verify liveness.
+      return true
+    }
+    return isProcessAlive(metadata.processId)
+  } catch {
+    return false
+  }
+}
+
+function removeFileIfPresent(filePath: string): void {
+  try {
+    fs.unlinkSync(filePath)
+  } catch {
+    // file vanished or permission denied — skip
+  }
+}
+
+function sweepOrphanedJobFilesForTest(): void {
+  try {
+    const tmpDir = os.tmpdir()
+    const entries = fs.readdirSync(tmpDir)
+    const now = Date.now()
+    for (const entry of entries) {
+      if (!entry.startsWith('openbuff-job-')) continue
+      if (!entry.endsWith('.log') && !entry.endsWith('.json')) continue
+      const fullPath = path.join(tmpDir, entry)
+      try {
+        const stat = fs.statSync(fullPath)
+        if (now - stat.mtimeMs <= ORPHANED_JOB_FILE_MAX_AGE_MS) continue
+
+        const metadataFile = entry.endsWith('.json')
+          ? fullPath
+          : fullPath.replace(/\.log$/, '.json')
+        if (fs.existsSync(metadataFile) && shouldPreserveJobMetadata(metadataFile)) {
+          continue
+        }
+
+        removeFileIfPresent(fullPath)
+        if (entry.endsWith('.json')) {
+          removeFileIfPresent(fullPath.replace(/\.json$/, '.log'))
+        }
+      } catch {
+        // file vanished or permission denied — skip
+      }
+    }
+  } catch {
+    // tmpdir unreadable — give up silently
+  }
+}
+
 type BackgroundJobMetadata = {
   jobId: string
   command: string
@@ -59,6 +136,7 @@ export function startBackgroundJob(params: {
   env: NodeJS.ProcessEnv
 }): BackgroundJob {
   const { command, shell, shellArgs, cwd, env } = params
+  sweepOrphanedJobFiles()
   const jobId = nextJobId()
   const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
   const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
@@ -290,4 +368,10 @@ export function __registerJobForTest(job: BackgroundJob): void {
 /** Test-only: clear the registry between tests. */
 export function __clearJobsForTest(): void {
   jobs.clear()
+  orphanedJobFilesSwept = false
+}
+
+/** Test-only: run stale background-job temp-file cleanup deterministically. */
+export function __sweepOrphanedJobFilesForTest(): void {
+  sweepOrphanedJobFilesForTest()
 }

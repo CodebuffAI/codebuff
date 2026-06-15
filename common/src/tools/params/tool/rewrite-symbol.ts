@@ -22,7 +22,7 @@ const inputSchema = z
     content: z
       .string()
       .describe(
-        "The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body).",
+        "The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). Provide REAL newlines/tabs in the string — literal backslash-n (\\n) and backslash-t (\\t) sequences are not interpreted and will be written verbatim into the file. This matches str_replace.",
       ),
     occurrence: z
       .number()
@@ -45,13 +45,16 @@ ${$getNativeToolCallExampleString({
   input: {
     path: 'sdk/src/provider-config.ts',
     symbol: 'resolveConfigFragmentPath',
-    content:
-      'function resolveConfigFragmentPath(configPath: string, fragmentPath: string): string {\n  return path.resolve(path.dirname(configPath), fragmentPath)\n}',
+    content: `function resolveConfigFragmentPath(configPath: string, fragmentPath: string): string {
+  return path.resolve(path.dirname(configPath), fragmentPath)
+}`,
   },
   endsAgentStep,
 })}
 
 Purpose: Structural, drift-proof edits. Instead of copying a symbol's current text into str_replace's oldString (which breaks if the file changed), name the symbol and provide its full replacement; the runtime finds its exact range from the AST. Falls back with guidance for languages/files it can't parse — use str_replace there.
+
+IMPORTANT: \`content\` is written verbatim — pass actual newlines and tabs, not backslash escape sequences. \`"foo\\nbar"\` writes the literal characters \`foo\\nbar\` into the file, not two lines.
 `.trim()
 
 export const rewriteSymbolParams = {

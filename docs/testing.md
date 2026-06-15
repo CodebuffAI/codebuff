@@ -4,6 +4,18 @@
 - Use `spyOn()` only for globals / legacy seams.
 - Avoid `mock.module()` for functions; use `@codebuff/common/testing/mock-modules.ts` helpers for constants only.
 
+## Running per-package scripts with bun
+
+`bun --cwd <pkg> run <script>` does NOT execute the script — it silently prints
+the script list of the root package and exits 0, which makes it dangerously
+easy to think typecheck/test passed when nothing ran. Use one of these instead:
+
+- `cd <pkg> && bun run <script>` (recommended for ad-hoc / scripted basher use)
+- `bun --filter=@codebuff/<pkg> run <script>` (workspace-aware)
+- `bun --filter='*' run <script>` (every workspace)
+
+This applies to `typecheck`, `test`, `build`, etc.
+
 CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer integration tests via components for hook behavior.
 
 ## CLI tmux Testing
