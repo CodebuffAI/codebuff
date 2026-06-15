@@ -104,6 +104,50 @@ function mergeProviderMetadata(
   return merged;
 }
 
+type OpenAICompatibleStreamErrorData = {
+  message: string;
+  type?: string | null;
+  param?: unknown;
+  code?: string | number | null;
+  status?: string | null;
+  details?: unknown[] | null;
+};
+
+function stringifyErrorMetadata(metadata: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(metadata);
+  } catch {
+    return String(metadata);
+  }
+}
+
+function createOpenAICompatibleStreamError(
+  error: OpenAICompatibleStreamErrorData,
+): Error {
+  const metadata = Object.fromEntries(
+    Object.entries({
+      type: error.type,
+      param: error.param,
+      code: error.code,
+      status: error.status,
+      details: error.details,
+    }).filter(([, value]) => value != null),
+  );
+  const metadataText =
+    Object.keys(metadata).length > 0 ? stringifyErrorMetadata(metadata) : '';
+  const trimmedMetadataText =
+    metadataText.length > 2000
+      ? `${metadataText.slice(0, 2000)}...`
+      : metadataText;
+  const streamError = new Error(
+    trimmedMetadataText
+      ? `${error.message} ${trimmedMetadataText}`
+      : error.message,
+  );
+  streamError.name = 'OpenAICompatibleStreamError';
+  return streamError;
+}
+
 export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2';
 
@@ -540,7 +584,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             // handle error chunks:
             if ('error' in value) {
               finishReason = 'error';
-              controller.enqueue({ type: 'error', error: value.error.message });
+              controller.enqueue({
+                type: 'error',
+                error: createOpenAICompatibleStreamError(value.error),
+              });
               return;
             }
 

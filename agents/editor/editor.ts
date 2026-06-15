@@ -35,13 +35,14 @@ export const createCodeEditor = (options: {
     model: EDITOR_MODEL_BY_VARIANT[options.model],
     displayName: 'Code Editor',
     spawnerPrompt:
-      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For related multi-file edits, it can use edit_transaction to preflight and apply changes atomically.",
+      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits, it can use edit_transaction to preflight and apply changes atomically.",
     outputMode: 'structured_output',
     toolNames: [
       'read_files',
       'read_outline',
       'write_file',
       'str_replace',
+      'replace_range',
       'rewrite_symbol',
       'edit_transaction',
       'set_output',
@@ -56,7 +57,8 @@ Your task is to write out ALL the code changes needed to complete the user's req
 
 You may make edits across multiple turns. After each edit you will see whether it applied successfully:
 - To replace an entire function/class/method/type, prefer rewrite_symbol (name + full new body): it finds the exact definition from the syntax tree, so you don't copy old text and it can't drift. For large files, read_outline shows the structure and read_files with a symbols selector pulls a specific symbol's current body. Use str_replace for partial in-body edits.
-- If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or fall back to write_file with the complete file content.
+- If rewrite_symbol cannot parse or find the symbol, read the exact current range with read_files.ranges and use replace_range with that rangeHash. Do not fall back to whole-file write_file just because a structural parser failed.
+- If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or use replace_range with a fresh rangeHash for medium/large blocks.
 - Use edit_transaction when edits across multiple files, dependent edits in one file, or import-only TypeScript edits must be preflighted together and applied atomically. Prefer str_replace for simple one-file text changes, and write_file for new files or major rewrites.
 - Keep editing until the entire request is implemented across all files. Do not stop after a single file when more files still need changes.
 - When every change has been made and all edits have applied successfully, stop: respond with a brief one-line confirmation and make no further tool calls.
@@ -65,6 +67,7 @@ Important: You may call read_files only for exact files you need to edit or to r
 
 Deterministic large-file editing (follow this exactly to avoid edits that fail for no apparent reason):
 - Before editing a large file, ALWAYS read the exact target range yourself with read_files (use the ranges parameter for big files) immediately before the edit. Never reuse a basedOnRead capability token that came from the parent agent or from a read you did before any intervening edit — those are stale and will be rejected even though the file is readable.
+- For medium/large function or block replacements, prefer replace_range after read_files.ranges. Copy startLine, endLine, and expectedHash from the fresh range header, and put the complete replacement text for that selected range in newContent.
 - Copy the basedOnRead readCapability token verbatim from the header of your own most recent read of that exact range, and put it on each replacement that touches a large file, including replacements inside edit_transaction str_replace edits.
 - To make several edits to the same file at once, batch them into ONE str_replace call with multiple replacements (each with its own basedOnRead), or use one edit_transaction when related edits must be preflighted atomically. All replacements in a single call are validated against the same pre-edit file, so they will not invalidate each other.
 - Edit, get proof, edit again: after a successful str_replace or edit_transaction on a large file, the result message may include a fresh anchor for the edited region, shown as a concrete readCapability token. For the next edit near that changed region, copy that exact echoed readCapability as basedOnRead instead of re-reading. This is the proof that the runtime minted from the post-edit file contents.
@@ -88,6 +91,19 @@ Write out what changes you would make using the tool call format below. Use this
       "newString": "exact new code 2"
     }
   ]
+}
+</codebuff_tool_call>
+
+OR for a medium/large file range that you just read with read_files.ranges:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "replace_range",
+  "path": "path/to/large-file.ts",
+  "startLine": 120,
+  "endLine": 168,
+  "expectedHash": "sha256:range-hash-from-read-files",
+  "newContent": "complete replacement content for lines 120-168"
 }
 </codebuff_tool_call>
 

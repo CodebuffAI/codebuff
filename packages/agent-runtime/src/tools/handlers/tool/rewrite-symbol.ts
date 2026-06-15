@@ -1,11 +1,17 @@
 import { handleStrReplace } from './str-replace'
-import { getFileStructure, mintSliceCapability } from '../../../structural-read'
+import {
+  extractSlices,
+  getFileStructure,
+  mintSliceCapability,
+} from '../../../structural-read'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 
 function errorResult(file: string, message: string) {
-  return { output: [{ type: 'json' as const, value: { file, errorMessage: message } }] }
+  return {
+    output: [{ type: 'json' as const, value: { file, errorMessage: message } }],
+  }
 }
 
 /**
@@ -13,18 +19,21 @@ function errorResult(file: string, message: string) {
  * symbol's exact AST range, then applies the change through the existing
  * str_replace machinery (atomic, capability-anchored, client-applied) using the
  * symbol's current text as a precise oldString — so the model never has to copy
- * the old text and the edit can't drift. Falls back with guidance when the file
- * has no tree-sitter grammar or the symbol isn't found.
+ * the old text and the edit can't drift. If tree-sitter cannot parse the file,
+ * fall back to the same heuristic slicer used by read_files(symbols).
  */
-export const handleRewriteSymbol = (async (
-  params: {
-    previousToolCallFinished: Promise<void>
-    toolCall: any
-    requestOptionalFile: RequestOptionalFileFn
-  },
-): Promise<{ output: any }> => {
+export const handleRewriteSymbol = (async (params: {
+  previousToolCallFinished: Promise<void>
+  toolCall: any
+  requestOptionalFile: RequestOptionalFileFn
+}): Promise<{ output: any }> => {
   const { previousToolCallFinished, toolCall, requestOptionalFile } = params
-  const { path, symbol, content: newContent, occurrence } = toolCall.input as {
+  const {
+    path,
+    symbol,
+    content: newContent,
+    occurrence,
+  } = toolCall.input as {
     path: string
     symbol: string
     content: string
@@ -41,26 +50,60 @@ export const handleRewriteSymbol = (async (
     )
   }
 
+  const normalized = raw.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
   const structure = await getFileStructure(raw, path)
-  if (structure === null) {
-    return errorResult(
-      path,
-      `rewrite_symbol could not parse ${path} (no tree-sitter grammar for this file type). Use str_replace with an exact oldString instead.`,
-    )
-  }
 
-  const matches = structure.filter((s) => s.name === symbol)
+  const astMatches = structure?.filter((s) => s.name === symbol) ?? []
+  const matches =
+    astMatches.length > 0
+      ? astMatches.map((match) => {
+          const { readCapability } = mintSliceCapability({
+            content: raw,
+            startLine: match.startLine,
+            endLine: match.endLine,
+          })
+          return {
+            kind: match.kind,
+            startLine: match.startLine,
+            endLine: match.endLine,
+            oldString: lines
+              .slice(match.startLine - 1, match.endLine)
+              .join('\n'),
+            readCapability,
+          }
+        })
+      : (await extractSlices(raw, path, [symbol], occurrence ?? 5)).map(
+          (slice) => ({
+            kind: slice.kind ?? 'symbol',
+            startLine: slice.startLine,
+            endLine: slice.endLine,
+            oldString: slice.content,
+            readCapability:
+              slice.readCapability ??
+              mintSliceCapability({
+                content: raw,
+                startLine: slice.startLine,
+                endLine: slice.endLine,
+              }).readCapability,
+          }),
+        )
+
   if (matches.length === 0) {
+    const parserContext =
+      structure === null ? `rewrite_symbol could not parse ${path}, and ` : ''
     return errorResult(
       path,
-      `Symbol "${symbol}" not found in ${path}. Run read_outline on this file to see available symbols, then retry (or use str_replace).`,
+      `${parserContext}symbol "${symbol}" was not found in ${path}. Run read_outline or read_files.ranges on this file, then retry with rewrite_symbol or use replace_range with the fresh rangeHash.`,
     )
   }
   if (matches.length > 1 && occurrence === undefined) {
-    const lineList = matches.map((m) => `${m.kind} at lines ${m.startLine}-${m.endLine}`).join('; ')
+    const lineList = matches
+      .map((m) => `${m.kind} at lines ${m.startLine}-${m.endLine}`)
+      .join('; ')
     return errorResult(
       path,
-      `Multiple top-level symbols named "${symbol}" in ${path} (${lineList}). Pass occurrence (1-indexed) to choose one, or use str_replace.`,
+      `Multiple top-level symbols named "${symbol}" in ${path} (${lineList}). Pass occurrence (1-indexed) to choose one, or use replace_range.`,
     )
   }
   const match = occurrence !== undefined ? matches[occurrence - 1] : matches[0]
@@ -70,15 +113,6 @@ export const handleRewriteSymbol = (async (
       `occurrence ${occurrence} is out of range; ${matches.length} symbol(s) named "${symbol}" exist in ${path}.`,
     )
   }
-
-  const normalized = raw.replace(/\r\n/g, '\n')
-  const lines = normalized.split('\n')
-  const oldString = lines.slice(match.startLine - 1, match.endLine).join('\n')
-  const { readCapability } = mintSliceCapability({
-    content: raw,
-    startLine: match.startLine,
-    endLine: match.endLine,
-  })
 
   // Delegate to the str_replace handler: it owns atomic apply, stale detection,
   // capability validation, and the client write. The oldString is the symbol's
@@ -93,14 +127,13 @@ export const handleRewriteSymbol = (async (
         path,
         replacements: [
           {
-            oldString,
+            oldString: match.oldString,
             newString: newContent,
             allowMultiple: false,
-            basedOnRead: readCapability,
+            basedOnRead: match.readCapability,
           },
         ],
       },
     },
   } as any)
 }) satisfies CodebuffToolHandlerFunction<any>
-

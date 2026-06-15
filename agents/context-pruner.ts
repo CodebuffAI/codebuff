@@ -77,6 +77,9 @@ const definition: AgentDefinition = {
     /** Fudge factor for token count threshold to trigger pruning earlier */
     const TOKEN_COUNT_FUDGE_FACTOR = 1_000
 
+    /** Default pruning threshold. Keep below provider hard limits because tool schemas and step prompts are added after history. */
+    const DEFAULT_MAX_CONTEXT_LENGTH = 140_000
+
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
     const CACHE_EXPIRY_MS: number = params?.cacheExpiryMs ?? 5 * 60 * 1000
 
@@ -357,7 +360,8 @@ const definition: AgentDefinition = {
     // =============================================================================
 
     const messages = agentState.messageHistory
-    const maxContextLength: number = params?.maxContextLength ?? 200_000
+    const maxContextLength: number =
+      params?.maxContextLength ?? DEFAULT_MAX_CONTEXT_LENGTH
 
     // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
     // (these are inserted for the context-pruner subagent itself)

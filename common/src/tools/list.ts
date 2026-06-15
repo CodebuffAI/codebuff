@@ -9,6 +9,9 @@ import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { checkJobParams } from './params/tool/check-job'
 import { codeSearchParams } from './params/tool/code-search'
+import { gitStatusParams } from './params/tool/git-status'
+import { killJobParams } from './params/tool/kill-job'
+import { readLogsParams } from './params/tool/read-logs'
 import { createPlanParams } from './params/tool/create-plan'
 import { editTransactionParams } from './params/tool/edit-transaction'
 import { endTurnParams } from './params/tool/end-turn'
@@ -22,6 +25,7 @@ import { proposeWriteFileParams } from './params/tool/propose-write-file'
 import { queryIndexParams } from './params/tool/query-index'
 import { readDocsParams } from './params/tool/read-docs'
 import { readFilesParams } from './params/tool/read-files'
+import { readImageParams } from './params/tool/read-image'
 import { readOutlineParams } from './params/tool/read-outline'
 import { readSlicesParams } from './params/tool/read-slices'
 import { readProposalWorkspaceParams } from './params/tool/read-proposal-workspace'
@@ -58,6 +62,9 @@ export const toolParams = {
   browser_logs: browserLogsParams,
   check_job: checkJobParams,
   code_search: codeSearchParams,
+  git_status: gitStatusParams,
+  kill_job: killJobParams,
+  read_logs: readLogsParams,
   create_plan: createPlanParams,
   edit_transaction: editTransactionParams,
   end_turn: endTurnParams,
@@ -71,6 +78,7 @@ export const toolParams = {
   query_index: queryIndexParams,
   read_docs: readDocsParams,
   read_files: readFilesParams,
+  read_image: readImageParams,
   read_outline: readOutlineParams,
   read_slices: readSlicesParams,
   read_proposal_workspace: readProposalWorkspaceParams,
@@ -142,6 +150,18 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
     input: toolParams.code_search.inputSchema,
   }),
   z.object({
+    toolName: z.literal('kill_job'),
+    input: toolParams.kill_job.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('read_logs'),
+    input: toolParams.read_logs.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('git_status'),
+    input: toolParams.git_status.inputSchema,
+  }),
+  z.object({
     toolName: z.literal('create_plan'),
     input: FileChangeSchema,
   }),
@@ -178,6 +198,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('query_index'),
     input: toolParams.query_index.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('read_image'),
+    input: toolParams.read_image.inputSchema,
   }),
   z.object({
     toolName: z.literal('write_file'),

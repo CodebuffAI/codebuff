@@ -5,6 +5,7 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
 import { pluralize } from '@codebuff/common/util/string'
+import { jsonSchema } from 'ai'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
@@ -15,7 +16,7 @@ import type {
   CustomToolDefinitions,
   customToolDefinitionsSchema,
 } from '@codebuff/common/util/file'
-import type { ToolSet } from 'ai'
+import type { JSONSchema7, ToolSet } from 'ai'
 
 /**
  * Ensures the inputSchema is a Zod schema. If it's a JSON Schema object
@@ -51,6 +52,68 @@ function toJsonSchemaSafe(schema: z.ZodType): Record<string, unknown> {
   } catch {
     return { type: 'object', properties: {} }
   }
+}
+
+const providerSchemaAnnotationKeys = new Set([
+  '$schema',
+  'description',
+  'default',
+  'errorMessage',
+  'examples',
+  'markdownDescription',
+  'title',
+])
+
+function compactJsonSchemaValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(compactJsonSchemaValue)
+  }
+  if (!value || typeof value !== 'object') {
+    return value
+  }
+
+  const compacted: Record<string, unknown> = {}
+  for (const [key, childValue] of Object.entries(value)) {
+    if (providerSchemaAnnotationKeys.has(key)) {
+      continue
+    }
+    compacted[key] = compactJsonSchemaValue(childValue)
+  }
+  return compacted
+}
+
+export function compactToolInputSchemaForProvider(
+  schema: z.ZodType,
+): ReturnType<typeof jsonSchema> {
+  const safeSchema = ensureJsonSchemaCompatible(schema)
+  const compactedSchema = compactJsonSchemaValue(
+    toJsonSchemaSafe(safeSchema),
+  ) as JSONSchema7
+
+  return jsonSchema(compactedSchema)
+}
+
+function compactToolDefinitionForProvider(
+  toolDefinition: ToolSet[string],
+): ToolSet[string] {
+  const inputSchema = (toolDefinition as { inputSchema?: unknown }).inputSchema
+  if (!inputSchema) {
+    return toolDefinition
+  }
+  if (
+    typeof inputSchema === 'object' &&
+    inputSchema !== null &&
+    'jsonSchema' in inputSchema
+  ) {
+    return toolDefinition
+  }
+
+  return {
+    ...toolDefinition,
+    inputSchema: compactToolInputSchemaForProvider(
+      ensureZodSchema(inputSchema as z.ZodType | Record<string, unknown>),
+    ),
+  } as ToolSet[string]
 }
 
 function hasMeaningfulJsonSchema(jsonSchema: Record<string, unknown>): boolean {
@@ -375,6 +438,7 @@ export async function getToolSet(params: {
           ...toolDef,
           description,
         }
+        toolSet[toolName] = compactToolDefinitionForProvider(toolSet[toolName])
       } else if (toolName === 'skill') {
         // Explicitly state no skills are available
         let description = toolDef.description ?? ''
@@ -386,8 +450,9 @@ export async function getToolSet(params: {
           ...toolDef,
           description,
         }
+        toolSet[toolName] = compactToolDefinitionForProvider(toolSet[toolName])
       } else {
-        toolSet[toolName] = toolDef
+        toolSet[toolName] = compactToolDefinitionForProvider(toolDef)
       }
     }
   }
@@ -401,13 +466,13 @@ export async function getToolSet(params: {
     const safeSchema = ensureJsonSchemaCompatible(zodSchema)
     toolSet[toolName] = {
       ...clonedDef,
-      inputSchema: safeSchema,
+      inputSchema: compactToolInputSchemaForProvider(safeSchema),
     } as (typeof toolSet)[string]
   }
 
   // Add agent tools (agents as direct tool calls)
   for (const [toolName, toolDefinition] of Object.entries(agentTools)) {
-    toolSet[toolName] = toolDefinition
+    toolSet[toolName] = compactToolDefinitionForProvider(toolDefinition)
   }
 
   return toolSet

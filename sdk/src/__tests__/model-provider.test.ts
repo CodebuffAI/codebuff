@@ -242,6 +242,7 @@ describe('model-provider', () => {
             requiredToolChoice: false,
             structuredOutputs: true,
           },
+          input: { image: true },
           promptCaching: { supported: true },
           pricing: {
             inputPerMillionTokens: 0.25,
@@ -251,7 +252,7 @@ describe('model-provider', () => {
           quality: { tier: 'frontier' },
         }),
       ).toBe(
-        '128k ctx; 8.19k out; reasoning low/high; tools+no-required+structured; prompt-cache; $0.25/$1.5/M; quality frontier',
+        '128k ctx; 8.19k out; image input; reasoning low/high; tools+no-required+structured; prompt-cache; $0.25/$1.5/M; quality frontier',
       )
     })
 
@@ -288,6 +289,7 @@ describe('model-provider', () => {
                   stringifyTextContent: true,
                   supportsTools: true,
                   supportsRequiredToolChoice: true,
+                  supportsStopSequences: false,
                   stripProviderMetadata: true,
                 },
               },
@@ -299,6 +301,7 @@ describe('model-provider', () => {
       expect(resolved?.providerId).toBe('opencode-go')
       expect(resolved?.providerModel).toBe('kimi-k2.6')
       expect(resolved?.apiKey).toBe('test-key')
+      expect(resolved?.compatibility.supportsStopSequences).toBe(false)
     })
 
     test('disables DeepSeek thinking mode for OpenAI-compatible tool loops', () => {
@@ -366,6 +369,41 @@ describe('model-provider', () => {
       expect(transformed.thinking).toBeUndefined()
     })
 
+    test('strips stop sequences for providers that opt out', () => {
+      const transformed = applyConfiguredProviderRequestCompatibility(
+        {
+          model: 'custom-coder',
+          messages: [{ role: 'user', content: 'hello' }],
+          stop: ['"cb_easp"'],
+        },
+        {
+          providerModel: 'custom-coder',
+          compatibility: {
+            supportsStopSequences: false,
+          },
+        },
+      )
+
+      expect(transformed.stop).toBeUndefined()
+    })
+
+    test('keeps stop sequences when providers opt in', () => {
+      const body = {
+        model: 'custom-coder',
+        messages: [{ role: 'user', content: 'hello' }],
+        stop: ['done'],
+      }
+
+      expect(
+        applyConfiguredProviderRequestCompatibility(body, {
+          providerModel: 'custom-coder',
+          compatibility: {
+            supportsStopSequences: true,
+          },
+        }),
+      ).toBe(body)
+    })
+
     test('does not add DeepSeek thinking controls to non-DeepSeek models', () => {
       const body = {
         model: 'kimi-k2.6',
@@ -415,6 +453,7 @@ describe('model-provider', () => {
                   stringifyTextContent: true,
                   supportsTools: true,
                   supportsRequiredToolChoice: true,
+                  supportsStopSequences: false,
                   stripProviderMetadata: true,
                 },
               },
@@ -502,6 +541,7 @@ describe('model-provider', () => {
                     stringifyTextContent: true,
                     supportsTools: true,
                     supportsRequiredToolChoice: true,
+                    supportsStopSequences: false,
                     stripProviderMetadata: true,
                   },
                 },
@@ -590,6 +630,7 @@ describe('model-provider', () => {
         // metadata enabled, unlike the OpenAI-compatible defaults.
         expect(provider?.compatibility.stripCacheControl).toBe(false)
         expect(provider?.compatibility.stripProviderMetadata).toBe(false)
+        expect(provider?.compatibility.supportsStopSequences).toBe(true)
       }
     })
 
@@ -645,6 +686,7 @@ describe('model-provider', () => {
                   stringifyTextContent: false,
                   supportsTools: true,
                   supportsRequiredToolChoice: true,
+                  supportsStopSequences: true,
                   stripProviderMetadata: false,
                 },
               },
@@ -690,6 +732,7 @@ describe('model-provider', () => {
                     stringifyTextContent: false,
                     supportsTools: true,
                     supportsRequiredToolChoice: true,
+                    supportsStopSequences: true,
                     stripProviderMetadata: false,
                   },
                 },
@@ -728,6 +771,7 @@ describe('model-provider', () => {
 
       expect(result.isChatGptOAuth).toBe(false)
       expect(result.compatibility.stripCacheControl).toBe(false)
+      expect(result.compatibility.supportsStopSequences).toBe(true)
       expect((result.model as any).provider).toBe('freemodel')
       expect((result.model as any).modelId).toBe('claude-sonnet-4-5')
       expect((result.model as any).config.baseURL).toBe(
@@ -952,6 +996,119 @@ describe('model-provider', () => {
       expect((result.model as any).provider).toBe('local')
       expect((result.model as any).modelId).toBe('deep-reasoner')
       expect(result.reasoningEffort).toBe('high')
+    })
+
+    test('getModelForRequest reroutes image requests to visionModel', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          defaultModel: 'local/text-only',
+          visionModel: {
+            model: 'local/vision',
+            reasoningEffort: 'high',
+          },
+          providers: {
+            local: {
+              type: 'openai-compatible',
+              baseURL: 'http://127.0.0.1:11434/v1',
+              models: ['text-only', 'vision'],
+              modelCapabilities: {
+                'text-only': { input: { image: false } },
+                vision: { input: { image: true } },
+              },
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      const result = await getModelForRequest({
+        apiKey: 'openbuff-local-mode',
+        model: 'local/text-only',
+        requiresVision: true,
+      })
+
+      expect((result.model as any).provider).toBe('local')
+      expect((result.model as any).modelId).toBe('vision')
+      expect(result.effectiveModel).toBe('local/vision')
+      expect(result.reasoningEffort).toBe('high')
+    })
+
+    test('getModelForRequest auto-picks same-provider vision fallback when no visionModel is configured', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          defaultModel: 'pioneer/pioneer/auto',
+          providers: {
+            pioneer: {
+              type: 'openai-compatible',
+              baseURL: 'https://api.pioneer.ai/v1',
+              apiKeyEnv: 'PIONEER_API_KEY',
+              models: [
+                'pioneer/auto',
+                'deepseek-ai/DeepSeek-V4-Pro',
+                'claude-opus-4-8',
+                'claude-sonnet-4-6',
+              ],
+              modelCapabilities: {
+                'deepseek-ai/DeepSeek-V4-Pro': { input: { image: false } },
+              },
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+      process.env.PIONEER_API_KEY = 'test-key'
+
+      const result = await getModelForRequest({
+        apiKey: 'openbuff-local-mode',
+        model: 'pioneer/pioneer/auto',
+        requiresVision: true,
+      })
+
+      expect((result.model as any).provider).toBe('pioneer')
+      expect((result.model as any).modelId).toBe('claude-opus-4-8')
+      expect(result.effectiveModel).toBe('pioneer/claude-opus-4-8')
+    })
+
+    test('getModelForRequest fails clearly for image input without a vision route', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          defaultModel: 'local/text-only',
+          providers: {
+            local: {
+              type: 'openai-compatible',
+              baseURL: 'http://127.0.0.1:11434/v1',
+              models: ['text-only'],
+              modelCapabilities: {
+                'text-only': { input: { image: false } },
+              },
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      await expect(
+        getModelForRequest({
+          apiKey: 'openbuff-local-mode',
+          model: 'local/text-only',
+          requiresVision: true,
+        }),
+      ).rejects.toThrow('Configure visionModel')
     })
 
     test('supports built-in mode routing and provider presets', () => {

@@ -191,6 +191,36 @@ describe('OpenAICompatibleChatLanguageModel malformed tool-call streaming', () =
     return chunks;
   }
 
+  it('preserves structured provider metadata on streaming error chunks', async () => {
+    const chunks = await collectStreamChunks([
+      {
+        error: {
+          message: 'Upstream provider error',
+          code: 'unsupported_model',
+          status: '400',
+          details: [{ reason: 'NO_VISION_PROVIDER' }],
+        },
+      },
+    ]);
+
+    const errorChunk = chunks.find((chunk) => chunk.type === 'error');
+    expect(errorChunk).toBeDefined();
+    expect(errorChunk?.type).toBe('error');
+    if (errorChunk?.type !== 'error') {
+      throw new Error('Expected error chunk');
+    }
+    expect(errorChunk.error).toBeInstanceOf(Error);
+    expect((errorChunk.error as Error).message).toContain(
+      'Upstream provider error',
+    );
+    expect((errorChunk.error as Error).message).toContain(
+      'unsupported_model',
+    );
+    expect((errorChunk.error as Error).message).toContain(
+      'NO_VISION_PROVIDER',
+    );
+  });
+
   // Reproduces the Bedrock-proxy bug: a single logical tool call whose JSON
   // arguments are streamed truncated (missing the closing brace) in the first
   // delta, with the orphaned suffix re-emitted as a SECOND tool_calls entry

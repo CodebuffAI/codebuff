@@ -53,6 +53,31 @@ const providerOrder = {
   [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
 }
 
+function isImageMediaType(mediaType: unknown): boolean {
+  return typeof mediaType === 'string' && mediaType.toLowerCase().startsWith('image/')
+}
+
+function valueContainsImageInput(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(valueContainsImageInput)
+  }
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const record = value as Record<string, unknown>
+  if (record.type === 'image') {
+    return true
+  }
+  if (
+    (record.type === 'file' || record.type === 'media') &&
+    isImageMediaType(record.mediaType)
+  ) {
+    return true
+  }
+  return valueContainsImageInput(record.content)
+}
+
 function calculateUsedCredits(params: { costDollars: number }): number {
   const { costDollars } = params
 
@@ -526,6 +551,7 @@ export async function* promptAiSdkStream(
         skipChatGptOAuth: params.skipChatGptOAuth,
         costMode: params.costMode,
         localMode: params.localMode,
+        requiresVision: valueContainsImageInput(params.messages),
       }
       const modelResult = await getModelForRequest(modelParams)
       aiSDKModel = modelResult.model
@@ -880,6 +906,9 @@ export async function* promptAiSdkStream(
               ...(agentChunkMetadata ?? {}),
             }
           }
+          if (stopSequenceResult.endOfStream) {
+            break
+          }
         }
         if (chunkValue.type === 'tool-call') {
           hasYieldedContent = true
@@ -1044,6 +1073,7 @@ export async function promptAiSdk(
     agentId: params.agentId,
     skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
     localMode: params.localMode,
+    requiresVision: valueContainsImageInput(params.messages),
   }
   const { model: aiSDKModel, compatibility, reasoningEffort, effectiveModel: effectiveModelSdk } = await getModelForRequest(modelParams)
 
@@ -1131,6 +1161,7 @@ export async function promptAiSdkStructured<T>(
     agentId: params.agentId,
     skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
     localMode: params.localMode,
+    requiresVision: valueContainsImageInput(params.messages),
   }
   const { model: aiSDKModel, compatibility, reasoningEffort, effectiveModel: effectiveModelStructured } = await getModelForRequest(modelParams)
 

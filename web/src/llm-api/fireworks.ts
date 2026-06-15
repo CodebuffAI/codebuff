@@ -9,15 +9,25 @@ const DEPLOYMENT_HOURS_LABEL = '9 AM–5 PM ET/PT'
 
 /**
  * Returns true when the current time falls inside the Fireworks deployment
- * window: 9 AM–5 PM ET (UTC-5/4) to 5 PM PT (UTC-8/7).
- * ET open = 14:00 UTC (winter) / 13:00 UTC (summer).
- * PT close = 01:00 UTC next day (winter) / 00:00 UTC (summer).
- * We use a fixed conservative window of 13:00–01:00 UTC.
+ * window: 9 AM ET until before 5 PM PT, including daylight-saving changes.
  */
 function isDeploymentWindow(now: Date): boolean {
-  const hour = now.getUTCHours()
-  // 13:00 UTC to 00:59 UTC next day
-  return hour >= 13 || hour < 1
+  const minutesInTimeZone = (timeZone: string) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now)
+    const hour = Number(parts.find((part) => part.type === 'hour')?.value)
+    const minute = Number(parts.find((part) => part.type === 'minute')?.value)
+    return hour * 60 + minute
+  }
+
+  const easternMinutes = minutesInTimeZone('America/New_York')
+  const pacificMinutes = minutesInTimeZone('America/Los_Angeles')
+
+  return easternMinutes >= 9 * 60 && pacificMinutes < 17 * 60
 }
 
 import { FIREWORKS_DEPLOYMENT_MAP } from './fireworks-config'

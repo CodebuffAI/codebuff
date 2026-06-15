@@ -210,6 +210,89 @@ function convertToolMessages(
   return withoutToolMessages
 }
 
+function getAssistantToolCallIds(
+  message: ModelMessageWithAuxiliaryData,
+): string[] {
+  if (message.role !== 'assistant') {
+    return []
+  }
+
+  return message.content
+    .filter((part) => part.type === 'tool-call')
+    .map((part) => part.toolCallId)
+}
+
+function getToolResultPartId(
+  part: ToolModelMessage['content'][number],
+): string | null {
+  return part.type === 'tool-result' && typeof part.toolCallId === 'string'
+    ? part.toolCallId
+    : null
+}
+
+function filterOrphanModelToolMessages(
+  messages: ModelMessageWithAuxiliaryData[],
+  logger?: Logger,
+): ModelMessageWithAuxiliaryData[] {
+  const pendingToolCallIds = new Set<string>()
+  const droppedToolResultIds: string[] = []
+  const filteredMessages: ModelMessageWithAuxiliaryData[] = []
+  let hasStartedToolResponses = false
+
+  for (const message of messages) {
+    if (message.role === 'assistant') {
+      if (hasStartedToolResponses) {
+        pendingToolCallIds.clear()
+        hasStartedToolResponses = false
+      }
+      for (const toolCallId of getAssistantToolCallIds(message)) {
+        pendingToolCallIds.add(toolCallId)
+      }
+      filteredMessages.push(message)
+      continue
+    }
+
+    if (message.role === 'tool') {
+      const validToolResults: ToolModelMessage['content'] = []
+
+      for (const part of message.content) {
+        const toolCallId = getToolResultPartId(part)
+        if (toolCallId && pendingToolCallIds.has(toolCallId)) {
+          validToolResults.push(part)
+        } else {
+          droppedToolResultIds.push(toolCallId ?? '<missing>')
+        }
+      }
+
+      if (validToolResults.length > 0) {
+        hasStartedToolResponses = true
+        filteredMessages.push(
+          validToolResults.length === message.content.length
+            ? message
+            : { ...message, content: validToolResults },
+        )
+      }
+      continue
+    }
+
+    pendingToolCallIds.clear()
+    hasStartedToolResponses = false
+    filteredMessages.push(message)
+  }
+
+  if (droppedToolResultIds.length > 0) {
+    logger?.debug(
+      {
+        droppedToolResultCount: droppedToolResultIds.length,
+        droppedToolResultIds,
+      },
+      'Dropped orphan tool-result messages before model request.',
+    )
+  }
+
+  return filteredMessages
+}
+
 export function convertCbToModelMessages({
   messages,
   includeCacheControl = true,
@@ -220,7 +303,7 @@ export function convertCbToModelMessages({
   logger?: Logger
 }): ModelMessage[] {
   const toolMessagesConverted: ModelMessageWithAuxiliaryData[] =
-    convertToolMessages(messages)
+    filterOrphanModelToolMessages(convertToolMessages(messages), logger)
 
   const aggregated: ModelMessageWithAuxiliaryData[] = []
   for (const message of toolMessagesConverted) {

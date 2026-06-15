@@ -28,9 +28,14 @@ import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getProjectPathLookupKeys } from './tools/path-utils'
 import { getFileForEdit, getFiles } from './tools/read-files'
+import { readImages } from './tools/read-image'
+import { browserLogs } from './tools/browser-logs'
 import { replaceRange } from './tools/replace-range'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { checkJob } from './tools/check-job'
+import { killJob } from './tools/kill-job'
+import { readLogs } from './tools/read-logs'
+import { gitStatus } from './tools/git-status'
 import { runFileChangeHooks } from './tools/file-change-hooks'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -729,6 +734,14 @@ async function handleToolCall({
         cwd: path.resolve(resolvedCwd, terminalInput.cwd ?? '.'),
         env,
       })
+    } else if (toolName === 'read_image') {
+      result = await readImages({
+        paths: (input as { paths: string[] }).paths,
+        cwd: requireCwd(cwd, 'read_image'),
+        fs,
+      })
+    } else if (toolName === 'browser_logs') {
+      result = await browserLogs(input as Parameters<typeof browserLogs>[0])
     } else if (toolName === 'code_search') {
       const codeSearchInput = input as Omit<
         Parameters<typeof codeSearch>[0],
@@ -759,6 +772,26 @@ async function handleToolCall({
       })
     } else if (toolName === 'check_job') {
       result = await checkJob(input as Parameters<typeof checkJob>[0])
+    } else if (toolName === 'kill_job') {
+      result = await killJob(input as Parameters<typeof killJob>[0])
+    } else if (toolName === 'read_logs') {
+      const readLogsInput = input as Omit<
+        Parameters<typeof readLogs>[0],
+        'cwd'
+      >
+      result = await readLogs({
+        ...readLogsInput,
+        cwd: requireCwd(cwd, 'read_logs'),
+      })
+    } else if (toolName === 'git_status') {
+      const gitStatusInput = input as Omit<
+        Parameters<typeof gitStatus>[0],
+        'cwd'
+      >
+      result = await gitStatus({
+        ...gitStatusInput,
+        cwd: requireCwd(cwd, 'git_status'),
+      })
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,

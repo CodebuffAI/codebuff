@@ -194,6 +194,12 @@ describe('convertCbToModelMessages', () => {
   describe('tool message conversion', () => {
     it('should convert tool messages with JSON output', () => {
       const messages: Message[] = [
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_123',
+          toolName: 'test_tool',
+          input: {},
+        }),
         {
           role: 'tool',
           toolName: 'test_tool',
@@ -209,6 +215,16 @@ describe('convertCbToModelMessages', () => {
 
       expect(result).toEqual([
         expect.objectContaining({
+          role: 'assistant',
+          content: [
+            expect.objectContaining({
+              type: 'tool-call',
+              toolCallId: 'call_123',
+              toolName: 'test_tool',
+            }),
+          ],
+        }),
+        expect.objectContaining({
           role: 'tool',
           content: [
             expect.objectContaining({
@@ -217,6 +233,34 @@ describe('convertCbToModelMessages', () => {
               toolName: 'test_tool',
               output: { type: 'json', value: { result: 'success' } },
             } satisfies ToolResultPart),
+          ],
+        }),
+      ])
+    })
+
+    it('should drop JSON tool messages without a matching assistant tool call', () => {
+      const messages: Message[] = [
+        userMessage('Before orphan tool result'),
+        {
+          role: 'tool',
+          toolName: 'test_tool',
+          toolCallId: 'orphan_call',
+          content: jsonToolResult({ result: 'orphaned' }),
+        },
+        userMessage('After orphan tool result'),
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'user',
+          content: [
+            expect.objectContaining({ text: 'Before orphan tool result' }),
+            expect.objectContaining({ text: 'After orphan tool result' }),
           ],
         }),
       ])
@@ -247,6 +291,12 @@ describe('convertCbToModelMessages', () => {
       ])
 
       const messages: Message[] = [
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_123',
+          toolName: 'test_tool',
+          input: {},
+        }),
         {
           role: 'tool',
           toolName: 'test_tool',
@@ -263,7 +313,7 @@ describe('convertCbToModelMessages', () => {
       ).not.toThrow()
     })
 
-    it('should convert tool messages with media output', () => {
+    it('should preserve tool media output as user file input', () => {
       const messages: Message[] = [
         {
           role: 'tool',
@@ -295,6 +345,12 @@ describe('convertCbToModelMessages', () => {
 
     it('should convert tool messages with empty content', () => {
       const messages: Message[] = [
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_empty',
+          toolName: 'scraper_page_to_markdown',
+          input: {},
+        }),
         {
           role: 'tool',
           toolName: 'scraper_page_to_markdown',
@@ -309,6 +365,16 @@ describe('convertCbToModelMessages', () => {
       })
 
       expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: [
+            expect.objectContaining({
+              type: 'tool-call',
+              toolCallId: 'call_empty',
+              toolName: 'scraper_page_to_markdown',
+            }),
+          ],
+        }),
         expect.objectContaining({
           role: 'tool',
           toolCallId: 'call_empty',
@@ -327,6 +393,12 @@ describe('convertCbToModelMessages', () => {
 
     it('should handle multiple tool outputs', () => {
       const messages: Message[] = [
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_123',
+          toolName: 'test_tool',
+          input: {},
+        }),
         {
           role: 'tool',
           toolName: 'test_tool',
@@ -343,8 +415,11 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: false,
       })
 
-      // Multiple tool outputs are aggregated into one user message
+      // Multiple JSON outputs for one tool call stay in the same response block.
       expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+        }),
         expect.objectContaining({
           role: 'tool',
         }),

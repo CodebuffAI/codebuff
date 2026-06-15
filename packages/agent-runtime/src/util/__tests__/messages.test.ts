@@ -17,6 +17,7 @@ import {
 import {
   trimMessagesToFitTokenLimit,
   messagesWithSystem,
+  expireMessages,
   getPreviouslyReadFiles,
   filterUnfinishedToolCalls,
   buildUserMessageContent,
@@ -67,6 +68,71 @@ describe('messagesWithSystem', () => {
     expect(result).toEqual([systemMessage('Be helpful'), ...messages])
   })
 })
+
+describe('expireMessages', () => {
+  it('keeps only the latest message for keepLastTags', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'old instructions' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+        keepLastTags: ['INSTRUCTIONS_PROMPT'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'actual prompt' }],
+        tags: ['USER_PROMPT'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'new instructions' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+        keepLastTags: ['INSTRUCTIONS_PROMPT'],
+      },
+    ]
+
+    const result = expireMessages(messages, 'userPrompt')
+
+    expect(result.map((message) => getTextContentForTest(message))).toEqual([
+      'actual prompt',
+      'new instructions',
+    ])
+  })
+
+  it('applies timeToLive before keepLastTags', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'old instructions' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+        keepLastTags: ['INSTRUCTIONS_PROMPT'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'expired instructions' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+        keepLastTags: ['INSTRUCTIONS_PROMPT'],
+        timeToLive: 'userPrompt',
+      },
+    ]
+
+    const result = expireMessages(messages, 'userPrompt')
+
+    expect(result.map((message) => getTextContentForTest(message))).toEqual([
+      'old instructions',
+    ])
+  })
+})
+
+function getTextContentForTest(message: Message): string {
+  if (!Array.isArray(message.content)) {
+    return String(message.content)
+  }
+  return message.content
+    .filter((part): part is TextPart => part.type === 'text')
+    .map((part) => part.text)
+    .join('\n')
+}
 
 describe('buildUserMessageContent', () => {
   it('wraps prompt in user_message tags when no content provided', () => {

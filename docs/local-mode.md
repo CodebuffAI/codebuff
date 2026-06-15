@@ -98,6 +98,7 @@ Openbuff supports OpenAI-compatible providers and a first-class
         "stripCacheControl": true,
         "stringifyTextContent": true,
         "supportsTools": true,
+        "supportsStopSequences": false,
         "stripProviderMetadata": true
       },
       "models": ["gpt-5.5", "gpt-5.4-mini", "gpt-5.4-nano"]
@@ -209,6 +210,8 @@ provider can declare compatibility behavior:
     "stripCacheControl": true,
     "stringifyTextContent": true,
     "supportsTools": true,
+    "supportsRequiredToolChoice": true,
+    "supportsStopSequences": false,
     "stripProviderMetadata": true
   }
 }
@@ -217,6 +220,8 @@ provider can declare compatibility behavior:
 - `stripCacheControl`: removes Anthropic/OpenRouter prompt-cache metadata.
 - `stringifyTextContent`: sends text-only user messages as a plain string.
 - `supportsTools`: set `false` for chat-only providers that reject tool schemas.
+- `supportsRequiredToolChoice`: set `false` for providers that accept tools but reject `tool_choice: "required"`.
+- `supportsStopSequences`: set `true` only for OpenAI-compatible providers that accept the `stop` request field; otherwise Openbuff enforces stop sequences locally.
 - `stripProviderMetadata`: omits Codebuff/OpenRouter-specific provider metadata.
 
 ## Smoke test

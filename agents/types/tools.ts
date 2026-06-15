@@ -6,12 +6,15 @@ export type ToolName =
   | 'apply_smart_patch'
   | 'add_message'
   | 'ask_user'
+  | 'browser_logs'
   | 'check_job'
   | 'code_search'
   | 'end_turn'
   | 'edit_transaction'
   | 'find_files'
+  | 'git_status'
   | 'glob'
+  | 'kill_job'
   | 'list_directory'
   | 'lookup_agent_info'
   | 'propose_edit_transaction'
@@ -20,6 +23,8 @@ export type ToolName =
   | 'query_index'
   | 'read_docs'
   | 'read_files'
+  | 'read_image'
+  | 'read_logs'
   | 'read_outline'
   | 'read_slices'
   | 'read_proposal_workspace'
@@ -49,12 +54,15 @@ export interface ToolParamsMap {
   apply_smart_patch: ApplySmartPatchParams
   add_message: AddMessageParams
   ask_user: AskUserParams
+  browser_logs: BrowserLogsParams
   check_job: CheckJobParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   edit_transaction: EditTransactionParams
   find_files: FindFilesParams
+  git_status: GitStatusParams
   glob: GlobParams
+  kill_job: KillJobParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
   propose_edit_transaction: ProposeEditTransactionParams
@@ -63,6 +71,8 @@ export interface ToolParamsMap {
   query_index: QueryIndexParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
+  read_image: ReadImageParams
+  read_logs: ReadLogsParams
   read_outline: ReadOutlineParams
   read_slices: ReadSlicesParams
   read_proposal_workspace: ReadProposalWorkspaceParams
@@ -176,6 +186,40 @@ export interface AskUserParams {
 }
 
 /**
+ * Inspect and interact with a local browser session. Use navigate/snapshot/screenshot/click/type/scroll/evaluate to verify web apps visually and functionally.
+ */
+export interface BrowserLogsParams {
+  type:
+    | 'start'
+    | 'navigate'
+    | 'snapshot'
+    | 'screenshot'
+    | 'click'
+    | 'type'
+    | 'scroll'
+    | 'evaluate'
+    | 'stop'
+  /** URL for start/navigate. Bare live domains resolve as HTTPS; localhost-style dev URLs resolve as HTTP when no scheme is given. */
+  url?: string
+  /** CSS selector for click/type. Prefer selectors returned by snapshot. */
+  selector?: string
+  /** Text to enter for type actions. */
+  text?: string
+  /** JavaScript expression for evaluate actions. */
+  script?: string
+  /** When to consider navigation successful. */
+  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0'
+  /** Capture the full page for screenshot actions. */
+  fullPage?: boolean
+  /** Scroll direction for scroll actions. */
+  direction?: 'up' | 'down'
+  /** Scroll amount in pixels for scroll actions. */
+  amount?: number
+  /** Per-action timeout in milliseconds. */
+  timeout?: number
+}
+
+/**
  * Poll or follow a background job started by run_terminal_command: returns the output produced since the last check plus the job status and exit code. Use it to observe a long-running process without blocking the turn. To watch an arbitrary log file, start a `tail -f <file>` BACKGROUND job and check_job it with a wait_for pattern.
  */
 export interface CheckJobParams {
@@ -185,6 +229,42 @@ export interface CheckJobParams {
   wait_for?: string
   /** Max seconds to wait for new output / the wait_for pattern. 0 (default) returns immediately with whatever new output exists (poll mode); >0 blocks up to this long (follow mode). */
   timeout_seconds?: number
+}
+
+/**
+ * Read-only git status and optional diff for the current project.
+ */
+export interface GitStatusParams {
+  /** When true, also return the unified diff of uncommitted changes. */
+  include_diff?: boolean
+  /** When true with include_diff, returns the staged diff instead of unstaged. */
+  staged?: boolean
+  /** Optional path to scope status/diff to. */
+  path?: string
+  /** Maximum characters of diff output to return. Defaults to 40000. */
+  max_chars?: number
+}
+
+/**
+ * Read the last N lines from a log/text file.
+ */
+export interface ReadLogsParams {
+  /** Path to the log file, relative to the project root unless absolute. */
+  path: string
+  /** Number of trailing lines to read. Defaults to 200. */
+  lines?: number
+  /** Maximum characters to return. Defaults to 20000. */
+  max_chars?: number
+}
+
+/**
+ * Cancel a background job started by run_terminal_command with process_type: BACKGROUND.
+ */
+export interface KillJobParams {
+  /** The jobId returned by run_terminal_command with process_type: BACKGROUND. */
+  jobId: string
+  /** Signal to send. Defaults to SIGTERM; use SIGKILL only if graceful termination fails. */
+  signal?: 'SIGTERM' | 'SIGKILL'
 }
 
 /**
@@ -467,6 +547,14 @@ export interface ReadFilesParams {
     /** Symbol names (functions, classes, interfaces, methods) to slice. */
     names: string[]
   }[]
+}
+
+/**
+ * Read image files from disk and return the actual image content as media. Use this for screenshots and other image files instead of read_files.
+ */
+export interface ReadImageParams {
+  /** List of image file paths to read. */
+  paths: string[]
 }
 
 /**

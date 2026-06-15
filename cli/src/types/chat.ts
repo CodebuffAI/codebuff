@@ -116,6 +116,8 @@ export type ImageContentBlock = {
   size?: number
   width?: number
   height?: number
+  imageRedacted?: boolean
+  imageLength?: number
   isCollapsed?: boolean
   userOpened?: boolean
 }

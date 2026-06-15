@@ -49,6 +49,7 @@ export const baseAgentToolNames: ToolName[] = [
   'code_search',
   'end_turn',
   'read_files',
+  'read_image',
   'think_deeply',
   'update_subgoal',
 ] as const

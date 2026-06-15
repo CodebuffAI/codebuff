@@ -5,7 +5,6 @@ import {
   executeWebSearch,
   extractLinks,
   resolveGitHubUrl,
-  resolveOpenWebsearchBin,
   stripHtml,
 } from './web-search-utils'
 
@@ -124,72 +123,79 @@ export const handleWebSearch = (async (params: {
       const errorMessage = `Error fetching ${url}: ${
         error instanceof Error ? error.message : 'Unknown error'
       }`
-      logger.error({ ...logContext, error, durationMs: Date.now() - startTime }, 'URL fetch failed')
+      logger.error(
+        { ...logContext, error, durationMs: Date.now() - startTime },
+        'URL fetch failed',
+      )
       return { output: jsonToolResult({ errorMessage }), creditsUsed }
     }
   }
 
-  // Search branch: use open-websearch binary
+  // Search branch: use Open Websearch as an in-process library.
   if (!query) {
     return {
-      output: jsonToolResult({ errorMessage: 'Either query or url must be provided' }),
+      output: jsonToolResult({
+        errorMessage: 'Either query or url must be provided',
+      }),
       creditsUsed,
     }
   }
 
   try {
-    const openWebsearchBin = resolveOpenWebsearchBin(logger)
-    if (!openWebsearchBin) {
-      logger.error({ ...logContext }, 'open-websearch binary not found in node_modules')
+    const searchResult = await executeWebSearch(query, depth ?? 'standard')
+
+    if ('error' in searchResult) {
+      logger.warn(
+        {
+          ...logContext,
+          error: searchResult.error,
+          durationMs: Date.now() - startTime,
+        },
+        'open-websearch returned error',
+      )
       return {
-        output: jsonToolResult({
-          errorMessage: 'open-websearch is not installed. Run: npm install open-websearch',
-        }),
+        output: jsonToolResult({ errorMessage: searchResult.error }),
         creditsUsed,
       }
     }
 
-    const searchResult = await executeWebSearch(openWebsearchBin, query, depth ?? 'standard')
-
-    if ('error' in searchResult) {
-      logger.warn({ ...logContext, error: searchResult.error, durationMs: Date.now() - startTime }, 'open-websearch returned error')
-      return { output: jsonToolResult({ errorMessage: searchResult.error }), creditsUsed }
-    }
-
     if (searchResult.results.length === 0) {
-      logger.warn({ ...logContext, durationMs: Date.now() - startTime }, 'open-websearch returned no results')
+      logger.warn(
+        { ...logContext, durationMs: Date.now() - startTime },
+        'open-websearch returned no results',
+      )
       return {
-        output: jsonToolResult({ errorMessage: `No search results found for "${query}"` }),
+        output: jsonToolResult({
+          errorMessage: `No search results found for "${query}"`,
+        }),
         creditsUsed,
       }
     }
 
     logger.info(
-      { ...logContext, durationMs: Date.now() - startTime, resultCount: searchResult.results.length },
+      {
+        ...logContext,
+        durationMs: Date.now() - startTime,
+        resultCount: searchResult.results.length,
+      },
       'Search completed via open-websearch',
     )
     return {
-      output: jsonToolResult({ result: JSON.stringify(searchResult.results, null, 2) }),
+      output: jsonToolResult({
+        result: JSON.stringify(searchResult.results, null, 2),
+      }),
       creditsUsed,
     }
   } catch (error) {
     const durationMs = Date.now() - startTime
 
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      logger.error({ ...logContext, durationMs }, 'Node.js runtime not found')
-      return {
-        output: jsonToolResult({
-          errorMessage:
-            'Node.js is required to run open-websearch. Please install Node.js from https://nodejs.org.',
-        }),
-        creditsUsed,
-      }
-    }
-
     const errorMessage = `Error performing web search for "${query}": ${
       error instanceof Error ? error.message : 'Unknown error'
     }`
-    logger.error({ ...logContext, error, durationMs }, 'Search failed with error')
+    logger.error(
+      { ...logContext, error, durationMs },
+      'Search failed with error',
+    )
     return { output: jsonToolResult({ errorMessage }), creditsUsed }
   }
 }) satisfies CodebuffToolHandlerFunction<'web_search'>

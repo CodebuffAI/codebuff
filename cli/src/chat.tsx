@@ -82,7 +82,7 @@ import {
   getStatusIndicatorState,
   type AuthStatus,
 } from './utils/status-indicator-state'
-import { createPasteHandler } from './utils/strings'
+import { createPasteHandler, LONG_TEXT_THRESHOLD } from './utils/strings'
 import { setTerminalTitle } from './utils/terminal-title'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 
@@ -925,6 +925,21 @@ export const Chat = ({
     ],
   )
 
+  const handlePasteLongText = useCallback((pastedText: string) => {
+    const id = crypto.randomUUID()
+    const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
+    useChatStore.getState().addPendingTextAttachment({
+      id,
+      content: pastedText,
+      preview,
+      charCount: pastedText.length,
+    })
+    showClipboardMessage(
+      `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
+      { durationMs: 5000 },
+    )
+  }, [])
+
   // Keyboard handlers
   const chatKeyboardHandlers: ChatKeyboardHandlers = useMemo(
     () => ({
@@ -1121,6 +1136,11 @@ export const Chat = ({
         addPendingFileFromPath(filePath, isDirectory)
       },
       onPasteText: (text: string) => {
+        if (text.length > LONG_TEXT_THRESHOLD) {
+          handlePasteLongText(text)
+          return
+        }
+
         setInputValue((prev) => {
           const before = prev.text.slice(0, prev.cursorPosition)
           const after = prev.text.slice(prev.cursorPosition)
@@ -1179,6 +1199,7 @@ export const Chat = ({
       scrollUp,
       scrollDown,
       handleToggleAll,
+      handlePasteLongText,
     ],
   )
 
@@ -1523,21 +1544,7 @@ export const Chat = ({
               onPasteImage: chatKeyboardHandlers.onPasteImage,
               onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
               onPasteFilePath: chatKeyboardHandlers.onPasteFilePath,
-              onPasteLongText: (pastedText) => {
-                const id = crypto.randomUUID()
-                const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
-                useChatStore.getState().addPendingTextAttachment({
-                  id,
-                  content: pastedText,
-                  preview,
-                  charCount: pastedText.length,
-                })
-                // Show temporary status message
-                showClipboardMessage(
-                  `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
-                  { durationMs: 5000 },
-                )
-              },
+              onPasteLongText: handlePasteLongText,
               cwd: getProjectRoot() ?? process.cwd(),
             })}
             onInterruptStream={chatKeyboardHandlers.onInterruptStream}

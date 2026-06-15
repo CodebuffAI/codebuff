@@ -1151,6 +1151,39 @@ describe('updateToolBlockWithOutput', () => {
     expect((result[0] as ToolContentBlock).outputRaw).toBe(toolOutput)
   })
 
+  test('redacts media payloads from live tool output state', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'tool',
+        toolCallId: 'tool-image',
+        toolName: 'read_image',
+        input: { paths: ['current.png'] },
+      },
+    ]
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-image',
+      toolOutput: [
+        {
+          type: 'json',
+          value: {
+            images: [{ path: 'current.png', status: 'attached' }],
+          },
+        },
+        {
+          type: 'media',
+          data: 'a'.repeat(100_000),
+          mediaType: 'image/png',
+        },
+      ],
+    })
+    const toolBlock = result[0] as ToolContentBlock
+
+    expect(toolBlock.output).toContain('mediaRedacted')
+    expect(toolBlock.output).toContain('100000 base64 chars')
+    expect(toolBlock.output).not.toContain('a'.repeat(1_000))
+    expect(JSON.stringify(toolBlock.outputRaw)).not.toContain('a'.repeat(1_000))
+  })
+
   test('summarizes edit_transaction output without dumping patches', () => {
     const blocks: ContentBlock[] = [
       {

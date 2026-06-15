@@ -1,5 +1,7 @@
 import { z } from 'zod/v4'
 
+import { jsonValueSchema } from './types/json'
+
 // Default values for browser actions
 export const BROWSER_DEFAULTS = {
   // Common defaults
@@ -72,6 +74,17 @@ export const NetworkEventSchema = z.object({
   status: z.number().optional(),
   errorText: z.string().optional(),
   timestamp: z.number(),
+})
+export type NetworkEvent = z.infer<typeof NetworkEventSchema>
+
+export const SnapshotElementSchema = z.object({
+  index: z.number(),
+  tag: z.string(),
+  selector: z.string(),
+  text: z.string().optional(),
+  role: z.string().optional(),
+  label: z.string().optional(),
+  placeholder: z.string().optional(),
 })
 
 export const LogFilterSchema = z.object({
@@ -159,6 +172,13 @@ export type ImageContent = z.infer<typeof ImageContentSchema>
 export const BrowserResponseSchema = z.object({
   success: z.boolean(),
   error: z.string().optional(),
+  action: z.string().optional(),
+  url: z.string().optional(),
+  title: z.string().optional(),
+  result: jsonValueSchema.optional(),
+  text: z.string().optional(),
+  elements: z.array(SnapshotElementSchema).optional(),
+  screenshotAttached: z.boolean().optional(),
   logs: z.array(LogSchema),
   logFilter: LogFilterSchema.optional(),
   networkEvents: z.array(NetworkEventSchema).optional(),
@@ -175,7 +195,7 @@ export const BrowserResponseSchema = z.object({
 // Required base schemas
 export const RequiredBrowserStartActionSchema = z.object({
   type: z.literal('start'),
-  url: z.string().url(),
+  url: z.string().min(1),
 })
 
 // Combined schema
@@ -185,7 +205,7 @@ export const BrowserStartActionSchema = RequiredBrowserStartActionSchema.merge(
 
 export const RequiredBrowserNavigateActionSchema = z.object({
   type: z.literal('navigate'),
-  url: z.string().url(),
+  url: z.string().min(1),
 })
 
 export const BrowserNavigateActionSchema =
@@ -200,8 +220,10 @@ const _RangeSchema = z.object({
 
 export const RequiredBrowserClickActionSchema = z.object({
   type: z.literal('click'),
-  // xRange: RangeSchema,
-  // yRange: RangeSchema,
+  selector: z
+    .string()
+    .min(1)
+    .describe('CSS selector for the element to click.'),
 })
 
 export const BrowserClickActionSchema = RequiredBrowserClickActionSchema.merge(
@@ -224,6 +246,7 @@ export const RequiredBrowserScrollActionSchema = z.object({
 
 export const OptionalScrollConfigSchema = z.object({
   direction: z.enum(['up', 'down']).optional(),
+  amount: z.number().optional(),
 })
 
 export const BrowserScrollActionSchema =
@@ -247,14 +270,32 @@ export const BrowserStopActionSchema = RequiredBrowserStopActionSchema.merge(
   OptionalBrowserConfigSchema,
 )
 
+export const RequiredBrowserSnapshotActionSchema = z.object({
+  type: z.literal('snapshot'),
+})
+export const BrowserSnapshotActionSchema =
+  RequiredBrowserSnapshotActionSchema.merge(OptionalBrowserConfigSchema)
+
+export const RequiredBrowserEvaluateActionSchema = z.object({
+  type: z.literal('evaluate'),
+  script: z
+    .string()
+    .min(1)
+    .describe('JavaScript expression or function body to evaluate.'),
+})
+export const BrowserEvaluateActionSchema =
+  RequiredBrowserEvaluateActionSchema.merge(OptionalBrowserConfigSchema)
+
 // First define the base action schemas without the diagnostic step
 const BaseBrowserActionSchema = z.discriminatedUnion('type', [
   BrowserStartActionSchema,
   BrowserNavigateActionSchema,
+  BrowserSnapshotActionSchema,
   BrowserClickActionSchema,
   BrowserTypeActionSchema,
   BrowserScrollActionSchema,
   BrowserScreenshotActionSchema,
+  BrowserEvaluateActionSchema,
   BrowserStopActionSchema,
 ])
 
@@ -288,10 +329,12 @@ export const BrowserDiagnoseActionSchema = z.object({
 export const BrowserActionSchema = z.discriminatedUnion('type', [
   BrowserStartActionSchema,
   BrowserNavigateActionSchema,
+  BrowserSnapshotActionSchema,
   BrowserClickActionSchema,
   BrowserTypeActionSchema,
   BrowserScrollActionSchema,
   BrowserScreenshotActionSchema,
+  BrowserEvaluateActionSchema,
   BrowserStopActionSchema,
   BrowserDiagnoseActionSchema,
 ])

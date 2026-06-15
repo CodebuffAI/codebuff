@@ -29,6 +29,7 @@ import {
   loadProviderConfigSync,
   resolveConfiguredAgentModelConfig,
   resolveConfiguredProviderModel,
+  resolveModelCapabilities,
 } from '../provider-config'
 import {
   createChatGptBackendFetch,
@@ -37,6 +38,7 @@ import {
 
 import type {
   OpenbuffReasoningEffort,
+  LoadedProviderConfig,
   ProviderCompatibility,
   ResolvedProviderModel,
 } from '../provider-config'
@@ -100,6 +102,8 @@ export interface ModelRequestParams {
   costMode?: string
   /** Deprecated; Openbuff always avoids hosted Codebuff inference. */
   localMode?: boolean
+  /** True when the prompt/message history contains image input parts. */
+  requiresVision?: boolean
 }
 
 /**
@@ -138,12 +142,24 @@ export async function getModelForRequest(
     model,
     loadedConfig: loadedProviderConfig,
   })
-  const effectiveModel = effectiveAgentModelConfig.model
+  let effectiveModel = effectiveAgentModelConfig.model
+  let reasoningEffort = effectiveAgentModelConfig.reasoningEffort
 
-  const configuredProviderModel = resolveConfiguredProviderModel({
+  let configuredProviderModel = resolveConfiguredProviderModel({
     model: effectiveModel,
     loadedConfig: loadedProviderConfig,
   })
+  if (params.requiresVision && configuredProviderModel) {
+    const visionRoute = resolveVisionModelIfNeeded({
+      configuredProviderModel,
+      effectiveModel,
+      loadedConfig: loadedProviderConfig,
+      reasoningEffort,
+    })
+    effectiveModel = visionRoute.effectiveModel
+    reasoningEffort = visionRoute.reasoningEffort
+    configuredProviderModel = visionRoute.configuredProviderModel
+  }
   if (configuredProviderModel) {
     if (configuredProviderModel.provider.type === 'chatgpt-oauth') {
       const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
@@ -160,7 +176,7 @@ export async function getModelForRequest(
         ),
         isChatGptOAuth: true,
         compatibility: configuredProviderModel.compatibility,
-        reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+        reasoningEffort,
         effectiveModel,
       }
     }
@@ -170,7 +186,7 @@ export async function getModelForRequest(
         model: createConfiguredAnthropicModel(configuredProviderModel),
         isChatGptOAuth: false,
         compatibility: configuredProviderModel.compatibility,
-        reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+        reasoningEffort,
         effectiveModel,
       }
     }
@@ -184,7 +200,7 @@ export async function getModelForRequest(
       }),
       isChatGptOAuth: false,
       compatibility: configuredProviderModel.compatibility,
-      reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+      reasoningEffort,
       effectiveModel,
     }
   }
@@ -216,7 +232,7 @@ export async function getModelForRequest(
             stripProviderMetadata: true,
             supportsRequiredToolChoice: true,
           },
-          reasoningEffort: effectiveAgentModelConfig.reasoningEffort,
+          reasoningEffort,
           effectiveModel,
         }
       }
@@ -232,6 +248,182 @@ export async function getModelForRequest(
       agentId ? ` for agent '${agentId}'` : ''
     }. Add a provider mapping in openbuff.json or set OPENBUFF_PROVIDER_CONFIG.`,
   )
+}
+
+type VisionSupport = 'yes' | 'no' | 'unknown'
+
+function isLikelyVisionModelName(modelNames: string): boolean {
+  return /(^|[-_/])(claude|gemini|gpt-4o|gpt-5|vision)([-_/.:]|$)/i.test(
+    modelNames,
+  )
+}
+
+function isLikelyNonVisionModelName(modelNames: string): boolean {
+  return /(^|[-_/])(deepseek|qwen|kimi|minimax|glm|llama|mistral)([-_/.:]|$)/i.test(
+    modelNames,
+  )
+}
+
+function getModelVisionSupport(params: {
+  configuredProviderModel: ResolvedProviderModel
+  effectiveModel: string
+  loadedConfig: LoadedProviderConfig
+}): VisionSupport {
+  const { configuredProviderModel, effectiveModel, loadedConfig } = params
+  const capabilities = resolveModelCapabilities({
+    providerId: configuredProviderModel.providerId,
+    model: effectiveModel,
+    loadedConfig,
+  })
+
+  if (capabilities.input?.image === true) return 'yes'
+  if (capabilities.input?.image === false) return 'no'
+  if (configuredProviderModel.provider.type === 'anthropic-compatible') {
+    return 'yes'
+  }
+
+  const modelNames = [
+    effectiveModel,
+    configuredProviderModel.requestedModel,
+    configuredProviderModel.providerModel,
+  ].join(' ')
+  if (isLikelyVisionModelName(modelNames)) {
+    return 'yes'
+  }
+  if (isLikelyNonVisionModelName(modelNames)) {
+    return 'no'
+  }
+  return 'unknown'
+}
+
+function getProviderRoutableModels(
+  providerId: string,
+  provider: ResolvedProviderModel['provider'],
+): string[] {
+  if (Array.isArray(provider.models)) {
+    return provider.models.map((model) => `${providerId}/${model}`)
+  }
+
+  return Object.keys(provider.models).map((model) =>
+    model.startsWith(`${providerId}/`) ? model : `${providerId}/${model}`,
+  )
+}
+
+function getVisionFallbackRank(model: string): number {
+  if (/opus/i.test(model)) return 0
+  if (/sonnet/i.test(model)) return 1
+  if (/gpt-5/i.test(model)) return 2
+  if (/gpt-4o/i.test(model)) return 3
+  if (/gemini/i.test(model)) return 4
+  if (/claude/i.test(model)) return 5
+  return 10
+}
+
+function findProviderVisionFallback(params: {
+  configuredProviderModel: ResolvedProviderModel
+  loadedConfig: LoadedProviderConfig
+}): string | undefined {
+  const { configuredProviderModel, loadedConfig } = params
+  const providerModels = getProviderRoutableModels(
+    configuredProviderModel.providerId,
+    configuredProviderModel.provider,
+  )
+
+  return providerModels
+    .map((candidate) => {
+      const candidateProviderModel = resolveConfiguredProviderModel({
+        model: candidate,
+        loadedConfig,
+      })
+      if (!candidateProviderModel) {
+        return undefined
+      }
+      return {
+        model: candidate,
+        support: getModelVisionSupport({
+          configuredProviderModel: candidateProviderModel,
+          effectiveModel: candidate,
+          loadedConfig,
+        }),
+      }
+    })
+    .filter(
+      (
+        candidate,
+      ): candidate is {
+        model: string
+        support: VisionSupport
+      } => candidate?.support === 'yes',
+    )
+    .sort(
+      (left, right) =>
+        getVisionFallbackRank(left.model) - getVisionFallbackRank(right.model),
+    )[0]?.model
+}
+
+function resolveVisionModelIfNeeded(params: {
+  configuredProviderModel: ResolvedProviderModel
+  effectiveModel: string
+  loadedConfig: LoadedProviderConfig
+  reasoningEffort?: OpenbuffReasoningEffort
+}): {
+  configuredProviderModel: ResolvedProviderModel
+  effectiveModel: string
+  reasoningEffort?: OpenbuffReasoningEffort
+} {
+  const { configuredProviderModel, effectiveModel, loadedConfig } = params
+  const visionSupport = getModelVisionSupport({
+    configuredProviderModel,
+    effectiveModel,
+    loadedConfig,
+  })
+  if (visionSupport === 'yes') {
+    return params
+  }
+
+  const visionModel =
+    loadedConfig.config.visionModel ??
+    findProviderVisionFallback({
+      configuredProviderModel,
+      loadedConfig,
+    })
+  if (!visionModel) {
+    throw new Error(
+      `Model '${effectiveModel}' ${
+        visionSupport === 'no'
+          ? 'is not image-capable'
+          : 'is not annotated as image-capable'
+      }, but this request contains image input. Configure visionModel in openbuff.json or route this agent to an image-capable model.`,
+    )
+  }
+
+  const visionProviderModel = resolveConfiguredProviderModel({
+    model: visionModel,
+    loadedConfig,
+  })
+  if (!visionProviderModel) {
+    throw new Error(
+      `Configured visionModel '${visionModel}' could not be routed to a provider. Add it to openbuff.json providers before sending image input.`,
+    )
+  }
+
+  const fallbackVisionSupport = getModelVisionSupport({
+    configuredProviderModel: visionProviderModel,
+    effectiveModel: visionModel,
+    loadedConfig,
+  })
+  if (fallbackVisionSupport === 'no') {
+    throw new Error(
+      `Configured visionModel '${visionModel}' is marked non-vision, but this request contains image input. Choose an image-capable model.`,
+    )
+  }
+
+  return {
+    configuredProviderModel: visionProviderModel,
+    effectiveModel: visionModel,
+    reasoningEffort:
+      loadedConfig.config.visionReasoningEffort ?? params.reasoningEffort,
+  }
 }
 
 function createConfiguredOpenAICompatibleModel(
@@ -355,6 +547,14 @@ function shouldDowngradeRequiredToolChoiceForProviderModel(
   )
 }
 
+function shouldStripStopSequencesForProviderModel(
+  resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
+    compatibility?: Partial<ProviderCompatibility>
+  },
+): boolean {
+  return resolvedModel.compatibility?.supportsStopSequences === false
+}
+
 function shouldTransformRequestForProviderModel(
   resolvedModel: Pick<ResolvedProviderModel, 'providerModel'> & {
     compatibility?: Partial<ProviderCompatibility>
@@ -363,7 +563,8 @@ function shouldTransformRequestForProviderModel(
 ): boolean {
   return (
     shouldDisableThinkingForProviderModel(resolvedModel.providerModel) ||
-    shouldDowngradeRequiredToolChoiceForProviderModel(resolvedModel)
+    shouldDowngradeRequiredToolChoiceForProviderModel(resolvedModel) ||
+    shouldStripStopSequencesForProviderModel(resolvedModel)
   )
 }
 
@@ -384,8 +585,10 @@ export function applyConfiguredProviderRequestCompatibility(
   const shouldDowngradeRequiredToolChoice =
     shouldDowngradeRequiredToolChoiceForProviderModel(resolvedModel) &&
     body.tool_choice === 'required'
+  const shouldStripStopSequences =
+    shouldStripStopSequencesForProviderModel(resolvedModel) && 'stop' in body
 
-  return {
+  const transformed: Record<string, unknown> = {
     ...body,
     ...(shouldDisableThinking
       ? {
@@ -399,6 +602,12 @@ export function applyConfiguredProviderRequestCompatibility(
         }
       : {}),
   }
+
+  if (shouldStripStopSequences) {
+    delete transformed.stop
+  }
+
+  return transformed
 }
 
 function createConfiguredProviderFetch(

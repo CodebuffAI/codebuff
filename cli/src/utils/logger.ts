@@ -19,6 +19,7 @@ import {
   setAnalyticsErrorLogger,
   trackEvent,
 } from './analytics'
+import { sanitizeForDebugLog } from './payload-sanitizer'
 import { getCurrentChatDir, getProjectRoot } from '../project-files'
 
 export interface LoggerContext {
@@ -146,21 +147,27 @@ function sendAnalyticsAndLog(
   const normalizedData = isStringOnly ? undefined : data
   const normalizedMsg = isStringOnly ? (data as string) : msg
   const includeData = normalizedData != null && !isEmptyObject(normalizedData)
+  const sanitizedData = includeData
+    ? sanitizeForDebugLog(normalizedData)
+    : undefined
+  const formattedMsg = sanitizeForDebugLog(
+    stringFormat(normalizedMsg ?? '', ...args),
+  )
 
   const toTrack = {
-    ...(includeData ? { data: normalizedData } : {}),
+    ...(includeData ? { data: sanitizedData } : {}),
     level,
     loggerContext,
-    msg: stringFormat(normalizedMsg, ...args),
+    msg: formattedMsg,
   }
 
   logAsErrorIfNeeded(toTrack)
 
   if (!IS_DEV && includeData && typeof normalizedData === 'object') {
     const analyticsPayloads = analyticsDispatcher.process({
-      data: normalizedData,
+      data: sanitizedData,
       level,
-      msg: stringFormat(normalizedMsg ?? '', ...args),
+      msg: formattedMsg,
       fallbackUserId: loggerContext.userId,
     })
 
@@ -181,14 +188,14 @@ function sendAnalyticsAndLog(
       fullTelemetry || level === 'error' || level === 'fatal'
     const dataProperties =
       includeData && includeRawData
-        ? { data: normalizedData }
+        ? { data: sanitizedData }
         : includeData
-          ? { dataSummary: summarizeAnalyticsValue(normalizedData) }
+          ? { dataSummary: summarizeAnalyticsValue(sanitizedData) }
           : {}
 
     trackEvent(AnalyticsEvent.CLI_LOG, {
       level,
-      msg: stringFormat(normalizedMsg ?? '', ...args),
+      msg: formattedMsg,
       ...dataProperties,
       ...loggerContext,
     })
@@ -201,8 +208,8 @@ function sendAnalyticsAndLog(
       level: level.toUpperCase(),
       timestamp: new Date().toISOString(),
       ...loggerContext,
-      ...(includeData ? { data: normalizedData } : {}),
-      msg: stringFormat(normalizedMsg ?? '', ...args),
+      ...(includeData ? { data: sanitizedData } : {}),
+      msg: formattedMsg,
     })
     try {
       appendFileSync(logPath, logEntry + '\n')
@@ -211,8 +218,8 @@ function sendAnalyticsAndLog(
     }
   } else if (pinoLogger !== undefined) {
     const base = { ...loggerContext }
-    const obj = includeData ? { ...base, data: normalizedData } : base
-    pinoLogger[level](obj, normalizedMsg as any, ...args)
+    const obj = includeData ? { ...base, data: sanitizedData } : base
+    pinoLogger[level](obj, formattedMsg as any)
   }
 }
 

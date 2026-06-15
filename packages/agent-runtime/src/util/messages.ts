@@ -299,7 +299,7 @@ export function expireMessages(
   messages: Message[],
   endOf: 'agentStep' | 'userPrompt',
 ): Message[] {
-  return messages.filter((m) => {
+  const ttlFilteredMessages = messages.filter((m) => {
     // Keep messages with no timeToLive
     if (m.timeToLive === undefined) return true
 
@@ -307,6 +307,22 @@ export function expireMessages(
     if (m.timeToLive === 'agentStep') return false
     if (m.timeToLive === 'userPrompt' && endOf === 'userPrompt') return false
 
+    return true
+  })
+
+  const lastIndexByTag = new Map<string, number>()
+  ttlFilteredMessages.forEach((message, index) => {
+    for (const tag of message.tags ?? []) {
+      lastIndexByTag.set(tag, index)
+    }
+  })
+
+  return ttlFilteredMessages.filter((message, index) => {
+    for (const tag of message.keepLastTags ?? []) {
+      if (message.tags?.includes(tag) && lastIndexByTag.get(tag) !== index) {
+        return false
+      }
+    }
     return true
   })
 }

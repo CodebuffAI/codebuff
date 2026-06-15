@@ -1,10 +1,4 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { createRequire } from 'node:module'
-
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-
-const execFileAsync = promisify(execFile)
+/// <reference path="../../../open-websearch.d.ts" />
 
 export const WEBSEARCH_TIMEOUT_MS = 30_000
 
@@ -15,50 +9,53 @@ export type WebSearchResult = {
 }
 
 /**
- * Resolve the open-websearch binary from node_modules.
- * Avoids requiring a global install — resolved from the
- * @codebuff/agent-runtime package's own dependency tree.
- */
-export const resolveOpenWebsearchBin = (logger?: Logger): string | null => {
-  try {
-    const require = createRequire(import.meta.url)
-    return require.resolve('open-websearch/build/index.js')
-  } catch (err) {
-    logger?.warn(
-      { error: err instanceof Error ? err.message : String(err) },
-      'Failed to resolve open-websearch binary',
-    )
-    return null
-  }
-}
-
-/**
- * Execute a web search using the open-websearch binary.
+ * Execute a web search using Open Websearch as a bundled library. Do not shell
+ * out to `node node_modules/open-websearch/...`: packaged Openbuff binaries do
+ * not have a stable node_modules path, which produced misleading install
+ * prompts for users even though this package declares the dependency.
+ *
  * Returns results array on success or an error string on failure.
  */
 export const executeWebSearch = async (
-  bin: string,
   query: string,
   depth: 'standard' | 'deep' = 'standard',
 ): Promise<{ results: WebSearchResult[] } | { error: string }> => {
   const limit = depth === 'deep' ? 10 : 5
-  const { stdout } = await execFileAsync(
-    'node',
-    [bin, 'search', query, '--limit', String(limit), '--engine', 'duckduckgo', '--json'],
-    { timeout: WEBSEARCH_TIMEOUT_MS },
-  )
+  let timeout: ReturnType<typeof setTimeout> | undefined
 
-  const parsed = JSON.parse(stdout) as {
-    status?: string
-    data?: { results?: WebSearchResult[] }
-    error?: string
+  try {
+    process.env.OPEN_WEBSEARCH_QUIET_STARTUP ??= 'true'
+    const { searchDuckDuckGo } =
+      await import('open-websearch/build/engines/duckduckgo/index.js')
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        reject(new Error(`Search timed out after ${WEBSEARCH_TIMEOUT_MS}ms`))
+      }, WEBSEARCH_TIMEOUT_MS)
+    })
+
+    const rawResults = await Promise.race([
+      searchDuckDuckGo(query, limit),
+      timeoutPromise,
+    ])
+
+    const results = rawResults.slice(0, limit).map((result) => ({
+      title: result.title ?? '',
+      url: result.url ?? '',
+      description: result.description ?? '',
+    }))
+
+    return { results }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : `Unknown web search error: ${String(error)}`,
+    }
+  } finally {
+    if (timeout) clearTimeout(timeout)
   }
-
-  if (parsed.error) {
-    return { error: parsed.error }
-  }
-
-  return { results: parsed.data?.results ?? [] }
 }
 
 /**
@@ -104,7 +101,10 @@ export function extractLinks(
   let match: RegExpExecArray | null
   while ((match = re.exec(html)) !== null && links.length < maxLinks) {
     const rawHref = match[1]?.trim()
-    const rawText = match[2]?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    const rawText = match[2]
+      ?.replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
     if (!rawHref || rawHref.startsWith('javascript:')) continue
     let href: string
     try {

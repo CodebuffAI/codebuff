@@ -12,6 +12,7 @@ export const IMPLEMENTOR_AGENT_IDS = [
 /** All edit tool names (both direct and proposed variants) */
 const ALL_EDIT_TOOL_NAMES = [
   'str_replace',
+  'replace_range',
   'write_file',
   'propose_str_replace',
   'propose_write_file',
@@ -473,6 +474,7 @@ const SUCCESSFUL_EDIT_MESSAGES = [
   'Proposed new file',
   'Proposed changes',
   'Proposed string replacement',
+  'Replaced lines',
 ] as const
 
 const hasProposedTools = (blocks?: ContentBlock[]): boolean => {
@@ -817,6 +819,15 @@ export function extractDiff(toolBlock: ToolContentBlock): string | null {
     return constructDiffFromWriteFile(input.content)
   }
 
+  // Handle replace_range: use the replacement body as a fallback preview when
+  // a successful result omits a patch.
+  if (
+    baseToolName === 'replace_range' &&
+    typeof input?.newContent === 'string'
+  ) {
+    return constructDiffFromWriteFile(input.newContent)
+  }
+
   // Fallback: get from input.content (for other tools)
   if (input?.content !== undefined && typeof input.content === 'string') {
     return input.content
@@ -956,7 +967,16 @@ function constructDiffFromWriteFile(content: string): string {
  */
 export function isCreateFile(toolBlock: ToolContentBlock): boolean {
   const outputStr = typeof toolBlock.output === 'string' ? toolBlock.output : ''
-  const message = extractValueForKey(outputStr, 'message')
+  const outputRaw = toolBlock.outputRaw as unknown
+  const outputRawValue =
+    Array.isArray(outputRaw) && outputRaw[0]?.value
+      ? (outputRaw[0].value as Record<string, unknown>)
+      : typeof outputRaw === 'object' && outputRaw !== null
+        ? (outputRaw as Record<string, unknown>)
+        : null
+  const outputRawMessage =
+    typeof outputRawValue?.message === 'string' ? outputRawValue.message : null
+  const message = extractValueForKey(outputStr, 'message') ?? outputRawMessage
   return (
     typeof message === 'string' &&
     (message.startsWith('Created file successfully') ||

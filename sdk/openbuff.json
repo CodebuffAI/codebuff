@@ -12,6 +12,7 @@
         "stringifyTextContent": true,
         "supportsTools": true,
         "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
         "stripProviderMetadata": true
       }
     }

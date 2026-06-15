@@ -15,11 +15,36 @@ import type { ToolRenderConfig } from './types'
 interface EditHeaderProps {
   name: string
   filePath: string | null
+  status: EditStatus
+  stats: DiffStats
 }
 
-const EditHeader = ({ name, filePath }: EditHeaderProps) => {
+type EditStatus = 'pending' | 'applied' | 'failed'
+
+type DiffStats = {
+  added: number
+  removed: number
+}
+
+const statusLabel: Record<EditStatus, string> = {
+  pending: 'pending',
+  applied: 'applied',
+  failed: 'failed',
+}
+
+const EditHeader = ({ name, filePath, status, stats }: EditHeaderProps) => {
   const theme = useTheme()
   const bulletChar = '• '
+  const statusColor =
+    status === 'failed'
+      ? theme.error
+      : status === 'applied'
+        ? theme.success
+        : theme.warning
+  const statsText =
+    stats.added > 0 || stats.removed > 0
+      ? ` +${stats.added}/-${stats.removed}`
+      : ''
 
   return (
     <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
@@ -29,6 +54,7 @@ const EditHeader = ({ name, filePath }: EditHeaderProps) => {
           {name}
         </span>
         {filePath ? <span fg={theme.foreground}>{` ${filePath}`}</span> : null}
+        <span fg={statusColor}>{` ${statusLabel[status]}${statsText}`}</span>
       </text>
     </box>
   )
@@ -39,18 +65,112 @@ interface EditBodyProps {
   filePath: string | null
   diffText: string
   isCreate: boolean
+  status: EditStatus
+  message: string | null
+  stats: DiffStats
 }
 
-const EditBody = ({ name, filePath, diffText, isCreate }: EditBodyProps) => {
+const EditBody = ({
+  name,
+  filePath,
+  diffText,
+  isCreate,
+  status,
+  message,
+  stats,
+}: EditBodyProps) => {
+  const theme = useTheme()
+  const messageColor = status === 'failed' ? theme.error : theme.muted
+
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-      <EditHeader name={name} filePath={filePath} />
+      <EditHeader
+        name={name}
+        filePath={filePath}
+        status={status}
+        stats={stats}
+      />
+      {message ? (
+        <box style={{ paddingLeft: 2, width: '100%' }}>
+          <text style={{ wrapMode: 'word' }}>
+            <span fg={messageColor}>{message}</span>
+          </text>
+        </box>
+      ) : null}
       {!isCreate && diffText.length > 0 && (
         <box style={{ paddingLeft: 2, width: '100%' }}>
           <DiffViewer diffText={diffText} />
         </box>
       )}
     </box>
+  )
+}
+
+function unwrapOutputValue(outputRaw: unknown): Record<string, unknown> | null {
+  const value =
+    Array.isArray(outputRaw) && outputRaw[0]?.value
+      ? outputRaw[0].value
+      : outputRaw
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  if (
+    record.value &&
+    typeof record.value === 'object' &&
+    !Array.isArray(record.value)
+  ) {
+    return record.value as Record<string, unknown>
+  }
+  return record
+}
+
+function getStringField(
+  value: Record<string, unknown> | null,
+  key: string,
+): string | null {
+  const field = value?.[key]
+  return typeof field === 'string' && field.trim() ? field : null
+}
+
+function firstLine(text: string | null): string | null {
+  if (!text) return null
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  return trimmed.split('\n')[0] ?? null
+}
+
+function getEditStatus(toolBlock: Parameters<typeof extractDiff>[0]): {
+  status: EditStatus
+  message: string | null
+} {
+  const outputValue = unwrapOutputValue(toolBlock.outputRaw)
+  const errorMessage = firstLine(getStringField(outputValue, 'errorMessage'))
+  if (errorMessage) return { status: 'failed', message: errorMessage }
+
+  const output = typeof toolBlock.output === 'string' ? toolBlock.output : ''
+  if (
+    output.trim().startsWith('Error:') ||
+    output.trim().startsWith('Failed ')
+  ) {
+    return { status: 'failed', message: firstLine(output) }
+  }
+
+  const message = firstLine(getStringField(outputValue, 'message'))
+  const hasOutput =
+    toolBlock.outputRaw !== undefined || output.trim().length > 0
+  if (!hasOutput) return { status: 'pending', message: null }
+  return { status: 'applied', message }
+}
+
+function countDiffStats(diffText: string | null): DiffStats {
+  if (!diffText) return { added: 0, removed: 0 }
+
+  return diffText.split('\n').reduce(
+    (stats, line) => {
+      if (line.startsWith('+') && !line.startsWith('+++')) stats.added += 1
+      if (line.startsWith('-') && !line.startsWith('---')) stats.removed += 1
+      return stats
+    },
+    { added: 0, removed: 0 },
   )
 }
 
@@ -62,6 +182,8 @@ export const StrReplaceComponent = defineToolComponent({
     const filePath = extractFilePath(toolBlock)
     const isCreate = isCreateFile(toolBlock)
     const showDiff = shouldShowEditDiff(toolBlock)
+    const { status, message } = getEditStatus(toolBlock)
+    const stats = countDiffStats(diff)
 
     return {
       content: (
@@ -70,6 +192,9 @@ export const StrReplaceComponent = defineToolComponent({
           filePath={filePath}
           diffText={showDiff ? (diff ?? '') : ''}
           isCreate={isCreate}
+          status={status}
+          message={message}
+          stats={stats}
         />
       ),
     }

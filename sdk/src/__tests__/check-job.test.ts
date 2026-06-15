@@ -6,6 +6,7 @@ import * as path from 'path'
 import {
   __clearJobsForTest,
   __registerJobForTest,
+  getBackgroundJob,
   readNewJobOutput,
   type BackgroundJob,
 } from '../tools/background-jobs'
@@ -24,6 +25,7 @@ function makeJob(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
     command: 'echo hi',
     child: { pid: 1234 } as unknown as BackgroundJob['child'],
     logFile,
+    metadataFile: `${logFile}.json`,
     status: 'running',
     exitCode: null,
     startedAt: 0,
@@ -104,5 +106,35 @@ describe('checkJob', () => {
   test('returns an error for an unknown job id', async () => {
     const result = value(await checkJob({ jobId: 'does-not-exist' }))
     expect(result.errorMessage).toContain('does-not-exist')
+  })
+
+  test('recovers a job from persisted metadata and log file', async () => {
+    const jobId = `job-recovered-${++counter}`
+    const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+    const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+    fs.writeFileSync(logFile, 'ready\n')
+    fs.writeFileSync(
+      metadataFile,
+      JSON.stringify({
+        jobId,
+        command: 'dev server',
+        processId: null,
+        logFile,
+        status: 'running',
+        exitCode: null,
+        startedAt: 123,
+      }),
+    )
+    tempFiles.push(logFile, metadataFile)
+
+    const recovered = getBackgroundJob(jobId)
+    expect(recovered?.logFile).toBe(logFile)
+
+    const result = value(await checkJob({ jobId }))
+    expect(result).toMatchObject({
+      jobId,
+      status: 'running',
+      newOutput: 'ready\n',
+    })
   })
 })

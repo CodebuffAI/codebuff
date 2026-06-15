@@ -182,7 +182,11 @@ function queryNeighbors(
   const related = new Map<string, QueryIndexResult>()
   for (const seedPath of seedPaths) {
     for (const item of getRelatedFiles(index, adjacency, seedPath, 2)) {
-      if (item.path === seedPath || !matchesFileType(index.files[item.path], options.fileTypes)) continue
+      if (
+        item.path === seedPath ||
+        isNoisyFilePath(item.path) ||
+        !matchesFileType(index.files[item.path], options.fileTypes)
+      ) continue
       const existing = related.get(item.path)
       if (existing) {
         existing.score += item.score
@@ -220,7 +224,11 @@ function queryPath(
   if (path.length === 0) return []
 
   return path
-    .filter((filePath) => matchesFileType(index.files[filePath], options.fileTypes))
+    .filter(
+      (filePath) =>
+        !isNoisyFilePath(filePath) &&
+        matchesFileType(index.files[filePath], options.fileTypes),
+    )
     .map((filePath, i, filteredPath) => {
       const file = index.files[filePath]
       return {
@@ -400,12 +408,14 @@ function getRelatedFiles(
     const neighborNodeId = edge.from === fileId ? edge.to : edge.from
     const neighborNode = index.graph?.nodes[neighborNodeId]
     if (neighborNode?.type === 'file' && neighborNode.path) {
-      related.push({
-        path: neighborNode.path,
-        score: edge.weight * boost,
-        reason: reasonForEdge(edge, edge.from === fileId),
-        via: edge.label,
-      })
+      if (!isNoisyFilePath(neighborNode.path)) {
+        related.push({
+          path: neighborNode.path,
+          score: edge.weight * boost,
+          reason: reasonForEdge(edge, edge.from === fileId),
+          via: edge.label,
+        })
+      }
       continue
     }
 
@@ -422,7 +432,11 @@ function getRelatedFiles(
       const secondNeighborId = secondEdge.from === neighborNodeId ? secondEdge.to : secondEdge.from
       if (secondNeighborId === fileId) continue
       const secondNeighbor = index.graph.nodes[secondNeighborId]
-      if (secondNeighbor?.type !== 'file' || !secondNeighbor.path) continue
+      if (
+        secondNeighbor?.type !== 'file' ||
+        !secondNeighbor.path ||
+        isNoisyFilePath(secondNeighbor.path)
+      ) continue
       related.push({
         path: secondNeighbor.path,
         score: edge.weight * secondEdge.weight * boost * 0.6,
@@ -461,6 +475,13 @@ function shortestFilePath(
 
     for (const edge of adjacency.get(current) ?? []) {
       const next = edge.from === current ? edge.to : edge.from
+      const nextNode = index.graph.nodes[next]
+      if (
+        nextNode?.type === 'file' &&
+        typeof nextNode.path === 'string' &&
+        nextNode.path !== to &&
+        isNoisyFilePath(nextNode.path)
+      ) continue
       if (seen.has(next)) continue
       seen.add(next)
       queue.push([...currentPath, next])
@@ -510,6 +531,10 @@ function matchesFileType(file: IndexedFile | undefined, fileTypes: string[] | un
 
 function isNoisyPath(pathSegments: string[]): boolean {
   return pathSegments.some((segment) => NOISY_PATH_SEGMENTS.has(segment))
+}
+
+function isNoisyFilePath(filePath: string): boolean {
+  return isNoisyPath(filePath.toLowerCase().replace(/\\/g, '/').split('/'))
 }
 
 function reasonForEdge(edge: IndexEdge, forward: boolean): string {

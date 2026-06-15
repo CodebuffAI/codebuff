@@ -228,11 +228,10 @@ describe('processFileBlockModule', () => {
           { length: 1_200 },
           (_, index) => `const value${index} = ${index};`,
         ).join('\n') + '\n'
-      const newContent =
-        Array.from(
-          { length: 1_200 },
-          (_, index) => `const value${index} = ${index + 1};`,
-        ).join('\n') + '\n'
+      const newContent = oldContent.replace(
+        'const value1199 = 1199;',
+        'const value1199 = 1200;',
+      )
 
       const result = await processFileBlock({
         path: 'big.ts',

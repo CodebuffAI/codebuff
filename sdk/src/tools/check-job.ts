@@ -38,7 +38,7 @@ export async function checkJob(params: {
         type: 'json',
         value: {
           jobId,
-          errorMessage: `No background job found with id "${jobId}". It may have been started in a different session.`,
+          errorMessage: `No background job found with id "${jobId}". The job metadata/log file may have been cleaned up, or the job was started before recoverable background metadata was written.`,
         },
       },
     ]

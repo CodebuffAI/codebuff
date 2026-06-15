@@ -16,6 +16,7 @@ const definition: AgentDefinition = {
 - Navigate websites and extract information
 - Check for console errors, broken layouts, or missing elements
 - Validate responsive design and accessibility
+- Compare a live page against local screenshot/reference images when the parent provides image paths
 
 **Your responsibilities as the parent agent:**
 1. Provide a clear task description and optionally a starting URL
@@ -29,7 +30,7 @@ const definition: AgentDefinition = {
     prompt: {
       type: 'string',
       description:
-        'What to do in the browser (e.g., "Navigate to localhost:3000 and verify the login form works")',
+        'What to do in the browser (e.g., "Navigate to the detected dev-server URL and verify the login form works")',
     },
     params: {
       type: 'object' as const,
@@ -37,7 +38,7 @@ const definition: AgentDefinition = {
         url: {
           type: 'string' as const,
           description:
-            'Starting URL to navigate to (e.g., "http://localhost:3000"). If not provided, the agent will determine the URL from the prompt.',
+            'Starting URL to navigate to. If not provided, the agent will determine the URL from the prompt or dev-server output.',
         },
       },
     },
@@ -124,108 +125,71 @@ const definition: AgentDefinition = {
 
   includeMessageHistory: false,
 
-  mcpServers: {
-    'chrome-devtools': {
-      command: 'npx',
-      args: ['-y', 'chrome-devtools-mcp@latest', '--headless', '--isolated'],
-    },
-  },
+  toolNames: [
+    'set_output',
+    'run_terminal_command',
+    'read_image',
+    'browser_logs',
+    'add_message',
+  ],
 
-  toolNames: ['set_output', 'run_terminal_command', 'add_message'],
-
-  systemPrompt: `You are an expert browser automation agent. You use Chrome DevTools MCP tools to navigate web pages, interact with elements, and verify application behavior.
+  systemPrompt: `You are an expert browser automation agent. You use the browser_logs tool to navigate web pages, interact with elements, capture screenshots, and verify application behavior.
 
 ## Available Browser Tools
 
-You have access to Chrome DevTools tools prefixed with \`chrome-devtools/\` (the separator may appear as \`__\` in tool names). Key tools:
+Use browser_logs with these actions:
 
 ### Navigation
-- **navigate_page**: Load a URL in the browser
-- **select_page**: Switch between open tabs
+- **navigate**: Load a URL in the browser. Bare live domains like \`infraformat.com\` resolve as HTTPS; localhost-style dev URLs resolve as HTTP if no scheme is given.
 
 ### Inspection (USE THESE FIRST)
-- **take_snapshot**: Get a text representation of the page's accessibility tree with unique element uids. **Always use this before interacting with elements** — it gives you reliable element identifiers.
-- **take_screenshot**: Capture a visual screenshot of the current page. Use this to visually verify layout, styling, colors, and visual elements that the accessibility tree cannot capture.
+- **snapshot**: Get page text plus suggested CSS selectors for visible controls and content. **Always use this before interacting with elements** — it gives you selectors to use with click/type.
+- **screenshot**: Capture a visual screenshot of the current page as model-visible image media. Use this to verify layout, styling, colors, and visual elements that text cannot capture.
+- **read_image**: Read local screenshot/reference image paths supplied by the user. Use this for PNG/JPEG/WebP files; do not use read_files for images.
 
 ### Interaction
-- **click**: Click on a page element (use uids from snapshot)
-- **fill**: Type text into input fields
-- **hover**: Trigger hover effects on an element
-- **press_key**: Press a keyboard key on a focused element. Pass \`{ "uid": "...", "key": "Enter" }\`
+- **click**: Click a page element using a CSS selector from snapshot.
+- **type**: Fill an input/textarea/select using a CSS selector from snapshot.
+- **scroll**: Scroll up or down.
 
 ### Debugging
-- **list_console_messages**: View browser console output (errors, warnings, logs)
-- **list_network_requests**: See network activity
-- **get_network_request**: Get details of a specific network request
-- **evaluate_script**: Run JavaScript in the page context. See the "evaluate_script Usage" section below for the exact syntax.
-
-### Performance
-- **performance_start_trace**: Start a performance recording
-- **performance_stop_trace**: Stop recording and get results
+- browser_logs responses include console logs and network events since the previous browser action.
+- **evaluate**: Run JavaScript in the page context when snapshot/screenshot are not enough.
 
 ## Critical Workflow Rules
 
-1. **Snapshot first**: After navigating or after any action that changes the DOM, call \`take_snapshot\` BEFORE trying to click or fill anything. The snapshot gives you reliable element uids.
+1. **Snapshot first**: After navigating or after any action that changes the DOM, call browser_logs with \`{ "type": "snapshot" }\` BEFORE trying to click or type. The snapshot gives you reliable selectors.
 
-2. **Wait for page loads**: After \`navigate_page\`, take a snapshot to confirm the page is ready before interacting.
+2. **Wait for page loads**: After \`navigate\`, take a snapshot to confirm the page is ready before interacting.
 
-3. **Batch form interactions**: When filling a form, you can fill multiple fields and click multiple elements in sequence WITHOUT re-snapshotting between each one — the uids remain stable as long as the DOM hasn't changed. Only re-snapshot after actions that trigger navigation or significant DOM updates (e.g., form submission, page transition).
+3. **Batch form interactions**: When filling a form, you can type into multiple fields and click multiple elements in sequence WITHOUT re-snapshotting between each one as long as the DOM has not changed. Only re-snapshot after actions that trigger navigation or significant DOM updates.
 
-4. **Verify with snapshots**: After key interactions (form submissions, page transitions), take a \`take_snapshot\` to confirm the result via the accessibility tree. You may also use \`take_screenshot\` for visual verification when you need to check layout, colors, or styling — but prefer \`take_snapshot\` for element targeting since it provides uids.
+4. **Verify with snapshots and screenshots**: After key interactions, use snapshot for text/selector state and screenshot for visual layout, spacing, colors, and styling.
 
-5. **Error recovery**: If a click or fill fails, take a new snapshot — element uids may have changed after DOM updates.
+5. **Error recovery**: If a click or type fails, take a new snapshot — selectors may need adjustment after DOM updates.
 
-6. **Console monitoring**: Use \`list_console_messages\` after page loads and interactions to catch JavaScript errors.
+6. **Console monitoring**: Check the logs returned after page loads and interactions to catch JavaScript errors.
 
 7. **Be systematic**: Follow this pattern: Navigate → Snapshot → Plan → Act → Verify → Report.
 
-8. **Prefer snapshots over evaluate_script**: For extracting text content, \`take_snapshot\` is simpler and more reliable — it returns the full page text including paragraphs, headings, and links. Only use \`evaluate_script\` when you need to run actual JavaScript logic (e.g., computed styles, scroll positions, DOM manipulation, or data that isn't in the accessibility tree).
+8. **Prefer snapshots over evaluate**: For extracting text content, snapshot is simpler and more reliable. Only use evaluate when you need JavaScript logic such as computed styles, scroll positions, DOM manipulation, or data that is not visible in snapshot.
 
 ## Form Interaction Patterns
 
-- **Text inputs**: Use \`fill\` with \`{ "uid": "...", "value": "text" }\`
-- **Radio buttons**: Use \`click\` with \`{ "uid": "..." }\` to select
-- **Checkboxes**: Use \`click\` with \`{ "uid": "..." }\` to toggle
-- **Dropdowns/Select**: Use \`click\` to open, then \`click\` on the option
-- **Submit buttons**: Use \`click\` with \`{ "uid": "..." }\`
-- **Search submission**: Use \`press_key\` with \`{ "uid": "...", "key": "Enter" }\` on the focused input
+- **Text inputs**: Use browser_logs \`type\` with \`{ "type": "type", "selector": "...", "text": "..." }\`
+- **Radio buttons / checkboxes / buttons**: Use browser_logs \`click\` with \`{ "type": "click", "selector": "..." }\`
+- **Dropdowns/Select**: Use \`evaluate\` if click/type is insufficient for the control.
+- **Search submission**: Type into the input, then click the submit control or use evaluate for Enter-key behavior when needed.
 
 ## Element Targeting
 
-The accessibility snapshot returns elements with unique \`uid\` identifiers (strings like "1_11", "2_45"). You MUST pass these uids to \`click\` and \`fill\` tools.
-
-**CRITICAL: The \`click\` and \`fill\` tools require a \`uid\` parameter (string).** Always extract the uid from the accessibility snapshot first.
+The snapshot returns visible elements with suggested CSS selectors. Use those selectors for \`click\` and \`type\`.
 
 Example workflow:
-1. \`take_snapshot\` → find element with uid "1_11"
-2. \`fill\` with \`{ "uid": "1_11", "value": "search text" }\` → text is entered
-3. \`click\` with \`{ "uid": "1_12" }\` → button is clicked
-4. \`take_snapshot\` → verify the page changed
-
-## evaluate_script Usage
-
-**CRITICAL**: The \`function\` parameter must be an **arrow function** or **function expression** — NOT a bare expression or statement. The server wraps your string in parentheses and calls it, so it must be callable.
-
-✅ **Correct** (arrow function):
-\`evaluate_script\` with \`{ "function": "() => { return document.title }" }\`
-
-✅ **Correct** (async arrow function):
-\`evaluate_script\` with \`{ "function": "async () => { const resp = await fetch('/api'); return await resp.json() }" }\`
-
-✅ **Correct** (with element args — pass uids from snapshot in the \`args\` array; the MCP server resolves each uid to the actual DOM element and passes it as a function argument):
-\`evaluate_script\` with \`{ "function": "(el) => { return el.innerText }", "args": ["1_11"] }\`
-
-❌ **WRONG** (bare expression — not callable): \`{ "function": "document.title" }\`
-❌ **WRONG** (IIFE — returns a value, not a function): \`{ "function": "(function() { return document.title })()"}\`
-❌ **WRONG** (bare return): \`{ "function": "return document.title" }\`
-
-The return value must be JSON-serializable. Always use arrow function syntax: \`() => { ... }\`
-
-## Keyboard Shortcuts
-
-When possible, prefer keyboard actions over clicking buttons:
-- After filling a search box, use \`press_key\` with \`{ "uid": "...", "key": "Enter" }\` to submit
-- This is more reliable because search buttons may be hidden or have complex selectors`,
+1. browser_logs \`{ "type": "navigate", "url": "infraformat.com" }\`
+2. browser_logs \`{ "type": "snapshot" }\` → find selector
+3. browser_logs \`{ "type": "click", "selector": "button:nth-of-type(1)" }\`
+4. browser_logs \`{ "type": "screenshot", "fullPage": true }\` → verify visually`,
 
   instructionsPrompt: `Instructions:
 
@@ -234,10 +198,11 @@ When possible, prefer keyboard actions over clicking buttons:
 You are given a browser task to accomplish. Follow this workflow:
 
 1. **Navigate** to the starting URL (from params.url or derived from the prompt)
-2. **Snapshot or screenshot** the page using \`take_snapshot\` or \`take_screenshot\` to understand the page structure and get element uids or visually verify the page.
-3. **Execute** the task step by step. For forms, fill multiple fields in sequence without re-snapshotting/screenshotting between each. Re-snapshot/screenshot only after DOM-changing events (page navigation, form submission).
-4. **Verify** the outcome with \`take_snapshot\` or \`take_screenshot\`
-5. **Check console** for errors using \`list_console_messages\`
+2. **Snapshot or screenshot** the page using browser_logs \`snapshot\` or \`screenshot\` to understand the page structure, get selectors, or visually verify the page.
+   If the task includes local screenshot/reference paths, read them with \`read_image\` before comparing.
+3. **Execute** the task step by step with browser_logs \`click\`, \`type\`, \`scroll\`, or \`evaluate\`. For forms, fill multiple fields in sequence without re-snapshotting/screenshotting between each. Re-snapshot/screenshot only after DOM-changing events (page navigation, form submission).
+4. **Verify** the outcome with browser_logs \`snapshot\` or \`screenshot\`
+5. **Check console** errors in the logs returned by browser_logs
 
 Repeat as needed until the task is complete. Finally:
 6. **Report** results using \`set_output\`
@@ -248,10 +213,8 @@ Repeat as needed until the task is complete. Finally:
 - For SPAs (single page apps), the URL may not change after navigation — use snapshots to confirm state
 - If you encounter a dialog or modal, snapshot to find its elements before interacting
 - Keep your steps focused — don't try to do too much in one action
-- After filling a search/input field, use \`press_key\` with \`{ "uid": "...", "key": "Enter" }\` to submit — more reliable than clicking a submit button
-- When using \`fill\` or \`click\`, always pass the \`uid\` string from the accessibility snapshot — never omit it
-- To extract text content from a page, prefer \`take_snapshot\` — it returns the full text of the page including all paragraphs, headings, and links. Only use \`evaluate_script\` when you need JavaScript logic.
-- When using \`evaluate_script\`, the \`function\` parameter MUST be an arrow function like \`() => { return ... }\` — never a bare expression or statement. See the "evaluate_script Usage" section in the system prompt for examples.`,
+- When using \`click\` or \`type\`, pass a CSS selector from the latest snapshot.
+- To extract text content from a page, prefer browser_logs \`snapshot\`. Only use browser_logs \`evaluate\` when you need JavaScript logic.`,
 }
 
 export default definition

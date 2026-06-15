@@ -20,6 +20,7 @@ export interface BackgroundJob {
   command: string
   child: ChildProcess
   logFile: string
+  metadataFile: string
   status: BackgroundJobStatus
   exitCode: number | null
   startedAt: number
@@ -29,6 +30,16 @@ export interface BackgroundJob {
 
 const jobs = new Map<string, BackgroundJob>()
 let jobCounter = 0
+
+type BackgroundJobMetadata = {
+  jobId: string
+  command: string
+  processId: number | null
+  logFile: string
+  status: BackgroundJobStatus
+  exitCode: number | null
+  startedAt: number
+}
 
 function nextJobId(): string {
   jobCounter += 1
@@ -50,6 +61,7 @@ export function startBackgroundJob(params: {
   const { command, shell, shellArgs, cwd, env } = params
   const jobId = nextJobId()
   const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+  const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
   const outFd = fs.openSync(logFile, 'a')
 
   const child = spawn(shell, [...shellArgs, command], {
@@ -63,6 +75,7 @@ export function startBackgroundJob(params: {
     command,
     child,
     logFile,
+    metadataFile,
     status: 'running',
     exitCode: null,
     startedAt: Date.now(),
@@ -76,13 +89,32 @@ export function startBackgroundJob(params: {
       // already closed
     }
   }
+  const writeMetadata = () => {
+    const metadata: BackgroundJobMetadata = {
+      jobId,
+      command,
+      processId: child.pid ?? null,
+      logFile,
+      status: job.status,
+      exitCode: job.exitCode,
+      startedAt: job.startedAt,
+    }
+    try {
+      fs.writeFileSync(metadataFile, JSON.stringify(metadata, null, 2))
+    } catch {
+      // best-effort recovery metadata
+    }
+  }
+  writeMetadata()
   child.on('exit', (code) => {
     job.status = code === 0 ? 'completed' : 'error'
     job.exitCode = code
+    writeMetadata()
     closeLog()
   })
   child.on('error', () => {
     job.status = 'error'
+    writeMetadata()
     closeLog()
   })
 
@@ -91,7 +123,139 @@ export function startBackgroundJob(params: {
 }
 
 export function getBackgroundJob(jobId: string): BackgroundJob | undefined {
-  return jobs.get(jobId)
+  const existing = jobs.get(jobId)
+  if (existing) return existing
+
+  const recovered = recoverBackgroundJob(jobId)
+  if (recovered) {
+    jobs.set(jobId, recovered)
+  }
+  return recovered
+}
+
+function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
+  const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+  const fallbackLogFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+  try {
+    const metadata = JSON.parse(
+      fs.readFileSync(metadataFile, 'utf8'),
+    ) as BackgroundJobMetadata
+    const status =
+      metadata.status === 'running' &&
+      metadata.processId !== null &&
+      !isProcessAlive(metadata.processId)
+        ? 'completed'
+        : metadata.status
+
+    return {
+      jobId: metadata.jobId,
+      command: metadata.command,
+      child: { pid: metadata.processId ?? undefined } as ChildProcess,
+      logFile: metadata.logFile,
+      metadataFile,
+      status,
+      exitCode: metadata.exitCode,
+      startedAt: metadata.startedAt,
+      readOffset: 0,
+    }
+  } catch {
+    if (!fs.existsSync(fallbackLogFile)) {
+      return undefined
+    }
+    return {
+      jobId,
+      command: '',
+      child: { pid: undefined } as ChildProcess,
+      logFile: fallbackLogFile,
+      metadataFile,
+      status: 'running',
+      exitCode: null,
+      startedAt: 0,
+      readOffset: 0,
+    }
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ESRCH'
+    ) {
+      return false
+    }
+    return true
+  }
+}
+
+function killProcess(pid: number, signal: 'SIGTERM' | 'SIGKILL'): boolean {
+  try {
+    process.kill(pid, signal)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function killBackgroundJob(
+  jobId: string,
+  signal: 'SIGTERM' | 'SIGKILL' = 'SIGTERM',
+):
+  | {
+      jobId: string
+      status: BackgroundJobStatus
+      killed: boolean
+      signal: 'SIGTERM' | 'SIGKILL'
+      exitCode?: number | null
+    }
+  | { jobId: string; errorMessage: string } {
+  const job = getBackgroundJob(jobId)
+  if (!job) {
+    return {
+      jobId,
+      errorMessage: `No background job found with id "${jobId}".`,
+    }
+  }
+
+  if (job.status !== 'running') {
+    return {
+      jobId,
+      status: job.status,
+      killed: false,
+      signal,
+      exitCode: job.exitCode,
+    }
+  }
+
+  const pid = job.child.pid
+  if (!pid) {
+    job.status = 'error'
+    return {
+      jobId,
+      errorMessage: `Background job "${jobId}" has no process id to kill.`,
+    }
+  }
+
+  const killed =
+    typeof job.child.kill === 'function'
+      ? job.child.kill(signal)
+      : killProcess(pid, signal)
+  if (killed) {
+    job.status = 'error'
+  }
+
+  return {
+    jobId,
+    status: job.status,
+    killed,
+    signal,
+    exitCode: job.exitCode,
+  }
 }
 
 /**

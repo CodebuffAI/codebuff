@@ -1,6 +1,7 @@
 import { isEqual } from 'lodash'
 
 import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
+import { sanitizeMediaForUiState } from './payload-sanitizer'
 
 import type {
   ContentBlock,
@@ -671,6 +672,43 @@ const formatToolOutput = (
   return JSON.stringify(toolOutput, null, 2)
 }
 
+const hasMediaPayload = (
+  value: unknown,
+  seen = new WeakSet<object>(),
+): boolean => {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  if (seen.has(value)) {
+    return false
+  }
+  seen.add(value)
+
+  if (!Array.isArray(value)) {
+    const record = value as Record<string, unknown>
+    if (
+      record.type === 'media' &&
+      typeof record.data === 'string'
+    ) {
+      return true
+    }
+    if (
+      record.type === 'file' &&
+      typeof record.data === 'string'
+    ) {
+      return true
+    }
+    if (
+      record.type === 'image' &&
+      typeof record.image === 'string'
+    ) {
+      return true
+    }
+  }
+
+  return Object.values(value).some((child) => hasMediaPayload(child, seen))
+}
+
 /**
  * Updates tool blocks with their output when tool results arrive.
  * Handles special formatting for terminal command and transaction output.
@@ -684,10 +722,13 @@ export const updateToolBlockWithOutput = (
 
   return blocks.map((block) => {
     if (block.type === 'tool' && block.toolCallId === toolCallId) {
+      const displayToolOutput = hasMediaPayload(toolOutput)
+        ? sanitizeMediaForUiState(toolOutput)
+        : toolOutput
       return {
         ...block,
-        output: formatToolOutput(block.toolName, toolOutput),
-        outputRaw: toolOutput,
+        output: formatToolOutput(block.toolName, displayToolOutput),
+        outputRaw: displayToolOutput,
       }
     } else if (block.type === 'agent' && block.blocks) {
       const updatedBlocks = updateToolBlockWithOutput(block.blocks, options)

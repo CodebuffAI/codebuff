@@ -46,6 +46,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [SuggestFollowupsComponent.toolName, SuggestFollowupsComponent],
   [WriteFileComponent.toolName, WriteFileComponent],
   [TaskCompleteComponent.toolName, TaskCompleteComponent],
+  ['replace_range', StrReplaceComponent],
   // Propose tools reuse the same rendering as their base counterparts
   ['propose_str_replace', StrReplaceComponent],
   ['propose_write_file', WriteFileComponent],

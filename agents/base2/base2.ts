@@ -58,6 +58,7 @@ export function createBase2(
       'spawn_agents',
       'query_index',
       'read_files',
+      'read_image',
       'read_subtree',
       'read_outline',
       !isFast && 'write_todos',
@@ -75,6 +76,9 @@ export function createBase2(
       'list_directory',
       'glob',
       'check_job',
+      'kill_job',
+      'read_logs',
+      'git_status',
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -116,6 +120,8 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
+- **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
+- **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.
 
 # Code Editing Mandates
 
@@ -172,7 +178,8 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn bashers sequentially if the second command depends on the the first.',
-    '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
+    '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). Use kill_job when a background job is no longer needed. To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
+    '- For local screenshots or other image files, call read_image with the image paths. Do not call read_files on image formats.',
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
     isMax &&

@@ -32,6 +32,15 @@ export const handleReadOutline = (async (
     }
   }
 
+  if (isMarkdownPath(path)) {
+    return {
+      output: jsonToolResult({
+        path,
+        outline: markdownOutline(rawContent),
+      }),
+    }
+  }
+
   // Preferred path: accurate, multi-language structure from tree-sitter.
   const structure = await getFileStructure(rawContent, path)
   if (structure !== null) {
@@ -54,6 +63,39 @@ export const handleReadOutline = (async (
     }),
   }
 }) satisfies CodebuffToolHandlerFunction<any>
+
+function isMarkdownPath(path: string): boolean {
+  return /\.(md|mdx|markdown)$/i.test(path)
+}
+
+function markdownOutline(rawContent: string): string {
+  const lines = rawContent.split(/\r?\n/)
+  const outlineLines: string[] = []
+  let inFence = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+    if (/^(```|~~~)/.test(trimmed)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
+    if (!headingMatch) continue
+
+    const level = headingMatch[1].length
+    const text = headingMatch[2]
+      .replace(/\s+#+\s*$/, '')
+      .replace(/<[^>]+>/g, '')
+      .trim()
+    if (!text) continue
+
+    outlineLines.push(`${'  '.repeat(level - 1)}Line ${i + 1}: ${'#'.repeat(level)} ${text}`)
+  }
+
+  return outlineLines.join('\n') || '[No markdown headings found in this file]'
+}
 
 function regexOutline(rawContent: string): string {
   const lines = rawContent.split(/\r?\n/)

@@ -3,6 +3,7 @@ import { publisher } from './constants'
 import type {
   AgentDefinition,
   AgentStepContext,
+  ToolCall,
 } from './types/agent-definition'
 
 const basher: AgentDefinition = {
@@ -11,7 +12,7 @@ const basher: AgentDefinition = {
   model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Basher',
   spawnerPrompt:
-    'Runs a single terminal command and (recommended) describes its output using an LLM using the what_to_summarize field. A lightweight shell command executor. Every basher spawn MUST include params: { command: "<shell>" }.',
+    'Runs a single terminal command and returns a deterministic report of its output. Use what_to_summarize to label the information to extract. Every basher spawn MUST include params: { command: "<shell>" }.',
 
   inputSchema: {
     params: {
@@ -19,7 +20,8 @@ const basher: AgentDefinition = {
       properties: {
         command: {
           type: 'string',
-          description: 'The terminal command to run in bash shell. Don\'t forget this field!',
+          description:
+            "The terminal command to run in bash shell. Don't forget this field!",
         },
         what_to_summarize: {
           type: 'string',
@@ -39,10 +41,10 @@ const basher: AgentDefinition = {
       required: ['command'],
     },
   },
-  outputMode: 'last_message',
+  outputMode: 'structured_output',
   includeMessageHistory: false,
   toolNames: ['run_terminal_command'],
-  systemPrompt: `You are an expert at analyzing the output of a terminal command.
+  systemPrompt: `You are an expert at reading the output of a terminal command.
 
 Your job is to:
 1. Review the terminal command and its output
@@ -57,9 +59,9 @@ When describing command output:
 - Don't include any follow up recommendations, suggestions, or offers to help`,
   instructionsPrompt: `The user has provided a command to run and specified what information they want from the output.
 
-Run the command and then describe the relevant information from the output, following the user's instructions about what to focus on.
+Run the command and then return the relevant command result information, following the user's instructions about what to focus on.
 
-Do not use any tools! Only analyze the output of the command.`,
+Do not use any tools! Only report the output of the command.`,
   handleSteps: function* ({ params }: AgentStepContext) {
     const command = params?.command as string | undefined
     if (!command) {
@@ -67,8 +69,8 @@ Do not use any tools! Only analyze the output of the command.`,
       console.error('Basher agent: missing required "command" parameter')
       yield {
         toolName: 'set_output',
-        input: { output: 'Error: Missing required "command" parameter' },
-      }
+        input: { data: { errorMessage: 'Missing required "command" parameter' } },
+      } as ToolCall<'set_output'>
       return
     }
 
@@ -79,9 +81,8 @@ Do not use any tools! Only analyze the output of the command.`,
       | 'BACKGROUND'
       | undefined
 
-    // Run the command. When a follow-up LLM summary is requested, do not replay
-    // this programmatic call as provider-native tool history: Gemini Agent
-    // Platform requires thought signatures on function calls it generated.
+    // Run the command. Command reporting is deterministic: a successful shell
+    // call must not be turned into a provider failure by a follow-up LLM step.
     const { toolResult } = yield {
       toolName: 'run_terminal_command',
       input: {
@@ -90,44 +91,101 @@ Do not use any tools! Only analyze the output of the command.`,
         ...(timeout_seconds !== undefined && { timeout_seconds }),
       },
       ...(what_to_summarize && { includeToolCall: false }),
-    }
+    } as ToolCall<'run_terminal_command'>
 
     if (!what_to_summarize) {
       // Return the raw command output without summarization
       const result = toolResult?.[0]
       // Only return object values (command output objects), not plain strings
-      const output = result?.type === 'json' && typeof result.value === 'object' ? result.value : ''
+      const output =
+        result?.type === 'json' && typeof result.value === 'object'
+          ? result.value
+          : { message: '' }
       yield {
         toolName: 'set_output',
-        input: { output },
+        input: { data: output },
         includeToolCall: false,
-      }
+      } as ToolCall<'set_output'>
       return
     }
 
     const result = toolResult?.[0]
     const output = result?.type === 'json' ? result.value : null
-    const outputJson = JSON.stringify(output, null, 2) ?? 'null'
 
-    yield {
-      toolName: 'add_message',
-      input: {
-        role: 'user',
-        content: [
-          'The terminal command has completed.',
-          '',
-          `Command: ${command}`,
-          `What to summarize: ${what_to_summarize}`,
-          '',
-          'Command output JSON:',
-          outputJson,
-        ].join('\n'),
-      },
-      includeToolCall: false,
+    const lines = [
+      `Command: ${command}`,
+      `Requested summary: ${what_to_summarize}`,
+    ]
+
+    const appendBounded = (label: string, value: unknown, maxChars: number) => {
+      if (value === undefined || value === null || value === '') return
+      const text =
+        typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+      if (!text) return
+      lines.push('')
+      lines.push(`${label}:`)
+      lines.push(
+        text.length > maxChars
+          ? `${text.slice(0, maxChars)}\n[truncated ${text.length - maxChars} chars]`
+          : text,
+      )
     }
 
-    // Let the model analyze and describe the output from the plain text message.
-    yield 'STEP'
+    if (output && typeof output === 'object') {
+      const commandOutput = output as Record<string, unknown>
+      if (commandOutput.startingCwd) {
+        lines.push(`Starting CWD: ${String(commandOutput.startingCwd)}`)
+      }
+      if (commandOutput.exitCode !== undefined) {
+        lines.push(`Exit code: ${String(commandOutput.exitCode)}`)
+      }
+      if (commandOutput.jobId)
+        lines.push(`Job ID: ${String(commandOutput.jobId)}`)
+      if (commandOutput.backgroundProcessStatus)
+        lines.push(
+          `Background status: ${String(commandOutput.backgroundProcessStatus)}`,
+        )
+      if (commandOutput.logFile)
+        lines.push(`Log file: ${String(commandOutput.logFile)}`)
+      if (commandOutput.status)
+        lines.push(`Status: ${String(commandOutput.status)}`)
+      appendBounded('Message', commandOutput.message, 2_000)
+      appendBounded('Error', commandOutput.errorMessage, 2_000)
+      appendBounded('stdout', commandOutput.stdout, 8_000)
+      appendBounded('stderr', commandOutput.stderr, 4_000)
+      appendBounded(
+        'stdout omitted for length',
+        commandOutput.stdoutOmittedForLength,
+        1_000,
+      )
+
+      const hadStructuredOutput = [
+        'message',
+        'errorMessage',
+        'stdout',
+        'stderr',
+        'stdoutOmittedForLength',
+        'exitCode',
+        'jobId',
+        'backgroundProcessStatus',
+        'logFile',
+        'status',
+      ].some((key) => commandOutput[key] !== undefined)
+      if (!hadStructuredOutput)
+        appendBounded('Command output JSON', output, 8_000)
+    } else {
+      appendBounded('Command output JSON', output, 8_000)
+    }
+
+    yield {
+      toolName: 'set_output',
+      input: {
+        data: {
+          message: lines.join('\n'),
+        },
+      },
+      includeToolCall: false,
+    } as ToolCall<'set_output'>
   },
 }
 

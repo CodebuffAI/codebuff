@@ -19,6 +19,19 @@ const INCLUDED_HIDDEN_DIRS = [
   '.husky', // Git hooks
 ]
 
+const DEFAULT_EXCLUDED_GLOBS = [
+  '!**/node_modules/**',
+  '!**/.bun-install/**',
+  '!**/dist/**',
+  '!**/build/**',
+  '!**/.next/**',
+  '!**/.turbo/**',
+  '!**/*.generated.*',
+  '!**/bundled-agents.generated.ts',
+]
+
+const MAX_MATCH_LINE_LENGTH = 1_000
+
 export function codeSearch({
   projectPath,
   pattern,
@@ -90,6 +103,7 @@ export function codeSearch({
       '--no-config',
       '-n',
       '--json',
+      ...DEFAULT_EXCLUDED_GLOBS.flatMap((glob) => ['-g', glob]),
       ...flagsArray,
       '--',
       pattern,
@@ -168,6 +182,11 @@ export function codeSearch({
         ? output.substring(0, maxLength) + '\n\n[Output truncated]'
         : output
 
+    const truncateMatchLine = (line: string) =>
+      line.length > MAX_MATCH_LINE_LENGTH
+        ? `${line.slice(0, MAX_MATCH_LINE_LENGTH)}…[truncated ${line.length - MAX_MATCH_LINE_LENGTH} chars]`
+        : line
+
     const timeoutId = setTimeout(() => {
       if (isResolved) return
       hardKill()
@@ -222,7 +241,7 @@ export function codeSearch({
           const lineNumber = evt.data.line_number ?? 0
           // Strip trailing newlines to prevent blank lines in output
           const rawText = evt.data.lines?.text ?? ''
-          const lineText = rawText.replace(/\r?\n$/, '')
+          const lineText = truncateMatchLine(rawText.replace(/\r?\n$/, ''))
 
           // Format as ripgrep output: filename:line_number:content
           const formattedLine = `${filePath}:${lineNumber}:${lineText}`
@@ -322,7 +341,7 @@ export function codeSearch({
                   evt.data.path?.text ?? evt.data.path?.bytes ?? ''
                 const lineNumber = evt.data.line_number ?? 0
                 const rawText = evt.data.lines?.text ?? ''
-                const lineText = rawText.replace(/\r?\n$/, '')
+                const lineText = truncateMatchLine(rawText.replace(/\r?\n$/, ''))
                 const formattedLine = `${filePath}:${lineNumber}:${lineText}`
 
                 if (!fileGroups.has(filePath)) {

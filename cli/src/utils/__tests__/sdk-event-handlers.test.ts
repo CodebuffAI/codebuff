@@ -8,7 +8,11 @@ import {
 } from '../sdk-event-handlers'
 
 import type { StreamStatus } from '../../hooks/use-message-queue'
-import type { AgentContentBlock, ChatMessage } from '../../types/chat'
+import type {
+  AgentContentBlock,
+  ChatMessage,
+  ToolContentBlock,
+} from '../../types/chat'
 import type { AgentMode } from '../constants'
 import type { EventHandlerState } from '../sdk-event-handlers'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -1158,6 +1162,50 @@ describe('sdk-event-handlers', () => {
       changeType: 'M',
       stats: { linesAdded: 1, linesRemoved: 1, hunks: 1 },
     })
+  })
+
+  test('appends formatted output for result-only nested tool results', () => {
+    const { ctx, getMessages } = createTestContext()
+    const handleEvent = createEventHandler(ctx)
+
+    ctx.message.updater.updateAiMessageBlocks(() => [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Basher',
+        agentType: 'basher',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: 'Run a command',
+      },
+    ])
+
+    handleEvent({
+      type: 'tool_result',
+      toolCallId: 'tool-1',
+      toolName: 'run_terminal_command',
+      agentId: 'agent-1',
+      output: [
+        {
+          type: 'json',
+          value: { stdout: 'hello\n', stderr: '' },
+        },
+      ],
+    } as any)
+
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    const toolBlock = agentBlock.blocks?.[0] as ToolContentBlock
+    expect(toolBlock).toMatchObject({
+      type: 'tool',
+      toolCallId: 'tool-1',
+      toolName: 'run_terminal_command',
+      input: {},
+      output: 'hello\n',
+    })
+    expect(toolBlock.outputRaw).toEqual([
+      { type: 'json', value: { stdout: 'hello\n', stderr: '' } },
+    ])
   })
 
   test('preserves streamed text content and skips duplicate final content', () => {

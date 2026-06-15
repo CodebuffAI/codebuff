@@ -699,15 +699,13 @@ describe('codeSearch', () => {
       const value = asCodeSearchResult(result[0])
       expect(value.stdout).toContain('file.tsx:')
 
-      // Verify both glob patterns are passed correctly
+      // Verify both user-provided glob patterns are passed correctly.
+      // codeSearch also injects default excluded globs via -g flags.
       const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
-      // Should have two -g flags, each followed by its pattern
-      const gFlagIndices = spawnArgs
-        .map((arg, i) => (arg === '-g' ? i : -1))
-        .filter((i) => i !== -1)
-      expect(gFlagIndices.length).toBe(2)
-      expect(spawnArgs[gFlagIndices[0]! + 1]).toBe('*.ts')
-      expect(spawnArgs[gFlagIndices[1]! + 1]).toBe('*.tsx')
+      const userGlobPairs = spawnArgs
+        .map((arg, i) => (arg === '-g' ? spawnArgs[i + 1] : undefined))
+        .filter((arg): arg is string => arg === '*.ts' || arg === '*.tsx')
+      expect(userGlobPairs).toEqual(['*.ts', '*.tsx'])
     })
 
     it('should strip single quotes from glob pattern arguments (regression: spawn has no shell)', async () => {
@@ -804,9 +802,12 @@ describe('codeSearch', () => {
       expect(flagsSection).toContain('-i')
       expect(flagsSection).toContain('*.tsx')
 
-      // Count -g flags - should be 2, not deduplicated to 1
-      const gCount = flagsSection.filter((arg) => arg === '-g').length
-      expect(gCount).toBe(2)
+      // User-provided -g flags should be preserved in order; codeSearch also
+      // injects default excluded globs via -g flags.
+      const userGlobPairs = flagsSection
+        .map((arg, i) => (arg === '-g' ? flagsSection[i + 1] : undefined))
+        .filter((arg): arg is string => arg === '*.ts' || arg === '*.tsx')
+      expect(userGlobPairs).toEqual(['*.ts', '*.tsx'])
     })
   })
 

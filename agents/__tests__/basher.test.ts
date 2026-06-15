@@ -30,8 +30,8 @@ describe('commander agent', () => {
       expect(commander.model).toBe('google/gemini-3.1-flash-lite-preview')
     })
 
-    test('has output mode set to last_message', () => {
-      expect(commander.outputMode).toBe('last_message')
+    test('has output mode set to structured_output', () => {
+      expect(commander.outputMode).toBe('structured_output')
     })
 
     test('does not include message history', () => {
@@ -48,21 +48,36 @@ describe('commander agent', () => {
     test('requires command parameter', () => {
       const schema = commander.inputSchema
       const commandProp = schema?.params?.properties?.command
-      expect(commandProp && typeof commandProp === 'object' && 'type' in commandProp && commandProp.type).toBe('string')
+      expect(
+        commandProp &&
+          typeof commandProp === 'object' &&
+          'type' in commandProp &&
+          commandProp.type,
+      ).toBe('string')
       expect(schema?.params?.required).toContain('command')
     })
 
     test('has optional timeout_seconds parameter', () => {
       const schema = commander.inputSchema
       const timeoutProp = schema?.params?.properties?.timeout_seconds
-      expect(timeoutProp && typeof timeoutProp === 'object' && 'type' in timeoutProp && timeoutProp.type).toBe('number')
+      expect(
+        timeoutProp &&
+          typeof timeoutProp === 'object' &&
+          'type' in timeoutProp &&
+          timeoutProp.type,
+      ).toBe('number')
       expect(schema?.params?.required).not.toContain('timeout_seconds')
     })
 
     test('has optional what_to_summarize parameter', () => {
       const schema = commander.inputSchema
       const summarizeProp = schema?.params?.properties?.what_to_summarize
-      expect(summarizeProp && typeof summarizeProp === 'object' && 'type' in summarizeProp && summarizeProp.type).toBe('string')
+      expect(
+        summarizeProp &&
+          typeof summarizeProp === 'object' &&
+          'type' in summarizeProp &&
+          summarizeProp.type,
+      ).toBe('string')
       expect(schema?.params?.required).not.toContain('what_to_summarize')
     })
   })
@@ -87,11 +102,10 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { output: string }
+        input: { data: { errorMessage: string } }
       }
       expect(toolCall.toolName).toBe('set_output')
-      expect(toolCall.input.output).toContain('Error')
-      expect(toolCall.input.output).toContain('command')
+      expect(toolCall.input.data.errorMessage).toContain('command')
     })
 
     test('yields run_terminal_command with basic command', () => {
@@ -173,11 +187,11 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { output: { stdout: string } }
+        input: { data: { stdout: string } }
         includeToolCall?: boolean
       }
       expect(toolCall.toolName).toBe('set_output')
-      expect(toolCall.input.output).toEqual({ stdout: 'hello' })
+      expect(toolCall.input.data).toEqual({ stdout: 'hello' })
       expect(toolCall.includeToolCall).toBe(false)
       expect(result.done).toBe(false)
 
@@ -186,7 +200,7 @@ describe('commander agent', () => {
       expect(final.done).toBe(true)
     })
 
-    test('yields STEP for model analysis when what_to_summarize is provided', () => {
+    test('returns deterministic command report when what_to_summarize is provided', () => {
       const mockAgentState = createMockAgentState()
       const mockLogger = {
         debug: () => {},
@@ -215,7 +229,10 @@ describe('commander agent', () => {
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
-          { type: 'json' as const, value: { stdout: 'file1.txt\nfile2.txt' } },
+          {
+            type: 'json' as const,
+            value: { stdout: 'file1.txt\nfile2.txt', exitCode: 0 },
+          },
         ],
         stepsComplete: true,
       }
@@ -223,20 +240,79 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { role: string; content: string }
+        input: { data: { message: string } }
         includeToolCall?: boolean
       }
-      expect(toolCall.toolName).toBe('add_message')
-      expect(toolCall.input.role).toBe('user')
-      expect(toolCall.input.content).toContain('Command: ls -la')
-      expect(toolCall.input.content).toContain(
-        'What to summarize: list of files',
+      expect(toolCall.toolName).toBe('set_output')
+      expect(toolCall.input.data.message).toContain('Command: ls -la')
+      expect(toolCall.input.data.message).toContain(
+        'Requested summary: list of files',
       )
-      expect(toolCall.input.content).toContain('file1.txt\\nfile2.txt')
+      expect(toolCall.input.data.message).toContain('Exit code: 0')
+      expect(toolCall.input.data.message).toContain('file1.txt\nfile2.txt')
       expect(toolCall.includeToolCall).toBe(false)
 
-      // Third yield should be STEP for model analysis.
-      expect(generator.next().value).toBe('STEP')
+      // No provider STEP is needed just to summarize command output.
+      expect(generator.next().done).toBe(true)
+    })
+
+    test('includes background job fields in deterministic report', () => {
+      const mockAgentState = createMockAgentState()
+      const mockLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+
+      const generator = commander.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        params: {
+          command: 'bun dev',
+          process_type: 'BACKGROUND',
+          what_to_summarize: 'dev server startup',
+        },
+      })
+
+      expect(generator.next().value).toEqual({
+        toolName: 'run_terminal_command',
+        input: {
+          command: 'bun dev',
+          process_type: 'BACKGROUND',
+        },
+        includeToolCall: false,
+      })
+
+      const result = generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: {
+              command: 'bun dev',
+              processId: 123,
+              backgroundProcessStatus: 'running',
+              jobId: 'job-1-1',
+              logFile: '/tmp/openbuff-job-1-1.log',
+            },
+          },
+        ],
+        stepsComplete: true,
+      })
+
+      const toolCall = result.value as {
+        toolName: string
+        input: { data: { message: string } }
+      }
+      expect(toolCall.toolName).toBe('set_output')
+      expect(toolCall.input.data.message).toContain('Job ID: job-1-1')
+      expect(toolCall.input.data.message).toContain(
+        'Background status: running',
+      )
+      expect(toolCall.input.data.message).toContain(
+        'Log file: /tmp/openbuff-job-1-1.log',
+      )
     })
 
     test('handles empty tool result gracefully', () => {
@@ -266,10 +342,10 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { output: string }
+        input: { data: { message: string } }
       }
       expect(toolCall.toolName).toBe('set_output')
-      expect(toolCall.input.output).toBe('')
+      expect(toolCall.input.data.message).toBe('')
     })
 
     test('handles non-json tool result', () => {
@@ -300,10 +376,10 @@ describe('commander agent', () => {
 
       const toolCall = result.value as {
         toolName: string
-        input: { output: string }
+        input: { data: { message: string } }
       }
       expect(toolCall.toolName).toBe('set_output')
-      expect(toolCall.input.output).toBe('')
+      expect(toolCall.input.data.message).toBe('')
     })
 
     test('handleSteps can be serialized for sandbox execution', () => {

@@ -10,7 +10,10 @@ import { handleCreatePlan } from './tool/create-plan'
 import { handleEditTransaction } from './tool/edit-transaction'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
+import { handleGitStatus } from './tool/git-status'
 import { handleGlob } from './tool/glob'
+import { handleKillJob } from './tool/kill-job'
+import { handleReadLogs } from './tool/read-logs'
 import { handleListDirectory } from './tool/list-directory'
 import { handleLookupAgentInfo } from './tool/lookup-agent-info'
 import { handleProposeEditTransaction } from './tool/propose-edit-transaction'
@@ -19,6 +22,7 @@ import { handleProposeWriteFile } from './tool/propose-write-file'
 import { handleQueryIndex } from './tool/query-index'
 import { handleReadDocs } from './tool/read-docs'
 import { handleReadFiles } from './tool/read-files'
+import { handleReadImage } from './tool/read-image'
 import { handleReadOutline } from './tool/read-outline'
 import { handleReadSlices } from './tool/read-slices'
 import { handleReadProposalWorkspace } from './tool/read-proposal-workspace'
@@ -67,7 +71,10 @@ export const codebuffToolHandlers = {
   edit_transaction: handleEditTransaction,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,
+  git_status: handleGitStatus,
   glob: handleGlob,
+  kill_job: handleKillJob,
+  read_logs: handleReadLogs,
   list_directory: handleListDirectory,
   lookup_agent_info: handleLookupAgentInfo,
   propose_edit_transaction: handleProposeEditTransaction,
@@ -76,6 +83,7 @@ export const codebuffToolHandlers = {
   query_index: handleQueryIndex,
   read_docs: handleReadDocs,
   read_files: handleReadFiles,
+  read_image: handleReadImage,
   read_outline: handleReadOutline,
   read_slices: handleReadSlices,
   read_proposal_workspace: handleReadProposalWorkspace,

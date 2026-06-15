@@ -81,6 +81,7 @@ export const DEFAULT_PROVIDER_COMPATIBILITY = {
   stringifyTextContent: true,
   supportsTools: true,
   supportsRequiredToolChoice: true,
+  supportsStopSequences: false,
   stripProviderMetadata: true,
 } as const
 
@@ -94,6 +95,7 @@ export const DEFAULT_ANTHROPIC_COMPATIBILITY = {
   stringifyTextContent: false,
   supportsTools: true,
   supportsRequiredToolChoice: true,
+  supportsStopSequences: true,
   stripProviderMetadata: false,
 } as const
 
@@ -107,6 +109,8 @@ const providerCompatibilitySchema = z
     supportsTools: z.boolean().default(true),
     /** If false, Openbuff downgrades `tool_choice: "required"` to provider default tool choice. */
     supportsRequiredToolChoice: z.boolean().default(true),
+    /** If false, Openbuff enforces stop sequences locally without sending `stop` to the provider. */
+    supportsStopSequences: z.boolean().default(false),
     /** If true, Openbuff omits non-provider request metadata for this provider. */
     stripProviderMetadata: z.boolean().default(true),
   })
@@ -129,6 +133,12 @@ export type ProviderDiscovery = z.infer<typeof providerDiscoverySchema>
 export type ProviderDiscoveryInput = z.input<typeof providerDiscoverySchema>
 
 export const modelCapabilitiesSchema = z.object({
+  input: z
+    .object({
+      image: z.boolean().optional(),
+      file: z.boolean().optional(),
+    })
+    .optional(),
   context: z
     .object({
       windowTokens: positiveIntSchema.optional(),
@@ -249,6 +259,7 @@ const anthropicCompatibilitySchema = z
     stringifyTextContent: z.boolean().default(false),
     supportsTools: z.boolean().default(true),
     supportsRequiredToolChoice: z.boolean().default(true),
+    supportsStopSequences: z.boolean().default(true),
     stripProviderMetadata: z.boolean().default(false),
   })
   .default(DEFAULT_ANTHROPIC_COMPATIBILITY)
@@ -359,6 +370,10 @@ export const providerConfigFileSchema = z
     defaultModel: routableModelValueSchema.optional(),
     /** Optional reasoning effort for the default fallback model. */
     defaultReasoningEffort: reasoningEffortSchema.optional(),
+    /** Model used when the request contains image inputs and the selected model is not known to support them. */
+    visionModel: routableModelValueSchema.optional(),
+    /** Optional reasoning effort for the vision fallback model. */
+    visionReasoningEffort: reasoningEffortSchema.optional(),
     /** Mode-level aliases for the built-in root agents. */
     modes: modeModelSchema,
     /** Optional reasoning efforts for built-in root modes. */
@@ -529,6 +544,10 @@ export const providerConfigFileSchema = z
     const defaultReasoningEffort =
       routableModelValueToReasoningEffort(config.defaultModel) ??
       config.defaultReasoningEffort
+    const visionModel = routableModelValueToModel(config.visionModel)
+    const visionReasoningEffort =
+      routableModelValueToReasoningEffort(config.visionModel) ??
+      config.visionReasoningEffort
 
     return {
       providers: {
@@ -537,6 +556,8 @@ export const providerConfigFileSchema = z
       },
       defaultModel,
       defaultReasoningEffort,
+      ...(visionModel !== undefined && { visionModel }),
+      ...(visionReasoningEffort !== undefined && { visionReasoningEffort }),
       modes,
       modeReasoningEfforts,
       agents: {
@@ -599,6 +620,7 @@ export type LoadedProviderConfig = {
     providers?: Record<string, string>
     routes?: {
       defaultModel?: string
+      visionModel?: string
       modes?: Record<string, string>
       agents?: Record<string, string>
       editorMultiPrompt?: string
@@ -613,6 +635,8 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
   providers: {},
   defaultModel: undefined,
   defaultReasoningEffort: undefined,
+  visionModel: undefined,
+  visionReasoningEffort: undefined,
   modes: {},
   modeReasoningEfforts: {},
   agents: {},
@@ -689,6 +713,12 @@ function getSourceFilesFromRawConfig(
   ) {
     sourceFiles.routes!.defaultModel = resolvedConfigPath
   }
+  if (
+    rawConfig?.visionModel !== undefined ||
+    rawConfig?.visionReasoningEffort !== undefined
+  ) {
+    sourceFiles.routes!.visionModel = resolvedConfigPath
+  }
 
   if (rawConfig?.modes) {
     for (const mode of Object.keys(rawConfig.modes)) {
@@ -734,6 +764,7 @@ function mergeSourceFiles(
     },
     routes: {
       defaultModel: override.routes?.defaultModel ?? base.routes?.defaultModel,
+      visionModel: override.routes?.visionModel ?? base.routes?.visionModel,
       modes: {
         ...(base.routes?.modes ?? {}),
         ...(override.routes?.modes ?? {}),
@@ -834,6 +865,9 @@ function mergeProviderConfigs(
     defaultModel: override.defaultModel ?? base.defaultModel,
     defaultReasoningEffort:
       override.defaultReasoningEffort ?? base.defaultReasoningEffort,
+    visionModel: override.visionModel ?? base.visionModel,
+    visionReasoningEffort:
+      override.visionReasoningEffort ?? base.visionReasoningEffort,
     modes: {
       ...(base.modes ?? {}),
       ...(override.modes ?? {}),
@@ -994,6 +1028,7 @@ function mergeModelCapabilities(
 
   for (const capability of capabilities) {
     if (!capability) continue
+    merged.input = mergeDefined(merged.input, capability.input)
     merged.context = mergeDefined(merged.context, capability.context)
     merged.reasoning = mergeDefined(merged.reasoning, capability.reasoning)
     merged.tools = mergeDefined(merged.tools, capability.tools)
@@ -1146,6 +1181,12 @@ export function formatModelCapabilitiesSummary(
   }
   if (capabilities.context?.outputTokens) {
     parts.push(`${formatTokenCount(capabilities.context.outputTokens)} out`)
+  }
+  if (capabilities.input?.image) {
+    parts.push('image input')
+  }
+  if (capabilities.input?.file) {
+    parts.push('file input')
   }
 
   const reasoning = capabilities.reasoning
@@ -1417,6 +1458,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
             stringifyTextContent: true,
             supportsTools: true,
             supportsRequiredToolChoice: true,
+            supportsStopSequences: false,
             stripProviderMetadata: true,
           },
           models: [...OPENCODE_GO_MODELS],
@@ -1760,7 +1802,7 @@ function tryWriteFragmentedConfig(
     ) ?? expandedPaths.find(p => p.endsWith('providers.json') || p.endsWith('provider.json'))
 
     const routesPath = [...parsedFragments.keys()].find(
-      p => p.endsWith('routes.json') || keyToPathMap.has('modes') || keyToPathMap.has('defaultModel') || keyToPathMap.has('agents')
+      p => p.endsWith('routes.json') || keyToPathMap.has('modes') || keyToPathMap.has('defaultModel') || keyToPathMap.has('visionModel') || keyToPathMap.has('agents')
     ) ?? expandedPaths.find(p => p.endsWith('routes.json'))
 
     const indexingPath = [...parsedFragments.keys()].find(
@@ -1802,6 +1844,8 @@ function tryWriteFragmentedConfig(
     const routingKeys = [
       'defaultModel',
       'defaultReasoningEffort',
+      'visionModel',
+      'visionReasoningEffort',
       'modes',
       'modeReasoningEfforts',
       'agents',
@@ -1871,6 +1915,10 @@ export function writeProviderConfigFile(params: {
       defaultReasoningEffort:
         existingConfig.defaultReasoningEffort ??
         newConfig.defaultReasoningEffort,
+      visionModel: existingConfig.visionModel ?? newConfig.visionModel,
+      visionReasoningEffort:
+        existingConfig.visionReasoningEffort ??
+        newConfig.visionReasoningEffort,
       modes: {
         ...(newConfig.modes ?? {}),
         ...(existingConfig.modes ?? {}),

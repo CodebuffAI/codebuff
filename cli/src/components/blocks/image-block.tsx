@@ -19,7 +19,7 @@ interface ImageBlockProps {
 export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
   const theme = useTheme()
 
-  const { image, mediaType, filename, size, width, height } = block
+  const { image, mediaType, filename, size, width, height, imageRedacted } = block
 
   // Calculate display dimensions based on actual image dimensions
   const displaySize = useMemo(() => 
@@ -29,6 +29,10 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
 
   // Try to render inline if supported
   const inlineSequence = useMemo(() => {
+    if (!image.trim()) {
+      return null
+    }
+
     if (!supportsInlineImages()) {
       return null
     }
@@ -116,13 +120,21 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
         </text>
       )}
 
+      {imageRedacted && (
+        <text style={{ wrapMode: 'word', fg: theme.muted }}>
+          Image data omitted from saved chat state.
+        </text>
+      )}
+
       {/* Hint about terminal support */}
-      <text
-        style={{ wrapMode: 'word', fg: theme.muted, marginTop: 1 }}
-        attributes={TextAttributes.DIM}
-      >
-        {`(${getImageSupportDescription()} - use iTerm2 or Kitty for inline display)`}
-      </text>
+      {!imageRedacted && (
+        <text
+          style={{ wrapMode: 'word', fg: theme.muted, marginTop: 1 }}
+          attributes={TextAttributes.DIM}
+        >
+          {`(${getImageSupportDescription()} - use iTerm2 or Kitty for inline display)`}
+        </text>
+      )}
     </box>
   )
 })

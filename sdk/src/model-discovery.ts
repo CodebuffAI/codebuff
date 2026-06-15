@@ -418,8 +418,9 @@ export function addDiscoveredModelToProviderConfig(params: {
     throw new Error(
       `Invalid provider config after adding model: ${parseResult.error.message}`,
     )
+  const sourceConfigPath = loadedConfig.sourceFilePaths.at(-1)
   return writeProviderConfigFile({
-    cwd: params.cwd,
+    cwd: params.cwd ?? (sourceConfigPath ? path.dirname(sourceConfigPath) : undefined),
     config,
   })
 }

@@ -668,13 +668,18 @@ const appendResultOnlyToolBlockToAgent = (
       toolCallId: event.toolCallId,
       toolName: event.toolName as ToolName,
       input: {},
-      outputRaw: event.output,
       agentId: event.agentId,
     }
 
     return {
       ...block,
-      blocks: [...existingBlocks, resultOnlyToolBlock],
+      blocks: updateToolBlockWithOutput(
+        [...existingBlocks, resultOnlyToolBlock],
+        {
+          toolCallId: event.toolCallId,
+          toolOutput: event.output,
+        },
+      ),
     }
   })
 }

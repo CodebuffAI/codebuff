@@ -4,7 +4,7 @@ import path from 'path'
 import { describe, test, expect } from 'bun:test'
 import stripAnsi from 'strip-ansi'
 
-import { isSDKBuilt, ensureCliTestEnv } from './test-utils'
+import { getDefaultCliEnv, isSDKBuilt, ensureCliTestEnv } from './test-utils'
 
 const CLI_PATH = path.join(__dirname, '../index.tsx')
 const TIMEOUT_MS = 10000
@@ -12,13 +12,30 @@ const sdkBuilt = isSDKBuilt()
 
 ensureCliTestEnv()
 
+function getCliSubprocessEnv(): NodeJS.ProcessEnv {
+  return {
+    PATH: process.env.PATH ?? '',
+    HOME: process.env.HOME ?? '',
+    USER: process.env.USER ?? '',
+    SHELL: process.env.SHELL ?? '',
+    TERM: process.env.TERM ?? 'xterm-256color',
+    TMPDIR: process.env.TMPDIR ?? '/tmp',
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME ?? '',
+    NODE_ENV: process.env.NODE_ENV ?? 'test',
+    BUN_ENV: process.env.BUN_ENV ?? 'test',
+    CI: 'true',
+    OPENBUFF_LOCAL_MODE: 'true',
+    ...getDefaultCliEnv(),
+  }
+}
+
 function runCLI(
   args: string[],
 ): { stdout: string; stderr: string; exitCode: number | null } {
   const result = spawnSync('bun', ['run', CLI_PATH, ...args], {
     cwd: path.join(__dirname, '../..'),
     timeout: TIMEOUT_MS,
-    env: process.env,
+    env: getCliSubprocessEnv(),
   })
   return {
     stdout: result.stdout?.toString() ?? '',
@@ -87,6 +104,7 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
       const proc = spawn('bun', ['run', CLI_PATH, '--agent', 'ask'], {
         cwd: path.join(__dirname, '../..'),
         stdio: 'pipe',
+        env: getCliSubprocessEnv(),
       })
 
       let started = false
@@ -127,6 +145,7 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
       const proc = spawn('bun', ['run', CLI_PATH, '--clear-logs'], {
         cwd: path.join(__dirname, '../..'),
         stdio: 'pipe',
+        env: getCliSubprocessEnv(),
       })
 
       let started = false

@@ -1,4 +1,5 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { toolParams } from '@codebuff/common/tools/list'
 import { describe, test, expect, mock } from 'bun:test'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 import { z } from 'zod/v4'
@@ -245,6 +246,36 @@ describe('Schema handling error recovery', () => {
 
       // Should have the tool defined without throwing
       expect(toolSet['problematic_tool']).toBeDefined()
+    })
+
+    test('getToolSet compacts provider-facing builtin tool schemas', async () => {
+      const rawLength = JSON.stringify(
+        toolParams.edit_transaction.inputSchema,
+      ).length
+
+      const toolSet = await getToolSet({
+        toolNames: ['edit_transaction'],
+        additionalToolDefinitions: async () => ({}),
+        agentTools: {},
+        skills: {},
+      })
+
+      const compactLength = JSON.stringify(
+        toolSet.edit_transaction.inputSchema,
+      ).length
+      const jsonSchema = (
+        toolSet.edit_transaction.inputSchema as unknown as {
+          jsonSchema: Record<string, unknown>
+        }
+      ).jsonSchema
+
+      expect(compactLength).toBeLessThan(rawLength / 5)
+      expect(jsonSchema).toMatchObject({
+        type: 'object',
+        properties: {
+          edits: expect.any(Object),
+        },
+      })
     })
 
     test('ensureZodSchema converts JSON Schema to Zod schema', () => {

@@ -133,11 +133,12 @@ describe('editor agent', () => {
       expect(editor.toolNames).toContain('read_outline')
       expect(editor.toolNames).toContain('write_file')
       expect(editor.toolNames).toContain('str_replace')
+      expect(editor.toolNames).toContain('replace_range')
       expect(editor.toolNames).toContain('rewrite_symbol')
       expect(editor.toolNames).toContain('edit_transaction')
       expect(editor.toolNames).toContain('set_output')
       expect(editor.toolNames).not.toContain('read_slices')
-      expect(editor.toolNames).toHaveLength(7)
+      expect(editor.toolNames).toHaveLength(8)
     })
   })
 
@@ -232,6 +233,16 @@ describe('editor agent', () => {
       expect(editor.instructionsPrompt).toContain('"oldString"')
       expect(editor.instructionsPrompt).toContain('"newString"')
       expect(editor.instructionsPrompt).not.toContain('    },\n  ]')
+    })
+
+    test('contains replace_range guidance and format example', () => {
+      expect(editor.instructionsPrompt).toContain('replace_range')
+      expect(editor.instructionsPrompt).toContain('read_files.ranges')
+      expect(editor.instructionsPrompt).toContain(
+        '"cb_tool_name": "replace_range"',
+      )
+      expect(editor.instructionsPrompt).toContain('"expectedHash"')
+      expect(editor.instructionsPrompt).toContain('"newContent"')
     })
 
     test('contains write_file format example', () => {

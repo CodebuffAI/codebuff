@@ -5,17 +5,20 @@ import ignore from 'ignore'
 
 const DEFAULT_EXCLUDE_DIRS = new Set([
   'node_modules',
+  '.bun-install',
   '.git',
   'dist',
   'build',
   '.next',
   '.nuxt',
   '.output',
+  '.turbo',
   'coverage',
   '.cache',
   '.codebuff-index',
   'tmp',
   '.tmp',
+  'out',
 ])
 
 const MAX_FILE_SIZE = 500_000 // 500KB

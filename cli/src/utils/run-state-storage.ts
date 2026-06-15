@@ -3,6 +3,7 @@ import path from 'path'
 
 import { getCurrentChatDir, getMostRecentChatDir, getProjectDataDir } from '../project-files'
 import { logger } from './logger'
+import { sanitizeForChatPersistence } from './payload-sanitizer'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { RunState } from '@codebuff/sdk'
@@ -73,9 +74,11 @@ export function saveChatState(runState: RunState, messages: ChatMessage[]): void
   try {
     const runStatePath = getRunStatePath()
     const messagesPath = getChatMessagesPath()
+    const persistedRunState = sanitizeForChatPersistence(runState)
+    const persistedMessages = sanitizeForChatPersistence(messages)
     
-    fs.writeFileSync(runStatePath, JSON.stringify(runState, null, 2))
-    fs.writeFileSync(messagesPath, JSON.stringify(messages, null, 2))
+    fs.writeFileSync(runStatePath, JSON.stringify(persistedRunState, null, 2))
+    fs.writeFileSync(messagesPath, JSON.stringify(persistedMessages, null, 2))
   } catch (error) {
     logger.error(
       {
@@ -132,8 +135,12 @@ export function loadMostRecentChatState(chatId?: string): SavedChatState | null 
     const runStateContent = fs.readFileSync(runStatePath, 'utf8')
     const messagesContent = fs.readFileSync(messagesPath, 'utf8')
 
-    const runState = JSON.parse(runStateContent) as RunState
-    const messages = JSON.parse(messagesContent) as ChatMessage[]
+    const runState = sanitizeForChatPersistence(
+      JSON.parse(runStateContent) as RunState,
+    )
+    const messages = sanitizeForChatPersistence(
+      JSON.parse(messagesContent) as ChatMessage[],
+    )
 
     const resolvedChatId = path.basename(chatDir)
 
