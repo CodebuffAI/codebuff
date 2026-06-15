@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Users,
   Settings,
+  Gift,
   LogOut,
   Menu,
   X,
@@ -47,6 +48,7 @@ export interface AppShellNavItem {
 const NAV_ITEMS: AppShellNavItem[] = [
   { label: 'Projects', href: '/web', Icon: FolderKanban, exact: true },
   { label: 'Community', href: '/web/community', Icon: Users },
+  { label: 'Referrals', href: '/web/referrals', Icon: Gift },
   { label: 'Settings', href: '/web/settings', Icon: Settings },
 ]
 

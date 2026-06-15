@@ -100,7 +100,7 @@ export default function AdminReferralsPage() {
   };
 
   const handleCopyLink = (url: string, code: string) => {
-    const fullUrl = `${window.location.origin}/?ref=${code}`;
+    const fullUrl = `${window.location.origin}/web/?ref=${code}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedCode(code);
     toast.success("Referral link copied to clipboard!");
@@ -118,7 +118,7 @@ export default function AdminReferralsPage() {
 
   const getFullUrl = (code: string) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/?ref=${code}`;
+    return `${baseUrl}/web/?ref=${code}`;
   };
 
   // Redirect non-admin users

@@ -101,7 +101,7 @@ export const getUserReferralCodes = query({
 
     return codes.map((code) => ({
       ...code,
-      url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/?ref=${code.code}`,
+      url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/web/?ref=${code.code}`,
     }));
   },
 });
@@ -169,7 +169,7 @@ export const getAllReferralCodes = query({
           ...code,
           ownerName: owner?.name || "Unknown",
           ownerEmail: owner?.email || "Unknown",
-          url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/?ref=${code.code}`,
+          url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/web/?ref=${code.code}`,
         };
       }),
     );

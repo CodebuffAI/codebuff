@@ -63,7 +63,7 @@ export default function ReferralsPage() {
   }, []);
 
   const shareUrl = status?.code
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/?ref=${status.code}`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/web/?ref=${status.code}`
     : null;
 
   const handleCopy = () => {
