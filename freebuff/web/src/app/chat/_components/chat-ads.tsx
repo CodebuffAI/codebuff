@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
@@ -153,48 +153,47 @@ export const ChatAds = memo(function ChatAds({
   } catch {}
 
   return (
-    <div className="mb-2">
-      <a
-        key={ad.clickUrl}
-        href={ad.clickUrl}
-        target="_blank"
-        rel="noopener noreferrer sponsored"
-        onClick={() => recordAdEvent('click', ad.impUrl, 'chat')}
-        className="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
-      >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5 text-xs font-medium text-muted-foreground">
-          {ad.favicon && !faviconErrors[ad.favicon] ? (
-            <img
-              src={ad.favicon}
-              alt=""
-              className="h-full w-full object-cover"
-              onError={() =>
-                setFaviconErrors((prev) => ({ ...prev, [ad.favicon!]: true }))
-              }
-            />
-          ) : (
-            (ad.title || hostname).charAt(0).toUpperCase() || 'Ad'
-          )}
+    <a
+      key={ad.clickUrl}
+      href={ad.clickUrl}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      onClick={() => recordAdEvent('click', ad.impUrl, 'chat')}
+      className="group mb-2 flex items-center gap-3.5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-white/5 text-sm font-medium text-muted-foreground">
+        {ad.favicon && !faviconErrors[ad.favicon] ? (
+          <img
+            src={ad.favicon}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() =>
+              setFaviconErrors((prev) => ({ ...prev, [ad.favicon!]: true }))
+            }
+          />
+        ) : (
+          (ad.title || hostname).charAt(0).toUpperCase() || 'Ad'
+        )}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium text-foreground/90">
+            {ad.title || hostname}
+          </span>
+          <span className="shrink-0 rounded border border-white/15 px-1.5 py-px text-[10px] tracking-wide text-muted-foreground/60">
+            Sponsored
+          </span>
         </span>
-        <span className="min-w-0 flex-1">
+        {ad.adText && (
           <span className="line-clamp-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground/90">
-              {ad.title || hostname}
-            </span>
-            {ad.adText && <> — {ad.adText}</>}
+            {ad.adText}
           </span>
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
-          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
-            {ad.cta || 'Learn more'}
-            <ExternalLink className="h-3 w-3" />
-          </span>
-          <span className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground/60">
-            Ad
-            {hostname && <span className="normal-case">{hostname}</span>}
-          </span>
-        </span>
-      </a>
-    </div>
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+        {ad.cta || 'Learn more'}
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </a>
   )
 })
