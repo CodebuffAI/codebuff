@@ -52,7 +52,7 @@ export const FREE_MODE_RATE_LIMITS = {
  */
 export const FREE_MODE_PREMIUM_RATE_LIMITS = {
   /** Max premium-model requests per 1-day window */
-  PER_DAY: 1_200,
+  PER_DAY: 2_500,
 } as const
 
 // ---------------------------------------------------------------------------
