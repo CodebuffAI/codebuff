@@ -202,6 +202,60 @@ describe('gravity_index tool', () => {
     )
   })
 
+  test('does not special-case base2-free traffic as web surface', async () => {
+    const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
+      result: { search_id: 'search-1' },
+    })
+
+    mockAgentStream([
+      createToolCallChunk('gravity_index', {
+        action: 'search',
+        query: 'transactional email for Next.js',
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
+
+    const fileContext = {
+      ...mockFileContext,
+      agentTemplates: {
+        'base2-free-deepseek': {
+          ...gravityTestAgent,
+          id: 'base2-free-deepseek',
+          displayName: 'Buffy the DeepSeek Free Orchestrator',
+        },
+      },
+    }
+    const sessionState = getInitialSessionState(fileContext)
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'base2-free-deepseek',
+    }
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      ...agentRuntimeImpl,
+      fileContext,
+    })
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'base2-free-deepseek',
+      fileContext,
+      localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['base2-free-deepseek'],
+      agentState,
+      prompt: 'Find an email provider',
+    })
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          metadata: expect.objectContaining({
+            surface: 'codebuff_cli',
+          }),
+        }),
+      }),
+    )
+  })
+
   test('stores recommendation and setup URL in tool output', async () => {
     spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: {

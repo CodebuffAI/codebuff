@@ -4,7 +4,10 @@
  * Each *qualified* referral (referred user's GitHub account is at least
  * MIN_GITHUB_ACCOUNT_AGE_MONTHS old at signup) raises the referrer's tier.
  * Tiers scale the daily model usage limits and unlock perks (deploy
- * watermark removal). All tunable numbers live in this file.
+ * watermark removal). In full/allowed regions both standard and premium
+ * limits apply; in limited regions, users can still unlock tiers but only the
+ * standard/free-model limit applies because premium models remain geo-gated.
+ * All tunable numbers live in this file.
  */
 
 /** Referred users must have a GitHub account at least this old for the
