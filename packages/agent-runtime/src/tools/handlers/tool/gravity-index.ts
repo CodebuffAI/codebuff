@@ -27,8 +27,18 @@ const isJSONObject = (value: JSONValue | undefined): value is JSONObject =>
 
 /** Gravity attribution surface, so clicks/conversions are attributable to the
  *  product the request came from rather than all reading as CLI traffic. */
-const gravitySurface = (agentTemplate: { id: string }): string =>
-  agentTemplate.id === 'base-chat' ? 'freebuff_chat' : 'codebuff_cli'
+const gravitySurface = (params: {
+  agentTemplate: { id: string }
+  existingMetadata: JSONObject
+}): string => {
+  const existingSurface = params.existingMetadata.surface
+  if (typeof existingSurface === 'string' && existingSurface) {
+    return existingSurface
+  }
+  return params.agentTemplate.id === 'base-chat'
+    ? 'freebuff_chat'
+    : 'codebuff_cli'
+}
 
 export const handleGravityIndex = (async (params: {
   previousToolCallFinished: Promise<void>
@@ -92,7 +102,7 @@ export const handleGravityIndex = (async (params: {
     const metadata = {
       ...existingMetadata,
       ...omitUndefined({
-        surface: gravitySurface(agentTemplate),
+        surface: gravitySurface({ agentTemplate, existingMetadata }),
         tool_call_id: toolCall.toolCallId,
         agent_step_id: agentStepId,
         fingerprint_id: fingerprintId,
