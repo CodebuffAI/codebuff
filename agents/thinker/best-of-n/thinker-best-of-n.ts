@@ -8,27 +8,27 @@ import type {
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export function createThinkerBestOfN(
-  model: 'sonnet' | 'gpt-5' | 'fable',
+  model: 'sonnet' | 'gpt-5' | 'opus',
 ): Omit<SecretAgentDefinition, 'id'> {
   const isGpt5 = model === 'gpt-5'
-  const isFable = model === 'fable'
+  const isOpus = model === 'opus'
 
   return {
     publisher,
     model: isGpt5
       ? 'openai/gpt-5.1'
-      : isFable
-        ? 'anthropic/claude-fable-5'
+      : isOpus
+        ? 'anthropic/claude-opus-4.8'
         : 'anthropic/claude-sonnet-4.5',
-    ...(isFable && {
+    ...(isOpus && {
       providerOptions: {
         only: ['amazon-bedrock'],
       },
     }),
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Thinker'
-      : isFable
-        ? 'Best-of-N Fable Thinker'
+      : isOpus
+        ? 'Best-of-N Opus Thinker'
         : 'Best-of-N Thinker',
     spawnerPrompt:
       'Generates deep thinking by orchestrating multiple thinker agents, selects the best thinking output. Use this to help solve a hard problem. You must first gather all the relevant context *BEFORE* spawning this agent, as it can only think.',
@@ -37,7 +37,7 @@ export function createThinkerBestOfN(
     inheritParentSystemPrompt: true,
 
     toolNames: ['spawn_agents'],
-    spawnableAgents: [isFable ? 'thinker-selector-fable' : 'thinker-selector'],
+    spawnableAgents: [isOpus ? 'thinker-selector-opus' : 'thinker-selector'],
 
     inputSchema: {
       prompt: {
@@ -64,7 +64,7 @@ Use the <think> tag to think deeply about the user request.
 
 When satisfied, write out a brief response to the user's request. The parent agent will see your response -- no need to call any tools. In particular, do not use the spawn_agents tool or the set_output tool or any tools at all! `,
 
-    handleSteps: isFable ? handleStepsFable : handleStepsDefault,
+    handleSteps: isOpus ? handleStepsOpus : handleStepsDefault,
   }
 }
 function* handleStepsDefault({
@@ -152,14 +152,14 @@ function* handleStepsDefault({
   }
 }
 
-function* handleStepsFable({
+function* handleStepsOpus({
   agentState,
   prompt,
   params,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const selectorAgentType = 'thinker-selector-fable'
+  const selectorAgentType = 'thinker-selector-opus'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 3))
 
   // Use GENERATE_N to generate n thinking outputs

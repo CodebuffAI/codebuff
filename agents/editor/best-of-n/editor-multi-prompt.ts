@@ -11,7 +11,7 @@ import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
   return {
     publisher,
-    model: 'anthropic/claude-fable-5',
+    model: 'anthropic/claude-opus-4.8',
     providerOptions: {
       only: ['amazon-bedrock'],
     },
@@ -31,7 +31,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
     ],
     spawnableAgents: [
       'best-of-n-selector2',
-      'editor-implementor-fable',
+      'editor-implementor-opus',
       'editor-implementor-gpt-5',
     ],
 
@@ -94,10 +94,10 @@ function* handleStepsMultiPrompt({
     includeToolCall: false,
   } satisfies ToolCall<'set_messages'>
 
-  // Spawn one fable implementor per prompt
+  // Spawn one opus implementor per prompt
   const implementorAgents: { agent_type: string; prompt?: string }[] =
     prompts.map((prompt) => ({
-      agent_type: 'editor-implementor-fable',
+      agent_type: 'editor-implementor-opus',
       prompt: `Strategy: ${prompt}`,
     }))
 

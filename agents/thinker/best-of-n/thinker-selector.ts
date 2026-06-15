@@ -2,22 +2,22 @@ import { publisher } from '../../constants'
 import { type SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export function createThinkerSelector(
-  model: 'sonnet' | 'fable',
+  model: 'sonnet' | 'opus',
 ): Omit<SecretAgentDefinition, 'id'> {
-  const isFable = model === 'fable'
+  const isOpus = model === 'opus'
 
   return {
     publisher,
-    model: isFable
-      ? 'anthropic/claude-fable-5'
+    model: isOpus
+      ? 'anthropic/claude-opus-4.8'
       : 'anthropic/claude-sonnet-4.5',
-    ...(isFable && {
+    ...(isOpus && {
       providerOptions: {
         only: ['amazon-bedrock'],
       },
     }),
-    displayName: isFable
-      ? 'Fable Thinker Output Selector'
+    displayName: isOpus
+      ? 'Opus Thinker Output Selector'
       : 'Thinker Output Selector',
     spawnerPrompt: 'Analyzes multiple thinking outputs and selects the best one',
 

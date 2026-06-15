@@ -601,9 +601,6 @@ describe('isImplementorAgent', () => {
       isImplementorAgent({ agentType: 'editor-implementor-opus', blocks: [] }),
     ).toBe(true)
     expect(
-      isImplementorAgent({ agentType: 'editor-implementor-fable', blocks: [] }),
-    ).toBe(true)
-    expect(
       isImplementorAgent({ agentType: 'editor-implementor-gpt-5', blocks: [] }),
     ).toBe(true)
     expect(
@@ -628,7 +625,6 @@ describe('getImplementorDisplayName', () => {
   test('returns model names', () => {
     expect(getImplementorDisplayName('editor-implementor')).toBe('Sonnet')
     expect(getImplementorDisplayName('editor-implementor-opus')).toBe('Opus')
-    expect(getImplementorDisplayName('editor-implementor-fable')).toBe('Fable')
     expect(getImplementorDisplayName('editor-implementor-gpt-5')).toBe('GPT-5')
     expect(getImplementorDisplayName('editor-implementor-gemini')).toBe(
       'Gemini',
