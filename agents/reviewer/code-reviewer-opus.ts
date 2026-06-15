@@ -4,9 +4,9 @@ import { publisher } from '../constants'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  id: 'code-reviewer-fable',
+  id: 'code-reviewer-opus',
   publisher,
-  ...createReviewer('anthropic/claude-fable-5'),
+  ...createReviewer('anthropic/claude-opus-4.8'),
   providerOptions: {
     only: ['amazon-bedrock'],
   },

@@ -5,12 +5,11 @@ import {
 } from '../../types/secret-agent-definition'
 
 export const createBestOfNSelector2 = (options: {
-  model: 'sonnet' | 'opus' | 'fable' | 'gpt-5'
+  model: 'sonnet' | 'opus' | 'gpt-5'
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
   const isSonnet = model === 'sonnet'
   const isOpus = model === 'opus'
-  const isFable = model === 'fable'
   const isGpt5 = model === 'gpt-5'
   return {
     publisher,
@@ -18,15 +17,13 @@ export const createBestOfNSelector2 = (options: {
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
         ? 'anthropic/claude-opus-4.8'
-        : isFable
-          ? 'anthropic/claude-fable-5'
-          : 'openai/gpt-5.4',
+        : 'openai/gpt-5.4',
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high',
       },
     }),
-    ...((isOpus || isFable) && {
+    ...(isOpus && {
       providerOptions: {
         only: ['amazon-bedrock'],
       },
@@ -35,9 +32,7 @@ export const createBestOfNSelector2 = (options: {
       ? 'Best-of-N GPT-5 Diff Selector'
       : isOpus
         ? 'Best-of-N Opus Diff Selector'
-        : isFable
-          ? 'Best-of-N Fable Diff Selector'
-          : 'Best-of-N Sonnet Diff Selector',
+        : 'Best-of-N Sonnet Diff Selector',
     spawnerPrompt:
       'Analyzes multiple implementation proposals (as unified diffs) and selects the best one',
 
@@ -136,7 +131,7 @@ Try to select an implementation that fulfills all the requirements in the user's
 
 ## Response Format
 
-${isSonnet || isOpus || isFable
+${isSonnet || isOpus
         ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! Also analyze the non-chosen implementations for any valuable techniques or approaches that could improve the selected one.
 
 Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId, short reason, and suggestedImprovements array.`
@@ -146,7 +141,7 @@ Then, do not write any other explanations AT ALL. You should directly output a s
 }
 
 const definition: SecretAgentDefinition = {
-  ...createBestOfNSelector2({ model: 'fable' }),
+  ...createBestOfNSelector2({ model: 'opus' }),
   id: 'best-of-n-selector2',
 }
 

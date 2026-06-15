@@ -1,8 +1,8 @@
 import { createThinkerSelector } from './thinker-selector'
 
 const definition = {
-  ...createThinkerSelector('fable'),
-  id: 'thinker-selector-fable',
+  ...createThinkerSelector('opus'),
+  id: 'thinker-selector-opus',
 }
 
 export default definition
