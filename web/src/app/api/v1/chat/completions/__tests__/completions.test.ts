@@ -1436,7 +1436,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'lets MiniMax M3 use the official MiniMax provider outside free mode',
+      'routes MiniMax M3 through the Fireworks provider outside free mode',
       async () => {
         const fetchedBodies: Record<string, unknown>[] = []
         const fetchedUrls: string[] = []
@@ -1501,15 +1501,16 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         const body = await response.json()
         expect(response.status).toBe(200)
         expect(fetchedUrls[0]).toBe(
-          'https://api.minimax.io/v1/chat/completions',
+          'https://api.fireworks.ai/inference/v1/chat/completions',
         )
-        const minimaxHeaders = fetchedHeaders[0] as Record<string, string>
-        expect(minimaxHeaders.Authorization).toMatch(/^Bearer\s+\S+$/)
-        expect(minimaxHeaders['Content-Type']).toBe('application/json')
-        expect(fetchedBodies[0].model).toBe('MiniMax-M3')
-        expect(fetchedBodies[0].reasoning_split).toBe(true)
+        const fireworksHeaders = fetchedHeaders[0] as Record<string, string>
+        expect(fireworksHeaders.Authorization).toMatch(/^Bearer\s+\S+$/)
+        expect(fireworksHeaders['Content-Type']).toBe('application/json')
+        expect(fetchedBodies[0].model).toBe(
+          'accounts/fireworks/models/minimax-m3',
+        )
         expect(body.model).toBe(MINIMAX_M3_MODEL_ID)
-        expect(body.provider).toBe('MiniMax')
+        expect(body.provider).toBe('Fireworks')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

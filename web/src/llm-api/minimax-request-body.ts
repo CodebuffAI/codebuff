@@ -4,9 +4,11 @@ import type { ChatCompletionRequestBody } from './types'
 
 export const MINIMAX_M3_API_MODEL_ID = 'MiniMax-M3'
 
-export const MINIMAX_MODEL_IDS: Record<string, string> = {
-  [minimaxModels.minimaxM3]: MINIMAX_M3_API_MODEL_ID,
-}
+// NOTE: minimax/minimax-m3 is intentionally routed through Fireworks
+// (see FIREWORKS_MODEL_MAP in fireworks.ts) rather than the official MiniMax
+// API. Leaving this map empty means isMiniMaxModel() returns false for it, so
+// getChatCompletionsProvider() falls through to the Fireworks provider.
+export const MINIMAX_MODEL_IDS: Record<string, string> = {}
 
 export function getMiniMaxModelId(openrouterModel: string): string {
   return MINIMAX_MODEL_IDS[openrouterModel] ?? openrouterModel

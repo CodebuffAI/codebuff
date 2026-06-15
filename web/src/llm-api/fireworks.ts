@@ -19,7 +19,10 @@ import {
 import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ChatCompletionRequestBody } from './types'
+import type {
+  ChatCompletionContentPart,
+  ChatCompletionRequestBody,
+} from './types'
 
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 
@@ -38,6 +41,7 @@ export const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'fireworks/deepseek-v4-flash': 'accounts/fireworks/models/deepseek-v4-flash',
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
+  'minimax/minimax-m3': 'accounts/fireworks/models/minimax-m3',
   'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
@@ -92,6 +96,37 @@ type LineResult = {
   patchedLine: string
 }
 
+/**
+ * Strip `cache_control` annotations from messages and their content parts.
+ * Anthropic/OpenRouter add these for prompt caching, but Fireworks' OpenAI-
+ * compatible endpoint validates strictly and rejects the extra field
+ * ("Extra inputs are not permitted, field: messages[*].content[*].cache_control").
+ * Mirrors the normalization in moonshot.ts / opencode-zen.ts.
+ */
+function stripFireworksCacheControl(
+  messages: ChatCompletionRequestBody['messages'],
+): ChatCompletionRequestBody['messages'] {
+  return messages.map((message) => {
+    const {
+      cache_control: _cacheControl,
+      content,
+      ...rest
+    } = message as ChatCompletionRequestBody['messages'][number] & {
+      cache_control?: unknown
+    }
+    if (!Array.isArray(content)) {
+      return { ...rest, ...(content !== undefined && { content }) }
+    }
+    const normalizedContent = content.map((part) => {
+      if (!part || typeof part !== 'object') return part
+      const { cache_control: _partCacheControl, ...partRest } =
+        part as ChatCompletionContentPart & { cache_control?: unknown }
+      return partRest
+    })
+    return { ...rest, content: normalizedContent }
+  }) as ChatCompletionRequestBody['messages']
+}
+
 function createFireworksRequest(params: {
   body: ChatCompletionRequestBody
   originalModel: string
@@ -103,6 +138,11 @@ function createFireworksRequest(params: {
   const fireworksBody: Record<string, unknown> = {
     ...body,
     model: modelIdOverride ?? getFireworksModelId(originalModel),
+  }
+
+  // Fireworks rejects Anthropic/OpenRouter `cache_control` annotations.
+  if (Array.isArray(body.messages)) {
+    fireworksBody.messages = stripFireworksCacheControl(body.messages)
   }
 
   // Transform OpenRouter-style `reasoning` object into Fireworks' `reasoning_effort`.
@@ -187,6 +227,11 @@ export const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     inputCostPerToken: 0.3 / 1_000_000,
     cachedInputCostPerToken: 0.06 / 1_000_000,
     outputCostPerToken: 1.2 / 1_000_000,
+  },
+  'minimax/minimax-m3': {
+    inputCostPerToken: 0.6 / 1_000_000,
+    cachedInputCostPerToken: 0.12 / 1_000_000,
+    outputCostPerToken: 2.4 / 1_000_000,
   },
   'moonshotai/kimi-k2.6': {
     inputCostPerToken: 0.95 / 1_000_000,
