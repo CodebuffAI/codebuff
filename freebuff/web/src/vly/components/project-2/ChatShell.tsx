@@ -486,6 +486,14 @@ ${message}`;
     // Listen for integration tool messages
     function handleChatMessage(event: CustomEvent) {
       if (event.detail && event.detail.message) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(
+            `chat-send-${projectSemanticIdentifierRef.current}`,
+          );
+          window.localStorage.removeItem(
+            `chat-draft-${projectSemanticIdentifierRef.current}`,
+          );
+        }
         handleSendMessageWithNode(event.detail.message, []);
       }
     }
@@ -508,6 +516,15 @@ ${message}`;
     setIsSelectingElement,
     updateSelectedNodeInfo,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sendKey = `chat-send-${projectSemanticIdentifier}`;
+    const message = window.localStorage.getItem(sendKey);
+    if (!message || !message.trim()) return;
+    window.localStorage.removeItem(sendKey);
+    void handleSendMessageWithNode(message, []);
+  }, [projectSemanticIdentifier, handleSendMessageWithNode]);
 
   // Calculate if suggestions should be shown
   const shouldShowSuggestions = useMemo(() => {

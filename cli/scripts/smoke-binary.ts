@@ -42,6 +42,12 @@ import { existsSync } from 'fs'
 //   - "Free mode isn't available" — freebuff country-block screen (CI
 //     runners with anonymized-network egress like GitHub Actions land here)
 //   - "Enter a coding task" — chat input prompt
+//   - OpenTUI terminal handshakes such as alternate-screen / Kitty keyboard
+//     protocol enablement. On Windows GitHub Actions, the compiled binary can
+//     emit the OpenTUI setup escape stream but not flush static React text
+//     before the smoke timeout; that still proves the renderer reached the
+//     post-init terminal surface. Tree-sitter is checked separately above, and
+//     fatal markers below still fail the smoke if async startup breaks later.
 const BOOT_SIGNAL_PATTERNS = [
   /will run commands on your behalf/,
   /Pick a model to start/,
@@ -51,6 +57,8 @@ const BOOT_SIGNAL_PATTERNS = [
   /Press ENTER to login/,
   /Open this URL/,
   /Enter a coding task/,
+  /\x1b\[\?1049h/,
+  /\x1b\[\?2031h/,
 ] as const
 
 // Fatal markers we already know about — kept for nicer error messages on

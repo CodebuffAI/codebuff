@@ -50,7 +50,9 @@ describe('free-mode-rate-limiter', () => {
       }
       const result = checkFreeModeRateLimit(userId, options)
       if (result.limited) {
-        throw new Error(`Unexpectedly rate limited on request ${i + 1}`)
+        throw new Error(
+          `Unexpectedly rate limited on request ${i + 1} by ${result.windowName}`,
+        )
       }
     }
   }
@@ -60,27 +62,29 @@ describe('free-mode-rate-limiter', () => {
   // daily window can be the limiting factor. The premium daily cap (2500) is
   // larger than the general 5-hour limit (2000), so the requests must be spread
   // across multiple 5-hour windows — not just 30-minute ones — or the general
-  // 5-hour window would trip first. `count` must stay under the general 1-day
-  // limit (4000) so the general windows never trip first, and the whole sequence
-  // fits inside one day (count <= 4000 needs at most two 5-hour windows ~= 10h),
-  // so the premium daily counter never resets mid-run. Each 5-hour window ends
-  // just past its boundary, which also resets the smaller general windows, so
-  // follow-up probe requests aren't blocked by a window the final batch filled.
+  // 5-hour window would trip first. Use one less than each general max where
+  // possible to avoid follow-up probe requests being blocked by a general
+  // window that the helper filled exactly. `count` must stay under the general
+  // 1-day limit (4000), and the whole sequence fits inside one day, so the
+  // premium daily counter never resets mid-run.
   function sendPremiumWithinOneDay(userId: string, count: number) {
-    const per5Hours = FREE_MODE_RATE_LIMITS.PER_5_HOURS
-    const per30Min = FREE_MODE_RATE_LIMITS.PER_30_MINUTES
-    const perMinute = FREE_MODE_RATE_LIMITS.PER_MINUTE
+    const per5Hours = Math.max(1, FREE_MODE_RATE_LIMITS.PER_5_HOURS - 1)
+    const per30Min = Math.max(1, FREE_MODE_RATE_LIMITS.PER_30_MINUTES - 1)
+    const perMinute = Math.max(1, FREE_MODE_RATE_LIMITS.PER_MINUTE - 1)
     let sent = 0
     while (sent < count) {
-      const windowStart = fakeNow
+      const fiveHourStart = fakeNow
       const batchFor5Hours = Math.min(per5Hours, count - sent)
-      // Within each 5-hour window, spread across 30-minute windows.
-      let sentIn5Hr = 0
-      while (sentIn5Hr < batchFor5Hours) {
-        const subWindowStart = fakeNow
-        const batchFor30Min = Math.min(per30Min, batchFor5Hours - sentIn5Hr)
-        // Within each 30-min window, spread across 1-min windows.
+      let sentIn5Hours = 0
+
+      while (sentIn5Hours < batchFor5Hours) {
+        const thirtyMinuteStart = fakeNow
+        const batchFor30Min = Math.min(
+          per30Min,
+          batchFor5Hours - sentIn5Hours,
+        )
         let sentIn30Min = 0
+
         while (sentIn30Min < batchFor30Min) {
           const batch = Math.min(perMinute, batchFor30Min - sentIn30Min)
           makeRequests(userId, batch, { premium: true })
@@ -89,19 +93,19 @@ describe('free-mode-rate-limiter', () => {
             advanceTime(1 * MINUTE_MS + 1)
           }
         }
-        sentIn5Hr += sentIn30Min
-        if (sentIn5Hr < batchFor5Hours) {
-          // Advance just past the 30-min boundary to reset it, accounting for
-          // time already elapsed in the inner loop.
-          const elapsed = fakeNow - subWindowStart
+
+        sentIn5Hours += sentIn30Min
+        if (sentIn5Hours < batchFor5Hours) {
+          const elapsed = fakeNow - thirtyMinuteStart
           advanceTime(30 * MINUTE_MS - elapsed + 1)
         }
       }
-      sent += sentIn5Hr
-      // Advance just past the 5-hour boundary to reset it (and all smaller
-      // windows) while staying within the 1-day window.
-      const elapsed = fakeNow - windowStart
-      advanceTime(5 * HOUR_MS - elapsed + 1)
+
+      sent += sentIn5Hours
+      if (sent < count) {
+        const elapsed = fakeNow - fiveHourStart
+        advanceTime(5 * HOUR_MS - elapsed + 1)
+      }
     }
   }
 

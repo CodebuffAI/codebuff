@@ -58,7 +58,7 @@ async function sha256Hex(value: string): Promise<string | undefined> {
  * The installed @gravity-ai/api package does not expose gravityContext() yet,
  * so keep this payload local and switch to the SDK helper when it is published.
  */
-async function buildGravityContext(params: {
+export async function buildGravityContext(params: {
   sessionId: string
   userId?: string | null
   email?: string | null

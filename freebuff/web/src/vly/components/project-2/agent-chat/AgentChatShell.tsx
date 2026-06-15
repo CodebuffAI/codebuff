@@ -514,11 +514,42 @@ export function AgentChatShell({
       }
     }
 
+    function handleChatMessage(event: Event) {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      const message = customEvent.detail?.message;
+      if (!message || !message.trim()) return;
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(
+          `chat-send-${projectSemanticIdentifier}`,
+        );
+        window.localStorage.removeItem(
+          `chat-draft-${projectSemanticIdentifier}`,
+        );
+      }
+      void handleSendMessage(message, []);
+    }
+
     window.addEventListener("message", handleToolbarSelect);
+    window.addEventListener("sendChatMessage", handleChatMessage);
     return () => {
       window.removeEventListener("message", handleToolbarSelect);
+      window.removeEventListener("sendChatMessage", handleChatMessage);
     };
-  }, [updateSelectedNodeInfo, setIsSelectingElement]);
+  }, [
+    updateSelectedNodeInfo,
+    setIsSelectingElement,
+    handleSendMessage,
+    projectSemanticIdentifier,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sendKey = `chat-send-${projectSemanticIdentifier}`;
+    const message = window.localStorage.getItem(sendKey);
+    if (!message || !message.trim()) return;
+    window.localStorage.removeItem(sendKey);
+    void handleSendMessage(message, []);
+  }, [projectSemanticIdentifier, handleSendMessage]);
 
   // Handle setting active thread
   const setActiveThread = useMutation(api.project.setActiveThread);

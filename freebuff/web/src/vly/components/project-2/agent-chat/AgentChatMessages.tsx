@@ -48,10 +48,13 @@ import { FunctionReturnType } from 'convex/server'
 import { toast } from 'sonner'
 import {
   fetchGravityAds,
+  buildGravityContext,
   type GravityAd,
+  type GravityContext,
   type GravityAdMessage,
 } from './GravityAdSlot'
 import { ThinkingState } from '../ThinkingState'
+import { useSession } from 'next-auth/react'
 
 // Scroll to Bottom Button Component
 const ScrollToBottomButton: React.FC<{ onClick: () => void }> = ({
@@ -1376,6 +1379,7 @@ export const AgentChatMessages = forwardRef<
   const persistAgentAdMessage = useMutation(
     api.coding_agent.cli_agent.agent_message.persistAgentAdMessage,
   )
+  const { data: session } = useSession()
   const attemptedAdSourceIdsRef = useRef<Set<string>>(new Set())
   const adFetchAttemptCountsRef = useRef<Map<string, number>>(new Map())
   const [liveAgentAds, setLiveAgentAds] = useState<LiveAgentAds | null>(null)
@@ -1481,14 +1485,28 @@ export const AgentChatMessages = forwardRef<
         (adFetchAttemptCountsRef.current.get(attemptKey) ?? 0) + 1,
       )
     })
-    void fetchGravityAds(
-      gravityMessages,
-      `${project.active_agent_thread}-${sourceMessageId}`,
-      false,
-      undefined,
-      undefined,
-      'freebuff_web_chat',
-    )
+    const testAd = process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
+    void (async () => {
+      let gravityContext: GravityContext | undefined
+      try {
+        gravityContext = await buildGravityContext({
+          sessionId: `${project.active_agent_thread}-${sourceMessageId}`,
+          userId: session?.user?.id,
+          email: session?.user?.email,
+        })
+      } catch {
+        gravityContext = undefined
+      }
+
+      return fetchGravityAds(
+        gravityMessages,
+        `${project.active_agent_thread}-${sourceMessageId}`,
+        testAd,
+        undefined,
+        gravityContext,
+        'freebuff_web_chat',
+      )
+    })()
       .then(async (ads) => {
         const seenCreativeIds = new Set(
           Object.values(existingAds)
@@ -1572,6 +1590,8 @@ export const AgentChatMessages = forwardRef<
     adsBySourceMessageId,
     persistAgentAdMessage,
     project?.active_agent_thread,
+    session?.user?.email,
+    session?.user?.id,
     sourceMessageForAd,
   ])
   // Rollback functionality

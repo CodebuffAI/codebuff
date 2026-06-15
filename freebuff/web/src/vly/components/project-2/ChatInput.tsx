@@ -126,6 +126,31 @@ interface PendingImage {
   isCompressing?: boolean;
 }
 
+function toEditorValue(text: string) {
+  const lines = text.split("\n");
+  const newValue =
+    lines.length > 0
+      ? lines.map((line) => ({
+          type: "paragraph" as const,
+          children: [{ text: line }],
+        }))
+      : [
+          {
+            type: "paragraph" as const,
+            children: [{ text }],
+          },
+        ];
+
+  if (newValue.length === 0) {
+    newValue.push({
+      type: "paragraph" as const,
+      children: [{ text: "" }],
+    });
+  }
+
+  return newValue;
+}
+
 export const ChatInput: React.FC<ChatInputProps> = React.memo(
   ({
     isProcessing,
@@ -219,36 +244,24 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     // Restore message when restoreMessage prop changes
     useEffect(() => {
       if (restoreMessage !== null && restoreMessage !== undefined) {
-        // Convert text to Slate Descendant format with proper spacing
-        const lines = restoreMessage.split("\n");
-        const newValue =
-          lines.length > 0
-            ? lines.map((line) => ({
-                type: "paragraph" as const,
-                children: [{ text: line }],
-              }))
-            : [
-                {
-                  type: "paragraph" as const,
-                  children: [{ text: restoreMessage }],
-                },
-              ];
-
-        // Ensure at least one paragraph
-        if (newValue.length === 0) {
-          newValue.push({
-            type: "paragraph" as const,
-            children: [{ text: "" }],
-          });
-        }
-
-        // Replace entire editor value
-        updateEditorValue(newValue);
+        updateEditorValue(toEditorValue(restoreMessage));
 
         // Reset editor key to force re-render with new content
         setEditorKey((prev) => prev + 1);
       }
     }, [restoreMessage, updateEditorValue]);
+
+    useEffect(() => {
+      if (!isHydrated) return;
+      if (typeof window === "undefined") return;
+      const draftKey = `chat-draft-${projectSemanticIdentifier}`;
+      const draft = window.localStorage.getItem(draftKey);
+      if (!draft) return;
+
+      updateEditorValue(toEditorValue(draft));
+      setEditorKey((prev) => prev + 1);
+      window.localStorage.removeItem(draftKey);
+    }, [projectSemanticIdentifier, updateEditorValue, isHydrated]);
 
     // Track focus state of the editor
     useEffect(() => {

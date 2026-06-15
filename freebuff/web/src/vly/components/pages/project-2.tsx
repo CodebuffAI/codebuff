@@ -753,6 +753,21 @@ function ProjectWrapper({
   const activeTab: IframeTab = viewToTab(activeView);
   const setActiveTab = (tab: IframeTab) => updateActiveView(tabToView(tab));
 
+  // A non-preview tab (Data / Editor / Integrations / …) needs the most
+  // horizontal room — these are dense tools, not a phone-sized preview. So
+  // when one is open we aggressively compact the chat and hand the width to
+  // the right pane, the same way the preview shrinks the chat on "Click to
+  // test". Focusing the chat input still lets it grow back to a workable
+  // typing width.
+  const isSideTabActive = !isMobile && activeTab !== "preview";
+  const chatWidth = isSideTabActive
+    ? isChatExpanded
+      ? "40%"
+      : "26%"
+    : isChatExpanded
+      ? "58%"
+      : "42%";
+
   return (
     <>
       {/* Deployment Dialog - triggered by publish URL param */}
@@ -794,13 +809,7 @@ function ProjectWrapper({
           <motion.aside
             ref={chatAsideRef}
             initial={false}
-            animate={
-              isMobile
-                ? undefined
-                : isChatExpanded
-                  ? { width: "58%" }
-                  : { width: "42%" }
-            }
+            animate={isMobile ? undefined : { width: chatWidth }}
             transition={{
               duration: 0.42,
               ease: [0.22, 1, 0.36, 1] as const,
@@ -808,7 +817,7 @@ function ProjectWrapper({
             className={`relative flex h-full min-h-0 flex-col overflow-hidden bg-background ${
               isMobile
                 ? `w-full ${mobileView === "chat" ? "flex" : "hidden"}`
-                : "min-w-[400px] max-w-[820px]"
+                : `max-w-[820px] ${isSideTabActive ? "min-w-[300px]" : "min-w-[400px]"}`
             }`}
             style={isMobile ? undefined : { willChange: "width" }}
           >
