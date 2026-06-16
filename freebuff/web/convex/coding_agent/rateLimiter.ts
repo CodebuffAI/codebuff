@@ -232,7 +232,7 @@ export async function checkPremiumModelRateLimit(
       error: {
         kind: "PremiumRateLimited",
         retryAfter: status.retryAfter,
-        message: `You've used all ${tier.premiumModelDailyLimit} premium model runs for today. Switch to a standard model, or refer friends to raise your daily limits.`,
+        message: `You've used all ${tier.premiumModelDailyLimit} premium Freebuff messages for today. Switch to a standard model, or get qualified referrals to raise your daily limit.`,
       },
     };
   }
@@ -271,7 +271,7 @@ export async function checkStandardModelRateLimit(
       error: {
         kind: "StandardRateLimited",
         retryAfter: status.retryAfter,
-        message: `You've used all ${tier.standardModelDailyLimit} messages for today. Refer friends to raise your daily limits.`,
+        message: `You've used all ${tier.standardModelDailyLimit} standard Freebuff messages for today. Get qualified referrals to raise your daily limit.`,
       },
     };
   }

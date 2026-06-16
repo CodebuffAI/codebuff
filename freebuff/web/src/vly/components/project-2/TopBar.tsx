@@ -8,6 +8,7 @@ import {
   Share2,
   Settings,
   Activity,
+  Gift,
   Home,
   Globe,
   LogOut,
@@ -272,6 +273,26 @@ export function TopBar({
               className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
             >
               Home
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => router.push('/web/referrals')}
+                aria-label="Referrals"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Gift className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={6}
+              className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+            >
+              Referrals
             </TooltipContent>
           </Tooltip>
 

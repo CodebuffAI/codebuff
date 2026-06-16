@@ -18,11 +18,11 @@ export function handleAgentSendError(error: AgentError): void {
     case "PremiumRateLimited":
       toast.error(
         error.message ||
-          `Daily premium model limit reached. Try again in ${formatRetryTime(error.retryAfter || 0)} or switch to a standard model.`,
+          `Daily premium Freebuff message limit reached. Try again in ${formatRetryTime(error.retryAfter || 0)}, switch to a standard model, or get referrals to raise your limit.`,
         {
           duration: 8000,
           action: {
-            label: "Refer friends",
+            label: "Get referrals",
             onClick: () => {
               window.location.href = "/web/referrals";
             },
@@ -33,30 +33,16 @@ export function handleAgentSendError(error: AgentError): void {
     case "StandardRateLimited":
       toast.error(
         error.message ||
-          `Daily message limit reached. Resets in ${formatRetryTime(error.retryAfter || 0)}. Refer friends to raise your limits.`,
+          `Daily standard Freebuff message limit reached. Resets in ${formatRetryTime(error.retryAfter || 0)}. Get referrals to raise your limit.`,
         {
           duration: 8000,
           action: {
-            label: "Refer friends",
+            label: "Get referrals",
             onClick: () => {
               window.location.href = "/web/referrals";
             },
           },
         },
-      );
-      break;
-    case "LimitedRateLimited":
-      toast.error(
-        error.message ||
-          `You've used all your sessions for today. Sessions reset in ${formatRetryTime(error.retryAfter || 0)}.`,
-        { duration: 6000 },
-      );
-      break;
-    case "GeoBlocked":
-      toast.error(
-        error.message ||
-          "Access from anonymous networks is not supported. Please disable any VPN or proxy and try again.",
-        { duration: 6000 },
       );
       break;
     case "LimitedRateLimited":

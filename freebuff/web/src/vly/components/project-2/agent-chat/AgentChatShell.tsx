@@ -13,6 +13,8 @@ import { FunctionReturnType } from "convex/server";
 import { useCallback, useRef, Suspense, useState, useEffect } from "react";
 import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import { useMutation, useQuery, useAction } from "convex/react";
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
 import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
@@ -27,6 +29,7 @@ import {
   Plus,
   History,
   Github,
+  Gift,
 } from "lucide-react";
 import {
   Tooltip,
@@ -44,12 +47,18 @@ import {
 import { BuildErrors } from "@/vly/components/project-2/BuildErrors";
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
+  isFreebuffPremiumModelId,
   resolveFreebuffModel,
 } from "@codebuff/common/constants/freebuff-models";
+import {
+  getNextReferralTier,
+  getReferralTier,
+} from "@codebuff/common/constants/freebuff-referral-tiers";
 import {
   FREEBUFF_MODEL_STORAGE_KEY,
   resolveVisibleFreebuffModel,
 } from "@/vly/components/project-2/FreebuffModelSelector";
+import { formatRetryTime } from "@/vly/lib/rateLimitHelpers";
 
 // Compact, subtle runtime errors component for agent chat
 const CompactRuntimeErrors: React.FC<{
@@ -147,6 +156,68 @@ const CompactRuntimeErrors: React.FC<{
           </div>
         </CollapsibleContent>
       </Collapsible>
+    </div>
+  );
+};
+
+const DailyReferralLimitBanner: React.FC<{
+  selectedModelId: string;
+  remaining: number | null;
+  retryAfterMs: number | null;
+  referralCount: number;
+}> = ({ selectedModelId, remaining, retryAfterMs, referralCount }) => {
+  if (remaining !== 0) return null;
+
+  const isPremium = isFreebuffPremiumModelId(selectedModelId);
+  const currentTier = getReferralTier(referralCount);
+  const nextTier = getNextReferralTier(referralCount);
+  const currentLimit = isPremium
+    ? currentTier.premiumModelDailyLimit
+    : currentTier.standardModelDailyLimit;
+  const nextLimit = nextTier
+    ? isPremium
+      ? nextTier.premiumModelDailyLimit
+      : nextTier.standardModelDailyLimit
+    : null;
+  const referralsNeeded = nextTier
+    ? Math.max(0, nextTier.referralsRequired - referralCount)
+    : 0;
+  const resetText =
+    retryAfterMs && retryAfterMs > 0
+      ? `Resets in ${formatRetryTime(retryAfterMs)}.`
+      : "Resets later today.";
+
+  return (
+    <div className="flex-shrink-0 border-t border-amber-500/25 bg-amber-500/10 px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-400">
+            <Gift className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">
+              You need more referrals to keep using this model today
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              You used all {currentLimit} {isPremium ? "premium" : "standard"}{" "}
+              Freebuff messages for your current referral tier. {resetText}{" "}
+              {nextTier
+                ? `Get ${referralsNeeded} qualified ${
+                    referralsNeeded === 1 ? "referral" : "referrals"
+                  } to unlock ${nextLimit} ${
+                    isPremium ? "premium" : "standard"
+                  } messages per day.`
+                : "You've unlocked the highest referral tier."}
+            </p>
+          </div>
+        </div>
+        <Button asChild size="sm" className="h-8 shrink-0">
+          <Link href="/web/referrals">
+            <Gift className="mr-1.5 h-3.5 w-3.5" />
+            Get referrals
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 };
@@ -328,6 +399,63 @@ export function AgentChatShell({
     }
   }, []);
 
+  const { check: checkPremiumLimit, status: premiumLimitStatus } = useRateLimit(
+    api.coding_agent.rateLimiter.getPremiumModelRateLimit,
+    { getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime },
+  );
+  const { check: checkStandardLimit, status: standardLimitStatus } =
+    useRateLimit(api.coding_agent.rateLimiter.getStandardModelRateLimit, {
+      getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime,
+    });
+  const isSelectedPremiumModel =
+    isFreebuffPremiumModelId(selectedFreebuffModel);
+  const selectedLimitStatus = isSelectedPremiumModel
+    ? premiumLimitStatus
+    : standardLimitStatus;
+  const selectedLimitCheck = isSelectedPremiumModel
+    ? checkPremiumLimit?.()
+    : checkStandardLimit?.();
+  const selectedDailyRemaining = selectedLimitCheck
+    ? Math.max(0, Math.floor(selectedLimitCheck.value))
+    : null;
+  const viewer = useQuery(api.users.viewer);
+  const referralCount = viewer?.qualified_referral_count ?? 0;
+
+  const showReferralLimitMessage = useCallback(() => {
+    const tier = getReferralTier(referralCount);
+    const nextTier = getNextReferralTier(referralCount);
+    const currentLimit = isSelectedPremiumModel
+      ? tier.premiumModelDailyLimit
+      : tier.standardModelDailyLimit;
+    const nextLimit = nextTier
+      ? isSelectedPremiumModel
+        ? nextTier.premiumModelDailyLimit
+        : nextTier.standardModelDailyLimit
+      : null;
+    const referralsNeeded = nextTier
+      ? Math.max(0, nextTier.referralsRequired - referralCount)
+      : 0;
+
+    toast.error(
+      `You've used all ${currentLimit} ${isSelectedPremiumModel ? "premium" : "standard"} Freebuff messages for today. ${
+        nextTier
+          ? `Get ${referralsNeeded} qualified ${
+              referralsNeeded === 1 ? "referral" : "referrals"
+            } to unlock ${nextLimit} per day.`
+          : "You've already unlocked the highest referral tier."
+      }`,
+      {
+        duration: 9000,
+        action: {
+          label: "Get referrals",
+          onClick: () => {
+            window.location.href = "/web/referrals";
+          },
+        },
+      },
+    );
+  }, [isSelectedPremiumModel, referralCount]);
+
   const handleFreebuffModelChange = useCallback((modelId: string) => {
     const resolved = resolveFreebuffModel(modelId);
     setSelectedFreebuffModel(resolved);
@@ -456,6 +584,11 @@ export function AgentChatShell({
         return false;
       }
 
+      if (selectedDailyRemaining === 0) {
+        showReferralLimitMessage();
+        return false;
+      }
+
       // While a turn is running, route the new message into the
       // single-slot queue rather than rejecting it outright. The
       // backend already rejects parallel sends on the same thread
@@ -490,6 +623,8 @@ export function AgentChatShell({
       messageQueue,
       dispatchSend,
       updateSelectedNodeInfo,
+      selectedDailyRemaining,
+      showReferralLimitMessage,
     ],
   );
 
@@ -999,6 +1134,16 @@ export function AgentChatShell({
                 </div>
               ) : (
                 <div className="flex-shrink-0 border-t border-border/40 bg-transparent">
+                  <DailyReferralLimitBanner
+                    selectedModelId={selectedFreebuffModel}
+                    remaining={selectedDailyRemaining}
+                    retryAfterMs={
+                      selectedLimitStatus?.retryAt
+                        ? Math.max(0, selectedLimitStatus.retryAt - Date.now())
+                        : null
+                    }
+                    referralCount={referralCount}
+                  />
                   <ChatInput
                     isProcessing={isProcessing}
                     handleSendMessage={handleSendMessage}

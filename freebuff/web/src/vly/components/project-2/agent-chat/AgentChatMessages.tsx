@@ -881,11 +881,13 @@ const TimeLimitContinuePanel: React.FC<{
           </div>
           <div className="min-w-0">
             <div className="text-sm font-medium text-foreground">
-              Maximum time limit for a prompt reached
+              Prompt paused after the run time limit
             </div>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Engagement required to continue. Your chat history and current
-              project state are saved, so Freebuff can pick up from here.
+              This run was paused so it does not keep working unattended. Your
+              chat history and project state are saved, so Freebuff can pick up
+              from here. If you are out of daily messages, use Referrals to
+              raise your limit.
             </p>
           </div>
         </div>

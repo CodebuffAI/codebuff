@@ -14,6 +14,7 @@ import { HeroGrid } from '@/components/hero-grid'
 import { Icons } from '@/components/icons'
 import { homeFaqs } from '@/lib/home-faqs'
 import { cn } from '@/lib/utils'
+import { DiscordIcon } from '@/vly/components/app-shell/DiscordIcon'
 import { HomepageLiveStats } from './live/live-summary'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
@@ -437,6 +438,15 @@ export default function HomeClient() {
               className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white text-sm"
             >
               Blog
+            </Link>
+            <Link
+              href="https://discord.gg/yXG3w7wxfs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
+            >
+              <DiscordIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Discord</span>
             </Link>
             <Link
               href="https://github.com/CodebuffAI/codebuff"
