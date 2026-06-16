@@ -154,6 +154,7 @@
         "@codebuff/billing": "workspace:*",
         "@codebuff/common": "workspace:*",
         "@codebuff/internal": "workspace:*",
+        "@codebuff/logging": "workspace:*",
         "@codebuff/sdk": "workspace:*",
         "@codesandbox/sdk": "^2.1.0",
         "@codingame/monaco-vscode-api": "^33.0.9",
@@ -345,6 +346,14 @@
         "zod": "^4.2.1",
       },
     },
+    "packages/logging": {
+      "name": "@codebuff/logging",
+      "version": "1.0.0",
+      "dependencies": {
+        "@axiomhq/js": "^1.3.1",
+        "@codebuff/common": "workspace:*",
+      },
+    },
     "packages/vly-integrations": {
       "name": "@vly-ai/integrations",
       "version": "0.6.12",
@@ -404,6 +413,7 @@
         "@codebuff/billing": "workspace:*",
         "@codebuff/common": "workspace:*",
         "@codebuff/internal": "workspace:*",
+        "@codebuff/logging": "workspace:*",
         "@codebuff/sdk": "workspace:*",
         "@composio/core": "^0.10.0",
         "@hookform/resolvers": "^3.9.0",
@@ -828,6 +838,8 @@
     "@codebuff/internal": ["@codebuff/internal@workspace:packages/internal"],
 
     "@codebuff/llm-providers": ["@codebuff/llm-providers@workspace:packages/llm-providers"],
+
+    "@codebuff/logging": ["@codebuff/logging@workspace:packages/logging"],
 
     "@codebuff/scripts": ["@codebuff/scripts@workspace:scripts"],
 

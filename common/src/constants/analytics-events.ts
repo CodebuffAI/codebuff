@@ -134,6 +134,10 @@ export enum AnalyticsEvent {
   FEEDBACK_AUTH_ERROR = 'api.feedback_auth_error',
   FEEDBACK_VALIDATION_ERROR = 'api.feedback_validation_error',
 
+  // Web - Logs ingest API (client logs/events → BigQuery)
+  LOGS_INGEST_AUTH_ERROR = 'api.logs_ingest_auth_error',
+  LOGS_INGEST_VALIDATION_ERROR = 'api.logs_ingest_validation_error',
+
   // Web - Ads API
   ADS_API_AUTH_ERROR = 'api.ads_auth_error',
   ADS_CLICKED = 'ads.clicked',

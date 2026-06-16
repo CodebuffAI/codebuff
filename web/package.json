@@ -41,6 +41,7 @@
     "@codebuff/billing": "workspace:*",
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
+    "@codebuff/logging": "workspace:*",
     "@codebuff/sdk": "workspace:*",
     "@composio/core": "^0.10.0",
     "@hookform/resolvers": "^3.9.0",

@@ -6,6 +6,8 @@ import posthog from 'posthog-js'
 import { PostHogProvider as PostHogProviderWrapper } from 'posthog-js/react'
 import { useEffect, useRef, type ReactNode } from 'react'
 
+import { shipBrowserLog } from './browser-log-shipper'
+
 export function PostHogProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession()
   const prevSessionRef = useRef(session)
@@ -19,6 +21,27 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       api_host: '/ingest',
       ui_host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
       person_profiles: 'always',
+      // Mirror every captured event into our Axiom logs sink, then pass it
+      // through to PostHog unchanged. Returning the event (never null) keeps
+      // PostHog behaviour identical.
+      before_send: (event) => {
+        if (event) {
+          shipBrowserLog({
+            timestamp: event.timestamp
+              ? new Date(event.timestamp).toISOString()
+              : undefined,
+            level: 'info',
+            event: event.event,
+            message: event.event,
+            client_session_id:
+              typeof event.properties?.$session_id === 'string'
+                ? event.properties.$session_id
+                : undefined,
+            data: event.properties,
+          })
+        }
+        return event
+      },
     })
   }, [])
 

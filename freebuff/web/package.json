@@ -32,6 +32,7 @@
     "@codebuff/billing": "workspace:*",
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
+    "@codebuff/logging": "workspace:*",
     "@codebuff/sdk": "workspace:*",
     "@codesandbox/sdk": "^2.1.0",
     "@codingame/monaco-vscode-api": "^33.0.9",
