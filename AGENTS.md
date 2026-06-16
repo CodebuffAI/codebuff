@@ -43,4 +43,4 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Alway
 - `docs/agents-and-tools.md` — Agent system, shell shims, tool definitions
 - `docs/patterns/handle-steps-generators.md` — handleSteps generator patterns and spawn_agents tool calls
 - `docs/freebuff-abuse-detection.md` — Finding/actioning free-mode endpoint abuse: detection scripts, signals, ban playbook
-- `docs/logging.md` — Unified Axiom `codebuff-logs` dataset: how server/CLI/browser logs+events get there, APL query scripts (`scripts/logs/`), and the ingest-cost levers
+- `docs/logging.md` — Unified Axiom `freebuff` dataset: how server/CLI/browser logs+events get there, APL query scripts (`scripts/logs/`), and the ingest-cost levers

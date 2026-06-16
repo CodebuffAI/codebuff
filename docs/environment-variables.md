@@ -12,13 +12,14 @@
   disables client analytics sampling for targeted debugging. Use sparingly because it can send full CLI log payloads.
 - Axiom logs sink toggles (runtime, read directly from `process.env` like
   `CODEBUFF_FULL_TELEMETRY`; not in the typed schema). See `docs/logging.md`:
-  - `AXIOM_API_TOKEN` — Axiom token (ingest on the services, query for the scripts). Required to enable.
+  - `AXIOM_API_TOKEN` — Axiom **ingest** token, used by the sink on the services. Required to enable.
+  - `AXIOM_QUERY_TOKEN` — Axiom **query** token, used by the `scripts/logs/` query scripts (distinct from the ingest token).
   - `AXIOM_ORG_ID` — only needed for a personal token.
-  - `AXIOM_DATASET` (default `codebuff-logs[-dev]`) — dataset name.
+  - `AXIOM_DATASET` (default `freebuff[-dev]`) — dataset name.
   - `AXIOM_LOGS_ENABLED` (`true`/`false`, default: on in prod) — server/endpoint sink on/off.
   - `AXIOM_LOGS_MIN_LEVEL` (default `info`) — drop rows below this level before ingest.
   - `CODEBUFF_SHIP_LOGS` (`true`/`false`, default: on outside dev/test) — CLI → `/api/logs` shipping.
-  - Both the `web` and `freebuff-web` services need `AXIOM_API_TOKEN`; without it the sink disables gracefully.
+  - Both the `web` and `freebuff-web` services need `AXIOM_API_TOKEN` (ingest); without it the sink disables gracefully. `AXIOM_QUERY_TOKEN` is only needed wherever you run the query scripts.
 
 ## Env DI Helpers
 

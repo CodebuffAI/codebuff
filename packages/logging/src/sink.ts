@@ -19,7 +19,7 @@ import type { LogLevel, LogRow } from '@codebuff/common/types/contracts/logs'
  * Env (see docs/logging.md):
  *   AXIOM_API_TOKEN   ingest token (required to enable)
  *   AXIOM_ORG_ID      org id (only for personal tokens)
- *   AXIOM_DATASET     dataset name (default: codebuff-logs[-dev])
+ *   AXIOM_DATASET     dataset name (default: freebuff[-dev])
  *   AXIOM_LOGS_ENABLED 'true' | 'false'   (default: on in prod only)
  *   AXIOM_LOGS_MIN_LEVEL debug|info|warn|error|fatal (default: info)
  */
@@ -60,7 +60,7 @@ function enabled(): boolean {
 
 function datasetName(): string {
   return (
-    process.env.AXIOM_DATASET || (IS_PROD ? 'codebuff-logs' : 'codebuff-logs-dev')
+    process.env.AXIOM_DATASET || (IS_PROD ? 'freebuff' : 'freebuff-dev')
   )
 }
 

@@ -1,7 +1,7 @@
 # Logging & Observability (Axiom)
 
 All logs and analytics events flow into **one queryable place**: the Axiom
-`codebuff-logs` dataset. This replaces shipping container stdout to BetterStack —
+`freebuff` dataset. This replaces shipping container stdout to BetterStack —
 logs are now structured events you query with APL (Axiom Processing Language).
 
 > **Coding agents:** use the query scripts below (`scripts/logs/`) — they build
@@ -38,7 +38,7 @@ bun scripts/logs/logs-volume.ts --since 24h
    (@codebuff/logging: wraps the @axiomhq/js batching client; enable + min-level gates)
          │
          ▼
-   Axiom dataset `codebuff-logs`
+   Axiom dataset `freebuff`
 ```
 
 - **Server logs** (`web`, `agent-runtime`): the existing Pino `logger` is wired
@@ -56,7 +56,7 @@ wraps the `@axiomhq/js` batching client (background batching + retries, with an
 **kept** — clients still send to it for product analytics. Axiom is the unified,
 SQL-queryable copy.
 
-## The `codebuff-logs` dataset
+## The `freebuff` dataset
 
 One dataset holds everything. An **event** is just a log row with `event`
 populated. Each ingested event has these fields (`LogRow` →
@@ -125,7 +125,7 @@ bun scripts/logs/query-logs.ts --since 2h --event api.feature_x_used --has-event
 Raw APL (e.g. in the Axiom console) — note the `parse_json` to read `data`:
 
 ```kusto
-['codebuff-logs']
+['freebuff']
 | where _time >= ago(6h)
 | where level == "error" and service == "web"
 | extend d = parse_json(data)
@@ -152,9 +152,10 @@ Runtime toggles (read directly from `process.env`):
 
 | var | default | effect |
 | --- | --- | --- |
-| `AXIOM_API_TOKEN` | — | Axiom token (ingest on the services; query for the scripts). Required to enable. |
+| `AXIOM_API_TOKEN` | — | Axiom **ingest** token, used by the sink on the services. Required to enable. |
+| `AXIOM_QUERY_TOKEN` | — | Axiom **query** token, used by the `scripts/logs/` query scripts (separate from the ingest token). |
 | `AXIOM_ORG_ID` | — | only needed for a personal token |
-| `AXIOM_DATASET` | `codebuff-logs[-dev]` | dataset name |
+| `AXIOM_DATASET` | `freebuff[-dev]` | dataset name |
 | `AXIOM_LOGS_ENABLED` | on in prod | force the server/endpoint sink on/off (`true`/`false`) |
 | `AXIOM_LOGS_MIN_LEVEL` | `info` | drop rows below this level before ingest |
 | `CODEBUFF_SHIP_LOGS` | on outside dev/test | CLI → `/api/logs` shipping on/off |
@@ -163,6 +164,8 @@ Both the **`web`** and **`freebuff-web`** services need `AXIOM_API_TOKEN` (with
 ingest permission). Without it the sink disables gracefully (logs are dropped, a
 one-time console error is emitted). `freebuff-web` already uses Axiom elsewhere
 (`AXIOM_API_TOKEN` in its Convex monitoring), so the token likely exists there.
+The query scripts use a separate `AXIOM_QUERY_TOKEN` (query permission) — the
+ingest token can't read.
 
 ## Migration / cutover from BetterStack
 

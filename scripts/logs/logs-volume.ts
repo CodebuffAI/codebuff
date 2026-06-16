@@ -8,7 +8,7 @@
  *
  * Examples:
  *   bun scripts/logs/logs-volume.ts --since 24h
- *   bun scripts/logs/logs-volume.ts --since 7d --dataset codebuff-logs
+ *   bun scripts/logs/logs-volume.ts --since 7d --dataset freebuff
  */
 import { aplDatetime, axiom, getFlag, parseSince, resolveDataset } from './lib'
 

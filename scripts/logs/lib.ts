@@ -17,7 +17,7 @@ export function resolveDataset(): string {
   const name =
     getFlag('dataset') ||
     process.env.AXIOM_DATASET ||
-    (IS_PROD ? 'codebuff-logs' : 'codebuff-logs-dev')
+    (IS_PROD ? 'freebuff' : 'freebuff-dev')
   // The dataset is interpolated raw into APL (`['name']`), so validate it
   // can't break out of the brackets / inject operators.
   if (!/^[A-Za-z0-9._-]+$/.test(name)) {
@@ -29,10 +29,11 @@ export function resolveDataset(): string {
 let client: Axiom | null = null
 export function axiom(): Axiom {
   if (!client) {
-    const token = process.env.AXIOM_API_TOKEN
+    const token = process.env.AXIOM_QUERY_TOKEN
     if (!token) {
       throw new Error(
-        'AXIOM_API_TOKEN is required to query logs (a query/personal token).',
+        'AXIOM_QUERY_TOKEN is required to query logs (a query-scoped token; ' +
+          'distinct from the ingest AXIOM_API_TOKEN used by the sink).',
       )
     }
     const orgId = process.env.AXIOM_ORG_ID
