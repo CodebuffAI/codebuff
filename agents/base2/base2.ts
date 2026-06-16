@@ -1,6 +1,5 @@
 import { buildArray } from '@codebuff/common/util/array'
 import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
-import { deepseekModels } from '@codebuff/common/constants/model-config'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
@@ -12,6 +11,7 @@ import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { publisher } from '../constants'
@@ -47,13 +47,13 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  // Lite (paid Codebuff) defaults to DeepSeek V4 Flash. The unqualified
-  // base2-free agent still uses MiniMax for legacy callers; new Freebuff
-  // clients select explicit free variants from the model picker.
+  // Lite mode runs MiniMax M3 (routed through the Fireworks AI API). The
+  // unqualified base2-free agent still uses MiniMax for legacy callers; new
+  // Freebuff clients select explicit free variants from the model picker.
   const model =
     modelOverride ??
     (mode === 'lite'
-      ? deepseekModels.deepseekV4Flash
+      ? FREEBUFF_MINIMAX_M3_MODEL_ID
       : mode === 'free'
         ? FREEBUFF_MINIMAX_MODEL_ID
         : 'anthropic/claude-opus-4.8')
