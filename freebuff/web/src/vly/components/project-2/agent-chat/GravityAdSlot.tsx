@@ -108,6 +108,15 @@ const PLACEMENT_ABOVE_IFRAME = 'Above-iFrame'
 
 type GravityPlacement = 'center' | 'sidebar' | 'above-iframe'
 
+function getFallbackFaviconUrl(url: string) {
+  try {
+    const hostname = new URL(url).hostname
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Client-side fetch to Freebuff's same-origin ads proxy.
  * The route forwards to Codebuff's ads API so provider fallback and ad
@@ -450,6 +459,8 @@ export function GravityAdSlot({
   const isFeatured = variant === 'featured'
   const isCompact = variant === 'compact'
   const isNav = variant === 'nav'
+  const imageUrl =
+    !faviconError && (ad.favicon || (isNav ? getFallbackFaviconUrl(ad.url) : ''))
 
   const adCard = (
     <div
@@ -472,7 +483,8 @@ export function GravityAdSlot({
         }}
         className={cn(
           'group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline outline-none transition-colors hover:border-primary/40 hover:bg-muted/30 focus:ring-2 focus:ring-primary/30',
-          isNav && 'min-h-[52px] items-center',
+          isNav &&
+            'relative min-h-[36px] items-center rounded-md border-border/70 bg-background/35',
         )}
       >
         <div
@@ -480,13 +492,14 @@ export function GravityAdSlot({
             'relative flex shrink-0 items-center justify-center overflow-hidden border-r border-border bg-muted font-medium text-muted-foreground',
             isFeatured && 'w-14 text-xs sm:w-16',
             isCompact && 'w-10 text-[10px]',
-            isNav && 'mx-2 h-8 w-8 rounded-md border border-border text-xs',
+            isNav &&
+              'ml-1.5 mr-2 h-5 w-5 rounded border border-border/70 text-[9px]',
             !isFeatured && !isCompact && !isNav && 'w-12 text-xs',
           )}
         >
-          {ad.favicon && !faviconError ? (
+          {imageUrl ? (
             <img
-              src={ad.favicon}
+              src={imageUrl}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               onError={() => setFaviconError(true)}
@@ -495,7 +508,7 @@ export function GravityAdSlot({
           <span
             className={cn(
               'relative z-[1]',
-              ad.favicon && !faviconError ? 'invisible' : '',
+              imageUrl ? 'invisible' : '',
             )}
           >
             {ad.brandName.charAt(0).toUpperCase() || 'Ad'}
@@ -506,24 +519,26 @@ export function GravityAdSlot({
             'min-w-0 flex-1 overflow-hidden',
             isFeatured && 'px-3 py-2.5',
             isCompact && 'px-2 py-1.5',
-            isNav && 'py-2 pr-2',
+            isNav && 'py-1.5 pr-24',
             !isFeatured && !isCompact && !isNav && 'px-3 py-2',
           )}
         >
           <span
             className={cn(
               'block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70',
-              isNav ? 'mb-0.5' : 'mb-1',
+              isNav
+                ? 'absolute right-2 top-1 mb-0 text-[8px] tracking-[0.18em] text-muted-foreground/25'
+                : 'mb-1',
             )}
           >
-            Sponsored
+            {isNav ? 'AD' : 'Sponsored'}
           </span>
           <span
             className={cn(
               'block truncate font-semibold text-foreground',
               isFeatured && 'text-sm',
               isCompact && 'text-xs',
-              isNav && 'text-xs sm:text-sm',
+              isNav && 'text-[11px] leading-tight',
               !isFeatured && !isCompact && !isNav && 'text-sm',
             )}
           >
@@ -534,7 +549,7 @@ export function GravityAdSlot({
               'mt-0.5 break-words leading-snug text-muted-foreground',
               isFeatured && 'line-clamp-2 text-sm',
               isCompact && 'line-clamp-2 text-[11px]',
-              isNav && 'line-clamp-1 text-[11px] sm:text-xs',
+              isNav && 'line-clamp-1 text-[10px]',
               !isFeatured && !isCompact && !isNav && 'line-clamp-2 text-xs',
             )}
           >
@@ -543,16 +558,18 @@ export function GravityAdSlot({
           <span
             className={cn(
               'inline-flex items-center gap-1 font-medium text-muted-foreground underline-offset-4 transition-colors group-hover:text-primary group-hover:underline',
-              isNav ? 'mt-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] text-primary sm:float-right sm:-mt-7 sm:ml-3' : 'mt-2',
+              isNav
+                ? 'absolute bottom-1.5 right-1.5 mt-0 rounded-md bg-primary/15 px-2 py-1 text-[10px] font-semibold leading-none text-primary group-hover:bg-primary/20 group-hover:no-underline'
+                : 'mt-2',
               isCompact ? 'text-[11px]' : 'text-xs',
             )}
           >
-            {ad.cta || 'Learn more'}
+            {ad.cta || (isNav ? 'Start monetizing' : 'Learn more')}
             <ExternalLink
               className={cn(
                 'shrink-0',
-                isCompact && 'h-2.5 w-2.5',
-                !isCompact && 'h-3 w-3',
+                (isCompact || isNav) && 'h-2.5 w-2.5',
+                !isCompact && !isNav && 'h-3 w-3',
               )}
             />
           </span>

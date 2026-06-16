@@ -964,9 +964,24 @@ function createFallbackGravityAd(placementId: AgentAdPlacement): PersistedAgentA
     brandName: 'Gravity',
     url: 'https://trygravity.ai',
     clickUrl: `https://trygravity.ai?utm_source=freebuff_web&utm_medium=house_ad&utm_campaign=${campaign}`,
+    favicon: 'https://www.google.com/s2/favicons?domain=trygravity.ai&sz=64',
+    imageUrl: 'https://www.google.com/s2/favicons?domain=trygravity.ai&sz=64',
     impUrl: '',
     placementId,
     servedAt: 0,
+  }
+}
+
+function getAdImageUrl(ad: PersistedAgentAd, imageError: boolean) {
+  if (imageError) return null
+  if (ad.imageUrl || ad.favicon) return ad.imageUrl || ad.favicon
+  if (!ad.url) return null
+
+  try {
+    const hostname = new URL(ad.url).hostname
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
+  } catch {
+    return null
   }
 }
 
@@ -974,9 +989,10 @@ const AgentAdMessage: React.FC<{
   ad: PersistedAgentAd
   className?: string
 }> = ({ ad, className }) => {
-  const imageUrl = ad.imageUrl || ad.favicon
+  const [imageError, setImageError] = useState(false)
+  const imageUrl = getAdImageUrl(ad, imageError)
   const title = ad.title || ad.brandName || 'Sponsored recommendation'
-  const cta = ad.cta || 'Learn more'
+  const cta = ad.cta || 'Open offer'
   const rootRef = useRef<HTMLDivElement | null>(null)
   const impressionFiredRef = useRef(false)
 
@@ -1019,24 +1035,25 @@ const AgentAdMessage: React.FC<{
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={() => recordAdClick(ad)}
-        className="group flex min-h-[92px] overflow-hidden rounded-xl border border-border/60 bg-muted/25 text-left no-underline transition-colors hover:bg-muted/35"
+        className="group flex min-h-[78px] overflow-hidden rounded-xl border border-border/60 bg-muted/25 text-left no-underline transition-colors hover:border-primary/35 hover:bg-muted/35"
       >
-        <span className="flex w-20 shrink-0 items-center justify-center border-r border-border/50 bg-background/50 text-xs font-semibold text-muted-foreground sm:w-24">
+        <span className="flex w-14 shrink-0 items-center justify-center border-r border-border/50 bg-background/50 text-xs font-semibold text-muted-foreground sm:w-16">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt=""
-              className="h-12 w-12 object-contain"
+              className="h-7 w-7 rounded-md object-contain"
               loading="lazy"
+              onError={() => setImageError(true)}
             />
           ) : (
             title.charAt(0).toUpperCase()
           )}
         </span>
-        <span className="min-w-0 flex-1 px-4 py-3">
-          <span className="mb-1.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground">
+        <span className="min-w-0 flex-1 px-3 py-2.5">
+          <span className="mb-1 flex min-w-0 items-center gap-1.5 text-[10px] leading-none text-muted-foreground">
             <span className="uppercase tracking-wide text-muted-foreground/70">
-              Sponsored
+              AD
             </span>
             <span className="text-muted-foreground/45">·</span>
             <span className="truncate font-semibold text-foreground/90">
@@ -1048,7 +1065,7 @@ const AgentAdMessage: React.FC<{
               {ad.adText}
             </span>
           )}
-          <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium leading-none text-muted-foreground/80 underline-offset-4 group-hover:text-primary group-hover:underline">
+          <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/15 px-2.5 py-1.5 text-[12px] font-semibold leading-none text-primary transition-colors group-hover:bg-primary/25">
             {cta}
             <ExternalLink className="h-3 w-3 shrink-0" />
           </span>
