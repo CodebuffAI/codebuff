@@ -21,6 +21,7 @@ import {
   getPreviouslyReadFiles,
   filterUnfinishedToolCalls,
   buildUserMessageContent,
+  getContextCategoryTelemetry,
 } from '../../util/messages'
 import * as tokenCounter from '../token-counter'
 
@@ -236,6 +237,54 @@ const logger = {
   warn: () => {},
   error: () => {},
 }
+
+describe('getContextCategoryTelemetry', () => {
+  it('reports context usage by major source category', () => {
+    spyOn(tokenCounter, 'countTokensJson').mockImplementation((value) =>
+      JSON.stringify(value).length,
+    )
+
+    const messages: Message[] = [
+      userMessage('user prompt'),
+      assistantMessage('assistant response'),
+      {
+        role: 'tool',
+        toolName: 'write_todos',
+        toolCallId: 'todos-1',
+        content: jsonToolResult({ todos: [{ task: 'Do work' }] }),
+      },
+      {
+        role: 'tool',
+        toolName: 'read_files',
+        toolCallId: 'read-1',
+        content: jsonToolResult([{ path: 'src/file.ts', content: 'content' }]),
+      },
+      {
+        role: 'tool',
+        toolName: 'spawn_agents',
+        toolCallId: 'spawn-1',
+        content: jsonToolResult([{ agentType: 'editor', output: 'done' }]),
+      },
+      {
+        role: 'tool',
+        toolName: 'run_terminal_command',
+        toolCallId: 'terminal-1',
+        content: jsonToolResult({ command: 'bun test', exitCode: 0 }),
+      },
+    ]
+
+    const telemetry = getContextCategoryTelemetry(messages)
+
+    expect(telemetry.userAssistantMessages.messages).toBe(2)
+    expect(telemetry.todos.messages).toBe(1)
+    expect(telemetry.fileReads.messages).toBe(1)
+    expect(telemetry.subagents.messages).toBe(1)
+    expect(telemetry.toolResults.messages).toBe(1)
+    expect(
+      Object.values(telemetry).reduce((sum, entry) => sum + entry.messages, 0),
+    ).toBe(messages.length)
+  })
+})
 
 describe('trimMessagesToFitTokenLimit', () => {
   beforeEach(() => {

@@ -167,6 +167,79 @@ const replacementMessage = userMessage(
   withSystemTags('Previous message(s) omitted due to length'),
 )
 
+type ContextCategory =
+  | 'toolResults'
+  | 'todos'
+  | 'fileReads'
+  | 'subagents'
+  | 'userAssistantMessages'
+
+type ContextCategorySummary = Record<
+  ContextCategory,
+  { tokens: number; percent: number; messages: number }
+>
+
+const emptyContextCategorySummary = (): ContextCategorySummary => ({
+  toolResults: { tokens: 0, percent: 0, messages: 0 },
+  todos: { tokens: 0, percent: 0, messages: 0 },
+  fileReads: { tokens: 0, percent: 0, messages: 0 },
+  subagents: { tokens: 0, percent: 0, messages: 0 },
+  userAssistantMessages: { tokens: 0, percent: 0, messages: 0 },
+})
+
+function getContextCategory(message: Message): ContextCategory {
+  if (message.role !== 'tool') {
+    return 'userAssistantMessages'
+  }
+
+  if (message.toolName === 'write_todos') {
+    return 'todos'
+  }
+
+  if (
+    message.toolName === 'read_files' ||
+    message.toolName === 'find_files' ||
+    message.toolName === 'read_subtree' ||
+    message.toolName === 'read_outline' ||
+    message.toolName === 'query_index'
+  ) {
+    return 'fileReads'
+  }
+
+  if (message.toolName === 'spawn_agents') {
+    return 'subagents'
+  }
+
+  return 'toolResults'
+}
+
+export function getContextCategoryTelemetry(
+  messages: Message[],
+): ContextCategorySummary {
+  const summary = emptyContextCategorySummary()
+  let totalTokens = 0
+
+  for (const message of messages) {
+    const category = getContextCategory(message)
+    const tokens = countTokensJson(message)
+    summary[category].tokens += tokens
+    summary[category].messages += 1
+    totalTokens += tokens
+  }
+
+  if (totalTokens === 0) {
+    return summary
+  }
+
+  for (const category of Object.keys(summary) as ContextCategory[]) {
+    summary[category].percent = Math.round(
+      (summary[category].tokens / totalTokens) * 100,
+    )
+  }
+
+  return summary
+}
+
 /**
  * Trims messages from the beginning to fit within token limits while preserving
  * important content. Also simplifies terminal command outputs to save tokens.
@@ -196,6 +269,8 @@ export function trimMessagesToFitTokenLimit(params: {
   if (initialTokens < maxMessageTokens) {
     return messages
   }
+
+  const initialContextCategoryTelemetry = getContextCategoryTelemetry(messages)
 
   const shortenedMessages: Message[] = []
   let numKept = 0
@@ -257,9 +332,24 @@ export function trimMessagesToFitTokenLimit(params: {
     }
   }
 
-  return filteredMessages.map((m) =>
+  const trimmedMessages = filteredMessages.map((m) =>
     m === placeholder ? replacementMessage : m,
   )
+
+  logger.debug(
+    {
+      initialTokens,
+      finalTokens: countTokensJson(trimmedMessages),
+      maxMessageTokens,
+      contextCategoryTelemetry: {
+        before: initialContextCategoryTelemetry,
+        after: getContextCategoryTelemetry(trimmedMessages),
+      },
+    },
+    'Context category telemetry after trimming messages',
+  )
+
+  return trimmedMessages
 }
 
 export function getMessagesSubset(params: {
