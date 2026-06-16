@@ -12,6 +12,7 @@ import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { getReferralLeaderboard } from '@/server/referral-leaderboard'
 
 export const runtime = 'nodejs'
 
@@ -28,7 +29,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const [[user], score, recentReferrals] = await Promise.all([
+  const [[user], score, recentReferrals, leaderboard] = await Promise.all([
     db
       .select({ referralCode: schema.user.referral_code })
       .from(schema.user)
@@ -49,6 +50,7 @@ export async function GET() {
       )
       .orderBy(desc(schema.referral.created_at))
       .limit(25),
+    getReferralLeaderboard(10),
   ])
 
   if (!user) {
@@ -66,5 +68,6 @@ export async function GET() {
       status: referral.status,
       createdAt: referral.createdAt.getTime(),
     })),
+    leaderboard,
   })
 }

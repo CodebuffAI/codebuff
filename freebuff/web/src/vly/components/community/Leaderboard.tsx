@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
@@ -12,6 +13,8 @@ import {
   Folder,
   ArrowLeft,
   TrendingUp,
+  Gift,
+  ArrowUpRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
 import { Skeleton } from "@/vly/components/ui/skeleton";
@@ -49,6 +52,22 @@ const getRankStyle = (rank: number) => {
   }
 };
 
+type ReferralLeaderboardEntry = {
+  userId: string;
+  name: string;
+  profileImage?: string;
+  referrals: number;
+  rank: number;
+  communityUserId?: string;
+  isPaidUser: boolean;
+  communityBadgeTier: number;
+  followersCount: number;
+  postsCount: number;
+  totalLikesReceived: number;
+};
+
+const formatCount = new Intl.NumberFormat("en-US");
+
 export default function Leaderboard({
   initialTopProjects = [],
   initialTopCreators = [],
@@ -60,8 +79,32 @@ export default function Leaderboard({
     limit: 10,
   });
   const topCreatorsQuery = useQuery(api.community.getTopCreators, { limit: 10 });
+  const [referralLeaders, setReferralLeaders] = useState<
+    ReferralLeaderboardEntry[] | undefined
+  >(undefined);
   const topProjects = topProjectsQuery ?? initialTopProjects;
   const topCreators = topCreatorsQuery ?? initialTopCreators;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/web/referrals/leaderboard?limit=10")
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load referral leaderboard");
+        return (await res.json()) as {
+          leaderboard: ReferralLeaderboardEntry[];
+        };
+      })
+      .then((data) => {
+        if (!cancelled) setReferralLeaders(data.leaderboard);
+      })
+      .catch(() => {
+        if (!cancelled) setReferralLeaders([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-full pb-20">
@@ -109,6 +152,13 @@ export default function Leaderboard({
             >
               <Users className="h-4 w-4" />
               Top Creators
+            </TabsTrigger>
+            <TabsTrigger
+              value="referrals"
+              className="gap-2 rounded-md px-6 text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-primary"
+            >
+              <Gift className="h-4 w-4" />
+              Referrals
             </TabsTrigger>
           </TabsList>
 
@@ -289,6 +339,115 @@ export default function Leaderboard({
                     </div>
                   </Link>
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="referrals" className="mt-0">
+            {referralLeaders === undefined ? (
+              <div className="space-y-4">
+                {[...Array(10)].map((_, i) => (
+                  <Skeleton key={i} className="h-20 rounded-lg bg-muted/35" />
+                ))}
+              </div>
+            ) : referralLeaders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-border/50 bg-muted/15 py-20 text-center">
+                <h3 className="mb-2 text-xl font-medium text-foreground">
+                  No referral leaders yet
+                </h3>
+                <p className="text-muted-foreground">
+                  Qualified Freebuff Web referrers will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {referralLeaders.map((leader) => {
+                  const row = (
+                    <>
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center">
+                        {getRankIcon(leader.rank) || (
+                          <span className="font-mono text-xl font-bold text-gray-400">
+                            #{leader.rank}
+                          </span>
+                        )}
+                      </div>
+
+                      <Avatar
+                        className={cn(
+                          "h-14 w-14",
+                          leader.rank === 1 && "ring-2 ring-amber-400",
+                          leader.rank === 2 && "ring-2 ring-gray-400",
+                          leader.rank === 3 && "ring-2 ring-amber-600",
+                        )}
+                      >
+                        <AvatarImage src={leader.profileImage} />
+                        <AvatarFallback className="bg-background text-lg font-bold text-primary">
+                          {leader.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0 flex-1">
+                        <h4 className="truncate font-medium text-foreground group-hover:text-primary">
+                          {leader.name}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5" />
+                            {formatCount.format(leader.followersCount)} followers
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Folder className="h-3.5 w-3.5" />
+                            {formatCount.format(leader.postsCount)} projects
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3.5 w-3.5" />
+                            {formatCount.format(leader.totalLikesReceived)} likes
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                          <Gift className="h-5 w-5 text-primary" />
+                          {formatCount.format(leader.referrals)}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          referrals
+                        </span>
+                      </div>
+                      {leader.communityUserId && (
+                        <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                      )}
+                    </>
+                  );
+
+                  if (leader.communityUserId) {
+                    return (
+                      <Link
+                        key={leader.userId}
+                        href={`/web/community/profile/${leader.communityUserId}`}
+                        className={cn(
+                          "group flex items-center gap-4 rounded-lg border p-4 transition-colors hover:border-primary/35 hover:bg-muted/30",
+                          getRankStyle(leader.rank),
+                        )}
+                      >
+                        {row}
+                      </Link>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={leader.userId}
+                      className={cn(
+                        "group flex items-center gap-4 rounded-lg border p-4",
+                        getRankStyle(leader.rank),
+                      )}
+                    >
+                      {row}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>

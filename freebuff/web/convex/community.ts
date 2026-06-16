@@ -4,9 +4,10 @@ import {
   mutation,
   internalMutation,
   QueryCtx,
+  MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { signedInUser } from "!/users";
 
 // Helper function to get the screenshot URL for a post
@@ -27,6 +28,54 @@ async function getPostScreenshotUrl(
   }
   // Fall back to stored URL
   return post.screenshotUrl;
+}
+
+async function getCurrentCommunityUser(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Doc<"users"> | null> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) return null;
+
+  const byFreebuffId = await ctx.db
+    .query("users")
+    .withIndex("by_freebuff_user_id", (q) =>
+      q.eq("freebuff_user_id", identity.subject),
+    )
+    .unique();
+
+  if (byFreebuffId) return byFreebuffId;
+
+  const byClerkId = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+    .unique();
+
+  if (byClerkId) return byClerkId;
+
+  if (identity.email) {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) =>
+        q.eq("email", identity.email!.trim().toLowerCase()),
+      )
+      .first();
+  }
+
+  return null;
+}
+
+async function requireCurrentCommunityUser(
+  ctx: MutationCtx,
+): Promise<Doc<"users">> {
+  const existingUser = await getCurrentCommunityUser(ctx);
+  if (existingUser) return existingUser;
+
+  const userId = await signedInUser(ctx);
+  const user = await ctx.db.get(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  return user;
 }
 
 // ============================================
@@ -98,24 +147,7 @@ export const publishProject = mutation({
   },
   returns: v.id("community_posts"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    let user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      const userId = await signedInUser(ctx);
-      user = await ctx.db.get(userId);
-    }
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     // Get project info
     const project = await ctx.db.get(args.projectId);
@@ -241,14 +273,7 @@ export const getFeaturedPosts = query({
       .filter((p) => p.isPublic !== false)
       .slice(0, limit);
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     const enrichedPosts = await Promise.all(
       publicPosts.map(async (post) => {
@@ -354,14 +379,7 @@ export const getExplorePosts = query({
     const hasMore = publicPosts.length > limit;
     const postsToReturn = hasMore ? publicPosts.slice(0, limit) : publicPosts;
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     const enrichedPosts = await Promise.all(
       postsToReturn.map(async (post) => {
@@ -461,14 +479,7 @@ export const getTrendingPosts = query({
       .filter((p) => p.isPublic !== false)
       .slice(0, limit);
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     const enrichedPosts = await Promise.all(
       publicPosts.map(async (post) => {
@@ -557,28 +568,20 @@ export const getPost = query({
     if (!post) return null;
 
     const user = await ctx.db.get(post.userId);
-    const identity = await ctx.auth.getUserIdentity();
-
     let currentUser = null;
     let hasLiked = false;
     let isOwner = false;
 
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
+    currentUser = await getCurrentCommunityUser(ctx);
+    if (currentUser) {
+      isOwner = currentUser._id === post.userId;
+      const like = await ctx.db
+        .query("community_likes")
+        .withIndex("by_post_and_user", (q) =>
+          q.eq("postId", post._id).eq("userId", currentUser!._id),
+        )
         .unique();
-
-      if (currentUser) {
-        isOwner = currentUser._id === post.userId;
-        const like = await ctx.db
-          .query("community_likes")
-          .withIndex("by_post_and_user", (q) =>
-            q.eq("postId", post._id).eq("userId", currentUser!._id),
-          )
-          .unique();
-        hasLiked = !!like;
-      }
+      hasLiked = !!like;
     }
 
     // Private posts are only visible to their owner
@@ -652,14 +655,7 @@ export const searchPosts = query({
       )
       .take(limit);
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     const enrichedPosts = await Promise.all(
       posts.map(async (post) => {
@@ -724,19 +720,7 @@ export const likePost = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     // Check if already liked
     const existingLike = await ctx.db
@@ -789,19 +773,7 @@ export const unlikePost = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     // Find existing like
     const existingLike = await ctx.db
@@ -856,19 +828,7 @@ export const addComment = mutation({
   },
   returns: v.id("community_comments"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const commentId = await ctx.db.insert("community_comments", {
       postId: args.postId,
@@ -918,14 +878,7 @@ export const getComments = query({
       .order("asc")
       .collect();
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     const enrichedComments = await Promise.all(
       comments.map(async (comment) => {
@@ -969,19 +922,7 @@ export const likeComment = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const existingLike = await ctx.db
       .query("community_comment_likes")
@@ -1029,19 +970,7 @@ export const followUser = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const currentUser = await requireCurrentCommunityUser(ctx);
 
     if (currentUser._id === args.userId) {
       throw new Error("Cannot follow yourself");
@@ -1121,19 +1050,7 @@ export const unfollowUser = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const currentUser = await requireCurrentCommunityUser(ctx);
 
     // Find existing follow
     const existingFollow = await ctx.db
@@ -1189,13 +1106,7 @@ export const getCurrentUserId = query({
   args: {},
   returns: v.union(v.id("users"), v.null()),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
+    const user = await getCurrentCommunityUser(ctx);
 
     return user?._id ?? null;
   },
@@ -1236,30 +1147,21 @@ export const getUserProfile = query({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .unique();
 
-    const identity = await ctx.auth.getUserIdentity();
     let isFollowing = false;
     let isOwnProfile = false;
 
-    if (identity) {
-      const currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
+    const currentUser = await getCurrentCommunityUser(ctx);
+    if (currentUser) {
+      isOwnProfile = currentUser._id === args.userId;
 
-      if (currentUser) {
-        isOwnProfile = currentUser._id === args.userId;
-
-        if (!isOwnProfile) {
-          const follow = await ctx.db
-            .query("community_follows")
-            .withIndex("by_follower_and_following", (q) =>
-              q
-                .eq("followerId", currentUser._id)
-                .eq("followingId", args.userId),
-            )
-            .unique();
-          isFollowing = !!follow;
-        }
+      if (!isOwnProfile) {
+        const follow = await ctx.db
+          .query("community_follows")
+          .withIndex("by_follower_and_following", (q) =>
+            q.eq("followerId", currentUser._id).eq("followingId", args.userId),
+          )
+          .unique();
+        isFollowing = !!follow;
       }
     }
 
@@ -1324,14 +1226,7 @@ export const getUserPosts = query({
 
     const user = await ctx.db.get(args.userId);
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     // Check if viewing own profile
     const isOwnProfile = currentUser?._id === args.userId;
@@ -1395,19 +1290,7 @@ export const updateProfile = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const profile = await ctx.db
       .query("community_profiles")
@@ -1505,6 +1388,73 @@ export const getTopCreators = query({
   },
 });
 
+export const getCommunityProfilesByFreebuffUserIds = query({
+  args: {
+    freebuffUserIds: v.array(v.string()),
+  },
+  returns: v.array(
+    v.object({
+      freebuffUserId: v.string(),
+      userId: v.optional(v.id("users")),
+      name: v.string(),
+      profileImage: v.optional(v.string()),
+      isPaidUser: v.boolean(),
+      communityBadgeTier: v.number(),
+      followersCount: v.number(),
+      followingCount: v.number(),
+      postsCount: v.number(),
+      totalLikesReceived: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const uniqueIds = Array.from(new Set(args.freebuffUserIds)).slice(0, 50);
+
+    const profiles = await Promise.all(
+      uniqueIds.map(async (freebuffUserId) => {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_freebuff_user_id", (q) =>
+            q.eq("freebuff_user_id", freebuffUserId),
+          )
+          .unique();
+
+        if (!user) {
+          return {
+            freebuffUserId,
+            name: "Anonymous",
+            isPaidUser: false,
+            communityBadgeTier: 0,
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            totalLikesReceived: 0,
+          };
+        }
+
+        const profile = await ctx.db
+          .query("community_profiles")
+          .withIndex("by_user", (q) => q.eq("userId", user._id))
+          .unique();
+
+        return {
+          freebuffUserId,
+          userId: user._id,
+          name: user.name || "Anonymous",
+          profileImage: user.profile_image,
+          isPaidUser: user.tier === "pro",
+          communityBadgeTier: user.community_badge_tier ?? 0,
+          followersCount: profile?.followersCount || 0,
+          followingCount: profile?.followingCount || 0,
+          postsCount: profile?.postsCount || 0,
+          totalLikesReceived: profile?.totalLikesReceived || 0,
+        };
+      }),
+    );
+
+    return profiles;
+  },
+});
+
 // Get top projects (by likes)
 export const getTopProjects = query({
   args: {
@@ -1594,16 +1544,8 @@ export const recordView = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    let userId = null;
-
-    if (identity) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-      userId = user?._id;
-    }
+    const user = await getCurrentCommunityUser(ctx);
+    const userId = user?._id;
 
     // Only record view if user is logged in (to prevent spam)
     if (userId) {
@@ -1651,15 +1593,7 @@ export const getUnpublishedProjects = query({
     }),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
+    const user = await getCurrentCommunityUser(ctx);
 
     if (!user) {
       return [];
@@ -1738,19 +1672,7 @@ export const deletePost = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -1908,19 +1830,7 @@ export const updatePost = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -1974,19 +1884,7 @@ export const updatePostScreenshot = mutation({
       storageId: args.storageId,
     });
 
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -2029,19 +1927,7 @@ export const makePostPrivate = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -2074,19 +1960,7 @@ export const makePostPublic = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -2155,14 +2029,7 @@ export const getRelatedPosts = query({
       .filter((p) => p._id !== args.postId && p.isPublic !== false)
       .slice(0, limit);
 
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity) {
-      currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-        .unique();
-    }
+    const currentUser = await getCurrentCommunityUser(ctx);
 
     const enrichedPosts = await Promise.all(
       filteredPosts.map(async (post) => {
@@ -2223,19 +2090,7 @@ export const updateCommunityBadgeTier = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerk_id", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const user = await requireCurrentCommunityUser(ctx);
 
     // Only update if the tier has changed
     if (user.community_badge_tier !== args.communityBadgeTier) {
