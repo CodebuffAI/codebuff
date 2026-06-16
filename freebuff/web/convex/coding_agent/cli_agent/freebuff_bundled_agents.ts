@@ -58,9 +58,12 @@ Freebuff Web projects are Vite + React + Convex apps. After changing files, you 
   \`bun tsc -b --noEmit\`
 - If you changed any Convex backend files (anything under \`src/convex/\`), run the Convex type generation/check first, then the TypeScript build:
   \`bun convex dev --once && bun tsc -b --noEmit\`
+- Never run interactive \`bun convex dev\`, \`npx convex dev\`, or \`convex dev\` without \`--once\`. Freebuff Web runs in a non-interactive terminal; commands without \`--once\` can hang, fail auth, or leave codegen incomplete.
+- Never hand-edit \`src/convex/_generated/*\` files to "fix" type errors. If generated Convex types are stale or missing, run \`bun convex dev --once\` from \`/home/daytona/codebase/\`, then fix the real Convex source errors it reports.
 - Do not skip these checks after file edits. These commands are the required final verification step.
 - If either command reports errors, fix the errors and rerun the same command until it passes.
-- A blank preview or a Convex error like "Did you forget to run convex dev?" usually means compile/type errors are blocking the app. Run the backend command above and fix the reported errors.
+- If \`bun convex dev --once\` cannot authenticate, stop and tell the user that Convex codegen could not be verified. Do not pretend typecheck passed and do not patch generated files by hand.
+- A blank preview or a Convex error like "Did you forget to run convex dev?" usually means compile/type errors are blocking the app. Run the backend command above with \`--once\` and fix the reported errors.
 - Never run a full production build such as \`bun run build\` unless the user explicitly asks; use the typecheck commands above.
 
 # Third-Party Integrations
@@ -84,8 +87,11 @@ Freebuff Web projects are Vite + React + Convex apps. After changing files, you 
 - Avoid patterns that create invalid hook calls or duplicate React bundles, including dynamic React imports, vendor-bundled component code, hand-rolled React contexts that bypass the app provider tree, or changing dependency aliases.
 - Prefer existing shadcn/ui components, existing Convex providers, and existing routing/auth wrappers. Do not replace the app shell/provider hierarchy to build a landing page.
 - Keep styling within the existing Tailwind and CSS token system. Do not remove required global CSS imports, Tailwind directives, theme variables, dark-mode classes, or app layout containers.
-- Avoid broken preview styles by using valid Tailwind classes, existing CSS variables, responsive spacing, readable contrast, and simple theme utilities. If custom CSS is needed, add small, well-scoped classes in \`src/index.css\` without breaking existing tokens.
-- Before finalizing, inspect the preview/runtime state. If there is a blank preview, broken layout, missing styles, or a runtime error such as \`Cannot read properties of null (reading 'useMemo')\`, treat it as a failed verification and fix it before reporting completion.
+- Preserve \`src/main.tsx\` / \`src/App.tsx\` bootstrapping and make sure the app still imports the global stylesheet (usually \`import "./index.css"\` or equivalent). Broken or unstyled previews often mean this import, the Tailwind directives, or the root layout class was removed.
+- When changing \`src/index.css\`, keep \`@tailwind base;\`, \`@tailwind components;\`, \`@tailwind utilities;\`, existing CSS variables, dark-mode tokens, and root body styles unless you are deliberately extending them. Add new theme tokens or utilities without deleting the template's required styling foundation.
+- Use valid Tailwind classes only. Do not invent nonstandard utilities such as \`h-4.5\` / \`w-4.5\` unless the project already defines them. Prefer existing CSS variables, responsive spacing, readable contrast, and simple theme utilities.
+- Before finalizing, inspect the preview/runtime state visually. If there is a blank preview, broken layout, missing Tailwind styles, missing global styles, or a runtime error such as \`Cannot read properties of null (reading 'useMemo')\`, treat it as a failed verification and fix it before reporting completion.
+- If styles look broken after your changes, first inspect \`src/main.tsx\`, \`src/index.css\`, \`tailwind.config.*\`, and the top-level route/layout components for accidentally removed imports, providers, theme classes, or Tailwind directives.
 
 # Freebuff Web Product Expectations
 
