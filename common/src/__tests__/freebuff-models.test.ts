@@ -193,23 +193,30 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
-  test('only smart freebuff models can spawn the gemini-thinker subagent', () => {
+  test('full-access freebuff models can spawn the gemini-thinker subagent', () => {
+    // Full-access models (non-limited, non-fastest) get the thinker.
     expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_KIMI_MODEL_ID)).toBe(
       true,
     )
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID),
     ).toBe(true)
+    expect(
+      canFreebuffModelSpawnGeminiThinker(FREEBUFF_MIMO_V25_PRO_MODEL_ID),
+    ).toBe(true)
+    expect(canFreebuffModelSpawnGeminiThinker(MINIMAX_M3_MODEL_ID)).toBe(true)
+
+    // Legacy "Fastest" MiniMax M2.7 skips it to preserve the fastest tier.
     expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
       false,
     )
-    expect(canFreebuffModelSpawnGeminiThinker(MINIMAX_M3_MODEL_ID)).toBe(false)
+    // Limited-tier models (DeepSeek V4 Flash, MiMo 2.5) skip it.
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
     ).toBe(false)
-    expect(
-      canFreebuffModelSpawnGeminiThinker(FREEBUFF_MIMO_V25_PRO_MODEL_ID),
-    ).toBe(false)
+    expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(
+      false,
+    )
   })
 
   test('does not support GLM 5.1 for freebuff sessions', () => {
