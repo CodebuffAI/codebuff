@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, memo } from "react";
-import { useMutation } from "convex/react";
+import { useState, useCallback, memo, useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { Button } from "@/vly/components/ui/button";
@@ -36,6 +36,12 @@ interface SendMessageResult {
   error?: { kind: string; message?: string };
 }
 
+type SupportedAgentType =
+  | "Claude Code"
+  | "Gemini CLI"
+  | "Codex"
+  | "Freebuff";
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -63,6 +69,18 @@ function validateSemanticIdentifier(identifier: string): boolean {
 
 function sanitizeInput(input: string): string {
   return input.trim().slice(0, MAX_INPUT_LENGTH);
+}
+
+function resolveAgentType(agentType: unknown): SupportedAgentType {
+  switch (agentType) {
+    case "Claude Code":
+    case "Gemini CLI":
+    case "Codex":
+    case "Freebuff":
+      return agentType;
+    default:
+      return "Freebuff";
+  }
 }
 
 // ============================================================================
@@ -121,8 +139,33 @@ export const AddPresetDialog = memo(function AddPresetDialog({
   const { hasAccess } = useFeatureAccess("ui_components_library");
 
   const sendMessage = useMutation(
-    api.coding_agent.trigger.saveMessageAndStartWorkflow,
+    api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
   );
+  const project = useQuery(
+    api.project.getProjectData,
+    validateSemanticIdentifier(semanticIdentifier)
+      ? { semanticIdentifier: semanticIdentifier.trim() }
+      : "skip",
+  );
+  const activeAgentThread = useQuery(
+    api.coding_agent.cli_agent.agent_thread.getAgentThreadPublic,
+    project?.active_agent_thread
+      ? { threadId: project.active_agent_thread }
+      : "skip",
+  );
+  const agentType = useMemo<SupportedAgentType | null>(() => {
+    // If the project already has an active agent thread, wait for its type so
+    // we send to that exact agent (Codex/Freebuff/etc.) instead of guessing.
+    if (project?.active_agent_thread) {
+      if (!activeAgentThread) {
+        return null;
+      }
+      return resolveAgentType(activeAgentThread.agent_type);
+    }
+
+    // No active agent thread yet.
+    return null;
+  }, [project?.active_agent_thread, activeAgentThread]);
 
   const resetState = useCallback(() => {
     setUserInput("");
@@ -157,6 +200,12 @@ export const AddPresetDialog = memo(function AddPresetDialog({
     setIsSending(true);
 
     try {
+      if (!agentType) {
+        throw new Error(
+          "No active agent thread found. Open chat and start an agent thread first.",
+        );
+      }
+
       const fullMessage = buildAIMessage(preset, userInput);
 
       if (!fullMessage) {
@@ -167,6 +216,7 @@ export const AddPresetDialog = memo(function AddPresetDialog({
         projectSemanticIdentifier: semanticIdentifier.trim(),
         message: fullMessage,
         images: [],
+        agentType,
       })) as SendMessageResult;
 
       if (!result) {
@@ -200,6 +250,7 @@ export const AddPresetDialog = memo(function AddPresetDialog({
     semanticIdentifier,
     userInput,
     sendMessage,
+    agentType,
     resetState,
     onOpenChange,
     hasAccess,
