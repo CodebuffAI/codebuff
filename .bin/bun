@@ -55,6 +55,7 @@ PROJECT_ROOT="$(find_project_root)"
 ENV_LOCAL_FILE="$PROJECT_ROOT/.env.local"
 ENV_DEVELOPMENT_LOCAL_FILE="$PROJECT_ROOT/.env.development.local"
 CACHE_TTL_SECONDS=${INFISICAL_CACHE_TTL:-900}  # Default 15 minutes
+INFISICAL_ENV_NAME=${INFISICAL_ENV:-dev}
 CALLING_DIR="$(pwd)"
 
 # Clean up any leftover temporary files
@@ -103,8 +104,9 @@ sync_from_infisical() {
 
     local temp_file=$(mktemp)
 
-    # Run infisical export in background from project root
-    (cd "$PROJECT_ROOT" && infisical export > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
+    # Run infisical export in background from project root. Pass an explicit
+    # environment so the CLI never waits for interactive environment selection.
+    (cd "$PROJECT_ROOT" && infisical export --env="$INFISICAL_ENV_NAME" --silent > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
     local pid=$!
 
     # Wait up to 10 seconds

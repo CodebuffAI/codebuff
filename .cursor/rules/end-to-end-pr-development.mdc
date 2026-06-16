@@ -1,0 +1,56 @@
+---
+description: End-to-end PR development, deployment, and production verification workflow
+alwaysApply: true
+---
+
+# End-To-End PR Development
+
+Use this workflow for complex UI changes, backend changes, deployment-sensitive fixes, and features that need real product verification. For simple questions, small bug explanations, or low-risk local edits, do not run the full production loop.
+
+## Environment Checklist
+
+- Ensure `direnv` is active and `bun` resolves to the repo wrapper: `command -v bun` should point at `.bin/bun`.
+- Infisical manages local secrets sync. If env sync fails or `.env.local` appears stale, ask the user to run `infisical login` / `direnv allow`, then retry with `INFISICAL_CACHE_TTL=0 bun ...`.
+- Axiom manages production logs for the Next.js server. Use the repo log scripts and the Axiom query token from env when production behavior needs diagnosis.
+- Convex manages Freebuff Web production backend logs. Use Convex logs for backend runtime errors and operational warnings.
+- GitHub Actions manages deployment status and required checks. Monitor checks actively after merging or pushing deploy fixes.
+- If Convex APIs changed, regenerate types with Convex before typechecking. Prefer `bun x convex dev --once` from the relevant Convex app directory.
+
+## Development Loop
+
+- Keep changes scoped and delivery-focused. Prefer the simplest implementation that matches existing repo patterns.
+- Run targeted checks first. Typecheck or broader tests when the change touches shared contracts, backend behavior, generated Convex APIs, or critical UI paths.
+- If typecheck items are skipped for speed, still ensure no obvious type issues in changed files and state what was skipped.
+- Do not wait for perfect local coverage when the user asks for production iteration. Fix, push, merge, monitor, and verify in production.
+
+## Merge And Deploy
+
+- For changes intended to ship, merge directly with `main` when requested.
+- After merge/push, monitor GitHub Actions for about 12 minutes or until the relevant checks/deployment state is clear.
+- If checks fail, resolve merge conflicts or failures quickly, push fixes, and keep monitoring.
+- When a fix needs a PR, keep iterations in a single PR thread where practical. Merge immediately when requested, then continue monitoring checks and deployment.
+
+## Production Verification
+
+- Test immediately in production after deployment: web changes on `https://freebuff.com/web`; CLI changes through tmux output.
+- For Freebuff Web, assume the browser is logged in as Victor. If auth is missing, stop and ask the user to log in/authenticate before continuing tests.
+- Keep testing fast and focused: verify each new feature or fix, click through the main affected paths, and make sure adjacent core behavior is not broken.
+- For chat/platform changes, type into inputs, send messages, inspect output, navigate between relevant links/tabs, and test on production data.
+- For complex features, broaden coverage enough to catch broken states, regressions, and missing interactions. For smaller fixes, run the minimum test that proves the core behavior.
+
+## Evidence
+
+- Capture screenshots for production verification, especially before/after states and the final working state.
+- If video is needed, use a real click-through screen recording, not stitched screenshots. Make clicks visible and easy to follow.
+- Attach screenshot/video evidence to the PR thread in comments. Keep all iteration history in that PR thread when possible.
+- Final summaries should link the PR or PRs used for the branch and mention where the screenshot/video evidence lives.
+
+## External Services
+
+- If testing requires external accounts, email inboxes, payment flows, private provider dashboards, or other access the agent does not have, document it in the PR and final summary.
+- Include a clear checklist of what the agent verified versus what the user must verify manually.
+
+## Final Report
+
+- State what shipped, what was verified in production, which checks/deployments were monitored, and any remaining risks.
+- Call out skipped checks, auth blockers, external-service gaps, or logs that indicate follow-up is needed.
