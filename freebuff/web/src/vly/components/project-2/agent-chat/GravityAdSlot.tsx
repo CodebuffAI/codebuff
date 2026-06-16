@@ -462,6 +462,48 @@ export function GravityAdSlot({
   const imageUrl =
     !faviconError && (ad.favicon || (isNav ? getFallbackFaviconUrl(ad.url) : ''))
 
+  // Inline toolbar variant: borderless row that blends into the iframe
+  // control card (logo · title · CTA · faded "AD"), no card chrome.
+  if (isNav) {
+    return (
+      <div ref={adCardRef} className={cn('flex min-w-0', className)}>
+        <a
+          href={ad.clickUrl}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          onClick={() => {
+            if (ad.impUrl) recordAdEvent('click', ad.impUrl, 'web')
+          }}
+          aria-label={`Sponsored: ${ad.title || ad.brandName}`}
+          className="group flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 no-underline outline-none transition-colors hover:bg-muted/60 focus-visible:ring-1 focus-visible:ring-primary/40"
+        >
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded bg-muted text-[9px] font-semibold text-muted-foreground">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={() => setFaviconError(true)}
+              />
+            ) : (
+              ad.brandName.charAt(0).toUpperCase() || 'A'
+            )}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/85">
+            {ad.title || ad.brandName}
+          </span>
+          <span className="hidden shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[10px] font-semibold leading-none text-primary-foreground shadow-sm transition-colors group-hover:bg-primary/90 sm:inline-flex">
+            {ad.cta || 'Start monetizing'}
+            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+          </span>
+          <span className="shrink-0 text-[8px] font-semibold uppercase leading-none tracking-[0.2em] text-muted-foreground/30">
+            AD
+          </span>
+        </a>
+      </div>
+    )
+  }
+
   const adCard = (
     <div
       ref={adCardRef}

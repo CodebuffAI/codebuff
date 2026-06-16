@@ -3,7 +3,7 @@
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ChevronLeft, ChevronDown, Plus, Loader2, Archive } from "lucide-react";
+import { ChevronDown, Plus, Loader2, Archive } from "lucide-react";
 import { cn } from "@/vly/lib/utils";
 import { useState, type MouseEvent } from "react";
 
@@ -15,7 +15,6 @@ interface AgentThreadListProps {
     threadType: "agent_thread" | "thread",
   ) => void;
   onCreateNewThread: () => void;
-  onBack: () => void;
   isProcessing: boolean;
 }
 
@@ -80,7 +79,6 @@ export function AgentThreadList({
   activeThreadId,
   onSelectThread,
   onCreateNewThread,
-  onBack,
   isProcessing,
 }: AgentThreadListProps) {
   // Archived (legacy) threads are collapsed by default so the list focuses on
@@ -195,18 +193,6 @@ export function AgentThreadList({
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
       <div className="flex h-12 flex-shrink-0 items-center gap-2 border-b border-border/50 px-4">
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onBack();
-          }}
-          type="button"
-          aria-label="Back to thread"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
           Threads
         </h2>

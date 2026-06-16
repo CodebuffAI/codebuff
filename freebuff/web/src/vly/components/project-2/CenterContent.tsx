@@ -827,38 +827,10 @@ export function CenterContent({
               in new tab" + bottom Chat tab cover navigation needs. --- */}
         <TooltipProvider delayDuration={200}>
           <div
-            className="hidden w-full min-w-[220px] flex-col overflow-hidden rounded-lg border border-border bg-card px-2 py-1 lg:flex"
+            className="hidden w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 lg:flex"
             style={{ minHeight: 32 }}
           >
-            <GravityAdSlot
-              messages={[
-                {
-                  role: "user",
-                  content: `Previewing ${project?.name || project?.semantic_identifier || "a project"} in Freebuff Web`,
-                },
-              ]}
-              sessionId={`${project?.semantic_identifier ?? projectId ?? "project"}-above-iframe`}
-              slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
-              placement="above-iframe"
-              variant="nav"
-              className="mb-1 w-full"
-              fallbackAd={{
-                adText:
-                  "Contextual monetization for AI apps and assistant workflows.",
-                title: "Monetize your AI app with Gravity",
-                cta: "Start monetizing",
-                brandName: "Gravity",
-                url: "https://trygravity.ai",
-                favicon: GRAVITY_FAVICON_URL,
-                impUrl: "",
-                clickUrl:
-                  "https://trygravity.ai?utm_source=freebuff_web&utm_medium=above_iframe_house_ad&utm_campaign=Above-iFrame",
-                placementId: "Above-iFrame",
-                provider: "gravity",
-              }}
-            />
-            <div className="flex w-full items-center gap-1">
-              <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5">
                 <ToolbarTooltip label="Back">
                   <button
                     onClick={handleBack}
@@ -910,13 +882,40 @@ export function CenterContent({
                 </ToolbarTooltip>
               </div>
               <span
-                className="flex-1 select-text truncate px-2 font-mono text-[11px] text-muted-foreground"
+                className="hidden shrink-0 select-text truncate px-1.5 font-mono text-[11px] text-muted-foreground xl:inline-block xl:max-w-[140px]"
                 style={{ letterSpacing: 0.2 }}
               >
                 {navState.stack[navState.index] || (
                   <span className="opacity-40">/</span>
                 )}
               </span>
+              <GravityAdSlot
+                messages={[
+                  {
+                    role: "user",
+                    content: `Previewing ${project?.name || project?.semantic_identifier || "a project"} in Freebuff Web`,
+                  },
+                ]}
+                sessionId={`${project?.semantic_identifier ?? projectId ?? "project"}-above-iframe`}
+                slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
+                placement="above-iframe"
+                variant="nav"
+                className="min-w-0 flex-1"
+                fallbackAd={{
+                  adText:
+                    "Contextual monetization for AI apps and assistant workflows.",
+                  title: "Monetize your AI app with Gravity",
+                  cta: "Start monetizing",
+                  brandName: "Gravity",
+                  url: "https://trygravity.ai",
+                  favicon: GRAVITY_FAVICON_URL,
+                  impUrl: "",
+                  clickUrl:
+                    "https://trygravity.ai?utm_source=freebuff_web&utm_medium=above_iframe_house_ad&utm_campaign=Above-iFrame",
+                  placementId: "Above-iFrame",
+                  provider: "gravity",
+                }}
+              />
               <div className="flex items-center gap-0.5">
                 <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>
                   <div
@@ -1022,7 +1021,6 @@ export function CenterContent({
                   </button>
                 </ToolbarTooltip>
               </div>
-            </div>
           </div>
         </TooltipProvider>
         {/* --- Static iframe, never animates or remounts unless parent navigation --- */}

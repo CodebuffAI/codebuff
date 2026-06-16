@@ -847,7 +847,6 @@ ${message}`;
             }
             onSelectThread={handleSetActiveThread}
             onCreateNewThread={handleCreateNewThread}
-            onBack={() => setShowThreadList(false)}
             isProcessing={isProcessing}
           />
         </div>

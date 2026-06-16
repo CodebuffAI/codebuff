@@ -176,6 +176,14 @@ export function TopBar({
 
               <DropdownMenuItem
                 className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
+                onClick={() => router.push('/web/dashboard')}
+              >
+                <Home className="mr-2.5 h-4 w-4 text-muted-foreground" />
+                Home
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
                 onClick={openSettings}
               >
                 <Settings className="mr-2.5 h-4 w-4 text-muted-foreground" />
@@ -255,26 +263,6 @@ export function TopBar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => router.push('/web/dashboard')}
-                aria-label="Home"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Home className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              sideOffset={6}
-              className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
-            >
-              Home
-            </TooltipContent>
-          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
