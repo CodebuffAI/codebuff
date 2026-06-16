@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/vly/components/app-shell/AppShell";
+import { SignInMethodsSection } from "./sign-in-methods-section";
 import { Input } from "@/vly/components/ui/input";
 import { Textarea } from "@/vly/components/ui/textarea";
 import {
@@ -31,6 +32,7 @@ const SETTINGS_TABS = [
   { id: "community-profile", label: "Community profile" },
   { id: "transfer-projects", label: "Transfer projects" },
   { id: "linked-github", label: "Linked GitHub" },
+  { id: "sign-in-methods", label: "Sign-in methods" },
 ];
 
 export default function GeneralSettingsPage() {
@@ -473,6 +475,14 @@ export default function GeneralSettingsPage() {
                   )}
               </div>
             </div>
+          </SettingsSection>
+
+          <SettingsSection
+            id="sign-in-methods"
+            title="Sign-in methods"
+            description="Link GitHub and Google so you can sign in with either and always land on this same account. Linking GitHub also lets you qualify for referral bonuses."
+          >
+            <SignInMethodsSection />
           </SettingsSection>
         </div>
       </div>

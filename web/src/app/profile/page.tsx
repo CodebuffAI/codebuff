@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { CreditCard, Shield, Users, Key, Menu, User } from 'lucide-react'
+import { CreditCard, Shield, Users, Key, Menu, User, Link2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState, useEffect, Suspense } from 'react'
@@ -10,6 +10,7 @@ import { useState, useEffect, Suspense } from 'react'
 // Import components
 import { AccountSection } from './components/account-section'
 import { ApiKeysSection } from './components/api-keys-section'
+import { ConnectionsSection } from './components/connections-section'
 import { ProfileLoggedOut } from './components/logged-out'
 import { ReferralsSection } from './components/referrals-section'
 import { SecuritySection } from './components/security-section'
@@ -56,6 +57,12 @@ function buildSections(hasReferralHistory: boolean): Section[] {
       title: 'API Keys',
       icon: Key,
       component: ApiKeysSection,
+    },
+    {
+      id: 'connections',
+      title: 'Connections',
+      icon: Link2,
+      component: ConnectionsSection,
     },
     ...(hasReferralHistory ? [REFERRALS_SECTION] : []),
     {

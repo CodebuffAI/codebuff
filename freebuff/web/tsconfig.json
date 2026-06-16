@@ -35,6 +35,8 @@
       "@/lib/freebuff-server-env": ["./src/lib/freebuff-server-env.ts"],
       "@/lib/vly-convex-jwt": ["./src/lib/vly-convex-jwt.ts"],
       "@/lib/record-ad-event": ["./src/lib/record-ad-event.ts"],
+      "@/lib/last-provider": ["./src/lib/last-provider.ts"],
+      "@/lib/link-provider": ["./src/lib/link-provider.ts"],
       "@/lib/blog/*": ["./src/lib/blog/*"],
       "@/components/blog/*": ["./src/components/blog/*"],
       "@/components/background-beams": [

@@ -37,6 +37,13 @@ export const serverEnvSchema = clientEnvSchema.extend({
   CODEBUFF_GITHUB_SECRET: z.string().min(1),
   FREEBUFF_GITHUB_ID: z.string().min(1).optional(),
   FREEBUFF_GITHUB_SECRET: z.string().min(1).optional(),
+  // Google OAuth. Optional so environments without Google configured still
+  // boot (the Google provider is only registered when both id+secret exist).
+  // Freebuff falls back to the CODEBUFF_* credentials when its own are unset.
+  CODEBUFF_GOOGLE_ID: z.string().min(1).optional(),
+  CODEBUFF_GOOGLE_SECRET: z.string().min(1).optional(),
+  FREEBUFF_GOOGLE_ID: z.string().min(1).optional(),
+  FREEBUFF_GOOGLE_SECRET: z.string().min(1).optional(),
   NEXTAUTH_URL: z.url().optional(),
   NEXTAUTH_FREEBUFF_URL: z.url().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
@@ -126,6 +133,10 @@ export const serverProcessEnv: ServerInput = {
   CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
   FREEBUFF_GITHUB_ID: process.env.FREEBUFF_GITHUB_ID,
   FREEBUFF_GITHUB_SECRET: process.env.FREEBUFF_GITHUB_SECRET,
+  CODEBUFF_GOOGLE_ID: process.env.CODEBUFF_GOOGLE_ID,
+  CODEBUFF_GOOGLE_SECRET: process.env.CODEBUFF_GOOGLE_SECRET,
+  FREEBUFF_GOOGLE_ID: process.env.FREEBUFF_GOOGLE_ID,
+  FREEBUFF_GOOGLE_SECRET: process.env.FREEBUFF_GOOGLE_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   NEXTAUTH_FREEBUFF_URL: process.env.NEXTAUTH_FREEBUFF_URL,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,

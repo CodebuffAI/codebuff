@@ -5,7 +5,7 @@ import { sleep } from '@codebuff/common/util/promise'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import posthog from 'posthog-js'
-import { useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 
 import { toast } from '../ui/use-toast'
 
@@ -13,6 +13,7 @@ import type { OAuthProviderType } from 'next-auth/providers/oauth-types'
 
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
+import { rememberLastProvider, readLastProvider } from '@/lib/last-provider'
 
 export const SignInButton = ({
   providerName,
@@ -24,11 +25,17 @@ export const SignInButton = ({
   onClick?: () => void
 }) => {
   const [isPending, startTransition] = useTransition()
+  const [isLastUsed, setIsLastUsed] = useState(false)
   const pathname = usePathname()
   const searchParams = useSearchParams() ?? new URLSearchParams()
 
+  useEffect(() => {
+    setIsLastUsed(readLastProvider() === providerName)
+  }, [providerName])
+
   const handleSignIn = () => {
     onClick?.()
+    rememberLastProvider(providerName)
 
     startTransition(async () => {
       const searchParamsString = searchParams.toString()
@@ -77,14 +84,21 @@ export const SignInButton = ({
     >
       {isPending && <Icons.loader className="mr-2 size-4 animate-spin" />}
       <img
-        src={`https://s2.googleusercontent.com/s2/favicons?domain=${providerDomain}`}
-        className="rounded-full"
+        src={`https://s2.googleusercontent.com/s2/favicons?domain=${providerDomain}&sz=64`}
+        width={16}
+        height={16}
+        className="size-4 rounded-full"
         alt={`${providerName} logo`}
       />
       Continue with{' '}
       {providerName === 'github'
         ? 'GitHub'
         : providerName.charAt(0).toUpperCase() + providerName.slice(1)}
+      {isLastUsed && (
+        <span className="ml-auto rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Last used
+        </span>
+      )}
     </Button>
   )
 }
