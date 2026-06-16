@@ -50,6 +50,7 @@ const bodySchema = z.object({
   device: deviceSchema.optional(),
   gravity_context: gravityContextSchema.optional(),
   surface: surfaceSchema.optional(),
+  placementId: z.string().optional(),
   /** Browser-like useragent passed through to providers that require it. */
   userAgent: z.string().optional(),
 })
@@ -243,6 +244,7 @@ export async function postAds(params: {
         device: parsedBody.device,
         gravityContext: parsedBody.gravity_context,
         surface: parsedBody.surface,
+        placementId: parsedBody.placementId,
         messages: parsedBody.messages,
         testMode: serverEnv.CB_ENVIRONMENT !== 'prod',
         logger,

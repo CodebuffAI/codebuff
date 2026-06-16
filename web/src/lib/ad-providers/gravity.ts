@@ -120,6 +120,7 @@ function hashEmail(email: string | null): string | undefined {
 }
 
 function getPlacementIds(input: FetchAdInput): string[] {
+  if (input.placementId) return [input.placementId]
   if (input.surface === 'waiting_room') return WAITING_ROOM_PLACEMENT_IDS
   if (input.surface === 'freebuff_web_chat') {
     return FREEBUFF_WEB_CHAT_PLACEMENT_IDS
@@ -152,8 +153,10 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
       const placementIds = getPlacementIds(input)
 
       const placementType =
-        input.surface === 'freebuff_web_chat' ||
-        input.surface === 'chat_assistant'
+        input.placementId === 'Above-iFrame'
+          ? 'top_page'
+          : input.surface === 'freebuff_web_chat' ||
+              input.surface === 'chat_assistant'
           ? 'inline_response'
           : 'below_response'
       const placements = placementIds.map((id) => ({

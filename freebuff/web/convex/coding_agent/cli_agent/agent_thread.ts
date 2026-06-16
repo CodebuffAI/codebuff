@@ -12,6 +12,34 @@ import { Id } from "!/_generated/dataModel";
 import { getVerifiedAccessProject } from "../../project";
 import { getAuthUser } from "../../users";
 
+const AUTO_THREAD_TITLE_MAX_LENGTH = 60;
+const AUTO_THREAD_TITLE_MIN_WORD_BOUNDARY = 24;
+
+export function formatInitialUserMessageThreadTitle(message: string) {
+  const stripped = message
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[^A-Za-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (stripped.length <= AUTO_THREAD_TITLE_MAX_LENGTH) {
+    return stripped;
+  }
+
+  const truncated = stripped
+    .slice(0, AUTO_THREAD_TITLE_MAX_LENGTH)
+    .trimEnd();
+  const lastSpace = truncated.lastIndexOf(" ");
+
+  if (lastSpace >= AUTO_THREAD_TITLE_MIN_WORD_BOUNDARY) {
+    return truncated.slice(0, lastSpace);
+  }
+
+  return truncated;
+}
+
 // Create a new agent thread
 export async function createAgentThread(
   ctx: MutationCtx,

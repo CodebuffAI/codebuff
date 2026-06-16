@@ -117,7 +117,7 @@ function withFreebuffWebSystemPromptAppendix(
 }
 
 const base2Free = withFreebuffWebSystemPromptAppendix({
-  ...createBase2('free', { noReview: true }),
+  ...createBase2('free'),
   id: 'base2-free',
   displayName: 'Buffy the Free Orchestrator',
 })
@@ -125,7 +125,6 @@ const base2Free = withFreebuffWebSystemPromptAppendix({
 const base2FreeDeepseek = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-deepseek',
   displayName: 'Buffy the DeepSeek Free Orchestrator',
@@ -134,7 +133,6 @@ const base2FreeDeepseek = withFreebuffWebSystemPromptAppendix({
 const base2FreeDeepseekFlash = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-deepseek-flash',
   displayName: 'Buffy the DeepSeek Flash Free Orchestrator',
@@ -143,7 +141,6 @@ const base2FreeDeepseekFlash = withFreebuffWebSystemPromptAppendix({
 const base2FreeKimi = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_KIMI_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-kimi',
   displayName: 'Buffy the Kimi Free Orchestrator',
@@ -152,7 +149,6 @@ const base2FreeKimi = withFreebuffWebSystemPromptAppendix({
 const base2FreeMimo = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_MIMO_V25_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-mimo',
   displayName: 'Buffy the MiMo Free Orchestrator',
@@ -161,7 +157,6 @@ const base2FreeMimo = withFreebuffWebSystemPromptAppendix({
 const base2FreeMimoPro = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-mimo-pro',
   displayName: 'Buffy the MiMo Pro Free Orchestrator',
@@ -170,7 +165,6 @@ const base2FreeMimoPro = withFreebuffWebSystemPromptAppendix({
 const base2FreeMinimax = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_MINIMAX_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-minimax',
   displayName: 'Buffy the MiniMax Free Orchestrator',
@@ -179,7 +173,6 @@ const base2FreeMinimax = withFreebuffWebSystemPromptAppendix({
 const base2FreeMinimaxM3 = withFreebuffWebSystemPromptAppendix({
   ...createBase2('free', {
     model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-    noReview: true,
   }),
   id: 'base2-free-minimax-m3',
   displayName: 'Buffy the MiniMax M3 Free Orchestrator',

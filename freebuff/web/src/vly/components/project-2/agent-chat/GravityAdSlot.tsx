@@ -104,6 +104,9 @@ const reportedImpUrls = new Set<string>()
 const PLACEMENT_CHAT = 'agent-chat-below-response'
 const PLACEMENT_CENTER = 'project-center'
 const PLACEMENT_SIDEBAR = 'project-sidebar'
+const PLACEMENT_ABOVE_IFRAME = 'Above-iFrame'
+
+type GravityPlacement = 'center' | 'sidebar' | 'above-iframe'
 
 /**
  * Client-side fetch to Freebuff's same-origin ads proxy.
@@ -152,7 +155,7 @@ export async function fetchGravityAds(
   messages: GravityAdMessage[],
   sessionId: string,
   testAd: boolean,
-  placement?: 'center' | 'sidebar',
+  placement?: GravityPlacement,
   gravityContext?: GravityContext,
   surface?: GravityAdSurface,
 ): Promise<GravityAd[]> {
@@ -161,7 +164,9 @@ export async function fetchGravityAds(
       ? PLACEMENT_CENTER
       : placement === 'sidebar'
         ? PLACEMENT_SIDEBAR
-        : PLACEMENT_CHAT
+        : placement === 'above-iframe'
+          ? PLACEMENT_ABOVE_IFRAME
+          : PLACEMENT_CHAT
 
   // Use unique sessionId per placement to avoid Gravity's per-session deduplication
   // This allows multiple ad slots to each receive their own ad
@@ -171,6 +176,7 @@ export async function fetchGravityAds(
     messages,
     sessionId: uniqueSessionId,
     testAd,
+    placementId,
     ...(gravityContext
       ? {
           gravity_context: {
@@ -232,7 +238,7 @@ export async function fetchGravityAd(
   messages: GravityAdMessage[],
   sessionId: string,
   testAd: boolean,
-  placement?: 'center' | 'sidebar',
+  placement?: GravityPlacement,
   gravityContext?: GravityContext,
 ): Promise<GravityAd | null> {
   return (
@@ -254,10 +260,12 @@ type GravityAdSlotProps = {
   /** Stable id for this slot (e.g. message._id) so we only fetch once per message */
   slotKey?: string
   testAd?: boolean
-  /** "featured" = larger (e.g. in chat); "compact" = smaller (sidebar); "default" = standard (center) */
-  variant?: 'default' | 'featured' | 'compact'
-  /** Placement for Gravity: "center" | "sidebar" for project center/sidebar; omit for chat. */
-  placement?: 'center' | 'sidebar'
+  /** "featured" = larger (e.g. in chat); "compact" = smaller (sidebar); "nav" = full-width iframe chrome. */
+  variant?: 'default' | 'featured' | 'compact' | 'nav'
+  /** Placement for Gravity: "center" | "sidebar" | "above-iframe"; omit for chat. */
+  placement?: GravityPlacement
+  /** Optional house ad shown when Gravity returns no paid inventory. */
+  fallbackAd?: GravityAd
   /** Called when an ad is successfully loaded and rendered (e.g. to show disclaimer only when ad is visible). */
   onAdRendered?: () => void
   /** When true, show "Promotions help keep vly affordable." below the ad (e.g. in chat). */
@@ -276,6 +284,7 @@ export function GravityAdSlot({
   testAd = false,
   variant = 'default',
   placement,
+  fallbackAd,
   onAdRendered,
   showDisclaimer = false,
   className,
@@ -351,6 +360,7 @@ export function GravityAdSlot({
   // fires Gravity's pixel itself, so tracking works even with ad blockers.
   useEffect(() => {
     if (!shouldFireImpression || !ad) return
+    if (!ad.impUrl) return
     if (reportedImpUrls.has(ad.impUrl)) return
     reportedImpUrls.add(ad.impUrl)
     recordAdEvent('impression', ad.impUrl, 'web')
@@ -393,7 +403,7 @@ export function GravityAdSlot({
             ),
           )
           .then((result) => {
-            if (mountedRef.current && result) setAd(result)
+            if (mountedRef.current) setAd(result ?? fallbackAd ?? null)
           })
           .catch(() => {})
           .finally(() => {
@@ -414,6 +424,7 @@ export function GravityAdSlot({
       sessionId,
       testAd,
       placement,
+      fallbackAd,
       session?.user?.id,
       session?.user?.email,
     ],
@@ -438,6 +449,7 @@ export function GravityAdSlot({
 
   const isFeatured = variant === 'featured'
   const isCompact = variant === 'compact'
+  const isNav = variant === 'nav'
 
   const adCard = (
     <div
@@ -446,7 +458,7 @@ export function GravityAdSlot({
         'relative rounded-lg',
         isFeatured && 'mt-2.5',
         isCompact && 'mt-2',
-        !isFeatured && !isCompact && 'mt-3',
+        !isFeatured && !isCompact && !isNav && 'mt-3',
         className,
       )}
     >
@@ -455,15 +467,21 @@ export function GravityAdSlot({
         href={ad.clickUrl}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        onClick={() => recordAdEvent('click', ad.impUrl, 'web')}
-        className="group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline outline-none transition-colors hover:border-primary/40 hover:bg-muted/30 focus:ring-2 focus:ring-primary/30"
+        onClick={() => {
+          if (ad.impUrl) recordAdEvent('click', ad.impUrl, 'web')
+        }}
+        className={cn(
+          'group flex overflow-hidden rounded-lg border border-border bg-card text-left no-underline outline-none transition-colors hover:border-primary/40 hover:bg-muted/30 focus:ring-2 focus:ring-primary/30',
+          isNav && 'min-h-[52px] items-center',
+        )}
       >
         <div
           className={cn(
             'relative flex shrink-0 items-center justify-center overflow-hidden border-r border-border bg-muted font-medium text-muted-foreground',
             isFeatured && 'w-14 text-xs sm:w-16',
             isCompact && 'w-10 text-[10px]',
-            !isFeatured && !isCompact && 'w-12 text-xs',
+            isNav && 'mx-2 h-8 w-8 rounded-md border border-border text-xs',
+            !isFeatured && !isCompact && !isNav && 'w-12 text-xs',
           )}
         >
           {ad.favicon && !faviconError ? (
@@ -488,10 +506,16 @@ export function GravityAdSlot({
             'min-w-0 flex-1 overflow-hidden',
             isFeatured && 'px-3 py-2.5',
             isCompact && 'px-2 py-1.5',
-            !isFeatured && !isCompact && 'px-3 py-2',
+            isNav && 'py-2 pr-2',
+            !isFeatured && !isCompact && !isNav && 'px-3 py-2',
           )}
         >
-          <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          <span
+            className={cn(
+              'block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70',
+              isNav ? 'mb-0.5' : 'mb-1',
+            )}
+          >
             Sponsored
           </span>
           <span
@@ -499,7 +523,8 @@ export function GravityAdSlot({
               'block truncate font-semibold text-foreground',
               isFeatured && 'text-sm',
               isCompact && 'text-xs',
-              !isFeatured && !isCompact && 'text-sm',
+              isNav && 'text-xs sm:text-sm',
+              !isFeatured && !isCompact && !isNav && 'text-sm',
             )}
           >
             {ad.title || ad.brandName}
@@ -509,14 +534,16 @@ export function GravityAdSlot({
               'mt-0.5 break-words leading-snug text-muted-foreground',
               isFeatured && 'line-clamp-2 text-sm',
               isCompact && 'line-clamp-2 text-[11px]',
-              !isFeatured && !isCompact && 'line-clamp-2 text-xs',
+              isNav && 'line-clamp-1 text-[11px] sm:text-xs',
+              !isFeatured && !isCompact && !isNav && 'line-clamp-2 text-xs',
             )}
           >
             {ad.adText}
           </p>
           <span
             className={cn(
-              'mt-2 inline-flex items-center gap-1 font-medium text-muted-foreground underline-offset-4 transition-colors group-hover:text-primary group-hover:underline',
+              'inline-flex items-center gap-1 font-medium text-muted-foreground underline-offset-4 transition-colors group-hover:text-primary group-hover:underline',
+              isNav ? 'mt-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] text-primary sm:float-right sm:-mt-7 sm:ml-3' : 'mt-2',
               isCompact ? 'text-[11px]' : 'text-xs',
             )}
           >

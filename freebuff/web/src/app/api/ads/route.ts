@@ -15,6 +15,7 @@ const bodySchema = z.object({
   sessionId: z.string().optional(),
   gravity_context: z.record(z.string(), z.unknown()).optional(),
   surface: z.enum(['freebuff_web_chat', 'chat_assistant']).optional(),
+  placementId: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       sessionId: parsed.data.sessionId,
       gravity_context: parsed.data.gravity_context,
       surface: parsed.data.surface,
+      placementId: parsed.data.placementId,
       userAgent: request.headers.get('user-agent') ?? undefined,
     },
   })

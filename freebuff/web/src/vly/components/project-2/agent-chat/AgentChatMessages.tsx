@@ -948,6 +948,28 @@ function toPersistedAgentAd(
   }
 }
 
+function createFallbackGravityAd(placementId: AgentAdPlacement): PersistedAgentAd {
+  const isBeforeAssistant = placementId === 'agent-chat-after-user'
+  const campaign = isBeforeAssistant
+    ? 'agent_chat_before_assistant'
+    : 'agent_chat_after_assistant'
+
+  return {
+    provider: 'gravity',
+    adText: isBeforeAssistant
+      ? 'Build AI-native monetization into conversational, search, and assistant experiences.'
+      : 'Contextual ads for AI apps, designed to keep the experience useful instead of intrusive.',
+    title: 'Monetize your AI app with Gravity',
+    cta: 'See how Gravity works',
+    brandName: 'Gravity',
+    url: 'https://trygravity.ai',
+    clickUrl: `https://trygravity.ai?utm_source=freebuff_web&utm_medium=house_ad&utm_campaign=${campaign}`,
+    impUrl: '',
+    placementId,
+    servedAt: 0,
+  }
+}
+
 const AgentAdMessage: React.FC<{
   ad: PersistedAgentAd
   className?: string
@@ -1090,6 +1112,18 @@ const AgentMessageCard: React.FC<{
     () => groupStreamItems(visibleAssistantStream),
     [visibleAssistantStream],
   )
+  const persistentAds = useMemo(() => {
+    if (!message.user_message) return ads
+
+    return {
+      'agent-chat-after-user':
+        ads?.['agent-chat-after-user'] ??
+        createFallbackGravityAd('agent-chat-after-user'),
+      'agent-chat-after-assistant':
+        ads?.['agent-chat-after-assistant'] ??
+        createFallbackGravityAd('agent-chat-after-assistant'),
+    } satisfies AdsByPlacement
+  }, [ads, message.user_message])
   const renderedAssistantStreamGroups = useMemo(() => {
     let lastActivityIndex = -1
     groupedVisibleAssistantStream.forEach((group, index) => {
@@ -1214,9 +1248,9 @@ const AgentMessageCard: React.FC<{
         </div>
       )}
 
-      {ads?.['agent-chat-after-user'] && (
+      {persistentAds?.['agent-chat-after-user'] && (
         <AgentAdMessage
-          ad={ads['agent-chat-after-user']}
+          ad={persistentAds['agent-chat-after-user']}
           className="my-3"
         />
       )}
@@ -1284,9 +1318,9 @@ const AgentMessageCard: React.FC<{
         </div>
       )}
 
-      {ads?.['agent-chat-after-assistant'] && (
+      {persistentAds?.['agent-chat-after-assistant'] && (
         <AgentAdMessage
-          ad={ads['agent-chat-after-assistant']}
+          ad={persistentAds['agent-chat-after-assistant']}
           className="my-5"
         />
       )}

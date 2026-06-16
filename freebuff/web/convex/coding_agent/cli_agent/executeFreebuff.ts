@@ -5,6 +5,11 @@ import { applyPatch } from 'diff'
 import { v } from 'convex/values'
 
 import { isFreebuffMultimodalModelId } from '@codebuff/common/constants/freebuff-models'
+import { FILE_READ_STATUS } from '@codebuff/common/constants/paths'
+import {
+  stripColors,
+  truncateStringWithMessage,
+} from '@codebuff/common/util/string'
 
 import { internal } from '../../_generated/api'
 import { Id } from '!/_generated/dataModel'
@@ -448,6 +453,13 @@ function isAskUserPauseError(error: unknown) {
 }
 
 const SANDBOX_PROJECT_ROOT = '/home/daytona/codebase'
+const MAX_FILE_READ_CHARS = 100_000
+const MAX_FILE_READ_BYTES = 10 * 1024 * 1024
+const COMMAND_OUTPUT_LIMIT = 50_000
+const MAX_TOOL_FILE_LIST_ITEMS = 500
+const PROJECT_INDEX_CONTENT_LIMIT = 750_000
+const PROJECT_INDEX_FILE_CONTENT_LIMIT = 50_000
+const PROJECT_INDEX_MAX_CONTENT_FILES = 150
 const PROJECT_PATH_PREFIXES = [
   `${SANDBOX_PROJECT_ROOT}/`,
   SANDBOX_PROJECT_ROOT,
@@ -480,6 +492,70 @@ function assertProjectPath(filePath: string) {
   }
 }
 
+function isSensitiveProjectPath(filePath: string) {
+  const normalized = filePath.toLowerCase()
+  const segments = normalized.split('/')
+  const basename = segments.at(-1) ?? normalized
+  if (
+    basename === '.env' ||
+    basename.startsWith('.env.') ||
+    basename.endsWith('.pem') ||
+    basename.endsWith('.key') ||
+    basename.endsWith('.p12') ||
+    basename.endsWith('.pfx')
+  ) {
+    return true
+  }
+  return (
+    normalized.includes('/.ssh/') ||
+    normalized.includes('/.aws/') ||
+    normalized.includes('/.config/gcloud/') ||
+    normalized.includes('jwt_private_key') ||
+    normalized.includes('jwks')
+  )
+}
+
+function formatLargeFileStatus(contentLength: number) {
+  const mb = (contentLength / (1024 * 1024)).toFixed(1)
+  return `${FILE_READ_STATUS.TOO_LARGE} [${mb}MB exceeds 10MB limit. Use code_search or glob to find specific content.]`
+}
+
+function truncateFileContent(content: string) {
+  if (content.length > MAX_FILE_READ_BYTES) {
+    return formatLargeFileStatus(content.length)
+  }
+  if (content.length <= MAX_FILE_READ_CHARS) {
+    return content
+  }
+  return (
+    content.slice(0, MAX_FILE_READ_CHARS) +
+    `\n\n${FILE_READ_STATUS.TOO_LARGE}: This file is ${content.length.toLocaleString()} chars, exceeding the ${MAX_FILE_READ_CHARS.toLocaleString()} char limit. The content above has been truncated. Use code_search or more targeted reads for the relevant section.`
+  )
+}
+
+function truncateToolOutput(output: string) {
+  return truncateStringWithMessage({
+    str: stripColors(output),
+    maxLength: COMMAND_OUTPUT_LIMIT,
+    remove: 'MIDDLE',
+  })
+}
+
+function truncateFileList(files: string[]) {
+  const sorted = [...files].sort()
+  const visible = sorted.slice(0, MAX_TOOL_FILE_LIST_ITEMS)
+  return {
+    files: visible,
+    count: sorted.length,
+    truncated: sorted.length > visible.length,
+    ...(sorted.length > visible.length
+      ? {
+          message: `Showing ${visible.length.toLocaleString()} of ${sorted.length.toLocaleString()} matching files. Narrow the path or pattern for more specific results.`,
+        }
+      : {}),
+  }
+}
+
 function commandIsBlocked(command: string) {
   return /(^|\s)(git|gh)(\s|$)/.test(command)
 }
@@ -490,6 +566,59 @@ function globToRegExp(pattern: string) {
     .replace(/\*\*/g, '.*')
     .replace(/\*/g, '[^/]*')
   return new RegExp(`^${escaped}$`)
+}
+
+function shouldIncludeProjectIndexContent(filePath: string) {
+  if (isSensitiveProjectPath(filePath)) return false
+  if (filePath.includes('/dist/') || filePath.includes('/build/')) return false
+  if (filePath.includes('/node_modules/')) return false
+  return (
+    filePath === 'package.json' ||
+    filePath === 'README.md' ||
+    filePath === 'src/App.tsx' ||
+    filePath === 'src/main.tsx' ||
+    filePath === 'src/index.css' ||
+    /\.(ts|tsx|js|jsx|css|md)$/i.test(filePath)
+  )
+}
+
+async function buildDaytonaProjectFiles(
+  codebase: DaytonaCodebase,
+): Promise<Record<string, string>> {
+  const filePaths = (await codebase.getAllFilePaths()).filter(
+    (filePath) => !isSensitiveProjectPath(filePath),
+  )
+  const projectFiles: Record<string, string> = Object.fromEntries(
+    filePaths.map((filePath) => [filePath, '']),
+  )
+
+  let contentBudget = PROJECT_INDEX_CONTENT_LIMIT
+  let contentFiles = 0
+  for (const filePath of filePaths) {
+    if (contentFiles >= PROJECT_INDEX_MAX_CONTENT_FILES || contentBudget <= 0) {
+      break
+    }
+    if (!shouldIncludeProjectIndexContent(filePath)) {
+      continue
+    }
+    try {
+      const content = await codebase.readFile(filePath)
+      if (
+        content.length === 0 ||
+        content.length > PROJECT_INDEX_FILE_CONTENT_LIMIT ||
+        content.length > contentBudget
+      ) {
+        continue
+      }
+      projectFiles[filePath] = content
+      contentBudget -= content.length
+      contentFiles += 1
+    } catch {
+      // Keep the path in the tree even if content is temporarily unavailable.
+    }
+  }
+
+  return projectFiles
 }
 
 function parseCreateDiff(diff: string) {
@@ -550,11 +679,22 @@ function buildFreebuffOverrideTools(
       const results: Record<string, string | null> = {}
       for (const filePath of filePaths) {
         const normalized = normalizePath(filePath)
-        assertProjectPath(normalized)
         try {
-          results[normalized] = await codebase.readFile(normalized)
+          assertProjectPath(normalized)
         } catch {
-          results[normalized] = null
+          results[String(filePath)] = FILE_READ_STATUS.OUTSIDE_PROJECT
+          continue
+        }
+        if (isSensitiveProjectPath(normalized)) {
+          results[normalized] = FILE_READ_STATUS.IGNORED
+          continue
+        }
+        try {
+          results[normalized] = truncateFileContent(
+            await codebase.readFile(normalized),
+          )
+        } catch {
+          results[normalized] = FILE_READ_STATUS.DOES_NOT_EXIST
         }
       }
       return results
@@ -649,7 +789,7 @@ function buildFreebuffOverrideTools(
         Math.max(1, timeoutSeconds) * 1000,
       )
       return asJson({
-        output: result.output,
+        output: truncateToolOutput(result.output),
         exitCode: result.exitCode ?? 0,
       })
     },
@@ -664,7 +804,10 @@ function buildFreebuffOverrideTools(
       assertProjectPath(prefix || 'package.json')
       const files = await codebase.getAllFilePaths()
       return asJson({
-        files: files.filter((filePath) => filePath.startsWith(prefix)),
+        ...truncateFileList(
+          files.filter((filePath) => filePath.startsWith(prefix)),
+        ),
+        path: directoryPath,
       })
     },
 
@@ -674,7 +817,7 @@ function buildFreebuffOverrideTools(
       const matcher = globToRegExp(pattern)
       const files = await codebase.getAllFilePaths()
       return asJson({
-        files: files.filter((filePath) => matcher.test(filePath)),
+        ...truncateFileList(files.filter((filePath) => matcher.test(filePath))),
       })
     },
 
@@ -687,7 +830,7 @@ function buildFreebuffOverrideTools(
         30_000,
       )
       return asJson({
-        output: result.output,
+        output: truncateToolOutput(result.output),
         exitCode: result.exitCode ?? 0,
       })
     },
@@ -947,6 +1090,8 @@ export const runFreebuffAgent = internalAction({
         imageContents.length > 0
           ? [{ type: 'text' as const, text: userMessage }, ...imageContents]
           : undefined
+      const codebase = await getCodebase()
+      const projectFiles = await buildDaytonaProjectFiles(codebase)
 
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
@@ -959,6 +1104,7 @@ export const runFreebuffAgent = internalAction({
         agentDefinitions: bundledAgentDefinitions as any,
         prompt: userMessage,
         ...(multimodalContent ? { content: multimodalContent } : {}),
+        projectFiles,
         previousRun: await readStoredRunState(ctx, args.threadId),
         costMode: 'normal',
         signal: abortController.signal,

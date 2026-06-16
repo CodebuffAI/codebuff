@@ -117,6 +117,21 @@ describe('Gravity ad provider', () => {
     ])
   })
 
+  test('requests explicit top page placement for Above-iFrame', async () => {
+    const body = await fetchGravityRequestBody({
+      userId: 'b',
+      surface: 'freebuff_web_chat',
+      placementId: 'Above-iFrame',
+    })
+
+    expect(body.placements).toEqual([
+      {
+        placement: 'top_page',
+        placement_id: 'Above-iFrame',
+      },
+    ])
+  })
+
   test('passes browser Gravity context with server-trusted user and device data', async () => {
     const body = await fetchGravityRequestBody({
       userId: 'server-user-id',

@@ -2,7 +2,10 @@ import { internalAction, mutation } from "!/_generated/server";
 import { v } from "convex/values";
 import { Id } from "!/_generated/dataModel";
 import { internal } from "../../_generated/api";
-import { createAgentThread } from "./agent_thread";
+import {
+  createAgentThread,
+  formatInitialUserMessageThreadTitle,
+} from "./agent_thread";
 import { runTriggerGates } from "../shared/triggerGates";
 
 // Main entry point for the agent - saves message and schedules the agent run.
@@ -184,6 +187,31 @@ export const saveMessageAndStartWorkflow = mutation({
         });
       }
 
+      const threadTitle = formatInitialUserMessageThreadTitle(args.message);
+      let shouldSetInitialThreadTitle = false;
+
+      if (threadTitle) {
+        const thread = await ctx.db.get(threadId);
+        const hasTitle = Boolean(thread?.title?.trim());
+
+        if (!hasTitle) {
+          const existingMessages = await ctx.db
+            .query("agent_message")
+            .withIndex("by_thread_active", (q) =>
+              q
+                .eq("thread_id", threadId)
+                .eq("isStreaming", false)
+                .eq("deactivated", false),
+            )
+            .order("asc")
+            .collect();
+
+          shouldSetInitialThreadTitle = !existingMessages.some(
+            (message) => message.user_message?.trim(),
+          );
+        }
+      }
+
       // The Freebuff runId doubles as the message session_id. Setting it at
       // creation time (instead of from the agent action later) saves a
       // round-trip and means cancel works even before the action starts.
@@ -200,6 +228,17 @@ export const saveMessageAndStartWorkflow = mutation({
         },
       );
       messageIdForCleanup = messageId;
+
+      if (shouldSetInitialThreadTitle) {
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_thread
+            .updateAgentThreadTitleInternal,
+          {
+            threadId,
+            title: threadTitle,
+          },
+        );
+      }
 
       if (resolvedFreebuffModel) {
         await ctx.runMutation(
@@ -282,17 +321,6 @@ export const saveMessageAndStartWorkflow = mutation({
           workId: String(scheduledId),
         },
       );
-
-      // Schedule thread title generation for new threads
-      if (isNewThread) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.coding_agent.helpers.agent_thread_namer.nameAgentThread,
-          {
-            threadId,
-          },
-        );
-      }
 
       // Update project state
       await ctx.db.patch(project._id, {

@@ -42,6 +42,7 @@ import { api } from '@/convex/_generated/api'
 import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
 import { CenterContent } from './CenterContent'
 import { GodModeActions } from './GodModeActions'
+import { GravityAdSlot } from './agent-chat/GravityAdSlot'
 import {
   FeatureGate,
   UpgradePrompt,
@@ -226,6 +227,38 @@ export function ProjectIframeArea({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'preview' && (
+        <div className="flex-shrink-0 px-3 pb-2">
+          <GravityAdSlot
+            messages={[
+              {
+                role: 'user',
+                content: `Previewing ${project.name || semanticIdentifier} in Freebuff Web`,
+              },
+            ]}
+            sessionId={`${semanticIdentifier}-above-iframe`}
+            slotKey={`Above-iFrame-${semanticIdentifier}`}
+            placement="above-iframe"
+            variant="nav"
+            className="w-full"
+            fallbackAd={{
+              adText:
+                'Contextual ads for AI apps, tuned for builders and assistant experiences.',
+              title: 'Monetize your AI app with Gravity',
+              cta: 'Learn more',
+              brandName: 'Gravity',
+              url: 'https://trygravity.ai',
+              favicon: 'https://trygravity.ai/favicon.ico',
+              impUrl: '',
+              clickUrl:
+                'https://trygravity.ai?utm_source=freebuff_web&utm_medium=above_iframe_house_ad&utm_campaign=Above-iFrame',
+              placementId: 'Above-iFrame',
+              provider: 'gravity',
+            }}
+          />
         </div>
       )}
 

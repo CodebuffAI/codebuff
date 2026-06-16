@@ -72,6 +72,8 @@ export type FetchAdInput = {
   device?: AdDeviceInfo
   /** Product surface requesting the ad. Providers may map this to placements. */
   surface?: AdSurface
+  /** Optional explicit provider placement id for single-slot surfaces. */
+  placementId?: string
   /** Last user + last preceding assistant message, if any. Used by Gravity. */
   messages?: AdMessage[]
   /** Set in non-prod so providers can request test ads. */
