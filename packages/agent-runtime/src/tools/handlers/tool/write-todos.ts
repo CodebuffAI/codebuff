@@ -15,6 +15,24 @@ type TodoItem = {
   completed: boolean
 }
 
+const MAX_RETURNED_TODOS = 20
+
+function getTodoSummary(todos: TodoItem[]): {
+  totalCount: number
+  completedCount: number
+  remainingCount: number
+  remainingTodos: TodoItem[]
+} {
+  const completedCount = todos.filter((t) => t.completed).length
+  const remainingTodos = todos.filter((t) => !t.completed)
+  return {
+    totalCount: todos.length,
+    completedCount,
+    remainingCount: remainingTodos.length,
+    remainingTodos: remainingTodos.slice(0, MAX_RETURNED_TODOS),
+  }
+}
+
 // Simple Levenshtein distance for fuzzy matching tasks
 function getSimilarity(s1: string, s2: string): number {
   const a = s1.toLowerCase().trim()
@@ -79,7 +97,6 @@ export const handleWriteTodos = (async (params: {
   }
 
   const mergedTodos: TodoItem[] = [...masterTodos]
-  const preservedCountBefore = mergedTodos.length
 
   for (const incoming of incomingTodos) {
     // Try to find a match in master list
@@ -117,11 +134,10 @@ export const handleWriteTodos = (async (params: {
     // Ignore write errors
   }
 
-  const completedCount = mergedTodos.filter((t) => t.completed).length
-  const totalCount = mergedTodos.length
+  const todoSummary = getTodoSummary(mergedTodos)
   const newlyPreservedCount = mergedTodos.length - incomingTodos.length
 
-  let message = `Todos written successfully. Current session progress: ${completedCount}/${totalCount} tasks completed.`
+  let message = `Todos written successfully. Current session progress: ${todoSummary.completedCount}/${todoSummary.totalCount} tasks completed.`
   if (newlyPreservedCount > 0) {
     message += ` Note: ${newlyPreservedCount} high-level task(s) from previous turns were preserved in the master checklist to prevent amnesia.`
   }
@@ -129,7 +145,8 @@ export const handleWriteTodos = (async (params: {
   return {
     output: jsonToolResult({
       message,
-      masterTodos: mergedTodos,
+      todoSummary,
+      masterTodosOmittedForLength: true,
     }),
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

@@ -134,8 +134,10 @@ export function castAssistantMessage(message: Message): Message | null {
     : null
 }
 
-// Number of terminal command outputs to keep in full form before simplifying
-const numTerminalCommandsToKeep = 5
+// Number of terminal command outputs to keep in full form before simplifying.
+// Keep only the newest command verbatim; older successful commands are summarized
+// so long validation/test loops do not dominate the main agent context.
+const numTerminalCommandsToKeep = 1
 
 function simplifyTerminalHelper(params: {
   toolResult: CodebuffToolOutput<'run_terminal_command'>

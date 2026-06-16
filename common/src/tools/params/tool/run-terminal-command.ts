@@ -16,8 +16,11 @@ export const terminalCommandOutputSchema = z.union([
   z.object({
     command: z.string(),
     startingCwd: z.string().optional(),
+    status: z.enum(['passed', 'failed', 'unknown']).optional(),
     message: z.string().optional(),
     stderr: z.string().optional(),
+    stderrExcerpt: z.string().optional(),
+    stdoutExcerpt: z.string().optional(),
     stdoutOmittedForLength: z.literal(true),
     exitCode: z.number().optional(),
   }),

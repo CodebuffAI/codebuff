@@ -64,6 +64,10 @@ const definition: AgentDefinition = {
     const USER_MESSAGE_LIMIT = 13_000
     const ASSISTANT_MESSAGE_LIMIT = 1_300
     const TOOL_ENTRY_LIMIT = 5_000
+    const SPAWN_PROMPT_LIMIT = 240
+    const SPAWN_PARAMS_LIMIT = 240
+    const AGENT_RESULT_LIMIT = 900
+    const MAX_TODO_TASKS_IN_SUMMARY = 8
 
     /** Approximate characters per token (matches estimateTokens heuristic) */
     const CHARS_PER_TOKEN = 3
@@ -255,16 +259,16 @@ const definition: AgentDefinition = {
               const extras: string[] = []
               if (a.prompt) {
                 const truncatedPrompt =
-                  a.prompt.length > 1000
-                    ? a.prompt.slice(0, 1000) + '...'
+                  a.prompt.length > SPAWN_PROMPT_LIMIT
+                    ? a.prompt.slice(0, SPAWN_PROMPT_LIMIT) + '...'
                     : a.prompt
                 extras.push(`prompt: "${truncatedPrompt}"`)
               }
               if (a.params && Object.keys(a.params).length > 0) {
                 const paramsStr = JSON.stringify(a.params)
                 const truncatedParams =
-                  paramsStr.length > 1000
-                    ? paramsStr.slice(0, 1000) + '...'
+                  paramsStr.length > SPAWN_PARAMS_LIMIT
+                    ? paramsStr.slice(0, SPAWN_PARAMS_LIMIT) + '...'
                     : paramsStr
                 extras.push(`params: ${truncatedParams}`)
               }
@@ -279,14 +283,16 @@ const definition: AgentDefinition = {
             const extras: string[] = []
             if (prompt) {
               const truncatedPrompt =
-                prompt.length > 1000 ? prompt.slice(0, 1000) + '...' : prompt
+                prompt.length > SPAWN_PROMPT_LIMIT
+                  ? prompt.slice(0, SPAWN_PROMPT_LIMIT) + '...'
+                  : prompt
               extras.push(`prompt: "${truncatedPrompt}"`)
             }
             if (agentParams && Object.keys(agentParams).length > 0) {
               const paramsStr = JSON.stringify(agentParams)
               const truncatedParams =
-                paramsStr.length > 1000
-                  ? paramsStr.slice(0, 1000) + '...'
+                paramsStr.length > SPAWN_PARAMS_LIMIT
+                  ? paramsStr.slice(0, SPAWN_PARAMS_LIMIT) + '...'
                   : paramsStr
               extras.push(`params: ${truncatedParams}`)
             }
@@ -307,10 +313,14 @@ const definition: AgentDefinition = {
             if (incomplete.length === 0) {
               return `Todos: ${completed}/${todos.length} complete (all done!)`
             }
-            const remainingTasks = incomplete
+            const visibleIncomplete = incomplete.slice(0, MAX_TODO_TASKS_IN_SUMMARY)
+            const remainingTasks = visibleIncomplete
               .map((t) => `- ${t.task}`)
               .join('\n')
-            return `Todos: ${completed}/${todos.length} complete. Remaining:\n${remainingTasks}`
+            const omittedCount = incomplete.length - visibleIncomplete.length
+            const omittedNote =
+              omittedCount > 0 ? `\n- ...${omittedCount} more not shown` : ''
+            return `Todos: ${completed}/${todos.length} complete. Remaining:\n${remainingTasks}${omittedNote}`
           }
           return 'Updated todos'
         }
@@ -741,12 +751,12 @@ const definition: AgentDefinition = {
                       .trim()
                     if (
                       outputStr.length >
-                      ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN
+                      AGENT_RESULT_LIMIT * CHARS_PER_TOKEN
                     ) {
                       outputStr =
                         outputStr.slice(
                           0,
-                          ASSISTANT_MESSAGE_LIMIT * CHARS_PER_TOKEN,
+                          AGENT_RESULT_LIMIT * CHARS_PER_TOKEN,
                         ) + '...'
                     }
                   }

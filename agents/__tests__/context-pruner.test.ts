@@ -1166,9 +1166,29 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    // Should be truncated to 1000 chars + ...
+    // Should be truncated to the compact spawn prompt limit + ...
     expect(content).toContain('...')
     expect(content).not.toContain(longPrompt) // Full prompt should not be there
+  })
+
+  test('limits long todo summaries to active tasks', () => {
+    const todos = Array.from({ length: 12 }, (_, i) => ({
+      task: `Todo ${i + 1}`,
+      completed: false,
+    }))
+    const messages = [
+      createMessage('user', 'Plan the work'),
+      createToolCallMessage('call-1', 'write_todos', { todos }),
+      createToolResultMessage('call-1', 'write_todos', { success: true }),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('Todos: 0/12 complete')
+    expect(content).toContain('- Todo 8')
+    expect(content).toContain('- ...4 more not shown')
+    expect(content).not.toContain('- Todo 9')
   })
 })
 
@@ -1716,9 +1736,10 @@ describe('context-pruner str_replace and write_file tool results', () => {
 
   test('truncates very large tool entries to 5k token limit', () => {
     // spawn_agents with multiple non-blacklisted agents producing large outputs
-    // Each agent output is capped at ~3,900 chars, but 5 agents × 3,900 = ~19,500 chars
-    // which exceeds the 5k token (15k char) TOOL_ENTRY_LIMIT
-    const largeAgentResults = Array.from({ length: 5 }, (_, i) => ({
+    // Each agent output is capped before the overall TOOL_ENTRY_LIMIT cap.
+    // Use enough agents to exceed the 5k token (~15k char) entry limit after
+    // per-agent compaction.
+    const largeAgentResults = Array.from({ length: 7 }, (_, i) => ({
       agentType: `editor`,
       value: {
         type: 'string',
@@ -1730,6 +1751,8 @@ describe('context-pruner str_replace and write_file tool results', () => {
       createMessage('user', 'Spawn many agents'),
       createToolCallMessage('call-1', 'spawn_agents', {
         agents: [
+          { agent_type: 'editor' },
+          { agent_type: 'editor' },
           { agent_type: 'editor' },
           { agent_type: 'editor' },
           { agent_type: 'editor' },
@@ -1750,11 +1773,13 @@ describe('context-pruner str_replace and write_file tool results', () => {
 
     // Should contain truncation notice from the TOOL_ENTRY_LIMIT cap
     expect(content).toContain('[...truncated')
-    // The last agent's start marker should be cut by the overall entry cap
-    // (per-agent truncation only cuts within each agent's output, not across agents)
-    expect(content).not.toContain('AGENT_4_START_')
-    // The first agent's start should survive (80% prefix)
+    // The first agent's start should survive (80% prefix), while full raw
+    // agent payloads should not be embedded in the compacted context.
     expect(content).toContain('AGENT_0_START_')
+    expect(content.length).toBeLessThan(
+      JSON.stringify(largeAgentResults).length,
+    )
+    expect(content).not.toContain('AGENT_3_END')
   })
 
   test('includes all result properties even without unifiedDiff', () => {
@@ -2368,7 +2393,8 @@ describe('context-pruner dual-budget behavior', () => {
 
     // === spawn_agents tool entry: truncated by TOOL_ENTRY_LIMIT ===
     expect(content).toContain('AGENT_0_OUTPUT_START_') // First agent's start in 80% prefix
-    expect(content).not.toContain('AGENT_4_OUTPUT_START_') // Last agent's start falls in truncated gap
+    expect(content).toContain('[...truncated')
+    expect(content).not.toContain('AGENT_2_OUTPUT_END_') // Full raw agent payloads are not embedded
 
     // === Final messages present ===
     expect(content).toContain('FINAL_USER_REQUEST')

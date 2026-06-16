@@ -147,6 +147,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'npm test',
+          status: 'passed',
           message: 'Tests completed',
           stdoutOmittedForLength: true,
           exitCode: 0,
@@ -177,6 +178,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'ls -la',
+          status: 'passed',
           stdoutOmittedForLength: true,
           exitCode: 0,
         },
@@ -205,6 +207,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'echo hello',
+          status: 'unknown',
           stdoutOmittedForLength: true,
         },
       },
@@ -256,6 +259,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'npm test',
+          status: 'passed',
           message: 'Tests completed',
           stdoutOmittedForLength: true,
           exitCode: 0,
@@ -273,6 +277,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'npm test',
+          status: 'passed',
           message: 'Tests completed',
           stdoutOmittedForLength: true,
           exitCode: 0,
@@ -295,6 +300,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: '',
+          status: 'unknown',
           stdoutOmittedForLength: true,
         },
       },
@@ -343,8 +349,41 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'npm test',
+          status: 'passed',
           stdoutOmittedForLength: true,
+          stderrExcerpt: 'Warning: deprecated package',
           exitCode: 0,
+        },
+      },
+    ])
+  })
+
+  it('should include failed command stdout excerpt', () => {
+    const input: CodebuffToolOutput<'run_terminal_command'> = [
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          stdout: 'Expected true to be false',
+          exitCode: 1,
+        },
+      },
+    ]
+
+    const result = simplifyTerminalCommandResults({
+      messageContent: input,
+      logger,
+    })
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          command: 'npm test',
+          status: 'failed',
+          stdoutOmittedForLength: true,
+          stdoutExcerpt: 'Expected true to be false',
+          exitCode: 1,
         },
       },
     ])
@@ -373,6 +412,7 @@ describe('simplifyTerminalCommandResults', () => {
         type: 'json',
         value: {
           command: 'pwd',
+          status: 'passed',
           stdoutOmittedForLength: true,
           exitCode: 0,
         },

@@ -282,7 +282,7 @@ describe('trimMessagesToFitTokenLimit', () => {
       content: jsonToolResult(`Terminal output 2${'.'.repeat(2000)}`),
     },
     {
-      // Terminal output 3 - should be preserved (5th most recent)
+      // Terminal output 3 - should be simplified
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-3',
@@ -301,14 +301,14 @@ describe('trimMessagesToFitTokenLimit', () => {
       mediaType: 'image/jpeg',
     }),
     {
-      // Terminal output 5 - should be preserved (3rd most recent)
+      // Terminal output 5 - should be simplified
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-5',
       content: jsonToolResult(`Terminal output 5`),
     },
     {
-      // Terminal output 6 - should be preserved (2nd most recent)
+      // Terminal output 6 - should be simplified
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-6',
