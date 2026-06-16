@@ -31,6 +31,11 @@ const MINIMAX_HEADERS_TIMEOUT_MS = 30 * 60 * 1000
 const minimaxAgent = new Agent({
   headersTimeout: MINIMAX_HEADERS_TIMEOUT_MS,
   bodyTimeout: 0,
+  // Reuse pooled keep-alive connections across requests so we don't pay the
+  // TCP + TLS handshake on every call (lowers TTFT). Keep idle connections
+  // warm well past undici's 4s default so they survive gaps between requests.
+  keepAliveTimeout: 60_000,
+  keepAliveMaxTimeout: 10 * 60 * 1000,
 })
 
 // MiniMax per-token pricing (dollars per token)
@@ -89,6 +94,9 @@ type StreamState = {
   responseText: string
   reasoningText: string
   ttftMs: number | null
+  // MiniMax `Trace-Id` response header — logged with TTFT so we can hand slow
+  // requests' trace ids to MiniMax for investigation.
+  traceId: string | null
   billedAlready: boolean
 }
 
@@ -201,9 +209,28 @@ export async function handleMiniMaxNonStream({
 
   const response = await createMiniMaxRequest({ body, originalModel, fetch })
 
+  const traceId = response.headers.get('Trace-Id')
+
   if (!response.ok) {
+    logger.error(
+      { userId, agentId, model: originalModel, traceId, status: response.status },
+      'MiniMax request failed',
+    )
     throw await parseMiniMaxError(response)
   }
+
+  // Non-streaming, so no incremental TTFT — log the round-trip latency and
+  // Trace-Id so these requests are queryable alongside the streaming ones.
+  logger.info(
+    {
+      userId,
+      agentId,
+      model: originalModel,
+      traceId,
+      latencyMs: Date.now() - startTime.getTime(),
+    },
+    'MiniMax response',
+  )
 
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content ?? ''
@@ -286,7 +313,13 @@ export async function handleMiniMaxStream({
 
   const response = await createMiniMaxRequest({ body, originalModel, fetch })
 
+  const traceId = response.headers.get('Trace-Id')
+
   if (!response.ok) {
+    logger.error(
+      { userId, agentId, model: originalModel, traceId, status: response.status },
+      'MiniMax request failed',
+    )
     throw await parseMiniMaxError(response)
   }
 
@@ -300,6 +333,7 @@ export async function handleMiniMaxStream({
     responseText: '',
     reasoningText: '',
     ttftMs: null,
+    traceId,
     billedAlready: false,
   }
   let clientDisconnected = false
@@ -682,6 +716,18 @@ function handleStreamChunk({
     (contentDelta !== '' || reasoningDelta !== '' || hasToolCallsDelta)
   ) {
     state.ttftMs = Date.now() - startTime.getTime()
+    // One queryable line per request: filter on this message and sort by ttftMs
+    // to pull the Trace-Ids of slow requests for MiniMax to investigate.
+    logger.info(
+      {
+        userId,
+        agentId,
+        model,
+        traceId: state.traceId,
+        ttftMs: state.ttftMs,
+      },
+      'MiniMax TTFT',
+    )
   }
 
   if (state.reasoningText.length < MAX_BUFFER_SIZE) {
