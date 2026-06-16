@@ -49,6 +49,24 @@ const inputSchema = z
                     .describe(
                       'Timeout for command. Set to -1 for no timeout. Default 30 (basher)',
                     ),
+                  save_full_log: z
+                    .boolean()
+                    .optional()
+                    .describe(
+                      'Save full command output to a /tmp log and extract failure lines for long SYNC command output (basher)',
+                    ),
+                  failure_pattern: z
+                    .string()
+                    .optional()
+                    .describe(
+                      'grep -E failure extraction pattern used with save_full_log (basher)',
+                    ),
+                  max_failure_lines: z
+                    .number()
+                    .optional()
+                    .describe(
+                      'Maximum extracted failure lines to return with save_full_log (basher)',
+                    ),
                   searchQueries: z
                     .array(
                       z.object({

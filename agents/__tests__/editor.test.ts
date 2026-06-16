@@ -133,6 +133,9 @@ describe('editor agent', () => {
       expect(editor.instructionsPrompt).toContain('If the parent wrote an implementation brief')
       expect(editor.instructionsPrompt).toContain('If edit_transaction aborts')
       expect(editor.instructionsPrompt).toContain('retry the whole related transaction')
+      expect(editor.instructionsPrompt).toContain('Never use ultra-broad anchors')
+      expect(editor.instructionsPrompt).toContain('many occurrences')
+      expect(editor.instructionsPrompt).toContain('Do not create scratch')
     })
 
     test('has correct tool names', () => {

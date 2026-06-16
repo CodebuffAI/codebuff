@@ -118,6 +118,155 @@ describe('processEditTransaction', () => {
     }
   })
 
+  it('skips already-applied deletion edits inside a transaction', async () => {
+    const initialContentByPath = new Map<string, string | null>([
+      ['src/helper.ts', 'export const value = 1\n'],
+      ['src/helper.test.ts', 'expect(value).toBe(1)\n'],
+    ])
+
+    const result = await processEditTransaction({
+      initialContentByPath,
+      logger,
+      edits: [
+        {
+          id: 'already-deleted-debug-log',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'console.log("debug")\n',
+              newString: '',
+              allowMultiple: false,
+              skipIfMissing: true,
+            },
+          ],
+        },
+        {
+          id: 'update-test',
+          type: 'str_replace',
+          path: 'src/helper.test.ts',
+          replacements: [
+            {
+              oldString: 'expect(value).toBe(1)',
+              newString: 'expect(value).toBe(2)',
+              allowMultiple: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files).toHaveLength(1)
+      expect(result.files[0].path).toBe('src/helper.test.ts')
+      expect(result.files[0].content).toBe('expect(value).toBe(2)\n')
+    }
+  })
+
+  it('does not skip missing deletion replacements without an explicit idempotent marker', async () => {
+    const initialContentByPath = new Map<string, string | null>([
+      ['src/helper.ts', 'export const value = 1\n'],
+      ['src/helper.test.ts', 'expect(value).toBe(1)\n'],
+    ])
+
+    const result = await processEditTransaction({
+      initialContentByPath,
+      logger,
+      edits: [
+        {
+          id: 'missing-debug-log',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'console.log("debug")\n',
+              newString: '',
+              allowMultiple: false,
+            },
+          ],
+        },
+        {
+          id: 'update-test',
+          type: 'str_replace',
+          path: 'src/helper.test.ts',
+          replacements: [
+            {
+              oldString: 'expect(value).toBe(1)',
+              newString: 'expect(value).toBe(2)',
+              allowMultiple: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          editIndex: 0,
+          id: 'missing-debug-log',
+          path: 'src/helper.ts',
+        }),
+      ])
+    }
+  })
+
+  it('does not skip stale replacements just because newString appears elsewhere', async () => {
+    const initialContentByPath = new Map<string, string | null>([
+      [
+        'src/helper.ts',
+        'export const alreadyPresent = 2\nexport const current = 3\n',
+      ],
+      ['src/helper.test.ts', 'expect(value).toBe(1)\n'],
+    ])
+
+    const result = await processEditTransaction({
+      initialContentByPath,
+      logger,
+      edits: [
+        {
+          id: 'stale-helper-update',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'function missingHelper() {\n  return staleValue\n}',
+              newString: 'export const alreadyPresent = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+        {
+          id: 'update-test',
+          type: 'str_replace',
+          path: 'src/helper.test.ts',
+          replacements: [
+            {
+              oldString: 'expect(value).toBe(1)',
+              newString: 'expect(value).toBe(2)',
+              allowMultiple: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Atomic edit_transaction aborted')
+      expect(result.failures).toEqual([
+        expect.objectContaining({
+          editIndex: 0,
+          id: 'stale-helper-update',
+          path: 'src/helper.ts',
+        }),
+      ])
+    }
+  })
+
   it('dispatches structured insert_text edits inside a transaction', async () => {
     const initialContentByPath = new Map<string, string | null>([
       ['src/helper.ts', 'const value = 1\n'],

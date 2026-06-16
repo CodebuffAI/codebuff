@@ -28,6 +28,21 @@ const basher: AgentDefinition = {
           description:
             'What information from the command output is desired. Be specific about what to look for or extract. This is optional, and if not provided, the basher will return the full command output without summarization.',
         },
+        save_full_log: {
+          type: 'boolean',
+          description:
+            'For SYNC commands, save complete combined stdout/stderr to a /tmp log and return extracted failure lines in the summary output. Useful for broad test suites whose output may be truncated.',
+        },
+        failure_pattern: {
+          type: 'string',
+          description:
+            'Optional grep -E pattern used with save_full_log to extract failure lines. Defaults to common test failure/error markers.',
+        },
+        max_failure_lines: {
+          type: 'number',
+          description:
+            'Optional max number of extracted failure lines to return when save_full_log is true. Default 120.',
+        },
         timeout_seconds: {
           type: 'number',
           description: 'Set to -1 for no timeout. Default 30',
@@ -80,13 +95,40 @@ Do not use any tools! Only report the output of the command.`,
       | 'SYNC'
       | 'BACKGROUND'
       | undefined
+    const save_full_log = params?.save_full_log as boolean | undefined
+    const shouldSaveFullLog = save_full_log === true && process_type !== 'BACKGROUND'
+    const failure_pattern =
+      (params?.failure_pattern as string | undefined) ??
+      '\\(fail\\)|error:|Expected|Received|panic|Unhandled|not ok'
+    const max_failure_lines = params?.max_failure_lines as number | undefined
+    const failureLineLimit = Math.max(1, Math.floor(max_failure_lines ?? 120))
+    const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`
+    const fullLogPath = shouldSaveFullLog
+      ? `/tmp/openbuff-basher-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.log`
+      : undefined
+    const commandToRun =
+      shouldSaveFullLog
+        ? [
+            'set -o pipefail',
+            `(${command}) 2>&1 | tee ${shellQuote(fullLogPath!)} >/dev/null`,
+            'status=${PIPESTATUS[0]}',
+            `echo "full_log_path=${fullLogPath}"`,
+            'echo "exit_status=$status"',
+            `grep -n -E ${shellQuote(failure_pattern)} ${shellQuote(
+              fullLogPath!,
+            )} | head -${failureLineLimit} || true`,
+            'exit "$status"',
+          ].join('\n')
+        : command
 
     // Run the command. Command reporting is deterministic: a successful shell
     // call must not be turned into a provider failure by a follow-up LLM step.
     const { toolResult } = yield {
       toolName: 'run_terminal_command',
       input: {
-        command,
+        command: commandToRun,
         ...(process_type !== undefined && { process_type }),
         ...(timeout_seconds !== undefined && { timeout_seconds }),
       },
@@ -116,6 +158,11 @@ Do not use any tools! Only report the output of the command.`,
       `Command: ${command}`,
       `Requested summary: ${what_to_summarize}`,
     ]
+    if (fullLogPath) {
+      lines.push(`Full log: ${fullLogPath}`)
+      lines.push(`Failure pattern: ${failure_pattern}`)
+      lines.push(`Max failure lines: ${failureLineLimit}`)
+    }
 
     const appendBounded = (label: string, value: unknown, maxChars: number) => {
       if (value === undefined || value === null || value === '') return

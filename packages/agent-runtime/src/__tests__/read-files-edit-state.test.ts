@@ -72,6 +72,13 @@ describe('read_files edit-state recovery', () => {
     if (result.output[0]?.type === 'json') {
       expect(result.output[0].value).toEqual([
         {
+          summary: {
+            ok: 1,
+            failed: 0,
+            requested: 1,
+          },
+        },
+        {
           path,
           content: diskContent,
           referencedBy: {},

@@ -19,6 +19,7 @@ type StrReplaceTransactionEdit = {
     newString: string
     allowMultiple: boolean
     basedOnRead?: ReplacementReadCapability | string
+    skipIfMissing?: boolean
   }[]
 }
 
@@ -163,14 +164,40 @@ async function processTransactionEdit(params: {
 > {
   const { edit, initialContentPromise, logger } = params
   switch (edit.type) {
-    case 'str_replace':
+    case 'str_replace': {
+      const initialContent = await initialContentPromise
+      if (typeof initialContent === 'string') {
+        const actionableReplacements = edit.replacements.filter(
+          (replacement) => !isAlreadyAppliedReplacement(initialContent, replacement),
+        )
+        const skippedCount = edit.replacements.length - actionableReplacements.length
+
+        if (actionableReplacements.length === 0) {
+          return {
+            content: initialContent,
+            messages: [
+              `Skipped ${skippedCount} already-applied str_replace replacement(s) in ${edit.path}.`,
+            ],
+          }
+        }
+
+        return processStrReplace({
+          path: edit.path,
+          replacements: actionableReplacements,
+          atomic: true,
+          initialContentPromise: Promise.resolve(initialContent),
+          logger,
+        })
+      }
+
       return processStrReplace({
         path: edit.path,
         replacements: edit.replacements,
         atomic: true,
-        initialContentPromise,
+        initialContentPromise: Promise.resolve(initialContent),
         logger,
       })
+    }
     case 'structured':
       return processStructuredEdit({
         edit: {
@@ -187,4 +214,16 @@ async function processTransactionEdit(params: {
       }
     }
   }
+}
+
+function isAlreadyAppliedReplacement(
+  content: string,
+  replacement: StrReplaceTransactionEdit['replacements'][number],
+): boolean {
+  if (replacement.oldString === replacement.newString) return true
+  return (
+    replacement.skipIfMissing === true &&
+    replacement.newString === '' &&
+    !content.includes(replacement.oldString)
+  )
 }

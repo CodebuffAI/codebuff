@@ -332,9 +332,36 @@ export function trimMessagesToFitTokenLimit(params: {
     }
   }
 
-  const trimmedMessages = filteredMessages.map((m) =>
+  let trimmedMessages = filteredMessages.map((m) =>
     m === placeholder ? replacementMessage : m,
   )
+
+  if (countTokensJson(trimmedMessages) > maxMessageTokens) {
+    trimmedMessages = cloneDeep(trimmedMessages)
+
+    for (let i = trimmedMessages.length - 1; i >= 0; i--) {
+      const message = trimmedMessages[i]
+      if (message.role !== 'tool' || message.toolName !== 'run_terminal_command') {
+        continue
+      }
+
+      const terminalMessage =
+        message as CodebuffToolMessage<'run_terminal_command'>
+      const simplified = simplifyTerminalCommandResults({
+        messageContent: terminalMessage.content,
+        logger,
+      })
+      if (isEqual(simplified, terminalMessage.content)) {
+        continue
+      }
+
+      terminalMessage.content = simplified
+
+      if (countTokensJson(trimmedMessages) <= maxMessageTokens) {
+        break
+      }
+    }
+  }
 
   logger.debug(
     {

@@ -80,6 +80,35 @@ describe('commander agent', () => {
       ).toBe('string')
       expect(schema?.params?.required).not.toContain('what_to_summarize')
     })
+
+    test('has optional full log capture parameters', () => {
+      const schema = commander.inputSchema
+      const saveFullLogProp = schema?.params?.properties?.save_full_log
+      const failurePatternProp = schema?.params?.properties?.failure_pattern
+      const maxFailureLinesProp = schema?.params?.properties?.max_failure_lines
+
+      expect(
+        saveFullLogProp &&
+          typeof saveFullLogProp === 'object' &&
+          'type' in saveFullLogProp &&
+          saveFullLogProp.type,
+      ).toBe('boolean')
+      expect(
+        failurePatternProp &&
+          typeof failurePatternProp === 'object' &&
+          'type' in failurePatternProp &&
+          failurePatternProp.type,
+      ).toBe('string')
+      expect(
+        maxFailureLinesProp &&
+          typeof maxFailureLinesProp === 'object' &&
+          'type' in maxFailureLinesProp &&
+          maxFailureLinesProp.type,
+      ).toBe('number')
+      expect(schema?.params?.required).not.toContain('save_full_log')
+      expect(schema?.params?.required).not.toContain('failure_pattern')
+      expect(schema?.params?.required).not.toContain('max_failure_lines')
+    })
   })
 
   describe('handleSteps', () => {
@@ -254,6 +283,69 @@ describe('commander agent', () => {
 
       // No provider STEP is needed just to summarize command output.
       expect(generator.next().done).toBe(true)
+    })
+
+    test('wraps sync commands when full log capture is requested', () => {
+      const mockAgentState = createMockAgentState()
+      const mockLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+
+      const generator = commander.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        params: {
+          command: "bun test 'quoted file.test.ts'",
+          what_to_summarize: 'test failures',
+          save_full_log: true,
+          failure_pattern: 'FAIL|Expected',
+          max_failure_lines: 7,
+        },
+      })
+
+      const firstYield = generator.next().value as {
+        toolName: string
+        input: { command: string }
+        includeToolCall?: boolean
+      }
+      expect(firstYield.toolName).toBe('run_terminal_command')
+      expect(firstYield.includeToolCall).toBe(false)
+      expect(firstYield.input.command).toContain('set -o pipefail')
+      expect(firstYield.input.command).toContain(
+        "(bun test 'quoted file.test.ts') 2>&1 | tee '/tmp/openbuff-basher-",
+      )
+      expect(firstYield.input.command).toContain("grep -n -E 'FAIL|Expected'")
+      expect(firstYield.input.command).toContain('head -7')
+      expect(firstYield.input.command).toContain('exit "$status"')
+
+      const result = generator.next({
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: {
+              stdout:
+                'full_log_path=/tmp/openbuff-basher-test.log\nexit_status=1\n10:Expected 1 received 2',
+              exitCode: 1,
+            },
+          },
+        ],
+        stepsComplete: true,
+      })
+
+      const toolCall = result.value as {
+        toolName: string
+        input: { data: { message: string } }
+      }
+      expect(toolCall.toolName).toBe('set_output')
+      expect(toolCall.input.data.message).toContain('Command: bun test')
+      expect(toolCall.input.data.message).toContain('Full log: /tmp/openbuff-basher-')
+      expect(toolCall.input.data.message).toContain('Failure pattern: FAIL|Expected')
+      expect(toolCall.input.data.message).toContain('Max failure lines: 7')
+      expect(toolCall.input.data.message).toContain('10:Expected 1 received 2')
     })
 
     test('includes background job fields in deterministic report', () => {

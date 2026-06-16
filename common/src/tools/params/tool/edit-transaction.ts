@@ -47,6 +47,13 @@ const replacementSchema = z
         .describe(
           'Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, transaction preflight falls back to deterministic full-file oldString matching when it can identify exactly one safe target.',
         ),
+      skipIfMissing: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe(
+          'For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits.',
+        ),
     }),
   )
   .refine(

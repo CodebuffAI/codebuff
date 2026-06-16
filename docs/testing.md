@@ -55,3 +55,38 @@ SESSION=$(./scripts/tmux/tmux-cli.sh start \
 ```
 
 When verifying UI output, prefer checking the saved capture file for concrete strings that should and should not appear. For example, after expanding a code-searcher agent, check that the capture shows the search summary but not raw structured payload keys like `results:` or `stdout:`.
+
+## Diagnosing long test output
+
+For broad test suites or failures with long output, preserve the complete log first and extract a focused failure view second. Do not rely only on the terminal tool's truncated summary or on `tail`, which can hide the first failing assertion.
+
+```bash
+cd packages/agent-runtime
+set -o pipefail
+bun test 2>&1 | tee /tmp/openbuff-agent-runtime-test.log >/dev/null
+status=${PIPESTATUS[0]}
+grep -n -E "\\(fail\\)|error:|Expected|Received|panic|Unhandled" /tmp/openbuff-agent-runtime-test.log | head -120
+exit "$status"
+```
+
+Then inspect the saved log around the reported line numbers with `sed -n '<start>,<end>p' /tmp/openbuff-agent-runtime-test.log`. This keeps the real exit status while making failures diagnosable even when command output is truncated.
+
+## Rebuilt CLI and context telemetry smoke tests
+
+After rebuilding the packaged CLI with `cd cli && bun run build:binary`, run a direct binary smoke test before assuming the new bundle is active:
+
+```bash
+cd cli
+./bin/openbuff --version
+./bin/openbuff --help | sed -n '1,40p'
+```
+
+For a live model-backed smoke test from the repository root, use a short non-mutating prompt and capture the terminal output:
+
+```bash
+cli/bin/openbuff --agent base2 "Say READY and stop."
+```
+
+Expected output includes the Openbuff banner, the prompt text, and `READY`. The CLI may still run read-only checks such as `git_status` before answering.
+
+To exercise message-trimming context telemetry without a live model, run a small Bun harness that imports `trimMessagesToFitTokenLimit`, creates an over-limit synthetic history with user/assistant messages, todos, file reads, subagent output, and terminal output, and passes a logger that records `debug()` calls. The debug payload should include `contextCategoryTelemetry.before` and `.after` with category token/message counts.

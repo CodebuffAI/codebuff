@@ -454,6 +454,49 @@ describe('trimMessagesToFitTokenLimit', () => {
     expect(finalTokens).toBeLessThan(maxTotalTokens - systemTokens)
   })
 
+  it('summarizes the newest terminal output when it would exceed the trim target', () => {
+    const messages: Message[] = [
+      userMessage('Inspect the project'),
+      {
+        role: 'tool',
+        toolName: 'run_terminal_command',
+        toolCallId: 'large-terminal-result',
+        content: jsonToolResult({
+          command: 'bun test',
+          stdout: 'pass\n'.repeat(500),
+          stderr: '',
+          exitCode: 0,
+        }),
+        keepDuringTruncation: true,
+      },
+      assistantMessage({
+        content: 'Done',
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    const result = trimMessagesToFitTokenLimit({
+      messages,
+      systemTokens: 0,
+      maxTotalTokens: 1500,
+      logger,
+    })
+
+    const terminalResult = result.find(
+      (message): message is CodebuffToolMessage<'run_terminal_command'> =>
+        message.role === 'tool' && message.toolName === 'run_terminal_command',
+    )
+
+    expect(terminalResult?.content[0].value).toMatchObject({
+      command: 'bun test',
+      status: 'passed',
+      stdoutOmittedForLength: true,
+      exitCode: 0,
+    })
+    expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(1500)
+    expect(JSON.stringify(result)).not.toContain('pass\npass\n')
+  })
+
   it('handles empty messages array', () => {
     const maxTotalTokens = 200
     const systemTokens = 100
