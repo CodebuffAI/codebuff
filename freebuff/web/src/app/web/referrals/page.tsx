@@ -129,61 +129,58 @@ export default function ReferralsPage() {
   return (
     <AppShell title="Referrals">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-muted/55 via-background to-primary/10 p-6 shadow-2xl shadow-black/20 sm:p-8">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl" />
-          <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-            <div>
-              <Badge className="mb-4 border-primary/25 bg-primary/15 text-primary hover:bg-primary/15">
-                <Gift className="mr-1.5 h-3.5 w-3.5" />
-                Freebuff referrals
-              </Badge>
-              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                Share Freebuff. Unlock more daily usage.
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                A referral qualifies when your friend signs up with a GitHub
-                account that's at least{" "}
-                {status?.minGithubAccountAgeMonths ?? 4} months old. Qualified
-                referrals unlock higher message limits and Freebuff Web perks.
-              </p>
-            </div>
-
-            <Card className="border-border/60 bg-background/70 shadow-xl shadow-black/10 backdrop-blur">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Your link</CardTitle>
-                <CardDescription>
-                  Share this URL anywhere you invite builders.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {shareUrl ? (
-                  <div className="space-y-3">
-                    <code className="block truncate rounded-xl border border-border/60 bg-muted/45 px-3 py-3 text-xs text-foreground sm:text-sm">
-                      {shareUrl}
-                    </code>
-                    <Button onClick={handleCopy} className="w-full">
-                      {copied ? (
-                        <>
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy referral link
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <Skeleton className="h-11 w-full rounded-xl" />
-                    <Skeleton className="h-10 w-full rounded-lg" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        <section className="grid gap-6 py-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+          <div>
+            <Badge className="mb-4 border-primary/25 bg-primary/15 text-primary hover:bg-primary/15">
+              <Gift className="mr-1.5 h-3.5 w-3.5" />
+              Freebuff referrals
+            </Badge>
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              Share Freebuff. Unlock more daily usage.
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              A referral qualifies when your friend signs up with a GitHub
+              account that's at least {status?.minGithubAccountAgeMonths ?? 4}{" "}
+              months old. Qualified referrals unlock higher message limits and
+              Freebuff Web perks.
+            </p>
           </div>
+
+          <Card className="border-border/60 bg-background/70 shadow-xl shadow-black/10 backdrop-blur">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Your link</CardTitle>
+              <CardDescription>
+                Share this URL anywhere you invite builders.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {shareUrl ? (
+                <div className="space-y-3">
+                  <code className="block truncate rounded-xl border border-border/60 bg-muted/45 px-3 py-3 text-xs text-foreground sm:text-sm">
+                    {shareUrl}
+                  </code>
+                  <Button onClick={handleCopy} className="w-full">
+                    {copied ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy referral link
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Skeleton className="h-11 w-full rounded-xl" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </section>
 
         <section className="grid gap-4 md:grid-cols-3">

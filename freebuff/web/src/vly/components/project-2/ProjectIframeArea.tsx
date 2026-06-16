@@ -78,9 +78,6 @@ interface ProjectIframeAreaProps {
   syncStatus?: FunctionReturnType<
     typeof api.github.repositories.getProjectSyncStatus
   >
-  projectPauseStatus?: FunctionReturnType<
-    typeof api.deployment_queries.getProjectPauseStatus
-  >
   activeTab: IframeTab
   setActiveTab: (tab: IframeTab) => void
   /**
@@ -144,7 +141,6 @@ export function ProjectIframeArea({
   isSelectingElement,
   onCurrentPageChange,
   syncStatus,
-  projectPauseStatus: resolvedProjectPauseStatus,
   activeTab,
   setActiveTab,
   isRevealed = true,
@@ -156,14 +152,12 @@ export function ProjectIframeArea({
   onRefresh,
 }: ProjectIframeAreaProps) {
   const { isPlatformAdmin } = useIsPlatformAdmin()
-  const queriedProjectPauseStatus = useQuery(
+  const projectPauseStatus = useQuery(
     api.deployment_queries.getProjectPauseStatus,
-    resolvedProjectPauseStatus === undefined
-      ? { projectId: project._id }
-      : 'skip',
+    {
+      projectId: project._id,
+    },
   )
-  const projectPauseStatus =
-    resolvedProjectPauseStatus ?? queriedProjectPauseStatus
   const showSelfHostMigrationBanner =
     projectPauseStatus !== null && projectPauseStatus !== undefined
   const shouldShowPauseOverlay =
