@@ -58,31 +58,12 @@ export function BlockList(props: {
   )
 }
 
-function lastTextSnippet(blocks: ChatBlock[]): string {
-  for (let i = blocks.length - 1; i >= 0; i--) {
-    const block = blocks[i]
-    if (block.type === 'text' && block.text.trim()) {
-      return block.text.trim().split('\n').filter(Boolean).pop() ?? ''
-    }
-    if (block.type === 'agent') {
-      const nested = lastTextSnippet(block.blocks)
-      if (nested) return nested
-    }
-  }
-  return ''
-}
-
 function AgentBox({ agent, latest }: { agent: AgentBlock; latest?: boolean }) {
   const running = agent.status === 'running'
   // The deep-thinking agent (thinker-gemini) exists to show its reasoning, so
-  // open it by default. Everything else stays collapsed until the user opens
-  // it; the summary row shows the prompt so it's clear what it's working on.
+  // open it by default. Everything else stays collapsed until the user opens it.
   const isThinker = agent.agentType.includes('thinker')
   const [open, setOpen] = useState(isThinker)
-
-  const preview = open
-    ? undefined
-    : agent.prompt || lastTextSnippet(agent.blocks)
 
   return (
     <div
@@ -111,11 +92,6 @@ function AgentBox({ agent, latest }: { agent: AgentBlock; latest?: boolean }) {
         ) : (
           <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-px text-[10px] uppercase tracking-wider text-muted-foreground/70">
             done
-          </span>
-        )}
-        {!open && preview && (
-          <span className="min-w-0 truncate text-[13px] text-muted-foreground/70">
-            {preview}
           </span>
         )}
       </button>

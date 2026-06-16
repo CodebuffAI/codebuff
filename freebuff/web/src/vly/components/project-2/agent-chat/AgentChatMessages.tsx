@@ -290,6 +290,10 @@ function getAdCreativeIdentity(ad: {
   return `${ad.url}\n${ad.title}\n${ad.adText}`
 }
 
+function isTrackedSetupLink(href: string) {
+  return /^https:\/\/index\.trygravity\.ai\/go\//.test(href)
+}
+
 // Lightweight markdown renderer - optimized for performance
 const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
   const elements = React.useMemo(() => {
@@ -301,13 +305,12 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
     let inList = false
 
     const renderInline = (line: string): React.ReactNode => {
-      // Simple inline parsing: bold and inline code
+      // Simple inline parsing: links, bold, and inline code.
       const parts: React.ReactNode[] = []
       let lastIndex = 0
       let key = 0
 
-      // Use regex to find all matches (bold and code)
-      const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g
+      const regex = /(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*[^*]+\*\*|`[^`]+`)/g
       let match
 
       while ((match = regex.exec(line)) !== null) {
@@ -317,7 +320,27 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
         }
 
         const matched = match[0]
-        if (matched.startsWith('**')) {
+        if (match[2] && match[3]) {
+          const label = match[2]
+          const href = match[3]
+          const trackedSetupLink = isTrackedSetupLink(href)
+          parts.push(
+            <a
+              key={key++}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                trackedSetupLink
+                  ? 'my-1 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90'
+                  : 'text-primary underline underline-offset-4 hover:text-primary/80',
+              )}
+            >
+              {label}
+              {trackedSetupLink && <ExternalLink className="h-3.5 w-3.5" />}
+            </a>,
+          )
+        } else if (matched.startsWith('**')) {
           // Bold
           parts.push(<strong key={key++}>{matched.slice(2, -2)}</strong>)
         } else if (matched.startsWith('`')) {
@@ -732,8 +755,7 @@ const getActivityItemLabel = (item: AssistantStreamItemType) => {
   return humanizeActivityLabel(item.title || item.type || 'Step')
 }
 
-// Build a one-line summary describing a run of activity items so the user
-// knows what's hidden inside the collapsed group without expanding.
+// Build a one-line summary of activity types without exposing reasoning text.
 const buildActivitySummary = (items: AssistantStreamItemType[]) => {
   return items.map(getActivityItemLabel).filter(Boolean).join(', ')
 }
@@ -792,13 +814,6 @@ const ActivityGroup: React.FC<{
     () => items.filter(isDetailedActivityItem),
     [items],
   )
-  const livePreview = useMemo(() => {
-    if (!isStreaming || detailedItems.length === 0) return ''
-    const latestContent = detailedItems[detailedItems.length - 1]?.content ?? ''
-    const trimmed = latestContent.trim()
-    if (!trimmed) return ''
-    return trimmed.length > 220 ? `${trimmed.slice(0, 217)}...` : trimmed
-  }, [detailedItems, isStreaming])
   const hasDetails = detailedItems.length > 0
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
@@ -848,11 +863,6 @@ const ActivityGroup: React.FC<{
           </CollapsibleContent>
         )}
       </Collapsible>
-      {livePreview && (
-        <p className="ml-5 mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
-          {livePreview}
-        </p>
-      )}
     </div>
   )
 }
