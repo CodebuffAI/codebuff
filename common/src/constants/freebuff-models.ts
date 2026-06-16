@@ -106,12 +106,18 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
   return FREEBUFF_GEMINI_THINKER_PARENT_MODELS.has(modelId)
 }
 
+/** Single source of truth for "this model collects data for training". A model
+ *  that carries this exact `warning` is both shown the caveat in the picker AND
+ *  has its chat-completion traces stored in free mode (see
+ *  FREEBUFF_TRACED_MODEL_IDS, which is derived from it) — the two can't drift. */
+export const FREEBUFF_DATA_COLLECTION_WARNING = 'Collects data for training'
+
 const DEEPSEEK_V4_PRO_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   displayName: 'DeepSeek V4 Pro',
   tagline: 'Smartest',
   availability: 'always',
-  warning: 'Collects data for training',
+  warning: FREEBUFF_DATA_COLLECTION_WARNING,
   premium: true,
   multimodal: false,
 } as const satisfies FreebuffModelOption
@@ -148,7 +154,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   displayName: 'DeepSeek V4 Flash',
   tagline: 'Smart & Fast',
   availability: 'always',
-  warning: 'Collects data for training',
+  warning: FREEBUFF_DATA_COLLECTION_WARNING,
   premium: false,
   multimodal: false,
 } as const satisfies FreebuffModelOption
@@ -166,9 +172,11 @@ const MINIMAX_MODEL = {
 const MINIMAX_M3_MODEL = {
   id: FREEBUFF_MINIMAX_M3_MODEL_ID,
   displayName: 'MiniMax M3',
-  tagline: 'Smartest & multimodal',
+  tagline: 'Smartest & Fastest',
   availability: 'always',
-  warning: 'Collects data for training',
+  // No data-collection warning: M3 is served by Fireworks (no provider-side
+  // training). Omitting the warning also keeps it out of FREEBUFF_TRACED_MODEL_IDS,
+  // so we don't store its traces either.
   premium: false,
   multimodal: true,
 } as const satisfies FreebuffModelOption
@@ -206,6 +214,17 @@ export const FREEBUFF_MULTIMODAL_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
+
+/** Free-mode models whose chat-completion traces we store in our own dataset
+ *  (chat_completion_traces). Derived from the picker's data-collection warning
+ *  so the disclosure and the storage are one fact: a model is traced in free
+ *  mode iff it shows the "Collects data for training" caveat. Every other free
+ *  model (incl. MiniMax M3 on Fireworks) is NOT stored; paid, non-free-mode
+ *  requests are unaffected and traced as usual. */
+export const FREEBUFF_TRACED_MODEL_IDS = SUPPORTED_FREEBUFF_MODELS.filter(
+  (model: FreebuffModelOption) =>
+    model.warning === FREEBUFF_DATA_COLLECTION_WARNING,
+).map((model) => model.id)
 
 export type FreebuffModelId = (typeof FREEBUFF_MODELS)[number]['id']
 export type SupportedFreebuffModelId =
@@ -300,6 +319,19 @@ export function getFreebuffModelsForAccessTier(
   return FREEBUFF_MODELS
 }
 
+/** The model the picker highlights as the "recommended" hero so a new user can
+ *  start with one Enter press without scanning the full list. Full access →
+ *  MiniMax M3 (the smart, unlimited, multimodal default); limited → the
+ *  always-available flash model. Both are unlimited, so the recommended pick
+ *  never burns the daily premium quota. */
+export function getRecommendedFreebuffModelId(
+  accessTier: FreebuffAccessTier | null | undefined,
+): SupportedFreebuffModelId {
+  return accessTier === 'limited'
+    ? LIMITED_FREEBUFF_MODEL_ID
+    : DEFAULT_FREEBUFF_MODEL_ID
+}
+
 export function isFreebuffModelAllowedForAccessTier(
   model: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
@@ -356,6 +388,15 @@ export function isFreebuffMultimodalModelId(
 ): boolean {
   if (!id) return false
   return FREEBUFF_MULTIMODAL_MODEL_IDS.some((modelId) => modelId === id)
+}
+
+/** Whether we store our own chat-completion traces for this free-mode model.
+ *  See FREEBUFF_TRACED_MODEL_IDS. */
+export function isFreebuffTracedModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_TRACED_MODEL_IDS.some((modelId) => modelId === id)
 }
 
 export function resolveSupportedFreebuffModel(

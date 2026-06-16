@@ -44,6 +44,11 @@ interface WaitingRoomScreenProps {
   error: string | null
 }
 
+/** Landing-screen heading. Referenced both as rendered text and by the
+ *  picker's height-budget math (wrappedRows), so it lives in one place to keep
+ *  the two from drifting. */
+const LANDING_HEADING = 'Start coding for free'
+
 const formatWait = (ms: number): string => {
   if (!Number.isFinite(ms) || ms <= 0) return 'any moment now'
   const totalSeconds = Math.round(ms / 1000)
@@ -315,14 +320,17 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
   // Progressive disclosure as the terminal gets shorter. The picker is the
   // only thing the user must be able to reach, so chrome is shed first:
-  //   tall   (>=26): full ASCII logo + roomy spacing, content anchored low
-  //   medium (>=18): one-line text logo, tightened spacing, content up top
-  //   short  (<18) : no logo at all
-  //   tiny   (<15) : also drop the ad banner
+  //   tall   (>=40): full 6-line ASCII logo + roomy spacing, content anchored low
+  //   medium (>=20): one-line text wordmark — keeps branding for ~1 row so the
+  //                  model list (esp. expanded) gets ~6 rows back vs the big logo
+  //   short  (<20) : no logo at all
+  //   tiny   (<18) : also drop the ad banner
+  // The big logo is reserved for genuinely tall windows; at the common ~30-row
+  // height we show the compact wordmark so more models fit without scrolling.
   // Section headers always show — the picker scrolls within whatever rows
   // remain (see selectorMaxHeight below), so there's no need to hide them.
   const logoMode: 'full' | 'text' | 'none' =
-    terminalHeight >= 30 ? 'full' : ('none' as 'none' | 'text')
+    terminalHeight >= 40 ? 'full' : terminalHeight >= 20 ? 'text' : 'none'
   const compact = terminalHeight < 22
   const showAds = terminalHeight >= 18
   const textMarginBottom = 1
@@ -403,6 +411,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     ? Object.values(rateLimitsByModel)[0]
     : undefined
   const sharedSessionUsed = sessionRateLimit?.recentCount ?? 0
+  // Hide the "0 of 5 … used" line entirely for a fresh user — a zeroed counter
+  // is noise on the landing screen. It appears once any session is consumed.
+  const showSessionCounter = sharedSessionUsed > 0
   const isSessionExhausted =
     sharedSessionUsed >=
     (accessTier === 'limited'
@@ -456,10 +467,12 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
   const belowPickerRows = streakRows + noticeRows
-  const counterRows = 1 /* marginTop */ + wrappedRows(counterText)
+  const counterRows = showSessionCounter
+    ? 1 /* marginTop */ + wrappedRows(counterText)
+    : 0
   const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
   const landingTextRows =
-    wrappedRows('Pick a model to start') +
+    wrappedRows(LANDING_HEADING) +
     textMarginBottom +
     counterRows +
     belowPickerRows
@@ -536,11 +549,18 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           flexGrow: 1,
           flexDirection: 'column',
           alignItems: 'center',
-          // With the full logo we anchor the clump low (flex-end), matching how
-          // chat pins its header/messages to the input bar. Once the logo is
-          // shrunk/hidden on shorter terminals, anchoring low just leaves a big
-          // dead band under the top bar — so hug the top instead.
-          justifyContent: logoMode === 'full' ? 'flex-end' : 'flex-start',
+          // Full logo: anchor the clump low (flex-end), matching how chat pins
+          // its header/messages to the input bar. Text wordmark: center the
+          // clump so a short (collapsed) picker reads as a balanced card instead
+          // of leaving a void above the ad. No logo (tiny terminals): hug the
+          // top, since the content nearly fills the height anyway and centering
+          // would just shave rows off the top.
+          justifyContent:
+            logoMode === 'full'
+              ? 'flex-end'
+              : logoMode === 'text'
+                ? 'center'
+                : 'flex-start',
           paddingLeft: 2,
           paddingRight: 2,
           // A row of breathing room under the top bar for the text logo; the
@@ -592,26 +612,28 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 }}
               >
                 <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-                  Pick a model to start
+                  {LANDING_HEADING}
                 </span>
               </text>
               <FreebuffModelSelector maxHeight={selectorMaxHeight} />
-              <text
-                style={{
-                  fg: theme.muted,
-                  marginTop: 1,
-                  wrapMode: 'word',
-                }}
-              >
-                <span fg={sessionUsedColor}>
-                  {formattedSharedSessionUsed} of {sessionLimit} {sessionLabel}{' '}
-                  used
-                </span>
-                <span fg={theme.muted}>
-                  {', '}
-                  resets in {sessionResetCountdown}
-                </span>
-              </text>
+              {showSessionCounter && (
+                <text
+                  style={{
+                    fg: theme.muted,
+                    marginTop: 1,
+                    wrapMode: 'word',
+                  }}
+                >
+                  <span fg={sessionUsedColor}>
+                    {formattedSharedSessionUsed} of {sessionLimit} {sessionLabel}{' '}
+                    used
+                  </span>
+                  <span fg={theme.muted}>
+                    {', '}
+                    resets in {sessionResetCountdown}
+                  </span>
+                </text>
+              )}
               {limitedModeNotice && (
                 <text
                   style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
