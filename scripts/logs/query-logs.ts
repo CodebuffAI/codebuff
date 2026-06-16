@@ -41,6 +41,7 @@ import {
   resolveDataset,
   resolveTimeRange,
   runApl,
+  safeCol,
 } from './lib'
 
 function main() {
@@ -48,11 +49,12 @@ function main() {
   const { from, to } = resolveTimeRange()
   const limit = Number(getFlag('limit') ?? 100)
 
+  // Project each field via column_ifexists so a column that doesn't exist yet
+  // in the dataset/window degrades to "" instead of erroring the whole query.
   // `data` is stored as a JSON string; parse it on the way out so --full shows
   // a structured object rather than an escaped blob.
-  const fields = hasFlag('full')
-    ? [...DEFAULT_FIELDS, 'data = parse_json(data)']
-    : [...DEFAULT_FIELDS]
+  const fields = DEFAULT_FIELDS.map((f) => `${f} = ${safeCol(f)}`)
+  if (hasFlag('full')) fields.push(`data = parse_json(${safeCol('data')})`)
 
   const filters: string[] = [
     `where _time >= ${aplDatetime(from)} and _time <= ${aplDatetime(to)}`,
@@ -69,11 +71,11 @@ function main() {
   ]
   for (const [flag, field] of eq) {
     const val = getFlag(flag)
-    if (val) filters.push(`where ${field} == ${aplString(val)}`)
+    if (val) filters.push(`where ${safeCol(field)} == ${aplString(val)}`)
   }
-  if (hasFlag('has-event')) filters.push(`where isnotnull(event) and event != ""`)
+  if (hasFlag('has-event')) filters.push(`where ${safeCol('event')} != ""`)
   const grep = getFlag('grep')
-  if (grep) filters.push(`where message contains ${aplString(grep)}`)
+  if (grep) filters.push(`where ${safeCol('message')} contains ${aplString(grep)}`)
 
   const apl = [
     `['${dataset}']`,

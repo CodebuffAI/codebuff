@@ -63,6 +63,20 @@ export function aplString(value: string): string {
   return JSON.stringify(value) // JSON string syntax is valid APL string syntax
 }
 
+/**
+ * Reference a column that may not exist in the dataset yet.
+ *
+ * Axiom is schemaless: a field only becomes a column once a row carries it.
+ * APL hard-errors ("field 'x' not found") when you project or filter a column
+ * that is absent from *every* row in the window — which happens for the
+ * correlation/identity fields (`event`, `user_id`, …) whenever a window has
+ * none of them. `column_ifexists` degrades the missing column to an empty
+ * string instead, so queries never error on a sparsely-populated field.
+ */
+export function safeCol(name: string): string {
+  return `column_ifexists(${aplString(name)}, "")`
+}
+
 /** Format a Date as an APL datetime() literal. */
 export function aplDatetime(d: Date): string {
   return `datetime(${aplString(d.toISOString())})`
