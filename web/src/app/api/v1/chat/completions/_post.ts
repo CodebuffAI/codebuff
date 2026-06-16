@@ -6,6 +6,7 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
+  isFreebuffTracedModelId,
   isSupportedFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 import {
@@ -984,14 +985,20 @@ export async function postChatCompletions(params: {
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
     const providerLogger = sampleSuccessLogger(logger, sampleFreebuffSuccess)
 
-    recordChatCompletionTrace({
-      body: typedBody,
-      userId,
-      agentId,
-      ancestorRunIds,
-      logger: providerLogger,
-      insertChatCompletionTraceBigquery,
-    })
+    // In free mode we only store traces for the whitelisted models that
+    // disclose data collection (the DeepSeek family); other free models (e.g.
+    // MiniMax M3 on Fireworks, Kimi, MiMo) are not captured. Paid requests are
+    // unaffected and always traced.
+    if (!isFreeModeRequest || isFreebuffTracedModelId(typedBody.model)) {
+      recordChatCompletionTrace({
+        body: typedBody,
+        userId,
+        agentId,
+        ancestorRunIds,
+        logger: providerLogger,
+        insertChatCompletionTraceBigquery,
+      })
+    }
 
     const requestMetrics = beginChatCompletionRequestMetrics({
       logger,

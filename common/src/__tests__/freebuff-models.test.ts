@@ -5,6 +5,7 @@ import {
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DATA_COLLECTION_WARNING,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_KIMI_MODEL_ID,
@@ -17,13 +18,16 @@ import {
   SUPPORTED_FREEBUFF_MODELS,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelsForAccessTier,
+  getRecommendedFreebuffModelId,
   isFreebuffDeploymentHours,
+  isFreebuffTracedModelId,
   isFreebuffModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
   resolveFreebuffModelForAccessTier,
 } from '../constants/freebuff-models'
+import type { FreebuffModelOption } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
@@ -50,6 +54,31 @@ describe('freebuff model availability', () => {
     expect((deepseek as { warning?: string } | undefined)?.warning).toBe(
       'Collects data for training',
     )
+  })
+
+  test('only the DeepSeek family is trace-stored in free mode; M3 has no warning', () => {
+    const m3 = FREEBUFF_MODELS.find((m) => m.id === MINIMAX_M3_MODEL_ID)
+    expect((m3 as { warning?: string } | undefined)?.warning).toBeUndefined()
+    // The DeepSeek family discloses data collection and IS stored.
+    expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)).toBe(true)
+    expect(isFreebuffTracedModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
+      true,
+    )
+    // Everything else (incl. M3 on Fireworks) is NOT stored.
+    expect(isFreebuffTracedModelId(MINIMAX_M3_MODEL_ID)).toBe(false)
+    expect(isFreebuffTracedModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
+    expect(isFreebuffTracedModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
+    expect(isFreebuffTracedModelId(null)).toBe(false)
+  })
+
+  test('trace storage is one source of truth with the data-collection warning', () => {
+    // A model is traced in free mode iff it shows the data-collection caveat.
+    const models: readonly FreebuffModelOption[] = SUPPORTED_FREEBUFF_MODELS
+    for (const model of models) {
+      expect(isFreebuffTracedModelId(model.id)).toBe(
+        model.warning === FREEBUFF_DATA_COLLECTION_WARNING,
+      )
+    }
   })
 
   test('DeepSeek V4 Flash is selectable and non-premium', () => {
@@ -191,6 +220,25 @@ describe('freebuff model availability', () => {
     expect(
       resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+  })
+
+  test('recommends an unlimited, in-tier model for the picker hero', () => {
+    // Full access → MiniMax M3 (the unlimited default), so the one-Enter
+    // start never burns a premium session.
+    expect(getRecommendedFreebuffModelId('full')).toBe(MINIMAX_M3_MODEL_ID)
+    expect(getRecommendedFreebuffModelId(undefined)).toBe(MINIMAX_M3_MODEL_ID)
+    expect(isFreebuffPremiumModelId(getRecommendedFreebuffModelId('full'))).toBe(
+      false,
+    )
+    // Limited access → DeepSeek V4 Flash, which is in the limited model set.
+    expect(getRecommendedFreebuffModelId('limited')).toBe(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+    expect(
+      getFreebuffModelsForAccessTier('limited').some(
+        (m) => m.id === getRecommendedFreebuffModelId('limited'),
+      ),
+    ).toBe(true)
   })
 
   test('full-access freebuff models can spawn the gemini-thinker subagent', () => {
