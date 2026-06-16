@@ -236,13 +236,20 @@ function ProjectWrapper({
     api.github.repositories.getProjectSyncStatus,
     project ? { projectId: project._id } : "skip",
   );
+  const projectPauseStatus = useQuery(
+    api.deployment_queries.getProjectPauseStatus,
+    project ? { projectId: project._id } : "skip",
+  );
 
   // We treat the page as loading while EITHER Convex auth is still resolving
   // OR the project query itself has not landed. This prevents the "not found"
   // flash that happens when the query races ahead of auth and returns null
   // before the auth token reaches the backend. entryPoints/streamedMessages
   // are intentionally allowed to load independently.
-  const isLoading = isAuthLoading || project === undefined;
+  const isLoading =
+    isAuthLoading ||
+    project === undefined ||
+    (project !== null && projectPauseStatus === undefined);
 
   // Stable "auth has settled" flag: stays true once we observe that Convex
   // auth finished loading. We use this to delay marking a project as
@@ -911,6 +918,7 @@ function ProjectWrapper({
               isSelectingElement={isSelectingElement}
               onCurrentPageChange={setCurrentPageUrl}
               syncStatus={syncStatus}
+              projectPauseStatus={projectPauseStatus}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               isRevealed={hasRevealedIframe}

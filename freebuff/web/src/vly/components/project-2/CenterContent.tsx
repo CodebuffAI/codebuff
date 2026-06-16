@@ -65,7 +65,6 @@ type PreviewConnectionStatus =
   | "connected"
   | "error"
   | "idle"
-  | "paused"
   | "restarting";
 
 const MAX_AUTO_SCREENSHOT_FAILURES = 3;
@@ -99,10 +98,6 @@ const connectionStatusMeta: Record<
   idle: {
     label: "Idle",
     dotClassName: "bg-muted-foreground/70",
-  },
-  paused: {
-    label: "Paused",
-    dotClassName: "bg-yellow-400",
   },
   restarting: {
     label: "Restarting computer",
@@ -442,7 +437,6 @@ export function CenterContent({
     isConnecting,
     isError: isConnectionError,
     isSuccess: isConnectionSuccess,
-    fetchStatus: connectionFetchStatus,
     checkProjectConnection,
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
@@ -462,7 +456,6 @@ export function CenterContent({
   const connectionStatus: PreviewConnectionStatus = (() => {
     if (!project) return "loading";
     if (isRestarting) return "restarting";
-    if (connectionFetchStatus === "paused") return "paused";
     if (isConnectionError) return "error";
     if (isConnecting) return navState.iframeSrc ? "booting" : "loading";
     if (isConnectionSuccess) return "connected";
