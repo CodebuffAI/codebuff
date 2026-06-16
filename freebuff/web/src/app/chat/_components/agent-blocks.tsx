@@ -25,6 +25,9 @@ export function BlockList(props: {
   /** This tree belongs to the latest assistant turn — thinking rows show
    *  their tail preview instead of collapsing. */
   latest?: boolean
+  /** Render thinking rows expanded by default (the deep-thinking agent's
+   *  reasoning is the point, so it stays visible). */
+  expandThinking?: boolean
 }) {
   return (
     <div className={cn('space-y-3', props.nested && 'space-y-2.5')}>
@@ -36,7 +39,12 @@ export function BlockList(props: {
         }
         if (block.type === 'thinking') {
           return (
-            <ThinkingRow key={i} block={block} autoPreview={!!props.latest} />
+            <ThinkingRow
+              key={i}
+              block={block}
+              autoPreview={!!props.latest}
+              defaultExpanded={props.expandThinking}
+            />
           )
         }
         if (block.type === 'tool') {
@@ -66,9 +74,11 @@ function lastTextSnippet(blocks: ChatBlock[]): string {
 
 function AgentBox({ agent, latest }: { agent: AgentBlock; latest?: boolean }) {
   const running = agent.status === 'running'
-  // Collapsed until the user opens it; the summary row shows the prompt so
-  // it's clear what the agent is working on.
-  const [open, setOpen] = useState(false)
+  // The deep-thinking agent (thinker-gemini) exists to show its reasoning, so
+  // open it by default. Everything else stays collapsed until the user opens
+  // it; the summary row shows the prompt so it's clear what it's working on.
+  const isThinker = agent.agentType.includes('thinker')
+  const [open, setOpen] = useState(isThinker)
 
   const preview = open
     ? undefined
@@ -116,7 +126,12 @@ function AgentBox({ agent, latest }: { agent: AgentBlock; latest?: boolean }) {
               {agent.prompt}
             </p>
           )}
-          <BlockList blocks={agent.blocks} nested latest={latest} />
+          <BlockList
+            blocks={agent.blocks}
+            nested
+            latest={latest}
+            expandThinking={isThinker}
+          />
           {running && agent.blocks.length === 0 && (
             <p className="animate-pulse text-[13px] text-muted-foreground/60">
               working…

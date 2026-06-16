@@ -4,6 +4,7 @@ import type { AgentDefinition, RunState } from '@codebuff/sdk'
 
 import baseChatAgent from '../../../../../agents/base-chat'
 import researcherWebAgent from '../../../../../agents/researcher/researcher-web'
+import thinkerGeminiAgent from '../../../../../agents/thinker/thinker-gemini'
 import { CHAT_MODELS } from '@/app/chat/models'
 import { logger } from '@/util/logger'
 
@@ -108,7 +109,10 @@ export async function runChatAgent(params: {
     // run() registers an inline agent definition itself; no need to also
     // pass it via agentDefinitions.
     agent,
-    agentDefinitions: [researcherWebAgent as AgentDefinition],
+    agentDefinitions: [
+      researcherWebAgent as AgentDefinition,
+      thinkerGeminiAgent as AgentDefinition,
+    ],
     // No filesystem: skip project discovery entirely.
     projectFiles: {},
     knowledgeFiles: {},

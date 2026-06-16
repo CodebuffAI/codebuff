@@ -368,7 +368,10 @@ async function runOnce({
         handleStreamChunk?.({
           type: 'reasoning_chunk',
           chunk: chunk.text,
-          agentId: chunk.runId,
+          // The agent's stable id (matches subagent_start/subagent_chunk), so
+          // subagent reasoning attributes to the right agent. (Previously this
+          // forwarded runId, which no consumer's agent map is keyed by.)
+          agentId: chunk.agentId,
           ancestorRunIds: chunk.ancestorRunIds,
         })
       } else {

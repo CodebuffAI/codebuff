@@ -21,8 +21,12 @@ export function ThinkingRow(props: {
   block: ThinkingBlock
   /** Show the tail preview by default (this is the latest assistant turn). */
   autoPreview: boolean
+  /** Show the full thinking by default — used for the deep-thinking agent,
+   *  whose reasoning is the point and shouldn't collapse away. The user can
+   *  still click to collapse it. */
+  defaultExpanded?: boolean
 }) {
-  const { block, autoPreview } = props
+  const { block, autoPreview, defaultExpanded } = props
   const running = block.status === 'running'
   // null = follow the default for this turn; true/false = user override.
   const [expanded, setExpanded] = useState<boolean | null>(null)
@@ -32,7 +36,7 @@ export function ThinkingRow(props: {
     if (!autoPreview) setExpanded(null)
   }, [autoPreview])
 
-  const showFull = expanded === true
+  const showFull = expanded === true || (expanded === null && !!defaultExpanded)
   const showPreview =
     !showFull && expanded !== false && (running || autoPreview)
 

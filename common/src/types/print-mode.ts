@@ -91,6 +91,9 @@ export const printModeReasoningDeltaSchema = z.object({
   text: z.string(),
   ancestorRunIds: z.string().array(),
   runId: z.string(),
+  /** The reasoning agent's stable id (matches subagent_start/subagent_chunk
+   *  agentId), so consumers can attribute reasoning to the right agent. */
+  agentId: z.string(),
 })
 export type PrintModeReasoningDelta = z.infer<
   typeof printModeReasoningDeltaSchema
