@@ -35,9 +35,10 @@ import {
   RotateCw,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useQuery } from 'convex/react'
 import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@/convex/_generated/dataModel'
-import type { api } from '@/convex/_generated/api'
+import { api } from '@/convex/_generated/api'
 import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
 import { CenterContent } from './CenterContent'
 import { GodModeActions } from './GodModeActions'
@@ -150,6 +151,11 @@ export function ProjectIframeArea({
   onRefresh,
 }: ProjectIframeAreaProps) {
   const { isPlatformAdmin } = useIsPlatformAdmin()
+  const projectPauseStatus = useQuery(api.deployment_queries.getProjectPauseStatus, {
+    projectId: project._id,
+  })
+  const showSelfHostMigrationBanner = projectPauseStatus !== null
+  const shouldShowPauseOverlay = showSelfHostMigrationBanner && activeTab !== 'database'
   const isNonPreviewTab = activeTab !== 'preview'
   const expandedSettingsHref =
     activeTab === 'database'
@@ -160,39 +166,55 @@ export function ProjectIframeArea({
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
       {!hideTabs && (
-        <div className="flex flex-shrink-0 items-center justify-between gap-2 bg-background px-3 py-1.5">
-          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-            {TOP_TABS.map(({ id, label, Icon }) => {
-              const isActive = activeTab === id
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveTab(id)}
-                  className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-muted text-foreground'
-                      : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
-                    {label}
-                  </span>
-                </button>
-              )
-            })}
-            {isPlatformAdmin && (
-              <div className="hidden md:block">
-                <GodModeActions
-                  isExpanded={false}
-                  layout="horizontal"
-                  project={project}
-                />
-              </div>
-            )}
+        <div className="flex flex-shrink-0 flex-col bg-background">
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+            <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+              {TOP_TABS.map(({ id, label, Icon }) => {
+                const isActive = activeTab === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveTab(id)}
+                    className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
+                      isActive
+                        ? 'bg-muted text-foreground'
+                        : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
+                    }`}
+                    aria-pressed={isActive}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
+                      {label}
+                    </span>
+                  </button>
+                )
+              })}
+              {isPlatformAdmin && (
+                <div className="hidden md:block">
+                  <GodModeActions
+                    isExpanded={false}
+                    layout="horizontal"
+                    project={project}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+          {showSelfHostMigrationBanner === true && (
+            <div className="px-3 pb-2">
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                Your project is paused.{' '}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('database')}
+                  className="underline underline-offset-2 hover:text-amber-950"
+                >
+                  Click here to self-host from the Data tab.
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -314,6 +336,23 @@ export function ProjectIframeArea({
                   onClickToTest={onClickToTest}
                 />
               </Suspense>
+              {shouldShowPauseOverlay && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/70 p-4 backdrop-blur-[2px]">
+                  <div className="max-w-md rounded-xl border border-amber-300 bg-amber-50 p-4 text-center text-amber-900 shadow-lg">
+                    <p className="text-sm font-semibold">This project is paused.</p>
+                    <p className="mt-1 text-xs">
+                      Click below to self-host from the Data tab and resume work.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('database')}
+                      className="mt-3 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
+                    >
+                      Open Data tab for self-host migration
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
