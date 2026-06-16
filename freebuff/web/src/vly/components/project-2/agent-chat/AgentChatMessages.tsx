@@ -1035,14 +1035,17 @@ const AgentAdMessage: React.FC<{
         target="_blank"
         rel="noopener noreferrer sponsored"
         onClick={() => recordAdClick(ad)}
-        className="group flex min-h-[78px] overflow-hidden rounded-xl border border-border/60 bg-muted/25 text-left no-underline transition-colors hover:border-primary/35 hover:bg-muted/35"
+        className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5 text-left no-underline transition-colors hover:border-primary/35 hover:bg-muted/35"
       >
-        <span className="flex w-14 shrink-0 items-center justify-center border-r border-border/50 bg-background/50 text-xs font-semibold text-muted-foreground sm:w-16">
+        <span className="pointer-events-none absolute right-2 top-1.5 text-[8px] font-semibold uppercase leading-none tracking-[0.2em] text-muted-foreground/30">
+          AD
+        </span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background/60 text-xs font-semibold text-muted-foreground">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt=""
-              className="h-7 w-7 rounded-md object-contain"
+              className="h-full w-full object-contain p-1"
               loading="lazy"
               onError={() => setImageError(true)}
             />
@@ -1050,25 +1053,19 @@ const AgentAdMessage: React.FC<{
             title.charAt(0).toUpperCase()
           )}
         </span>
-        <span className="min-w-0 flex-1 px-3 py-2.5">
-          <span className="mb-1 flex min-w-0 items-center gap-1.5 text-[10px] leading-none text-muted-foreground">
-            <span className="uppercase tracking-wide text-muted-foreground/70">
-              AD
-            </span>
-            <span className="text-muted-foreground/45">·</span>
-            <span className="truncate font-semibold text-foreground/90">
-              {title}
-            </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate pr-6 text-[13px] font-semibold text-foreground/90">
+            {title}
           </span>
           {ad.adText && (
-            <span className="block line-clamp-2 text-[13px] leading-snug text-muted-foreground">
+            <span className="mt-0.5 block line-clamp-1 text-[12px] leading-snug text-muted-foreground/80">
               {ad.adText}
             </span>
           )}
-          <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-primary/15 px-2.5 py-1.5 text-[12px] font-semibold leading-none text-primary transition-colors group-hover:bg-primary/25">
-            {cta}
-            <ExternalLink className="h-3 w-3 shrink-0" />
-          </span>
+        </span>
+        <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-md bg-primary/15 px-2.5 py-1.5 text-[12px] font-semibold leading-none text-primary transition-colors group-hover:bg-primary/25">
+          {cta}
+          <ExternalLink className="h-3 w-3 shrink-0" />
         </span>
       </a>
     </div>

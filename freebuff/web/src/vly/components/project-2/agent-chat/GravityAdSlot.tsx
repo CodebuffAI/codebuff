@@ -489,8 +489,16 @@ export function GravityAdSlot({
               ad.brandName.charAt(0).toUpperCase() || 'A'
             )}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/85">
-            {ad.title || ad.brandName}
+          <span
+            title={ad.adText ? `${ad.title || ad.brandName} — ${ad.adText}` : undefined}
+            className="min-w-0 flex-1 truncate text-[11px] leading-tight text-foreground/85 transition-all group-hover:whitespace-normal"
+          >
+            <span className="font-medium">{ad.title || ad.brandName}</span>
+            {ad.adText ? (
+              <span className="ml-1.5 font-normal text-muted-foreground/70">
+                {ad.adText}
+              </span>
+            ) : null}
           </span>
           <span className="hidden shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[10px] font-semibold leading-none text-primary-foreground shadow-sm transition-colors group-hover:bg-primary/90 sm:inline-flex">
             {ad.cta || 'Start monetizing'}
