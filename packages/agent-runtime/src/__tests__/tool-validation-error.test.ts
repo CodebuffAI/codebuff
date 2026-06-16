@@ -1,3 +1,5 @@
+import z from 'zod/v4'
+
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
@@ -189,6 +191,21 @@ describe('tool validation error handling', () => {
     expect('error' in result).toBe(false)
     if (!('error' in result)) {
       expect(result.input.params).toEqual({ command: 'bun test' })
+    }
+  })
+
+  it('should summarize missing native tool fields clearly', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'run_terminal_command',
+        toolCallId: 'missing-command-tool-call-id',
+        input: {},
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Missing required: command')
     }
   })
 
@@ -486,6 +503,22 @@ describe('tool validation error handling', () => {
       )
     })
     expect(errorUserMessage).toBeDefined()
+  })
+
+  it('should summarize missing spawned agent params clearly', async () => {
+    const { validateAgentInput } = await import(
+      '../tools/handlers/tool/spawn-agent-utils'
+    )
+    const agentTemplate = {
+      ...testAgentTemplate,
+      inputSchema: {
+        params: z.object({ command: z.string() }),
+      },
+    }
+
+    expect(() => validateAgentInput(agentTemplate, 'basher', undefined, {})).toThrow(
+      'Missing required: command',
+    )
   })
 
   it('should still emit tool_call and tool_result for valid tool calls', async () => {

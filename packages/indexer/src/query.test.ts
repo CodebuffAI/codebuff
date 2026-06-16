@@ -149,4 +149,119 @@ describe('queryIndex', () => {
     expect(report.failed).toEqual([])
     expect(report.meanReciprocalRank).toBeGreaterThan(0)
   })
+
+  test('prioritizes command sources for validation-suite queries', () => {
+    const commandIndex = makeCommandIndex()
+    const results = queryIndex(commandIndex, 'Run the broader project validation suite', {
+      limit: 5,
+    })
+
+    expect(results[0]?.path).toBe('package.json')
+    expect(results[0]?.matchedOn).toContain('command')
+    expect(results[0]?.matchedSnippets).toContain('package script: typecheck=bun --filter=* run typecheck')
+    expect(results.findIndex((result) => result.path === 'src/validation-error.ts')).toBeGreaterThan(
+      results.findIndex((result) => result.path === 'package.json'),
+    )
+  })
+
+  test('supports explicit commands mode for command discovery', () => {
+    const commandIndex = makeCommandIndex()
+    const results = queryIndex(commandIndex, 'typecheck lint build', {
+      mode: 'commands',
+      limit: 5,
+    })
+
+    expect(results.map((result) => result.path).slice(0, 3)).toEqual([
+      'package.json',
+      '.github/workflows/ci.yml',
+      'docs/testing.md',
+    ])
+    expect(results[0]?.explanation).toContain('Snippets:')
+  })
+
+  test('does not treat generic command searches as command-discovery intent', () => {
+    const commandIndex = makeCommandIndex()
+    const results = queryIndex(commandIndex, 'command registry', {
+      limit: 5,
+    })
+
+    expect(results[0]?.path).toBe('src/command-registry.ts')
+    expect(results.findIndex((result) => result.path === 'package.json')).toBeGreaterThan(
+      results.findIndex((result) => result.path === 'src/command-registry.ts'),
+    )
+  })
 })
+
+function makeCommandIndex(): MetadataIndex {
+  return {
+    version: '2',
+    projectRoot: '/repo',
+    builtAt: Date.now(),
+    fileCount: 5,
+    files: {
+      'package.json': {
+        path: 'package.json',
+        mtime: 1,
+        size: 100,
+        hash: 'pkg',
+        ext: '.json',
+        symbols: [],
+        imports: [],
+        headings: [],
+        concepts: [
+          'package manifest',
+          'package scripts',
+          'command configuration',
+          'script:typecheck=bun --filter=* run typecheck',
+          'script:test=bun test',
+          'script:build=bun run build',
+        ],
+      },
+      '.github/workflows/ci.yml': {
+        path: '.github/workflows/ci.yml',
+        mtime: 1,
+        size: 100,
+        hash: 'ci',
+        ext: '.yml',
+        symbols: [],
+        imports: [],
+        headings: [],
+        concepts: ['ci workflow', 'validation suite', 'run:bun run typecheck', 'run:bun test'],
+      },
+      'docs/testing.md': {
+        path: 'docs/testing.md',
+        mtime: 1,
+        size: 100,
+        hash: 'docs-testing',
+        ext: '.md',
+        symbols: [],
+        imports: [],
+        headings: ['Testing and validation'],
+        concepts: ['testing', 'validation', 'commands'],
+      },
+      'src/validation-error.ts': {
+        path: 'src/validation-error.ts',
+        mtime: 1,
+        size: 100,
+        hash: 'validation',
+        ext: '.ts',
+        symbols: ['ValidationError', 'formatValidationError'],
+        imports: [],
+        headings: [],
+        concepts: ['validation', 'error', 'formatting'],
+      },
+      'src/command-registry.ts': {
+        path: 'src/command-registry.ts',
+        mtime: 1,
+        size: 100,
+        hash: 'command-registry',
+        ext: '.ts',
+        symbols: ['CommandRegistry', 'registerCommand'],
+        imports: [],
+        headings: [],
+        concepts: ['command', 'registry', 'routing'],
+      },
+    },
+    graph: { nodes: {}, edges: [] },
+  }
+}

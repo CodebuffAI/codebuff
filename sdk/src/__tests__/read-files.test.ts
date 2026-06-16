@@ -209,6 +209,7 @@ describe('getFiles', () => {
       // Should contain truncation message
       expect(result['large.bin']).toContain('FILE_TOO_LARGE')
       expect(result['large.bin']).toContain('101,001 chars')
+      expect(result['large.bin']).toContain('1 lines')
       expect(result['large.bin']).toContain('Do not edit from this truncated content')
       expect(result['large.bin']).toContain('Large-file edits require basedOnRead')
       expect(result['large.bin']).toContain(

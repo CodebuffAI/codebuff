@@ -16,6 +16,7 @@ import { createPlanParams } from './params/tool/create-plan'
 import { editTransactionParams } from './params/tool/edit-transaction'
 import { endTurnParams } from './params/tool/end-turn'
 import { findFilesParams } from './params/tool/find-files'
+import { findFilesMatchingContentParams } from './params/tool/find-files-matching-content'
 import { globParams } from './params/tool/glob'
 import { listDirectoryParams } from './params/tool/list-directory'
 import { lookupAgentInfoParams } from './params/tool/lookup-agent-info'
@@ -69,6 +70,7 @@ export const toolParams = {
   edit_transaction: editTransactionParams,
   end_turn: endTurnParams,
   find_files: findFilesParams,
+  find_files_matching_content: findFilesMatchingContentParams,
   glob: globParams,
   list_directory: listDirectoryParams,
   lookup_agent_info: lookupAgentInfoParams,
@@ -148,6 +150,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('code_search'),
     input: toolParams.code_search.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('find_files_matching_content'),
+    input: toolParams.find_files_matching_content.inputSchema,
   }),
   z.object({
     toolName: z.literal('kill_job'),

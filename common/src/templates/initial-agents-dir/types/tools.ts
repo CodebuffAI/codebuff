@@ -6,12 +6,12 @@ export type ToolName =
   | 'apply_smart_patch'
   | 'add_message'
   | 'ask_user'
-  | 'browser_logs'
   | 'check_job'
   | 'code_search'
   | 'end_turn'
   | 'edit_transaction'
   | 'find_files'
+  | 'find_files_matching_content'
   | 'git_status'
   | 'glob'
   | 'kill_job'
@@ -54,12 +54,12 @@ export interface ToolParamsMap {
   apply_smart_patch: ApplySmartPatchParams
   add_message: AddMessageParams
   ask_user: AskUserParams
-  browser_logs: BrowserLogsParams
   check_job: CheckJobParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   edit_transaction: EditTransactionParams
   find_files: FindFilesParams
+  find_files_matching_content: FindFilesMatchingContentParams
   git_status: GitStatusParams
   glob: GlobParams
   kill_job: KillJobParams
@@ -186,40 +186,6 @@ export interface AskUserParams {
 }
 
 /**
- * Inspect and interact with a local browser session. Use navigate/snapshot/screenshot/click/type/scroll/evaluate to verify web apps visually and functionally.
- */
-export interface BrowserLogsParams {
-  type:
-    | 'start'
-    | 'navigate'
-    | 'snapshot'
-    | 'screenshot'
-    | 'click'
-    | 'type'
-    | 'scroll'
-    | 'evaluate'
-    | 'stop'
-  /** URL for start/navigate. Bare live domains resolve as HTTPS; localhost-style dev URLs resolve as HTTP when no scheme is given. */
-  url?: string
-  /** CSS selector for click/type. Prefer selectors returned by snapshot. */
-  selector?: string
-  /** Text to enter for type actions. */
-  text?: string
-  /** JavaScript expression for evaluate actions. */
-  script?: string
-  /** When to consider navigation successful. */
-  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0'
-  /** Capture the full page for screenshot actions. */
-  fullPage?: boolean
-  /** Scroll direction for scroll actions. */
-  direction?: 'up' | 'down'
-  /** Scroll amount in pixels for scroll actions. */
-  amount?: number
-  /** Per-action timeout in milliseconds. */
-  timeout?: number
-}
-
-/**
  * Poll or follow a background job started by run_terminal_command: returns the output produced since the last check plus the job status and exit code. Use it to observe a long-running process without blocking the turn. To watch an arbitrary log file, start a `tail -f <file>` BACKGROUND job and check_job it with a wait_for pattern.
  */
 export interface CheckJobParams {
@@ -229,42 +195,6 @@ export interface CheckJobParams {
   wait_for?: string
   /** Max seconds to wait for new output / the wait_for pattern. 0 (default) returns immediately with whatever new output exists (poll mode); >0 blocks up to this long (follow mode). */
   timeout_seconds?: number
-}
-
-/**
- * Read-only git status and optional diff for the current project.
- */
-export interface GitStatusParams {
-  /** When true, also return the unified diff of uncommitted changes. */
-  include_diff?: boolean
-  /** When true with include_diff, returns the staged diff instead of unstaged. */
-  staged?: boolean
-  /** Optional path to scope status/diff to. */
-  path?: string
-  /** Maximum characters of diff output to return. Defaults to 40000. */
-  max_chars?: number
-}
-
-/**
- * Read the last N lines from a log/text file.
- */
-export interface ReadLogsParams {
-  /** Path to the log file, relative to the project root unless absolute. */
-  path: string
-  /** Number of trailing lines to read. Defaults to 200. */
-  lines?: number
-  /** Maximum characters to return. Defaults to 20000. */
-  max_chars?: number
-}
-
-/**
- * Cancel a background job started by run_terminal_command with process_type: BACKGROUND.
- */
-export interface KillJobParams {
-  /** The jobId returned by run_terminal_command with process_type: BACKGROUND. */
-  jobId: string
-  /** Signal to send. Defaults to SIGTERM; use SIGKILL only if graceful termination fails. */
-  signal?: 'SIGTERM' | 'SIGKILL'
 }
 
 /**
@@ -364,13 +294,55 @@ export interface FindFilesParams {
 }
 
 /**
+ * List unique file paths whose content matches a pattern, with optional symbol grouping. Built on top of ripgrep (rg).
+ */
+export interface FindFilesMatchingContentParams {
+  /** Regex pattern (ripgrep syntax) to match file content against. */
+  pattern: string
+  /** Optional safe ripgrep flags. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not. Examples: "-i", "-g *.ts -g *.tsx", "-g !*.test.ts", "-F". Use code_search for advanced ripgrep options. */
+  flags?: string
+  /** Optional working directory to search within, relative to the project root. Defaults to the project root. */
+  cwd?: string
+  /** Maximum number of unique files to return. Defaults to 100. */
+  maxFiles?: number
+  /** When true, also return the names of the top-level symbols (functions, classes, methods, exports, constants) that contain each match, plus the per-file match count. Symbol extraction is heuristic and works best for JS/TS/Python/Go/Rust source files; languages without a recognized declaration shape produce an empty symbols list. */
+  groupBySymbol?: boolean
+  /** Maximum seconds to let ripgrep run before returning partial results. Defaults to 15. */
+  timeoutSeconds?: number
+}
+
+/**
+ * Read-only git status and (optionally) diff for the current project.
+ */
+export interface GitStatusParams {
+  /** When true, also return the unified diff of uncommitted changes. */
+  include_diff?: boolean
+  /** When true with include_diff, returns the staged diff instead of unstaged. */
+  staged?: boolean
+  /** Optional path to scope status/diff to (relative to project root). */
+  path?: string
+  /** Maximum characters of diff output to return. Defaults to 40,000. */
+  max_chars?: number
+}
+
+/**
  * Search for files matching a glob pattern. Returns matching file paths sorted by modification time.
  */
 export interface GlobParams {
   /** Glob pattern to match files against (e.g., *.js, src/glob/*.ts, glob/test/glob/*.go). */
   pattern: string
-  /** Optional working directory to search within, relative to project root. If not provided, searches from project root. */
+  /** Optional working directory to search within, relative to project root. If provided, the glob pattern is matched against paths relative to this cwd, while returned files remain project-relative. If not provided, searches from project root. */
   cwd?: string
+}
+
+/**
+ * Cancel a background job started by run_terminal_command.
+ */
+export interface KillJobParams {
+  /** The jobId returned by run_terminal_command with process_type: BACKGROUND. */
+  jobId: string
+  /** Signal to send. Defaults to SIGTERM; use SIGKILL only if graceful termination fails. */
+  signal?: 'SIGTERM' | 'SIGKILL'
 }
 
 /**
@@ -505,8 +477,8 @@ export interface QueryIndexParams {
   limit?: number
   /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only. */
   fileTypes?: string[]
-  /** Graph query mode. search returns ranked files, neighbors returns adjacent graph files, path returns a graph path between files, and explain includes ranking rationale. */
-  mode?: 'search' | 'neighbors' | 'path' | 'explain'
+  /** Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, and commands prioritizes package scripts, CI workflows, task runners, and validation docs. */
+  mode?: 'search' | 'neighbors' | 'path' | 'explain' | 'commands'
   /** Optional source file path for neighbors/path mode. */
   from?: string
   /** Optional target file path for path mode. */
@@ -529,7 +501,7 @@ export interface ReadDocsParams {
  * Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
  */
 export interface ReadFilesParams {
-  /** List of file paths to read. */
+  /** List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available. */
   paths: string[]
   /** Optional: read only a 1-indexed inclusive line range of specific files. Use this to page through large files that exceeded the read limit. Each entry reads `path` from startLine..endLine. */
   ranges?: {
@@ -550,11 +522,25 @@ export interface ReadFilesParams {
 }
 
 /**
- * Read image files from disk and return the actual image content as media. Use this for screenshots and other image files instead of read_files.
+ * Read image files from disk and return them as model-visible image media.
  */
 export interface ReadImageParams {
   /** List of image file paths to read. */
   paths: string[]
+}
+
+/**
+ * Read the last N lines from a log/text file or background job log without starting a background tail process.
+ */
+export interface ReadLogsParams {
+  /** Path to the log file, relative to the project root unless absolute. Required unless jobId is provided. */
+  path?: string
+  /** Background job id returned by run_terminal_command(process_type: BACKGROUND). When provided, reads the job log file directly. */
+  jobId?: string
+  /** Number of trailing lines to read. Defaults to 200. */
+  lines?: number
+  /** Maximum characters to return. Defaults to 20,000. */
+  max_chars?: number
 }
 
 /**
@@ -617,7 +603,7 @@ export interface RewriteSymbolParams {
   path: string
   /** Name of the function/class/method/type/interface to replace (as shown by read_outline). */
   symbol: string
-  /** The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). */
+  /** The complete new source for the symbol, replacing its entire current definition (e.g. the whole function including its signature and body). Provide REAL newlines/tabs in the string — literal backslash-n (\n) and backslash-t (\t) sequences are not interpreted and will be written verbatim into the file. This matches str_replace. */
   content: string
   /** When multiple top-level symbols share this name, the 1-indexed one to replace. */
   occurrence?: number

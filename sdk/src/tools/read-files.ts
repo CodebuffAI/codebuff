@@ -202,11 +202,14 @@ export async function getFiles(params: {
 
     if (content.length > MAX_CHARS) {
       const truncated = content.slice(0, MAX_CHARS)
+      const totalLines = content.split('\n').length
       result[relativePath] =
         truncated +
         '\n\n[FILE_TOO_LARGE: This file is ' +
         fmtNum(content.length) +
-        ' chars, exceeding the ' +
+        ' chars (' +
+        fmtNum(totalLines) +
+        ' lines), exceeding the ' +
         fmtNum(MAX_CHARS) +
         ' char limit. The content above has been truncated. Re-read specific sections with read_files using the ranges parameter, e.g. ranges: [{ path: "' +
         relativePath +

@@ -2,9 +2,9 @@
 
 > **⚠️ Legacy documentation only.** This document describes the upstream Codebuff
 > cloud authentication flow. **Openbuff's local/BYOK mode does not require any
-> cloud authentication, API key, login, or browser-based OAuth.** All LLM
-> requests go directly from your terminal to your configured OpenAI-compatible
-> providers (see [Local/BYOK Provider Mode](./local-mode.md)). The flow below is
+> Codebuff cloud authentication, Codebuff API key, login, or browser-based OAuth.**
+> Provider API keys are supplied by you and used locally for your configured
+> OpenAI-compatible or Anthropic-compatible providers (see [Local/BYOK Provider Mode](./local-mode.md)). The flow below is
 > preserved for reference and for users who may still interact with the upstream
 > Codebuff hosted service.
 

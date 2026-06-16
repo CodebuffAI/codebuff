@@ -49,7 +49,7 @@ export interface MetadataIndex {
   graph: IndexGraph
 }
 
-export type QueryIndexMode = 'search' | 'neighbors' | 'path' | 'explain'
+export type QueryIndexMode = 'search' | 'neighbors' | 'path' | 'explain' | 'commands'
 
 export interface RelatedFile {
   path: string
@@ -61,9 +61,10 @@ export interface RelatedFile {
 export interface QueryIndexResult {
   path: string
   score: number
-  matchedOn: Array<'symbol' | 'path' | 'heading' | 'import' | 'graph' | 'concept' | 'semantic'>
+  matchedOn: Array<'symbol' | 'path' | 'heading' | 'import' | 'graph' | 'concept' | 'semantic' | 'command'>
   symbols?: string[]
   headings?: string[]
+  matchedSnippets?: string[]
   relatedFiles?: RelatedFile[]
   explanation?: string
 }

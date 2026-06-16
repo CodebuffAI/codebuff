@@ -1661,7 +1661,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
     id: 'freemodel',
     label: 'Free Model',
     description:
-      'Free Model OpenAI-compatible endpoint with gpt-5.5 for flagship coding and gpt-5.4-mini for lite mode.',
+      'Free Model endpoints for GPT and Claude-compatible coding models, with gpt-5.5 for flagship coding and gpt-5.4-mini for lite mode.',
     envHelp: 'export FREEMODEL_API_KEY="your_freemodel_api_key"',
     config: {
       defaultModel: 'freemodel/gpt-5.5',

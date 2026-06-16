@@ -26,6 +26,8 @@ export const getSdkEnv = (): SdkEnv => ({
   // SDK-specific paths
   CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
   CODEBUFF_WASM_DIR: process.env.CODEBUFF_WASM_DIR,
+  CHROME_PATH: process.env.CHROME_PATH,
+  CHROMIUM_PATH: process.env.CHROMIUM_PATH,
 
   // Build flags
   VERBOSE: process.env.VERBOSE,

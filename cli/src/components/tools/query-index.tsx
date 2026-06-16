@@ -10,6 +10,7 @@ type QueryIndexResult = {
   path?: unknown
   score?: unknown
   matchedOn?: unknown
+  matchedSnippets?: unknown
   relatedFiles?: unknown
   explanation?: unknown
 }
@@ -54,6 +55,9 @@ export const QueryIndexComponent = defineToolComponent({
                   ) : null}
                   {formatMatchedOn(result) ? (
                     <span fg={theme.muted}>{` · ${formatMatchedOn(result)}`}</span>
+                  ) : null}
+                  {formatSnippets(result) ? (
+                    <span fg={theme.muted}>{` · ${formatSnippets(result)}`}</span>
                   ) : null}
                   {formatRelated(result) ? (
                     <span fg={theme.muted}>{` · ${formatRelated(result)}`}</span>
@@ -114,6 +118,14 @@ function formatMatchedOn(result: QueryIndexResult): string {
   return Array.isArray(result.matchedOn)
     ? result.matchedOn.filter((item) => typeof item === 'string').join(', ')
     : ''
+}
+
+function formatSnippets(result: QueryIndexResult): string {
+  if (!Array.isArray(result.matchedSnippets) || result.matchedSnippets.length === 0) {
+    return ''
+  }
+  const first = result.matchedSnippets.find((item) => typeof item === 'string')
+  return typeof first === 'string' ? truncate(first, 80) : ''
 }
 
 function formatRelated(result: QueryIndexResult): string {

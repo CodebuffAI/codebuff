@@ -44,6 +44,39 @@ describe('metadata indexer', () => {
     expect(second.files['src/a.ts']?.mtime).not.toBe(originalMtime)
     expect(second.files['src/a.ts']?.size).toBe(originalSize)
   })
+
+  test('indexes package scripts and CI commands as command concepts', async () => {
+    const root = await makeTempProject({
+      'package.json': JSON.stringify({
+        scripts: {
+          typecheck: 'tsc --noEmit',
+          test: 'bun test',
+        },
+      }),
+      '.github/workflows/ci.yml': 'name: CI\nsteps:\n  - run: bun run typecheck\n  - run: bun test\n',
+      Makefile: 'validate:\n\tbun run typecheck\n',
+      'gulpfile.js': 'exports.build = () => run("bun run build")\n',
+    })
+
+    const index = await buildMetadataIndex(root)
+
+    expect(index.files['package.json']?.concepts).toEqual(
+      expect.arrayContaining([
+        'package scripts',
+        'script:typecheck=tsc --noEmit',
+        'script:test=bun test',
+      ]),
+    )
+    expect(index.files['.github/workflows/ci.yml']?.concepts).toEqual(
+      expect.arrayContaining(['ci workflow', 'validation suite', 'run:- run: bun run typecheck']),
+    )
+    expect(index.files.Makefile?.concepts).toEqual(
+      expect.arrayContaining(['command configuration', 'task runner', 'typecheck']),
+    )
+    expect(index.files['gulpfile.js']?.concepts).toEqual(
+      expect.arrayContaining(['command configuration', 'task runner', 'build']),
+    )
+  })
 })
 
 async function makeTempProject(files: Record<string, string>): Promise<string> {

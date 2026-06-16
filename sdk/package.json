@@ -66,6 +66,8 @@
     "gray-matter": "^4.0.3",
     "ignore": "7.0.5",
     "micromatch": "^4.0.8",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "web-tree-sitter": "0.25.10",
     "ws": "^8.18.0",
     "zod": "^4.2.1"
@@ -73,6 +75,7 @@
   "devDependencies": {
     "@types/diff": "8.0.0",
     "@types/micromatch": "^4.0.9",
+    "@types/pngjs": "^6.0.5",
     "adm-zip": "^0.5.12",
     "dts-bundle-generator": "^9.5.1",
     "node-fetch": "^3.3.2"

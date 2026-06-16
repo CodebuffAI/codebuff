@@ -11,7 +11,17 @@ const inputSchema = z
     path: z
       .string()
       .min(1)
-      .describe('Path to the log file, relative to the project root unless absolute.'),
+      .optional()
+      .describe(
+        'Path to the log file, relative to the project root unless absolute. Required unless jobId is provided.',
+      ),
+    jobId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Background job id returned by run_terminal_command(process_type: BACKGROUND). When provided, reads the job log file directly.',
+      ),
     lines: z
       .number()
       .int()
@@ -29,10 +39,15 @@ const inputSchema = z
       .optional()
       .describe('Maximum characters to return. Defaults to 20,000.'),
   })
-  .describe('Read the last N lines from a log/text file without starting a background tail process.')
+  .refine((input) => Boolean(input.path || input.jobId), {
+    message: 'Either path or jobId is required',
+  })
+  .describe(
+    'Read the last N lines from a log/text file or background job log without starting a background tail process.',
+  )
 
 const description = `
-Read the last N lines from a log/text file. Prefer this over starting a background \`tail -f\` job when you only need a snapshot of recent logs.
+Read the last N lines from a log/text file, or pass \`jobId\` to read the temp log file for a background job directly. Prefer this over starting a background \`tail -f\` job when you only need a snapshot of recent logs.
 
 Example:
 ${$getNativeToolCallExampleString({
@@ -40,6 +55,15 @@ ${$getNativeToolCallExampleString({
   inputSchema,
   input: {
     path: 'logs/dev.log',
+    lines: 100,
+  },
+  endsAgentStep,
+})}
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: {
+    jobId: 'job-1234-1',
     lines: 100,
   },
   endsAgentStep,
@@ -56,12 +80,15 @@ export const readLogsParams = {
       z.object({
         path: z.string(),
         resolvedPath: z.string(),
+        jobId: z.string().optional(),
+        status: z.enum(['running', 'completed', 'error']).optional(),
         lines: z.number(),
         content: z.string(),
         truncated: z.boolean().optional(),
       }),
       z.object({
         path: z.string(),
+        jobId: z.string().optional(),
         errorMessage: z.string(),
       }),
     ]),

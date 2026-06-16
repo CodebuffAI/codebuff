@@ -42,7 +42,7 @@ Poll or follow a background job (started by run_terminal_command with process_ty
 - Poll mode (no wait_for/timeout): returns immediately with output produced since your last check_job for this job, plus status (running|completed|error) and exitCode when finished.
 - Follow mode (wait_for and/or timeout_seconds): blocks — bounded by timeout_seconds — until wait_for appears in new output or the job exits, then returns. \`matched\` indicates whether wait_for was seen.
 
-Output never repeats lines across calls (each call returns only new output). Prefer this over blocking SYNC commands for dev servers, build watchers, and log tails.
+Output never repeats lines across calls: each check_job call advances that job's read offset and returns only new output. If you need the full/latest tail without consuming incremental output, use read_logs with the jobId. Prefer check_job over blocking SYNC commands for dev servers, build watchers, and log tails.
 
 Example:
 ${$getNativeToolCallExampleString({

@@ -101,6 +101,7 @@ export function queryIndex(
   const { limit = 20, fileTypes, mode = 'search' } = options
   const tokens = tokenizeQuery(query)
   const adjacency = buildAdjacency(index.graph?.edges ?? [])
+  const commandIntent = mode === 'commands' || isCommandDiscoveryQuery(query, tokens)
 
   if (mode === 'neighbors') {
     return queryNeighbors(index, adjacency, tokens, options).slice(0, limit)
@@ -109,9 +110,9 @@ export function queryIndex(
     return queryPath(index, adjacency, tokens, options).slice(0, limit)
   }
   if (mode === 'explain') {
-    return querySearch(index, adjacency, tokens, fileTypes, limit, true)
+    return querySearch(index, adjacency, tokens, fileTypes, limit, true, commandIntent)
   }
-  return querySearch(index, adjacency, tokens, fileTypes, limit, false)
+  return querySearch(index, adjacency, tokens, fileTypes, limit, mode === 'commands', commandIntent)
 }
 
 function querySearch(
@@ -121,12 +122,19 @@ function querySearch(
   fileTypes: string[] | undefined,
   limit: number,
   explain: boolean,
+  commandIntent: boolean,
 ): QueryIndexResult[] {
   if (tokens.length === 0) {
-    return Object.values(index.files)
+    const results = Object.values(index.files)
       .filter((file) => matchesFileType(file, fileTypes))
-      .slice(0, limit)
-      .map((file) => ({ path: file.path, score: 0, matchedOn: [] }))
+      .filter((file) => !commandIntent || isCommandDiscoveryFile(file))
+      .map((file) => ({
+        path: file.path,
+        score: commandIntent ? commandDiscoveryBoost(file, tokens) : 0,
+        matchedOn: commandIntent ? (['command'] as QueryIndexResult['matchedOn']) : [],
+        matchedSnippets: commandIntent ? commandMatchedSnippets(file, tokens) : undefined,
+      }))
+    return (commandIntent ? results.sort((a, b) => b.score - a.score) : results).slice(0, limit)
   }
 
   const directResults = new Map<string, QueryIndexResult>()
@@ -135,29 +143,31 @@ function querySearch(
   for (const file of Object.values(index.files)) {
     if (!matchesFileType(file, fileTypes)) continue
 
-    const result = scoreFile(file, tokens, idf)
+    const result = scoreFile(file, tokens, idf, commandIntent)
     if (result.score > 0) {
       directResults.set(file.path, result)
     }
   }
 
-  const graphScores = scoreGraphNeighborhood(index, adjacency, directResults)
-  for (const [path, related] of graphScores.entries()) {
-    if (!matchesFileType(index.files[path], fileTypes)) continue
-    const existing = directResults.get(path)
-    if (existing) {
-      existing.score += related.score
-      existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
-      existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, related.relatedFiles)
-    } else {
-      directResults.set(path, {
-        path,
-        score: related.score,
-        matchedOn: ['graph'],
-        symbols: index.files[path]?.symbols.slice(0, 10),
-        headings: index.files[path]?.headings.slice(0, 5),
-        relatedFiles: related.relatedFiles,
-      })
+  if (!commandIntent) {
+    const graphScores = scoreGraphNeighborhood(index, adjacency, directResults)
+    for (const [path, related] of graphScores.entries()) {
+      if (!matchesFileType(index.files[path], fileTypes)) continue
+      const existing = directResults.get(path)
+      if (existing) {
+        existing.score += related.score
+        existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
+        existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, related.relatedFiles)
+      } else {
+        directResults.set(path, {
+          path,
+          score: related.score,
+          matchedOn: ['graph'],
+          symbols: index.files[path]?.symbols.slice(0, 10),
+          headings: index.files[path]?.headings.slice(0, 5),
+          relatedFiles: related.relatedFiles,
+        })
+      }
     }
   }
 
@@ -166,6 +176,7 @@ function querySearch(
       ...result,
       score: roundScore(result.score),
       relatedFiles: result.relatedFiles?.slice(0, MAX_RELATED_FILES_PER_RESULT),
+      matchedSnippets: result.matchedSnippets?.slice(0, 5),
       explanation: explain ? explainResult(result) : undefined,
     }))
     .sort((a, b) => b.score - a.score)
@@ -246,6 +257,7 @@ function scoreFile(
   file: IndexedFile,
   tokens: string[],
   idf?: Map<string, number>,
+  commandIntent = false,
 ): QueryIndexResult {
   let score = 0
   const matchedOn = new Set<QueryIndexResult['matchedOn'][number]>()
@@ -305,6 +317,14 @@ function scoreFile(
     }
   }
 
+  const commandBoost = commandIntent ? commandDiscoveryBoost(file, tokens) : 0
+  if (commandBoost > 0) {
+    score += commandBoost
+    matchedOn.add('command')
+  } else if (commandIntent) {
+    score *= 0.35
+  }
+
   const depth = normalizedPath.split('/').length
   if (depth > 4) score *= Math.pow(0.95, depth - 4)
   if (isNoisyPath(pathSegments)) score *= 0.2
@@ -315,6 +335,7 @@ function scoreFile(
     matchedOn: Array.from(matchedOn),
     symbols: file.symbols.slice(0, 10),
     headings: file.headings.slice(0, 5),
+    matchedSnippets: commandIntent ? commandMatchedSnippets(file, tokens) : undefined,
   }
 }
 
@@ -574,10 +595,93 @@ function addMatchedOn(
 
 function explainResult(result: QueryIndexResult): string {
   const direct = result.matchedOn.join(', ') || 'no direct metadata match'
+  const snippets = result.matchedSnippets?.length
+    ? ` Snippets: ${result.matchedSnippets.join('; ')}.`
+    : ''
   const related = result.relatedFiles?.length
     ? ` Related files: ${result.relatedFiles.map((item) => `${item.path} (${item.reason}${item.via ? ` via ${item.via}` : ''})`).join('; ')}.`
     : ''
-  return `Matched on ${direct}.${related}`
+  return `Matched on ${direct}.${snippets}${related}`
+}
+
+function commandDiscoveryBoost(file: IndexedFile, tokens: string[]): number {
+  let boost = 0
+  if (isPackageJsonPath(file.path)) boost += 18
+  if (isCiWorkflowPath(file.path)) boost += 16
+  if (isTaskRunnerPath(file.path)) boost += 14
+  if (isCommandDocsPath(file.path)) boost += 8
+
+  for (const concept of file.concepts) {
+    if (concept.startsWith('script:')) boost += 3
+    if (concept.includes('validation suite') || concept.includes('command configuration')) boost += 4
+    if (tokens.some((token) => concept.includes(token))) boost += 2
+  }
+  for (const heading of file.headings) {
+    const lower = heading.toLowerCase()
+    if (Array.from(COMMAND_DISCOVERY_TOKENS).some((token) => lower.includes(token))) boost += 2
+  }
+  return boost
+}
+
+function commandMatchedSnippets(file: IndexedFile, tokens: string[]): string[] {
+  const snippets: string[] = []
+  for (const concept of file.concepts) {
+    if (!concept.startsWith('script:') && !concept.startsWith('run:') && !concept.includes('validation suite')) {
+      continue
+    }
+    const normalized = concept.toLowerCase()
+    if (
+      tokens.length === 0 ||
+      tokens.some((token) => normalized.includes(token)) ||
+      (isPackageJsonPath(file.path) && concept.startsWith('script:'))
+    ) {
+      snippets.push(concept.replace(/^script:/, 'package script: '))
+    }
+  }
+  if (snippets.length === 0 && isPackageJsonPath(file.path)) snippets.push('package.json scripts')
+  if (snippets.length === 0 && isCiWorkflowPath(file.path)) snippets.push('CI workflow commands')
+  return snippets.slice(0, 5)
+}
+
+function isCommandDiscoveryQuery(query: string, _tokens: string[]): boolean {
+  const normalized = query.toLowerCase()
+  return COMMAND_DISCOVERY_PHRASES.some((phrase) => normalized.includes(phrase))
+}
+
+function isCommandDiscoveryFile(file: IndexedFile): boolean {
+  return isPackageJsonPath(file.path) ||
+    isCiWorkflowPath(file.path) ||
+    isTaskRunnerPath(file.path) ||
+    isCommandDocsPath(file.path) ||
+    file.concepts.some((concept) => concept.startsWith('script:') || concept.includes('command configuration'))
+}
+
+function isPackageJsonPath(filePath: string): boolean {
+  return filePath.endsWith('package.json')
+}
+
+function isCiWorkflowPath(filePath: string): boolean {
+  return filePath.startsWith('.github/workflows/') || filePath.includes('/.github/workflows/')
+}
+
+function isTaskRunnerPath(filePath: string): boolean {
+  const normalized = filePath.toLowerCase().replace(/\\/g, '/')
+  return normalized.endsWith('makefile') ||
+    normalized.endsWith('justfile') ||
+    normalized.endsWith('turbo.json') ||
+    normalized.endsWith('nx.json') ||
+    normalized.endsWith('gulpfile.js') ||
+    normalized.endsWith('gruntfile.js')
+}
+
+function isCommandDocsPath(filePath: string): boolean {
+  const normalized = filePath.toLowerCase().replace(/\\/g, '/')
+  return normalized === 'contributing.md' ||
+    normalized === 'docs/testing.md' ||
+    normalized === 'docs/development.md' ||
+    normalized.endsWith('/contributing.md') ||
+    normalized.endsWith('/testing.md') ||
+    normalized.endsWith('/development.md')
 }
 
 function roundScore(score: number): number {
@@ -601,10 +705,33 @@ function tokenizeQuery(query: string): string[] {
     .slice(0, 20)
 }
 
+const COMMAND_DISCOVERY_PHRASES = [
+  'validation suite',
+  'what commands',
+  'which commands',
+  'run validation',
+  'run tests',
+  'run typecheck',
+  'run lint',
+  'run build',
+  'before commit',
+]
+
+const COMMAND_DISCOVERY_TOKENS = new Set([
+  'ci',
+  'command',
+  'commands',
+  'lint',
+  'script',
+  'scripts',
+  'typecheck',
+  'verify',
+])
+
 const STOP_WORDS = new Set([
   'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all',
   'can', 'has', 'her', 'was', 'one', 'our', 'out', 'had',
   'have', 'him', 'his', 'how', 'its', 'may', 'new', 'now',
   'old', 'see', 'two', 'who', 'did', 'get', 'let', 'too',
-  'use', 'way', 'add', 'any', 'via', 'per',
+  'use', 'way', 'add', 'any', 'via', 'per', 'run',
 ])

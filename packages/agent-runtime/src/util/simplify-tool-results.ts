@@ -10,9 +10,12 @@ export function simplifyReadFileResults(
   return [
     {
       type: 'json',
-      value: cloneDeep(messageContent[0]).value.map(({ path }) => {
+      value: cloneDeep(messageContent[0]).value.map((entry) => {
+        if ('summary' in entry) {
+          return entry
+        }
         return {
-          path,
+          path: entry.path,
           contentOmittedForLength: true,
         }
       }),

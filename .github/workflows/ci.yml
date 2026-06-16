@@ -51,6 +51,11 @@ jobs:
           echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
           echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.OPENBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
 
+      - name: Check generated tool definitions are current
+        run: |
+          bun run generate-tool-definitions
+          git diff --exit-code -- .agents/types/tools.ts agents/types/tools.ts common/src/templates/initial-agents-dir/types/tools.ts
+
       - name: Typecheck and Build web in parallel
         run: |
           bun -e "

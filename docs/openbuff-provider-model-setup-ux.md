@@ -26,12 +26,13 @@ Openbuff's provider and model routing configuration is powerful but confusing fo
 
 | Command | Behavior |
 |---------|----------|
-| `/provider` | Status display |
+| `/provider` | Opens provider picker |
+| `/provider status` | Status display |
 | `/provider add` | Starts text wizard (provider preset, custom) |
 | `/provider add <preset>` | Writes preset config directly |
 | `/provider connect codex` | Starts OAuth flow |
 | `/provider disconnect codex` | Clears OAuth token |
-| `/models` | Status display |
+| `/models` | Opens model routing picker |
 | `/models configure` | Starts text wizard |
 | `/models set default <model>` | Direct config write |
 | `/models set mode <mode> <model>` | Direct config write |
@@ -44,7 +45,7 @@ Openbuff's provider and model routing configuration is powerful but confusing fo
 
 Two input modes handle wizard state:
 
-- `openbuff:provider` — provider wizard steps (provider choice → custom id → base URL → API key env → models)
+- `openbuff:provider` — provider wizard steps (provider choice → custom id → provider type → base URL → API key env → models)
 - `openbuff:models` — model routing wizard steps (target → model choice → reasoning effort)
 
 Both are implemented as state machines in `cli/src/utils/openbuff-provider.ts` using `providerWizardState` and `modelsWizardState` variables.
@@ -245,10 +246,11 @@ type OpenbuffSetupDraft = {
 
 **Entry points remain compatible:**
 
-- `/models` → status display (text, unchanged)
+- `/models` → opens model routing picker
 - `/models configure` → opens `ModelSetupScreen` (new behavior)
 - `/models set ...` → direct config write (unchanged)
-- `/provider` → status display (unchanged)
+- `/provider` → opens provider picker
+- `/provider status` → status display
 - `/provider add` → opens `ProviderPickerScreen` (new behavior)
 - `/provider add <preset>` → direct preset write (unchanged)
 
@@ -274,7 +276,7 @@ type OpenbuffSetupDraft = {
 ║    Ollama local           No key required          ║
 ║                                                  ║
 ║  Custom                                           ║
-║    Custom OpenAI-compatible provider               ║
+║    Custom OpenAI/Anthropic-compatible provider     ║
 ║                                                  ║
 ║  ↑↓ navigate · Enter select · Esc back            ║
 ╚══════════════════════════════════════════════════╝
@@ -282,7 +284,7 @@ type OpenbuffSetupDraft = {
 
 For Codex selection: triggers the existing OAuth flow.
 For preset selection: writes preset config, offers to open model routing.
-For custom: shows a form screen for provider id, base URL, API key env, and models.
+For custom: shows a form screen for provider id, provider type (`openai-compatible` or `anthropic-compatible`), base URL, API key env, and models.
 
 ### Phase 4: Unified `/setup` Dashboard
 

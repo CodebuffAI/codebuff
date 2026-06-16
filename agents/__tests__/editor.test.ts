@@ -128,6 +128,13 @@ describe('editor agent', () => {
       expect(editor.inheritParentSystemPrompt).toBe(true)
     })
 
+    test('documents structured implementation briefs', () => {
+      expect(editor.spawnerPrompt).toContain('compact implementation brief')
+      expect(editor.instructionsPrompt).toContain('If the parent wrote an implementation brief')
+      expect(editor.instructionsPrompt).toContain('If edit_transaction aborts')
+      expect(editor.instructionsPrompt).toContain('retry the whole related transaction')
+    })
+
     test('has correct tool names', () => {
       expect(editor.toolNames).toContain('read_files')
       expect(editor.toolNames).toContain('read_outline')
@@ -459,10 +466,55 @@ describe('editor agent', () => {
             messages: [
               { role: 'assistant', content: [{ type: 'text', text: 'Done' }] },
             ],
+            changedFiles: [],
           },
         },
         includeToolCall: false,
       })
+    })
+
+    test('does not report non-edit tool result file fields as changed files', () => {
+      const initialMessages: any[] = []
+      const mockAgentState = createMockAgentState(initialMessages)
+      const mockLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+
+      const generator = editor.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        params: {},
+      })
+
+      generator.next()
+
+      const updatedState = createMockAgentState([
+        {
+          role: 'tool',
+          toolName: 'read_files',
+          content: [
+            {
+              type: 'json',
+              value: {
+                file: 'src/read-only.ts',
+                path: 'src/read-only.ts',
+                errorMessage: 'read_files failed',
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = generator.next({
+        agentState: updatedState,
+        toolResult: undefined,
+        stepsComplete: true,
+      })
+
+      expect((result.value as any).input.output.changedFiles).toEqual([])
     })
 
     test('works with empty initial message history', () => {

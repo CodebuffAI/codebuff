@@ -432,6 +432,80 @@ describe('extractSpawnAgentResultContent', () => {
 
     expect(result).toEqual({ content: '', hasError: false })
   })
+
+  test('formats browser-use structured output as readable text', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: {
+        outputKind: 'browser-use',
+        overallStatus: 'partial',
+        summary: 'Loaded the page and found one responsive issue.',
+        finalUrl: 'http://localhost:3000/',
+        finalPageTitle: 'Demo App',
+        results: [
+          {
+            name: 'Initial load',
+            passed: true,
+            details: 'The landing page rendered.',
+            url: 'http://localhost:3000/',
+            screenshotAttached: true,
+          },
+          {
+            name: 'PDF export',
+            passed: true,
+            details: 'The page printed to PDF.',
+            pdfAttached: true,
+          },
+          {
+            name: 'Recording',
+            passed: true,
+            details: 'A short interaction was recorded.',
+            recordingAttached: true,
+          },
+          {
+            name: 'Mobile layout',
+            passed: false,
+            details: 'The header overflowed horizontally.',
+          },
+        ],
+        consoleErrors: [
+          {
+            message: 'Uncaught example error',
+            url: 'http://localhost:3000/',
+          },
+        ],
+        lessons: ['Check mobile header behavior on future runs.'],
+      },
+    })
+
+    expect(result.hasError).toBe(false)
+    expect(result.content).toContain(
+      'Browser test partial: Loaded the page and found one responsive issue.',
+    )
+    expect(result.content).toContain('Final: Demo App — http://localhost:3000/')
+    expect(result.content).toContain('✓ Initial load')
+    expect(result.content).toContain('screenshot attached')
+    expect(result.content).toContain('PDF generated')
+    expect(result.content).toContain('recording attached')
+    expect(result.content).toContain('✗ Mobile layout')
+    expect(result.content).toContain('Console/runtime issues:')
+    expect(result.content).not.toContain('"overallStatus"')
+  })
+
+  test('does not apply browser-use formatting to generic structured output', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: {
+        overallStatus: 'success',
+        summary: 'Generic agent result',
+        results: [{ name: 'Step', passed: true }],
+      },
+    })
+
+    expect(result.hasError).toBe(false)
+    expect(result.content).toContain('"overallStatus"')
+    expect(result.content).not.toContain('Browser test success')
+  })
 })
 
 describe('appendInterruptionNotice', () => {

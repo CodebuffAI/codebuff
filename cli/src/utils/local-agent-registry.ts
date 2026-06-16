@@ -27,7 +27,7 @@ export interface LocalAgentInfo {
   id: string
   displayName: string
   filePath: string
-  /** True if this is a bundled Codebuff agent (not user-created) */
+  /** True if this is a bundled Openbuff agent (not user-created) */
   isBundled?: boolean
 }
 
@@ -248,7 +248,7 @@ export const loadLocalAgents = (
     return cached
   }
 
-  // Get bundled agents - these are the default Codebuff agents
+  // Get bundled agents - these are the default Openbuff agents
   // compiled into the CLI binary at build time
   const bundledAgentsInfo = getBundledAgentsAsLocalInfo()
   const bundledAgents = getBundledAgents()
@@ -315,7 +315,7 @@ export const loadLocalAgents = (
  * their custom agents without needing to modify the base agent definition.
  */
 export const loadAgentDefinitions = (): AgentDefinition[] => {
-  // Start with bundled agents - these are the default Codebuff agents
+  // Start with bundled agents - these are the default Openbuff agents
   const bundledAgents = getBundledAgents()
   const definitions: AgentDefinition[] = Object.values(bundledAgents).map(
     (def) => ({ ...def }),

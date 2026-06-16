@@ -62,6 +62,17 @@ describe('readNewJobOutput', () => {
     fs.appendFileSync(job.logFile, 'world\n')
     expect(readNewJobOutput(job)).toBe('world\n')
   })
+
+  test('does not follow a job log symlink swapped in before reading', () => {
+    const job = makeJob()
+    const secretLog = path.join(os.tmpdir(), `openbuff-test-secret-${counter}.log`)
+    fs.writeFileSync(secretLog, 'secret\n')
+    tempFiles.push(secretLog)
+    fs.unlinkSync(job.logFile)
+    fs.symlinkSync(secretLog, job.logFile)
+
+    expect(readNewJobOutput(job)).toBe('')
+  })
 })
 
 describe('checkJob', () => {
@@ -197,5 +208,41 @@ describe('checkJob', () => {
       status: 'running',
       newOutput: 'ready\n',
     })
+  })
+
+  test('does not recover when persisted metadata is a symlink', () => {
+    const jobId = `job-metadata-symlink-${++counter}`
+    const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+    const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+    const targetMetadataFile = path.join(
+      os.tmpdir(),
+      `openbuff-test-metadata-target-${counter}.json`,
+    )
+    fs.writeFileSync(logFile, 'ready\n')
+    fs.writeFileSync(
+      targetMetadataFile,
+      JSON.stringify({
+        jobId,
+        command: 'dev server',
+        processId: null,
+        logFile,
+        status: 'running',
+        exitCode: null,
+        startedAt: 123,
+      }),
+    )
+    fs.symlinkSync(targetMetadataFile, metadataFile)
+    tempFiles.push(logFile, metadataFile, targetMetadataFile)
+
+    expect(getBackgroundJob(jobId)).toBeUndefined()
+  })
+
+  test('does not recover a bare log file without valid metadata', () => {
+    const jobId = `job-bare-log-${++counter}`
+    const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+    fs.writeFileSync(logFile, 'ready\n')
+    tempFiles.push(logFile)
+
+    expect(getBackgroundJob(jobId)).toBeUndefined()
   })
 })

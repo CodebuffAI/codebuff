@@ -52,7 +52,7 @@ ${$getNativeToolCallExampleString({
   endsAgentStep,
 })}
 
-Purpose: Structural, drift-proof edits. Instead of copying a symbol's current text into str_replace's oldString (which breaks if the file changed), name the symbol and provide its full replacement; the runtime finds its exact range from the AST. Falls back with guidance for languages/files it can't parse — use str_replace there.
+Purpose: Structural, drift-proof edits. Instead of copying a symbol's current text into str_replace's oldString (which breaks if the file changed), name the symbol and provide its full replacement; the runtime finds its exact range from the AST. Best supported for TypeScript/JavaScript source files where read_outline shows concrete symbols. For JSON, Markdown, plain text, or files/languages where no syntax-tree symbol is available, the tool returns guidance to use read_files + str_replace/replace_range instead.
 
 IMPORTANT: \`content\` is written verbatim — pass actual newlines and tabs, not backslash escape sequences. \`"foo\\nbar"\` writes the literal characters \`foo\\nbar\` into the file, not two lines.
 `.trim()

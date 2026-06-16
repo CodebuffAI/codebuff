@@ -1,0 +1,144 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
+import { setProjectRoot } from '../../project-files'
+import {
+  addCustomOpenbuffProvider,
+  handleOpenbuffProviderCommand,
+  handleOpenbuffProviderWizardInput,
+  startOpenbuffProviderWizard,
+} from '../openbuff-provider'
+
+const originalProjectRoot = process.cwd()
+let tempDir: string | undefined
+
+function readOpenbuffConfig() {
+  return JSON.parse(
+    fs.readFileSync(path.join(tempDir!, 'openbuff.json'), 'utf8'),
+  )
+}
+
+describe('openbuff-provider custom setup', () => {
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openbuff-provider-cli-'))
+    setProjectRoot(tempDir)
+  })
+
+  afterEach(() => {
+    setProjectRoot(originalProjectRoot)
+    if (tempDir) {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+      tempDir = undefined
+    }
+  })
+
+  test('adds a custom OpenAI-compatible provider', () => {
+    const message = addCustomOpenbuffProvider({
+      id: 'local',
+      type: 'openai-compatible',
+      baseURL: 'http://localhost:11434/v1',
+      models: ['qwen-coder', 'glm-4.6'],
+    })
+
+    expect(message).toContain("Custom openai-compatible provider 'local' added")
+    expect(readOpenbuffConfig()).toMatchObject({
+      providers: {
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://localhost:11434/v1',
+          models: ['qwen-coder', 'glm-4.6'],
+        },
+      },
+    })
+  })
+
+  test('adds a custom Anthropic-compatible provider', () => {
+    const message = addCustomOpenbuffProvider({
+      id: 'claude-gateway',
+      type: 'anthropic-compatible',
+      baseURL: 'https://cc.freemodel.dev',
+      apiKeyEnv: 'FREEMODEL_API_KEY',
+      models: ['claude-sonnet-4-5'],
+    })
+
+    expect(message).toContain(
+      "Custom anthropic-compatible provider 'claude-gateway' added",
+    )
+    expect(readOpenbuffConfig()).toMatchObject({
+      providers: {
+        'claude-gateway': {
+          type: 'anthropic-compatible',
+          baseURL: 'https://cc.freemodel.dev',
+          apiKeyEnv: 'FREEMODEL_API_KEY',
+          models: ['claude-sonnet-4-5'],
+        },
+      },
+    })
+  })
+
+  test('provider status command displays loaded config', async () => {
+    addCustomOpenbuffProvider({
+      id: 'local',
+      type: 'openai-compatible',
+      baseURL: 'http://localhost:11434/v1',
+      models: ['qwen-coder'],
+    })
+
+    const result = await handleOpenbuffProviderCommand('status')
+
+    expect(result.message).toContain('Openbuff provider status')
+    expect(result.message).toContain('\nProvider presets:\n')
+    expect(result.message).toContain('local')
+    expect(result.message).not.toContain('\\n')
+  })
+
+  test('custom provider wizard validates URL and API key env before writing', () => {
+    expect(startOpenbuffProviderWizard()).toContain('Openbuff provider wizard')
+    expect(handleOpenbuffProviderWizardInput('custom')).toMatchObject({
+      done: false,
+    })
+    expect(handleOpenbuffProviderWizardInput('claude-gateway')).toMatchObject({
+      done: false,
+    })
+    expect(handleOpenbuffProviderWizardInput('anthropic-compatible')).toMatchObject({
+      done: false,
+    })
+
+    const invalidUrl = handleOpenbuffProviderWizardInput('not-a-url')
+    expect(invalidUrl.done).toBe(false)
+    expect(invalidUrl.message).toContain('valid base URL')
+    expect(fs.existsSync(path.join(tempDir!, 'openbuff.json'))).toBe(false)
+
+    expect(handleOpenbuffProviderWizardInput('https://cc.freemodel.dev')).toMatchObject({
+      done: false,
+    })
+
+    const invalidEnv = handleOpenbuffProviderWizardInput('bad-key')
+    expect(invalidEnv.done).toBe(false)
+    expect(invalidEnv.message).toContain('environment variable name')
+    expect(fs.existsSync(path.join(tempDir!, 'openbuff.json'))).toBe(false)
+
+    expect(handleOpenbuffProviderWizardInput('FREEMODEL_API_KEY')).toMatchObject({
+      done: false,
+    })
+    const done = handleOpenbuffProviderWizardInput('claude-sonnet-4-5')
+
+    expect(done.done).toBe(true)
+    expect(done.message).toContain(
+      "Custom anthropic-compatible provider 'claude-gateway' added",
+    )
+    expect(readOpenbuffConfig()).toMatchObject({
+      providers: {
+        'claude-gateway': {
+          type: 'anthropic-compatible',
+          baseURL: 'https://cc.freemodel.dev',
+          apiKeyEnv: 'FREEMODEL_API_KEY',
+          models: ['claude-sonnet-4-5'],
+        },
+      },
+    })
+  })
+})

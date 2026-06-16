@@ -99,7 +99,7 @@ export function createBase2(
       'context-pruner',
     ),
 
-    systemPrompt: `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Codebuff, a CLI tool where users can chat with you to code with AI.
+    systemPrompt: `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Openbuff, a CLI tool where users can chat with you to code with AI.
 
 Current date: ${PLACEHOLDER.CURRENT_DATE}.
 
@@ -122,6 +122,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
 - **Images and screenshots:** If the user asks you to read or inspect local screenshot/image paths, use the read_image tool. Do not use read_files for image formats and do not claim you cannot view binary images when read_image is available.
 - **Live visual verification:** For web app visual checks, start any long-running dev server through a BACKGROUND basher, keep its returned jobId, use check_job to wait for readiness, then spawn browser-use for screenshots/navigation/interaction.
+- **Prefer dedicated harness tools over shell fallbacks:** Use git_status for repository status/diffs instead of basher. Use read_files/read_outline/read_subtree/glob/list_directory/query_index for file and codebase inspection instead of shelling out to cat/ls/find/grep/git status. Use basher for commands that do not have a dedicated tool, such as tests, builds, package scripts, and one-off project CLIs.
 
 # Code Editing Mandates
 
@@ -155,11 +156,13 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 
 1. **Failed edit circuit breaker:** If \`str_replace\` or \`write_file\` reports an error, do not retry an edit to that file from memory. First re-read the exact current file region with \`read_files\` (use \`ranges\` for large files), then make one minimal edit based on the fresh text.
 2. **Stale-context guard:** Before editing a file after any intervening edit, failed edit, test failure, or reviewer comment involving that file, re-read the exact relevant lines. Do not rely on earlier snippets or mental snapshots.
-3. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
-4. **Reviewer blockers are blocking:** If a reviewer asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), do that next or explicitly explain why it is not applicable. Do not continue implementing or finalize while a reviewer blocker is unresolved.
-5. **Loop detection:** If the same edit or validation fails twice, stop the current approach. Summarize the current diff, the exact repeated failure, and the next deterministic action before proceeding.
-6. **Parallelism discipline:** Parallelize context gathering, tests, and review only when they do not depend on each other. During a fragile debug/fix loop, run read → one edit → validation sequentially to avoid state drift.
-7. **Validation/review join discipline:** A reviewer spawned in parallel with tests/typechecks can only provide static code review; it cannot know validation results that are still running. Do not treat parallel reviewer approval as final approval until validation has completed. If validation fails or times out, fix or rerun validation before finalizing, regardless of reviewer output. For fragile harness/editor changes, prefer running validation first, then run reviewer with the validation summary.
+3. **Atomic transaction recovery:** If \`edit_transaction\` aborts, no files changed. Re-read the failed file ranges named in the diagnostic, fix ambiguous \`oldString\` targets with a longer anchor or \`occurrenceIndex\`, then retry the whole related transaction rather than applying only the previously successful edits.
+4. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
+
+5. **Reviewer blockers are blocking:** If a reviewer asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), do that next or explicitly explain why it is not applicable. Do not continue implementing or finalize while a reviewer blocker is unresolved.
+6. **Loop detection:** If the same edit or validation fails twice, stop the current approach. Summarize the current diff, the exact repeated failure, and the next deterministic action before proceeding.
+7. **Parallelism discipline:** Parallelize context gathering, tests, and review only when they do not depend on each other. During a fragile debug/fix loop, run read → one edit → validation sequentially to avoid state drift.
+8. **Validation/review join discipline:** A reviewer spawned in parallel with tests/typechecks can only provide static code review; it cannot know validation results that are still running. Do not treat parallel reviewer approval as final approval until validation has completed. If validation fails or times out, fix or rerun validation before finalizing, regardless of reviewer output. For fragile harness/editor changes, prefer running validation first, then run reviewer with the validation summary.
 
 # Spawning agents guidelines
 
@@ -169,7 +172,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
 - **Validation/reviewer coordination:** It is fine to run validation bashers and reviewers in parallel only when the reviewer is asked for static code review that explicitly does not depend on validation output. Always wait for both. Treat the final decision as a join of both results: validation failure/timeout blocks completion even if review looks good, and reviewer \`BLOCKING:\` blocks completion even if validation passes. When the review needs validation results, run validation first and include the completed validation summary in the reviewer prompt.
   ${buildArray(
-    '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Do not rely on query_index alone for correctness.',
+    '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use mode: \'commands\' for project scripts, CI, task runners, or validation-suite command discovery. Do not rely on query_index alone for correctness.',
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
     isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
@@ -181,7 +184,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). Use kill_job when a background job is no longer needed. To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
     '- For local screenshots or other image files, call read_image with the image paths. Do not call read_files on image formats.',
     isDefault &&
-      '- Spawn a code-reviewer to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
+      '- After the editor returns, the default runtime automatically runs configured validation hooks and a code-reviewer gate before finalization; do not manually spawn an extra code-reviewer for the same change unless the user explicitly asks for an additional review.',
     isMax &&
       '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
   ).join('\n  ')}
@@ -246,7 +249,7 @@ ${
 
 ${
   isDefault
-    ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
+    ? `[ The default runtime detects changed files, runs configured validation hooks, and invokes the code-reviewer gate before finalization ]`
     : isMax
       ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
       : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
@@ -307,7 +310,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           noAskUser,
         }),
 
-    handleSteps: function* ({ prompt, params }) {
+    handleSteps: function* ({ agentState, prompt, params }) {
+      const agentId = agentState?.agentId
+      const runValidationGate = agentId !== 'base2-fast' && agentId !== 'base2-fast-no-validation'
+      const runReviewerGate = agentId === 'base2' || agentId === 'base2-evals' || agentId === 'base2-plan'
+
       if (shouldProactivelyQueryIndex(prompt)) {
         yield {
           toolName: 'query_index',
@@ -318,11 +325,15 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         }
       }
 
+      const initialGitStatus = yield {
+        toolName: 'git_status',
+        input: {},
+      } as any
+      const initialGitStatusFiles = extractGitStatusFiles(
+        (initialGitStatus as any)?.toolResult,
+      )
       const changedFiles = new Set<string>()
       let editsHappened = false
-      let verifyAttempts = 0
-      const MAX_VERIFY_ATTEMPTS = 2
-
       while (true) {
         yield {
           toolName: 'spawn_agent_inline',
@@ -345,14 +356,26 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
         if (!stepsComplete) continue
 
+        const currentGitStatus = yield {
+          toolName: 'git_status',
+          input: {},
+        } as any
+        for (const file of extractGitStatusFiles(
+          (currentGitStatus as any)?.toolResult,
+        )) {
+          if (!initialGitStatusFiles.includes(file)) {
+            editsHappened = true
+            changedFiles.add(file)
+          }
+        }
+
         // Verification gate: after the model thinks it's done, run configured
         // file-change hooks (typecheck/lint/test). If any failed, surface the
-        // failures and keep the turn open so the model fixes them — bounded by
-        // MAX_VERIFY_ATTEMPTS so a persistently-failing hook can't loop forever.
-        // No-op when no edits happened or no hooks are configured (the tool
-        // returns an empty result set).
-        if (editsHappened && verifyAttempts < MAX_VERIFY_ATTEMPTS) {
-          verifyAttempts++
+        // failures and keep the turn open so the model fixes them. The runtime's
+        // max step limit bounds pathological retry loops; the gate itself must
+        // not silently skip validation after repeated failures.
+        let validationSummary = 'No file changes were detected, so no validation hooks ran.'
+        if (editsHappened && runValidationGate) {
           const verify = yield {
             toolName: 'run_file_change_hooks',
             input: { files: Array.from(changedFiles) },
@@ -361,8 +384,6 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             (verify as any) && (verify as any).toolResult,
           )
           if (failures.length > 0) {
-            editsHappened = false
-            changedFiles.clear()
             yield {
               toolName: 'add_message',
               input: {
@@ -379,54 +400,231 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             } as any
             continue
           }
+          validationSummary = summarizeHookResults(
+            (verify as any) && (verify as any).toolResult,
+          )
+        }
+
+        if (runReviewerGate && editsHappened) {
+          const review = yield {
+            toolName: 'spawn_agents',
+            input: {
+              agents: [
+                {
+                  agent_type: 'code-reviewer',
+                  prompt: [
+                    'Review the completed default-flow code changes before finalization.',
+                    '',
+                    `Changed files: ${Array.from(changedFiles).join(', ') || '(unknown)'}`,
+                    `Validation gate summary: ${validationSummary}`,
+                    '',
+                    'Review after the validation gate above. Start with BLOCKING, NON_BLOCKING, or LOOKS_GOOD.',
+                  ].join('\n'),
+                },
+              ],
+            },
+          } as any
+          const blockers = collectReviewerBlockers(
+            (review as any) && (review as any).toolResult,
+          )
+          if (blockers.length > 0) {
+            yield {
+              toolName: 'add_message',
+              input: {
+                role: 'user',
+                content: [
+                  'Reviewer gate: code-reviewer returned blocking feedback. Resolve it before ending your turn:',
+                  '',
+                  ...blockers,
+                  '',
+                  'Make the minimal required fixes, rerun validation as needed, then finish (review will run again).',
+                ].join('\n'),
+              },
+              includeToolCall: false,
+            } as any
+            continue
+          }
         }
         break
       }
 
       function extractChangedFiles(toolResult: unknown): string[] {
-        const out: string[] = []
-        if (!Array.isArray(toolResult)) return out
-        for (const part of toolResult) {
-          const value =
-            part && (part as any).type === 'json' ? (part as any).value : undefined
-          if (value && typeof value === 'object') {
-            if (typeof (value as any).file === 'string') out.push((value as any).file)
-            const results = (value as any).results
-            if (Array.isArray(results)) {
-              for (const r of results) {
-                if (r && typeof r.file === 'string') out.push(r.file)
-              }
+        const out = new Set<string>()
+        visitToolValue(toolResult, out)
+        return [...out]
+      }
+
+      function visitToolValue(value: unknown, out: Set<string>): void {
+        if (!value) return
+        if (Array.isArray(value)) {
+          for (const item of value) visitToolValue(item, out)
+          return
+        }
+        if (typeof value !== 'object') return
+
+        const record = value as Record<string, unknown>
+        if (record.type === 'json' && 'value' in record) {
+          visitToolValue(record.value, out)
+        }
+        const toolName =
+          typeof record.toolName === 'string'
+            ? record.toolName
+            : typeof record.cb_tool_name === 'string'
+              ? record.cb_tool_name
+              : ''
+        const input = record.input
+        if (isFileChangingTool(toolName)) {
+          collectToolInputFiles(input, out)
+        }
+        if (typeof record.file === 'string' && hasEditArtifact(record)) {
+          out.add(record.file)
+        }
+        if (Array.isArray(record.changedFiles)) {
+          for (const file of record.changedFiles) {
+            if (typeof file === 'string') out.add(file)
+          }
+        }
+        if (typeof record.path === 'string' && hasEditArtifact(record)) {
+          out.add(record.path)
+        }
+        for (const nested of Object.values(record)) {
+          if (nested !== input) visitToolValue(nested, out)
+        }
+      }
+
+      function collectToolInputFiles(input: unknown, out: Set<string>): void {
+        if (!input || typeof input !== 'object') return
+        const record = input as Record<string, unknown>
+        if (typeof record.path === 'string') out.add(record.path)
+        const edits = record.edits
+        if (Array.isArray(edits)) {
+          for (const edit of edits) {
+            if (
+              edit &&
+              typeof edit === 'object' &&
+              typeof (edit as Record<string, unknown>).path === 'string'
+            ) {
+              out.add((edit as Record<string, string>).path)
             }
           }
         }
-        return out
+      }
+
+      function isFileChangingTool(toolName: string): boolean {
+        return (
+          toolName === 'str_replace' ||
+          toolName === 'write_file' ||
+          toolName === 'replace_range' ||
+          toolName === 'rewrite_symbol' ||
+          toolName === 'edit_transaction'
+        )
+      }
+
+      function hasEditArtifact(record: Record<string, unknown>): boolean {
+        return (
+          typeof record.unifiedDiff === 'string' ||
+          typeof record.diff === 'string' ||
+          typeof record.patch === 'string'
+        )
+      }
+
+      function extractGitStatusFiles(toolResult: unknown): string[] {
+        const files = new Set<string>()
+        if (!Array.isArray(toolResult)) return []
+        for (const part of toolResult) {
+          const value =
+            part && (part as any).type === 'json' ? (part as any).value : undefined
+          const status =
+            value && typeof value === 'object'
+              ? (value as Record<string, unknown>).status
+              : undefined
+          if (typeof status !== 'string') continue
+          for (const line of status.split('\n')) {
+            const file = parseGitStatusLine(line)
+            if (file) files.add(file)
+          }
+        }
+        return [...files]
+      }
+
+      function parseGitStatusLine(line: string): string {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('## ')) return ''
+        const pathPart = trimmed.slice(2).trim()
+        if (!pathPart) return ''
+        const renameTarget = pathPart.split(' -> ').at(-1)
+        return renameTarget?.trim() ?? ''
+      }
+
+      function collectReviewerBlockers(toolResult: unknown): string[] {
+        const texts: string[] = []
+        collectStrings(toolResult, texts)
+        return texts
+          .map((text) => text.trim())
+          .filter((text) => /^BLOCKING\b/i.test(text))
+      }
+
+      function collectStrings(value: unknown, out: string[]): void {
+        if (typeof value === 'string') {
+          out.push(value)
+          return
+        }
+        if (!value) return
+        if (Array.isArray(value)) {
+          for (const item of value) collectStrings(item, out)
+          return
+        }
+        if (typeof value !== 'object') return
+        for (const nested of Object.values(value as Record<string, unknown>)) {
+          collectStrings(nested, out)
+        }
       }
 
       function collectHookFailures(toolResult: unknown): string[] {
         const failures: string[] = []
-        if (!Array.isArray(toolResult)) return failures
-        for (const part of toolResult) {
-          const value =
-            part && (part as any).type === 'json' ? (part as any).value : undefined
-          const hooks = Array.isArray(value) ? value : []
-          for (const hook of hooks) {
-            if (!hook || typeof hook !== 'object') continue
-            if (typeof (hook as any).errorMessage === 'string') {
-              failures.push((hook as any).errorMessage)
-              continue
-            }
-            const exitCode = (hook as any).exitCode
-            if (typeof exitCode === 'number' && exitCode !== 0) {
-              const name = (hook as any).hookName ?? 'hook'
-              const detail = [(hook as any).stdout, (hook as any).stderr]
-                .filter(Boolean)
-                .join('\n')
-                .slice(0, 2000)
-              failures.push(`- ${name} failed (exit ${exitCode}):\n${detail}`)
-            }
+        for (const hook of extractHookResults(toolResult)) {
+          if (typeof (hook as any).errorMessage === 'string') {
+            failures.push((hook as any).errorMessage)
+            continue
+          }
+          const exitCode = (hook as any).exitCode
+          if (typeof exitCode === 'number' && exitCode !== 0) {
+            const name = (hook as any).hookName ?? 'hook'
+            const detail = [(hook as any).stdout, (hook as any).stderr]
+              .filter(Boolean)
+              .join('\n')
+              .slice(0, 2000)
+            failures.push(`- ${name} failed (exit ${exitCode}):\n${detail}`)
           }
         }
         return failures
+      }
+
+      function summarizeHookResults(toolResult: unknown): string {
+        const hooks = extractHookResults(toolResult)
+        if (hooks.length === 0) return 'No configured file-change hooks ran.'
+        const names = hooks
+          .map((hook) =>
+            typeof (hook as any).hookName === 'string'
+              ? (hook as any).hookName
+              : 'hook',
+          )
+          .join(', ')
+        return `Configured file-change hooks passed: ${names}.`
+      }
+
+      function extractHookResults(toolResult: unknown): Record<string, unknown>[] {
+        const hooks: Record<string, unknown>[] = []
+        if (!Array.isArray(toolResult)) return hooks
+        for (const part of toolResult) {
+          const value =
+            part && (part as any).type === 'json' ? (part as any).value : undefined
+          if (!Array.isArray(value)) continue
+          for (const hook of value) {
+            if (hook && typeof hook === 'object') hooks.push(hook as Record<string, unknown>)
+          }
+        }
+        return hooks
       }
 
       function shouldProactivelyQueryIndex(value: unknown): value is string {
@@ -440,7 +638,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, and mode: 'path' to connect two known files. Then verify the best candidates and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. For a large file, call read_outline first to see its structure (functions/classes/methods with line ranges, works across languages), then read_files with a symbols selector to pull just the specific symbols you need instead of the whole file. Read all the relevant files using the read_files tool.`
+const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Then verify the best candidates, matchedSnippets, and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase; do not substitute basher for git status or file discovery when dedicated tools are available. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. For a large file, call read_outline first to see its structure (functions/classes/methods with line ranges, works across languages), then read_files with a symbols selector to pull just the specific symbols you need instead of the whole file. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
   isSonnet,
@@ -474,7 +672,7 @@ ${buildArray(
   (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution.`,
   isDefault &&
-    '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
+    '- IMPORTANT: Before spawning the editor agent for non-trivial changes, write a compact implementation brief in the conversation. Include the user requirement, target files, constraints/non-goals, relevant patterns found, expected validation, and key risks/edge cases. Then spawn the editor agent to implement the full brief. Do not pass any prompt or params to the editor agent; it inherits the conversation, including the brief.',
   isMax &&
     `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. You should also prompt it to implement the full task rather than just a single step.`,
   isFast &&
@@ -483,8 +681,8 @@ ${buildArray(
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !hasNoValidation &&
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
-  (isDefault || isMax) &&
-    `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
+  isMax &&
+    `- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
   !isFast &&
     !noAskUser &&
@@ -513,8 +711,10 @@ function buildImplementationStepPrompt({
     'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
-    (isDefault || isMax) &&
-      `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
+    isDefault &&
+      `For non-trivial edits, make the editor handoff explicit before spawning the editor: write a compact implementation brief with requirements, target files, constraints/non-goals, patterns, expected validation, and risks. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`,
+    isMax &&
+      `You must spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !isFast &&
       !noAskUser &&

@@ -6,6 +6,10 @@ import { cloneDeep } from 'lodash'
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getAgentShortName, getAgentToolName } from '../templates/prompts'
+import {
+  formatValidationIssues,
+  type ValidationIssue,
+} from '../util/format-validation-issues'
 import { formatValueForError } from '../util/format-value'
 import { codebuffToolHandlers } from './handlers/list'
 import { getMatchingSpawn } from './handlers/tool/spawn-agent-utils'
@@ -58,6 +62,7 @@ const bareStringFieldRepairAllowlist: Partial<
 > = {
   code_search: ['pattern'],
   find_files: ['prompt'],
+  find_files_matching_content: ['pattern'],
   glob: ['pattern'],
   list_directory: ['path'],
   lookup_agent_info: ['agentId'],
@@ -141,44 +146,6 @@ function stringInputError(
   }
 }
 
-function summarizeMissingReplacementFields(
-  toolName: string,
-  issues: Array<{
-    expected?: unknown
-    code?: string
-    path?: PropertyKey[]
-    message?: string
-  }>,
-): string | undefined {
-  if (toolName !== 'str_replace' && toolName !== 'propose_str_replace') {
-    return undefined
-  }
-
-  const missingFields = issues.flatMap((issue) => {
-    const [root, index, field] = issue.path ?? []
-    const isMissingReplacementString =
-      issue.code === 'invalid_type' &&
-      issue.expected === 'string' &&
-      issue.message?.includes('received undefined') &&
-      root === 'replacements' &&
-      typeof index === 'number' &&
-      (field === 'oldString' || field === 'newString')
-
-    return isMissingReplacementString ? [`replacements[${index}].${field}`] : []
-  })
-
-  if (missingFields.length !== issues.length || missingFields.length === 0) {
-    return undefined
-  }
-
-  return [
-    'Missing required replacement fields:',
-    ...missingFields.map((field) => `- ${field}`),
-    '',
-    'If the intent is deletion, set "newString": "" explicitly.',
-  ].join('\n')
-}
-
 function getToolValidationHint(toolName: string): string | undefined {
   if (toolName === 'str_replace' || toolName === 'propose_str_replace') {
     return [
@@ -221,20 +188,14 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
 
   if (!result.success) {
     const hint = getToolValidationHint(toolName)
-    const summary = summarizeMissingReplacementFields(
-      toolName,
-      result.error.issues,
-    )
+    const issues = result.error.issues as ValidationIssue[]
+    const summary = formatValidationIssues({ issues, toolName })
     const validationDetails = JSON.stringify(result.error.issues, null, 2)
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
       input: rawToolCall.input,
-      error: `Invalid parameters for ${toolName}: ${
-        summary
-          ? `${summary}\n\nRaw validation issues:\n${validationDetails}`
-          : validationDetails
-      }${hint ? `\n\n${hint}` : ''}`,
+      error: `Invalid parameters for ${toolName}: ${summary}\n\nRaw validation issues:\n${validationDetails}${hint ? `\n\n${hint}` : ''}`,
     }
   }
 
@@ -596,15 +557,12 @@ export function parseRawCustomToolCall(params: {
     const result = paramsSchema.safeParse(processedParameters)
 
     if (!result.success) {
+      const issues = result.error.issues as ValidationIssue[]
       return {
         toolName: toolName,
         toolCallId: rawToolCall.toolCallId,
         input: rawToolCall.input,
-        error: `Invalid parameters for ${toolName}: ${JSON.stringify(
-          result.error.issues,
-          null,
-          2,
-        )}`,
+        error: `Invalid parameters for ${toolName}: ${formatValidationIssues({ issues, toolName })}`,
       }
     }
   }

@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-**Openbuff** 是一款本地优先的 Codebuff 分叉版，通过用户配置的 OpenAI 兼容提供商，根据自然语言指令直接修改你的代码库。**[Freebuff](https://www.npmjs.com/package/freebuff)** 是原版 Codebuff 的免费、广告支持版本——无需订阅、无需积分、零配置。
+**Openbuff** 是一款本地优先的 Codebuff 分叉版，通过用户配置的 OpenAI 兼容或 Anthropic 兼容提供商，根据自然语言指令直接修改你的代码库。**[Freebuff](https://www.npmjs.com/package/freebuff)** 是原版 Codebuff 的免费、广告支持版本——无需订阅、无需积分、零配置。
 
 与那种"一个模型干所有事"的工具不同，Openbuff 会协调多个专业化的智能体（agent）协同工作，理解你的项目并做出精准的改动。
 
@@ -154,15 +154,16 @@ await client.run({
 
 ## 提供商配置
 
-Openbuff 默认在本地/BYOK 模式下运行：不需要 Codebuff 云认证、积分或托管推理。在 `openbuff.json` 中配置 OpenAI 兼容提供商和按智能体路由的模型。详情请见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
+Openbuff 默认在本地/BYOK 模式下运行：不需要 Codebuff 云认证、积分或托管推理。在 `openbuff.json` 中配置 OpenAI 兼容或 Anthropic 兼容提供商和按智能体路由的模型。详情请见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
 
 在 CLI 内：
 
 ```text
-/setup opencode-go   # 或 openai, codex, openrouter, ollama, glm
+/setup opencode-go   # 或 openai, anthropic, codex, openrouter, ollama, glm
+/provider            # 打开交互式提供商选择器
 /provider add        # 交互式提供商向导，包括自定义提供商
-/provider            # 显示已加载配置、提供商 URL、缺失环境变量
-/models             # 显示 default/lite/max/plan 路由
+/provider status     # 显示已加载配置、提供商 URL、缺失环境变量
+/models             # 打开模型路由选择器
 /models configure   # 交互式模型路由向导
 ```
 
@@ -189,7 +190,7 @@ Freebuff 由广告支持，使用经过优化、兼顾速度与质量的模型�
 
 **自定义工作流**：用 TypeScript 生成器把 AI 生成和程序化控制混着用。智能体可以派生子智能体、按条件分支、跑多步流程。
 
-**灵活的提供商**：与单提供商工具不同，Openbuff 可以将每个智能体路由到任何已配置的提供商：OpenAI API、ChatGPT/Codex 订阅 OAuth、OpenRouter、opencode 网关、GLM/Z.ai、本地 Ollama/LM Studio，或其他 OpenAI 兼容端点。
+**灵活的提供商**：与单提供商工具不同，Openbuff 可以将每个智能体路由到任何已配置的提供商：OpenAI API、Anthropic/Claude API、ChatGPT/Codex 订阅 OAuth、OpenRouter、opencode 网关、GLM/Z.ai、本地 Ollama/LM Studio，或其他 OpenAI 兼容或 Anthropic 兼容端点。
 
 **复用本地智能体**：组合打包的和项目本地 `.agents/`，无需依赖托管的 Codebuff 注册表。
 

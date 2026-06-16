@@ -22,6 +22,7 @@ const CODE_EXTENSIONS = new Set([
 ])
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.rst'])
+const CONFIG_EXTENSIONS = new Set(['.json', '.jsonc', '.yaml', '.yml', '.toml'])
 
 // Captures the module specifier from: `import … from 'x'`, `export … from 'x'`
 // (re-exports), `require('x')` / `import('x')` (dynamic), and `import 'x'`
@@ -225,11 +226,15 @@ async function indexWalkedFile(params: {
   const symbols = getTopSymbols(params.tokenScores, 30)
   const imports = extractImports(content)
   const headings = DOC_EXTENSIONS.has(params.ext) ? extractHeadings(content) : []
-  const concepts = DOC_EXTENSIONS.has(params.ext)
+  const configConcepts = extractConfigConcepts(params.relativePath, content)
+  const baseConcepts = DOC_EXTENSIONS.has(params.ext)
     ? extractConcepts(content, headings)
     : CODE_EXTENSIONS.has(params.ext)
       ? extractCodeComments(content)
-      : []
+      : CONFIG_EXTENSIONS.has(params.ext)
+        ? configConcepts
+        : []
+  const concepts = mergeConcepts(baseConcepts, configConcepts)
 
   return {
     path: params.relativePath,
@@ -404,6 +409,85 @@ function conceptTokens(text: string): string[] {
   return normalizeConcept(text)
     .split(/[\s\-_./]+/)
     .filter((token) => token.length >= 3)
+}
+
+function extractConfigConcepts(filePath: string, content: string): string[] {
+  if (filePath.endsWith('package.json')) {
+    return extractPackageJsonConcepts(content)
+  }
+  if (isCiWorkflowPath(filePath)) {
+    return extractCiWorkflowConcepts(content)
+  }
+  if (isTaskRunnerPath(filePath)) {
+    return ['command configuration', 'task runner', ...conceptTokens(content).slice(0, 80)]
+  }
+  return []
+}
+
+function mergeConcepts(primary: string[], secondary: string[]): string[] {
+  if (secondary.length === 0) return primary
+  return Array.from(new Set([...primary, ...secondary])).slice(0, 160)
+}
+
+function extractPackageJsonConcepts(content: string): string[] {
+  const concepts = new Set<string>(['package manifest', 'package scripts', 'command configuration'])
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    return Array.from(concepts)
+  }
+  if (!parsed || typeof parsed !== 'object' || !('scripts' in parsed)) {
+    return Array.from(concepts)
+  }
+
+  const scripts = (parsed as { scripts?: unknown }).scripts
+  if (!scripts || typeof scripts !== 'object') return Array.from(concepts)
+
+  for (const [name, command] of Object.entries(scripts)) {
+    if (typeof command !== 'string') continue
+    concepts.add(name)
+    concepts.add(`script ${name}`)
+    concepts.add(`script:${name}=${command}`)
+    for (const token of conceptTokens(`${name} ${command}`)) concepts.add(token)
+  }
+  return Array.from(concepts).slice(0, 160)
+}
+
+function extractCiWorkflowConcepts(content: string): string[] {
+  const concepts = new Set<string>([
+    'ci workflow',
+    'github actions',
+    'validation suite',
+    'command configuration',
+  ])
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    if (/^(?:-\s*)?(run|uses|name):\s+/i.test(trimmed)) {
+      const isRunCommand = /^(?:-\s*)?run:/i.test(trimmed)
+      concepts.add(
+        isRunCommand
+          ? (trimmed.startsWith('run:') ? trimmed : `run:${trimmed}`)
+          : trimmed,
+      )
+      for (const token of conceptTokens(trimmed)) concepts.add(token)
+    }
+  }
+  return Array.from(concepts).slice(0, 160)
+}
+
+function isCiWorkflowPath(filePath: string): boolean {
+  return filePath.startsWith('.github/workflows/') || filePath.includes('/.github/workflows/')
+}
+
+function isTaskRunnerPath(filePath: string): boolean {
+  const normalized = filePath.toLowerCase().replace(/\\/g, '/')
+  return normalized.endsWith('makefile') ||
+    normalized.endsWith('justfile') ||
+    normalized.endsWith('turbo.json') ||
+    normalized.endsWith('nx.json') ||
+    normalized.endsWith('gulpfile.js') ||
+    normalized.endsWith('gruntfile.js')
 }
 
 /**

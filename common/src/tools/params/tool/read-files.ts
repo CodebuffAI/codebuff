@@ -6,6 +6,13 @@ import type { $ToolParams } from '../../constants'
 
 export const fileContentsSchema = z.union([
   z.object({
+    summary: z.object({
+      ok: z.number(),
+      failed: z.number(),
+      requested: z.number(),
+    }),
+  }),
+  z.object({
     path: z.string(),
     content: z.string(),
     referencedBy: z.record(z.string(), z.string().array()).optional(),
@@ -47,7 +54,7 @@ const inputSchema = z
             ),
         ),
       )
-      .describe('List of file paths to read.'),
+      .describe('List of file paths to read. Batch results include a separate summary entry with ok/failed/requested counts when available.'),
     ranges: z
       .array(
         z.object({
@@ -100,7 +107,7 @@ const description = `
 Read files from disk. For large files, prefer ranges or symbol slices over full-file reads before editing.
 
 Important:
-- Full reads may be truncated for large files; do not edit from truncated content.
+- Full reads may be truncated for large files; the truncation marker includes the original character and line counts. Do not edit from truncated content.
 - Symbol slices: pass \`symbols: [{ path, names }]\` to pull just the named functions/classes/methods (each with its line range and a readCapability) instead of the whole file. Prefer this when you already know the symbol names — pair it with read_outline to discover names in a large file first (outline to see structure, then symbols to pull what you need). Use \`ranges\` when you're paging by line number instead.
 - Range reads return a header with startLine, endLine, and rangeHash.
 - Use replace_range for medium/large line-count-changing edits, copying expectedHash from rangeHash.

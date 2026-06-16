@@ -137,6 +137,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
           }
           if (item.symbols) output.symbols = item.symbols
           if (item.headings) output.headings = item.headings
+          if (item.matchedSnippets) output.matchedSnippets = item.matchedSnippets
           if (item.relatedFiles) {
             output.relatedFiles = item.relatedFiles.map((related) => {
               const relatedOutput: JSONObject = {

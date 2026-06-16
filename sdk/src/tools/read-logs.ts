@@ -1,24 +1,87 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { getBackgroundJob, safeOpenJobLogForRead } from './background-jobs'
+
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const DEFAULT_LINES = 200
 const DEFAULT_MAX_CHARS = 20_000
 const READ_CHUNK_BYTES = 64 * 1024
 
-export async function readLogs(params: {
-  path: string
+type ReadLogsParams = {
   cwd: string
+  path?: string
+  jobId?: string
   lines?: number
   max_chars?: number
-}): Promise<CodebuffToolOutput<'read_logs'>> {
-  const requested = params.path
+}
+
+export async function readLogs(
+  params: ReadLogsParams,
+): Promise<CodebuffToolOutput<'read_logs'>> {
   const lines = Math.min(2_000, Math.max(1, params.lines ?? DEFAULT_LINES))
   const maxChars = Math.min(
     100_000,
     Math.max(100, params.max_chars ?? DEFAULT_MAX_CHARS),
   )
+
+  if (params.jobId) {
+    const job = getBackgroundJob(params.jobId)
+    if (!job) {
+      return [
+        {
+          type: 'json',
+          value: {
+            path: params.path ?? '',
+            jobId: params.jobId,
+            errorMessage: `No background job found with id "${params.jobId}".`,
+          },
+        },
+      ]
+    }
+
+    const tail = readTail(job.logFile, lines, maxChars)
+    if ('errorMessage' in tail) {
+      return [
+        {
+          type: 'json',
+          value: {
+            path: job.logFile,
+            jobId: job.jobId,
+            errorMessage: tail.errorMessage,
+          },
+        },
+      ]
+    }
+
+    return [
+      {
+        type: 'json',
+        value: {
+          path: job.logFile,
+          resolvedPath: job.logFile,
+          jobId: job.jobId,
+          status: job.status,
+          ...tail,
+        },
+      },
+    ]
+  }
+
+  if (!params.path) {
+    return [
+      {
+        type: 'json',
+        value: {
+          path: '',
+          errorMessage: 'Either path or jobId is required.',
+        },
+      },
+    ]
+  }
+
+  const requested = params.path
   let rootRealPath: string
   try {
     rootRealPath = fs.realpathSync(params.cwd)
@@ -55,10 +118,8 @@ export async function readLogs(params: {
     ]
   }
 
-  let stat: fs.Stats
   let realResolved: string
   try {
-    stat = fs.statSync(resolved)
     realResolved = fs.realpathSync(resolved)
   } catch (error) {
     return [
@@ -84,23 +145,52 @@ export async function readLogs(params: {
     ]
   }
 
-  if (!stat.isFile()) {
+  const tail = readTail(realResolved, lines, maxChars)
+  if ('errorMessage' in tail) {
     return [
       {
         type: 'json',
         value: {
           path: requested,
-          errorMessage: `Path is not a regular file: ${resolved}`,
+          errorMessage: tail.errorMessage,
         },
       },
     ]
   }
 
-  const fd = fs.openSync(realResolved, 'r')
+  return [
+    {
+      type: 'json',
+      value: {
+        path: requested,
+        resolvedPath: realResolved,
+        ...tail,
+      },
+    },
+  ]
+}
+
+function readTail(
+  filePath: string,
+  lines: number,
+  maxChars: number,
+):
+  | { lines: number; content: string; truncated?: boolean }
+  | { lines: number; content: string; errorMessage: string } {
+  const opened = safeOpenJobLogForRead(filePath)
+  if ('errorMessage' in opened) {
+    return {
+      lines: 0,
+      content: '',
+      errorMessage: opened.errorMessage,
+    }
+  }
+
+  const { fd, size } = opened
   try {
     let collected = ''
     let lineCount = 0
-    let offset = stat.size
+    let offset = size
     while (offset > 0 && lineCount <= lines) {
       const length = Math.min(READ_CHUNK_BYTES, offset)
       offset -= length
@@ -110,6 +200,7 @@ export async function readLogs(params: {
       collected = chunk + collected
       lineCount = (collected.match(/\n/g) ?? []).length
     }
+
     const endsWithNewline = collected.endsWith('\n')
     const allLines = collected.split('\n')
     if (endsWithNewline) {
@@ -125,18 +216,12 @@ export async function readLogs(params: {
       content = content.slice(content.length - maxChars)
       truncated = true
     }
-    return [
-      {
-        type: 'json',
-        value: {
-          path: requested,
-          resolvedPath: realResolved,
-          lines: Math.min(lines, allLines.length),
-          content,
-          ...(truncated ? { truncated: true } : {}),
-        },
-      },
-    ]
+
+    return {
+      lines: Math.min(lines, allLines.length),
+      content,
+      ...(truncated ? { truncated: true } : {}),
+    }
   } finally {
     fs.closeSync(fd)
   }

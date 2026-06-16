@@ -12,10 +12,11 @@ To develop the CLI locally, you do not need to run a web server or database. Sim
    ```
 
 2. **Configure Your API Keys:**
-   Set up your preferred OpenAI-compatible provider keys in your shell:
+   Set up your preferred OpenAI-compatible or Anthropic-compatible provider keys in your shell:
    ```bash
    export OPENAI_API_KEY="your-api-key"
-   # Or for other providers:
+   # Or for Anthropic/Claude and other providers:
+   # export ANTHROPIC_API_KEY="your-key"
    # export OPENROUTER_API_KEY="your-key"
    ```
 

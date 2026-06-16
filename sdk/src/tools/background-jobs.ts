@@ -1,7 +1,14 @@
 import { spawn, type ChildProcess } from 'child_process'
+import { randomBytes } from 'crypto'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+
+import {
+  __clearPendingBackgroundJobsForTest,
+  removePendingBackgroundJob,
+  upsertPendingBackgroundJob,
+} from '@codebuff/common/util/pending-background-jobs'
 
 /**
  * In-memory registry of background processes started via
@@ -29,6 +36,7 @@ export interface BackgroundJob {
 }
 
 const jobs = new Map<string, BackgroundJob>()
+const metadataFilesCreatedByThisProcess = new Set<string>()
 let jobCounter = 0
 
 /**
@@ -38,7 +46,136 @@ let jobCounter = 0
  * unbounded accumulation across CLI sessions.
  */
 const ORPHANED_JOB_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const JOB_ID_PATTERN = /^job-[A-Za-z0-9_-]+$/
+/**
+ * Permissions for newly-created background job temp files. 0o600 keeps the
+ * log/metadata readable only by the owning user, since they may contain
+ * sensitive command output.
+ */
+const JOB_FILE_MODE = 0o600
+/**
+ * `O_NOFOLLOW` causes open() to fail with ELOOP when the final path component
+ * is a symlink. On Windows it is not defined; fall back to 0 (no-op) since
+ * symlink semantics differ there and the temp dir is not world-writable.
+ */
+const O_NOFOLLOW_FLAG =
+  typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0
 let orphanedJobFilesSwept = false
+
+/**
+ * Create a background-job log file for appending without following symlinks
+ * or reusing an existing path. `O_EXCL` rejects both pre-created regular files
+ * and symlinks, preventing temp-file clobbering despite the shared temp dir.
+ */
+function safeCreateJobLogFile(logFile: string): number {
+  return fs.openSync(
+    logFile,
+    fs.constants.O_CREAT |
+      fs.constants.O_EXCL |
+      fs.constants.O_WRONLY |
+      fs.constants.O_APPEND |
+      O_NOFOLLOW_FLAG,
+    JOB_FILE_MODE,
+  )
+}
+
+/**
+ * Provide a clear early error for pre-existing symlinks. The open() calls also
+ * use O_NOFOLLOW so a symlink swapped in after this check is still rejected.
+ */
+function rejectIfSymlink(candidate: string): void {
+  let stat: fs.Stats
+  try {
+    stat = fs.lstatSync(candidate)
+  } catch {
+    return
+  }
+  if (stat.isSymbolicLink()) {
+    throw new Error(
+      `Refusing to start background job: temp file "${candidate}" is a symlink.`,
+    )
+  }
+}
+
+/**
+ * Write background-job metadata without following symlinks. The first write
+ * creates the file exclusively; later writes may truncate only a metadata path
+ * created by this process.
+ */
+function safeWriteJobMetadata(
+  metadataFile: string,
+  metadata: BackgroundJobMetadata,
+): void {
+  const firstWrite = !metadataFilesCreatedByThisProcess.has(metadataFile)
+  const flags = firstWrite
+    ? fs.constants.O_CREAT |
+      fs.constants.O_EXCL |
+      fs.constants.O_WRONLY |
+      O_NOFOLLOW_FLAG
+    : fs.constants.O_WRONLY | fs.constants.O_TRUNC | O_NOFOLLOW_FLAG
+
+  const fd = fs.openSync(metadataFile, flags, JOB_FILE_MODE)
+  try {
+    fs.writeSync(fd, JSON.stringify(metadata, null, 2))
+    metadataFilesCreatedByThisProcess.add(metadataFile)
+  } finally {
+    fs.closeSync(fd)
+  }
+}
+
+export function safeOpenJobLogForRead(
+  logFile: string,
+): { fd: number; size: number } | { errorMessage: string } {
+  try {
+    const lstat = fs.lstatSync(logFile)
+    if (!lstat.isFile()) {
+      return { errorMessage: `Path is not a regular file: ${logFile}` }
+    }
+
+    const fd = fs.openSync(logFile, fs.constants.O_RDONLY | O_NOFOLLOW_FLAG)
+    try {
+      const stat = fs.fstatSync(fd)
+      if (!stat.isFile()) {
+        fs.closeSync(fd)
+        return { errorMessage: `Path is not a regular file: ${logFile}` }
+      }
+      return { fd, size: stat.size }
+    } catch (error) {
+      fs.closeSync(fd)
+      return {
+        errorMessage: `Could not inspect log file: ${(error as Error).message}`,
+      }
+    }
+  } catch (error) {
+    return {
+      errorMessage: `Could not open log file safely: ${(error as Error).message}`,
+    }
+  }
+}
+
+function safeReadJobMetadataFile(metadataFile: string): string | undefined {
+  let fd: number | undefined
+  try {
+    const lstat = fs.lstatSync(metadataFile)
+    if (!lstat.isFile()) return undefined
+
+    fd = fs.openSync(metadataFile, fs.constants.O_RDONLY | O_NOFOLLOW_FLAG)
+    const stat = fs.fstatSync(fd)
+    if (!stat.isFile()) return undefined
+
+    return fs.readFileSync(fd, 'utf8')
+  } catch {
+    return undefined
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd)
+      } catch {
+        // already closed
+      }
+    }
+  }
+}
 
 /**
  * Best-effort cleanup of stale `openbuff-job-*.{log,json}` files left in the
@@ -53,9 +190,9 @@ function sweepOrphanedJobFiles(): void {
 
 function shouldPreserveJobMetadata(metadataFile: string): boolean {
   try {
-    const metadata = JSON.parse(
-      fs.readFileSync(metadataFile, 'utf8'),
-    ) as Partial<BackgroundJobMetadata>
+    const rawMetadata = safeReadJobMetadataFile(metadataFile)
+    if (rawMetadata === undefined) return false
+    const metadata = JSON.parse(rawMetadata) as Partial<BackgroundJobMetadata>
     if (metadata.status !== 'running') return false
     if (metadata.processId === null || metadata.processId === undefined) {
       // Be conservative when we cannot verify liveness.
@@ -85,7 +222,7 @@ function sweepOrphanedJobFilesForTest(): void {
       if (!entry.endsWith('.log') && !entry.endsWith('.json')) continue
       const fullPath = path.join(tmpDir, entry)
       try {
-        const stat = fs.statSync(fullPath)
+        const stat = fs.lstatSync(fullPath)
         if (now - stat.mtimeMs <= ORPHANED_JOB_FILE_MAX_AGE_MS) continue
 
         const metadataFile = entry.endsWith('.json')
@@ -120,7 +257,25 @@ type BackgroundJobMetadata = {
 
 function nextJobId(): string {
   jobCounter += 1
-  return `job-${process.pid}-${jobCounter}`
+  return `job-${process.pid}-${jobCounter}-${randomBytes(8).toString('hex')}`
+}
+
+function getBackgroundJobFilePath(
+  jobId: string,
+  extension: 'log' | 'json',
+): string | undefined {
+  if (!JOB_ID_PATTERN.test(jobId)) {
+    return undefined
+  }
+  return path.join(os.tmpdir(), `openbuff-${jobId}.${extension}`)
+}
+
+function isUsableRecoveredLogFile(logFile: string): boolean {
+  try {
+    return fs.lstatSync(logFile).isFile()
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -138,9 +293,14 @@ export function startBackgroundJob(params: {
   const { command, shell, shellArgs, cwd, env } = params
   sweepOrphanedJobFiles()
   const jobId = nextJobId()
-  const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
-  const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
-  const outFd = fs.openSync(logFile, 'a')
+  const logFile = getBackgroundJobFilePath(jobId, 'log')!
+  const metadataFile = getBackgroundJobFilePath(jobId, 'json')!
+  // Reject pre-existing symlinks at both paths before opening for write.
+  // safeCreateJobLogFile/safeWriteJobMetadata also use O_EXCL + O_NOFOLLOW so
+  // pre-created regular files and TOCTOU symlink swaps are rejected at open().
+  rejectIfSymlink(logFile)
+  rejectIfSymlink(metadataFile)
+  const outFd = safeCreateJobLogFile(logFile)
 
   const child = spawn(shell, [...shellArgs, command], {
     cwd,
@@ -160,6 +320,13 @@ export function startBackgroundJob(params: {
     readOffset: 0,
   }
 
+  upsertPendingBackgroundJob({
+    jobId,
+    command,
+    status: job.status,
+    startedAt: job.startedAt,
+  })
+
   const closeLog = () => {
     try {
       fs.closeSync(outFd)
@@ -178,7 +345,7 @@ export function startBackgroundJob(params: {
       startedAt: job.startedAt,
     }
     try {
-      fs.writeFileSync(metadataFile, JSON.stringify(metadata, null, 2))
+      safeWriteJobMetadata(metadataFile, metadata)
     } catch {
       // best-effort recovery metadata
     }
@@ -189,11 +356,13 @@ export function startBackgroundJob(params: {
     job.exitCode = code
     writeMetadata()
     closeLog()
+    removePendingBackgroundJob(jobId)
   })
   child.on('error', () => {
     job.status = 'error'
     writeMetadata()
     closeLog()
+    removePendingBackgroundJob(jobId)
   })
 
   jobs.set(jobId, job)
@@ -207,17 +376,37 @@ export function getBackgroundJob(jobId: string): BackgroundJob | undefined {
   const recovered = recoverBackgroundJob(jobId)
   if (recovered) {
     jobs.set(jobId, recovered)
+    if (recovered.status === 'running') {
+      upsertPendingBackgroundJob({
+        jobId: recovered.jobId,
+        command: recovered.command,
+        status: recovered.status,
+        startedAt: recovered.startedAt,
+      })
+    }
   }
   return recovered
 }
 
 function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
-  const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
-  const fallbackLogFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+  const metadataFile = getBackgroundJobFilePath(jobId, 'json')
+  const fallbackLogFile = getBackgroundJobFilePath(jobId, 'log')
+  if (!metadataFile || !fallbackLogFile) {
+    return undefined
+  }
+
   try {
-    const metadata = JSON.parse(
-      fs.readFileSync(metadataFile, 'utf8'),
-    ) as BackgroundJobMetadata
+    const rawMetadata = safeReadJobMetadataFile(metadataFile)
+    if (rawMetadata === undefined) return undefined
+    const metadata = JSON.parse(rawMetadata) as BackgroundJobMetadata
+    if (
+      metadata.jobId !== jobId ||
+      metadata.logFile !== fallbackLogFile ||
+      !isUsableRecoveredLogFile(fallbackLogFile)
+    ) {
+      return undefined
+    }
+
     const status =
       metadata.status === 'running' &&
       metadata.processId !== null &&
@@ -226,10 +415,10 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
         : metadata.status
 
     return {
-      jobId: metadata.jobId,
+      jobId,
       command: metadata.command,
       child: { pid: metadata.processId ?? undefined } as ChildProcess,
-      logFile: metadata.logFile,
+      logFile: fallbackLogFile,
       metadataFile,
       status,
       exitCode: metadata.exitCode,
@@ -237,20 +426,7 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
       readOffset: 0,
     }
   } catch {
-    if (!fs.existsSync(fallbackLogFile)) {
-      return undefined
-    }
-    return {
-      jobId,
-      command: '',
-      child: { pid: undefined } as ChildProcess,
-      logFile: fallbackLogFile,
-      metadataFile,
-      status: 'running',
-      exitCode: null,
-      startedAt: 0,
-      readOffset: 0,
-    }
+    return undefined
   }
 }
 
@@ -325,6 +501,7 @@ export function killBackgroundJob(
       : killProcess(pid, signal)
   if (killed) {
     job.status = 'error'
+    removePendingBackgroundJob(jobId)
   }
 
   return {
@@ -342,21 +519,20 @@ export function killBackgroundJob(
  * yet readable). Never throws.
  */
 export function readNewJobOutput(job: BackgroundJob): string {
+  const opened = safeOpenJobLogForRead(job.logFile)
+  if ('errorMessage' in opened) return ''
+  const { fd, size } = opened
   try {
-    const stat = fs.statSync(job.logFile)
-    if (stat.size <= job.readOffset) return ''
-    const length = stat.size - job.readOffset
-    const fd = fs.openSync(job.logFile, 'r')
-    try {
-      const buf = Buffer.alloc(length)
-      const bytesRead = fs.readSync(fd, buf, 0, length, job.readOffset)
-      job.readOffset += bytesRead
-      return buf.toString('utf8', 0, bytesRead)
-    } finally {
-      fs.closeSync(fd)
-    }
+    if (size <= job.readOffset) return ''
+    const length = size - job.readOffset
+    const buf = Buffer.alloc(length)
+    const bytesRead = fs.readSync(fd, buf, 0, length, job.readOffset)
+    job.readOffset += bytesRead
+    return buf.toString('utf8', 0, bytesRead)
   } catch {
     return ''
+  } finally {
+    fs.closeSync(fd)
   }
 }
 
@@ -368,7 +544,9 @@ export function __registerJobForTest(job: BackgroundJob): void {
 /** Test-only: clear the registry between tests. */
 export function __clearJobsForTest(): void {
   jobs.clear()
+  metadataFilesCreatedByThisProcess.clear()
   orphanedJobFilesSwept = false
+  __clearPendingBackgroundJobsForTest()
 }
 
 /** Test-only: run stale background-job temp-file cleanup deterministically. */

@@ -2,7 +2,7 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
-  textToolResultSchema,
+  jsonToolResultSchema,
 } from '../utils'
 
 import type { $ToolParams } from '../../constants'
@@ -53,5 +53,19 @@ export const endTurnParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: textToolResultSchema(),
+  outputSchema: jsonToolResultSchema(
+    z.object({
+      message: z.string(),
+      pendingBackgroundJobs: z
+        .array(
+          z.object({
+            jobId: z.string(),
+            command: z.string(),
+            startedAt: z.number(),
+          }),
+        )
+        .optional(),
+      pendingBackgroundJobsTruncated: z.number().optional(),
+    }),
+  ),
 } satisfies $ToolParams

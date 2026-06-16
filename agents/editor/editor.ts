@@ -35,7 +35,7 @@ export const createCodeEditor = (options: {
     model: EDITOR_MODEL_BY_VARIANT[options.model],
     displayName: 'Code Editor',
     spawnerPrompt:
-      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits, it can use edit_transaction to preflight and apply changes atomically.",
+      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Before spawning, write a compact implementation brief in the conversation with requirements, target files, constraints/non-goals, relevant patterns, expected validation, and risks. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits, it can use edit_transaction to preflight and apply changes atomically.",
     outputMode: 'structured_output',
     toolNames: [
       'read_files',
@@ -53,12 +53,13 @@ export const createCodeEditor = (options: {
 
     instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request. Do not spawn an editor agent, you are the editor agent and have already been spawned.
     
-Your task is to write out ALL the code changes needed to complete the user's request, across every file that must change.
+Your task is to write out ALL the code changes needed to complete the user's request, across every file that must change. If the parent wrote an implementation brief, treat it as the source of truth for requirements, target files, constraints/non-goals, relevant patterns, expected validation, and risks.
 
 You may make edits across multiple turns. After each edit you will see whether it applied successfully:
 - To replace an entire function/class/method/type, prefer rewrite_symbol (name + full new body): it finds the exact definition from the syntax tree, so you don't copy old text and it can't drift. For large files, read_outline shows the structure and read_files with a symbols selector pulls a specific symbol's current body. Use str_replace for partial in-body edits.
 - If rewrite_symbol cannot parse or find the symbol, read the exact current range with read_files.ranges and use replace_range with that rangeHash. Do not fall back to whole-file write_file just because a structural parser failed.
 - If a str_replace fails because the oldString did not match the file exactly, read the error, then retry with a corrected oldString (copy the exact current text) or use replace_range with a fresh rangeHash for medium/large blocks.
+- If edit_transaction aborts, no files changed. Re-read the failed file ranges named in the diagnostic, fix ambiguous oldString targets with a longer anchor or occurrenceIndex, then retry the whole related transaction so dependent edits stay consistent.
 - Use edit_transaction when edits across multiple files, dependent edits in one file, or import-only TypeScript edits must be preflighted together and applied atomically. Prefer str_replace for simple one-file text changes, and write_file for new files or major rewrites.
 - Keep editing until the entire request is implemented across all files. Do not stop after a single file when more files still need changes.
 - When every change has been made and all edits have applied successfully, stop: respond with a brief one-line confirmation and make no further tool calls.
@@ -217,9 +218,83 @@ Write out your complete implementation now, formatting all changes as tool calls
         input: {
           output: {
             messages: newMessages,
+            changedFiles: extractChangedFiles(newMessages),
           },
         },
         includeToolCall: false,
+      }
+
+      function extractChangedFiles(messages: unknown[]): string[] {
+        const files = new Set<string>()
+        visit(messages, files)
+        return [...files]
+      }
+
+      function visit(value: unknown, files: Set<string>): void {
+        if (!value) return
+        if (Array.isArray(value)) {
+          for (const item of value) visit(item, files)
+          return
+        }
+        if (typeof value !== 'object') return
+
+        const record = value as Record<string, unknown>
+        const toolName =
+          typeof record.toolName === 'string'
+            ? record.toolName
+            : typeof record.cb_tool_name === 'string'
+              ? record.cb_tool_name
+              : ''
+        if (isFileChangingTool(toolName)) {
+          collectInputFiles(record.input, files)
+        }
+        if (record.type === 'json' && 'value' in record) {
+          visit(record.value, files)
+        }
+        if (typeof record.file === 'string' && hasEditArtifact(record)) {
+          files.add(record.file)
+        }
+        if (typeof record.path === 'string' && hasEditArtifact(record)) {
+          files.add(record.path)
+        }
+        for (const nested of Object.values(record)) {
+          if (nested !== record.input) visit(nested, files)
+        }
+      }
+
+      function collectInputFiles(input: unknown, files: Set<string>): void {
+        if (!input || typeof input !== 'object') return
+        const record = input as Record<string, unknown>
+        if (typeof record.path === 'string') files.add(record.path)
+        const edits = record.edits
+        if (!Array.isArray(edits)) return
+        for (const edit of edits) {
+          if (
+            edit &&
+            typeof edit === 'object' &&
+            typeof (edit as Record<string, unknown>).path === 'string'
+          ) {
+            files.add((edit as Record<string, string>).path)
+          }
+        }
+      }
+
+      function isFileChangingTool(toolName: string): boolean {
+        return (
+          toolName === 'str_replace' ||
+          toolName === 'write_file' ||
+          toolName === 'replace_range' ||
+          toolName === 'rewrite_symbol' ||
+          toolName === 'edit_transaction'
+        )
+      }
+
+      function hasEditArtifact(record: Record<string, unknown>): boolean {
+        return (
+          typeof record.unifiedDiff === 'string' ||
+          typeof record.diff === 'string' ||
+          typeof record.patch === 'string'
+        )
       }
     },
   } satisfies Omit<AgentDefinition, 'id'>

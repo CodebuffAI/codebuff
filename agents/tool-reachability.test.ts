@@ -18,6 +18,7 @@ import { createCodeEditor } from './editor/editor'
  */
 const STRUCTURAL_READ_TOOLS = ['read_outline'] as const
 const STRUCTURAL_EDIT_TOOLS = ['rewrite_symbol'] as const
+const HARNESS_STATE_TOOLS = ['git_status'] as const
 
 describe('agent tool reachability', () => {
   for (const mode of ['default', 'max', 'fast'] as const) {
@@ -27,7 +28,12 @@ describe('agent tool reachability', () => {
         expect(tools).toContain(tool)
       }
       // Core read/edit tools must remain reachable too.
-      for (const tool of ['read_files', 'str_replace', 'write_file'] as const) {
+      for (const tool of [
+        'read_files',
+        'str_replace',
+        'write_file',
+        ...HARNESS_STATE_TOOLS,
+      ] as const) {
         expect(tools).toContain(tool)
       }
     })

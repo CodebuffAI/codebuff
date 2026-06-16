@@ -14,6 +14,7 @@ export type ProviderPickerPresetId =
   | 'opencode-go'
   | 'openrouter'
   | 'openai'
+  | 'anthropic'
   | 'ollama'
   | 'codex'
   | 'glm'
@@ -27,6 +28,7 @@ export type ProviderPickerSelection =
       type: 'custom'
       provider: {
         id: string
+        type: CustomProviderType
         baseURL: string
         apiKeyEnv?: string
         models: string[]
@@ -69,6 +71,15 @@ const DEFAULT_PRESETS: ProviderPickerPreset[] = [
     aliases: ['gpt'],
   },
   {
+    id: 'anthropic',
+    label: 'Anthropic / Claude',
+    description:
+      'Claude models through the native Anthropic Messages API or compatible gateways.',
+    env: 'ANTHROPIC_API_KEY',
+    category: 'API Providers',
+    aliases: ['anthropic', 'claude', 'sonnet', 'opus'],
+  },
+  {
     id: 'openrouter',
     label: 'OpenRouter',
     description: 'Use any OpenRouter model with your OpenRouter API key.',
@@ -104,18 +115,20 @@ const DEFAULT_PRESETS: ProviderPickerPreset[] = [
     id: 'freemodel',
     label: 'Free Model',
     description:
-      'Free Model OpenAI-compatible endpoint with gpt-5.5, gpt-5.4, gpt-5.4-mini, and gpt-5.3-codex.',
+      'Free Model endpoints for GPT and Claude-compatible coding models.',
     env: 'FREEMODEL_API_KEY',
     category: 'API Providers',
     aliases: ['freemodel', 'free model', 'gpt-5.5-free'],
   },
 ]
 
-type EditableCustomField = 'id' | 'baseURL' | 'apiKeyEnv' | 'models'
+type CustomProviderType = 'openai-compatible' | 'anthropic-compatible'
+type EditableCustomField = 'id' | 'providerType' | 'baseURL' | 'apiKeyEnv' | 'models'
 type CustomField = EditableCustomField | 'review'
 
 type CustomProviderDraft = {
   id: string
+  providerType: string
   baseURL: string
   apiKeyEnv: string
   models: string
@@ -144,12 +157,19 @@ type Props = {
 
 const FIELD_LABELS: Record<EditableCustomField, string> = {
   id: 'Provider id',
+  providerType: 'Provider type (openai-compatible or anthropic-compatible)',
   baseURL: 'Base URL',
   apiKeyEnv: 'API key env (blank for none)',
   models: 'Models (comma-separated)',
 }
 
-const FIELD_ORDER: EditableCustomField[] = ['id', 'baseURL', 'apiKeyEnv', 'models']
+const FIELD_ORDER: EditableCustomField[] = [
+  'id',
+  'providerType',
+  'baseURL',
+  'apiKeyEnv',
+  'models',
+]
 
 function providerMatches(item: PickerItem, query: string): boolean {
   const haystack = [
@@ -170,6 +190,26 @@ function normalizeModels(value: string): string[] {
     .split(',')
     .map((model) => model.trim())
     .filter(Boolean)
+}
+
+function normalizeCustomProviderType(value: string): CustomProviderType | null {
+  const normalized = value.trim().toLowerCase()
+  if (
+    normalized === '1' ||
+    normalized === 'openai' ||
+    normalized === 'openai-compatible'
+  ) {
+    return 'openai-compatible'
+  }
+  if (
+    normalized === '2' ||
+    normalized === 'anthropic' ||
+    normalized === 'anthropic-compatible' ||
+    normalized === 'claude'
+  ) {
+    return 'anthropic-compatible'
+  }
+  return null
 }
 
 function envStatus(env: string | undefined): string | null {
@@ -195,6 +235,7 @@ function getNextCustomField(field: EditableCustomField): CustomField {
 function canSubmitCustomProvider(provider: CustomProviderDraft): boolean {
   return Boolean(
     provider.id.trim() &&
+      normalizeCustomProviderType(provider.providerType) !== null &&
       provider.baseURL.trim() &&
       normalizeModels(provider.models).length > 0,
   )
@@ -219,6 +260,7 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
   const [customCursor, setCustomCursor] = useState(0)
   const [customProvider, setCustomProvider] = useState<CustomProviderDraft>({
     id: '',
+    providerType: 'openai-compatible',
     baseURL: '',
     apiKeyEnv: '',
     models: '',
@@ -230,11 +272,11 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
       {
         kind: 'custom' as const,
         id: 'custom',
-        label: 'Custom OpenAI-compatible provider',
+        label: 'Custom OpenAI/Anthropic-compatible provider',
         description:
-          'Enter an id, base URL, API key environment variable, and model ids.',
+          'Enter an id, provider type, base URL, API key environment variable, and model ids.',
         category: 'Custom' as const,
-        aliases: ['custom', 'openai compatible'],
+        aliases: ['custom', 'openai compatible', 'anthropic compatible', 'claude'],
       },
     ]
 
@@ -339,7 +381,13 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
         key.preventDefault()
         if (customField === 'id') {
           setMode('picker')
-          setCustomProvider({ id: '', baseURL: '', apiKeyEnv: '', models: '' })
+          setCustomProvider({
+            id: '',
+            providerType: 'openai-compatible',
+            baseURL: '',
+            apiKeyEnv: '',
+            models: '',
+          })
           setCustomCursor(0)
           return true
         }
@@ -356,11 +404,13 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
       if (key.name === 'return' || key.name === 'enter' || key.name === 'y') {
         key.preventDefault()
         const models = normalizeModels(customProvider.models)
-        if (!canSubmitCustomProvider(customProvider)) return true
+        const providerType = normalizeCustomProviderType(customProvider.providerType)
+        if (!providerType || !canSubmitCustomProvider(customProvider)) return true
         onSelect({
           type: 'custom',
           provider: {
             id: customProvider.id.trim(),
+            type: providerType,
             baseURL: customProvider.baseURL.trim(),
             apiKeyEnv: customProvider.apiKeyEnv.trim() || undefined,
             models,
@@ -408,11 +458,14 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
         }}
       >
         <text style={{ fg: theme.foreground, attributes: TextAttributes.BOLD }}>
-          Add custom OpenAI-compatible provider
+          Add custom OpenAI/Anthropic-compatible provider
         </text>
         <text style={{ fg: theme.muted }}>Esc goes back one step.</text>
         <box style={{ height: 1 }} />
         <text style={{ fg: theme.foreground }}>ID: {customProvider.id || '—'}</text>
+        <text style={{ fg: theme.foreground }}>
+          Type: {customProvider.providerType}
+        </text>
         <text style={{ fg: theme.foreground }}>
           Base URL: {customProvider.baseURL || '—'}
         </text>
@@ -460,7 +513,7 @@ export function ProviderPickerScreen({ presets, onSelect }: Props) {
             <text style={{ fg: canSubmit ? theme.success : theme.error }}>
               {canSubmit
                 ? 'Press Enter or y to save this provider.'
-                : 'Provider id, base URL, and at least one model are required.'}
+                : 'Provider id, provider type, base URL, and at least one model are required.'}
             </text>
             <text style={{ fg: theme.muted }}>Press n to edit, Esc to go back.</text>
           </box>

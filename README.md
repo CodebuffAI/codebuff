@@ -2,11 +2,11 @@
 
 English | [简体中文](./README.zh-CN.md)
 
-**Openbuff** is an independent, local-first fork of Codebuff: an open-source agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible providers. It is focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions.
+**Openbuff** is an independent, local-first fork of Codebuff: an open-source agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible or Anthropic-compatible providers. It is focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription.
 
 Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
-> **Fork & compatibility note:** Openbuff is an independent, local-first fork of Codebuff focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions. You provide your own keys for user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
+> **Fork & compatibility note:** Openbuff is an independent, local-first fork of Codebuff focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription. You provide your own keys for user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
 
 ## How it works
 
@@ -144,17 +144,18 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 ## Provider configuration
 
 Openbuff runs local/BYOK by default: no Codebuff cloud auth, credits, or hosted
-inference. Configure OpenAI-compatible providers and per-agent model routing in
-`openbuff.json`. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md).
+inference. Configure OpenAI-compatible or Anthropic-compatible providers and
+per-agent model routing in `openbuff.json`. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md).
 
 Inside the CLI:
 
 ```text
-/setup opencode-go   # or openai, codex, openrouter, ollama, glm
+/setup opencode-go   # or openai, anthropic, codex, openrouter, ollama, glm
+/provider           # open the interactive provider picker
 /provider add        # interactive provider wizard, including custom providers
+/provider status     # show loaded config, provider URLs, missing env vars
 /provider connect codex
-/provider           # show loaded config, provider URLs, missing env vars
-/models             # show default/lite/max/plan routing
+/models             # open the model routing picker
 /models configure   # interactive model routing wizard
 /models set editor-proposal 2 opencode-go/glm-5.1
 ```
@@ -182,7 +183,7 @@ Freebuff is ad-supported and uses models optimized for fast, high-quality assist
 
 **Custom workflows**: TypeScript generators let you mix AI generation with programmatic control. Agents can spawn subagents, branch on conditions, and run multi-step processes.
 
-**Provider-flexible**: Unlike single-provider tools, Openbuff can route each agent to any configured provider: OpenAI API, ChatGPT/Codex subscription OAuth, OpenRouter, opencode gateways, GLM/Z.ai, local Ollama/LM Studio, or another OpenAI-compatible endpoint.
+**Provider-flexible**: Unlike single-provider tools, Openbuff can route each agent to any configured provider: OpenAI API, Anthropic/Claude API, ChatGPT/Codex subscription OAuth, OpenRouter, opencode gateways, GLM/Z.ai, local Ollama/LM Studio, or another OpenAI-compatible or Anthropic-compatible endpoint.
 
 **Reuse local agents**: Compose bundled and project-local `.agents/` without depending on the hosted Codebuff registry.
 

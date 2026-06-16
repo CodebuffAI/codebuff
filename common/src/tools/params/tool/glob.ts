@@ -18,7 +18,7 @@ const inputSchema = z
       .string()
       .optional()
       .describe(
-        'Optional working directory to search within, relative to project root. If not provided, searches from project root.',
+        'Optional working directory to search within, relative to project root. If provided, the glob pattern is matched against paths relative to this cwd, while returned files remain project-relative. If not provided, searches from project root.',
       ),
   })
   .describe(
@@ -35,7 +35,7 @@ ${$getNativeToolCallExampleString({
   endsAgentStep,
 })}
 
-Purpose: Search for files matching a glob pattern to discover files by name patterns rather than content.
+Purpose: Search for files matching a glob pattern to discover files by name patterns rather than content. When \`cwd\` is provided, \`pattern\` is evaluated relative to that cwd (e.g. \`pattern: "*.ts", cwd: "src"\` matches \`src/foo.ts\`).
 Use cases:
 - Find all files with a specific extension (e.g., "*.js", "*.test.ts")
 - Locate files in specific directories (e.g., "src/**/*.ts")

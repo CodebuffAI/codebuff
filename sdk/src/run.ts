@@ -16,6 +16,7 @@ import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
+import { listRunningBackgroundJobs } from '@codebuff/common/util/pending-background-jobs'
 import { cloneDeep } from 'lodash'
 
 import { getErrorStatusCode } from './error-utils'
@@ -24,6 +25,7 @@ import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile, changeFiles } from './tools/change-file'
 import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
+import { findFilesMatchingContent } from './tools/find-files-matching-content'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getProjectPathLookupKeys } from './tools/path-utils'
@@ -701,7 +703,26 @@ async function handleToolCall({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result = await override(input as never)
     } else if (toolName === 'end_turn') {
-      result = [{ type: 'json', value: { message: 'Turn ended.' } }]
+      const runningJobs = listRunningBackgroundJobs()
+      result = [
+        {
+          type: 'json',
+          value:
+            runningJobs.length === 0
+              ? { message: 'Turn ended.' }
+              : {
+                  message: `Turn ended. ${runningJobs.length} background job(s) are still running. Use check_job/read_logs/kill_job to manage them.`,
+                  pendingBackgroundJobs: runningJobs.slice(0, 5).map((job) => ({
+                    jobId: job.jobId,
+                    command: job.command,
+                    startedAt: job.startedAt,
+                  })),
+                  ...(runningJobs.length > 5
+                    ? { pendingBackgroundJobsTruncated: runningJobs.length - 5 }
+                    : {}),
+                },
+        },
+      ]
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
       result = await changeFile({
         parameters: input,
@@ -750,6 +771,15 @@ async function handleToolCall({
       result = await codeSearch({
         ...codeSearchInput,
         projectPath: requireCwd(cwd, 'code_search'),
+      })
+    } else if (toolName === 'find_files_matching_content') {
+      const findFilesInput = input as Omit<
+        Parameters<typeof findFilesMatchingContent>[0],
+        'projectPath'
+      >
+      result = await findFilesMatchingContent({
+        ...findFilesInput,
+        projectPath: requireCwd(cwd, 'find_files_matching_content'),
       })
     } else if (toolName === 'list_directory') {
       result = await listDirectory({

@@ -22,17 +22,38 @@ export async function glob(params: {
       .filter((node) => node.type === 'file')
       .map((node) => node.filePath)
 
-    if (cwd) {
-      const cwdPrefix = cwd.endsWith('/') ? cwd : `${cwd}/`
-      allFilePaths = allFilePaths.filter(
-        (filePath) =>
-          filePath === cwd ||
-          filePath.startsWith(cwdPrefix) ||
-          filePath === cwd.replace(/\/$/, ''),
+    let matchingFiles: string[]
+    const normalizedCwd = normalizeCwd(cwd)
+    if (normalizedCwd) {
+      // Scope to files under `cwd`, but match the pattern against paths
+      // RELATIVE to `cwd` so that patterns like "*.ts" or "**/*.test.ts"
+      // behave as the caller expects. We strip the cwd prefix before
+      // matching, then re-prepend it for the returned project-relative paths.
+      const cwdPrefix = `${normalizedCwd}/`
+      const relativePaths: { full: string; relative: string }[] = []
+      for (const filePath of allFilePaths) {
+        if (filePath === normalizedCwd) {
+          continue
+        }
+        if (filePath.startsWith(cwdPrefix)) {
+          relativePaths.push({
+            full: filePath,
+            relative: filePath.slice(cwdPrefix.length),
+          })
+        }
+      }
+      const matchedRelative = new Set(
+        micromatch(
+          relativePaths.map((entry) => entry.relative),
+          pattern,
+        ),
       )
+      matchingFiles = relativePaths
+        .filter((entry) => matchedRelative.has(entry.relative))
+        .map((entry) => entry.full)
+    } else {
+      matchingFiles = micromatch(allFilePaths, pattern)
     }
-
-    const matchingFiles = micromatch(allFilePaths, pattern)
 
     return [
       {
@@ -55,4 +76,12 @@ export async function glob(params: {
       },
     ]
   }
+}
+
+function normalizeCwd(cwd: string | undefined): string {
+  if (!cwd) return ''
+  return cwd
+    .replace(/^(?:\.\/)+/, '')
+    .replace(/\/+$/, '')
+    .replace(/^\.$/, '')
 }

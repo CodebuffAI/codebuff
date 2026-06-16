@@ -8,7 +8,7 @@ const benchmarkIndex: MetadataIndex = {
   version: '2',
   projectRoot: '/repo',
   builtAt: 1,
-  fileCount: 5,
+  fileCount: 7,
   files: {
     'packages/indexer/src/query.ts': {
       path: 'packages/indexer/src/query.ts',
@@ -65,6 +65,28 @@ const benchmarkIndex: MetadataIndex = {
       headings: [],
       concepts: [],
     },
+    'package.json': {
+      path: 'package.json',
+      mtime: 1,
+      size: 100,
+      hash: 'pkg',
+      ext: '.json',
+      symbols: [],
+      imports: [],
+      headings: [],
+      concepts: ['package scripts', 'command configuration', 'script:typecheck=bun run typecheck', 'script:test=bun test'],
+    },
+    'src/validation-error.ts': {
+      path: 'src/validation-error.ts',
+      mtime: 1,
+      size: 100,
+      hash: 'validation',
+      ext: '.ts',
+      symbols: ['formatValidationError'],
+      imports: [],
+      headings: [],
+      concepts: ['validation', 'error'],
+    },
   },
   graph: {
     nodes: {
@@ -96,9 +118,13 @@ describe('query index quality benchmark', () => {
         query: 'metadata graph builder',
         expectedPaths: ['packages/indexer/src/metadata-indexer.ts'],
       },
+      {
+        query: 'run validation suite',
+        expectedPaths: ['package.json'],
+      },
     ])
 
-    expect(report).toMatchObject({ total: 4, passed: 4, failed: [] })
+    expect(report).toMatchObject({ total: 5, passed: 5, failed: [] })
     expect(report.meanReciprocalRank).toBeGreaterThanOrEqual(0.8)
   })
 })

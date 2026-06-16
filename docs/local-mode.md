@@ -1,11 +1,11 @@
 # Openbuff Local/BYOK Provider Mode
 
-Openbuff is an independent, local-first fork of Codebuff focused entirely on a Bring Your Own Key (BYOK) model with no backend fallback, credits, or subscriptions. You provide your own keys for user-configured providers (such as OpenAI, OpenRouter, or local models). Openbuff does not require Codebuff cloud authentication, credits, hosted run tracking, or hosted model inference.
+Openbuff is an independent, local-first fork of Codebuff focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription. You provide your own keys for user-configured providers (such as OpenAI, Anthropic/Claude, OpenRouter, or local models). Openbuff does not require Codebuff cloud authentication, credits, hosted run tracking, or hosted model inference.
 
 There is absolutely no backend fallback. Every LLM request must resolve to either:
 
-1. an OpenAI-compatible provider in `openbuff.json`, or
-2. an optional direct ChatGPT/Codex OAuth route for supported OpenAI models.
+1. an OpenAI-compatible or Anthropic-compatible provider in `openbuff.json`, or
+2. a configured ChatGPT/Codex OAuth provider for supported OpenAI models.
 
 To maintain seamless compatibility, all existing technical compatibility aliases remain fully supported and explained below.
 
@@ -41,19 +41,24 @@ The quickest setup path is the built-in preset command:
 ```text
 /setup opencode-go
 /setup openai
+/setup anthropic
 /setup codex
 /setup openrouter
 /setup ollama
 /setup glm
+/setup bedrock
+/setup freemodel
 ```
 
-Use `/provider` to inspect the loaded config and missing environment variables.
-Use `/models` to inspect mode-to-agent-to-model routing.
+Use `/provider status` to inspect the loaded config and missing environment variables.
+Use `/models` to open the model routing picker.
 
 For guided setup/configuration inside the TUI:
 
 ```text
+/provider
 /provider add
+/provider status
 /provider connect codex
 /provider disconnect codex
 /models configure
@@ -63,8 +68,9 @@ For guided setup/configuration inside the TUI:
 /models set editor-selector codex/gpt-5.5
 ```
 
-Openbuff supports OpenAI-compatible providers and a first-class
-`chatgpt-oauth` provider for a ChatGPT/Codex subscription:
+Openbuff supports OpenAI-compatible providers, Anthropic-compatible Claude
+Messages API providers, and a first-class `chatgpt-oauth` provider for a
+ChatGPT/Codex subscription:
 
 ```json
 {
@@ -108,6 +114,12 @@ Openbuff supports OpenAI-compatible providers and a first-class
       "baseURL": "https://api.z.ai/api/paas/v4",
       "apiKeyEnv": "ZAI_API_KEY",
       "models": ["glm-4.6"]
+    },
+    "anthropic": {
+      "type": "anthropic-compatible",
+      "baseURL": "https://api.anthropic.com",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "models": ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5"]
     },
     "codex": {
       "type": "chatgpt-oauth",

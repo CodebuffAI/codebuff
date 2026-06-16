@@ -331,6 +331,23 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       }
+    },
+    "bluesminds": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.bluesminds.com/v1",
+      "apiKeyEnv": "BLUESMINDS_API_KEY",
+      "models": [
+        "gpt-5.5"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
     }
   }
 }

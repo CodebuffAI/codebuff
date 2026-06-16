@@ -126,8 +126,8 @@ export interface ModelResult {
  * Get the appropriate model for a request.
  *
  * Resolves the requested agent model through openbuff.json, then routes to a
- * matching OpenAI-compatible provider. If configured, ChatGPT OAuth can still
- * serve allowlisted OpenAI models directly. There is no Codebuff backend
+ * matching OpenAI-compatible or Anthropic-compatible provider. If configured,
+ * ChatGPT OAuth can still serve allowlisted OpenAI models directly. There is no Codebuff backend
  * inference fallback in Openbuff.
  *
  * This function is async because it may need to refresh the OAuth token.

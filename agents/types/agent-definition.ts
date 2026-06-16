@@ -1,7 +1,7 @@
 /**
- * Codebuff Agent Type Definitions
+ * Openbuff Agent Type Definitions
  *
- * This file provides TypeScript type definitions for creating custom Codebuff agents.
+ * This file provides TypeScript type definitions for creating custom Openbuff agents.
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage in .agents/your-agent.ts:
@@ -130,7 +130,7 @@ export interface AgentDefinition {
 
   /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
    *
-   * Use the fully qualified agent id from the agent store, including publisher and version: 'codebuff/file-picker@0.0.1'
+   * Use the fully qualified agent id from the agent store, including publisher and version. The built-in Openbuff agents currently use the legacy 'codebuff' publisher namespace, for example: 'codebuff/file-picker@0.0.1'
    * (publisher and version are required!)
    *
    * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.

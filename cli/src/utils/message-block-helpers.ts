@@ -122,6 +122,86 @@ export interface SpawnAgentResultContent {
   hasError: boolean
 }
 
+type UnknownRecord = Record<string, unknown>
+
+const isRecordValue = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const getStringField = (
+  obj: UnknownRecord,
+  field: string,
+): string | undefined =>
+  typeof obj[field] === 'string' ? obj[field] : undefined
+
+const formatBrowserUseStructuredOutput = (
+  value: UnknownRecord,
+): string | undefined => {
+  if (value.outputKind !== 'browser-use') {
+    return undefined
+  }
+
+  const status = getStringField(value, 'overallStatus')
+  const summary = getStringField(value, 'summary')
+  const results = Array.isArray(value.results) ? value.results : undefined
+
+  if (!status || !summary || !results) {
+    return undefined
+  }
+
+  const lines = [`Browser test ${status}: ${summary}`]
+
+  const finalUrl = getStringField(value, 'finalUrl')
+  const finalPageTitle = getStringField(value, 'finalPageTitle')
+  if (finalUrl || finalPageTitle) {
+    const finalState = [finalPageTitle, finalUrl].filter(Boolean).join(' — ')
+    lines.push('', `Final: ${finalState}`)
+  }
+
+  if (results.length > 0) {
+    lines.push('', 'Results:')
+    for (const item of results) {
+      if (!isRecordValue(item)) continue
+      const name = getStringField(item, 'name') ?? 'Unnamed step'
+      const passed = item.passed === false ? '✗' : '✓'
+      const details = getStringField(item, 'details')
+      const url = getStringField(item, 'url')
+      const mediaFlags = [
+        item.screenshotAttached === true ? 'screenshot attached' : undefined,
+        item.pdfAttached === true ? 'PDF generated' : undefined,
+        item.recordingAttached === true ? 'recording attached' : undefined,
+      ].filter(Boolean)
+      const suffixParts = [url, ...mediaFlags]
+      const suffix = suffixParts.length > 0 ? ` (${suffixParts.join('; ')})` : ''
+      lines.push(`- ${passed} ${name}${suffix}${details ? ` — ${details}` : ''}`)
+    }
+  }
+
+  const consoleErrors = Array.isArray(value.consoleErrors)
+    ? value.consoleErrors
+    : []
+  if (consoleErrors.length > 0) {
+    lines.push('', 'Console/runtime issues:')
+    for (const item of consoleErrors) {
+      if (!isRecordValue(item)) continue
+      const message = getStringField(item, 'message')
+      const url = getStringField(item, 'url')
+      if (message) lines.push(`- ${message}${url ? ` (${url})` : ''}`)
+    }
+  }
+
+  const lessons = Array.isArray(value.lessons) ? value.lessons : []
+  if (lessons.length > 0) {
+    lines.push('', 'Notes:')
+    for (const lesson of lessons) {
+      if (typeof lesson === 'string' && lesson.trim()) {
+        lines.push(`- ${lesson}`)
+      }
+    }
+  }
+
+  return lines.join('\n')
+}
+
 /**
  * Extracts text content from a Message object's content array.
  * Handles assistant messages with TextPart content.
@@ -131,8 +211,10 @@ const extractTextFromMessageContent = (content: unknown): string => {
     return ''
   }
   return content
-    .filter((part: any) => part?.type === 'text' && typeof part?.text === 'string')
-    .map((part: any) => part.text)
+    .filter((part): part is { text: string } =>
+      isRecordValue(part) && part.type === 'text' && typeof part.text === 'string',
+    )
+    .map((part) => part.text)
     .join('')
 }
 
@@ -153,11 +235,11 @@ export const extractSpawnAgentResultContent = (
     return { content: resultValue, hasError: false }
   }
 
-  if (typeof resultValue !== 'object') {
+  if (!isRecordValue(resultValue)) {
     return { content: '', hasError: false }
   }
 
-  const obj = resultValue as Record<string, unknown>
+  const obj = resultValue
 
   // Handle empty object
   if (Object.keys(obj).length === 0) {
@@ -177,16 +259,18 @@ export const extractSpawnAgentResultContent = (
       : JSON.stringify(obj, null, 2)
     return { content: message, hasError: true }
   }
-  if ((obj.value as any)?.errorMessage) {
-    return { content: String((obj.value as any).errorMessage), hasError: true }
+
+  const nestedValue = isRecordValue(obj.value) ? obj.value : undefined
+  if (nestedValue?.errorMessage) {
+    return { content: String(nestedValue.errorMessage), hasError: true }
   }
-  if ((obj.value as any)?.error) {
-    return { content: String((obj.value as any).error), hasError: true }
+  if (nestedValue?.error) {
+    return { content: String(nestedValue.error), hasError: true }
   }
-  if ((obj.value as any)?.type === 'error') {
-    const message = typeof (obj.value as any).message === 'string'
-      ? (obj.value as any).message
-      : JSON.stringify(obj.value, null, 2)
+  if (nestedValue?.type === 'error') {
+    const message = typeof nestedValue.message === 'string'
+      ? nestedValue.message
+      : JSON.stringify(nestedValue, null, 2)
     return { content: message, hasError: true }
   }
 
@@ -206,23 +290,23 @@ export const extractSpawnAgentResultContent = (
   if (obj.type === 'structuredOutput') {
     const value = obj.value
     // Check for message field in structured output
-    if (value && typeof value === 'object') {
-      const valueObj = value as Record<string, unknown>
-      if (typeof valueObj.message === 'string') {
-        return { content: valueObj.message, hasError: false }
+    if (isRecordValue(value)) {
+      const browserUseSummary = formatBrowserUseStructuredOutput(value)
+      if (browserUseSummary) {
+        return { content: browserUseSummary, hasError: false }
       }
-      if (typeof valueObj.errorMessage === 'string') {
-        return { content: valueObj.errorMessage, hasError: true }
+      if (typeof value.message === 'string') {
+        return { content: value.message, hasError: false }
       }
-      if (typeof valueObj.error === 'string') {
-        return { content: valueObj.error, hasError: true }
+      if (typeof value.errorMessage === 'string') {
+        return { content: value.errorMessage, hasError: true }
+      }
+      if (typeof value.error === 'string') {
+        return { content: value.error, hasError: true }
       }
       // Check for data.message pattern
-      if (valueObj.data && typeof valueObj.data === 'object') {
-        const dataObj = valueObj.data as Record<string, unknown>
-        if (typeof dataObj.message === 'string') {
-          return { content: dataObj.message, hasError: false }
-        }
+      if (isRecordValue(value.data) && typeof value.data.message === 'string') {
+        return { content: value.data.message, hasError: false }
       }
     }
     // Fall through to format as JSON
@@ -241,8 +325,8 @@ export const extractSpawnAgentResultContent = (
   if (obj.message) {
     return { content: String(obj.message), hasError: false }
   }
-  if ((obj.value as any)?.message) {
-    return { content: String((obj.value as any).message), hasError: false }
+  if (nestedValue?.message) {
+    return { content: String(nestedValue.message), hasError: false }
   }
 
   // Fallback to formatted output

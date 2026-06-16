@@ -1113,8 +1113,11 @@ describe('model-provider', () => {
 
     test('supports built-in mode routing and provider presets', () => {
       const opencodeConfig = createProviderPresetConfig('opencode-go')
+      const anthropicConfig = createProviderPresetConfig('anthropic')
 
       expect(OPENBUFF_PROVIDER_PRESETS['opencode-go'].label).toBe('OpenCode Go')
+      expect(OPENBUFF_PROVIDER_PRESETS.anthropic.label).toBe('Anthropic API')
+      expect(anthropicConfig.providers.anthropic?.type).toBe('anthropic-compatible')
       expect(
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',

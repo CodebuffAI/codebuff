@@ -36,7 +36,7 @@ Tools represent the capabilities given to agents to interact with your system.
 
 `query_index` queries the local codebase graph index. It is intended for retrieval-led context gathering before reading or editing files.
 
-The index tracks file paths, extensions, symbols, imports, markdown headings, documentation concepts, and graph relationships between files/symbols/imports/calls/headings/concepts. Results are discovery hints: always verify returned files with `read_files` or `read_subtree` before editing.
+The index tracks file paths, extensions, symbols, imports, markdown headings, documentation concepts, package scripts, CI workflow commands, task-runner files, and graph relationships between files/symbols/imports/calls/headings/concepts. Results are discovery hints: always verify returned files with `read_files` or `read_subtree` before editing.
 
 Supported modes:
 
@@ -44,6 +44,7 @@ Supported modes:
 - `explain` — ranked search plus an `explanation` for why each file matched.
 - `neighbors` — graph-adjacent files for a `from` path, or neighbors around files matching `query`.
 - `path` — shortest graph path between `from` and `to`, or a graph path inferred from `query` matches.
+- `commands` — command-discovery search that prioritizes package manifests, CI workflows, task runners, and testing/contributing docs; useful for prompts like “run the broader validation suite”.
 
 Examples:
 
@@ -52,6 +53,7 @@ Examples:
 { "query": "editor proposal logic", "mode": "explain", "fileTypes": ["ts"] }
 { "mode": "neighbors", "from": "packages/indexer/src/query.ts", "limit": 8 }
 { "mode": "path", "from": "packages/indexer/src/metadata-indexer.ts", "to": "packages/indexer/src/query.ts" }
+{ "query": "broader validation suite", "mode": "commands" }
 ```
 
 Results may include `relatedFiles`, each with a relationship reason and optional `via` symbol/import/concept. Use those related files to expand context around likely entry points.

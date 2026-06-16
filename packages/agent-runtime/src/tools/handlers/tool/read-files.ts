@@ -58,9 +58,14 @@ export const handleReadFiles = (async (
     ranges,
   })
 
+  const requestedReadCount = new Set([
+    ...paths,
+    ...(ranges ?? []).map((range) => range.path),
+  ]).size
   const fileResults = renderReadFilesResult(
     addedFiles,
     fileContext.tokenCallers ?? {},
+    requestedReadCount,
   )
 
   // Symbol slices: pull just the named symbols' implementations (same

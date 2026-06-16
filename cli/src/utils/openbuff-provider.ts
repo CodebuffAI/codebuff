@@ -328,7 +328,7 @@ export function formatOpenbuffProviderStatus(): string {
   const codexStatus = getChatGptOAuthStatus()
   const presetList = Object.values(OPENBUFF_PROVIDER_PRESETS)
     .map((preset) => `- ${preset.id}: ${preset.description}`)
-    .join('\\n')
+    .join('\n')
 
   return [
     'Openbuff provider status',
@@ -340,7 +340,7 @@ export function formatOpenbuffProviderStatus(): string {
     presetList,
     '',
     'Use `/setup` (without args) or `/provider add` for the interactive wizard, `/provider connect codex` for Codex OAuth, or `/setup <preset>` for a preset.',
-  ].join('\\n')
+  ].join('\n')
 }
 
 function getRelativeConfigPath(filePath: string): string {
@@ -412,7 +412,7 @@ export function formatOpenbuffModelStatus(): string {
   lines.push('')
   lines.push('Tip: Run `/models configure` to configure routing interactively in a graphical menu, or `/models set default <model-id>` to quickly route your defaults.')
 
-  return lines.join('\\n')
+  return lines.join('\n')
 }
 
 export function writeMergedConfig(config: ProviderConfigFileInput): string {
@@ -723,13 +723,39 @@ export function setupOpenbuffProviderFromArgs(args: string): string {
     .join('\n')
 }
 
+type CustomOpenbuffProviderType = 'openai-compatible' | 'anthropic-compatible'
+
+function parseCustomOpenbuffProviderType(
+  value: string,
+): CustomOpenbuffProviderType | null {
+  const normalized = value.trim().toLowerCase()
+  if (
+    normalized === '1' ||
+    normalized === 'openai' ||
+    normalized === 'openai-compatible'
+  ) {
+    return 'openai-compatible'
+  }
+  if (
+    normalized === '2' ||
+    normalized === 'anthropic' ||
+    normalized === 'anthropic-compatible' ||
+    normalized === 'claude'
+  ) {
+    return 'anthropic-compatible'
+  }
+  return null
+}
+
 export function addCustomOpenbuffProvider(provider: {
   id: string
+  type: CustomOpenbuffProviderType
   baseURL: string
   apiKeyEnv?: string
   models: string[]
 }): string {
   const id = provider.id.trim()
+  const type = provider.type
   const baseURL = provider.baseURL.trim()
   const apiKeyEnv = provider.apiKeyEnv?.trim()
   const models = provider.models.map((model) => model.trim()).filter(Boolean)
@@ -747,7 +773,7 @@ export function addCustomOpenbuffProvider(provider: {
   const config: ProviderConfigFileInput = {
     providers: {
       [id]: {
-        type: 'openai-compatible',
+        type,
         baseURL,
         ...(apiKeyEnv ? { apiKeyEnv } : {}),
         models,
@@ -762,7 +788,7 @@ export function addCustomOpenbuffProvider(provider: {
   return [
     `Wrote ${configPath}`,
     '',
-    `Custom provider '${id}' added.`,
+    `Custom ${type} provider '${id}' added.`,
     'Run `/models configure` to route a mode or agent to it.',
   ].join('\n')
 }
@@ -772,7 +798,7 @@ function providerPresetMenu(): string {
   return [
     'Choose a provider to add:',
     ...presets.map((preset, index) => `${index + 1}. ${preset.label} (${preset.id})`),
-    `${presets.length + 1}. Custom OpenAI-compatible provider`,
+    `${presets.length + 1}. Custom OpenAI/Anthropic-compatible provider`,
     '',
     'Type a number or preset id. Press Escape to cancel.',
   ].join('\n')
@@ -781,9 +807,21 @@ function providerPresetMenu(): string {
 type ProviderWizardState =
   | { step: 'provider' }
   | { step: 'custom-id' }
-  | { step: 'custom-base-url'; id: string }
-  | { step: 'custom-api-key-env'; id: string; baseURL: string }
-  | { step: 'custom-models'; id: string; baseURL: string; apiKeyEnv?: string }
+  | { step: 'custom-type'; id: string }
+  | { step: 'custom-base-url'; id: string; type: CustomOpenbuffProviderType }
+  | {
+      step: 'custom-api-key-env'
+      id: string
+      type: CustomOpenbuffProviderType
+      baseURL: string
+    }
+  | {
+      step: 'custom-models'
+      id: string
+      type: CustomOpenbuffProviderType
+      baseURL: string
+      apiKeyEnv?: string
+    }
 
 let providerWizardState: ProviderWizardState | null = null
 
@@ -852,7 +890,7 @@ export function handleOpenbuffProviderWizardInput(input: string): {
       return {
         done: false,
         message:
-          'Custom provider id? Use a short id such as `zai`, `local`, or `my-provider`.',
+          'Custom provider id? Use a short id such as `zai`, `anthropic`, `local`, or `my-provider`.',
       }
     }
 
@@ -863,17 +901,55 @@ export function handleOpenbuffProviderWizardInput(input: string): {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(value)) {
       return { done: false, message: 'Use letters, numbers, dashes, or underscores.' }
     }
-    providerWizardState = { step: 'custom-base-url', id: value }
+    providerWizardState = { step: 'custom-type', id: value }
     return {
       done: false,
-      message: 'Base URL? Example: https://api.example.com/v1 or http://localhost:11434/v1',
+      message:
+        'Provider type? Type `openai-compatible` for /v1/chat/completions endpoints, or `anthropic-compatible` for Claude Messages API endpoints.',
+    }
+  }
+
+  if (providerWizardState.step === 'custom-type') {
+    const type = parseCustomOpenbuffProviderType(value)
+    if (!type) {
+      return {
+        done: false,
+        message:
+          'Use `openai-compatible` or `anthropic-compatible` (aliases: openai, anthropic, claude).',
+      }
+    }
+    providerWizardState = { step: 'custom-base-url', id: providerWizardState.id, type }
+    return {
+      done: false,
+      message:
+        type === 'anthropic-compatible'
+          ? 'Base URL? Example: https://api.anthropic.com or https://cc.freemodel.dev'
+          : 'Base URL? Example: https://api.example.com/v1 or http://localhost:11434/v1',
     }
   }
 
   if (providerWizardState.step === 'custom-base-url') {
+    if (!value) {
+      return { done: false, message: 'Provider base URL is required.' }
+    }
+
+    try {
+      const url = new URL(value)
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return { done: false, message: 'Base URL must use http or https.' }
+      }
+    } catch {
+      return {
+        done: false,
+        message:
+          'Enter a valid base URL such as https://api.example.com/v1 or http://localhost:11434/v1.',
+      }
+    }
+
     providerWizardState = {
       step: 'custom-api-key-env',
       id: providerWizardState.id,
+      type: providerWizardState.type,
       baseURL: value,
     }
     return {
@@ -884,15 +960,28 @@ export function handleOpenbuffProviderWizardInput(input: string): {
   }
 
   if (providerWizardState.step === 'custom-api-key-env') {
+    const apiKeyEnv = value.toLowerCase() === 'none' ? undefined : value
+    if (apiKeyEnv && !/^[A-Z_][A-Z0-9_]*$/.test(apiKeyEnv)) {
+      return {
+        done: false,
+        message:
+          'Use an environment variable name like MY_PROVIDER_API_KEY, or type `none` for a local unauthenticated provider.',
+      }
+    }
+
     providerWizardState = {
       step: 'custom-models',
       id: providerWizardState.id,
+      type: providerWizardState.type,
       baseURL: providerWizardState.baseURL,
-      apiKeyEnv: value.toLowerCase() === 'none' ? undefined : value,
+      apiKeyEnv,
     }
     return {
       done: false,
-      message: 'Model ids? Enter comma-separated model names, e.g. qwen-coder,glm-4.6',
+      message:
+        providerWizardState.type === 'anthropic-compatible'
+          ? 'Model ids? Enter comma-separated Claude model names, e.g. claude-sonnet-4-5,claude-opus-4-5'
+          : 'Model ids? Enter comma-separated model names, e.g. qwen-coder,glm-4.6',
     }
   }
 
@@ -904,19 +993,26 @@ export function handleOpenbuffProviderWizardInput(input: string): {
     return { done: false, message: 'Enter at least one model id.' }
   }
 
-  const configMessage = addCustomOpenbuffProvider({
-    id: providerWizardState.id,
-    baseURL: providerWizardState.baseURL,
-    apiKeyEnv: providerWizardState.apiKeyEnv,
-    models,
-  })
-  providerWizardState = null
-  return {
-    done: true,
-    message: configMessage,
+  try {
+    const configMessage = addCustomOpenbuffProvider({
+      id: providerWizardState.id,
+      type: providerWizardState.type,
+      baseURL: providerWizardState.baseURL,
+      apiKeyEnv: providerWizardState.apiKeyEnv,
+      models,
+    })
+    providerWizardState = null
+    return {
+      done: true,
+      message: configMessage,
+    }
+  } catch (error) {
+    return {
+      done: false,
+      message: `Failed to add custom provider: ${error instanceof Error ? error.message : String(error)}`,
+    }
   }
 }
-
 export function handleOpenbuffModelsWizardInput(input: string): {
   done: boolean
   message: string
@@ -1057,7 +1153,7 @@ export async function handleOpenbuffProviderCommand(args: string): Promise<{
 }> {
   const parts = args.trim().split(/\s+/).filter(Boolean)
   const [command, ...rest] = parts
-  if (!command) {
+  if (!command || command === 'status' || command === 'info') {
     return { message: formatOpenbuffProviderStatus() }
   }
 
@@ -1182,6 +1278,7 @@ export async function handleOpenbuffProviderCommand(args: string): Promise<{
       formatOpenbuffProviderStatus(),
       '',
       'Commands:',
+      '- /provider status',
       '- /provider add',
       '- /provider add <preset>',
       '- /provider remove <provider-id>',
@@ -1209,7 +1306,7 @@ export function getOpenbuffProviderReadiness(params: {
     return {
       ok: false,
       message:
-        'Openbuff provider is not configured. Run `/setup opencode-go`, `/setup openai`, `/setup openrouter`, `/setup ollama`, or `/provider` for details.',
+        'Openbuff provider is not configured. Run `/setup opencode-go`, `/setup openai`, `/setup anthropic`, `/setup openrouter`, `/setup ollama`, or `/provider` for details.',
     }
   }
 

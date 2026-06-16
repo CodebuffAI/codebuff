@@ -30,11 +30,11 @@ const inputSchema = z
         `Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only.`,
       ),
     mode: z
-      .enum(['search', 'neighbors', 'path', 'explain'])
+      .enum(['search', 'neighbors', 'path', 'explain', 'commands'])
       .optional()
       .default('search')
       .describe(
-        'Graph query mode. search returns ranked files, neighbors returns adjacent graph files, path returns a graph path between files, and explain includes ranking rationale.',
+        'Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, and commands prioritizes package scripts, CI workflows, task runners, and validation docs.',
       ),
     from: z
       .string()
@@ -81,6 +81,7 @@ The index tracks:
 - Exported/defined symbol names (functions, classes, types, constants)
 - Import paths and dependencies
 - Markdown headings and doc concepts (for .md/.mdx files)
+- Package scripts, CI workflow commands, task-runner files, and command/config concepts
 - Graph edges between files, symbols, imports, calls, headings, and concepts
 
 Query tips:
@@ -88,6 +89,7 @@ Query tips:
 - Use camelCase or PascalCase terms to find symbols: "createUser", "AuthProvider"
 - Combine concept + type: "editor agent typescript", "test utilities"
 - For docs: use topic keywords that would appear in headings: "quick start", "provider configuration"
+- For project commands or validation suites, use mode: "commands" or queries like "run validation suite" to prioritize package.json, CI, and testing docs
 
 Important:
 - If the index is not yet built (first run), results may be empty — fall back to read_subtree
@@ -112,6 +114,12 @@ ${$getNativeToolCallExampleString({
   input: { query: 'React components layout', fileTypes: ['tsx', 'ts'] },
   endsAgentStep,
 })}
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: { query: 'broader validation suite', mode: 'commands' },
+  endsAgentStep,
+})}
 `.trim()
 
 export const queryIndexParams = {
@@ -128,6 +136,7 @@ export const queryIndexParams = {
           matchedOn: z.array(z.string()),
           symbols: z.array(z.string()).optional(),
           headings: z.array(z.string()).optional(),
+          matchedSnippets: z.array(z.string()).optional(),
           relatedFiles: z
             .array(
               z.object({

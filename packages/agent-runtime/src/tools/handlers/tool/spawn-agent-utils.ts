@@ -9,6 +9,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { getProposalLedger } from './proposal-ledger-store'
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
+import { formatValidationIssues } from '../../../util/format-validation-issues'
 import { formatValueForError } from '../../../util/format-value'
 import {
   filterUnfinishedToolCalls,
@@ -420,7 +421,7 @@ export function validateAgentInput(
     const result = inputSchema.prompt.safeParse(prompt ?? '')
     if (!result.success) {
       throw new Error(
-        `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}\n\nOriginal prompt value:\n${formatValueForError(prompt ?? '')}`,
+        `Invalid prompt for agent ${agentType}: ${formatValidationIssues({ issues: result.error.issues })}\n\nOriginal prompt value:\n${formatValueForError(prompt ?? '')}`,
       )
     }
   }
@@ -430,7 +431,7 @@ export function validateAgentInput(
     const result = inputSchema.params.safeParse(params ?? {})
     if (!result.success) {
       throw new Error(
-        `Invalid params for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
+        `Invalid params for agent ${agentType}: ${formatValidationIssues({ issues: result.error.issues })}\n\nOriginal params value:\n${formatValueForError(params ?? {})}`,
       )
     }
   }

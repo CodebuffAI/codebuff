@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Openbuff is an independent, local-first, and Bring Your Own Key (BYOK) fork of Codebuff. It is a TypeScript monorepo (Bun workspaces) that provides an AI-powered coding assistant via a CLI and SDK. Openbuff is designed to run entirely on the user's local machine, routing all LLM inference to user-configured OpenAI-compatible providers with no hosted backend, subscription, or credit requirements.
+Openbuff is an independent, local-first, and Bring Your Own Key (BYOK) fork of Codebuff. It is a TypeScript monorepo (Bun workspaces) that provides an AI-powered coding assistant via a CLI and SDK. Openbuff is designed to run entirely on the user's local machine, routing all LLM inference to user-configured OpenAI-compatible or Anthropic-compatible providers with no hosted backend, subscription, or credit requirements.
 
 ## Monorepo Package Structure
 
@@ -53,7 +53,7 @@ The public SDK used by the CLI and available to external users via `@codebuff/sd
 - **Key responsibilities:**
   - Orchestrates agent runs: initializes local session state, registers tool handlers, calls `callMainPrompt()`.
   - **Executes tool calls locally** on the user's machine (file edits, terminal commands, code search).
-  - Manages model provider routing dynamically: reads `openbuff.json` (or the legacy compatibility alias `codebuff.json`) to select and invoke user-configured OpenAI-compatible APIs (OpenAI, OpenRouter, Ollama, GLM, etc.) or ChatGPT OAuth directly from the client.
+  - Manages model provider routing dynamically: reads `openbuff.json` (or the legacy compatibility alias `codebuff.json`) to select and invoke user-configured OpenAI-compatible APIs (OpenAI, OpenRouter, Ollama, GLM, etc.), Anthropic-compatible Claude APIs, or ChatGPT OAuth directly from the client.
 - **Depends on:** `agent-runtime`, `common`, `internal` (for OpenAI-compatible provider)
 
 ### `packages/agent-runtime/` — Agent Execution Engine

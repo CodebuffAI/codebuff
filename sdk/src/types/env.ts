@@ -18,6 +18,8 @@ export type SdkEnv = BaseEnv & {
   // SDK-specific paths
   CODEBUFF_RG_PATH?: string
   CODEBUFF_WASM_DIR?: string
+  CHROME_PATH?: string
+  CHROMIUM_PATH?: string
   PATH?: string
 
   // Build flags

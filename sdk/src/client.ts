@@ -21,7 +21,7 @@ export class CodebuffClient {
     const foundApiKey = options.apiKey
     if (!foundApiKey && !localMode) {
       throw new Error(
-        'Openbuff runs in local/BYOK mode. Enable localMode or configure an OpenAI-compatible provider in openbuff.json.',
+        'Openbuff runs in local/BYOK mode. Configure an OpenAI-compatible or Anthropic-compatible provider in openbuff.json.',
       )
     }
 

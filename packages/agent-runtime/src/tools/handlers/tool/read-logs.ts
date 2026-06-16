@@ -22,6 +22,7 @@ export const handleReadLogs = (async ({
     toolCallId: toolCall.toolCallId,
     input: {
       path: toolCall.input.path,
+      jobId: toolCall.input.jobId,
       lines: toolCall.input.lines,
       max_chars: toolCall.input.max_chars,
     },
