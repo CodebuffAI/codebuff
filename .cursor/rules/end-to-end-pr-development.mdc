@@ -14,7 +14,7 @@ Use this workflow for complex UI changes, backend changes, deployment-sensitive 
 - Axiom manages production logs for the Next.js server. Use the repo log scripts and the Axiom query token from env when production behavior needs diagnosis.
 - Convex manages Freebuff Web production backend logs. Use Convex logs for backend runtime errors and operational warnings.
 - GitHub Actions manages deployment status and required checks. Monitor checks actively after merging or pushing deploy fixes.
-- If Convex APIs changed, regenerate types with Convex before typechecking. Prefer `bun x convex dev --once` from the relevant Convex app directory.
+- If Convex APIs changed, regenerate types before typechecking with `bun x convex dev --once` from the relevant Convex app directory. In non-interactive agent terminals, never use `convex dev`, `npx convex dev`, or `bun x convex dev` without `--once`, and never hand-edit `src/convex/_generated/*` files to fake a clean typecheck.
 
 ## Development Loop
 
