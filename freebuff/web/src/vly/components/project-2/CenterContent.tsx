@@ -19,6 +19,7 @@ import { useProjectConnection } from "@/vly/hooks/useProjectConnection";
 import { toast } from "sonner";
 import { useSignedInUser } from "@/vly/hooks/use-user";
 import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
+import { GravityAdSlot } from "./agent-chat/GravityAdSlot";
 import {
   Tooltip,
   TooltipContent,
@@ -68,6 +69,8 @@ type PreviewConnectionStatus =
   | "restarting";
 
 const MAX_AUTO_SCREENSHOT_FAILURES = 3;
+const GRAVITY_FAVICON_URL =
+  "https://www.google.com/s2/favicons?domain=trygravity.ai&sz=64";
 
 const connectionStatusMeta: Record<
   PreviewConnectionStatus,
@@ -824,172 +827,201 @@ export function CenterContent({
               in new tab" + bottom Chat tab cover navigation needs. --- */}
         <TooltipProvider delayDuration={200}>
           <div
-            className="hidden w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 lg:flex"
+            className="hidden w-full min-w-[220px] flex-col overflow-hidden rounded-lg border border-border bg-card px-2 py-1 lg:flex"
             style={{ minHeight: 32 }}
           >
-            <div className="flex items-center gap-0.5">
-              <ToolbarTooltip label="Back">
-                <button
-                  onClick={handleBack}
-                  disabled={!canGoBack}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Back"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M10 13L5 8L10 3"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-              </ToolbarTooltip>
-              <ToolbarTooltip label="Forward">
-                <button
-                  onClick={handleForward}
-                  disabled={!canGoForward}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Forward"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M6 13L11 8L6 3"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-              </ToolbarTooltip>
-              <ToolbarTooltip label="Refresh preview">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRefresh();
-                  }}
-                  disabled={!navState.iframeSrc}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Refresh"
-                >
-                  <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </button>
-              </ToolbarTooltip>
-            </div>
-            <span
-              className="flex-1 select-text truncate px-2 font-mono text-[11px] text-muted-foreground"
-              style={{ letterSpacing: 0.2 }}
-            >
-              {navState.stack[navState.index] || (
-                <span className="opacity-40">/</span>
-              )}
-            </span>
-            <div className="flex items-center gap-0.5">
-              <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>
-                <div
-                  className="relative flex h-7 w-7 items-center justify-center rounded-md"
-                  aria-label={`Connection status: ${connectionStatusInfo.label}`}
-                  role="status"
-                >
-                  {connectionStatusInfo.pingClassName && (
-                    <span
-                      className={`absolute h-2.5 w-2.5 rounded-full ${connectionStatusInfo.pingClassName} animate-ping`}
-                    />
-                  )}
-                  <span
-                    className={`relative h-2.5 w-2.5 rounded-full ${connectionStatusInfo.dotClassName}`}
-                  />
-                </div>
-              </ToolbarTooltip>
-              <ToolbarTooltip
-                label={
-                  isRestarting
-                    ? "Restarting computer…"
-                    : "Restart computer"
-                }
+            <GravityAdSlot
+              messages={[
+                {
+                  role: "user",
+                  content: `Previewing ${project?.name || project?.semantic_identifier || "a project"} in Freebuff Web`,
+                },
+              ]}
+              sessionId={`${project?.semantic_identifier ?? projectId ?? "project"}-above-iframe`}
+              slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
+              placement="above-iframe"
+              variant="nav"
+              className="mb-1 w-full"
+              fallbackAd={{
+                adText:
+                  "Contextual monetization for AI apps and assistant workflows.",
+                title: "Monetize your AI app with Gravity",
+                cta: "Start monetizing",
+                brandName: "Gravity",
+                url: "https://trygravity.ai",
+                favicon: GRAVITY_FAVICON_URL,
+                impUrl: "",
+                clickUrl:
+                  "https://trygravity.ai?utm_source=freebuff_web&utm_medium=above_iframe_house_ad&utm_campaign=Above-iFrame",
+                placementId: "Above-iFrame",
+                provider: "gravity",
+              }}
+            />
+            <div className="flex w-full items-center gap-1">
+              <div className="flex items-center gap-0.5">
+                <ToolbarTooltip label="Back">
+                  <button
+                    onClick={handleBack}
+                    disabled={!canGoBack}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Back"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M10 13L5 8L10 3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </ToolbarTooltip>
+                <ToolbarTooltip label="Forward">
+                  <button
+                    onClick={handleForward}
+                    disabled={!canGoForward}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Forward"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M6 13L11 8L6 3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </ToolbarTooltip>
+                <ToolbarTooltip label="Refresh preview">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRefresh();
+                    }}
+                    disabled={!navState.iframeSrc}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Refresh"
+                  >
+                    <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                </ToolbarTooltip>
+              </div>
+              <span
+                className="flex-1 select-text truncate px-2 font-mono text-[11px] text-muted-foreground"
+                style={{ letterSpacing: 0.2 }}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRestartDevServer();
-                  }}
-                  disabled={!project || isRestarting}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label={
-                    isRestarting ? "Restarting computer" : "Restart computer"
-                  }
-                >
-                  <MonitorCog
-                    className={`h-4 w-4 ${isRestarting ? "animate-pulse" : ""}`}
-                    strokeWidth={1.5}
-                  />
-                </button>
-              </ToolbarTooltip>
-              {isGodMode && (
+                {navState.stack[navState.index] || (
+                  <span className="opacity-40">/</span>
+                )}
+              </span>
+              <div className="flex items-center gap-0.5">
+                <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>
+                  <div
+                    className="relative flex h-7 w-7 items-center justify-center rounded-md"
+                    aria-label={`Connection status: ${connectionStatusInfo.label}`}
+                    role="status"
+                  >
+                    {connectionStatusInfo.pingClassName && (
+                      <span
+                        className={`absolute h-2.5 w-2.5 rounded-full ${connectionStatusInfo.pingClassName} animate-ping`}
+                      />
+                    )}
+                    <span
+                      className={`relative h-2.5 w-2.5 rounded-full ${connectionStatusInfo.dotClassName}`}
+                    />
+                  </div>
+                </ToolbarTooltip>
                 <ToolbarTooltip
                   label={
-                    isScreenshotUnsupported
-                      ? "Screenshots unsupported (oklch CSS colors)"
-                      : "Capture screenshot (admin)"
+                    isRestarting
+                      ? "Restarting computer…"
+                      : "Restart computer"
                   }
                 >
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      startScreenshotCapture({
-                        trigger: "manual",
-                        iframe: iframeRef.current,
-                        projectId,
-                        autoScreenshotLimitReached,
-                        setIsCapturingScreenshot,
-                        screenshotTimeoutRef,
-                        activeScreenshotRequestIdRef,
-                        activeScreenshotTriggerRef,
-                        autoScreenshotFailureCountRef,
-                        setAutoScreenshotLimitReached,
-                      });
+                      handleRestartDevServer();
                     }}
-                    disabled={
-                      isCapturingScreenshot ||
-                      !navState.iframeSrc ||
-                      !projectId ||
-                      isScreenshotUnsupported
+                    disabled={!project || isRestarting}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={
+                      isRestarting ? "Restarting computer" : "Restart computer"
                     }
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-amber-300 transition hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Screenshot"
                   >
-                    <Camera className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    <MonitorCog
+                      className={`h-4 w-4 ${isRestarting ? "animate-pulse" : ""}`}
+                      strokeWidth={1.5}
+                    />
                   </button>
                 </ToolbarTooltip>
-              )}
-              {syncStatus && (
-                <ToolbarTooltip
-                  label={`Open on GitHub: ${syncStatus.repo_owner}/${syncStatus.repo_name}`}
-                >
+                {isGodMode && (
+                  <ToolbarTooltip
+                    label={
+                      isScreenshotUnsupported
+                        ? "Screenshots unsupported (oklch CSS colors)"
+                        : "Capture screenshot (admin)"
+                    }
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startScreenshotCapture({
+                          trigger: "manual",
+                          iframe: iframeRef.current,
+                          projectId,
+                          autoScreenshotLimitReached,
+                          setIsCapturingScreenshot,
+                          screenshotTimeoutRef,
+                          activeScreenshotRequestIdRef,
+                          activeScreenshotTriggerRef,
+                          autoScreenshotFailureCountRef,
+                          setAutoScreenshotLimitReached,
+                        });
+                      }}
+                      disabled={
+                        isCapturingScreenshot ||
+                        !navState.iframeSrc ||
+                        !projectId ||
+                        isScreenshotUnsupported
+                      }
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-amber-300 transition hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Screenshot"
+                    >
+                      <Camera className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    </button>
+                  </ToolbarTooltip>
+                )}
+                {syncStatus && (
+                  <ToolbarTooltip
+                    label={`Open on GitHub: ${syncStatus.repo_owner}/${syncStatus.repo_name}`}
+                  >
+                    <button
+                      onClick={() => {
+                        const url = `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`;
+                        window.open(url, "_blank");
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground"
+                      aria-label="View on GitHub"
+                    >
+                      <Github className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                  </ToolbarTooltip>
+                )}
+                <ToolbarTooltip label="Open preview in new tab">
                   <button
-                    onClick={() => {
-                      const url = `https://github.com/${syncStatus.repo_owner}/${syncStatus.repo_name}`;
-                      window.open(url, "_blank");
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground"
-                    aria-label="View on GitHub"
+                    onClick={handleOpenInNewTab}
+                    disabled={!navState.iframeSrc}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Open in new tab"
                   >
-                    <Github className="h-4 w-4" strokeWidth={1.5} />
+                    <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
                   </button>
                 </ToolbarTooltip>
-              )}
-              <ToolbarTooltip label="Open preview in new tab">
-                <button
-                  onClick={handleOpenInNewTab}
-                  disabled={!navState.iframeSrc}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Open in new tab"
-                >
-                  <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              </ToolbarTooltip>
+              </div>
             </div>
           </div>
         </TooltipProvider>
