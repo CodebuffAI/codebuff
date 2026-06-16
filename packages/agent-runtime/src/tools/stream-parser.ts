@@ -297,6 +297,7 @@ export async function processStream(
           text: chunk.text,
           ancestorRunIds,
           runId,
+          agentId: agentState.agentId,
         })
       } else if (chunk.type === 'text') {
         onResponseChunk(chunk.text)

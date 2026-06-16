@@ -5,10 +5,11 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   ...thinker,
   id: 'thinker-gemini',
+  displayName: 'Thinker',
   model: 'google/gemini-3.1-pro-preview',
   providerOptions: undefined,
   reasoningOptions: {
-    effort: 'low',
+    effort: 'medium',
   },
   outputSchema: undefined,
   outputMode: 'last_message',
