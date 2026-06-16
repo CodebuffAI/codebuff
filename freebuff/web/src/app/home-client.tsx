@@ -434,31 +434,38 @@ export default function HomeClient() {
               Web
             </Link>
             <Link
-              href="/blog"
+              href="/chat"
               className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white text-sm"
+            >
+              Chat
+            </Link>
+            <Link
+              href="/blog"
+              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white text-sm hidden sm:inline-block"
             >
               Blog
             </Link>
+            <span className="mx-1 h-4 w-px bg-zinc-700/60" aria-hidden="true" />
             <Link
               href="https://discord.gg/yXG3w7wxfs"
               target="_blank"
               rel="noopener noreferrer"
-              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
+              aria-label="Discord"
+              className="relative p-2 rounded-md transition-all duration-200 text-zinc-500 hover:text-zinc-300 flex items-center"
             >
               <DiscordIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Discord</span>
             </Link>
             <Link
               href="https://github.com/CodebuffAI/codebuff"
               target="_blank"
               rel="noopener noreferrer"
-              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
+              aria-label="GitHub"
+              className="relative p-2 rounded-md transition-all duration-200 text-zinc-500 hover:text-zinc-300 flex items-center"
               onClick={() =>
                 posthog.capture(AnalyticsEvent.FREEBUFF_HOME_GITHUB_CLICKED)
               }
             >
               <Icons.github className="h-4 w-4" />
-              <span className="hidden sm:inline">GitHub</span>
             </Link>
           </nav>
         </motion.div>
