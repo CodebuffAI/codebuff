@@ -1284,7 +1284,7 @@ const AgentMessageCard: React.FC<{
         </div>
       )}
 
-      {!isStreaming && ads?.['agent-chat-after-assistant'] && (
+      {ads?.['agent-chat-after-assistant'] && (
         <AgentAdMessage
           ad={ads['agent-chat-after-assistant']}
           className="my-5"
