@@ -88,15 +88,18 @@ interface LocalTimeFormatOptions {
   timeZone?: string
 }
 
-/** Smart freebuff models that benefit from spawning the gemini-thinker
- *  subagent for deeper reasoning. Fast models (e.g. MiniMax) skip it because
- *  the extra round-trip would defeat the "fastest" tier. Used by the CLI to
- *  toggle the gemini-thinker spawnable + prompts based on the user's pick,
- *  and by the server to admit gemini-thinker child requests against a parent
- *  session bound to one of these models. */
+/** Full-access freebuff models that benefit from spawning the gemini-thinker
+ *  subagent for deeper reasoning. Covers every full-access picker model except
+ *  the two limited-tier ones (DeepSeek V4 Flash, MiMo 2.5); the legacy
+ *  "Fastest" MiniMax M2.7 also skips it because the extra round-trip would
+ *  defeat that tier. Used by the CLI to toggle the gemini-thinker spawnable +
+ *  prompts based on the user's pick, and by the server to admit gemini-thinker
+ *  child requests against a parent session bound to one of these models. */
 export const FREEBUFF_GEMINI_THINKER_PARENT_MODELS = new Set<string>([
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
 ])
 
 export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
