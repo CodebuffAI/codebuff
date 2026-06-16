@@ -1090,6 +1090,20 @@ const AgentMessageCard: React.FC<{
     () => groupStreamItems(visibleAssistantStream),
     [visibleAssistantStream],
   )
+  const renderedAssistantStreamGroups = useMemo(() => {
+    let lastActivityIndex = -1
+    groupedVisibleAssistantStream.forEach((group, index) => {
+      if (group.kind !== 'text') lastActivityIndex = index
+    })
+
+    return groupedVisibleAssistantStream.filter((group, index) => {
+      if (group.kind !== 'text') return true
+      if (lastActivityIndex === -1) return true
+      // Hide internal progress prose emitted between activity rows. Once the
+      // run finishes, only text after the last activity group is user-facing.
+      return !isStreaming && index > lastActivityIndex
+    })
+  }, [groupedVisibleAssistantStream, isStreaming])
 
   const shouldShowUndo = !!onRollback
 
@@ -1212,7 +1226,7 @@ const AgentMessageCard: React.FC<{
           single collapsed Activity row per consecutive run, Cursor-style. */}
       {hasStream ? (
         <div className="space-y-2">
-          {groupedVisibleAssistantStream.map((group, index) =>
+          {renderedAssistantStreamGroups.map((group, index) =>
             group.kind === 'text' ? (
               <TextGroup
                 key={index}
