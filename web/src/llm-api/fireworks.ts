@@ -41,6 +41,7 @@ export const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'fireworks/deepseek-v4-flash': 'accounts/fireworks/models/deepseek-v4-flash',
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.7': 'accounts/fireworks/models/minimax-m2p7',
+  'minimax/minimax-m3': 'accounts/fireworks/models/minimax-m3',
   'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
 }
@@ -226,6 +227,11 @@ export const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     inputCostPerToken: 0.3 / 1_000_000,
     cachedInputCostPerToken: 0.06 / 1_000_000,
     outputCostPerToken: 1.2 / 1_000_000,
+  },
+  'minimax/minimax-m3': {
+    inputCostPerToken: 0.6 / 1_000_000,
+    cachedInputCostPerToken: 0.12 / 1_000_000,
+    outputCostPerToken: 2.4 / 1_000_000,
   },
   'moonshotai/kimi-k2.6': {
     inputCostPerToken: 0.95 / 1_000_000,
