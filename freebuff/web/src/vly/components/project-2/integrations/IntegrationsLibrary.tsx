@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
-  BookOpen,
   KeyRound,
   LayoutGrid,
   List as ListIcon,
   Loader,
   Search,
-  Sparkles,
   X,
 } from "lucide-react";
 import { Button } from "@/vly/components/ui/button";
@@ -632,142 +630,164 @@ export function IntegrationsLibrary({
               </div>
 
               {/* Body */}
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-                {detail?.install_summary && (
-                  <Section title="Setup">
-                    <p className="rounded-md bg-muted/50 p-3 text-sm">
-                      {detail.install_summary}
-                    </p>
-                  </Section>
-                )}
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
+                  <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                    Start with the setup link, then let Buffy wire the service
+                    into your project.
+                  </p>
+                  <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+                    {tracked?.clickUrl && (
+                      <Button
+                        asChild
+                        size="lg"
+                        variant="default"
+                        className="h-12 min-w-[220px] gap-2 rounded-lg text-sm font-semibold"
+                      >
+                        <a
+                          href={tracked.clickUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                          Get {detailService.name ?? "service"} API key
+                          <ArrowUpRight className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
+                    <Button
+                      size="lg"
+                      disabled={integrating}
+                      className="h-12 min-w-[220px] rounded-lg text-sm font-semibold"
+                      onClick={() => handleIntegrate(detailService)}
+                    >
+                      {integrating ? (
+                        <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Integrate
+                    </Button>
+                  </div>
+                </div>
 
-                {installSteps.length > 0 && (
-                  <Section title="Install steps">
-                    <ol className="space-y-2">
-                      {installSteps.map((step, idx) => (
-                        <li key={idx} className="flex gap-2.5 text-sm">
-                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                            {step.step ?? idx + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p>{step.action ?? step.user_action}</p>
-                            {(step.command || step.content) && (
-                              <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 font-mono text-xs">
-                                {step.file ? `// ${step.file}\n` : ""}
-                                {step.command ?? step.content}
-                              </pre>
+                {(detail?.install_summary ||
+                  installSteps.length > 0 ||
+                  envVars.length > 0 ||
+                  (detailService.tags && detailService.tags.length > 0) ||
+                  detailService.docs_url ||
+                  detailService.website_url) && (
+                  <details className="group rounded-lg border bg-muted/20">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                      Technical details
+                    </summary>
+                    <div className="space-y-5 border-t px-4 py-4">
+                      {detail?.install_summary && (
+                        <Section title="Setup">
+                          <p className="rounded-md bg-muted/50 p-3 text-sm">
+                            {detail.install_summary}
+                          </p>
+                        </Section>
+                      )}
+
+                      {installSteps.length > 0 && (
+                        <Section title="Install steps">
+                          <ol className="space-y-2">
+                            {installSteps.map((step, idx) => (
+                              <li key={idx} className="flex gap-2.5 text-sm">
+                                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                                  {step.step ?? idx + 1}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p>{step.action ?? step.user_action}</p>
+                                  {(step.command || step.content) && (
+                                    <pre className="mt-1 overflow-x-auto rounded bg-muted/60 p-2 font-mono text-xs">
+                                      {step.file ? `// ${step.file}\n` : ""}
+                                      {step.command ?? step.content}
+                                    </pre>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        </Section>
+                      )}
+
+                      {envVars.length > 0 && (
+                        <Section
+                          title={
+                            <span className="flex items-center gap-1.5">
+                              <KeyRound className="h-4 w-4 text-muted-foreground" />
+                              API keys
+                            </span>
+                          }
+                        >
+                          <div className="flex flex-wrap gap-1.5">
+                            {envVars.map((envVar) => (
+                              <code
+                                key={envVar}
+                                className="rounded bg-muted px-2 py-1 font-mono text-xs"
+                              >
+                                {envVar}
+                              </code>
+                            ))}
+                          </div>
+                        </Section>
+                      )}
+
+                      {detailService.tags && detailService.tags.length > 0 && (
+                        <Section title="Tags">
+                          <div className="flex flex-wrap gap-1.5">
+                            {detailService.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </Section>
+                      )}
+
+                      {(detailService.docs_url || detailService.website_url) && (
+                        <Section title="Links">
+                          <div className="flex flex-col gap-1.5">
+                            {detailService.docs_url && (
+                              <a
+                                href={detailService.docs_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                              >
+                                Documentation
+                                <ArrowUpRight className="h-3 w-3" />
+                              </a>
+                            )}
+                            {detailService.website_url && (
+                              <a
+                                href={detailService.website_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                              >
+                                Website
+                                <ArrowUpRight className="h-3 w-3" />
+                              </a>
                             )}
                           </div>
-                        </li>
-                      ))}
-                    </ol>
-                  </Section>
-                )}
-
-                {envVars.length > 0 && (
-                  <Section
-                    title={
-                      <span className="flex items-center gap-1.5">
-                        <KeyRound className="h-4 w-4 text-muted-foreground" />
-                        API keys
-                      </span>
-                    }
-                  >
-                    <div className="flex flex-wrap gap-1.5">
-                      {envVars.map((envVar) => (
-                        <code
-                          key={envVar}
-                          className="rounded bg-muted px-2 py-1 font-mono text-xs"
-                        >
-                          {envVar}
-                        </code>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Buffy will tell you when to paste these into the Keys tab.
-                    </p>
-                  </Section>
-                )}
-
-                {detailService.tags && detailService.tags.length > 0 && (
-                  <Section title="Tags">
-                    <div className="flex flex-wrap gap-1.5">
-                      {detailService.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </Section>
-                )}
-
-                {(detailService.docs_url || detailService.website_url) && (
-                  <Section title="Links">
-                    <div className="flex flex-col gap-1.5">
-                      {detailService.docs_url && (
-                        <a
-                          href={detailService.docs_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                        >
-                          <BookOpen className="h-3.5 w-3.5" />
-                          Documentation
-                          <ArrowUpRight className="h-3 w-3" />
-                        </a>
-                      )}
-                      {detailService.website_url && (
-                        <a
-                          href={detailService.website_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                        >
-                          Website
-                          <ArrowUpRight className="h-3 w-3" />
-                        </a>
+                        </Section>
                       )}
                     </div>
-                  </Section>
+                  </details>
                 )}
               </div>
 
-              {/* Footer CTA */}
-              <div className="flex flex-shrink-0 items-center gap-2 border-t px-5 py-3">
+              <div className="flex flex-shrink-0 justify-end border-t px-5 py-3">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedSlug(null)}
                 >
                   Close
-                </Button>
-                {tracked?.clickUrl && (
-                  <a
-                    href={tracked.clickUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-accent"
-                  >
-                    <KeyRound className="h-4 w-4" />
-                    Get {detailService.name ?? "service"} API key
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </a>
-                )}
-                <Button
-                  size="sm"
-                  disabled={integrating}
-                  className={cn("gap-1.5", tracked?.clickUrl ? "" : "ml-auto")}
-                  onClick={() => handleIntegrate(detailService)}
-                >
-                  {integrating ? (
-                    <Loader className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  Integrate
                 </Button>
               </div>
             </div>
