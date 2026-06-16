@@ -75,6 +75,8 @@ export type CliEnv = BaseEnv & {
   CODEBUFF_SCROLL_MULTIPLIER?: string
   CODEBUFF_PERF_TEST?: string
   CODEBUFF_TRACE?: string
+  // Toggle for mirroring CLI logs to the server's /api/logs sink (Axiom).
+  CODEBUFF_SHIP_LOGS?: string
   FREEBUFF_MODE?: string
 }
 

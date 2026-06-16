@@ -19,7 +19,10 @@ import {
   setAnalyticsErrorLogger,
   trackEvent,
 } from './analytics'
+import { enqueueClientLog } from './log-shipper'
 import { getCurrentChatDir, getProjectRoot } from '../project-files'
+
+import type { LogRecordInput } from '@codebuff/common/schemas/logs'
 
 /** Name of the per-chat debug log file written in production builds */
 export const CHAT_LOG_FILENAME = 'log.jsonl'
@@ -196,6 +199,42 @@ function sendAnalyticsAndLog(
       ...dataProperties,
       ...loggerContext,
     })
+  }
+
+  // Mirror the log/event into the server-side Axiom logs sink via /api/logs
+  // (in addition to PostHog). Best-effort and batched; skip noisy debug logs
+  // and anything before we know who the user is.
+  if (!IS_DEV && !IS_TEST && !IS_CI && loggerContext.userId && level !== 'debug') {
+    const eventId =
+      includeData && typeof normalizedData === 'object'
+        ? getAnalyticsEventId(normalizedData)
+        : null
+    // Mirror the PostHog path's redaction: only ship raw payloads for errors or
+    // when full telemetry is enabled; otherwise ship a summary. Keeps PII/data
+    // volume symmetric across the two sinks.
+    const includeRawData =
+      isFullTelemetryEnabled({
+        distinctId: loggerContext.userId,
+        properties: loggerContext,
+      }) ||
+      level === 'error' ||
+      level === 'fatal'
+    const shipData = includeData
+      ? includeRawData
+        ? normalizedData
+        : summarizeAnalyticsValue(normalizedData)
+      : undefined
+    const record: LogRecordInput = {
+      timestamp: new Date().toISOString(),
+      level,
+      event: eventId ? String(eventId) : undefined,
+      message: stringFormat(normalizedMsg ?? '', ...args),
+      client_session_id: loggerContext.clientSessionId,
+      client_request_id: loggerContext.clientRequestId,
+      fingerprint_id: loggerContext.fingerprintId,
+      data: shipData,
+    }
+    enqueueClientLog(record)
   }
 
   // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
