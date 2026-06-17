@@ -193,13 +193,13 @@ function CliPanel() {
         </button>
       </div>
 
-      {/* Setup guide toggle — lives BELOW the command, fills the reserved height */}
+      {/* Install-guide toggle — lives BELOW the command, fills reserved height */}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className="mt-3 flex items-center gap-1.5 text-[13px] text-white/45 transition-colors hover:text-white"
       >
-        <span>Setup guide</span>
+        <span>Install guide</span>
         <ChevronDown
           className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
         />
@@ -212,21 +212,26 @@ function CliPanel() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="mt-2 space-y-1.5 overflow-hidden font-mono text-[13px] text-white/55"
+            className="mt-3 space-y-2.5 overflow-hidden"
           >
-            <li>
-              <span className="text-white/30">1</span>&nbsp;&nbsp;cd your-project
-            </li>
-            <li>
-              <span className="text-white/30">2</span>&nbsp;&nbsp;freebuff
-            </li>
-            <li className="pt-0.5 font-sans text-white/40">
-              No API key, no sign-up. It just runs.
-            </li>
+            <GuideStep cmd="cd your-project" desc="Open your project folder" />
+            <GuideStep cmd="freebuff" desc="Start coding — no API key, no sign-up" />
           </motion.ol>
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+/* One faint, minimal guide line: mono command + a short description. */
+function GuideStep({ cmd, desc }: { cmd: string; desc: string }) {
+  return (
+    <li className="flex flex-col gap-0.5">
+      <span className="font-mono text-[13px] text-white/70">
+        <span className="select-none text-forest-bright/70">$</span> {cmd}
+      </span>
+      <span className="text-[12px] text-white/35">{desc}</span>
+    </li>
   )
 }
 

@@ -30,7 +30,7 @@ const FREEBUFF: Competitor = {
 export const CLI_COMPETITORS: Competitor[] = [
   FREEBUFF,
   { name: 'OpenCode', color: '#f5a623', mark: 'O', slug: 'opencode', domain: 'opencode.ai', yearly: 120, note: '$120 / yr' },
-  { name: 'Codex', color: '#10a37f', mark: 'C', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
+  { name: 'Codex', color: '#7b6bf2', mark: 'C', logo: '/codex.svg', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
   { name: 'Cursor', color: '#e6e6e6', mark: 'C', slug: 'cursor', domain: 'cursor.com', yearly: 720, note: '$60 / mo' },
   { name: 'Claude Code', color: '#d97757', mark: 'A', slug: 'claude', domain: 'claude.ai', yearly: 1200, note: '$100 / mo' },
   { name: 'Devin', color: '#6366f1', mark: 'D', domain: 'devin.ai', yearly: 2400, note: '$200 / mo' },
@@ -49,7 +49,7 @@ export const WEB_COMPETITORS: Competitor[] = [
 // Chat assistants.
 export const CHAT_COMPETITORS: Competitor[] = [
   FREEBUFF,
-  { name: 'Copilot Pro', color: '#8957e5', mark: 'C', slug: 'githubcopilot', domain: 'github.com', yearly: 120, note: '$10 / mo' },
+  { name: 'Copilot Pro', color: '#8957e5', mark: 'C', slug: 'githubcopilot', logo: 'https://cdn.simpleicons.org/githubcopilot/white', yearly: 120, note: '$10 / mo' },
   { name: 'Perplexity Pro', color: '#20b8cd', mark: 'P', slug: 'perplexity', domain: 'perplexity.ai', yearly: 200, note: '$200 / yr' },
   { name: 'ChatGPT Plus', color: '#10a37f', mark: 'G', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
   { name: 'Gemini Advanced', color: '#4285f4', mark: 'G', slug: 'googlegemini', domain: 'gemini.google.com', yearly: 240, note: '$20 / mo' },
@@ -77,8 +77,9 @@ export function logWidthPct(value: number): number {
     (Math.log10(value) - Math.log10(AXIS_MIN)) /
     (Math.log10(AXIS_MAX) - Math.log10(AXIS_MIN))
   const clamped = Math.max(0, Math.min(1, t))
-  // Cap bars at ~76% so the price label always fits past the longest bar.
-  return 6 + clamped * 70 // 6%..76%
+  // Cap bars so the price label always fits past the longest bar — even on
+  // narrow mobile tracks.
+  return 6 + clamped * 64 // 6%..70%
 }
 
 /** Tick values rendered as gridlines on the log cost axis. */

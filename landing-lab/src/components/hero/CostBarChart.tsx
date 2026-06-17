@@ -5,23 +5,23 @@ import type { Competitor, TabId } from '@/lib/competitors'
 import { AXIS_TICKS, COMPETITORS_BY_TAB, logWidthPct } from '@/lib/competitors'
 import { cn } from '@/lib/utils'
 
-const LABEL_COL = 'w-[140px] sm:w-[180px] lg:w-[200px]'
-const TRACK_INSET = 'left-[140px] sm:left-[180px] lg:left-[200px]'
+const LABEL_COL = 'w-[112px] sm:w-[180px] lg:w-[200px]'
+const TRACK_INSET = 'left-[112px] sm:left-[180px] lg:left-[200px]'
 
 function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
   const pct = logWidthPct(c.yearly)
 
   return (
     <div className="flex items-center">
-      <div className={cn('flex shrink-0 items-center gap-3', LABEL_COL)}>
+      <div className={cn('flex shrink-0 items-center gap-2 sm:gap-3', LABEL_COL)}>
         {c.freebuff ? (
           <img
-            src="/freebuff-mark.svg"
+            src="/logo-icon.png"
             alt="Freebuff"
             width={26}
             height={26}
             draggable={false}
-            className="shrink-0"
+            className="shrink-0 rounded-[5px]"
             style={{ width: 26, height: 26 }}
           />
         ) : (
@@ -36,7 +36,7 @@ function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
         )}
         <span
           className={cn(
-            'truncate text-sm sm:text-[15px]',
+            'truncate text-[12.5px] sm:text-[15px]',
             c.freebuff ? 'font-semibold text-white' : 'text-white/70',
           )}
         >
@@ -74,7 +74,7 @@ function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.06 * index + 0.4 }}
-          className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap pl-3 text-sm font-medium tabular-nums sm:text-[15px]"
+          className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap pl-2 text-[12px] font-medium tabular-nums sm:pl-3 sm:text-[15px]"
           style={{ left: c.freebuff ? '3px' : `${pct}%` }}
         >
           {c.freebuff ? (
@@ -106,7 +106,7 @@ export function CostBarChart({
         // Rounded only on top — the bottom runs deep behind the bushes so the
         // base of the card is always covered no matter the viewport height.
         'relative w-full overflow-hidden rounded-t-[20px] border border-b-0 border-white/[0.08] bg-[#0b0c0e]/95',
-        'px-6 pt-7 pb-[42vh] sm:px-9 sm:pt-9 sm:pb-[46vh]',
+        'px-4 pt-7 pb-[42vh] sm:px-9 sm:pt-9 sm:pb-[46vh]',
         'shadow-[0_50px_140px_-25px_rgba(0,0,0,0.9),0_0_0_1px_rgba(255,255,255,0.04)_inset]',
         className,
       )}

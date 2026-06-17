@@ -30,7 +30,7 @@ export function Hero() {
   const bushesY = useTransform(scrollYProgress, [0, 1], ['0vh', '-52vh'])
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative isolate overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_24%,#101f23_44%,#172a29_57%,#121a1a_71%,#070a0b_86%,#000000_100%)]" />
       <motion.div
         style={{ y: starsY }}
@@ -76,7 +76,7 @@ export function Hero() {
       {/* ── Parallax scene: distant range · hills · cost chart · bushes ── */}
       <div
         ref={sceneRef}
-        className="relative -mt-12 h-[80vh] w-full md:-mt-16 md:h-[84vh]"
+        className="relative -mt-12 h-[108vh] w-full md:-mt-16 md:h-[118vh]"
       >
         <motion.img
           src="/sky-bg.webp"
@@ -85,7 +85,7 @@ export function Hero() {
           decoding="async"
           draggable={false}
           style={{ y: skyY }}
-          className="gpu pointer-events-none absolute inset-x-0 bottom-[32%] z-0 w-full select-none object-cover opacity-[0.34] brightness-[0.55] saturate-[0.72]"
+          className="gpu pointer-events-none absolute inset-x-0 bottom-[32%] z-0 w-full select-none object-cover opacity-[0.44] brightness-[0.7] saturate-[0.8]"
         />
 
         <motion.img
@@ -103,7 +103,7 @@ export function Hero() {
             you scroll (z-10 < bushes z-20). */}
         <motion.div
           style={{ y: chartY }}
-          className="gpu absolute inset-x-0 top-[11%] z-10 mx-auto w-full max-w-4xl px-6"
+          className="gpu absolute inset-x-0 top-[11%] z-10 mx-auto w-full max-w-4xl px-3 sm:px-6"
         >
           <CostBarChart tab={tab} />
         </motion.div>
@@ -119,9 +119,16 @@ export function Hero() {
             aria-hidden
             decoding="async"
             draggable={false}
-            className="block w-full origin-bottom scale-[1.3] select-none object-cover brightness-[0.72] saturate-[0.85]"
+            className="block w-full origin-bottom scale-[1.3] select-none object-cover brightness-[0.62] saturate-[0.85]"
           />
-          <div className="absolute inset-x-0 top-[calc(100%-2px)] h-[160vh] bg-black" />
+          {/* Long, gentle fade that dissolves the bushes into black. It reaches
+              solid black at ~78% and stays black to the bottom, giving a tall
+              fully-black tail. The floor is welded as a PERCENTAGE (84%) so it
+              always lands inside that black tail — at any viewport width the
+              bushes image scales but the alignment holds, so there's never a
+              hard floor edge poking through the fade. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-full bg-[linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.12)_30%,rgba(0,0,0,0.45)_50%,rgba(0,0,0,0.8)_66%,#000_78%)]" />
+          <div className="absolute inset-x-0 top-[84%] h-[180vh] bg-black" />
         </motion.div>
       </div>
     </section>

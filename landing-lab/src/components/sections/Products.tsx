@@ -37,7 +37,7 @@ function DemoFrame({
             <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]/80" />
           </span>
         ) : (
-          <img src="/freebuff-mark.svg" alt="" className="h-4 w-4" />
+          <img src="/logo-icon.png" alt="" className="h-4 w-4 rounded-[3px]" />
         )}
         <span className="ml-1 text-[12px] text-white/45">{title}</span>
       </div>
@@ -474,14 +474,11 @@ function InstallBlock() {
   )
 }
 
-function ProductRow({ p, first }: { p: Product; first?: boolean }) {
+function ProductRow({ p }: { p: Product }) {
   return (
     <div
       id={p.id}
-      className={cn(
-        'grid scroll-mt-24 items-center gap-10 py-16 md:grid-cols-2 md:gap-16 md:py-24',
-        first && 'pt-4 md:pt-6',
-      )}
+      className="grid scroll-mt-24 items-center gap-10 py-16 md:grid-cols-2 md:gap-16 md:py-24"
     >
       {/* Text side — no bg, no border, no card */}
       <motion.div
@@ -539,10 +536,10 @@ function ProductRow({ p, first }: { p: Product; first?: boolean }) {
 
 export function Products() {
   return (
-    <section className="relative bg-black px-6 pb-10 pt-0">
+    <section className="relative z-30 -mt-[34vh] bg-black px-6 py-10 md:-mt-[38vh]">
       <div className="mx-auto max-w-6xl divide-y divide-white/[0.06]">
-        {PRODUCTS.map((p, i) => (
-          <ProductRow key={p.id} p={p} first={i === 0} />
+        {PRODUCTS.map((p) => (
+          <ProductRow key={p.id} p={p} />
         ))}
       </div>
     </section>

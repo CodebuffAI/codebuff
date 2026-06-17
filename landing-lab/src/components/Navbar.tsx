@@ -49,7 +49,7 @@ export function Navbar() {
           className="group flex origin-left items-center gap-2.5"
         >
           <img
-            src="/freebuff-mark.svg"
+            src="/logo-icon.png"
             alt="Freebuff"
             className="h-6 w-6 rounded-[5px]"
           />
@@ -63,19 +63,19 @@ export function Navbar() {
           style={{ scale }}
           className="flex origin-right items-center gap-1 sm:gap-2"
         >
-          <nav className="hidden items-center sm:flex">
+          <nav className="flex items-center">
             {LINKS.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className="rounded-md px-3 py-2 text-sm text-white/55 transition-colors hover:text-white"
+                className="rounded-md px-2 py-2 text-[13px] text-white/55 transition-colors hover:text-white sm:px-3 sm:text-sm"
               >
                 {link.label}
               </a>
             ))}
           </nav>
 
-          <span className="mx-1 hidden h-4 w-px bg-white/15 sm:block" />
+          <span className="mx-0.5 h-4 w-px bg-white/15 sm:mx-1" />
 
           <a
             href={DISCORD_URL}

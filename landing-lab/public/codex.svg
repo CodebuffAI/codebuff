@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="codexBlob" x1="24" y1="22" x2="78" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5C8BFF"/>
+      <stop offset="0.55" stop-color="#7B6BF2"/>
+      <stop offset="1" stop-color="#9B57F0"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="26" fill="#ffffff"/>
+  <g fill="url(#codexBlob)">
+    <circle cx="50" cy="50" r="19"/>
+    <circle cx="66" cy="50" r="14"/>
+    <circle cx="61.3" cy="61.3" r="14"/>
+    <circle cx="50" cy="66" r="14"/>
+    <circle cx="38.7" cy="61.3" r="14"/>
+    <circle cx="34" cy="50" r="14"/>
+    <circle cx="38.7" cy="38.7" r="14"/>
+    <circle cx="50" cy="34" r="14"/>
+    <circle cx="61.3" cy="38.7" r="14"/>
+  </g>
+  <polyline points="43,41 52,50 43,59" fill="none" stroke="#ffffff" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="55" y1="58" x2="65" y2="58" stroke="#ffffff" stroke-width="5.4" stroke-linecap="round"/>
+</svg>
