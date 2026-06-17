@@ -5,6 +5,17 @@ import { DiscordIcon, GitHubIcon } from '@/components/icons'
 const DISCORD_URL = 'https://discord.gg/yXG3w7wxfs'
 const GITHUB_URL = 'https://github.com/CodebuffAI/codebuff'
 
+// Real platform links, mirrored from the site-wide footer.
+const NAV_LINKS = [
+  { text: 'Docs', href: '/docs' },
+  { text: 'Pricing', href: '/pricing' },
+  { text: 'Usage', href: '/usage' },
+]
+const LEGAL_LINKS = [
+  { text: 'Privacy Policy', href: '/privacy-policy' },
+  { text: 'Terms of Service', href: '/terms-of-service' },
+]
+
 /**
  * Closing footer that mirrors the hero in reverse: the night sky returns and
  * the mountains rise back up to swallow the wordmark, bookending the page.
@@ -56,29 +67,48 @@ export function CtaFooter() {
         />
       </div>
 
-      {/* Ultra-minimal bottom strip */}
+      {/* Minimal bottom strip — real platform links + legal + socials */}
       <div className="relative z-20 border-t border-white/10 bg-black">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-6 sm:flex-row">
-          <span className="text-xs text-white/30">© Freebuff 2026</span>
-          <div className="flex items-center gap-4 text-white/40">
-            <a
-              href={DISCORD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Discord"
-              className="transition-colors hover:text-white"
-            >
-              <DiscordIcon className="h-[18px] w-[18px]" />
-            </a>
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              className="transition-colors hover:text-white"
-            >
-              <GitHubIcon className="h-[18px] w-[18px]" />
-            </a>
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-6 py-7 md:flex-row md:items-center md:justify-between">
+          {/* Links: product + legal */}
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-white/45">
+            {[...NAV_LINKS, ...LEGAL_LINKS].map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="transition-colors hover:text-white"
+              >
+                {link.text}
+              </a>
+            ))}
+          </nav>
+
+          {/* Copyright + socials */}
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-white/30">
+              © {new Date().getFullYear()} Freebuff. All rights reserved.
+            </span>
+            <span className="h-4 w-px bg-white/10" />
+            <div className="flex items-center gap-3 text-white/40">
+              <a
+                href={DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Discord"
+                className="transition-colors hover:text-white"
+              >
+                <DiscordIcon className="h-[18px] w-[18px]" />
+              </a>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="GitHub"
+                className="transition-colors hover:text-white"
+              >
+                <GitHubIcon className="h-[18px] w-[18px]" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
