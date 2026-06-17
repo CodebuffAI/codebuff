@@ -814,6 +814,13 @@ const ActivityGroup: React.FC<{
     () => items.filter(isDetailedActivityItem),
     [items],
   )
+  const livePreview = useMemo(() => {
+    if (!isStreaming || detailedItems.length === 0) return ''
+    const latestContent = detailedItems[detailedItems.length - 1]?.content ?? ''
+    const trimmed = latestContent.trim()
+    if (!trimmed) return ''
+    return trimmed.length > 220 ? `${trimmed.slice(0, 217)}...` : trimmed
+  }, [detailedItems, isStreaming])
   const hasDetails = detailedItems.length > 0
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
@@ -863,6 +870,11 @@ const ActivityGroup: React.FC<{
           </CollapsibleContent>
         )}
       </Collapsible>
+      {livePreview && (
+        <p className="ml-5 mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
+          {livePreview}
+        </p>
+      )}
     </div>
   )
 }

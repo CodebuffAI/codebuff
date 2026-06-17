@@ -623,24 +623,6 @@ function ProjectWrapper({
     }
   }, [hasGeneratedProjectContent, hasRevealedIframe, project]);
 
-  // ── Auto-reload preview after an agent run completes ────────────────
-  // HMR is disabled in user sandboxes, so the iframe never picks up edits
-  // on its own. When the active run finishes (processing → idle), bump the
-  // refresh key so CenterContent reloads the route the user is currently
-  // viewing. Skipped during the first-build reveal, which already refreshes.
-  const wasChatProcessingRef = useRef(false);
-  useEffect(() => {
-    const wasProcessing = wasChatProcessingRef.current;
-    wasChatProcessingRef.current = isChatProcessing;
-    if (!wasProcessing || isChatProcessing) return;
-    if (!hasRevealedIframe) return;
-    // Small delay so the sandbox file sync settles before reloading.
-    const id = window.setTimeout(() => {
-      setIframeRefreshKey((k) => k + 1);
-    }, 1000);
-    return () => window.clearTimeout(id);
-  }, [isChatProcessing, hasRevealedIframe]);
-
   // ── Chat expand / collapse via explicit, intentional triggers ───────
   // Per design feedback we no longer auto-expand on any pointerdown in the
   // chat and no longer auto-collapse on outside clicks. The two triggers

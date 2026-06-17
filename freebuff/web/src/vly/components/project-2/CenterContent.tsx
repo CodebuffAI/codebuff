@@ -499,12 +499,9 @@ export function CenterContent({
           silentSuccessToast: true,
         });
 
-        // Refresh iframe after changes are applied so preview keeps up with edits.
-        if (result.success) {
-          setTimeout(() => {
-            handleRefresh();
-          }, 1000);
-        }
+        // Keep the post-apply health check, but do not auto-reload the preview.
+        // Users can refresh manually from the preview controls when needed.
+        void result;
       } finally {
         isPostApplyConnectionCheckRunningRef.current = false;
       }
@@ -513,7 +510,6 @@ export function CenterContent({
     project?.state,
     project?.semantic_identifier,
     checkProjectConnection,
-    handleRefresh,
   ]);
 
   // Remove overlay when selecting element
