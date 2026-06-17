@@ -44,7 +44,7 @@ const publicPaths = [
   .map((link) => link.href)
   .filter((href) => !href.startsWith('http'))
 
-const FOOTER_HIDDEN_PATHS = ['/subscribe']
+const FOOTER_HIDDEN_PATHS = ['/subscribe', '/landing']
 
 export const Footer = () => {
   const pathname = usePathname() ?? '/'
