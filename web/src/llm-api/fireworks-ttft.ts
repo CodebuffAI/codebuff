@@ -36,8 +36,8 @@ export const TTFT_MIN_SAMPLES = 10
 const TTFT_MAX_SAMPLES = 2000
 
 /** Pin new sessions to serverless when the deployment's recent p90 TTFT exceeds
- *  this. 1.5s is the point past which the first token feels sluggish. */
-export const TTFT_SERVERLESS_THRESHOLD_MS = 1500
+ *  this. 4s is the point past which the first token feels sluggish. */
+export const TTFT_SERVERLESS_THRESHOLD_MS = 4000
 
 type Sample = { t: number; ttftMs: number }
 
