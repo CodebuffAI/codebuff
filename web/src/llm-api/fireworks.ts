@@ -49,6 +49,17 @@ export const FIREWORKS_MODEL_MAP: Record<string, string> = {
 /** Models that stay limited to freebuff deployment hours even on serverless. */
 const FIREWORKS_HOURS_GATED_MODELS = new Set<string>(['z-ai/glm-5.1'])
 
+/**
+ * Deployment-mapped models that fall back to the Fireworks serverless API when
+ * their custom deployment is unavailable (request throws, returns 5xx, or is in
+ * scaling cooldown), regardless of cost mode. For these models the serverless
+ * API IS the always-on backup, so a deployment hiccup never surfaces as a hard
+ * error. Other deployment-mapped models only fall back in lite mode.
+ */
+const FIREWORKS_SERVERLESS_FALLBACK_MODELS = new Set<string>([
+  'minimax/minimax-m3',
+])
+
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
 
@@ -875,11 +886,14 @@ async function parseFireworksError(
 }
 
 /**
- * Uses custom Fireworks deployments only during deployment hours. Some models
- * are still availability-gated even when served by the Fireworks serverless
- * API. Deployment-mapped models never fall back to the serverless API during
- * cooldown or after deployment 5xxs; those states surface as provider errors
- * so freebuff can offer MiniMax as the always-on option.
+ * Routes a request to its custom Fireworks deployment first (when one is
+ * mapped), falling back to the Fireworks serverless API on deployment failure.
+ * The fallback applies in lite mode and for models in
+ * FIREWORKS_SERVERLESS_FALLBACK_MODELS (e.g. minimax/minimax-m3, where the
+ * serverless API is the always-on backup). Other deployment-mapped models
+ * surface deployment cooldown / 5xx as provider errors instead of falling back.
+ * Hours-gated models (FIREWORKS_HOURS_GATED_MODELS) are only available during
+ * freebuff deployment hours.
  */
 export async function createFireworksRequestWithFallback(params: {
   body: ChatCompletionRequestBody
@@ -900,7 +914,8 @@ export async function createFireworksRequestWithFallback(params: {
   const hasDeployment = useCustomDeployment && Boolean(deploymentModelId)
   const isHoursGatedModel = FIREWORKS_HOURS_GATED_MODELS.has(originalModel)
   const shouldFallbackToStandardApi =
-    body.codebuff_metadata?.cost_mode === 'lite'
+    body.codebuff_metadata?.cost_mode === 'lite' ||
+    FIREWORKS_SERVERLESS_FALLBACK_MODELS.has(originalModel)
 
   const createStandardApiRequest = () =>
     createFireworksRequest({ body, originalModel, fetch, sessionId })
