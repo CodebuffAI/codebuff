@@ -60,6 +60,13 @@ const config = {
         'acid-green': '#00FF95',
         'acid-matrix': '#7CFF3F',
         'dark-forest-green': '#03100A',
+        // Freebuff forest-green brand palette (used by the /landing page)
+        forest: {
+          DEFAULT: '#2c7a40',
+          deep: '#163a20',
+          mid: '#246b37',
+          bright: '#54a967',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

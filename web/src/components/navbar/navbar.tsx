@@ -20,7 +20,7 @@ import { Skeleton } from '../ui/skeleton'
 
 import { cn } from '@/lib/utils'
 
-const HIDDEN_PATHS = ['/subscribe', '/landing']
+const HIDDEN_PATHS = ['/subscribe']
 
 export const Navbar = () => {
   const pathname = usePathname()

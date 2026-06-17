@@ -1,6 +1,7 @@
 import { Hero } from './Hero'
 import { LandingNavbar } from './Navbar'
 import { BlogPreview } from './sections/BlogPreview'
+import type { BlogPostPreview } from './sections/BlogPreview'
 import { CtaFooter } from './sections/CtaFooter'
 import { Faq } from './sections/Faq'
 import { Media } from './sections/Media'
@@ -12,8 +13,9 @@ import { UsageMap } from './sections/UsageMap'
  *
  * The page forces a dark, Manrope-based context (`dark`, `font-paragraph`)
  * regardless of the app's active theme so it always matches the prototype.
+ * `posts` are real blog posts fetched server-side and passed down.
  */
-export function LandingPage() {
+export function LandingPage({ posts }: { posts: BlogPostPreview[] }) {
   return (
     <div className="dark relative min-h-screen bg-black font-paragraph text-white">
       <LandingNavbar />
@@ -23,7 +25,7 @@ export function LandingPage() {
         <div className="relative z-10 bg-black">
           <Products />
           <UsageMap />
-          <BlogPreview />
+          <BlogPreview posts={posts} />
           <Media />
           <Faq />
           <CtaFooter />
