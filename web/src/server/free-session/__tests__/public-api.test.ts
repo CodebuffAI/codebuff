@@ -9,6 +9,7 @@ import {
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
@@ -82,6 +83,12 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     // queue tests stay green. Tests that exercise instant admission opt in
     // via `getInstantAdmitCapacity: () => N`.
     getInstantAdmitCapacity: () => 0,
+    // Empty fleet → every model resolves to the absence-default 'healthy', so
+    // backup-capable models pin to 'deployment'. Routing tests override this.
+    getFleetHealth: async () => ({}),
+    // No measured TTFT by default → no TTFT-based serverless trip. TTFT tests
+    // override this.
+    getDeploymentTtftP90Ms: () => undefined,
     activeCountForModel: async (model) => {
       let n = 0
       for (const r of rows.values()) {
@@ -105,12 +112,19 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
           sessionUnits: a.session_units ?? 1,
         }))
     },
-    promoteQueuedUser: async ({ userId, model, sessionLengthMs, now }) => {
+    promoteQueuedUser: async ({
+      userId,
+      model,
+      sessionLengthMs,
+      now,
+      fireworksRoute,
+    }) => {
       const row = rows.get(userId)
       if (!row || row.status !== 'queued' || row.model !== model) return null
       row.status = 'active'
       row.admitted_at = now
       row.expires_at = new Date(now.getTime() + sessionLengthMs)
+      row.fireworks_route = fireworksRoute ?? null
       row.updated_at = now
       admits.push({
         user_id: userId,
@@ -402,6 +416,146 @@ describe('requestSession', () => {
     expect(s1.status).toBe('active')
     expect(s2.status).toBe('active')
     expect(s3.status).toBe('queued')
+  })
+
+  test('instant-admit pins minimax-m3 to the deployment when healthy', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
+    })
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('deployment')
+  })
+
+  test('instant-admit pins minimax-m3 to serverless when degraded', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({
+        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'degraded',
+      }),
+    })
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
+  })
+
+  test('instant-admit pins minimax-m3 to serverless when unhealthy', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({
+        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'unhealthy',
+      }),
+    })
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
+  })
+
+  test('instant-admit pins minimax-m3 to serverless when measured TTFT p90 > 1.5s, even while Prometheus health is healthy', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
+      getDeploymentTtftP90Ms: (model) =>
+        model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 2500 : undefined,
+    })
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
+  })
+
+  test('instant-admit keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 1.5s', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
+      getDeploymentTtftP90Ms: (model) =>
+        model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 900 : undefined,
+    })
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('deployment')
+  })
+
+  test('models without a serverless backup get no route pin', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      // Even a degraded fleet leaves a non-backup model unpinned: there is no
+      // safe serverless target to divert it to.
+      getFleetHealth: async () => ({ [DEFAULT_MODEL]: 'degraded' }),
+    })
+    await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route ?? null).toBeNull()
+  })
+
+  test('route is sticky: a serverless pin survives a later takeover even after the deployment recovers', async () => {
+    let health: 'healthy' | 'degraded' = 'degraded'
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: health }),
+    })
+    // Admitted while degraded → pinned to serverless.
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
+
+    // Deployment recovers, then the same user re-POSTs (CLI restart / takeover).
+    // The session is already active, so it is NOT re-promoted — the original
+    // serverless pin is preserved so the prompt cache never cold-starts.
+    health = 'healthy'
+    await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
+  })
+
+  test('checkSessionAdmissible surfaces the session route pin', async () => {
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      getFleetHealth: async () => ({
+        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'unhealthy',
+      }),
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    if (state.status !== 'active') throw new Error('expected active')
+    const gate = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: state.instanceId,
+      requestedModel: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    expect(gate.ok).toBe(true)
+    if (!gate.ok || gate.reason !== 'active') {
+      throw new Error('expected ok active gate')
+    }
+    expect(gate.fireworksRoute).toBe('serverless')
   })
 
   test('instant-admit: per-model capacities are independent', async () => {

@@ -968,6 +968,16 @@ export const freeSession = pgTable(
     access_tier: freebuffAccessTierEnum('access_tier')
       .notNull()
       .default('full'),
+    /** Sticky Fireworks upstream this session is pinned to, decided once at
+     *  admission from the dedicated deployment's health: 'deployment' (healthy
+     *  at admit time) or 'serverless' (degraded/unhealthy → shed onto the
+     *  always-on backup). Fixed for the session's life so the prompt cache
+     *  never cold-starts from a mid-session upstream switch. Null for models
+     *  with no serverless backup (the hot path uses default deployment
+     *  routing). See `routeForAdmission` in fireworks-health.ts. */
+    fireworks_route: text('fireworks_route').$type<
+      'deployment' | 'serverless'
+    >(),
     /** Resolved country/privacy metadata from the latest successful
      *  free-session POST country gate. Raw IP is not stored; `client_ip_hash`
      *  is HMAC-SHA256 with the server auth secret for correlation only. */

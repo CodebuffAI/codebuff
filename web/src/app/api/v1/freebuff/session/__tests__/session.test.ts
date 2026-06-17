@@ -131,6 +131,8 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     // transitions, not admission policy. With capacity 0 the deps below
     // aren't reached, so they're trivial stubs.
     getInstantAdmitCapacity: () => 0,
+    getFleetHealth: async () => ({}),
+    getDeploymentTtftP90Ms: () => undefined,
     activeCountForModel: async () => 0,
     promoteQueuedUser: async () => null,
     // No admits in handler tests — the rate-limit check reads empty and

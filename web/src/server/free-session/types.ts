@@ -4,6 +4,7 @@ import type {
   FreebuffIpPrivacySignal,
 } from '@codebuff/common/types/freebuff-session'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
+import type { FireworksRoute } from '@/llm-api/fireworks-config'
 
 export type FreeSessionStatus = 'queued' | 'active'
 
@@ -23,6 +24,9 @@ export interface InternalSessionRow {
   /** Freebuff model id this row is queued for (or locked to, once active). */
   model: string
   access_tier?: FreebuffAccessTier
+  /** Sticky Fireworks upstream pin set at admission (see `routeForAdmission`).
+   *  Null/absent for queued rows and for models without a serverless backup. */
+  fireworks_route?: FireworksRoute | null
   country_code?: string | null
   cf_country?: string | null
   geoip_country?: string | null

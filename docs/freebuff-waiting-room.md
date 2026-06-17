@@ -12,6 +12,30 @@ Users who cannot be admitted immediately are placed in the queue for their chose
 
 The entire system is gated by the env flag `FREEBUFF_WAITING_ROOM_ENABLED`. When `false`, the gate is a no-op and the admission ticker does not start; free-mode traffic flows through unchanged.
 
+## Health-based sticky routing (preferred over queueing)
+
+Making users wait is a poor experience, and for any model with a Fireworks serverless backup (`FIREWORKS_SERVERLESS_FALLBACK_MODELS` in `web/src/llm-api/fireworks-config.ts`, e.g. `minimax/minimax-m3`) we don't have to: the serverless API is an always-on relief valve. Instead of pausing admission when the dedicated deployment heats up, we **admit everyone and route per session**.
+
+At admission time, `routeForAdmission(model, fleet, ttftP90Ms?)` (in `fireworks-health.ts`) reads the deployment's current health plus its recent measured TTFT and pins the session to one of two upstreams, stored on `free_session.fireworks_route`:
+
+- `deployment` — deployment was `healthy` at admission **and** recent TTFT p90 ≤ 1.5s → the fast, prompt-cached dedicated deployment.
+- `serverless` — deployment was `degraded`/`unhealthy`, **or** recent TTFT p90 > 1.5s → the Fireworks serverless API.
+
+### Two health signals: Prometheus + measured TTFT
+
+The router combines two independent signals:
+
+1. **Fireworks Prometheus metrics** (`getFleetHealth` → `classifyOne`, cached ~25s per pod): KV-cache saturation, 5xx rate, and prefill-queue p90. The always-available, all-pods-converge backstop. Fails *closed* (→ unhealthy) on probe error / missing key / stale snapshot.
+2. **Our measured TTFT** (`fireworks-ttft.ts`): we already record true end-to-end TTFT (`state.ttftMs`) on every streamed request. Requests the *dedicated deployment actually served* (distinguished via the `onServed` callback on `createFireworksRequestWithFallback`) feed a per-pod rolling p90 (`TTFT_WINDOW_MS` = 2 min, min `TTFT_MIN_SAMPLES` = 10). When that p90 exceeds `TTFT_SERVERLESS_THRESHOLD_MS` (1.5s), new sessions divert to serverless *even while the Prometheus counters still read `healthy`* — TTFT degrades in real user experience before KV/error counters move.
+
+The TTFT signal is per-pod in-memory (matching the per-pod health cache) and **self-correcting**: sessions already pinned to the deployment stay there (sticky) and keep recording TTFT, so as the deployment cools their p90 falls back under 1.5s and new sessions flow back. With too few recent samples the p90 is `undefined` (no TTFT-based trip) — fine, because the deployment isn't stressed at low volume, and the Prometheus signal still applies. Each pin is logged once (`metric: 'freebuff_fireworks_route'`, with `route`/`health`/`ttftP90Ms`) so the split is chartable in the Axiom dataset.
+
+The pin is **decided once and frozen for the session's life**. Takeover/reclaim (CLI restart) never recomputes it, so a session never flaps between upstreams — flapping would cold-start its prompt cache on every switch. As the deployment heats up and slips to `degraded`, each *new* session is shed onto serverless, so fewer users pile onto the instance; already-admitted sessions keep their warm deployment cache. When the deployment recovers, new sessions flow back to it. This is finer-grained than capping the instance's user count and needs no queue.
+
+The chat hot path (`_post.ts`) reads the pin off the gate result (`SessionGateResult.fireworksRoute`) and forwards it to the Fireworks handlers as `useCustomDeployment` (`serverless` → `false`). The per-request deployment→serverless error fallback in `createFireworksRequestWithFallback` remains as a last-resort safety net for hard 5xx/throws, but the *steady-state* routing decision is the per-session pin, not per-request flapping.
+
+Because the relief valve absorbs load, the FIFO queue below should never engage for backup-capable models in practice (instant-admit capacity is set high in `config.ts`). The queue machinery is retained for models without a serverless backup and as a backstop; treat the user-facing *wait* as deprecated for any backup-capable model.
+
 ## Kill Switch
 
 ```bash

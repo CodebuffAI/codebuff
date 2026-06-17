@@ -5,7 +5,7 @@ import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
 import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
 
-import type { FireworksHealth } from './fireworks-health'
+import type { FireworksHealth, FireworksRoute } from './fireworks-health'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreeSessionCountryAccessMetadata,
@@ -407,11 +407,15 @@ export async function admitFromQueue(params: {
   sessionLengthMs: number
   now: Date
   health: FireworksHealth
+  /** Sticky upstream pin for the admitted session (see `routeForAdmission`).
+   *  This path only admits when `health === 'healthy'`, so in practice it pins
+   *  backup-capable models to 'deployment'; null leaves the column unset. */
+  fireworksRoute?: FireworksRoute | null
 }): Promise<{
   admitted: InternalSessionRow[]
   skipped: FireworksHealth | null
 }> {
-  const { model, sessionLengthMs, now, health } = params
+  const { model, sessionLengthMs, now, health, fireworksRoute } = params
 
   if (health !== 'healthy') {
     return { admitted: [], skipped: health }
@@ -458,6 +462,7 @@ export async function admitFromQueue(params: {
         status: 'active',
         admitted_at: now,
         expires_at: expiresAt,
+        fireworks_route: fireworksRoute ?? null,
         updated_at: now,
       })
       .where(
@@ -498,8 +503,12 @@ export async function promoteQueuedUser(params: {
   model: string
   sessionLengthMs: number
   now: Date
+  /** Sticky upstream pin for the admitted session (see `routeForAdmission`).
+   *  Decided from the deployment's health at admission and frozen for the
+   *  session's life; null for models with no serverless backup. */
+  fireworksRoute?: FireworksRoute | null
 }): Promise<InternalSessionRow | null> {
-  const { userId, model, sessionLengthMs, now } = params
+  const { userId, model, sessionLengthMs, now, fireworksRoute } = params
   const expiresAt = new Date(now.getTime() + sessionLengthMs)
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -508,6 +517,7 @@ export async function promoteQueuedUser(params: {
         status: 'active',
         admitted_at: now,
         expires_at: expiresAt,
+        fireworks_route: fireworksRoute ?? null,
         updated_at: now,
       })
       .where(

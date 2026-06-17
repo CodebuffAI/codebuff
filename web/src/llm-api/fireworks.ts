@@ -8,7 +8,11 @@ import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
-import { FIREWORKS_DEPLOYMENT_MAP } from './fireworks-config'
+import {
+  FIREWORKS_DEPLOYMENT_MAP,
+  FIREWORKS_SERVERLESS_FALLBACK_MODELS,
+} from './fireworks-config'
+import { recordDeploymentTtftMs } from './fireworks-ttft'
 import {
   consumeCreditsForMessage,
   createRequestAuditRecord,
@@ -16,6 +20,7 @@ import {
   insertMessageToBigQuery,
 } from './helpers'
 
+import type { FireworksRoute } from './fireworks-config'
 import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -48,17 +53,6 @@ export const FIREWORKS_MODEL_MAP: Record<string, string> = {
 
 /** Models that stay limited to freebuff deployment hours even on serverless. */
 const FIREWORKS_HOURS_GATED_MODELS = new Set<string>(['z-ai/glm-5.1'])
-
-/**
- * Deployment-mapped models that fall back to the Fireworks serverless API when
- * their custom deployment is unavailable (request throws, returns 5xx, or is in
- * scaling cooldown), regardless of cost mode. For these models the serverless
- * API IS the always-on backup, so a deployment hiccup never surfaces as a hard
- * error. Other deployment-mapped models only fall back in lite mode.
- */
-const FIREWORKS_SERVERLESS_FALLBACK_MODELS = new Set<string>([
-  'minimax/minimax-m3',
-])
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
 const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
@@ -322,6 +316,7 @@ export async function handleFireworksNonStream({
   fetch,
   logger,
   insertMessageBigquery,
+  useCustomDeployment,
 }: {
   body: ChatCompletionRequestBody
   userId: string
@@ -330,6 +325,10 @@ export async function handleFireworksNonStream({
   fetch: typeof globalThis.fetch
   logger: Logger
   insertMessageBigquery: InsertMessageBigqueryFn
+  /** Per-session route pin from the free-session gate. When `false` the request
+   *  goes straight to the Fireworks serverless API (session was admitted while
+   *  the dedicated deployment was unhealthy). Undefined → default behavior. */
+  useCustomDeployment?: boolean
 }) {
   const originalModel = body.model
   const startTime = new Date()
@@ -339,12 +338,16 @@ export async function handleFireworksNonStream({
   })
   const auditRequest = createRequestAuditRecord(body)
 
+  // No onServed/TTFT recording here: TTFT is a streaming-only signal (there is
+  // no "first token" event in a non-streamed response), and freebuff traffic is
+  // overwhelmingly streaming, so the stream handler is a representative source.
   const response = await createFireworksRequestWithFallback({
     body,
     originalModel,
     fetch,
     logger,
     sessionId: userId,
+    useCustomDeployment,
   })
 
   if (!response.ok) {
@@ -412,6 +415,7 @@ export async function handleFireworksStream({
   fetch,
   logger,
   insertMessageBigquery,
+  useCustomDeployment,
 }: {
   body: ChatCompletionRequestBody
   userId: string
@@ -420,6 +424,10 @@ export async function handleFireworksStream({
   fetch: typeof globalThis.fetch
   logger: Logger
   insertMessageBigquery: InsertMessageBigqueryFn
+  /** Per-session route pin from the free-session gate. When `false` the request
+   *  goes straight to the Fireworks serverless API (session was admitted while
+   *  the dedicated deployment was unhealthy). Undefined → default behavior. */
+  useCustomDeployment?: boolean
 }) {
   const originalModel = body.model
   const startTime = new Date()
@@ -429,12 +437,17 @@ export async function handleFireworksStream({
   })
   const auditRequest = createRequestAuditRecord(body)
 
+  let servedBy: FireworksRoute | undefined
   const response = await createFireworksRequestWithFallback({
     body,
     originalModel,
     fetch,
     logger,
     sessionId: userId,
+    useCustomDeployment,
+    onServed: (upstream) => {
+      servedBy = upstream
+    },
   })
 
   if (!response.ok) {
@@ -537,6 +550,13 @@ export async function handleFireworksStream({
         }
       } finally {
         clearInterval(heartbeatInterval)
+        // Feed real TTFT back into deployment-health routing, but only for
+        // requests the dedicated deployment actually served — serverless TTFT
+        // says nothing about the deployment. ttftMs is null if we errored
+        // before the first token; skip those.
+        if (servedBy === 'deployment' && state.ttftMs !== null) {
+          recordDeploymentTtftMs(originalModel, state.ttftMs)
+        }
       }
     },
     cancel() {
@@ -903,9 +923,13 @@ export async function createFireworksRequestWithFallback(params: {
   useCustomDeployment?: boolean
   deploymentMap?: Record<string, string>
   sessionId: string
+  /** Invoked with the upstream that actually served the request, once known.
+   *  Lets the caller attribute a measured TTFT to the deployment vs serverless
+   *  (see `recordDeploymentTtftMs`) without changing the Response return type. */
+  onServed?: (servedBy: FireworksRoute) => void
   now?: Date
 }): Promise<Response> {
-  const { body, originalModel, fetch, logger, sessionId } = params
+  const { body, originalModel, fetch, logger, sessionId, onServed } = params
   const now = params.now ?? new Date()
   const useCustomDeployment =
     params.useCustomDeployment ?? FIREWORKS_USE_CUSTOM_DEPLOYMENT
@@ -917,8 +941,10 @@ export async function createFireworksRequestWithFallback(params: {
     body.codebuff_metadata?.cost_mode === 'lite' ||
     FIREWORKS_SERVERLESS_FALLBACK_MODELS.has(originalModel)
 
-  const createStandardApiRequest = () =>
-    createFireworksRequest({ body, originalModel, fetch, sessionId })
+  const createStandardApiRequest = () => {
+    onServed?.('serverless')
+    return createFireworksRequest({ body, originalModel, fetch, sessionId })
+  }
 
   if (isHoursGatedModel && !isDeploymentHours(now)) {
     if (shouldFallbackToStandardApi) {
@@ -985,6 +1011,9 @@ export async function createFireworksRequestWithFallback(params: {
       throw error
     }
 
+    // Past this point the deployment served the request (a non-fallback 5xx is
+    // still the deployment's response), so attribute it once before returning.
+    let deploymentResponse = response
     if (response.status >= 500) {
       const errorText = await response.text()
       logger.info(
@@ -1005,13 +1034,14 @@ export async function createFireworksRequestWithFallback(params: {
         )
         return createStandardApiRequest()
       }
-      return new Response(errorText, {
+      deploymentResponse = new Response(errorText, {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
       })
     }
-    return response
+    onServed?.('deployment')
+    return deploymentResponse
   }
 
   return createStandardApiRequest()

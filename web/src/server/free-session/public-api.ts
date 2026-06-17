@@ -39,8 +39,18 @@ import {
   queueDepthsByModel,
   queuePositionFor,
 } from './store'
+import { getFleetHealth, routeForAdmission } from './fireworks-health'
 import { toSessionStateResponse } from './session-view'
 
+import { hasFireworksServerlessBackup } from '@/llm-api/fireworks-config'
+import { deploymentTtftP90Ms } from '@/llm-api/fireworks-ttft'
+import { logger } from '@/util/logger'
+
+import type {
+  FireworksHealth,
+  FireworksRoute,
+  FleetHealth,
+} from './fireworks-health'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreebuffSessionRateLimit,
@@ -247,11 +257,20 @@ export interface SessionDeps {
     model: string
     sessionLengthMs: number
     now: Date
+    fireworksRoute?: FireworksRoute | null
   }) => Promise<InternalSessionRow | null>
   /** Per-model capacity lookup. Indirected through deps so tests can
    *  force-enable / force-disable instant admit without mutating the
    *  shared model registry. */
   getInstantAdmitCapacity: (model: string) => number
+  /** Cached Fireworks fleet-health snapshot, used at instant-admit time to pin
+   *  a backup-capable session to 'deployment' (healthy) or 'serverless'
+   *  (degraded/unhealthy) for its whole life. */
+  getFleetHealth: () => Promise<FleetHealth>
+  /** Recent measured p90 TTFT (ms) for the model's dedicated deployment, or
+   *  undefined when there aren't enough samples. Over 2s pins new sessions to
+   *  serverless even while Prometheus health still reads healthy. */
+  getDeploymentTtftP90Ms: (model: string) => number | undefined
   isWaitingRoomEnabled: () => boolean
   /** Plain values, not getters: these never change at runtime. The deps
    *  interface uses values rather than thunks so tests can pass numbers
@@ -271,6 +290,8 @@ const defaultDeps: SessionDeps = {
   listRecentFreeSessionAdmits,
   promoteQueuedUser,
   getInstantAdmitCapacity,
+  getFleetHealth,
+  getDeploymentTtftP90Ms: deploymentTtftP90Ms,
   isWaitingRoomEnabled,
   get graceMs() {
     // Read-through getter keeps the default deps aligned with config while
@@ -489,13 +510,49 @@ export async function requestSession(params: {
     if (capacity > 0) {
       const activeCount = await deps.activeCountForModel(model)
       if (activeCount < capacity) {
+        // Pin the new session to its upstream from current deployment health.
+        // Only backup-capable models (e.g. minimax/minimax-m3) need a probe;
+        // everything else routes through default deployment behavior (null).
+        // The probe is cached (~25s) so this is a cheap map read in the hot
+        // path. Decided once here and frozen — see `routeForAdmission`.
+        let fireworksRoute: FireworksRoute | null = null
+        let pinnedHealth: FireworksHealth | undefined
+        let pinnedTtftP90Ms: number | undefined
+        if (hasFireworksServerlessBackup(model)) {
+          const fleet = await deps.getFleetHealth()
+          pinnedHealth = fleet[model] ?? 'healthy'
+          pinnedTtftP90Ms = deps.getDeploymentTtftP90Ms(model)
+          fireworksRoute = routeForAdmission(model, fleet, pinnedTtftP90Ms)
+        }
         const promoted = await deps.promoteQueuedUser({
           userId: params.userId,
           model,
           sessionLengthMs: deps.sessionLengthMs,
           now,
+          fireworksRoute,
         })
-        if (promoted) row = promoted
+        if (promoted) {
+          row = promoted
+          // Observability for the no-waiting-room load shedder: one log per
+          // fresh admission of a backup-capable model (M3) — not on
+          // takeover/reclaim, which keeps the existing pin. The metric tag
+          // makes the deployment-vs-serverless split chartable in the
+          // freebuff Axiom dataset, and `health` shows what drove it. Gated to
+          // backup-capable models so it stays low-volume.
+          if (fireworksRoute) {
+            logger.info(
+              {
+                metric: 'freebuff_fireworks_route',
+                userId: params.userId,
+                model,
+                route: fireworksRoute,
+                health: pinnedHealth,
+                ttftP90Ms: pinnedTtftP90Ms,
+              },
+              '[FreeSession] pinned fireworks upstream at admission',
+            )
+          }
+        }
       }
     }
   }
@@ -649,12 +706,23 @@ export async function endUserSession(params: {
 
 export type SessionGateResult =
   | { ok: true; reason: 'disabled' }
-  | { ok: true; reason: 'active'; remainingMs: number }
+  | {
+      ok: true
+      reason: 'active'
+      remainingMs: number
+      /** Sticky upstream pin for this session (see `routeForAdmission`). The
+       *  chat hot path forwards it as `useCustomDeployment` so the request
+       *  goes to the same Fireworks upstream the session was admitted on.
+       *  Undefined for sessions with no pin (older rows, no serverless backup). */
+      fireworksRoute?: FireworksRoute
+    }
   | {
       ok: true
       reason: 'draining'
       /** Time remaining until the hard cutoff (`expires_at + grace`). */
       gracePeriodRemainingMs: number
+      /** See the `active` variant — same sticky upstream pin. */
+      fireworksRoute?: FireworksRoute
     }
   | { ok: false; code: 'waiting_room_required'; message: string }
   | { ok: false; code: 'waiting_room_queued'; message: string }
@@ -811,11 +879,16 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
+  // Forward the session's sticky upstream pin so the chat hot path keeps every
+  // request on the upstream the session was admitted on (warm prompt cache).
+  const fireworksRoute = row.fireworks_route ?? undefined
+
   if (expiresAtMs > nowMs) {
     return {
       ok: true,
       reason: 'active',
       remainingMs: expiresAtMs - nowMs,
+      fireworksRoute,
     }
   }
 
@@ -825,5 +898,6 @@ export async function checkSessionAdmissible(params: {
     ok: true,
     reason: 'draining',
     gracePeriodRemainingMs: expiresAtMs + graceMs - nowMs,
+    fireworksRoute,
   }
 }

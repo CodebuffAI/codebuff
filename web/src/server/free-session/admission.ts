@@ -9,7 +9,7 @@ import {
   getSessionLengthMs,
   isWaitingRoomEnabled,
 } from './config'
-import { getFleetHealth } from './fireworks-health'
+import { getFleetHealth, routeForAdmission } from './fireworks-health'
 import {
   activeCountsByModel,
   admitFromQueue,
@@ -18,7 +18,13 @@ import {
   sweepExpired,
 } from './store'
 
-import type { FireworksHealth, FleetHealth } from './fireworks-health'
+import { deploymentTtftP90Ms } from '@/llm-api/fireworks-ttft'
+
+import type {
+  FireworksHealth,
+  FireworksRoute,
+  FleetHealth,
+} from './fireworks-health'
 
 import { logger } from '@/util/logger'
 
@@ -32,6 +38,7 @@ export interface AdmissionDeps {
     sessionLengthMs: number
     now: Date
     health: FireworksHealth
+    fireworksRoute?: FireworksRoute | null
   }) => Promise<{
     admitted: { user_id: string }[]
     skipped: FireworksHealth | null
@@ -129,6 +136,11 @@ export async function runAdmissionTick(
         sessionLengthMs: deps.sessionLengthMs,
         now,
         health,
+        // Pin the admitted session's upstream. This FIFO path only admits when
+        // Prometheus health is healthy, but a high measured TTFT can still
+        // divert to serverless here; most real traffic hits the instant-admit
+        // path in requestSession.
+        fireworksRoute: routeForAdmission(model, fleet, deploymentTtftP90Ms(model)),
       })
       const depth = await deps.queueDepth({ model })
       return { model, admittedCount: admitted.length, depth, skipped }

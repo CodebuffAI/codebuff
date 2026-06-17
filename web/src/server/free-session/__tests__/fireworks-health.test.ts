@@ -5,7 +5,10 @@ import {
   KV_BLOCKS_UNHEALTHY_FRACTION,
   PREFILL_QUEUE_P90_DEGRADED_MS,
   classifyOne,
+  routeForAdmission,
 } from '../fireworks-health'
+
+const M3 = 'minimax/minimax-m3'
 
 type PromSample = { name: string; labels: Record<string, string>; value: number }
 
@@ -124,5 +127,33 @@ describe('fireworks health classifier', () => {
     ]
     expect(classifyOne(samples, DEPLOY)).toBe('degraded')
     expect(classifyOne(samples, other)).toBe('unhealthy')
+  })
+})
+
+describe('routeForAdmission', () => {
+  test('models without a serverless backup get no route', () => {
+    expect(routeForAdmission('moonshotai/kimi-k2.6', {})).toBeNull()
+    expect(
+      routeForAdmission('moonshotai/kimi-k2.6', {}, 9999),
+    ).toBeNull()
+  })
+
+  test('healthy deployment with no TTFT signal → deployment', () => {
+    expect(routeForAdmission(M3, { [M3]: 'healthy' })).toBe('deployment')
+    expect(routeForAdmission(M3, {})).toBe('deployment')
+  })
+
+  test('degraded/unhealthy deployment → serverless regardless of TTFT', () => {
+    expect(routeForAdmission(M3, { [M3]: 'degraded' }, 100)).toBe('serverless')
+    expect(routeForAdmission(M3, { [M3]: 'unhealthy' })).toBe('serverless')
+  })
+
+  test('healthy deployment but TTFT p90 over 1.5s → serverless', () => {
+    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 1501)).toBe('serverless')
+  })
+
+  test('healthy deployment with TTFT p90 at/under 1.5s → deployment', () => {
+    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 1500)).toBe('deployment')
+    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 800)).toBe('deployment')
   })
 })

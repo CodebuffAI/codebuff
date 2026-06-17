@@ -1,0 +1,1 @@
+ALTER TABLE "free_session" ADD COLUMN "fireworks_route" text;

@@ -819,6 +819,19 @@ export async function postChatCompletions(params: {
       }
     }
 
+    // Honor the session's sticky Fireworks upstream pin (set at admission from
+    // deployment health). 'serverless' → useCustomDeployment=false so the
+    // request skips the dedicated deployment for its always-on serverless
+    // backup; 'deployment' (or no pin) leaves default deployment-first routing.
+    // Only the Fireworks handlers read this; other providers ignore it.
+    const fireworksRoute =
+      freeModeSessionGate?.ok && 'fireworksRoute' in freeModeSessionGate
+        ? freeModeSessionGate.fireworksRoute
+        : undefined
+    const fireworksUseCustomDeployment = fireworksRoute
+      ? fireworksRoute !== 'serverless'
+      : undefined
+
     // Rate limit free mode requests (after validation so invalid requests don't consume quota).
     // Premium models additionally enforce FREE_MODE_PREMIUM_RATE_LIMITS, so direct
     // endpoint callers can't exceed the intended premium allowance by skipping the
@@ -1023,6 +1036,7 @@ export async function postChatCompletions(params: {
           fetch,
           logger: providerLogger,
           insertMessageBigquery,
+          useCustomDeployment: fireworksUseCustomDeployment,
         }
         const stream =
           provider === 'siliconflow'
@@ -1078,6 +1092,7 @@ export async function postChatCompletions(params: {
           fetch,
           logger: providerLogger,
           insertMessageBigquery,
+          useCustomDeployment: fireworksUseCustomDeployment,
         }
         const nonStreamRequest =
           provider === 'siliconflow'

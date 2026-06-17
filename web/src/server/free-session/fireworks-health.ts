@@ -1,7 +1,14 @@
 import { env } from '@codebuff/internal/env'
 
-import { FIREWORKS_ACCOUNT_ID, FIREWORKS_DEPLOYMENT_MAP } from '@/llm-api/fireworks-config'
+import {
+  FIREWORKS_ACCOUNT_ID,
+  FIREWORKS_DEPLOYMENT_MAP,
+  hasFireworksServerlessBackup,
+} from '@/llm-api/fireworks-config'
+import { TTFT_SERVERLESS_THRESHOLD_MS } from '@/llm-api/fireworks-ttft'
 import { logger } from '@/util/logger'
+
+import type { FireworksRoute } from '@/llm-api/fireworks-config'
 
 /**
  * Health of the Fireworks deployments that free sessions depend on.
@@ -59,6 +66,61 @@ const HEALTH_CACHE_TTL_MS = 25_000
  *  TODO: when serverless models move to dedicated deployments, drop the
  *        absence-means-healthy fallback at the call site. */
 export type FleetHealth = Record<string, FireworksHealth>
+
+/**
+ * Which Fireworks upstream a free session is pinned to for its whole life:
+ *
+ *   - `deployment` — the dedicated custom deployment (the fast, prompt-cached
+ *                    path; admitted while the deployment was healthy)
+ *   - `serverless` — the Fireworks serverless API (admitted while the
+ *                    deployment was degraded/unhealthy, so we shed this user
+ *                    onto the always-on backup instead of the instance)
+ *
+ * The route is decided once, at admission, and never changes for the session —
+ * flapping a session between upstreams would cold-start its prompt cache on
+ * every switch. Models without a serverless backup have no route (null).
+ *
+ * Re-exported from the import-free config module so free-session callers can
+ * keep importing it from here alongside the other routing helpers.
+ */
+export type { FireworksRoute }
+
+/**
+ * Decide the sticky upstream route for a session being admitted *right now* for
+ * `model`, given the latest fleet health snapshot.
+ *
+ *   - Models without a serverless backup → `null` (no routing decision; the
+ *     hot path keeps its default deployment behavior).
+ *   - Backup-capable models (e.g. minimax/minimax-m3) → `serverless` when the
+ *     dedicated deployment is anything other than `healthy`, else `deployment`.
+ *
+ * This is the no-waiting-room load shedder: as the instance heats up and its
+ * health slips to `degraded`/`unhealthy`, each *new* session is pinned to
+ * serverless, so fewer users pile onto the instance — while already-admitted
+ * sessions keep their warm deployment cache. When the deployment recovers, new
+ * sessions flow back to it.
+ *
+ * `ttftP90Ms` is the deployment's recent measured time-to-first-token p90 (from
+ * `deploymentTtftP90Ms`), or undefined when there aren't enough samples to
+ * judge. When present and over `TTFT_SERVERLESS_THRESHOLD_MS` (1.5s), it diverts
+ * new sessions to serverless even while the coarse Prometheus health still
+ * reads `healthy` — TTFT degrades in real user experience before the KV/error
+ * counters move. The Prometheus signal stays as the always-available backstop.
+ */
+export function routeForAdmission(
+  model: string,
+  fleet: FleetHealth,
+  ttftP90Ms?: number,
+): FireworksRoute | null {
+  if (!hasFireworksServerlessBackup(model)) return null
+  // Absent from the fleet map → treated as healthy (see FleetHealth doc).
+  const health = fleet[model] ?? 'healthy'
+  if (health !== 'healthy') return 'serverless'
+  if (ttftP90Ms !== undefined && ttftP90Ms > TTFT_SERVERLESS_THRESHOLD_MS) {
+    return 'serverless'
+  }
+  return 'deployment'
+}
 
 type CacheEntry = { expiresAt: number; fleet: FleetHealth }
 let cache: CacheEntry | null = null
