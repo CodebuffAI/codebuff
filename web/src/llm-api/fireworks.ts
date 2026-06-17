@@ -234,9 +234,9 @@ export const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     outputCostPerToken: 1.2 / 1_000_000,
   },
   'minimax/minimax-m3': {
-    inputCostPerToken: 0.6 / 1_000_000,
-    cachedInputCostPerToken: 0.12 / 1_000_000,
-    outputCostPerToken: 2.4 / 1_000_000,
+    inputCostPerToken: 0.3 / 1_000_000,
+    cachedInputCostPerToken: 0.06 / 1_000_000,
+    outputCostPerToken: 1.2 / 1_000_000,
   },
   'moonshotai/kimi-k2.6': {
     inputCostPerToken: 0.95 / 1_000_000,
