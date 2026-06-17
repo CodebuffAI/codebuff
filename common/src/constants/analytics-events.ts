@@ -16,6 +16,8 @@ export enum AnalyticsEvent {
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
   FEEDBACK_BUTTON_HOVERED = 'cli.feedback_button_hovered',
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
+  SUGGESTED_PROMPT_SHOWN = 'cli.suggested_prompt_shown',
+  SUGGESTED_PROMPT_CLICKED = 'cli.suggested_prompt_clicked',
 
   // Backend
   AGENT_STEP = 'backend.agent_step',

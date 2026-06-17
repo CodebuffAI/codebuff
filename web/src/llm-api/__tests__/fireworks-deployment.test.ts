@@ -799,6 +799,91 @@ describe('Fireworks deployment routing', () => {
       expect(fetchCalls).toEqual([DEPLOYMENT_MODEL_ID, STANDARD_MODEL_ID])
       expect(logger.warn).toHaveBeenCalledTimes(1)
     })
+
+    // MiniMax M3 serves from its dedicated deployment first, with the serverless
+    // API as an always-on backup — including in free mode (cost_mode !== 'lite'),
+    // which is what freebuff sends. These use the real FIREWORKS_DEPLOYMENT_MAP.
+    describe('minimax-m3', () => {
+      const M3_MODEL = 'minimax/minimax-m3'
+      const M3_DEPLOYMENT_ID = 'accounts/james-65d217/deployments/aesxbzio'
+      const M3_STANDARD_ID = 'accounts/fireworks/models/minimax-m3'
+      const m3FreeBody = {
+        model: M3_MODEL,
+        messages: [{ role: 'user' as const, content: 'test' }],
+        codebuff_metadata: { cost_mode: 'free' },
+      }
+
+      it('uses the custom deployment first', async () => {
+        const fetchCalls: string[] = []
+        const mockFetch = mock(
+          async (_url: string | URL | Request, init?: RequestInit) => {
+            fetchCalls.push(JSON.parse(init?.body as string).model)
+            return new Response(JSON.stringify({ ok: true }), { status: 200 })
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const response = await createFireworksRequestWithFallback({
+          body: m3FreeBody as never,
+          originalModel: M3_MODEL,
+          fetch: mockFetch,
+          logger,
+          sessionId: 'test-user-id',
+        })
+
+        expect(response.status).toBe(200)
+        expect(fetchCalls).toEqual([M3_DEPLOYMENT_ID])
+      })
+
+      it('falls back to serverless on a deployment 5xx even in free mode', async () => {
+        const fetchCalls: string[] = []
+        const mockFetch = mock(
+          async (_url: string | URL | Request, init?: RequestInit) => {
+            fetchCalls.push(JSON.parse(init?.body as string).model)
+            if (fetchCalls.length === 1) {
+              return new Response(JSON.stringify({ error: 'boom' }), {
+                status: 500,
+                statusText: 'Internal Server Error',
+              })
+            }
+            return new Response(JSON.stringify({ ok: true }), { status: 200 })
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const response = await createFireworksRequestWithFallback({
+          body: m3FreeBody as never,
+          originalModel: M3_MODEL,
+          fetch: mockFetch,
+          logger,
+          sessionId: 'test-user-id',
+        })
+
+        expect(response.status).toBe(200)
+        expect(fetchCalls).toEqual([M3_DEPLOYMENT_ID, M3_STANDARD_ID])
+      })
+
+      it('falls back to serverless when the deployment request throws (free mode)', async () => {
+        const fetchCalls: string[] = []
+        const mockFetch = mock(
+          async (_url: string | URL | Request, init?: RequestInit) => {
+            fetchCalls.push(JSON.parse(init?.body as string).model)
+            if (fetchCalls.length === 1) throw new Error('socket hang up')
+            return new Response(JSON.stringify({ ok: true }), { status: 200 })
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const response = await createFireworksRequestWithFallback({
+          body: m3FreeBody as never,
+          originalModel: M3_MODEL,
+          fetch: mockFetch,
+          logger,
+          sessionId: 'test-user-id',
+        })
+
+        expect(response.status).toBe(200)
+        expect(fetchCalls).toEqual([M3_DEPLOYMENT_ID, M3_STANDARD_ID])
+        expect(logger.warn).toHaveBeenCalledTimes(1)
+      })
+    })
   })
 })
 
