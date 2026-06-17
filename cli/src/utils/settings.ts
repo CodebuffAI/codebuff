@@ -30,6 +30,10 @@ export interface Settings {
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   fallbackToALaCarte?: boolean
+  /** Set once the user has submitted their first prompt. Used to gate the
+   *  first-time onboarding suggested prompts so they only show to brand-new
+   *  users and quietly retire afterwards. */
+  hasSubmittedFirstPrompt?: boolean
 }
 
 /**
@@ -122,6 +126,11 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.fallbackToALaCarte = obj.fallbackToALaCarte
   }
 
+  // Validate hasSubmittedFirstPrompt
+  if (typeof obj.hasSubmittedFirstPrompt === 'boolean') {
+    settings.hasSubmittedFirstPrompt = obj.hasSubmittedFirstPrompt
+  }
+
   return settings
 }
 
@@ -179,4 +188,21 @@ export const loadFreebuffModelPreference = (): string | undefined => {
  */
 export const saveFreebuffModelPreference = (model: string): void => {
   saveSettings({ freebuffModel: model })
+}
+
+/**
+ * Whether the user has ever submitted a prompt. False only for brand-new
+ * users, who get the onboarding suggested prompts on an empty chat.
+ */
+export const hasSubmittedFirstPrompt = (): boolean => {
+  return loadSettings().hasSubmittedFirstPrompt === true
+}
+
+/**
+ * Mark that the user has submitted their first prompt, retiring the onboarding
+ * suggested prompts on future launches. Idempotent.
+ */
+export const markFirstPromptSubmitted = (): void => {
+  if (loadSettings().hasSubmittedFirstPrompt === true) return
+  saveSettings({ hasSubmittedFirstPrompt: true })
 }

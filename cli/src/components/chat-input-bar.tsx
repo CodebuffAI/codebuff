@@ -338,7 +338,10 @@ export const ChatInputBar = ({
           {modeConfig.label && (
             <box style={{ flexShrink: 0, paddingRight: 1 }}>
               <text>
-                <span bg={theme.info} fg={theme.background}>{` ${modeConfig.label} `}</span>
+                <span
+                  bg={theme.info}
+                  fg={theme.background}
+                >{` ${modeConfig.label} `}</span>
               </text>
             </box>
           )}
@@ -352,6 +355,14 @@ export const ChatInputBar = ({
               <text style={{ fg: theme[modeConfig.color] }}>
                 {modeConfig.icon}
               </text>
+            </box>
+          )}
+          {/* In default modes the compact box has no border or label, so it can
+              read as a passive status line. A shell-style prompt glyph signals
+              that it's a focusable input — costs no extra height. */}
+          {!modeConfig.label && !modeConfig.icon && (
+            <box style={{ flexShrink: 0 }}>
+              <text style={{ fg: theme.primary }}>❯</text>
             </box>
           )}
           <MultilineInput
@@ -429,7 +440,10 @@ export const ChatInputBar = ({
             {modeConfig.label && (
               <box style={{ flexShrink: 0, paddingRight: 1 }}>
                 <text>
-                  <span bg={theme.info} fg={theme.background}>{` ${modeConfig.label} `}</span>
+                  <span
+                    bg={theme.info}
+                    fg={theme.background}
+                  >{` ${modeConfig.label} `}</span>
                 </text>
               </box>
             )}

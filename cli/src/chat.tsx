@@ -23,6 +23,11 @@ import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { SessionEndedBanner } from './components/session-ended-banner'
 import { StatusBar } from './components/status-bar'
+import {
+  SuggestedPrompts,
+  DEFAULT_SUGGESTED_PROMPTS,
+  type SuggestedPromptSelection,
+} from './components/suggested-prompts'
 import { TopBanner } from './components/top-banner'
 import { getSlashCommandsWithSkills } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -61,6 +66,10 @@ import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
 import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
 import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
+import {
+  hasSubmittedFirstPrompt,
+  markFirstPromptSubmitted,
+} from './utils/settings'
 
 import {
   type ChatKeyboardState,
@@ -128,6 +137,12 @@ export const Chat = ({
   freebuffSession: FreebuffSessionResponse | null
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
+
+  // First-time onboarding: show clickable starter prompts until the user
+  // submits their first prompt ever (persisted in settings). Freebuff only.
+  const [showSuggestedPrompts, setShowSuggestedPrompts] = useState(
+    () => IS_FREEBUFF && !hasSubmittedFirstPrompt(),
+  )
 
   const { validate: validateAgents } = useAgentValidation()
 
@@ -274,7 +289,12 @@ export const Chat = ({
       })
     }
     prevSlashActiveRef.current = slashContext.active
-  }, [slashContext.active, slashContext.query, slashMatches.length, inputValue.length])
+  }, [
+    slashContext.active,
+    slashContext.query,
+    slashMatches.length,
+    inputValue.length,
+  ])
 
   // Reset suggestion menu indexes when context changes
   useEffect(() => {
@@ -343,11 +363,8 @@ export const Chat = ({
     setForceFileOnlyMentions(true)
   }, [cursorPosition, inputValue, setInputValue])
 
-  const { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation } = useInputHistory(
-    inputValue,
-    setInputValue,
-    { inputMode, setInputMode },
-  )
+  const { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation } =
+    useInputHistory(inputValue, setInputValue, { inputMode, setInputMode })
 
   // Use extracted streaming hook for connection, timer, queue, and exit handling
   const {
@@ -517,12 +534,40 @@ export const Chat = ({
         }
 
         // Restore attachments if they were preserved and none have been added since
-        if (preservedAttachments && useChatStore.getState().pendingAttachments.length === 0) {
+        if (
+          preservedAttachments &&
+          useChatStore.getState().pendingAttachments.length === 0
+        ) {
           useChatStore.setState((state) => {
             state.pendingAttachments = preservedAttachments
           })
         }
       }
+    },
+  )
+
+  // Retire onboarding suggested prompts once the user submits anything
+  // (typed or clicked), persisting so they don't return on future launches.
+  useEffect(() => {
+    if (showSuggestedPrompts && messages.length > 0) {
+      markFirstPromptSubmitted()
+      setShowSuggestedPrompts(false)
+    }
+  }, [showSuggestedPrompts, messages.length])
+
+  // Submit a suggested onboarding prompt as if the user had typed and sent it
+  const handleSelectSuggestedPrompt = useEvent(
+    (prompt: string, selection: SuggestedPromptSelection) => {
+      trackEvent(AnalyticsEvent.SUGGESTED_PROMPT_CLICKED, {
+        label: selection.label,
+        index: selection.index,
+        promptLength: prompt.length,
+        agentMode,
+      })
+      onSubmitPrompt(prompt, agentMode).catch((error) => {
+        logger.error({ error }, '[suggested-prompt] Failed to submit prompt')
+        showClipboardMessage('Failed to send prompt', { durationMs: 3000 })
+      })
     },
   )
 
@@ -617,16 +662,17 @@ export const Chat = ({
     ],
   )
 
-  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildLite } = useChatInput({
-    setInputValue,
-    agentMode,
-    setAgentMode,
-    separatorWidth,
-    initialPrompt,
-    onSubmitPrompt,
-    isCompactHeight,
-    isNarrowWidth,
-  })
+  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildLite } =
+    useChatInput({
+      setInputValue,
+      agentMode,
+      setAgentMode,
+      separatorWidth,
+      initialPrompt,
+      onSubmitPrompt,
+      isCompactHeight,
+      isNarrowWidth,
+    })
 
   const {
     feedbackMode,
@@ -814,7 +860,12 @@ export const Chat = ({
     })
     setInputFocused(true)
     resetHistoryNavigation()
-  }, [restoreSavedInput, setInputValue, setInputFocused, resetHistoryNavigation])
+  }, [
+    restoreSavedInput,
+    setInputValue,
+    setInputFocused,
+    resetHistoryNavigation,
+  ])
 
   const handleCloseFeedback = useCallback(() => {
     closeFeedback()
@@ -835,10 +886,18 @@ export const Chat = ({
         .then((result) => handleCommandResult(result))
         .catch((error) => {
           logger.error({ error }, '[review] Failed to submit review prompt')
-          showClipboardMessage('Failed to send review request', { durationMs: 3000 })
+          showClipboardMessage('Failed to send review request', {
+            durationMs: 3000,
+          })
         })
     },
-    [closeReviewScreen, setInputFocused, onSubmitPrompt, agentMode, handleCommandResult],
+    [
+      closeReviewScreen,
+      setInputFocused,
+      onSubmitPrompt,
+      agentMode,
+      handleCommandResult,
+    ],
   )
 
   const handleCloseReviewScreen = useCallback(() => {
@@ -1060,12 +1119,18 @@ export const Chat = ({
         let replacement: string
         const index = agentSelectedIndex
         if (index < agentMatches.length) {
-          const selected = agentMatches.length > 0 ? (agentMatches[index] || agentMatches[0]) : undefined
+          const selected =
+            agentMatches.length > 0
+              ? agentMatches[index] || agentMatches[0]
+              : undefined
           if (!selected) return
           replacement = `@${selected.id} `
         } else {
           const fileIndex = index - agentMatches.length
-          const selectedFile = fileMatches.length > 0 ? (fileMatches[fileIndex] || fileMatches[0]) : undefined
+          const selectedFile =
+            fileMatches.length > 0
+              ? fileMatches[fileIndex] || fileMatches[0]
+              : undefined
           if (!selectedFile) return
           replacement = `@${selectedFile.filePath} `
         }
@@ -1127,7 +1192,7 @@ export const Chat = ({
             (error) => {
               logger.error({ error }, 'Failed to add pending image from file')
               showClipboardMessage('Failed to add image', { durationMs: 3000 })
-            }
+            },
           )
         }, 0)
       },
@@ -1270,6 +1335,36 @@ export const Chat = ({
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
 
+  // Show first-time onboarding starter prompts only on a pristine, idle,
+  // empty-input default-mode chat — and never while a menu/overlay is up.
+  const showOnboardingPrompts =
+    showSuggestedPrompts &&
+    messages.length === 0 &&
+    inputValue.length === 0 &&
+    inputMode === 'default' &&
+    !hasSuggestionMenu &&
+    !isStreaming &&
+    !isWaitingForResponse &&
+    !feedbackMode &&
+    !publishMode &&
+    !reviewMode &&
+    askUserState === null
+
+  // Fire a one-time impression so we can measure onboarding-prompt usage
+  // (click-through = SUGGESTED_PROMPT_CLICKED / SUGGESTED_PROMPT_SHOWN).
+  const suggestedPromptsShownRef = useRef(false)
+  useEffect(() => {
+    if (showOnboardingPrompts && !suggestedPromptsShownRef.current) {
+      suggestedPromptsShownRef.current = true
+      trackEvent(AnalyticsEvent.SUGGESTED_PROMPT_SHOWN, {
+        count: isCompactHeight
+          ? Math.min(2, DEFAULT_SUGGESTED_PROMPTS.length)
+          : DEFAULT_SUGGESTED_PROMPTS.length,
+        isCompactHeight,
+      })
+    }
+  }, [showOnboardingPrompts, isCompactHeight])
+
   const inputLayoutMetrics = useMemo(() => {
     // In bash mode, layout is based on the actual input (no ! prefix needed)
     const text = inputValue ?? ''
@@ -1306,7 +1401,9 @@ export const Chat = ({
 
   // Auto-show subscription limit banner when rate limit becomes active
   const subscriptionLimitShownRef = useRef(false)
-  const subscriptionRateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
+  const subscriptionRateLimit = subscriptionData?.hasSubscription
+    ? subscriptionData.rateLimit
+    : undefined
   const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
   useEffect(() => {
     const isLimited = subscriptionRateLimit?.limited === true
@@ -1490,66 +1587,74 @@ export const Chat = ({
             isStreaming={isStreaming || isWaitingForResponse}
           />
         ) : (
-          <ChatInputBar
-            inputValue={inputValue}
-            cursorPosition={cursorPosition}
-            setInputValue={setInputValue}
-            inputFocused={inputFocused}
-            inputRef={inputRef}
-            inputPlaceholder={inputPlaceholder}
-            lastEditDueToNav={lastEditDueToNav}
-            agentMode={agentMode}
-            toggleAgentMode={toggleAgentMode}
-            setAgentMode={setAgentMode}
-            hasSlashSuggestions={hasSlashSuggestions}
-            hasMentionSuggestions={hasMentionSuggestions}
-            hasSuggestionMenu={hasSuggestionMenu}
-            slashSuggestionItems={slashSuggestionItems}
-            agentSuggestionItems={agentSuggestionItems}
-            fileSuggestionItems={fileSuggestionItems}
-            slashSelectedIndex={slashSelectedIndex}
-            agentSelectedIndex={agentSelectedIndex}
-            onSlashItemClick={handleSlashItemClick}
-            onMentionItemClick={handleMentionItemClick}
-            theme={theme}
-            terminalHeight={terminalHeight}
-            separatorWidth={separatorWidth}
-            shouldCenterInputVertically={shouldCenterInputVertically}
-            inputBoxTitle={inputBoxTitle}
-            isCompactHeight={isCompactHeight}
-            isNarrowWidth={isNarrowWidth}
-            feedbackMode={feedbackMode}
-            handleExitFeedback={handleExitFeedback}
-            publishMode={publishMode}
-            handleExitPublish={handleExitPublish}
-            handlePublish={handlePublish}
-            handleSubmit={handleSubmit}
-            onPaste={createPasteHandler({
-              text: inputValue,
-              cursorPosition,
-              onChange: setInputValue,
-              onPasteImage: chatKeyboardHandlers.onPasteImage,
-              onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
-              onPasteFilePath: chatKeyboardHandlers.onPasteFilePath,
-              onPasteLongText: (pastedText) => {
-                const id = crypto.randomUUID()
-                const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
-                useChatStore.getState().addPendingTextAttachment({
-                  id,
-                  content: pastedText,
-                  preview,
-                  charCount: pastedText.length,
-                })
-                // Show temporary status message
-                showClipboardMessage(
-                  `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
-                  { durationMs: 5000 },
-                )
-              },
-              cwd: getProjectRoot() ?? process.cwd(),
-            })}
-            onInterruptStream={chatKeyboardHandlers.onInterruptStream}
-          />
+          <>
+            {showOnboardingPrompts && (
+              <SuggestedPrompts
+                onSelect={handleSelectSuggestedPrompt}
+                maxItems={isCompactHeight ? 2 : undefined}
+              />
+            )}
+            <ChatInputBar
+              inputValue={inputValue}
+              cursorPosition={cursorPosition}
+              setInputValue={setInputValue}
+              inputFocused={inputFocused}
+              inputRef={inputRef}
+              inputPlaceholder={inputPlaceholder}
+              lastEditDueToNav={lastEditDueToNav}
+              agentMode={agentMode}
+              toggleAgentMode={toggleAgentMode}
+              setAgentMode={setAgentMode}
+              hasSlashSuggestions={hasSlashSuggestions}
+              hasMentionSuggestions={hasMentionSuggestions}
+              hasSuggestionMenu={hasSuggestionMenu}
+              slashSuggestionItems={slashSuggestionItems}
+              agentSuggestionItems={agentSuggestionItems}
+              fileSuggestionItems={fileSuggestionItems}
+              slashSelectedIndex={slashSelectedIndex}
+              agentSelectedIndex={agentSelectedIndex}
+              onSlashItemClick={handleSlashItemClick}
+              onMentionItemClick={handleMentionItemClick}
+              theme={theme}
+              terminalHeight={terminalHeight}
+              separatorWidth={separatorWidth}
+              shouldCenterInputVertically={shouldCenterInputVertically}
+              inputBoxTitle={inputBoxTitle}
+              isCompactHeight={isCompactHeight}
+              isNarrowWidth={isNarrowWidth}
+              feedbackMode={feedbackMode}
+              handleExitFeedback={handleExitFeedback}
+              publishMode={publishMode}
+              handleExitPublish={handleExitPublish}
+              handlePublish={handlePublish}
+              handleSubmit={handleSubmit}
+              onPaste={createPasteHandler({
+                text: inputValue,
+                cursorPosition,
+                onChange: setInputValue,
+                onPasteImage: chatKeyboardHandlers.onPasteImage,
+                onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
+                onPasteFilePath: chatKeyboardHandlers.onPasteFilePath,
+                onPasteLongText: (pastedText) => {
+                  const id = crypto.randomUUID()
+                  const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
+                  useChatStore.getState().addPendingTextAttachment({
+                    id,
+                    content: pastedText,
+                    preview,
+                    charCount: pastedText.length,
+                  })
+                  // Show temporary status message
+                  showClipboardMessage(
+                    `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
+                    { durationMs: 5000 },
+                  )
+                },
+                cwd: getProjectRoot() ?? process.cwd(),
+              })}
+              onInterruptStream={chatKeyboardHandlers.onInterruptStream}
+            />
+          </>
         )}
       </box>
     </box>
