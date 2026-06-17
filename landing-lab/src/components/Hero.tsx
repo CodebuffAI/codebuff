@@ -76,7 +76,7 @@ export function Hero() {
       {/* ── Parallax scene: distant range · hills · cost chart · bushes ── */}
       <div
         ref={sceneRef}
-        className="relative -mt-12 h-[108vh] w-full md:-mt-16 md:h-[118vh]"
+        className="relative -mt-12 h-[80vh] w-full md:-mt-16 md:h-[84vh]"
       >
         <motion.img
           src="/sky-bg.webp"

@@ -474,11 +474,14 @@ function InstallBlock() {
   )
 }
 
-function ProductRow({ p }: { p: Product }) {
+function ProductRow({ p, first }: { p: Product; first?: boolean }) {
   return (
     <div
       id={p.id}
-      className="grid scroll-mt-24 items-center gap-10 py-16 md:grid-cols-2 md:gap-16 md:py-24"
+      className={cn(
+        'grid scroll-mt-24 items-center gap-10 py-16 md:grid-cols-2 md:gap-16 md:py-24',
+        first && 'pt-4 md:pt-6',
+      )}
     >
       {/* Text side — no bg, no border, no card */}
       <motion.div
@@ -496,7 +499,7 @@ function ProductRow({ p }: { p: Product }) {
             New
           </span>
         </div>
-        <h2 className="hero-heading text-3xl text-white md:text-[40px] md:leading-[1.1]">
+        <h2 className="hero-heading text-3xl font-normal text-white md:text-[40px] md:leading-[1.1]">
           {p.title}
         </h2>
         <p className="mt-4 max-w-md text-lg text-white/55">{p.description}</p>
@@ -536,10 +539,10 @@ function ProductRow({ p }: { p: Product }) {
 
 export function Products() {
   return (
-    <section className="relative bg-black px-6 py-10">
+    <section className="relative bg-black px-6 pb-10 pt-0">
       <div className="mx-auto max-w-6xl divide-y divide-white/[0.06]">
-        {PRODUCTS.map((p) => (
-          <ProductRow key={p.id} p={p} />
+        {PRODUCTS.map((p, i) => (
+          <ProductRow key={p.id} p={p} first={i === 0} />
         ))}
       </div>
     </section>

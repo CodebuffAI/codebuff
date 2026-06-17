@@ -1,15 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  ArrowUp,
   ArrowUpRight,
   Check,
   ChevronDown,
   Copy,
   ImagePlus,
   Palette,
-  SendHorizontal,
   Sparkles,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import type { TabId } from '@/lib/competitors'
 import { cn } from '@/lib/utils'
@@ -103,27 +103,63 @@ export function HeroTabs({
         </AnimatePresence>
       </div>
 
-      {/* Content area grows to fit the active panel (height eases between tabs) */}
-      <motion.div
-        layout
-        transition={{ type: 'spring', stiffness: 360, damping: 34 }}
-        className="mx-auto mt-4 w-full max-w-xl"
-      >
-        <AnimatePresence mode="wait">
+      {/* Content area animates its REAL height between tabs, so everything
+          below it (the parallax scene) glides down/up instead of snapping.
+          A transform-based `layout` animation wouldn't push the siblings. */}
+      <AnimatedTabHeight tabKey={tab}>
+        {tab === 'cli' && <CliPanel />}
+        {tab === 'web' && <WebPanel />}
+        {tab === 'chat' && <ChatPanel />}
+      </AnimatedTabHeight>
+    </div>
+  )
+}
+
+/* Wraps the active tab panel and eases its container height to the measured
+   content height. The inner crossfade pops the outgoing panel out of flow so
+   the height tracks only the incoming panel. */
+function AnimatedTabHeight({
+  tabKey,
+  children,
+}: {
+  tabKey: TabId
+  children: React.ReactNode
+}) {
+  const innerRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState<number | 'auto'>('auto')
+
+  useLayoutEffect(() => {
+    const el = innerRef.current
+    if (!el) return
+    const measure = () => setHeight(el.offsetHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <motion.div
+      initial={false}
+      animate={{ height }}
+      transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+      style={{ overflow: 'hidden' }}
+      className="mx-auto mt-4 w-full max-w-xl"
+    >
+      <div ref={innerRef} className="relative">
+        <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
-            key={tab}
+            key={tabKey}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
           >
-            {tab === 'cli' && <CliPanel />}
-            {tab === 'web' && <WebPanel />}
-            {tab === 'chat' && <ChatPanel />}
+            {children}
           </motion.div>
         </AnimatePresence>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   )
 }
 
@@ -219,7 +255,7 @@ function WebPanel() {
           aria-label="Send"
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
         >
-          <SendHorizontal className="h-4 w-4" />
+          <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -242,16 +278,22 @@ const CHAT_CHIPS = [
 function ChatPanel() {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left">
-      <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-3">
-        <input
-          placeholder="Ask Freebuff anything…"
-          className="flex-1 bg-transparent text-sm text-white placeholder:text-white/35 focus:outline-none"
+      {/* Composer line — flat (no nested card), with a live blinking caret. */}
+      <div className="flex min-h-[34px] items-center gap-1.5 px-2 pt-1 text-sm">
+        <span
+          aria-hidden
+          className="caret-blink h-[18px] w-[2px] rounded-full bg-forest-bright"
         />
+        <span className="text-white/60">Ask Freebuff anything…</span>
+      </div>
+      {/* Controls row mirrors the Web composer: model selector + arrow send. */}
+      <div className="mt-1 flex items-center gap-1.5">
+        <Pill icon={Sparkles} label="MiniMax M3" caret />
         <button
           aria-label="Send"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
+          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
         >
-          <SendHorizontal className="h-4 w-4" />
+          <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
