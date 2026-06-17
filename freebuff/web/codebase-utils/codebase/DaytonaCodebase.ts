@@ -77,6 +77,7 @@ export class DaytonaCodebase
   private readonly FILE_PATHS_CACHE_TTL = 60000; // 60 seconds cache TTL
   private readonly projectDir = "codebase"; // Project directory (relative path for file operations)
   private readonly projectPath = "/home/daytona/codebase"; // Absolute path for git operations
+  private gitRepositoryEnsured = false;
 
   // Stats scripts version tracking - only set after successful installation
   private statsScriptsVersion: string | undefined;
@@ -148,6 +149,54 @@ export class DaytonaCodebase
       (path, content) => this.writeStateFile(path, content),
       ".local/.vly-integrity-state.json", // Store alongside scripts in $HOME/.local
     );
+  }
+
+  private isGitCommand(command: string): boolean {
+    const trimmedCommand = command.trim();
+    if (!trimmedCommand) {
+      return false;
+    }
+
+    const firstSegment = trimmedCommand.split(/&&|;/)[0]?.trim() ?? "";
+    if (!firstSegment) {
+      return false;
+    }
+
+    const tokens = firstSegment.split(/\s+/).filter(Boolean);
+    let index = 0;
+    while (
+      index < tokens.length &&
+      /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index])
+    ) {
+      index += 1;
+    }
+
+    return tokens[index] === "git";
+  }
+
+  private async ensureGitRepository(): Promise<void> {
+    if (this.gitRepositoryEnsured) {
+      return;
+    }
+
+    const ensureGitResult = await this.runCommand(
+      '[ -d .git ] || (git init -b main >/dev/null 2>&1 || git init >/dev/null 2>&1); ' +
+        'git config user.name >/dev/null 2>&1 || git config user.name "Freebuff Agent"; ' +
+        'git config user.email >/dev/null 2>&1 || git config user.email "agent@mail.freebuff.app"; ' +
+        "git rev-parse --is-inside-work-tree",
+      10000,
+    );
+
+    if (
+      ensureGitResult.exitCode !== 0 ||
+      !ensureGitResult.output.toLowerCase().includes("true")
+    ) {
+      throw new Error(
+        `Failed to initialize git repository: ${ensureGitResult.output}`,
+      );
+    }
+
+    this.gitRepositoryEnsured = true;
   }
 
   public static async create(
@@ -884,6 +933,8 @@ if (!hasIntegration) {
     // VLY integration files are ensured separately in verifyProjectAccessAndConnect
     // when the vly_integrations_enabled feature flag is enabled
 
+    await this.ensureGitRepository();
+
     // get all file paths by running a command that respects gitignore
     await this.getAllFilePaths();
 
@@ -925,6 +976,10 @@ if (!hasIntegration) {
     return this.withRetry(async () => {
       if (!this.sandbox) {
         throw new Error("SANDBOX NOT ACTIVE");
+      }
+
+      if (this.isGitCommand(command)) {
+        await this.ensureGitRepository();
       }
 
       try {
@@ -1268,6 +1323,7 @@ if (!hasIntegration) {
   async commit(message: string, allowEmpty: boolean = false): Promise<Commit> {
     if (this.sandbox) {
       try {
+        await this.ensureGitRepository();
         const repoPath = this.projectPath;
 
         await this.sandbox.git.add(repoPath, ["."]);
@@ -2240,6 +2296,7 @@ if (!hasIntegration) {
       }
 
       const repoPath = this.projectPath;
+      await this.ensureGitRepository();
 
       // If fromRef is specified, use git command directly since Daytona SDK doesn't support it
       if (fromRef) {
@@ -2257,6 +2314,7 @@ if (!hasIntegration) {
       }
 
       const repoPath = this.projectPath;
+      await this.ensureGitRepository();
       await this.sandbox.git.checkoutBranch(repoPath, branchName);
     });
   }
@@ -2272,6 +2330,7 @@ if (!hasIntegration) {
       }
 
       const repoPath = this.projectPath;
+      await this.ensureGitRepository();
       await this.sandbox.git.deleteBranch(repoPath, branchName);
     });
   }
@@ -2461,6 +2520,7 @@ if (!hasIntegration) {
         }
 
         const repoPath = this.projectPath;
+        await this.ensureGitRepository();
         await this.sandbox.git.pull(repoPath);
       });
     }
@@ -2497,6 +2557,7 @@ if (!hasIntegration) {
         }
 
         const repoPath = this.projectPath;
+        await this.ensureGitRepository();
         await this.sandbox.git.push(repoPath);
       });
     }
@@ -2509,6 +2570,7 @@ if (!hasIntegration) {
       }
 
       const repoPath = this.projectPath;
+      await this.ensureGitRepository();
       await this.sandbox.git.add(repoPath, files);
     });
   }
@@ -2520,6 +2582,7 @@ if (!hasIntegration) {
       }
 
       const repoPath = this.projectPath;
+      await this.ensureGitRepository();
       await this.sandbox.git.add(repoPath, ["."]);
     });
   }
@@ -2651,7 +2714,9 @@ if (!hasIntegration) {
 
   // Repository initialization
   async initRepository(): Promise<void> {
-    await this.runCommand("git init");
+    await this.runCommand("git init -b main || git init");
+    this.gitRepositoryEnsured = false;
+    await this.ensureGitRepository();
   }
 
   async configureUser(name: string, email: string): Promise<void> {
