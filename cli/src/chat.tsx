@@ -1545,6 +1545,13 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
+        {showOnboardingPrompts && !reviewMode && !isFreebuffSessionOver && (
+          <SuggestedPrompts
+            onSelect={handleSelectSuggestedPrompt}
+            maxItems={isCompactHeight ? 2 : undefined}
+          />
+        )}
+
         {shouldShowStatusLine && (
           <StatusBar
             timerStartTime={timerStartTime}
@@ -1588,12 +1595,6 @@ export const Chat = ({
           />
         ) : (
           <>
-            {showOnboardingPrompts && (
-              <SuggestedPrompts
-                onSelect={handleSelectSuggestedPrompt}
-                maxItems={isCompactHeight ? 2 : undefined}
-              />
-            )}
             <ChatInputBar
               inputValue={inputValue}
               cursorPosition={cursorPosition}
