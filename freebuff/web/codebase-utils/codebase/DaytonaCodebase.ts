@@ -3273,9 +3273,8 @@ async function openDaytonaSandboxWithRetry(
       }
 
       if (sandbox.state !== "started") {
-        // Start the sandbox with explicit timeout (60 seconds)
-        // This internally uses waitUntilStarted() which polls the API
-        await sdk.start(sandbox, 60);
+        // Wait for the sandbox to reach started state with explicit timeout (60 seconds)
+        await sandbox.waitUntilStarted(60);
       }
 
       // Re-fetch after start to avoid stale sandbox metadata in long-lived objects.
