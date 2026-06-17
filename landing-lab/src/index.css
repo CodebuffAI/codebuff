@@ -65,13 +65,13 @@
 
 @layer components {
   .hero-heading {
-    @apply font-serif font-medium;
+    @apply font-serif font-normal;
     font-feature-settings: 'kern' 1, 'liga' 1;
     letter-spacing: -0.01em;
   }
 
   .feature-heading {
-    @apply font-serif font-medium text-4xl md:text-5xl lg:text-[56px] leading-[1.05];
+    @apply font-serif font-normal text-4xl md:text-5xl lg:text-[56px] leading-[1.05];
   }
 }
 

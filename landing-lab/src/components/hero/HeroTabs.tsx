@@ -58,7 +58,7 @@ export function HeroTabs({
               <button
                 onClick={() => onTab(t.id)}
                 className={cn(
-                  'relative rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                  'relative rounded-full px-4 py-1.5 text-sm font-normal transition-colors',
                   isActive
                     ? 'text-white'
                     : 'text-white/55 hover:bg-white/[0.06] hover:text-white/90',

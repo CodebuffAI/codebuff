@@ -82,7 +82,7 @@ export function Faq() {
                   </span>
                   <span
                     className={cn(
-                      'flex-1 font-medium transition-colors',
+                      'flex-1 font-normal transition-colors',
                       isOpen
                         ? 'text-white'
                         : 'text-white/75 group-hover:text-white',

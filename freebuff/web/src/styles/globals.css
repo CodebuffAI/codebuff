@@ -94,7 +94,7 @@
  * ========================================================================== */
 .lp-hero-heading {
   font-family: 'Domine', serif;
-  font-weight: 500;
+  font-weight: 400;
   font-feature-settings:
     'kern' 1,
     'liga' 1;
@@ -103,7 +103,7 @@
 
 .lp-feature-heading {
   font-family: 'Domine', serif;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.05;
   @apply text-4xl md:text-5xl lg:text-[56px];
 }

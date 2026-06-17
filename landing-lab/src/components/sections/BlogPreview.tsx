@@ -122,7 +122,7 @@ export function BlogPreview() {
                 key={cat}
                 onClick={() => setActive(cat)}
                 className={cn(
-                  'relative px-3.5 py-2.5 text-sm font-medium transition-colors',
+                  'relative px-3.5 py-2.5 text-sm font-normal transition-colors',
                   isActive ? 'text-white' : 'text-white/45 hover:text-white/80',
                 )}
               >
@@ -156,7 +156,7 @@ export function BlogPreview() {
               >
                 <div>
                   <span
-                    className="w-fit rounded-full px-3 py-1 text-xs font-medium"
+                    className="w-fit rounded-full px-3 py-1 text-xs font-normal"
                     style={{ backgroundColor: `${p.color}22`, color: p.color }}
                   >
                     {p.category}

@@ -165,7 +165,7 @@ function WorldMap() {
                 stroke="rgba(0,0,0,0.85)"
                 strokeWidth="3.5"
                 strokeLinejoin="round"
-                className="font-mono text-[13px] font-semibold"
+                className="font-mono text-[13px] font-medium"
                 fill={GREEN}
               >
                 {count.toLocaleString()}
@@ -206,7 +206,7 @@ export function UsageMap() {
                 Active users
               </span>
             </div>
-            <div className="mt-2 font-mono text-5xl font-medium leading-none md:text-6xl" style={{ color: GREEN }}>
+            <div className="mt-2 font-mono text-5xl font-normal leading-none md:text-6xl" style={{ color: GREEN }}>
               {totalLive.toLocaleString()}
             </div>
           </div>

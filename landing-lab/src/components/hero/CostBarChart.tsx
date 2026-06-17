@@ -37,7 +37,7 @@ function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
         <span
           className={cn(
             'truncate text-[12.5px] sm:text-[15px]',
-            c.freebuff ? 'font-semibold text-white' : 'text-white/70',
+            c.freebuff ? 'font-medium text-white' : 'text-white/70',
           )}
         >
           {c.name}
@@ -74,11 +74,11 @@ function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.06 * index + 0.4 }}
-          className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap pl-2 text-[12px] font-medium tabular-nums sm:pl-3 sm:text-[15px]"
+          className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap pl-2 text-[12px] font-normal tabular-nums sm:pl-3 sm:text-[15px]"
           style={{ left: c.freebuff ? '3px' : `${pct}%` }}
         >
           {c.freebuff ? (
-            <span className="font-semibold text-forest-bright">$0 / yr</span>
+            <span className="font-medium text-forest-bright">$0 / yr</span>
           ) : (
             <span className="text-white/60">
               ${c.yearly.toLocaleString()}

@@ -132,7 +132,7 @@ function VideoCard({
               }
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             />
-            <span className="absolute bottom-2 right-2 rounded bg-black/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+            <span className="absolute bottom-2 right-2 rounded bg-black/85 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
               {video.duration}
             </span>
             <YouTubePlay />
@@ -142,7 +142,7 @@ function VideoCard({
 
       <div className="mt-3 flex gap-3">
         <span
-          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
           style={{ backgroundColor: video.avatarColor }}
         >
           {video.channel[0]}
@@ -152,7 +152,7 @@ function VideoCard({
             href={`https://www.youtube.com/watch?v=${video.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="line-clamp-2 text-[15px] font-semibold leading-snug text-white transition-colors hover:text-white/80"
+            className="line-clamp-2 text-[15px] font-medium leading-snug text-white transition-colors hover:text-white/80"
           >
             {video.title}
           </a>
@@ -213,14 +213,14 @@ function TweetCard({
             className="h-11 w-11 shrink-0 rounded-full object-cover"
           />
         ) : (
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest/25 text-sm font-semibold text-forest-bright">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest/25 text-sm font-medium text-forest-bright">
             JG
           </span>
         )}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <span className="truncate text-[15px] font-bold text-white">
+            <span className="truncate text-[15px] font-semibold text-white">
               James Grugett
             </span>
             <VerifiedBadge className="h-[18px] w-[18px] shrink-0" />
