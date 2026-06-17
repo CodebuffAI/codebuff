@@ -3273,8 +3273,30 @@ async function openDaytonaSandboxWithRetry(
       }
 
       if (sandbox.state !== "started") {
-        // Wait for the sandbox to reach started state with explicit timeout (60 seconds)
-        await sandbox.waitUntilStarted(60);
+        try {
+          // Fast path: give Daytona a short window to converge state.
+          await sandbox.waitUntilStarted(10);
+        } catch (waitError) {
+          const waitErrorMessage =
+            waitError instanceof Error ? waitError.message : String(waitError);
+          console.warn(
+            `Sandbox ${sandboxId} did not reach started state in 10s (${waitErrorMessage}), forcing restart`,
+          );
+
+          try {
+            await sandbox.stop();
+          } catch (stopError) {
+            console.warn(
+              `Sandbox ${sandboxId} stop during recovery failed: ${stopError instanceof Error ? stopError.message : String(stopError)}`,
+            );
+          }
+
+          sandbox = await sdk.get(sandboxId);
+          if ((sandbox.state as string) !== "started") {
+            await sandbox.start(60);
+          }
+          await sandbox.waitUntilStarted(60);
+        }
       }
 
       // Re-fetch after start to avoid stale sandbox metadata in long-lived objects.
