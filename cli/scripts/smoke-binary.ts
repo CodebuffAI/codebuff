@@ -89,6 +89,17 @@ const FATAL_PATTERNS = [
 // the renderer is up).
 const DEFAULT_RUN_SECONDS = 10
 
+// Windows GitHub Actions runners intermittently hang the binary's startup
+// *before any output* — the renderer never reaches its first write, so the
+// run captures 0 bytes and trips the boot-signal gate. Healthy runs stream
+// ~17KB (alt-screen escapes + the login screen) within the window. This is a
+// runner-side flake, not a product regression: the same binary boots on the
+// next attempt. Retry the boot attempt a few times so a single transient
+// hang doesn't fail the build. Regression detection is preserved — a known
+// fatal marker fails immediately (no retry), and a genuine boot failure
+// still fails after exhausting every attempt.
+const MAX_BOOT_ATTEMPTS = 3
+
 function runTreeSitterSmoke(binary: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(binary, ['--smoke-tree-sitter'], {
@@ -122,6 +133,71 @@ function runTreeSitterSmoke(binary: string): Promise<void> {
   })
 }
 
+type AttemptOutcome =
+  | { kind: 'boot'; pattern: RegExp; bytes: number; exitCode: number | null }
+  | { kind: 'fatal'; pattern: RegExp; captured: string; exitCode: number | null }
+  | { kind: 'no-signal'; captured: string; exitCode: number | null }
+
+/**
+ * Spawn the binary, let it run for the full window (so *late* async startup
+ * failures still have time to surface through the renderer-cleanup handler),
+ * then classify the captured output.
+ */
+function runBootAttempt(
+  binary: string,
+  runSeconds: number,
+): Promise<AttemptOutcome> {
+  return new Promise((resolve) => {
+    const proc = spawn(binary, [], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
+    })
+
+    let captured = ''
+    const append = (chunk: Buffer): void => {
+      captured += chunk.toString('utf8')
+    }
+    proc.stdout?.on('data', append)
+    proc.stderr?.on('data', append)
+
+    let exitCode: number | null = null
+    const exited = new Promise<void>((resolveExit) => {
+      proc.once('exit', (code) => {
+        exitCode = code
+        resolveExit()
+      })
+    })
+
+    const killTimer = setTimeout(() => {
+      // SIGKILL is the only signal that's portable across Linux/macOS/Windows
+      // here; SIGTERM may be ignored by the renderer on some platforms.
+      proc.kill('SIGKILL')
+    }, runSeconds * 1_000)
+
+    void exited.then(() => {
+      clearTimeout(killTimer)
+
+      // Negative gate first: a known fatal marker gives us a more specific
+      // error message than "no boot signal found" would.
+      for (const pattern of FATAL_PATTERNS) {
+        if (pattern.test(captured)) {
+          resolve({ kind: 'fatal', pattern, captured, exitCode })
+          return
+        }
+      }
+
+      // Positive gate: the binary must have rendered a known boot screen.
+      const matched = BOOT_SIGNAL_PATTERNS.find((p) => p.test(captured))
+      if (matched) {
+        resolve({ kind: 'boot', pattern: matched, bytes: captured.length, exitCode })
+        return
+      }
+
+      resolve({ kind: 'no-signal', captured, exitCode })
+    })
+  })
+}
+
 async function main(): Promise<void> {
   const binary = process.argv[2]
   const runSeconds = Number(process.argv[3] ?? DEFAULT_RUN_SECONDS)
@@ -144,65 +220,50 @@ async function main(): Promise<void> {
   await runTreeSitterSmoke(binary)
   console.log('smoke-binary: tree-sitter init OK.')
 
-  const proc = spawn(binary, [], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
-  })
+  let lastNoSignal: Extract<AttemptOutcome, { kind: 'no-signal' }> | null = null
 
-  let captured = ''
-  const append = (chunk: Buffer): void => {
-    captured += chunk.toString('utf8')
-  }
-  proc.stdout?.on('data', append)
-  proc.stderr?.on('data', append)
+  for (let attempt = 1; attempt <= MAX_BOOT_ATTEMPTS; attempt++) {
+    console.log(
+      `smoke-binary: boot attempt ${attempt}/${MAX_BOOT_ATTEMPTS} (running ${runSeconds}s)…`,
+    )
+    const outcome = await runBootAttempt(binary, runSeconds)
 
-  let earlyExitCode: number | null = null
-  const exited = new Promise<void>((resolve) => {
-    proc.once('exit', (code) => {
-      earlyExitCode = code
-      resolve()
-    })
-  })
-
-  const killTimer = setTimeout(() => {
-    // SIGKILL is the only signal that's portable across Linux/macOS/Windows
-    // here; SIGTERM may be ignored by the renderer on some platforms.
-    proc.kill('SIGKILL')
-  }, runSeconds * 1_000)
-
-  await exited
-  clearTimeout(killTimer)
-
-  const fail = (reason: string): never => {
-    console.error(`smoke-binary: FAIL — ${reason} (exit code ${earlyExitCode}).`)
-    console.error('--- captured output (truncated to 8KB) ---')
-    console.error(captured.slice(0, 8 * 1024))
-    process.exit(1)
-  }
-
-  // Negative gate first: a known fatal marker gives us a more specific error
-  // message than "no boot signal found" would. Both gates would fire on a
-  // crash; preferring the negative one just makes the failure log clearer.
-  for (const pattern of FATAL_PATTERNS) {
-    if (pattern.test(captured)) {
-      fail(`output matched ${pattern}`)
+    if (outcome.kind === 'boot') {
+      console.log(
+        `smoke-binary: OK (matched ${outcome.pattern}, exit code ${outcome.exitCode}, ${outcome.bytes} bytes captured, attempt ${attempt}/${MAX_BOOT_ATTEMPTS}).`,
+      )
+      return
     }
-  }
 
-  // Positive gate: the binary must have rendered a known boot screen. This
-  // is the load-bearing assertion — it catches *any* startup failure (silent
-  // crashes, hangs, novel error messages, segfaults), not just the listed
-  // fatals.
-  const matchedSignal = BOOT_SIGNAL_PATTERNS.find((p) => p.test(captured))
-  if (!matchedSignal) {
-    fail(
-      `binary never reached a known boot screen — checked ${BOOT_SIGNAL_PATTERNS.length} patterns`,
+    if (outcome.kind === 'fatal') {
+      // Deterministic crash — a known fatal marker is a real regression, not a
+      // flaky hang, so fail immediately without burning the remaining retries.
+      console.error(
+        `smoke-binary: FAIL — output matched ${outcome.pattern} (exit code ${outcome.exitCode}).`,
+      )
+      console.error('--- captured output (truncated to 8KB) ---')
+      console.error(outcome.captured.slice(0, 8 * 1024))
+      process.exit(1)
+    }
+
+    // no-signal: the binary produced no recognizable boot screen. This is the
+    // transient-Windows-hang shape; retry before giving up.
+    lastNoSignal = outcome
+    console.error(
+      `smoke-binary: attempt ${attempt}/${MAX_BOOT_ATTEMPTS} produced no boot signal ` +
+        `(${outcome.captured.length} bytes, exit code ${outcome.exitCode})` +
+        (attempt < MAX_BOOT_ATTEMPTS ? '; retrying…' : '.'),
     )
   }
 
-  console.log(
-    `smoke-binary: OK (matched ${matchedSignal}, exit code ${earlyExitCode}, ${captured.length} bytes captured).`,
+  console.error(
+    `smoke-binary: FAIL — binary never reached a known boot screen across ` +
+      `${MAX_BOOT_ATTEMPTS} attempts — checked ${BOOT_SIGNAL_PATTERNS.length} patterns ` +
+      `(exit code ${lastNoSignal?.exitCode ?? null}).`,
   )
+  console.error('--- captured output from last attempt (truncated to 8KB) ---')
+  console.error((lastNoSignal?.captured ?? '').slice(0, 8 * 1024))
+  process.exit(1)
 }
 
 main().catch((err: unknown) => {
