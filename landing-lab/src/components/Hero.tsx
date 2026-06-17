@@ -53,7 +53,7 @@ export function Hero() {
               <span className="relative inline-flex h-2 w-2 rounded-full bg-forest-bright" />
             </span>
             <span>
-              <span className="font-medium text-white/85">230,000+</span>{' '}
+              <span className="font-normal text-white/85">230,000+</span>{' '}
               developers coding for free
             </span>
           </div>

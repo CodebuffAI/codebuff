@@ -162,7 +162,7 @@ function WorldMap() {
                 stroke="rgba(0,0,0,0.85)"
                 strokeWidth="3.5"
                 strokeLinejoin="round"
-                className="font-mono text-[13px] font-medium"
+                className="font-mono text-[13px] font-normal"
                 fill={GREEN}
               >
                 {count.toLocaleString()}

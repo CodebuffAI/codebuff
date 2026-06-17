@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Domine:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
@@ -48,6 +48,8 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    /* Lighter base weight for the whole landing page (Manrope 300). */
+    font-weight: 300;
     /* Body paints the same opening gray; sections paint over it as you scroll. */
     background-color: hsl(var(--sky-top));
     -webkit-font-smoothing: antialiased;
@@ -65,13 +67,15 @@
 
 @layer components {
   .hero-heading {
-    @apply font-serif font-normal;
+    @apply font-serif font-light;
+    font-optical-sizing: auto;
     font-feature-settings: 'kern' 1, 'liga' 1;
     letter-spacing: -0.01em;
   }
 
   .feature-heading {
-    @apply font-serif font-normal text-4xl md:text-5xl lg:text-[56px] leading-[1.05];
+    @apply font-serif font-light text-4xl md:text-5xl lg:text-[56px] leading-[1.05];
+    font-optical-sizing: auto;
   }
 }
 

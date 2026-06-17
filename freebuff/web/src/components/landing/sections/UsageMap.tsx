@@ -88,7 +88,7 @@ function WorldMap() {
         <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">
           Active countries
         </div>
-        <div className="mt-1 font-serif text-2xl leading-none text-white">
+        <div className="mt-1 lp-serif text-2xl leading-none text-white">
           {COUNTRIES.length}
         </div>
       </div>
@@ -165,7 +165,7 @@ function WorldMap() {
                 stroke="rgba(0,0,0,0.85)"
                 strokeWidth="3.5"
                 strokeLinejoin="round"
-                className="font-mono text-[13px] font-medium"
+                className="font-mono text-[13px] font-normal"
                 fill={GREEN}
               >
                 {count.toLocaleString()}
@@ -218,7 +218,7 @@ export function UsageMap() {
           <section className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#04100c] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h3 className="font-serif text-xl text-white">Top countries</h3>
+                <h3 className="lp-serif text-xl text-white">Top countries</h3>
                 <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white/35">
                   Live · last 24h
                 </p>

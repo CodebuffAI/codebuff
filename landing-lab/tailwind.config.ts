@@ -14,7 +14,7 @@ const config = {
       sans: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
       mono: ['"DM Mono"', 'ui-monospace', 'monospace'],
       paragraph: ['Manrope', 'Inter', 'sans-serif'],
-      serif: ['Domine', 'serif'],
+      serif: ['Newsreader', 'serif'],
     },
     container: {
       center: true,

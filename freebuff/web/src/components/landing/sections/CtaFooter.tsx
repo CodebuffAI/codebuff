@@ -35,7 +35,7 @@ export function CtaFooter() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.6 }}
-          className="text-center font-serif text-xl text-white/90 md:text-3xl"
+          className="text-center lp-serif text-xl text-white/90 md:text-3xl"
         >
           We just killed paid coding agents
         </motion.p>
@@ -45,7 +45,7 @@ export function CtaFooter() {
       <div className="relative mt-10 h-[46vh] min-h-[340px] select-none md:mt-12 md:h-[56vh]">
         <h2
           aria-label="freebuff"
-          className="lp-hero-heading absolute inset-x-0 bottom-[24%] z-0 bg-gradient-to-b from-white via-white/80 to-white/20 bg-clip-text text-center font-semibold leading-none tracking-tight text-transparent"
+          className="lp-hero-heading absolute inset-x-0 bottom-[24%] z-0 bg-gradient-to-b from-white via-white/80 to-white/20 bg-clip-text text-center font-medium leading-none tracking-tight text-transparent"
           style={{ fontSize: 'clamp(3.25rem, 13vw, 11rem)' }}
         >
           freebuff

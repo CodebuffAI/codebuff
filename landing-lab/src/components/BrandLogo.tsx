@@ -57,7 +57,7 @@ export function BrandLogo({
     <span
       aria-label={name}
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-[6px] bg-white/10 font-semibold leading-none text-white',
+        'flex shrink-0 items-center justify-center rounded-[6px] bg-white/10 font-medium leading-none text-white',
         className,
       )}
       style={{ width: size, height: size, fontSize: size * 0.5 }}

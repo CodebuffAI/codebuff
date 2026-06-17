@@ -85,7 +85,7 @@ function TerminalDemo() {
     <DemoFrame title="freebuff — zsh" terminal>
       <div className="flex h-full flex-col px-4 py-3.5 font-mono text-[13px] leading-relaxed">
         <div className="mb-2.5 flex items-center justify-between text-[11px] text-white/30">
-          <span className="font-medium text-forest-bright/80">◆ freebuff</span>
+          <span className="font-normal text-forest-bright/80">◆ freebuff</span>
           <span>MiniMax M3 · ~/my-app</span>
         </div>
         <p className="text-white/85">
@@ -169,12 +169,12 @@ function WebAppDemo() {
         {/* App toolbar */}
         <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2">
           <div className="flex items-center gap-2 text-[11px] text-white/45">
-            <span className="rounded bg-forest/20 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-forest-bright">
+            <span className="rounded bg-forest/20 px-1.5 py-0.5 text-[9px] font-normal uppercase tracking-wide text-forest-bright">
               Beta
             </span>
             <span className="text-white/70">AI Waitlist Builder</span>
           </div>
-          <span className="flex items-center gap-1 rounded-md bg-forest px-2 py-1 text-[10px] font-medium text-white">
+          <span className="flex items-center gap-1 rounded-md bg-forest px-2 py-1 text-[10px] font-normal text-white">
             Publish
           </span>
         </div>
@@ -492,7 +492,7 @@ function ProductRow({ p }: { p: Product }) {
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-forest-bright/90">
             {p.eyebrow}
           </p>
-          <span className="rounded-full border border-forest/40 bg-forest/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-forest-bright">
+          <span className="rounded-full border border-forest/40 bg-forest/15 px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide text-forest-bright">
             New
           </span>
         </div>

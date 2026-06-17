@@ -17,7 +17,7 @@ import { UsageMap } from './sections/UsageMap'
  */
 export function LandingPage({ posts }: { posts: BlogPostPreview[] }) {
   return (
-    <div className="dark relative min-h-screen bg-black font-paragraph text-white">
+    <div className="dark relative min-h-screen bg-black font-paragraph font-light text-white">
       <LandingNavbar />
       <main>
         <Hero />

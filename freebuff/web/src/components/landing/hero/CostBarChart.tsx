@@ -41,7 +41,7 @@ function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
         <span
           className={cn(
             'truncate text-[12.5px] sm:text-[15px]',
-            c.freebuff ? 'font-medium text-white' : 'text-white/70',
+            c.freebuff ? 'font-normal text-white' : 'text-white/70',
           )}
         >
           {c.name}
@@ -82,7 +82,7 @@ function Row({ c, index, tab }: { c: Competitor; index: number; tab: TabId }) {
           style={{ left: c.freebuff ? '3px' : `${pct}%` }}
         >
           {c.freebuff ? (
-            <span className="font-medium text-forest-bright">$0 / yr</span>
+            <span className="font-normal text-forest-bright">$0 / yr</span>
           ) : (
             <span className="text-white/60">
               ${c.yearly.toLocaleString()}

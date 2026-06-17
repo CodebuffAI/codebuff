@@ -53,7 +53,7 @@ export function BlogPreview({ posts }: { posts: BlogPostPreview[] }) {
             <p className="mb-2 font-mono text-xs uppercase tracking-[0.25em] text-forest-bright/90">
               Freeblog
             </p>
-            <h2 className="font-serif text-2xl text-white md:text-[28px]">
+            <h2 className="lp-serif text-2xl text-white md:text-[28px]">
               From the blog
             </h2>
           </div>
@@ -114,7 +114,7 @@ export function BlogPreview({ posts }: { posts: BlogPostPreview[] }) {
                     >
                       {p.category}
                     </span>
-                    <h3 className="mt-6 font-serif text-[28px] leading-[1.15] text-white transition-colors group-hover:text-forest-bright">
+                    <h3 className="mt-6 lp-serif text-[28px] leading-[1.15] text-white transition-colors group-hover:text-forest-bright">
                       {p.title}
                     </h3>
                     <p className="mt-4 line-clamp-2 text-[15px] leading-relaxed text-white/50">
