@@ -1,11 +1,10 @@
 import { SignInButton } from './sign-in-button'
-import { CardFooter } from '../ui/card'
 
 export function SignInCardFooter() {
   return (
-    <CardFooter className="flex flex-col space-y-3 pb-8">
+    <div className="flex flex-col space-y-3">
       <SignInButton providerDomain="github.com" providerName="github" />
       <SignInButton providerDomain="google.com" providerName="google" />
-    </CardFooter>
+    </div>
   )
 }

@@ -66,7 +66,7 @@ export function SignInButton({
     <Button
       onClick={handleSignIn}
       disabled={isPending}
-      className="flex items-center gap-2 w-full bg-zinc-900 border border-zinc-700 text-white hover:bg-zinc-800 hover:border-acid-matrix/60 hover:shadow-[0_0_20px_rgba(124,255,63,0.15)] transition-all duration-300"
+      className="relative flex items-center justify-center gap-2 w-full h-11 bg-zinc-900 border border-zinc-700 text-white hover:bg-zinc-800 hover:border-acid-matrix/60 hover:shadow-[0_0_20px_rgba(124,255,63,0.15)] transition-all duration-300"
     >
       {isPending ? (
         <Icons.loader className="mr-2 size-4 animate-spin" />
@@ -81,7 +81,7 @@ export function SignInButton({
       )}
       Continue with {displayName}
       {isLastUsed && (
-        <span className="ml-auto rounded-full border border-acid-matrix/50 bg-acid-matrix/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-acid-matrix">
+        <span className="absolute right-3 rounded-full border border-acid-matrix/50 bg-acid-matrix/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-acid-matrix">
           Last used
         </span>
       )}
