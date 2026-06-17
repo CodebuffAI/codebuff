@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Domine:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Freebuff lab is dark-only. The hero opens on the warm near-black
+   * Freebuff Web gray (#1F1F1F-ish) and the page transitions to pure black.
+   */
+  :root {
+    --background: 240 6% 7%;
+    --foreground: 0 0% 98%;
+    --card: 240 5% 11%;
+    --card-foreground: 0 0% 98%;
+    --primary: 140 54% 33%; /* forest green #2c7a40 */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 18%;
+    --accent-foreground: 0 0% 98%;
+    --border: 240 4% 18%;
+    --input: 240 4% 18%;
+    --ring: 140 54% 40%;
+    --radius: 0.85rem;
+
+    /* The exact tone the hero sky opens on (#0e151f cool blue-green night). */
+    --sky-top: 215 38% 9%;
+    --sky-bottom: 0 0% 0%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    background-color: hsl(var(--sky-top));
+    color-scheme: dark;
+    scroll-behavior: auto;
+    /* Kill the rubber-band so overscroll never reveals a mismatched color. */
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Body paints the same opening gray; sections paint over it as you scroll. */
+    background-color: hsl(var(--sky-top));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.01em;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: rgba(84, 169, 103, 0.3);
+    color: #fff;
+  }
+}
+
+@layer components {
+  .hero-heading {
+    @apply font-serif font-medium;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    letter-spacing: -0.01em;
+  }
+
+  .feature-heading {
+    @apply font-serif font-medium text-4xl md:text-5xl lg:text-[56px] leading-[1.05];
+  }
+}
+
+@layer utilities {
+  /* GPU-friendly: parallax layers only ever transform translate/scale/opacity. */
+  .gpu {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .text-glow-green {
+    text-shadow: 0 0 16px rgba(44, 122, 64, 0.4);
+  }
+
+  /* Fade the top edge of a layered image into the sky behind it. */
+  .mask-fade-top {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 22%,
+      black 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 22%,
+      black 100%
+    );
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /*
+   * Stars run on the compositor via CSS keyframes (opacity + transform only),
+   * which is dramatically cheaper than driving dozens of JS animation loops.
+   */
+  .star {
+    position: absolute;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 0 var(--glow) rgba(255, 255, 255, 0.85);
+    animation: twinkle var(--dur) ease-in-out var(--delay) infinite;
+  }
+
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: var(--min);
+    }
+    50% {
+      opacity: var(--max);
+    }
+  }
+
+  .shooting-star {
+    position: absolute;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: shoot var(--dur) ease-out var(--delay) infinite;
+  }
+
+  /* The streak is only visible for the first slice of each long loop, then idles. */
+  @keyframes shoot {
+    0% {
+      transform: translate3d(0, 0, 0);
+      opacity: 0;
+    }
+    2% {
+      opacity: 1;
+    }
+    9% {
+      transform: translate3d(var(--dx), var(--dy), 0);
+      opacity: 0;
+    }
+    100% {
+      transform: translate3d(var(--dx), var(--dy), 0);
+      opacity: 0;
+    }
+  }
+
+  /*
+   * Live-map markers pulse via a single cheap opacity keyframe (no SVG filters,
+   * no per-node JS animation loop) so the map stays smooth while scrolling.
+   */
+  .lm-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: lm-pulse var(--dur, 3s) ease-in-out var(--delay, 0s) infinite;
+  }
+
+  @keyframes lm-pulse {
+    0%,
+    100% {
+      opacity: 0.22;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+}
