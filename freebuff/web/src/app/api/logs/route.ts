@@ -1,6 +1,10 @@
 import { env } from '@codebuff/common/env'
 import { isLogBodyTooLarge, logIngestSchema } from '@codebuff/common/schemas/logs'
 import { buildLogRows } from '@codebuff/common/util/log-ingest'
+import {
+  createFixedWindowRateLimiter,
+  extractClientIp,
+} from '@codebuff/common/util/rate-limit'
 import { enqueueLogRow } from '@codebuff/logging'
 import { NextResponse } from 'next/server'
 
@@ -17,25 +21,11 @@ import type { NextRequest } from 'next/server'
  * absent the sink disables gracefully. See docs/logging.md.
  */
 
-// Minimal in-memory fixed-window limiter (per instance). Good enough to blunt
-// abuse on a single Render instance; not a distributed guarantee.
-const WINDOW_MS = 60_000
-const MAX_REQ_PER_WINDOW = 60
-const hits = new Map<string, { count: number; resetAt: number }>()
-
-function rateLimited(ip: string, now: number): boolean {
-  const entry = hits.get(ip)
-  if (!entry || now >= entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + WINDOW_MS })
-    // Opportunistically prune expired entries to bound map growth.
-    if (hits.size > 10_000) {
-      for (const [k, v] of hits) if (now >= v.resetAt) hits.delete(k)
-    }
-    return false
-  }
-  entry.count++
-  return entry.count > MAX_REQ_PER_WINDOW
-}
+// Per-instance fixed-window limiter (best-effort; not a distributed guarantee).
+const rateLimiter = createFixedWindowRateLimiter({
+  windowMs: 60_000,
+  max: 60,
+})
 
 export async function POST(req: NextRequest) {
   const now = Date.now()
@@ -46,13 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
   }
 
-  // Prefer the proxy-set x-real-ip (harder to spoof than the left-most
-  // x-forwarded-for token). The limiter is per-instance and best-effort.
-  const ip =
-    req.headers.get('x-real-ip')?.trim() ||
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    'unknown'
-  if (rateLimited(ip, now)) {
+  if (rateLimiter.limited(extractClientIp(req.headers), now)) {
     return NextResponse.json({ error: 'Rate limited' }, { status: 429 })
   }
 

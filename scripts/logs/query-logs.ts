@@ -26,8 +26,10 @@
  *   --session <id>          client_session_id
  *   --request <id>          client_request_id
  *   --grep <text>           message contains <text>
+ *   --count                 print the total matching row count (not rows)
+ *   --count-by <field>      grouped count, e.g. --count-by event (top by count)
  *   --full                  include the `data` field
- *   --limit <n>             max rows (default 100)
+ *   --limit <n>             max rows / groups (default 100)
  *   --dataset <name>        override dataset
  *   --json                  print JSON instead of a table
  *   --dry-run               print the APL, do not execute
@@ -36,18 +38,21 @@ import {
   DEFAULT_FIELDS,
   aplDatetime,
   aplString,
+  assertSafeColumnName,
   getFlag,
   hasFlag,
   resolveDataset,
   resolveTimeRange,
   runApl,
+  runAplSummarize,
   safeCol,
 } from './lib'
 
 function main() {
   const dataset = resolveDataset()
   const { from, to } = resolveTimeRange()
-  const limit = Number(getFlag('limit') ?? 100)
+  const parsedLimit = Number(getFlag('limit') ?? 100)
+  const limit = Number.isFinite(parsedLimit) ? parsedLimit : 100
 
   // Project each field via column_ifexists so a column that doesn't exist yet
   // in the dataset/window degrades to "" instead of erroring the whole query.
@@ -77,11 +82,26 @@ function main() {
   const grep = getFlag('grep')
   if (grep) filters.push(`where ${safeCol('message')} contains ${aplString(grep)}`)
 
+  // Aggregation mode: `--count` (total) or `--count-by <field>` (grouped count,
+  // e.g. `--count-by event` to see event volumes, or `--count-by user_id` for
+  // top users). Pairs with the same filters above. Far cheaper for agents than
+  // pulling rows and counting client-side.
+  const countBy = getFlag('count-by')
+  if (countBy || hasFlag('count')) {
+    const agg = countBy
+      ? `summarize n = count() by ${assertSafeColumnName(countBy)} = ${safeCol(
+          countBy,
+        )}\n| sort by n desc\n| limit ${limit}`
+      : `summarize n = count()`
+    const apl = [`['${dataset}']`, ...filters, agg].join('\n| ')
+    return runAplSummarize(apl)
+  }
+
   const apl = [
     `['${dataset}']`,
     ...filters,
     `sort by _time desc`,
-    `limit ${Number.isFinite(limit) ? limit : 100}`,
+    `limit ${limit}`,
     `project _time, ${fields.join(', ')}`,
   ].join('\n| ')
 

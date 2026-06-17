@@ -71,16 +71,19 @@ export async function flushClientLogs(): Promise<void> {
   const batch = buffer.splice(0, MAX_BATCH)
   try {
     const client = getApiClient()
-    if (!client.authToken) {
-      // Not logged in yet — put the batch back (bounded by MAX_BUFFER) so we
-      // can ship it once auth is available.
-      buffer.unshift(...batch)
-      return
-    }
+    // Ship whether or not we're logged in. With a token the server stamps the
+    // authenticated user_id; without one it accepts the batch anonymously
+    // (rate-limited, user_id=null) so pre-auth events like app_launched still
+    // reach Axiom. Records carry client_session_id for correlation. See
+    // /api/logs and docs/logging.md.
     await client.post(
       '/api/logs',
       { records: batch },
-      { includeAuth: true, retry: false, timeoutMs: 5_000 },
+      {
+        includeAuth: Boolean(client.authToken),
+        retry: false,
+        timeoutMs: 5_000,
+      },
     )
   } catch {
     // Best-effort: drop on error rather than risk unbounded growth.

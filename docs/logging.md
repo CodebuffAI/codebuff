@@ -45,10 +45,18 @@ bun scripts/logs/logs-volume.ts --since 24h
   to *also* `enqueueLogRow()` in prod. No call-site changes — every existing
   `logger.*` call already flows to Axiom. See `web/src/util/logger.ts`.
 - **CLI logs/events**: mirrored via `POST /api/logs` (still also sent to
-  PostHog). See `cli/src/utils/log-shipper.ts`.
-- **Browser events**: a PostHog `before_send` tap mirrors every captured event
-  via same-origin `POST /api/logs`. No call-site changes. See
-  `freebuff/web/src/lib/PostHogProvider.tsx` + `browser-log-shipper.ts`.
+  PostHog). Both `logger.*` calls *and* `trackEvent(...)` analytics are mirrored
+  (`cli/src/utils/log-shipper.ts` + the mirror in `analytics.ts`). The shipper
+  ships **even before login** — with no API key it posts anonymously
+  (`user_id=null`, rate-limited), so pre-auth events like `cli.app_launched`
+  reach Axiom and **install→login funnels are queryable**. Correlate pre/post
+  login on `client_session_id` (the anonymous run id) or `fingerprint_id`.
+- **Browser events**: a PostHog `before_send` tap mirrors captured events via
+  same-origin `POST /api/logs`. No call-site changes. High-volume auto-events
+  (session replay `$snapshot`, `$autocapture`, heatmaps, `$web_vitals`,
+  `$pageleave`) are **not** mirrored to Axiom — they dominate ingest and bury
+  queryable events; PostHog still keeps them. See `shouldMirrorAnalyticsEvent`
+  in `common/src/util/log-mirror.ts` + `PostHogProvider.tsx`.
 
 The sink lives in **`@codebuff/logging`** (`packages/logging/src/sink.ts`) and
 wraps the `@axiomhq/js` batching client (background batching + retries, with an
@@ -107,7 +115,8 @@ can raise the min level or sample a noisy source.
 
 `query-logs.ts` flags: `--since`, `--from/--to`, `--level`, `--source`,
 `--service`, `--event`, `--has-event`, `--user`, `--session`, `--request`,
-`--grep`, `--full`, `--limit`, `--dataset`, `--json`, `--dry-run`.
+`--grep`, `--count`, `--count-by <field>`, `--full`, `--limit`, `--dataset`,
+`--json`, `--dry-run`.
 
 ## APL recipes
 
@@ -120,6 +129,26 @@ bun scripts/logs/query-logs.ts --since 24h --request <run_id> --full --json
 
 # Did a new feature emit its events?
 bun scripts/logs/query-logs.ts --since 2h --event api.feature_x_used --has-event
+
+# Event volumes (which events are flowing?) and top users
+bun scripts/logs/query-logs.ts --since 24h --has-event --count-by event
+bun scripts/logs/query-logs.ts --since 24h --event cli.login --count-by user_id
+```
+
+### Funnel example: CLI install → login (last 7d)
+
+`cli.app_launched` ships even pre-login (anonymously), so both ends of the
+funnel are in Axiom. Correlate on `client_session_id` (the anonymous run id).
+
+```kusto
+['freebuff']
+| where _time >= ago(7d) and source == "cli"
+| where event in ("cli.app_launched", "cli.login")
+| summarize launches  = dcountif(client_session_id, event == "cli.app_launched"),
+            logins     = dcountif(client_session_id, event == "cli.login")
+  by bin(_time, 1d)
+| extend login_rate = round(100.0 * logins / launches, 1)
+| sort by _time asc
 ```
 
 Raw APL (e.g. in the Axiom console) — note the `parse_json` to read `data`:

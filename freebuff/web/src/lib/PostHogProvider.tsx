@@ -1,6 +1,7 @@
 'use client'
 
 import { env } from '@codebuff/common/env'
+import { shouldMirrorAnalyticsEvent } from '@codebuff/common/util/log-mirror'
 import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { PostHogProvider as PostHogProviderWrapper } from 'posthog-js/react'
@@ -21,11 +22,13 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       api_host: '/ingest',
       ui_host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
       person_profiles: 'always',
-      // Mirror every captured event into our Axiom logs sink, then pass it
-      // through to PostHog unchanged. Returning the event (never null) keeps
-      // PostHog behaviour identical.
+      // Mirror captured events into our Axiom logs sink, then pass them through
+      // to PostHog unchanged. Returning the event (never null) keeps PostHog
+      // behaviour identical — we only filter what gets COPIED to Axiom, dropping
+      // high-volume auto-events (session replay, autocapture, heatmaps) that
+      // would dominate ingest cost and bury queryable events. See log-mirror.ts.
       before_send: (event) => {
-        if (event) {
+        if (event && shouldMirrorAnalyticsEvent(event.event)) {
           shipBrowserLog({
             timestamp: event.timestamp
               ? new Date(event.timestamp).toISOString()

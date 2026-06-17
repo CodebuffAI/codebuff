@@ -1,6 +1,7 @@
 import { Axiom } from '@axiomhq/js'
 import { IS_PROD } from '@codebuff/common/env'
 import { MAX_LOG_DATA_BYTES } from '@codebuff/common/schemas/logs'
+import { shouldMirrorAnalyticsEvent } from '@codebuff/common/util/log-mirror'
 
 import type { LogLevel, LogRow } from '@codebuff/common/types/contracts/logs'
 
@@ -167,6 +168,11 @@ function registerShutdown(): void {
 export function enqueueLogRow(row: LogRow): void {
   if (!enabled()) return
   if ((LEVEL_ORDER[row.level] ?? 0) < minLevel()) return
+  // Authoritative cost guard: drop high-volume, low-query-value analytics events
+  // (session replay, autocapture, …) regardless of which producer enqueued them.
+  // Producers also filter early to avoid the network hop; this is the safety net
+  // so the denylist holds even for paths that forget (e.g. server-side mirrors).
+  if (!shouldMirrorAnalyticsEvent(row.event)) return
   const axiom = getClient()
   if (!axiom) return
   try {

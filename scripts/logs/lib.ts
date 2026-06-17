@@ -136,6 +136,45 @@ export async function runApl(apl: string): Promise<Record<string, unknown>[]> {
   return (result.matches ?? []).map((m) => ({ ...m.data, _time: m._time }))
 }
 
+/**
+ * Run a `summarize … by …` APL and return one row per group (group keys merged
+ * with the named aggregation values). Aggregation results come back in
+ * `buckets.totals` rather than `matches`, so this is separate from `runApl`.
+ * With --dry-run it prints the APL and returns nothing.
+ */
+export async function runAplSummarize(
+  apl: string,
+): Promise<Record<string, unknown>[]> {
+  if (hasFlag('dry-run')) {
+    process.stderr.write(`[logs] --dry-run APL:\n${apl}\n`)
+    return []
+  }
+  const result = (await axiom().query(apl)) as {
+    buckets?: {
+      totals?: Array<{
+        group?: Record<string, unknown>
+        aggregations?: Array<{ alias?: string; op?: string; value?: unknown }>
+      }>
+    }
+  }
+  return (result.buckets?.totals ?? []).map((g) => ({
+    ...(g.group ?? {}),
+    ...Object.fromEntries(
+      (g.aggregations ?? []).map((a) => [a.alias ?? a.op ?? 'value', a.value]),
+    ),
+  }))
+}
+
+/** Validate a column name passed by the user before splicing it into APL. */
+export function assertSafeColumnName(name: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    throw new Error(
+      `Invalid column "${name}" (allowed: a letter/underscore then letters/digits/underscores).`,
+    )
+  }
+  return name
+}
+
 /** Columns projected by default — excludes the (potentially large) `data`. */
 export const DEFAULT_FIELDS = [
   'level',
@@ -145,5 +184,6 @@ export const DEFAULT_FIELDS = [
   'user_id',
   'client_session_id',
   'client_request_id',
+  'fingerprint_id',
   'message',
 ] as const
