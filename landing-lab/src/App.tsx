@@ -3,9 +3,10 @@ import { Navbar } from '@/components/Navbar'
 import { BlogPreview } from '@/components/sections/BlogPreview'
 import { CtaFooter } from '@/components/sections/CtaFooter'
 import { Faq } from '@/components/sections/Faq'
+import { LiveUsage } from '@/components/sections/LiveUsage'
 import { Media } from '@/components/sections/Media'
 import { Products } from '@/components/sections/Products'
-import { UsageMap } from '@/components/sections/UsageMap'
+import { Testimonial } from '@/components/sections/Testimonial'
 
 export default function App() {
   return (
@@ -16,7 +17,8 @@ export default function App() {
         {/* Everything below the hero lives on pure black for a seamless seam. */}
         <div className="relative z-10 bg-black">
           <Products />
-          <UsageMap />
+          <Testimonial />
+          <LiveUsage />
           <BlogPreview />
           <Media />
           <Faq />

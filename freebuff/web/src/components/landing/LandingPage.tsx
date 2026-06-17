@@ -4,9 +4,10 @@ import { BlogPreview } from './sections/BlogPreview'
 import type { BlogPostPreview } from './sections/BlogPreview'
 import { CtaFooter } from './sections/CtaFooter'
 import { Faq } from './sections/Faq'
+import { LiveUsage } from './sections/LiveUsage'
 import { Media } from './sections/Media'
 import { Products } from './sections/Products'
-import { UsageMap } from './sections/UsageMap'
+import { Testimonial } from './sections/Testimonial'
 
 /**
  * Exact replica of the Vite landing-lab prototype, composed for Next.js.
@@ -24,7 +25,8 @@ export function LandingPage({ posts }: { posts: BlogPostPreview[] }) {
         {/* Everything below the hero lives on pure black for a seamless seam. */}
         <div className="relative z-10 bg-black">
           <Products />
-          <UsageMap />
+          <Testimonial />
+          <LiveUsage />
           <BlogPreview posts={posts} />
           <Media />
           <Faq />
