@@ -40,6 +40,15 @@
     @apply bg-background text-foreground;
   }
 
+  /* Canvas / overscroll (rubber-band) color. The browser paints the area
+     beyond the page with the <html> background; without this it falls back to
+     the gray --background token. rgb(6,11,17) matches the landing hero's
+     topmost sky tone so overscrolling past the top is a seamless extension of
+     the background rather than a gray gap. */
+  html {
+    background-color: rgb(6, 11, 17);
+  }
+
   /* ── Mobile hardening ────────────────────────────────────────────────
      Lock the page width and prevent every input from triggering iOS's
      auto-zoom. Inputs on iOS will only zoom when their computed font-size
