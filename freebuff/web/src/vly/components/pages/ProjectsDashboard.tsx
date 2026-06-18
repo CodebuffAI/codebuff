@@ -35,6 +35,9 @@ import { HeroStorageProvider } from '@/vly/hooks/useSharedHeroStorage'
 import { DocumentInput } from '@/vly/components/test-landing/DocumentInput'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
+// NB: `@/components/*` is aliased to `src/vly/components/*` in this package's
+// tsconfig, so the landing Starfield is imported relatively.
+import { Starfield } from '../../../components/landing/Starfield'
 
 const ThemePickerModal = lazy(
   () => import('@/vly/components/ThemePickerModal'),
@@ -122,36 +125,24 @@ export default function ProjectsDashboard() {
   }
 
   return (
-    <AppShell>
-      {/* ── Freebuff-y ambient background (primary-color glow + grid) ── */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[460px] overflow-hidden"
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse 70% 60% at 50% -10%, hsl(var(--primary) / 0.18), transparent 60%)',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, hsl(var(--primary) / 0.5) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--primary) / 0.5) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-            maskImage: 'linear-gradient(to bottom, black, transparent)',
-            WebkitMaskImage: 'linear-gradient(to bottom, black, transparent)',
-          }}
-        />
-      </div>
-
+    <AppShell
+      ambient={
+        // Landing-style night sky: a dark blue→black gradient with the same
+        // twinkling stars + shooting stars used on the home hero, so the app
+        // surface feels consistent with freebuff.com (no green glow/grid).
+        <>
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#060b11_0%,#0a1218_24%,#05080c_52%,#000000_76%)]" />
+          <div className="absolute inset-x-0 top-0 h-[640px]">
+            <Starfield />
+          </div>
+        </>
+      }
+    >
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
         <section className="mb-12">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="font-['Geist'] text-3xl font-normal leading-tight text-foreground sm:text-4xl">
+            <h2 className="lp-hero-heading text-3xl font-normal leading-tight text-white sm:text-4xl">
               What do you want to build?
             </h2>
           </div>
@@ -174,7 +165,7 @@ export default function ProjectsDashboard() {
         <section>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-baseline gap-2.5">
-              <h3 className="font-['Geist'] text-lg font-semibold text-foreground">
+              <h3 className="font-['Geist'] text-lg font-medium text-foreground">
                 Your projects
               </h3>
               {!isLoadingProjects && projectCount > 0 && (
@@ -322,7 +313,7 @@ export default function ProjectsDashboard() {
 
                     <div className="flex flex-col gap-1 px-1 pb-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="truncate font-['Geist'] text-base font-semibold leading-tight text-foreground">
+                        <h3 className="truncate font-['Geist'] text-base font-medium leading-tight text-foreground">
                           {project.name || 'Untitled Project'}
                         </h3>
                         {isLegacyProject(project) && (
@@ -366,7 +357,7 @@ export default function ProjectsDashboard() {
                 <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
                   No match
                 </p>
-                <h3 className="mt-3 font-['Geist'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
+                <h3 className="mt-3 lp-hero-heading text-2xl font-normal leading-tight text-white sm:text-3xl">
                   No projects found
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -378,7 +369,7 @@ export default function ProjectsDashboard() {
             <div className="flex min-h-[260px] w-full items-center justify-center">
               <div className="w-full max-w-2xl rounded-2xl border border-border/50 bg-muted/20 px-8 py-12 text-center">
                 <div className="flex flex-col items-center">
-                  <h3 className="mt-5 font-['Geist'] text-2xl font-normal leading-none text-foreground sm:text-3xl">
+                  <h3 className="mt-5 lp-hero-heading text-2xl font-normal leading-tight text-white sm:text-3xl">
                     No projects yet
                   </h3>
                   <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
@@ -398,7 +389,7 @@ export default function ProjectsDashboard() {
       >
         <AlertDialogContent className="rounded-2xl border-0 bg-card/95 text-foreground backdrop-blur sm:max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-['Geist'] text-2xl font-normal leading-tight text-foreground">
+            <AlertDialogTitle className="lp-hero-heading text-2xl font-normal leading-tight text-white">
               Delete project
             </AlertDialogTitle>
           </AlertDialogHeader>

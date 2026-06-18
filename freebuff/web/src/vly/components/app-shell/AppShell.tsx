@@ -81,6 +81,12 @@ export function AppShell({
   /** When false the main area won't scroll (children manage their own). */
   scroll = true,
   contentClassName = '',
+  /**
+   * Optional full-bleed backdrop rendered behind the chrome (e.g. the
+   * landing-style night sky + stars). When provided the shell surface flips
+   * to pure black so the backdrop reads as a seamless extension of it.
+   */
+  ambient,
 }: {
   title?: React.ReactNode
   subtitle?: React.ReactNode
@@ -89,6 +95,7 @@ export function AppShell({
   children: React.ReactNode
   scroll?: boolean
   contentClassName?: string
+  ambient?: React.ReactNode
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isActive = useIsActive()
@@ -97,7 +104,20 @@ export function AppShell({
     // `fixed inset-0` so the shell fully owns the viewport and covers the
     // global site footer rendered by the root layout — the app surface
     // should feel self-contained (same approach as the project page).
-    <div className="fixed inset-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
+    <div
+      className={cn(
+        'fixed inset-0 z-10 flex h-[100dvh] w-full flex-col overflow-hidden text-foreground',
+        ambient ? 'bg-black' : 'bg-background',
+      )}
+    >
+      {ambient && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+        >
+          {ambient}
+        </div>
+      )}
       {/* ── Top navigation bar ───────────────────────────────────────── */}
       <header className="relative z-30 flex h-14 flex-shrink-0 items-center gap-2 px-3 sm:gap-3 sm:px-5">
         {/* Brand */}
