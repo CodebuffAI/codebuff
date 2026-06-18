@@ -7,15 +7,18 @@ import { DiscordIcon, GitHubIcon } from '../icons'
 const DISCORD_URL = 'https://discord.gg/yXG3w7wxfs'
 const GITHUB_URL = 'https://github.com/CodebuffAI/codebuff'
 
-// Real platform links, mirrored from the site-wide footer.
+// Real platform routes (verified against the freebuff/web app router).
 const NAV_LINKS = [
-  { text: 'Docs', href: '/docs' },
-  { text: 'Pricing', href: '/pricing' },
-  { text: 'Usage', href: '/usage' },
+  { text: 'Web', href: '/web' },
+  { text: 'Chat', href: '/chat' },
+  { text: 'Blog', href: '/blog' },
+  { text: 'Live', href: '/live' },
+  { text: 'Pricing', href: '/web/pricing' },
 ]
+// Legal lives on codebuff.com (mirrors the site-wide footer).
 const LEGAL_LINKS = [
-  { text: 'Privacy Policy', href: '/privacy-policy' },
-  { text: 'Terms of Service', href: '/terms-of-service' },
+  { text: 'Privacy Policy', href: 'https://codebuff.com/privacy-policy' },
+  { text: 'Terms of Service', href: 'https://codebuff.com/terms-of-service' },
 ]
 
 /**
@@ -76,15 +79,21 @@ export function CtaFooter() {
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-6 py-7 md:flex-row md:items-center md:justify-between">
           {/* Links: product + legal */}
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-white/45">
-            {[...NAV_LINKS, ...LEGAL_LINKS].map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="transition-colors hover:text-white"
-              >
-                {link.text}
-              </a>
-            ))}
+            {[...NAV_LINKS, ...LEGAL_LINKS].map((link) => {
+              const external = link.href.startsWith('http')
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  {...(external
+                    ? { target: '_blank', rel: 'noopener noreferrer' }
+                    : {})}
+                  className="transition-colors hover:text-white"
+                >
+                  {link.text}
+                </a>
+              )
+            })}
           </nav>
 
           {/* Copyright + socials */}

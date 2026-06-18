@@ -3,9 +3,9 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import { DiscordIcon, GitHubIcon } from '@/components/icons'
 
 const LINKS = [
-  { label: 'Web', href: '#web' },
-  { label: 'Chat', href: '#chat' },
-  { label: 'Blog', href: '#blog' },
+  { label: 'Web', href: '/web' },
+  { label: 'Chat', href: '/chat' },
+  { label: 'Blog', href: '/blog' },
 ]
 
 const DISCORD_URL = 'https://discord.gg/yXG3w7wxfs'
@@ -44,7 +44,7 @@ export function Navbar() {
       >
         {/* Logo — sparkle mark + wordmark */}
         <motion.a
-          href="#"
+          href="/landing"
           style={{ scale }}
           className="group flex origin-left items-center gap-2.5"
         >

@@ -18,20 +18,20 @@ const TABS: {
   id: TabId
   label: string
   blurb: string
-  toDashboard?: boolean
+  href?: string
 }[] = [
   { id: 'cli', label: 'CLI', blurb: 'The free coding agent for your terminal.' },
   {
     id: 'web',
     label: 'Web',
     blurb: 'The free AI web app builder.',
-    toDashboard: true,
+    href: '/web',
   },
   {
     id: 'chat',
     label: 'Chat',
     blurb: 'The free research assistant.',
-    toDashboard: true,
+    href: '/chat',
   },
 ]
 
@@ -73,9 +73,9 @@ export function HeroTabs({
                 )}
                 {t.label}
               </button>
-              {LOGGED_IN && t.toDashboard && isActive && (
+              {LOGGED_IN && t.href && isActive && (
                 <a
-                  href="#"
+                  href={t.href}
                   aria-label="Open dashboard"
                   className="ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-forest/20 text-forest-bright transition-colors hover:bg-forest/30"
                 >
@@ -256,16 +256,19 @@ function WebPanel() {
         <Pill icon={ImagePlus} label="Image" />
         <Pill icon={Palette} label="Minimalism" caret />
         <Pill icon={Sparkles} label="MiniMax M3" caret />
-        <button
-          aria-label="Send"
+        <a
+          href="/web"
+          aria-label="Build with Freebuff Web"
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
         >
           <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-        </button>
+        </a>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {BUILD_CHIPS.map((c) => (
-          <SuggestChip key={c}>{c}</SuggestChip>
+          <SuggestChip key={c} href="/web">
+            {c}
+          </SuggestChip>
         ))}
       </div>
     </div>
@@ -294,16 +297,19 @@ function ChatPanel() {
       {/* Controls row mirrors the Web composer: model selector + arrow send. */}
       <div className="mt-1 flex items-center gap-1.5">
         <Pill icon={Sparkles} label="MiniMax M3" caret />
-        <button
-          aria-label="Send"
+        <a
+          href="/chat"
+          aria-label="Ask Freebuff Chat"
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
         >
           <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-        </button>
+        </a>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {CHAT_CHIPS.map((c) => (
-          <SuggestChip key={c}>{c}</SuggestChip>
+          <SuggestChip key={c} href="/chat">
+            {c}
+          </SuggestChip>
         ))}
       </div>
     </div>
@@ -329,10 +335,19 @@ function Pill({
   )
 }
 
-function SuggestChip({ children }: { children: React.ReactNode }) {
+function SuggestChip({
+  children,
+  href,
+}: {
+  children: React.ReactNode
+  href: string
+}) {
   return (
-    <button className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-xs text-white/55 transition-colors hover:border-forest/40 hover:text-white">
+    <a
+      href={href}
+      className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-xs text-white/55 transition-colors hover:border-forest/40 hover:text-white"
+    >
       {children}
-    </button>
+    </a>
   )
 }

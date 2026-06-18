@@ -516,9 +516,11 @@ function ProductRow({ p }: { p: Product }) {
           {p.tab === 'cli' ? (
             <InstallBlock />
           ) : (
-            <Button variant="default" size="lg">
-              Get started
-              <ArrowRight className="h-4 w-4" />
+            <Button variant="default" size="lg" asChild>
+              <a href={p.tab === 'web' ? '/web' : '/chat'}>
+                Get started
+                <ArrowRight className="h-4 w-4" />
+              </a>
             </Button>
           )}
         </div>

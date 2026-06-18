@@ -11,7 +11,7 @@ export function Testimonial() {
     <section className="relative bg-black px-6 pt-24 pb-12 md:pt-32 md:pb-16">
       <figure className="mx-auto max-w-3xl text-center">
         <blockquote className="font-serif text-balance text-[26px] italic leading-[1.3] text-white md:text-[38px] lg:text-[44px]">
-          &ldquo;Proving life-changing in making a dream of mine come true&rdquo;
+          &ldquo;Life-changing in making a dream of mine come true&rdquo;
         </blockquote>
         <figcaption className="mt-7 text-sm tracking-wide text-white/55">
           &mdash;&nbsp;Mia Cova
