@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ChatMessage, ThreadSummary } from './types'
 
+// NB: `@/components/*` is aliased to vly in this package, so import relatively.
+import { AccountMenu } from '../../../components/landing/AccountMenu'
 import {
   BlockTreeBuilder,
   isChatBlockArray,
@@ -475,8 +477,11 @@ export function ChatApp() {
           ))}
         </ul>
       </nav>
-      <div className="border-t border-white/5 px-4 py-3">
-        <p className="truncate text-[11px] leading-relaxed text-muted-foreground/60">
+      <div className="border-t border-white/5 px-3 py-3">
+        <div className="px-1 pb-2">
+          <AccountMenu align="start" />
+        </div>
+        <p className="truncate px-1 text-[11px] leading-relaxed text-muted-foreground/60">
           By Freebuff ·{' '}
           <Link href="/" className="underline hover:text-muted-foreground">
             Try the coding agent →

@@ -9,7 +9,8 @@ export function Footer() {
 
   if (pathname === '/live') return null
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return null
-  if (pathname === '/landing') return null
+  // The homepage (LandingPage) ships its own CtaFooter.
+  if (pathname === '/') return null
 
   return (
     <footer className="w-full">
@@ -35,6 +36,12 @@ export function Footer() {
           <div>
             <h3 className="font-semibold mb-3">Links</h3>
             <nav className="flex flex-col space-y-2">
+              <Link
+                href="/cli"
+                className="text-sm text-muted-foreground hover:text-primary"
+              >
+                CLI
+              </Link>
               <Link
                 href="/blog"
                 className="text-sm text-muted-foreground hover:text-primary"

@@ -95,7 +95,7 @@
  * ========================================================================== */
 .lp-hero-heading {
   font-family: 'Newsreader', serif;
-  font-weight: 420;
+  font-weight: 400;
   font-optical-sizing: auto;
   font-feature-settings:
     'kern' 1,
@@ -105,7 +105,7 @@
 
 .lp-feature-heading {
   font-family: 'Newsreader', serif;
-  font-weight: 420;
+  font-weight: 400;
   font-optical-sizing: auto;
   line-height: 1.05;
   letter-spacing: 0.012em;

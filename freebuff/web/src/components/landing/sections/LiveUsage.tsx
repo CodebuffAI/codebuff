@@ -101,6 +101,14 @@ export function LiveUsage() {
             </li>
           ))}
         </ol>
+
+        <a
+          href="/live"
+          className="mt-7 inline-flex items-center gap-1.5 text-[13px] text-white/45 transition-colors hover:text-white"
+        >
+          View the live map
+          <span aria-hidden>→</span>
+        </a>
       </Parallax>
     </section>
   )

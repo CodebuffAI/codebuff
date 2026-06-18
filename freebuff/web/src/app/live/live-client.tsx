@@ -6,6 +6,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+// NB: `@/components/*` is aliased to `src/vly/components/*` in this package's
+// tsconfig, so the landing chrome is imported relatively instead.
+import { LandingNavbar } from '../../components/landing/Navbar'
+import { Starfield } from '../../components/landing/Starfield'
+import { CtaFooter } from '../../components/landing/sections/CtaFooter'
+
 import { CopyButton } from '@/components/copy-button'
 import { cn } from '@/lib/utils'
 
@@ -531,20 +537,25 @@ export default function LiveClient({
   }, [])
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <section className="relative overflow-hidden border-b border-white/10">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(124,255,63,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.05)_1px,transparent_1px)] bg-[size:56px_56px]" />
-        <div className="relative container mx-auto px-4 pb-6 pt-10 md:pb-8 md:pt-14">
+    <main className="relative min-h-screen bg-black font-paragraph text-white">
+      <LandingNavbar />
+      <section className="relative overflow-hidden">
+        {/* Landing-style night sky + stars so /live matches the home hero. */}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_32%,#0b1620_64%,#000000_100%)]" />
+        <div className="lp-gpu pointer-events-none absolute inset-0">
+          <Starfield />
+        </div>
+        <div className="relative container mx-auto px-4 pb-6 pt-28 md:pb-8 md:pt-32">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-4xl">
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                <h1 className="relative max-w-3xl pl-7 font-serif text-4xl leading-tight text-white md:pl-8 md:text-6xl">
+                <h1 className="lp-hero-heading relative max-w-3xl pl-7 text-4xl font-normal leading-tight text-white md:pl-8 md:text-6xl">
                   <span
                     aria-hidden
                     className="absolute left-0 top-[0.43em] h-3 w-3 -translate-y-1/2 md:h-4 md:w-4"
                   >
                     <motion.span
-                      className="block h-full w-full rounded-full bg-acid-matrix shadow-[0_0_18px_rgba(124,255,63,0.9)]"
+                      className="block h-full w-full rounded-full bg-forest-bright shadow-[0_0_18px_rgba(84,169,103,0.9)]"
                       animate={{
                         opacity: [0.45, 1, 0.45],
                         scale: [0.86, 1.18, 0.86],
@@ -591,6 +602,7 @@ export default function LiveClient({
       </section>
 
       <InstallCallout />
+      <CtaFooter />
     </main>
   )
 }

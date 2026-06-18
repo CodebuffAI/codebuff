@@ -11,11 +11,34 @@ import {
   Palette,
   Sparkles,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import type { TabId } from '../lib/competitors'
 
 import { cn } from '@/lib/utils'
+
+// localStorage keys read by the destination product pages on mount:
+// `/web` (useHeroStorage) and `/chat` (chat draft for a new thread).
+const WEB_DRAFT_KEY = 'heroInput'
+const CHAT_DRAFT_KEY = 'freebuff_chat_draft:new'
+
+function saveDraftAndGo(
+  router: ReturnType<typeof useRouter>,
+  key: string,
+  route: string,
+  message: string,
+) {
+  const text = message.trim()
+  if (text) {
+    try {
+      localStorage.setItem(key, text)
+    } catch {
+      // localStorage may be unavailable (private mode); navigate anyway.
+    }
+  }
+  router.push(route)
+}
 
 const TABS: {
   id: TabId
@@ -247,11 +270,26 @@ const BUILD_CHIPS = [
 ]
 
 function WebPanel() {
+  const router = useRouter()
+  const [value, setValue] = useState('')
+
+  const go = (message: string) =>
+    saveDraftAndGo(router, WEB_DRAFT_KEY, '/web', message)
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      go(value)
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left">
       <textarea
         rows={2}
-        defaultValue=""
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={onKeyDown}
         placeholder="Ask Freebuff to create…"
         className="h-[52px] w-full resize-none bg-transparent px-2 pt-1 text-sm text-white placeholder:text-white/35 focus:outline-none"
       />
@@ -259,17 +297,18 @@ function WebPanel() {
         <Pill icon={ImagePlus} label="Image" />
         <Pill icon={Palette} label="Minimalism" caret />
         <Pill icon={Sparkles} label="MiniMax M3" caret />
-        <a
-          href="/web"
+        <button
+          type="button"
+          onClick={() => go(value)}
           aria-label="Build with Freebuff Web"
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
         >
           <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-        </a>
+        </button>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {BUILD_CHIPS.map((c) => (
-          <SuggestChip key={c} href="/web">
+          <SuggestChip key={c} onClick={() => go(c)}>
             {c}
           </SuggestChip>
         ))}
@@ -287,30 +326,45 @@ const CHAT_CHIPS = [
 ]
 
 function ChatPanel() {
+  const router = useRouter()
+  const [value, setValue] = useState('')
+
+  const go = (message: string) =>
+    saveDraftAndGo(router, CHAT_DRAFT_KEY, '/chat', message)
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      go(value)
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left">
-      {/* Composer line — flat (no nested card), with a live blinking caret. */}
-      <div className="flex min-h-[34px] items-center gap-1.5 px-2 pt-1 text-sm">
-        <span
-          aria-hidden
-          className="lp-caret-blink h-[18px] w-[2px] rounded-full bg-forest-bright"
-        />
-        <span className="text-white/60">Ask Freebuff anything…</span>
-      </div>
+      {/* Real composer — typing + Enter saves the draft and opens /chat. */}
+      <textarea
+        rows={1}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder="Ask Freebuff anything…"
+        className="min-h-[34px] w-full resize-none bg-transparent px-2 pt-1.5 text-sm text-white placeholder:text-white/45 focus:outline-none"
+      />
       {/* Controls row mirrors the Web composer: model selector + arrow send. */}
       <div className="mt-1 flex items-center gap-1.5">
         <Pill icon={Sparkles} label="MiniMax M3" caret />
-        <a
-          href="/chat"
+        <button
+          type="button"
+          onClick={() => go(value)}
           aria-label="Ask Freebuff Chat"
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-forest text-white transition-colors hover:bg-forest/90"
         >
           <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-        </a>
+        </button>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {CHAT_CHIPS.map((c) => (
-          <SuggestChip key={c} href="/chat">
+          <SuggestChip key={c} onClick={() => go(c)}>
             {c}
           </SuggestChip>
         ))}
@@ -340,17 +394,18 @@ function Pill({
 
 function SuggestChip({
   children,
-  href,
+  onClick,
 }: {
   children: React.ReactNode
-  href: string
+  onClick: () => void
 }) {
   return (
-    <a
-      href={href}
+    <button
+      type="button"
+      onClick={onClick}
       className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-xs text-white/55 transition-colors hover:border-forest/40 hover:text-white"
     >
       {children}
-    </a>
+    </button>
   )
 }

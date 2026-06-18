@@ -10,6 +10,7 @@ const GITHUB_URL = 'https://github.com/CodebuffAI/codebuff'
 
 // Real platform routes (verified against the freebuff/web app router).
 const NAV_LINKS = [
+  { text: 'CLI', href: '/cli' },
   { text: 'Web', href: '/web' },
   { text: 'Chat', href: '/chat' },
   { text: 'Blog', href: '/blog' },

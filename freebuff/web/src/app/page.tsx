@@ -1,7 +1,12 @@
-import HomeClient from './home-client'
+// NB: `@/components/*` is aliased to `src/vly/components/*` in this package's
+// tsconfig, so the landing components are imported relatively instead.
+import { LandingPage } from '../components/landing/LandingPage'
+import type { BlogPostPreview } from '../components/landing/sections/BlogPreview'
 
 import type { Metadata } from 'next'
 
+import { formatShortDate } from '@/lib/blog/format-date'
+import { getAllPosts } from '@/lib/blog/registry'
 import { siteConfig } from '@/lib/constant'
 import { homeFaqs } from '@/lib/home-faqs'
 
@@ -107,11 +112,19 @@ function FaqJsonLd() {
 
 export default function HomePage() {
   const siteUrl = siteConfig.url()
+  const posts: BlogPostPreview[] = getAllPosts().map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    category: p.category,
+    subtitle: p.subtitle ?? p.description,
+    date: formatShortDate(p.publishedAt),
+    read: `${p.readingMinutes} min`,
+  }))
   return (
     <>
       <SoftwareJsonLd siteUrl={siteUrl} />
       <FaqJsonLd />
-      <HomeClient />
+      <LandingPage posts={posts} />
     </>
   )
 }

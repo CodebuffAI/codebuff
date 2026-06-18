@@ -45,7 +45,8 @@ const FAQS: { q: string; a: string }[] = [
   },
 ]
 
-export function Faq() {
+export function Faq({ items }: { items?: { q: string; a: string }[] } = {}) {
+  const faqs = items ?? FAQS
   const [open, setOpen] = useState<number | null>(0)
 
   return (
@@ -61,7 +62,7 @@ export function Faq() {
         </div>
 
         <div className="divide-y divide-white/[0.08]">
-          {FAQS.map((item, i) => {
+          {faqs.map((item, i) => {
             const isOpen = open === i
             return (
               <div
@@ -106,7 +107,7 @@ export function Faq() {
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
                       className="overflow-hidden"
                     >
-                      <p className="ml-[2.1rem] mr-2 border-l-2 border-forest/40 pb-5 pl-4 text-sm leading-relaxed text-white/60">
+                      <p className="ml-[2.1rem] mr-2 whitespace-pre-line border-l-2 border-forest/40 pb-5 pl-4 text-sm leading-relaxed text-white/60">
                         {item.a}
                       </p>
                     </motion.div>

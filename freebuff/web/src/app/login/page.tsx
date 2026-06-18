@@ -3,6 +3,9 @@
 import { env } from '@codebuff/common/env'
 import { headers } from 'next/headers'
 
+// NB: `@/components/*` is aliased to vly in this package, so import relatively.
+import { Starfield } from '../../components/landing/Starfield'
+
 import {
   getCliAuthCodeHashPrefix,
   isAuthCodeExpired,
@@ -119,12 +122,12 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-dark-forest-green via-black/95 to-black" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(124,255,63,0.12),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_80%,rgba(124,255,63,0.06),transparent_50%)]" />
-      <HeroGrid />
-      <BackgroundBeams />
+    <div className="relative min-h-screen overflow-hidden bg-black">
+      {/* Landing-style night sky + stars for a consistent look across pages. */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_36%,#0b1620_70%,#000000_100%)]" />
+      <div className="lp-gpu pointer-events-none absolute inset-0">
+        <Starfield />
+      </div>
       <main className="relative z-10 flex flex-col items-center justify-center min-h-screen py-20">
         <LoginCard authCode={validAuthCode} />
       </main>

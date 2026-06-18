@@ -2,9 +2,11 @@
 
 import { motion, useScroll, useTransform } from 'framer-motion'
 
+import { AccountMenu } from './AccountMenu'
 import { DiscordIcon, GitHubIcon } from './icons'
 
 const LINKS = [
+  { label: 'CLI', href: '/cli' },
   { label: 'Web', href: '/web' },
   { label: 'Chat', href: '/chat' },
   { label: 'Blog', href: '/blog' },
@@ -46,7 +48,7 @@ export function LandingNavbar() {
       >
         {/* Logo — sparkle mark + wordmark */}
         <motion.a
-          href="/landing"
+          href="/"
           style={{ scale }}
           className="group flex origin-left items-center gap-2.5"
         >
@@ -98,6 +100,9 @@ export function LandingNavbar() {
           >
             <GitHubIcon className="h-[18px] w-[18px]" />
           </a>
+
+          {/* Logged-in account menu — only renders when a session exists. */}
+          <AccountMenu />
         </motion.div>
       </motion.div>
     </motion.header>
