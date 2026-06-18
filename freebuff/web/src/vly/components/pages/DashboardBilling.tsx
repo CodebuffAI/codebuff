@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
+import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 
 export default function DashboardBilling() {
   return (
-    <AppShell title="Pricing">
+    <AppShell title="Pricing" ambient={<AmbientBackdrop />}>
       <main className="mx-auto flex min-h-[70vh] max-w-2xl flex-col justify-center px-5 py-12 text-center sm:px-6 sm:py-16">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:text-sm">
           Billing paused

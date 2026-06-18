@@ -34,10 +34,8 @@ import {
 import { HeroStorageProvider } from '@/vly/hooks/useSharedHeroStorage'
 import { DocumentInput } from '@/vly/components/test-landing/DocumentInput'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
+import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
-// NB: `@/components/*` is aliased to `src/vly/components/*` in this package's
-// tsconfig, so the landing Starfield is imported relatively.
-import { Starfield } from '../../../components/landing/Starfield'
 
 const ThemePickerModal = lazy(
   () => import('@/vly/components/ThemePickerModal'),
@@ -125,19 +123,7 @@ export default function ProjectsDashboard() {
   }
 
   return (
-    <AppShell
-      ambient={
-        // Landing-style night sky: a dark blue→black gradient with the same
-        // twinkling stars + shooting stars used on the home hero, so the app
-        // surface feels consistent with freebuff.com (no green glow/grid).
-        <>
-          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#060b11_0%,#0a1218_24%,#05080c_52%,#000000_76%)]" />
-          <div className="absolute inset-x-0 top-0 h-[640px]">
-            <Starfield />
-          </div>
-        </>
-      }
-    >
+    <AppShell ambient={<AmbientBackdrop />}>
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
         <section className="mb-12">

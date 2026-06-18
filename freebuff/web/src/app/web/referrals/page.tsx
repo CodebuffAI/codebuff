@@ -20,6 +20,10 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/vly/components/app-shell/AppShell";
+import { AmbientBackdrop } from "@/vly/components/app-shell/AmbientBackdrop";
+// NB: `@/components/*` is aliased to `src/vly/components/*`, so the landing
+// footer is imported relatively.
+import { CtaFooter } from "../../../components/landing/sections/CtaFooter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar";
 import { Badge } from "@/vly/components/ui/badge";
 import { Button } from "@/vly/components/ui/button";
@@ -101,7 +105,7 @@ export default function ReferralsPage() {
 
   if (!user) {
     return (
-      <AppShell title="Referrals">
+      <AppShell title="Referrals" ambient={<AmbientBackdrop />}>
         <div className="flex min-h-full items-center justify-center px-4 py-20">
           <Card className="w-full max-w-md border-border/60 bg-card/70 text-center shadow-2xl shadow-black/20">
             <CardHeader>
@@ -127,7 +131,11 @@ export default function ReferralsPage() {
     : 0;
 
   return (
-    <AppShell title="Referrals">
+    <AppShell
+      title="Referrals"
+      ambient={<AmbientBackdrop />}
+      footer={<CtaFooter />}
+    >
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <section className="grid gap-6 py-4 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div>

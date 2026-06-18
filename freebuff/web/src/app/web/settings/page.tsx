@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/vly/components/app-shell/AppShell";
+import { AmbientBackdrop } from "@/vly/components/app-shell/AmbientBackdrop";
 import { SignInMethodsSection } from "./sign-in-methods-section";
 import { Input } from "@/vly/components/ui/input";
 import { Textarea } from "@/vly/components/ui/textarea";
@@ -357,6 +358,7 @@ export default function GeneralSettingsPage() {
     <AppShell
       title="Settings"
       subtitle="General account and community settings"
+      ambient={<AmbientBackdrop />}
     >
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="sticky top-0 z-10 -mx-4 mb-5 flex gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">

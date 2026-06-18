@@ -87,6 +87,8 @@ export function AppShell({
    * to pure black so the backdrop reads as a seamless extension of it.
    */
   ambient,
+  /** Optional footer rendered at the end of the scrollable content area. */
+  footer,
 }: {
   title?: React.ReactNode
   subtitle?: React.ReactNode
@@ -96,6 +98,7 @@ export function AppShell({
   scroll?: boolean
   contentClassName?: string
   ambient?: React.ReactNode
+  footer?: React.ReactNode
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isActive = useIsActive()
@@ -142,10 +145,10 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors',
+                  'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors',
                   active
-                    ? 'bg-muted/70 font-medium text-foreground'
-                    : 'text-foreground/70 hover:bg-muted/40 hover:text-foreground',
+                    ? 'bg-white/10 font-medium text-white'
+                    : 'text-white/55 hover:bg-white/5 hover:text-white',
                 )}
                 aria-current={active ? 'page' : undefined}
               >
@@ -164,7 +167,7 @@ export function AppShell({
             href="https://discord.gg/yXG3w7wxfs"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden h-9 items-center gap-2 rounded-lg px-3 text-sm text-foreground/70 transition-colors hover:bg-muted/40 hover:text-foreground sm:flex"
+            className="hidden h-9 items-center gap-2 rounded-full px-3 text-sm text-white/55 transition-colors hover:bg-white/5 hover:text-white sm:flex"
           >
             <MessageCircle className="h-[18px] w-[18px]" />
             Discord
@@ -198,8 +201,8 @@ export function AppShell({
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                   active
-                    ? 'bg-muted/70 font-medium text-foreground'
-                    : 'text-foreground/75 hover:bg-muted/40 hover:text-foreground',
+                    ? 'bg-white/10 font-medium text-white'
+                    : 'text-white/55 hover:bg-white/5 hover:text-white',
                 )}
                 aria-current={active ? 'page' : undefined}
               >
@@ -213,7 +216,7 @@ export function AppShell({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-muted/40 hover:text-foreground"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/55 transition-colors hover:bg-white/5 hover:text-white"
           >
             <MessageCircle className="h-[18px] w-[18px] flex-shrink-0" />
             Discord
@@ -233,6 +236,7 @@ export function AppShell({
         )}
       >
         {children}
+        {footer}
       </main>
     </div>
   )

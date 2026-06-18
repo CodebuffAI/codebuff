@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Compass, Star, Trophy } from 'lucide-react'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
+import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
+// NB: `@/components/*` is aliased to `src/vly/components/*`, so the landing
+// footer is imported relatively.
+import { CtaFooter } from '../../../components/landing/sections/CtaFooter'
 
 const SUBNAV = [
   { label: 'Featured', href: '/web/community', Icon: Star, exact: true },
@@ -35,6 +39,8 @@ export function CommunityShell({
     <AppShell
       title={title}
       actions={actions}
+      ambient={<AmbientBackdrop />}
+      footer={<CtaFooter />}
       subnav={
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 pt-0.5">
           {SUBNAV.map(({ label, href, Icon, exact }) => {
@@ -45,8 +51,8 @@ export function CommunityShell({
                 href={href}
                 className={`flex h-9 flex-shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-muted/70 text-foreground'
-                    : 'text-foreground/70 hover:bg-muted/40 hover:text-foreground'
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/55 hover:bg-white/5 hover:text-white'
                 }`}
                 aria-current={active ? 'page' : undefined}
               >
