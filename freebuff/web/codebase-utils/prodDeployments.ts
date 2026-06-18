@@ -67,10 +67,36 @@ export async function listConvexProjects() {
 export async function findProjectIdForDeploymentName(
   deploymentName: string,
 ): Promise<ConvexProjectId | undefined> {
-  const result = await convexDashboardAxios.get<{ projectId: ConvexProjectId }>(
-    `/dashboard/teams/5950/deployments/${deploymentName}`,
-  );
-  return result.data.projectId;
+  try {
+    const result = await convexAxiosV1.get<{
+      projectId?: ConvexProjectId;
+      project_id?: ConvexProjectId;
+      project?: { id?: ConvexProjectId };
+    }>(`/deployments/${deploymentName}`);
+
+    const projectId =
+      result.data.projectId ??
+      result.data.project_id ??
+      result.data.project?.id;
+
+    if (!projectId) {
+      console.error(
+        `[Convex] Deployment lookup missing projectId for deploymentName=${deploymentName}`,
+        result.data,
+      );
+      return undefined;
+    }
+
+    return projectId;
+  } catch (error) {
+    if (isAxiosError(error)) {
+      console.error(
+        `[Convex] deployment lookup failed for deploymentName=${deploymentName} status=${error.response?.status} url=${error.config?.url}`,
+      );
+      console.error("[Convex] deployment lookup response:", error.response?.data);
+    }
+    throw error;
+  }
 }
 
 export async function getConvexDeploymentAdminKey({
