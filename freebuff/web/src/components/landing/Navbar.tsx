@@ -58,7 +58,7 @@ export function LandingNavbar() {
             alt="Freebuff"
             className="h-6 w-6 rounded-[5px]"
           />
-          <span className="lp-serif text-lg tracking-wide text-white/85 transition-colors group-hover:text-white">
+          <span className="hidden lp-serif text-lg tracking-wide text-white/85 transition-colors group-hover:text-white sm:inline">
             freebuff
           </span>
         </motion.a>
