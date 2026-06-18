@@ -152,24 +152,34 @@ function Step({
 function ImageDemo({
   src,
   alt,
+  title,
   ratio,
 }: {
   src: string
   alt: string
+  title: string
   ratio: string
 }) {
   return (
-    <div
-      className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0f] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]"
-      style={{ aspectRatio: ratio }}
-    >
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        className="h-full w-full object-cover"
-      />
+    <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0f] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]">
+      {/* macOS-style window chrome — matches the CLI demo */}
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/80" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/80" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]/80" />
+        </span>
+        <span className="ml-1 text-[12px] text-white/45">{title}</span>
+      </div>
+      <div style={{ aspectRatio: ratio }}>
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+      </div>
     </div>
   )
 }
@@ -237,6 +247,7 @@ const PRODUCTS: Product[] = [
       <ImageDemo
         src="/demo-web.png"
         alt="Freebuff Web — AI web app builder preview"
+        title="Freebuff Web"
         ratio="1024 / 577"
       />
     ),
@@ -256,6 +267,7 @@ const PRODUCTS: Product[] = [
       <ImageDemo
         src="/demo-chat.png"
         alt="Freebuff Chat — AI research assistant"
+        title="Freebuff Chat"
         ratio="1024 / 678"
       />
     ),
