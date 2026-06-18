@@ -132,7 +132,7 @@ export function Hero() {
             aria-hidden
             decoding="async"
             draggable={false}
-            className="block w-full origin-bottom scale-[1.3] select-none object-cover brightness-[0.62] saturate-[0.85]"
+            className="block w-full origin-bottom scale-[1.6] select-none object-cover brightness-[0.62] saturate-[0.85] md:scale-[1.3]"
           />
           {/* Long, gentle fade that dissolves the bushes into black. It reaches
               solid black at ~78% and stays black to the bottom, giving a tall

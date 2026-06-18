@@ -423,7 +423,7 @@ function ProductRow({ p }: { p: Product }) {
 
 export function Products() {
   return (
-    <section className="relative z-30 -mt-[34vh] bg-black px-6 py-10 md:-mt-[38vh]">
+    <section className="relative z-30 -mt-[24vh] bg-black px-6 py-10 md:-mt-[38vh]">
       <div className="mx-auto max-w-6xl divide-y divide-white/[0.06]">
         {PRODUCTS.map((p) => (
           <ProductRow key={p.id} p={p} />

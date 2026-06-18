@@ -139,7 +139,7 @@ export function CliHero() {
             aria-hidden
             decoding="async"
             draggable={false}
-            className="block w-full origin-bottom scale-[1.3] select-none object-cover brightness-[0.62] saturate-[0.85]"
+            className="block w-full origin-bottom scale-[1.6] select-none object-cover brightness-[0.62] saturate-[0.85] md:scale-[1.3]"
           />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-full bg-[linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.12)_30%,rgba(0,0,0,0.45)_50%,rgba(0,0,0,0.8)_66%,#000_78%)]" />
           <div className="absolute inset-x-0 top-[84%] h-[180vh] bg-black" />
