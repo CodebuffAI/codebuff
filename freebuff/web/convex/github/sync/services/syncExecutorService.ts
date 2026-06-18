@@ -41,6 +41,30 @@ async function keepAgentActive(
   }
 }
 
+function getGitHubReauthMessageIfNeeded(
+  rawErrorMessage: string,
+): string | undefined {
+  const message = rawErrorMessage.toLowerCase();
+  const isAuthFailure =
+    message.includes("bad credentials") ||
+    message.includes("401") ||
+    message.includes("unauthorized") ||
+    message.includes("token expired") ||
+    message.includes("oauth token") ||
+    message.includes("expired token") ||
+    message.includes("installation token") ||
+    message.includes("authentication failed") ||
+    message.includes("resource not accessible by integration");
+
+  if (!isAuthFailure) {
+    return undefined;
+  }
+
+  return "GitHub authentication has expired or is invalid. Please reconnect GitHub and try syncing again.";
+}
+
+export { getGitHubReauthMessageIfNeeded };
+
 /**
  * Handle conflict scenario with unified logic
  */
@@ -172,7 +196,24 @@ async function performGitHubPull(
       return result;
     }
 
-    // Actual merge conflict
+    const normalizedError = errorMessage.toLowerCase();
+    const isMergeConflict =
+      normalizedError.includes("merge conflict") ||
+      normalizedError.includes("automatic merge failed") ||
+      normalizedError.includes("could not apply") ||
+      normalizedError.includes("conflict (");
+
+    if (!isMergeConflict) {
+      console.error("[SyncExecutorService] Pull failed:", pullError);
+      result.success = false;
+      result.status = "error";
+      const reauthMessage = getGitHubReauthMessageIfNeeded(errorMessage);
+      result.message = reauthMessage
+        ? `${reauthMessage} (${errorMessage})`
+        : `GitHub pull failed: ${errorMessage}`;
+      return result;
+    }
+
     console.error(
       "[SyncExecutorService] Pull failed with merge conflict:",
       pullError,
@@ -274,13 +315,34 @@ async function performFastForwardPush(
     return null; // Success, no error result
   } catch (pushError: any) {
     console.error("[SyncExecutorService] Push failed:", pushError);
+    const pushErrorMessage = pushError?.message || String(pushError);
+    const normalizedPushError = pushErrorMessage.toLowerCase();
+    const isConflictLikePushError =
+      normalizedPushError.includes("non-fast-forward") ||
+      normalizedPushError.includes("fetch first") ||
+      normalizedPushError.includes("failed to push some refs") ||
+      normalizedPushError.includes("[rejected]");
+
+    if (!isConflictLikePushError) {
+      const reauthMessage = getGitHubReauthMessageIfNeeded(pushErrorMessage);
+      return {
+        success: false,
+        operation: args.operation.type,
+        projectId: args.operation.projectId,
+        status: "error",
+        message: reauthMessage
+          ? `${reauthMessage} (${pushErrorMessage})`
+          : `Push failed: ${pushErrorMessage}`,
+      };
+    }
+
     // If push fails, surface as conflict for user resolution
     return {
       success: false,
       operation: args.operation.type,
       projectId: args.operation.projectId,
       status: "conflict",
-      message: `Push failed: ${pushError.message || pushError}. Manual resolution may be required.`,
+      message: `Push was rejected because GitHub has newer commits. ${pushErrorMessage}`,
       conflicts: {
         files: [],
         resolutionOptions: [

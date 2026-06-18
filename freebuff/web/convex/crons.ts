@@ -36,6 +36,14 @@ crons.interval(
   internal.coding_agent.freebuff_bridge_mutations.sweepTimedOutFreebuffRuns,
 )
 
+// Mirror of the Freebuff sweep above, for Codex / Claude Code threads (which
+// don't have a dedicated run ledger). See cli_agent_timeout.ts for details.
+crons.interval(
+  'sweep timed out codex and claude agent runs',
+  { minutes: 1 },
+  internal.coding_agent.cli_agent.cli_agent_timeout.sweepTimedOutCliAgentRuns,
+)
+
 // Keep the Freebuff agent Node bundle warm. Cold-loading it (@codebuff/sdk +
 // all bundled agent definitions) costs ~5-9s, which used to land on the first
 // user message after an idle period.

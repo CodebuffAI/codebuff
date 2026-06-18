@@ -261,6 +261,7 @@ export const recordRunEvent = internalMutation({
       }
       if (event.preserveThreadSession !== true) {
         threadPatch.active_session_id = event.runId
+        threadPatch.active_session_id_freebuff = event.runId
         if (args.runStateStorageId !== undefined) {
           threadPatch.active_freebuff_run_state_storage_id =
             args.runStateStorageId
@@ -296,6 +297,7 @@ export const recordRunEvent = internalMutation({
       }
       if (event.preserveThreadSession !== true) {
         threadPatch.active_session_id = event.runId
+        threadPatch.active_session_id_freebuff = event.runId
       }
       if (event.preserveThreadSession !== true && args.runStateStorageId) {
         threadPatch.active_freebuff_run_state_storage_id =
@@ -310,6 +312,7 @@ export const recordRunEvent = internalMutation({
       patch.session_id = event.runId
       const threadPatch: Record<string, any> = {
         active_session_id: event.runId,
+        active_session_id_freebuff: event.runId,
         isProcessing: false,
         workflow_id: undefined,
         last_edited_timestamp: Date.now(),
@@ -363,6 +366,7 @@ export const recordFreebuffCancellationState = internalMutation({
       // point the thread at it so the next message resumes from here.
       if (args.runStateStorageId !== undefined) {
         threadPatch.active_session_id = args.runId
+        threadPatch.active_session_id_freebuff = args.runId
         threadPatch.active_freebuff_run_state_storage_id =
           args.runStateStorageId
       }

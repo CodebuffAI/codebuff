@@ -105,6 +105,8 @@ interface ChatInputProps {
   // Freebuff open-source model selection (Freebuff agent only)
   selectedFreebuffModel?: string;
   onFreebuffModelChange?: (modelId: string) => void;
+  // Optional custom model selector for non-Freebuff agents
+  customModelSelector?: React.ReactNode;
   // Context length selection (Freebuff agent only)
   selectedContextLength?: ContextLength;
   onContextLengthChange?: (length: ContextLength) => void;
@@ -168,6 +170,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     onAgentModeChange,
     selectedFreebuffModel,
     onFreebuffModelChange,
+    customModelSelector,
     selectedContextLength = DEFAULT_CONTEXT_LENGTH,
     onContextLengthChange,
     syncStatus,
@@ -953,6 +956,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                           compact={compactMode}
                         />
                       )}
+                      {customModelSelector}
                       {onAgentModeChange && !compactMode && (
                         <AgentModeSelector
                           selectedMode={selectedAgentMode}

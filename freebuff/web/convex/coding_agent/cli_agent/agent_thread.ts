@@ -10,7 +10,19 @@ import {
 import { internal } from "!/_generated/api";
 import { Id } from "!/_generated/dataModel";
 import { getVerifiedAccessProject } from "../../project";
+import { verifyOrganizationAccess } from "../../org_security";
 import { getAuthUser } from "../../users";
+
+const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
+
+type AgentType = "Claude Code" | "Gemini CLI" | "Codex" | "Freebuff";
+
+const getSessionFieldForAgent = (agentType: AgentType) => {
+  if (agentType === "Freebuff") return "active_session_id_freebuff" as const;
+  if (agentType === "Codex") return "active_session_id_codex" as const;
+  if (agentType === "Claude Code") return "active_session_id_claude" as const;
+  return "active_session_id_gemini" as const;
+};
 
 const AUTO_THREAD_TITLE_MAX_LENGTH = 60;
 const AUTO_THREAD_TITLE_MIN_WORD_BOUNDARY = 24;
@@ -44,14 +56,16 @@ export function formatInitialUserMessageThreadTitle(message: string) {
 export async function createAgentThread(
   ctx: MutationCtx,
   projectId: Id<"project">,
-  agentType: "Claude Code" | "Gemini CLI" | "Codex" | "Freebuff",
+  agentType: AgentType,
 ): Promise<Id<"agent_thread">> {
-  void agentType;
+  if (agentType === "Gemini CLI") {
+    throw new Error(GEMINI_CLI_MAINTENANCE_MESSAGE);
+  }
 
   const threadId = await ctx.db.insert("agent_thread", {
     project_id: projectId,
     isProcessing: false,
-    agent_type: "Freebuff",
+    agent_type: agentType as any,
     last_edited_timestamp: Date.now(),
   });
 
@@ -84,16 +98,44 @@ export const getAgentThreadPublic = query({
       return null;
     }
 
-    // Verify user has access to the project
-    const project = await getVerifiedAccessProject(
-      ctx,
-      user._id,
-      undefined,
-      thread.project_id,
-    );
+    if (user.role === "god") {
+      return thread;
+    }
 
-    if (!project) {
+    const project = await ctx.db.get(thread.project_id);
+    if (!project || project.deleted) {
       return null;
+    }
+
+    if (project.organization_id) {
+      const hasOrgAccess = await verifyOrganizationAccess(
+        ctx,
+        project.organization_id,
+        "read",
+      );
+
+      if (!hasOrgAccess) {
+        const projectMember = await ctx.db
+          .query("project_member")
+          .withIndex("by_project_and_user", (q) =>
+            q.eq("project", project._id).eq("user", user._id),
+          )
+          .first();
+
+        if (!projectMember) {
+          return null;
+        }
+      }
+    } else {
+      const projectMember = await ctx.db
+        .query("project_member")
+        .withIndex("by_project_and_user", (q) =>
+          q.eq("project", project._id).eq("user", user._id),
+        )
+        .first();
+      if (!projectMember) {
+        return null;
+      }
     }
 
     return thread;
@@ -147,10 +189,27 @@ export const updateAgentThreadActiveSessionId = internalMutation({
   args: {
     threadId: v.id("agent_thread"),
     activeSessionId: v.optional(v.string()),
+    agentType: v.optional(
+      v.union(
+        v.literal("Claude Code"),
+        v.literal("Gemini CLI"),
+        v.literal("Codex"),
+        v.literal("Freebuff"),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
+    const thread = await ctx.db.get(args.threadId);
+    if (!thread) {
+      return;
+    }
+
+    const effectiveAgentType = (args.agentType ?? thread.agent_type) as AgentType;
+    const sessionField = getSessionFieldForAgent(effectiveAgentType);
+
     await ctx.db.patch(args.threadId, {
       active_session_id: args.activeSessionId,
+      [sessionField]: args.activeSessionId,
       last_edited_timestamp: Date.now(),
     });
   },
@@ -161,6 +220,14 @@ export const updateAgentThreadActiveSessionIdPublic = action({
   args: {
     threadId: v.id("agent_thread"),
     activeSessionId: v.optional(v.string()),
+    agentType: v.optional(
+      v.union(
+        v.literal("Claude Code"),
+        v.literal("Gemini CLI"),
+        v.literal("Codex"),
+        v.literal("Freebuff"),
+      ),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -170,8 +237,62 @@ export const updateAgentThreadActiveSessionIdPublic = action({
       {
         threadId: args.threadId,
         activeSessionId: args.activeSessionId,
+        agentType: args.agentType,
       },
     );
+    return null;
+  },
+});
+
+export const switchAgentOnThread = mutation({
+  args: {
+    threadId: v.id("agent_thread"),
+    agentType: v.union(
+      v.literal("Claude Code"),
+      v.literal("Gemini CLI"),
+      v.literal("Codex"),
+      v.literal("Freebuff"),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (args.agentType === "Gemini CLI") {
+      throw new Error(GEMINI_CLI_MAINTENANCE_MESSAGE);
+    }
+
+    const thread = await ctx.db.get(args.threadId);
+    if (!thread) {
+      throw new Error("Thread not found");
+    }
+
+    if (thread.isProcessing) {
+      throw new Error("Cannot switch agent while thread is processing");
+    }
+
+    const project = await getVerifiedAccessProject(
+      ctx,
+      user._id,
+      undefined,
+      thread.project_id,
+    );
+    if (!project) {
+      throw new Error("Project not found or access denied");
+    }
+
+    const sessionField = getSessionFieldForAgent(args.agentType as AgentType);
+    const restoredSession = (thread as any)[sessionField] as string | undefined;
+
+    await ctx.db.patch(args.threadId, {
+      agent_type: args.agentType,
+      active_session_id: restoredSession,
+      last_edited_timestamp: Date.now(),
+    });
+
     return null;
   },
 });
@@ -215,8 +336,12 @@ export const createNewAgentThread = mutation({
       throw new Error("Project not found or access denied");
     }
 
+    if (args.agentType === "Gemini CLI") {
+      throw new Error(GEMINI_CLI_MAINTENANCE_MESSAGE);
+    }
+
     // Create new thread
-    const threadId = await createAgentThread(ctx, project._id, "Freebuff");
+    const threadId = await createAgentThread(ctx, project._id, args.agentType);
 
     // Set as active thread
     await ctx.db.patch(project._id, {

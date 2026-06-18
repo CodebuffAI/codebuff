@@ -1749,6 +1749,7 @@ export const AgentChatMessages = forwardRef<
             await updateThreadSessionId({
               threadId: project.active_agent_thread,
               activeSessionId: previousMessageWithSessionId,
+              agentType: activeThread?.agent_type,
             })
           }
 

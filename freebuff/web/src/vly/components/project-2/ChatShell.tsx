@@ -770,7 +770,18 @@ ${message}`;
               </CardHeader>
             </Card>
 
-            <Card className="cursor-not-allowed opacity-50 transition-all">
+            <Card
+              onClick={() => {
+                if (!isProcessing && project) {
+                  handleSelectModelAndCreateThread("Claude Code");
+                }
+              }}
+              className={`transition-all ${
+                isProcessing || !project
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:border-primary hover:bg-accent/50 active:scale-[0.98]"
+              }`}
+            >
               <CardHeader className="px-4 py-3 pb-2">
                 <div className="flex items-center gap-2">
                   <img
@@ -781,12 +792,12 @@ ${message}`;
                   <CardTitle className="text-sm font-medium">
                     Claude Code
                   </CardTitle>
-                  <span className="ml-auto rounded-full border border-purple-200 bg-purple-100 px-1.5 py-0 text-[10px] font-medium text-purple-700">
-                    Unavailable
+                  <span className="ml-auto rounded-full border border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] font-medium text-blue-700">
+                    Available
                   </span>
                 </div>
                 <CardDescription className="mt-1 text-xs">
-                  Claude Code is currently unavailable.
+                  Use Claude Code for this thread.
                 </CardDescription>
               </CardHeader>
             </Card>

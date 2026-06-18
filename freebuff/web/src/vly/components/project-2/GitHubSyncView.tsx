@@ -227,7 +227,6 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
   const handleManualSync = async (
     syncDirection?: "github_to_project" | "project_to_github",
   ) => {
-    alert("Manual sync triggered");
     setIsSyncing(true);
     try {
       const result = await triggerManualSync({
@@ -251,9 +250,11 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
       }
     } catch (err) {
       console.error("Manual sync error:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to trigger manual sync";
       toast({
         title: "Error",
-        description: "Failed to trigger manual sync",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

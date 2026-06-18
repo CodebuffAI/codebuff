@@ -13,11 +13,13 @@ type SyncStatus = FunctionReturnType<
 interface SyncStatusBannerProps {
   syncStatus: SyncStatus | undefined;
   activeView?: "default" | string;
+  onFixConflictClick?: () => void;
 }
 
 export function SyncStatusBanner({
   syncStatus,
   activeView = "default",
+  onFixConflictClick,
 }: SyncStatusBannerProps) {
   const [isDismissed, setIsDismissed] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -139,6 +141,18 @@ export function SyncStatusBanner({
               <span className={`text-sm font-medium ${config.textColor}`}>
                 {config.message}
               </span>
+              {(status === "conflict" || status === "error") &&
+                onFixConflictClick && (
+                  <button
+                    type="button"
+                    onClick={onFixConflictClick}
+                    className={`rounded-md border px-2 py-1 text-xs font-semibold ${config.borderColor} ${config.textColor} hover:bg-white/70`}
+                  >
+                    {status === "conflict"
+                      ? "Click here to fix merge conflict"
+                      : "Click here to fix GitHub sync"}
+                  </button>
+                )}
             </div>
 
             {status !== "pending" && (

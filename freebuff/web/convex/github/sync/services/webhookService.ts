@@ -3,6 +3,7 @@
 import { internalAction } from "../../../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../../../_generated/api";
+import { getGitHubReauthMessageIfNeeded } from "./syncExecutorService";
 /**
  * Webhook Service
  *
@@ -389,12 +390,18 @@ export const handlePushWebhook = internalAction({
           error,
         );
 
+        const rawErrorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        const reauthMessage = getGitHubReauthMessageIfNeeded(rawErrorMessage);
+
         // Update sync status with error
         await ctx.runMutation(internal.github.sync.status.updateSyncStatus, {
           projectId: syncState.project_id,
           status: "error",
           lastSyncTime: Date.now(),
-          errorMessage: `Failed to process webhook: ${error instanceof Error ? error.message : "Unknown error"}`,
+          errorMessage: reauthMessage
+            ? `${reauthMessage} (${rawErrorMessage})`
+            : `Failed to process webhook: ${rawErrorMessage}`,
         });
       }
     }

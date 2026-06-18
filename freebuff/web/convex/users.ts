@@ -103,6 +103,7 @@ export const upsertCodexAuthFingerprintInternal = internalMutation({
     codexAuthMode: v.optional(v.string()),
     codexAuthLastRefresh: v.optional(v.string()),
     codexAuthUpdatedAt: v.number(),
+    codexOauthRevoked: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, {
@@ -112,7 +113,198 @@ export const upsertCodexAuthFingerprintInternal = internalMutation({
       codex_auth_mode: args.codexAuthMode,
       codex_auth_last_refresh: args.codexAuthLastRefresh,
       codex_auth_updated_at: args.codexAuthUpdatedAt,
+      ...(args.codexOauthRevoked !== undefined
+        ? { codex_oauth_revoked: args.codexOauthRevoked }
+        : {}),
     })
+  },
+})
+
+// Per-credential field names used for storing encrypted BYOK secrets.
+// Driven by `kind` so we don't need a setter per credential.
+const BYOK_FIELDS = {
+  openai: {
+    encrypted: 'gpt_openai_api_key_encrypted',
+    version: 'gpt_openai_api_key_encryption_version',
+    updatedAt: 'gpt_openai_api_key_updated_at',
+  },
+  anthropic: {
+    encrypted: 'claude_anthropic_api_key_encrypted',
+    version: 'claude_anthropic_api_key_encryption_version',
+    updatedAt: 'claude_anthropic_api_key_updated_at',
+  },
+  bedrock: {
+    encrypted: 'claude_bedrock_bearer_token_encrypted',
+    version: 'claude_bedrock_bearer_token_encryption_version',
+    updatedAt: 'claude_bedrock_bearer_token_updated_at',
+  },
+} as const
+
+export const patchByokSecretInternal = internalMutation({
+  args: {
+    userId: v.id('users'),
+    kind: v.union(
+      v.literal('openai'),
+      v.literal('anthropic'),
+      v.literal('bedrock'),
+    ),
+    encrypted: v.string(),
+    version: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const f = BYOK_FIELDS[args.kind]
+    await ctx.db.patch(args.userId, {
+      [f.encrypted]: args.encrypted,
+      [f.version]: args.version,
+      [f.updatedAt]: Date.now(),
+    } as any)
+  },
+})
+
+export const setCodexOauthRevokedInternal = internalMutation({
+  args: {
+    userId: v.id('users'),
+    revoked: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      codex_oauth_revoked: args.revoked,
+    })
+  },
+})
+
+export const getCliByokSettings = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      gptAuthMethod: v.union(v.literal('oauth'), v.literal('byok')),
+      hasCodexOauth: v.boolean(),
+      gptModelPreference: v.string(),
+      hasOpenAiApiKey: v.boolean(),
+      openAiApiKeyUpdatedAt: v.optional(v.number()),
+      claudeProviderPreference: v.union(
+        v.literal('anthropic'),
+        v.literal('bedrock'),
+      ),
+      claudeModelPreference: v.string(),
+      hasAnthropicApiKey: v.boolean(),
+      anthropicApiKeyUpdatedAt: v.optional(v.number()),
+      hasBedrockBearerToken: v.boolean(),
+      bedrockBearerTokenUpdatedAt: v.optional(v.number()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      return null
+    }
+
+    return {
+      gptAuthMethod: user.gpt_auth_method ?? 'oauth',
+      hasCodexOauth:
+        user.codex_auth_mode === 'chatgpt' && user.codex_oauth_revoked !== true,
+      gptModelPreference: user.gpt_model_preference ?? 'gpt-5.4',
+      hasOpenAiApiKey: !!user.gpt_openai_api_key_encrypted,
+      openAiApiKeyUpdatedAt: user.gpt_openai_api_key_updated_at,
+      claudeProviderPreference: user.claude_provider_preference ?? 'bedrock',
+      claudeModelPreference: user.claude_model_preference ?? 'claude-sonnet-4-6',
+      hasAnthropicApiKey: !!user.claude_anthropic_api_key_encrypted,
+      anthropicApiKeyUpdatedAt: user.claude_anthropic_api_key_updated_at,
+      hasBedrockBearerToken: !!user.claude_bedrock_bearer_token_encrypted,
+      bedrockBearerTokenUpdatedAt: user.claude_bedrock_bearer_token_updated_at,
+    }
+  },
+})
+
+// Single setter for all CLI BYOK preferences. The schema's literal unions
+// on the underlying user fields enforce valid values at write time, so we
+// don't repeat them in the validator. The 4 previous setters (gpt auth
+// method / claude provider / gpt model / claude model) collapse to this
+// one mutation.
+// ponytail: invalid (key, value) combinations are rejected by Convex schema
+// at patch time, not by an args-level discriminated union.
+export const setCliPreference = mutation({
+  args: {
+    key: v.union(
+      v.literal('gpt_auth_method'),
+      v.literal('claude_provider_preference'),
+      v.literal('gpt_model_preference'),
+      v.literal('claude_model_preference'),
+    ),
+    value: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      throw new Error('Not authenticated')
+    }
+    await ctx.db.patch(user._id, { [args.key]: args.value } as any)
+    return { success: true }
+  },
+})
+
+export const clearCodexOauthAuth = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      throw new Error('Not authenticated')
+    }
+
+    await ctx.db.patch(user._id, {
+      codex_auth_fingerprint: undefined,
+      codex_auth_encrypted_payload: undefined,
+      codex_auth_encryption_version: undefined,
+      codex_auth_mode: undefined,
+      codex_auth_last_refresh: undefined,
+      codex_auth_updated_at: undefined,
+      codex_oauth_revoked: true,
+    })
+
+    return { success: true }
+  },
+})
+
+export const clearCliByokCredential = mutation({
+  args: {
+    credential: v.union(
+      v.literal('openai'),
+      v.literal('anthropic'),
+      v.literal('bedrock'),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      throw new Error('Not authenticated')
+    }
+
+    if (args.credential === 'openai') {
+      await ctx.db.patch(user._id, {
+        gpt_openai_api_key_encrypted: undefined,
+        gpt_openai_api_key_encryption_version: undefined,
+        gpt_openai_api_key_updated_at: undefined,
+      })
+      return { success: true }
+    }
+
+    if (args.credential === 'anthropic') {
+      await ctx.db.patch(user._id, {
+        claude_anthropic_api_key_encrypted: undefined,
+        claude_anthropic_api_key_encryption_version: undefined,
+        claude_anthropic_api_key_updated_at: undefined,
+      })
+      return { success: true }
+    }
+
+    await ctx.db.patch(user._id, {
+      claude_bedrock_bearer_token_encrypted: undefined,
+      claude_bedrock_bearer_token_encryption_version: undefined,
+      claude_bedrock_bearer_token_updated_at: undefined,
+    })
+
+    return { success: true }
   },
 })
 

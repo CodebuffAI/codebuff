@@ -208,9 +208,17 @@ export const handleWorkflowComplete = internalMutation({
         if (returnValue?.success) {
           await ctx.db.patch(threadId, {
             workflow_id: undefined,
-            active_session_id: returnValue.sessionId,
             last_edited_timestamp: Date.now(),
           });
+          await ctx.runMutation(
+            internal.coding_agent.cli_agent.agent_thread
+              .updateAgentThreadActiveSessionId,
+            {
+              threadId,
+              activeSessionId: returnValue.sessionId,
+              agentType,
+            },
+          );
           return;
         }
       }
@@ -232,8 +240,39 @@ export const handleWorkflowComplete = internalMutation({
           success?: boolean;
           error?: string;
           sessionId?: string;
+          timedOut?: boolean;
         };
-        if (returnValue?.success) {
+        // In-process 9-minute timeout from Codex/Claude (mirrors Freebuff
+        // FREEBUFF_RUN_TIMEOUT_MS). The action returns success=false with
+        // timedOut=true; surface that as a Paused message with the canonical
+        // copy and append a timeout_continue stream item so the UI matches
+        // Freebuff exactly.
+        if (returnValue?.timedOut === true) {
+          const existingMessage = await ctx.db.get(messageId);
+          const existingStream = (existingMessage?.assistant_stream ?? []) as Array<{
+            type: string;
+            title?: string;
+            status?: string;
+            content: string;
+            description?: string;
+          }>;
+          const nextStream = [
+            ...existingStream,
+            {
+              type: "timeout_continue",
+              title: "Time limit reached",
+              content:
+                "Maximum time limit for a prompt reached. Engagement required to continue.",
+            },
+          ];
+          await ctx.db.patch(messageId, {
+            state: "Paused",
+            state_message:
+              "Maximum time limit for a prompt reached. Engagement required to continue.",
+            isStreaming: false,
+            assistant_stream: nextStream,
+          });
+        } else if (returnValue?.success) {
           await ctx.db.patch(messageId, {
             state: "Completed",
             isStreaming: false,
@@ -241,9 +280,15 @@ export const handleWorkflowComplete = internalMutation({
 
           // Update thread with new session ID if we got one
           if (returnValue.sessionId) {
-            await ctx.db.patch(threadId, {
-              active_session_id: returnValue.sessionId,
-            });
+            await ctx.runMutation(
+              internal.coding_agent.cli_agent.agent_thread
+                .updateAgentThreadActiveSessionId,
+              {
+                threadId,
+                activeSessionId: returnValue.sessionId,
+                agentType,
+              },
+            );
           }
         } else {
           await ctx.db.patch(messageId, {

@@ -778,7 +778,11 @@ function ProjectWrapper({
         {/* Sync banner sits just under the top bar */}
         {(!isMobile || mobileView === "chat") && (
           <Suspense fallback={null}>
-            <SyncStatusBanner syncStatus={syncStatus} activeView={activeView} />
+            <SyncStatusBanner
+              syncStatus={syncStatus}
+              activeView={activeView}
+              onFixConflictClick={() => updateActiveView("github")}
+            />
           </Suspense>
         )}
 

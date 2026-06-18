@@ -5,7 +5,7 @@ import { internal } from "../../_generated/api";
 import { Id } from "!/_generated/dataModel";
 import { DaytonaCodebase } from "../../../codebase-utils/codebase/DaytonaCodebase";
 import { cliAgentSystemPrompt, knowledgePrompts } from "./system_prompt";
-import { escapeShellArg, escapeShellArgSingleQuotes } from "./shellEscape";
+import { escapeShellArg } from "./shellEscape";
 import {
   CODEX_DEVICE_AUTH_URL,
   CodexAuthFileStatus,
@@ -27,21 +27,41 @@ export interface ExecuteCodexArgs {
   executingUserId: Id<"users">;
   userMessage: string;
   images: Id<"_storage">[] | undefined;
+  gptAuthMethod: "oauth" | "byok";
+  gptModelPreference: "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini";
+  openAiApiKey?: string;
 }
 
 export interface ExecuteCodexResult {
   success: boolean;
   error?: string;
   sessionId?: string;
+  timedOut?: boolean;
 }
+
+// Mirrors executeFreebuff.ts FREEBUFF_RUN_TIMEOUT_MS. Aborts the Codex run
+// before the 10-minute cron sweep so the action has time to clean up state.
+const CODEX_RUN_TIMEOUT_MS = 9 * 60 * 1000;
+const CLI_AGENT_TIMEOUT_MESSAGE =
+  "Maximum time limit for a prompt reached. Engagement required to continue.";
 
 export async function executeCodex(
   ctx: ActionCtx,
   codebase: DaytonaCodebase,
   args: ExecuteCodexArgs,
 ): Promise<ExecuteCodexResult> {
-  // Optional OpenAI API key (fallback auth path)
-  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const normalizeCommandForDisplay = (raw: string): string => {
+    const command = raw.trim();
+    const shellWrapped = command.match(/^\/bin\/(?:ba)?sh\s+-lc\s+'([\s\S]*)'$/i);
+    if (!shellWrapped) {
+      return command;
+    }
+
+    return shellWrapped[1]
+      .replace(/'"'"'/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
   // Check if this is the first message (no active session ID means new thread)
   const isFirstMessage = !args.activeSessionId;
@@ -116,11 +136,6 @@ export async function executeCodex(
   // Escape the final prompt for shell
   const escapedPrompt = escapeShellArg(commandPrompt);
 
-  // Escape OpenAI API key for printf when present
-  const escapedApiKey = openaiApiKey
-    ? escapeShellArgSingleQuotes(openaiApiKey)
-    : undefined;
-
   // Build PATH matching old agent: /home/daytona/.local/bin + system PATH, plus npm-global bin
   const systemPath = process.env.PATH || "/usr/local/bin:/usr/bin:/bin";
   // PATH doesn't need escaping since we control the value
@@ -138,27 +153,27 @@ export async function executeCodex(
   type ResumeCommandMode = "subcommand" | "legacy_flag";
   const buildCodexCommand = (
     sessionId: string | undefined,
-    authSource: "stored_chatgpt" | "api_key",
+    authSource: "stored_chatgpt" | "byok_openai",
+    openAiApiKey: string | undefined,
+    modelPreference: string,
     resumeMode: ResumeCommandMode = "subcommand",
   ) => {
     const escapedSessionId = sessionId ? escapeShellArg(sessionId) : undefined;
     const codexExecCommand = (() => {
       if (!escapedSessionId) {
-        return `codex exec --yolo --color never --json ${escapedPrompt}`;
+        return `codex exec --model ${escapeShellArg(modelPreference)} --yolo --color never --json ${escapedPrompt}`;
       }
       if (resumeMode === "legacy_flag") {
-        return `codex exec --resume ${escapedSessionId} --yolo --color never --json ${escapedPrompt}`;
+        return `codex exec --resume ${escapedSessionId} --model ${escapeShellArg(modelPreference)} --yolo --color never --json ${escapedPrompt}`;
       }
       // codex exec resume does not accept --color; keep args to the supported subset.
-      return `codex exec resume ${escapedSessionId} --yolo --json ${escapedPrompt}`;
+      return `codex exec resume ${escapedSessionId} --model ${escapeShellArg(modelPreference)} --yolo --json ${escapedPrompt}`;
     })();
-    const loginPrefix =
-      authSource === "api_key" && escapedApiKey
-        ? `printf '%s' ${escapedApiKey} | codex login --with-api-key && `
-        : "";
-    const useStoredCredentialsFlag =
-      authSource === "stored_chatgpt" ? "1" : "0";
-    return `cd /home/daytona/codebase && export PATH=${pathValue} && ${loginPrefix}VLY_CODEX_USE_STORED_CREDENTIALS=${useStoredCredentialsFlag} VLY_CODEX_AUTH_SOURCE="${authSource}" CONVEX_DEPLOY_KEY="$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || echo "")" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
+    const authEnv =
+      authSource === "stored_chatgpt"
+        ? `VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
+        : `OPENAI_API_KEY=${escapeShellArg(openAiApiKey || "")} VLY_CODEX_AUTH_SOURCE="${authSource}"`;
+    return `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || echo "")" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
   };
   let fullCommand = "";
 
@@ -176,12 +191,19 @@ export async function executeCodex(
 
   // Track if we should terminate (when result type received with session ID and usage)
   let shouldTerminate = false;
-  // Billing is disabled when Codex is using stored ChatGPT subscription auth.
-  let shouldBillCreditsForRun = true;
+  // Tracks the 9-minute in-process timeout (mirrors Freebuff). When this
+  // fires we flip shouldTerminate so the existing termination promise calls
+  // pkill, and we report timedOut=true so the workflow handler marks the
+  // message as Paused with the canonical timeout copy.
+  let timedOut = false;
+  const runTimeoutHandle = setTimeout(() => {
+    timedOut = true;
+    shouldTerminate = true;
+  }, CODEX_RUN_TIMEOUT_MS);
 
   // Batching mechanism to avoid concurrent update conflicts
   // Update every N items instead of on every item
-  const BATCH_SIZE = 2; // Update every 2 items
+  const BATCH_SIZE = 1; // Flush each item for lower perceived latency
   let lastUpdateCount = 0;
 
   // Track all mutation promises to ensure they complete (prevents dangling promise warnings)
@@ -202,7 +224,6 @@ export async function executeCodex(
   // Buffer for incomplete JSON lines that span multiple PTY chunks
   let lineBuffer = "";
   let invalidResumeSessionCleared = false;
-  let latestSessionIdBeforeRun: string | undefined = undefined;
   const rawCliOutputLines: string[] = [];
   const stripAnsi = (value: string) =>
     value
@@ -389,7 +410,10 @@ export async function executeCodex(
         (inputTokens / 1_000_000) * 1.75 +
         (cachedInputTokens / 1_000_000) * 0.175 +
         (outputTokens / 1_000_000) * 14.0;
-      const totalCostUsd = shouldBillCreditsForRun ? calculatedCostUsd : 0;
+      // Codex runs use user-owned credentials only; we record cost for
+      // observability but never deduct platform credits.
+      void calculatedCostUsd;
+      const totalCostUsd = 0;
 
       await trackMutation(
         ctx.runMutation(
@@ -408,20 +432,6 @@ export async function executeCodex(
           },
         ),
       );
-
-      // Deduct credits from user balance ($1 = 1M credits) unless ChatGPT auth is active.
-      if (shouldBillCreditsForRun && totalCostUsd > 0) {
-        await ctx.runAction(
-          internal.coding_agent.cli_agent.creditTracking.trackCliAgentUsage,
-          {
-            projectId: args.projectId,
-            totalCostUsd,
-            executingUserId: args.executingUserId,
-            agentType: "Codex",
-            messageId: args.messageId,
-          },
-        );
-      }
 
       // Mark for termination after usage is recorded
       shouldTerminate = true;
@@ -447,8 +457,12 @@ export async function executeCodex(
       }
       // Convert command_execution items to tool_use type
       else if (itemType === "command_execution") {
-        const command = item.command || "Unknown command";
-        const output = item.aggregated_output || "";
+        const command = normalizeCommandForDisplay(item.command || "Unknown command");
+        const rawOutput = item.aggregated_output || "";
+        const output =
+          rawOutput.length > 4000
+            ? `${rawOutput.slice(0, 4000)}\n... [command output truncated] ...`
+            : rawOutput;
         const exitCode = item.exit_code;
         const status = item.status || "";
 
@@ -620,10 +634,6 @@ export async function executeCodex(
     if (!discovered) {
       return;
     }
-    // Avoid reusing a stale session ID from a previous run.
-    if (latestSessionIdBeforeRun && discovered === latestSessionIdBeforeRun) {
-      return;
-    }
     await setDiscoveredSessionId(discovered);
   };
 
@@ -699,6 +709,7 @@ export async function executeCodex(
       codexAuthMode: status.authMode,
       codexAuthLastRefresh: status.lastRefresh,
       codexAuthUpdatedAt: Date.now(),
+      codexOauthRevoked: status.isAuthenticated ? false : undefined,
     });
   };
 
@@ -728,30 +739,64 @@ export async function executeCodex(
       // SECURITY: Don't log error details - may contain sensitive data
     }
 
-    const executingUser = await ctx.runQuery(internal.users.get, {
-      userId: args.executingUserId,
-    });
-    const hasPersistedCodexAuth = executingUser?.codex_auth_mode === "chatgpt";
+    let authSource: "stored_chatgpt" | "byok_openai" = "stored_chatgpt";
+    let resolvedOpenAiApiKey: string | undefined = undefined;
 
-    // Prefer stored ChatGPT device auth credentials, auto-restoring from encrypted
-    // cross-project storage if needed.
-    let authFileStatus = await readCodexAuthFileStatus();
-    if (!authFileStatus.isAuthenticated && hasPersistedCodexAuth) {
-      const restored = await restoreCodexAuthFromStoredCredentials();
-      if (restored) {
-        authFileStatus = await readCodexAuthFileStatus();
+    if (args.gptAuthMethod === "byok") {
+      resolvedOpenAiApiKey = args.openAiApiKey?.trim() || undefined;
+      if (!resolvedOpenAiApiKey) {
+        assistantStream.push({
+          type: "assistant",
+          content:
+            "Codex BYOK is enabled but no OpenAI API key is saved. Go to Settings > AI Credentials, save your OpenAI API key, and retry.",
+        });
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_message.updateAgentMessageStream,
+          {
+            messageId: args.messageId,
+            assistantStream: [...assistantStream],
+          },
+        );
+        return { success: true, sessionId: undefined };
       }
-    }
+      authSource = "byok_openai";
+    } else {
+      const executingUser = await ctx.runQuery(internal.users.get, {
+        userId: args.executingUserId,
+      });
+      const oauthRevoked = executingUser?.codex_oauth_revoked === true;
+      if (oauthRevoked) {
+        await codebase.runCommand(
+          `cd /home/daytona/codebase && export PATH=${pathValue} && (codex logout || true) && rm -f "/home/daytona/.codex/auth.json" "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"`,
+          10000,
+        );
+      }
+      const hasPersistedCodexAuth = executingUser?.codex_auth_mode === "chatgpt";
 
-    const hasStoredLogin = authFileStatus.isAuthenticated;
-    if (hasStoredLogin) {
-      await syncCodexAuthStateForExecutingUser(authFileStatus);
-    }
-    // When no active stored ChatGPT auth is available, use OPENAI_API_KEY fallback if present.
-    const canUseApiKeyFallback = !!openaiApiKey;
+      // Prefer stored ChatGPT device auth credentials, auto-restoring from encrypted
+      // cross-project storage if needed.
+      let authFileStatus: CodexAuthFileStatus = oauthRevoked
+        ? { hasAuthFile: false, isAuthenticated: false }
+        : await readCodexAuthFileStatus();
+      if (!oauthRevoked && !authFileStatus.isAuthenticated && hasPersistedCodexAuth) {
+        const restored = await restoreCodexAuthFromStoredCredentials();
+        if (restored) {
+          authFileStatus = await readCodexAuthFileStatus();
+        }
+      }
 
-    // No stored login and no API key fallback: start device auth and instruct user.
-    if (!hasStoredLogin && !canUseApiKeyFallback) {
+      const hasStoredLogin = authFileStatus.isAuthenticated;
+      if (hasStoredLogin) {
+        await syncCodexAuthStateForExecutingUser(authFileStatus);
+      }
+      // No stored login: start device auth and instruct user.
+      if (!hasStoredLogin) {
+      if (oauthRevoked) {
+        await ctx.runMutation(internal.users.setCodexOauthRevokedInternal, {
+          userId: args.executingUserId,
+          revoked: false,
+        });
+      }
       await codebase.runCommand(
         `cd /home/daytona/codebase && export PATH=${pathValue} && mkdir -p "/home/daytona/.codex" && if pgrep -f "codex login --device-auth" >/dev/null 2>&1; then echo "RUNNING"; else rm -f "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"; if command -v timeout >/dev/null 2>&1; then nohup timeout 900 codex login --device-auth > "/home/daytona/.codex/vly-device-auth.log" 2>&1 < /dev/null & else nohup codex login --device-auth > "/home/daytona/.codex/vly-device-auth.log" 2>&1 < /dev/null & fi; echo $! > "/home/daytona/.codex/vly-device-auth.pid"; echo "STARTED"; fi`,
         10000,
@@ -797,18 +842,19 @@ export async function executeCodex(
       );
 
       return { success: true, sessionId: undefined };
+      }
     }
 
-    const authSource: "stored_chatgpt" | "api_key" = hasStoredLogin
-      ? "stored_chatgpt"
-      : "api_key";
-    shouldBillCreditsForRun = authSource === "api_key";
     fullCommand = buildCodexCommand(
       activeSessionId || undefined,
       authSource,
+      resolvedOpenAiApiKey,
+      args.gptModelPreference,
       "subcommand",
     );
-    latestSessionIdBeforeRun = await discoverLatestCodexSessionId();
+    // Skipping the pre-run filesystem scan for the latest session file:
+    // the streamed Codex events expose the session ID directly, and we
+    // still hydrate from the local state after the run as a fallback.
 
     const runCodexCommandAndProcessOutput = async (command: string) => {
       // Run command via PTY following Daytona documentation pattern
@@ -877,6 +923,8 @@ export async function executeCodex(
         fullCommand = buildCodexCommand(
           activeSessionId,
           authSource,
+          resolvedOpenAiApiKey,
+          args.gptModelPreference,
           "legacy_flag",
         );
         result = await runCodexCommandAndProcessOutput(fullCommand);
@@ -905,7 +953,13 @@ export async function executeCodex(
         }
 
         invalidResumeSessionCleared = true;
-        fullCommand = buildCodexCommand(undefined, authSource, "subcommand");
+        fullCommand = buildCodexCommand(
+          undefined,
+          authSource,
+          resolvedOpenAiApiKey,
+          args.gptModelPreference,
+          "subcommand",
+        );
         result = await runCodexCommandAndProcessOutput(fullCommand);
       }
     }
@@ -929,6 +983,16 @@ export async function executeCodex(
 
     await maybeHydrateSessionIdFromLocalState();
 
+    // If the in-process 9-min timer fired, surface that to the workflow
+    // handler so it marks the message as Paused with the canonical copy.
+    if (timedOut) {
+      return {
+        success: false,
+        error: CLI_AGENT_TIMEOUT_MESSAGE,
+        timedOut: true,
+      };
+    }
+
     // If we received final turn usage, terminate immediately
     if (shouldTerminate) {
       return { success: true, sessionId: newSessionId };
@@ -944,10 +1008,19 @@ export async function executeCodex(
 
     return { success: true, sessionId: newSessionId };
   } catch (error) {
+    if (timedOut) {
+      return {
+        success: false,
+        error: CLI_AGENT_TIMEOUT_MESSAGE,
+        timedOut: true,
+      };
+    }
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
     // Don't update message state here - let onComplete handle it
     return { success: false, error: errorMessage };
+  } finally {
+    clearTimeout(runTimeoutHandle);
   }
 }

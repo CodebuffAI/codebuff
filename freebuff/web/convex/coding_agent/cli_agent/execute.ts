@@ -21,11 +21,22 @@ import {
   parseCodexAuthFileStatus,
   parseDeviceAuthInfo,
 } from "./codexAuth";
+import {
+  decryptByokSecret,
+  getByokEncryptionSecret,
+} from "./byokAuth";
 
 const GEMINI_CLI_TEMPORARILY_DISABLED = true;
 const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
 
 // Execute the CLI agent command in the Daytona environment
+type ExecuteResult = {
+  success: boolean;
+  error?: string;
+  sessionId?: string;
+  timedOut?: boolean;
+};
+
 export const execute = internalAction({
   args: {
     projectId: v.id("project"),
@@ -49,8 +60,9 @@ export const execute = internalAction({
     success: v.boolean(),
     error: v.optional(v.string()),
     sessionId: v.optional(v.string()),
+    timedOut: v.optional(v.boolean()),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<ExecuteResult> => {
     // Extract Daytona sandbox ID from sandbox_id (format: "daytona:xxx")
     if (!args.sandboxId || !args.sandboxId.startsWith("daytona:")) {
       throw new Error("Project does not have a Daytona sandbox");
@@ -77,6 +89,37 @@ export const execute = internalAction({
       );
     }
 
+    const executingUser: any = await ctx.runQuery(internal.users.get, {
+      userId: args.executingUserId,
+    });
+    if (!executingUser) {
+      throw new Error("Executing user not found");
+    }
+
+    const byokEncryptionSecret = getByokEncryptionSecret();
+    const openAiApiKey =
+      byokEncryptionSecret && executingUser.gpt_openai_api_key_encrypted
+        ? decryptByokSecret(
+            executingUser.gpt_openai_api_key_encrypted,
+            byokEncryptionSecret,
+          )
+        : undefined;
+    const anthropicApiKey =
+      byokEncryptionSecret && executingUser.claude_anthropic_api_key_encrypted
+        ? decryptByokSecret(
+            executingUser.claude_anthropic_api_key_encrypted,
+            byokEncryptionSecret,
+          )
+        : undefined;
+    const bedrockBearerToken =
+      byokEncryptionSecret &&
+      executingUser.claude_bedrock_bearer_token_encrypted
+        ? decryptByokSecret(
+            executingUser.claude_bedrock_bearer_token_encrypted,
+            byokEncryptionSecret,
+          )
+        : undefined;
+
     if (args.agentType === "Claude Code") {
       return await executeClaudeCode(ctx, codebase, {
         projectId: args.projectId,
@@ -87,6 +130,12 @@ export const execute = internalAction({
         executingUserId: args.executingUserId,
         userMessage: args.userMessage,
         images: args.images,
+        claudeProviderPreference:
+          executingUser.claude_provider_preference ?? "bedrock",
+        claudeModelPreference:
+          executingUser.claude_model_preference ?? "claude-sonnet-4-6",
+        anthropicApiKey,
+        bedrockBearerToken,
       });
     } else if (args.agentType === "Codex") {
       return await executeCodex(ctx, codebase, {
@@ -98,6 +147,9 @@ export const execute = internalAction({
         executingUserId: args.executingUserId,
         userMessage: args.userMessage,
         images: args.images,
+        gptAuthMethod: executingUser.gpt_auth_method ?? "oauth",
+        gptModelPreference: executingUser.gpt_model_preference ?? "gpt-5.4",
+        openAiApiKey,
       });
     } else if (args.agentType === "Gemini CLI") {
       if (GEMINI_CLI_TEMPORARILY_DISABLED) {
@@ -311,6 +363,7 @@ const syncCodexAuthState = async (
     codexAuthMode: status.authMode,
     codexAuthLastRefresh: status.lastRefresh,
     codexAuthUpdatedAt: Date.now(),
+    codexOauthRevoked: status.isAuthenticated ? false : undefined,
   });
 };
 
@@ -356,16 +409,31 @@ export const startCodexDeviceAuth = action({
       await ensureCodexInstalled(codebase);
       const pathValue = codexPathValue();
 
-      if (args.forceReauth) {
+      if (user.codex_oauth_revoked === true) {
+        codexAuthStatusCache.delete(cacheKey);
+        await codebase.runCommand(
+          `cd /home/daytona/codebase && export PATH=${pathValue} && (codex logout || true) && rm -f "/home/daytona/.codex/auth.json" "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"`,
+          10000,
+        );
+      }
+
+      if (args.forceReauth || user.codex_oauth_revoked === true) {
         codexAuthStatusCache.delete(cacheKey);
         await codebase.runCommand(
           `cd /home/daytona/codebase && export PATH=${pathValue} && (codex logout || true) && (pkill -f "codex login --device-auth" || true) && rm -f "/home/daytona/.codex/auth.json" "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"`,
           10000,
         );
+
+        if (user.codex_oauth_revoked === true) {
+          await ctx.runMutation(internal.users.setCodexOauthRevokedInternal, {
+            userId: user._id,
+            revoked: false,
+          });
+        }
       }
 
       const authStatus = await resolveCodexAuthStatus(ctx, codebase, user._id, {
-        skipStoredRestore: !!args.forceReauth,
+        skipStoredRestore: !!args.forceReauth || user.codex_oauth_revoked === true,
       });
       await syncCodexAuthState(ctx, user, authStatus);
       codexAuthStatusCache.set(cacheKey, {
@@ -471,6 +539,18 @@ export const getCodexDeviceAuthStatus = action({
         ctx,
         args.projectSemanticIdentifier,
       );
+
+      if (user.codex_oauth_revoked === true) {
+        return {
+          success: true,
+          hasAuthFile: false,
+          isAuthenticated: false,
+          authMode: undefined,
+          lastRefresh: undefined,
+          message: "Codex OAuth is disconnected. Connect again to use OAuth.",
+        };
+      }
+
       const cacheKey = getCodexAuthCacheKey(
         user._id.toString(),
         project._id.toString(),

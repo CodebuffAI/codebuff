@@ -82,7 +82,7 @@ export function AgentThreadList({
   isProcessing,
 }: AgentThreadListProps) {
   // Archived (legacy) threads are collapsed by default so the list focuses on
-  // active Freebuff threads.
+  // active agent threads.
   const [showArchived, setShowArchived] = useState(false);
 
   // Skip query if projectSemanticIdentifier is empty/invalid to prevent server errors
@@ -104,7 +104,7 @@ export function AgentThreadList({
   }
 
   // Legacy threads (old "vly agent 2.0" chats) are read-only and tucked into an
-  // Archived section; only new Freebuff agent threads show in the main list.
+  // Archived section; new agent threads show in the main list.
   const activeThreads = threadsWithPreview.filter(
     (item) => item.thread.threadType === "agent_thread",
   );
@@ -219,7 +219,7 @@ export function AgentThreadList({
                 No threads yet
               </p>
               <p className="mb-4 text-sm text-muted-foreground">
-                Start a thread when you want Freebuff to work on a new task.
+                Start a thread when you want an agent to work on a new task.
               </p>
               <button
                 onClick={handleCreateClick}

@@ -20,15 +20,109 @@ import {
   Github,
   Loader,
   Mail,
+  ShieldCheck,
   Save,
   Shield,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 type ImportStage = "email" | "code" | "success";
 
+const MASKED_SECRET = "••••••••••••••••";
+
+type ByokKind = "openai" | "anthropic" | "bedrock";
+
+function ByokSecretField({
+  kind,
+  hasSaved,
+  placeholder,
+  saveLabel,
+  removeLabel,
+}: {
+  kind: ByokKind;
+  hasSaved: boolean;
+  placeholder: string;
+  saveLabel: string;
+  removeLabel: string;
+}) {
+  const saveByokSecret = useAction(api.users_byok.saveByokSecret);
+  const clearCliByokCredential = useMutation(api.users.clearCliByokCredential);
+  const [value, setValue] = useState(hasSaved ? MASKED_SECRET : "");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset to masked when the saved-state flips (e.g. after Remove).
+  useEffect(() => {
+    setValue(hasSaved ? MASKED_SECRET : "");
+  }, [hasSaved]);
+
+  return (
+    <div className="mt-3 grid gap-2 sm:max-w-xl">
+      <Input
+        type="password"
+        autoComplete="new-password"
+        value={value}
+        onFocus={() => {
+          if (value === MASKED_SECRET) setValue("");
+        }}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={hasSaved ? "Saved (enter a new value to rotate)" : placeholder}
+        className="border-border/60 bg-background"
+      />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={async () => {
+            const trimmed = value.trim();
+            if (!trimmed || trimmed === MASKED_SECRET) {
+              toast.error("Enter a value first");
+              return;
+            }
+            setIsSaving(true);
+            try {
+              await saveByokSecret({ kind, secret: trimmed });
+              setValue(MASKED_SECRET);
+              toast.success(`${saveLabel} saved`);
+            } catch (error) {
+              toast.error(
+                error instanceof Error ? error.message : `${saveLabel} failed`,
+              );
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+          className="inline-flex h-8 items-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+        >
+          {isSaving && <Loader className="h-3.5 w-3.5 animate-spin" />}
+          {saveLabel}
+        </button>
+        {hasSaved && (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await clearCliByokCredential({ credential: kind });
+                setValue("");
+                toast.success(`${removeLabel} removed`);
+              } catch {
+                toast.error(`Failed to remove ${removeLabel}`);
+              }
+            }}
+            className="inline-flex h-8 items-center gap-2 rounded-md border border-destructive/50 bg-background px-3 text-xs text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const SETTINGS_TABS = [
   { id: "account", label: "Account" },
+  { id: "ai-credentials", label: "AI credentials" },
   { id: "community-profile", label: "Community profile" },
   { id: "transfer-projects", label: "Transfer projects" },
   { id: "linked-github", label: "Linked GitHub" },
@@ -45,6 +139,8 @@ export default function GeneralSettingsPage() {
   const githubConnectionStatus = useQuery(
     api.github.auth.connections.getGitHubConnectionStatus,
   );
+  const userProjects = useQuery(api.project.getUserProjects);
+  const byokSettings = useQuery(api.users.getCliByokSettings);
 
   const updateProfile = useMutation(api.community.updateProfile);
   const requestOtp = useAction(api.import_projects.requestImportOtp);
@@ -52,6 +148,11 @@ export default function GeneralSettingsPage() {
   const initiateGithubAuth = useAction(api.github.auth.oauth.initiateGitHubAuth);
   const disconnectGitHub = useMutation(
     api.github.auth.connections.disconnectGitHub,
+  );
+  const setCliPreference = useMutation(api.users.setCliPreference);
+  const clearCodexOauthAuth = useMutation(api.users.clearCodexOauthAuth);
+  const startCodexDeviceAuth = useAction(
+    api.coding_agent.cli_agent.execute.startCodexDeviceAuth,
   );
 
   const [bio, setBio] = useState("");
@@ -69,6 +170,13 @@ export default function GeneralSettingsPage() {
 
   const [isConnectingGithub, setIsConnectingGithub] = useState(false);
   const [isDisconnectingGithub, setIsDisconnectingGithub] = useState(false);
+  const [isStartingOauthConnect, setIsStartingOauthConnect] = useState(false);
+  const [codexOauthAuthUrl, setCodexOauthAuthUrl] = useState<string | null>(
+    null,
+  );
+  const [codexOauthOneTimeCode, setCodexOauthOneTimeCode] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -204,6 +312,47 @@ export default function GeneralSettingsPage() {
     }
   };
 
+  const handleConnectCodexOauth = async (forceReauth = false) => {
+    const candidateProject = userProjects?.[0];
+    const semanticIdentifier = candidateProject?.semantic_identifier;
+    if (!semanticIdentifier) {
+      toast.error("Open a project first, then connect Codex OAuth.");
+      return;
+    }
+
+    setIsStartingOauthConnect(true);
+    try {
+      const result = await startCodexDeviceAuth({
+        projectSemanticIdentifier: semanticIdentifier,
+        forceReauth,
+      });
+      if (!result.success) {
+        toast.error(result.message || "Failed to start Codex OAuth");
+        return;
+      }
+
+      setCodexOauthAuthUrl(result.authUrl ?? null);
+      setCodexOauthOneTimeCode(result.oneTimeCode ?? null);
+
+      if (result.alreadyAuthenticated && result.isAuthenticated) {
+        toast.success("Codex OAuth already connected");
+        return;
+      }
+
+      if (result.authUrl || result.oneTimeCode) {
+        toast.success("Codex OAuth started. Use the code to connect.");
+      } else {
+        toast.success(result.message || "Codex OAuth started");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to start Codex OAuth",
+      );
+    } finally {
+      setIsStartingOauthConnect(false);
+    }
+  };
+
   return (
     <AppShell
       title="Settings"
@@ -238,6 +387,209 @@ export default function GeneralSettingsPage() {
                 label="Role"
                 value={(user?.role || "member").toUpperCase()}
               />
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            id="ai-credentials"
+            title="AI credentials"
+            description="Manage user-level BYOK credentials for Codex/GPT and Claude across all your projects."
+          >
+            <div className="grid gap-4">
+              <div className="rounded-md border border-border/60 bg-background/30 p-4">
+                <p className="text-sm font-medium text-foreground">Codex / GPT authentication</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choose OAuth via ChatGPT or your own OpenAI API key.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await setCliPreference({ key: "gpt_auth_method", value: "oauth" });
+                        if (byokSettings?.hasCodexOauth) {
+                          toast.success("Codex auth mode set to OAuth");
+                        } else {
+                          toast.info(
+                            "OAuth mode selected. Connect ChatGPT from a Codex chat before sending.",
+                          );
+                        }
+                      } catch {
+                        toast.error("Failed to update Codex auth method");
+                      }
+                    }}
+                    className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors ${
+                      (byokSettings?.gptAuthMethod ?? "oauth") === "oauth"
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border/60 bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    OAuth (ChatGPT)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await setCliPreference({ key: "gpt_auth_method", value: "byok" });
+                        if (byokSettings?.hasOpenAiApiKey) {
+                          toast.success("Codex auth mode set to BYOK");
+                        } else {
+                          toast.info(
+                            "BYOK mode selected. Save an OpenAI API key to use Codex.",
+                          );
+                        }
+                      } catch {
+                        toast.error("Failed to update Codex auth method");
+                      }
+                    }}
+                    className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors ${
+                      byokSettings?.gptAuthMethod === "byok"
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border/60 bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    BYOK (OpenAI API key)
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  OAuth status: {byokSettings?.hasCodexOauth ? "Connected" : "Not connected"} · BYOK key: {byokSettings?.hasOpenAiApiKey ? "Saved" : "Not saved"}
+                </p>
+                {(byokSettings?.gptAuthMethod ?? "oauth") === "oauth" ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleConnectCodexOauth(byokSettings?.hasCodexOauth === true)}
+                        disabled={isStartingOauthConnect}
+                        className="inline-flex h-8 items-center gap-2 rounded-md border border-border/60 bg-background px-3 text-xs text-foreground transition-colors hover:bg-muted disabled:text-muted-foreground"
+                      >
+                        {isStartingOauthConnect && (
+                          <Loader className="h-3.5 w-3.5 animate-spin" />
+                        )}
+                        {byokSettings?.hasCodexOauth ? "Reconnect OAuth" : "Connect OAuth"}
+                      </button>
+                      {codexOauthAuthUrl && (
+                        <button
+                          type="button"
+                          onClick={() => window.open(codexOauthAuthUrl, "_blank", "noopener,noreferrer")}
+                          className="inline-flex h-8 items-center gap-2 rounded-md border border-border/60 bg-background px-3 text-xs text-foreground transition-colors hover:bg-muted"
+                        >
+                          Open auth page
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {byokSettings?.hasCodexOauth && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await clearCodexOauthAuth({});
+                              setCodexOauthAuthUrl(null);
+                              setCodexOauthOneTimeCode(null);
+                              toast.success("Codex OAuth disconnected");
+                            } catch {
+                              toast.error("Failed to disconnect Codex OAuth");
+                            }
+                          }}
+                          className="inline-flex h-8 items-center gap-2 rounded-md border border-destructive/50 bg-background px-3 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Disconnect OAuth
+                        </button>
+                      )}
+                    </div>
+                    {codexOauthOneTimeCode && (
+                      <p className="text-xs text-muted-foreground">
+                        One-time code: <span className="font-semibold text-foreground">{codexOauthOneTimeCode}</span>
+                      </p>
+                    )}
+                    {!byokSettings?.hasCodexOauth && !codexOauthOneTimeCode && (
+                      <p className="text-xs text-muted-foreground">
+                        Click Connect OAuth to start ChatGPT device auth.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <ByokSecretField
+                    kind="openai"
+                    hasSaved={!!byokSettings?.hasOpenAiApiKey}
+                    placeholder="sk-..."
+                    saveLabel="OpenAI API key"
+                    removeLabel="OpenAI API key"
+                  />
+                )}
+              </div>
+
+              <div className="rounded-md border border-border/60 bg-background/30 p-4">
+                <p className="text-sm font-medium text-foreground">Claude provider</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Select Anthropic API key or AWS Bedrock bearer token.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await setCliPreference({ key: "claude_provider_preference", value: "anthropic" });
+                        toast.success("Claude provider set to Anthropic");
+                      } catch {
+                        toast.error("Failed to set Claude provider");
+                      }
+                    }}
+                    className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors ${
+                      byokSettings?.claudeProviderPreference === "anthropic"
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border/60 bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Anthropic
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await setCliPreference({ key: "claude_provider_preference", value: "bedrock" });
+                        toast.success("Claude provider set to Bedrock");
+                      } catch {
+                        toast.error("Failed to set Claude provider");
+                      }
+                    }}
+                    className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors ${
+                      (byokSettings?.claudeProviderPreference ?? "bedrock") ===
+                      "bedrock"
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border/60 bg-background text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Bedrock
+                  </button>
+                </div>
+
+                {byokSettings?.claudeProviderPreference === "anthropic" ? (
+                  <ByokSecretField
+                    kind="anthropic"
+                    hasSaved={!!byokSettings?.hasAnthropicApiKey}
+                    placeholder="sk-ant-..."
+                    saveLabel="Anthropic API key"
+                    removeLabel="Anthropic API key"
+                  />
+                ) : (
+                  <ByokSecretField
+                    kind="bedrock"
+                    hasSaved={!!byokSettings?.hasBedrockBearerToken}
+                    placeholder="Paste AWS_BEARER_TOKEN_BEDROCK"
+                    saveLabel="Bedrock bearer token"
+                    removeLabel="Bedrock bearer token"
+                  />
+                )}
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200/90">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <p>
+                  Credentials are encrypted before storage and applied at run time for all projects under your account.
+                </p>
+              </div>
             </div>
           </SettingsSection>
 

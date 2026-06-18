@@ -265,18 +265,25 @@ const executeCommandHandler: ToolHandler<
   const { codebase } = sharedContext;
   const timeoutMs = 60 * 1000; // 60 seconds
 
+  const normalizedCommand = args.command.trim();
+  const fileReadViaShellPattern =
+    /(^|\s)(cat|head|tail|more|less|sed|awk)\b/i;
+  if (fileReadViaShellPattern.test(normalizedCommand)) {
+    return "Command blocked: use readFilesToContextTool for reading files instead of shell readers (cat/head/tail/sed/awk). This keeps execution safer and faster.";
+  }
+
   try {
-    const result = await codebase.runCommand(args.command, timeoutMs);
+    const result = await codebase.runCommand(normalizedCommand, timeoutMs);
 
     await sharedContext.consoleLog(
       `[Tool:executeCommand] Command completed`,
       "tool",
-      {
-        command: args.command,
-        success: result.exitCode === 0,
-        outputLength: result.output?.length || 0,
-      },
-    );
+        {
+          command: normalizedCommand,
+          success: result.exitCode === 0,
+          outputLength: result.output?.length || 0,
+        },
+      );
 
     // Update message state based on command result (scheduled to not block execution)
     if (result.exitCode === 0) {
@@ -563,6 +570,7 @@ export const searchUiPresetsSchema = z.object({
 
 const searchUiPresetsTool = tool({
   description: `Search the UI preset library to find pre-built UI components and themes.
+MANDATORY for UI work: whenever the user asks for any UI/design/layout/styling change, call this tool first before writing UI code.
 Use this BEFORE building common UI patterns. Search when you need:
 - UI components: buttons, cards, modals, forms, navbars, footers, hero sections
 - Styling themes: dark mode, glassmorphism, neumorphism, brutalism

@@ -6,6 +6,7 @@ import {
   createAgentThread,
   formatInitialUserMessageThreadTitle,
 } from "./agent_thread";
+import { workflow } from "./workflow";
 import { runTriggerGates } from "../shared/triggerGates";
 
 // Main entry point for the agent - saves message and schedules the agent run.
@@ -51,15 +52,13 @@ export const saveMessageAndStartWorkflow = mutation({
     let threadIdForCleanup: Id<"agent_thread"> | undefined;
     let messageIdForCleanup: Id<"agent_message"> | undefined;
     try {
-      const normalizedAgentType = "Freebuff" as const;
-
       const gates = await runTriggerGates({
         ctx,
         message: args.message,
         projectSemanticIdentifier: args.projectSemanticIdentifier,
         projectId: args.projectId,
         skipRateLimitCheck: args._skipRateLimitCheck,
-        agentType: normalizedAgentType,
+        agentType: args.agentType,
         freebuffModel: args.freebuffModel,
       });
 
@@ -124,7 +123,7 @@ export const saveMessageAndStartWorkflow = mutation({
 
       if (!threadId) {
         // Create new thread (no active_session_id)
-        threadId = await createAgentThread(ctx, project._id, normalizedAgentType);
+        threadId = await createAgentThread(ctx, project._id, args.agentType);
 
         // Update project with active thread
         await ctx.db.patch(project._id, {
@@ -165,7 +164,7 @@ export const saveMessageAndStartWorkflow = mutation({
       if (!threadId) {
         console.error("[CLIAgent] Failed to create or retrieve agent thread", {
           projectId: project._id,
-          agentType: normalizedAgentType,
+          agentType: args.agentType,
         });
         return {
           success: false as const,
@@ -180,8 +179,9 @@ export const saveMessageAndStartWorkflow = mutation({
       // follow-up messages run the matching bundled agent. Use the
       // gate-resolved model: limited-tier (geo) users get premium selections
       // coerced to a limited-tier model.
-      const resolvedFreebuffModel = gates.freebuffModel;
-      if (resolvedFreebuffModel) {
+      const resolvedFreebuffModel =
+        args.agentType === "Freebuff" ? gates.freebuffModel : undefined;
+      if (resolvedFreebuffModel && args.agentType === "Freebuff") {
         await ctx.db.patch(threadId, {
           selected_freebuff_model: resolvedFreebuffModel,
         });
@@ -215,7 +215,10 @@ export const saveMessageAndStartWorkflow = mutation({
       // The Freebuff runId doubles as the message session_id. Setting it at
       // creation time (instead of from the agent action later) saves a
       // round-trip and means cancel works even before the action starts.
-      const runId = crypto.randomUUID();
+      // Codex/Claude generate their own session IDs at runtime, so we leave
+      // session_id undefined here for them.
+      const runId =
+        args.agentType === "Freebuff" ? crypto.randomUUID() : undefined;
 
       // Create agent message (already isStreaming=true, state=Processing)
       const messageId = await ctx.runMutation(
@@ -240,7 +243,7 @@ export const saveMessageAndStartWorkflow = mutation({
         );
       }
 
-      if (resolvedFreebuffModel) {
+      if (resolvedFreebuffModel && args.agentType === "Freebuff") {
         await ctx.runMutation(
           internal.coding_agent.cli_agent.agent_message
             .updateAgentMessageModel,
@@ -276,51 +279,97 @@ export const saveMessageAndStartWorkflow = mutation({
         );
       }
 
-      // Run ledger entry (queued) — powers cancellation, the timeout sweep
-      // cron, and the latency instrumentation (queued_at → started_at).
-      await ctx.runMutation(
-        internal.coding_agent.cli_agent.freebuff_agent_run_mutations
-          .createFreebuffAgentRun,
-        {
-          runId,
-          userId: user._id,
-          projectId: project._id,
-          threadId,
-          messageId,
-        },
-      );
+      if (args.agentType === "Freebuff") {
+        if (!runId) {
+          throw new Error("Missing Freebuff run id");
+        }
 
-      // Enqueue the agent action directly via the Convex scheduler. There is
-      // no per-pool concurrency cap, so concurrent users never queue behind
-      // each other — every send schedules its own action immediately.
-      const scheduledId = await ctx.scheduler.runAfter(
-        0,
-        internal.coding_agent.cli_agent.executeFreebuff.runFreebuffAgent,
-        {
-          runId,
-          userId: user._id,
-          projectId: project._id,
-          threadId,
-          messageId,
-          userMessage: args.message,
-          freebuffModel: resolvedFreebuffModel,
-          images: args.images,
-          sandboxId: project.sandbox_id,
-          packageManager: project.packageManager,
-        },
-      );
+        // Run ledger entry (queued) — powers cancellation, the timeout sweep
+        // cron, and the latency instrumentation (queued_at → started_at).
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.freebuff_agent_run_mutations
+            .createFreebuffAgentRun,
+          {
+            runId: runId,
+            userId: user._id,
+            projectId: project._id,
+            threadId,
+            messageId,
+          },
+        );
 
-      // Stored on the run ledger so cancel can call `scheduler.cancel(...)` if
-      // the user terminates before the action picks it up. (Field is named
-      // `work_id` for backwards compatibility with rows from the workpool era.)
-      await ctx.runMutation(
-        internal.coding_agent.cli_agent.freebuff_agent_run_mutations
-          .setFreebuffAgentRunWorkId,
-        {
-          runId,
-          workId: String(scheduledId),
-        },
-      );
+        // Enqueue the agent action directly via the Convex scheduler. There is
+        // no per-pool concurrency cap, so concurrent users never queue behind
+        // each other — every send schedules its own action immediately.
+        const scheduledId = await ctx.scheduler.runAfter(
+          0,
+          internal.coding_agent.cli_agent.executeFreebuff.runFreebuffAgent,
+          {
+            runId: runId,
+            userId: user._id,
+            projectId: project._id,
+            threadId,
+            messageId,
+            userMessage: args.message,
+            freebuffModel: resolvedFreebuffModel,
+            images: args.images,
+            sandboxId: project.sandbox_id,
+            packageManager: project.packageManager,
+          },
+        );
+
+        // Stored on the run ledger so cancel can call `scheduler.cancel(...)` if
+        // the user terminates before the action picks it up. (Field is named
+        // `work_id` for backwards compatibility with rows from the workpool era.)
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.freebuff_agent_run_mutations
+            .setFreebuffAgentRunWorkId,
+          {
+            runId: runId,
+            workId: String(scheduledId),
+          },
+        );
+      } else {
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_message.updateAgentMessageState,
+          {
+            messageId,
+            state: "Processing",
+          },
+        );
+
+        const workflowId = await workflow.start(
+          ctx,
+          internal.coding_agent.cli_agent.workflow.cliAgentWorkflow,
+          {
+            messageId,
+            threadId,
+            projectId: project._id,
+            userId: user._id,
+            agentType: args.agentType,
+          },
+          {
+            onComplete:
+              internal.coding_agent.cli_agent.workflow.handleWorkflowComplete,
+            context: {
+              threadId,
+              messageId,
+              projectId: project._id,
+              userId: user._id,
+              agentType: args.agentType,
+            },
+          },
+        );
+
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_thread
+            .updateAgentThreadWorkflowId,
+          {
+            threadId,
+            workflowId,
+          },
+        );
+      }
 
       // Update project state
       await ctx.db.patch(project._id, {

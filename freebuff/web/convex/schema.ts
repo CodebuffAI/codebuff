@@ -80,6 +80,24 @@ export default defineSchema(
       codex_auth_mode: v.optional(v.string()), // Last observed auth_mode from ~/.codex/auth.json
       codex_auth_last_refresh: v.optional(v.string()), // Last observed refresh timestamp from ~/.codex/auth.json
       codex_auth_updated_at: v.optional(v.number()), // Last time auth fingerprint metadata was updated
+      codex_oauth_revoked: v.optional(v.boolean()), // Explicit user disconnect flag for Codex OAuth
+      gpt_auth_method: v.optional(
+        v.union(v.literal('oauth'), v.literal('byok')),
+      ), // Preferred Codex/GPT authentication mode
+      gpt_model_preference: v.optional(v.string()), // Preferred Codex model name
+      gpt_openai_api_key_encrypted: v.optional(v.string()), // Encrypted OpenAI API key for user-level BYOK
+      gpt_openai_api_key_encryption_version: v.optional(v.number()), // Encryption version for OpenAI API key blob
+      gpt_openai_api_key_updated_at: v.optional(v.number()), // Last OpenAI API key update timestamp
+      claude_provider_preference: v.optional(
+        v.union(v.literal('anthropic'), v.literal('bedrock')),
+      ), // Preferred Claude provider for CLI runs
+      claude_model_preference: v.optional(v.string()), // Preferred Claude model name
+      claude_anthropic_api_key_encrypted: v.optional(v.string()), // Encrypted Anthropic API key for user-level BYOK
+      claude_anthropic_api_key_encryption_version: v.optional(v.number()), // Encryption version for Anthropic API key blob
+      claude_anthropic_api_key_updated_at: v.optional(v.number()), // Last Anthropic API key update timestamp
+      claude_bedrock_bearer_token_encrypted: v.optional(v.string()), // Encrypted Bedrock bearer token for user-level BYOK
+      claude_bedrock_bearer_token_encryption_version: v.optional(v.number()), // Encryption version for Bedrock bearer token blob
+      claude_bedrock_bearer_token_updated_at: v.optional(v.number()), // Last Bedrock bearer token update timestamp
       // Web referral score synced from the Postgres referral ledger via the
       // web_referral_score JWT claim. Drives tier-scaled limits and perks.
       qualified_referral_count: v.optional(v.number()),
@@ -484,6 +502,10 @@ export default defineSchema(
       last_edited_timestamp: v.number(), // Timestamp for thread ordering and last activity
       workflow_id: v.optional(v.string()), // Workflow ID from Convex workflow component
       active_session_id: v.optional(v.string()), // Active session ID for resuming conversations
+      active_session_id_freebuff: v.optional(v.string()), // Per-agent session state for Freebuff
+      active_session_id_codex: v.optional(v.string()), // Per-agent session state for Codex
+      active_session_id_claude: v.optional(v.string()), // Per-agent session state for Claude Code
+      active_session_id_gemini: v.optional(v.string()), // Per-agent session state for Gemini CLI
       active_freebuff_run_state_storage_id: v.optional(v.id('_storage')),
       // Selected open-source Freebuff model id for this thread (drives which
       // bundled base2-free agent runs). Defaults to DEFAULT_FREEBUFF_MODEL_ID

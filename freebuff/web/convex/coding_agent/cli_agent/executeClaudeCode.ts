@@ -17,23 +17,54 @@ export interface ExecuteClaudeCodeArgs {
   executingUserId: Id<"users">;
   userMessage: string;
   images: Id<"_storage">[] | undefined;
+  claudeProviderPreference: "anthropic" | "bedrock";
+  claudeModelPreference:
+    | "claude-opus-4-8"
+    | "claude-sonnet-4-6"
+    | "claude-haiku-4-5";
+  anthropicApiKey?: string;
+  bedrockBearerToken?: string;
 }
 
 export interface ExecuteClaudeCodeResult {
   success: boolean;
   error?: string;
   sessionId?: string;
+  timedOut?: boolean;
 }
+
+// Mirrors executeFreebuff.ts FREEBUFF_RUN_TIMEOUT_MS. Aborts the Claude run
+// before the 10-minute cron sweep so the action has time to clean up state.
+const CLAUDE_RUN_TIMEOUT_MS = 9 * 60 * 1000;
+const CLI_AGENT_TIMEOUT_MESSAGE =
+  "Maximum time limit for a prompt reached. Engagement required to continue.";
 
 export async function executeClaudeCode(
   ctx: ActionCtx,
   codebase: DaytonaCodebase,
   args: ExecuteClaudeCodeArgs,
 ): Promise<ExecuteClaudeCodeResult> {
-  // Using AWS Bedrock instead of Anthropic API
-  const awsBearerToken = process.env.AWS_BEARER_TOKEN_BEDROCK;
-  if (!awsBearerToken) {
-    throw new Error("AWS_BEARER_TOKEN_BEDROCK environment variable is not set");
+  const selectedProvider = args.claudeProviderPreference;
+  const selectedModel = args.claudeModelPreference;
+  const anthropicApiKey = args.anthropicApiKey?.trim() || undefined;
+  const awsBearerToken = args.bedrockBearerToken?.trim() || undefined;
+
+  if (selectedProvider === "anthropic" && !anthropicApiKey) {
+    return {
+      success: false,
+      sessionId: undefined,
+      error:
+        "Claude provider is set to Anthropic, but no API key is saved. Add one in Settings > AI Credentials.",
+    };
+  }
+
+  if (selectedProvider === "bedrock" && !awsBearerToken) {
+    return {
+      success: false,
+      sessionId: undefined,
+      error:
+        "Claude provider is set to Bedrock, but no bearer token is saved. Add one in Settings > AI Credentials.",
+    };
   }
 
   // Escape session ID if provided (user-controlled input)
@@ -86,11 +117,22 @@ export async function executeClaudeCode(
     cliAgentSystemPrompt(runner) + knowledgePrompts(runner, packageManagerName),
   );
 
+  const claudeModelForProvider =
+    selectedProvider === "anthropic"
+      ? selectedModel
+      : selectedModel === "claude-opus-4-8"
+        ? "us.anthropic.claude-opus-4-8"
+        : selectedModel === "claude-haiku-4-5"
+          ? "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+          : "us.anthropic.claude-sonnet-4-6";
+
   // Build the base Claude Code command with escaped inputs
-  // Add --tools "default" and --append-system-prompt flags
+  // Add explicit --model so user selection is always applied.
   const commandParts = [
     "claude",
     "--dangerously-skip-permissions",
+    "--model",
+    escapeShellArg(claudeModelForProvider),
     resumeFlag.trim(),
     "-p",
     escapedPrompt,
@@ -105,8 +147,12 @@ export async function executeClaudeCode(
 
   const command = commandParts.join(" ");
 
-  // Escape AWS bearer token for environment variable
-  const escapedAwsToken = escapeShellArg(awsBearerToken);
+  const escapedAwsToken = awsBearerToken
+    ? escapeShellArg(awsBearerToken)
+    : undefined;
+  const escapedAnthropicApiKey = anthropicApiKey
+    ? escapeShellArg(anthropicApiKey)
+    : undefined;
 
   // Build PATH matching old agent: /home/daytona/.local/bin + system PATH, plus npm-global bin
   const systemPath = process.env.PATH || "/usr/local/bin:/usr/bin:/bin";
@@ -117,12 +163,20 @@ export async function executeClaudeCode(
   // Use command substitution to get deploy key inline (faster than separate command)
   // $(cat ... || echo "") will return empty string if file doesn't exist
   const envVars = [
-    `AWS_BEARER_TOKEN_BEDROCK=${escapedAwsToken}`,
-    `CLAUDE_CODE_USE_BEDROCK=1`,
-    //`CLAUDE_CODE_MAX_OUTPUT_TOKENS=4096`,
-    `ANTHROPIC_DEFAULT_MODEL=us.anthropic.claude-sonnet-4-6`,
-    //`MAX_THINKING_TOKENS=1024`,
-    `AWS_REGION=us-east-1`,
+    ...(selectedProvider === "bedrock" && escapedAwsToken
+      ? [
+          `AWS_BEARER_TOKEN_BEDROCK=${escapedAwsToken}`,
+          `CLAUDE_CODE_USE_BEDROCK=1`,
+          `AWS_REGION=us-east-1`,
+          `ANTHROPIC_DEFAULT_MODEL=${claudeModelForProvider}`,
+        ]
+      : []),
+    ...(selectedProvider === "anthropic" && escapedAnthropicApiKey
+      ? [
+          `ANTHROPIC_API_KEY=${escapedAnthropicApiKey}`,
+          `ANTHROPIC_DEFAULT_MODEL=${claudeModelForProvider}`,
+        ]
+      : []),
     `CONVEX_DEPLOY_KEY=$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")`,
     `GIT_TERMINAL_PROMPT=0`,
     `PATH=${pathValue}`,
@@ -147,6 +201,15 @@ export async function executeClaudeCode(
 
   // Track if we should terminate (when result type received with session ID and usage)
   let shouldTerminate = false;
+  // Tracks the 9-minute in-process timeout (mirrors Freebuff). When this
+  // fires we flip shouldTerminate so the existing termination promise calls
+  // pkill, and we report timedOut=true so the workflow handler marks the
+  // message as Paused with the canonical timeout copy.
+  let timedOut = false;
+  const runTimeoutHandle = setTimeout(() => {
+    timedOut = true;
+    shouldTerminate = true;
+  }, CLAUDE_RUN_TIMEOUT_MS);
 
   // Batching mechanism to avoid concurrent update conflicts
   // Update every N items instead of on every item
@@ -291,24 +354,12 @@ export async function executeClaudeCode(
             messageId: args.messageId,
             totalCostUsd: result.usage.totalCostUsd,
             usageBreakdown: result.usage.usageBreakdown,
-            modelUsed: "claude-sonnet-4-6",
+            modelUsed: claudeModelForProvider,
           },
         ),
       );
 
-      // Deduct credits from user balance ($1 = 1M credits)
-      if (result.usage.totalCostUsd && result.usage.totalCostUsd > 0) {
-        await ctx.runAction(
-          internal.coding_agent.cli_agent.creditTracking.trackCliAgentUsage,
-          {
-            projectId: args.projectId,
-            totalCostUsd: result.usage.totalCostUsd,
-            executingUserId: args.executingUserId,
-            agentType: "Claude Code",
-            messageId: args.messageId,
-          },
-        );
-      }
+      // Do not deduct platform credits for user BYOK credentials.
     }
 
     // Handle termination
@@ -444,6 +495,16 @@ export async function executeClaudeCode(
       }
     }
 
+    // If the in-process 9-min timer fired, surface that to the workflow
+    // handler so it marks the message as Paused with the canonical copy.
+    if (timedOut) {
+      return {
+        success: false,
+        error: CLI_AGENT_TIMEOUT_MESSAGE,
+        timedOut: true,
+      };
+    }
+
     // If we received final usage/result info, terminate immediately
     if (shouldTerminate) {
       return { success: true, sessionId: newSessionId };
@@ -458,10 +519,19 @@ export async function executeClaudeCode(
 
     return { success: true, sessionId: newSessionId };
   } catch (error) {
+    if (timedOut) {
+      return {
+        success: false,
+        error: CLI_AGENT_TIMEOUT_MESSAGE,
+        timedOut: true,
+      };
+    }
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
     // Don't update message state here - let onComplete handle it
     return { success: false, error: errorMessage };
+  } finally {
+    clearTimeout(runTimeoutHandle);
   }
 }
