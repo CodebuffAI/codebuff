@@ -37,7 +37,7 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, ease: 'easeOut' }}
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_24%,#101f23_44%,#172a29_57%,#121a1a_71%,#070a0b_86%,#000000_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#03060a_0%,#060c12_24%,#101f23_44%,#172a29_57%,#121a1a_71%,#070a0b_86%,#000000_100%)]"
       />
       <motion.div
         style={{ y: starsY }}
@@ -49,32 +49,20 @@ export function Hero() {
         <Starfield />
       </motion.div>
       {/* ── Hero copy + tabs (natural flow) ── */}
-      <div className="relative z-30 mx-auto flex max-w-3xl flex-col items-center px-6 pt-28 text-center md:pt-32">
+      <div className="relative z-30 mx-auto flex max-w-3xl flex-col items-center px-6 pt-40 text-center md:pt-44">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
           className="lp-gpu flex w-full flex-col items-center"
         >
-          {/* usage count */}
-          <div className="mb-6 flex items-center gap-2 text-sm text-white/55">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-forest-bright opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-forest-bright" />
-            </span>
-            <span>
-              <span className="font-normal text-white/85">230,000+</span>{' '}
-              developers coding for free
-            </span>
-          </div>
-
-          <h1 className="lp-hero-heading text-balance text-[34px] font-normal leading-[1.1] text-white md:text-[52px] lg:text-[58px]">
+          <h1 className="lp-hero-heading text-balance text-[36px] font-normal leading-[1.1] text-white md:text-[56px] lg:text-[62px]">
             We make coding{' '}
             <span className="text-forest-bright">100% free</span>
           </h1>
 
-          <p className="mt-4 max-w-md text-base leading-relaxed text-white/55 md:text-[17px]">
-            No subscriptions. No API keys. Start in seconds.
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-white/55 md:text-[17px]">
+            No subscriptions, no API keys. The best open-source models.
           </p>
 
           <div className="mt-9 w-full">

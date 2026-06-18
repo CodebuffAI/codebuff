@@ -115,6 +115,19 @@ export function CostBarChart({
         className,
       )}
     >
+      {/* Live social-proof caption — relocated here from the hero copy so the
+          top of the page stays calm; pairs the headcount with the $0 bar. */}
+      <div className="mb-6 flex items-center gap-2 text-[13px] text-white/55 sm:mb-7">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-forest-bright opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-forest-bright" />
+        </span>
+        <span>
+          <span className="font-normal text-white/85">230,000+</span> developers
+          coding for free
+        </span>
+      </div>
+
       <div className="relative">
         {/* Vertical gridlines over the bar-track region only */}
         <div
