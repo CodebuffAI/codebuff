@@ -30,7 +30,7 @@ const FREEBUFF: Competitor = {
 export const CLI_COMPETITORS: Competitor[] = [
   FREEBUFF,
   { name: 'OpenCode', color: '#f5a623', mark: 'O', slug: 'opencode', domain: 'opencode.ai', yearly: 120, note: '$120 / yr' },
-  { name: 'Codex', color: '#7b6bf2', mark: 'C', logo: '/codex.svg', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
+  { name: 'Codex', color: '#7b6bf2', mark: 'C', logo: '/landing/codex.svg', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
   { name: 'Cursor', color: '#e6e6e6', mark: 'C', slug: 'cursor', domain: 'cursor.com', yearly: 720, note: '$60 / mo' },
   { name: 'Claude Code', color: '#d97757', mark: 'A', slug: 'claude', domain: 'claude.ai', yearly: 1200, note: '$100 / mo' },
   { name: 'Devin', color: '#6366f1', mark: 'D', domain: 'devin.ai', yearly: 2400, note: '$200 / mo' },
@@ -41,7 +41,7 @@ export const WEB_COMPETITORS: Competitor[] = [
   FREEBUFF,
   { name: 'Emergent', color: '#8b5cf6', mark: 'E', domain: 'emergent.sh', yearly: 240, note: '$20 / mo' },
   { name: 'Bolt.new', color: '#1389fd', mark: 'B', slug: 'bolt', domain: 'bolt.new', yearly: 324, note: '$27 / mo' },
-  { name: 'Lovable', color: '#ff4d6d', mark: 'L', logo: '/lovable.svg', domain: 'lovable.dev', yearly: 600, note: '$50 / mo' },
+  { name: 'Lovable', color: '#ff4d6d', mark: 'L', logo: '/landing/lovable.svg', domain: 'lovable.dev', yearly: 600, note: '$50 / mo' },
   { name: 'Replit', color: '#f26207', mark: 'R', slug: 'replit', domain: 'replit.com', yearly: 1080, note: '$90 / mo' },
   { name: 'Base44', color: '#3b82f6', mark: 'B', domain: 'base44.com', yearly: 1920, note: '$160 / mo' },
 ]
