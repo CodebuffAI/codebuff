@@ -41,12 +41,10 @@
   }
 
   /* Canvas / overscroll (rubber-band) color. The browser paints the area
-     beyond the page with the <html> background; without this it falls back to
-     the gray --background token. rgb(6,11,17) matches the landing hero's
-     topmost sky tone so overscrolling past the top is a seamless extension of
-     the background rather than a gray gap. */
+     beyond the page with the <html> background; keep it pure black so
+     overscroll matches the landing page sections. */
   html {
-    background-color: rgb(6, 11, 17);
+    background-color: #000;
   }
 
   /* ── Mobile hardening ────────────────────────────────────────────────

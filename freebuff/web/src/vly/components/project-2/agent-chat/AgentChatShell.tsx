@@ -737,8 +737,10 @@ export function AgentChatShell({
         return false;
       }
 
-      // Get the agent type from the active thread, default to Codex if no thread
-      const agentType = activeThread?.agent_type || "Codex";
+      // Freebuff Web threads are normalized server-side, but the active thread
+      // query can lag behind the first send. Default to Freebuff so the selected
+      // MiniMax M3 model is included even before that query resolves.
+      const agentType = activeThread?.agent_type || "Freebuff";
 
       // Capture selected node info before clearing it
       const currentSelectedNode = selectedNodeInfoRef.current;

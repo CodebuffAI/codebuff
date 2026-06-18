@@ -17,6 +17,9 @@ import codeReviewerDeepseekFlash from '../../../../../agents/reviewer/code-revie
 import codeReviewerKimi from '../../../../../agents/reviewer/code-reviewer-kimi'
 import codeReviewerLite from '../../../../../agents/reviewer/code-reviewer-lite'
 import codeReviewerMinimax from '../../../../../agents/reviewer/code-reviewer-minimax'
+import codeReviewerMinimaxM3 from '../../../../../agents/reviewer/code-reviewer-minimax-m3'
+import codeReviewerMimo from '../../../../../agents/reviewer/code-reviewer-mimo'
+import codeReviewerMimoPro from '../../../../../agents/reviewer/code-reviewer-mimo-pro'
 import codeSearcher from '../../../../../agents/file-explorer/code-searcher'
 import directoryLister from '../../../../../agents/file-explorer/directory-lister'
 import fileLister from '../../../../../agents/file-explorer/file-lister'
@@ -65,6 +68,7 @@ Freebuff Web projects are Vite + React + Convex apps. After changing files, you 
 - If \`bun convex dev --once\` cannot authenticate, stop and tell the user that Convex codegen could not be verified. Do not pretend typecheck passed and do not patch generated files by hand.
 - A blank preview or a Convex error like "Did you forget to run convex dev?" usually means compile/type errors are blocking the app. Run the backend command above with \`--once\` and fix the reported errors.
 - Never run a full production build such as \`bun run build\` unless the user explicitly asks; use the typecheck commands above.
+- When review is needed, spawn the code reviewer in the same \`spawn_agents\` call as typecheck/test bashers whenever possible so review runs in parallel instead of extending the action wall-clock time.
 
 # Third-Party Integrations
 
@@ -220,6 +224,9 @@ export const bundledAgentDefinitions = [
   codeReviewerKimi,
   codeReviewerLite,
   codeReviewerMinimax,
+  codeReviewerMinimaxM3,
+  codeReviewerMimo,
+  codeReviewerMimoPro,
   codeSearcher,
   directoryLister,
   fileLister,
