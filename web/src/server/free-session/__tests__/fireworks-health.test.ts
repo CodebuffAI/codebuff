@@ -148,12 +148,12 @@ describe('routeForAdmission', () => {
     expect(routeForAdmission(M3, { [M3]: 'unhealthy' })).toBe('serverless')
   })
 
-  test('healthy deployment but TTFT p90 over 1.5s → serverless', () => {
-    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 1501)).toBe('serverless')
+  test('healthy deployment but TTFT p90 over 4s → serverless', () => {
+    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 4001)).toBe('serverless')
   })
 
-  test('healthy deployment with TTFT p90 at/under 1.5s → deployment', () => {
-    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 1500)).toBe('deployment')
+  test('healthy deployment with TTFT p90 at/under 4s → deployment', () => {
+    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 4000)).toBe('deployment')
     expect(routeForAdmission(M3, { [M3]: 'healthy' }, 800)).toBe('deployment')
   })
 })

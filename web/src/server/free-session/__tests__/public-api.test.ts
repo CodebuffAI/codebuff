@@ -461,12 +461,12 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
   })
 
-  test('instant-admit pins minimax-m3 to serverless when measured TTFT p90 > 1.5s, even while Prometheus health is healthy', async () => {
+  test('instant-admit pins minimax-m3 to serverless when measured TTFT p90 > 4s, even while Prometheus health is healthy', async () => {
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
       getDeploymentTtftP90Ms: (model) =>
-        model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 2500 : undefined,
+        model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 5000 : undefined,
     })
     await requestSession({
       userId: 'u1',
@@ -476,7 +476,7 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
   })
 
-  test('instant-admit keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 1.5s', async () => {
+  test('instant-admit keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 4s', async () => {
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
