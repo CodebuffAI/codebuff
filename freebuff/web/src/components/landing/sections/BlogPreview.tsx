@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { Parallax } from '../Parallax'
+
 import { cn } from '@/lib/utils'
 
 export type BlogPostPreview = {
@@ -92,7 +94,7 @@ export function BlogPreview({ posts }: { posts: BlogPostPreview[] }) {
           })}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <Parallax from={-36} to={36} className="grid gap-6 lg:grid-cols-3">
           <AnimatePresence mode="popLayout">
             {visible.map((p, i) => {
               const color = CATEGORY_COLORS[p.category] ?? DEFAULT_COLOR
@@ -131,7 +133,7 @@ export function BlogPreview({ posts }: { posts: BlogPostPreview[] }) {
               )
             })}
           </AnimatePresence>
-        </div>
+        </Parallax>
       </div>
     </section>
   )

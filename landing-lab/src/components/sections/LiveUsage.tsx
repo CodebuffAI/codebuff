@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 
+import { Parallax } from '@/components/Parallax'
+
 const GREEN = '#54a967'
 
 // Mock leaderboard for the static prototype. The Next.js app feeds this the
@@ -23,7 +25,7 @@ export function LiveUsage() {
 
   return (
     <section className="relative bg-black px-6 py-16 md:py-20">
-      <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/[0.02] p-6 md:p-8">
+      <Parallax from={-44} to={44} className="mx-auto max-w-xl rounded-2xl bg-white/[0.02] p-6 md:p-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="relative flex h-2.5 w-2.5">
@@ -85,7 +87,7 @@ export function LiveUsage() {
             </li>
           ))}
         </ol>
-      </div>
+      </Parallax>
     </section>
   )
 }

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { useState } from 'react'
 
+import { Parallax } from '@/components/Parallax'
 import { cn } from '@/lib/utils'
 
 type Post = {
@@ -139,7 +140,7 @@ export function BlogPreview() {
           })}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <Parallax from={-36} to={36} className="grid gap-6 lg:grid-cols-3">
           <AnimatePresence mode="popLayout">
             {posts.map((p, i) => (
               <motion.a
@@ -177,7 +178,7 @@ export function BlogPreview() {
               </motion.a>
             ))}
           </AnimatePresence>
-        </div>
+        </Parallax>
       </div>
     </section>
   )
