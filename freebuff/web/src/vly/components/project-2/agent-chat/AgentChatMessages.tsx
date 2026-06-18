@@ -960,30 +960,6 @@ function toPersistedAgentAd(
   }
 }
 
-function createFallbackGravityAd(placementId: AgentAdPlacement): PersistedAgentAd {
-  const isBeforeAssistant = placementId === 'agent-chat-after-user'
-  const campaign = isBeforeAssistant
-    ? 'agent_chat_before_assistant'
-    : 'agent_chat_after_assistant'
-
-  return {
-    provider: 'gravity',
-    adText: isBeforeAssistant
-      ? 'Build AI-native monetization into conversational, search, and assistant experiences.'
-      : 'Contextual ads for AI apps, designed to keep the experience useful instead of intrusive.',
-    title: 'Monetize your AI app with Gravity',
-    cta: 'See how Gravity works',
-    brandName: 'Gravity',
-    url: 'https://trygravity.ai',
-    clickUrl: `https://trygravity.ai?utm_source=freebuff_web&utm_medium=house_ad&utm_campaign=${campaign}`,
-    favicon: 'https://www.google.com/s2/favicons?domain=trygravity.ai&sz=64',
-    imageUrl: 'https://www.google.com/s2/favicons?domain=trygravity.ai&sz=64',
-    impUrl: '',
-    placementId,
-    servedAt: 0,
-  }
-}
-
 function getAdImageUrl(ad: PersistedAgentAd, imageError: boolean) {
   if (imageError) return null
   if (ad.imageUrl || ad.favicon) return ad.imageUrl || ad.favicon
@@ -1142,12 +1118,8 @@ const AgentMessageCard: React.FC<{
     if (!message.user_message) return ads
 
     return {
-      'agent-chat-after-user':
-        ads?.['agent-chat-after-user'] ??
-        createFallbackGravityAd('agent-chat-after-user'),
-      'agent-chat-after-assistant':
-        ads?.['agent-chat-after-assistant'] ??
-        createFallbackGravityAd('agent-chat-after-assistant'),
+      'agent-chat-after-user': ads?.['agent-chat-after-user'],
+      'agent-chat-after-assistant': ads?.['agent-chat-after-assistant'],
     } satisfies AdsByPlacement
   }, [ads, message.user_message])
   const renderedAssistantStreamGroups = useMemo(() => {

@@ -26,10 +26,23 @@ function useParentRouteSync() {
 export default function ProjectPage() {
   useParentRouteSync();
   const params = useParams();
+  const semanticIdentifier = typeof params.id === "string" ? params.id : "";
+
+  return (
+    <ProjectErrorBoundary semanticIdentifier={semanticIdentifier}>
+      <ProjectPageContent semanticIdentifier={semanticIdentifier} />
+    </ProjectErrorBoundary>
+  );
+}
+
+function ProjectPageContent({
+  semanticIdentifier,
+}: {
+  semanticIdentifier: string;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [resolveAttempted, setResolveAttempted] = useState(false);
-  const semanticIdentifier = typeof params.id === "string" ? params.id : "";
 
   const shouldShowPublicModel = searchParams.get("publish") === "true";
 
@@ -52,7 +65,7 @@ export default function ProjectPage() {
     }
 
     const needsResolution =
-      project.sandbox_id.startsWith("daytona:") && !daytonaServer;
+      project.sandbox_id?.startsWith("daytona:") === true && !daytonaServer;
 
     if (!needsResolution) {
       return;
@@ -99,11 +112,11 @@ export default function ProjectPage() {
   }, [shouldShowPublicModel, searchParams, router]);
 
   return (
-    <ProjectErrorBoundary semanticIdentifier={semanticIdentifier}>
+    <>
       <Project2 shouldShowPublicModel={shouldShowPublicModel} />
       {needsMigration && (
         <MigrationOverlay semanticIdentifier={semanticIdentifier} />
       )}
-    </ProjectErrorBoundary>
+    </>
   );
 }

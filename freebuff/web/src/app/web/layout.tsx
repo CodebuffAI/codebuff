@@ -40,11 +40,13 @@ export default async function WebLayout({
 }) {
   const headerStore = await headers()
   const pathname = headerStore.get('x-pathname')
+  const search = headerStore.get('x-search') ?? ''
   const requiresAuth = !isPublicWebPath(pathname)
   const session = requiresAuth ? await getServerSession(authOptions) : null
 
   if (requiresAuth && !session?.user?.id) {
-    redirect('/login?callbackUrl=/web')
+    const callbackUrl = `${pathname ?? '/web'}${search}`
+    redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`)
   }
 
   return (

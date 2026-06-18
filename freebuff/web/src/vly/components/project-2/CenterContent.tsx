@@ -69,8 +69,6 @@ type PreviewConnectionStatus =
   | "restarting";
 
 const MAX_AUTO_SCREENSHOT_FAILURES = 3;
-const GRAVITY_FAVICON_URL =
-  "https://www.google.com/s2/favicons?domain=trygravity.ai&sz=64";
 
 const connectionStatusMeta: Record<
   PreviewConnectionStatus,
@@ -897,20 +895,6 @@ export function CenterContent({
                 placement="above-iframe"
                 variant="nav"
                 className="min-w-0 flex-1"
-                fallbackAd={{
-                  adText:
-                    "Contextual monetization for AI apps and assistant workflows.",
-                  title: "Monetize your AI app with Gravity",
-                  cta: "Start monetizing",
-                  brandName: "Gravity",
-                  url: "https://trygravity.ai",
-                  favicon: GRAVITY_FAVICON_URL,
-                  impUrl: "",
-                  clickUrl:
-                    "https://trygravity.ai?utm_source=freebuff_web&utm_medium=above_iframe_house_ad&utm_campaign=Above-iFrame",
-                  placementId: "Above-iFrame",
-                  provider: "gravity",
-                }}
               />
               <div className="flex items-center gap-0.5">
                 <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>

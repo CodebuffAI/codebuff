@@ -101,12 +101,24 @@ export async function buildGravityContext(params: {
 const reportedImpUrls = new Set<string>()
 
 /** Placement ID sent to Gravity for reporting/targeting. */
-const PLACEMENT_CHAT = 'agent-chat-below-response'
 const PLACEMENT_CENTER = 'project-center'
 const PLACEMENT_SIDEBAR = 'project-sidebar'
 const PLACEMENT_ABOVE_IFRAME = 'Above-iFrame'
 
 type GravityPlacement = 'center' | 'sidebar' | 'above-iframe'
+
+function getPlacementId(placement?: GravityPlacement) {
+  switch (placement) {
+    case 'center':
+      return PLACEMENT_CENTER
+    case 'sidebar':
+      return PLACEMENT_SIDEBAR
+    case 'above-iframe':
+      return PLACEMENT_ABOVE_IFRAME
+    default:
+      return undefined
+  }
+}
 
 function getFallbackFaviconUrl(url: string) {
   try {
@@ -168,29 +180,25 @@ export async function fetchGravityAds(
   gravityContext?: GravityContext,
   surface?: GravityAdSurface,
 ): Promise<GravityAd[]> {
-  const placementId =
-    placement === 'center'
-      ? PLACEMENT_CENTER
-      : placement === 'sidebar'
-        ? PLACEMENT_SIDEBAR
-        : placement === 'above-iframe'
-          ? PLACEMENT_ABOVE_IFRAME
-          : PLACEMENT_CHAT
+  const placementId = getPlacementId(placement)
 
-  // Use unique sessionId per placement to avoid Gravity's per-session deduplication
-  // This allows multiple ad slots to each receive their own ad
-  const uniqueSessionId = `${sessionId}-${placementId}`
+  // Use a stable per-slot session id when a specific placement is requested.
+  // Chat intentionally omits placementId so the backend can request both
+  // Freebuff Web chat placements in one auction.
+  const requestSessionId = placementId
+    ? `${sessionId}-${placementId}`
+    : `${sessionId}-freebuff-web-chat`
 
   const body = {
     messages,
-    sessionId: uniqueSessionId,
+    sessionId: requestSessionId,
     testAd,
-    placementId,
+    ...(placementId ? { placementId } : {}),
     ...(gravityContext
       ? {
           gravity_context: {
             ...gravityContext,
-            sessionId: uniqueSessionId,
+            sessionId: requestSessionId,
           },
         }
       : {}),
@@ -203,7 +211,7 @@ export async function fetchGravityAds(
     const timeout = setTimeout(() => controller.abort(), 3000)
 
     console.log(
-      `[GravityAdSlot] Fetching ad for placement: ${placementId}, sessionId: ${uniqueSessionId}`,
+      `[GravityAdSlot] Fetching ad for placement: ${placementId ?? 'freebuff-web-chat'}, sessionId: ${requestSessionId}`,
     )
 
     const res = await fetch('/api/ads', {
@@ -218,22 +226,27 @@ export async function fetchGravityAds(
     clearTimeout(timeout)
 
     console.log(
-      `[GravityAdSlot] Response for ${placementId}: status=${res.status}`,
+      `[GravityAdSlot] Response for ${placementId ?? 'freebuff-web-chat'}: status=${res.status}`,
     )
 
     if (res.status === 204 || !res.ok) {
       console.log(
-        `[GravityAdSlot] No ad returned for ${placementId} (status: ${res.status})`,
+        `[GravityAdSlot] No ad returned for ${placementId ?? 'freebuff-web-chat'} (status: ${res.status})`,
       )
       return []
     }
 
     const data = (await res.json()) as unknown
-    console.log(`[GravityAdSlot] Data for ${placementId}:`, data)
+    console.log(
+      `[GravityAdSlot] Data for ${placementId ?? 'freebuff-web-chat'}:`,
+      data,
+    )
 
     const ads = parseGravityAds(data)
     if (ads.length === 0) {
-      console.log(`[GravityAdSlot] Empty or invalid data for ${placementId}`)
+      console.log(
+        `[GravityAdSlot] Empty or invalid data for ${placementId ?? 'freebuff-web-chat'}`,
+      )
       return []
     }
 
