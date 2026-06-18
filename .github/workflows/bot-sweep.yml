@@ -1,13 +1,19 @@
 name: Freebuff Bot Sweep
 
+# DISABLED 2026-06-17: the hourly email report was ignored in practice and
+# wasn't surfacing real bots. Replaced by the admin dashboard at
+# freebuff.com/abuse (interactive suspect list + one-click bans). The
+# /api/admin/bot-sweep endpoint still works; re-enable the schedule below
+# if you want the email back.
+#
 # Hourly dry-run sweep over active freebuff sessions. Calls the
 # /api/admin/bot-sweep endpoint, which emails james@codebuff.com with a
 # ranked list of suspects. No bans are issued — review and run
 # scripts/ban-freebuff-bots.ts manually.
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  # schedule:
+  #   - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:

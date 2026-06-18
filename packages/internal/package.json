@@ -28,6 +28,12 @@
       "types": "./src/free-mode-country/index.ts",
       "default": "./src/free-mode-country/index.ts"
     },
+    "./freebuff-abuse": {
+      "bun": "./src/freebuff-abuse.ts",
+      "import": "./src/freebuff-abuse.ts",
+      "types": "./src/freebuff-abuse.ts",
+      "default": "./src/freebuff-abuse.ts"
+    },
     "./env": {
       "react-server": "./src/env.react-server.ts",
       "browser": "./src/env.browser.ts",

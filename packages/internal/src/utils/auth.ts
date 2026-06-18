@@ -12,10 +12,17 @@ const CODEBUFF_ADMIN_USER_EMAILS = [
 ]
 
 /**
- * Check if an email corresponds to a Codebuff admin
+ * Check if an email corresponds to a Codebuff admin.
+ *
+ * Admins are either (a) on the explicit allow-list above, or (b) any
+ * `@codebuff.com` Google Workspace account. The domain rule means new team
+ * members don't need a code change to get admin access; the allow-list
+ * covers founders/operators whose primary login is a personal address.
  */
 export function isCodebuffAdmin(email: string): boolean {
-  return CODEBUFF_ADMIN_USER_EMAILS.includes(email)
+  const normalized = email.trim().toLowerCase()
+  if (normalized.endsWith('@codebuff.com')) return true
+  return CODEBUFF_ADMIN_USER_EMAILS.includes(normalized)
 }
 
 export interface AdminUser {

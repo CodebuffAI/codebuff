@@ -47,6 +47,42 @@ Both live in `web/src/app/api/v1/chat/completions/_post.ts`:
   a ban). Scoped to root agents; subagents are constrained by the agent-hierarchy
   gate.
 
+## The `/abuse` admin dashboard
+
+`freebuff.com/abuse` is the interactive review console. It's admin-gated
+server-side (`@codebuff.com` accounts or allow-listed emails — see
+`isCodebuffAdmin` in `packages/internal/src/utils/auth.ts`) and surfaces
+**two** signal sets with **checkbox + "Ban selected"** buttons (banning
+flips `banned=true` and clears `free_session` rows, same as
+`scripts/ban-freebuff-bots.ts`):
+
+1. **API / proxy abuse** (primary) — the strong request-level scanner,
+   `identifyApiAbuseSuspects`, ported from
+   `scripts/find-freebuff-api-suspects.ts`. Scores accounts over a lookback
+   window (`?hours=`, `?minScore=`, default 7d/30) on the proxy-fanout and
+   farm fingerprints, with per-row **expandable detail**: avg/max
+   clients-per-run, no-agent-step %, max run duration, models/agents used,
+   and the top sample runs (msgs/clients/steps/status/duration). This is the
+   one that actually catches resellers.
+2. **Active-session behavioral suspects** (secondary) — `identifyBotSuspects`,
+   the coarse 24/7-usage/volume/region/GitHub-age heuristics over currently
+   admitted sessions, plus signup clusters.
+
+The detection core lives in `@codebuff/internal/freebuff-abuse`
+(`identifyApiAbuseSuspects`, `identifyBotSuspects`, `banSuspects`,
+`formatSweepReport`), with the pure proxy/farm scorer split into
+`@codebuff/internal/freebuff-abuse-scoring` (`scoreApiAbuse`, unit-tested).
+It's the single source of truth shared by the dashboard
+(`freebuff/web/src/app/api/admin/abuse/route.ts`), the legacy codebuff.com
+bot-sweep endpoint (`web/src/app/api/admin/bot-sweep/route.ts`), and the
+`scripts/find-freebuff-api-suspects.ts` CLI (now a thin wrapper that calls
+`identifyApiAbuseSuspects` — no duplicated SQL or scoring).
+
+> The **hourly bot-sweep email** (`.github/workflows/bot-sweep.yml`) was
+> disabled 2026-06-17 — it was ignored in practice. The endpoint still
+> works via `workflow_dispatch` if you want the email back; the dashboard
+> is the intended replacement.
+
 ## Detection scripts
 
 All read-only; run against prod via Infisical. Live in `scripts/`.
