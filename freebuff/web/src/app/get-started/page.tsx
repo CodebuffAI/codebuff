@@ -1,8 +1,12 @@
-import GetStartedClient from './get-started-client'
+// NB: `@/components/*` is aliased to `src/vly/components/*` in this package's
+// tsconfig, so the landing components are imported relatively instead.
+import { CliLanding } from '../../components/landing/cli/CliLanding'
+import { GetStartedReferrerCapture } from './get-started-client'
 
 import type { Metadata } from 'next'
 
 import { siteConfig } from '@/lib/constant'
+import { homeFaqs } from '@/lib/home-faqs'
 
 function normalizeReferrer(raw: string | undefined): string | null {
   if (!raw) return null
@@ -37,6 +41,15 @@ export default async function GetStartedPage({
 }) {
   const resolvedSearchParams = await searchParams
   const referrerName = normalizeReferrer(resolvedSearchParams.referrer)
+  const faqs = homeFaqs.map((f) => ({ q: f.question, a: f.answer }))
 
-  return <GetStartedClient referrerName={referrerName} />
+  // Renders the exact same page as /cli (LandingNavbar with login + Web/Chat/CLI
+  // access, hero, install, FAQs, footer). The referral capture stays so invite
+  // links continue to attribute the inviter.
+  return (
+    <>
+      <GetStartedReferrerCapture referrerName={referrerName} />
+      <CliLanding faqs={faqs} />
+    </>
+  )
 }
