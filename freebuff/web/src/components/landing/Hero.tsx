@@ -33,9 +33,17 @@ export function Hero() {
 
   return (
     <section className="relative isolate overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_24%,#101f23_44%,#172a29_57%,#121a1a_71%,#070a0b_86%,#000000_100%)]" />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.9, ease: 'easeOut' }}
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_24%,#101f23_44%,#172a29_57%,#121a1a_71%,#070a0b_86%,#000000_100%)]"
+      />
       <motion.div
         style={{ y: starsY }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.3, ease: 'easeOut', delay: 0.25 }}
         className="lp-gpu pointer-events-none absolute inset-0"
       >
         <Starfield />
@@ -88,7 +96,10 @@ export function Hero() {
           decoding="async"
           draggable={false}
           style={{ y: skyY }}
-          className="lp-gpu pointer-events-none absolute inset-x-0 bottom-[32%] z-0 w-full select-none object-cover opacity-[0.44] brightness-[0.7] saturate-[0.8]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.44 }}
+          transition={{ duration: 1.3, ease: 'easeOut', delay: 0.35 }}
+          className="lp-gpu pointer-events-none absolute inset-x-0 bottom-[32%] z-0 w-full select-none object-cover brightness-[0.7] saturate-[0.8]"
         />
 
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -99,6 +110,9 @@ export function Hero() {
           decoding="async"
           draggable={false}
           style={{ y: hillsY }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.45 }}
           className="lp-gpu pointer-events-none absolute inset-x-0 bottom-[21%] z-[1] w-full select-none object-cover brightness-[1.15] contrast-[1.05]"
         />
 
@@ -107,6 +121,9 @@ export function Hero() {
             you scroll (z-10 < bushes z-20). */}
         <motion.div
           style={{ y: chartY }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, ease: 'easeOut', delay: 0.5 }}
           className="lp-gpu absolute inset-x-0 top-[11%] z-10 mx-auto w-full max-w-4xl px-3 sm:px-6"
         >
           <CostBarChart tab={tab} />
@@ -115,6 +132,9 @@ export function Hero() {
         {/* Foreground bushes + welded black floor mask */}
         <motion.div
           style={{ y: bushesY }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.55 }}
           className="lp-gpu pointer-events-none absolute inset-x-0 bottom-0 z-20"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

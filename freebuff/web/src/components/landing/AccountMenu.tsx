@@ -1,5 +1,6 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { LogOut, Settings } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -53,8 +54,11 @@ export function AccountMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <motion.button
           aria-label="Account menu"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           className="flex items-center rounded-full p-0.5 outline-none ring-white/20 transition-opacity hover:opacity-90 focus-visible:ring-2"
         >
           <Avatar style={{ height: size, width: size }}>
@@ -63,7 +67,7 @@ export function AccountMenu({
               {name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-        </button>
+        </motion.button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={align}
