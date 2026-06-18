@@ -329,8 +329,27 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // height we show the compact wordmark so more models fit without scrolling.
   // Section headers always show — the picker scrolls within whatever rows
   // remain (see selectorMaxHeight below), so there's no need to hide them.
-  const logoMode: 'full' | 'text' | 'none' =
-    terminalHeight >= 40 ? 'full' : terminalHeight >= 20 ? 'text' : 'none'
+  //
+  // Exception: when the picker is collapsed it shrinks to ~5 rows, freeing the
+  // ~6 rows the big logo needs. So on a mid-height window with a collapsed
+  // picker we promote the wordmark back to the full ASCII logo — it fills what
+  // would otherwise be dead space above the card. Expanding the list reclaims
+  // those rows and drops back to the wordmark. 26 is the smallest window where
+  // the logo block, heading, collapsed picker, streak, and ad all coexist
+  // without the picker needing to scroll.
+  //
+  // The picker (rendered below) owns this and reports it via onExpandedChange;
+  // we default to collapsed so the first paint reserves logo space correctly.
+  const [selectorExpanded, setSelectorExpanded] = useState(false)
+  const COLLAPSED_LOGO_MIN_HEIGHT = 26
+  const fullLogoFits =
+    terminalHeight >= 40 ||
+    (!selectorExpanded && terminalHeight >= COLLAPSED_LOGO_MIN_HEIGHT)
+  const logoMode: 'full' | 'text' | 'none' = fullLogoFits
+    ? 'full'
+    : terminalHeight >= 20
+      ? 'text'
+      : 'none'
   const compact = terminalHeight < 22
   const showAds = terminalHeight >= 18
   const textMarginBottom = 1
@@ -615,7 +634,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   {LANDING_HEADING}
                 </span>
               </text>
-              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
+              <FreebuffModelSelector
+                maxHeight={selectorMaxHeight}
+                onExpandedChange={setSelectorExpanded}
+              />
               {showSessionCounter && (
                 <text
                   style={{
@@ -666,7 +688,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
               >
                 {queuedTitleText}
               </text>
-              <FreebuffModelSelector maxHeight={selectorMaxHeight} />
+              <FreebuffModelSelector
+                maxHeight={selectorMaxHeight}
+                onExpandedChange={setSelectorExpanded}
+              />
               {limitedModeNotice && (
                 <text
                   style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}

@@ -3,6 +3,7 @@ import { useKeyboard } from '@opentui/react'
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -97,10 +98,15 @@ interface FreebuffModelSelectorProps {
    *  this, the list scrolls (scrollbar shown, focused row kept in view);
    *  otherwise the scrollbox shrinks to fit and no scrollbar appears. */
   maxHeight: number
+  /** Notifies the parent whenever the picker expands/collapses. The waiting-room
+   *  screen uses it to promote the wordmark to the full ASCII logo while the
+   *  picker is collapsed (the freed rows make room). */
+  onExpandedChange?: (expanded: boolean) => void
 }
 
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   maxHeight,
+  onExpandedChange,
 }) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
@@ -146,6 +152,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     () =>
       !canCollapse || !isLanding || selectedModel !== recommendedModel.id,
   )
+  // Mirror the expanded state up to the waiting-room screen (collapsed → it
+  // promotes the wordmark to the full ASCII logo). useLayoutEffect so the
+  // parent's logo decision settles before paint, both on mount and on toggle.
+  useLayoutEffect(() => {
+    onExpandedChange?.(expanded)
+  }, [expanded, onExpandedChange])
 
   // Keyboard cursor — separate from the actually-selected model so that
   // Tab/arrow navigation can preview without committing. Starts on the user's
