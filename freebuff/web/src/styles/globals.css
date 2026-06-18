@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Domine:wght@400;500;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200..700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 
@@ -95,19 +95,20 @@
  * ========================================================================== */
 .lp-hero-heading {
   font-family: 'Newsreader', serif;
-  font-weight: 300;
+  font-weight: 420;
   font-optical-sizing: auto;
   font-feature-settings:
     'kern' 1,
     'liga' 1;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.012em;
 }
 
 .lp-feature-heading {
   font-family: 'Newsreader', serif;
-  font-weight: 300;
+  font-weight: 420;
   font-optical-sizing: auto;
   line-height: 1.05;
+  letter-spacing: 0.012em;
   @apply text-4xl md:text-5xl lg:text-[56px];
 }
 

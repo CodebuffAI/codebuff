@@ -324,7 +324,7 @@ function ProductRow({ p }: { p: Product }) {
             New
           </span>
         </div>
-        <h2 className="hero-heading text-3xl font-normal text-white md:text-[40px] md:leading-[1.1]">
+        <h2 className="hero-heading text-[34px] leading-[1.1] text-white md:text-[46px] lg:text-[52px]">
           {p.title}
         </h2>
         <p className="mt-4 max-w-md text-lg text-white/55">{p.description}</p>

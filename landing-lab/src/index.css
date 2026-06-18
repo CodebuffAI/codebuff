@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200..700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 
@@ -65,18 +65,24 @@
   }
 }
 
-@layer components {
-  .hero-heading {
-    @apply font-serif font-light;
-    font-optical-sizing: auto;
-    font-feature-settings: 'kern' 1, 'liga' 1;
-    letter-spacing: -0.01em;
-  }
+/* Display headings — plain (unlayered) rules so the weight wins over Tailwind
+   weight utilities, keeping the rendered weight deterministic + identical to
+   the production /landing page. */
+.hero-heading {
+  font-family: 'Newsreader', serif;
+  font-weight: 420;
+  font-optical-sizing: auto;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  letter-spacing: 0.012em;
+}
 
-  .feature-heading {
-    @apply font-serif font-light text-4xl md:text-5xl lg:text-[56px] leading-[1.05];
-    font-optical-sizing: auto;
-  }
+.feature-heading {
+  font-family: 'Newsreader', serif;
+  font-weight: 420;
+  font-optical-sizing: auto;
+  line-height: 1.05;
+  letter-spacing: 0.012em;
+  @apply text-4xl md:text-5xl lg:text-[56px];
 }
 
 @layer utilities {
