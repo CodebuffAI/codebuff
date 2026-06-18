@@ -24,6 +24,9 @@ export async function generateMetadata({
   return {
     title,
     description: siteConfig.description,
+    alternates: {
+      canonical: `${siteConfig.url()}/get-started`,
+    },
   }
 }
 

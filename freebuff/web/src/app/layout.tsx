@@ -55,7 +55,6 @@ export const generateMetadata = (): Metadata => ({
     apple: '/favicon/apple-touch-icon.png',
   },
   alternates: {
-    canonical: siteConfig.url(),
     types: {
       'application/rss+xml': [
         {
