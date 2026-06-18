@@ -1,8 +1,8 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight, Check, Copy } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { BrandLogo } from '../BrandLogo'
 import type { Competitor, TabId } from '../lib/competitors'
@@ -319,6 +319,57 @@ function InstallBlock() {
   )
 }
 
+/* Parallax wrapper for the demo — scrolls slightly slower than the page on
+   landscape/desktop so the screenshot drifts as it passes through. Disabled on
+   mobile (and for reduced-motion) where vertical room is tight. */
+function useDesktopParallax() {
+  const [enabled, setEnabled] = useState(false)
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 768px)')
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setEnabled(wide.matches && !reduce.matches)
+    update()
+    wide.addEventListener('change', update)
+    reduce.addEventListener('change', update)
+    return () => {
+      wide.removeEventListener('change', update)
+      reduce.removeEventListener('change', update)
+    }
+  }, [])
+  return enabled
+}
+
+function ParallaxDemo({
+  children,
+  reverse,
+}: {
+  children: React.ReactNode
+  reverse?: boolean
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const enabled = useDesktopParallax()
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  })
+  // Starts ~88px higher and drifts down as you scroll → reads as "slower",
+  // and the offset means the slowdown is already underway when it appears.
+  const yRaw = useTransform(scrollYProgress, [0, 1], [-88, 64])
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.6 }}
+      className={cn('will-change-transform', reverse && 'md:order-1')}
+    >
+      <motion.div style={{ y: enabled ? yRaw : 0 }}>{children}</motion.div>
+    </motion.div>
+  )
+}
+
 function ProductRow({ p }: { p: Product }) {
   return (
     <div
@@ -367,16 +418,8 @@ function ProductRow({ p }: { p: Product }) {
         </div>
       </motion.div>
 
-      {/* Demo side */}
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className={cn(p.reverse && 'md:order-1')}
-      >
-        {p.demo}
-      </motion.div>
+      {/* Demo side — parallax (slower) on landscape/desktop */}
+      <ParallaxDemo reverse={p.reverse}>{p.demo}</ParallaxDemo>
     </div>
   )
 }
