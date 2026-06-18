@@ -352,9 +352,10 @@ function ParallaxDemo({
     target: ref,
     offset: ['start end', 'end start'],
   })
-  // Starts ~88px higher and drifts down as you scroll → reads as "slower",
-  // and the offset means the slowdown is already underway when it appears.
-  const yRaw = useTransform(scrollYProgress, [0, 1], [-88, 64])
+  // Pronounced drift: the demo enters ~170px high and travels ~300px down over
+  // the scroll, so it visibly lags the (static) text column beside it. The
+  // negative start means the slowdown is already underway when it appears.
+  const yRaw = useTransform(scrollYProgress, [0, 1], [-170, 130])
 
   return (
     <motion.div
@@ -363,9 +364,11 @@ function ParallaxDemo({
       whileInView={{ opacity: 1 }}
       viewport={{ once: true, amount: 0.25 }}
       transition={{ duration: 0.6 }}
-      className={cn('will-change-transform', reverse && 'md:order-1')}
+      className={cn(reverse && 'md:order-1')}
     >
-      <motion.div style={{ y: enabled ? yRaw : 0 }}>{children}</motion.div>
+      <motion.div className="lp-gpu" style={{ y: enabled ? yRaw : 0 }}>
+        {children}
+      </motion.div>
     </motion.div>
   )
 }
@@ -374,7 +377,7 @@ function ProductRow({ p }: { p: Product }) {
   return (
     <div
       id={p.id}
-      className="grid scroll-mt-24 items-center gap-10 py-16 md:grid-cols-2 md:gap-16 md:py-24"
+      className="grid scroll-mt-24 items-center gap-10 py-24 md:grid-cols-2 md:gap-16 md:py-36"
     >
       {/* Text side — no bg, no border, no card */}
       <motion.div

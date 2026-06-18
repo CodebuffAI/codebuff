@@ -43,10 +43,10 @@ export function Hero() {
       {/* ── Hero copy + tabs (natural flow) ── */}
       <div className="relative z-30 mx-auto flex max-w-3xl flex-col items-center px-6 pt-28 text-center md:pt-32">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="flex w-full flex-col items-center"
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
+          className="lp-gpu flex w-full flex-col items-center"
         >
           {/* usage count */}
           <div className="mb-6 flex items-center gap-2 text-sm text-white/55">

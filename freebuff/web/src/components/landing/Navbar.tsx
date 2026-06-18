@@ -30,10 +30,10 @@ export function LandingNavbar() {
 
   return (
     <motion.header
-      initial={{ opacity: 0, y: -12 }}
+      initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="fixed inset-x-0 top-0 z-50"
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
+      className="lp-gpu fixed inset-x-0 top-0 z-50"
     >
       {/* Shadow gradient mask only — no blur/glass, no border */}
       <motion.div
