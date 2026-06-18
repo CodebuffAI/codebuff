@@ -1,17 +1,8 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  ArrowRight,
-  ArrowUp,
-  Check,
-  Copy,
-  ImagePlus,
-  Palette,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, Check, Copy } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { BrandLogo } from '../BrandLogo'
 import type { Competitor, TabId } from '../lib/competitors'
@@ -159,206 +150,32 @@ function Step({
   )
 }
 
-/* ── Web demo — a clean replica of the real Freebuff Web builder ─────────── */
-const WEB_STEPS = [
-  'Read files · List directory',
-  'Spawn agent · Reasoning',
-  'Set output · Run terminal',
-]
-
-function WebAppDemo() {
+/* ── Static product screenshot — identical frame + proportions on every screen.
+   The fixed `aspectRatio` makes the shot scale uniformly from mobile to
+   desktop (no distortion, no inconsistent cropping). ─────────────────────── */
+function ImageDemo({
+  src,
+  alt,
+  ratio,
+}: {
+  src: string
+  alt: string
+  ratio: string
+}) {
   return (
-    <DemoFrame title="Freebuff Web">
-      <div className="flex h-full flex-col">
-        {/* App toolbar */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2">
-          <div className="flex items-center gap-2 text-[11px] text-white/45">
-            <span className="rounded bg-forest/20 px-1.5 py-0.5 text-[9px] font-normal uppercase tracking-wide text-forest-bright">
-              Beta
-            </span>
-            <span className="text-white/70">AI Waitlist Builder</span>
-          </div>
-          <span className="flex items-center gap-1 rounded-md bg-forest px-2 py-1 text-[10px] font-normal text-white">
-            Publish
-          </span>
-        </div>
-
-        {/* Split: thread + live preview */}
-        <div className="flex min-h-0 flex-1">
-          {/* Chat thread */}
-          <div className="flex w-[44%] flex-col border-r border-white/[0.06]">
-            <div className="flex-1 space-y-1.5 overflow-hidden p-3">
-              {WEB_STEPS.map((s) => (
-                <div
-                  key={s}
-                  className="flex items-center gap-1.5 truncate text-[11px] text-white/45"
-                >
-                  <Check className="h-3 w-3 shrink-0 text-forest-bright" />
-                  <span className="truncate">{s}</span>
-                </div>
-              ))}
-              <div className="!mt-3 flex flex-wrap gap-1.5">
-                {['Hook up Resend', 'Verify domain'].map((c) => (
-                  <span
-                    key={c}
-                    className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-white/45"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-white/[0.06] p-2.5">
-              <div className="rounded-lg bg-white/[0.04] p-2">
-                <p className="px-1 text-[11px] text-white/35">Message…</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-[10px] text-white/45">
-                    <Sparkles className="h-3 w-3" /> MiniMax M3
-                  </span>
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-forest text-white">
-                    <ArrowUp className="h-3 w-3" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Live preview */}
-          <div className="flex flex-1 flex-col bg-[#08080a]">
-            <div className="flex items-center gap-1.5 border-b border-white/[0.06] px-3 py-1.5">
-              <RefreshCw className="h-3 w-3 text-white/30" />
-              <span className="flex-1 truncate rounded bg-white/[0.05] px-2 py-0.5 text-[10px] text-white/35">
-                waitlist.freebuff.app
-              </span>
-            </div>
-            <div className="flex-1 space-y-2.5 overflow-hidden p-4">
-              <div className="h-2.5 w-1/2 rounded bg-white/10" />
-              <div className="h-2 w-3/4 rounded bg-white/[0.06]" />
-              <div className="mt-3 h-7 w-28 rounded-md bg-forest/70" />
-              <div className="mt-4 grid grid-cols-2 gap-2.5">
-                {[0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="h-12 rounded-lg border border-white/[0.06] bg-white/[0.03]"
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </DemoFrame>
-  )
-}
-
-/* ── Chat demo — interactive research assistant (ChatGPT-style prompts) ──── */
-type Msg = { role: 'user' | 'assistant'; text: string; points?: string[] }
-const CHAT_EXAMPLES = [
-  'Compare Postgres vs MongoDB for a SaaS',
-  'Explain how OAuth 2.0 works',
-  'Research the best AI coding agents in 2026',
-]
-const CHAT_REPLY = {
-  text: 'For most SaaS products, Postgres is the safer default — but it depends on your data shape:',
-  points: [
-    'Postgres: relational integrity, rich querying, JSONB when you need flexibility.',
-    'MongoDB: best when documents are truly schema-less and write-heavy.',
-  ],
-}
-
-function ChatDemo() {
-  const [messages, setMessages] = useState<Msg[]>([])
-  const [typing, setTyping] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  const ask = (text: string) => {
-    setMessages([{ role: 'user', text }])
-    setTyping(true)
-    setTimeout(() => {
-      setTyping(false)
-      setMessages((m) => [
-        ...m,
-        { role: 'assistant', text: CHAT_REPLY.text, points: CHAT_REPLY.points },
-      ])
-    }, 1100)
-  }
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 9999, behavior: 'smooth' })
-  }, [messages, typing])
-
-  return (
-    <DemoFrame title="Freebuff Chat">
-      <div className="flex h-full flex-col">
-        <div
-          ref={scrollRef}
-          className="flex-1 space-y-3 overflow-y-auto p-4 text-[13px]"
-        >
-          {messages.length === 0 && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <p className="text-white/40">Try asking…</p>
-              <div className="flex flex-col gap-2">
-                {CHAT_EXAMPLES.map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => ask(e)}
-                    className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-white/60 transition-colors hover:border-forest/40 hover:text-white"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {messages.map((m, i) =>
-            m.role === 'user' ? (
-              <div
-                key={i}
-                className="ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-sm bg-white/[0.06] px-3 py-2 text-white/80"
-              >
-                {m.text}
-              </div>
-            ) : (
-              <div
-                key={i}
-                className="w-fit max-w-[90%] rounded-2xl rounded-bl-sm bg-forest/[0.12] px-3 py-2 leading-relaxed text-white/75"
-              >
-                {m.text}
-                {m.points && (
-                  <ul className="mt-2 space-y-1.5">
-                    {m.points.map((pt) => (
-                      <li key={pt} className="flex gap-2 text-white/60">
-                        <span className="text-forest-bright">•</span>
-                        <span>{pt}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ),
-          )}
-          {typing && (
-            <div className="flex items-center gap-2 text-white/30">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-forest-bright" />
-              <span className="text-[11px]">Freebuff is typing…</span>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-white/[0.06] p-3">
-          <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5">
-            <span className="flex-1 text-white/30">Ask Freebuff anything…</span>
-            <button
-              onClick={() => ask(CHAT_EXAMPLES[0])}
-              aria-label="Send"
-              className="flex h-7 w-7 items-center justify-center rounded-lg bg-forest text-white"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </DemoFrame>
+    <div
+      className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c0f] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]"
+      style={{ aspectRatio: ratio }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-cover"
+      />
+    </div>
   )
 }
 
@@ -421,7 +238,13 @@ const PRODUCTS: Product[] = [
       </>
     ),
     description: '100% free AI web app builder — from prompt to deployed app.',
-    demo: <WebAppDemo />,
+    demo: (
+      <ImageDemo
+        src="/landing/demo-web.png"
+        alt="Freebuff Web — AI web app builder preview"
+        ratio="1024 / 577"
+      />
+    ),
     reverse: true,
   },
   {
@@ -434,7 +257,13 @@ const PRODUCTS: Product[] = [
       </>
     ),
     description: 'A free AI chat that reads your repo, researches, and codes.',
-    demo: <ChatDemo />,
+    demo: (
+      <ImageDemo
+        src="/landing/demo-chat.png"
+        alt="Freebuff Chat — AI research assistant"
+        ratio="1024 / 678"
+      />
+    ),
   },
 ]
 
