@@ -43,20 +43,17 @@ function saveDraftAndGo(
 const TABS: {
   id: TabId
   label: string
-  blurb: string
   href?: string
 }[] = [
-  { id: 'cli', label: 'CLI', blurb: 'The free coding agent for your terminal.' },
+  { id: 'cli', label: 'CLI' },
   {
     id: 'web',
     label: 'Web',
-    blurb: 'The free AI web app builder.',
     href: '/web',
   },
   {
     id: 'chat',
     label: 'Chat',
-    blurb: 'The free research assistant.',
     href: '/chat',
   },
 ]
@@ -71,8 +68,6 @@ export function HeroTabs({
   tab: TabId
   onTab: (t: TabId) => void
 }) {
-  const active = TABS.find((t) => t.id === tab) ?? TABS[0]
-
   return (
     <div className="w-full">
       {/* Tab strip — text buttons, light pill on hover, filled pill when active */}
@@ -111,22 +106,6 @@ export function HeroTabs({
             </div>
           )
         })}
-      </div>
-
-      {/* Faint per-product description (fixed height so nothing jumps) */}
-      <div className="mt-2 flex h-5 items-center justify-center">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={active.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="text-[13px] text-white/40"
-          >
-            {active.blurb}
-          </motion.p>
-        </AnimatePresence>
       </div>
 
       {/* Content area animates its REAL height between tabs, so everything
@@ -219,17 +198,22 @@ function CliPanel() {
         </button>
       </div>
 
-      {/* Install-guide toggle — lives BELOW the command, fills reserved height */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="mt-3 flex items-center gap-1.5 text-[13px] text-white/45 transition-colors hover:text-white"
-      >
-        <span>Install guide</span>
-        <ChevronDown
-          className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
-        />
-      </button>
+      {/* Install-guide toggle — right-aligned under the command so it stays subtle */}
+      <div className="mt-2 flex justify-end">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 text-[13px] text-white/40 transition-colors hover:text-white"
+        >
+          <span>Install guide</span>
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 transition-transform',
+              open && 'rotate-180',
+            )}
+          />
+        </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -238,10 +222,10 @@ function CliPanel() {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="mt-3 space-y-2.5 overflow-hidden"
+            className="ml-auto mt-3 w-fit space-y-2.5 overflow-hidden text-right"
           >
             <GuideStep cmd="cd your-project" desc="Open your project folder" />
-            <GuideStep cmd="freebuff" desc="Start coding — no API key, no sign-up" />
+            <GuideStep cmd="freebuff" desc="Start coding — no API key, no credit card" />
           </motion.ol>
         )}
       </AnimatePresence>
@@ -252,7 +236,7 @@ function CliPanel() {
 /* One faint, minimal guide line: mono command + a short description. */
 function GuideStep({ cmd, desc }: { cmd: string; desc: string }) {
   return (
-    <li className="flex flex-col gap-0.5">
+    <li className="flex flex-col items-end gap-0.5">
       <span className="font-mono text-[13px] text-white/70">
         <span className="select-none text-forest-bright/70">$</span> {cmd}
       </span>
@@ -290,7 +274,7 @@ function WebPanel() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="Ask Freebuff to create…"
+        placeholder="Create a web app…"
         className="h-[52px] w-full resize-none bg-transparent px-2 pt-1 text-sm text-white placeholder:text-white/35 focus:outline-none"
       />
       <div className="mt-1 flex items-center gap-1.5">
@@ -319,10 +303,9 @@ function WebPanel() {
 
 /* ── Chat: simple ask box + example prompts ─────────────────────────────── */
 const CHAT_CHIPS = [
-  'Compare Postgres vs MongoDB',
-  'Explain how OAuth 2.0 works',
-  'Best AI coding agents in 2026',
-  'Summarize this paper',
+  'Explain OAuth 2.0',
+  'Best AI agents in 2026',
+  'Summarize a paper',
 ]
 
 function ChatPanel() {
@@ -347,7 +330,7 @@ function ChatPanel() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="Ask Freebuff anything…"
+        placeholder="Research anything…"
         className="min-h-[34px] w-full resize-none bg-transparent px-2 pt-1.5 text-sm text-white placeholder:text-white/45 focus:outline-none"
       />
       {/* Controls row mirrors the Web composer: model selector + arrow send. */}

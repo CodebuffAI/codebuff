@@ -218,7 +218,6 @@ function CompetitorGrid({ items }: { items: Competitor[] }) {
 type Product = {
   id: string
   tab: TabId
-  eyebrow: string
   title: React.ReactNode
   description: string
   demo: React.ReactNode
@@ -229,7 +228,6 @@ const PRODUCTS: Product[] = [
   {
     id: 'cli',
     tab: 'cli',
-    eyebrow: 'Freebuff CLI',
     title: (
       <>
         Introducing <span className="text-forest-bright">Freebuff CLI</span>
@@ -241,7 +239,6 @@ const PRODUCTS: Product[] = [
   {
     id: 'web',
     tab: 'web',
-    eyebrow: 'Freebuff Web',
     title: (
       <>
         Introducing <span className="text-forest-bright">Freebuff Web</span>
@@ -261,13 +258,13 @@ const PRODUCTS: Product[] = [
   {
     id: 'chat',
     tab: 'chat',
-    eyebrow: 'Freebuff Chat',
     title: (
       <>
         Introducing <span className="text-forest-bright">Freebuff Chat</span>
       </>
     ),
-    description: 'A free AI chat that reads your repo, researches, and codes.',
+    description:
+      'A free AI chat that researches and thinks deeply to answer your questions.',
     demo: (
       <ImageDemo
         src="/landing/demo-chat.png"
@@ -313,7 +310,7 @@ function InstallBlock() {
         </li>
       </ol>
       <p className="mt-2 text-[13px] text-white/40">
-        No API key, no sign-up. It just runs.
+        No API key, no credit card. It just runs.
       </p>
     </div>
   )
@@ -388,9 +385,6 @@ function ProductRow({ p }: { p: Product }) {
         className={cn(p.reverse && 'md:order-2')}
       >
         <div className="mb-3 flex items-center gap-2">
-          <p className="font-mono text-xs uppercase tracking-[0.25em] text-forest-bright/90">
-            {p.eyebrow}
-          </p>
           <span className="rounded-full border border-forest/40 bg-forest/15 px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide text-forest-bright">
             New
           </span>

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'How can it be free?',
-    a: 'Freebuff is supported by text ads shown in the CLI.',
+    a: 'Freebuff is supported by text ads.',
   },
   {
     q: 'What models do you use?',
@@ -22,6 +22,10 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: 'What data do you store?',
     a: "We don't store your codebase. We only collect minimal logs for debugging purposes.",
+  },
+  {
+    q: 'Which countries is Freebuff available in?',
+    a: 'Every country. Full mode is available in the US, Canada, UK, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, France, Italy, Spain, Portugal, Finland, Belgium, Luxembourg, Liechtenstein, Switzerland, Austria, Singapore, Malta, Israel, Ireland, and Iceland. Anywhere else — or on a VPN — works in limited mode.',
   },
   {
     q: 'What is limited mode?',

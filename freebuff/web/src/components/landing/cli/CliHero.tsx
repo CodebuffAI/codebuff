@@ -192,7 +192,7 @@ function CliInstallCard() {
       {open && (
         <ol className="mt-3 space-y-2.5">
           <GuideStep cmd="cd your-project" desc="Open your project folder" />
-          <GuideStep cmd="freebuff" desc="Launch — no API key, no sign-up" />
+          <GuideStep cmd="freebuff" desc="Launch — no API key, no credit card" />
           <GuideStep
             cmd="“build me a todo app”"
             desc="Describe what you want; Freebuff plans, edits, and runs it"

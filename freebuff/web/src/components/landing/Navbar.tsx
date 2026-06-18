@@ -50,7 +50,7 @@ export function LandingNavbar() {
         <motion.a
           href="/"
           style={{ scale }}
-          className="group flex origin-left items-center gap-2.5"
+          className="group flex origin-left items-center gap-2.5 opacity-65 transition-opacity duration-200 hover:opacity-100"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

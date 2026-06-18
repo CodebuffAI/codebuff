@@ -8,7 +8,7 @@
 export const homeFaqs = [
   {
     question: 'How can it be free?',
-    answer: 'Freebuff is supported by text ads shown in the CLI.',
+    answer: 'Freebuff is supported by text ads.',
   },
   {
     question: 'What models do you use?',

@@ -28,7 +28,7 @@ const INSTALL_STEPS: { command: string; label: string; desc: string }[] = [
   {
     command: 'freebuff',
     label: 'Start coding',
-    desc: 'No API key and no sign-up. Just describe what you want.',
+    desc: 'No API key and no credit card. Just describe what you want.',
   },
 ]
 
