@@ -240,23 +240,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
   // · resets in …". All premium models share one pool; the server replicates
   // the same snapshot under every model id, so any entry has the right count.
-  // The count appears once any session is spent (a zeroed counter is noise);
-  // it turns amber when the pool is exhausted — the same moment the premium
-  // rows grey out — so the header explains why they're disabled.
+  // The count shows from the start — even at "0 of M" — so full-access users
+  // can see the daily pool and reset cadence before they spend anything; it
+  // turns amber when the pool is exhausted — the same moment the premium rows
+  // grey out — so the header explains why they're disabled. (The PREMIUM
+  // section only renders for the full-access tier, so this is scoped to it.)
   const sharedRateLimit = rateLimitsByModel
     ? Object.values(rateLimitsByModel)[0]
     : undefined
   const premiumUsed = sharedRateLimit?.recentCount ?? 0
   const premiumExhausted = premiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
-  // Reset countdown only matters once a session has been spent; before that the
-  // pool is full and there's nothing to wait for.
-  const premiumResetCountdown =
-    premiumUsed > 0
-      ? formatFreebuffPremiumResetCountdown(
-          getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
-          now,
-        )
-      : null
+  // The pool resets daily on a Pacific-day boundary regardless of usage, so the
+  // countdown is meaningful even at zero used — getFreebuffPremiumResetAt falls
+  // back to the next day boundary when the server hasn't sent a resetAt yet.
+  const premiumResetCountdown = formatFreebuffPremiumResetCountdown(
+    getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
+    now,
+  )
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
@@ -592,7 +592,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       {section.label && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {section.label}
-          {section.key === 'premium' && premiumUsed > 0 && (
+          {section.key === 'premium' && (
             <span fg={premiumExhausted ? theme.secondary : theme.muted}>
               {' '}
               · {formatSessionUnits(premiumUsed)} of{' '}
