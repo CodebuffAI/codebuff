@@ -70,6 +70,13 @@ type Section = {
 // keyboard-navigation list as the model rows (Tab/arrow to it, Enter to fire).
 const TOGGLE_ID = '__freebuff_toggle__'
 
+// Right-aligned CTA shown on the focused, joinable row so the highlighted card
+// reads as a button ("you can press Enter here") instead of just a selection.
+// Its width is reserved in the one-line width budget below so the cue never
+// overflows or wraps the row (a wrap would desync the focused-row scroll math).
+const FOCUS_CUE = 'Press Enter ↵'
+const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
+
 /**
  * Dual-purpose model picker:
  *   - Pre-chat landing (session 'none'): user hasn't joined any queue. Picking
@@ -152,8 +159,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // different model gets the expanded list so their pick is visible and focused.
   const isLanding = session?.status === 'none' || !session
   const [expanded, setExpanded] = useState(
-    () =>
-      !canCollapse || !isLanding || selectedModel !== recommendedModel.id,
+    () => !canCollapse || !isLanding || selectedModel !== recommendedModel.id,
   )
   // Mirror the expanded state up to the waiting-room screen (collapsed → it
   // promotes the wordmark to the full ASCII logo). useLayoutEffect so the
@@ -267,7 +273,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // terminals where the secondary details spill to an indented second line.
   // Computed across ALL models (not just the expanded ones) so the recommended
   // hero and the revealed rows share one width and nothing reflows on toggle.
-  const { wrapDetails, buttonOuterWidth, nameColumnWidth } = useMemo(() => {
+  const {
+    wrapDetails,
+    buttonOuterWidth,
+    nameColumnWidth,
+    recommendedOneLineLen,
+  } = useMemo(() => {
     const nameLen = (m: FreebuffModelOption) => m.displayName.length
     const maxNameLen = Math.max(...availableModels.map(nameLen))
 
@@ -290,13 +301,24 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       NAME_GAP +
       joinedLen(detailsParts(model))
 
+    // The cue lives only on the recommended hero, so only its line needs to fit
+    // the "Press Enter ↵" gutter. Folding that into the max means longer rows
+    // (e.g. DeepSeek Pro's data-collection warning) keep their natural width —
+    // the buttons widen only if the recommended row + cue is the longest line.
+    // Returned so the render path can right-align the cue against the same
+    // length the gutter was reserved for — one formula, no reserve/consume drift.
+    const recommendedOneLineLen = oneLineLen(recommendedModel)
     const maxOneLineOuter =
-      Math.max(...availableModels.map(oneLineLen)) + BUTTON_CHROME
+      Math.max(
+        ...availableModels.map(oneLineLen),
+        recommendedOneLineLen + CUE_GAP + FOCUS_CUE.length,
+      ) + BUTTON_CHROME
     if (maxOneLineOuter <= contentMaxWidth) {
       return {
         wrapDetails: false,
         buttonOuterWidth: maxOneLineOuter,
         nameColumnWidth: maxNameLen,
+        recommendedOneLineLen,
       }
     }
 
@@ -325,8 +347,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         contentMaxWidth,
       ),
       nameColumnWidth: maxNameLen,
+      recommendedOneLineLen,
     }
-  }, [availableModels, contentMaxWidth, deploymentAvailabilityLabel])
+  }, [
+    availableModels,
+    contentMaxWidth,
+    deploymentAvailabilityLabel,
+    recommendedModel,
+  ])
 
   const rowWraps = useCallback(
     (m: FreebuffModelOption) =>
@@ -413,7 +441,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // After revealing the list, drop focus onto the first newly-shown row so
       // the next arrow press walks into it; after collapsing, return to the
       // hero so Enter starts.
-      setFocusedId(next ? (otherModels[0]?.id ?? recommendedModel.id) : recommendedModel.id)
+      setFocusedId(
+        next
+          ? (otherModels[0]?.id ?? recommendedModel.id)
+          : recommendedModel.id,
+      )
       return next
     })
   }, [otherModels, recommendedModel])
@@ -520,6 +552,23 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       nameColumnWidth - model.displayName.length + NAME_GAP,
     )
 
+    // Right-aligned "Press Enter ↵" cue on the focused recommended row only.
+    // Right-align against recommendedOneLineLen — the exact length the gutter was
+    // reserved against above — so reserve and consume can't drift. The reservation
+    // guarantees cuePad >= CUE_GAP in one-line mode; the guard keeps it safe in
+    // wrap mode (no gutter reserved there) and against any contentMaxWidth clamp.
+    const cuePad =
+      buttonOuterWidth -
+      BUTTON_CHROME -
+      recommendedOneLineLen -
+      FOCUS_CUE.length
+    const showCue =
+      recommended &&
+      isFocused &&
+      interactable &&
+      !wrapDetails &&
+      cuePad >= CUE_GAP
+
     return (
       <Button
         key={model.id}
@@ -558,6 +607,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
               {hasWarning && <span fg={warningColor}> · {model.warning}</span>}
               {hasHours && (
                 <span fg={mutedColor}> · {deploymentAvailabilityLabel}</span>
+              )}
+              {showCue && (
+                <span fg={theme.primary} attributes={TextAttributes.BOLD}>
+                  {' '.repeat(cuePad) + FOCUS_CUE}
+                </span>
               )}
             </>
           )}
