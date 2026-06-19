@@ -14,6 +14,7 @@ import {
 import { internal } from '../../_generated/api'
 import { Id } from '!/_generated/dataModel'
 import { ActionCtx, internalAction } from '!/_generated/server'
+import { capturePendingIntegrationFromToolOutput } from '../../gravity_report'
 import { DaytonaCodebase } from '../../../codebase-utils/codebase/DaytonaCodebase'
 import { initializeCodebase } from '../../../codebase-utils/codebase/initializeCodebase'
 import {
@@ -1143,6 +1144,22 @@ export const runFreebuffAgent = internalAction({
               await eventBuffer.flush()
             }
             await maybeRecordToolStatus(event.toolName, event.input)
+            return
+          }
+
+          // Arm a deterministic Gravity conversion: when the agent searches the
+          // integration index, remember the recommended service + its required
+          // env vars so saving those keys later fires report_integration
+          // (instead of relying on the model to call it). Best-effort.
+          if (
+            event.type === 'tool_result' &&
+            event.toolName === 'gravity_index'
+          ) {
+            await capturePendingIntegrationFromToolOutput(ctx, {
+              projectId: args.projectId,
+              userId: args.userId,
+              output: event.output,
+            })
           }
         },
         handleStreamChunk: async (chunk: any) => {

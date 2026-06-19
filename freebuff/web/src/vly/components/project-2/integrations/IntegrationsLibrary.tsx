@@ -10,6 +10,7 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { useAction } from "convex/react";
 import { Button } from "@/vly/components/ui/button";
 import { Input } from "@/vly/components/ui/input";
 import {
@@ -17,6 +18,7 @@ import {
   DialogContent,
 } from "@/vly/components/ui/dialog";
 import { toast } from "sonner";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/vly/lib/utils";
 import { useDebounce } from "@/vly/lib/hooks/use-debounce";
 
@@ -241,6 +243,12 @@ export function IntegrationsLibrary({
   // Integrate hand-off) are tracked + CPA-reported against a real search_id.
   const [tracked, setTracked] = useState<TrackedService | null>(null);
   const [integrating, setIntegrating] = useState(false);
+  // Records the pending integration so that saving the service's API key(s) in
+  // the Keys tab fires report_integration deterministically — independent of
+  // whether the agent remembers to call it.
+  const recordPendingIntegration = useAction(
+    api.gravity_report.recordPendingIntegration,
+  );
 
   // Mint a tracked Gravity search for a service: returns its search_id (always
   // present on success) plus the matching tracked click_url. The proxy stamps
@@ -395,6 +403,19 @@ export function IntegrationsLibrary({
     let searchId = tracked?.searchId;
     if (!searchId && slug) {
       searchId = (await mintTrackedSearch(slug))?.searchId;
+    }
+
+    // Arm a deterministic conversion: when the user saves these env var(s) in
+    // the Keys tab, report_integration fires server-side. Best-effort — never
+    // block the hand-off.
+    if (searchId && slug) {
+      const requiredEnvVars = service.env_vars_needed ?? envVars ?? [];
+      void recordPendingIntegration({
+        semanticIdentifier,
+        slug,
+        searchId,
+        requiredEnvVars,
+      }).catch(() => {});
     }
 
     const slugPart = slug ? ` (slug: ${slug})` : "";

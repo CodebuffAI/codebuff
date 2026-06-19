@@ -163,6 +163,8 @@ import type * as github_tokens_validation from "../github/tokens/validation.js";
 import type * as github_utils_index from "../github/utils/index.js";
 import type * as github_utils_octokit from "../github/utils/octokit.js";
 import type * as gravity from "../gravity.js";
+import type * as gravity_integrations from "../gravity_integrations.js";
+import type * as gravity_report from "../gravity_report.js";
 import type * as http from "../http.js";
 import type * as import_projects from "../import_projects.js";
 import type * as integration_auth from "../integration_auth.js";
@@ -382,6 +384,8 @@ declare const fullApi: ApiFromModules<{
   "github/utils/index": typeof github_utils_index;
   "github/utils/octokit": typeof github_utils_octokit;
   gravity: typeof gravity;
+  gravity_integrations: typeof gravity_integrations;
+  gravity_report: typeof gravity_report;
   http: typeof http;
   import_projects: typeof import_projects;
   integration_auth: typeof integration_auth;

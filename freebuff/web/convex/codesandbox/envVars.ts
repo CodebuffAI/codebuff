@@ -5,6 +5,7 @@ import { initializeCodebase } from "../../codebase-utils/codebase/initializeCode
 import { hasEnvironmentVariables } from "../../codebase-utils/codebase/Codebase";
 import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
+import { reportCompletedIntegrations } from "../gravity_report";
 import { getVerifiedAccessProject } from "../project";
 import { getAuthUser } from "../users";
 import {
@@ -203,6 +204,30 @@ export const setEnvVars = action({
       throw new Error(
         `Failed to save environment variables: ${error.message || String(error)}`,
       );
+    }
+
+    // Deterministically report Gravity conversions: if the keys just saved
+    // complete a recommended service's required env vars, fire
+    // report_integration. The Keys editor saves a service's keys together, so
+    // the just-saved set is a reliable completion signal. Best-effort — must
+    // never block or fail the save.
+    try {
+      const presentEnvKeys = new Set<string>(
+        [
+          ...Object.entries(args.envVars.frontend),
+          ...Object.entries(args.envVars.backend),
+        ]
+          .filter(([, value]) => value.trim().length > 0)
+          .map(([key]) => key),
+      );
+      if (presentEnvKeys.size > 0) {
+        await reportCompletedIntegrations(ctx, {
+          projectId: project._id,
+          presentEnvKeys,
+        });
+      }
+    } catch (error) {
+      console.warn("[gravity] post-save report check failed", error);
     }
 
     return {

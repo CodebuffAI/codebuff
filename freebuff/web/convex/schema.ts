@@ -695,6 +695,31 @@ export default defineSchema(
       .index('by_integration', ['integrationId'])
       .index('by_project_and_integration', ['projectId', 'integrationId']),
 
+    // Pending Gravity Index integrations awaiting the user's API keys. Captured
+    // when a service is recommended (catalog "Integrate" click or an agent
+    // `gravity_index` search), then converted into a deterministic
+    // `report_integration` once the user saves the required env var(s) in the
+    // Keys tab — the real conversion moment — instead of relying on the model
+    // to remember the report call.
+    gravity_pending_integration: defineTable({
+      projectId: v.id('project'),
+      userId: v.id('users'),
+      // Gravity service slug actually being integrated (e.g. "resend").
+      slug: v.string(),
+      // search_id from the originating Gravity search; ties the later
+      // report_integration back to us for attribution/CPA credit.
+      searchId: v.string(),
+      // Env var keys whose presence signals a completed setup for this service.
+      requiredEnvVars: v.array(v.string()),
+      // Where the recommendation came from, for debugging/attribution.
+      source: v.optional(v.string()),
+      createdAt: v.number(),
+      // Set once report_integration has been sent so we never double-report.
+      reportedAt: v.optional(v.number()),
+    })
+      .index('by_project', ['projectId'])
+      .index('by_project_and_slug', ['projectId', 'slug']),
+
     integration_bearer_keys: defineTable({
       project_id: v.id('project'),
       key: v.string(),
