@@ -48,12 +48,23 @@ export function CtaFooter() {
         </Parallax>
       </div>
 
-      {/* Wordmark closing back into the mountains (mirrors the hero opening) */}
-      <div className="relative mt-10 h-[46vh] min-h-[340px] select-none md:mt-12 md:h-[56vh]">
+      {/*
+        Wordmark closing back into the mountains (mirrors the hero opening).
+
+        Robustness note: the wordmark, the bushes and the font size are all
+        sized off viewport *width* (vw / the font clamp), so their relationship
+        stays constant as the viewport gets wider or narrower. The treeline
+        offsets are deliberately *not* tied to the container's `vh` height —
+        otherwise short or very wide viewports either drop the wordmark too low
+        (container hits its `min-h`) or let the bushes balloon past it, burying
+        the letters. The image heights are clamped so they crop (object-bottom)
+        instead of growing without bound on ultrawide screens.
+      */}
+      <div className="relative mt-10 h-[46vh] min-h-[360px] select-none md:mt-12 md:h-[56vh]">
         <Parallax
           from={70}
           to={-40}
-          className="absolute inset-x-0 bottom-[24%] z-0"
+          className="absolute inset-x-0 bottom-[clamp(64px,calc(10vw-30px),240px)] z-0"
         >
           <h2
             aria-label="freebuff"
@@ -71,7 +82,7 @@ export function CtaFooter() {
           aria-hidden
           decoding="async"
           draggable={false}
-          className="pointer-events-none absolute inset-x-0 bottom-[12%] z-[1] w-full select-none object-cover opacity-30 brightness-[0.5] saturate-[0.7]"
+          className="pointer-events-none absolute inset-x-0 bottom-[8%] z-[1] h-[clamp(150px,26vw,380px)] w-full select-none object-cover object-bottom opacity-30 brightness-[0.5] saturate-[0.7]"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -80,7 +91,7 @@ export function CtaFooter() {
           aria-hidden
           decoding="async"
           draggable={false}
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 w-full origin-bottom scale-[1.25] select-none object-cover brightness-[0.5] saturate-[0.8]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[clamp(130px,22vw,440px)] w-full origin-bottom select-none object-cover object-bottom brightness-[0.5] saturate-[0.8]"
         />
       </div>
 
