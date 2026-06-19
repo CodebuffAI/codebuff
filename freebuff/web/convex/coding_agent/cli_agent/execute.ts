@@ -121,6 +121,22 @@ export const execute = internalAction({
         : undefined;
 
     if (args.agentType === "Claude Code") {
+      const claudeProviderPreference =
+        executingUser.claude_provider_preference ?? "bedrock";
+      if (claudeProviderPreference === "anthropic" && !anthropicApiKey) {
+        return {
+          success: false,
+          error:
+            "Claude Code is set to Anthropic BYOK, but no Anthropic API key is saved. Configure it in Settings > AI credentials.",
+        };
+      }
+      if (claudeProviderPreference === "bedrock" && !bedrockBearerToken) {
+        return {
+          success: false,
+          error:
+            "Claude Code is set to AWS Bedrock BYOK, but no Bedrock bearer token is saved. Configure it in Settings > AI credentials.",
+        };
+      }
       return await executeClaudeCode(ctx, codebase, {
         projectId: args.projectId,
         threadId: args.threadId,
@@ -130,14 +146,30 @@ export const execute = internalAction({
         executingUserId: args.executingUserId,
         userMessage: args.userMessage,
         images: args.images,
-        claudeProviderPreference:
-          executingUser.claude_provider_preference ?? "bedrock",
-        claudeModelPreference:
-          executingUser.claude_model_preference ?? "claude-sonnet-4-6",
+        claudeProviderPreference,
         anthropicApiKey,
         bedrockBearerToken,
       });
     } else if (args.agentType === "Codex") {
+      const gptAuthMethod = executingUser.gpt_auth_method ?? "oauth";
+      if (gptAuthMethod === "byok" && !openAiApiKey) {
+        return {
+          success: false,
+          error:
+            "Codex is set to OpenAI BYOK, but no OpenAI API key is saved. Configure it in Settings > AI credentials.",
+        };
+      }
+      if (
+        gptAuthMethod === "oauth" &&
+        (executingUser.codex_auth_mode !== "chatgpt" ||
+          executingUser.codex_oauth_revoked === true)
+      ) {
+        return {
+          success: false,
+          error:
+            "Codex is set to ChatGPT OAuth, but OAuth is not connected. Configure it in Settings > AI credentials.",
+        };
+      }
       return await executeCodex(ctx, codebase, {
         projectId: args.projectId,
         threadId: args.threadId,
@@ -147,8 +179,7 @@ export const execute = internalAction({
         executingUserId: args.executingUserId,
         userMessage: args.userMessage,
         images: args.images,
-        gptAuthMethod: executingUser.gpt_auth_method ?? "oauth",
-        gptModelPreference: executingUser.gpt_model_preference ?? "gpt-5.4",
+        gptAuthMethod,
         openAiApiKey,
       });
     } else if (args.agentType === "Gemini CLI") {

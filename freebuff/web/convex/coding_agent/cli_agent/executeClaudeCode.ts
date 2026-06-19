@@ -18,10 +18,6 @@ export interface ExecuteClaudeCodeArgs {
   userMessage: string;
   images: Id<"_storage">[] | undefined;
   claudeProviderPreference: "anthropic" | "bedrock";
-  claudeModelPreference:
-    | "claude-opus-4-8"
-    | "claude-sonnet-4-6"
-    | "claude-haiku-4-5";
   anthropicApiKey?: string;
   bedrockBearerToken?: string;
 }
@@ -45,7 +41,6 @@ export async function executeClaudeCode(
   args: ExecuteClaudeCodeArgs,
 ): Promise<ExecuteClaudeCodeResult> {
   const selectedProvider = args.claudeProviderPreference;
-  const selectedModel = args.claudeModelPreference;
   const anthropicApiKey = args.anthropicApiKey?.trim() || undefined;
   const awsBearerToken = args.bedrockBearerToken?.trim() || undefined;
 
@@ -117,22 +112,10 @@ export async function executeClaudeCode(
     cliAgentSystemPrompt(runner) + knowledgePrompts(runner, packageManagerName),
   );
 
-  const claudeModelForProvider =
-    selectedProvider === "anthropic"
-      ? selectedModel
-      : selectedModel === "claude-opus-4-8"
-        ? "us.anthropic.claude-opus-4-8"
-        : selectedModel === "claude-haiku-4-5"
-          ? "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-          : "us.anthropic.claude-sonnet-4-6";
-
   // Build the base Claude Code command with escaped inputs
-  // Add explicit --model so user selection is always applied.
   const commandParts = [
     "claude",
     "--dangerously-skip-permissions",
-    "--model",
-    escapeShellArg(claudeModelForProvider),
     resumeFlag.trim(),
     "-p",
     escapedPrompt,
@@ -163,19 +146,22 @@ export async function executeClaudeCode(
   // Use command substitution to get deploy key inline (faster than separate command)
   // $(cat ... || echo "") will return empty string if file doesn't exist
   const envVars = [
+    `ANTHROPIC_API_KEY=`,
+    `AWS_BEARER_TOKEN_BEDROCK=`,
+    `AWS_ACCESS_KEY_ID=`,
+    `AWS_SECRET_ACCESS_KEY=`,
+    `AWS_SESSION_TOKEN=`,
+    `AWS_PROFILE=`,
+    `CLAUDE_CODE_USE_BEDROCK=`,
     ...(selectedProvider === "bedrock" && escapedAwsToken
       ? [
           `AWS_BEARER_TOKEN_BEDROCK=${escapedAwsToken}`,
           `CLAUDE_CODE_USE_BEDROCK=1`,
           `AWS_REGION=us-east-1`,
-          `ANTHROPIC_DEFAULT_MODEL=${claudeModelForProvider}`,
         ]
       : []),
     ...(selectedProvider === "anthropic" && escapedAnthropicApiKey
-      ? [
-          `ANTHROPIC_API_KEY=${escapedAnthropicApiKey}`,
-          `ANTHROPIC_DEFAULT_MODEL=${claudeModelForProvider}`,
-        ]
+      ? [`ANTHROPIC_API_KEY=${escapedAnthropicApiKey}`]
       : []),
     `CONVEX_DEPLOY_KEY=$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")`,
     `GIT_TERMINAL_PROMPT=0`,
@@ -354,7 +340,7 @@ export async function executeClaudeCode(
             messageId: args.messageId,
             totalCostUsd: result.usage.totalCostUsd,
             usageBreakdown: result.usage.usageBreakdown,
-            modelUsed: claudeModelForProvider,
+            modelUsed: `Claude Code (${selectedProvider})`,
           },
         ),
       );

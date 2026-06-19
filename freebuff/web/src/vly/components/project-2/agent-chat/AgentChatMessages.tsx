@@ -13,6 +13,7 @@ import {
   Clock,
   Play,
 } from 'lucide-react'
+import { GravityAd as GravityReactAd } from '@gravity-ai/react'
 import React, {
   useImperativeHandle,
   useMemo,
@@ -265,30 +266,6 @@ function buildGravityMessagesForAgentAd(
   }
 
   return messages
-}
-
-function fireAdImpressionOnce(ad: GravityAd) {
-  if (typeof window === 'undefined' || !ad.impUrl) return
-  void fetch('/api/ads/impression', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ impUrl: ad.impUrl }),
-    keepalive: true,
-  }).catch((error) =>
-    warnAdClient('[AgentChatMessages] Failed to record ad impression', error),
-  )
-}
-
-function recordAdClick(ad: { impUrl: string }) {
-  if (typeof window === 'undefined' || !ad.impUrl) return
-  void fetch('/api/ads/click', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ impUrl: ad.impUrl }),
-    keepalive: true,
-  }).catch((error) =>
-    warnAdClient('[AgentChatMessages] Failed to record ad click', error),
-  )
 }
 
 function getAdCreativeIdentity(ad: {
@@ -959,102 +936,50 @@ function toPersistedAgentAd(
   }
 }
 
-function getAdImageUrl(ad: PersistedAgentAd, imageError: boolean) {
-  if (imageError) return null
-  if (ad.imageUrl || ad.favicon) return ad.imageUrl || ad.favicon
-  if (!ad.url) return null
-
-  try {
-    const hostname = new URL(ad.url).hostname
-    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
-  } catch {
-    return null
-  }
-}
-
 const AgentAdMessage: React.FC<{
   ad: PersistedAgentAd
   className?: string
 }> = ({ ad, className }) => {
-  const [imageError, setImageError] = useState(false)
-  const imageUrl = getAdImageUrl(ad, imageError)
-  const title = ad.title || ad.brandName || 'Sponsored recommendation'
-  const cta = ad.cta || 'Open offer'
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  const impressionFiredRef = useRef(false)
-
-  useEffect(() => {
-    const root = rootRef.current
-    if (!root || impressionFiredRef.current) return
-
-    const fire = () => {
-      if (impressionFiredRef.current) return
-      impressionFiredRef.current = true
-      fireAdImpressionOnce(ad)
-    }
-
-    if (typeof IntersectionObserver === 'undefined') {
-      fire()
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          fire()
-          observer.disconnect()
-        }
-      },
-      { threshold: 0.5 },
-    )
-
-    observer.observe(root)
-    return () => observer.disconnect()
-  }, [ad])
-
   return (
-    <div
-      ref={rootRef}
-      className={cn('my-3 w-full max-w-[min(100%,760px)] text-sm', className)}
-    >
-      <a
-        href={ad.clickUrl}
-        target="_blank"
-        rel="noopener noreferrer sponsored"
-        onClick={() => recordAdClick(ad)}
-        className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5 text-left no-underline transition-colors hover:border-primary/35 hover:bg-muted/35"
-      >
-        <span className="pointer-events-none absolute right-2 top-1.5 text-[8px] font-semibold uppercase leading-none tracking-[0.2em] text-muted-foreground/30">
-          AD
-        </span>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background/60 text-xs font-semibold text-muted-foreground">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt=""
-              className="h-full w-full object-contain p-1"
-              loading="lazy"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            title.charAt(0).toUpperCase()
-          )}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate pr-6 text-[13px] font-semibold text-foreground/90">
-            {title}
-          </span>
-          {ad.adText && (
-            <span className="mt-0.5 block line-clamp-1 text-[12px] leading-snug text-muted-foreground/80">
-              {ad.adText}
-            </span>
-          )}
-        </span>
-        <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-md bg-primary/15 px-2.5 py-1.5 text-[12px] font-semibold leading-none text-primary transition-colors group-hover:bg-primary/25">
-          {cta}
-          <ExternalLink className="h-3 w-3 shrink-0" />
-        </span>
-      </a>
+    <div className={cn('my-3 w-full max-w-[min(100%,760px)] text-sm', className)}>
+      <GravityReactAd
+        ad={{
+          adText: ad.adText,
+          title: ad.title || ad.brandName || 'Sponsored recommendation',
+          cta: ad.cta || 'Open offer',
+          brandName: ad.brandName,
+          url: ad.url,
+          favicon: ad.favicon ?? ad.imageUrl,
+          impUrl: ad.impUrl,
+          clickUrl: ad.clickUrl,
+        }}
+        variant="inline"
+        className="w-full"
+        slotProps={{
+          container: {
+            style: {
+              width: '100%',
+              background: 'hsl(var(--muted) / 0.25)',
+              color: 'hsl(var(--foreground))',
+              borderColor: 'hsl(var(--border) / 0.6)',
+              borderRadius: 12,
+              boxShadow: 'none',
+            },
+          },
+          brand: { style: { color: 'hsl(var(--foreground))' } },
+          title: { style: { color: 'hsl(var(--foreground))' } },
+          text: { style: { color: 'hsl(var(--muted-foreground))' } },
+          cta: {
+            style: {
+              background: 'hsl(var(--primary) / 0.15)',
+              color: 'hsl(var(--primary))',
+            },
+          },
+          label: { style: { color: 'hsl(var(--muted-foreground) / 0.5)' } },
+        }}
+        labelText="AD"
+        openInNewTab
+      />
     </div>
   )
 }
@@ -1542,7 +1467,6 @@ export const AgentChatMessages = forwardRef<
         (adFetchAttemptCountsRef.current.get(attemptKey) ?? 0) + 1,
       )
     })
-    const testAd = process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
     void (async () => {
       let gravityContext: GravityContext | undefined
       try {
@@ -1558,7 +1482,6 @@ export const AgentChatMessages = forwardRef<
       return fetchGravityAds(
         gravityMessages,
         `${project.active_agent_thread}-${sourceMessageId}`,
-        testAd,
         undefined,
         gravityContext,
         'freebuff_web_chat',

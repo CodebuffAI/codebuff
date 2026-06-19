@@ -30,8 +30,6 @@ import {
   Plus,
   History,
   Github,
-  ExternalLink,
-  Loader2,
   Gift,
 } from "lucide-react";
 import {
@@ -79,6 +77,11 @@ import {
   FREEBUFF_MODEL_STORAGE_KEY,
   resolveVisibleFreebuffModel,
 } from "@/vly/components/project-2/FreebuffModelSelector";
+import {
+  AgentLogo,
+  CliAgentConfigurationPanel,
+  isCliAgentConfigured,
+} from "./CliAgentConfigurationPanel";
 import { formatRetryTime } from "@/vly/lib/rateLimitHelpers";
 
 type AgentType = "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff";
@@ -309,14 +312,7 @@ export function AgentChatShell({
   const switchAgentOnThread = useMutation(
     api.coding_agent.cli_agent.agent_thread.switchAgentOnThread,
   );
-  const startCodexDeviceAuth = useAction(
-    api.coding_agent.cli_agent.execute.startCodexDeviceAuth,
-  );
-  const getCodexDeviceAuthStatus = useAction(
-    api.coding_agent.cli_agent.execute.getCodexDeviceAuthStatus,
-  );
   const byokSettings = useQuery(api.users.getCliByokSettings);
-  const setCliPreference = useMutation(api.users.setCliPreference);
 
   // Send message mutation
   const sendMessage = useMutation(
@@ -402,108 +398,19 @@ export function AgentChatShell({
     project?.state === "processing" || activeThread?.isProcessing === true;
   const isFreebuffThread = activeThread?.agent_type === "Freebuff";
   const isCodexThread = activeThread?.agent_type === "Codex";
-  const isCodexByokMode = byokSettings?.gptAuthMethod === "byok";
-  const hasCodexOauthConnected = !!byokSettings?.hasCodexOauth;
-  const hasCodexByokConnected = !!byokSettings?.hasOpenAiApiKey;
-  const hasClaudeAnthropicConnected = !!byokSettings?.hasAnthropicApiKey;
-  const hasClaudeBedrockConnected = !!byokSettings?.hasBedrockBearerToken;
-  const hasAnyCodexCredential = hasCodexOauthConnected || hasCodexByokConnected;
-  const hasAnyClaudeCredential =
-    hasClaudeAnthropicConnected || hasClaudeBedrockConnected;
-  const selectedClaudeModelPreference =
-    byokSettings?.claudeModelPreference ?? "claude-sonnet-4-6";
-  const getGptModelDisplayLabel = (modelId: string) => {
-    if (modelId === "gpt-5.5") {
-      return "GPT 5.5";
-    }
-    if (modelId === "gpt-5.4-mini") {
-      return "GPT 5.4-mini";
-    }
-
-    return "GPT 5.4";
-  };
-  const getClaudeModelDisplayLabel = (modelId: string) => {
-    if (modelId === "claude-opus-4-8") {
-      return "Opus 4.8";
-    }
-    if (modelId === "claude-haiku-4-5") {
-      return "Haiku 4.5";
-    }
-
-    return "Sonnet 4.6";
-  };
-  const activeAgentModelSelector = isCodexThread
-    ? hasAnyCodexCredential
-      ? {
-          label: getGptModelDisplayLabel(
-            byokSettings?.gptModelPreference ?? "gpt-5.4",
-          ),
-          options: [
-            { id: "gpt-5.5", label: getGptModelDisplayLabel("gpt-5.5") },
-            { id: "gpt-5.4", label: getGptModelDisplayLabel("gpt-5.4") },
-            {
-              id: "gpt-5.4-mini",
-              label: getGptModelDisplayLabel("gpt-5.4-mini"),
-            },
-          ] as const,
-          selected: byokSettings?.gptModelPreference ?? "gpt-5.4",
-          onSelect: async (modelId: "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini") => {
-            try {
-              await setCliPreference({ key: "gpt_model_preference", value: modelId });
-              toast.success(
-                `Codex model set to ${getGptModelDisplayLabel(modelId)}`,
-              );
-            } catch {
-              toast.error("Failed to set Codex model");
-            }
-          },
-        }
-      : null
+  const activeConfigAgent = isCodexThread
+    ? "Codex"
     : activeThread?.agent_type === "Claude Code"
-      ? hasAnyClaudeCredential
-        ? {
-            label: getClaudeModelDisplayLabel(selectedClaudeModelPreference),
-            options: [
-              {
-                id: "claude-opus-4-8",
-                label: getClaudeModelDisplayLabel("claude-opus-4-8"),
-              },
-              {
-                id: "claude-sonnet-4-6",
-                label: getClaudeModelDisplayLabel("claude-sonnet-4-6"),
-              },
-              {
-                id: "claude-haiku-4-5",
-                label: getClaudeModelDisplayLabel("claude-haiku-4-5"),
-              },
-            ] as const,
-            selected: selectedClaudeModelPreference,
-            onSelect: async (
-              modelId:
-                | "claude-opus-4-8"
-                | "claude-sonnet-4-6"
-                | "claude-haiku-4-5",
-            ) => {
-              try {
-                await setCliPreference({ key: "claude_model_preference", value: modelId });
-                toast.success(
-                  `Claude model set to ${getClaudeModelDisplayLabel(modelId)}`,
-                );
-              } catch {
-                toast.error("Failed to set Claude model");
-              }
-            },
-          }
-        : null
-      : null;
-  const [isCheckingCodexAuth, setIsCheckingCodexAuth] = useState(false);
-  const [isStartingCodexAuth, setIsStartingCodexAuth] = useState(false);
-  const [codexAuthPrompt, setCodexAuthPrompt] = useState<{
-    authUrl?: string;
-    oneTimeCode?: string;
-    message?: string;
-  } | null>(null);
-  const [isCodexAuthenticated, setIsCodexAuthenticated] = useState(false);
+      ? "Claude Code"
+      : undefined;
+  const isActiveCliAgentConfigured =
+    !activeConfigAgent ||
+    byokSettings === undefined ||
+    isCliAgentConfigured(activeConfigAgent, byokSettings);
+  const shouldShowAgentConfigurationPanel =
+    !!activeConfigAgent &&
+    byokSettings !== undefined &&
+    !isActiveCliAgentConfigured;
 
   // State to track message to restore to input
   const [messageToRestore, setMessageToRestore] = useState<string | null>(null);
@@ -607,108 +514,6 @@ export function AgentChatShell({
     }
   }, []);
 
-  const refreshCodexAuthStatus = useCallback(
-    async (showErrors = false) => {
-      if (!projectSemanticIdentifier || !isCodexThread || isCodexByokMode) {
-        setIsCodexAuthenticated(false);
-        setCodexAuthPrompt(null);
-        return;
-      }
-
-      setIsCheckingCodexAuth(true);
-      try {
-        const status = await getCodexDeviceAuthStatus({
-          projectSemanticIdentifier,
-        });
-        if (status.success) {
-          setIsCodexAuthenticated(status.isAuthenticated);
-          if (status.isAuthenticated) {
-            setCodexAuthPrompt(null);
-          }
-        } else if (showErrors) {
-          toast.error(status.message || "Failed to check Codex auth status");
-        }
-      } catch {
-        if (showErrors) {
-          toast.error("Failed to check Codex auth status");
-        }
-      } finally {
-        setIsCheckingCodexAuth(false);
-      }
-    },
-    [
-      projectSemanticIdentifier,
-      isCodexThread,
-      isCodexByokMode,
-      getCodexDeviceAuthStatus,
-    ],
-  );
-
-  const handleStartCodexAuth = useCallback(async () => {
-    if (!projectSemanticIdentifier || !isCodexThread) {
-      return;
-    }
-
-    setIsStartingCodexAuth(true);
-    try {
-      const result = await startCodexDeviceAuth({
-        projectSemanticIdentifier,
-      });
-
-      if (!result.success) {
-        toast.error(result.message || "Failed to start Codex auth");
-        return;
-      }
-
-      setIsCodexAuthenticated(result.isAuthenticated);
-      setCodexAuthPrompt({
-        authUrl: result.authUrl,
-        oneTimeCode: result.oneTimeCode,
-        message: result.message,
-      });
-
-      if (result.authUrl) {
-        window.open(result.authUrl, "_blank", "noopener,noreferrer");
-      }
-      if (result.message) {
-        toast.success(result.message);
-      }
-    } catch {
-      toast.error("Failed to start Codex auth");
-    } finally {
-      setIsStartingCodexAuth(false);
-    }
-  }, [projectSemanticIdentifier, isCodexThread, startCodexDeviceAuth]);
-
-  useEffect(() => {
-    if (!isCodexThread || isCodexByokMode) {
-      setCodexAuthPrompt(null);
-      setIsCodexAuthenticated(false);
-      return;
-    }
-
-    void refreshCodexAuthStatus();
-  }, [isCodexThread, isCodexByokMode, refreshCodexAuthStatus]);
-
-  useEffect(() => {
-    if (!isCodexThread || isCodexByokMode || isCodexAuthenticated) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void refreshCodexAuthStatus();
-    }, 5000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [
-    isCodexThread,
-    isCodexByokMode,
-    isCodexAuthenticated,
-    refreshCodexAuthStatus,
-  ]);
-
   // State for editing thread title
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
@@ -741,6 +546,18 @@ export function AgentChatShell({
       // query can lag behind the first send. Default to Freebuff so the selected
       // MiniMax M3 model is included even before that query resolves.
       const agentType = activeThread?.agent_type || "Freebuff";
+      const configAgent =
+        agentType === "Codex" || agentType === "Claude Code"
+          ? agentType
+          : undefined;
+      if (
+        configAgent &&
+        byokSettings !== undefined &&
+        !isCliAgentConfigured(configAgent, byokSettings)
+      ) {
+        toast.error(`Configure ${configAgent} before sending a message.`);
+        return false;
+      }
 
       // Capture selected node info before clearing it
       const currentSelectedNode = selectedNodeInfoRef.current;
@@ -799,6 +616,7 @@ export function AgentChatShell({
       sendMessage,
       projectSemanticIdentifier,
       activeThread,
+      byokSettings,
       updateSelectedNodeInfo,
     ],
   );
@@ -1111,7 +929,10 @@ export function AgentChatShell({
               className={getAgentButtonClasses(isProcessing)}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium">Freebuff</span>
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <AgentLogo agentType="Freebuff" />
+                  Freebuff
+                </span>
                 <span className="rounded-full border border-emerald-300 bg-emerald-100 px-1.5 py-0 text-[10px] text-emerald-700">
                   Recommended
                 </span>
@@ -1127,9 +948,12 @@ export function AgentChatShell({
               disabled={isProcessing}
               className={getAgentButtonClasses(isProcessing)}
             >
-              <div className="text-sm font-medium">Codex</div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <AgentLogo agentType="Codex" />
+                Codex
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Uses your connected ChatGPT/Codex account for this thread.
+                Runs OpenAI Codex with your ChatGPT OAuth or OpenAI key.
               </p>
             </button>
 
@@ -1141,20 +965,12 @@ export function AgentChatShell({
               disabled={isProcessing}
               className={getAgentButtonClasses(isProcessing)}
             >
-              <div className="text-sm font-medium">Claude Code</div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <AgentLogo agentType="Claude Code" />
+                Claude Code
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Runs Claude Code in the same thread workflow.
-              </p>
-            </button>
-
-            <button
-              type="button"
-              disabled
-              className={getAgentButtonClasses(true)}
-            >
-              <div className="text-sm font-medium">Gemini CLI</div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {GEMINI_CLI_MAINTENANCE_MESSAGE}
+                Runs Claude Code with your Anthropic or Bedrock credential.
               </p>
             </button>
           </div>
@@ -1253,186 +1069,68 @@ export function AgentChatShell({
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild disabled={isProcessing}>
                               <button className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
+                                {activeThread.agent_type === "Freebuff" ||
+                                activeThread.agent_type === "Codex" ||
+                                activeThread.agent_type === "Claude Code" ? (
+                                  <AgentLogo
+                                    agentType={activeThread.agent_type}
+                                    className="h-4 w-4"
+                                  />
+                                ) : null}
                                 {activeThread.agent_type}
                                 <ChevronDown className="h-3 w-3" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start">
+                            <DropdownMenuContent align="start" className="w-52">
                               <DropdownMenuItem
                                 onClick={() =>
                                   void handleSwitchAgentOnCurrentThread("Freebuff")
                                 }
                                 className="flex items-center justify-between gap-2"
                               >
-                                <span>Freebuff</span>
+                                <span className="flex items-center gap-2">
+                                  <AgentLogo agentType="Freebuff" />
+                                  Freebuff
+                                </span>
                                 {activeThread.agent_type === "Freebuff" && (
                                   <Check className="h-3.5 w-3.5" />
                                 )}
                               </DropdownMenuItem>
-                              {hasAnyCodexCredential ? (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    void handleSwitchAgentOnCurrentThread("Codex")
-                                  }
-                                  className="flex items-center justify-between gap-2"
-                                >
-                                  <span>
-                                    Codex
-                                    <span className="ml-1 text-[10px] text-muted-foreground">
-                                      ({(byokSettings?.gptAuthMethod ?? "oauth") === "oauth" ? "OAuth" : "BYOK"})
-                                    </span>
-                                  </span>
-                                  {activeThread.agent_type === "Codex" && (
-                                    <Check className="h-3.5 w-3.5" />
-                                  )}
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem disabled>
-                                  Codex (configure auth first)
-                                </DropdownMenuItem>
-                              )}
-                              {hasAnyClaudeCredential ? (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    void handleSwitchAgentOnCurrentThread(
-                                      "Claude Code",
-                                    )
-                                  }
-                                  className="flex items-center justify-between gap-2"
-                                >
-                                  <span>
-                                    Claude Code
-                                    <span className="ml-1 text-[10px] text-muted-foreground">
-                                      ({(byokSettings?.claudeProviderPreference ?? "bedrock") === "bedrock" ? "Bedrock" : "Anthropic"})
-                                    </span>
-                                  </span>
-                                  {activeThread.agent_type === "Claude Code" && (
-                                    <Check className="h-3.5 w-3.5" />
-                                  )}
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem disabled>
-                                  Claude Code (configure provider first)
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem disabled>
-                                Gemini CLI (Unavailable)
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  void handleSwitchAgentOnCurrentThread("Codex")
+                                }
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <AgentLogo agentType="Codex" />
+                                  Codex
+                                </span>
+                                {activeThread.agent_type === "Codex" && (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
                               </DropdownMenuItem>
-                              {(() => {
-                                type CredItem = {
-                                  group: "codex" | "claude";
-                                  label: string;
-                                  show: boolean;
-                                  prefKey:
-                                    | "gpt_auth_method"
-                                    | "claude_provider_preference";
-                                  prefValue: string;
-                                  isCurrent: boolean;
-                                  toast: string;
-                                };
-                                const allItems: CredItem[] = [
-                                  {
-                                    group: "codex",
-                                    label: "OAuth (ChatGPT)",
-                                    show: hasCodexOauthConnected,
-                                    prefKey: "gpt_auth_method",
-                                    prefValue: "oauth",
-                                    isCurrent:
-                                      (byokSettings?.gptAuthMethod ?? "oauth") ===
-                                      "oauth",
-                                    toast: "Codex auth set to OAuth",
-                                  },
-                                  {
-                                    group: "codex",
-                                    label: "OpenAI API key (BYOK)",
-                                    show: hasCodexByokConnected,
-                                    prefKey: "gpt_auth_method",
-                                    prefValue: "byok",
-                                    isCurrent:
-                                      byokSettings?.gptAuthMethod === "byok",
-                                    toast: "Codex auth set to BYOK",
-                                  },
-                                  {
-                                    group: "claude",
-                                    label: "Anthropic API key",
-                                    show: hasClaudeAnthropicConnected,
-                                    prefKey: "claude_provider_preference",
-                                    prefValue: "anthropic",
-                                    isCurrent:
-                                      byokSettings?.claudeProviderPreference ===
-                                      "anthropic",
-                                    toast: "Claude provider set to Anthropic",
-                                  },
-                                  {
-                                    group: "claude",
-                                    label: "AWS Bedrock token",
-                                    show: hasClaudeBedrockConnected,
-                                    prefKey: "claude_provider_preference",
-                                    prefValue: "bedrock",
-                                    isCurrent:
-                                      (byokSettings?.claudeProviderPreference ??
-                                        "bedrock") === "bedrock",
-                                    toast: "Claude provider set to Bedrock",
-                                  },
-                                ];
-                                const items = allItems.filter((i) => i.show);
-
-                                const renderGroup = (
-                                  group: "codex" | "claude",
-                                  header: string,
-                                  errorToast: string,
-                                ) => {
-                                  const groupItems = items.filter(
-                                    (i) => i.group === group,
-                                  );
-                                  if (groupItems.length === 0) return null;
-                                  return (
-                                    <>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem disabled>
-                                        {header}
-                                      </DropdownMenuItem>
-                                      {groupItems.map((i) => (
-                                        <DropdownMenuItem
-                                          key={`${i.prefKey}-${i.prefValue}`}
-                                          onClick={async () => {
-                                            try {
-                                              await setCliPreference({
-                                                key: i.prefKey,
-                                                value: i.prefValue,
-                                              });
-                                              toast.success(i.toast);
-                                            } catch {
-                                              toast.error(errorToast);
-                                            }
-                                          }}
-                                          className="flex items-center justify-between gap-3"
-                                        >
-                                          <span>{i.label}</span>
-                                          {i.isCurrent && (
-                                            <Check className="h-3.5 w-3.5" />
-                                          )}
-                                        </DropdownMenuItem>
-                                      ))}
-                                    </>
-                                  );
-                                };
-
-                                return (
-                                  <>
-                                    {renderGroup(
-                                      "codex",
-                                      "Codex auth mode",
-                                      "Failed to set Codex auth mode",
-                                    )}
-                                    {renderGroup(
-                                      "claude",
-                                      "Claude provider",
-                                      "Failed to set Claude provider",
-                                    )}
-                                  </>
-                                );
-                              })()}
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  void handleSwitchAgentOnCurrentThread(
+                                    "Claude Code",
+                                  )
+                                }
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <AgentLogo agentType="Claude Code" />
+                                  Claude Code
+                                </span>
+                                {activeThread.agent_type === "Claude Code" && (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
+                              </DropdownMenuItem>
+                              {activeThread.agent_type === "Gemini CLI" && (
+                                <DropdownMenuItem disabled>
+                                  Gemini CLI
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => {
@@ -1440,7 +1138,7 @@ export function AgentChatShell({
                                     "/web/settings#ai-credentials";
                                 }}
                               >
-                                Configure agent
+                                Configure agents
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1565,86 +1263,41 @@ export function AgentChatShell({
                 />
               )}
 
-              {isCodexThread && !isCodexByokMode && !isCodexAuthenticated && (
-                <div className="mx-3 mb-2 rounded-md border border-amber-300/60 bg-amber-500/10 px-3 py-2 text-xs sm:mx-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-amber-200">
-                      Codex needs ChatGPT OAuth before first run.
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void handleStartCodexAuth()}
-                      disabled={isStartingCodexAuth || isCheckingCodexAuth}
-                      className="h-6 px-2 text-[11px]"
-                    >
-                      {isStartingCodexAuth ? (
-                        <>
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          Starting...
-                        </>
-                      ) : (
-                        "Connect ChatGPT"
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void refreshCodexAuthStatus(true)}
-                      disabled={isCheckingCodexAuth}
-                      className="h-6 px-2 text-[11px]"
-                    >
-                      {isCheckingCodexAuth ? "Checking..." : "Refresh"}
-                    </Button>
-                    {codexAuthPrompt?.authUrl && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          window.open(
-                            codexAuthPrompt.authUrl,
-                            "_blank",
-                            "noopener,noreferrer",
-                          )
-                        }
-                        className="h-6 px-2 text-[11px]"
-                      >
-                        Open auth page
-                        <ExternalLink className="ml-1 h-3 w-3" />
-                      </Button>
-                    )}
+              {shouldShowAgentConfigurationPanel && activeConfigAgent ? (
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-6 sm:px-4">
+                  <div className="mx-auto max-w-2xl">
+                    <CliAgentConfigurationPanel
+                      agent={activeConfigAgent}
+                      projectSemanticIdentifier={projectSemanticIdentifier}
+                      variant="chat"
+                    />
                   </div>
-                  {codexAuthPrompt?.oneTimeCode && (
-                    <div className="mt-1.5 text-[11px] text-amber-100/90">
-                      One-time code: <span className="font-semibold">{codexAuthPrompt.oneTimeCode}</span>
-                    </div>
-                  )}
                 </div>
-              )}
+              ) : (
+                <>
+                  {/* Messages */}
+                  <Suspense fallback={<ChatSkeleton />}>
+                    <AgentChatMessages
+                      key={project?.active_agent_thread || "no-thread"}
+                      ref={chatMessagesRef}
+                      project={project}
+                      projectSemanticIdentifier={projectSemanticIdentifier}
+                      onSendMessage={(message) => handleSendMessage(message, [])}
+                      onCreateNewThread={handleCreateNewThread}
+                      onRestoreMessage={setMessageToRestore}
+                      onActiveAskUserQuestionsChange={
+                        handleActiveAskUserQuestionsChange
+                      }
+                    />
+                  </Suspense>
 
-              {/* Messages */}
-              <Suspense fallback={<ChatSkeleton />}>
-                <AgentChatMessages
-                  key={project?.active_agent_thread || "no-thread"}
-                  ref={chatMessagesRef}
-                  project={project}
-                  projectSemanticIdentifier={projectSemanticIdentifier}
-                  onSendMessage={(message) => handleSendMessage(message, [])}
-                  onCreateNewThread={handleCreateNewThread}
-                  onRestoreMessage={setMessageToRestore}
-                  onActiveAskUserQuestionsChange={
-                    handleActiveAskUserQuestionsChange
-                  }
-                />
-              </Suspense>
-
-              {/* Compact Runtime Errors - Subtle and compact */}
-              {project && (
-                <CompactRuntimeErrors
-                  project={project}
-                  onSendMessage={handleSendMessage}
-                />
-              )}
+                  {/* Compact Runtime Errors - Subtle and compact */}
+                  {project && (
+                    <CompactRuntimeErrors
+                      project={project}
+                      onSendMessage={handleSendMessage}
+                    />
+                  )}
 
               {/* Selected Node Preview - Shows selected element before chat input */}
               {selectedNodeInfo && (
@@ -1805,44 +1458,15 @@ export function AgentChatShell({
                     onFreebuffModelChange={
                       isFreebuffThread ? handleFreebuffModelChange : undefined
                     }
-                    customModelSelector={
-                      !isFreebuffThread && activeAgentModelSelector ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild disabled={isProcessing}>
-                            <button
-                              type="button"
-                              disabled={isProcessing}
-                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <span className="font-medium text-foreground">
-                                {activeAgentModelSelector.label}
-                              </span>
-                              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-60 p-1.5">
-                            {activeAgentModelSelector.options.map((option) => (
-                              <DropdownMenuItem
-                                key={option.id}
-                                onClick={() => void (activeAgentModelSelector as any).onSelect(option.id)}
-                                className="flex items-center justify-between gap-2 rounded-md px-2.5 py-2"
-                              >
-                                <span>{option.label}</span>
-                                {activeAgentModelSelector.selected === option.id && (
-                                  <Check className="h-3.5 w-3.5" />
-                                )}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : undefined
-                    }
+                    customModelSelector={undefined}
                     syncStatus={undefined}
                     activeEntryPointId={undefined}
                     restoreMessage={messageToRestore}
                     compactMode={true}
                   />
                 </div>
+              )}
+                </>
               )}
         </div>
       )}

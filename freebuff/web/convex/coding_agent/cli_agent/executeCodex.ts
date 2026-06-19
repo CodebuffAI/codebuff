@@ -28,7 +28,6 @@ export interface ExecuteCodexArgs {
   userMessage: string;
   images: Id<"_storage">[] | undefined;
   gptAuthMethod: "oauth" | "byok";
-  gptModelPreference: "gpt-5.5" | "gpt-5.4" | "gpt-5.4-mini";
   openAiApiKey?: string;
 }
 
@@ -155,23 +154,22 @@ export async function executeCodex(
     sessionId: string | undefined,
     authSource: "stored_chatgpt" | "byok_openai",
     openAiApiKey: string | undefined,
-    modelPreference: string,
     resumeMode: ResumeCommandMode = "subcommand",
   ) => {
     const escapedSessionId = sessionId ? escapeShellArg(sessionId) : undefined;
     const codexExecCommand = (() => {
       if (!escapedSessionId) {
-        return `codex exec --model ${escapeShellArg(modelPreference)} --yolo --color never --json ${escapedPrompt}`;
+        return `codex exec --yolo --color never --json ${escapedPrompt}`;
       }
       if (resumeMode === "legacy_flag") {
-        return `codex exec --resume ${escapedSessionId} --model ${escapeShellArg(modelPreference)} --yolo --color never --json ${escapedPrompt}`;
+        return `codex exec --resume ${escapedSessionId} --yolo --color never --json ${escapedPrompt}`;
       }
       // codex exec resume does not accept --color; keep args to the supported subset.
-      return `codex exec resume ${escapedSessionId} --model ${escapeShellArg(modelPreference)} --yolo --json ${escapedPrompt}`;
+      return `codex exec resume ${escapedSessionId} --yolo --json ${escapedPrompt}`;
     })();
     const authEnv =
       authSource === "stored_chatgpt"
-        ? `VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
+        ? `OPENAI_API_KEY= VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
         : `OPENAI_API_KEY=${escapeShellArg(openAiApiKey || "")} VLY_CODEX_AUTH_SOURCE="${authSource}"`;
     return `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || echo "")" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
   };
@@ -849,7 +847,6 @@ export async function executeCodex(
       activeSessionId || undefined,
       authSource,
       resolvedOpenAiApiKey,
-      args.gptModelPreference,
       "subcommand",
     );
     // Skipping the pre-run filesystem scan for the latest session file:
@@ -924,7 +921,6 @@ export async function executeCodex(
           activeSessionId,
           authSource,
           resolvedOpenAiApiKey,
-          args.gptModelPreference,
           "legacy_flag",
         );
         result = await runCodexCommandAndProcessOutput(fullCommand);
@@ -957,7 +953,6 @@ export async function executeCodex(
           undefined,
           authSource,
           resolvedOpenAiApiKey,
-          args.gptModelPreference,
           "subcommand",
         );
         result = await runCodexCommandAndProcessOutput(fullCommand);

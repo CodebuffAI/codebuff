@@ -204,11 +204,11 @@ export const getCliByokSettings = query({
       gptAuthMethod: user.gpt_auth_method ?? 'oauth',
       hasCodexOauth:
         user.codex_auth_mode === 'chatgpt' && user.codex_oauth_revoked !== true,
-      gptModelPreference: user.gpt_model_preference ?? 'gpt-5.4',
+      gptModelPreference: user.gpt_model_preference ?? 'default',
       hasOpenAiApiKey: !!user.gpt_openai_api_key_encrypted,
       openAiApiKeyUpdatedAt: user.gpt_openai_api_key_updated_at,
       claudeProviderPreference: user.claude_provider_preference ?? 'bedrock',
-      claudeModelPreference: user.claude_model_preference ?? 'claude-sonnet-4-6',
+      claudeModelPreference: user.claude_model_preference ?? 'default',
       hasAnthropicApiKey: !!user.claude_anthropic_api_key_encrypted,
       anthropicApiKeyUpdatedAt: user.claude_anthropic_api_key_updated_at,
       hasBedrockBearerToken: !!user.claude_bedrock_bearer_token_encrypted,
@@ -217,13 +217,15 @@ export const getCliByokSettings = query({
   },
 })
 
-// Single setter for all CLI BYOK preferences. The schema's literal unions
-// on the underlying user fields enforce valid values at write time, so we
-// don't repeat them in the validator. The 4 previous setters (gpt auth
-// method / claude provider / gpt model / claude model) collapse to this
-// one mutation.
-// ponytail: invalid (key, value) combinations are rejected by Convex schema
-// at patch time, not by an args-level discriminated union.
+const CLI_PREFERENCE_VALUES = {
+  gpt_auth_method: ['oauth', 'byok'],
+  claude_provider_preference: ['anthropic', 'bedrock'],
+  // Kept only for backward compatibility with older clients. Codex and Claude
+  // Code runs now use the CLI default model instead of exposing stale model IDs.
+  gpt_model_preference: ['default'],
+  claude_model_preference: ['default'],
+} as const
+
 export const setCliPreference = mutation({
   args: {
     key: v.union(
@@ -238,6 +240,10 @@ export const setCliPreference = mutation({
     const user = await getAuthUser(ctx)
     if (!user) {
       throw new Error('Not authenticated')
+    }
+    const allowedValues = CLI_PREFERENCE_VALUES[args.key]
+    if (!(allowedValues as readonly string[]).includes(args.value)) {
+      throw new Error(`Invalid value for ${args.key}`)
     }
     await ctx.db.patch(user._id, { [args.key]: args.value } as any)
     return { success: true }
