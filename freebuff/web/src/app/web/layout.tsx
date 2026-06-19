@@ -14,7 +14,8 @@ import { ReactScanProvider } from '@/vly/components/ReactScanProvider'
 import { Toaster } from '@/vly/components/ui/sonner'
 import { TooltipProvider } from '@/vly/components/ui/tooltip'
 
-const PUBLIC_WEB_PATHS = [
+// Prefix-matched public areas (the path and everything beneath it).
+const PUBLIC_WEB_PREFIXES = [
   '/web/about',
   '/web/pricing',
   '/web/community',
@@ -23,12 +24,21 @@ const PUBLIC_WEB_PATHS = [
   '/web/terms',
 ]
 
+// Exact-match public pages. `/web` itself is the Freebuff Web landing page
+// (logged-out marketing + logged-in dashboard), so it must be reachable without
+// auth — but its sub-routes (project, settings, referrals, …) still require it.
+const PUBLIC_WEB_EXACT = ['/web']
+
 function isPublicWebPath(pathname: string | null) {
   if (!pathname) {
     return true
   }
 
-  return PUBLIC_WEB_PATHS.some(
+  if (PUBLIC_WEB_EXACT.includes(pathname)) {
+    return true
+  }
+
+  return PUBLIC_WEB_PREFIXES.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   )
 }

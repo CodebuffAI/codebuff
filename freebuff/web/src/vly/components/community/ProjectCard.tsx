@@ -78,16 +78,16 @@ export default function ProjectCard({
     return (
       <Link
         href={`/web/community/project/${post._id}`}
-        className="group flex items-center gap-4 rounded-lg border border-border/50 bg-muted/20 p-3 transition-colors hover:bg-muted/35"
+        className="group flex items-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-colors hover:bg-white/[0.06]"
       >
         {showRank && (
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-background/70 font-mono text-sm font-medium text-primary">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-white/[0.06] font-mono text-sm font-medium text-forest-bright">
             #{showRank}
           </div>
         )}
 
         {/* Thumbnail */}
-        <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-muted/45">
+        <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-white/[0.05]">
           {post.screenshotUrl ? (
             <img
               src={post.screenshotUrl}
@@ -102,10 +102,10 @@ export default function ProjectCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <h4 className="truncate font-medium text-foreground group-hover:text-primary">
+          <h4 className="truncate font-medium text-white group-hover:text-forest-bright">
             {post.title}
           </h4>
-          <p className="text-sm text-muted-foreground">by {post.userName}</p>
+          <p className="text-sm text-white/45">by {post.userName}</p>
         </div>
 
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -125,21 +125,21 @@ export default function ProjectCard({
     <Link
       href={`/web/community/project/${post._id}`}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-muted/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30",
         variant === "featured"
-          ? "hover:border-primary/45 hover:bg-muted/35"
-          : "hover:border-border hover:bg-muted/30",
+          ? "hover:border-forest/45 hover:bg-white/[0.06]"
+          : "hover:border-white/20 hover:bg-white/[0.06]",
       )}
     >
       {/* Rank Badge */}
       {showRank && (
-        <div className="absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-border/60 bg-background/90 font-mono text-sm font-medium text-primary backdrop-blur-sm">
+        <div className="absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-black/70 font-mono text-sm font-medium text-forest-bright backdrop-blur-sm">
           #{showRank}
         </div>
       )}
 
       {/* Preview Image */}
-      <div className="relative aspect-video w-full overflow-hidden bg-muted/45">
+      <div className="relative aspect-video w-full overflow-hidden bg-white/[0.04]">
         {post.screenshotUrl ? (
           <div className="relative h-full w-full">
             <img
@@ -150,7 +150,7 @@ export default function ProjectCard({
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <div className="rounded-md bg-background/65 px-3 py-2 text-xs font-medium text-muted-foreground">
+            <div className="rounded-md bg-white/[0.05] px-3 py-2 text-xs font-medium text-white/45">
               No preview
             </div>
           </div>
@@ -164,10 +164,10 @@ export default function ProjectCard({
               e.stopPropagation();
               window.open(post.previewUrl, "_blank");
             }}
-            className="absolute right-2 top-2 rounded-lg border border-border/60 bg-background/90 p-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+            className="absolute right-2 top-2 rounded-lg border border-white/15 bg-black/70 p-2 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
             title="Open live site"
           >
-            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+            <ExternalLink className="h-4 w-4 text-white/70" />
           </button>
         )}
       </div>
@@ -175,15 +175,15 @@ export default function ProjectCard({
       {/* Content */}
       <div className="flex flex-1 flex-col p-5">
         {/* Title & Description */}
-        <h3 className="mb-1.5 line-clamp-1 text-lg font-semibold tracking-tight text-foreground group-hover:text-primary">
+        <h3 className="mb-1.5 line-clamp-1 text-lg font-semibold tracking-tight text-white group-hover:text-forest-bright">
           {post.title}
         </h3>
         {hasDescription ? (
-          <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-white/55">
             {rawDescription}
           </p>
         ) : (
-          <p className="mb-4 text-sm text-muted-foreground/60">
+          <p className="mb-4 text-sm text-white/35">
             Published by {post.userName}
           </p>
         )}
@@ -194,13 +194,13 @@ export default function ProjectCard({
             {post.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="rounded-md border border-border/50 bg-background/55 px-2 py-0.5 text-xs text-muted-foreground"
+                className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-0.5 text-xs text-white/55"
               >
                 {tag}
               </span>
             ))}
             {post.tags.length > 3 && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-white/45">
                 +{post.tags.length - 3}
               </span>
             )}
@@ -208,7 +208,7 @@ export default function ProjectCard({
         )}
 
         {/* Author & Stats */}
-        <div className="mt-auto flex items-center justify-between border-t border-border/40 pt-3">
+        <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-3">
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -219,16 +219,16 @@ export default function ProjectCard({
           >
             <Avatar className="h-6 w-6">
               <AvatarImage src={post.userImage} />
-              <AvatarFallback className="bg-background/70 text-xs text-primary">
+              <AvatarFallback className="bg-white/[0.06] text-xs text-forest-bright">
                 {post.userName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-white/55">
               {post.userName}
             </span>
           </button>
 
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-3 text-sm text-white/45">
             <button
               onClick={handleLike}
               className={cn(
@@ -256,7 +256,7 @@ export default function ProjectCard({
         </div>
 
         {/* Time */}
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-white/35">
           {formatDistanceToNow(post.publishedAt, { addSuffix: true })}
         </p>
       </div>

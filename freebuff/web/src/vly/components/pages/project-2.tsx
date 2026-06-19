@@ -39,6 +39,7 @@ import {
   useStarterUpgradePopup,
 } from "@/vly/components/project-2/StarterUpgradePopup";
 import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
+import { AmbientBackdrop } from "@/vly/components/app-shell/AmbientBackdrop";
 import {
   ProjectIframeArea,
   type IframeTab,
@@ -137,9 +138,13 @@ export function Project2({
   const params = useParams();
   const semanticIdentifier = typeof params.id === "string" ? params.id : "";
 
-  // Use a wrapper component to handle the Convex query with error boundaries
+  // Use a wrapper component to handle the Convex query with error boundaries.
+  // `key={semanticIdentifier}` forces a clean remount when navigating between
+  // projects so mount-once state (connection flags, iframe nav, reveal refs)
+  // can never leak from a previously-open project and strand the loader.
   return (
     <ProjectWrapper
+      key={semanticIdentifier}
       semanticIdentifier={semanticIdentifier}
       shouldShowPublicModel={shouldShowPublicModel}
     />
@@ -946,17 +951,20 @@ function ProjectWrapper({
  * re-running. Renders flush with the app theme so the user never sees a
  * blank or "not found" flash on their way to the editor.
  */
-function ProjectLoadingScreen() {
+export function ProjectLoadingScreen() {
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-background">
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 overflow-hidden bg-black">
+      <div className="pointer-events-none absolute inset-0">
+        <AmbientBackdrop />
+      </div>
       <img
         src="/logo-icon.png"
         alt="Freebuff"
-        className="h-9 w-9 animate-pulse object-contain opacity-90"
+        className="relative z-10 h-10 w-10 animate-pulse rounded-lg object-contain opacity-90"
       />
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader className="h-3.5 w-3.5 animate-spin text-primary" />
-        <span>Loading project…</span>
+      <div className="relative z-10 flex items-center gap-2 text-sm text-white/55">
+        <Loader className="h-3.5 w-3.5 animate-spin text-forest-bright" />
+        <span className="lp-serif">Loading project…</span>
       </div>
     </div>
   );

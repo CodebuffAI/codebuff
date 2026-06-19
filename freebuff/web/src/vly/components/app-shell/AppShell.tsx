@@ -1,39 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { signOut, useSession } from 'next-auth/react'
-import { useQuery } from 'convex/react'
-import {
-  FolderKanban,
-  Users,
-  Settings,
-  Gift,
-  LogOut,
-  Menu,
-  X,
-  MessageCircle,
-} from 'lucide-react'
-import { api } from '@/convex/_generated/api'
+import { usePathname } from 'next/navigation'
+import { FolderKanban, Users, Settings, Gift, Menu, X } from 'lucide-react'
 import { cn } from '@/vly/lib/utils'
-import {
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-} from '@/vly/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/vly/components/ui/dropdown-menu'
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-} from '@/vly/components/auth/AuthComponents'
+// NB: `@/components/*` is aliased to `src/vly/components/*`, so the shared
+// landing nav is imported relatively.
+import { UnifiedNavbar } from '../../../components/landing/UnifiedNavbar'
 import { FreebuffLogo } from './FreebuffLogo'
 import { BetaBadge } from './BetaBadge'
 
@@ -102,6 +76,57 @@ export function AppShell({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isActive = useIsActive()
+  const mainRef = useRef<HTMLElement>(null)
+
+  const desktopTabs = (
+    <nav className="ml-1 hidden items-center gap-1 sm:flex">
+      {NAV_ITEMS.map((item) => {
+        const active = isActive(item)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors',
+              active
+                ? 'bg-white/10 font-medium text-white'
+                : 'text-white/55 hover:bg-white/5 hover:text-white',
+            )}
+            aria-current={active ? 'page' : undefined}
+          >
+            <item.Icon className="h-[18px] w-[18px] flex-shrink-0" />
+            {item.label}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+
+  const brand = (
+    <Link
+      href="/"
+      className="flex flex-shrink-0 items-center gap-2"
+      aria-label="Freebuff home"
+    >
+      <FreebuffLogo size={28} />
+      <span className="hidden font-['Geist'] text-sm font-semibold tracking-tight text-white sm:inline">
+        Freebuff Web
+      </span>
+      <BetaBadge />
+    </Link>
+  )
+
+  const mobileTrigger = (
+    <button
+      type="button"
+      onClick={() => setMenuOpen((v) => !v)}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:hidden"
+      aria-label="Toggle navigation"
+      aria-expanded={menuOpen}
+    >
+      {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+    </button>
+  )
 
   return (
     // `fixed inset-0` so the shell fully owns the viewport and covers the
@@ -121,72 +146,20 @@ export function AppShell({
           {ambient}
         </div>
       )}
-      {/* ── Top navigation bar ───────────────────────────────────────── */}
-      <header className="relative z-30 flex h-14 flex-shrink-0 items-center gap-2 px-3 sm:gap-3 sm:px-5">
-        {/* Brand */}
-        <Link
-          href="/web"
-          className="flex flex-shrink-0 items-center gap-2"
-          aria-label="Freebuff home"
-        >
-          <FreebuffLogo size={28} />
-          <span className="hidden font-['Geist'] text-sm font-semibold tracking-tight text-foreground sm:inline">
-            Freebuff Web
-          </span>
-          <BetaBadge />
-        </Link>
-
-        {/* Desktop nav tabs */}
-        <nav className="ml-1 hidden items-center gap-1 sm:flex">
-          {NAV_ITEMS.map((item) => {
-            const active = isActive(item)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors',
-                  active
-                    ? 'bg-white/10 font-medium text-white'
-                    : 'text-white/55 hover:bg-white/5 hover:text-white',
-                )}
-                aria-current={active ? 'page' : undefined}
-              >
-                <item.Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* Right side */}
-        <div className="ml-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
-          {actions}
-
-          <a
-            href="https://discord.gg/yXG3w7wxfs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden h-9 items-center gap-2 rounded-full px-3 text-sm text-white/55 transition-colors hover:bg-white/5 hover:text-white sm:flex"
-          >
-            <MessageCircle className="h-[18px] w-[18px]" />
-            Discord
-          </a>
-
-          <UserMenu />
-
-          {/* Mobile menu toggle */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-muted hover:text-foreground sm:hidden"
-            aria-label="Toggle navigation"
-            aria-expanded={menuOpen}
-          >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-      </header>
+      {/* ── Top navigation bar (shared, unified) ─────────────────────── */}
+      <div className="relative z-30 flex-shrink-0">
+        <UnifiedNavbar
+          sticky={false}
+          showSignIn
+          hideRightOnMobile
+          scrollContainerRef={mainRef}
+          containerClassName="px-3 py-2.5 sm:px-5"
+          brand={brand}
+          leftNav={desktopTabs}
+          rightExtras={actions}
+          mobileTrigger={mobileTrigger}
+        />
+      </div>
 
       {/* ── Mobile nav menu ──────────────────────────────────────────── */}
       {menuOpen && (
@@ -211,14 +184,28 @@ export function AppShell({
               </Link>
             )
           })}
+          <div className="my-1 h-px bg-white/10" />
+          {[
+            { label: 'CLI', href: '/cli' },
+            { label: 'Web', href: '/web' },
+            { label: 'Chat', href: '/chat' },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setMenuOpen(false)}
+              className="rounded-lg px-3 py-2 text-sm text-white/55 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {l.label}
+            </Link>
+          ))}
           <a
             href="https://discord.gg/yXG3w7wxfs"
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/55 transition-colors hover:bg-white/5 hover:text-white"
+            className="rounded-lg px-3 py-2 text-sm text-white/55 transition-colors hover:bg-white/5 hover:text-white"
           >
-            <MessageCircle className="h-[18px] w-[18px] flex-shrink-0" />
             Discord
           </a>
         </div>
@@ -229,6 +216,7 @@ export function AppShell({
 
       {/* Body */}
       <main
+        ref={mainRef}
         className={cn(
           'relative z-10 min-h-0 flex-1',
           scroll ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden',
@@ -239,82 +227,6 @@ export function AppShell({
         {footer}
       </main>
     </div>
-  )
-}
-
-function UserMenu() {
-  const router = useRouter()
-  const { data: session } = useSession()
-  const currentUserId = useQuery(api.community.getCurrentUserId)
-  const user = session?.user
-  const userName = user?.name || 'User'
-  const userEmail = user?.email || ''
-  const userImage = user?.image || undefined
-
-  return (
-    <>
-      <SignedIn>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="flex items-center gap-2 rounded-lg p-0.5 transition-colors hover:bg-muted/50"
-              aria-label="Account menu"
-            >
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarImage src={userImage} alt={userName} />
-                <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            sideOffset={6}
-            className="w-56 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-2xl shadow-black/40"
-          >
-            <div className="px-2.5 py-2">
-              <p className="truncate text-sm font-medium text-foreground">
-                {userName}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {userEmail}
-              </p>
-            </div>
-            <DropdownMenuSeparator className="bg-border/60" />
-            {currentUserId && (
-              <DropdownMenuItem
-                className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-                onClick={() =>
-                  router.push(`/web/community/profile/${currentUserId}`)
-                }
-              >
-                Profile
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-              onClick={() => router.push('/web/settings')}
-            >
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border/60" />
-            <DropdownMenuItem
-              className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-foreground/90 focus:bg-muted focus:text-foreground"
-              onClick={() => signOut({ callbackUrl: '/web' })}
-            >
-              <LogOut className="mr-2.5 h-4 w-4 text-muted-foreground" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SignedIn>
-      <SignedOut>
-        <SignInButton mode="modal" asChild>
-          <button className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-            Sign in
-          </button>
-        </SignInButton>
-      </SignedOut>
-    </>
   )
 }
 

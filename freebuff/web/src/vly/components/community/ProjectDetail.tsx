@@ -52,6 +52,7 @@ import {
 import { cn } from "@/vly/lib/utils";
 import { FeaturePaywallDialog } from "@/vly/components/billing/FeaturePaywallDialog";
 import { useFeatureAccess } from "@/vly/hooks/useFeatureAccess";
+import { useRequireAuth } from "@/vly/components/auth/AuthComponents";
 import type {
   CommunityCommentData,
   CommunityPostCardData,
@@ -86,6 +87,7 @@ export default function ProjectDetail({
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
+  const { requireAuth } = useRequireAuth();
 
   const postQuery = useQuery(api.community.getPost, { postId });
   const commentsQuery = useQuery(api.community.getComments, { postId });
@@ -174,6 +176,7 @@ export default function ProjectDetail({
 
   const handleLike = async () => {
     if (!post) return;
+    if (!requireAuth()) return;
 
     try {
       if (optimisticLiked) {
@@ -194,6 +197,7 @@ export default function ProjectDetail({
 
   const handleSubmitComment = async () => {
     if (!comment.trim()) return;
+    if (!requireAuth()) return;
 
     setIsSubmitting(true);
     try {
@@ -409,12 +413,12 @@ export default function ProjectDetail({
   }
 
   return (
-    <div className="min-h-full bg-background pb-12">
+    <div className="min-h-full pb-12">
       {/* Back button */}
       <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
         <Link
           href="/web/community"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-2 text-sm text-white/55 transition-colors hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Community
@@ -430,7 +434,7 @@ export default function ProjectDetail({
             {post.previewUrl && (
               <div
                 ref={iframeContainerRef}
-                className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/50 bg-muted/20"
+                className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
               >
                 <iframe
                   src={post.previewUrl}

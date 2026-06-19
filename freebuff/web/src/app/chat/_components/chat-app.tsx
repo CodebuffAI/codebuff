@@ -1,14 +1,13 @@
 'use client'
 
 import { Check, Menu, Pencil, Plus, Trash2, X } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ChatMessage, ThreadSummary } from './types'
 
 // NB: `@/components/*` is aliased to vly in this package, so import relatively.
-import { AccountMenu } from '../../../components/landing/AccountMenu'
+import { UnifiedNavbar } from '../../../components/landing/UnifiedNavbar'
 import {
   BlockTreeBuilder,
   isChatBlockArray,
@@ -372,18 +371,7 @@ export function ChatApp() {
 
   const sidebar = (
     <div className="flex h-full w-64 flex-col bg-white/[0.025]">
-      <div className="flex items-center gap-2 px-4 pb-2 pt-4">
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo-icon.png" alt="Freebuff" width={20} height={20} />
-          <span className="font-serif text-sm tracking-widest text-white">
-            freebuff
-          </span>
-        </Link>
-        <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-          chat
-        </span>
-      </div>
-      <div className="px-2.5 pt-3">
+      <div className="px-2.5 pt-4">
         <button
           type="button"
           onClick={() => openThread(null)}
@@ -478,9 +466,6 @@ export function ChatApp() {
         </ul>
       </nav>
       <div className="border-t border-white/5 px-3 py-3">
-        <div className="px-1 pb-2">
-          <AccountMenu align="start" />
-        </div>
         <p className="truncate px-1 text-[11px] leading-relaxed text-muted-foreground/60">
           By Freebuff ·{' '}
           <Link href="/" className="underline hover:text-muted-foreground">
@@ -492,41 +477,48 @@ export function ChatApp() {
   )
 
   return (
-    <div className="flex h-full">
-      {/* Desktop sidebar */}
-      <aside className="hidden border-r border-white/5 md:block">
-        {sidebar}
-      </aside>
-
-      {/* Mobile sidebar */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <aside
-            role="dialog"
-            aria-modal="true"
-            aria-label="Chat history"
-            className="absolute inset-y-0 left-0 z-50 border-r border-white/10 bg-zinc-950"
+    <div className="flex h-full flex-col">
+      <UnifiedNavbar
+        sticky={false}
+        hideRightOnMobile
+        mobileTrigger={
+          <button
+            type="button"
+            aria-label="Open chat history"
+            onClick={() => setSidebarOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white md:hidden"
           >
-            {sidebar}
-          </aside>
-        </div>
-      )}
+            <Menu className="h-5 w-5" />
+          </button>
+        }
+      />
 
-      <main className="relative flex min-w-0 flex-1 flex-col">
-        <button
-          type="button"
-          aria-label="Open menu"
-          onClick={() => setSidebarOpen(true)}
-          className="absolute left-3 top-3 z-10 rounded-lg p-2 text-muted-foreground hover:bg-white/5 md:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      <div className="flex min-h-0 flex-1">
+        {/* Desktop sidebar */}
+        <aside className="hidden border-r border-white/5 md:block">
+          {sidebar}
+        </aside>
 
-        {isEmptyChat ? (
+        {/* Mobile sidebar */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 md:hidden">
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Chat history"
+              className="absolute inset-y-0 left-0 z-50 border-r border-white/10 bg-zinc-950"
+            >
+              {sidebar}
+            </aside>
+          </div>
+        )}
+
+        <main className="relative flex min-w-0 flex-1 flex-col">
+          {isEmptyChat ? (
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <h1 className="mb-8 text-2xl font-medium tracking-tight text-foreground/90 md:text-3xl">
               What can I help with?
@@ -544,7 +536,8 @@ export function ChatApp() {
             </div>
           </>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

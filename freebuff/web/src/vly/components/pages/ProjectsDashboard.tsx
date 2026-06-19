@@ -36,6 +36,10 @@ import { DocumentInput } from '@/vly/components/test-landing/DocumentInput'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
 import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
+import { WebLandingSections } from '@/vly/components/pages/WebLandingSections'
+// NB: `@/components/*` is aliased to `src/vly/components/*`, so the landing
+// footer is imported relatively.
+import { CtaFooter } from '../../../components/landing/sections/CtaFooter'
 
 const ThemePickerModal = lazy(
   () => import('@/vly/components/ThemePickerModal'),
@@ -71,9 +75,15 @@ function isLegacyProject(project: AnyProject): boolean {
 
 export default function ProjectsDashboard() {
   const { status: sessionStatus } = useSession()
-  const projects = useQuery(api.project.getUserProjects)
-  const isLoadingProjects =
-    sessionStatus === 'loading' || projects === undefined
+  const isAuthed = sessionStatus === 'authenticated'
+  const isAuthLoading = sessionStatus === 'loading'
+  // Only fetch projects when signed in — `/web` is a public landing page for
+  // logged-out visitors, who see marketing content instead of a project list.
+  const projects = useQuery(
+    api.project.getUserProjects,
+    isAuthed ? {} : 'skip',
+  )
+  const isLoadingProjects = isAuthLoading || (isAuthed && projects === undefined)
   const router = useRouter()
   const { customer } = useCustomer()
 
@@ -123,14 +133,23 @@ export default function ProjectsDashboard() {
   }
 
   return (
-    <AppShell ambient={<AmbientBackdrop />}>
+    <AppShell
+      ambient={<AmbientBackdrop />}
+      footer={!isAuthed && !isAuthLoading ? <CtaFooter /> : undefined}
+    >
       <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
         <section className="mb-12">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="lp-hero-heading text-3xl font-normal leading-tight text-white sm:text-4xl">
-              What do you want to build?
+              {isAuthed ? 'What do you want to build?' : 'The 100% free AI app builder'}
             </h2>
+            {!isAuthed && !isAuthLoading && (
+              <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/55">
+                Describe your idea and Freebuff builds, previews, and deploys a
+                full-stack app. No subscription, no API keys.
+              </p>
+            )}
           </div>
           <div className="mx-auto mt-7 max-w-3xl">
             <HeroStorageProvider>
@@ -147,7 +166,11 @@ export default function ProjectsDashboard() {
           </div>
         </section>
 
+        {/* Logged-out: marketing landing. Logged-in: project list. */}
+        {!isAuthed && !isAuthLoading && <WebLandingSections />}
+
         {/* ── Your projects ──────────────────────────────────────────── */}
+        {(isAuthed || isAuthLoading) && (
         <section>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-baseline gap-2.5">
@@ -366,6 +389,7 @@ export default function ProjectsDashboard() {
             </div>
           )}
         </section>
+        )}
       </div>
 
       {/* ── Delete confirmation ──────────────────────────────────────── */}

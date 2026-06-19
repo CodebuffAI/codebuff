@@ -1,6 +1,6 @@
 "use client";
 
-import { Project2 } from "@/vly/components/pages/project-2";
+import { Project2, ProjectLoadingScreen } from "@/vly/components/pages/project-2";
 import { ProjectErrorBoundary } from "@/vly/components/error-boundary";
 import {
   useParams,
@@ -8,7 +8,7 @@ import {
   useSearchParams,
   useRouter,
 } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { MigrationOverlay } from "@/vly/components/project-2/MigrationOverlay";
@@ -30,7 +30,17 @@ export default function ProjectPage() {
 
   return (
     <ProjectErrorBoundary semanticIdentifier={semanticIdentifier}>
-      <ProjectPageContent semanticIdentifier={semanticIdentifier} />
+      {/* `ProjectPageContent` (and `Project2` below it) call `useSearchParams`,
+          which REQUIRES a Suspense boundary in the App Router. Without it a
+          client-side navigation into this route could de-opt and leave the
+          page stranded on the loader until a hard refresh. The `key` also
+          remounts the subtree cleanly when switching between projects. */}
+      <Suspense fallback={<ProjectLoadingScreen />}>
+        <ProjectPageContent
+          key={semanticIdentifier}
+          semanticIdentifier={semanticIdentifier}
+        />
+      </Suspense>
     </ProjectErrorBoundary>
   );
 }

@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/vly/components/ui/avatar"
 import { Button } from "@/vly/components/ui/button";
 import { Skeleton } from "@/vly/components/ui/skeleton";
 import ProjectCard from "./ProjectCard";
+import { useRequireAuth } from "@/vly/components/auth/AuthComponents";
 import type {
   CommunityPostCardData,
   CommunityProfileData,
@@ -41,6 +42,7 @@ export default function UserProfile({
   initialPosts = [],
 }: UserProfileProps) {
   const [optimisticFollowing, setOptimisticFollowing] = useState(false);
+  const { requireAuth } = useRequireAuth();
 
   const profileQuery = useQuery(api.community.getUserProfile, { userId });
   const postsQuery = useQuery(api.community.getUserPosts, { userId, limit: 20 });
@@ -58,6 +60,7 @@ export default function UserProfile({
 
   const handleFollow = async () => {
     if (!profile) return;
+    if (!requireAuth()) return;
     try {
       if (optimisticFollowing) {
         setOptimisticFollowing(false);
@@ -77,10 +80,10 @@ export default function UserProfile({
   if (profile === undefined) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <Skeleton className="mb-6 h-44 w-full rounded-lg bg-muted/35" />
+        <Skeleton className="mb-6 h-44 w-full rounded-2xl bg-white/[0.05]" />
         <div className="grid gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((index) => (
-            <Skeleton key={index} className="h-72 rounded-lg bg-muted/35" />
+            <Skeleton key={index} className="h-72 rounded-2xl bg-white/[0.05]" />
           ))}
         </div>
       </div>
@@ -90,15 +93,15 @@ export default function UserProfile({
   if (profile === null) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
-        <h2 className="mb-2 text-2xl font-semibold text-foreground">
+        <h2 className="mb-2 text-2xl font-semibold text-white">
           User not found
         </h2>
-        <p className="mb-6 text-sm text-muted-foreground">
+        <p className="mb-6 text-sm text-white/55">
           This profile does not exist.
         </p>
         <Link
           href="/web/community"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-background px-3 text-sm text-foreground transition-colors hover:bg-muted"
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 text-sm text-white transition-colors hover:bg-white/[0.08]"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Community
@@ -109,42 +112,42 @@ export default function UserProfile({
 
   return (
     <div className="min-h-full pb-20">
-      <div className="border-b border-border/50 bg-background">
+      <div className="border-b border-white/10">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
           <Link
             href="/web/community"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="mb-6 inline-flex items-center gap-2 text-sm text-white/55 transition-colors hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Community
           </Link>
 
-          <section className="rounded-lg border border-border/50 bg-muted/15 p-5">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-              <Avatar className="h-20 w-20 shrink-0 border border-border/60">
+              <Avatar className="h-20 w-20 shrink-0 border border-white/10">
                 <AvatarImage src={profile.profileImage} />
-                <AvatarFallback className="bg-background text-2xl font-semibold text-primary">
+                <AvatarFallback className="bg-white/[0.06] text-2xl font-semibold text-forest-bright">
                   {profile.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-white">
                   {profile.name}
                 </h1>
 
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
                   {profile.bio || "No bio yet"}
                 </p>
 
-                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/55">
                   <ProfileStat
                     icon={<Heart className="h-4 w-4 text-rose-400" />}
                     value={profile.totalLikesReceived}
                     label="likes"
                   />
                   <ProfileStat
-                    icon={<Users className="h-4 w-4 text-primary" />}
+                    icon={<Users className="h-4 w-4 text-forest-bright" />}
                     value={profile.followersCount}
                     label="followers"
                   />
@@ -153,7 +156,7 @@ export default function UserProfile({
                     label="following"
                   />
                   <ProfileStat
-                    icon={<Folder className="h-4 w-4 text-primary" />}
+                    icon={<Folder className="h-4 w-4 text-forest-bright" />}
                     value={profile.postsCount}
                     label="projects"
                   />
@@ -188,7 +191,7 @@ export default function UserProfile({
                 {profile.isOwnProfile ? (
                   <Link
                     href="/web/settings"
-                    className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-background px-3 text-sm text-foreground transition-colors hover:bg-muted"
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 text-sm text-white transition-colors hover:bg-white/[0.08]"
                   >
                     <Settings className="h-4 w-4" />
                     Edit in settings
@@ -198,8 +201,8 @@ export default function UserProfile({
                     onClick={handleFollow}
                     className={
                       optimisticFollowing
-                        ? "gap-2 border border-border/60 bg-background text-foreground hover:bg-muted"
-                        : "gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                        ? "gap-2 rounded-full border border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                        : "gap-2 rounded-full bg-forest text-white hover:bg-forest/90"
                     }
                   >
                     {optimisticFollowing ? (
@@ -222,9 +225,9 @@ export default function UserProfile({
       </div>
 
       <div className="mx-auto max-w-5xl px-4 pt-8 sm:px-6">
-        <div className="mb-5 flex items-baseline gap-2 border-b border-border/50 pb-3">
-          <h2 className="text-base font-semibold text-foreground">Projects</h2>
-          <span className="text-sm text-muted-foreground">
+        <div className="mb-5 flex items-baseline gap-2 border-b border-white/10 pb-3">
+          <h2 className="text-base font-semibold text-white">Projects</h2>
+          <span className="text-sm text-white/45">
             {profile.postsCount}
           </span>
         </div>
@@ -232,15 +235,15 @@ export default function UserProfile({
         {postsQuery === undefined && initialPosts.length === 0 ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {[0, 1, 2, 3].map((index) => (
-              <Skeleton key={index} className="h-72 rounded-lg bg-muted/35" />
+              <Skeleton key={index} className="h-72 rounded-2xl bg-white/[0.05]" />
             ))}
           </div>
         ) : posts.length === 0 ? (
-          <div className="rounded-lg border border-border/50 bg-muted/15 px-6 py-12 text-center">
-            <h3 className="text-lg font-medium text-foreground">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
+            <h3 className="text-lg font-medium text-white">
               {profile.isOwnProfile ? "No published projects" : "No projects"}
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-white/55">
               {profile.isOwnProfile
                 ? "Publish a deployed project from the Community page to show it here."
                 : "This user has not shared any projects yet."}
@@ -270,7 +273,7 @@ function ProfileStat({
   return (
     <span className="inline-flex items-center gap-1.5">
       {icon}
-      <span className="font-medium text-foreground">{value}</span>
+      <span className="font-medium text-white">{value}</span>
       {label}
     </span>
   );
@@ -290,7 +293,7 @@ function ProfileLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/50 bg-background/55 px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 text-sm text-white/55 transition-colors hover:bg-white/[0.08] hover:text-white"
     >
       {icon && <span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span>}
       {children}

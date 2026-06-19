@@ -361,12 +361,12 @@ export default function GeneralSettingsPage() {
       ambient={<AmbientBackdrop />}
     >
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="sticky top-0 z-10 -mx-4 mb-5 flex gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="sticky top-0 z-10 -mx-4 mb-5 flex gap-2 overflow-x-auto border-b border-white/10 bg-black/40 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
           {SETTINGS_TABS.map((tab) => (
             <a
               key={tab.id}
               href={`#${tab.id}`}
-              className="flex h-8 flex-shrink-0 items-center rounded-full bg-muted/35 px-3 text-xs font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+              className="flex h-8 flex-shrink-0 items-center rounded-full bg-white/[0.06] px-3.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             >
               {tab.label}
             </a>
@@ -858,11 +858,11 @@ function SettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-20 rounded-lg border border-border/50 bg-card p-5">
+    <section id={id} className="scroll-mt-20 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-foreground">{title}</h2>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          <h2 className="text-base font-semibold text-white">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-white/55">
             {description}
           </p>
         </div>
@@ -875,9 +875,9 @@ function SettingsSection({
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border/50 bg-background/45 px-3 py-2">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate text-sm text-foreground">{value}</div>
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
+      <div className="text-xs font-medium text-white/55">{label}</div>
+      <div className="mt-1 truncate text-sm text-white">{value}</div>
     </div>
   );
 }
