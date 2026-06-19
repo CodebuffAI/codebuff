@@ -2,6 +2,14 @@
  * Enum of analytics event types used throughout the application
  */
 export enum AnalyticsEvent {
+  // Cross-surface — DAU
+  // Emitted exactly once per user-submitted message/prompt, on each surface
+  // (cli / web / chat), and never sampled. `distinct_id` is the canonical
+  // codebuff Postgres user id on every surface, so unique-users of this event
+  // gives accurate per-surface DAU (filter on the `surface` property) and a
+  // combined DAU (no filter). The `surface` property is one of: cli, web, chat.
+  MESSAGE_SENT = 'message_sent',
+
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
   FINGERPRINT_GENERATED = 'cli.fingerprint_generated',

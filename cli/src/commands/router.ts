@@ -22,6 +22,7 @@ import {
   createRunTerminalToolResult,
 } from '../utils/bash-messages'
 import { showClipboardMessage } from '../utils/clipboard'
+import { IS_FREEBUFF } from '../utils/constants'
 import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import {
@@ -293,6 +294,23 @@ export async function routeUserPrompt(
     hasMentions: mentionMatches.length > 0,
     mentionCount: mentionMatches.length,
   })
+
+  // DAU signal: one un-sampled event per user-submitted prompt. The CLI's
+  // distinct id resolves to the canonical codebuff user id (anonymous id is
+  // aliased to the real user id on login), matching the web and chat surfaces
+  // so combined DAU is a single unique-users query. Freebuff-only: codebuff
+  // CLI usage is intentionally excluded.
+  if (IS_FREEBUFF) {
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, {
+      surface: 'cli',
+      mode: agentMode,
+      inputMode,
+      inputLength: trimmed.length,
+      isSlashCommand: isSlashCommand(trimmed),
+      isBashCommand: trimmed.startsWith('!'),
+      hasImages: pendingImages.length > 0,
+    })
+  }
 
   // Handle bash mode commands
   if (inputMode === 'bash') {
