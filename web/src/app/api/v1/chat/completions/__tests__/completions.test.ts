@@ -1519,13 +1519,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     )
 
     it(
-      'routes OpenCode Zen models and existing Kimi alias to the direct OpenCode Zen provider',
+      'routes OpenCode Zen-prefixed models to the direct OpenCode Zen provider',
       async () => {
         const testCases = [
-          {
-            codebuffModel: 'moonshotai/kimi-k2.6',
-            upstreamModel: 'kimi-k2.6',
-          },
           {
             codebuffModel: openCodeZenModels.opencode_kimi_k2_6,
             upstreamModel: 'kimi-k2.6',
@@ -1633,6 +1629,108 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           expect(body.model).toBe(codebuffModel)
           expect(body.provider).toBe('OpenCode Zen')
         }
+      },
+      FETCH_PATH_TEST_TIMEOUT_MS,
+    )
+
+    it(
+      'routes Kimi K2.6 to the direct CanopyWave provider',
+      async () => {
+        const fetchedBodies: Record<string, unknown>[] = []
+        const fetchedUrls: string[] = []
+        const fetchViaCanopyWave = mock(
+          async (url: string | URL | Request, init?: RequestInit) => {
+            if (String(url).startsWith('https://api.ipinfo.io/lookup/')) {
+              return Response.json({})
+            }
+
+            fetchedUrls.push(String(url))
+            fetchedBodies.push(JSON.parse(init?.body as string))
+            return new Response(
+              JSON.stringify({
+                id: 'test-id',
+                model: 'moonshotai/kimi-k2.6',
+                choices: [{ message: { content: 'test response' } }],
+                usage: {
+                  prompt_tokens: 10,
+                  prompt_tokens_details: { cached_tokens: 4 },
+                  completion_tokens: 20,
+                  total_tokens: 30,
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          },
+        ) as unknown as typeof globalThis.fetch
+
+        const req = new NextRequest(
+          'http://localhost:3000/api/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer test-api-key-123',
+            },
+            body: JSON.stringify({
+              model: 'moonshotai/kimi-k2.6',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'system prompt',
+                  cache_control: { type: 'ephemeral' },
+                },
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'hello',
+                      cache_control: { type: 'ephemeral' },
+                    },
+                  ],
+                },
+              ],
+              tools: [
+                {
+                  id: 'tool_1',
+                  type: 'function',
+                  function: {
+                    name: 'read_files',
+                    parameters: { type: 'object' },
+                  },
+                },
+              ],
+              stream: false,
+              codebuff_metadata: {
+                run_id: 'run-123',
+                client_id: 'test-client-id-123',
+              },
+            }),
+          },
+        )
+
+        const response = await postChatCompletionsForTest({
+          req,
+          getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+          logger: mockLogger,
+          trackEvent: mockTrackEvent,
+          getUserUsageData: mockGetUserUsageData,
+          getAgentRunFromId: mockGetAgentRunFromId,
+          fetch: fetchViaCanopyWave,
+          insertMessageBigquery: mockInsertMessageBigquery,
+          loggerWithContext: mockLoggerWithContext,
+        })
+
+        const body = await response.json()
+        expect(response.status).toBe(200)
+        expect(fetchedUrls[0]).toBe(
+          'https://inference.canopywave.io/v1/chat/completions',
+        )
+        expect(fetchedBodies[0].model).toBe('moonshotai/kimi-k2.6')
+        expect(body.model).toBe('moonshotai/kimi-k2.6')
+        expect(body.provider).toBe('CanopyWave')
       },
       FETCH_PATH_TEST_TIMEOUT_MS,
     )

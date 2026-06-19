@@ -59,7 +59,10 @@ const CANOPYWAVE_MODELS: Record<
   },
 }
 
-const CANOPYWAVE_ROUTED_MODELS = new Set<string>(['minimax/minimax-m2.5'])
+const CANOPYWAVE_ROUTED_MODELS = new Set<string>([
+  'minimax/minimax-m2.5',
+  'moonshotai/kimi-k2.6',
+])
 
 export function isCanopyWaveModel(model: string): boolean {
   return CANOPYWAVE_ROUTED_MODELS.has(model)

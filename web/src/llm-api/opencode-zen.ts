@@ -40,7 +40,6 @@ const KIMI_ZEN_MODEL = 'kimi-k2.6'
 const MINIMAX_M2_7_ZEN_MODEL = 'minimax-m2.7'
 
 const OPENCODE_ZEN_MODEL_ALIASES: Record<string, string> = {
-  'moonshotai/kimi-k2.6': KIMI_ZEN_MODEL,
   [openCodeZenModels.opencode_kimi_k2_6]: KIMI_ZEN_MODEL,
   [openCodeZenModels.opencode_minimax_m2_7]: MINIMAX_M2_7_ZEN_MODEL,
 }

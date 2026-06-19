@@ -210,9 +210,9 @@ function getChatCompletionsProvider(model: string): ChatCompletionsProvider {
   if (SILICONFLOW_DIRECT_ROUTING_ENABLED && isSiliconFlowModel(model)) {
     return 'siliconflow'
   }
+  if (isCanopyWaveModel(model)) return 'canopywave'
   if (isOpenCodeZenModel(model)) return 'opencodeZen'
   if (isMoonshotModel(model)) return 'moonshot'
-  if (isCanopyWaveModel(model)) return 'canopywave'
   if (isDeepSeekModel(model)) return 'deepseek'
   if (isMiMoModel(model)) return 'mimo'
   if (isMiniMaxModel(model)) return 'minimax'
