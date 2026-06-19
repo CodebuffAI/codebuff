@@ -27,8 +27,18 @@ const isJSONObject = (value: JSONValue | undefined): value is JSONObject =>
 
 /** Gravity attribution surface, so clicks/conversions are attributable to the
  *  product the request came from rather than all reading as CLI traffic. */
-const gravitySurface = (agentTemplate: { id: string }): string =>
-  agentTemplate.id === 'base-chat' ? 'freebuff_chat' : 'codebuff_cli'
+const gravitySurface = (agentTemplate: { id: string }): string => {
+  if (agentTemplate.id === 'base-chat') return 'freebuff_chat'
+  // Freebuff Web project agents are the `base2-free*` family.
+  if (agentTemplate.id.startsWith('base2-free')) return 'freebuff_web'
+  return 'codebuff_cli'
+}
+
+/** Surfaces that run under a shared service-account API key. For these we must
+ *  send a per-end-user identifier so Gravity attributes conversions to the real
+ *  user instead of collapsing every request onto the service account. */
+const isServiceAccountSurface = (surface: string): boolean =>
+  surface === 'freebuff_chat' || surface === 'freebuff_web'
 
 export const handleGravityIndex = (async (params: {
   previousToolCallFinished: Promise<void>
@@ -89,10 +99,11 @@ export const handleGravityIndex = (async (params: {
     const existingMetadata = isJSONObject(existingInput.metadata)
       ? existingInput.metadata
       : {}
+    const surface = gravitySurface(agentTemplate)
     const metadata = {
       ...existingMetadata,
       ...omitUndefined({
-        surface: gravitySurface(agentTemplate),
+        surface,
         tool_call_id: toolCall.toolCallId,
         agent_step_id: agentStepId,
         fingerprint_id: fingerprintId,
@@ -103,6 +114,15 @@ export const handleGravityIndex = (async (params: {
     const input = {
       ...existingInput,
       external_session_id: clientSessionId,
+      // Shared service-account surfaces (Freebuff Web) authenticate the web API
+      // with one account key, so the API-key owner can't identify the end user.
+      // `fingerprintId` is the stable per-end-user/per-project signal there
+      // (e.g. `freebuff-chat-<userId>` or the project id), so forward it as the
+      // external user id; the web API hashes it before sending to Gravity. CLI
+      // traffic omits it and falls back to the real API-key owner server-side.
+      ...(isServiceAccountSurface(surface)
+        ? { external_user_id: fingerprintId }
+        : {}),
       metadata,
     } satisfies JSONObject
 

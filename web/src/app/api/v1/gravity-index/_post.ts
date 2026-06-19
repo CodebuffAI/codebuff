@@ -67,8 +67,18 @@ const getAttributionFields = (params: {
   userId: string
   email: string | undefined
 }) => {
+  // Prefer a caller-supplied end-user identifier (sent by shared
+  // service-account surfaces like Freebuff Web) so conversions attribute to the
+  // real end user instead of collapsing onto the service account. Fall back to
+  // the API-key owner (the correct identity for first-party CLI traffic).
+  const callerExternalUserId =
+    'external_user_id' in params.input && params.input.external_user_id
+      ? params.input.external_user_id
+      : undefined
+  const externalUserId = callerExternalUserId ?? params.userId
+
   const attribution: Record<string, unknown> = {
-    external_user_id_hash: sha256(params.userId),
+    external_user_id_hash: sha256(externalUserId),
   }
 
   if (
@@ -84,7 +94,7 @@ const getAttributionFields = (params: {
     attribution.email_hash = sha256(params.email.trim().toLowerCase())
   }
 
-  return attribution
+  return { attribution, usedCallerExternalUserId: Boolean(callerExternalUserId) }
 }
 
 const buildGravityIndexRequest = (
@@ -218,11 +228,29 @@ export async function postGravityIndex(params: {
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-  const attribution = getAttributionFields({
+  const { attribution, usedCallerExternalUserId } = getAttributionFields({
     input,
     userId,
     email: userInfo.email,
   })
+
+  logger.info(
+    {
+      action: input.action,
+      // Whether attribution is per-end-user (Freebuff Web et al.) vs. the
+      // API-key owner (CLI). Helps confirm conversions aren't collapsing onto
+      // the shared service account.
+      attributionSource: usedCallerExternalUserId ? 'caller' : 'api_key_user',
+      hasExternalSessionId: 'external_session_id' in attribution,
+      surface:
+        'metadata' in input &&
+        input.metadata &&
+        typeof input.metadata === 'object'
+          ? (input.metadata as Record<string, unknown>).surface
+          : undefined,
+    },
+    'Gravity Index request attribution',
+  )
 
   try {
     const response = await fetch(

@@ -192,6 +192,42 @@ describe('/api/v1/gravity-index POST endpoint', () => {
     })
   })
 
+  test('honors a caller-supplied external_user_id for per-end-user attribution', async () => {
+    const req = new NextRequest('http://localhost:3000/api/v1/gravity-index', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid' },
+      body: JSON.stringify({
+        action: 'search',
+        query: 'transactional email',
+        // Shared service-account surfaces (Freebuff Web) pass the real end-user
+        // signal here so conversions don't collapse onto the service account.
+        external_user_id: 'freebuff-chat-user-42',
+        external_session_id: 'session-1',
+        metadata: { surface: 'freebuff_chat' },
+      }),
+    })
+
+    const res = await postGravityIndex({
+      req,
+      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+      logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
+      trackEvent: mockTrackEvent,
+      fetch: mockFetch,
+      serverEnv: testServerEnv,
+    })
+
+    expect(res.status).toBe(200)
+    const [, init] = (mockFetch as unknown as ReturnType<typeof mock>).mock
+      .calls[0] as [string, RequestInit]
+    const sentBody = JSON.parse(String(init.body))
+    // Hashed from the caller-supplied end-user id, NOT the API-key owner.
+    expect(sentBody.external_user_id_hash).toBe(sha256('freebuff-chat-user-42'))
+    expect(sentBody.external_user_id_hash).not.toBe(sha256('user-1'))
+    // Raw id must never be forwarded to Gravity.
+    expect(sentBody.external_user_id).toBeUndefined()
+  })
+
   test('returns Gravity recommendation on success', async () => {
     const req = new NextRequest('http://localhost:3000/api/v1/gravity-index', {
       method: 'POST',

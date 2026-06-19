@@ -146,6 +146,9 @@ describe('gravity_index tool', () => {
         }),
       }),
     )
+    // CLI traffic must NOT forward external_user_id; the web API attributes it
+    // to the real API-key owner instead.
+    expect(spy.mock.calls[0]?.[0]?.input).not.toHaveProperty('external_user_id')
   })
 
   test('tags base-chat traffic with the freebuff_chat surface', async () => {
@@ -194,6 +197,7 @@ describe('gravity_index tool', () => {
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
+          external_user_id: 'test-fingerprint',
           metadata: expect.objectContaining({
             surface: 'freebuff_chat',
           }),
@@ -202,7 +206,7 @@ describe('gravity_index tool', () => {
     )
   })
 
-  test('does not special-case base2-free traffic as web surface', async () => {
+  test('tags base2-free traffic with the freebuff_web surface and forwards external_user_id', async () => {
     const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: { search_id: 'search-1' },
     })
@@ -248,8 +252,12 @@ describe('gravity_index tool', () => {
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
+          // Freebuff Web runs under a shared service account, so the handler
+          // forwards the stable per-end-user signal (fingerprintId) for
+          // attribution instead of letting it collapse onto the service account.
+          external_user_id: 'test-fingerprint',
           metadata: expect.objectContaining({
-            surface: 'codebuff_cli',
+            surface: 'freebuff_web',
           }),
         }),
       }),
