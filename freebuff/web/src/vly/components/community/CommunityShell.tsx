@@ -3,7 +3,6 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Compass, Star, Trophy } from 'lucide-react'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
 import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 // NB: `@/components/*` is aliased to `src/vly/components/*`, so the landing
@@ -11,9 +10,9 @@ import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 import { CtaFooter } from '../../../components/landing/sections/CtaFooter'
 
 const SUBNAV = [
-  { label: 'Featured', href: '/web/community', Icon: Star, exact: true },
-  { label: 'Explore', href: '/web/community/explore', Icon: Compass },
-  { label: 'Leaderboard', href: '/web/community/leaderboard', Icon: Trophy },
+  { label: 'Featured', href: '/web/community', exact: true },
+  { label: 'Explore', href: '/web/community/explore' },
+  { label: 'Leaderboard', href: '/web/community/leaderboard' },
 ]
 
 /**
@@ -42,21 +41,18 @@ export function CommunityShell({
       ambient={<AmbientBackdrop />}
       footer={<CtaFooter />}
       subnav={
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 pt-0.5">
-          {SUBNAV.map(({ label, href, Icon, exact }) => {
+        <div className="flex items-center gap-1 overflow-x-auto pb-2 pt-0.5">
+          {SUBNAV.map(({ label, href, exact }) => {
             const active = isActive(href, exact)
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex h-9 flex-shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/55 hover:bg-white/5 hover:text-white'
+                className={`flex h-9 flex-shrink-0 items-center rounded-md px-2 text-sm transition-colors sm:px-3 ${
+                  active ? 'text-white' : 'text-white/55 hover:text-white'
                 }`}
                 aria-current={active ? 'page' : undefined}
               >
-                <Icon className="h-4 w-4" />
                 {label}
               </Link>
             )

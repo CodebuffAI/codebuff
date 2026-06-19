@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { FolderKanban, Users, Settings, Gift, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/vly/lib/utils'
 // NB: `@/components/*` is aliased to `src/vly/components/*`, so the shared
 // landing nav is imported relatively.
@@ -14,16 +14,15 @@ import { BetaBadge } from './BetaBadge'
 export interface AppShellNavItem {
   label: string
   href: string
-  Icon: typeof FolderKanban
   /** Match exactly instead of prefix (used for the "/web" home item). */
   exact?: boolean
 }
 
 const NAV_ITEMS: AppShellNavItem[] = [
-  { label: 'Projects', href: '/web', Icon: FolderKanban, exact: true },
-  { label: 'Community', href: '/web/community', Icon: Users },
-  { label: 'Referrals', href: '/web/referrals', Icon: Gift },
-  { label: 'Settings', href: '/web/settings', Icon: Settings },
+  { label: 'Projects', href: '/web', exact: true },
+  { label: 'Community', href: '/web/community' },
+  { label: 'Referrals', href: '/web/referrals' },
+  { label: 'Settings', href: '/web/settings' },
 ]
 
 function useIsActive() {
@@ -79,7 +78,7 @@ export function AppShell({
   const mainRef = useRef<HTMLElement>(null)
 
   const desktopTabs = (
-    <nav className="ml-1 hidden items-center gap-1 sm:flex">
+    <nav className="ml-1 hidden items-center sm:flex">
       {NAV_ITEMS.map((item) => {
         const active = isActive(item)
         return (
@@ -87,14 +86,11 @@ export function AppShell({
             key={item.href}
             href={item.href}
             className={cn(
-              'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors',
-              active
-                ? 'bg-white/10 font-medium text-white'
-                : 'text-white/55 hover:bg-white/5 hover:text-white',
+              'rounded-md px-2 py-2 text-[13px] transition-colors sm:px-3 sm:text-sm',
+              active ? 'text-white' : 'text-white/55 hover:text-white',
             )}
             aria-current={active ? 'page' : undefined}
           >
-            <item.Icon className="h-[18px] w-[18px] flex-shrink-0" />
             {item.label}
           </Link>
         )
@@ -172,14 +168,11 @@ export function AppShell({
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                  active
-                    ? 'bg-white/10 font-medium text-white'
-                    : 'text-white/55 hover:bg-white/5 hover:text-white',
+                  'rounded-lg px-3 py-2 text-sm transition-colors',
+                  active ? 'text-white' : 'text-white/55 hover:text-white',
                 )}
                 aria-current={active ? 'page' : undefined}
               >
-                <item.Icon className="h-[18px] w-[18px] flex-shrink-0" />
                 {item.label}
               </Link>
             )

@@ -174,24 +174,21 @@ export function ProjectIframeArea({
         <div className="flex flex-shrink-0 flex-col bg-background">
           <div className="flex items-center justify-between gap-2 px-3 py-1.5">
             <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-              {TOP_TABS.map(({ id, label, Icon }) => {
+              {TOP_TABS.map(({ id, label }) => {
                 const isActive = activeTab === id
                 return (
                   <button
                     key={id}
                     type="button"
                     onClick={() => setActiveTab(id)}
-                    className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors ${
+                    className={`flex h-8 flex-shrink-0 items-center rounded-md px-2 text-sm transition-colors ${
                       isActive
-                        ? 'bg-muted text-foreground'
-                        : 'text-foreground/70 hover:bg-muted/50 hover:text-foreground'
+                        ? 'text-foreground'
+                        : 'text-foreground/55 hover:text-foreground'
                     }`}
                     aria-pressed={isActive}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span className={isChatExpanded ? 'hidden' : 'hidden md:inline'}>
-                      {label}
-                    </span>
+                    {label}
                   </button>
                 )
               })}

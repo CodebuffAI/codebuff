@@ -1,15 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import {
-  ArrowRight,
-  Gauge,
-  Palette,
-  Rocket,
-  Sparkles,
-  Users,
-} from 'lucide-react'
-import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 
 import { SignInButton } from '@/vly/components/auth/AuthComponents'
 import { cn } from '@/vly/lib/utils'
@@ -24,29 +16,6 @@ import {
   logWidthPct,
   type Competitor,
 } from '../../../components/landing/lib/competitors'
-
-const HIGHLIGHTS = [
-  {
-    Icon: Sparkles,
-    title: '100% free, forever',
-    body: 'No subscription, no credit card, no API keys. Supported by unobtrusive text ads — never paywalls.',
-  },
-  {
-    Icon: Rocket,
-    title: 'Full-stack in minutes',
-    body: 'Describe your idea and Freebuff builds the frontend, backend, database, and auth — wired up and ready.',
-  },
-  {
-    Icon: Gauge,
-    title: 'Live preview & deploy',
-    body: 'Get a shareable preview URL instantly and ship to production in one click — hosting included.',
-  },
-  {
-    Icon: Palette,
-    title: 'Your style, your code',
-    body: 'Pick a built-in theme or describe the look you want. Export the underlying code anytime.',
-  },
-]
 
 const WEB_FAQS = [
   {
@@ -83,32 +52,6 @@ const WEB_FAQS = [
 export function WebLandingSections() {
   return (
     <>
-      {/* Highlights */}
-      <Section>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {HIGHLIGHTS.map((h, i) => (
-            <motion.div
-              key={h.title}
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{ duration: 0.5, delay: i * 0.06 }}
-              className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"
-            >
-              <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-forest/10 text-forest-bright">
-                <h.Icon className="h-[18px] w-[18px]" />
-              </div>
-              <h3 className="font-['Geist'] font-medium text-white">
-                {h.title}
-              </h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/50">
-                {h.body}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-      </Section>
-
       {/* Cost comparison */}
       <Section>
         <div className="mx-auto max-w-2xl text-center">
@@ -125,39 +68,6 @@ export function WebLandingSections() {
         </div>
         <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-white/[0.08] bg-[#0b0c0e]/80 px-4 py-7 sm:px-8">
           <WebCostChart />
-        </div>
-      </Section>
-
-      {/* Community */}
-      <Section>
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] px-6 py-12 text-center sm:px-10">
-          <div className="mx-auto flex max-w-2xl flex-col items-center">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-forest/10 text-forest-bright">
-              <Users className="h-5 w-5" />
-            </div>
-            <h2 className="lp-hero-heading text-3xl font-normal leading-tight text-white sm:text-4xl">
-              Built by 230,000+ developers
-            </h2>
-            <p className="mt-3 text-base leading-relaxed text-white/55">
-              Explore real apps people shipped with Freebuff Web, follow your
-              favorite builders, and climb the leaderboard.
-            </p>
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/web/community"
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-forest px-6 text-sm font-medium text-white transition-colors hover:bg-forest/90"
-              >
-                Explore the community
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/web/community/leaderboard"
-                className="inline-flex h-11 items-center rounded-full border border-white/15 px-6 text-sm font-medium text-white/80 transition-colors hover:border-white/30 hover:text-white"
-              >
-                Leaderboard
-              </Link>
-            </div>
-          </div>
         </div>
       </Section>
 

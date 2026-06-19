@@ -11,6 +11,11 @@ export function Footer() {
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return null
   // The homepage (LandingPage) ships its own CtaFooter.
   if (pathname === '/') return null
+  // These marketing pages ship their own CtaFooter (CliLanding / LandingPage),
+  // so the global columns footer would be a duplicate.
+  if (pathname === '/cli') return null
+  if (pathname === '/get-started') return null
+  if (pathname === '/landing') return null
 
   return (
     <footer className="w-full">

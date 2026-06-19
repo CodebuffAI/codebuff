@@ -114,13 +114,13 @@
     @apply border-border;
   }
   html {
-    background-color: #1F1F1F !important;
+    background-color: #000 !important;
     color-scheme: dark;
   }
   body {
     @apply text-foreground;
     font-family: var(--font-sans);
-    background-color: #1F1F1F !important;
+    background-color: #000 !important;
     /* Smoother subpixel font rendering on dark surfaces (GCal feel) */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -132,7 +132,7 @@
 /* Force overscroll background and prevent layout shifts */
 html,
 body {
-  background-color: #1F1F1F !important;
+  background-color: #000 !important;
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;

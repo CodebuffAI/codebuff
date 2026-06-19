@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Check, Copy, Terminal } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
 
 import { LandingNavbar } from '../Navbar'
@@ -29,21 +29,6 @@ const INSTALL_STEPS: { command: string; label: string; desc: string }[] = [
     command: 'freebuff',
     label: 'Start coding',
     desc: 'No API key and no credit card. Just describe what you want.',
-  },
-]
-
-const HIGHLIGHTS = [
-  {
-    title: '100% free',
-    body: 'No subscription, no credit card, no API keys. Supported by unobtrusive text ads in the CLI.',
-  },
-  {
-    title: '9 specialized subagents',
-    body: 'File finding, code review, browser testing, deep reasoning, and more — built in.',
-  },
-  {
-    title: 'Idea → polished code',
-    body: 'Use /interview → /plan → implement → /review to go from a prompt to shipped changes.',
   },
 ]
 
@@ -101,23 +86,6 @@ function InstallSection() {
             </motion.li>
           ))}
         </ol>
-
-        <div className="mt-16 grid gap-5 sm:grid-cols-3">
-          {HIGHLIGHTS.map((h) => (
-            <div
-              key={h.title}
-              className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5"
-            >
-              <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-forest/10 text-forest-bright">
-                <Terminal className="h-4 w-4" />
-              </div>
-              <h3 className="font-normal text-white/90">{h.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/50">
-                {h.body}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   )
