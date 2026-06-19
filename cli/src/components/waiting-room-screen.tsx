@@ -432,7 +432,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const sharedSessionUsed = sessionRateLimit?.recentCount ?? 0
   // Hide the "0 of 5 … used" line entirely for a fresh user — a zeroed counter
   // is noise on the landing screen. It appears once any session is consumed.
+  //
+  // For the regular tiers the PREMIUM section header inside the picker now
+  // carries this quota inline, so the below-picker line only survives for the
+  // limited tier (which has no premium section to host it). Regular tiers don't
+  // need it when collapsed either — the collapsed recommended model is
+  // unlimited, so a premium-session count there is irrelevant.
   const showSessionCounter = sharedSessionUsed > 0
+  const showBelowPickerCounter =
+    showSessionCounter && accessTier === 'limited'
   const isSessionExhausted =
     sharedSessionUsed >=
     (accessTier === 'limited'
@@ -486,7 +494,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
   const belowPickerRows = streakRows + noticeRows
-  const counterRows = showSessionCounter
+  const counterRows = showBelowPickerCounter
     ? 1 /* marginTop */ + wrappedRows(counterText)
     : 0
   const reservedChrome = 2 + adRows + mainPaddingRows + logoBlockRows
@@ -638,7 +646,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 maxHeight={selectorMaxHeight}
                 onExpandedChange={setSelectorExpanded}
               />
-              {showSessionCounter && (
+              {showBelowPickerCounter && (
                 <text
                   style={{
                     fg: theme.muted,

@@ -31,6 +31,7 @@ import {
   freebuffModelNavigationDirectionForKey,
   nextFreebuffModelId,
 } from '../utils/freebuff-model-navigation'
+import { formatSessionUnits } from '../utils/format-session-units'
 import {
   formatFreebuffPremiumResetCountdown,
   getFreebuffPremiumResetAt,
@@ -44,15 +45,17 @@ import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 // start with one Enter press without reading six boxes. The "see all models"
 // toggle reveals the rest, grouped into the same product/availability tiers.
 //
-// Section grouping (expanded view): model rows keep their tiers, but all
-// selectable Freebuff models share the same daily session quota. Putting the
-// tier on a section header lets each row drop its redundant
-// "Premium"/"Unlimited" chip. The shared 0/5 counter renders below the picker
-// (by the parent, landing only); headers carry only what the counter can't:
-// "no daily limit" on UNLIMITED, and a reset countdown on PREMIUM once the
-// quota is exhausted (the moment its rows grey out). Empty sections are
-// filtered so a model set with no premium (or no unlimited) entries doesn't
-// render an orphan header.
+// Section grouping (expanded view): model rows keep their tiers, but the
+// premium models share one daily session quota while the unlimited ones have
+// none. Putting the tier on a section header lets each row drop its redundant
+// "Premium"/"Unlimited" chip. The PREMIUM header carries the shared quota
+// inline — "N of M used · resets in …" — once any session is spent (turning
+// amber when exhausted, the moment its rows grey out). When collapsed there's
+// no PREMIUM header, but the recommended hero is unlimited, so the premium
+// count is irrelevant and simply doesn't show; only the limited tier (no
+// premium section) keeps a parent-rendered below-picker counter. UNLIMITED
+// needs no annotation. Empty sections are filtered so a model set with no
+// premium (or no unlimited) entries doesn't render an orphan header.
 //
 // `label` may be empty: limited-tier users only see the constrained model set,
 // so the "LIMITED" header would just leak the internal tier name without
@@ -84,7 +87,7 @@ const TOGGLE_ID = '__freebuff_toggle__'
  * Layout: the recommended model renders as a titled "RECOMMENDED" card with a
  * bright border. When expanded, the remaining rows are grouped into PREMIUM /
  * UNLIMITED sections so the tier is visible without a per-row chip; the shared
- * 0/5 counter renders below the picker (by the parent). Names align in a column
+ * premium-session quota rides the PREMIUM header. Names align in a column
  * so taglines line up across rows. On narrow terminals the secondary details
  * (warning / deployment hours) drop onto an indented second line under the row.
  *
@@ -234,22 +237,26 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const committedModelId = session?.status === 'queued' ? session.model : null
   const rateLimitsByModel = getRateLimitsByModel(session)
 
-  // PREMIUM-header reset countdown, shown only once the shared quota is
-  // exhausted — that's when the premium rows grey out, and (in the queued
-  // state) the only place that explains why. All premium models share one
-  // pool; the server replicates the same snapshot under every model id, so
-  // any entry has the right count.
+  // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
+  // · resets in …". All premium models share one pool; the server replicates
+  // the same snapshot under every model id, so any entry has the right count.
+  // The count appears once any session is spent (a zeroed counter is noise);
+  // it turns amber when the pool is exhausted — the same moment the premium
+  // rows grey out — so the header explains why they're disabled.
   const sharedRateLimit = rateLimitsByModel
     ? Object.values(rateLimitsByModel)[0]
     : undefined
-  const premiumExhausted =
-    (sharedRateLimit?.recentCount ?? 0) >= FREEBUFF_PREMIUM_SESSION_LIMIT
-  const premiumResetCountdown = premiumExhausted
-    ? formatFreebuffPremiumResetCountdown(
-        getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
-        now,
-      )
-    : null
+  const premiumUsed = sharedRateLimit?.recentCount ?? 0
+  const premiumExhausted = premiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
+  // Reset countdown only matters once a session has been spent; before that the
+  // pool is full and there's nothing to wait for.
+  const premiumResetCountdown =
+    premiumUsed > 0
+      ? formatFreebuffPremiumResetCountdown(
+          getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
+          now,
+        )
+      : null
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
@@ -585,14 +592,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       {section.label && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {section.label}
-          {section.key === 'premium' && premiumResetCountdown && (
-            <span fg={theme.secondary}>
+          {section.key === 'premium' && premiumUsed > 0 && (
+            <span fg={premiumExhausted ? theme.secondary : theme.muted}>
               {' '}
-              · resets in {premiumResetCountdown}
+              · {formatSessionUnits(premiumUsed)} of{' '}
+              {FREEBUFF_PREMIUM_SESSION_LIMIT} used
             </span>
           )}
-          {section.key === 'unlimited' && (
-            <span fg={theme.muted}> · no daily limit</span>
+          {section.key === 'premium' && premiumResetCountdown && (
+            <span fg={theme.muted}> · resets in {premiumResetCountdown}</span>
           )}
         </text>
       )}
