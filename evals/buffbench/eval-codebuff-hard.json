@@ -2436,7 +2436,7 @@
         {
           "path": ".env.example",
           "status": "modified",
-          "diff": "Index: .env.example\n===================================================================\n--- .env.example\t984fbb4 (parent)\n+++ .env.example\t98df71b (commit)\n@@ -1,7 +1,8 @@\n # AI API Keys\n CLAUDE_CODE_KEY=dummy_claude_code_key\n OPEN_ROUTER_API_KEY=dummy_openrouter_key\n+OPENAI_API_KEY=dummy_openai_key\n \n # Database & Server\n DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local\n PORT=4242\n"
+          "diff": "Index: .env.example\n===================================================================\n--- .env.example\t984fbb4 (parent)\n+++ .env.example\t98df71b (commit)\n@@ -1,7 +1,8 @@\n # AI API Keys\n CLAUDE_CODE_KEY=dummy_claude_code_key\n OPEN_ROUTER_API_KEY=dummy_openrouter_key\n+OPENAI_API_KEY=dummy_openai_key\n \n # Database & Server\n DATABASE_URL=postgresql://codebuff_user_local:secretpassword_local@localhost:5432/codebuff_db_local\n PORT=4242\n"
         },
         {
           "path": "packages/internal/src/env-schema.ts",
