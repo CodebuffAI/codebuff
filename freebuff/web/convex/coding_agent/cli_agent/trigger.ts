@@ -75,6 +75,23 @@ export const saveMessageAndStartWorkflow = mutation({
         userId: user._id,
       });
 
+      // DAU signal in PostHog: one event per user-submitted web message. Keyed
+      // by the canonical codebuff user id (users.freebuff_user_id = the JWT
+      // subject = the Postgres user id) so it unions with the cli and chat
+      // surfaces. Legacy users without a freebuff_user_id are skipped here;
+      // they still count toward the Convex `recordActivity` DAU above. The
+      // event name mirrors AnalyticsEvent.MESSAGE_SENT in @codebuff/common.
+      if (user.freebuff_user_id) {
+        await ctx.scheduler.runAfter(0, internal.analytics.captureEvent, {
+          event: "message_sent",
+          distinctId: user.freebuff_user_id,
+          properties: {
+            surface: "web",
+            agentType: args.agentType,
+          },
+        });
+      }
+
       // Check if project is terminated due to an unresolved GitHub sync conflict.
       // If the terminated flag is stale, clear it and continue.
       if (project.terminated) {

@@ -1,3 +1,5 @@
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
@@ -23,6 +25,7 @@ import {
   releaseThreadRun,
   touchThread,
 } from '@/server/chat/store'
+import { logger } from '@/util/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -163,6 +166,21 @@ export async function POST(request: NextRequest) {
   const previousRunState = thread.run_state
 
   await insertMessage({ threadId, userId, role: 'user', content })
+
+  // DAU signal: one event per user-submitted chat message. userId is the
+  // canonical codebuff Postgres user id (next-auth session.user.id), matching
+  // the cli and web surfaces so combined DAU is a single unique-users query.
+  trackEvent({
+    event: AnalyticsEvent.MESSAGE_SENT,
+    userId,
+    properties: {
+      surface: 'chat',
+      model,
+      isNewThread: !claimedThread,
+      contentLength: content.length,
+    },
+    logger,
+  })
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {

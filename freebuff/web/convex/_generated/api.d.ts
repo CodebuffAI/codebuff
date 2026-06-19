@@ -18,6 +18,7 @@ import type * as admin_usage from "../admin_usage.js";
 import type * as admin_usage_backfill from "../admin_usage_backfill.js";
 import type * as admin_usage_backfill_actions from "../admin_usage_backfill_actions.js";
 import type * as aggregates_admin_aggregates from "../aggregates/admin_aggregates.js";
+import type * as analytics from "../analytics.js";
 import type * as assets from "../assets.js";
 import type * as autumn from "../autumn.js";
 import type * as build_errors from "../build_errors.js";
@@ -236,6 +237,7 @@ declare const fullApi: ApiFromModules<{
   admin_usage_backfill: typeof admin_usage_backfill;
   admin_usage_backfill_actions: typeof admin_usage_backfill_actions;
   "aggregates/admin_aggregates": typeof aggregates_admin_aggregates;
+  analytics: typeof analytics;
   assets: typeof assets;
   autumn: typeof autumn;
   build_errors: typeof build_errors;

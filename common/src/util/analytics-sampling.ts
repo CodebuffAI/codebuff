@@ -14,6 +14,8 @@ const SAMPLED_EVENT_RATES: Partial<Record<AnalyticsEvent, number>> = {
 }
 
 const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
+  // DAU is measured from MESSAGE_SENT, so it must never be sampled.
+  AnalyticsEvent.MESSAGE_SENT,
   AnalyticsEvent.APP_LAUNCHED,
   AnalyticsEvent.CHANGE_DIRECTORY,
   AnalyticsEvent.CHATGPT_OAUTH_AUTH_ERROR,
