@@ -210,10 +210,6 @@ export async function fetchGravityAds(
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3000)
 
-    console.log(
-      `[GravityAdSlot] Fetching ad for placement: ${placementId ?? 'freebuff-web-chat'}, sessionId: ${requestSessionId}`,
-    )
-
     const res = await fetch('/api/ads', {
       method: 'POST',
       headers: {
@@ -225,28 +221,14 @@ export async function fetchGravityAds(
 
     clearTimeout(timeout)
 
-    console.log(
-      `[GravityAdSlot] Response for ${placementId ?? 'freebuff-web-chat'}: status=${res.status}`,
-    )
-
     if (res.status === 204 || !res.ok) {
-      console.log(
-        `[GravityAdSlot] No ad returned for ${placementId ?? 'freebuff-web-chat'} (status: ${res.status})`,
-      )
       return []
     }
 
     const data = (await res.json()) as unknown
-    console.log(
-      `[GravityAdSlot] Data for ${placementId ?? 'freebuff-web-chat'}:`,
-      data,
-    )
 
     const ads = parseGravityAds(data)
     if (ads.length === 0) {
-      console.log(
-        `[GravityAdSlot] Empty or invalid data for ${placementId ?? 'freebuff-web-chat'}`,
-      )
       return []
     }
 

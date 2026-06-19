@@ -147,6 +147,8 @@ describe('Gravity ad provider', () => {
         sessionId: 'browser-session',
         user: {
           userId: 'browser-user-id',
+          email: 'browser@example.com',
+          phone: '+15555550123',
         },
         device: {
           screenWidth: 1440,
@@ -182,10 +184,11 @@ describe('Gravity ad provider', () => {
     expect(body.user).toMatchObject({
       id: 'server-user-id',
       uid: 'server-user-id',
-      email: 'User@Example.com',
-      emailHash:
+      hashed_email:
         'b4c9a289323b21a01c3e940f150eb9b8c542587f1abfd8f0e1cc1ffc5e475514',
       userId: 'browser-user-id',
     })
+    expect((body.user as Record<string, unknown>).email).toBeUndefined()
+    expect((body.user as Record<string, unknown>).phone).toBeUndefined()
   })
 })

@@ -224,6 +224,15 @@ const GRAVITY_CHAT_PLACEMENT_TO_AGENT_PLACEMENT: Record<
   'Web-Chat-After-Assistant-Message': 'agent-chat-after-assistant',
 }
 
+function warnAdClient(message: string, error?: unknown) {
+  if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') return
+  if (error === undefined) {
+    console.warn(message)
+  } else {
+    console.warn(message, error)
+  }
+}
+
 function getAssistantTextForAd(message: AgentMessageForAd): string {
   return (message.assistant_stream ?? [])
     .filter(
@@ -265,9 +274,9 @@ function fireAdImpressionOnce(ad: GravityAd) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ impUrl: ad.impUrl }),
     keepalive: true,
-  }).catch((error) => {
-    console.warn('[AgentChatMessages] Failed to record ad impression', error)
-  })
+  }).catch((error) =>
+    warnAdClient('[AgentChatMessages] Failed to record ad impression', error),
+  )
 }
 
 function recordAdClick(ad: { impUrl: string }) {
@@ -277,9 +286,9 @@ function recordAdClick(ad: { impUrl: string }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ impUrl: ad.impUrl }),
     keepalive: true,
-  }).catch((error) => {
-    console.warn('[AgentChatMessages] Failed to record ad click', error)
-  })
+  }).catch((error) =>
+    warnAdClient('[AgentChatMessages] Failed to record ad click', error),
+  )
 }
 
 function getAdCreativeIdentity(ad: {
@@ -1631,7 +1640,7 @@ export const AgentChatMessages = forwardRef<
           }),
         )
         if (persistenceResults.some((result) => result.status === 'rejected')) {
-          console.warn(
+          warnAdClient(
             '[AgentChatMessages] Rendered Gravity ads before persistence completed',
           )
         }
@@ -1642,7 +1651,7 @@ export const AgentChatMessages = forwardRef<
             `${sourceMessageId}:${placementId}`,
           )
         })
-        console.warn('[AgentChatMessages] Failed to fetch Gravity ads', error)
+        warnAdClient('[AgentChatMessages] Failed to fetch Gravity ads', error)
       })
   }, [
     adsBySourceMessageId,

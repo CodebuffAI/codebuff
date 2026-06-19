@@ -112,6 +112,11 @@ function omitUndefined(record: Record<string, unknown>) {
   )
 }
 
+function sanitizeGravityUser(record: Record<string, unknown>) {
+  const { email: _email, phone: _phone, ...rest } = record
+  return rest
+}
+
 function hashEmail(email: string | null): string | undefined {
   const normalized = email?.trim().toLowerCase()
   if (!normalized) return undefined
@@ -168,8 +173,14 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         ? gravityContext.device
         : {}
       const gravityUser = isRecord(gravityContext?.user)
-        ? gravityContext.user
+        ? sanitizeGravityUser(gravityContext.user)
         : {}
+      const sanitizedGravityContext = gravityContext
+        ? {
+            ...gravityContext,
+            ...(isRecord(gravityContext.user) ? { user: gravityUser } : {}),
+          }
+        : undefined
       const emailHash =
         getStringField(gravityUser, [
           'emailHash',
@@ -198,16 +209,15 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         testAd: testMode,
         relevancy: 0,
         ...(Object.keys(deviceBody).length > 0 ? { device: deviceBody } : {}),
-        ...(gravityContext ? { gravity_context: gravityContext } : {}),
+        ...(sanitizedGravityContext
+          ? { gravity_context: sanitizedGravityContext }
+          : {}),
         user: {
           ...gravityUser,
           id: userId,
           uid: userId,
-          email: userEmail ?? undefined,
           ...(emailHash
             ? {
-                emailHash,
-                email_hash: emailHash,
                 hashed_email: emailHash,
               }
             : {}),

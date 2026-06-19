@@ -9,7 +9,7 @@ import { recordAdEvent } from '@/lib/record-ad-event'
 const ROTATE_INTERVAL_MS = 60_000
 const FETCH_TIMEOUT_MS = 5_000
 /** Auctions per cycle; the slot pauses after this many until the next send. */
-const MAX_AD_FETCHES = 3
+const MAX_AD_FETCHES = 1
 
 const adSchema = z.object({
   adText: z.string(),
@@ -65,8 +65,7 @@ export type ChatAdSeed = {
 /**
  * Rotating sponsored slot shown above the chat composer. Renders nothing
  * until the user sends a message. Each message (re)starts a rotation cycle:
- * an immediate auction targeted by that message, then one re-auction of the
- * same placement per minute, pausing after MAX_AD_FETCHES ads until the next
+ * an immediate auction targeted by that message, pausing until the next
  * message.
  */
 export const ChatAds = memo(function ChatAds({
@@ -121,6 +120,12 @@ export const ChatAds = memo(function ChatAds({
     }
 
     fetchNextAd()
+    if (MAX_AD_FETCHES <= 1) {
+      return () => {
+        controller?.abort()
+      }
+    }
+
     const interval = setInterval(() => {
       // Don't burn auctions while the tab is hidden.
       if (document.hidden) return

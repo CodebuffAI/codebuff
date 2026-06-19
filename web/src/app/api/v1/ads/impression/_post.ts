@@ -76,6 +76,16 @@ const bodySchema = z.object({
   mode: z.string().optional(),
 })
 
+function getForwardedFor(req: NextRequest): string | undefined {
+  return (
+    req.headers.get('x-forwarded-for') ??
+    req.headers.get('x-vercel-forwarded-for') ??
+    req.headers.get('cf-connecting-ip') ??
+    req.headers.get('x-real-ip') ??
+    undefined
+  )
+}
+
 export async function postAdImpression(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -184,14 +194,16 @@ export async function postAdImpression(params: {
     )
     const pixelUrls = [impUrl, ...extraPixels]
     const requestUserAgent = req.headers.get('user-agent') ?? undefined
+    const forwardedFor = getForwardedFor(req)
 
     await Promise.all(
       pixelUrls.map(async (pixelUrl) => {
         try {
           await fetch(pixelUrl, {
-            ...(requestUserAgent
-              ? { headers: { 'User-Agent': requestUserAgent } }
-              : {}),
+            headers: {
+              ...(requestUserAgent ? { 'User-Agent': requestUserAgent } : {}),
+              ...(forwardedFor ? { 'X-Forwarded-For': forwardedFor } : {}),
+            },
           })
         } catch (error) {
           logger.warn(

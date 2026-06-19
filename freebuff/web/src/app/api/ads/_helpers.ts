@@ -42,14 +42,26 @@ export async function proxyCodebuffAdsRequest(params: {
   }
 
   const url = new URL(params.pathname, env.NEXT_PUBLIC_CODEBUFF_APP_URL)
+  const forwardedHeaders = [
+    'x-forwarded-for',
+    'x-real-ip',
+    'cf-connecting-ip',
+    'x-vercel-forwarded-for',
+    'user-agent',
+  ] as const
+  const passthroughHeaders = Object.fromEntries(
+    forwardedHeaders.flatMap((name) => {
+      const value = params.request.headers.get(name)
+      return value ? [[name, value]] : []
+    }),
+  )
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${sessionToken}`,
       'Content-Type': 'application/json',
-      ...(params.request.headers.get('user-agent')
-        ? { 'User-Agent': params.request.headers.get('user-agent')! }
-        : {}),
+      ...passthroughHeaders,
     },
     body: JSON.stringify(params.body),
   })

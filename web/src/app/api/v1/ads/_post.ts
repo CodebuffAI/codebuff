@@ -165,6 +165,19 @@ function toClientAd(ad: NormalizedAd) {
   return rest
 }
 
+function getClientIp(req: NextRequest): string | undefined {
+  const forwardedFor =
+    req.headers.get('x-forwarded-for') ??
+    req.headers.get('x-vercel-forwarded-for')
+  const forwardedIp = forwardedFor?.split(',')[0]?.trim()
+  return (
+    forwardedIp ||
+    req.headers.get('cf-connecting-ip') ||
+    req.headers.get('x-real-ip') ||
+    undefined
+  )
+}
+
 export async function postAds(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -195,12 +208,9 @@ export async function postAds(params: {
 
   const { userId, userInfo, logger } = authed.data
 
-  // Client IP comes in via the load balancer's X-Forwarded-For header. Every
+  // Client IP comes in via the load balancer or Freebuff's proxy headers. Every
   // provider that targets or bills by IP (Gravity, Carbon, ...) needs this.
-  const forwardedFor = req.headers.get('x-forwarded-for')
-  const clientIp = forwardedFor
-    ? forwardedFor.split(',')[0].trim()
-    : (req.headers.get('x-real-ip') ?? undefined)
+  const clientIp = getClientIp(req)
 
   let parsedBody: z.infer<typeof bodySchema>
   try {
