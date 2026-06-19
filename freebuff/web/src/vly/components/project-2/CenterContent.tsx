@@ -898,7 +898,6 @@ export function CenterContent({
                   slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
                   placement="above-iframe"
                   variant="nav"
-                  className="min-w-0 max-w-full"
                 />
               </div>
               <div className="flex items-center gap-0.5">

@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { gravityContext, hashPii } from '@gravity-ai/api'
-import { GravityAd as GravityReactAd } from '@gravity-ai/react'
+import { GravityAd as GravityReactAd, useAdTracking } from '@gravity-ai/react'
 import { useSession } from 'next-auth/react'
+
+import type { RefObject } from 'react'
 
 import { cn } from '@/vly/lib/utils'
 
@@ -206,6 +208,69 @@ type GravityAdSlotProps = {
   className?: string
 }
 
+/**
+ * Compact, theme-aware ad for the preview toolbar (above the iframe).
+ *
+ * The library's `toolbar` variant only renders brand + title with a hard-coded
+ * black CTA pill and no room for a description, so we render our own minimal
+ * layout while reusing the library's `useAdTracking` hook to keep impression
+ * and click reporting intact.
+ */
+function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
+  const { containerRef, handleClick } = useAdTracking({ ad })
+  const description = ad.title?.trim() || ad.adText?.trim() || ''
+  const href = ad.clickUrl || ad.url || undefined
+
+  return (
+    <a
+      ref={containerRef as unknown as RefObject<HTMLAnchorElement>}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      onClick={(e) => {
+        handleClick()
+        if (!href) e.preventDefault()
+      }}
+      data-gravity-ad
+      className={cn(
+        'group flex w-full min-w-0 max-w-[460px] items-center gap-2 rounded-md px-2 py-0.5 text-foreground/80 no-underline transition hover:bg-muted/50',
+        className,
+      )}
+    >
+      {ad.favicon ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={ad.favicon}
+          alt=""
+          loading="lazy"
+          className="h-4 w-4 shrink-0 rounded-sm object-contain"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      ) : null}
+      {ad.brandName ? (
+        <span className="shrink-0 text-[11px] font-semibold text-foreground">
+          {ad.brandName}
+        </span>
+      ) : null}
+      {description ? (
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+          {description}
+        </span>
+      ) : null}
+      <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground/40">
+        Ad
+      </span>
+      {ad.cta ? (
+        <span className="shrink-0 rounded-md bg-foreground/[0.08] px-2 py-1 text-[10px] font-medium text-foreground/90 transition group-hover:bg-foreground/[0.14]">
+          {ad.cta}
+        </span>
+      ) : null}
+    </a>
+  )
+}
+
 export function GravityAdSlot({
   messages,
   sessionId,
@@ -333,63 +398,41 @@ export function GravityAdSlot({
 
   if (!hasFetched || !ad) return null
 
-  const isNav = variant === 'nav'
+  if (variant === 'nav') {
+    return <NavAd ad={ad} className={className} />
+  }
+
   const isCompact = variant === 'compact'
-  const adVariant = isNav ? 'toolbar' : isCompact ? 'inline' : 'card'
-  const slotProps = isNav
-    ? {
-        container: {
-          style: {
-            // Size to content so the ad sits centered in the toolbar's
-            // flex-1 spacer rather than stretching edge-to-edge.
-            maxWidth: '100%',
-            minWidth: 0,
-            padding: '4px 6px',
-            gap: 8,
-            background: 'transparent',
-            color: 'inherit',
-            boxShadow: 'none',
-            borderRadius: 6,
-          },
-        },
-        brand: { style: { color: 'currentColor', fontSize: 11 } },
-        title: {
-          style: {
-            color: 'rgba(255,255,255,0.62)',
-            fontSize: 11,
-            marginLeft: 6,
-          },
-        },
-        cta: {
-          style: {
-            background: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-            borderRadius: 6,
-            padding: '5px 9px',
-            fontSize: 10,
-          },
-        },
-        label: { style: { color: 'rgba(255,255,255,0.28)' } },
-      }
-    : {
-        container: {
-          style: {
-            width: '100%',
-            background: 'hsl(var(--card))',
-            color: 'hsl(var(--foreground))',
-            borderColor: 'hsl(var(--border))',
-          },
-        },
-        brand: { style: { color: 'hsl(var(--foreground))' } },
-        title: { style: { color: 'hsl(var(--foreground))' } },
-        text: { style: { color: 'hsl(var(--muted-foreground))' } },
-        cta: {
-          style: {
-            background: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-          },
-        },
-      }
+  const adVariant = isCompact ? 'inline' : 'card'
+  const slotProps = {
+    container: {
+      style: {
+        width: '100%',
+        background: 'hsl(var(--card))',
+        color: 'hsl(var(--foreground))',
+        borderColor: 'hsl(var(--border))',
+      },
+    },
+    brand: { style: { color: 'hsl(var(--foreground))' } },
+    title: { style: { color: 'hsl(var(--foreground))' } },
+    text: { style: { color: 'hsl(var(--muted-foreground))' } },
+    // Subtle, borderless "AD" marker that fits the minimal aesthetic.
+    label: {
+      style: {
+        color: 'hsl(var(--muted-foreground))',
+        opacity: 0.5,
+        border: 'none',
+        padding: 0,
+        background: 'transparent',
+      },
+    },
+    cta: {
+      style: {
+        background: 'hsl(var(--primary))',
+        color: 'hsl(var(--primary-foreground))',
+      },
+    },
+  }
 
   return (
     <>
@@ -397,14 +440,14 @@ export function GravityAdSlot({
         ad={ad}
         variant={adVariant}
         className={cn(
-          isNav ? 'flex min-w-0' : 'relative rounded-lg',
+          'relative rounded-lg',
           variant === 'featured' && 'mt-2.5',
           isCompact && 'mt-2',
           variant === 'default' && 'mt-3',
           className,
         )}
         slotProps={slotProps}
-        labelText="AD"
+        labelText="Ad"
         openInNewTab
       />
       {showDisclaimer && (

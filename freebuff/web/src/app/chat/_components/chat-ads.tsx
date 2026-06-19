@@ -146,7 +146,7 @@ export const ChatAds = memo(function ChatAds({
             width: '100%',
             background: 'rgba(255,255,255,0.03)',
             color: 'hsl(var(--foreground))',
-            borderColor: 'rgba(255,255,255,0.10)',
+            borderColor: 'rgba(255,255,255,0.08)',
             borderRadius: 12,
           },
         },
@@ -155,13 +155,25 @@ export const ChatAds = memo(function ChatAds({
         text: { style: { color: 'hsl(var(--muted-foreground))' } },
         cta: {
           style: {
-            background: 'rgba(255,255,255,0.10)',
-            color: 'hsl(var(--foreground))',
+            background: 'rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.92)',
+            border: 'none',
+            borderRadius: 8,
+            padding: '6px 12px',
+            fontSize: 12,
+            fontWeight: 600,
           },
         },
-        label: { style: { color: 'rgba(255,255,255,0.45)' } },
+        // Subtle, borderless marker.
+        label: {
+          style: {
+            color: 'rgba(255,255,255,0.32)',
+            border: 'none',
+            padding: 0,
+          },
+        },
       }}
-      labelText="Sponsored"
+      labelText="Ad"
       openInNewTab
     />
   )

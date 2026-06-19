@@ -973,11 +973,21 @@ const AgentAdMessage: React.FC<{
             style: {
               background: 'hsl(var(--primary) / 0.15)',
               color: 'hsl(var(--primary))',
+              border: 'none',
+              fontWeight: 600,
             },
           },
-          label: { style: { color: 'hsl(var(--muted-foreground) / 0.5)' } },
+          // Subtle, borderless marker (the default inline label has a border).
+          label: {
+            style: {
+              color: 'hsl(var(--muted-foreground) / 0.5)',
+              border: 'none',
+              padding: 0,
+              background: 'transparent',
+            },
+          },
         }}
-        labelText="AD"
+        labelText="Ad"
         openInNewTab
       />
     </div>
