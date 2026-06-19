@@ -13,9 +13,7 @@ Placeholder package that redirects users to npm version. Not functional - serves
 
 ## Key Issues
 
-- Package name mismatch: configured as "codebuff" but script entry point references "manicode"
 - LICENSE file has placeholder text `[year] [fullname]`
-- URLs point to old "manicode" repository instead of current project
 
 ## Publishing
 

@@ -5,7 +5,6 @@ export const siteConfig = {
   description:
     'Code faster with AI using Codebuff. Edit your codebase and run terminal commands via natural language instruction.',
   keywords: () => [
-    'Manicode',
     'Codebuff',
     'Coding Assistant',
     'Coding Assistant',

@@ -24,11 +24,11 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/manifoldmarkets/manicode"
-"Bug Tracker" = "https://github.com/manifoldmarkets/manicode/issues"
+"Homepage" = "https://github.com/CodebuffAI/codebuff"
+"Bug Tracker" = "https://github.com/CodebuffAI/codebuff/issues"
 
 [project.scripts]
-manicode = "manicode:main"
+codebuff = "codebuff:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

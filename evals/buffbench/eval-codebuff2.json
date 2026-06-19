@@ -1930,7 +1930,7 @@
         {
           "path": "sdk/src/constants.ts",
           "status": "modified",
-          "diff": "Index: sdk/src/constants.ts\n===================================================================\n--- sdk/src/constants.ts\te79f36b (parent)\n+++ sdk/src/constants.ts\ta9fe09f (commit)\n@@ -1,1 +1,15 @@\n export const CODEBUFF_BINARY = 'codebuff'\n+\n+export const IS_DEV = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'\n+export const IS_TEST = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test'\n+export const IS_PROD = !IS_DEV && !IS_TEST\n+\n+export const WEBSOCKET_URL = IS_PROD\n+  ? 'wss://manicode-backend.onrender.com/ws'\n+  : 'ws://localhost:4242/ws'\n+export const WEBSITE_URL = IS_PROD\n+  ? 'https://codebuff.com'\n+  : 'http://localhost:3000'\n+export const BACKEND_URL = IS_PROD\n+  ? 'https://manicode-backend.onrender.com'\n+  : 'http://localhost:4242'\n"
+          "diff": "Index: sdk/src/constants.ts\n===================================================================\n--- sdk/src/constants.ts\te79f36b (parent)\n+++ sdk/src/constants.ts\ta9fe09f (commit)\n@@ -1,1 +1,15 @@\n export const CODEBUFF_BINARY = 'codebuff'\n+\n+export const IS_DEV = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'\n+export const IS_TEST = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test'\n+export const IS_PROD = !IS_DEV && !IS_TEST\n+\n+export const WEBSOCKET_URL = IS_PROD\n+  ? 'wss://codebuff-backend.onrender.com/ws'\n+  : 'ws://localhost:4242/ws'\n+export const WEBSITE_URL = IS_PROD\n+  ? 'https://codebuff.com'\n+  : 'http://localhost:3000'\n+export const BACKEND_URL = IS_PROD\n+  ? 'https://codebuff-backend.onrender.com'\n+  : 'http://localhost:4242'\n"
         },
         {
           "path": "sdk/src/types.ts",

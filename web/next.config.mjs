@@ -108,17 +108,6 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'manicode.ai',
-          },
-        ],
-        permanent: false,
-        destination: `${process.env.NEXT_PUBLIC_CODEBUFF_APP_URL}/:path*`,
-      },
-      {
         source: '/api-keys',
         destination: '/profile?tab=api-keys',
         permanent: true,

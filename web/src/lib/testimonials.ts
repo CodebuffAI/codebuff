@@ -39,7 +39,7 @@ export const testimonials: Testimonial[][] = [
       link: 'https://www.linkedin.com/posts/stefan-gasser_24-hour-update-from-idea-to-production-activity-7261680039333666818-G0XP',
     },
     {
-      quote: 'Just had a magical manicode moment: ... And it just worked!',
+      quote: 'Just had a magical Codebuff moment: ... And it just worked!',
       author: 'Stephen Grugett',
       title: 'Founder & CEO',
       avatar: '/testimonials/stevo.png',
@@ -72,14 +72,14 @@ export const testimonials: Testimonial[][] = [
       link: '/testimonials/proof/jj-fliegelman.png',
     },
     {
-      quote: "I finally tried composer. It's ass compared to manicode",
+      quote: "I finally tried composer. It's ass compared to Codebuff",
       author: 'anonymous',
       title: 'Software Architect',
       link: '/testimonials/proof/cursor-comparison.png',
     },
     {
       quote:
-        "manicode.ai > cursor.com for most code changes. I'm now just using cursor for the quick changes within a single file. Manicode lets you make wholesale changes to the codebase with a single prompt. It's 1 step vs many.",
+        "codebuff.com > cursor.com for most code changes. I'm now just using cursor for the quick changes within a single file. Codebuff lets you make wholesale changes to the codebase with a single prompt. It's 1 step vs many.",
       author: 'Finbarr Taylor',
       title: 'Founder',
       avatar: '/testimonials/finbarr-taylor.jpg',

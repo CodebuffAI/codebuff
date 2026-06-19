@@ -99,7 +99,7 @@ describe('processFileBlockModule', () => {
 
       const newContent =
         'function hello() {\r\n' +
-        '  console.log("Hello, Manicode!");\r\n' +
+        '  console.log("Hello, Codebuff!");\r\n' +
         '  return "See you later!";\r\n' +
         '}\r\n'
 
