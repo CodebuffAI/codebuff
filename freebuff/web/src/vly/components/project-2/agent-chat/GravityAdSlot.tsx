@@ -340,7 +340,9 @@ export function GravityAdSlot({
     ? {
         container: {
           style: {
-            width: '100%',
+            // Size to content so the ad sits centered in the toolbar's
+            // flex-1 spacer rather than stretching edge-to-edge.
+            maxWidth: '100%',
             minWidth: 0,
             padding: '4px 6px',
             gap: 8,

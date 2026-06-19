@@ -123,6 +123,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // The Gravity SDK reads `process.env.GRAVITY_API_KEY` implicitly and
+  // silently returns zero ads (no error) when it's missing. Read it
+  // explicitly so we (a) pass it to the SDK regardless of how Next.js
+  // exposes env at runtime and (b) emit a loud warning if it isn't set,
+  // which is otherwise an invisible "no ads ever" failure mode.
+  const apiKey = process.env.GRAVITY_API_KEY
+  if (!apiKey) {
+    logger.warn(
+      '[ads] GRAVITY_API_KEY is not configured; returning no ads. Set it in the Freebuff Web deployment environment.',
+    )
+    return NextResponse.json({ ads: [], provider: 'gravity' })
+  }
+
   const messages = toGravitySdkMessages(parsed.data.messages)
   const body = {
     messages,
@@ -138,6 +151,7 @@ export async function POST(request: NextRequest) {
     messages,
     getPlacements(parsed.data),
     {
+      apiKey,
       production: true,
       relevancy: 0,
     },

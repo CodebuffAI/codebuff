@@ -883,7 +883,10 @@ export function CenterContent({
                   <span className="opacity-40">/</span>
                 )}
               </span>
-              <div className="min-w-0 flex-1">
+              {/* Always-present flex-1 spacer so the status + action buttons
+                  stay right-aligned even when no ad renders, and the ad sits
+                  centered in the available space. */}
+              <div className="flex min-w-0 flex-1 items-center justify-center">
                 <GravityAdSlot
                   messages={[
                     {
@@ -895,7 +898,7 @@ export function CenterContent({
                   slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
                   placement="above-iframe"
                   variant="nav"
-                  className="w-full"
+                  className="min-w-0 max-w-full"
                 />
               </div>
               <div className="flex items-center gap-0.5">
