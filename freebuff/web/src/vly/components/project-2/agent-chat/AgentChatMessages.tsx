@@ -525,15 +525,15 @@ const AssistantStreamItem: React.FC<{
     item.type === 'tool_result' ||
     item.type === 'thinking'
   const isTextType = item.type === 'text' || item.type === 'assistant'
-  const isThinkingType = item.type === 'thinking'
+  const isThinkingType = item.type === 'thinking' || item.type === 'reasoning'
 
-  // Handle thinking blocks - always collapsed by default
+  // Handle reasoning blocks - always collapsed by default
   if (isThinkingType) {
     return (
       <div className="mb-2">
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-start gap-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground/80">
-            <span className="font-normal">Thinking…</span>
+            <span className="font-normal">Reasoning</span>
             <ChevronDown
               className={`h-3 w-3 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             />
@@ -737,7 +737,7 @@ const humanizeActivityLabel = (value: string) => {
 }
 
 const getActivityItemLabel = (item: AssistantStreamItemType) => {
-  if (item.type === 'thinking') return 'Reasoning'
+  if (item.type === 'thinking' || item.type === 'reasoning') return 'Reasoning'
   if (item.type === 'timeout_continue') return 'Continue required'
   if (item.type === 'error') return 'Error'
   if (item.type === 'result') {
@@ -783,9 +783,11 @@ const hasMeaningfulActivityContent = (item: AssistantStreamItemType) => {
 const isDetailedActivityItem = (item: AssistantStreamItemType) => {
   if (!hasMeaningfulActivityContent(item)) return false
 
+  if (item.type === 'reasoning' || item.type === 'thinking') {
+    return false
+  }
+
   if (
-    item.type === 'reasoning' ||
-    item.type === 'thinking' ||
     item.type === 'subagent' ||
     item.type === 'error' ||
     item.type === 'timeout_continue'
@@ -804,8 +806,8 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
   }
 
   // Tool-call status rows usually only say "Running tool"; keep the dropdown
-  // reserved for comprehensive output such as reasoning, subagent notes, and
-  // terminal/tool results.
+  // reserved for comprehensive output such as subagent notes and terminal/tool
+  // results.
   return false
 }
 
@@ -823,13 +825,6 @@ const ActivityGroup: React.FC<{
     () => items.filter(isDetailedActivityItem),
     [items],
   )
-  const livePreview = useMemo(() => {
-    if (!isStreaming || detailedItems.length === 0) return ''
-    const latestContent = detailedItems[detailedItems.length - 1]?.content ?? ''
-    const trimmed = latestContent.trim()
-    if (!trimmed) return ''
-    return trimmed.length > 220 ? `${trimmed.slice(0, 217)}...` : trimmed
-  }, [detailedItems, isStreaming])
   const hasDetails = detailedItems.length > 0
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
@@ -879,11 +874,6 @@ const ActivityGroup: React.FC<{
           </CollapsibleContent>
         )}
       </Collapsible>
-      {livePreview && (
-        <p className="ml-5 mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
-          {livePreview}
-        </p>
-      )}
     </div>
   )
 }
@@ -1612,19 +1602,7 @@ export const AgentChatMessages = forwardRef<
             userMessage: sourceMessageForAd.user_message?.trim() ?? '',
             ads: fetchedAds,
           })
-          missingPlacements
-            .filter((placementId) => !fetchedAds[placementId])
-            .forEach((placementId) => {
-              attemptedAdSourceIdsRef.current.delete(
-                `${sourceMessageId}:${placementId}`,
-              )
-            })
         } else {
-          missingPlacements.forEach((placementId) => {
-            attemptedAdSourceIdsRef.current.delete(
-              `${sourceMessageId}:${placementId}`,
-            )
-          })
           return
         }
 

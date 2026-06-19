@@ -883,19 +883,21 @@ export function CenterContent({
                   <span className="opacity-40">/</span>
                 )}
               </span>
-              <GravityAdSlot
-                messages={[
-                  {
-                    role: "user",
-                    content: `Previewing ${project?.name || project?.semantic_identifier || "a project"} in Freebuff Web`,
-                  },
-                ]}
-                sessionId={`${project?.semantic_identifier ?? projectId ?? "project"}-above-iframe`}
-                slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
-                placement="above-iframe"
-                variant="nav"
-                className="min-w-0 flex-1"
-              />
+              <div className="min-w-0 flex-1">
+                <GravityAdSlot
+                  messages={[
+                    {
+                      role: "user",
+                      content: `Previewing ${project?.name || project?.semantic_identifier || "a project"} in Freebuff Web`,
+                    },
+                  ]}
+                  sessionId={`${project?.semantic_identifier ?? projectId ?? "project"}-above-iframe`}
+                  slotKey={`Above-iFrame-${project?.semantic_identifier ?? projectId ?? "project"}`}
+                  placement="above-iframe"
+                  variant="nav"
+                  className="w-full"
+                />
+              </div>
               <div className="flex items-center gap-0.5">
                 <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>
                   <div

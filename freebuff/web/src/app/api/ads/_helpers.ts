@@ -13,6 +13,8 @@ export async function getCurrentSessionTokenFromCookies(): Promise<
   const jar = await cookies()
   const names = [
     'authjs.session-token',
+    '__Secure-authjs.session-token',
+    '__Host-authjs.session-token',
     '__Secure-next-auth.session-token',
     'next-auth.session-token',
   ]
