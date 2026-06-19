@@ -9,6 +9,15 @@ import { and, count, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm'
 
 export type ChatRole = 'user' | 'assistant'
 
+/** A persisted image attachment on a user message. Bytes live in the blob
+ *  store; we keep only the opaque `storageId` plus its media type. Serving URLs
+ *  are resolved on read (see the thread GET route) and when calling the model
+ *  (see the chat agent), so a deleted/rotated blob never leaves a stale URL. */
+export interface ChatImageRef {
+  storageId: string
+  mediaType: string
+}
+
 export async function listThreads(userId: string) {
   return db
     .select({
@@ -147,6 +156,7 @@ export async function listMessages(threadId: string) {
       role: chatMessage.role,
       content: chatMessage.content,
       blocks: chatMessage.blocks,
+      images: chatMessage.images,
       model: chatMessage.model,
       created_at: chatMessage.created_at,
     })
@@ -164,6 +174,8 @@ export async function insertMessage(params: {
   content: string
   /** Block tree for assistant turns with subagent activity. */
   blocks?: unknown
+  /** Image attachments for user turns; omitted/empty for text-only turns. */
+  images?: ChatImageRef[]
   model?: string
 }) {
   const [message] = await db
@@ -174,6 +186,7 @@ export async function insertMessage(params: {
       role: params.role,
       content: params.content,
       blocks: params.blocks,
+      images: params.images?.length ? params.images : undefined,
       model: params.model,
     })
     .returning()
@@ -230,4 +243,21 @@ export async function isUserBanned(userId: string) {
     .from(user)
     .where(eq(user.id, userId))
   return row?.banned ?? false
+}
+
+/** Collects every image storageId attached to a thread's messages, so the
+ *  blobs can be deleted when the thread is. Postgres cascade-deletes the rows
+ *  but not the blobs, so callers must clean those up explicitly. */
+export async function listThreadImageStorageIds(
+  threadId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ images: chatMessage.images })
+    .from(chatMessage)
+    .where(eq(chatMessage.thread_id, threadId))
+  return rows.flatMap((row) =>
+    Array.isArray(row.images)
+      ? (row.images as ChatImageRef[]).map((img) => img.storageId)
+      : [],
+  )
 }

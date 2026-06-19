@@ -73,10 +73,35 @@ export function MessageList(props: {
       >
         {props.messages.map((message, i) =>
           message.role === 'user' ? (
-            <div key={message.id} className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-[15px] leading-6">
-                {message.content}
-              </div>
+            <div
+              key={message.id}
+              className="flex flex-col items-end gap-2"
+            >
+              {message.images && message.images.length > 0 && (
+                <div className="flex max-w-[85%] flex-wrap justify-end gap-2">
+                  {message.images.map((img, idx) => (
+                    <a
+                      key={`${message.id}-img-${idx}`}
+                      href={img.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block overflow-hidden rounded-xl border border-white/10"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url}
+                        alt={img.name ?? 'attached image'}
+                        className="max-h-60 w-auto max-w-full object-cover"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+              {message.content && (
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-[15px] leading-6">
+                  {message.content}
+                </div>
+              )}
             </div>
           ) : (
             <div key={message.id} className="text-[15px] leading-7">

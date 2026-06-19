@@ -3,19 +3,16 @@ import { describe, expect, it } from 'bun:test'
 import {
   CHAT_MODELS,
   DEFAULT_CHAT_MODEL_ID,
+  LIMITED_CHAT_MODEL_ID,
+  chatModelForAccessTier,
   deriveThreadTitle,
-  isChatModelId,
-  resolveChatModel,
 } from '../models'
 
 describe('chat models config', () => {
-  it('default model is a selectable model', () => {
-    expect(isChatModelId(DEFAULT_CHAT_MODEL_ID)).toBe(true)
-  })
-
-  it('rejects unknown model ids', () => {
-    expect(isChatModelId('gpt-4')).toBe(false)
-    expect(isChatModelId('')).toBe(false)
+  it('tier models are configured models', () => {
+    const ids = CHAT_MODELS.map((m) => m.id)
+    expect(ids).toContain(DEFAULT_CHAT_MODEL_ID)
+    expect(ids).toContain(LIMITED_CHAT_MODEL_ID)
   })
 
   it('every model has a unique, non-empty backend id', () => {
@@ -27,19 +24,13 @@ describe('chat models config', () => {
   })
 })
 
-describe('resolveChatModel', () => {
-  it('pins limited users to the default model regardless of request', () => {
-    expect(resolveChatModel('limited', 'deepseek-v4-pro')).toBe(
-      DEFAULT_CHAT_MODEL_ID,
-    )
+describe('chatModelForAccessTier', () => {
+  it('gives full-access users MiniMax M3', () => {
+    expect(chatModelForAccessTier('full')).toBe(DEFAULT_CHAT_MODEL_ID)
   })
 
-  it('lets full users pick any known model', () => {
-    expect(resolveChatModel('full', 'deepseek-v4-pro')).toBe('deepseek-v4-pro')
-  })
-
-  it('falls back to the default for unknown models', () => {
-    expect(resolveChatModel('full', 'not-a-model')).toBe(DEFAULT_CHAT_MODEL_ID)
+  it('pins limited-access users to DeepSeek Flash', () => {
+    expect(chatModelForAccessTier('limited')).toBe(LIMITED_CHAT_MODEL_ID)
   })
 })
 
@@ -49,7 +40,7 @@ describe('deriveThreadTitle', () => {
   })
 
   it('falls back for empty input', () => {
-    expect(deriveThreadTitle('   \n\n')).toBe('New chat')
+    expect(deriveThreadTitle('   \n\n')).toBe('Image')
   })
 
   it('truncates long titles with an ellipsis', () => {

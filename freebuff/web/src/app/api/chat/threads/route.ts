@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     listThreads(userId),
     getChatAccessTier(userId, request),
   ])
-  // Limited-access users are pinned to one model server-side; don't show
-  // them a selector (or mention it) at all.
-  return NextResponse.json({ threads, canSelectModel: accessTier === 'full' })
+  // Only full-access users can upload images (limited users — unsupported
+  // countries, VPN/proxy — are restricted to text).
+  return NextResponse.json({ threads, canUploadImages: accessTier === 'full' })
 }

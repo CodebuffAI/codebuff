@@ -4,7 +4,7 @@ import { Check, Menu, Pencil, Plus, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { ChatMessage, ThreadSummary } from './types'
+import type { ChatImage, ChatMessage, PendingImage, ThreadSummary } from './types'
 
 // NB: `@/components/*` is aliased to vly in this package, so import relatively.
 import { UnifiedNavbar } from '../../../components/landing/UnifiedNavbar'
@@ -13,7 +13,6 @@ import {
   isChatBlockArray,
   isChatStreamEvent,
 } from '@/app/chat/blocks'
-import { DEFAULT_CHAT_MODEL_ID, isChatModelId } from '@/app/chat/models'
 import { cn } from '@/lib/utils'
 import { ChatAds } from './chat-ads'
 import { Composer } from './composer'
@@ -66,8 +65,9 @@ export function ChatApp() {
   // so MessageList can restore the right scroll position for the content.
   const [viewThreadId, setViewThreadId] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
-  const [model, setModel] = useState(DEFAULT_CHAT_MODEL_ID)
-  const [canSelectModel, setCanSelectModel] = useState(false)
+  // Full-access flag: gates image upload (limited users are restricted). Named
+  // for what it controls now that there's a single model and no picker.
+  const [canUploadImages, setCanUploadImages] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -78,6 +78,9 @@ export function ChatApp() {
     content: string
   } | null>(null)
   const [draft, setDraft] = useState('')
+  // Composer image attachments, lifted here so they reset on thread switch
+  // (the Composer stays mounted across threads).
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([])
   const abortRef = useRef<AbortController | null>(null)
   // The thread whose messages are on screen; guards against stale loads.
   const viewedThreadRef = useRef<string | null>(null)
@@ -96,12 +99,21 @@ export function ChatApp() {
     if (!res.ok) return
     const data = await res.json()
     setThreads(data.threads)
-    setCanSelectModel(Boolean(data.canSelectModel))
+    setCanUploadImages(Boolean(data.canUploadImages))
   }, [])
 
-  const openThread = useCallback(async (threadId: string | null) => {
+  const clearPendingImages = useCallback(() => {
+    setPendingImages((prev) => {
+      prev.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+      return []
+    })
+  }, [])
+
+  const openThread = useCallback(
+    async (threadId: string | null) => {
     abortRef.current?.abort()
     setStreaming(false)
+    clearPendingImages()
     setActiveThreadId(threadId)
     setSidebarOpen(false)
     viewedThreadRef.current = threadId
@@ -129,12 +141,12 @@ export function ChatApp() {
         role: m.role,
         content: m.content,
         blocks: isChatBlockArray(m.blocks) ? m.blocks : undefined,
+        images: Array.isArray(m.images) ? (m.images as ChatImage[]) : undefined,
       })),
     )
-    if (data.thread?.model && isChatModelId(data.thread.model)) {
-      setModel(data.thread.model)
-    }
-  }, [])
+    },
+    [clearPendingImages],
+  )
 
   useEffect(() => {
     refreshThreads()
@@ -156,12 +168,13 @@ export function ChatApp() {
   }, [sidebarOpen])
 
   const send = useCallback(
-    async (content: string) => {
+    async (content: string, sentImages: ChatImage[] = []) => {
       const threadIdAtSend = activeThreadId
       const userMessage: ChatMessage = {
         id: `local-user-${Date.now()}`,
         role: 'user',
         content,
+        images: sentImages.length > 0 ? sentImages : undefined,
       }
       const assistantMessage: ChatMessage = {
         id: `local-assistant-${Date.now()}`,
@@ -193,7 +206,11 @@ export function ChatApp() {
           body: JSON.stringify({
             threadId: threadIdAtSend,
             content,
-            model,
+            // Send only opaque refs; the server resolves URLs itself.
+            images: sentImages.map((img) => ({
+              storageId: img.storageId,
+              mediaType: img.mediaType,
+            })),
           }),
           signal: controller.signal,
         })
@@ -306,7 +323,7 @@ export function ChatApp() {
         refreshThreads()
       }
     },
-    [activeThreadId, model, refreshThreads],
+    [activeThreadId, refreshThreads],
   )
 
   const stop = useCallback(() => {
@@ -362,9 +379,9 @@ export function ChatApp() {
       onSend={send}
       onStop={stop}
       streaming={streaming}
-      model={model}
-      onModelChange={setModel}
-      canSelectModel={canSelectModel}
+      canUploadImages={canUploadImages}
+      images={pendingImages}
+      setImages={setPendingImages}
       autoFocus
     />
   )

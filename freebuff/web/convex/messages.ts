@@ -2,7 +2,12 @@ import schema from "!/schema";
 import { modelValidator } from "!/utils/registry_validators";
 import { typedV } from "convex-helpers/validators";
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 
 // Size limits to prevent exceeding Convex 1 MiB document limit
@@ -1144,6 +1149,40 @@ export const deleteImage = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
     await ctx.storage.delete(args.storageId);
+  },
+});
+
+// Batch-resolves stored images to their serving URLs, in the same order as the
+// input. Used by the Freebuff chat server to hydrate message attachments at
+// read time (one round-trip per thread load). An entry is null if that file no
+// longer exists.
+export const getImageUrls = query({
+  args: { storageIds: v.array(v.id("_storage")) },
+  returns: v.array(v.union(v.string(), v.null())),
+  handler: async (ctx, args) => {
+    return await Promise.all(
+      args.storageIds.map((id) => ctx.storage.getUrl(id)),
+    );
+  },
+});
+
+// Best-effort batch delete, used by the Freebuff chat server to clean up image
+// blobs when a thread is deleted. Already-deleted ids are ignored so a partial
+// prior cleanup can be retried safely.
+export const deleteImages = mutation({
+  args: { storageIds: v.array(v.id("_storage")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await Promise.all(
+      args.storageIds.map(async (id) => {
+        try {
+          await ctx.storage.delete(id);
+        } catch {
+          // File already gone; nothing to do.
+        }
+      }),
+    );
+    return null;
   },
 });
 

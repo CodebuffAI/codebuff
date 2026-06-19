@@ -1213,6 +1213,11 @@ export const chatMessage = pgTable(
     // Block tree (text/tool/agent blocks) for assistant turns that spawned
     // subagents; null for plain-text turns. See freebuff/web chat blocks.ts.
     blocks: jsonb('blocks'),
+    // Image attachments on user turns: an array of { storageId, mediaType }.
+    // Bytes live in the blob store (Convex file storage); only opaque refs are
+    // persisted. Serving URLs are resolved on read, never stored. Null for
+    // turns without images.
+    images: jsonb('images'),
     model: text('model'),
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
       .notNull()

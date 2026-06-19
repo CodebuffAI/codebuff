@@ -6,10 +6,11 @@ import type { NextRequest } from 'next/server'
 
 import { BlockTreeBuilder } from '@/app/chat/blocks'
 import {
+  CHAT_IMAGE_ALLOWED_TYPES_SET,
+  CHAT_IMAGE_MAX_COUNT,
   CHAT_MESSAGE_MAX_CHARS,
+  chatModelForAccessTier,
   deriveThreadTitle,
-  isChatModelId,
-  resolveChatModel,
 } from '@/app/chat/models'
 import { getChatAccessTier } from '@/server/chat/access'
 import { runChatAgent } from '@/server/chat/agent'
@@ -26,6 +27,34 @@ import {
   touchThread,
 } from '@/server/chat/store'
 import { logger } from '@/util/logger'
+
+import type { ChatImageRef } from '@/server/chat/store'
+
+/**
+ * Validates the client-supplied image refs into trusted ChatImageRefs. The
+ * client only sends opaque storageIds (returned by /api/chat/upload) plus media
+ * types — never URLs — so the server always resolves the serving URL itself
+ * from the blob store (no SSRF surface). Returns at most CHAT_IMAGE_MAX_COUNT
+ * entries; anything malformed is dropped.
+ */
+function parseImageRefs(raw: unknown): ChatImageRef[] {
+  if (!Array.isArray(raw)) return []
+  const refs: ChatImageRef[] = []
+  for (const item of raw) {
+    if (refs.length >= CHAT_IMAGE_MAX_COUNT) break
+    if (!item || typeof item !== 'object') continue
+    const { storageId, mediaType } = item as Record<string, unknown>
+    if (
+      typeof storageId !== 'string' ||
+      typeof mediaType !== 'string' ||
+      !CHAT_IMAGE_ALLOWED_TYPES_SET.has(mediaType)
+    ) {
+      continue
+    }
+    refs.push({ storageId, mediaType })
+  }
+  return refs
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -71,11 +100,11 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null)
   const content = typeof body?.content === 'string' ? body.content.trim() : ''
-  const requestedModel = typeof body?.model === 'string' ? body.model : ''
   const threadIdInput =
     typeof body?.threadId === 'string' ? body.threadId : null
+  let images = parseImageRefs(body?.images)
 
-  if (!content) {
+  if (!content && images.length === 0) {
     return NextResponse.json(
       { error: 'empty_message', message: 'Message cannot be empty.' },
       { status: 400 },
@@ -87,12 +116,6 @@ export async function POST(request: NextRequest) {
         error: 'message_too_long',
         message: `Messages are limited to ${CHAT_MESSAGE_MAX_CHARS.toLocaleString()} characters.`,
       },
-      { status: 400 },
-    )
-  }
-  if (!isChatModelId(requestedModel)) {
-    return NextResponse.json(
-      { error: 'invalid_model', message: 'Unknown model.' },
       { status: 400 },
     )
   }
@@ -152,7 +175,15 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const model = resolveChatModel(accessTier, requestedModel)
+  // Image upload is full-access only; drop any images a limited user smuggled
+  // in (they're pinned to a text-only model).
+  if (accessTier !== 'full') {
+    images = []
+  }
+
+  // The server picks the model from the access tier (full → MiniMax M3,
+  // limited → DeepSeek Flash); it never trusts a client-supplied model.
+  const model = chatModelForAccessTier(accessTier)
 
   const thread =
     claimedThread ??
@@ -165,7 +196,7 @@ export async function POST(request: NextRequest) {
   const threadId = thread.id
   const previousRunState = thread.run_state
 
-  await insertMessage({ threadId, userId, role: 'user', content })
+  await insertMessage({ threadId, userId, role: 'user', content, images })
 
   // DAU signal: one event per user-submitted chat message. userId is the
   // canonical codebuff Postgres user id (next-auth session.user.id), matching
@@ -208,6 +239,7 @@ export async function POST(request: NextRequest) {
         const result = await runChatAgent({
           prompt: content,
           model,
+          images,
           previousRunState,
           userId,
           threadId,

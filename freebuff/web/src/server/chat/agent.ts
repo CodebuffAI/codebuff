@@ -1,11 +1,13 @@
 import { getCachedFreebuffWebServiceAccountApiKey } from '@codebuff/internal/freebuff/web-service-account'
 
-import type { AgentDefinition, RunState } from '@codebuff/sdk'
+import type { ChatImageRef } from './store'
+import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
 
 import baseChatAgent from '../../../../../agents/base-chat'
 import researcherWebAgent from '../../../../../agents/researcher/researcher-web'
 import thinkerGeminiAgent from '../../../../../agents/thinker/thinker-gemini'
 import { CHAT_MODELS } from '@/app/chat/models'
+import { getBlobStore } from '@/server/chat/blob-store'
 import { logger } from '@/util/logger'
 
 import { toolCallDisplay } from '@/app/chat/blocks'
@@ -62,6 +64,49 @@ const HIDDEN_TOOL_NAMES = new Set([
 ])
 
 /**
+ * Resolves each attachment's storageId to a serving URL via the blob store,
+ * then fetches and base64-encodes it for the multimodal `content` array the SDK
+ * expects. URLs come from our own blob store (never from the client), so there
+ * is no SSRF surface. Images that can't be resolved or fetched are skipped
+ * rather than failing the whole turn.
+ */
+async function buildImageContent(
+  images: ChatImageRef[],
+  signal: AbortSignal,
+): Promise<MessageContent[]> {
+  const urls = await getBlobStore().getUrls(images.map((img) => img.storageId))
+  const parts = await Promise.all(
+    images.map(async (img): Promise<MessageContent | null> => {
+      const url = urls[img.storageId]
+      if (!url) {
+        logger.warn(
+          { storageId: img.storageId },
+          'Chat image blob missing; sending message without it',
+        )
+        return null
+      }
+      try {
+        const res = await fetch(url, { signal })
+        if (!res.ok) {
+          throw new Error(`status ${res.status}`)
+        }
+        const base64 = Buffer.from(await res.arrayBuffer()).toString('base64')
+        return { type: 'image', image: base64, mediaType: img.mediaType }
+      } catch (error) {
+        if (!signal.aborted) {
+          logger.error(
+            { error, storageId: img.storageId },
+            'Chat image fetch failed; sending message without it',
+          )
+        }
+        return null
+      }
+    }),
+  )
+  return parts.filter((p): p is MessageContent => p !== null)
+}
+
+/**
  * Runs one turn of the base-chat agent through the codebuff agent framework.
  * LLM calls flow through the shared /api/v1/chat/completions endpoint under
  * the freebuff web service account (metered, not deducted). The agent has no
@@ -70,8 +115,10 @@ const HIDDEN_TOOL_NAMES = new Set([
  */
 export async function runChatAgent(params: {
   prompt: string
-  /** Chat-product model id, already tier-pinned by the caller. */
+  /** Chat-product model id, chosen by the caller (see stream route). */
   model: string
+  /** Image attachments for this turn; already validated by the caller. */
+  images?: ChatImageRef[]
   previousRunState: unknown
   userId: string
   threadId: string
@@ -85,6 +132,10 @@ export async function runChatAgent(params: {
   if (!backendModel) {
     throw new Error(`Unknown chat model: ${params.model}`)
   }
+
+  const content = params.images?.length
+    ? await buildImageContent(params.images, params.signal)
+    : undefined
 
   const agent = {
     ...baseChatAgent,
@@ -118,6 +169,7 @@ export async function runChatAgent(params: {
     knowledgeFiles: {},
     maxAgentSteps: 10,
     prompt: params.prompt,
+    ...(content && content.length > 0 ? { content } : {}),
     previousRun,
     costMode: 'normal',
     signal: params.signal,
