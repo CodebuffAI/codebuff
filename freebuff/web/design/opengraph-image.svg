@@ -1,0 +1,61 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="-5%" r="75%">
+      <stop offset="0%" stop-color="#1b1f27" stop-opacity="0.9"/>
+      <stop offset="55%" stop-color="#0e1013" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#0b0c0e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="630" fill="#0b0c0e"/>
+  <rect x="0" y="0" width="1200" height="630" fill="url(#glow)"/>
+
+  <g stroke="#ffffff" stroke-opacity="0.022" stroke-width="1">
+    <line x1="-60" y1="140" x2="1260" y2="-100"/>
+    <line x1="-60" y1="360" x2="1260" y2="120"/>
+    <line x1="-60" y1="580" x2="1260" y2="340"/>
+    <line x1="-60" y1="800" x2="1260" y2="560"/>
+  </g>
+
+  <!-- header: brand icon + wordmark -->
+  <g transform="translate(82,74)">
+    <rect x="0" y="0" width="78" height="78" rx="18" fill="none" stroke="#ffffff" stroke-width="5"/>
+    <g transform="translate(23,26)" fill="#ffffff">
+      <path d="M0,-12 C1.2,-3.6 3.6,-1.2 12,0 C3.6,1.2 1.2,3.6 0,12 C-1.2,3.6 -3.6,1.2 -12,0 C-3.6,-1.2 -1.2,-3.6 0,-12 Z"/>
+    </g>
+    <rect x="30" y="42" width="26" height="9" rx="4.5" fill="#ffffff"/>
+    <text x="104" y="40" font-family="'Helvetica Neue','Arial',sans-serif" font-size="50" font-weight="700" fill="#ffffff">Freebuff</text>
+    <text x="330" y="40" font-family="'Helvetica Neue','Arial',sans-serif" font-size="32" font-weight="400" fill="#878c93">/  the free coding agent</text>
+  </g>
+
+  <!-- terminal -->
+  <g transform="translate(82,206)">
+    <rect x="0" y="0" width="1036" height="192" rx="22" fill="#0e1116" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
+    <circle cx="40" cy="40" r="7.5" fill="#3a3e44"/>
+    <circle cx="66" cy="40" r="7.5" fill="#3a3e44"/>
+    <circle cx="92" cy="40" r="7.5" fill="#3a3e44"/>
+    <text x="62" y="138" font-family="'SF Mono','Menlo','DejaVu Sans Mono',monospace" font-size="64" font-weight="700" fill="#ffffff"><tspan fill="#67e8f9">$</tspan> npm i -g freebuff</text>
+  </g>
+
+  <!-- product pills: CLI / Web / Chat -->
+  <g transform="translate(82,452)" font-family="'Helvetica Neue','Arial',sans-serif">
+    <g transform="translate(0,0)">
+      <rect x="0" y="0" width="332" height="82" rx="41" fill="#14181e" stroke="#ffffff" stroke-opacity="0.09" stroke-width="2"/>
+      <circle cx="50" cy="41" r="16" fill="#0e3a34"/>
+      <path d="M42 41 l6 6 l10 -12" fill="none" stroke="#67e8f9" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="84" y="54" font-size="36" font-weight="500" fill="#ffffff">CLI</text>
+    </g>
+    <g transform="translate(352,0)">
+      <rect x="0" y="0" width="332" height="82" rx="41" fill="#14181e" stroke="#ffffff" stroke-opacity="0.09" stroke-width="2"/>
+      <circle cx="50" cy="41" r="16" fill="#0e3a34"/>
+      <path d="M42 41 l6 6 l10 -12" fill="none" stroke="#67e8f9" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="84" y="54" font-size="36" font-weight="500" fill="#ffffff">Web</text>
+    </g>
+    <g transform="translate(704,0)">
+      <rect x="0" y="0" width="332" height="82" rx="41" fill="#14181e" stroke="#ffffff" stroke-opacity="0.09" stroke-width="2"/>
+      <circle cx="50" cy="41" r="16" fill="#0e3a34"/>
+      <path d="M42 41 l6 6 l10 -12" fill="none" stroke="#67e8f9" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="84" y="54" font-size="36" font-weight="500" fill="#ffffff">Chat</text>
+    </g>
+  </g>
+</svg>
