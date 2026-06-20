@@ -14,7 +14,6 @@ import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
-import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
@@ -502,21 +501,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommandWithArgs({
     name: 'plan',
     handler: (params, args) => {
-      // In freebuff mode, require ChatGPT connection
-      if (IS_FREEBUFF && !getChatGptOAuthStatus().connected) {
-        params.setMessages((prev) => [
-          ...prev,
-          getUserMessage(params.inputValue.trim()),
-          getSystemMessage(
-            'Connect your ChatGPT account to use /plan. Use /connect to get started.',
-          ),
-        ])
-        params.saveToHistory(params.inputValue.trim())
-        clearInput(params)
-        useChatStore.getState().setInputMode('connect:chatgpt')
-        return
-      }
-
+      // /plan runs on the selected model by default, or delegates to GPT when a
+      // ChatGPT account is connected (handled in buildPlanPrompt). No gate.
       const trimmedArgs = args.trim()
 
       params.saveToHistory(params.inputValue.trim())
@@ -541,21 +527,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommandWithArgs({
     name: 'review',
     handler: (params, args) => {
-      // In freebuff mode, require ChatGPT connection
-      if (IS_FREEBUFF && !getChatGptOAuthStatus().connected) {
-        params.setMessages((prev) => [
-          ...prev,
-          getUserMessage(params.inputValue.trim()),
-          getSystemMessage(
-            'Connect your ChatGPT account to use /review. Use /connect to get started.',
-          ),
-        ])
-        params.saveToHistory(params.inputValue.trim())
-        clearInput(params)
-        useChatStore.getState().setInputMode('connect:chatgpt')
-        return
-      }
-
+      // /review runs on the selected model by default, or delegates to GPT when
+      // a ChatGPT account is connected (handled in buildReviewPrompt). No gate.
       const trimmedArgs = args.trim()
 
       params.saveToHistory(params.inputValue.trim())
