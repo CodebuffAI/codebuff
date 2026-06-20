@@ -103,7 +103,34 @@ async function buildImageContent(
       }
     }),
   )
-  return parts.filter((p): p is MessageContent => p !== null)
+  const resolved = parts.filter((p): p is MessageContent => p !== null)
+  // Make the happy path observable: how many images actually made it into the
+  // request, their byte sizes and media types. A 78-byte image here next to a
+  // downstream "failed to decode image" provider error means the image is
+  // degenerate/malformed, not that the pipeline dropped it.
+  logger.info(
+    { ...summarizeChatImages(resolved), requested: images.length },
+    'Chat image attachments resolved',
+  )
+  return resolved
+}
+
+/** PII-safe summary of resolved image parts: counts, byte sizes, and media
+ *  types — never the raw image content itself. */
+function summarizeChatImages(parts: MessageContent[]): {
+  imageCount: number
+  imageBytes: number[]
+  mediaTypes: string[]
+} {
+  const imageParts = parts.filter(
+    (p): p is Extract<MessageContent, { type: 'image' }> => p.type === 'image',
+  )
+  return {
+    imageCount: imageParts.length,
+    // base64 length × ¾ ≈ decoded byte count.
+    imageBytes: imageParts.map((p) => Math.floor((p.image?.length ?? 0) * 0.75)),
+    mediaTypes: [...new Set(imageParts.map((p) => p.mediaType))],
+  }
 }
 
 /**
@@ -251,6 +278,10 @@ export async function runChatAgent(params: {
           userId: params.userId,
           threadId: params.threadId,
           message: runState.output.message,
+          model: backendModel,
+          // Image sizes/types on the failure itself, so an image-request
+          // failure is self-describing. Computed only here, on the error path.
+          ...(content ? summarizeChatImages(content) : {}),
         },
         'Chat agent run failed',
       )

@@ -1,8 +1,10 @@
 # Logging & Observability (Axiom)
 
 All logs and analytics events flow into **one queryable place**: the Axiom
-`freebuff` dataset. This replaces shipping container stdout to BetterStack —
-logs are now structured events you query with APL (Axiom Processing Language).
+`freebuff` dataset — structured events you query with APL (Axiom Processing
+Language). Raw container stdout (`render logs`) still exists for live tailing,
+but is **not** in Axiom: only `logger.*` calls reach the dataset, never
+`console.*` (see [Conventions](#conventions)).
 
 > **Coding agents:** use the query scripts below (`scripts/logs/`) — they build
 > safe APL with a required time window. Axiom bills on **ingested volume**, not
@@ -175,6 +177,42 @@ Raw APL (e.g. in the Axiom console) — note the `parse_json` to read `data`:
   `toEvent` (`packages/logging/src/sink.ts`). Axiom is schemaless — new fields
   appear automatically on next ingest.
 
+## Conventions
+
+Hard-won rules for logs that are actually useful when something breaks (each one
+cost real debugging time when it was missing):
+
+1. **`logger.*`, never `console.*`, for anything you'd want to query.** Only
+   `logger.*` reaches Axiom; `console.log/error` goes to container stdout
+   (`render logs`) and is invisible to the query scripts. A `console.error` in a
+   request handler is, for observability purposes, a silent failure.
+2. **Summarize payloads you redact — don't just drop them.** When you omit a
+   request/response body for size or PII (e.g. `messagesOmitted: true`), attach a
+   compact *shape* summary instead: counts, byte sizes, content-part types. The
+   redaction reason doesn't apply to metadata *about* the payload, and that
+   metadata is usually what triages the failure. `summarizeMessagesForLog()`
+   (`web/src/llm-api/log-summary.ts`) does this for chat-completion messages —
+   it turns an opaque `messageCount: 3` into "1 image, 78 bytes, image/png",
+   which is the difference between "bad image" and "broken pipeline".
+3. **Carry correlation keys across service boundaries.** When a request crosses
+   into another service under a *service account* (e.g. freebuff chat → the
+   completions backend, which sees the shared `freebuff-web-service` user), log
+   the originating ids so you can pivot back to the real user, thread, and
+   `run_id`. `client_request_id`/`run_id` are promoted pivot fields — emit them
+   on both sides. For freebuff chat these ride in `codebuff_metadata`
+   (`freebuff_chat_user_id` / `freebuff_chat_thread_id`).
+4. **Surface the underlying error, not the user-facing one.** When you catch a
+   provider/SDK error and return a generic "something went wrong" to the client,
+   the *original* error (status, provider, message) still belongs in the
+   structured `data`. A "please try again" with nothing behind it in Axiom is
+   unactionable.
+5. **Log the happy path for risky features, at `info`.** One structured line per
+   image-chat ("Chat image attachments resolved", with sizes/types) is
+   negligible volume but gives you a denominator and confirms the feature is
+   exercised — cheaper than reconstructing it from errors. Reserve `debug`
+   (dropped before ingest by default; see [Cost](#cost)) for genuinely
+   high-volume detail.
+
 ## Configuration (env)
 
 Runtime toggles (read directly from `process.env`):
@@ -195,14 +233,3 @@ one-time console error is emitted). `freebuff-web` already uses Axiom elsewhere
 (`AXIOM_API_TOKEN` in its Convex monitoring), so the token likely exists there.
 The query scripts use a separate `AXIOM_QUERY_TOKEN` (query permission) — the
 ingest token can't read.
-
-## Migration / cutover from BetterStack
-
-BetterStack was a **Render log drain on stdout** (not in code). Cutover:
-
-1. Deploy this change; `AXIOM_LOGS_ENABLED` defaults on in prod. Logs now
-   dual-write to Axiom while stdout (→ BetterStack) keeps flowing.
-2. Verify events arrive: `bun scripts/logs/query-logs.ts --since 30m --service web`.
-3. Once satisfied, **remove the BetterStack log drain in the Render dashboard**
-   (Settings → Log Streams). stdout logging stays for live `render logs`.
-4. Cancel the BetterStack source/subscription.

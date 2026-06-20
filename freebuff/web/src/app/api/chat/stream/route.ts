@@ -260,7 +260,12 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         const aborted = error instanceof Error && error.name === 'AbortError'
         if (!aborted) {
-          console.error('[chat/stream] agent run failed:', error)
+          // logger.* (not console.*) so this reaches Axiom with structured
+          // context; a bare console.error here is invisible to log queries.
+          logger.error(
+            { error, userId, threadId, model, imageCount: images.length },
+            'Chat stream agent run threw',
+          )
           enqueueGenericError()
         }
       }
