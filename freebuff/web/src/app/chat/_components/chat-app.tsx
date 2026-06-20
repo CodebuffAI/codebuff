@@ -15,6 +15,7 @@ import {
 } from '@/app/chat/blocks'
 import { cn } from '@/lib/utils'
 import { ChatAds } from './chat-ads'
+import { ChatBackdrop } from './chat-backdrop'
 import { Composer } from './composer'
 import { MessageList } from './message-list'
 
@@ -494,10 +495,12 @@ export function ChatApp() {
   )
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      <ChatBackdrop />
       <UnifiedNavbar
         sticky={false}
         hideRightOnMobile
+        containerClassName="px-3 py-2.5 sm:px-5"
         mobileTrigger={
           <button
             type="button"
