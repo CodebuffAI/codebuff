@@ -55,25 +55,13 @@ export function CliHero() {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
           className="lp-gpu flex w-full flex-col items-center"
         >
-          <div className="mb-6 flex items-center gap-2 text-sm text-white/55">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-forest-bright opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-forest-bright" />
-            </span>
-            <span>
-              <span className="font-normal text-white/85">230,000+</span>{' '}
-              developers coding for free
-            </span>
-          </div>
-
           <h1 className="lp-hero-heading text-balance text-[34px] font-normal leading-[1.1] text-white md:text-[52px] lg:text-[58px]">
             The free coding agent for your{' '}
             <span className="text-forest-bright">terminal</span>
           </h1>
 
           <p className="mt-4 max-w-md text-base leading-relaxed text-white/55 md:text-[17px]">
-            Freebuff CLI is 100% free. No subscriptions, no API keys — install
-            once and start coding in seconds.
+            No subscriptions, no API keys. The best open-source models.
           </p>
 
           <div className="mt-9 w-full max-w-xl">
@@ -162,32 +150,37 @@ function CliInstallCard() {
 
   return (
     <div className="text-left">
-      <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-mono text-sm">
-        <span className="select-none text-forest-bright">$</span>
-        <span className="flex-1 text-white/90">npm install -g freebuff</span>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex flex-1 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 font-mono text-sm">
+          <span className="select-none text-forest-bright">$</span>
+          <span className="flex-1 text-white/90">npm install -g freebuff</span>
+          <button
+            onClick={copy}
+            aria-label="Copy install command"
+            className="text-white/40 transition-colors hover:text-white"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-forest-bright" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
         <button
-          onClick={copy}
-          aria-label="Copy install command"
-          className="text-white/40 transition-colors hover:text-white"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex shrink-0 items-center gap-1.5 text-[13px] text-white/45 transition-colors hover:text-white"
         >
-          {copied ? (
-            <Check className="h-4 w-4 text-forest-bright" />
-          ) : (
-            <Copy className="h-4 w-4" />
-          )}
+          <span>Quick start</span>
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 transition-transform',
+              open && 'rotate-180',
+            )}
+          />
         </button>
       </div>
-
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="mt-3 flex items-center gap-1.5 text-[13px] text-white/45 transition-colors hover:text-white"
-      >
-        <span>Quick start</span>
-        <ChevronDown
-          className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
-        />
-      </button>
 
       {open && (
         <div className="mt-3">
