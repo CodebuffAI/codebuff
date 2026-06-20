@@ -35,6 +35,7 @@ export const createUnassignedProject = internalMutation({
       convex_url: args.convex_url,
       sandbox_size: "small", // All new projects start as small
       packageManager: args.packageManager ?? "bun", // Fallback to bun if not detected (should rarely happen)
+      last_dist_build_at: 0,
     });
 
     await ctx.db.insert("daytona_migration", {

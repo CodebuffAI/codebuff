@@ -146,21 +146,25 @@ export async function createCodeSandbox() {
   }
 }
 
-export async function createDaytonaSandbox(daytonaServer: DaytonaServer = "new") {
+export async function createDaytonaSandbox(
+  daytonaServer: DaytonaServer = "new",
+  snapshotId?: string,
+) {
   try {
+    const effectiveSnapshotId = snapshotId ?? process.env.DAYTONA_SNAPSHOT_ID;
     console.log(
-      `[createDaytonaSandbox] requested server=${daytonaServer} snapshot=${process.env.DAYTONA_SNAPSHOT_ID ?? "undefined"}`,
+      `[createDaytonaSandbox] requested server=${daytonaServer} snapshot=${effectiveSnapshotId ?? "undefined"}`,
     );
     // Use the singleton SDK instance instead of creating a new one
     const daytona = DaytonaSdkManager.getDaytonaSDK(daytonaServer);
 
     console.log(
       "Creating sandbox with snapshot:",
-      process.env.DAYTONA_SNAPSHOT_ID,
+      effectiveSnapshotId,
     );
 
     const sandbox = await daytona.create({
-      snapshot: process.env.DAYTONA_SNAPSHOT_ID,
+      snapshot: effectiveSnapshotId,
       public: true,
       autoStopInterval: 10,
     });

@@ -286,6 +286,11 @@ export const commit = internalAction({
       });
     }
 
+    // Schedule fallback dist refresh check (non-blocking publish path)
+    await ctx.runMutation(internal.fallback_dist.enqueueRefreshIfEligible, {
+      projectId: args.projectId,
+    });
+
     // Increment screenshot counter (triggers screenshot after 10 commits)
     await ctx.runMutation(internal.screenshot.incrementCommitCounter, {
       projectId: args.projectId,

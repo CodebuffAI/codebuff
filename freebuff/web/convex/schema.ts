@@ -130,6 +130,7 @@ export default defineSchema(
       commits_since_screenshot: v.optional(v.number()), // Counter for agent commits
 
       last_opened: v.optional(v.number()),
+      last_dist_build_at: v.optional(v.number()),
       primary_document: v.optional(v.id('document')),
       template_id: v.optional(v.string()),
       custom_instructions: v.optional(v.string()),

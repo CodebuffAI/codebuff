@@ -160,15 +160,21 @@ async function setupConvexProjectForSandbox(
 }
 
 export const initializeUnassignedProject = internalAction({
-  args: {},
+  args: {
+    snapshotId: v.optional(v.string()),
+  },
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     console.log("Starting background project creation");
+    const snapshotId = args.snapshotId ?? process.env.DAYTONA_SNAPSHOT_ID;
 
     // Create the sandbox and start its preview server
     try {
-      const { id: daytonaSandboxId } = await createDaytonaSandbox();
-      console.log("Created daytona sandbox:", { daytonaSandboxId });
+      const { id: daytonaSandboxId } = await createDaytonaSandbox(
+        "new",
+        snapshotId,
+      );
+      console.log("Created daytona sandbox:", { daytonaSandboxId, snapshotId });
 
       // Create the sandbox codebase - initially without specifying package manager
       // so it will be auto-detected from the template
@@ -204,7 +210,7 @@ export const initializeUnassignedProject = internalAction({
           sandbox_id: "daytona:" + daytonaSandboxId,
           daytona_server: "new",
           github_url: "", //htmlUrl,
-          template_id: process.env.DAYTONA_SNAPSHOT_ID,
+          template_id: snapshotId,
           packageManager: detectedPackageManager,
         },
       );
@@ -332,6 +338,7 @@ export const generateProjectNameAndSetAsEnvVarAndInitializeNew = internalAction(
     args: {
       initialDocumentContent: v.string(),
       semanticIdentifier: v.string(),
+      snapshotId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
       const result = await generateText({
@@ -365,6 +372,9 @@ export const generateProjectNameAndSetAsEnvVarAndInitializeNew = internalAction(
       await ctx.scheduler.runAfter(
         5 * 1000,
         internal.codesandbox.createProject.initializeUnassignedProject,
+        {
+          snapshotId: args.snapshotId,
+        },
       );
     },
   },

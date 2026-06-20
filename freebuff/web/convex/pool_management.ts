@@ -23,6 +23,7 @@ export const flushProjectPoolAndInitializeNew = internalAction({
     for (let i = 0; i < newPoolSize; i++) {
       await ctx.runAction(
         internal.codesandbox.createProject.initializeUnassignedProject,
+        {},
       );
 
       console.log("Initialized unassigned project", i);

@@ -124,6 +124,8 @@ import type * as editor_filesystem from "../editor/filesystem.js";
 import type * as email from "../email.js";
 import type * as email_blasts_node from "../email_blasts_node.js";
 import type * as entry_point from "../entry_point.js";
+import type * as fallback_dist from "../fallback_dist.js";
+import type * as fallback_dist_publish from "../fallback_dist_publish.js";
 import type * as featureFlags from "../featureFlags.js";
 import type * as github_auth from "../github/auth.js";
 import type * as github_auth_connections from "../github/auth/connections.js";
@@ -345,6 +347,8 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   email_blasts_node: typeof email_blasts_node;
   entry_point: typeof entry_point;
+  fallback_dist: typeof fallback_dist;
+  fallback_dist_publish: typeof fallback_dist_publish;
   featureFlags: typeof featureFlags;
   "github/auth": typeof github_auth;
   "github/auth/connections": typeof github_auth_connections;

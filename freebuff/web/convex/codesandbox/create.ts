@@ -6,6 +6,7 @@ import { checkUserRateLimit } from "../coding_agent/rateLimiter";
 import { getOrganizationContext } from "../org_security";
 import { FEATURE_FLAGS } from "../featureFlags";
 import { agentModeValidator } from "../utils/registry_validators";
+import { getWebAccessTier } from "../coding_agent/shared/geoAccess";
 
 export const create = mutation({
   args: {
@@ -104,10 +105,35 @@ export const create = mutation({
       // summarize and get name
 
       // get an existing project in the pool
-      const project = await ctx.db
+      const fullSnapshotId = process.env.DAYTONA_SNAPSHOT_ID;
+      const smallSnapshotId =
+        process.env.DAYTONA_SNAPSHOT_SMALL_ID ?? fullSnapshotId;
+
+      if (!fullSnapshotId) {
+        throw new Error("DAYTONA_SNAPSHOT_ID is not configured");
+      }
+
+      const accessTier = user?.role === "god" ? "full" : await getWebAccessTier(ctx);
+      const targetSnapshotId =
+        accessTier === "full" ? fullSnapshotId : (smallSnapshotId ?? fullSnapshotId);
+
+      if (accessTier !== "full") {
+        console.log("[ProjectCreate] using small snapshot", {
+          userId,
+          accessTier,
+          snapshotId: targetSnapshotId,
+        });
+      }
+
+      const unassignedProjects = await ctx.db
         .query("project")
         .withIndex("by_state", (q) => q.eq("state", "unassigned"))
-        .first();
+        .collect();
+
+      const project = unassignedProjects.find((candidate) => {
+        const candidateSnapshot = candidate.template_id ?? fullSnapshotId;
+        return candidateSnapshot === targetSnapshotId;
+      });
 
       if (!project) {
         // no project in pool. create 2 new and throw error.
@@ -117,6 +143,9 @@ export const create = mutation({
         await ctx.scheduler.runAfter(
           5 * 1000,
           internal.codesandbox.createProject.initializeUnassignedProject,
+          {
+            snapshotId: targetSnapshotId,
+          },
         );
         console.error("No projects in the pool");
         throw new Error("No projects in the pool");
@@ -187,6 +216,7 @@ export const create = mutation({
         {
           semanticIdentifier: assignedProject.semantic_identifier,
           initialDocumentContent: args.initialDocumentContent,
+          snapshotId: targetSnapshotId,
         },
       );
 

@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { FunctionReturnType } from "convex/server";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -9,6 +9,7 @@ import {
   Github,
   Camera,
   MonitorCog,
+  CloudUpload,
 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { useIframeNavigationSync } from "./useIframeNavigationSync";
@@ -283,6 +284,9 @@ export function CenterContent({
   const restartDevServerAction = useAction(
     api.codesandbox.management.restartDevServer,
   );
+  const triggerFallbackDistPublish = useMutation(
+    api.fallback_dist.triggerFallbackDistPublish,
+  );
 
   // Auth check for god mode features
   const user = useSignedInUser();
@@ -290,6 +294,7 @@ export function CenterContent({
 
   // Screenshot functionality using @vly-ai/integrations
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [isPublishingFallbackDist, setIsPublishingFallbackDist] = useState(false);
   const [isScreenshotUnsupported, setIsScreenshotUnsupported] = useState(false);
   const [autoScreenshotLimitReached, setAutoScreenshotLimitReached] =
     useState(false);
@@ -578,6 +583,25 @@ export function CenterContent({
       alert("Failed to restart development server. Please try again later.");
     } finally {
       setIsRestarting(false);
+    }
+  };
+
+  const handleManualFallbackDistPublish = async () => {
+    if (!projectId) {
+      toast.error("Project not available");
+      return;
+    }
+
+    try {
+      setIsPublishingFallbackDist(true);
+      await triggerFallbackDistPublish({ projectId });
+      toast.success("Queued fallback dist publish");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to queue publish";
+      toast.error(message);
+    } finally {
+      setIsPublishingFallbackDist(false);
     }
   };
 
@@ -941,6 +965,35 @@ export function CenterContent({
                     />
                   </button>
                 </ToolbarTooltip>
+                {isGodMode && (
+                  <ToolbarTooltip
+                    label={
+                      isPublishingFallbackDist
+                        ? "Queueing fallback dist publish..."
+                        : "Publish fallback dist (admin)"
+                    }
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleManualFallbackDistPublish();
+                      }}
+                      disabled={
+                        isPublishingFallbackDist ||
+                        !projectId ||
+                        !isDaytonaProject ||
+                        project?.state === "processing"
+                      }
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-sky-300 transition hover:bg-sky-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Publish fallback dist"
+                    >
+                      <CloudUpload
+                        className={`h-3.5 w-3.5 ${isPublishingFallbackDist ? "animate-pulse" : ""}`}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  </ToolbarTooltip>
+                )}
                 {isGodMode && (
                   <ToolbarTooltip
                     label={

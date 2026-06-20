@@ -725,6 +725,18 @@ export const setPrettyPreviewUrl = internalMutation({
   },
 });
 
+export const setLastDistBuildAt = internalMutation({
+  args: {
+    projectId: v.id("project"),
+    lastDistBuildAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.projectId, {
+      last_dist_build_at: args.lastDistBuildAt,
+    });
+  },
+});
+
 /**
  * Update project's Convex URL (used during self-hosting migration)
  */
