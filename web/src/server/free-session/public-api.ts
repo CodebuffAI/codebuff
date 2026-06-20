@@ -23,6 +23,8 @@ import { getZonedDayBounds } from '@codebuff/common/util/zoned-time'
 
 import {
   getInstantAdmitCapacity,
+  getIpSessionCap,
+  IP_SESSION_LOG_FLOOR,
   getSessionGraceMs,
   getSessionLengthMs,
   isWaitingRoomBypassedForEmail,
@@ -30,6 +32,7 @@ import {
 } from './config'
 import {
   activeCountForModel,
+  countActiveSessionsForIpHash,
   endSession,
   FreeSessionModelLockedError,
   getSessionRow,
@@ -242,6 +245,10 @@ export interface SessionDeps {
    *  bound to a given model. Compared against the model's configured
    *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
   activeCountForModel: (model: string) => Promise<number>
+  /** Log-only abuse instrumentation: number of active sessions sharing one
+   *  hashed egress IP, sampled at fresh admission. Feeds the per-IP
+   *  concurrency log; does not gate admission (see `requestSession`). */
+  countActiveSessionsForIpHash: (clientIpHash: string) => Promise<number>
   /** Rate-limit helper: oldest-first free-session admissions since today's
    *  Pacific midnight reset. */
   listRecentFreeSessionAdmits: (params: {
@@ -277,6 +284,10 @@ export interface SessionDeps {
    *  inline without wrapping. */
   graceMs: number
   sessionLengthMs: number
+  /** Candidate per-IP concurrent-session cap (log-only today — see
+   *  `requestSession`). The emit floor is the fixed `IP_SESSION_LOG_FLOOR`
+   *  constant, not injected. */
+  ipSessionCap: number
   now?: () => Date
 }
 
@@ -287,6 +298,7 @@ const defaultDeps: SessionDeps = {
   queueDepthsByModel,
   queuePositionFor,
   activeCountForModel,
+  countActiveSessionsForIpHash,
   listRecentFreeSessionAdmits,
   promoteQueuedUser,
   getInstantAdmitCapacity,
@@ -301,9 +313,55 @@ const defaultDeps: SessionDeps = {
   get sessionLengthMs() {
     return getSessionLengthMs()
   },
+  get ipSessionCap() {
+    return getIpSessionCap()
+  },
 }
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
+
+/**
+ * Log-only abuse instrumentation, fired once per **fresh** instant-admission
+ * (not on reclaim/takeover — those hold an existing slot). Counts the active
+ * sessions now sharing this admission's hashed egress IP and logs what a per-IP
+ * concurrent-session cap *would* block — it never rejects the request.
+ *
+ * Why log-only first: a hard per-IP cap is the structural fix for admit-and-idle
+ * registration farms (2026-06-20: ~605 idle sessions on one `client_ip_hash`),
+ * but a residential / CGNAT / campus IP also legitimately shares one hash across
+ * several users. This phase measures that shared-NAT concurrency ceiling from
+ * real traffic so the eventual cap is set above it. Query `metric =
+ * "freebuff_ip_session_cap"` in the freebuff Axiom dataset; `wouldBlock` marks
+ * admissions the current `ipSessionCap` guess would have rejected. See
+ * docs/freebuff-abuse-detection.md ("Mitigation gap").
+ *
+ * `countActiveSessionsForIpHash` runs after promotion, so `activeForIp` includes
+ * the just-admitted row (i.e. it is the post-admit concurrency for the hash).
+ */
+async function logIpSessionConcurrency(
+  params: { userId: string; countryAccess?: FreeSessionCountryAccessMetadata },
+  model: string,
+  deps: SessionDeps,
+): Promise<void> {
+  const clientIpHash = params.countryAccess?.clientIpHash
+  if (!clientIpHash) return
+  const activeForIp = await deps.countActiveSessionsForIpHash(clientIpHash)
+  if (activeForIp < IP_SESSION_LOG_FLOOR) return
+  logger.info(
+    {
+      metric: 'freebuff_ip_session_cap',
+      userId: params.userId,
+      model,
+      clientIpHash,
+      countryCode: params.countryAccess?.countryCode ?? null,
+      activeForIp,
+      cap: deps.ipSessionCap,
+      wouldBlock: activeForIp > deps.ipSessionCap,
+      enforced: false,
+    },
+    '[FreeSession] per-IP concurrent-session count at admission (log-only)',
+  )
+}
 
 function isSessionRowCompatibleWithAccessTier(
   row: InternalSessionRow,
@@ -552,6 +610,7 @@ export async function requestSession(params: {
               '[FreeSession] pinned fireworks upstream at admission',
             )
           }
+          await logIpSessionConcurrency(params, model, deps)
         }
       }
     }

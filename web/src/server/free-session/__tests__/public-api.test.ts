@@ -23,7 +23,10 @@ import {
 import { FreeSessionModelLockedError } from '../store'
 
 import type { SessionDeps } from '../public-api'
-import type { InternalSessionRow } from '../types'
+import type {
+  FreeSessionCountryAccessMetadata,
+  InternalSessionRow,
+} from '../types'
 
 const SESSION_LEN = 60 * 60 * 1000
 const GRACE_MS = 30 * 60 * 1000
@@ -79,6 +82,10 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     isWaitingRoomEnabled: () => true,
     graceMs: GRACE_MS,
     sessionLengthMs: SESSION_LEN,
+    // Log-only per-IP concurrency instrumentation. Default to a no-op count so
+    // existing tests are unaffected; the instrumentation tests override this.
+    countActiveSessionsForIpHash: async () => 0,
+    ipSessionCap: 30,
     // Test default: instant-admit disabled (capacity 0) so existing FIFO
     // queue tests stay green. Tests that exercise instant admission opt in
     // via `getInstantAdmitCapacity: () => N`.
@@ -96,7 +103,12 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       return n
     },
-    listRecentFreeSessionAdmits: async ({ userId, models, since, accessTier }) => {
+    listRecentFreeSessionAdmits: async ({
+      userId,
+      models,
+      since,
+      accessTier,
+    }) => {
       return admits
         .filter(
           (a) =>
@@ -418,10 +430,95 @@ describe('requestSession', () => {
     expect(s3.status).toBe('queued')
   })
 
+  // --- Log-only per-IP concurrent-session instrumentation -----------------
+  // The cap is not enforced yet: these assert the measurement is sampled on
+  // fresh admissions (and only then) and that it never changes the admission
+  // outcome. See logIpSessionConcurrency in public-api.ts.
+  const countryAccessWithIpHash = (
+    clientIpHash: string | null,
+  ): FreeSessionCountryAccessMetadata => ({
+    countryCode: 'ID',
+    cfCountry: 'ID',
+    geoipCountry: 'ID',
+    blockReason: null,
+    ipPrivacySignals: null,
+    clientIpHash,
+    checkedAt: new Date('2026-04-17T12:00:00Z'),
+  })
+
+  test('instant-admit: samples per-IP concurrency but never blocks (log-only)', async () => {
+    const ipHashCalls: string[] = []
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      // Simulate a hash already far over the cap (default 30); log-only must
+      // still admit.
+      countActiveSessionsForIpHash: async (hash) => {
+        ipHashCalls.push(hash)
+        return 999
+      },
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      countryAccess: countryAccessWithIpHash('hash-farm'),
+      deps: admitDeps,
+    })
+    expect(state.status).toBe('active')
+    expect(ipHashCalls).toEqual(['hash-farm'])
+  })
+
+  test('instant-admit: skips per-IP sampling when no client_ip_hash is known', async () => {
+    const ipHashCalls: string[] = []
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      countActiveSessionsForIpHash: async (hash) => {
+        ipHashCalls.push(hash)
+        return 0
+      },
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      countryAccess: countryAccessWithIpHash(null),
+      deps: admitDeps,
+    })
+    expect(state.status).toBe('active')
+    expect(ipHashCalls).toEqual([])
+  })
+
+  test('reclaim/takeover does not re-sample per-IP concurrency', async () => {
+    const ipHashCalls: string[] = []
+    const admitDeps = makeDeps({
+      getInstantAdmitCapacity: () => 3,
+      countActiveSessionsForIpHash: async (hash) => {
+        ipHashCalls.push(hash)
+        return 1
+      },
+    })
+    // First call is a fresh admission → sampled once.
+    await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      countryAccess: countryAccessWithIpHash('hash-a'),
+      deps: admitDeps,
+    })
+    // Second call on the same active row is a takeover, not a new admission.
+    const again = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      countryAccess: countryAccessWithIpHash('hash-a'),
+      deps: admitDeps,
+    })
+    expect(again.status).toBe('active')
+    expect(ipHashCalls).toEqual(['hash-a'])
+  })
+
   test('instant-admit pins minimax-m3 to the deployment when healthy', async () => {
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: () => 3,
-      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
+      getFleetHealth: async () => ({
+        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
+      }),
     })
     await requestSession({
       userId: 'u1',
@@ -464,7 +561,9 @@ describe('requestSession', () => {
   test('instant-admit pins minimax-m3 to serverless when measured TTFT p90 > 4s, even while Prometheus health is healthy', async () => {
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: () => 3,
-      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
+      getFleetHealth: async () => ({
+        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
+      }),
       getDeploymentTtftP90Ms: (model) =>
         model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 5000 : undefined,
     })
@@ -479,7 +578,9 @@ describe('requestSession', () => {
   test('instant-admit keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 4s', async () => {
     const admitDeps = makeDeps({
       getInstantAdmitCapacity: () => 3,
-      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy' }),
+      getFleetHealth: async () => ({
+        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
+      }),
       getDeploymentTtftP90Ms: (model) =>
         model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 900 : undefined,
     })

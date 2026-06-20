@@ -315,6 +315,30 @@ export async function activeCountsByModel(): Promise<Record<string, number>> {
   return out
 }
 
+/**
+ * Count sessions currently in `active` status that share one hashed egress IP.
+ * Powers the log-only per-IP concurrency instrumentation in `requestSession`:
+ * a residential / CGNAT IP holds a handful of concurrent sessions, a
+ * registration farm holds hundreds. There is no index on `client_ip_hash` yet —
+ * `free_session` is one row per user and bounded by live concurrency, so this
+ * filtered count is cheap; add a partial index (`WHERE status='active'`) when
+ * this graduates from log-only to enforcement.
+ */
+export async function countActiveSessionsForIpHash(
+  clientIpHash: string,
+): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSession)
+    .where(
+      and(
+        eq(schema.freeSession.status, 'active'),
+        eq(schema.freeSession.client_ip_hash, clientIpHash),
+      ),
+    )
+  return Number(rows[0]?.n ?? 0)
+}
+
 export async function queuePositionFor(params: {
   userId: string
   model: string

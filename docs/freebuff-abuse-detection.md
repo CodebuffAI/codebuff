@@ -266,16 +266,24 @@ something an admit-and-idle farm never produces:
 So a single IP held ~605 concurrent sessions undetected, surfacing only as an
 inflated "live now" counter. Banning works but is reactive — the farm re-registers.
 
-**Proposed lever — per-`client_ip_hash` concurrent active-session cap at
-admission** (`canStartSession` in `web/src/server/free-session/public-api.ts`).
-A cap on *simultaneous active sessions per egress hash* targets the exact farm
-shape (hundreds concurrent from one hash) while leaving shared NATs (a few
-concurrent, spread over time) untouched — which is why it works where the
-rejected per-IP *request* limit didn't. Rollout:
+**The lever — per-`client_ip_hash` concurrent active-session cap at admission**
+(in `requestSession`, `web/src/server/free-session/public-api.ts`). A cap on
+*simultaneous active sessions per egress hash* targets the exact farm shape
+(hundreds concurrent from one hash) while leaving shared NATs (a few concurrent,
+spread over time) untouched — which is why it works where the rejected per-IP
+*request* limit didn't. Rollout:
 
-1. **Log-only first** — record what the cap *would* block, to measure the real
-   shared-NAT concurrency ceiling before enforcing (same downgrade-only approach
-   as the country/privacy client hints). Start the bound at a few tens of
-   concurrent sessions per hash and adjust from the logged distribution.
-2. **Enforce as a soft gate** — reuse the friendly `free_mode_cli_required`-style
-   response so an over-cap NAT user gets a nudge, never a ban.
+1. **Log-only first (shipped).** At each fresh instant-admission `requestSession`
+   counts the active sessions sharing the admission's `client_ip_hash` and emits
+   `metric = "freebuff_ip_session_cap"` to the freebuff Axiom dataset —
+   `activeForIp` is the post-admit concurrency, `wouldBlock` flags admissions the
+   current `FREEBUFF_IP_SESSION_CAP` guess (default 30) would reject. **Nothing is
+   blocked yet** (`enforced: false`). To keep volume down the log only fires once
+   the hash reaches `IP_SESSION_LOG_FLOOR` (5) concurrent sessions. Reclaims and
+   takeovers are not sampled (they hold an existing slot). Use the logged
+   distribution to find the real shared-NAT ceiling and set the cap above it.
+2. **Enforce as a soft gate (next).** Flip the log-only branch to reject over-cap
+   *fresh* admissions with a friendly `free_mode_cli_required`-style response so an
+   over-cap NAT user gets a nudge, never a ban. Add a partial index on
+   `free_session (client_ip_hash) WHERE status='active'` when enforcing, since the
+   count then gates the hot path.
