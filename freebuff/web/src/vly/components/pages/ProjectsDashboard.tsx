@@ -36,6 +36,10 @@ import { DocumentInput } from '@/vly/components/test-landing/DocumentInput'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
 import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
+import {
+  getProjectImageSrc,
+  ProjectCardThumbnail,
+} from '@/vly/components/projects/ProjectCardThumbnail'
 import { WebLandingSections } from '@/vly/components/pages/WebLandingSections'
 // NB: `@/components/*` is aliased to `src/vly/components/*`, so the landing
 // footer is imported relatively.
@@ -48,25 +52,6 @@ const ThemePickerModal = lazy(
 type AnyProject = NonNullable<
   FunctionReturnType<typeof api.project.getUserProjects>
 >[number]
-
-function getProjectImageSrc(project: AnyProject): string | null {
-  const p = project as any
-  if (p.screenshotUrl) return p.screenshotUrl
-  if (
-    p.pretty_preview_url &&
-    p.pretty_preview_url.startsWith('http') &&
-    !p.pretty_preview_url.includes('freebuff.dev') &&
-    (p.pretty_preview_url.includes('.jpg') ||
-      p.pretty_preview_url.includes('.jpeg') ||
-      p.pretty_preview_url.includes('.png') ||
-      p.pretty_preview_url.includes('.gif') ||
-      p.pretty_preview_url.includes('.webp') ||
-      p.pretty_preview_url.startsWith('data:image/'))
-  ) {
-    return p.pretty_preview_url
-  }
-  return null
-}
 
 function isLegacyProject(project: AnyProject): boolean {
   const p = project as any
@@ -137,9 +122,9 @@ export default function ProjectsDashboard() {
       ambient={<AmbientBackdrop />}
       footer={!isAuthed && !isAuthLoading ? <CtaFooter /> : undefined}
     >
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-10 pt-4 sm:px-6 sm:pb-14 sm:pt-6">
         {/* ── Prompt-first composer — the primary "create" path ──────── */}
-        <section className="mb-12">
+        <section className="mb-12 pt-[14vh] sm:pt-[16vh]">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="lp-hero-heading text-3xl font-normal leading-tight text-white sm:text-4xl">
               {isAuthed ? 'What do you want to build?' : 'The 100% free AI app builder'}
@@ -265,21 +250,11 @@ export default function ProjectsDashboard() {
                     className="group flex cursor-pointer flex-col gap-3 rounded-2xl bg-muted/25 p-3 outline-none ring-0 transition-all duration-200 hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-primary/60"
                   >
                     <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/40">
-                      {imageSrc ? (
-                        <img
-                          src={imageSrc}
-                          alt={project.name || 'Project preview'}
-                          className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-muted/45">
-                          <div className="rounded-md bg-background/65 px-3 py-2 text-center">
-                            <div className="text-xs font-medium text-muted-foreground">
-                              Preview will appear after next deploy
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      <ProjectCardThumbnail
+                        name={project.name}
+                        imageSrc={imageSrc}
+                        imageClassName="transition-transform duration-300 group-hover:scale-[1.02]"
+                      />
 
                       {isOpening && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
@@ -296,7 +271,7 @@ export default function ProjectsDashboard() {
                               e.stopPropagation()
                               updateLastOpened({
                                 semanticIdentifier: project.semantic_identifier,
-                              }).catch(() => {})
+                              }).catch(() => { })
                               window.open(previewUrl, '_blank')
                             }}
                             className="pointer-events-auto flex h-8 items-center gap-1 rounded-md bg-background/85 px-2.5 text-xs font-medium text-foreground/90 backdrop-blur hover:bg-background"
@@ -351,8 +326,8 @@ export default function ProjectsDashboard() {
                           ? new Date(project.last_opened).toLocaleDateString()
                           : project._creationTime
                             ? new Date(
-                                project._creationTime,
-                              ).toLocaleDateString()
+                              project._creationTime,
+                            ).toLocaleDateString()
                             : 'recently'}
                       </p>
                     </div>
