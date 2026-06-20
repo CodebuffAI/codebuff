@@ -12,6 +12,7 @@ import { Id } from "!/_generated/dataModel";
 import { getVerifiedAccessProject } from "../../project";
 import { verifyOrganizationAccess } from "../../org_security";
 import { getAuthUser } from "../../users";
+import { recordAgentThreadCreated } from "../../admin_platform_metrics";
 
 const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
 
@@ -68,6 +69,8 @@ export async function createAgentThread(
     agent_type: agentType as any,
     last_edited_timestamp: Date.now(),
   });
+
+  await recordAgentThreadCreated(ctx, agentType);
 
   return threadId;
 }

@@ -16,6 +16,7 @@ import {
   usersByTier,
   usersByDay,
 } from './aggregates/admin_aggregates'
+import { applyUserAuthMetricDelta } from './admin_platform_metrics'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -106,6 +107,7 @@ export const upsertCodexAuthFingerprintInternal = internalMutation({
     codexOauthRevoked: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const before = await ctx.db.get(args.userId)
     await ctx.db.patch(args.userId, {
       codex_auth_fingerprint: args.codexAuthFingerprint,
       codex_auth_encrypted_payload: args.codexAuthEncryptedPayload,
@@ -117,6 +119,10 @@ export const upsertCodexAuthFingerprintInternal = internalMutation({
         ? { codex_oauth_revoked: args.codexOauthRevoked }
         : {}),
     })
+    const after = await ctx.db.get(args.userId)
+    if (before && after) {
+      await applyUserAuthMetricDelta(ctx, before, after)
+    }
   },
 })
 
@@ -152,12 +158,17 @@ export const patchByokSecretInternal = internalMutation({
     version: v.number(),
   },
   handler: async (ctx, args) => {
+    const before = await ctx.db.get(args.userId)
     const f = BYOK_FIELDS[args.kind]
     await ctx.db.patch(args.userId, {
       [f.encrypted]: args.encrypted,
       [f.version]: args.version,
       [f.updatedAt]: Date.now(),
     } as any)
+    const after = await ctx.db.get(args.userId)
+    if (before && after) {
+      await applyUserAuthMetricDelta(ctx, before, after)
+    }
   },
 })
 
@@ -167,9 +178,14 @@ export const setCodexOauthRevokedInternal = internalMutation({
     revoked: v.boolean(),
   },
   handler: async (ctx, args) => {
+    const before = await ctx.db.get(args.userId)
     await ctx.db.patch(args.userId, {
       codex_oauth_revoked: args.revoked,
     })
+    const after = await ctx.db.get(args.userId)
+    if (before && after) {
+      await applyUserAuthMetricDelta(ctx, before, after)
+    }
   },
 })
 
@@ -245,7 +261,12 @@ export const setCliPreference = mutation({
     if (!(allowedValues as readonly string[]).includes(args.value)) {
       throw new Error(`Invalid value for ${args.key}`)
     }
+    const before = user
     await ctx.db.patch(user._id, { [args.key]: args.value } as any)
+    const after = await ctx.db.get(user._id)
+    if (after && args.key === 'gpt_auth_method') {
+      await applyUserAuthMetricDelta(ctx, before, after)
+    }
     return { success: true }
   },
 })
@@ -258,6 +279,7 @@ export const clearCodexOauthAuth = mutation({
       throw new Error('Not authenticated')
     }
 
+    const before = user
     await ctx.db.patch(user._id, {
       codex_auth_fingerprint: undefined,
       codex_auth_encrypted_payload: undefined,
@@ -267,6 +289,10 @@ export const clearCodexOauthAuth = mutation({
       codex_auth_updated_at: undefined,
       codex_oauth_revoked: true,
     })
+    const after = await ctx.db.get(user._id)
+    if (after) {
+      await applyUserAuthMetricDelta(ctx, before, after)
+    }
 
     return { success: true }
   },
@@ -286,29 +312,32 @@ export const clearCliByokCredential = mutation({
       throw new Error('Not authenticated')
     }
 
+    const before = user
+
     if (args.credential === 'openai') {
       await ctx.db.patch(user._id, {
         gpt_openai_api_key_encrypted: undefined,
         gpt_openai_api_key_encryption_version: undefined,
         gpt_openai_api_key_updated_at: undefined,
       })
-      return { success: true }
-    }
-
-    if (args.credential === 'anthropic') {
+    } else if (args.credential === 'anthropic') {
       await ctx.db.patch(user._id, {
         claude_anthropic_api_key_encrypted: undefined,
         claude_anthropic_api_key_encryption_version: undefined,
         claude_anthropic_api_key_updated_at: undefined,
       })
-      return { success: true }
+    } else {
+      await ctx.db.patch(user._id, {
+        claude_bedrock_bearer_token_encrypted: undefined,
+        claude_bedrock_bearer_token_encryption_version: undefined,
+        claude_bedrock_bearer_token_updated_at: undefined,
+      })
     }
 
-    await ctx.db.patch(user._id, {
-      claude_bedrock_bearer_token_encrypted: undefined,
-      claude_bedrock_bearer_token_encryption_version: undefined,
-      claude_bedrock_bearer_token_updated_at: undefined,
-    })
+    const after = await ctx.db.get(user._id)
+    if (after) {
+      await applyUserAuthMetricDelta(ctx, before, after)
+    }
 
     return { success: true }
   },

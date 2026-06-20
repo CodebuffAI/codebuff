@@ -1409,6 +1409,24 @@ export default defineSchema(
       total_projects: v.number(), // running total at snapshot time
       created_at: v.number(),
     }).index('by_day', ['day']),
+
+    // Incremental admin counters: one row per (UTC day, agent_type). Bumped
+    // O(1) on each user prompt send — no agent_message scans for dashboards.
+    agent_prompt_daily_stats: defineTable({
+      day: v.string(), // UTC YYYY-MM-DD
+      agent_type: v.string(), // Freebuff | Codex | Claude Code | Gemini CLI
+      prompt_count: v.number(),
+    })
+      .index('by_day', ['day'])
+      .index('by_day_agent', ['day', 'agent_type']),
+
+    // Legacy nightly snapshot table — no longer written; auth/thread counts use
+    // incremental stats counters (admin_platform_metrics.ts).
+    admin_metric_snapshot: defineTable({
+      key: v.string(),
+      data: v.any(),
+      computed_at: v.number(),
+    }).index('by_key', ['key']),
   },
   {
     schemaValidation: false, // TODO: turn back to true

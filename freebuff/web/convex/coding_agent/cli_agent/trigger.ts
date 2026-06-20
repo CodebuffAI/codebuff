@@ -75,6 +75,13 @@ export const saveMessageAndStartWorkflow = mutation({
         userId: user._id,
       });
 
+      // Admin metrics: O(1) daily counter per agent type (no message scans).
+      await ctx.scheduler.runAfter(
+        0,
+        internal.admin_agent_stats.recordAgentPrompt,
+        { agentType: args.agentType },
+      );
+
       // DAU signal in PostHog: one event per user-submitted web message. Keyed
       // by the canonical codebuff user id (users.freebuff_user_id = the JWT
       // subject = the Postgres user id) so it unions with the cli and chat

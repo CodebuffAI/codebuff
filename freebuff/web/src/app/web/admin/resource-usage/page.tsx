@@ -30,12 +30,22 @@ import {
   Clock3,
   Cpu,
   Gauge,
+  KeyRound,
+  Link2,
   Loader,
   RefreshCw,
   Users,
   Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
+
+const AGENT_WINDOW_DAYS = [
+  { label: '24 hours', value: 1 },
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+] as const
+
+const formatAgentType = (type: string) => type
 
 const formatCredits = (value: number) =>
   new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
@@ -44,12 +54,25 @@ export default function ResourceUsageAdminPage() {
   const user = useSignedInUser()
   const isAdmin = user?.role === 'god' || user?.role === 'admin'
   const [refreshing, setRefreshing] = useState(false)
+  const [agentWindowDays, setAgentWindowDays] = useState<number>(7)
   const [selectedFreebuffUserId, setSelectedFreebuffUserId] =
     useState<Id<'users'> | null>(null)
+
+  const agentStatsTimeRange = useMemo(() => {
+    const endTime = new Date().toISOString()
+    const startTime = new Date(
+      Date.now() - agentWindowDays * 24 * 60 * 60 * 1000,
+    ).toISOString()
+    return { startTime, endTime }
+  }, [agentWindowDays])
 
   const data = useQuery(
     api.admin_usage.getAdminUsageData,
     isAdmin ? {} : 'skip',
+  )
+  const agentStats = useQuery(
+    api.admin_agent_stats.getAgentAuthAndSessionStats,
+    isAdmin ? agentStatsTimeRange : 'skip',
   )
   const selectedFreebuffUsage = useQuery(
     api.admin_usage.getFreebuffUserUsage,
@@ -134,7 +157,8 @@ export default function ResourceUsageAdminPage() {
               Platform usage
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Top 10 users (live) and model breakdown (on-demand).
+              Auth connections, agent session mix, top users, and model
+              breakdown.
             </p>
           </div>
         </div>
@@ -158,6 +182,190 @@ export default function ResourceUsageAdminPage() {
         <Skeleton className="h-64 w-full" />
       ) : (
         <div className="space-y-8">
+          <section>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Auth &amp; agent sessions
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  ChatGPT subscription / BYOK connections (refreshed nightly)
+                  and prompt volume by agent (incremental, per send).
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {AGENT_WINDOW_DAYS.map(({ label, value }) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={agentWindowDays === value ? 'default' : 'outline'}
+                    onClick={() => setAgentWindowDays(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {!agentStats ? (
+              <Skeleton className="h-48 w-full" />
+            ) : (
+              <>
+                <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    {
+                      label: 'ChatGPT subscription',
+                      value: agentStats.auth.chatgptSubscriptionConnected,
+                      sub: 'Codex OAuth connected (not revoked)',
+                      icon: Link2,
+                    },
+                    {
+                      label: 'OpenAI BYOK',
+                      value: agentStats.auth.codexOpenAiByok,
+                      sub: 'Users with saved OpenAI API key',
+                      icon: KeyRound,
+                    },
+                    {
+                      label: 'Anthropic BYOK',
+                      value: agentStats.auth.claudeAnthropicByok,
+                      sub: 'Users with saved Anthropic key',
+                      icon: KeyRound,
+                    },
+                    {
+                      label: 'Bedrock BYOK',
+                      value: agentStats.auth.claudeBedrockByok,
+                      sub: 'Users with saved Bedrock token',
+                      icon: KeyRound,
+                    },
+                    {
+                      label: 'GPT pref: OAuth',
+                      value: agentStats.auth.gptPreferredOAuth,
+                      sub: 'gpt_auth_method = oauth',
+                      icon: Users,
+                    },
+                    {
+                      label: 'GPT pref: BYOK',
+                      value: agentStats.auth.gptPreferredByok,
+                      sub: 'gpt_auth_method = byok',
+                      icon: Users,
+                    },
+                  ].map(({ label, value, sub, icon: Icon }) => (
+                    <div
+                      key={label}
+                      className="border-y border-border px-1 py-3 sm:border sm:rounded-lg sm:px-4"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </div>
+                      <p className="mt-2 text-2xl font-semibold tabular-nums">
+                        {value.toLocaleString()}
+                        <span className="ml-1 text-sm font-normal text-muted-foreground">
+                          / {agentStats.auth.totalUsers.toLocaleString()}
+                        </span>
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {sub}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {!agentStats.auth.authTrackedIncrementally ||
+                !agentStats.threadsTrackedIncrementally ? (
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Auth connections and thread counts are incremental from
+                    deploy forward (bumped when a user connects a credential or
+                    creates a thread). Existing connections before this shipped
+                    are not backfilled.
+                  </p>
+                ) : null}
+
+                {!agentStats.sessionsInRange.promptsTrackedIncrementally ? (
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Prompt counts are incremental from deploy forward (each user
+                    send bumps a daily counter). Days before this shipped will
+                    show zero — not a full historical backfill.
+                  </p>
+                ) : null}
+
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle>Prompts by agent</CardTitle>
+                    <CardDescription>
+                      User sends in the selected window, from incremental daily
+                      counters (not a message-table scan).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Agent</TableHead>
+                          <TableHead className="text-right">
+                            Prompts
+                          </TableHead>
+                          <TableHead className="text-right">
+                            Threads created (incremental)
+                          </TableHead>
+                          <TableHead className="text-right">
+                            Model invocations (all time)
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[
+                          'Freebuff',
+                          'Codex',
+                          'Claude Code',
+                          'Gemini CLI',
+                        ].map((agentType) => (
+                          <TableRow key={agentType}>
+                            <TableCell className="font-medium">
+                              {formatAgentType(agentType)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {(
+                                agentStats.sessionsInRange
+                                  .userMessagesByAgentType[agentType] ?? 0
+                              ).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">
+                              {(
+                                agentStats.threadsByAgentType[agentType] ?? 0
+                              ).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">
+                              {(
+                                agentStats.modelInvocationsByAgentType[
+                                  agentType
+                                ] ?? 0
+                              ).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/30 font-medium">
+                          <TableCell>Freebuff completed runs</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {agentStats.sessionsInRange.freebuffRunsCompleted.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {formatCredits(
+                              agentStats.sessionsInRange.freebuffMeteredCredits,
+                            )}{' '}
+                            credits
+                          </TableCell>
+                          <TableCell />
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </section>
+
           <section>
             <div className="mb-4 flex items-end justify-between gap-4">
               <div>
