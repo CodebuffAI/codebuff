@@ -17,6 +17,8 @@ import type { AdResponse } from '@gravity-ai/react'
 
 const AD_COOLDOWN_MS = 60_000
 const AD_DEBOUNCE_MS = 2_000
+/** How long the above-iframe nav ad stays pinned before we allow a refresh. */
+const NAV_AD_TTL_MS = 30 * 60 * 1000
 
 export type GravityAdMessage = { role: string; content: string }
 
@@ -32,6 +34,42 @@ export type GravityAd = AdResponse & {
   placementId?: string
   placement_id?: string
   provider?: string
+}
+
+function navAdCacheKey(slotKey: string, sessionId: string) {
+  return `freebuff-gravity-nav-ad:${slotKey || sessionId}`
+}
+
+function readNavAdCache(key: string): GravityAd | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { ad?: GravityAd; fetchedAt?: number }
+    if (
+      !parsed.ad ||
+      typeof parsed.fetchedAt !== 'number' ||
+      Date.now() - parsed.fetchedAt > NAV_AD_TTL_MS
+    ) {
+      window.sessionStorage.removeItem(key)
+      return null
+    }
+    return parsed.ad
+  } catch {
+    return null
+  }
+}
+
+function writeNavAdCache(key: string, ad: GravityAd) {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(
+      key,
+      JSON.stringify({ ad, fetchedAt: Date.now() }),
+    )
+  } catch {
+    // sessionStorage full or unavailable — ad still renders, just won't persist
+  }
 }
 
 export type GravityAdSurface = 'freebuff_web_chat'
@@ -218,7 +256,15 @@ type GravityAdSlotProps = {
  */
 function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
   const { containerRef, handleClick } = useAdTracking({ ad })
-  const description = ad.title?.trim() || ad.adText?.trim() || ''
+  // adText is the promotional body copy; title is often a short headline that
+  // duplicates brandName. Prefer adText so the toolbar shows as much description
+  // as the available width allows (CSS truncate handles the rest).
+  const rawDescription = ad.adText?.trim() || ad.title?.trim() || ''
+  const brand = ad.brandName?.trim() ?? ''
+  const description =
+    brand && rawDescription.toLowerCase().startsWith(brand.toLowerCase())
+      ? rawDescription.slice(brand.length).trim()
+      : rawDescription
   const href = ad.clickUrl || ad.url || undefined
 
   return (
@@ -233,7 +279,9 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
       }}
       data-gravity-ad
       className={cn(
-        'group flex w-full min-w-0 max-w-[460px] items-center gap-2 rounded-md px-2 py-0.5 text-foreground/80 no-underline transition hover:bg-muted/50',
+        // Fill the toolbar's flex-1 slot; truncate reacts to whatever width
+        // is left after nav controls + status buttons.
+        'group flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-0.5 text-foreground/80 no-underline transition hover:bg-muted/50',
         className,
       )}
     >
@@ -249,16 +297,20 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
           }}
         />
       ) : null}
-      {ad.brandName ? (
+      {brand ? (
         <span className="shrink-0 text-[11px] font-semibold text-foreground">
-          {ad.brandName}
+          {brand}
         </span>
       ) : null}
       {description ? (
         <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
           {description}
         </span>
-      ) : null}
+      ) : (
+        // Reserve flex space so the CTA stays right-aligned when there's no
+        // body copy (keeps brand + label + CTA layout stable).
+        <span className="min-w-0 flex-1" aria-hidden />
+      )}
       <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground/40">
         Ad
       </span>
@@ -282,6 +334,12 @@ export function GravityAdSlot({
   showDisclaimer = false,
   className,
 }: GravityAdSlotProps) {
+  const isStickyNav = variant === 'nav'
+  const navCacheKey = useMemo(
+    () => (isStickyNav ? navAdCacheKey(slotKey ?? '', sessionId) : ''),
+    [isStickyNav, slotKey, sessionId],
+  )
+
   const [ad, setAd] = useState<GravityAd | null>(null)
   const [hasFetched, setHasFetched] = useState(false)
   const { data: session } = useSession()
@@ -383,7 +441,55 @@ export function GravityAdSlot({
   )
 
   const isInitialFetch = useRef(true)
+
+  // Sticky nav ad: one fetch per project slot, cached in sessionStorage for
+  // NAV_AD_TTL_MS. Ignores message edits, tab visibility, and the 60s chat
+  // cooldown so the toolbar ad doesn't rotate every minute.
   useEffect(() => {
+    if (!isStickyNav || !navCacheKey) return
+
+    const cached = readNavAdCache(navCacheKey)
+    if (cached) {
+      setAd(cached)
+      setHasFetched(true)
+      return
+    }
+
+    let cancelled = false
+    buildGravityContext({
+      sessionId,
+      userId: session?.user?.id,
+      email: session?.user?.email,
+    })
+      .then((gravityContextPayload) =>
+        fetchGravityAd(
+          requestMessages,
+          sessionId,
+          placement,
+          gravityContextPayload,
+        ),
+      )
+      .then((result) => {
+        if (cancelled || !mountedRef.current) return
+        const next = result ?? fallbackAd ?? null
+        setAd(next)
+        if (next) writeNavAdCache(navCacheKey, next)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled && mountedRef.current) setHasFetched(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // Only re-pin when the project slot changes — not on message/tab churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStickyNav, navCacheKey, sessionId, placement])
+
+  useEffect(() => {
+    if (isStickyNav) return
+
     if (isInitialFetch.current) {
       isInitialFetch.current = false
       doFetch(true)
@@ -394,7 +500,7 @@ export function GravityAdSlot({
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, placement, slotKey, stableMessagesKey, isTabVisible])
+  }, [sessionId, placement, slotKey, stableMessagesKey, isTabVisible, isStickyNav])
 
   if (!hasFetched || !ad) return null
 

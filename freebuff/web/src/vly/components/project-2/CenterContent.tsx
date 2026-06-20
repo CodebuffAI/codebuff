@@ -883,10 +883,10 @@ export function CenterContent({
                   <span className="opacity-40">/</span>
                 )}
               </span>
-              {/* Always-present flex-1 spacer so the status + action buttons
-                  stay right-aligned even when no ad renders, and the ad sits
-                  centered in the available space. */}
-              <div className="flex min-w-0 flex-1 items-center justify-center">
+              {/* flex-1 slot for the above-iframe ad. Stretch (not center) so
+                  the description can use every pixel between nav controls and
+                  status buttons; CSS truncate handles width-based clipping. */}
+              <div className="flex min-w-0 flex-1 items-center overflow-hidden px-1">
                 <GravityAdSlot
                   messages={[
                     {
