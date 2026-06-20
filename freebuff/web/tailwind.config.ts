@@ -152,6 +152,10 @@ const config = {
               '0 0 30px rgba(124,255,63,0.6), 0 0 60px rgba(124,255,63,0.3), 0 0 100px rgba(124,255,63,0.15)',
           },
         },
+        'thinking-dot': {
+          '0%, 80%, 100%': { opacity: '0.25', transform: 'translateY(0)' },
+          '40%': { opacity: '1', transform: 'translateY(-3px)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -166,6 +170,7 @@ const config = {
         'scan-line': 'scan-line 8s linear infinite',
         'terminal-cursor': 'terminal-cursor 1s steps(1) infinite',
         'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
+        'thinking-dot': 'thinking-dot 1.4s ease-in-out infinite',
       },
     },
   },

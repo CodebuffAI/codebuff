@@ -115,8 +115,12 @@ export function MessageList(props: {
               ) : message.streaming ? (
                 <span
                   role="status"
-                  className="inline-block h-4 w-4 animate-pulse rounded-full bg-white/40"
+                  aria-label="Assistant is thinking"
+                  className="inline-flex items-center gap-1.5 py-1"
                 >
+                  <span className="h-2 w-2 animate-thinking-dot rounded-full bg-white/60" />
+                  <span className="h-2 w-2 animate-thinking-dot rounded-full bg-white/60 [animation-delay:0.2s]" />
+                  <span className="h-2 w-2 animate-thinking-dot rounded-full bg-white/60 [animation-delay:0.4s]" />
                   <span className="sr-only">Assistant is responding</span>
                 </span>
               ) : null}
