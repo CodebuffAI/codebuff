@@ -12,6 +12,71 @@ Instead of using one model for everything, Codebuff coordinates specialized agen
 
 Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
+## Freebuff: the free coding agent
+
+**[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version of Codebuff. No subscription. No credits. No configuration. Just install and start coding in your terminal.
+
+### Install
+
+```bash
+npm install -g freebuff
+```
+
+### Usage
+
+```bash
+cd ~/my-project
+freebuff
+```
+
+Then tell Freebuff what you want — it finds the right files, makes the changes, and runs your tests.
+
+### Why Freebuff?
+
+- **Best open-source models** — Powered by the strongest open-source models available, like DeepSeek, Kimi, and MiniMax — no proprietary lock-in.
+- **Fast** — 5–10× speed up. Faster models plus context gathering in seconds rather than minutes.
+- **Loaded** — Built-in web research, browser use, and more.
+
+### Features
+
+- **File mentions** — Use `@filename` to reference specific files
+- **Agent mentions** — Use `@AgentName` to invoke specialized agents
+- **Bash mode** — Run terminal commands with `!command` or `/bash`
+- **Chat history** — Resume past conversations with `/history`
+- **Knowledge files** — Add `knowledge.md` to your project for context
+- **Themes** — Toggle light/dark mode with `/theme:toggle`
+
+### Commands
+
+| Command         | Description                      |
+| --------------- | -------------------------------- |
+| `/help`         | Show keyboard shortcuts and tips |
+| `/new`          | Start a new conversation         |
+| `/history`      | Browse past conversations        |
+| `/bash`         | Enter bash mode                  |
+| `/init`         | Create a starter knowledge.md    |
+| `/feedback`     | Share feedback                   |
+| `/theme:toggle` | Toggle light/dark mode           |
+| `/logout`       | Sign out                         |
+| `/exit`         | Quit                             |
+
+### FAQ
+
+**How can it be free?** Freebuff is supported by text ads.
+
+**What models do you use?** The best open-source models available. In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5. Gemini 3.1 Flash Lite handles file finding and research.
+
+**Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
+
+**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 5 one-hour sessions per day.
+
+**Are you training on my data?** No. We don't share your data with third parties that would train on it or use it for another purpose, unless you choose a model clearly labeled as "Collects data for training."
+
+**What data do you store?** We don't store your codebase. We only collect minimal logs for debugging purposes.
+
+---
+
+The rest of this README covers **Codebuff**, the full platform Freebuff is built on — its multi-agent architecture, custom agents, and SDK.
 
 ## How it works
 
@@ -150,18 +215,6 @@ await client.run({
 ```
 
 Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
-
-## Freebuff: The free coding agent
-
-Don't want a subscription? **[Freebuff](https://www.npmjs.com/package/freebuff)** is a free variant of Codebuff — no subscription, no credits, no configuration. Just install and start coding.
-
-```bash
-npm install -g freebuff
-cd your-project
-freebuff
-```
-
-Freebuff is ad-supported and uses models optimized for fast, high-quality assistance. It includes built-in web research, browser use, and more. Learn more in the [Freebuff README](./freebuff/README.md).
 
 ## Why choose Codebuff
 
