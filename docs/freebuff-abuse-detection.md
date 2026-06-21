@@ -95,7 +95,8 @@ All read-only; run against prod via Infisical. Live in `scripts/`.
 | `inspect-freebuff-traces.ts` | Dumps stored request/response traces, `repo_url`, agent-step counts, models/agents for specific emails. Use to **confirm** before banning. | `… bun scripts/inspect-freebuff-traces.ts a@b.com c@d.com` |
 | `top-freebuff-users.ts` | Raw volume leaderboard for a given agent (message counts, tokens, time-of-day). | `… bun scripts/top-freebuff-users.ts 336 50 base2-free` |
 | `ban-freebuff-bots.ts` | Bans an email list (`banned=true` + clears `free_session`). **Dry-runs by default**; `--commit` to apply. | `… bun scripts/ban-freebuff-bots.ts list.txt` then `… --commit` |
-| `unban-freebuff-users.ts` | Reverses bans by email. | `… bun scripts/unban-freebuff-users.ts a@b.com` |
+| `find-false-positive-bans.ts` | **Reverse scan**: ranks *already-banned* accounts by the real-coder fingerprint (high agent-step coverage, no fanout, full subagent hierarchy, freebuff-family models only) to surface sweep false positives. Flags `1SHOT?` single-shot bulk. See [Unban review](#unban-review-catching-false-positives-after-a-sweep). | `… bun scripts/find-false-positive-bans.ts` |
+| `unban-freebuff-users.ts` | Reverses bans. Takes a **file** of emails (one per line); dry-runs without `--commit`. | `… bun scripts/unban-freebuff-users.ts list.txt --commit` |
 
 ## The signals (data model)
 
@@ -232,6 +233,56 @@ investigation on 2026-06-10) **neither is wired into a request-time rate limit**
    caller who **injects the "You are Buffy" marker but still produces no agent
    steps** is deliberately evading detection → strong ban signal. The suspect
    scan's missing-step ratio surfaces these.
+
+## Unban review: catching false positives after a sweep
+
+Bans are reversible, and broad sweeps — especially the IP/fingerprint-keyed ones
+that catch an idle-session farm — sweep in **co-resident real coders** as
+collateral. The 2026-06-20 Indonesia idle-farm ban produced a steady stream of
+support appeals; the review below cleared **32 real coders** in one pass while
+leaving the farm, premium sock accounts, and proxy resellers banned. Appeals are
+the visible tip — run this proactively after any bulk sweep.
+
+**The false-positive fingerprint (= a real freebuff coder, the inverse of the
+abuse table above):**
+
+- **~99% agent-step coverage** (`msgs_with_agent_step / msgs ≥ 0.9`) — the single
+  strongest tell. Scripted abuse has ~0; a real CLI agent loop records one step
+  per message.
+- **`maxClientIdsPerRun ≤ 2`** — no proxy fanout.
+- **Full subagent hierarchy** (`basher`, `file-picker`/`file-lister`,
+  `code-reviewer*`, `researcher-docs`/`-web`, `browser-use`, `base2-free-mimo`) —
+  only the real CLI spawns these. ≥3 distinct agents is a good cut.
+- **freebuff-family models only** — `deepseek` / `mimo` / `minimax` /
+  `moonshotai`(kimi) / `google`(gemini). Using a **non-freebuff** model
+  (`anthropic`/`openai`/`x-ai`/`z-ai`(glm)/`relace`/`bytedance`/raw numeric id)
+  via the free endpoint is the premium-**reselling** tell → stays banned. (Note:
+  `deepseek-v4-pro`, `mimo-v2.5-pro`, `kimi` are premium *within* freebuff —
+  legitimate for a real user, not a reselling signal.)
+- `repo_url` null is **not** a signal — it's null for all free-mode traffic.
+
+**Two traps that pass the structural filter but are still abuse — trace-confirm
+always:**
+
+- **Single-shot bulk (`msgs ≈ runs`)** — a chatbot/text-game backend that hits
+  the endpoint once per "run" still logs one agent_step per call, so it clears
+  the step-coverage gate. The clincher is the trace content. Example: `花火`
+  (a `@qq.com` account) scored as a candidate (99.9% coverage, freebuff models)
+  but its traces were a **Blue Archive role-play + a dorm-management text game**
+  on premium models with `msgs==runs` — kept banned. `find-false-positive-bans.ts`
+  flags these `1SHOT?` and holds them out of the auto-candidate file.
+- **Premium-only tri-word sock farms** — auto-generated handles
+  (`skier-knelt-unripe`…) running Claude-Opus/GPT-5 exclusively to multiply the
+  free premium quota. High coverage, but non-freebuff models → reselling.
+
+**Procedure:** run `find-false-positive-bans.ts` → trace-confirm the candidates
+(and **every** `1SHOT?` / premium-flagged row) with `inspect-freebuff-traces.ts`
+→ `unban-freebuff-users.ts <file> --commit`. There is no `banned_at` column, so
+scope a sweep's cohort by `MAX(message.finished_at)` (≈ when the ban cut them
+off). Banning clears `free_session`, so you can't see the shared IP afterward —
+but the message tables are enough, and sessions rebuild on the user's next CLI
+run (no action needed from them beyond restarting freebuff). The pattern is not
+region-specific: an April ban also had qq.com false positives.
 
 ## Operational hygiene
 
