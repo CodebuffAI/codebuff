@@ -24,7 +24,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` applies steps past the current version. */
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 /** camelCase task field → snake_case column, for the dynamic `updateTask` patch. */
 const TASK_UPDATE_COLUMNS: Record<string, string> = {
