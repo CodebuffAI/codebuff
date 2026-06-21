@@ -3,6 +3,20 @@ import { internalAction, internalMutation } from "!/_generated/server";
 import { v } from "convex/values";
 import { allProjects, projectsByDay } from "./aggregates/admin_aggregates";
 
+const MIN_PROJECT_POOL_SIZE = 10;
+
+function getProjectPoolSize() {
+  const configuredPoolSize = process.env.MIN_POOL_SIZE
+    ? Number.parseInt(process.env.MIN_POOL_SIZE, 10)
+    : MIN_PROJECT_POOL_SIZE;
+
+  if (!Number.isFinite(configuredPoolSize)) {
+    return MIN_PROJECT_POOL_SIZE;
+  }
+
+  return Math.max(MIN_PROJECT_POOL_SIZE, configuredPoolSize);
+}
+
 export const flushProjectPoolAndInitializeNew = internalAction({
   args: {
     newPoolSize: v.optional(v.number()),
@@ -16,8 +30,10 @@ export const flushProjectPoolAndInitializeNew = internalAction({
         )
       : [];
 
-    const newPoolSize =
-      args.newPoolSize ?? parseInt(process.env.MIN_POOL_SIZE || "10");
+    const newPoolSize = Math.max(
+      MIN_PROJECT_POOL_SIZE,
+      args.newPoolSize ?? getProjectPoolSize(),
+    );
 
     // Create new projects first to avoid having an empty pool
     for (let i = 0; i < newPoolSize; i++) {
@@ -110,9 +126,7 @@ export const replenishPoolIfEmpty = internalMutation({
       .withIndex("by_state", (q) => q.eq("state", "unassigned"))
       .collect();
 
-    const minPoolSize = process.env.MIN_POOL_SIZE
-      ? parseInt(process.env.MIN_POOL_SIZE)
-      : 10;
+    const minPoolSize = getProjectPoolSize();
 
     if (unassignedProjects.length <= minPoolSize) {
       for (

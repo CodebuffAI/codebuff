@@ -879,27 +879,23 @@ const TimeLimitContinuePanel: React.FC<{
           </div>
           <div className="min-w-0">
             <div className="text-sm font-medium text-foreground">
-              Prompt paused after the run time limit
+              Paused after 10 minutes
             </div>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              This run was paused so it does not keep working unattended. Your
-              chat history and project state are saved, so Freebuff can pick up
-              from here. If you are out of daily messages, use Referrals to
-              raise your limit.
+              Click Continue to keep going.
             </p>
           </div>
         </div>
         <Button
           type="button"
-          size="sm"
           onClick={handleContinue}
           disabled={!onContinue || isContinuing}
-          className="h-8 shrink-0"
+          className="h-11 shrink-0 px-5 text-base font-semibold"
         >
           {isContinuing ? (
             <Loader className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Play className="mr-1.5 h-3.5 w-3.5" />
+            <Play className="mr-2 h-4 w-4" />
           )}
           Continue
         </Button>
