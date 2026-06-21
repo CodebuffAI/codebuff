@@ -98,17 +98,7 @@ function getRouteReasoningEffort(
   if (target.type === 'mode') {
     return normalize(config.modeReasoningEfforts?.[target.mode])
   }
-  if (target.type === 'agent') {
-    return normalize(config.agentReasoningEfforts?.[target.agentId])
-  }
-  if (target.type === 'editor-proposal') {
-    return normalize(
-      config.editorMultiPrompt?.proposalReasoningEfforts?.[
-        target.proposalNumber - 1
-      ],
-    )
-  }
-  return normalize(config.editorMultiPrompt?.selectorReasoningEffort)
+  return normalize(config.agentReasoningEfforts?.[target.agentId])
 }
 
 /** Format reasoning effort for display in route labels. */
@@ -153,7 +143,6 @@ function filterOrphanHeaders(filtered: SelectableListItem[]): SelectableListItem
   const headerPrefixes = new Map<string, string[]>([
     ['section-default', ['route-default']],
     ['section-modes', ['route-mode-']],
-    ['section-editor', ['route-editor-']],
     ['section-agents', ['route-agent-']],
   ])
 
@@ -254,12 +243,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     })
 
     // Modes
-    const modes: Array<'default' | 'lite' | 'max' | 'plan'> = [
-      'default',
-      'lite',
-      'max',
-      'plan',
-    ]
+    const modes: Array<'default' | 'plan'> = ['default', 'plan']
     for (const mode of modes) {
       const model = displayModel(config.modes?.[mode])
       items.push({
@@ -273,42 +257,6 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     }
 
     items.push({
-      id: 'section-editor',
-      label: 'Editor multi-prompt',
-      secondary: '',
-      currentModel: undefined,
-      currentReasoningEffort: undefined,
-      isHeader: true,
-    })
-
-    // Editor multi-prompt
-    const proposalModels = config.editorMultiPrompt?.proposalModels ?? []
-    for (let i = 0; i < 5; i++) {
-      const model = displayModel(proposalModels[i])
-      items.push({
-        id: `route-editor-proposal-${i + 1}`,
-        label: `editor:proposal-${i + 1}`,
-        secondary: model ?? '(not set)',
-        target: { type: 'editor-proposal', proposalNumber: i + 1 },
-        currentModel: model ?? undefined,
-        currentReasoningEffort: getRouteReasoningEffort(config, {
-          type: 'editor-proposal',
-          proposalNumber: i + 1,
-        }),
-      })
-    }
-    items.push({
-      id: 'route-editor-selector',
-      label: 'editor:selector',
-      secondary:
-        displayModel(config.editorMultiPrompt?.selectorModel) ?? '(not set)',
-      target: { type: 'editor-selector' },
-      currentModel:
-        displayModel(config.editorMultiPrompt?.selectorModel) ?? undefined,
-      currentReasoningEffort: getRouteReasoningEffort(config, { type: 'editor-selector' }),
-    })
-
-    items.push({
       id: 'section-agents',
       label: 'Agent overrides',
       secondary: '',
@@ -318,14 +266,7 @@ export const ModelRoutePicker: React.FC<ModelRoutePickerProps> = ({
     })
 
     // Agent overrides
-    const editorAgentPrefixes = [
-      'editor-implementor-proposal-',
-      'best-of-n-selector2',
-    ]
     for (const [agentId, model] of Object.entries(config.agents ?? {})) {
-      if (editorAgentPrefixes.some((prefix) => agentId.startsWith(prefix))) {
-        continue
-      }
       items.push({
         id: `route-agent-${agentId}`,
         label: `agent:${agentId}`,

@@ -15,7 +15,18 @@ Openbuff is a fork of Codebuff focused on local-first, bring-your-own-key (BYOK)
 - **Add new Openbuff names alongside existing Codebuff ones** — never break backward compatibility.
 - **Prefer Openbuff names in new code** — use `OPENBUFF_*` env vars, `openbuff.json` paths, and `openbuff` branding.
 - **Keep legacy aliases working** — users with existing `codebuff.json` configs or `CODEBUFF_*` env vars must not break.
-- **Branding is dynamic** — `IS_FREEBUFF` takes highest priority, then `isLocalMode()` for Openbuff vs Codebuff.
+- **Branding is dynamic** — Openbuff should be the default user-facing brand; legacy Codebuff names should appear only when documenting compatibility surfaces.
+
+### Branding Checklist
+
+When adding or editing user-facing docs, examples, CLI help text, website copy, or template files:
+
+- Use **Openbuff** for product branding and prose.
+- Use `openbuff`, `OPENBUFF_*`, and `openbuff.json` for new commands, environment variables, and config examples.
+- Keep `@codebuff/*`, `CodebuffClient`, `CODEBUFF_*`, `codebuff.json`, `codebuff-local-cli`, and `codebuff/*` agent IDs only when they are the implemented compatibility/API names.
+- Label compatibility names explicitly as legacy, compatibility, or current SDK/workspace names.
+- Do not link users to upstream Codebuff repositories, issues, docs, support, or star badges unless the context is explicitly historical or compatibility-focused.
+- If a new `OPENBUFF_*` alias is documented, verify the alias is implemented in code first.
 
 ---
 
@@ -263,7 +274,7 @@ extraCodebuffMetadata?: Record<string, string>
 
 ### 6.2 Config File Content
 
-The config keys in `openbuff.json` / `codebuff.json` are provider-focused and don't contain "Codebuff" in their key names (`providers`, `defaultModel`, `modes`, `agents`, `editorMultiPrompt`). These are already migration-neutral.
+The config keys in `openbuff.json` / `codebuff.json` are provider-focused and don't contain "Codebuff" in their key names (`providers`, `defaultModel`, `modes`, `agents`). These are already migration-neutral.
 
 ---
 
@@ -326,7 +337,7 @@ extraCodebuffMetadata:
 | `sdk/README.md` | Documents the naming compatibility surface |
 | `docs/local-mode.md` | BYOK provider setup docs |
 | `docs/environment-variables.md` | Env var documentation |
-| `common/src/templates/initial-agents-dir/README.md` | Agent README template mentioning Openbuff as BYOK fork |
+| `common/src/templates/initial-agents-dir/README.md` | Agent README template that should use Openbuff branding and label compatibility names explicitly |
 | `.github/knowledge.md` | CI configuration |
 | `cli/release-staging/README.md` | Release notes |
 | `freebuff/README.md` | Freebuff description |
@@ -360,7 +371,7 @@ extraCodebuffMetadata:
 - `CODEBUFF_CHATGPT_OAUTH_TOKEN` — no alias
 - `CODEBUFF_IS_BINARY`, `CODEBUFF_CLI_VERSION`, `CODEBUFF_CLI_TARGET` — build-time only
 - `CODEBUFF_CLI_EDITOR`, `CODEBUFF_EDITOR` — CLI config
-- `CODEBUFF_GITHUB_*` — CI/release specific
+- `CODEBUFF_GITHUB_*` — CI/release specific; `OPENBUFF_GITHUB_TOKEN` is supported by the CLI release script as the primary token name with `CODEBUFF_GITHUB_TOKEN` as a compatibility fallback
 - `CODEBUFF_FULL_TELEMETRY` — debug telemetry
 - `NEXT_PUBLIC_CODEBUFF_APP_URL` — web app URL
 - Analytics events (`UPDATE_CODEBUFF_FAILED`, `CODEBUFF_REFERRER_ATTRIBUTED`)
@@ -389,7 +400,7 @@ extraCodebuffMetadata:
 
 ### Phase 2: Build/CI Variables
 5. Add `OPENBUFF_IS_BINARY`, `OPENBUFF_CLI_VERSION`, `OPENBUFF_CLI_TARGET` aliases
-6. Support `OPENBUFF_GITHUB_*` as fallbacks in CI scripts
+6. Expand `OPENBUFF_GITHUB_*` support beyond the CLI release script where other CI/release scripts still use only `CODEBUFF_GITHUB_*`
 
 ### Phase 3: Package Ecosystem (Major Effort)
 7. Rename `@codebuff/sdk` → `@openbuff/sdk` (coordinated with build/release)

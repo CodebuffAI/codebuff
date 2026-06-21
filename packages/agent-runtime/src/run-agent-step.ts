@@ -463,8 +463,7 @@ export const runAgentStep = async (
     ...params,
     // Use the stable agent type for model routing. Spawned subagents have a
     // generated runtime instance id in agentState.agentId; using that here
-    // prevents openbuff.json agent overrides such as
-    // "editor-implementor-proposal-2" from matching.
+    // prevents openbuff.json overrides for generated runtime instance ids from matching.
     agentId: agentState.agentType ?? agentTemplate.id,
     costMode: params.costMode,
     cacheDebugCorrelation: cacheDebugCorrelation

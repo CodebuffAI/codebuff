@@ -21,7 +21,7 @@ const STRUCTURAL_EDIT_TOOLS = ['rewrite_symbol'] as const
 const HARNESS_STATE_TOOLS = ['git_status'] as const
 
 describe('agent tool reachability', () => {
-  for (const mode of ['default', 'max', 'fast'] as const) {
+  for (const mode of ['default', 'fast'] as const) {
     test(`base2 (${mode}) exposes structural read + edit tools`, () => {
       const tools = createBase2(mode).toolNames ?? []
       for (const tool of [...STRUCTURAL_READ_TOOLS, ...STRUCTURAL_EDIT_TOOLS]) {
@@ -43,6 +43,58 @@ describe('agent tool reachability', () => {
     const tools = createCodeEditor({ model: 'opus' }).toolNames ?? []
     for (const tool of [...STRUCTURAL_READ_TOOLS, ...STRUCTURAL_EDIT_TOOLS]) {
       expect(tools).toContain(tool)
+    }
+  })
+})
+
+/**
+ * Guard against re-introducing references to removed agent IDs. The
+ * `base-max`, `multi-prompt`, and `best-of-n` agent definitions were
+ * deleted; no active orchestrator should still try to spawn them or list
+ * them as spawnable, and the editor/reviewer agent IDs they pointed at
+ * should not reappear in active definitions.
+ *
+ * This is intentionally narrow: it only checks the two main orchestrators
+ * (base2 + base-deep) and the editor, not every file in the repo, so it
+ * stays robust as the codebase evolves.
+ */
+const REMOVED_AGENT_IDS = [
+  'base-max',
+  'base_max',
+  'multi-prompt',
+  'multi_prompt',
+  'best-of-n',
+  'best_of_n',
+] as const
+
+describe('agent registry/reference cleanup', () => {
+  test('base2 (default+fast) does not reference removed agent ids', () => {
+    for (const mode of ['default', 'fast'] as const) {
+      const def = createBase2(mode)
+      const spawnable = def.spawnableAgents ?? []
+      for (const removed of REMOVED_AGENT_IDS) {
+        expect(
+          spawnable,
+          `base2 (${mode}) spawnableAgents must not include removed id ${removed}`,
+        ).not.toContain(removed)
+      }
+      // System/instructions prompts should not bake in removed agent names
+      // as authoritative recommendations.
+      const promptText = `${def.systemPrompt ?? ''}\n${def.instructionsPrompt ?? ''}\n${def.stepPrompt ?? ''}`
+      for (const removed of REMOVED_AGENT_IDS) {
+        expect(
+          promptText.includes(`@${removed}`),
+          `base2 (${mode}) prompt must not @-mention removed agent ${removed}`,
+        ).toBe(false)
+      }
+    }
+  })
+
+  test('code editor does not list removed agent ids as spawnable', () => {
+    const editor = createCodeEditor({ model: 'opus' })
+    const spawnable = editor.spawnableAgents ?? []
+    for (const removed of REMOVED_AGENT_IDS) {
+      expect(spawnable).not.toContain(removed)
     }
   })
 })

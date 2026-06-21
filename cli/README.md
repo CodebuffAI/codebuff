@@ -1,6 +1,6 @@
 # @codebuff/cli
 
-A Terminal User Interface (TUI) package built with OpenTUI and React.
+Openbuff's Terminal User Interface (TUI) package built with OpenTUI and React. The package name is retained for workspace compatibility.
 
 ## Installation
 
@@ -74,7 +74,7 @@ bun run start
 Or use the binary directly:
 
 ```bash
-codebuff-tui
+openbuff
 ```
 
 ## Features

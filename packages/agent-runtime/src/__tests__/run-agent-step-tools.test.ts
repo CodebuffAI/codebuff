@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
@@ -6,6 +9,8 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
+
+import { handleWriteTodos } from '../tools/handlers/tool/write-todos'
 import {
   afterAll,
   afterEach,
@@ -23,6 +28,7 @@ import { createToolCallChunk } from './test-utils'
 import { asUserMessage } from '../util/messages'
 
 import type { AgentTemplate } from '../templates/types'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { DbSpies } from '@codebuff/common/testing/mocks/database'
 import type {
   AgentRuntimeDeps,
@@ -30,6 +36,70 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+
+type WriteTodosOutput = {
+  message: string
+  todoSummary: {
+    totalCount: number
+    completedCount: number
+    remainingCount: number
+  }
+  currentTodos: { task: string; completed: boolean }[]
+  persistedHistoricalSummary: {
+    totalCount: number
+  }
+}
+
+describe('write_todos tool', () => {
+  it('returns current incoming todos as the visible active summary', async () => {
+    const previousCwd = process.cwd()
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'write-todos-test-'))
+    try {
+      process.chdir(tempDir)
+      const stateDir = path.join(tempDir, '.omx/state')
+      fs.mkdirSync(stateDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(stateDir, 'todos-session.json'),
+        JSON.stringify(
+          Array.from({ length: 821 }, (_, i) => ({
+            task: `Historical task ${i + 1}`,
+            completed: i < 417,
+          })),
+        ),
+      )
+
+      const output = await handleWriteTodos({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolName: 'write_todos',
+          input: {
+            todos: [
+              { task: 'Implement current fix', completed: true },
+              { task: 'Update focused tests', completed: false },
+            ],
+          },
+        } as CodebuffToolCall<'write_todos'>,
+      })
+      const value = output.output[0].value as unknown as WriteTodosOutput
+
+      expect(value.message).toContain('Current active progress: 1/2 tasks completed')
+      expect(value.message).not.toContain('417/821 tasks completed')
+      expect(value.todoSummary).toMatchObject({
+        totalCount: 2,
+        completedCount: 1,
+        remainingCount: 1,
+      })
+      expect(value.currentTodos).toEqual([
+        { task: 'Implement current fix', completed: true },
+        { task: 'Update focused tests', completed: false },
+      ])
+      expect(value.persistedHistoricalSummary.totalCount).toBe(823)
+    } finally {
+      process.chdir(previousCwd)
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+})
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
@@ -282,6 +352,331 @@ describe('runAgentStep - set_output tool', () => {
 
     // Should replace with empty object
     expect(result.agentState.output).toEqual({})
+  })
+
+  it('blocks suggest_followups when the agent gate has not allowed it yet', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('suggest_followups', {
+        followups: [{ prompt: 'Add tests', label: 'Add tests' }],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = false
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['suggest_followups', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Suggest followups too early',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'Tool `suggest_followups` is not available yet',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+    )
+  })
+
+  it('allows suggest_followups after the agent gate has allowed it', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('suggest_followups', {
+        followups: [{ prompt: 'Add tests', label: 'Add tests' }],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = true
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['suggest_followups', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Suggest followups after the gate',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+    )
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'tool_result', toolName: 'suggest_followups' }),
+    )
+  })
+
+  it('blocks suggest_followups after same-step file edits even when the gate started open', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+      requestToolCall: async () => ({
+        output: [
+          {
+            type: 'json',
+            value: {
+              file: 'src/a.ts',
+              message: 'File written successfully.',
+            },
+          },
+        ],
+      }),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('write_file', {
+        path: 'src/a.ts',
+        instructions: 'Write file',
+        content: 'export const a = 1\n',
+      })
+      yield createToolCallChunk('suggest_followups', {
+        followups: [{ prompt: 'Add tests', label: 'Add tests' }],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = true
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['write_file', 'suggest_followups', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Edit after the gate and then suggest followups',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'write_file' }),
+    )
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'Tool `suggest_followups` is not available yet',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+    )
+  })
+
+  it('blocks suggest_followups after same-step rewrite_symbol edits when the gate started open', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+      requestToolCall: async () => ({
+        output: [
+          {
+            type: 'json',
+            value: {
+              file: 'src/a.ts',
+              message: 'Symbol rewritten successfully.',
+            },
+          },
+        ],
+      }),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('rewrite_symbol', {
+        path: 'src/a.ts',
+        symbol: 'a',
+        content: 'export const a = 1\n',
+      })
+      yield createToolCallChunk('suggest_followups', {
+        followups: [{ prompt: 'Add tests', label: 'Add tests' }],
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = true
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['rewrite_symbol', 'suggest_followups', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Rewrite after the gate and then suggest followups',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'rewrite_symbol' }),
+    )
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'Tool `suggest_followups` is not available yet',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+    )
+  })
+
+  it('blocks file edits after same-step suggest_followups in gated final response steps', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('suggest_followups', {
+        followups: [{ prompt: 'Add tests', label: 'Add tests' }],
+      })
+      yield createToolCallChunk('write_file', {
+        path: 'src/a.ts',
+        instructions: 'Write file',
+        content: 'export const a = 1\n',
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = true
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['write_file', 'suggest_followups', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Suggest followups and then try to edit',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+    )
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'File-changing tools are not available after suggest_followups',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'write_file' }),
+    )
+  })
+
+  it('blocks rewrite_symbol after same-step suggest_followups in gated final response steps', async () => {
+    const chunks: unknown[] = []
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      onResponseChunk: (chunk) => chunks.push(chunk),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('suggest_followups', {
+        followups: [{ prompt: 'Add tests', label: 'Add tests' }],
+      })
+      yield createToolCallChunk('rewrite_symbol', {
+        path: 'src/a.ts',
+        symbol: 'a',
+        content: 'export const a = 1\n',
+      })
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = true
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['rewrite_symbol', 'suggest_followups', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Suggest followups and then try to rewrite',
+    })
+
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'suggest_followups' }),
+    )
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining(
+          'File-changing tools are not available after suggest_followups',
+        ),
+      }),
+    )
+    expect(chunks).not.toContainEqual(
+      expect.objectContaining({ type: 'tool_call', toolName: 'rewrite_symbol' }),
+    )
   })
 
   it('should handle handleSteps with one tool call and STEP_ALL', async () => {

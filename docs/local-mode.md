@@ -1,6 +1,6 @@
 # Openbuff Local/BYOK Provider Mode
 
-Openbuff is an independent, local-first fork of Codebuff focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription. You provide your own keys for user-configured providers (such as OpenAI, Anthropic/Claude, OpenRouter, or local models). Openbuff does not require Codebuff cloud authentication, credits, hosted run tracking, or hosted model inference.
+Openbuff is local-first software focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription. You provide your own keys for user-configured providers (such as OpenAI, Anthropic/Claude, OpenRouter, or local models). Openbuff does not require hosted authentication, credits, run tracking, or hosted model inference.
 
 There is absolutely no backend fallback. Every LLM request must resolve to either:
 
@@ -34,7 +34,7 @@ Openbuff looks for provider config in this order:
 8. `~/.config/manicode/codebuff.json` compatibility path
 9. `openbuff.json` in the current directory or any parent directory
 10. `codebuff.json` compatibility path in the current directory or any parent
-   directory
+    directory
 
 The quickest setup path is the built-in preset command:
 
@@ -52,6 +52,23 @@ The quickest setup path is the built-in preset command:
 
 Use `/provider status` to inspect the loaded config and missing environment variables.
 Use `/models` to open the model routing picker.
+
+### Plan artifact commands (PlanLink)
+
+Durable plan artifacts live under `.agents/sessions/<plan>/` and are
+attached to a TUI session via PlanLink. The available slash commands are:
+
+- `/resume-plan` — re-attach the current session to an existing plan
+  artifact and rehydrate its working context.
+- `/update-plan` — open the plan artifact for an incremental edit pass.
+- `/plan-status` — print the current task/milestone status from
+  `STATUS.md`.
+- `/lessons` — append or review lesson notes captured during the plan.
+
+For agent-driven updates, prefer `update_plan_status` for incremental
+`STATUS.md` and lesson-note edits (it preserves user prose), and reserve
+`create_plan` for whole-artifact creation or rewrite. See
+[Agents and Tools](./agents-and-tools.md) for tool details.
 
 For guided setup/configuration inside the TUI:
 
@@ -77,22 +94,12 @@ ChatGPT/Codex subscription:
   "defaultModel": "openai/gpt-5.5",
   "modes": {
     "default": "openai/gpt-5.5",
-    "lite": "openai/gpt-5.4-mini",
-    "max": "openai/gpt-5.5",
     "plan": "openai/gpt-5.5"
   },
   "agents": {
     "base2": "openai/gpt-5.5",
     "thinker": "codex/gpt-5.5",
     "code-searcher": "local/qwen-coder"
-  },
-  "editorMultiPrompt": {
-    "proposalModels": [
-      "opencode-go/kimi-k2.6",
-      "opencode-go/glm-5.1",
-      "opencode-go/deepseek-v4-pro"
-    ],
-    "selectorModel": "codex/gpt-5.5"
   },
   "providers": {
     "openai": {
@@ -139,8 +146,7 @@ ChatGPT/Codex subscription:
 For each agent step:
 
 1. The agent's built-in model is looked up.
-2. `modes.default`, `modes.lite`, `modes.max`, or `modes.plan` overrides the
-   built-in root agents (`base2`, `base2-lite`, `base2-max`, `base2-plan`).
+2. `modes.default` or `modes.plan` overrides the built-in root agents (`base2`, `base2-plan`).
 3. `agents[agentId]` overrides subagents and other non-mode agents when present.
 4. `defaultModel` overrides every remaining agent when present.
 5. The resulting requested model is matched against provider `models`.
@@ -148,30 +154,6 @@ For each agent step:
 
 Agent keys may use the exact ID (`thinker`), a published ID
 (`publisher/agent@1.2.3`), or the unversioned/unpublished short ID.
-
-### Multi-prompt editor routing
-
-`editor-multi-prompt` is a best-of-N editor. It spawns proposal agents, compares
-their proposed diffs, then applies only the selected implementation. Configure
-the proposal and selector models with:
-
-```json
-{
-  "editorMultiPrompt": {
-    "proposalModels": [
-      "opencode-go/kimi-k2.6",
-      "opencode-go/glm-5.1",
-      "opencode-go/deepseek-v4-pro"
-    ],
-    "selectorModel": "codex/gpt-5.5"
-  }
-}
-```
-
-This maps to agent overrides for `editor-implementor-proposal-1`,
-`editor-implementor-proposal-2`, `editor-implementor-proposal-3`, and
-`best-of-n-selector2`. If more prompts are supplied than configured proposal
-models, Openbuff keeps using the last proposal agent.
 
 Provider `models` can be either a list:
 
@@ -182,7 +164,20 @@ Provider `models` can be either a list:
       "type": "openai-compatible",
       "baseURL": "https://opencode.ai/zen/go/v1",
       "apiKeyEnv": "OPENCODE_GO_API_KEY",
-      "models": ["glm-5.1", "glm-5", "kimi-k2.6", "kimi-k2.5", "mimo-v2.5-pro", "mimo-v2.5", "qwen3.6-plus", "qwen3.5-plus", "minimax-m2.7", "minimax-m2.5", "deepseek-v4-pro", "deepseek-v4-flash"]
+      "models": [
+        "glm-5.1",
+        "glm-5",
+        "kimi-k2.6",
+        "kimi-k2.5",
+        "mimo-v2.5-pro",
+        "mimo-v2.5",
+        "qwen3.6-plus",
+        "qwen3.5-plus",
+        "minimax-m2.7",
+        "minimax-m2.5",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash"
+      ]
     }
   },
   "defaultModel": "opencode-go/kimi-k2.6"

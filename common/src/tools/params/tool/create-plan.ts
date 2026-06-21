@@ -24,11 +24,14 @@ const inputSchema = z
 const description = `
 Use when:
 - User explicitly requests a detailed plan.
-- Use this tool to overwrite a previous plan by using the exact same file name.
+- Plan mode needs to create or update durable session artifacts under .agents/sessions/<slug>/.
+- Use this tool to overwrite a previous plan or plan artifact by using the exact same file name.
 
-Don't include:
-- Goals, timelines, benefits, next steps.
-- Background context or extensive explanations.
+For durable multi-day plan sessions, create or update these markdown artifacts as needed:
+- SPEC.md: goals/non-goals, requirements, acceptance criteria, relevant systems.
+- PLAN.md: milestones, tasks, statuses, dependencies, risks, and validation gates.
+- STATUS.md: current state, completed/pending/blocked work, next checkpoint, resume instructions.
+- LESSONS.md: lessons, gotchas, decisions, and reusable follow-up notes.
 
 For a technical plan, act as an expert architect engineer and provide direction to your editor engineer.
 - Study the change request and the current code.
@@ -41,15 +44,11 @@ What to include in the plan:
 - Do not waste time on much background information, focus on the exact steps of the implementation.
 - Do not wrap the path content in markdown code blocks, e.g. \`\`\`.
 
-Do not include any of the following sections in the plan:
-- goals
-- a timeline or schedule
-- benefits/key improvements
-- next steps
+Avoid timelines/schedules and promotional benefits. For implementation PLAN.md files, focus on exact steps and validation; for SPEC.md, STATUS.md, and LESSONS.md files, use the artifact-specific structure above.
 
-After creating the plan, you should end turn to let the user review the plan.
+After creating the plan, you should end turn to let the user review the plan unless you are updating STATUS.md or LESSONS.md as part of a resume/update flow.
 
-Important: Use this tool sparingly. Do not use this tool more than once in a conversation, unless in ask mode.
+Important: Use this tool sparingly for ordinary one-off plans. In Plan mode, using it up to once per durable artifact (SPEC.md, PLAN.md, STATUS.md, LESSONS.md) is expected for comprehensive multi-day plans.
 
 Examples:
 ${$getNativeToolCallExampleString({

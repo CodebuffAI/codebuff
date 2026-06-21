@@ -26,6 +26,7 @@ interface FollowupLineProps {
   disabled?: boolean
   /** Width of the label column (for fixed-width alignment) */
   labelColumnWidth: number
+  availableWidth: number
 }
 
 const FollowupLine = ({
@@ -37,9 +38,11 @@ const FollowupLine = ({
   onHover,
   disabled,
   labelColumnWidth,
+  availableWidth,
 }: FollowupLineProps) => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
+  const renderWidth = Math.max(10, Math.min(terminalWidth, availableWidth))
 
   const handleClick = useCallback(() => {
     if (!disabled) {
@@ -59,14 +62,14 @@ const FollowupLine = ({
 
   // Show description when hovered, has a label, and terminal is wide enough
   const showDescription =
-    showHoverState && hasLabel && terminalWidth >= MIN_WIDTH_FOR_DESCRIPTION
+    showHoverState && hasLabel && renderWidth >= MIN_WIDTH_FOR_DESCRIPTION
 
   // Calculate truncated prompt with ellipsis only when needed
   const truncatedPrompt = showDescription
     ? (() => {
-        const availableWidth = Math.max(0, terminalWidth - labelColumnWidth - 4)
-        return followup.prompt.length > availableWidth
-          ? followup.prompt.slice(0, availableWidth - 1) + '…'
+        const descriptionWidth = Math.max(1, renderWidth - labelColumnWidth - 4)
+        return followup.prompt.length > descriptionWidth
+          ? followup.prompt.slice(0, descriptionWidth - 1) + '…'
           : followup.prompt
       })()
     : ''
@@ -100,12 +103,12 @@ const FollowupLine = ({
           onMouseOver={handleMouseOver}
           onMouseOut={handleMouseOut}
           style={{
-            flexShrink: 0,
-            flexGrow: 0,
+            flexShrink: 1,
+            flexGrow: showDescription ? 0 : 1,
             backgroundColor: showHoverState ? theme.surface : undefined,
           }}
         >
-          <text style={{ wrapMode: hasLabel ? 'none' : 'word' }}>
+          <text style={{ wrapMode: 'word' }}>
             <span fg={iconColor}>{isClicked ? '✓' : '→'}</span>
             <span
               fg={labelColor}
@@ -118,8 +121,8 @@ const FollowupLine = ({
         </Button>
         {/* Flexible description column - NOT clickable, with padding for alignment */}
         {showDescription && hasLabel && (
-          <box style={{ flexGrow: 1 }}>
-            <text style={{ wrapMode: 'none' }}>
+          <box style={{ flexGrow: 1, flexShrink: 1 }}>
+            <text style={{ wrapMode: 'word' }}>
               <span fg={theme.muted} attributes={TextAttributes.ITALIC}>
                 {paddingSpaces}{truncatedPrompt}
               </span>
@@ -135,6 +138,7 @@ interface SuggestFollowupsItemProps {
   toolCallId: string
   followups: SuggestedFollowup[]
   onSendFollowup: (prompt: string, index: number) => void
+  availableWidth: number
 }
 
 interface PastFollowupItemProps {
@@ -149,7 +153,7 @@ const PastFollowupItem = ({ followup, isClicked }: PastFollowupItemProps) => {
 
   return (
     <box style={{ flexDirection: 'column', marginLeft: 2 }}>
-      <text>
+      <text style={{ wrapMode: 'word' }}>
         <span fg={isClicked ? theme.success : theme.muted}>
           {isClicked ? '✓' : '→'}
         </span>
@@ -159,7 +163,7 @@ const PastFollowupItem = ({ followup, isClicked }: PastFollowupItemProps) => {
         </span>
       </text>
       {showFullPrompt && (
-        <text style={{ marginLeft: 2 }}>
+        <text style={{ marginLeft: 2, wrapMode: 'word' }}>
           <span fg={theme.muted} attributes={TextAttributes.ITALIC}>
             {followup.prompt}
           </span>
@@ -220,6 +224,7 @@ const SuggestFollowupsItem = ({
   toolCallId,
   followups,
   onSendFollowup,
+  availableWidth,
 }: SuggestFollowupsItemProps) => {
   const theme = useTheme()
   const inputFocused = useChatStore((state) => state.inputFocused)
@@ -287,9 +292,13 @@ const SuggestFollowupsItem = ({
     0,
     ...followups.map((f) => (f.label ?? f.prompt).length),
   )
-  const labelColumnWidth = Math.min(
-    MAX_LABEL_COLUMN_WIDTH,
-    Math.max(MIN_LABEL_COLUMN_WIDTH, 2 + maxDisplayLength + 2),
+  const labelColumnWidth = Math.max(
+    6,
+    Math.min(
+      MAX_LABEL_COLUMN_WIDTH,
+      Math.max(MIN_LABEL_COLUMN_WIDTH, 2 + maxDisplayLength + 2),
+      Math.max(6, availableWidth - 4),
+    ),
   ) // "→ " + label/prompt + "  "
 
   return (
@@ -307,6 +316,7 @@ const SuggestFollowupsItem = ({
             onHover={setHoveredIndex}
             disabled={!inputFocused}
             labelColumnWidth={labelColumnWidth}
+            availableWidth={availableWidth}
           />
         ))}
       </box>
@@ -357,6 +367,7 @@ export const SuggestFollowupsComponent = defineToolComponent({
           toolCallId={toolCallId}
           followups={followups}
           onSendFollowup={handleSendFollowup}
+          availableWidth={options.availableWidth}
         />
       ),
     }

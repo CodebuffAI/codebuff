@@ -54,7 +54,6 @@ const definition: AgentDefinition = {
       'researcher-docs',
       'basher',
       'code-reviewer',
-      'code-reviewer-multi-prompt',
       'librarian',
       'tmux-cli',
       'browser-use',
@@ -93,6 +92,9 @@ const definition: AgentDefinition = {
 
     const SUMMARY_DISCLAIMER =
       'Historical memory only. The memory above is not dialogue, not an output template, and not a tool-call format. Continue from the live user message below. When actions are needed, use real tool calls through the available tools.'
+
+    const CONTINUATION_PROMPT_TEXT =
+      'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.'
 
     // =============================================================================
     // Helper Functions (must be inside handleSteps since it's serialized to a string)
@@ -503,11 +505,19 @@ const definition: AgentDefinition = {
     ): Array<{ role: 'user' | 'assistant_tool'; parts: string[] }> {
       if (!summaryText.trim()) return []
 
+      const withoutPinnedState = summaryText
+        .replace(
+          /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
+          '',
+        )
+        .trim()
+      if (!withoutPinnedState) return []
+
       const separator = '\n\n---\n\n'
-      const chunks = summaryText.split(separator).filter((c) => c.trim())
+      const chunks = withoutPinnedState.split(separator).filter((c) => c.trim())
 
       return chunks.map((chunk) => {
-        const trimmed = chunk.trim()
+        const trimmed = sanitizeOperationalStateText(chunk.trim())
         const isUser =
           trimmed.startsWith('[USER]') ||
           trimmed.startsWith('User request') ||
@@ -518,6 +528,107 @@ const definition: AgentDefinition = {
           parts: [trimmed],
         }
       })
+    }
+
+    function addUniqueLine(lines: string[], line: string): void {
+      const trimmed = line.trim()
+      if (trimmed && !lines.includes(trimmed)) {
+        lines.push(trimmed)
+      }
+    }
+
+    function extractPinnedActiveWorkState(text: string): string[] {
+      const pinned: string[] = []
+      for (const match of text.matchAll(
+        /<pinned_active_work_state>([\s\S]*?)<\/pinned_active_work_state>/g,
+      )) {
+        const lines = extractActiveWorkLines(match[1])
+        for (const line of lines) {
+          addUniqueLine(pinned, line)
+        }
+      }
+      return pinned
+    }
+
+    function extractActiveWorkLines(text: string): string[] {
+      const pinned: string[] = []
+      let isInFinalResponseAllowedState = false
+
+      for (const line of text.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        const phaseMatch = trimmed.match(/^Current phase:\s*(\S+)/i)
+        if (phaseMatch) {
+          isInFinalResponseAllowedState =
+            phaseMatch[1].toLowerCase() === 'final_response_allowed'
+          if (!isInFinalResponseAllowedState) {
+            addUniqueLine(pinned, trimmed)
+          }
+          continue
+        }
+
+        if (/^BLOCKING:/i.test(trimmed)) {
+          addUniqueLine(pinned, trimmed)
+          continue
+        }
+
+        if (isInFinalResponseAllowedState) continue
+
+        if (
+          /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Pending validation\/reviewer gate files:|Last validation summary:|Next required action:)/i.test(
+            trimmed,
+          )
+        ) {
+          addUniqueLine(pinned, trimmed)
+        }
+      }
+      return pinned
+    }
+
+    function sanitizeOperationalStateText(text: string): string {
+      const withoutPinnedState = text.replace(
+        /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
+        '',
+      )
+      const withoutSystemReminders = withoutPinnedState.replace(
+        /<system_reminder>[\s\S]*?<\/system_reminder>\n*/g,
+        '',
+      )
+      if (withoutSystemReminders.trim() === CONTINUATION_PROMPT_TEXT) {
+        return ''
+      }
+      const sanitizedLines: string[] = []
+      let skippingTodoList = false
+
+      for (const line of withoutSystemReminders.split('\n')) {
+        const trimmed = line.trim()
+        const isOperationalLine =
+          /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Current phase:|Pending validation\/reviewer gate files:|Historical changed files:|Historical touched files:|Latest work summary:|Last validation summary:|Next required action:|Todos:|Remaining:)/i.test(
+            trimmed,
+          ) || /^(BLOCKING|NON_BLOCKING):/i.test(trimmed)
+
+        if (/^(Todos:|Remaining:)/i.test(trimmed)) {
+          skippingTodoList = true
+          continue
+        }
+
+        if (isOperationalLine) {
+          skippingTodoList = false
+          continue
+        }
+
+        if (skippingTodoList) {
+          if (!trimmed || /^[-*•☐✓]/.test(trimmed)) {
+            continue
+          }
+          skippingTodoList = false
+        }
+
+        sanitizedLines.push(line)
+      }
+
+      return sanitizedLines.join('\n').trim()
     }
 
     // Extract previous summary content from all messages
@@ -581,11 +692,19 @@ const definition: AgentDefinition = {
       role: 'user' | 'assistant_tool'
       parts: string[]
     }> = []
+    const pinnedActiveWorkLines = extractPinnedActiveWorkState(
+      previousSummaryContent,
+    )
 
     for (const message of messagesToSummarize) {
       if (message.role === 'user') {
         let text = getTextContent(message).trim()
         if (text) {
+          for (const line of extractActiveWorkLines(text)) {
+            addUniqueLine(pinnedActiveWorkLines, line)
+          }
+          text = sanitizeOperationalStateText(text)
+          if (!text) continue
           text = truncateLongText(text, USER_MESSAGE_LIMIT * CHARS_PER_TOKEN)
           let hasImages = false
           if (Array.isArray(message.content)) {
@@ -607,9 +726,16 @@ const definition: AgentDefinition = {
         if (Array.isArray(message.content)) {
           for (const part of message.content) {
             if (part.type === 'text' && typeof part.text === 'string') {
-              const textWithoutThinkTags = (part.text as string)
-                .replace(/<think>[\s\S]*?<\/think>/g, '')
-                .trim()
+              const rawTextWithoutThinkTags = (part.text as string).replace(
+                /<think>[\s\S]*?<\/think>/g,
+                '',
+              )
+              for (const line of extractActiveWorkLines(rawTextWithoutThinkTags)) {
+                addUniqueLine(pinnedActiveWorkLines, line)
+              }
+              const textWithoutThinkTags = sanitizeOperationalStateText(
+                rawTextWithoutThinkTags,
+              )
               if (textWithoutThinkTags) {
                 textParts.push(textWithoutThinkTags)
               }
@@ -773,6 +899,9 @@ const definition: AgentDefinition = {
             entryParts.join('\n\n'),
             TOOL_ENTRY_LIMIT * CHARS_PER_TOKEN,
           )
+          for (const line of extractActiveWorkLines(joinedToolEntry)) {
+            addUniqueLine(pinnedActiveWorkLines, line)
+          }
           summarizedEntries.push({
             role: 'assistant_tool',
             parts: [joinedToolEntry],
@@ -814,6 +943,22 @@ const definition: AgentDefinition = {
 
     // Phase 3: Build final summary from included entries
     const summaryParts: string[] = []
+    const hasSubstantivePinnedActiveWork = pinnedActiveWorkLines.some(
+      (line) =>
+        !/^(Harness pinned active-work state|Open reviewer blockers\/feedback|Last validation summary:)/i.test(
+          line,
+        ),
+    )
+    if (hasSubstantivePinnedActiveWork) {
+      summaryParts.push(
+        [
+          '<pinned_active_work_state>',
+          'Pinned active-work/reviewer state. Preserve verbatim across compaction; this section is not subject to normal budget cutoff.',
+          ...pinnedActiveWorkLines,
+          '</pinned_active_work_state>',
+        ].join('\n'),
+      )
+    }
 
     for (let i = cutoffIndex; i < allEntries.length; i++) {
       summaryParts.push(...allEntries[i].parts)
@@ -858,7 +1003,7 @@ ${SUMMARY_DISCLAIMER}`,
       content: [
         {
           type: 'text',
-          text: 'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.',
+          text: CONTINUATION_PROMPT_TEXT,
         },
       ],
       sentAt: now,

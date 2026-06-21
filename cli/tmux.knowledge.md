@@ -1,6 +1,6 @@
 # tmux Knowledge for CLI Testing
 
-This document covers essential knowledge for using tmux to test and automate the Codebuff CLI.
+This document covers essential knowledge for using tmux to test and automate the Openbuff CLI.
 
 ## Recommended: Use the Helper Scripts
 
@@ -74,7 +74,7 @@ The sections below explain how tmux communication with the CLI works at a low le
 
 ### Critical: Sending Input to the CLI
 
-**Standard `tmux send-keys` does NOT work with the Codebuff CLI.** Characters are dropped or garbled due to how OpenTUI handles keyboard input.
+**Standard `tmux send-keys` does NOT work with the Openbuff CLI.** Characters are dropped or garbled due to how OpenTUI handles keyboard input.
 
 ### The Problem
 
@@ -115,8 +115,8 @@ tmux send-keys -t session Enter
 ### Bash Helper
 
 ```bash
-# Send text to Codebuff CLI in tmux
-send_to_codebuff() {
+# Send text to Openbuff CLI in tmux
+send_to_openbuff() {
   local session="$1"
   local text="$2"
   # Use bracketed paste mode for reliable input
@@ -124,7 +124,7 @@ send_to_codebuff() {
 }
 
 # Usage:
-send_to_codebuff my-session "fix the bug in main.ts"
+send_to_openbuff my-session "fix the bug in main.ts"
 tmux send-keys -t my-session Enter
 ```
 
@@ -147,7 +147,7 @@ await tmux(['send-keys', '-t', sessionName, 'Enter'])
 
 ```bash
 # Create a detached session running the CLI
-tmux new-session -d -s codebuff-test -x 120 -y 30 'bun run src/index.tsx'
+tmux new-session -d -s openbuff-test -x 120 -y 30 'bun run src/index.tsx'
 
 # Wait for CLI to initialize
 sleep 3
@@ -157,28 +157,28 @@ sleep 3
 
 ```bash
 # Send input using bracketed paste
-tmux send-keys -t codebuff-test $'\e[200~what files are in this project?\e[201~'
-tmux send-keys -t codebuff-test Enter
+tmux send-keys -t openbuff-test $'\e[200~what files are in this project?\e[201~'
+tmux send-keys -t openbuff-test Enter
 
 # Wait for response
 sleep 5
 
 # Capture output
-tmux capture-pane -t codebuff-test -p
+tmux capture-pane -t openbuff-test -p
 ```
 
 ### Cleaning Up
 
 ```bash
 # Kill the session when done
-tmux kill-session -t codebuff-test 2>/dev/null
+tmux kill-session -t openbuff-test 2>/dev/null
 ```
 
 ## Complete Example Script
 
 ```bash
 #!/bin/bash
-SESSION="codebuff-test-$$"
+SESSION="openbuff-test-$$"
 
 # Start CLI
 tmux new-session -d -s "$SESSION" -x 120 -y 30 'bun --cwd=cli run dev'
@@ -248,13 +248,13 @@ async function testCLI() {
 To debug interactively, attach to the tmux session:
 
 ```bash
-tmux attach -t codebuff-test
+tmux attach -t openbuff-test
 ```
 
 ### Check Session Exists
 
 ```bash
-tmux has-session -t codebuff-test 2>/dev/null && echo "exists" || echo "not found"
+tmux has-session -t openbuff-test 2>/dev/null && echo "exists" || echo "not found"
 ```
 
 ### List All Sessions
@@ -267,10 +267,10 @@ tmux list-sessions
 
 ```bash
 # Capture current pane content
-tmux capture-pane -t codebuff-test -p
+tmux capture-pane -t openbuff-test -p
 
 # Capture with ANSI colors preserved
-tmux capture-pane -t codebuff-test -p -e
+tmux capture-pane -t openbuff-test -p -e
 ```
 
 ## Troubleshooting

@@ -38,8 +38,6 @@ const theme: ChatTheme = {
   // Modes
   modeFastBg: '#f60',
   modeFastText: '#f60',
-  modeMaxBg: '#d22',
-  modeMaxText: '#d22',
   modePlanBg: '#14e',
   modePlanText: '#14e',
   // Link

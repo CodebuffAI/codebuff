@@ -1,24 +1,22 @@
 ---
 title: 'Modes'
 section: 'help'
-tags: ['modes', 'lite', 'max', 'plan', 'configuration']
+tags: ['modes', 'plan', 'configuration']
 order: 2
 ---
 
 # Modes
 
-Openbuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` commands.
+Openbuff has two modes. Switch during a session with `Shift+Tab` or `/mode:` commands.
 
 <MarkdownTable>
-  | Mode | Model | Editor Agent | Code Review | | --- | --- | --- | --- | --- |
-  | Default | Claude Opus 4.7 | editor | Yes | | Max | Claude Opus 4.7 |
-  editor-multi-prompt | Yes | | Plan | Claude Opus 4.7 | None | No | | Lite |
-  Kimi K2.6 | None | No |
+  | Mode | Route | Editor Agent | Code Review | | --- | --- | --- | --- | --- |
+  | Default | `modes.default` / `base2` | editor | Yes | | Plan | `modes.plan` / `base2-plan` | None | No |
 </MarkdownTable>
 
 ## Default
 
-Standard mode with Claude Opus 4.7:
+Standard mode using your configured BYOK route:
 
 - Spawns [file pickers](/publishers/openbuff/agents/file-picker) and [code searchers](/publishers/openbuff/agents/code-searcher) to gather context
 - Uses the [`editor`](/publishers/openbuff/agents/editor) agent for code changes
@@ -27,21 +25,6 @@ Standard mode with Claude Opus 4.7:
 - Validates with typechecks and tests
 
 Switch to this mode with `/mode:default`.
-
-## Max
-
-Claude Opus 4.7 with best-of-N selection:
-
-- Reads 12-20+ files per task
-- Spawns multiple [editor](/publishers/openbuff/agents/editor) agents in parallel, each with a different strategy
-- A selector compares outputs and picks the best one
-- Spawns [`thinker-best-of-n`](/publishers/openbuff/agents/thinker-best-of-n) for hard problems
-- Spawns multiple reviewers with different focus areas
-- Runs typechecks and tests on both the changed files and the full project
-
-Use for complex features and refactors.
-
-Switch to this mode with `/mode:max`.
 
 ## Plan
 
@@ -55,11 +38,3 @@ Planning mode. No file writes.
 Use this to scope out work before implementing, or to discuss approaches without making changes.
 
 Switch to this mode with `/mode:plan`.
-
-## Lite
-
-Kimi K2.6, cheaper and faster.
-
-An efficient mode for most coding tasks.
-
-Switch to this mode with `/mode:lite`.

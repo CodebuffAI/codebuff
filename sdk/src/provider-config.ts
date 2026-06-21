@@ -29,7 +29,7 @@ const envVarNameSchema = z
 const modelMapSchema = z.record(z.string().min(1), z.string().min(1))
 const positiveIntSchema = z.number().int().positive()
 const nonNegativeNumberSchema = z.number().nonnegative()
-const providerModeNames = ['default', 'lite', 'max', 'plan'] as const
+const providerModeNames = ['default', 'plan'] as const
 type ProviderModeName = (typeof providerModeNames)[number]
 export const reasoningEffortSchema = z.enum([
   'high',
@@ -39,10 +39,6 @@ export const reasoningEffortSchema = z.enum([
   'none',
 ])
 export type OpenbuffReasoningEffort = z.infer<typeof reasoningEffortSchema>
-const optionalReasoningEffortSchema = reasoningEffortSchema
-  .nullish()
-  .transform((value) => value ?? undefined)
-
 const routableModelValueSchema = z.union([
   z.string().min(1),
   z.object({
@@ -54,27 +50,9 @@ const agentModelValueSchema = routableModelValueSchema
 const modeModelSchema = z
   .object({
     default: routableModelValueSchema.optional(),
-    lite: routableModelValueSchema.optional(),
-    max: routableModelValueSchema.optional(),
     plan: routableModelValueSchema.optional(),
   })
   .default({})
-
-const editorMultiPromptSchema = z
-  .object({
-    /** Models used by editor-multi-prompt proposal agents, in proposal order. */
-    proposalModels: z.array(routableModelValueSchema).min(1).max(5).optional(),
-    /** Optional reasoning efforts for proposal agents, in proposal order. */
-    proposalReasoningEfforts: z
-      .array(optionalReasoningEffortSchema)
-      .max(5)
-      .optional(),
-    /** Model used by the best-of-N selector that chooses the winning diff. */
-    selectorModel: routableModelValueSchema.optional(),
-    /** Optional reasoning effort for the best-of-N selector. */
-    selectorReasoningEffort: reasoningEffortSchema.optional(),
-  })
-  .optional()
 
 export const DEFAULT_PROVIDER_COMPATIBILITY = {
   stripCacheControl: true,
@@ -380,8 +358,6 @@ export const providerConfigFileSchema = z
     modeReasoningEfforts: z
       .object({
         default: reasoningEffortSchema.optional(),
-        lite: reasoningEffortSchema.optional(),
-        max: reasoningEffortSchema.optional(),
         plan: reasoningEffortSchema.optional(),
       })
       .default({}),
@@ -391,8 +367,6 @@ export const providerConfigFileSchema = z
     agentReasoningEfforts: z
       .record(z.string().min(1), reasoningEffortSchema)
       .optional(),
-    /** Convenience routing for editor-multi-prompt best-of-N proposals. */
-    editorMultiPrompt: editorMultiPromptSchema,
     /** Local codebase indexing configuration. Enabled by default for metadata-only indexing. */
     indexing: indexingConfigSchema,
     /**
@@ -457,88 +431,6 @@ export const providerConfigFileSchema = z
       if (effort) modeReasoningEfforts[mode] = effort
     }
 
-    const configuredProposalModels =
-      config.editorMultiPrompt?.proposalModels ?? []
-    const proposalModels = configuredProposalModels.map(
-      (value) => routableModelValueToModel(value)!,
-    )
-    const proposalReasoningEfforts = configuredProposalModels.map(
-      (value, index) =>
-        routableModelValueToReasoningEffort(value) ??
-        config.editorMultiPrompt?.proposalReasoningEfforts?.[index],
-    )
-    const editorMultiPromptAgents: Record<string, string> = {}
-    proposalModels.forEach((model, index) => {
-      const agentId = `editor-implementor-proposal-${index + 1}`
-      if (!hasExplicitAgentRoute(agentId)) {
-        editorMultiPromptAgents[agentId] = model
-      }
-      const effort = proposalReasoningEfforts[index]
-      if (
-        effort &&
-        !hasExplicitAgentRoute(agentId) &&
-        !hasExplicitAgentReasoningEffort(agentId)
-      ) {
-        agentReasoningEfforts[agentId] = effort
-      }
-    })
-    // editor-multi-prompt can receive more prompts than the user explicitly
-    // configured. Without this, proposal #4/#5 silently fall back to the
-    // built-in cloud model and can appear to hang in local Openbuff installs.
-    const lastConfiguredProposalModel =
-      proposalModels[proposalModels.length - 1]
-    const lastConfiguredProposalEffort =
-      proposalReasoningEfforts[proposalReasoningEfforts.length - 1]
-    if (lastConfiguredProposalModel) {
-      for (let index = proposalModels.length; index < 5; index++) {
-        const agentId = `editor-implementor-proposal-${index + 1}`
-        if (!hasExplicitAgentRoute(agentId)) {
-          editorMultiPromptAgents[agentId] = lastConfiguredProposalModel
-        }
-        if (
-          lastConfiguredProposalEffort &&
-          !hasExplicitAgentRoute(agentId) &&
-          !hasExplicitAgentReasoningEffort(agentId)
-        ) {
-          agentReasoningEfforts[agentId] = lastConfiguredProposalEffort
-        }
-      }
-      if (!hasExplicitAgentRoute('editor-implementor-proposal-direct')) {
-        editorMultiPromptAgents['editor-implementor-proposal-direct'] =
-          lastConfiguredProposalModel
-      }
-      if (
-        lastConfiguredProposalEffort &&
-        !hasExplicitAgentRoute('editor-implementor-proposal-direct') &&
-        !hasExplicitAgentReasoningEffort('editor-implementor-proposal-direct')
-      ) {
-        agentReasoningEfforts['editor-implementor-proposal-direct'] =
-          lastConfiguredProposalEffort
-      }
-    }
-    const configuredSelectorModel = routableModelValueToModel(
-      config.editorMultiPrompt?.selectorModel,
-    )
-    // If a user routes best-of-N proposals to local/OpenAI-compatible models
-    // but omits selectorModel, keep the whole feature on that accessible
-    // provider instead of silently falling back to the built-in cloud selector.
-    const selectorModel = configuredSelectorModel ?? lastConfiguredProposalModel
-    const selectorReasoningEffort =
-      routableModelValueToReasoningEffort(
-        config.editorMultiPrompt?.selectorModel,
-      ) ??
-      config.editorMultiPrompt?.selectorReasoningEffort ??
-      (configuredSelectorModel ? undefined : lastConfiguredProposalEffort)
-    if (selectorModel && !hasExplicitAgentRoute('best-of-n-selector2')) {
-      editorMultiPromptAgents['best-of-n-selector2'] = selectorModel
-    }
-    if (
-      selectorReasoningEffort &&
-      !hasExplicitAgentRoute('best-of-n-selector2') &&
-      !hasExplicitAgentReasoningEffort('best-of-n-selector2')
-    ) {
-      agentReasoningEfforts['best-of-n-selector2'] = selectorReasoningEffort
-    }
 
     const defaultModel = routableModelValueToModel(config.defaultModel)
     const defaultReasoningEffort =
@@ -560,10 +452,7 @@ export const providerConfigFileSchema = z
       ...(visionReasoningEffort !== undefined && { visionReasoningEffort }),
       modes,
       modeReasoningEfforts,
-      agents: {
-        ...editorMultiPromptAgents,
-        ...agents,
-      },
+      agents,
       agentReasoningEfforts,
       indexing: config.indexing,
       fileChangeHooks: config.fileChangeHooks,
@@ -571,15 +460,6 @@ export const providerConfigFileSchema = z
       // callers fall back to MAX_AGENT_STEPS_DEFAULT.
       ...(config.maxAgentSteps !== undefined && {
         maxAgentSteps: config.maxAgentSteps,
-      }),
-      ...(config.editorMultiPrompt && {
-        editorMultiPrompt: {
-          ...config.editorMultiPrompt,
-          proposalModels,
-          proposalReasoningEfforts,
-          selectorModel,
-          selectorReasoningEffort,
-        },
       }),
     }
   })
@@ -623,7 +503,6 @@ export type LoadedProviderConfig = {
       visionModel?: string
       modes?: Record<string, string>
       agents?: Record<string, string>
-      editorMultiPrompt?: string
     }
     indexing?: string
   }
@@ -742,10 +621,6 @@ function getSourceFilesFromRawConfig(
     }
   }
 
-  if (rawConfig?.editorMultiPrompt !== undefined) {
-    sourceFiles.routes!.editorMultiPrompt = resolvedConfigPath
-  }
-
   if (rawConfig?.indexing !== undefined) {
     sourceFiles.indexing = resolvedConfigPath
   }
@@ -773,8 +648,6 @@ function mergeSourceFiles(
         ...(base.routes?.agents ?? {}),
         ...(override.routes?.agents ?? {}),
       },
-      editorMultiPrompt:
-        override.routes?.editorMultiPrompt ?? base.routes?.editorMultiPrompt,
     },
     indexing: override.indexing ?? base.indexing,
   }
@@ -884,7 +757,6 @@ function mergeProviderConfigs(
       ...(base.agentReasoningEfforts ?? {}),
       ...(override.agentReasoningEfforts ?? {}),
     },
-    editorMultiPrompt: override.editorMultiPrompt ?? base.editorMultiPrompt,
     indexing: override.indexing ?? base.indexing,
     fileChangeHooks: override.fileChangeHooks?.length
       ? override.fileChangeHooks
@@ -1269,8 +1141,6 @@ type ProviderMode = ProviderModeName
 
 const modeAgentIds: Record<ProviderMode, string[]> = {
   default: ['base', 'base2'],
-  lite: ['base-lite', 'base2-lite', 'base2-free'],
-  max: ['base-max', 'base2-max'],
   plan: ['base-plan', 'base2-plan'],
 }
 
@@ -1386,6 +1256,33 @@ export function resolveConfiguredProviderModel(params: {
   return undefined
 }
 
+export function resolveContextWindowTokens(params: {
+  agentId?: string
+  model?: string
+  loadedConfig?: LoadedProviderConfig
+}): number | undefined {
+  const { agentId, model, loadedConfig = loadProviderConfigSync() } = params
+  const effectiveModel = resolveConfiguredAgentModelConfig({
+    agentId,
+    model,
+    loadedConfig,
+  }).model
+  const configuredProviderModel = resolveConfiguredProviderModel({
+    model: effectiveModel,
+    loadedConfig,
+  })
+
+  if (!configuredProviderModel) {
+    return undefined
+  }
+
+  return resolveModelCapabilities({
+    providerId: configuredProviderModel.providerId,
+    model: effectiveModel,
+    loadedConfig,
+  }).context?.windowTokens
+}
+
 export type OpenbuffProviderPreset = {
   id: string
   label: string
@@ -1435,17 +1332,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       defaultModel: 'opencode-go/kimi-k2.6',
       modes: {
         default: 'opencode-go/kimi-k2.6',
-        lite: 'opencode-go/deepseek-v4-flash',
-        max: 'opencode-go/glm-5.1',
         plan: 'opencode-go/glm-5.1',
-      },
-      editorMultiPrompt: {
-        proposalModels: [
-          'opencode-go/kimi-k2.6',
-          'opencode-go/glm-5.1',
-          'opencode-go/deepseek-v4-pro',
-        ],
-        selectorModel: 'opencode-go/glm-5.1',
       },
       providers: {
         'opencode-go': {
@@ -1470,23 +1357,13 @@ export const OPENBUFF_PROVIDER_PRESETS = {
     id: 'openai',
     label: 'OpenAI API',
     description:
-      'OpenAI Chat Completions-compatible route using GPT-5.5 for flagship coding and GPT-5.4 mini for lite mode.',
+      'OpenAI Chat Completions-compatible route using GPT-5.5 for coding.',
     envHelp: 'export OPENAI_API_KEY="your_openai_api_key"',
     config: {
       defaultModel: 'openai/gpt-5.5',
       modes: {
         default: 'openai/gpt-5.5',
-        lite: 'openai/gpt-5.4-mini',
-        max: 'openai/gpt-5.5',
         plan: 'openai/gpt-5.5',
-      },
-      editorMultiPrompt: {
-        proposalModels: [
-          'openai/gpt-5.5',
-          'openai/gpt-5.4',
-          'openai/gpt-5.2-chat-latest',
-        ],
-        selectorModel: 'openai/gpt-5.5',
       },
       providers: {
         openai: {
@@ -1510,17 +1387,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       defaultModel: 'codex/gpt-5.5',
       modes: {
         default: 'codex/gpt-5.5',
-        lite: 'codex/gpt-5.4-mini',
-        max: 'codex/gpt-5.5',
         plan: 'codex/gpt-5.5',
-      },
-      editorMultiPrompt: {
-        proposalModels: [
-          'codex/gpt-5.5',
-          'codex/gpt-5.4',
-          'codex/gpt-5.2-chat-latest',
-        ],
-        selectorModel: 'codex/gpt-5.5',
       },
       providers: {
         codex: {
@@ -1541,14 +1408,12 @@ export const OPENBUFF_PROVIDER_PRESETS = {
     id: 'openrouter',
     label: 'OpenRouter',
     description:
-      'OpenRouter with Claude Sonnet for primary work and GPT-4.1 mini for lite mode.',
+      'OpenRouter with Claude Sonnet for primary work and planning.',
     envHelp: 'export OPENROUTER_API_KEY="your_openrouter_api_key"',
     config: {
       defaultModel: 'openrouter/anthropic/claude-sonnet-4.5',
       modes: {
         default: 'openrouter/anthropic/claude-sonnet-4.5',
-        lite: 'openrouter/openai/gpt-4.1-mini',
-        max: 'openrouter/anthropic/claude-opus-4.1',
         plan: 'openrouter/anthropic/claude-sonnet-4.5',
       },
       providers: {
@@ -1576,8 +1441,6 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       defaultModel: 'ollama/qwen2.5-coder:32b',
       modes: {
         default: 'ollama/qwen2.5-coder:32b',
-        lite: 'ollama/qwen2.5-coder:7b',
-        max: 'ollama/qwen2.5-coder:32b',
         plan: 'ollama/qwen2.5-coder:32b',
       },
       providers: {
@@ -1600,8 +1463,6 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       defaultModel: 'glm/glm-4.6',
       modes: {
         default: 'glm/glm-4.6',
-        lite: 'glm/glm-4.5-air',
-        max: 'glm/glm-4.6',
         plan: 'glm/glm-4.6',
       },
       providers: {
@@ -1625,17 +1486,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       defaultModel: 'bedrock/apac.anthropic.claude-sonnet-4-6',
       modes: {
         default: 'bedrock/apac.anthropic.claude-sonnet-4-6',
-        lite: 'bedrock/apac.anthropic.claude-haiku-4-5-20251001-v1:0',
-        max: 'bedrock/apac.anthropic.claude-opus-4-8',
         plan: 'bedrock/apac.anthropic.claude-sonnet-4-6',
-      },
-      editorMultiPrompt: {
-        proposalModels: [
-          'bedrock/apac.anthropic.claude-sonnet-4-6',
-          'bedrock/apac.anthropic.claude-opus-4-8',
-          'bedrock/apac.anthropic.claude-sonnet-4-5-20250929-v1:0',
-        ],
-        selectorModel: 'bedrock/apac.anthropic.claude-opus-4-8',
       },
       providers: {
         bedrock: {
@@ -1661,23 +1512,13 @@ export const OPENBUFF_PROVIDER_PRESETS = {
     id: 'freemodel',
     label: 'Free Model',
     description:
-      'Free Model endpoints for GPT and Claude-compatible coding models, with gpt-5.5 for flagship coding and gpt-5.4-mini for lite mode.',
+      'Free Model endpoints for GPT and Claude-compatible coding models, with gpt-5.5 for coding.',
     envHelp: 'export FREEMODEL_API_KEY="your_freemodel_api_key"',
     config: {
       defaultModel: 'freemodel/gpt-5.5',
       modes: {
         default: 'freemodel/gpt-5.5',
-        lite: 'freemodel/gpt-5.4-mini',
-        max: 'freemodel/gpt-5.5',
         plan: 'freemodel/gpt-5.5',
-      },
-      editorMultiPrompt: {
-        proposalModels: [
-          'freemodel/gpt-5.5',
-          'freemodel/gpt-5.4',
-          'freemodel/gpt-5.3-codex',
-        ],
-        selectorModel: 'freemodel/gpt-5.5',
       },
       providers: {
         freemodel: {
@@ -1700,17 +1541,7 @@ export const OPENBUFF_PROVIDER_PRESETS = {
       defaultModel: 'anthropic/claude-sonnet-4-5',
       modes: {
         default: 'anthropic/claude-sonnet-4-5',
-        lite: 'anthropic/claude-haiku-4-5',
-        max: 'anthropic/claude-opus-4-5',
         plan: 'anthropic/claude-sonnet-4-5',
-      },
-      editorMultiPrompt: {
-        proposalModels: [
-          'anthropic/claude-sonnet-4-5',
-          'anthropic/claude-opus-4-5',
-          'anthropic/claude-haiku-4-5',
-        ],
-        selectorModel: 'anthropic/claude-opus-4-5',
       },
       providers: {
         anthropic: {
@@ -1850,7 +1681,6 @@ function tryWriteFragmentedConfig(
       'modeReasoningEfforts',
       'agents',
       'agentReasoningEfforts',
-      'editorMultiPrompt',
     ]
     for (const key of routingKeys) {
       if ((newConfig as any)[key] !== undefined) {
@@ -1935,8 +1765,6 @@ export function writeProviderConfigFile(params: {
         ...(newConfig.agentReasoningEfforts ?? {}),
         ...(existingConfig.agentReasoningEfforts ?? {}),
       },
-      editorMultiPrompt:
-        existingConfig.editorMultiPrompt ?? newConfig.editorMultiPrompt,
       indexing: existingConfig.indexing ?? newConfig.indexing,
       fileChangeHooks: existingConfig.fileChangeHooks?.length
         ? existingConfig.fileChangeHooks
@@ -2009,16 +1837,6 @@ export function describeLoadedProviderConfig(
         .join(', ') || '(none)'
     }`,
   )
-  if (loadedConfig.config.editorMultiPrompt) {
-    lines.push(
-      `Editor multi-prompt: proposals=${
-        loadedConfig.config.editorMultiPrompt.proposalModels?.join(', ') ??
-        '(default agents)'
-      }; selector=${
-        loadedConfig.config.editorMultiPrompt.selectorModel ?? '(default agent)'
-      }`,
-    )
-  }
   const providers = Object.entries(loadedConfig.config.providers)
   lines.push(`Providers: ${providers.length ? providers.length : '(none)'}`)
   for (const [providerId, provider] of providers) {

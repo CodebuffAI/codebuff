@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { enableMapSet } from 'immer'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
@@ -11,6 +12,7 @@ import { MessageWithAgents } from '../message-with-agents'
 import type { ChatMessage } from '../../types/chat'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
+enableMapSet()
 initializeThemeStore()
 
 const theme = chatThemes.light
@@ -84,8 +86,6 @@ const createModeDividerMessage = (id: string, mode: string): ChatMessage => ({
 const defaultCallbacks = {
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
-  onBuildMax: () => {},
-  onBuildLite: () => {},
   onFeedback: () => {},
   onCloseFeedback: () => {},
 }
@@ -189,16 +189,12 @@ describe('MessageBlockStore', () => {
     test('replaces entire callbacks object', () => {
       const mockToggle = () => {}
       const mockBuildFast = () => {}
-      const mockBuildMax = () => {}
-      const mockBuildFree = () => {}
       const mockFeedback = () => {}
       const mockCloseFeedback = () => {}
 
       useMessageBlockStore.getState().setCallbacks({
         onToggleCollapsed: mockToggle,
         onBuildFast: mockBuildFast,
-        onBuildMax: mockBuildMax,
-        onBuildLite: mockBuildFree,
         onFeedback: mockFeedback,
         onCloseFeedback: mockCloseFeedback,
       })
@@ -206,8 +202,6 @@ describe('MessageBlockStore', () => {
       const state = useMessageBlockStore.getState()
       expect(state.callbacks.onToggleCollapsed).toBe(mockToggle)
       expect(state.callbacks.onBuildFast).toBe(mockBuildFast)
-      expect(state.callbacks.onBuildMax).toBe(mockBuildMax)
-      expect(state.callbacks.onBuildLite).toBe(mockBuildFree)
       expect(state.callbacks.onFeedback).toBe(mockFeedback)
       expect(state.callbacks.onCloseFeedback).toBe(mockCloseFeedback)
     })
@@ -249,8 +243,6 @@ describe('MessageBlockStore', () => {
       useMessageBlockStore.getState().setCallbacks({
         onToggleCollapsed: mockFn,
         onBuildFast: mockFn,
-        onBuildMax: mockFn,
-        onBuildLite: mockFn,
         onFeedback: mockFn,
         onCloseFeedback: mockFn,
       })
@@ -261,7 +253,6 @@ describe('MessageBlockStore', () => {
       // Callbacks should be noop functions (not undefined)
       expect(typeof state.callbacks.onToggleCollapsed).toBe('function')
       expect(typeof state.callbacks.onBuildFast).toBe('function')
-      expect(typeof state.callbacks.onBuildLite).toBe('function')
       // They should not throw when called
       expect(() => state.callbacks.onToggleCollapsed('test-id')).not.toThrow()
     })
@@ -508,7 +499,7 @@ describe('layout handling', () => {
           availableWidth={width}
         />,
       )
-      expect(markup).toContain(`Content at width ${width}`)
+      expect(markup.replace(/\n/g, '')).toContain(`Content at width ${width}`)
     }
   })
 

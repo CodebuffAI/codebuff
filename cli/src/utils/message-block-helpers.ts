@@ -7,7 +7,10 @@ import type {
   ContentBlock,
   AgentContentBlock,
   AskUserContentBlock,
+  GateStateContentBlock,
+  GateStateStatus,
   ToolContentBlock,
+  PlanArtifactMetadata,
 } from '../types/chat'
 
 /**
@@ -23,6 +26,74 @@ export const getAgentBaseName = (type: string): string => {
   const segment = type.split('/').pop() ?? type
   return segment.split('@')[0].replace(/_/g, '-')
 }
+
+const GATE_STATE_BLOCK_RE =
+  /<gate-state>\s*([\s\S]*?)\s*<\/gate-state>/i
+
+const GATE_STATE_STATUSES: ReadonlySet<GateStateStatus> = new Set<
+  GateStateStatus
+>(['pending', 'passed', 'failed', 'skipped'])
+
+/**
+ * Parse the pinned Base2 gate-state shape from a message buffer.
+ *
+ * Recognized shape (case-insensitive on keys/status, narrow on purpose):
+ *
+ *   <gate-state>
+ *   gate: <name>
+ *   status: pending | passed | failed | skipped
+ *   details: <optional free text>
+ *   origin: <optional label, default "Base2">
+ *   </gate-state>
+ *
+ * Returns null if the buffer does not contain a well-formed gate-state
+ * block. If multiple gate-state blocks are present, only the first is parsed.
+ * The parser is intentionally strict so ordinary prose mentioning "gate" or
+ * "status" never produces a false positive.
+ */
+export const parseGateStateBlock = (
+  buffer: string,
+): GateStateContentBlock | null => {
+  const match = buffer.match(GATE_STATE_BLOCK_RE)
+  if (!match) return null
+
+  const fields: Record<string, string> = {}
+  for (const rawLine of match[1].split('\n')) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const sep = line.indexOf(':')
+    if (sep <= 0) continue
+    const key = line.slice(0, sep).trim().toLowerCase()
+    const value = line.slice(sep + 1).trim()
+    if (!value) continue
+    fields[key] = value
+  }
+
+  const gate = fields.gate
+  const statusRaw = fields.status?.toLowerCase() as GateStateStatus | undefined
+  if (!gate || !statusRaw || !GATE_STATE_STATUSES.has(statusRaw)) {
+    return null
+  }
+
+  return {
+    type: 'gate-state',
+    gate,
+    gateStatus: statusRaw,
+    ...(fields.details ? { details: fields.details } : {}),
+    origin: fields.origin || 'Base2',
+  }
+}
+
+/**
+ * Strip any <gate-state>...</gate-state> blocks from a buffer. Used when
+ * promoting a parsed gate-state into a dedicated UI block so the raw block
+ * does not also render as prose.
+ */
+export const scrubGateStateTags = (s: string): string =>
+  s.replace(new RegExp(GATE_STATE_BLOCK_RE.source, 'gi'), '').replace(
+    /\n{3,}/g,
+    '\n\n',
+  )
 
 /**
  * Extracts plan content from a buffer containing <PLAN>...</PLAN> tags.
@@ -59,16 +130,128 @@ export const scrubPlanTagsInBlocks = (
     .filter((block) => block.type !== 'text' || block.content.trim() !== '')
 }
 
+const PLAN_METADATA_LABELS: Record<string, keyof PlanArtifactMetadata> = {
+  session: 'sessionPath',
+  'session path': 'sessionPath',
+  'session directory': 'sessionPath',
+  'session dir': 'sessionPath',
+  'spec.md': 'specPath',
+  spec: 'specPath',
+  'plan.md': 'planPath',
+  plan: 'planPath',
+  'status.md': 'statusPath',
+  status: 'statusPath',
+  'lessons.md': 'lessonsPath',
+  lessons: 'lessonsPath',
+}
+
+const PLAN_ARTIFACT_FILENAMES: Array<{
+  suffix: string
+  key: keyof PlanArtifactMetadata
+}> = [
+  { suffix: '/SPEC.md', key: 'specPath' },
+  { suffix: '/PLAN.md', key: 'planPath' },
+  { suffix: '/STATUS.md', key: 'statusPath' },
+  { suffix: '/LESSONS.md', key: 'lessonsPath' },
+]
+
+const normalizePlanMetadataLabel = (label: string): string =>
+  label
+    .replace(/[*_`]/g, '')
+    .replace(/^#+\s*/, '')
+    .trim()
+    .toLowerCase()
+
+const normalizePlanMetadataPath = (value: string): string => {
+  const withoutMarkdownLink = value.match(/\(([^)]+)\)/)?.[1] ?? value
+  return withoutMarkdownLink
+    .replace(/[`*_]/g, '')
+    .replace(/[.,;]+$/g, '')
+    .trim()
+}
+
+const isNonEmptyPlanMetadata = (
+  metadata: PlanArtifactMetadata,
+): metadata is PlanArtifactMetadata => Object.values(metadata).some(Boolean)
+
+const getPlanSessionCommandTarget = (
+  metadata: PlanArtifactMetadata,
+): string | undefined => {
+  const explicitSession = metadata.sessionPath
+  if (explicitSession) return explicitSession
+
+  const artifactPath =
+    metadata.planPath ?? metadata.statusPath ?? metadata.specPath ?? metadata.lessonsPath
+  return artifactPath?.match(/^(\.agents\/sessions\/[^/]+)/)?.[1] ?? artifactPath
+}
+
+const withPlanCommands = (
+  metadata: PlanArtifactMetadata,
+): PlanArtifactMetadata => {
+  const commandTarget = getPlanSessionCommandTarget(metadata)
+  if (!commandTarget) {
+    return metadata
+  }
+
+  return {
+    ...metadata,
+    resumeCommand: `/resume-plan ${commandTarget}`,
+    updateCommand: `/update-plan ${commandTarget}`,
+    statusCommand: `/plan-status ${commandTarget}`,
+    lessonsCommand: `/lessons ${commandTarget}`,
+  }
+}
+
+export const extractPlanMetadata = (
+  planContent: string,
+): PlanArtifactMetadata | undefined => {
+  const metadata: PlanArtifactMetadata = {}
+
+  for (const rawLine of planContent.split('\n')) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    const bulletMatch = line.match(/^(?:[-*+]\s+|\d+[.)]\s+)?([^:]+):\s*(.+)$/)
+    if (bulletMatch) {
+      const label = normalizePlanMetadataLabel(bulletMatch[1])
+      const key = PLAN_METADATA_LABELS[label]
+      if (key) {
+        metadata[key] = normalizePlanMetadataPath(bulletMatch[2])
+        continue
+      }
+    }
+
+    const pathMatch = line.match(/(`?\.agents\/sessions\/[^`\s)]+`?)/)
+    if (!pathMatch) continue
+
+    const path = normalizePlanMetadataPath(pathMatch[1])
+    if (!metadata.sessionPath) {
+      const sessionMatch = path.match(/^(\.agents\/sessions\/[^/]+)/)
+      metadata.sessionPath = sessionMatch?.[1] ?? path
+    }
+
+    for (const artifact of PLAN_ARTIFACT_FILENAMES) {
+      if (path.endsWith(artifact.suffix)) {
+        metadata[artifact.key] = path
+      }
+    }
+  }
+
+  return isNonEmptyPlanMetadata(metadata) ? withPlanCommands(metadata) : undefined
+}
+
 export const insertPlanBlock = (
   blocks: ContentBlock[],
   planContent: string,
 ): ContentBlock[] => {
   const cleanedBlocks = scrubPlanTagsInBlocks(blocks)
+  const metadata = extractPlanMetadata(planContent)
   return [
     ...cleanedBlocks,
     {
       type: 'plan',
       content: planContent,
+      ...(metadata ? { metadata } : {}),
     },
   ]
 }

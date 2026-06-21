@@ -759,7 +759,7 @@ describe('read_files edit-state recovery', () => {
   })
 
   it('uses current disk content for basedOnRead even when stale per-path edit content remains', async () => {
-    const path = 'agents/editor/best-of-n/editor-multi-prompt.ts'
+    const path = 'agents/editor/editor.ts'
     const staleContent = Array.from({ length: 2_889 }, (_, index) =>
       `const stale${index} = ${index};`,
     ).join('\n')
@@ -1065,5 +1065,336 @@ describe('read_files edit-state recovery', () => {
       expect(appliedPatchContent).toContain('-const target = 1;')
       expect(appliedPatchContent).toContain('+const target = 2;')
     }
+  })
+
+  describe('strict read-before-edit (Milestone 2 staged)', () => {
+    it('default strict=false allows str_replace without a prior read', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      let applied = false
+
+      const result = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'default-non-strict',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+    })
+
+    it('strict str_replace blocks without prior read and does not call client apply', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      const result = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-blocked',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called when strict mode blocks the edit')
+        },
+        writeToClient: () => {},
+      } as any)
+
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as { file?: string; errorMessage?: string }
+        expect(value.file).toBe(path)
+        expect(String(value.errorMessage)).toContain(
+          'strict read-before-edit is enabled',
+        )
+        expect(String(value.errorMessage)).toContain('read_files')
+      }
+    })
+
+    it('strict read_files authorizes one str_replace and the authorization is invalidated after success', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-read',
+          toolName: 'read_files',
+          input: { paths: [path] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              filePath === path ? diskContent : null,
+            ]),
+          ),
+        logger,
+      } as any)
+
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+
+      let firstApplyCount = 0
+      const firstResult = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-first-edit',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          firstApplyCount += 1
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(firstApplyCount).toBe(1)
+      const firstOutput = firstResult.output[0]
+      expect(firstOutput.type).toBe('json')
+      if (firstOutput.type === 'json') {
+        expect(firstOutput.value).not.toHaveProperty('errorMessage')
+      }
+      // Authorization consumed.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBeUndefined()
+
+      // A second str_replace without re-reading must now be blocked.
+      const secondResult = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-second-edit',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 2',
+                newString: 'export const value = 3',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called for blocked second edit')
+        },
+        writeToClient: () => {},
+      } as any)
+
+      const secondOutput = secondResult.output[0]
+      expect(secondOutput.type).toBe('json')
+      if (secondOutput.type === 'json') {
+        expect(secondOutput.value).toHaveProperty('errorMessage')
+      }
+    })
+
+    it('strict edit_transaction blocks unread paths and lists failures', async () => {
+      const path = 'src/helper.ts'
+      const otherPath = 'src/other.ts'
+      const diskContentByPath: Record<string, string> = {
+        [path]: 'export const value = 1\n',
+        [otherPath]: 'export const other = 1\n',
+      }
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      const result = await handleEditTransaction({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-transaction-blocked',
+          toolName: 'edit_transaction',
+          input: {
+            edits: [
+              {
+                type: 'str_replace',
+                path,
+                replacements: [
+                  {
+                    oldString: 'export const value = 1',
+                    newString: 'export const value = 2',
+                    allowMultiple: false,
+                  },
+                ],
+              },
+              {
+                type: 'str_replace',
+                path: otherPath,
+                replacements: [
+                  {
+                    oldString: 'export const other = 1',
+                    newString: 'export const other = 2',
+                    allowMultiple: false,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          diskContentByPath[filePath] ?? null,
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called for blocked transaction')
+        },
+      } as any)
+
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as {
+          errorMessage?: string
+          failures?: Array<{ path: string; errorMessage: string }>
+        }
+        expect(String(value.errorMessage)).toContain(
+          'strict read-before-edit is enabled',
+        )
+        expect(value.failures).toBeDefined()
+        const failurePaths = (value.failures ?? []).map((f) => f.path).sort()
+        expect(failurePaths).toEqual([otherPath, path].sort())
+      }
+    })
+
+    it('strict edit_transaction allows a path when its str_replace replacement has basedOnRead even without registry authorization', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const rangeContent = 'export const value = 1'
+      const readCapability = encodeReadCapabilityToken({
+        startLine: 1,
+        endLine: 1,
+        hash: getContentHash(rangeContent),
+      })
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      let applied = false
+      const result = await handleEditTransaction({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-transaction-anchored',
+          toolName: 'edit_transaction',
+          input: {
+            edits: [
+              {
+                type: 'str_replace',
+                path,
+                replacements: [
+                  {
+                    oldString: 'export const value = 1',
+                    newString: 'export const value = 2',
+                    allowMultiple: false,
+                    basedOnRead: readCapability,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: {
+                message: 'applied transaction batch',
+                files: toolCall.input.map(
+                  (change: { path: string; content: string }) => ({
+                    path: change.path,
+                    patch: change.content,
+                    messages: [],
+                  }),
+                ),
+              },
+            },
+          ]
+        },
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+    })
   })
 })

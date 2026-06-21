@@ -21,7 +21,7 @@ try {
   })
 
   const result = await client.run({
-    agent: 'base2-lite',
+    agent: 'base2',
     prompt,
     signal: abortController.signal,
   })

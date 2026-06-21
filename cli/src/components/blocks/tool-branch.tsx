@@ -163,6 +163,7 @@ export const ToolBranch = memo(
             finishedPreview={finishedPreview}
             onToggle={handleToggle}
             titleSuffix={undefined}
+            availableWidth={availableWidth}
           />
         )}
       </box>

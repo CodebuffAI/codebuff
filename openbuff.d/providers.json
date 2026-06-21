@@ -175,6 +175,9 @@
         "pioneer/auto": {
           "input": {
             "image": false
+          },
+          "context": {
+            "windowTokens": 1000000
           }
         },
         "claude-opus-4-8": {

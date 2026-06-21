@@ -69,13 +69,7 @@ The codebase already has reusable components for interactive selection:
   "defaultModel": "codex/gpt-5.5",
   "modes": {
     "default": "codex/gpt-5.5",
-    "lite": "codex/gpt-5.4-mini",
-    "max": "codex/gpt-5.5",
     "plan": "codex/gpt-5.5"
-  },
-  "editorMultiPrompt": {
-    "proposalModels": ["codex/gpt-5.5", "codex/gpt-5.4", "codex/gpt-5.2-chat-latest"],
-    "selectorModel": "codex/gpt-5.5"
   },
   "providers": {
     "codex": {
@@ -115,7 +109,7 @@ The biggest UX win is not "arrow keys instead of typing numbers." It's **making 
 
 For terminal apps, a full-screen screen is better than a popup because:
 
-1. Provider/model configuration has multiple sections (providers, modes, editor proposals)
+1. Provider/model configuration has multiple sections (providers, modes, agent overrides)
 2. Keyboard focus management in a small popup overlaps with chat input
 3. Existing full-screen patterns (`ChatHistoryScreen`, `FreebuffModelSelector`) are well-established
 4. Screens have room for status, help, and actionable sections
@@ -184,15 +178,7 @@ cli/src/hooks/use-openbuff-config.ts         — draft config state management
 ║                                                  ║
 ║  Model Routing                                   ║
 ║   default   codex/gpt-5.5                        ║
-║   lite      codex/gpt-5.4-mini                   ║
-║   max       codex/gpt-5.5                        ║
 ║   plan      codex/gpt-5.5                        ║
-║                                                  ║
-║  Multi-prompt Editor                             ║
-║   proposal #1  codex/gpt-5.5                     ║
-║   proposal #2  codex/gpt-5.4                     ║
-║   proposal #3  codex/gpt-5.2-chat-latest         ║
-║   selector     codex/gpt-5.5                      ║
 ║                                                  ║
 ║  Config: openbuff.json                           ║
 ║                                                  ║
@@ -204,7 +190,7 @@ cli/src/hooks/use-openbuff-config.ts         — draft config state management
 **`ModelPickerScreen`** (navigated to when editing a route):
 
 ```
-╔═ Choose model for Max mode ════════════════════╗
+╔═ Choose model for Default mode ════════════════╗
 ║                                                  ║
 ║  Search models...                                ║
 ║                                                  ║

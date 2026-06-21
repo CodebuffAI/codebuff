@@ -7,6 +7,7 @@ import stringWidth from 'string-width'
 import { unified } from 'unified'
 
 import { logger } from './logger'
+import { wrapTextToVisualLines } from './text-layout'
 
 import type {
   Blockquote,
@@ -180,6 +181,142 @@ const splitNodesByNewline = (nodes: ReactNode[]): ReactNode[][] => {
     }
   })
   return lines
+}
+
+interface InlineSegment {
+  text: string
+  render: (text: string, key: string) => ReactNode
+}
+
+function collectInlineSegments(
+  node: ReactNode,
+  segments: InlineSegment[],
+  render: InlineSegment['render'] = (text) => text,
+): void {
+  if (node === null || node === undefined || typeof node === 'boolean') {
+    return
+  }
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    segments.push({ text: String(node), render })
+    return
+  }
+
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectInlineSegments(child, segments, render))
+    return
+  }
+
+  if (!React.isValidElement(node)) {
+    return
+  }
+
+  const element = node as React.ReactElement<{ children?: ReactNode }>
+  if (element.type === React.Fragment) {
+    collectInlineSegments(element.props.children, segments, render)
+    return
+  }
+
+  const renderChild = (text: string, key: string): ReactNode =>
+    React.cloneElement(
+      element,
+      { key } as React.Attributes,
+      render(text, `${key}-child`),
+    )
+  collectInlineSegments(element.props.children, segments, renderChild)
+}
+
+function appendWrappedInlineSegment(
+  nodes: ReactNode[],
+  segment: InlineSegment,
+  maxWidth: number,
+  nextKey: () => string,
+  currentWidth: { value: number },
+): void {
+  if (!segment.text) return
+
+  if (segment.text.includes('\n')) {
+    const parts = segment.text.split('\n')
+    parts.forEach((part, index) => {
+      if (part) {
+        appendWrappedInlineSegment(
+          nodes,
+          { ...segment, text: part },
+          maxWidth,
+          nextKey,
+          currentWidth,
+        )
+      }
+      if (index < parts.length - 1) {
+        nodes.push('\n')
+        currentWidth.value = 0
+      }
+    })
+    return
+  }
+
+  const segmentWidth = stringWidth(segment.text)
+  const isWhitespace = /^\s+$/.test(segment.text)
+  if (isWhitespace && currentWidth.value === 0) return
+
+  if (segmentWidth <= maxWidth) {
+    if (currentWidth.value > 0 && currentWidth.value + segmentWidth > maxWidth) {
+      nodes.push('\n')
+      currentWidth.value = 0
+      if (isWhitespace) return
+    }
+    nodes.push(segment.render(segment.text, nextKey()))
+    currentWidth.value += segmentWidth
+    return
+  }
+
+  const tokens = segment.text.split(/(\s+)/)
+  tokens.forEach((token) => {
+    if (!token) return
+
+    const tokenIsWhitespace = /^\s+$/.test(token)
+    const tokenWidth = stringWidth(token)
+    if (tokenIsWhitespace && currentWidth.value === 0) return
+
+    if (tokenWidth > maxWidth && !tokenIsWhitespace) {
+      for (const char of token) {
+        const charWidth = stringWidth(char)
+        if (currentWidth.value > 0 && currentWidth.value + charWidth > maxWidth) {
+          nodes.push('\n')
+          currentWidth.value = 0
+        }
+        nodes.push(segment.render(char, nextKey()))
+        currentWidth.value += charWidth
+      }
+      return
+    }
+
+    if (currentWidth.value > 0 && currentWidth.value + tokenWidth > maxWidth) {
+      nodes.push('\n')
+      currentWidth.value = 0
+      if (tokenIsWhitespace) return
+    }
+
+    nodes.push(segment.render(token, nextKey()))
+    currentWidth.value += tokenWidth
+  })
+}
+
+function wrapInlineNodes(
+  nodes: ReactNode[],
+  maxWidth: number,
+  nextKey: () => string,
+): ReactNode[] {
+  const segments: InlineSegment[] = []
+  nodes.forEach((node) => collectInlineSegments(node, segments))
+
+  const wrapped: ReactNode[] = []
+  const currentWidth = { value: 0 }
+  segments.forEach((segment) => {
+    appendWrappedInlineSegment(wrapped, segment, maxWidth, nextKey, currentWidth)
+  })
+
+  return wrapped
 }
 
 const hasUnescapedMarker = (value: string): boolean => {
@@ -490,16 +627,26 @@ const renderCodeBlock = (code: Code, state: RenderState): ReactNode[] => {
   }
 
   lines.forEach((line, index) => {
-    const displayLine = line === '' ? ' ' : line
-    nodes.push(
-      <span
-        key={nextKey()}
-        fg={palette.codeTextFg}
-        bg={palette.codeMonochrome ? undefined : palette.codeBackground}
-      >
-        {displayLine}
-      </span>,
+    const wrappedLines = wrapTextToVisualLines(
+      line === '' ? ' ' : line,
+      state.codeBlockWidth,
     )
+
+    wrappedLines.forEach((displayLine, wrappedIndex) => {
+      nodes.push(
+        <span
+          key={nextKey()}
+          fg={palette.codeTextFg}
+          bg={palette.codeMonochrome ? undefined : palette.codeBackground}
+        >
+          {displayLine === '' ? ' ' : displayLine}
+        </span>,
+      )
+      if (wrappedIndex < wrappedLines.length - 1) {
+        nodes.push('\n')
+      }
+    })
+
     if (index < lines.length - 1) {
       nodes.push('\n')
     }
@@ -866,10 +1013,14 @@ const renderNode = (
       )
 
     case 'paragraph': {
-      const children = renderNodes(
-        (node as Paragraph).children as MarkdownNode[],
-        state,
-        node.type,
+      const children = wrapInlineNodes(
+        renderNodes(
+          (node as Paragraph).children as MarkdownNode[],
+          state,
+          node.type,
+        ),
+        state.codeBlockWidth,
+        state.nextKey,
       )
       const nodes = [...children]
       if (parentType === 'listItem') {

@@ -2,11 +2,11 @@
 
 English | [简体中文](./README.zh-CN.md)
 
-**Openbuff** is an independent, local-first fork of Codebuff: an open-source agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible or Anthropic-compatible providers. It is focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription.
+**Openbuff** is an open-source, local-first agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible or Anthropic-compatible providers. It is focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription.
 
 Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
-> **Fork & compatibility note:** Openbuff is an independent, local-first fork of Codebuff focused entirely on local/BYOK operation with no backend fallback, credits, or Openbuff subscription. You provide your own keys for user-configured providers. During the transition, some Codebuff names — package names like `@codebuff/sdk`, CLI flags like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` — remain as fully supported legacy compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup using `openbuff.json`, `/provider add`, `/setup`, and `OPENBUFF_*` environment variables.
+> **Compatibility note:** Openbuff keeps selected upstream compatibility aliases so existing projects keep working. Package names like `@codebuff/sdk`, the `CodebuffClient` SDK export, CLI aliases like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` remain supported compatibility surfaces. New docs and examples should use the Openbuff brand and primary `openbuff` / `OPENBUFF_*` / `openbuff.json` names unless they are documenting those compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup.
 
 ## How it works
 
@@ -95,7 +95,7 @@ export default {
 
 ## SDK: Run agents in production
 
-Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk). The npm package name remains `@codebuff/sdk` for backward compatibility; it works with both Openbuff and Codebuff clients.
+Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk). The npm package name remains `@codebuff/sdk` for backward compatibility; it is the current Openbuff SDK package.
 
 ```bash
 npm install @codebuff/sdk
@@ -143,7 +143,7 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 ## Provider configuration
 
-Openbuff runs local/BYOK by default: no Codebuff cloud auth, credits, or hosted
+Openbuff runs local/BYOK by default: no hosted auth, credits, or platform
 inference. Configure OpenAI-compatible or Anthropic-compatible providers and
 per-agent model routing in `openbuff.json`. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md).
 
@@ -167,25 +167,13 @@ export OPENCODE_GO_API_KEY="your_key"
 bun run smoke:openbuff
 ```
 
-## Freebuff: The free coding agent
-
-Don't want a subscription? **[Freebuff](https://www.npmjs.com/package/freebuff)** is a free variant of Codebuff — no subscription, no credits, no configuration. Just install and start coding.
-
-```bash
-npm install -g freebuff
-cd your-project
-freebuff
-```
-
-Freebuff is ad-supported and uses models optimized for fast, high-quality assistance. It includes built-in web research, browser use, and more. Learn more in the [Freebuff README](./freebuff/README.md).
-
 ## Why choose Openbuff
 
 **Custom workflows**: TypeScript generators let you mix AI generation with programmatic control. Agents can spawn subagents, branch on conditions, and run multi-step processes.
 
 **Provider-flexible**: Unlike single-provider tools, Openbuff can route each agent to any configured provider: OpenAI API, Anthropic/Claude API, ChatGPT/Codex subscription OAuth, OpenRouter, opencode gateways, GLM/Z.ai, local Ollama/LM Studio, or another OpenAI-compatible or Anthropic-compatible endpoint.
 
-**Reuse local agents**: Compose bundled and project-local `.agents/` without depending on the hosted Codebuff registry.
+**Reuse local agents**: Compose bundled and project-local `.agents/` without depending on a hosted registry.
 
 **SDK**: Build Openbuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
 
@@ -247,8 +235,6 @@ Some ways you can help:
 **CLI**: `npm install -g openbuff`
 
 **SDK**: `npm install @codebuff/sdk`
-
-**Freebuff (free)**: `npm install -g freebuff`
 
 ### Resources
 

@@ -1,6 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import { describe, expect, test } from 'bun:test'
 import React from 'react'
+import stringWidth from 'string-width'
 
 import { renderMarkdown, renderStreamingMarkdown } from '../markdown-renderer'
 
@@ -33,6 +34,26 @@ const flattenNodes = (input: unknown): React.ReactNode[] => {
 
 const flattenChildren = (value: unknown): React.ReactNode[] =>
   flattenNodes(value)
+
+const textContentOf = (value: unknown): string => {
+  if (value === null || value === undefined || typeof value === 'boolean') {
+    return ''
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(textContentOf).join('')
+  }
+
+  if (React.isValidElement(value)) {
+    return textContentOf((value as El).props.children)
+  }
+
+  return ''
+}
 
 describe('markdown renderer', () => {
   test('renders bold and italic emphasis', () => {
@@ -107,6 +128,32 @@ describe('markdown renderer', () => {
     const textSpan = nodes[1] as El
     expect(textSpan.props.fg).toBe('gray')
     expect(flattenChildren(textSpan.props.children)).toEqual(['note'])
+  })
+
+  test('hard-wraps long unbroken tokens in markdown paragraphs', () => {
+    const longToken = 'https://example.com/' + 'segment'.repeat(12)
+    const output = renderMarkdown(`See **${longToken}** for details`, {
+      codeBlockWidth: 24,
+    })
+    const textContent = textContentOf(output)
+    const lines = textContent.split('\n').filter((line) => line.length > 0)
+
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.every((line) => stringWidth(line) <= 24)).toBe(true)
+    expect(textContent.replace(/\n/g, '')).toContain(longToken)
+  })
+
+  test('hard-wraps long unbroken inline code tokens', () => {
+    const longToken = 'src/' + 'deeply-nested-directory-'.repeat(6) + 'file.ts'
+    const output = renderMarkdown(`Open \`${longToken}\` now`, {
+      codeBlockWidth: 24,
+    })
+    const textContent = textContentOf(output)
+    const lines = textContent.split('\n').filter((line) => line.length > 0)
+
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.every((line) => stringWidth(line) <= 24)).toBe(true)
+    expect(textContent.replace(/\n/g, '')).toContain(`Open  ${longToken}  now`)
   })
 
   test('renders lists with bullet markers', () => {

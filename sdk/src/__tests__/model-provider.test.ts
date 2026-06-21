@@ -1038,6 +1038,45 @@ describe('model-provider', () => {
       expect(result.reasoningEffort).toBe('high')
     })
 
+    test('getModelForRequest exposes resolved model context window tokens', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          providers: {
+            local: {
+              type: 'openai-compatible',
+              baseURL: 'http://127.0.0.1:11434/v1',
+              models: {
+                'public-small': 'provider-small',
+                'public-large': 'provider-large',
+              },
+              contextWindowTokens: 32_000,
+              modelContextWindowTokens: {
+                'provider-large': 1_000_000,
+              },
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      const smallResult = await getModelForRequest({
+        apiKey: 'openbuff-local-mode',
+        model: 'local/public-small',
+      })
+      const largeResult = await getModelForRequest({
+        apiKey: 'openbuff-local-mode',
+        model: 'local/public-large',
+      })
+
+      expect(smallResult.contextWindowTokens).toBe(32_000)
+      expect(largeResult.contextWindowTokens).toBe(1_000_000)
+    })
+
     test('getModelForRequest auto-picks same-provider vision fallback when no visionModel is configured', async () => {
       const tempDir = fs.mkdtempSync(
         path.join(os.tmpdir(), 'openbuff-provider-'),
@@ -1121,17 +1160,7 @@ describe('model-provider', () => {
       expect(
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
-          agentId: 'base2-lite',
-          loadedConfig: {
-            sourceFilePaths: [],
-            config: opencodeConfig,
-          },
-        }),
-      ).toBe('opencode-go/deepseek-v4-flash')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'base2-max',
+          agentId: 'base2-plan',
           loadedConfig: {
             sourceFilePaths: [],
             config: opencodeConfig,
@@ -1193,229 +1222,6 @@ describe('model-provider', () => {
       ).toBe('local/agent-thinker')
     })
 
-    test('supports editorMultiPrompt proposal and selector routing', () => {
-      const config = providerConfigFileSchema.parse({
-        editorMultiPrompt: {
-          proposalModels: [
-            { model: 'opencode-go/kimi-k2.6', reasoningEffort: 'low' },
-            { model: 'codex/gpt-5.5', reasoningEffort: 'medium' },
-            { model: 'opencode-go/glm-5.1', reasoningEffort: 'low' },
-          ],
-          selectorModel: {
-            model: 'codex/gpt-5.5',
-            reasoningEffort: 'high',
-          },
-        },
-        providers: {
-          'opencode-go': {
-            type: 'openai-compatible',
-            baseURL: 'https://opencode.ai/zen/go/v1',
-            apiKeyEnv: 'OPENCODE_GO_API_KEY',
-            models: ['kimi-k2.6', 'glm-5.1'],
-          },
-          codex: {
-            type: 'chatgpt-oauth',
-            models: ['gpt-5.5'],
-          },
-        },
-      })
-
-      const loadedConfig = { sourceFilePaths: [], config }
-
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-1',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/kimi-k2.6')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-2',
-          loadedConfig,
-        }),
-      ).toBe('codex/gpt-5.5')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-4',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/glm-5.1')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-direct',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/glm-5.1')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'best-of-n-selector2',
-          loadedConfig,
-        }),
-      ).toBe('codex/gpt-5.5')
-      expect(
-        resolveConfiguredAgentModelConfig({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-2',
-          loadedConfig,
-        }).reasoningEffort,
-      ).toBe('medium')
-      expect(
-        resolveConfiguredAgentModelConfig({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'best-of-n-selector2',
-          loadedConfig,
-        }).reasoningEffort,
-      ).toBe('high')
-    })
-
-    test('defaults editorMultiPrompt selector to last configured proposal model', () => {
-      const config = providerConfigFileSchema.parse({
-        editorMultiPrompt: {
-          proposalModels: [
-            { model: 'opencode-go/kimi-k2.6', reasoningEffort: 'low' },
-            { model: 'opencode-go/glm-5.1', reasoningEffort: 'minimal' },
-          ],
-        },
-        providers: {
-          'opencode-go': {
-            type: 'openai-compatible',
-            baseURL: 'https://opencode.ai/zen/go/v1',
-            apiKeyEnv: 'OPENCODE_GO_API_KEY',
-            models: ['kimi-k2.6', 'glm-5.1'],
-          },
-        },
-      })
-
-      const loadedConfig = { sourceFilePaths: [], config }
-
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'best-of-n-selector2',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/glm-5.1')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-direct',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/glm-5.1')
-      expect(
-        resolveConfiguredAgentModelConfig({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'best-of-n-selector2',
-          loadedConfig,
-        }).reasoningEffort,
-      ).toBe('minimal')
-    })
-
-    test('explicit agent routes override editorMultiPrompt convenience routes', () => {
-      const config = providerConfigFileSchema.parse({
-        editorMultiPrompt: {
-          proposalModels: [
-            { model: 'opencode-go/kimi-k2.6', reasoningEffort: 'low' },
-            { model: 'opencode-go/glm-5.1', reasoningEffort: 'low' },
-            {
-              model: 'opencode-go/deepseek-v4-pro',
-              reasoningEffort: 'minimal',
-            },
-          ],
-          selectorModel: {
-            model: 'opencode-go/glm-5.1',
-            reasoningEffort: 'low',
-          },
-        },
-        agents: {
-          'editor-implementor-proposal-2': {
-            model: 'codex/gpt-5.5',
-            reasoningEffort: 'high',
-          },
-          editor_implementor_proposal_3: 'opencode-go/minimax-m2.7',
-          'best-of-n-selector2': {
-            model: 'codex/gpt-5.5',
-            reasoningEffort: 'medium',
-          },
-        },
-        providers: {
-          'opencode-go': {
-            type: 'openai-compatible',
-            baseURL: 'https://opencode.ai/zen/go/v1',
-            apiKeyEnv: 'OPENCODE_GO_API_KEY',
-            models: ['kimi-k2.6', 'glm-5.1', 'deepseek-v4-pro', 'minimax-m2.7'],
-          },
-          codex: {
-            type: 'chatgpt-oauth',
-            models: ['gpt-5.5'],
-          },
-        },
-      })
-
-      const loadedConfig = { sourceFilePaths: [], config }
-
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-1',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/kimi-k2.6')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-2',
-          loadedConfig,
-        }),
-      ).toBe('codex/gpt-5.5')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-3',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/minimax-m2.7')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-4',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/deepseek-v4-pro')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-direct',
-          loadedConfig,
-        }),
-      ).toBe('opencode-go/deepseek-v4-pro')
-      expect(
-        resolveConfiguredAgentModel({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'best-of-n-selector2',
-          loadedConfig,
-        }),
-      ).toBe('codex/gpt-5.5')
-      expect(
-        resolveConfiguredAgentModelConfig({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'editor-implementor-proposal-2',
-          loadedConfig,
-        }).reasoningEffort,
-      ).toBe('high')
-      expect(
-        resolveConfiguredAgentModelConfig({
-          model: 'anthropic/claude-opus-4.7',
-          agentId: 'best-of-n-selector2',
-          loadedConfig,
-        }).reasoningEffort,
-      ).toBe('medium')
-    })
 
     test('supports Codex subscription as a configurable provider', () => {
       const codexConfig = createProviderPresetConfig('codex')
@@ -1528,13 +1334,13 @@ describe('model-provider', () => {
         path.join(cwd, 'openbuff.json'),
         JSON.stringify({
           defaultModel: 'custom/default',
-          modes: { default: 'custom/default', lite: 'custom/lite' },
+          modes: { default: 'custom/default', plan: 'custom/plan' },
           agents: { thinker: 'custom/thinker' },
           providers: {
             custom: {
               type: 'openai-compatible',
               baseURL: 'https://api.example.com/v1',
-              models: ['default', 'lite'],
+              models: ['default', 'plan'],
             },
           },
         }),
@@ -1557,7 +1363,7 @@ describe('model-provider', () => {
       // defaultModel, modes, agents preserved
       expect(mergedConfig.defaultModel).toBe('custom/default')
       expect(mergedConfig.modes.default).toBe('custom/default')
-      expect(mergedConfig.modes.lite).toBe('custom/lite')
+      expect(mergedConfig.modes.plan).toBe('custom/plan')
       expect(mergedConfig.agents.thinker).toBe('custom/thinker')
     })
 

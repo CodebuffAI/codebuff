@@ -14,14 +14,14 @@
 #
 # OPTIONS:
 #   -c, --command CMD   Command to run in the session (required for
-#                       non-Codebuff apps, or use --binary)
+#                       non-Openbuff apps, or use --binary)
 #   -n, --name NAME     Session name (default: tui-test-<timestamp>)
 #   -w, --width WIDTH   Terminal width (default: 120)
 #   -h, --height HEIGHT Terminal height (default: 30)
 #   --wait SECONDS      Seconds to wait for app to initialize (default: 4)
-#   -b, --binary [PATH] Use compiled binary (Codebuff-specific shortcut)
-#                       If PATH omitted, uses ./cli/bin/codebuff
-#                       Can also set CODEBUFF_BINARY env var
+#   -b, --binary [PATH] Use compiled binary (Openbuff-specific shortcut)
+#                       If PATH omitted, uses ./cli/bin/openbuff
+#                       Can also set OPENBUFF_BINARY or CODEBUFF_BINARY env var
 #   --help              Show this help message
 #
 # SESSION LOGS:
@@ -36,7 +36,7 @@
 #   ./scripts/tmux/tmux-start.sh --command "codex chat"
 #   ./scripts/tmux/tmux-start.sh --command "python my_tui.py"
 #
-#   # Start with default Codebuff dev server (backward compatible)
+#   # Start with default Openbuff dev server
 #   ./scripts/tmux/tmux-start.sh
 #   # Output: tui-test-1234567890
 #
@@ -46,11 +46,11 @@
 #   # Start with custom dimensions
 #   ./scripts/tmux/tmux-start.sh -w 160 -h 40
 #
-#   # Test a compiled binary (Codebuff default location)
+#   # Test a compiled binary (Openbuff default location)
 #   ./scripts/tmux/tmux-start.sh --binary
 #
 #   # Test a compiled binary at custom path
-#   ./scripts/tmux/tmux-start.sh --binary ./path/to/codebuff
+#   ./scripts/tmux/tmux-start.sh --binary ./path/to/openbuff
 #
 # EXIT CODES:
 #   0 - Success (session name printed to stdout)
@@ -74,8 +74,8 @@ SESSION_NAME=""
 WIDTH=120
 HEIGHT=30  # Reasonable default that matches typical terminal heights
 WAIT_SECONDS=4
-DEFAULT_BINARY="$PROJECT_ROOT/cli/bin/codebuff"
-BINARY_PATH="${CODEBUFF_BINARY:-}"  # Environment variable takes precedence
+DEFAULT_BINARY="$PROJECT_ROOT/cli/bin/openbuff"
+BINARY_PATH="${OPENBUFF_BINARY:-${CODEBUFF_BINARY:-}}"  # Environment variable takes precedence
 CUSTOM_COMMAND=""  # Custom command to run (takes priority over binary/default)
 OUTPUT_FORMAT="json"  # json (default) or plain
 
@@ -211,7 +211,7 @@ elif [[ -n "$BINARY_PATH" ]]; then
     CLI_MODE="binary"
     CLI_DISPLAY="$BINARY_PATH"
 else
-    # Default mode - Codebuff dev server via bun (for backward compatibility)
+    # Default mode - Openbuff dev server via bun
     CLI_CMD="cd '$PROJECT_ROOT' && bun --cwd=cli run dev 2>&1"
     CLI_MODE="dynamic"
     CLI_DISPLAY="bun --cwd=cli run dev"

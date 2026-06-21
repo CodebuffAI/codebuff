@@ -9,16 +9,14 @@ import {
 } from '../../components/agent-mode-toggle'
 import { createHoverToggleControllerForTest } from '../mocks/hover-toggle-controller'
 
-import type { AgentMode } from '../../utils/constants'
+import { AGENT_MODES } from '../../utils/constants'
 
 describe('AgentModeToggle - buildExpandedSegments', () => {
-  const modes: AgentMode[] = ['DEFAULT', 'MAX', 'PLAN']
-
-  for (const mode of modes) {
+  for (const mode of AGENT_MODES) {
     test(`returns segments with active indicator for ${mode}`, () => {
       const segs = buildExpandedSegments(mode)
-      // 4 mode options (DEFAULT, LITE, MAX, PLAN) + 1 active indicator
-      expect(segs.length).toBe(5)
+      // one option per mode + 1 active indicator
+      expect(segs.length).toBe(AGENT_MODES.length + 1)
 
       // Current mode is disabled among the choices
       const current = segs.find((s) => s.id === mode)
@@ -40,8 +38,8 @@ describe('AgentModeToggle - resolveAgentModeClick', () => {
   })
 
   test('with onSelectMode provided, clicking different mode selects it', () => {
-    const action = resolveAgentModeClick('DEFAULT', 'MAX', true)
-    expect(action).toEqual({ type: 'selectMode', mode: 'MAX' })
+    const action = resolveAgentModeClick('DEFAULT', 'PLAN', true)
+    expect(action).toEqual({ type: 'selectMode', mode: 'PLAN' })
   })
 
   test('without onSelectMode, clicking different mode toggles', () => {

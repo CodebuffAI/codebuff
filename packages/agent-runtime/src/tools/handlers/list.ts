@@ -42,6 +42,7 @@ import { handleStrReplace } from './tool/str-replace'
 import { handleSuggestFollowups } from './tool/suggest-followups'
 import { handleTaskCompleted } from './tool/task-completed'
 import { handleThinkDeeply } from './tool/think-deeply'
+import { handleUpdatePlanStatus } from './tool/update-plan-status'
 import { handleUpdateSubgoal } from './tool/update-subgoal'
 import { handleWebSearch } from './tool/web-search'
 import { handleWriteFile } from './tool/write-file'
@@ -104,6 +105,7 @@ export const codebuffToolHandlers = {
   suggest_followups: handleSuggestFollowups,
   task_completed: handleTaskCompleted,
   think_deeply: handleThinkDeeply,
+  update_plan_status: handleUpdatePlanStatus,
   update_subgoal: handleUpdateSubgoal,
   web_search: handleWebSearch,
   write_file: handleWriteFile,

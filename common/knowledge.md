@@ -1,6 +1,6 @@
 # Common Package Knowledge
 
-This package contains code shared across the Codebuff monorepo, including the `web` (Next.js), `cli`, and `sdk` packages.
+This package contains code shared across the Openbuff monorepo, including the `web` (Next.js), `cli`, and `sdk` packages.
 
 ## Key Areas
 

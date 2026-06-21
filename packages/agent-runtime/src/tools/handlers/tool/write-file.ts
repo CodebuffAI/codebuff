@@ -43,6 +43,14 @@ export type FileProcessingState = {
   fileChanges: Exclude<FileProcessing, { error: string }>[]
   firstFileProcessed: boolean
   failedEditRequiresReadByPath: Record<string, boolean>
+  // Milestone 2 (staged, opt-in): per-turn read-before-edit enforcement.
+  // When `strictReadBeforeEdit` is true, str_replace/edit_transaction require
+  // either a per-path read authorization (registered by read_files in the same
+  // turn) or a per-replacement `basedOnRead` capability. Both fields are
+  // optional to preserve existing default behavior for callers/tests that
+  // construct state manually.
+  strictReadBeforeEdit?: boolean
+  readAuthorizationsByPath?: Record<string, true>
 }
 
 export function getFileProcessingValues(
@@ -55,6 +63,8 @@ export function getFileProcessingValues(
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
+    strictReadBeforeEdit: false,
+    readAuthorizationsByPath: {},
   }
   for (const [key, value] of Object.entries(state)) {
     const typedKey = key as keyof typeof fileProcessingValues

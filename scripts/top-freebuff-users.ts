@@ -25,7 +25,7 @@ async function topFreebuffUsers() {
   const limit = parseInt(process.argv[3] || '50')
   const agentId = process.argv[4] || 'base2-free' // configurable agent ID
   const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000)
-  const excludeAgents = ['base2', 'base2-max']
+  const excludeAgents = ['base2']
 
   console.log(`\n${'='.repeat(100)}`)
   console.log(`  TOP FREEBUFF USERS - DETAILED STATS (last ${hoursBack} hours)`)
@@ -34,7 +34,7 @@ async function topFreebuffUsers() {
   console.log(`  Excluding: ${excludeAgents.join(', ')}`)
   console.log(`${'='.repeat(100)}\n`)
 
-  // Get all base2-free messages in the period (excluding users with base2/base2-max)
+  // Get all base2-free messages in the period (excluding users with base2)
   const results = await db
     .select({
       userId: schema.message.user_id,

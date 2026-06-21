@@ -25,6 +25,7 @@ import {
   isLinefeedActingAsEnter,
   markReturnKeySeenForKey,
 } from '../utils/terminal-enter-detection'
+import { LONG_TEXT_THRESHOLD } from '../utils/strings'
 import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
@@ -1027,13 +1028,19 @@ export const MultilineInput = forwardRef<
       const textToInsert = getPrintableKeySequence(key)
       if (textToInsert !== null) {
         preventKeyDefault(key)
+
+        if (textToInsert.length > LONG_TEXT_THRESHOLD) {
+          onPaste(textToInsert)
+          return true
+        }
+
         insertTextAtCursor(textToInsert)
         return true
       }
 
       return false
     },
-    [insertTextAtCursor],
+    [insertTextAtCursor, onPaste],
   )
 
   // Increase StdinParser timeout from default 10ms to 100ms.
@@ -1191,7 +1198,7 @@ export const MultilineInput = forwardRef<
     >
       <text
         ref={textRef}
-        style={{ bg: 'transparent', fg: inputColor, wrapMode: 'word' }}
+        style={{ bg: 'transparent', fg: inputColor, wrapMode: 'char' }}
       >
         {showCursor ? (
           <>

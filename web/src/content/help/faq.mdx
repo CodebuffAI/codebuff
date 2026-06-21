@@ -13,7 +13,7 @@ Software development: Writing features, tests, and scripts across common languag
 
 ## What model does Openbuff use?
 
-Multiple. The orchestrator uses Claude Opus 4.7 in Default and Max modes, or Kimi K2.6 in Lite mode. Subagents are matched to their tasks: Claude Opus 4.7 and GPT-5.4 for deep reasoning and code review, and Gemini 3.1 Flash Lite for terminal commands, file discovery, and web/docs research. All models are routed through the providers you configure in `openbuff.json`. See [What models do you use?](/docs/advanced/what-models) for the full breakdown.
+Openbuff uses the provider/model routes you configure in `openbuff.json`. Default, Max, Plan, and individual subagents can all be mapped to different models, but Openbuff itself does not provide hosted inference or a fixed model lineup. See [What models do you use?](/docs/advanced/what-models) for the full breakdown.
 
 ## Is Openbuff open source?
 
@@ -39,11 +39,11 @@ You can also create a **home directory knowledge file** (`~/.knowledge.md`, `~/.
 
 ## Can I tell Openbuff to ignore certain files?
 
-Openbuff by default will not read files that are specified in your `.gitignore`. You can also create a `.codebuffignore` file to specify additional files or folders to ignore.
+Openbuff by default will not read files that are specified in your `.gitignore`. You can also create a `.codebuffignore` file (legacy compatibility name) to specify additional files or folders to ignore.
 
 ### What if I want Openbuff to not ignore some files in the `.gitignore`?
 
-The `.codebuffignore` follows standard `.gitignore` negation rules as well! So to ignore a file from git but not from Openbuff:
+The `.codebuffignore` file follows standard `.gitignore` negation rules as well! So to ignore a file from git but not from Openbuff:
 
 ```.gitignore
 path/to/file
@@ -70,7 +70,7 @@ The final set of files ignored by Openbuff are determined by the contents of `.g
 
 ## How does Openbuff work?
 
-Openbuff runs specialized models in parallel: one finds files, another reasons through the problem, another writes code, another reviews. A selector picks the best output. In Max mode, multiple implementations compete. [Benchmark comparison](https://x.com/jahooma/status/1894224663817195599).
+Openbuff runs specialized local agent loops: one can find files, another can reason through the problem, another writes code, and another reviews. All model calls go to your configured providers. In Max mode, multiple implementation proposals compete before validation and review gates run.
 
 ## How does Openbuff compare to Claude Code?
 

@@ -66,7 +66,7 @@ See `scripts/tmux/README.md` for full documentation or `cli/tmux.knowledge.md` f
 ### Manual Pattern (Legacy)
 
 ```bash
-tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run dev 2>&1' && \
+tmux new-session -d -s test-session 'cd /path/to/openbuff && bun --cwd=cli run dev 2>&1' && \
   sleep 2 && \
   echo '---AFTER 2 SECONDS---' && \
   tmux capture-pane -t test-session -p && \

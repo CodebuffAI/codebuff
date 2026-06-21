@@ -16,6 +16,9 @@ import {
   scrubPlanTagsInBlocks,
   insertPlanBlock,
   moveSpawnAgentBlock,
+  extractPlanMetadata,
+  parseGateStateBlock,
+  scrubGateStateTags,
 } from '../message-block-helpers'
 
 import type {
@@ -40,7 +43,7 @@ describe('getAgentBaseName', () => {
   })
 
   test('normalizes direct tool aliases to canonical agent names', () => {
-    expect(getAgentBaseName('code_reviewer_lite')).toBe('code-reviewer-lite')
+    expect(getAgentBaseName('code_searcher')).toBe('code-searcher')
   })
 
   test('handles scoped name without version', () => {
@@ -120,6 +123,39 @@ describe('scrubPlanTags helpers', () => {
     expect(result).toHaveLength(2)
     expect(result[0]).toEqual({ type: 'text', content: 'Intro ' })
     expect(result[1]).toEqual({ type: 'plan', content: 'Plan body' })
+  })
+
+  test('extracts durable plan artifact metadata from explicit artifact lines', () => {
+    const metadata = extractPlanMetadata(`# Plan\n\n## Artifacts\n- Session: .agents/sessions/auth-refresh\n- SPEC.md: .agents/sessions/auth-refresh/SPEC.md\n- PLAN.md: .agents/sessions/auth-refresh/PLAN.md\n- STATUS.md: .agents/sessions/auth-refresh/STATUS.md\n- LESSONS.md: .agents/sessions/auth-refresh/LESSONS.md`)
+
+    expect(metadata).toEqual({
+      sessionPath: '.agents/sessions/auth-refresh',
+      specPath: '.agents/sessions/auth-refresh/SPEC.md',
+      planPath: '.agents/sessions/auth-refresh/PLAN.md',
+      statusPath: '.agents/sessions/auth-refresh/STATUS.md',
+      lessonsPath: '.agents/sessions/auth-refresh/LESSONS.md',
+      resumeCommand: '/resume-plan .agents/sessions/auth-refresh',
+      updateCommand: '/update-plan .agents/sessions/auth-refresh',
+      statusCommand: '/plan-status .agents/sessions/auth-refresh',
+      lessonsCommand: '/lessons .agents/sessions/auth-refresh',
+    })
+  })
+
+  test('detects artifact metadata while preserving simple plan compatibility', () => {
+    expect(extractPlanMetadata('Just a simple plan')).toBeUndefined()
+
+    const result = insertPlanBlock([], '- STATUS.md: `.agents/sessions/foo/STATUS.md`')
+    expect(result[0]).toEqual({
+      type: 'plan',
+      content: '- STATUS.md: `.agents/sessions/foo/STATUS.md`',
+      metadata: {
+        statusPath: '.agents/sessions/foo/STATUS.md',
+        resumeCommand: '/resume-plan .agents/sessions/foo',
+        updateCommand: '/update-plan .agents/sessions/foo',
+        statusCommand: '/plan-status .agents/sessions/foo',
+        lessonsCommand: '/lessons .agents/sessions/foo',
+      },
+    })
   })
 })
 
@@ -255,15 +291,15 @@ describe('extractSpawnAgentResultContent', () => {
 
   test('treats nested runtime error outputs as errors', () => {
     const result = extractSpawnAgentResultContent({
-      agentType: 'editor-implementor-proposal-1',
+      agentType: 'editor',
       value: {
         type: 'error',
-        message: 'Subagent editor-implementor-proposal-1 timed out',
+        message: 'Subagent editor timed out',
       },
     })
 
     expect(result).toEqual({
-      content: 'Subagent editor-implementor-proposal-1 timed out',
+      content: 'Subagent editor timed out',
       hasError: true,
     })
   })
@@ -1382,5 +1418,88 @@ describe('updateToolBlockWithOutput', () => {
       toolOutput: [],
     })
     expect(result[0]).toBe(blocks[0])
+  })
+})
+
+describe('parseGateStateBlock', () => {
+  test('parses a well-formed pinned Base2 gate-state block', () => {
+    const buffer = [
+      'Some prose.',
+      '<gate-state>',
+      'gate: ci',
+      'status: passed',
+      'details: All checks green',
+      '</gate-state>',
+      'More prose.',
+    ].join('\n')
+    expect(parseGateStateBlock(buffer)).toEqual({
+      type: 'gate-state',
+      gate: 'ci',
+      gateStatus: 'passed',
+      details: 'All checks green',
+      origin: 'Base2',
+    })
+  })
+
+  test('honors an explicit origin label and is case-insensitive on keys', () => {
+    const buffer = [
+      '<gate-state>',
+      'Gate: release',
+      'STATUS: failed',
+      'Origin: Promotion',
+      '</gate-state>',
+    ].join('\n')
+    expect(parseGateStateBlock(buffer)).toEqual({
+      type: 'gate-state',
+      gate: 'release',
+      gateStatus: 'failed',
+      origin: 'Promotion',
+    })
+  })
+
+  test('returns null when status is unrecognized', () => {
+    const buffer = [
+      '<gate-state>',
+      'gate: ci',
+      'status: maybe',
+      '</gate-state>',
+    ].join('\n')
+    expect(parseGateStateBlock(buffer)).toBeNull()
+  })
+
+  test('returns null for ordinary prose mentioning gate/status', () => {
+    expect(
+      parseGateStateBlock(
+        'The release gate is currently in a pending status while we wait.',
+      ),
+    ).toBeNull()
+  })
+
+  test('returns null when required fields are missing', () => {
+    expect(
+      parseGateStateBlock('<gate-state>status: passed</gate-state>'),
+    ).toBeNull()
+    expect(
+      parseGateStateBlock('<gate-state>gate: ci</gate-state>'),
+    ).toBeNull()
+  })
+
+  test('scrubGateStateTags removes the pinned block and collapses blank runs', () => {
+    const buffer = [
+      'Hello.',
+      '',
+      '<gate-state>',
+      'gate: ci',
+      'status: passed',
+      '</gate-state>',
+      '',
+      '',
+      'World.',
+    ].join('\n')
+    const scrubbed = scrubGateStateTags(buffer)
+    expect(scrubbed).not.toContain('<gate-state>')
+    expect(scrubbed).toContain('Hello.')
+    expect(scrubbed).toContain('World.')
+    expect(scrubbed).not.toMatch(/\n{3,}/)
   })
 })

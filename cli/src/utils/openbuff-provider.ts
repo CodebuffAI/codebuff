@@ -56,10 +56,8 @@ export type ReasoningEffortInput = OpenbuffReasoningEffort | 'default' | undefin
 
 export type ModelRouteTarget =
   | { type: 'default' }
-  | { type: 'mode'; mode: 'default' | 'lite' | 'max' | 'plan' }
+  | { type: 'mode'; mode: 'default' | 'plan' }
   | { type: 'agent'; agentId: string }
-  | { type: 'editor-proposal'; proposalNumber: number }
-  | { type: 'editor-selector' }
 
 export type KnownModelOption = {
   model: string
@@ -169,11 +167,6 @@ function resolveReasoningEffortChoice(value: string): ReasoningEffortInput {
   return parseReasoningEffort(value)
 }
 
-function validateProposalNumber(n: number): void {
-  if (!Number.isInteger(n) || n < 1 || n > 5) {
-    throw new Error('Editor proposal number must be an integer between 1 and 5')
-  }
-}
 
 export function setRouteModel(
   config: ProviderConfigFileInput,
@@ -207,64 +200,17 @@ export function setRouteModel(
     return
   }
 
-  if (target.type === 'agent') {
-    config.agents = {
-      ...(config.agents ?? {}),
-      [target.agentId]: model,
-    }
-    if (reasoningEffort === 'default') {
-      delete config.agentReasoningEfforts?.[target.agentId]
-    } else if (reasoningEffort) {
-      config.agentReasoningEfforts = {
-        ...(config.agentReasoningEfforts ?? {}),
-        [target.agentId]: reasoningEffort,
-      }
-    }
-    return
-  }
-
-  if (target.type === 'editor-proposal') {
-    validateProposalNumber(target.proposalNumber)
-
-    const proposalModels = [
-      ...(config.editorMultiPrompt?.proposalModels ?? []),
-    ]
-    while (proposalModels.length < target.proposalNumber) {
-      proposalModels.push(model)
-    }
-    proposalModels[target.proposalNumber - 1] = model
-
-    const proposalReasoningEfforts = [
-      ...(config.editorMultiPrompt?.proposalReasoningEfforts ?? []),
-    ]
-    if (reasoningEffort === 'default') {
-      while (proposalReasoningEfforts.length < target.proposalNumber) {
-        proposalReasoningEfforts.push(undefined)
-      }
-      proposalReasoningEfforts[target.proposalNumber - 1] = undefined
-    } else if (reasoningEffort) {
-      while (proposalReasoningEfforts.length < target.proposalNumber) {
-        proposalReasoningEfforts.push(undefined)
-      }
-      proposalReasoningEfforts[target.proposalNumber - 1] = reasoningEffort
-    }
-
-    config.editorMultiPrompt = {
-      ...(config.editorMultiPrompt ?? {}),
-      proposalModels,
-      ...(proposalReasoningEfforts.length ? { proposalReasoningEfforts } : {}),
-    }
-    return
-  }
-
-  config.editorMultiPrompt = {
-    ...(config.editorMultiPrompt ?? {}),
-    selectorModel: model,
+  config.agents = {
+    ...(config.agents ?? {}),
+    [target.agentId]: model,
   }
   if (reasoningEffort === 'default') {
-    delete config.editorMultiPrompt.selectorReasoningEffort
+    delete config.agentReasoningEfforts?.[target.agentId]
   } else if (reasoningEffort) {
-    config.editorMultiPrompt.selectorReasoningEffort = reasoningEffort
+    config.agentReasoningEfforts = {
+      ...(config.agentReasoningEfforts ?? {}),
+      [target.agentId]: reasoningEffort,
+    }
   }
 }
 
@@ -279,7 +225,9 @@ function setRouteReasoningEffort(
     } else {
       config.defaultReasoningEffort = reasoningEffort
     }
-  } else if (target.type === 'mode') {
+    return
+  }
+  if (target.type === 'mode') {
     if (reasoningEffort === 'default' || !reasoningEffort) {
       delete config.modeReasoningEfforts?.[target.mode]
     } else {
@@ -288,35 +236,14 @@ function setRouteReasoningEffort(
         [target.mode]: reasoningEffort,
       }
     }
-  } else if (target.type === 'agent') {
-    if (reasoningEffort === 'default' || !reasoningEffort) {
-      delete config.agentReasoningEfforts?.[target.agentId]
-    } else {
-      config.agentReasoningEfforts = {
-        ...(config.agentReasoningEfforts ?? {}),
-        [target.agentId]: reasoningEffort,
-      }
-    }
-  } else if (target.type === 'editor-proposal') {
-    validateProposalNumber(target.proposalNumber)
-    const proposalReasoningEfforts = [
-      ...(config.editorMultiPrompt?.proposalReasoningEfforts ?? []),
-    ]
-    while (proposalReasoningEfforts.length < target.proposalNumber) {
-      proposalReasoningEfforts.push(undefined)
-    }
-    proposalReasoningEfforts[target.proposalNumber - 1] =
-      reasoningEffort === 'default' ? undefined : reasoningEffort
-    config.editorMultiPrompt = {
-      ...(config.editorMultiPrompt ?? {}),
-      proposalReasoningEfforts,
-    }
+    return
+  }
+  if (reasoningEffort === 'default' || !reasoningEffort) {
+    delete config.agentReasoningEfforts?.[target.agentId]
   } else {
-    config.editorMultiPrompt = { ...(config.editorMultiPrompt ?? {}) }
-    if (reasoningEffort === 'default' || !reasoningEffort) {
-      delete config.editorMultiPrompt.selectorReasoningEffort
-    } else {
-      config.editorMultiPrompt.selectorReasoningEffort = reasoningEffort
+    config.agentReasoningEfforts = {
+      ...(config.agentReasoningEfforts ?? {}),
+      [target.agentId]: reasoningEffort,
     }
   }
 }
@@ -371,35 +298,6 @@ export function formatOpenbuffModelStatus(): string {
   }
 
   lines.push('')
-  if (loadedConfig.config.editorMultiPrompt) {
-    lines.push('Multi-prompt editor:')
-    loadedConfig.config.editorMultiPrompt.proposalModels?.forEach(
-      (model, index) => {
-        const route = resolveConfiguredAgentModelConfig({
-          agentId: `editor-implementor-proposal-${index + 1}`,
-          model,
-          loadedConfig,
-        })
-        const sourceFile = loadedConfig.sourceFiles?.routes?.editorMultiPrompt
-        const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
-        lines.push(
-          `proposal #${index + 1}: editor-implementor-proposal-${index + 1} -> ${route.model}${formatReasoningEffort(route.reasoningEffort)}${formatCapabilitiesSuffix(route.model, loadedConfig)}${sourceSuffix}`,
-        )
-      },
-    )
-    const selectorRoute = resolveConfiguredAgentModelConfig({
-      agentId: 'best-of-n-selector2',
-      model:
-        loadedConfig.config.editorMultiPrompt.selectorModel ?? '(agent default)',
-      loadedConfig,
-    })
-    const sourceFile = loadedConfig.sourceFiles?.routes?.editorMultiPrompt
-    const sourceSuffix = sourceFile ? ` (defined in ${getRelativeConfigPath(sourceFile)})` : ''
-    lines.push(
-      `selector: best-of-n-selector2 -> ${selectorRoute.model}${formatReasoningEffort(selectorRoute.reasoningEffort)}${formatCapabilitiesSuffix(selectorRoute.model, loadedConfig)}${sourceSuffix}`,
-    )
-    lines.push('')
-  }
   lines.push(`Config files: ${loadedConfig.sourceFilePaths.map(getRelativeConfigPath).join(', ') || 'not found'}`)
   lines.push(`Agent overrides: ${Object.keys(loadedConfig.config.agents ?? {}).length}`)
 
@@ -433,7 +331,6 @@ export function getEditableConfig(): ProviderConfigFileInput {
     modeReasoningEfforts: loadedConfig.config.modeReasoningEfforts,
     agents: loadedConfig.config.agents,
     agentReasoningEfforts: loadedConfig.config.agentReasoningEfforts,
-    editorMultiPrompt: loadedConfig.config.editorMultiPrompt,
   })
 }
 
@@ -557,11 +454,9 @@ export function configureOpenbuffModelFromArgs(args: string): string {
       'Commands:',
       '- /models configure',
       '- /models set default <provider/model> [reasoningEffort]',
-      '- /models set mode <default|lite|max|plan> <provider/model> [reasoningEffort]',
+      '- /models set mode <default|plan> <provider/model> [reasoningEffort]',
       '- /models set agent <agent-id> <provider/model> [reasoningEffort]',
-      '- /models set editor-proposal <1-5> <provider/model> [reasoningEffort]',
-      '- /models set editor-selector <provider/model> [reasoningEffort]',
-      '- /models set reasoning default|mode|agent|editor-proposal|editor-selector ... <effort>',
+      '- /models set reasoning default|mode|agent ... <effort>',
     ].join('\n')
   }
 
@@ -574,10 +469,10 @@ export function configureOpenbuffModelFromArgs(args: string): string {
       if (!effort) throw new Error('Usage: /models set reasoning default <effort>')
       setRouteReasoningEffort(config, { type: 'default' }, effort)
     } else if (routeTarget === 'mode') {
-      const mode = parts[3] as 'default' | 'lite' | 'max' | 'plan'
+      const mode = parts[3] as 'default' | 'plan'
       const effort = parseReasoningEffort(parts[4])
-      if (!mode || !['default', 'lite', 'max', 'plan'].includes(mode) || !effort) {
-        throw new Error('Usage: /models set reasoning mode <default|lite|max|plan> <effort>')
+      if (!mode || !['default', 'plan'].includes(mode) || !effort) {
+        throw new Error('Usage: /models set reasoning mode <default|plan> <effort>')
       }
       setRouteReasoningEffort(config, { type: 'mode', mode }, effort)
     } else if (routeTarget === 'agent') {
@@ -587,30 +482,8 @@ export function configureOpenbuffModelFromArgs(args: string): string {
         throw new Error('Usage: /models set reasoning agent <agent-id> <effort>')
       }
       setRouteReasoningEffort(config, { type: 'agent', agentId }, effort)
-    } else if (routeTarget === 'editor-proposal') {
-      const proposalNumber = Number(parts[3])
-      const effort = parseReasoningEffort(parts[4])
-      if (
-        !Number.isInteger(proposalNumber) ||
-        proposalNumber < 1 ||
-        proposalNumber > 5 ||
-        !effort
-      ) {
-        throw new Error('Usage: /models set reasoning editor-proposal <1-5> <effort>')
-      }
-      setRouteReasoningEffort(
-        config,
-        { type: 'editor-proposal', proposalNumber },
-        effort,
-      )
-    } else if (routeTarget === 'editor-selector') {
-      const effort = parseReasoningEffort(parts[3])
-      if (!effort) {
-        throw new Error('Usage: /models set reasoning editor-selector <effort>')
-      }
-      setRouteReasoningEffort(config, { type: 'editor-selector' }, effort)
     } else {
-      throw new Error('Usage: /models set reasoning default|mode|agent|editor-proposal|editor-selector ... <effort>')
+      throw new Error('Usage: /models set reasoning default|mode|agent ... <effort>')
     }
   } else if (target === 'default') {
     const model = parts[2]
@@ -622,10 +495,10 @@ export function configureOpenbuffModelFromArgs(args: string): string {
       parseReasoningEffort(parts[3]),
     )
   } else if (target === 'mode') {
-    const mode = parts[2] as 'default' | 'lite' | 'max' | 'plan'
+    const mode = parts[2] as 'default' | 'plan'
     const model = parts[3]
-    if (!mode || !['default', 'lite', 'max', 'plan'].includes(mode) || !model) {
-      throw new Error('Usage: /models set mode <default|lite|max|plan> <provider/model> [reasoningEffort]')
+    if (!mode || !['default', 'plan'].includes(mode) || !model) {
+      throw new Error('Usage: /models set mode <default|plan> <provider/model> [reasoningEffort]')
     }
     setRouteModel(
       config,
@@ -645,38 +518,9 @@ export function configureOpenbuffModelFromArgs(args: string): string {
       resolveModelChoice(model),
       parseReasoningEffort(parts[4]),
     )
-  } else if (target === 'editor-proposal') {
-    const proposalNumber = Number(parts[2])
-    const model = parts[3]
-    if (
-      !Number.isInteger(proposalNumber) ||
-      proposalNumber < 1 ||
-      proposalNumber > 5 ||
-      !model
-    ) {
-      throw new Error('Usage: /models set editor-proposal <1-5> <provider/model> [reasoningEffort]')
-    }
-    setRouteModel(
-      config,
-      { type: 'editor-proposal', proposalNumber },
-      resolveModelChoice(model),
-      parseReasoningEffort(parts[4]),
-    )
-  } else if (target === 'editor-selector') {
-    const model = parts[2]
-    if (!model) {
-      throw new Error('Usage: /models set editor-selector <provider/model> [reasoningEffort]')
-    }
-    setRouteModel(
-      config,
-      { type: 'editor-selector' },
-      resolveModelChoice(model),
-      parseReasoningEffort(parts[3]),
-    )
   } else {
-    throw new Error('Usage: /models set default|mode|agent|editor-proposal|editor-selector|reasoning ...')
+    throw new Error('Usage: /models set default|mode|agent|reasoning ...')
   }
-
 
   const configPath = writeMergedConfig(config)
   return [`Updated ${configPath}`, '', formatOpenbuffModelStatus()].join('\n')
@@ -829,12 +673,9 @@ type ModelsWizardState =
   | { step: 'target' }
   | { step: 'mode' }
   | { step: 'agent-id' }
-  | { step: 'editor-target' }
   | { step: 'agent-model'; agentId: string }
   | { step: 'default-model' }
-  | { step: 'mode-model'; mode: 'default' | 'lite' | 'max' | 'plan' }
-  | { step: 'editor-proposal-model'; proposalNumber: number }
-  | { step: 'editor-selector-model' }
+  | { step: 'mode-model'; mode: 'default' | 'plan' }
   | { step: 'reasoning-effort'; target: ModelRouteTarget; model: string }
 
 let modelsWizardState: ModelsWizardState | null = null
@@ -851,9 +692,8 @@ export function startOpenbuffModelsWizard(): string {
     '',
     'What do you want to route?',
     '1. default fallback model',
-    '2. mode (default/lite/max/plan)',
+    '2. mode (default/plan)',
     '3. agent/subagent override',
-    '4. multi-prompt editor proposal/selector',
     '',
     'Type a number. Press Escape to cancel.',
   ].join('\n')
@@ -1031,7 +871,7 @@ export function handleOpenbuffModelsWizardInput(input: string): {
       modelsWizardState = { step: 'mode' }
       return {
         done: false,
-        message: 'Which mode? Type one of: default, lite, max, plan',
+        message: 'Which mode? Type one of: default, plan',
       }
     }
     if (value === '3' || value.toLowerCase() === 'agent') {
@@ -1042,32 +882,20 @@ export function handleOpenbuffModelsWizardInput(input: string): {
           'Agent/subagent id? Examples: editor, code-reviewer, thinker, file-picker, base2',
       }
     }
-    if (
-      value === '4' ||
-      value.toLowerCase() === 'editor' ||
-      value.toLowerCase() === 'multi-prompt'
-    ) {
-      modelsWizardState = { step: 'editor-target' }
-      return {
-        done: false,
-        message: 'Route which multi-prompt editor slot? Type proposal 1-5, or selector.',
-      }
-    }
     return {
       done: false,
-      message:
-        'Choose 1 for default, 2 for mode, 3 for agent/subagent, or 4 for multi-prompt editor.',
+      message: 'Choose 1 for default, 2 for mode, or 3 for agent/subagent.',
     }
   }
 
   if (modelsWizardState.step === 'mode') {
     const mode = value.toLowerCase()
-    if (!['default', 'lite', 'max', 'plan'].includes(mode)) {
-      return { done: false, message: 'Type one of: default, lite, max, plan' }
+    if (!['default', 'plan'].includes(mode)) {
+      return { done: false, message: 'Type one of: default, plan' }
     }
     modelsWizardState = {
       step: 'mode-model',
-      mode: mode as 'default' | 'lite' | 'max' | 'plan',
+      mode: mode as 'default' | 'plan',
     }
     return { done: false, message: `Choose model for ${mode}:\n\n${formatModelChoices()}` }
   }
@@ -1075,32 +903,6 @@ export function handleOpenbuffModelsWizardInput(input: string): {
   if (modelsWizardState.step === 'agent-id') {
     modelsWizardState = { step: 'agent-model', agentId: value }
     return { done: false, message: `Choose model for ${value}:\n\n${formatModelChoices()}` }
-  }
-
-  if (modelsWizardState.step === 'editor-target') {
-    if (value.toLowerCase() === 'selector') {
-      modelsWizardState = { step: 'editor-selector-model' }
-      return {
-        done: false,
-        message: `Choose model for multi-prompt selector:\n\n${formatModelChoices()}`,
-      }
-    }
-    const proposalNumber = Number(value.replace(/^proposal\s*/i, ''))
-    if (
-      !Number.isInteger(proposalNumber) ||
-      proposalNumber < 1 ||
-      proposalNumber > 5
-    ) {
-      return { done: false, message: 'Type proposal 1-5, or selector.' }
-    }
-    modelsWizardState = {
-      step: 'editor-proposal-model',
-      proposalNumber,
-    }
-    return {
-      done: false,
-      message: `Choose model for multi-prompt proposal #${proposalNumber}:\n\n${formatModelChoices()}`,
-    }
   }
 
   if (modelsWizardState.step === 'reasoning-effort') {
@@ -1127,13 +929,6 @@ export function handleOpenbuffModelsWizardInput(input: string): {
     targetForReasoning = { type: 'mode', mode: modelsWizardState.mode }
   } else if (modelsWizardState.step === 'agent-model') {
     targetForReasoning = { type: 'agent', agentId: modelsWizardState.agentId }
-  } else if (modelsWizardState.step === 'editor-proposal-model') {
-    targetForReasoning = {
-      type: 'editor-proposal',
-      proposalNumber: modelsWizardState.proposalNumber,
-    }
-  } else if (modelsWizardState.step === 'editor-selector-model') {
-    targetForReasoning = { type: 'editor-selector' }
   } else {
     return { done: true, message: 'Model wizard is not active.' }
   }

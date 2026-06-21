@@ -45,6 +45,7 @@ import { strReplaceParams } from './params/tool/str-replace'
 import { suggestFollowupsParams } from './params/tool/suggest-followups'
 import { taskCompletedParams } from './params/tool/task-completed'
 import { thinkDeeplyParams } from './params/tool/think-deeply'
+import { updatePlanStatusParams } from './params/tool/update-plan-status'
 import { updateSubgoalParams } from './params/tool/update-subgoal'
 import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
@@ -99,6 +100,7 @@ export const toolParams = {
   suggest_followups: suggestFollowupsParams,
   task_completed: taskCompletedParams,
   think_deeply: thinkDeeplyParams,
+  update_plan_status: updatePlanStatusParams,
   update_subgoal: updateSubgoalParams,
   web_search: webSearchParams,
   write_file: writeFileParams,

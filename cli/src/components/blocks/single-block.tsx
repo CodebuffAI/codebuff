@@ -9,6 +9,7 @@ import { ContentWithMarkdown } from './content-with-markdown'
 import { ImageBlock } from './image-block'
 import { UserBlockTextWithInlineCopy } from './user-content-copy'
 import { useTheme } from '../../hooks/use-theme'
+import { GateStateBox } from '../renderers/gate-state-box'
 import { PlanBox } from '../renderers/plan-box'
 
 import type {
@@ -31,8 +32,6 @@ interface SingleBlockProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
   isLastMessage?: boolean
   contentToCopy?: string
 }
@@ -51,8 +50,6 @@ export const SingleBlock = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
-    onBuildMax,
-    onBuildLite,
     isLastMessage,
     contentToCopy,
   }: SingleBlockProps): ReactNode => {
@@ -116,12 +113,22 @@ export const SingleBlock = memo(
           <box key={`${messageId}-plan-${idx}`} style={{ width: '100%' }}>
             <PlanBox
               planContent={block.content}
+              metadata={block.metadata}
               availableWidth={availableWidth}
               markdownPalette={markdownPalette}
               onBuildFast={onBuildFast}
-              onBuildMax={onBuildMax}
-              onBuildLite={onBuildLite}
             />
+          </box>
+        )
+      }
+
+      case 'gate-state': {
+        return (
+          <box
+            key={`${messageId}-gate-state-${idx}`}
+            style={{ width: '100%' }}
+          >
+            <GateStateBox block={block} />
           </box>
         )
       }
@@ -175,8 +182,6 @@ export const SingleBlock = memo(
             markdownPalette={markdownPalette}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
-            onBuildMax={onBuildMax}
-            onBuildLite={onBuildLite}
             siblingBlocks={blocks}
             isLastMessage={isLastMessage}
           />

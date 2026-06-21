@@ -53,9 +53,10 @@ const EditHeader = ({ name, filePath }: EditHeaderProps) => {
 
 interface PatchOperationItemProps {
   operation: PatchOperation
+  availableWidth: number
 }
 
-const PatchOperationItem = ({ operation }: PatchOperationItemProps) => {
+const PatchOperationItem = ({ operation, availableWidth }: PatchOperationItemProps) => {
   if (operation.type === 'create_file') {
     return <EditHeader name="Create" filePath={operation.path} />
   }
@@ -68,7 +69,7 @@ const PatchOperationItem = ({ operation }: PatchOperationItemProps) => {
     <box style={{ flexDirection: 'column', width: '100%' }}>
       <EditHeader name="Edit" filePath={operation.path} />
       <box style={{ paddingLeft: 2, width: '100%' }}>
-        <DiffViewer diffText={operation.diff} />
+        <DiffViewer diffText={operation.diff} availableWidth={Math.max(10, availableWidth - 4)} />
       </box>
     </box>
   )
@@ -77,7 +78,7 @@ const PatchOperationItem = ({ operation }: PatchOperationItemProps) => {
 export const ApplyPatchComponent = defineToolComponent({
   toolName: 'apply_patch',
 
-  render(toolBlock): ToolRenderConfig {
+  render(toolBlock, _theme, options): ToolRenderConfig {
     const operation = parseOperation(toolBlock.input)
 
     if (!operation) {
@@ -87,7 +88,10 @@ export const ApplyPatchComponent = defineToolComponent({
     return {
       content: (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          <PatchOperationItem operation={operation} />
+          <PatchOperationItem
+            operation={operation}
+            availableWidth={options.availableWidth}
+          />
         </box>
       ),
     }

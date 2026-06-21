@@ -64,6 +64,27 @@ export const handleStrReplace = (async (
     Boolean(replacement.basedOnRead),
   )
 
+  if (
+    fileProcessingState.strictReadBeforeEdit &&
+    !hasReadCapability &&
+    !fileProcessingState.readAuthorizationsByPath?.[path]
+  ) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: path,
+            errorMessage: [
+              `Edit blocked: strict read-before-edit is enabled and no read authorization exists for ${path} in this turn.`,
+              `Recovery required: call read_files for ${path} (the exact target file and line range) before retrying str_replace, or include a basedOnRead capability on at least one replacement.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
   if (!fileProcessingState.promisesByPath[path] || hasReadCapability) {
     fileProcessingState.promisesByPath[path] = []
   }
@@ -113,6 +134,15 @@ export const handleStrReplace = (async (
     fileProcessingState.failedEditRequiresReadByPath[path] = true
   } else {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
+    // Strict read-before-edit: a successful edit consumes the per-path read
+    // authorization so a second edit on the same path must either re-read or
+    // anchor itself with a fresh basedOnRead capability.
+    if (
+      fileProcessingState.strictReadBeforeEdit &&
+      fileProcessingState.readAuthorizationsByPath
+    ) {
+      delete fileProcessingState.readAuthorizationsByPath[path]
+    }
   }
 
   const clientToolResult = await postStreamProcessing<'str_replace'>(

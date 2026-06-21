@@ -27,18 +27,15 @@ import {
   type BlockProcessorHandlers,
 } from '../../utils/block-processor'
 import { getCodeSearcherCollapsedPreview } from '../../utils/code-search-summary'
-import {
-  shouldRenderAsSimpleText,
-  isMultiPromptEditor,
-} from '../../utils/constants'
+import { shouldRenderAsSimpleText } from '../../utils/constants'
 import {
   isImplementorAgent,
   getImplementorIndex,
   getImplementationIdIndex,
   getImplementorPromptPreview,
-  getMultiPromptPreview,
 } from '../../utils/implementor-helpers'
 import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
+import { wrapTextPreservingNewlines } from '../../utils/text-layout'
 
 import type {
   AgentContentBlock,
@@ -74,17 +71,6 @@ function getCollapsedPreview(
     }
   }
 
-  // For multi-prompt editors, try progress-focused preview first
-  if (isMultiPromptEditor(agentBlock.agentType)) {
-    const multiPromptPreview = getMultiPromptPreview(
-      agentBlock.blocks,
-      agentBlock.status === 'complete',
-    )
-    if (multiPromptPreview) {
-      return multiPromptPreview
-    }
-  }
-
   const codeSearcherPreview = getCodeSearcherCollapsedPreview(agentBlock)
   if (codeSearcherPreview) {
     return codeSearcherPreview
@@ -113,8 +99,6 @@ interface AgentBodyProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
   isLastMessage?: boolean
 }
 
@@ -128,8 +112,6 @@ interface AgentBodyPropsRef {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
   isLastMessage?: boolean
   theme: ReturnType<typeof useTheme>
   getAgentMarkdownOptions: (indent: number) => {
@@ -147,8 +129,6 @@ const AgentBody = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
-    onBuildMax,
-    onBuildLite,
     isLastMessage,
   }: AgentBodyProps): ReactNode[] => {
     const theme = useTheme()
@@ -184,8 +164,6 @@ const AgentBody = memo(
       markdownPalette,
       onToggleCollapsed,
       onBuildFast,
-      onBuildMax,
-      onBuildLite,
       isLastMessage,
       theme,
       getAgentMarkdownOptions,
@@ -256,8 +234,6 @@ const AgentBody = memo(
                   markdownPalette={p.markdownPalette}
                   onToggleCollapsed={p.onToggleCollapsed}
                   onBuildFast={p.onBuildFast}
-                  onBuildMax={p.onBuildMax}
-                  onBuildLite={p.onBuildLite}
                   siblingBlocks={p.nestedBlocks}
                   isLastMessage={p.isLastMessage}
                 />
@@ -338,8 +314,6 @@ export interface AgentBranchWrapperProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
   siblingBlocks?: ContentBlock[]
   isLastMessage?: boolean
 }
@@ -352,8 +326,6 @@ export const AgentBranchWrapper = memo(
     markdownPalette,
     onToggleCollapsed,
     onBuildFast,
-    onBuildMax,
-    onBuildLite,
     siblingBlocks,
     isLastMessage,
   }: AgentBranchWrapperProps) => {
@@ -440,6 +412,10 @@ export const AgentBranchWrapper = memo(
         }
       }
 
+      const wrappedReason = reason
+        ? wrapTextPreservingNewlines(reason, Math.max(10, availableWidth - 2))
+        : undefined
+
       return (
         <box
           key={keyPrefix}
@@ -447,6 +423,8 @@ export const AgentBranchWrapper = memo(
             flexDirection: 'column',
             gap: 0,
             width: '100%',
+            minWidth: 0,
+            flexShrink: 1,
           }}
         >
           <text style={{ wrapMode: 'word' }}>
@@ -456,7 +434,7 @@ export const AgentBranchWrapper = memo(
               {statusText}
             </span>
           </text>
-          {reason && (
+          {wrappedReason && (
             <text
               style={{
                 wrapMode: 'word',
@@ -464,7 +442,7 @@ export const AgentBranchWrapper = memo(
                 marginLeft: 2,
               }}
             >
-              {reason}
+              {wrappedReason}
             </text>
           )}
         </box>
@@ -495,7 +473,16 @@ export const AgentBranchWrapper = memo(
     }, [onToggleCollapsed, agentBlock.agentId])
 
     return (
-      <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
+      <box
+        key={keyPrefix}
+        style={{
+          flexDirection: 'column',
+          gap: 0,
+          width: '100%',
+          minWidth: 0,
+          flexShrink: 1,
+        }}
+      >
         <AgentBranchItem
           name={agentBlock.agentName}
           prompt={displayPrompt}
@@ -507,6 +494,7 @@ export const AgentBranchWrapper = memo(
           statusColor={statusColor}
           statusIndicator={statusIndicator}
           onToggle={onToggle}
+          availableWidth={availableWidth}
         >
           <AgentBody
             agentBlock={agentBlock}
@@ -516,8 +504,6 @@ export const AgentBranchWrapper = memo(
             markdownPalette={markdownPalette}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
-            onBuildMax={onBuildMax}
-            onBuildLite={onBuildLite}
             isLastMessage={isLastMessage}
           />
         </AgentBranchItem>

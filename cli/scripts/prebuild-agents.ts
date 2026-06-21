@@ -13,7 +13,6 @@
  *   bun run scripts/prebuild-agents.ts
  */
 
-import { createHash } from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -39,8 +38,12 @@ function getAllTsFiles(dir: string): string[] {
       const fullPath = path.join(dir, entry.name)
 
       if (entry.isDirectory()) {
-        // Skip __tests__ and node_modules directories
-        if (entry.name === '__tests__' || entry.name === 'node_modules' || entry.name === 'types') {
+        // Skip tests and generated-only type directories.
+        if (
+          entry.name === '__tests__' ||
+          entry.name === 'node_modules' ||
+          entry.name === 'types'
+        ) {
           continue
         }
         files.push(...getAllTsFiles(fullPath))
@@ -84,22 +87,6 @@ async function loadAgentDefinition(filePath: string): Promise<AgentDefinition | 
   } catch (error) {
     console.error(`Error loading agent from ${filePath}:`, error)
     return null
-  }
-}
-
-function logSelectedAgentHandleHashes(agents: Record<string, AgentDefinition>) {
-  for (const agentId of ['editor-multi-prompt']) {
-    const handleSteps = agents[agentId]?.handleSteps
-
-    if (typeof handleSteps !== 'string') {
-      console.log(`   DEBUG: ${agentId} handleSteps hash unavailable`)
-      continue
-    }
-
-    const hash = createHash('sha256').update(handleSteps).digest('hex')
-    console.log(
-      `   DEBUG: ${agentId} handleSteps sha256=${hash} length=${handleSteps.length}`,
-    )
   }
 }
 
@@ -196,7 +183,6 @@ async function main() {
 
   if (DEBUG) {
     console.log(`\n📦 DEBUG: Loaded ${loadedCount} agents, skipped ${skippedCount} files`)
-    logSelectedAgentHandleHashes(agents)
   }
 
   // Generate the output file

@@ -17,6 +17,54 @@ export const spawnAgentsOutputSchema = z
   .and(jsonObjectSchema)
   .array()
 
+/**
+ * Optional, formal handoff payload that a parent can attach to a spawn_agents
+ * entry to describe what the child should treat as authoritative context.
+ *
+ * Consumers may ignore this field entirely; it is purely additive metadata.
+ * Free-form `prompt` and `params` continue to work unchanged.
+ */
+export const agentHandoffSchema = z
+  .object({
+    summary: z
+      .string()
+      .optional()
+      .describe(
+        'Short, plain-language summary of what the parent has already done and what it expects the child to do next.',
+      ),
+    artifacts: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Paths to durable artifacts the child should treat as authoritative (e.g. .agents/sessions/<slug>/PLAN.md).',
+      ),
+    successCriteria: z
+      .array(z.string())
+      .optional()
+      .describe('Bulleted acceptance criteria for the spawned child agent.'),
+    nonGoals: z
+      .array(z.string())
+      .optional()
+      .describe('Explicit non-goals that the child must not attempt.'),
+    constraints: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these.',
+      ),
+    context: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe(
+        'Free-form structured context. Opaque to spawn_agents; the child agent may interpret as needed.',
+      ),
+  })
+  .describe(
+    'Optional structured handoff context for a spawned agent. Backward-compatible: omit entirely to preserve existing free-form prompt-only behavior.',
+  )
+
+export type AgentHandoff = z.infer<typeof agentHandoffSchema>
+
 const toolName = 'spawn_agents'
 const endsAgentStep = true
 const inputSchema = z
@@ -27,6 +75,11 @@ const inputSchema = z
         .object({
           agent_type: z.string().describe('Agent to spawn'),
           prompt: z.string().optional().describe('Prompt to send to the agent'),
+          handoff: agentHandoffSchema
+            .optional()
+            .describe(
+              'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
+            ),
           params: z
             .preprocess(
               coerceToObject,
@@ -110,9 +163,7 @@ const inputSchema = z
                   prompts: z
                     .array(z.string())
                     .optional()
-                    .describe(
-                      'Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt)',
-                    ),
+                    .describe('Optional agent-specific prompts'),
                 })
                 .catchall(z.any()),
             )

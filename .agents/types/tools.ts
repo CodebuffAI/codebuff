@@ -705,7 +705,7 @@ export interface SpawnAgentsParams {
       directories?: string[]
       /** Starting URL to navigate to (browser-use) */
       url?: string
-      /** Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt) */
+      /** Optional agent-specific prompts */
       prompts?: string[]
       [key: string]: any
     }

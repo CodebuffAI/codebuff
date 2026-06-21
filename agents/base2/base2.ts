@@ -1,5 +1,11 @@
 import { buildArray } from '@codebuff/common/util/array'
 
+import type {
+  Base2ActiveWorkPhase,
+  Base2ActiveWorkState,
+  Base2WorkflowTodo,
+  Base2WorkflowTodoProgress,
+} from './gate-state'
 import { publisher } from '../constants'
 import {
   PLACEHOLDER,
@@ -7,10 +13,11 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'default' | 'max' | 'fast',
+  mode: 'default' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
+    executePlan?: boolean
     noAskUser?: boolean
     model?: SecretAgentDefinition['model']
     providerOptions?: SecretAgentDefinition['providerOptions']
@@ -19,13 +26,13 @@ export function createBase2(
   const {
     hasNoValidation = mode === 'fast',
     planOnly = false,
+    executePlan = false,
     noAskUser = false,
     model: modelOverride,
     providerOptions,
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
-  const isMax = mode === 'max'
 
   const isSonnet = false
   const model = modelOverride ?? 'anthropic/claude-opus-4.7'
@@ -62,7 +69,8 @@ export function createBase2(
       'read_subtree',
       'read_outline',
       !isFast && 'write_todos',
-      !isFast && !noAskUser && 'suggest_followups',
+      'create_plan',
+      'update_plan_status',
       'str_replace',
       'rewrite_symbol',
       'edit_transaction',
@@ -70,6 +78,7 @@ export function createBase2(
       'propose_str_replace',
       'propose_write_file',
       'run_file_change_hooks',
+      'suggest_followups',
       !noAskUser && 'ask_user',
       'skill',
       'set_output',
@@ -81,21 +90,17 @@ export function createBase2(
       'git_status',
     ),
     spawnableAgents: buildArray(
-      !isMax && 'file-picker',
-      isMax && 'file-picker-max',
+      'file-picker',
       'code-searcher',
       'researcher-web',
       'researcher-docs',
       'basher',
       isDefault && 'thinker',
-      (isDefault || isMax) && 'general-agent',
-      isMax && 'thinker-best-of-n',
+      isDefault && 'general-agent',
       isDefault && 'editor',
-      isMax && 'editor-multi-prompt',
       'tmux-cli',
       'browser-use',
-      isDefault && 'code-reviewer',
-      isMax && 'code-reviewer-multi-prompt',
+      'code-reviewer',
       'context-pruner',
     ),
 
@@ -159,10 +164,11 @@ When tools, tests, or reviewers report a failure, treat that feedback as the cur
 3. **Atomic transaction recovery:** If \`edit_transaction\` aborts, no files changed. Re-read the failed file ranges named in the diagnostic, fix ambiguous \`oldString\` targets with a longer anchor or \`occurrenceIndex\`, then retry the whole related transaction rather than applying only the previously successful edits.
 4. **Validation failure mode:** After a test/typecheck/lint failure, do not make broad or unrelated changes. Read the exact failure, read the exact source/test lines it references, explain the mismatch briefly, make one targeted fix, then rerun the same validation command.
 
-5. **Reviewer blockers are blocking:** If a reviewer asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), do that next or explicitly explain why it is not applicable. Do not continue implementing or finalize while a reviewer blocker is unresolved.
-6. **Loop detection:** If the same edit or validation fails twice, stop the current approach. Summarize the current diff, the exact repeated failure, and the next deterministic action before proceeding.
-7. **Parallelism discipline:** Parallelize context gathering, tests, and review only when they do not depend on each other. During a fragile debug/fix loop, run read → one edit → validation sequentially to avoid state drift.
-8. **Validation/review join discipline:** A reviewer spawned in parallel with tests/typechecks can only provide static code review; it cannot know validation results that are still running. Do not treat parallel reviewer approval as final approval until validation has completed. If validation fails or times out, fix or rerun validation before finalizing, regardless of reviewer output. For fragile harness/editor changes, prefer running validation first, then run reviewer with the validation summary.
+5. **Reviewer blockers are blocking:** If a reviewer returns \`BLOCKING:\` or asks for a specific action (rerun tests, fix a case, revert a change, or inspect a file), treat that exact finding as the controlling next action. Copy or paraphrase the specific blocker into your todos/progress state, do that action next, and do not run another review, continue unrelated implementation, or finalize while it is unresolved. In the next review prompt, explicitly state the blocker you fixed and how you fixed it.
+6. **Repeated reviewer blocker loop:** If a reviewer reports substantially the same blocker twice, stop and acknowledge the loop. Re-read the relevant code/test lines, make one targeted fix for that exact blocker, add or update a regression test when applicable, rerun the required validation, then request review once with the validation result and the exact blocker-resolution summary.
+7. **Loop detection:** If the same edit or validation fails twice, stop the current approach. Summarize the current diff, the exact repeated failure, and the next deterministic action before proceeding.
+8. **Parallelism discipline:** Parallelize context gathering, tests, and review only when they do not depend on each other. During a fragile debug/fix loop, run read → one edit → validation sequentially to avoid state drift.
+9. **Validation/review join discipline:** A reviewer spawned in parallel with tests/typechecks can only provide static code review; it cannot know validation results that are still running. Do not treat parallel reviewer approval as final approval until validation has completed. If validation fails or times out, fix or rerun validation before finalizing, regardless of reviewer output. For fragile harness/editor changes, prefer running validation first, then run reviewer with the validation summary.
 
 # Spawning agents guidelines
 
@@ -175,18 +181,16 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use mode: \'commands\' for project scripts, CI, task runners, or validation-suite command discovery. Do not rely on query_index alone for correctness.',
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
     isDefault &&
+      '- Manual code-reviewer use is for pre-edit/advisory review or when the user explicitly asks for an extra review. Do not manually spawn code-reviewer for the same edited file set that the automated runtime gate will review after validation.',
+    isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
-    (isDefault || isMax) &&
-      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n'} after gathering context to solve complex problems or when the user asks you to think about a problem. Use the semantic agent name rather than model-specific variants.`,
-    isMax &&
-      `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+    isDefault &&
+      '- Spawn the thinker after gathering context to solve complex problems or when the user asks you to think about a problem. Use the semantic agent name rather than model-specific variants.',
     '- Spawn bashers sequentially if the second command depends on the the first.',
     '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). Use kill_job when a background job is no longer needed. To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
     '- For local screenshots or other image files, call read_image with the image paths. Do not call read_files on image formats.',
     isDefault &&
-      '- After the editor returns, the default runtime automatically runs configured validation hooks and a code-reviewer gate before finalization; do not manually spawn an extra code-reviewer for the same change unless the user explicitly asks for an additional review.',
-    isMax &&
-      '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes. If you spawn it in parallel with validation, prompt it for static code review only and wait for validation before finalizing.',
+      '- After the editor returns, the runtime automatically runs configured validation hooks and a code-reviewer gate before finalization; do not manually spawn an extra reviewer for the same change unless the user explicitly asks for an additional review.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
@@ -195,7 +199,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 
 You are running on the ${model} model.
 
-Users send prompts to you in one of a few user-selected modes, like DEFAULT, MAX, or PLAN.
+Users send prompts to you in one of a few user-selected modes, like DEFAULT or PLAN.
 
 Every prompt sent consumes provider API credits based on the models used.
 
@@ -213,7 +217,7 @@ ${buildArray(
     '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
   '- If a tool fails, try again, or try a different tool or approach.',
   '- **Fetching logs:** Prefer tail -n or ranged reads (e.g. read_files with ranges) over dumping whole log files into context. For a live or long-running process, capture its output incrementally (e.g. tail a log file across steps) rather than blocking indefinitely on a single command.',
-  (isDefault || isMax) &&
+  isDefault &&
     '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
   '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
   isSonnet &&
@@ -242,25 +246,19 @@ ${buildArray(
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
-    : isFast
-      ? '[ You implement the changes using the str_replace or write_file tools ]'
-      : '[ You implement the changes using the editor-multi-prompt agent ]'
+    : '[ You implement the changes using the str_replace or write_file tools ]'
 }
 
 ${
   isDefault
-    ? `[ The default runtime detects changed files, runs configured validation hooks, and invokes the code-reviewer gate before finalization ]`
-    : isMax
-      ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
-      : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
+    ? `[ The runtime detects changed files, runs configured validation hooks, and invokes the code-reviewer gate before finalization ]`
+    : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
 }
 
 ${
   isDefault
     ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
-    : isMax
-      ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
-      : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
+    : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
 }
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
@@ -291,30 +289,123 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
     instructionsPrompt: planOnly
       ? buildPlanOnlyInstructionsPrompt({})
-      : buildImplementationInstructionsPrompt({
-          isSonnet,
-          isFast,
-          isDefault,
-          isMax,
-          hasNoValidation,
-          noAskUser,
-        }),
+      : executePlan
+        ? buildExecutePlanInstructionsPrompt({
+            isSonnet,
+            isFast,
+            isDefault,
+
+            hasNoValidation,
+            noAskUser,
+          })
+        : buildImplementationInstructionsPrompt({
+            isSonnet,
+            isFast,
+            isDefault,
+
+            hasNoValidation,
+            noAskUser,
+          }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
-      : buildImplementationStepPrompt({
-          isDefault,
-          isFast,
-          isMax,
-          hasNoValidation,
-          isSonnet,
-          noAskUser,
-        }),
+      : executePlan
+        ? buildExecutePlanStepPrompt({})
+        : buildImplementationStepPrompt({
+            isDefault,
+            isFast,
+            isSonnet,
+          }),
 
     handleSteps: function* ({ agentState, prompt, params }) {
-      const agentId = agentState?.agentId
-      const runValidationGate = agentId !== 'base2-fast' && agentId !== 'base2-fast-no-validation'
-      const runReviewerGate = agentId === 'base2' || agentId === 'base2-evals' || agentId === 'base2-plan'
+      type Base2AgentState = NonNullable<typeof agentState> & {
+        base2ActiveWork?: Base2ActiveWorkState
+        canSuggestFollowups?: boolean
+      }
 
+      const mutableAgentState = (agentState ?? {}) as Base2AgentState
+      const agentId = mutableAgentState.agentId
+      const runValidationGate = agentId !== 'base2-fast' && agentId !== 'base2-fast-no-validation'
+      const runReviewerGate = runValidationGate
+      const reviewerAgentType = 'code-reviewer'
+      const existingActiveWorkState = mutableAgentState.base2ActiveWork
+      const hadPendingGateFiles =
+        !!existingActiveWorkState &&
+        Object.prototype.hasOwnProperty.call(
+          existingActiveWorkState,
+          'pendingGateFiles',
+        )
+      const hadCurrentPhase =
+        !!existingActiveWorkState &&
+        Object.prototype.hasOwnProperty.call(existingActiveWorkState, 'currentPhase')
+      const activeWorkState =
+        existingActiveWorkState ??
+        {
+          touchedFiles: [],
+          changedFiles: [],
+          pendingGateFiles: [],
+          currentPhase: 'idle',
+          latestWorkSummary: '',
+          openReviewerBlockers: [],
+          lastValidationSummary: '',
+          nextRequiredAction: '',
+          lastPinnedStateMessage: '',
+          gatePassedFiles: [],
+          gatePassedPendingFiles: [],
+          gatePassedReviewerVerdict: '',
+          gatePassedValidationSummary: '',
+          gatePassedFingerprint: '',
+          lastReviewerGateSkipReason: '',
+        }
+      activeWorkState.touchedFiles ??= []
+      activeWorkState.changedFiles ??= []
+      activeWorkState.pendingGateFiles ??= []
+      activeWorkState.gatePassedFiles ??= []
+      activeWorkState.gatePassedPendingFiles ??= []
+      activeWorkState.gatePassedReviewerVerdict ??= ''
+      activeWorkState.gatePassedValidationSummary ??= ''
+      activeWorkState.gatePassedFingerprint ??= ''
+      activeWorkState.lastReviewerGateSkipReason ??= ''
+      activeWorkState.openReviewerBlockers ??= []
+      activeWorkState.latestWorkSummary ??= ''
+      activeWorkState.lastValidationSummary ??= ''
+      activeWorkState.nextRequiredAction ??= ''
+      activeWorkState.lastPinnedStateMessage ??= ''
+      activeWorkState.workflowTodoProgress = normalizeWorkflowTodoProgress(
+        activeWorkState.workflowTodoProgress,
+      )
+      activeWorkState.touchedFiles = normalizeGateFileList(activeWorkState.touchedFiles)
+      activeWorkState.changedFiles = normalizeGateFileList(activeWorkState.changedFiles)
+      activeWorkState.pendingGateFiles = normalizeGateFileList(
+        activeWorkState.pendingGateFiles,
+      )
+      activeWorkState.gatePassedFiles = normalizeGateFileList(
+        activeWorkState.gatePassedFiles,
+      )
+      activeWorkState.gatePassedPendingFiles = normalizeGateFileList(
+        activeWorkState.gatePassedPendingFiles,
+      )
+      updateWorkflowTodoProgressFromMessages(mutableAgentState.messageHistory)
+      if (!hadCurrentPhase) {
+        activeWorkState.currentPhase = inferActiveWorkPhase(activeWorkState)
+      }
+      if (
+        !hadPendingGateFiles &&
+        !hadCurrentPhase &&
+        activeWorkState.pendingGateFiles.length === 0 &&
+        activeWorkState.changedFiles.length > 0 &&
+        (activeWorkState.openReviewerBlockers.length > 0 ||
+          activeWorkState.nextRequiredAction.trim().length > 0)
+      ) {
+        activeWorkState.pendingGateFiles = [...activeWorkState.changedFiles]
+        activeWorkState.currentPhase = 'blocked'
+        activeWorkState.lastPinnedStateMessage = ''
+      }
+      mutableAgentState.base2ActiveWork = activeWorkState
+      let processedMessageHistoryLength = Array.isArray(
+        mutableAgentState.messageHistory,
+      )
+        ? mutableAgentState.messageHistory.length
+        : 0
       if (shouldProactivelyQueryIndex(prompt)) {
         yield {
           toolName: 'query_index',
@@ -331,9 +422,21 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       } as any
       const initialGitStatusFiles = extractGitStatusFiles(
         (initialGitStatus as any)?.toolResult,
-      )
-      const changedFiles = new Set<string>()
-      let editsHappened = false
+      ).filter((file) => !activeWorkState.gatePassedFiles.includes(file))
+      const changedFiles = new Set<string>(activeWorkState.changedFiles)
+      const pendingGateFiles = new Set<string>(activeWorkState.pendingGateFiles)
+      let editsHappened =
+        pendingGateFiles.size > 0 ||
+        ((activeWorkState.currentPhase === 'awaiting_validation' ||
+          activeWorkState.currentPhase === 'awaiting_review') &&
+          activeWorkState.changedFiles.length > 0)
+      let gatePassedForCurrentEdits = false
+      let finalResponseGateOpen =
+        activeWorkState.currentPhase === 'final_response_allowed' &&
+        pendingGateFiles.size === 0 &&
+        activeWorkState.openReviewerBlockers.length === 0 &&
+        activeWorkState.nextRequiredAction.trim().length === 0
+      const gatePassedFiles = new Set<string>(activeWorkState.gatePassedFiles)
       while (true) {
         yield {
           toolName: 'spawn_agent_inline',
@@ -344,14 +447,59 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           includeToolCall: false,
         } as any
 
+        mutableAgentState.canSuggestFollowups =
+          !runValidationGate || finalResponseGateOpen
+
+        const pinnedStateMessage = buildPinnedActiveWorkMessage(activeWorkState)
+        if (
+          pinnedStateMessage &&
+          pinnedStateMessage !== activeWorkState.lastPinnedStateMessage
+        ) {
+          activeWorkState.lastPinnedStateMessage = pinnedStateMessage
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: pinnedStateMessage,
+            },
+            includeToolCall: false,
+          } as any
+        }
+
         const stepResult = yield 'STEP'
         const { stepsComplete } = stepResult
+        let editsThisStep = false
         const files = extractChangedFiles(
           (stepResult as any) && (stepResult as any).toolResult,
         )
         if (files.length > 0) {
           editsHappened = true
-          for (const f of files) changedFiles.add(f)
+          editsThisStep = true
+          recordChangedFiles(files)
+          activeWorkState.latestWorkSummary = `Latest detected edit/work touched: ${files.join(', ')}`
+          markActiveWorkStateChanged()
+        }
+        const messageHistory = (stepResult as any)?.agentState?.messageHistory
+        const messageFiles = extractChangedFilesFromMessages(
+          messageHistory,
+          processedMessageHistoryLength,
+        )
+        if (Array.isArray(messageHistory)) {
+          updateWorkflowTodoProgressFromMessages(messageHistory)
+          processedMessageHistoryLength = messageHistory.length
+        }
+        if (messageFiles.length > 0) {
+          editsHappened = true
+          editsThisStep = true
+          recordChangedFiles(messageFiles)
+          activeWorkState.latestWorkSummary = `Latest direct edit/work from message history touched: ${messageFiles.join(', ')}`
+          markActiveWorkStateChanged()
+        }
+        if (editsThisStep) {
+          gatePassedForCurrentEdits = false
+          finalResponseGateOpen = false
+          activeWorkState.currentPhase = 'awaiting_validation'
+          markActiveWorkStateChanged()
         }
 
         if (!stepsComplete) continue
@@ -360,13 +508,131 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           toolName: 'git_status',
           input: {},
         } as any
-        for (const file of extractGitStatusFiles(
+        const gitStatusFiles = extractGitStatusFiles(
           (currentGitStatus as any)?.toolResult,
-        )) {
-          if (!initialGitStatusFiles.includes(file)) {
+        )
+        const currentGitStatusLineMap = extractGitStatusLineMap(
+          (currentGitStatus as any)?.toolResult,
+        )
+        for (const file of gitStatusFiles) {
+          if (
+            !initialGitStatusFiles.includes(file) &&
+            !gatePassedFiles.has(file)
+          ) {
             editsHappened = true
-            changedFiles.add(file)
+            recordChangedFiles([file])
+            activeWorkState.latestWorkSummary = `Git status shows pending changed files: ${Array.from(pendingGateFiles).join(', ')}`
+            markActiveWorkStateChanged()
+            if (!gatePassedForCurrentEdits) editsThisStep = true
           }
+        }
+        if (editsThisStep) {
+          gatePassedForCurrentEdits = false
+          finalResponseGateOpen = false
+          activeWorkState.currentPhase = 'awaiting_validation'
+          markActiveWorkStateChanged()
+        }
+
+        if (finalResponseGateOpen && !editsThisStep) break
+
+        const currentPendingGateFiles = Array.from(pendingGateFiles)
+        if (
+          runValidationGate &&
+          editsHappened &&
+          currentPendingGateFiles.length === 0
+        ) {
+          activeWorkState.lastReviewerGateSkipReason =
+            'edits-detected-without-pending-gate-files'
+          activeWorkState.nextRequiredAction =
+            'Unsafe reviewer gate state: edits were detected without pending gate files. Re-read the edited files/status, make a minimal follow-up edit if needed to restore pending gate files, then finish so validation/review can run safely.'
+          activeWorkState.currentPhase = 'blocked'
+          activeWorkState.latestWorkSummary =
+            'Unsafe gate state: edits were detected without pending gate files.'
+          markActiveWorkStateChanged()
+          emitGateTelemetry({
+            currentPhase: activeWorkState.currentPhase,
+            pendingFileCount: 0,
+            pendingFiles: [],
+            skipReason: 'edits-detected-without-pending-gate-files',
+            validationStatus: 'failed',
+            reviewerStatus: 'failed',
+          })
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                'Reviewer/validation gate cannot safely continue: edits were detected, but there are no pending gate files to validate or review.',
+                '',
+                'Skip/error reason: edits-detected-without-pending-gate-files.',
+                'Do not finalize. Re-read the edited files/status, make a minimal follow-up edit if needed to restore pending gate files, then finish so validation/review can run safely.',
+                formatGateStateBlock(
+                  'validation/reviewer',
+                  'failed',
+                  'edits-detected-without-pending-gate-files: edits were detected, but there are no pending gate files to validate or review.',
+                ),
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+          continue
+        }
+        if (
+          runValidationGate &&
+          editsHappened &&
+          hasDurableGatePassForPendingFiles(
+            currentPendingGateFiles,
+            currentGitStatusLineMap,
+          )
+        ) {
+          const durableReviewerVerdict = reviewerFinalizationVerdictFromDurablePass()
+          const durableValidationSummary =
+            activeWorkState.gatePassedValidationSummary ||
+            activeWorkState.lastValidationSummary ||
+            'No configured file-change hooks ran.'
+          activeWorkState.openReviewerBlockers = []
+          activeWorkState.pendingGateFiles = []
+          activeWorkState.latestWorkSummary = ''
+          activeWorkState.nextRequiredAction = ''
+          activeWorkState.currentPhase = 'final_response_allowed'
+          activeWorkState.lastReviewerGateSkipReason = ''
+          activeWorkState.lastValidationSummary = durableValidationSummary
+          pendingGateFiles.clear()
+          editsHappened = false
+          gatePassedForCurrentEdits = true
+          finalResponseGateOpen = true
+          mutableAgentState.canSuggestFollowups = true
+          markActiveWorkStateChanged()
+          emitGateTelemetry({
+            currentPhase: 'final_response_allowed',
+            pendingFileCount: currentPendingGateFiles.length,
+            pendingFiles: currentPendingGateFiles,
+            reviewerStatus: 'passed',
+            validationStatus: 'passed',
+            reuseReason: 'durable-fingerprint-match',
+            reviewerVerdict: durableReviewerVerdict,
+            fingerprintPrefix:
+              typeof activeWorkState.gatePassedFingerprint === 'string'
+                ? activeWorkState.gatePassedFingerprint.slice(0, 16)
+                : undefined,
+          })
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                `Previous validation and reviewer gate already passed with ${durableReviewerVerdict} for pending files: ${currentPendingGateFiles.join(', ')}.`,
+                'You may now provide the final user-visible summary and optional follow-up suggestions. Do not make more edits unless absolutely necessary; any new edits will rerun the gate.',
+                formatGateStateBlock(
+                  'validation/reviewer',
+                  'passed',
+                  `durable gate-pass reuse via fingerprint match; reviewer verdict ${durableReviewerVerdict}; pending files: ${currentPendingGateFiles.join(', ')}`,
+                ),
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+          continue
         }
 
         // Verification gate: after the model thinks it's done, run configured
@@ -378,12 +644,26 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         if (editsHappened && runValidationGate) {
           const verify = yield {
             toolName: 'run_file_change_hooks',
-            input: { files: Array.from(changedFiles) },
+            input: { files: Array.from(pendingGateFiles) },
           } as any
           const failures = collectHookFailures(
             (verify as any) && (verify as any).toolResult,
           )
           if (failures.length > 0) {
+            activeWorkState.nextRequiredAction =
+              'Fix the blocking validation hook failures before doing anything else.'
+            activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
+            activeWorkState.currentPhase = 'blocked'
+            activeWorkState.latestWorkSummary = `Validation failed for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`
+            markActiveWorkStateChanged()
+            emitGateTelemetry({
+              currentPhase: 'blocked',
+              pendingFileCount: pendingGateFiles.size,
+              pendingFiles: Array.from(pendingGateFiles),
+              validationStatus: 'failed',
+              skipReason: 'validation-hook-failures',
+              blockerCount: failures.length,
+            })
             yield {
               toolName: 'add_message',
               input: {
@@ -394,6 +674,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                   ...failures,
                   '',
                   'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
+                  formatGateStateBlock(
+                    'validation',
+                    'failed',
+                    `validation-hook-failures: ${failures.length} hook failure(s) for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                  ),
                 ].join('\n'),
               },
               includeToolCall: false,
@@ -403,22 +688,28 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           validationSummary = summarizeHookResults(
             (verify as any) && (verify as any).toolResult,
           )
+          activeWorkState.lastValidationSummary = validationSummary
+          activeWorkState.currentPhase = 'awaiting_review'
+          markActiveWorkStateChanged()
         }
 
+        let reviewerFinalizationVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' = ''
         if (runReviewerGate && editsHappened) {
+          activeWorkState.lastReviewerGateSkipReason = ''
+          markActiveWorkStateChanged()
           const review = yield {
             toolName: 'spawn_agents',
             input: {
               agents: [
                 {
-                  agent_type: 'code-reviewer',
+                  agent_type: reviewerAgentType,
                   prompt: [
                     'Review the completed default-flow code changes before finalization.',
                     '',
-                    `Changed files: ${Array.from(changedFiles).join(', ') || '(unknown)'}`,
+                    `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
                     `Validation gate summary: ${validationSummary}`,
                     '',
-                    'Review after the validation gate above. Start with BLOCKING, NON_BLOCKING, or LOOKS_GOOD.',
+                    'Review after the validation gate above. The first visible token of your reply must be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD: (text mode). If you prefer, you may also emit a single JSON object such as {"verdict":"BLOCKING"|"NON_BLOCKING"|"LOOKS_GOOD", "findings": ["..."]} — the orchestrator accepts either form.',
                   ].join('\n'),
                 },
               ],
@@ -428,16 +719,44 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             (review as any) && (review as any).toolResult,
           )
           if (blockers.length > 0) {
+            activeWorkState.openReviewerBlockers = blockers
+            activeWorkState.nextRequiredAction =
+              'Resolve the reviewer feedback below before any unrelated work, final response, or another review.'
+            activeWorkState.currentPhase = 'blocked'
+            activeWorkState.latestWorkSummary = `Reviewer feedback is open for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`
+            markActiveWorkStateChanged()
             yield {
               toolName: 'add_message',
               input: {
                 role: 'user',
                 content: [
-                  'Reviewer gate: code-reviewer returned blocking feedback. Resolve it before ending your turn:',
+                  `Reviewer gate: ${reviewerAgentType} returned blocking feedback. Resolve it before ending your turn:`,
                   '',
                   ...blockers,
                   '',
-                  'Make the minimal required fixes, rerun validation as needed, then finish (review will run again).',
+                  'Make the minimal required improvements, rerun validation as needed, then finish (review will run again).',
+                ].join('\n'),
+              },
+              includeToolCall: false,
+            } as any
+            continue
+          }
+          reviewerFinalizationVerdict = getReviewerFinalizationVerdict(
+            (review as any) && (review as any).toolResult,
+          )
+          if (!reviewerFinalizationVerdict) {
+            activeWorkState.nextRequiredAction =
+              'Clarify or resolve the reviewer gate result; reviewer did not return LOOKS_GOOD or NON_BLOCKING.'
+            activeWorkState.currentPhase = 'blocked'
+            markActiveWorkStateChanged()
+            yield {
+              toolName: 'add_message',
+              input: {
+                role: 'user',
+                content: [
+                  `Reviewer gate: ${reviewerAgentType} did not return LOOKS_GOOD or NON_BLOCKING. Resolve or clarify before ending your turn:`,
+                  '',
+                  'The reviewer must start with LOOKS_GOOD, BLOCKING, or NON_BLOCKING.',
                 ].join('\n'),
               },
               includeToolCall: false,
@@ -445,13 +764,576 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             continue
           }
         }
+
+        if (runValidationGate) {
+          const passedPendingFiles = Array.from(pendingGateFiles)
+          let activeWorkStateChanged = false
+          if (
+            passedPendingFiles.length > 0 &&
+            reviewerFinalizationVerdict
+          ) {
+            activeWorkState.openReviewerBlockers = []
+            pendingGateFiles.clear()
+            activeWorkState.pendingGateFiles = []
+            activeWorkState.latestWorkSummary = ''
+            editsHappened = false
+            for (const file of passedPendingFiles) {
+              gatePassedFiles.add(file)
+            }
+            activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
+            activeWorkState.gatePassedPendingFiles = passedPendingFiles
+            activeWorkState.gatePassedReviewerVerdict = reviewerFinalizationVerdict
+            activeWorkState.gatePassedValidationSummary = validationSummary
+            activeWorkState.gatePassedFingerprint = buildGateFingerprint(
+              passedPendingFiles,
+              currentGitStatusLineMap,
+              validationSummary,
+            )
+            activeWorkState.lastReviewerGateSkipReason = ''
+            activeWorkStateChanged = true
+          }
+          if (activeWorkState.nextRequiredAction) {
+            activeWorkState.nextRequiredAction = ''
+            activeWorkStateChanged = true
+          }
+          if (activeWorkState.currentPhase !== 'final_response_allowed') {
+            activeWorkState.currentPhase = 'final_response_allowed'
+            activeWorkStateChanged = true
+          }
+          if (activeWorkStateChanged) {
+            markActiveWorkStateChanged()
+          }
+          gatePassedForCurrentEdits = passedPendingFiles.length > 0
+          finalResponseGateOpen = true
+          mutableAgentState.canSuggestFollowups = true
+          const noConfiguredHooksRan =
+            validationSummary === 'No configured file-change hooks ran.'
+          const passVerdict = reviewerFinalizationVerdict || 'LOOKS_GOOD'
+          const passDetails =
+            passedPendingFiles.length > 0
+              ? `reviewer verdict ${passVerdict}; ${noConfiguredHooksRan ? 'no configured file-change hooks ran' : 'validation hooks ran'}; pending files: ${passedPendingFiles.join(', ')}`
+              : `no edited files were detected; reviewer verdict ${passVerdict || 'n/a'}; hooks ran=${!noConfiguredHooksRan}`
+          emitGateTelemetry({
+            currentPhase: 'final_response_allowed',
+            pendingFileCount: passedPendingFiles.length,
+            pendingFiles: passedPendingFiles,
+            reviewerStatus: passedPendingFiles.length > 0 ? 'passed' : 'skipped',
+            validationStatus: noConfiguredHooksRan ? 'skipped' : 'passed',
+            reviewerVerdict: passVerdict,
+            hooksRan: !noConfiguredHooksRan,
+          })
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                passedPendingFiles.length > 0
+                  ? noConfiguredHooksRan
+                    ? `Reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}. No configured file-change hooks ran, so automated validation did not execute.`
+                    : `Automated validation and reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}.`
+                  : 'No edited files were detected.',
+                'You may now provide the final user-visible summary and optional follow-up suggestions. Do not make more edits unless absolutely necessary; any new edits will rerun the gate.',
+                formatGateStateBlock(
+                  'validation/reviewer',
+                  'passed',
+                  passDetails,
+                ),
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+          continue
+        }
+        if (editsHappened) {
+          activeWorkState.lastReviewerGateSkipReason =
+            'validation-and-reviewer-gates-disabled'
+          markActiveWorkStateChanged()
+          emitGateTelemetry({
+            currentPhase: activeWorkState.currentPhase,
+            pendingFileCount: pendingGateFiles.size,
+            pendingFiles: Array.from(pendingGateFiles),
+            reviewerStatus: 'skipped',
+            validationStatus: 'skipped',
+            skipReason: 'validation-and-reviewer-gates-disabled',
+          })
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                'Validation and reviewer gates are disabled for this agent mode; skipping automated gate checks even though edits were detected.',
+                `Pending edited files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                formatGateStateBlock(
+                  'validation/reviewer',
+                  'skipped',
+                  `validation-and-reviewer-gates-disabled: skipped automated gate checks for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                ),
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+        }
         break
+      }
+      function markActiveWorkStateChanged(): void {
+        activeWorkState.lastPinnedStateMessage = ''
+      }
+
+      // Inline helpers for gate-state telemetry/diagnostics. Kept inside
+      // handleSteps because handleSteps is serialized via .toString() and
+      // reconstructed with new Function(...), so module-scope closures are
+      // not available at reconstruction time. Keep these deterministic and
+      // single-line so the CLI can promote them into GateStateBox blocks.
+      function formatGateStateBlock(
+        gate: 'validation' | 'reviewer' | 'validation/reviewer',
+        status: 'passed' | 'failed' | 'skipped',
+        details: string,
+      ): string {
+        const normalizedDetails = String(details ?? '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const payload = { gate, status, details: normalizedDetails }
+        return `<gate-state>${JSON.stringify(payload)}</gate-state>`
+      }
+
+      function emitGateTelemetry(payload: Record<string, unknown>): void {
+        try {
+          if (
+            typeof console !== 'object' ||
+            console === null ||
+            typeof (console as { info?: unknown }).info !== 'function'
+          ) {
+            return
+          }
+          const safePayload: Record<string, unknown> = { event: 'base2.gate' }
+          for (const [key, value] of Object.entries(payload)) {
+            if (value === undefined) continue
+            safePayload[key] = value
+          }
+          ;(console as { info: (...args: unknown[]) => void }).info(
+            JSON.stringify(safePayload),
+          )
+        } catch {
+          // Telemetry must never throw or block the loop.
+        }
+      }
+
+      function inferActiveWorkPhase(
+        state: Base2ActiveWorkState,
+      ): Base2ActiveWorkPhase {
+        if (
+          state.openReviewerBlockers.length > 0 ||
+          state.nextRequiredAction.trim().length > 0
+        ) {
+          return 'blocked'
+        }
+        if (state.pendingGateFiles.length > 0) return 'awaiting_validation'
+        return 'idle'
+      }
+
+      function recordChangedFiles(files: string[]): void {
+        const normalizedFiles = normalizeGateFileList(files)
+        for (const file of normalizedFiles) {
+          changedFiles.add(file)
+          pendingGateFiles.add(file)
+          gatePassedFiles.delete(file)
+          activeWorkState.gatePassedFiles = activeWorkState.gatePassedFiles.filter(
+            (passedFile) => passedFile !== file,
+          )
+          if (activeWorkState.gatePassedPendingFiles.includes(file)) {
+            activeWorkState.gatePassedPendingFiles = []
+            activeWorkState.gatePassedReviewerVerdict = ''
+            activeWorkState.gatePassedValidationSummary = ''
+            activeWorkState.gatePassedFingerprint = ''
+          }
+          if (!activeWorkState.touchedFiles.includes(file)) {
+            activeWorkState.touchedFiles.push(file)
+          }
+          if (!activeWorkState.changedFiles.includes(file)) {
+            activeWorkState.changedFiles.push(file)
+          }
+          if (!activeWorkState.pendingGateFiles.includes(file)) {
+            activeWorkState.pendingGateFiles.push(file)
+          }
+        }
+        if (normalizedFiles.length > 0) {
+          activeWorkState.lastReviewerGateSkipReason = ''
+          activeWorkState.currentPhase = 'awaiting_validation'
+        }
+      }
+
+      // Mirrors of `agents/base2/gate-paths.ts`. Kept inline because
+      // `handleSteps` is serialized via `toString()` + `new Function(...)`
+      // and cannot reference module-scope imports at reconstruction time.
+      function normalizeGateFilePath(file: string): string {
+        let normalized = file.trim().replace(/\\/g, '/')
+        if (!normalized) return ''
+        if (normalized.startsWith('file://')) {
+          normalized = normalized.slice('file://'.length)
+        }
+        if (/^\/[A-Za-z]:\//.test(normalized)) {
+          normalized = normalized.slice(1)
+        }
+        const cwd =
+          typeof process === 'object' &&
+          process !== null &&
+          typeof process.cwd === 'function'
+            ? process.cwd().replace(/\\/g, '/').replace(/\/+$/, '')
+            : ''
+        if (cwd && (normalized === cwd || normalized.startsWith(`${cwd}/`))) {
+          normalized = normalized.slice(cwd.length).replace(/^\/+/, '')
+        }
+        while (normalized.startsWith('./')) {
+          normalized = normalized.slice(2)
+        }
+        return normalized.trim()
+      }
+
+      function normalizeGateFileList(files: string[]): string[] {
+        const normalizedFiles: string[] = []
+        const seen = new Set<string>()
+        for (const file of files) {
+          const normalized = normalizeGateFilePath(file)
+          if (!normalized || seen.has(normalized)) continue
+          seen.add(normalized)
+          normalizedFiles.push(normalized)
+        }
+        return normalizedFiles
+      }
+
+      function gateFileSetsEqual(left: string[], right: string[]): boolean {
+        if (left.length !== right.length) return false
+        const rightFiles = new Set(right)
+        return left.every((file) => rightFiles.has(file))
+      }
+
+      function hasDurableGatePassForPendingFiles(
+        files: string[],
+        currentStatusLines: Map<string, string>,
+      ): boolean {
+        if (files.length === 0) return false
+        if (!reviewerFinalizationVerdictFromDurablePass()) return false
+        if (!gateFileSetsEqual(files, activeWorkState.gatePassedPendingFiles)) {
+          return false
+        }
+        // Fail closed when no fingerprint was recorded (older serialized state
+        // or a gate pass that never wrote a fingerprint). Reusing on file-set
+        // match alone would let same-path content changes silently bypass the
+        // reviewer/validation gate.
+        const recorded = activeWorkState.gatePassedFingerprint
+        if (!recorded) return false
+        const currentFingerprint = buildGateFingerprint(
+          files,
+          currentStatusLines,
+          activeWorkState.gatePassedValidationSummary ||
+            activeWorkState.lastValidationSummary ||
+            'No configured file-change hooks ran.',
+        )
+        return recorded === currentFingerprint
+      }
+
+      function reviewerFinalizationVerdictFromDurablePass():
+        | 'LOOKS_GOOD'
+        | 'NON_BLOCKING'
+        | '' {
+        if (activeWorkState.gatePassedReviewerVerdict === 'LOOKS_GOOD') {
+          return 'LOOKS_GOOD'
+        }
+        if (activeWorkState.gatePassedReviewerVerdict === 'NON_BLOCKING') {
+          return 'NON_BLOCKING'
+        }
+        return ''
+      }
+
+      function buildPinnedActiveWorkMessage(
+        state: Base2ActiveWorkState,
+      ): string {
+        const workflowTodoProgress = state.workflowTodoProgress
+        const hasIncompleteWorkflowTodos =
+          !!workflowTodoProgress &&
+          workflowTodoProgress.nextWorkflowAction.trim().length > 0
+        const hasUnresolvedGateWork =
+          state.openReviewerBlockers.length > 0 ||
+          state.pendingGateFiles.length > 0 ||
+          state.nextRequiredAction.trim().length > 0 ||
+          state.lastReviewerGateSkipReason.trim().length > 0 ||
+          state.currentPhase === 'blocked' ||
+          state.currentPhase === 'awaiting_validation' ||
+          state.currentPhase === 'awaiting_review'
+        if (!hasUnresolvedGateWork && !hasIncompleteWorkflowTodos) return ''
+
+        const sections: string[] = [`Current phase: ${state.currentPhase}`]
+        if (state.openReviewerBlockers.length > 0) {
+          sections.push(
+            [
+              'Open reviewer blockers/feedback (verbatim; controlling next action):',
+              ...state.openReviewerBlockers.map((blocker) => blocker.trim()),
+            ].join('\n'),
+          )
+        }
+        if (state.pendingGateFiles.length > 0) {
+          sections.push(
+            `Pending validation/reviewer gate files: ${state.pendingGateFiles.join(', ')}`,
+          )
+        }
+        if (state.lastValidationSummary && state.pendingGateFiles.length > 0) {
+          sections.push(`Last validation summary: ${state.lastValidationSummary}`)
+        }
+        if (state.nextRequiredAction) {
+          sections.push(`Next required action: ${state.nextRequiredAction}`)
+        }
+        if (state.lastReviewerGateSkipReason) {
+          sections.push(
+            `Last reviewer gate skip/error reason: ${state.lastReviewerGateSkipReason}`,
+          )
+        }
+        if (hasIncompleteWorkflowTodos) {
+          sections.push(
+            [
+              'Workflow todo progress (authoritative resumable state):',
+              `Completed ${workflowTodoProgress.completedCount}/${workflowTodoProgress.totalCount}.`,
+              `Next workflow action: ${workflowTodoProgress.nextWorkflowAction}`,
+              'Continue from this item; do not restart earlier completed workflow steps. Mark this item complete with write_todos before advancing to the next workflow item.',
+            ].join('\n'),
+          )
+        }
+        return [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'This generated state survives context compaction and overrides stale summarized dialogue.',
+          ...sections,
+        ].join('\n\n')
       }
 
       function extractChangedFiles(toolResult: unknown): string[] {
         const out = new Set<string>()
         visitToolValue(toolResult, out)
-        return [...out]
+        return normalizeGateFileList([...out])
+      }
+
+      function updateWorkflowTodoProgressFromMessages(messages: unknown): void {
+        const progress = extractLatestWorkflowTodoProgress(messages)
+        if (!progress) return
+        const currentProgress = activeWorkState.workflowTodoProgress
+        const progressChanged = !workflowTodoProgressEquals(
+          currentProgress,
+          progress,
+        )
+        activeWorkState.workflowTodoProgress = progress
+        if (progressChanged) markActiveWorkStateChanged()
+      }
+
+      function extractLatestWorkflowTodoProgress(
+        messages: unknown,
+      ): Base2WorkflowTodoProgress | undefined {
+        if (!Array.isArray(messages)) return undefined
+        let latestTodos: Base2WorkflowTodo[] | undefined
+        const pendingToolCalls = new Map<string, Base2WorkflowTodo[]>()
+
+        for (const message of messages) {
+          if (!message || typeof message !== 'object') continue
+          const record = message as Record<string, unknown>
+          if (record.role === 'assistant' && Array.isArray(record.content)) {
+            for (const part of record.content) {
+              if (!part || typeof part !== 'object') continue
+              const toolCall = part as Record<string, unknown>
+              if (toolCall.type !== 'tool-call') continue
+              const toolName =
+                typeof toolCall.toolName === 'string' ? toolCall.toolName : ''
+              if (toolName !== 'write_todos') continue
+              const todos = extractWorkflowTodosFromValue(toolCall.input)
+              if (todos.length === 0) continue
+              latestTodos = todos
+              const toolCallId =
+                typeof toolCall.toolCallId === 'string' ? toolCall.toolCallId : ''
+              if (toolCallId) pendingToolCalls.set(toolCallId, todos)
+            }
+          }
+
+          if (record.role !== 'tool') continue
+          const toolName = typeof record.toolName === 'string' ? record.toolName : ''
+          const toolCallId =
+            typeof record.toolCallId === 'string' ? record.toolCallId : ''
+          if (toolName !== 'write_todos' && !pendingToolCalls.has(toolCallId)) {
+            continue
+          }
+          const resultTodos = extractWorkflowTodosFromValue(record.content)
+          if (resultTodos.length > 0) {
+            latestTodos = resultTodos
+            continue
+          }
+          const callTodos = pendingToolCalls.get(toolCallId)
+          if (callTodos && toolCallSucceeded(record.content)) latestTodos = callTodos
+        }
+
+        return buildWorkflowTodoProgress(latestTodos)
+      }
+
+      function extractWorkflowTodosFromValue(value: unknown): Base2WorkflowTodo[] {
+        const todos = findWorkflowTodoArray(value)
+        if (!todos) return []
+        const normalizedTodos: Base2WorkflowTodo[] = []
+        for (const todo of todos) {
+          if (!todo || typeof todo !== 'object') continue
+          const record = todo as Record<string, unknown>
+          const content = getWorkflowTodoContent(record)
+          if (!content) continue
+          const status = getWorkflowTodoStatus(record)
+          normalizedTodos.push({
+            content,
+            status,
+            completed: status === 'completed',
+          })
+        }
+        return normalizedTodos
+      }
+
+      function findWorkflowTodoArray(value: unknown): unknown[] | undefined {
+        if (!value) return undefined
+        if (Array.isArray(value)) {
+          if (value.some(isWorkflowTodoLike)) return value
+          for (const item of value) {
+            const nestedTodos = findWorkflowTodoArray(item)
+            if (nestedTodos) return nestedTodos
+          }
+          return undefined
+        }
+        if (typeof value !== 'object') return undefined
+        const record = value as Record<string, unknown>
+        if (record.type === 'json' && 'value' in record) {
+          const jsonTodos = findWorkflowTodoArray(record.value)
+          if (jsonTodos) return jsonTodos
+        }
+        const directTodos = record.todos
+        if (Array.isArray(directTodos) && directTodos.some(isWorkflowTodoLike)) {
+          return directTodos
+        }
+        for (const nested of Object.values(record)) {
+          const nestedTodos = findWorkflowTodoArray(nested)
+          if (nestedTodos) return nestedTodos
+        }
+        return undefined
+      }
+
+      function isWorkflowTodoLike(value: unknown): boolean {
+        if (!value || typeof value !== 'object') return false
+        const record = value as Record<string, unknown>
+        return getWorkflowTodoContent(record).length > 0
+      }
+
+      function getWorkflowTodoContent(record: Record<string, unknown>): string {
+        const content = record.content ?? record.text ?? record.title ?? record.task
+        return typeof content === 'string' ? content.trim() : ''
+      }
+
+      function getWorkflowTodoStatus(record: Record<string, unknown>): string {
+        const status = record.status ?? record.state
+        if (typeof status === 'string') return status.trim().toLowerCase()
+        if (record.completed === true || record.done === true) return 'completed'
+        if (record.completed === false || record.done === false) return 'pending'
+        return 'pending'
+      }
+
+      function buildWorkflowTodoProgress(
+        todos: Base2WorkflowTodo[] | undefined,
+      ): Base2WorkflowTodoProgress | undefined {
+        if (!todos || todos.length === 0) return undefined
+        const completedCount = todos.filter((todo) => todo.completed).length
+        const firstIncomplete = todos.find((todo) => !todo.completed)
+        return {
+          todos,
+          completedCount,
+          totalCount: todos.length,
+          nextWorkflowAction: firstIncomplete?.content ?? '',
+        }
+      }
+
+      function normalizeWorkflowTodoProgress(
+        progress: Base2WorkflowTodoProgress | undefined,
+      ): Base2WorkflowTodoProgress | undefined {
+        if (!progress || !Array.isArray(progress.todos)) return undefined
+        return buildWorkflowTodoProgress(
+          progress.todos.map((todo) => ({
+            content: todo.content.trim(),
+            status: todo.status.trim().toLowerCase(),
+            completed: todo.completed,
+          })),
+        )
+      }
+
+      function workflowTodoProgressEquals(
+        left: Base2WorkflowTodoProgress | undefined,
+        right: Base2WorkflowTodoProgress | undefined,
+      ): boolean {
+        if (!left || !right) return left === right
+        if (
+          left.completedCount !== right.completedCount ||
+          left.totalCount !== right.totalCount ||
+          left.nextWorkflowAction !== right.nextWorkflowAction ||
+          left.todos.length !== right.todos.length
+        ) {
+          return false
+        }
+        return left.todos.every((todo, index) => {
+          const other = right.todos[index]
+          return (
+            todo.content === other.content &&
+            todo.status === other.status &&
+            todo.completed === other.completed
+          )
+        })
+      }
+
+      function toolCallSucceeded(value: unknown): boolean {
+        if (!value) return false
+        if (Array.isArray(value)) return value.some(toolCallSucceeded)
+        if (typeof value !== 'object') return false
+        const record = value as Record<string, unknown>
+        if (record.type === 'json' && 'value' in record) {
+          return toolCallSucceeded(record.value)
+        }
+        if (record.success === false || 'error' in record || 'errorMessage' in record) {
+          return false
+        }
+        if (record.success === true) return true
+        if (typeof record.message === 'string') {
+          return /\b(success|successful|updated|wrote|written|saved)\b/i.test(
+            record.message,
+          )
+        }
+        return Object.keys(record).length > 0
+      }
+
+      function extractChangedFilesFromMessages(
+        messages: unknown,
+        startIndex: number,
+      ): string[] {
+        if (!Array.isArray(messages)) return []
+        const out = new Set<string>()
+        for (const message of messages.slice(startIndex)) {
+          if (!message || typeof message !== 'object') continue
+          const record = message as Record<string, unknown>
+          if (!Array.isArray(record.content)) continue
+
+          if (record.role === 'assistant') {
+            for (const part of record.content) {
+              if (!part || typeof part !== 'object') continue
+              const toolCall = part as Record<string, unknown>
+              const toolName =
+                typeof toolCall.toolName === 'string' ? toolCall.toolName : ''
+              if (toolCall.type === 'tool-call' && isFileChangingTool(toolName)) {
+                collectToolInputFiles(toolCall.input, out)
+              }
+            }
+            continue
+          }
+
+          const toolName =
+            typeof record.toolName === 'string' ? record.toolName : ''
+          if (record.role === 'tool' && isFileChangingTool(toolName)) {
+            visitToolValue(record.content, out)
+          }
+        }
+        return normalizeGateFileList([...out])
       }
 
       function visitToolValue(value: unknown, out: Set<string>): void {
@@ -521,10 +1403,20 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       }
 
       function hasEditArtifact(record: Record<string, unknown>): boolean {
-        return (
+        if (
           typeof record.unifiedDiff === 'string' ||
           typeof record.diff === 'string' ||
           typeof record.patch === 'string'
+        ) {
+          return true
+        }
+        if (record.success === true) return true
+        if (record.success === false || 'error' in record || 'errorMessage' in record) {
+          return false
+        }
+        if (typeof record.message !== 'string') return false
+        return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
+          record.message,
         )
       }
 
@@ -544,7 +1436,125 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             if (file) files.add(file)
           }
         }
-        return [...files]
+        return normalizeGateFileList([...files])
+      }
+
+      /**
+       * Extracts a map of normalized-file -> raw git status line for the given
+       * pending files from a git_status tool result. Lines for other files are
+       * ignored. Used to build a durable fingerprint for the gate pass so we
+       * only reuse a durable pass when the working tree state for those files
+       * still matches.
+       */
+      function extractGitStatusLineMap(
+        toolResult: unknown,
+      ): Map<string, string> {
+        const map = new Map<string, string>()
+        if (!Array.isArray(toolResult)) return map
+        for (const part of toolResult) {
+          const value =
+            part && (part as any).type === 'json' ? (part as any).value : undefined
+          const status =
+            value && typeof value === 'object'
+              ? (value as Record<string, unknown>).status
+              : undefined
+          if (typeof status !== 'string') continue
+          for (const rawLine of status.split('\n')) {
+            const file = parseGitStatusLine(rawLine)
+            if (!file) continue
+            const normalized = normalizeGateFilePath(file)
+            if (!normalized) continue
+            // Keep the raw line (without trailing whitespace) so XY status bits
+            // are part of the fingerprint.
+            map.set(normalized, rawLine.replace(/\s+$/, ''))
+          }
+        }
+        return map
+      }
+
+      /**
+       * Build a durable gate fingerprint from the normalized pending files,
+       * their current git status lines (if known), per-file working-tree
+       * content hashes, and the validation summary. The content hash is the
+       * decisive component for detecting same-path content changes; status
+       * lines remain as supplementary fingerprint context. Files that do not
+       * exist contribute a `missing` marker, and files that cannot be read
+       * contribute an `unreadable:<code>` marker so the fingerprint fails
+       * closed (a previously-passing content hash will not match a missing
+       * or unreadable file).
+       */
+      function buildGateFingerprint(
+        files: string[],
+        statusLines: Map<string, string>,
+        validationSummary: string,
+      ): string {
+        const sorted = [...files].sort()
+        const parts = sorted.map((file) => {
+          const statusLine = statusLines.get(file) ?? ''
+          const contentMarker = readGateFileContentMarker(file)
+          return `${file}\t${statusLine}\t${contentMarker}`
+        })
+        return `v2\n${parts.join('\n')}\n--\n${validationSummary}`
+      }
+
+      /**
+       * Resolve a normalized gate file path against process.cwd() and return
+       * a deterministic content marker for fingerprinting. Never throws — any
+       * read/stat failure is encoded as an `unreadable:<code>` marker so the
+       * gate fails closed rather than reusing a stale durable pass.
+       */
+      function readGateFileContentMarker(normalizedPath: string): string {
+        if (!normalizedPath) return 'unreadable:empty-path'
+        // Resolve built-ins at call time so this stays compatible with
+        // serialized handleSteps executions. Prefer process.getBuiltinModule
+        // when available because some serialized runtimes do not expose a
+        // CommonJS require global.
+        const getBuiltinModule =
+          typeof process === 'object' &&
+          process !== null &&
+          'getBuiltinModule' in process &&
+          typeof process.getBuiltinModule === 'function'
+            ? process.getBuiltinModule.bind(process)
+            : undefined
+        const req = (globalThis as any).require as NodeJS.Require | undefined
+        let fs: typeof import('node:fs')
+        let path: typeof import('node:path')
+        let crypto: typeof import('node:crypto')
+        if (getBuiltinModule) {
+          fs = getBuiltinModule('node:fs') as typeof import('node:fs')
+          path = getBuiltinModule('node:path') as typeof import('node:path')
+          crypto = getBuiltinModule('node:crypto') as typeof import('node:crypto')
+        } else if (typeof req === 'function') {
+          fs = req('node:fs')
+          path = req('node:path')
+          crypto = req('node:crypto')
+        } else {
+          return 'unreadable:no-module-loader'
+        }
+        const cwd =
+          typeof process === 'object' &&
+          process !== null &&
+          typeof process.cwd === 'function'
+            ? process.cwd()
+            : ''
+        // Gate paths are normalized to be project-relative before reaching this
+        // helper. Absolute paths still resolve correctly because
+        // path.resolve(cwd, absolutePath) returns absolutePath.
+        const absolutePath = path.resolve(cwd, normalizedPath)
+        try {
+          const stat = fs.statSync(absolutePath)
+          if (!stat.isFile()) return 'unreadable:not-a-file'
+          const data = fs.readFileSync(absolutePath)
+          const hash = crypto.createHash('sha256').update(data).digest('hex')
+          return `sha256:${hash}:${data.length}`
+        } catch (err) {
+          const code =
+            err && typeof err === 'object' && 'code' in err
+              ? String((err as { code?: unknown }).code ?? 'unknown')
+              : 'unknown'
+          if (code === 'ENOENT') return 'missing'
+          return `unreadable:${code}`
+        }
       }
 
       function parseGitStatusLine(line: string): string {
@@ -556,12 +1566,146 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         return renameTarget?.trim() ?? ''
       }
 
+      // Inline mirror of agents/base2/gate-reviewer.ts helpers. Keep these
+      // in sync: handleSteps is serialized with .toString() and reconstructed
+      // via new Function(...), so these helpers cannot depend on imports.
+      function stripReviewerPreamble(text: string): string {
+        let remaining = text.trim()
+        // Tolerate reviewers that still emit a closed leading <think>...</think>
+        // block (or several) plus surrounding whitespace before the verdict label.
+        while (true) {
+          const match = remaining.match(/^<think\b[^>]*>[\s\S]*?<\/think>\s*/i)
+          if (!match) break
+          remaining = remaining.slice(match[0].length).trim()
+        }
+        return remaining
+      }
+
       function collectReviewerBlockers(toolResult: unknown): string[] {
+        // First check for structured reviewer outputs (e.g. JSON with a
+        // verdict field). When present and BLOCKING, surface findings as the
+        // blocker text so existing pinning/messaging logic still works.
+        const structured = collectStructuredReviewerOutputs(toolResult)
+        const structuredBlockers: string[] = []
+        for (const entry of structured) {
+          if (entry.verdict === 'BLOCKING') {
+            const findings = entry.findings.length > 0 ? entry.findings : ['(no findings provided)']
+            for (const finding of findings) {
+              structuredBlockers.push(`BLOCKING: ${finding}`)
+            }
+          }
+        }
+        if (structuredBlockers.length > 0) return structuredBlockers
+
         const texts: string[] = []
         collectStrings(toolResult, texts)
         return texts
-          .map((text) => text.trim())
-          .filter((text) => /^BLOCKING\b/i.test(text))
+          .map((text) => stripReviewerPreamble(text))
+          .filter((text) => hasReviewerLineVerdict(text, 'BLOCKING'))
+      }
+
+      function getReviewerFinalizationVerdict(
+        toolResult: unknown,
+      ): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
+        // Structured reviewer outputs take precedence so text-mode fallbacks
+        // do not accidentally override an explicit JSON verdict.
+        const structured = collectStructuredReviewerOutputs(toolResult)
+        for (const entry of structured) {
+          if (entry.verdict === 'LOOKS_GOOD') return 'LOOKS_GOOD'
+          if (entry.verdict === 'NON_BLOCKING') return 'NON_BLOCKING'
+        }
+
+        const texts: string[] = []
+        collectStrings(toolResult, texts)
+        for (const text of texts) {
+          const normalized = stripReviewerPreamble(text)
+          if (hasReviewerLineVerdict(normalized, 'LOOKS_GOOD')) return 'LOOKS_GOOD'
+          if (hasReviewerLineVerdict(normalized, 'NON_BLOCKING')) return 'NON_BLOCKING'
+          if (/\breviewer gate passed\s*(?:with\s+|\(\s*)LOOKS_GOOD\b/i.test(normalized)) {
+            return 'LOOKS_GOOD'
+          }
+          if (/\breviewer gate passed\s*(?:with\s+|\(\s*)NON_BLOCKING\b/i.test(normalized)) {
+            return 'NON_BLOCKING'
+          }
+        }
+        return ''
+      }
+
+      /**
+       * Walk the reviewer tool result for objects that look like a structured
+       * reviewer verdict: `{ verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings?: string | string[] }`.
+       * Returns an ordered list of normalized entries. Plain text reviewer
+       * outputs return an empty list so the existing text-mode logic stays in
+       * charge.
+       */
+      function collectStructuredReviewerOutputs(
+        value: unknown,
+      ): Array<{
+        verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
+        findings: string[]
+      }> {
+        const out: Array<{
+          verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
+          findings: string[]
+        }> = []
+        visitForStructuredVerdict(value, out)
+        return out
+      }
+
+      function visitForStructuredVerdict(
+        value: unknown,
+        out: Array<{
+          verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
+          findings: string[]
+        }>,
+      ): void {
+        if (!value) return
+        if (Array.isArray(value)) {
+          for (const item of value) visitForStructuredVerdict(item, out)
+          return
+        }
+        if (typeof value !== 'object') return
+        const record = value as Record<string, unknown>
+        if (record.type === 'json' && 'value' in record) {
+          visitForStructuredVerdict(record.value, out)
+          return
+        }
+        const rawVerdict = record.verdict
+        if (typeof rawVerdict === 'string') {
+          const upper = rawVerdict.trim().toUpperCase()
+          if (
+            upper === 'LOOKS_GOOD' ||
+            upper === 'NON_BLOCKING' ||
+            upper === 'BLOCKING'
+          ) {
+            const findings: string[] = []
+            const rawFindings = record.findings
+            if (typeof rawFindings === 'string') {
+              const trimmed = rawFindings.trim()
+              if (trimmed) findings.push(trimmed)
+            } else if (Array.isArray(rawFindings)) {
+              for (const finding of rawFindings) {
+                if (typeof finding === 'string' && finding.trim()) {
+                  findings.push(finding.trim())
+                }
+              }
+            }
+            out.push({ verdict: upper as 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings })
+            return
+          }
+        }
+        for (const nested of Object.values(record)) {
+          visitForStructuredVerdict(nested, out)
+        }
+      }
+
+      function hasReviewerLineVerdict(
+        text: string,
+        verdict: 'BLOCKING' | 'LOOKS_GOOD' | 'NON_BLOCKING',
+      ): boolean {
+        return text
+          .split(/\r?\n/)
+          .some((line) => new RegExp(`^${verdict}\\b`, 'i').test(line.trim()))
       }
 
       function collectStrings(value: unknown, out: string[]): void {
@@ -644,14 +1788,12 @@ function buildImplementationInstructionsPrompt({
   isSonnet,
   isFast,
   isDefault,
-  isMax,
   hasNoValidation,
   noAskUser,
 }: {
   isSonnet: boolean
   isFast: boolean
   isDefault: boolean
-  isMax: boolean
   hasNoValidation: boolean
   noAskUser: boolean
 }) {
@@ -663,111 +1805,146 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
   EXPLORE_PROMPT,
-  isMax &&
-    `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !noAskUser &&
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.',
-  (isDefault || isMax) &&
+  isDefault &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
-  (isDefault || isMax) &&
+  isDefault &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution.`,
   isDefault &&
-    '- IMPORTANT: Before spawning the editor agent for non-trivial changes, write a compact implementation brief in the conversation. Include the user requirement, target files, constraints/non-goals, relevant patterns found, expected validation, and key risks/edge cases. Then spawn the editor agent to implement the full brief. Do not pass any prompt or params to the editor agent; it inherits the conversation, including the brief.',
-  isMax &&
-    `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. You should also prompt it to implement the full task rather than just a single step.`,
+    `- IMPORTANT: Before spawning the editor agent for non-trivial changes, prepare a compact implementation brief and pass it as the editor prompt. The editor does not inherit parent conversation history, so the prompt must be a self-contained envelope with these labeled fields (use these exact headings as a compact checklist; omit a field only when truly N/A):
+    - Requirements: the user-facing requirement and acceptance criteria the editor must satisfy.
+    - Target files: explicit project-relative paths the editor should edit (and any nearby files it must read first to avoid drift).
+    - Constraints/non-goals: invariants to preserve, public behavior to keep stable, scope boundaries the editor must not cross.
+    - Patterns: existing code/style conventions and idioms in the codebase the change must follow.
+    - Risks: code-level edge cases, fragile call sites, or refactoring traps the editor should watch for.
+    If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not include parent-only work such as validation commands, terminal/shell cleanup, deleting files, visual smoke tests, code review, git operations, todos, or post-edit orchestration steps. After the editor returns, handle those parent-only responsibilities yourself.`,
   isFast &&
     '- Implement the changes using the str_replace or write_file tools. Implement all the changes in one go.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !hasNoValidation &&
-    `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
-  isMax &&
-    `- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.) If validation is running in parallel, tell the reviewer that validation output is unavailable and that it must perform static code review only; wait for both validation and review before finalizing.`,
+    `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. If you can, only test the area of the project that you are editing, rather than the entire project. You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
-  !isFast &&
-    !noAskUser &&
-    `- After successfully completing an implementation, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").`,
+  '- After successfully completing an implementation, if the suggest_followups tool is available, use it to suggest ~3 next steps the user might want to take. Do not call suggest_followups until after you have written a user-visible completion summary and, for edited code, after the automated validation/reviewer gate has passed. If suggest_followups is unavailable, still provide the final summary/end normally.',
 ).join('\n')}`
+}
+
+function buildExecutePlanInstructionsPrompt(params: {
+  isSonnet: boolean
+  isFast: boolean
+  isDefault: boolean
+  hasNoValidation: boolean
+  noAskUser: boolean
+}) {
+  return [
+    buildImplementationInstructionsPrompt(params),
+    '',
+    '## Durable plan execution mode',
+    '',
+    'You are in EXECUTE_PLAN mode. Your job is to execute or resume durable plan artifacts, not merely revise them. Read the durable plan artifacts (especially STATUS.md and PLAN.md), continue from the next actionable milestone, and use normal project source editing tools when implementation work is required.',
+    '',
+    'Keep STATUS.md and LESSONS.md current throughout execution. Prefer update_plan_status for incremental STATUS.md / LESSONS.md updates; use create_plan for SPEC.md / PLAN.md revisions, substantial rewrites, or creating missing artifacts. PLAN mode remains plan-only, but EXECUTE_PLAN is allowed to edit project source to complete the plan.',
+  ].join('\n')
 }
 
 function buildImplementationStepPrompt({
   isDefault,
   isFast,
-  isMax,
-  hasNoValidation,
   isSonnet,
-  noAskUser,
 }: {
   isDefault: boolean
   isFast: boolean
-  isMax: boolean
-  hasNoValidation: boolean
   isSonnet: boolean
-  noAskUser: boolean
 }) {
   return buildArray(
-    isMax &&
-      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
-    isMax &&
-      `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     isDefault &&
-      `For non-trivial edits, make the editor handoff explicit before spawning the editor: write a compact implementation brief with requirements, target files, constraints/non-goals, patterns, expected validation, and risks. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`,
-    isMax &&
-      `You must spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes. You may run it in parallel with typechecking or testing only as static review: tell the reviewer validation is running separately and unavailable, then wait for both results before finalizing.`,
-    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
-    !isFast &&
-      !noAskUser &&
-      `At the end of your turn, you must use the suggest_followups tool to suggest around 3 next steps the user might want to take even if the user just asks a question.`,
+      `For non-trivial edits, spawn the editor with a compact implementation-only prompt containing all of these envelope fields: Requirements, Target files, Constraints/non-goals, Patterns, Risks. Use those exact field labels in the prompt so the editor can scan them as a checklist. The editor does not inherit parent conversation history, so the prompt must contain the implementation context it needs. If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not put validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, todos, or other parent-only orchestration tasks in the editor handoff. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`, 
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}${isSonnet ? ". Don't create any summary markdown files or example documentation files, unless asked by the user." : '.'}`,
+    isDefault &&
+      'Do not manually spawn code-reviewer for the same edited file set that the automated runtime gate will review. Manual review is only for user-requested extra review or pre-edit/advisory review.',
+    isDefault &&
+      'After the automated validation/reviewer gate has passed for edited code, call suggest_followups with around 3 useful next steps if that tool is available. If suggest_followups is unavailable, do not let that block the final summary/end.',
+  ).join('\n')
+}
+
+function buildExecutePlanStepPrompt({}: {}) {
+  return buildArray(
+    'You are in EXECUTE_PLAN mode. Execute or resume durable plan artifacts, using the project source editing tools when implementation work is required. Unlike PLAN mode, you may edit project source files to complete planned tasks.',
+    'Treat SPEC.md, PLAN.md, STATUS.md, and LESSONS.md under the durable plan session as authoritative. Read STATUS.md and PLAN.md before acting, continue from the next incomplete or blocked item, and do not restart completed work unless the artifacts say it is necessary.',
+    'Keep STATUS.md current as you progress: update completed/pending/blocked items, current state, validation results, and the next checkpoint. Keep LESSONS.md current with gotchas, decisions, reusable findings, and follow-up notes discovered during execution. Prefer update_plan_status for incremental STATUS.md / LESSONS.md updates; use create_plan for SPEC.md / PLAN.md revisions, substantial rewrites, or creating missing artifacts.',
+    'Use normal implementation behavior for source changes: gather context before editing, follow project conventions, validate meaningful changes when appropriate, and summarize the completed work concisely. Do not let plan artifacts drift behind actual implementation state.',
   ).join('\n')
 }
 
 function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
- You are in plan mode, so you should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
-    
+You are in plan mode. Preserve short-answer behavior: if the user is asking a question, requesting an explanation, or asking for a small clarification, answer directly and do not create a plan packet.
+
+For larger implementation, migration, debugging, or multi-step work, gather enough context to create a comprehensive, resumable plan packet. For non-trivial plans, create all four durable artifacts by default (SPEC.md, PLAN.md, STATUS.md, LESSONS.md); these are not optional or only "as needed". Normal users should not need to explicitly ask for STATUS or LESSONS artifacts. You may ask targeted clarifying questions with ask_user when the answer materially changes the plan. Avoid obvious questions and questions about details that can be adjusted later.
+
+Plan mode must not edit project source or perform implementation work. Do not use normal editing tools for project files. Do not use the write_todos tool in plan mode. You may write to plan/session artifacts under .agents/sessions/<slug>/ only via these two tools, with this division of labor:
+- create_plan: use to create the durable artifacts initially or to substantially rewrite them. Always use create_plan for SPEC.md and PLAN.md edits, and for creating any missing artifact. The four durable artifacts are:
+  - SPEC.md
+  - PLAN.md
+  - STATUS.md
+  - LESSONS.md
+- update_plan_status: once the artifacts exist, use this for incremental STATUS.md and LESSONS.md updates — progress, blockers, checkpoints, and newly discovered lessons. Prefer update_plan_status over create_plan for these incremental status/lesson revisions so the durable artifacts stay current without rewriting them whole.
+
 ## Example response
 
-The user asks you to implement a new feature. You respond in multiple steps:
+The user asks you to implement a non-trivial feature. You respond in multiple steps:
 
 ${buildArray(
   EXPLORE_PROMPT,
-  `- After exploring the codebase, your goal is to translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
+  `- After exploring the codebase, translate the user request and discovered context into a plan response. For small questions, answer instead of writing a plan.
 
-## Asking questions
+## Durable plan packet for larger work
 
-To clarify the user's intent, or get them to weigh in on key decisions, you should use the ask_user tool.
+For comprehensive or otherwise non-trivial plans, create a session directory under .agents/sessions/<slug>/ and write all four durable artifacts with create_plan:
+- SPEC.md: overview, goals/non-goals, requirements, acceptance criteria, relevant files/systems.
+- PLAN.md: milestones, tasks, statuses, owners/agents if useful, dependencies, risks/blockers, and validation gates.
+- STATUS.md: current state, completed/pending/blocked items, next checkpoint, and resume instructions.
+- LESSONS.md: lessons, gotchas, decisions, and follow-up notes discovered while planning or updating.
 
-It's good to use this tool before generating a spec, so you can make the best possible spec for the user's request.
+Once the artifacts exist, prefer update_plan_status for incremental STATUS.md / LESSONS.md updates (progress, blockers, checkpoints, lessons). Only fall back to create_plan for STATUS.md / LESSONS.md when the artifact is missing or needs a substantial rewrite. SPEC.md and PLAN.md changes still go through create_plan.
 
-If you don't have any important questions to ask, you can skip this step. Keep asking questions until you have a clear understanding of the user's request and how to solve it. However, be sure that you never ask questions with obvious answers or questions about details that can be changed later. Focus on the most important, non-obvious aspects only.
+Do not wait for the user to ask separately for STATUS.md or LESSONS.md on non-trivial plans; include them as part of the standard durable packet.
 
-## Creating a spec
+Also include the artifact metadata inside the <PLAN> response so the CLI can render resume commands. Use simple markdown lines like:
 
-Wrap your spec in <PLAN> and </PLAN> tags. The content inside should be markdown formatted (no code fences around the whole plan/spec). For example: <PLAN>\n# Plan\n- Item 1\n- Item 2\n</PLAN>.
+## Artifacts
+- Session: .agents/sessions/<slug>
+- SPEC.md: .agents/sessions/<slug>/SPEC.md
+- PLAN.md: .agents/sessions/<slug>/PLAN.md
+- STATUS.md: .agents/sessions/<slug>/STATUS.md
+- LESSONS.md: .agents/sessions/<slug>/LESSONS.md
 
-The spec should include:
-- A brief title and overview. For the title is preferred to call it a "Plan" rather than a "Spec".
-- A bullet point list of the requirements.
-- An optional "Notes" section detailing any key considerations or constraints or testing requirements.
-- A section with a list of relevant files.
+The plan packet should be resumable across days. Include:
+- Overview and requirements.
+- Milestones/tasks with explicit statuses (todo/in progress/done/blocked).
+- Dependencies and ordering constraints.
+- Risks, blockers, open questions, and assumptions.
+- Validation gates and how to verify each milestone.
+- Checkpoint/update rules: when STATUS.md must be updated (via update_plan_status for incremental progress), when PLAN.md/SPEC.md need revision (via create_plan), and how LESSONS.md should be maintained (update_plan_status for incremental lessons, create_plan for substantial rewrites).
+- Artifact paths and practical resume/update guidance. Because STATUS.md and LESSONS.md are created by default for non-trivial plans, normal users should not need to request separate status or lessons commands just to get that lifecycle context.
 
-It should not include:
-- A lot of analysis.
-- Sections of actual code.
-- A list of the benefits, performance benefits, or challenges.
-- A step-by-step plan for the implementation.
-- A summary of the spec.
+## Creating the visible plan response
 
-This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
+Wrap the visible plan in <PLAN> and </PLAN> tags. The content inside should be markdown formatted (no code fences around the whole plan/spec). For example: <PLAN>\n# Plan\n- Item 1\n- Item 2\n</PLAN>.
+
+For simple plans, keep the response short and backward-compatible: title/overview, requirements, notes, and relevant files are enough. For larger work, summarize the durable packet and include the Artifacts metadata section.
+
+Do not include implementation code. Do not make source changes. Do not claim implementation is complete.
 `,
 ).join('\n')}`
 }
 
 function buildPlanOnlyStepPrompt({}: {}) {
   return buildArray(
-    `You are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not use the write_todos tool.`,
+    `You are in plan mode. Do not make project source changes. Do not call normal editing tools such as write_file, str_replace, replace_range, rewrite_symbol, or edit_transaction for implementation files. Do not use the write_todos tool in plan mode. Preserve short-answer behavior for simple questions. For larger or otherwise non-trivial work, use create_plan to create or substantially rewrite the four durable plan artifacts under .agents/sessions/<slug>/ by default (SPEC.md, PLAN.md, STATUS.md, LESSONS.md); do not treat STATUS.md or LESSONS.md as optional/as-needed or wait for normal users to ask for them separately. Once those artifacts exist, prefer update_plan_status for incremental STATUS.md and LESSONS.md updates (progress, blockers, checkpoints, lessons) rather than rewriting them whole with create_plan; keep using create_plan for SPEC.md / PLAN.md edits and for creating any missing artifact. Wrap the visible markdown response in <PLAN>...</PLAN> unless answering a simple question directly.`,
   ).join('\n')
 }
 

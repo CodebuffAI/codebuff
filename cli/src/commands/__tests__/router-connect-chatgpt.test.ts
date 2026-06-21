@@ -32,6 +32,53 @@ mock.module('@codebuff/common/constants/chatgpt-oauth', () => ({
   toOpenAIModelId: (model: string) => model,
 }))
 
+describe('routeUserPrompt plan input mode', () => {
+  beforeEach(() => {
+    useChatStore.getState().reset()
+    useChatStore.getState().setInputMode('plan')
+    saveToHistory.mockClear()
+    setInputValue.mockClear()
+    setMessages.mockClear()
+  })
+
+  afterEach(() => {
+    useChatStore.getState().reset()
+  })
+
+  test('when in plan input mode, it sends the prompt to PLAN agent mode', async () => {
+    const { routeUserPrompt } = await import('../router')
+    const sendMessage = mock(async () => {})
+
+    const params = {
+      abortControllerRef: { current: null },
+      agentMode: 'DEFAULT',
+      inputRef: { current: null },
+      inputValue: 'build auth',
+      isChainInProgressRef: { current: false },
+      isStreaming: false,
+      streamMessageIdRef: { current: null },
+      addToQueue: () => {},
+      clearMessages: () => {},
+      saveToHistory,
+      scrollToLatest: () => {},
+      sendMessage,
+      setCanProcessQueue: () => {},
+      setInputFocused: () => {},
+      setInputValue,
+      setMessages,
+      stopStreaming: () => {},
+    } satisfies RouterParams
+
+    await routeUserPrompt(params)
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      content: expect.stringContaining('build auth'),
+      agentMode: 'PLAN',
+    })
+    expect(useChatStore.getState().inputMode).toBe('default')
+  })
+})
+
 describe('routeUserPrompt connect:chatgpt mode', () => {
   beforeEach(() => {
     useChatStore.getState().reset()

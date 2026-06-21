@@ -1,78 +1,96 @@
-# Request Flow: CLI → Server → CLI
+# Request Flow: CLI → Local SDK → User-Configured Provider
 
-This document traces the exact path a user prompt takes from the Codebuff CLI through the SDK, agent runtime, server, and back.
+This document traces the path a user prompt takes through Openbuff. Openbuff
+is local-first and BYOK: there is no hosted backend, credit ledger, or
+server-side proxy in the primary flow. The CLI/TUI talks to the SDK, the SDK
+drives the agent runtime, and the agent runtime calls a user-configured
+provider directly. Tool execution happens locally on the user's machine.
+
+See [Local Mode](./local-mode.md) for provider configuration and
+[Architecture](./architecture.md) for the package layout.
 
 ## Overview
 
 ```
-┌─────────┐    ┌─────────┐    ┌───────────────┐    ┌────────────────┐    ┌──────────┐
-│   CLI   │───▶│   SDK   │───▶│ Agent Runtime │───▶│ Codebuff Server│───▶│ LLM API  │
-│  (TUI)  │◀───│ run.ts  │◀───│ loopAgentSteps│◀───│  /v1/chat/...  │◀───│(OR/OAI/..)│
-└─────────┘    └─────────┘    └───────────────┘    └────────────────┘    └──────────┘
+┌─────────┐    ┌─────────┐    ┌────────────────┐    ┌──────────────────────────┐
+│ CLI/TUI │───▶│   SDK   │───▶│ Agent Runtime  │───▶│ User-Configured Provider │
+│         │◀───│ run.ts  │◀───│ loopAgentSteps │◀───│ (OpenAI / Anthropic /    │
+│         │    │         │    │                │    │  OpenRouter / Ollama …)  │
+└────┬────┘    └─────────┘    └────────────────┘    └──────────────────────────┘
+     │                                  ▲
+     │                                  │
+     └── local tool execution ──────────┘
+         (read_files, str_replace, run_terminal_command, …)
 ```
+
+Everything in the diagram runs on the user's machine. Provider HTTP calls go
+from the local process directly to the provider URL configured in
+`openbuff.json` (or its `codebuff.json` legacy alias). No request is proxied
+through a hosted Openbuff/Codebuff service in this primary flow.
 
 ## Step-by-Step Flow
 
-### 1. CLI: User Input
+### 1. CLI/TUI: User Input
 
-**Files:** `cli/src/hooks/use-send-message.ts`, `cli/src/hooks/helpers/send-message.ts`
+**Files:** `cli/src/hooks/use-send-message.ts`,
+`cli/src/hooks/helpers/send-message.ts`
 
 1. User types a prompt and hits Enter.
-2. `prepareUserMessage()` processes the input:
-   - Collects pending bash context (terminal output since last prompt)
-   - Processes image and text attachments
-   - Creates a user message in the chat UI
-3. `setupStreamingContext()` initializes:
-   - An `AbortController` (for user cancellation via Escape)
-   - A timer (tracks elapsed time)
-   - A batched message updater (efficiently updates the UI)
+2. `prepareUserMessage()` collects pending bash context, attachments, and
+   creates the user message in the chat UI.
+3. `setupStreamingContext()` wires up an `AbortController` (Escape cancels),
+   an elapsed-time timer, and a batched UI updater.
 4. The CLI calls `client.run()` from the SDK.
 
-### 2. SDK: Orchestration
+### 2. SDK: Local Orchestration
 
 **File:** `sdk/src/run.ts`
 
-1. `run()` → `runOnce()` is called with the prompt, agent ID, cost mode, and session state.
-2. **Session state** is initialized (fresh) or restored (from `previousRun`).
-3. **User identity** is verified via `getUserInfoFromApiKey()` (calls the web API).
-4. **Tool handlers** are registered — these execute locally on the user's machine:
-   - `write_file`, `str_replace`, `apply_patch` → file edits
+1. `run()` → `runOnce()` is called with the prompt, agent ID, cost mode, and
+   session state.
+2. **Session state** is initialized fresh or restored from `previousRun`.
+3. **Provider routing** is resolved from `openbuff.json` (`defaultModel`,
+   `modes`, `agents`, and provider entries). Openbuff does not consult a
+   hosted model registry.
+4. **Local tool handlers** are registered. These execute on the user's
+   machine, never on a server:
+   - `write_file`, `str_replace`, `edit_transaction`, `apply_patch`,
+     `apply_smart_patch` → file edits
    - `run_terminal_command` → shell commands
-   - `code_search`, `glob`, `list_directory` → file search
-   - `read_files` → file reading
+   - `code_search`, `find_files_matching_content`, `glob`, `list_directory`
+     → file search
+   - `read_files`, `read_outline`, `read_slices`, `read_subtree` → file
+     reading
+   - `create_plan`, `update_plan_status` → plan artifact authoring
    - Custom tool definitions and MCP tools
-5. **Action handlers** are registered to process server responses:
+5. **Action handlers** stream provider output back to the CLI:
    - `response-chunk` → streams text to the CLI
    - `subagent-response-chunk` → streams subagent output
    - `prompt-response` → final result (resolves the promise)
    - `prompt-error` → error result
-6. `callMainPrompt()` is called (fire-and-forget, with a `.catch()` handler).
-7. The function returns a promise that resolves when `prompt-response` or an error arrives.
+6. `callMainPrompt()` is invoked (fire-and-forget, with a `.catch()`
+   handler).
 
 ### 3. Agent Runtime: Main Prompt
 
 **File:** `packages/agent-runtime/src/main-prompt.ts`
 
-1. `callMainPrompt()` resets credits to 0 (server controls cost tracking).
-2. Assembles **local agent templates** from the project's `.agents/` directory.
-3. Sends a `response-chunk` `start` event to the CLI.
-4. `mainPrompt()` determines the **agent type** based on cost mode:
-   - `free` → `base-free`
-   - `normal` → `base`
-   - `max` → `base-max`
-   - `ask` → `ask`
-   - `experimental` → `base2`
-   - Fallback (default) → `base2`
-   - Or a custom agent ID
-5. Calls `loopAgentSteps()` with the agent template, prompt, and session state.
+1. Assembles local agent templates from the project's `.agents/` directory
+   and the shipped `agents/` package.
+2. Sends a `response-chunk` `start` event to the CLI.
+3. `mainPrompt()` selects the agent based on cost mode (`free` → `base-free`,
+   `normal` → `base`, `ask` → `ask`, default → `base2`) or an explicit
+   custom agent ID.
+4. Calls `loopAgentSteps()` with the agent template, prompt, and session
+   state.
 
 ### 4. Agent Runtime: Agent Loop
 
 **File:** `packages/agent-runtime/src/run-agent-step.ts`
 
-1. `loopAgentSteps()` starts an **agent run** (recorded in the database).
-2. Builds the **system prompt**, **tool definitions**, and **initial messages**.
-3. Enters the main loop:
+1. `loopAgentSteps()` builds the system prompt, tool definitions, and
+   initial messages.
+2. Enters the main loop:
    ```
    while (true) {
      // 1. Run programmatic step (if agent has handleSteps)
@@ -81,73 +99,62 @@ This document traces the exact path a user prompt takes from the Codebuff CLI th
      // 4. Process tool calls and responses
    }
    ```
-4. Each `runAgentStep()` call:
-   - Checks context token count via the `/api/v1/token-count` endpoint
-   - Calls `getAgentStreamFromTemplate()` → `promptAiSdkStream()`
-   - `processStream()` iterates over the AI SDK stream, handling text chunks and tool calls
-   - Tool calls are sent back to the SDK via `requestToolCall`, executed locally, and results fed back
-5. The loop continues until the agent signals completion (no more tool calls, or `task_completed` tool).
-6. Sends a `response-chunk` `finish` event, then a `prompt-response` action with the final session state and output.
+3. Each `runAgentStep()` call:
+   - Counts context tokens locally.
+   - Calls `getAgentStreamFromTemplate()` → `promptAiSdkStream()`.
+   - `processStream()` iterates over the AI SDK stream, handling text chunks
+     and tool calls.
+   - Tool calls are dispatched back to the SDK via `requestToolCall`,
+     executed locally, and their results fed into the next step.
+4. The loop continues until the agent stops emitting tool calls or calls
+   `end_turn` / `task_completed`.
+5. Sends a `response-chunk` `finish` event, then a `prompt-response` action
+   with the final session state and output.
 
-### 5. LLM Call: Model Provider Selection
+### 5. Provider Call: BYOK Routing
 
-**Files:** `sdk/src/impl/llm.ts`, `sdk/src/impl/model-provider.ts`
+**Files:** `sdk/src/impl/llm.ts`, `sdk/src/impl/model-provider.ts`,
+`sdk/src/provider-config.ts`
 
-`promptAiSdkStream()` selects the model provider:
+`promptAiSdkStream()` routes each request to a user-configured provider
+based on `openbuff.json`:
 
-1. **Claude OAuth** — If the user has connected their Claude subscription and the model is a Claude model, requests go directly to `api.anthropic.com` using the user's OAuth token. Zero cost to the user's Codebuff credits.
-2. **ChatGPT OAuth** — If the user has connected their ChatGPT subscription and the model is an OpenAI model, requests go to the ChatGPT backend API.
-3. **Codebuff Backend** (default) — Requests go to `POST /api/v1/chat/completions` on the Codebuff web server, which routes to the appropriate LLM provider.
+- **OpenAI-compatible** (`openai-compatible`) — OpenAI, OpenRouter, GLM,
+  Ollama, vLLM, llama.cpp, and similar endpoints reached using the user's
+  API key. Per-provider `compatibility` flags strip cache-control, downgrade
+  unsupported `tool_choice`, or enforce stop sequences locally as needed.
+- **Anthropic-compatible** (`anthropic-compatible`) — Direct calls to the
+  Claude Messages API with the user's Anthropic key.
+- **ChatGPT/Codex OAuth** (`chatgpt-oauth`) — Direct calls to the ChatGPT
+  backend using a connected ChatGPT/Codex subscription (`/provider connect
+codex`). Used only for OpenAI models the subscription supports.
 
-For OAuth providers, rate limit errors trigger automatic fallback to the Codebuff backend (unless in free mode).
+If routing fails to match a provider entry, Openbuff fails closed with a
+clear config error. There is no hosted-backend fallback and no credit
+deduction.
 
-The AI SDK's `streamText()` function handles the actual HTTP call, streaming, and retry logic.
+### 6. Response Flow Back to CLI
 
-### 6. Server: Chat Completions Endpoint
-
-**File:** `web/src/app/api/v1/chat/completions/_post.ts`
-
-The server processes the request through several validation gates:
-
-1. **Parse request body** — Returns 400 if invalid JSON.
-2. **Authenticate** — Extracts API key from `Authorization` header. Returns 401 if missing/invalid.
-3. **Check ban status** — Returns 403 `account_suspended` if user is banned.
-4. **Free mode country check** — For free mode requests, checks user's IP against allowed countries. Returns 403 `free_mode_unavailable` if not allowed.
-5. **Validate agent run** — Checks the `run_id` exists and is in `running` status. Returns 400 if invalid.
-6. **Subscription block grant** — For subscribers, ensures a billing block is active. Returns 429 `rate_limit_exceeded` if limit hit and fallback disabled.
-7. **Credit check** — Returns 402 if user has no remaining credits (and not a free mode request).
-8. **Route to LLM provider** — Based on the model, routes to:
-   - Fireworks AI (for supported models)
-   - OpenAI direct (for OpenAI models)
-   - OpenRouter (default, for all other models)
-9. **Return response** — Streaming requests return an SSE stream (`text/event-stream`). Non-streaming requests return JSON.
-
-### 7. Response Flow Back to CLI
-
-1. The LLM provider streams tokens back to the server.
-2. The server forwards the SSE stream to the AI SDK client.
-3. `promptAiSdkStream()` yields chunks from the AI SDK's `fullStream`:
-   - `text-delta` → text content
-   - `tool-call` → tool invocation
-   - `error` → error handling (OAuth fallback, retries, etc.)
-4. `processStream()` in agent-runtime handles each chunk:
-   - Text chunks → `sendAction({ type: 'response-chunk', chunk })` → SDK → CLI UI
-   - Tool calls → `requestToolCall()` → SDK executes locally → result fed back to stream
-5. When the agent loop finishes, `callMainPrompt` sends:
-   - A `response-chunk` `finish` event (with total cost)
-   - A `prompt-response` action (with final session state and output)
-6. The SDK's `handlePromptResponse()` validates the output against `AgentOutputSchema` and resolves the promise.
-7. The CLI's `handleRunCompletion()` processes the result:
-   - Checks for known error types (out of credits, free mode unavailable)
-   - Updates the UI with completion time and credit cost
-   - Marks the message as complete
+1. The provider streams tokens back to the local AI SDK client.
+2. `promptAiSdkStream()` yields chunks (`text-delta`, `tool-call`, `error`).
+3. `processStream()` in agent-runtime handles each chunk:
+   - Text → `sendAction({ type: 'response-chunk', chunk })` → SDK → CLI UI.
+   - Tool calls → `requestToolCall()` → SDK executes locally → result is
+     fed back into the stream.
+4. When the agent loop finishes, `callMainPrompt` emits a `response-chunk`
+   `finish` event and a `prompt-response` action with the final session
+   state and output.
+5. The SDK validates the output against `AgentOutputSchema` and resolves
+   the promise.
+6. The CLI marks the message complete and renders elapsed time. No credit
+   balance is consulted or displayed.
 
 ## Tool Call Lifecycle
 
-Tool calls execute **locally on the user's machine**, not on the server:
+Tool calls always execute on the user's machine:
 
 ```
-LLM Response (tool_call)            Agent Runtime processes stream
+LLM Response (tool_call)          Agent Runtime processes stream
         │                                    │
         ▼                                    ▼
   processStream()  ─── requestToolCall ──▶  SDK run.ts
@@ -159,22 +166,96 @@ LLM Response (tool_call)            Agent Runtime processes stream
         │                                    │
         ◀─────── tool result ───────────────┘
         │
-  Feeds result back into next LLM call
+  Feeds result back into next provider call
 ```
+
+### Staged read-before-edit enforcement
+
+Edit-oriented tools (`str_replace`, `edit_transaction`, and patch
+applicators) participate in a staged read-before-edit policy. Under
+strict-mode edit flows, the runtime requires a recent `read_files`
+authorization for each path before an edit is accepted:
+
+- A successful `read_files` call mints a per-path authorization that allows a
+  subsequent edit to that file.
+- `basedOnRead` (the read capability returned from a fresh `read_files`
+  range) is the explicit authorization path for large-file or
+  ambiguous-anchor edits. The runtime verifies the embedded hash before
+  applying the edit and rejects stale or mismatched anchors.
+- A successful edit **invalidates** the per-path authorization. Further
+  edits to that path require a new `read_files` call (or a fresh
+  `basedOnRead` minted from a post-edit range read).
+- Stale-anchor or anchor-not-found failures should be recovered by
+  re-reading the exact target range and retrying with the new
+  `basedOnRead`, not by guessing from memory.
+
+This policy keeps deterministic edits aligned with the on-disk content the
+agent actually inspected, even when multiple agents or generator-driven
+steps interleave reads and writes.
+
+### Reviewer / validation gate semantics
+
+When a turn opts into the reviewer/validation gate, the runtime tracks a set
+of **pending gate files** plus validation hooks and a reviewer gate, and
+exposes a stable structured contract to the user:
+
+- Pending gate files are recorded with a working-tree content marker of the
+  form `sha256:<hash>:<byteLength>` so the gate can detect drift between the
+  reviewed snapshot and the live file.
+- Durable pass freshness is keyed on that same marker: a previously
+  recorded pass is only honored if the current file's marker still matches.
+- Missing or unreadable files **fail closed**: the gate refuses to mark the
+  turn green rather than silently treating an absent file as passing.
+- The user-visible contract is a structured `<gate-state>` block. Tooling
+  and downstream agents should parse that block rather than scraping
+  surrounding prose.
+- File contents themselves are not logged into gate state or transcripts;
+  only the hash/byte-length marker and pass/fail status are recorded.
 
 ## Session State
 
 Session state persists across prompts within a conversation:
 
-- `sessionState.mainAgentState.messageHistory` — Full conversation history
-- `sessionState.fileContext` — Project files, knowledge files, custom tools
-- The CLI stores the `RunState` from each run and passes it as `previousRun` to the next `client.run()` call
+- `sessionState.mainAgentState.messageHistory` — full conversation history.
+- `sessionState.fileContext` — project files, knowledge files, custom tools.
+- The CLI stores the `RunState` from each run and passes it as `previousRun`
+  to the next `client.run()` call.
 
 ## Cancellation
 
 When the user presses Escape:
 
-1. CLI aborts the `AbortController`
-2. The `abort` signal propagates through the SDK → agent runtime → AI SDK
-3. `loopAgentSteps` catches the `AbortError`, marks the run as `cancelled`
-4. CLI's abort handler shows an interruption notice and marks the message complete
+1. CLI aborts the `AbortController`.
+2. The `abort` signal propagates through the SDK → agent runtime → AI SDK.
+3. `loopAgentSteps` catches the `AbortError` and finalizes the run as
+   cancelled.
+4. CLI's abort handler shows an interruption notice and marks the message
+   complete.
+
+---
+
+## Legacy / Upstream Codebuff Server (Compatibility History)
+
+The upstream Codebuff project routes inference and authentication through a
+hosted Next.js application in `web/` with credit billing, run records, and
+provider proxying. **That path is not part of the Openbuff primary flow.**
+The `web/` package and related billing/bigquery packages are preserved for
+upstream structural alignment and ease of merging upstream changes — they
+are not started, hosted, or required by Openbuff users.
+
+In the historical upstream flow, a request would have continued past the
+agent runtime as follows:
+
+1. `promptAiSdkStream()` would POST to `/api/v1/chat/completions` on the
+   Codebuff web server.
+2. The server validated the API key, ban status, free-mode country, agent
+   run record, subscription billing block, and credit balance.
+3. The server then routed to Fireworks AI, OpenAI direct, or OpenRouter
+   based on the model.
+4. The streaming SSE response was forwarded back to the AI SDK client.
+
+Openbuff replaces that entire hop with direct, BYOK provider calls from the
+local process. No credits are deducted, no run records are written to a
+hosted database, and no telemetry is uploaded. This section is retained
+solely as historical/compatibility context for contributors merging from
+upstream.

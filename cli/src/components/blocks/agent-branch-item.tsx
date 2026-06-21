@@ -5,6 +5,7 @@ import { useTheme } from '../../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../../hooks/use-why-did-you-update'
 import { getCliEnv } from '../../utils/env'
 import { MAX_COLLAPSED_LINES, truncateToLines } from '../../utils/strings'
+import { wrapTextPreservingNewlines } from '../../utils/text-layout'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 import { CollapseButton } from '../collapse-button'
@@ -24,6 +25,12 @@ interface AgentBranchItemProps {
   statusIndicator?: string
   onToggle?: () => void
   titleSuffix?: string
+  /**
+   * Available width (in cols) the agent branch may occupy.
+   * Used to hard-wrap long unbroken tokens (paths, URLs) in the
+   * preview and prompt so they don't overflow the column.
+   */
+  availableWidth?: number
 }
 
 export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
@@ -40,7 +47,22 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     statusIndicator = '●',
     onToggle,
     titleSuffix,
+    availableWidth,
   } = props
+
+  // Reserve room for the border (1 char each side) and the inner padding (1
+  // char each side) so wrapped content stays inside the agent card.
+  const innerColWidth = Math.max(10, (availableWidth ?? 80) - 4)
+  const truncatedPreview = truncateToLines(preview, MAX_COLLAPSED_LINES) ?? ''
+  const wrappedPreview =
+    truncatedPreview.length > 0
+      ? wrapTextPreservingNewlines(truncatedPreview, innerColWidth)
+      : ''
+  // Prompt sits next to a 1-col vertical line plus 1 col of padding inside
+  // the expanded card body, so it gets a slightly tighter budget.
+  const wrappedPrompt = prompt
+    ? wrapTextPreservingNewlines(prompt, Math.max(10, innerColWidth - 2))
+    : ''
   useWhyDidYouUpdateById('AgentBranchItem', agentId ?? '', props, {
     logLevel: 'debug',
     enabled: getCliEnv().CODEBUFF_PERF_TEST === 'true',
@@ -113,13 +135,18 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     }
 
     if (isTextRenderable(value)) {
+      const expandedValue =
+        typeof value === 'string' || typeof value === 'number'
+          ? wrapTextPreservingNewlines(String(value), innerColWidth)
+          : value
+
       return (
         <text
           fg={theme.foreground}
           key="expanded-text"
           attributes={getAttributes()}
         >
-          {value}
+          {expandedValue}
         </text>
       )
     }
@@ -162,11 +189,12 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
       style={{
         flexDirection: 'column',
         gap: 0,
-        flexShrink: 0,
+        flexShrink: 1,
         marginTop: 0,
         marginBottom: 0,
         paddingBottom: 0,
         width: '100%',
+        minWidth: 0,
       }}
     >
       <box
@@ -182,6 +210,8 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
           paddingTop: 0,
           paddingBottom: 0,
           width: '100%',
+          minWidth: 0,
+          flexShrink: 1,
         }}
       >
         <Button
@@ -228,14 +258,17 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                 paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
+                width: '100%',
+                minWidth: 0,
               }}
               onClick={onToggle}
             >
               <text
                 fg={isStreaming ? theme.foreground : theme.muted}
                 attributes={getAttributes(TextAttributes.ITALIC)}
+                style={{ wrapMode: 'word' }}
               >
-                {truncateToLines(preview, MAX_COLLAPSED_LINES)}
+                {wrappedPreview}
               </text>
             </Button>
           ) : null
@@ -271,6 +304,8 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                   style={{
                     paddingLeft: 1,
                     flexGrow: 1,
+                    flexShrink: 1,
+                    minWidth: 0,
                   }}
                 >
                   <text
@@ -278,7 +313,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                     style={{ wrapMode: 'word' }}
                     attributes={getAttributes(TextAttributes.ITALIC)}
                   >
-                    {prompt}
+                    {wrappedPrompt}
                   </text>
                 </box>
               </box>

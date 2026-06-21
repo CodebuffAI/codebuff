@@ -721,7 +721,7 @@ export const useSuggestionEngine = ({
   const slashSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return slashMatches.map((command) => {
       // Check if this is a mode command and if it's the current mode
-      const modeMatch = command.id.match(/^mode:(default|max|plan)$/i)
+      const modeMatch = command.id.match(/^mode:(default|plan)$/i)
       const isCurrentMode =
         modeMatch && currentAgentMode?.toLowerCase() === modeMatch[1]
 

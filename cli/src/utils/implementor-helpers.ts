@@ -4,10 +4,7 @@ import type {
   ToolContentBlock,
 } from '../types/chat'
 
-export const IMPLEMENTOR_AGENT_IDS = [
-  'editor-implementor',
-  'editor-implementor-proposal-',
-] as const
+export const IMPLEMENTOR_AGENT_IDS = ['editor-implementor'] as const
 
 /** All edit tool names (both direct and proposed variants) */
 const ALL_EDIT_TOOL_NAMES = [
@@ -226,27 +223,7 @@ function parseUnifiedDiffsString(
   return entries
 }
 
-function unwrapStructuredObject(
-  resultValue: unknown,
-  depth = 0,
-): Record<string, unknown> | null {
-  if (depth > 4 || !resultValue || typeof resultValue !== 'object') return null
-  const obj = resultValue as Record<string, unknown>
 
-  if (obj.type === 'structuredOutput' && obj.value) {
-    return unwrapStructuredObject(obj.value, depth + 1)
-  }
-
-  if (
-    obj.value &&
-    typeof obj.value === 'object' &&
-    Object.keys(obj).every((key) => key === 'value' || key === 'type')
-  ) {
-    return unwrapStructuredObject(obj.value, depth + 1)
-  }
-
-  return obj
-}
 
 /**
  * Synthesize edit tool blocks from a proposal/implementor agent's structured
@@ -338,94 +315,7 @@ export function synthesizeProposalToolBlocks(
   return blocks
 }
 
-type MultiPromptProposalRenderEntry = {
-  id?: string
-  label?: string
-  strategy?: string
-  status?: string
-  toolCalls?: unknown[]
-  toolResults?: unknown[]
-  unifiedDiffs?: string
-}
 
-const getProposalRenderEntries = (
-  resultValue: unknown,
-): MultiPromptProposalRenderEntry[] => {
-  const value = unwrapStructuredObject(resultValue)
-  if (!value) return []
-
-  const proposalSummary =
-    value.proposalSummary &&
-    typeof value.proposalSummary === 'object' &&
-    !Array.isArray(value.proposalSummary)
-      ? (value.proposalSummary as Record<string, unknown>)
-      : null
-  const rawProposals = Array.isArray(proposalSummary?.proposals)
-    ? proposalSummary.proposals
-    : Array.isArray(value.proposals)
-      ? value.proposals
-      : []
-
-  return rawProposals
-    .filter(
-      (proposal): proposal is MultiPromptProposalRenderEntry =>
-        Boolean(proposal) &&
-        typeof proposal === 'object' &&
-        !Array.isArray(proposal),
-    )
-    .filter(
-      (proposal) =>
-        Array.isArray(proposal.toolCalls) ||
-        Array.isArray(proposal.toolResults) ||
-        (typeof proposal.unifiedDiffs === 'string' &&
-          proposal.unifiedDiffs.trim() !== ''),
-    )
-}
-
-export function synthesizeMultiPromptProposalAgentBlocks(
-  resultValue: unknown,
-): AgentContentBlock[] {
-  return getProposalRenderEntries(resultValue).flatMap((proposal, index) => {
-    const toolBlocks = synthesizeProposalToolBlocks({
-      toolCalls: Array.isArray(proposal.toolCalls) ? proposal.toolCalls : [],
-      toolResults: Array.isArray(proposal.toolResults)
-        ? proposal.toolResults
-        : [],
-      unifiedDiffs: proposal.unifiedDiffs,
-    })
-    if (toolBlocks.length === 0) return []
-
-    const label =
-      typeof proposal.label === 'string' && proposal.label.trim()
-        ? proposal.label.trim()
-        : `Proposal #${index + 1}`
-    const strategy =
-      typeof proposal.strategy === 'string' ? proposal.strategy : ''
-    const id =
-      typeof proposal.id === 'string' && proposal.id.trim()
-        ? proposal.id.trim()
-        : String(index + 1)
-
-    return [
-      {
-        type: 'agent',
-        agentId: `multi-prompt-proposal-${id}`,
-        agentName: label,
-        agentType: 'editor-implementor-proposal-direct',
-        content: '',
-        status: proposal.status === 'unusable' ? 'failed' : 'complete',
-        blocks: toolBlocks,
-        initialPrompt: strategy,
-        params: {
-          proposalLabel: label,
-          proposalOrdinal: index + 1,
-          proposalStrategy: strategy,
-          proposalPhase: 'initial',
-        },
-      },
-    ]
-  })
-}
 
 function normalizeTransactionResultForRendering(
   result: Record<string, unknown>,
@@ -503,37 +393,11 @@ export const isImplementorAgent = (
  * Get the display name for an implementor agent.
  */
 export const getImplementorDisplayName = (
-  agentType: string,
+  _agentType: string,
   index?: number,
-  params?: Record<string, unknown>,
+  _params?: Record<string, unknown>,
 ): string => {
-  const proposalLabel = params?.proposalLabel
-  if (typeof proposalLabel === 'string' && proposalLabel.trim()) {
-    return proposalLabel
-  }
-
-  const proposalOrdinal = params?.proposalOrdinal
-  const proposalOrdinalNumber =
-    typeof proposalOrdinal === 'number'
-      ? proposalOrdinal
-      : typeof proposalOrdinal === 'string' && proposalOrdinal.trim()
-        ? Number(proposalOrdinal.trim())
-        : undefined
-  if (
-    proposalOrdinalNumber !== undefined &&
-    Number.isInteger(proposalOrdinalNumber) &&
-    proposalOrdinalNumber > 0
-  ) {
-    return `Proposal #${proposalOrdinalNumber}`
-  }
-
-  const proposalMatch = agentType.match(/editor-implementor-proposal-(\d+)/)
-  if (proposalMatch?.[1]) {
-    return `Proposal #${proposalMatch[1]}`
-  }
-
   const baseName = 'Implementor'
-
   if (index !== undefined) {
     return `${baseName} #${index + 1}`
   }
@@ -1216,173 +1080,4 @@ export function truncateWithEllipsis(text: string, maxWidth: number): string {
   if (text.length <= maxWidth) return text
   if (maxWidth <= 3) return text.slice(0, maxWidth)
   return text.slice(0, maxWidth - 3) + '...'
-}
-
-export interface MultiPromptProgress {
-  /** Total number of implementor agents */
-  total: number
-  /** Number of successfully completed implementors */
-  completed: number
-  /** Number of failed/errored implementors */
-  failed: number
-  /** Whether selector is active (all implementors done, selecting best) */
-  isSelecting: boolean
-  /** Whether selector has completed (used to detect applying phase) */
-  isSelectorComplete: boolean
-}
-
-/**
- * Analyze progress of a multi-prompt editor agent.
- * Returns counts of implementor agents and current phase.
- */
-export function getMultiPromptProgress(
-  blocks: ContentBlock[] | undefined,
-): MultiPromptProgress | null {
-  if (!blocks || blocks.length === 0) return null
-
-  const implementors = blocks.filter(
-    (block): block is AgentContentBlock =>
-      block.type === 'agent' &&
-      isImplementorAgent(block) &&
-      isInitialProposalPhase(block),
-  )
-
-  if (implementors.length === 0) return null
-
-  const completed = implementors.filter((a) => a.status === 'complete').length
-  const failed = implementors.filter(
-    (a) => a.status === 'failed' || a.status === 'cancelled',
-  ).length
-
-  const selectorAgent = blocks.find(
-    (block): block is AgentContentBlock =>
-      block.type === 'agent' && block.agentType.includes('best-of-n-selector'),
-  )
-  const isSelecting = selectorAgent?.status === 'running'
-
-  return {
-    total: implementors.length,
-    completed,
-    failed,
-    isSelecting,
-    isSelectorComplete: selectorAgent?.status === 'complete',
-  }
-}
-
-function isInitialProposalPhase(block: AgentContentBlock): boolean {
-  const phase = block.params?.proposalPhase
-  return phase === undefined || phase === 'initial'
-}
-
-/** Expected shape of the set_output data from editor-multi-prompt */
-interface MultiPromptSetOutputData {
-  implementationId?: string
-  chosenStrategy?: string
-  selectedProposalId?: string
-  selectedProposalLabel?: string
-  appliedProposalId?: string
-  appliedProposalLabel?: string
-  selectionSource?: string
-  reason?: string
-  suggestedImprovements?: string
-  proposalSummary?: unknown
-  toolResults?: unknown[]
-  error?: string
-}
-
-/** Expected shape of the set_output input (data is wrapped in a 'data' property) */
-interface SetOutputInput {
-  data?: MultiPromptSetOutputData
-}
-
-/** Type guard for set_output input with data property */
-function hasSetOutputData(input: unknown): input is SetOutputInput {
-  return (
-    typeof input === 'object' &&
-    input !== null &&
-    'data' in input &&
-    typeof (input as SetOutputInput).data === 'object'
-  )
-}
-
-/**
- * Extract the selection reason from multi-prompt agent's set_output block.
- * set_output wraps data in a 'data' property, so we need to access input.data.reason
- */
-function extractSelectionReason(
-  blocks: ContentBlock[] | undefined,
-): string | null {
-  if (!blocks || blocks.length === 0) return null
-
-  const setOutputBlock = blocks.find(
-    (block): block is ToolContentBlock =>
-      block.type === 'tool' &&
-      block.toolName === 'set_output' &&
-      hasSetOutputData(block.input) &&
-      typeof block.input.data?.reason === 'string',
-  )
-
-  if (!setOutputBlock || !hasSetOutputData(setOutputBlock.input)) {
-    return null
-  }
-
-  return setOutputBlock.input.data?.reason ?? null
-}
-
-/**
- * Generate a progress-focused preview string for multi-prompt editor.
- * @param blocks - The nested content blocks of the agent
- * @param isAgentComplete - Whether the parent agent has finished (status === 'complete')
- */
-export function getMultiPromptPreview(
-  blocks: ContentBlock[] | undefined,
-  isAgentComplete?: boolean,
-): string | null {
-  const progress = getMultiPromptProgress(blocks)
-  if (!progress) return null
-
-  const { total, completed, failed, isSelecting, isSelectorComplete } = progress
-  const finished = completed + failed
-
-  // Agent is fully complete - show final state with selection info
-  // Use multi-line format: line 1 = count, lines 2-3 = reason (truncated to fit)
-  if (isAgentComplete) {
-    const reason = extractSelectionReason(blocks)
-    if (reason) {
-      // Capitalize first letter and truncate to 2 lines (line 1 is the count)
-      const formattedReason = reason.charAt(0).toUpperCase() + reason.slice(1)
-      const lines = formattedReason.split('\n')
-      const truncatedReason =
-        lines.length > 2
-          ? lines.slice(0, 2).join('\n').trimEnd() + '...'
-          : formattedReason
-      return `${total} proposals evaluated\n${truncatedReason}`
-    }
-    return `${total} proposals evaluated`
-  }
-
-  // Selector completed but agent still running = applying phase
-  if (isSelectorComplete) {
-    return 'Applying selected changes...'
-  }
-
-  if (isSelecting) {
-    return `${total} proposals complete • Selecting best...`
-  }
-
-  if (finished === total && total > 0) {
-    if (failed > 0) {
-      return `${completed}/${total} proposals complete (${failed} failed)`
-    }
-    return `${total} proposals complete`
-  }
-
-  if (finished > 0) {
-    if (failed > 0) {
-      return `${completed}/${total} complete, ${failed} failed...`
-    }
-    return `${completed}/${total} proposals complete...`
-  }
-
-  return `Generating ${total} proposals...`
 }

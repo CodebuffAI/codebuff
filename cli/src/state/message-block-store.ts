@@ -33,8 +33,6 @@ export interface MessageBlockContext {
 export interface MessageBlockCallbacks {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
   onFeedback: (
     messageId: string,
     options?: {
@@ -87,8 +85,6 @@ const initialContext: MessageBlockContext = {
 const initialCallbacks: MessageBlockCallbacks = {
   onToggleCollapsed: noop,
   onBuildFast: noop,
-  onBuildMax: noop,
-  onBuildLite: noop,
   onFeedback: noopFeedback,
   onCloseFeedback: noop,
 }

@@ -52,7 +52,7 @@ export const AttachmentCard = ({
           onClick={onRemove}
           onMouseOver={() => setIsCloseHovered(true)}
           onMouseOut={() => setIsCloseHovered(false)}
-          style={{ paddingLeft: 0, paddingRight: 0 }}
+          style={{ marginLeft: 1, paddingLeft: 0, paddingRight: 0 }}
         >
           <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>X</text>
         </Button>

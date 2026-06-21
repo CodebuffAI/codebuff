@@ -9,17 +9,11 @@ import type { ChatTheme } from '../types/theme-system'
 export const BuildModeButtons = ({
   theme,
   onBuildFast,
-  onBuildMax,
-  onBuildLite,
 }: {
   theme: ChatTheme
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
 }) => {
-  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | 'lite' | null>(
-    null,
-  )
+  const [isHovered, setIsHovered] = useState(false)
   const { width } = useTerminalLayout()
   const isNarrow = width.is('xs')
 
@@ -51,54 +45,15 @@ export const BuildModeButtons = ({
             paddingLeft: 2,
             paddingRight: 2,
             borderStyle: 'single',
-            borderColor:
-              hoveredButton === 'fast' ? theme.foreground : theme.secondary,
+            borderColor: isHovered ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
           onClick={onBuildFast}
-          onMouseOver={() => setHoveredButton('fast')}
-          onMouseOut={() => setHoveredButton(null)}
+          onMouseOver={() => setIsHovered(true)}
+          onMouseOut={() => setIsHovered(false)}
         >
           <text wrapMode="none">
             <span fg={theme.foreground}>Build DEFAULT</span>
-          </text>
-        </Button>
-        <Button
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingLeft: 2,
-            paddingRight: 2,
-            borderStyle: 'single',
-            borderColor:
-              hoveredButton === 'max' ? theme.foreground : theme.secondary,
-            customBorderChars: BORDER_CHARS,
-          }}
-          onClick={onBuildMax}
-          onMouseOver={() => setHoveredButton('max')}
-          onMouseOut={() => setHoveredButton(null)}
-        >
-          <text wrapMode="none">
-            <span fg={theme.foreground}>Build MAX</span>
-          </text>
-        </Button>
-        <Button
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingLeft: 2,
-            paddingRight: 2,
-            borderStyle: 'single',
-            borderColor:
-              hoveredButton === 'lite' ? theme.foreground : theme.secondary,
-            customBorderChars: BORDER_CHARS,
-          }}
-          onClick={onBuildLite}
-          onMouseOver={() => setHoveredButton('lite')}
-          onMouseOut={() => setHoveredButton(null)}
-        >
-          <text wrapMode="none">
-            <span fg={theme.foreground}>Build LITE</span>
           </text>
         </Button>
       </box>

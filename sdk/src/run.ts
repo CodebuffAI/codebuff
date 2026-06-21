@@ -690,7 +690,9 @@ async function handleToolCall({
     let override = overrides[toolName as PublishedClientToolName]
     if (
       !override &&
-      (toolName === 'str_replace' || toolName === 'apply_patch')
+      (toolName === 'str_replace' ||
+        toolName === 'apply_patch' ||
+        toolName === 'create_plan')
     ) {
       // Reuse the write_file override for single-file editing tools that send
       // FileChange-shaped payloads to the client.
@@ -723,7 +725,11 @@ async function handleToolCall({
                 },
         },
       ]
-    } else if (toolName === 'write_file' || toolName === 'str_replace') {
+    } else if (
+      toolName === 'write_file' ||
+      toolName === 'str_replace' ||
+      toolName === 'create_plan'
+    ) {
       result = await changeFile({
         parameters: input,
         cwd: requireCwd(cwd, toolName),
@@ -849,6 +855,7 @@ async function handleToolCall({
     onFilesChanged &&
     (toolName === 'write_file' ||
       toolName === 'str_replace' ||
+      toolName === 'create_plan' ||
       toolName === 'edit_transaction' ||
       toolName === 'apply_patch' ||
       toolName === 'replace_range')

@@ -199,13 +199,13 @@ describe('scrubPlanTagsInBlocks', () => {
 
 describe('createModeDividerMessage', () => {
   test('creates a mode divider message', () => {
-    const message = createModeDividerMessage('MAX')
+    const message = createModeDividerMessage('DEFAULT')
 
     expect(message.variant).toBe('ai')
     expect(message.content).toBe('')
     expect(message.blocks).toHaveLength(1)
     expect(message.blocks![0].type).toBe('mode-divider')
-    expect((message.blocks![0] as ModeDividerContentBlock).mode).toBe('MAX')
+    expect((message.blocks![0] as ModeDividerContentBlock).mode).toBe('DEFAULT')
     expect(message.id).toMatch(/^divider-/)
   })
 })
@@ -1327,7 +1327,7 @@ describe('getAgentBaseName', () => {
   })
 
   test('normalizes direct tool aliases to canonical agent names', () => {
-    expect(getAgentBaseName('code_reviewer_lite')).toBe('code-reviewer-lite')
+    expect(getAgentBaseName('code_searcher')).toBe('code-searcher')
   })
 })
 

@@ -48,8 +48,6 @@ export const shouldHideAgent = (agentId: string): boolean => {
 export const COLLAPSED_BY_DEFAULT_AGENT_IDS = [
   'file-picker',
   'code-reviewer-selector',
-  'thinker-selector',
-  'best-of-n-selector',
   'basher',
   'code-searcher',
   'directory-lister',
@@ -71,9 +69,7 @@ export const shouldCollapseByDefault = (agentType: string): boolean => {
  * Rules for collapsing child agents when spawned by specific parent agents.
  * Key: parent agent type pattern, Value: array of child agent type patterns to collapse
  */
-export const PARENT_CHILD_COLLAPSE_RULES: Record<string, string[]> = {
-  'code-reviewer-multi-prompt': ['code-reviewer'],
-}
+export const PARENT_CHILD_COLLAPSE_RULES: Record<string, string[]> = {}
 
 /**
  * Check if a child agent should be collapsed when spawned by a specific parent
@@ -102,11 +98,7 @@ export const shouldCollapseForParent = (
 }
 
 // Agent IDs that should render as simple text instead of full agent boxes
-export const SIMPLE_TEXT_AGENT_IDS = [
-  'best-of-n-selector',
-  'best-of-n-selector-gemini',
-  'best-of-n-selector2',
-] as const
+export const SIMPLE_TEXT_AGENT_IDS = [] as const
 
 /**
  * Check if an agent should render as simple text instead of a full agent box
@@ -117,8 +109,8 @@ export const shouldRenderAsSimpleText = (agentType: string): boolean => {
   )
 }
 
-// Agent IDs that show progress-focused previews (multi-prompt editors)
-export const MULTI_PROMPT_EDITOR_IDS = ['editor-multi-prompt'] as const
+// Agent IDs that show progress-focused previews.
+export const MULTI_PROMPT_EDITOR_IDS = [] as const
 
 /**
  * Check if an agent should show progress-focused preview when collapsed
@@ -138,9 +130,8 @@ export const MAIN_AGENT_ID = 'main-agent'
  */
 export const AGENT_MODE_TO_ID = {
   DEFAULT: 'base2',
-  LITE: 'base2-lite',
-  MAX: 'base2-max',
   PLAN: 'base2-plan',
+  EXECUTE_PLAN: 'base2-execute-plan',
 } as const
 
 export type AgentMode = keyof typeof AGENT_MODE_TO_ID
@@ -151,10 +142,9 @@ export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]
  */
 export const AGENT_MODE_TO_COST_MODE = {
   DEFAULT: 'normal',
-  LITE: 'lite',
-  MAX: 'max',
   PLAN: 'normal',
+  EXECUTE_PLAN: 'normal',
 } as const satisfies Record<
   AgentMode,
-  'lite' | 'normal' | 'max' | 'experimental' | 'ask'
+  'normal' | 'max' | 'experimental' | 'ask'
 >

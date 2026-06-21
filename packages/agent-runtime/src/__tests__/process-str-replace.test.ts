@@ -65,6 +65,54 @@ describe('processStrReplace', () => {
     }
   })
 
+  it('preserves mixed line endings in untouched text', async () => {
+    const initialContent = 'const crlf = 1;\r\nconst lf = 2;\nconst target = 3;\r\n'
+
+    const result = await processStrReplace({
+      path: 'mixed.ts',
+      replacements: [
+        {
+          oldString: 'const target = 3;',
+          newString: 'const target = 4;',
+          allowMultiple: false,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe(
+        'const crlf = 1;\r\nconst lf = 2;\nconst target = 4;\r\n',
+      )
+    }
+  })
+
+  it('preserves the original line ending of modified lines in mixed files', async () => {
+    const initialContent = 'const crlf = 1;\r\nconst lf = 2;\nconst another = 3;\r\n'
+
+    const result = await processStrReplace({
+      path: 'mixed.ts',
+      replacements: [
+        {
+          oldString: 'const lf = 2;',
+          newString: 'const lf = 20;',
+          allowMultiple: false,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toBe(
+        'const crlf = 1;\r\nconst lf = 20;\nconst another = 3;\r\n',
+      )
+    }
+  })
+
   it('should handle indentation differences', async () => {
     const initialContent = '  const x = 1;\n    const y = 2;\n'
     const oldStr = 'const y = 2;'
@@ -270,8 +318,9 @@ describe('processStrReplace', () => {
       expect(
         result.messages.some((msg) =>
           msg.includes(
-            'The old string "const w = 4;" was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.',
-          ),
+            'The old string "const w = 4;" was not found in the file, skipping.',
+          ) &&
+          msg.includes('Please re-read the current file/range and try again'),
         ),
       ).toBe(true)
     }
@@ -647,7 +696,7 @@ function test3() {
     }
   })
 
-  it('should provide fuzzy matching diagnostics when no candidate is safe enough to auto-correct', async () => {
+  it('should suppress low-similarity fuzzy candidates and give stale-read guidance', async () => {
     const initialContent = 'const firstVar = 1;\nconst secondVar = 2;\nconst thirdVar = 3;\n'
     const oldStr = 'const completelyDifferentValue = 200;'
     const newStr = 'const secondVar = 20;'
@@ -667,8 +716,12 @@ function test3() {
       expect(result.error).toContain(
         'The old string "const completelyDifferentValue = 200;" was not found',
       )
-      expect(result.error).toContain('Closest candidate ranges for read_files.ranges recovery:')
-      expect(result.error).toContain('Candidate 1: lines')
+      expect(result.error).toContain(
+        'target block was already changed/removed',
+      )
+      expect(result.error).toContain('No useful candidate ranges found')
+      expect(result.error).toContain('re-read the current file/range')
+      expect(result.error).not.toContain('Candidate 1: lines')
     }
   })
 
@@ -1039,6 +1092,8 @@ function test3() {
       expect(result.error).toContain('Atomic str_replace batch aborted')
       expect(result.error).toContain('NO changes were made')
       expect(result.error).toContain('const missing = 1;')
+      expect(result.error).toContain('already changed/removed')
+      expect(result.error).toContain('consider replace_range with expectedHash')
       expect(result.error).not.toContain('+const first = 2;')
     }
   })
@@ -1079,6 +1134,197 @@ function test3() {
     }
   })
 
+  it('keeps later anchored large-file edits aligned after earlier line insertions', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 100
+        ? 'const first = 1;'
+        : index === 500
+          ? 'const second = 1;'
+          : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const firstRange = lines.slice(100, 101).join('\n')
+    const secondRange = lines.slice(500, 501).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const first = 1;',
+          newString: 'const first = 2;\nconst inserted = true;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 101,
+            endLine: 101,
+            hash: getContentHash(firstRange),
+          },
+        },
+        {
+          oldString: 'const second = 1;',
+          newString: 'const second = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 501,
+            hash: getContentHash(secondRange),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      const resultLines = result.content.split('\n')
+      expect(resultLines[100]).toBe('const first = 2;')
+      expect(resultLines[101]).toBe('const inserted = true;')
+      expect(resultLines[501]).toBe('const second = 2;')
+    }
+  })
+
+  it('expands the same validated range after line insertions inside it', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 500
+        ? 'const first = 1;\nconst middle = 1;\nconst last = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const rangeContent = lines.slice(500, 501).join('\n')
+    const basedOnRead = {
+      startLine: 501,
+      endLine: 503,
+      hash: getContentHash(rangeContent),
+    }
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const first = 1;',
+          newString: 'const first = 2;\nconst inserted = true;',
+          allowMultiple: false,
+          basedOnRead,
+        },
+        {
+          oldString: 'const last = 1;',
+          newString: 'const last = 2;',
+          allowMultiple: false,
+          basedOnRead,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain(
+        'const first = 2;\nconst inserted = true;\nconst middle = 1;\nconst last = 2;',
+      )
+    }
+  })
+
+  it('keeps later anchored ranges aligned after allowMultiple line insertions', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 100
+        ? 'const repeated = 1;'
+        : index === 300
+          ? 'const target = 1;'
+          : index === 500
+            ? 'const repeated = 1;'
+            : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const repeatedRange = lines.slice(100, 501).join('\n')
+    const targetRange = lines.slice(300, 301).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const repeated = 1;',
+          newString: 'const repeated = 2;\nconst inserted = true;',
+          allowMultiple: true,
+          basedOnRead: {
+            startLine: 101,
+            endLine: 501,
+            hash: getContentHash(repeatedRange),
+          },
+        },
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 301,
+            endLine: 301,
+            hash: getContentHash(targetRange),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      const resultLines = result.content.split('\n')
+      expect(resultLines[100]).toBe('const repeated = 2;')
+      expect(resultLines[101]).toBe('const inserted = true;')
+      expect(resultLines[301]).toBe('const target = 2;')
+      expect(resultLines[501]).toBe('const repeated = 2;')
+      expect(resultLines[502]).toBe('const inserted = true;')
+    }
+  })
+
+  it('scopes skipIfMissing deletion checks to the anchored range', async () => {
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 100
+        ? 'console.log("debug")'
+        : index === 500
+          ? 'const target = 1;'
+          : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const targetRange = lines.slice(500, 501).join('\n')
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'console.log("debug")',
+          newString: '',
+          allowMultiple: false,
+          skipIfMissing: true,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 501,
+            hash: getContentHash(targetRange),
+          },
+        },
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 501,
+            endLine: 501,
+            hash: getContentHash(targetRange),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('content' in result).toBe(true)
+    if ('content' in result) {
+      expect(result.content).toContain('console.log("debug")')
+      expect(result.content).toContain('const target = 2;')
+    }
+  })
+
   it('should accept multi-line CRLF range hashes from read_files', async () => {
     const lines = Array.from({ length: 1_001 }, (_, index) =>
       index === 500
@@ -1112,6 +1358,54 @@ function test3() {
     if ('content' in result) {
       expect(result.content).toContain('const target = 2;\r\nconst neighbor = 1;')
       expect(result.content).toContain('\r\n')
+    }
+  })
+
+  it('validates object-form basedOnRead even on small files', async () => {
+    const result = await processStrReplace({
+      path: 'small.ts',
+      replacements: [
+        {
+          oldString: 'const x = 1;',
+          newString: 'const x = 2;',
+          allowMultiple: false,
+          basedOnRead: {
+            startLine: 0,
+            endLine: 1,
+            hash: getContentHash('const x = 1;'),
+          },
+        },
+      ],
+      initialContentPromise: Promise.resolve('const x = 1;\n'),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Invalid basedOnRead')
+      expect(result.error).toContain('positive finite integer')
+    }
+  })
+
+  it('validates occurrenceIndex at runtime', async () => {
+    const result = await processStrReplace({
+      path: 'small.ts',
+      replacements: [
+        {
+          oldString: 'const x = 1;',
+          newString: 'const x = 2;',
+          allowMultiple: false,
+          occurrenceIndex: 0,
+        },
+      ],
+      initialContentPromise: Promise.resolve('const x = 1;\n'),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('Invalid occurrenceIndex')
+      expect(result.error).toContain('positive finite integer')
     }
   })
 

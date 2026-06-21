@@ -3,7 +3,6 @@ import { describe, test, expect } from 'bun:test'
 import filePicker, { createFilePicker, extractSpawnResults, extractAgentText, extractErrorMessage, isObject } from '../file-explorer/file-picker'
 
 import type { AgentState, ToolCall, StepText } from '../types/agent-definition'
-import type { ToolResultOutput } from '../types/util-types'
 
 describe('file-picker agent', () => {
   const createMockAgentState = (): AgentState => ({
@@ -54,18 +53,18 @@ describe('file-picker agent', () => {
     })
   })
 
-  describe('createFilePicker - default mode', () => {
+  describe('createFilePicker', () => {
     test('uses flash-lite model', () => {
-      const defaultPicker = createFilePicker('default')
-      expect(defaultPicker.model).toBe('google/gemini-2.5-flash-lite')
+      const picker = createFilePicker()
+      expect(picker.model).toBe('google/gemini-2.5-flash-lite')
     })
 
     test('spawns single file-lister', () => {
-      const defaultPicker = createFilePicker('default')
+      const picker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
-      const generator = defaultPicker.handleSteps!({
+      const generator = picker.handleSteps!({
         agentState: mockAgentState,
         logger: mockLogger as any,
         params: {},
@@ -77,32 +76,6 @@ describe('file-picker agent', () => {
       expect(toolCall.toolName).toBe('spawn_agents')
       expect(toolCall.input.agents).toHaveLength(1)
       expect(toolCall.input.agents[0].agent_type).toBe('file-lister')
-    })
-  })
-
-  describe('createFilePicker - max mode', () => {
-    test('spawns single file-lister-max', () => {
-      const maxPicker = createFilePicker('max')
-      const mockAgentState = createMockAgentState()
-      const mockLogger = createMockLogger()
-
-      const generator = maxPicker.handleSteps!({
-        agentState: mockAgentState,
-        logger: mockLogger as any,
-        params: {},
-      })
-
-      const result = generator.next()
-
-      const toolCall = result.value as ToolCall<'spawn_agents'>
-      expect(toolCall.toolName).toBe('spawn_agents')
-      expect(toolCall.input.agents).toHaveLength(1)
-      expect(toolCall.input.agents[0].agent_type).toBe('file-lister-max')
-    })
-
-    test('includes file-lister-max in spawnableAgents', () => {
-      const maxPicker = createFilePicker('max')
-      expect(maxPicker.spawnableAgents).toContain('file-lister-max')
     })
   })
 
@@ -129,7 +102,7 @@ describe('file-picker agent', () => {
 
   describe('handleStepsDefault', () => {
     test('yields spawn_agents with file-lister', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -148,7 +121,7 @@ describe('file-picker agent', () => {
     })
 
     test('passes params to file-lister', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -168,7 +141,7 @@ describe('file-picker agent', () => {
     })
 
     test('handles empty tool result gracefully', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -194,7 +167,7 @@ describe('file-picker agent', () => {
     })
 
     test('yields read_files with extracted paths from lastMessage format', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -244,7 +217,7 @@ describe('file-picker agent', () => {
     })
 
     test('yields read_files with extracted paths from structuredOutput format', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -285,7 +258,7 @@ describe('file-picker agent', () => {
     })
 
     test('deduplicates paths from results', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -336,7 +309,7 @@ describe('file-picker agent', () => {
     })
 
     test('yields STEP after read_files', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -382,7 +355,7 @@ describe('file-picker agent', () => {
     })
 
     test('handles error results from spawned agents', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const mockAgentState = createMockAgentState()
       const mockLogger = createMockLogger()
 
@@ -424,124 +397,9 @@ describe('file-picker agent', () => {
     })
   })
 
-  describe('handleStepsMax', () => {
-    test('spawns single file-lister-max with prompt and params', () => {
-      const maxPicker = createFilePicker('max')
-      const mockAgentState = createMockAgentState()
-      const mockLogger = createMockLogger()
-
-      const generator = maxPicker.handleSteps!({
-        agentState: mockAgentState,
-        logger: mockLogger as any,
-        prompt: 'Find auth files',
-        params: { directories: ['src'] },
-      })
-
-      const result = generator.next()
-
-      const toolCall = result.value as ToolCall<'spawn_agents'>
-      expect(toolCall.toolName).toBe('spawn_agents')
-      expect(toolCall.input.agents).toHaveLength(1)
-      expect(toolCall.input.agents[0].agent_type).toBe('file-lister-max')
-      expect(toolCall.input.agents[0].prompt).toBe('Find auth files')
-      expect(toolCall.input.agents[0].params).toEqual({ directories: ['src'] })
-    })
-
-    test('extracts results from file-lister-max', () => {
-      const maxPicker = createFilePicker('max')
-      const mockAgentState = createMockAgentState()
-      const mockLogger = createMockLogger()
-
-      const generator = maxPicker.handleSteps!({
-        agentState: mockAgentState,
-        logger: mockLogger as any,
-        params: {},
-      })
-
-      generator.next()
-
-      const mockToolResult = {
-        agentState: createMockAgentState(),
-        toolResult: [
-          {
-            type: 'json' as const,
-            value: [
-              {
-                agentName: 'File Lister',
-                agentType: 'file-lister-max',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [
-                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts\nsrc/user.ts' },
-                      ],
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-        stepsComplete: true,
-      }
-
-      const result = generator.next(mockToolResult)
-
-      const toolCall = result.value as ToolCall<'read_files'>
-      const paths = toolCall.input.paths
-      expect(paths).toHaveLength(3)
-      expect(paths).toContain('src/auth.ts')
-      expect(paths).toContain('src/login.ts')
-      expect(paths).toContain('src/user.ts')
-    })
-
-    test('handles error from file-lister-max', () => {
-      const maxPicker = createFilePicker('max')
-      const mockAgentState = createMockAgentState()
-      const mockLogger = createMockLogger()
-
-      const generator = maxPicker.handleSteps!({
-        agentState: mockAgentState,
-        logger: mockLogger as any,
-        params: {},
-      })
-
-      generator.next()
-
-      const mockToolResult = {
-        agentState: createMockAgentState(),
-        toolResult: [
-          {
-            type: 'json' as const,
-            value: [
-              {
-                agentName: 'File Lister',
-                agentType: 'file-lister-max',
-                value: {
-                  type: 'error',
-                  message: 'File lister max failed',
-                },
-              },
-            ],
-          },
-        ] as ToolResultOutput[],
-        stepsComplete: true,
-      }
-
-      const result = generator.next(mockToolResult)
-
-      const stepText = result.value as StepText
-      expect(stepText.type).toBe('STEP_TEXT')
-      expect(stepText.text).toContain('Error from file-lister')
-      expect(stepText.text).toContain('File lister max failed')
-    })
-  })
-
   describe('serialization', () => {
     test('handleSteps can be serialized for default mode', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const handleStepsString = defaultPicker.handleSteps!.toString()
 
       expect(handleStepsString).toMatch(/^function\*\s*\(/)
@@ -551,7 +409,7 @@ describe('file-picker agent', () => {
     })
 
     test('serialized default handleSteps does not reference closure helpers', () => {
-      const defaultPicker = createFilePicker('default')
+      const defaultPicker = createFilePicker()
       const isolatedFunction = new Function(
         `return (${defaultPicker.handleSteps!.toString()})`,
       )()
@@ -588,56 +446,6 @@ describe('file-picker agent', () => {
       const toolCall = result.value as ToolCall<'read_files'>
       expect(toolCall.toolName).toBe('read_files')
       expect(toolCall.input.paths).toEqual(['src/isolated.ts'])
-    })
-
-    test('handleSteps can be serialized for max mode', () => {
-      const maxPicker = createFilePicker('max')
-      const handleStepsString = maxPicker.handleSteps!.toString()
-
-      expect(handleStepsString).toMatch(/^function\*\s*\(/)
-
-      const isolatedFunction = new Function(`return (${handleStepsString})`)()
-      expect(typeof isolatedFunction).toBe('function')
-    })
-
-    test('serialized max handleSteps does not reference closure helpers', () => {
-      const maxPicker = createFilePicker('max')
-      const isolatedFunction = new Function(
-        `return (${maxPicker.handleSteps!.toString()})`,
-      )()
-      const generator = isolatedFunction({
-        agentState: createMockAgentState(),
-        logger: createMockLogger(),
-        params: {},
-      })
-
-      generator.next()
-      const result = generator.next({
-        agentState: createMockAgentState(),
-        toolResult: [
-          {
-            type: 'json' as const,
-            value: [
-              {
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [{ type: 'text', text: 'src/max-isolated.ts' }],
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-        stepsComplete: true,
-      })
-
-      const toolCall = result.value as ToolCall<'read_files'>
-      expect(toolCall.toolName).toBe('read_files')
-      expect(toolCall.input.paths).toEqual(['src/max-isolated.ts'])
     })
   })
 

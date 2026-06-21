@@ -1,6 +1,11 @@
 import { describe, test, expect } from 'bun:test'
 
-import { computeInputLayoutMetrics } from '../text-layout'
+import {
+  computeInputLayoutMetrics,
+  getLastNVisualLines,
+  wrapTextPreservingNewlines,
+  wrapTextToVisualLines,
+} from '../text-layout'
 
 describe('computeInputLayoutMetrics', () => {
   test('single-line content keeps height at 1 without gutter', () => {
@@ -78,5 +83,49 @@ describe('computeInputLayoutMetrics', () => {
 
     expect(metrics.heightLines).toBe(2)
     expect(metrics.gutterEnabled).toBe(false)
+  })
+})
+
+describe('wrapTextToVisualLines', () => {
+  test('hard-wraps long unbroken segments', () => {
+    expect(wrapTextToVisualLines('abcdefghij', 4)).toEqual([
+      'abcd',
+      'efgh',
+      'ij',
+    ])
+  })
+
+  test('preserves explicit newlines while wrapping each line', () => {
+    expect(wrapTextToVisualLines('alpha beta\ngammadelta', 6)).toEqual([
+      'alpha ',
+      'beta',
+      'gammad',
+      'elta',
+    ])
+  })
+
+  test('returns a wrapped string for plain message content', () => {
+    expect(wrapTextPreservingNewlines('0123456789', 5)).toBe('01234\n56789')
+  })
+
+  test('hard-wraps long pasted paths and URLs without relying on whitespace', () => {
+    const longToken = 'https://example.com/' + 'segment'.repeat(12)
+    const wrapped = wrapTextPreservingNewlines(longToken, 10)
+    const lines = wrapped.split('\n')
+
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.every((line) => line.length <= 10)).toBe(true)
+    expect(lines.join('')).toBe(longToken)
+  })
+})
+
+describe('getLastNVisualLines', () => {
+  test('uses wrapped visual lines when trimming output', () => {
+    const result = getLastNVisualLines('first second third', 6, 2)
+
+    expect(result).toEqual({
+      lines: ['second', ' third'],
+      hasMore: true,
+    })
   })
 })

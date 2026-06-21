@@ -6,11 +6,11 @@ import { logger } from '@/util/logger'
 const commands = [
   new SlashCommandBuilder()
     .setName('link')
-    .setDescription('Link your Discord account to your Codebuff account')
+    .setDescription('Link your Discord account to your Openbuff account')
     .addStringOption((option) =>
       option
         .setName('email')
-        .setDescription('The primary email for your GitHub account used for Codebuff')
+        .setDescription('The primary email for your GitHub account used for Openbuff')
         .setRequired(true),
     ),
 ]

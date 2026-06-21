@@ -58,32 +58,6 @@ export const useChatInput = ({
     }, 0)
   }, [setAgentMode, setInputValue, onSubmitPrompt])
 
-  const handleBuildMax = useCallback(() => {
-    setAgentMode('MAX')
-    setInputValue({
-      text: BUILD_IT_TEXT,
-      cursorPosition: BUILD_IT_TEXT.length,
-      lastEditDueToNav: true,
-    })
-    setTimeout(() => {
-      onSubmitPrompt('Build it!', 'MAX')
-      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    }, 0)
-  }, [setAgentMode, setInputValue, onSubmitPrompt])
-
-  const handleBuildLite = useCallback(() => {
-    setAgentMode('LITE')
-    setInputValue({
-      text: BUILD_IT_TEXT,
-      cursorPosition: BUILD_IT_TEXT.length,
-      lastEditDueToNav: true,
-    })
-    setTimeout(() => {
-      onSubmitPrompt(BUILD_IT_TEXT, 'LITE')
-      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    }, 0)
-  }, [setAgentMode, setInputValue, onSubmitPrompt])
-
   useEffect(() => {
     if (initialPrompt && !hasAutoSubmittedRef.current) {
       hasAutoSubmittedRef.current = true
@@ -98,7 +72,5 @@ export const useChatInput = ({
   return {
     inputWidth,
     handleBuildFast,
-    handleBuildMax,
-    handleBuildLite,
   }
 }

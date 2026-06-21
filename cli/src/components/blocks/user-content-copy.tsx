@@ -46,7 +46,7 @@ export const UserContentWithCopyButton = memo(
       return (
         <text
           key={`message-content-${messageId}`}
-          style={{ wrapMode: 'word', fg: textColor }}
+          style={{ wrapMode: 'word', fg: textColor, width: '100%' }}
           attributes={isUser ? TextAttributes.ITALIC : undefined}
         >
           <ContentWithMarkdown
@@ -96,7 +96,7 @@ const UserTextWithInlineCopy = memo(
     return (
       <CopyButton
         textToCopy={content}
-        style={{ wrapMode: 'word', fg: textColor }}
+        style={{ wrapMode: 'word', fg: textColor, width: '100%' }}
       >
         <span attributes={TextAttributes.ITALIC}>
           <ContentWithMarkdown
@@ -141,6 +141,7 @@ export const UserBlockTextWithInlineCopy = memo(
           fg: textColor,
           marginTop,
           marginBottom,
+          width: '100%',
         }}
       >
         <span attributes={TextAttributes.ITALIC}>

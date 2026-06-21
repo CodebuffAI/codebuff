@@ -1,7 +1,7 @@
 /**
- * Editor comparison: runs the same editing task through both the default
- * editor (base2, uses 'editor' sub-agent) and the multi-prompt editor
- * (base2-max, uses 'editor-multi-prompt' sub-agent), then compares results.
+ * Editor comparison: runs the same editing task through two base2 editor
+ * passes, then compares results. This script is retained as a generic
+ * repeatability harness after the multi-prompt editor was removed.
  *
  * Runs directly on the current working directory (no git clone).
  * Uses BYOK/local mode with openbuff.json for provider routing.
@@ -58,13 +58,15 @@ interface RunOutput {
   steps: number
 }
 
+type EditorRunKind = 'default' | 'multieditor' | 'second-pass'
+
 async function runEditor(
   client: CodebuffClient,
   agentId: string,
   localAgentDefinitions: any[],
   prompt: string,
   cwd: string,
-  editorKind: 'default' | 'multieditor',
+  editorKind: EditorRunKind,
 ): Promise<RunOutput> {
   console.log(`\n=== ${editorKind.toUpperCase()} (${agentId}) ===`)
 
@@ -226,15 +228,15 @@ async function main() {
     'default',
   )
 
-  // --- Run MULTIEDITOR ---
+  // --- Run second editor pass ---
   discardChanges()
   const multiResult = await runEditor(
     client,
-    'base2-max',
+    'base2',
     localAgentDefinitions,
     prompt,
     cwd,
-    'multieditor',
+    'second-pass',
   )
 
   // Discard changes one final time (but not the eval files)

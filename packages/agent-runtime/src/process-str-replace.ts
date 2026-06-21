@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 
-import { createPatch } from 'diff'
+import { createPatch, diffLines } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
@@ -132,8 +132,10 @@ const REGION_ANCHOR_MAX_SPAN = 400
 
 const FAILED_EDIT_RECOVERY_GUIDANCE = [
   'Recovery required: stop retrying this edit from memory.',
+  'This usually means the target text was already changed/removed, or your oldString came from a stale read.',
   'Before attempting another str_replace on this file, re-read the exact current lines with read_files and copy the current text into oldString.',
-  'If the file has changed since your last read, base the next edit on the fresh read, not on the failed oldString.',
+  'If your intent is to replace/delete a whole current line range, consider replace_range with expectedHash from read_files.ranges instead of reconstructing a large oldString.',
+  'Base the next edit on the fresh read, not on the failed oldString.',
 ].join('\n')
 
 function addFailedEditRecoveryGuidance(error: string): string {
@@ -148,6 +150,7 @@ export async function processStrReplace(params: {
     allowMultiple: boolean
     occurrenceIndex?: number
     basedOnRead?: ReplacementReadCapability | string
+    skipIfMissing?: boolean
   }[]
   /**
    * When true, any failed replacement aborts the entire batch without applying
@@ -185,7 +188,7 @@ export async function processStrReplace(params: {
   // partial-apply state that shifts line numbers and invalidates read anchors;
   // small files can opt in with atomic: true for logically grouped edits.
   const failures: string[] = []
-  const lineEnding = currentContent.includes('\r\n') ? '\r\n' : '\n'
+  const defaultLineEnding = getDominantLineEnding(currentContent)
   const initialContentLineCount = normalizeLineEndings({
     str: initialContent,
   }).split('\n').length
@@ -194,16 +197,18 @@ export async function processStrReplace(params: {
     initialContentLineCount > LARGE_FILE_LINE_THRESHOLD
   const useAtomicBatch = isLargeFile || atomic
   // basedOnRead is a large-file safety anchor only. Small files are edited by
-  // exact oldString matching, which is already safe, so any basedOnRead supplied
-  // on a small file is ignored rather than validated. This prevents repeated
-  // edit failures when a stale/mismatched basedOnRead is accidentally included
-  // on a file that does not require it (the historical small-file failure loop).
+  // exact oldString matching, which is already safe, so valid basedOnRead
+  // anchors supplied on a small file are ignored after basic runtime shape
+  // validation. This prevents repeated edit failures when a stale/mismatched
+  // basedOnRead is accidentally included on a file that does not require it (the
+  // historical small-file failure loop).
   const enforceReadCapability = isLargeFile
   const normalizedInitialContent = normalizeLineEndings({ str: initialContent })
   const validatedReadRanges = new Map<string, ValidatedReadRange>()
   const readCapabilityWarnings: string[] = []
   const preflightErrors: string[] = []
   let ignoredBasedOnReadOnSmallFile = false
+  let hadNoOpSkip = false
 
   // Decode any token-form basedOnRead up front so the rest of the pipeline only
   // ever sees concrete { startLine, endLine, hash } objects (or undefined).
@@ -211,6 +216,28 @@ export async function processStrReplace(params: {
     ...replacement,
     basedOnRead: normalizeBasedOnRead(replacement.basedOnRead),
   }))
+
+  for (let i = 0; i < normalizedReplacements.length; i++) {
+    const basedOnRead = normalizedReplacements[i].basedOnRead
+    if (basedOnRead && typeof basedOnRead === 'object') {
+      const validationError = validateReadCapabilityObject(basedOnRead)
+      if (validationError) {
+        preflightErrors.push(`Invalid basedOnRead for replacement ${i + 1}: ${validationError}`)
+      }
+    }
+
+    const { occurrenceIndex } = normalizedReplacements[i]
+    if (
+      occurrenceIndex !== undefined &&
+      (!Number.isFinite(occurrenceIndex) ||
+        !Number.isInteger(occurrenceIndex) ||
+        occurrenceIndex < 1)
+    ) {
+      preflightErrors.push(
+        `Invalid occurrenceIndex for replacement ${i + 1}: expected a positive finite integer, but received ${JSON.stringify(occurrenceIndex)}.`,
+      )
+    }
+  }
 
   // Reject obviously-bogus string anchors (stubs like "dummy", or anything that
   // does not decode) on EVERY file, large or small. This is the only basedOnRead
@@ -302,7 +329,14 @@ export async function processStrReplace(params: {
     allowMultiple,
     occurrenceIndex,
     basedOnRead,
+    skipIfMissing,
   } of normalizedReplacements) {
+    const normalizedCurrentContent = normalizeLineEndings({
+      str: currentContent,
+    })
+    const normalizedOldStr = normalizeLineEndings({ str: oldStr })
+    const normalizedNewStr = normalizeLineEndings({ str: newStr })
+
     // Regular case: require oldStr for replacements
     if (!oldStr) {
       const emptyOldStrMessage =
@@ -311,12 +345,6 @@ export async function processStrReplace(params: {
       failures.push(emptyOldStrMessage)
       continue
     }
-
-    const normalizedCurrentContent = normalizeLineEndings({
-      str: currentContent,
-    })
-    const normalizedOldStr = normalizeLineEndings({ str: oldStr })
-    const normalizedNewStr = normalizeLineEndings({ str: newStr })
 
     // occurrenceIndex: the caller asserts EXACTLY which repeated occurrence to
     // edit (1-indexed). This is a fully-specified target, so it bypasses the
@@ -340,6 +368,17 @@ export async function processStrReplace(params: {
           : null
       const searchContent =
         validatedRangeForIndex?.content ?? normalizedCurrentContent
+      if (
+        skipIfMissing === true &&
+        normalizedNewStr === '' &&
+        !searchContent.includes(normalizedOldStr)
+      ) {
+        messages.push(
+          `Skipped already-applied str_replace deletion in ${path}: oldString was not present${validatedRangeForIndex ? ' within the anchored range' : ''}.`,
+        )
+        hadNoOpSkip = true
+        continue
+      }
       const at = getNthOccurrenceIndex(
         searchContent,
         normalizedOldStr,
@@ -360,13 +399,52 @@ export async function processStrReplace(params: {
         searchContent.slice(0, at) +
         normalizedNewStr +
         searchContent.slice(at + normalizedOldStr.length)
-      currentContent = validatedRangeForIndex
-        ? [
-            ...normalizedCurrentContent.split('\n').slice(0, validatedRangeForIndex.startLine - 1),
-            ...updatedSearchContent.split('\n'),
-            ...normalizedCurrentContent.split('\n').slice(validatedRangeForIndex.endLine),
-          ].join('\n')
-        : updatedSearchContent
+      if (validatedRangeForIndex) {
+        const absoluteStartOffset = getOffsetForLine({
+          content: normalizedCurrentContent,
+          line: validatedRangeForIndex.startLine,
+        })
+        const absoluteEditStart = absoluteStartOffset + at
+        const absoluteEditEnd = absoluteEditStart + normalizedOldStr.length
+        const editedRange = getLineRangeForOffsets({
+          content: normalizedCurrentContent,
+          startOffset: absoluteEditStart,
+          endOffset: absoluteEditEnd,
+        })
+        currentContent = [
+          ...normalizedCurrentContent.split('\n').slice(0, validatedRangeForIndex.startLine - 1),
+          ...updatedSearchContent.split('\n'),
+          ...normalizedCurrentContent.split('\n').slice(validatedRangeForIndex.endLine),
+        ].join('\n')
+        updateValidatedRangesAfterEdit({
+          validatedReadRanges,
+          content: currentContent,
+          editedStartLine: editedRange.startLine,
+          editedEndLine: editedRange.endLine,
+          lineDelta:
+            normalizedNewStr.split('\n').length -
+            normalizedOldStr.split('\n').length,
+          editedRange: freshValidatedRangeForIndex,
+        })
+      } else {
+        const occurrenceRange = getOccurrenceLineRanges({
+          initialContent: normalizedCurrentContent,
+          oldStr: normalizedOldStr,
+          limit: occurrenceIndex,
+        })[occurrenceIndex - 1]
+        currentContent = updatedSearchContent
+        if (occurrenceRange) {
+          updateValidatedRangesAfterEdit({
+            validatedReadRanges,
+            content: currentContent,
+            editedStartLine: occurrenceRange.startLine,
+            editedEndLine: occurrenceRange.endLine,
+            lineDelta:
+              normalizedNewStr.split('\n').length -
+              normalizedOldStr.split('\n').length,
+          })
+        }
+      }
       continue
     }
 
@@ -398,7 +476,7 @@ export async function processStrReplace(params: {
             hasStaleBasedOnRead
               ? `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}, ignoring a stale basedOnRead anchor because oldString was uniquely identifiable.`
               : `Note: applied large-file edit by deterministic oldString match at lines ${fallback.startLine}-${fallback.endLine}; no basedOnRead anchor was needed because oldString was uniquely identifiable.`,
-            'This fallback is only allowed when oldString is uniquely identifiable (or allowMultiple is true with exact occurrences); ambiguous large-file edits still require read_files.ranges.',
+            'This fallback is only allowed when oldString is uniquely identifiable, or when allowMultiple is true and replacing every exact occurrence is explicitly intended; ambiguous single-target large-file edits still require read_files.ranges or occurrenceIndex.',
             hasStaleBasedOnRead && readCapabilityWarnings.length > 0
               ? `Stale basedOnRead detail:\n${readCapabilityWarnings.join('\n')}`
               : '',
@@ -438,6 +516,17 @@ export async function processStrReplace(params: {
         : null
 
     const matchContent = validatedReadRange?.content ?? normalizedCurrentContent
+    if (
+      skipIfMissing === true &&
+      normalizedNewStr === '' &&
+      !matchContent.includes(normalizedOldStr)
+    ) {
+      messages.push(
+        `Skipped already-applied str_replace deletion in ${path}: oldString was not present${validatedReadRange ? ' within the anchored range' : ''}.`,
+      )
+      hadNoOpSkip = true
+      continue
+    }
     const match = tryMatchOldStr({
       initialContent: matchContent,
       oldStr: normalizedOldStr,
@@ -458,20 +547,51 @@ export async function processStrReplace(params: {
       updatedOldStr = null
     }
 
-    currentContent =
-      updatedOldStr === null
-        ? normalizedCurrentContent
-        : validatedReadRange
-          ? replaceWithinValidatedRange({
-              content: normalizedCurrentContent,
-              range: validatedReadRange,
-              oldStr: updatedOldStr,
-              newStr: normalizedNewStr,
-            })
-          : normalizedCurrentContent.replaceAll(
-              updatedOldStr,
-              () => normalizedNewStr,
-            )
+    if (updatedOldStr === null) {
+      currentContent = normalizedCurrentContent
+    } else if (validatedReadRange) {
+      const replacementResult = replaceWithinValidatedRange({
+        content: normalizedCurrentContent,
+        range: validatedReadRange,
+        oldStr: updatedOldStr,
+        newStr: normalizedNewStr,
+      })
+      currentContent = replacementResult.content
+      for (const event of replacementResult.editEvents) {
+        updateValidatedRangesAfterEdit({
+          validatedReadRanges,
+          content: currentContent,
+          editedStartLine: event.editedStartLine,
+          editedEndLine: event.editedEndLine,
+          lineDelta: event.lineDelta,
+          editedRange: freshValidatedRange,
+        })
+      }
+    } else {
+      const occurrenceRanges = getOccurrenceLineRanges({
+        initialContent: normalizedCurrentContent,
+        oldStr: updatedOldStr,
+        limit: Number.MAX_SAFE_INTEGER,
+      })
+      currentContent = normalizedCurrentContent.replaceAll(
+        updatedOldStr,
+        () => normalizedNewStr,
+      )
+      const lineDeltaPerReplacement =
+        normalizedNewStr.split('\n').length - updatedOldStr.split('\n').length
+      for (let index = 0; index < occurrenceRanges.length; index++) {
+        const occurrenceRange = occurrenceRanges[index]
+        const shiftFromEarlierOccurrences = lineDeltaPerReplacement * index
+        updateValidatedRangesAfterEdit({
+          validatedReadRanges,
+          content: currentContent,
+          editedStartLine:
+            occurrenceRange.startLine + shiftFromEarlierOccurrences,
+          editedEndLine: occurrenceRange.endLine + shiftFromEarlierOccurrences,
+          lineDelta: lineDeltaPerReplacement,
+        })
+      }
+    }
   }
 
   // Atomic batch guarantee: abort the whole batch if any replacement failed so
@@ -493,7 +613,24 @@ export async function processStrReplace(params: {
     }
   }
 
-  currentContent = currentContent.replaceAll('\n', lineEnding)
+  currentContent = restoreLineEndingsFromOriginal({
+    originalContent: initialContent,
+    normalizedInitialContent,
+    normalizedFinalContent: currentContent,
+    defaultLineEnding,
+  })
+
+  // If every requested change was an explicit idempotent no-op, report success
+  // so edit_transaction can continue applying later independent edits.
+  if (initialContent === currentContent && hadNoOpSkip && failures.length === 0) {
+    return {
+      tool: 'str_replace' as const,
+      path,
+      content: currentContent,
+      patch: '',
+      messages,
+    }
+  }
 
   // If no successful replacements occurred, return error
   if (initialContent === currentContent) {
@@ -626,6 +763,33 @@ function getCurrentValidatedReadRange(params: {
   }
 }
 
+function validateReadCapabilityObject(
+  basedOnRead: ReplacementReadCapability,
+): string | null {
+  const { startLine, endLine, hash } = basedOnRead
+  if (
+    !Number.isFinite(startLine) ||
+    !Number.isInteger(startLine) ||
+    startLine < 1
+  ) {
+    return `basedOnRead.startLine must be a positive finite integer, but received ${JSON.stringify(startLine)}.`
+  }
+  if (
+    !Number.isFinite(endLine) ||
+    !Number.isInteger(endLine) ||
+    endLine < 1
+  ) {
+    return `basedOnRead.endLine must be a positive finite integer, but received ${JSON.stringify(endLine)}.`
+  }
+  if (typeof hash !== 'string' || hash.length === 0) {
+    return 'basedOnRead.hash must be a nonempty string.'
+  }
+  if (startLine > endLine) {
+    return 'basedOnRead.startLine must be <= basedOnRead.endLine.'
+  }
+  return null
+}
+
 function validateReadCapability(params: {
   content: string
   path: string
@@ -633,8 +797,9 @@ function validateReadCapability(params: {
 }): ValidatedReadRange | string | null {
   const { content, path, basedOnRead } = params
   const { startLine, endLine, hash } = basedOnRead
-  if (startLine > endLine) {
-    return `Large-file edit blocked for ${path}: basedOnRead.startLine must be <= basedOnRead.endLine.`
+  const objectValidationError = validateReadCapabilityObject(basedOnRead)
+  if (objectValidationError) {
+    return `Large-file edit blocked for ${path}: ${objectValidationError}`
   }
 
   const lines = content.split('\n')
@@ -666,17 +831,177 @@ function replaceWithinValidatedRange(params: {
   range: ValidatedReadRange
   oldStr: string
   newStr: string
-}): string {
+}): {
+  content: string
+  editEvents: { editedStartLine: number; editedEndLine: number; lineDelta: number }[]
+} {
   const { content, range, oldStr, newStr } = params
   const lines = content.split('\n')
+  const occurrenceRanges = getOccurrenceLineRanges({
+    initialContent: range.content,
+    oldStr,
+    limit: Number.MAX_SAFE_INTEGER,
+  })
   const updatedRange = range.content.replaceAll(oldStr, () => newStr)
-
   const updatedRangeLines = updatedRange.split('\n')
-  return [
-    ...lines.slice(0, range.startLine - 1),
-    ...updatedRangeLines,
-    ...lines.slice(range.endLine),
-  ].join('\n')
+  const lineDeltaPerReplacement = newStr.split('\n').length - oldStr.split('\n').length
+  return {
+    content: [
+      ...lines.slice(0, range.startLine - 1),
+      ...updatedRangeLines,
+      ...lines.slice(range.endLine),
+    ].join('\n'),
+    editEvents: occurrenceRanges.map((occurrenceRange, index) => {
+      const shiftFromEarlierOccurrences = lineDeltaPerReplacement * index
+      return {
+        editedStartLine:
+          range.startLine + occurrenceRange.startLine - 1 + shiftFromEarlierOccurrences,
+        editedEndLine:
+          range.startLine + occurrenceRange.endLine - 1 + shiftFromEarlierOccurrences,
+        lineDelta: lineDeltaPerReplacement,
+      }
+    }),
+  }
+}
+
+function updateValidatedRangesAfterEdit(params: {
+  validatedReadRanges: Map<string, ValidatedReadRange>
+  content: string
+  editedStartLine: number
+  editedEndLine: number
+  lineDelta: number
+  editedRange?: ValidatedReadRange
+}): void {
+  const {
+    validatedReadRanges,
+    content,
+    editedStartLine,
+    editedEndLine,
+    lineDelta,
+    editedRange,
+  } = params
+  const lines = content.split('\n')
+
+  for (const range of validatedReadRanges.values()) {
+    if (range.startLine > editedEndLine) {
+      range.startLine += lineDelta
+      range.endLine += lineDelta
+    } else if (range.endLine < editedStartLine) {
+      // Earlier range is unchanged.
+    } else {
+      if (range === editedRange) {
+        range.endLine += lineDelta
+      } else {
+        if (range.startLine > editedStartLine) {
+          range.startLine = editedStartLine
+        }
+        range.endLine += lineDelta
+      }
+    }
+
+    range.startLine = Math.max(1, range.startLine)
+    range.endLine = Math.max(range.startLine, range.endLine)
+    range.content = lines.slice(range.startLine - 1, range.endLine).join('\n')
+  }
+}
+
+function splitWithLineEndings(content: string): string[] {
+  return content.match(/.*(?:\r\n|\n|$)/g)?.filter((part) => part.length > 0) ?? []
+}
+
+function getOffsetForLine(params: { content: string; line: number }): number {
+  const { content, line } = params
+  if (line <= 1) return 0
+  let offset = 0
+  for (let currentLine = 1; currentLine < line; currentLine++) {
+    const next = content.indexOf('\n', offset)
+    if (next === -1) return content.length
+    offset = next + 1
+  }
+  return offset
+}
+
+function getLineRangeForOffsets(params: {
+  content: string
+  startOffset: number
+  endOffset: number
+}): { startLine: number; endLine: number } {
+  const { content, startOffset, endOffset } = params
+  const beforeStart = content.slice(0, Math.max(0, startOffset))
+  const beforeEnd = content.slice(0, Math.max(0, Math.max(startOffset, endOffset - 1)))
+  return {
+    startLine: beforeStart.split('\n').length,
+    endLine: beforeEnd.split('\n').length,
+  }
+}
+
+function getDominantLineEnding(content: string): string {
+  const crlfCount = content.match(/\r\n/g)?.length ?? 0
+  const lfCount = (content.match(/(?<!\r)\n/g)?.length ?? 0)
+  return crlfCount > lfCount ? '\r\n' : '\n'
+}
+
+function getLineEnding(line: string): string | null {
+  if (line.endsWith('\r\n')) return '\r\n'
+  if (line.endsWith('\n')) return '\n'
+  return null
+}
+
+function restoreLineEndingsFromOriginal(params: {
+  originalContent: string
+  normalizedInitialContent: string
+  normalizedFinalContent: string
+  defaultLineEnding: string
+}): string {
+  const {
+    originalContent,
+    normalizedInitialContent,
+    normalizedFinalContent,
+    defaultLineEnding,
+  } = params
+  if (normalizedInitialContent === normalizedFinalContent) return originalContent
+
+  const originalLines = splitWithLineEndings(originalContent)
+  const initialLines = normalizedInitialContent.match(/.*(?:\n|$)/g)?.filter((part) => part.length > 0) ?? []
+  const finalLines = normalizedFinalContent.match(/.*(?:\n|$)/g)?.filter((part) => part.length > 0) ?? []
+  const changes = diffLines(normalizedInitialContent, normalizedFinalContent)
+  let initialLineIndex = 0
+  let finalLineIndex = 0
+  let removedLineEndings: string[] = []
+  const result: string[] = []
+
+  for (const change of changes) {
+    const lineCount = change.count ?? splitWithLineEndings(change.value).length
+    if (!change.added && !change.removed) {
+      removedLineEndings = []
+      for (let i = 0; i < lineCount; i++) {
+        result.push(originalLines[initialLineIndex] ?? initialLines[initialLineIndex] ?? '')
+        initialLineIndex++
+        finalLineIndex++
+      }
+      continue
+    }
+
+    if (change.removed) {
+      removedLineEndings = []
+      for (let i = 0; i < lineCount; i++) {
+        removedLineEndings.push(
+          getLineEnding(originalLines[initialLineIndex + i] ?? '') ?? defaultLineEnding,
+        )
+      }
+      initialLineIndex += lineCount
+      continue
+    }
+
+    for (let i = 0; i < lineCount; i++) {
+      const finalLine = finalLines[finalLineIndex + i] ?? ''
+      result.push(finalLine.replace(/\n$/, removedLineEndings[i] ?? defaultLineEnding))
+    }
+    removedLineEndings = []
+    finalLineIndex += lineCount
+  }
+
+  return result.join('')
 }
 
 function levenshteinDistance(s1: string, s2: string): number {
@@ -854,6 +1179,8 @@ function findClosestMatches(params: {
   return selectedMatches
 }
 
+const MIN_USEFUL_DIAGNOSTIC_SIMILARITY = 0.45
+
 function formatClosestMatchDiagnostics(
   matches: {
     closestBlock: string
@@ -862,8 +1189,19 @@ function formatClosestMatchDiagnostics(
     similarity: number
   }[],
 ): string {
-  const usefulMatches = matches.filter((match) => match.similarity >= 0.2)
-  if (usefulMatches.length === 0) return ''
+  const usefulMatches = matches.filter(
+    (match) => match.similarity >= MIN_USEFUL_DIAGNOSTIC_SIMILARITY,
+  )
+
+  if (usefulMatches.length === 0) {
+    const bestSimilarity = matches[0]?.similarity
+    if (bestSimilarity === undefined) return ''
+
+    return [
+      `No useful candidate ranges found (best similarity ${Math.round(bestSimilarity * 100)}%).`,
+      'Do not use the low-similarity candidates from memory; re-read the current file/range and build a new oldString from that output.',
+    ].join('\n')
+  }
 
   return usefulMatches
     .map(
@@ -1165,7 +1503,11 @@ const tryMatchOldStr = (params: {
   }
 
   const closestMatches = findClosestMatches({ initialContent, oldStr })
-  let errorMsg = `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping. Please try again with a different old string that matches the file content exactly.`
+  let errorMsg = [
+    `The old string ${JSON.stringify(oldStr)} was not found in the file, skipping.`,
+    'This often means the target block was already changed/removed, or the oldString came from a stale read.',
+    'Please re-read the current file/range and try again with an oldString copied exactly from fresh read_files output.',
+  ].join(' ')
   const diagnostics = formatClosestMatchDiagnostics(closestMatches)
   if (diagnostics) {
     errorMsg += `\n\nClosest candidate ranges for read_files.ranges recovery:\n${diagnostics}`

@@ -2,7 +2,7 @@
 
 Hey there! 👋 Thanks for contributing to Openbuff. Bug fixes, features, and documentation improvements are welcome.
 
-> **Openbuff is a local-first, BYOK (Bring Your Own Key) fork of Codebuff.** If you only want to use or develop the CLI with your own API keys, you do **not** need Docker, a database, GitHub OAuth credentials, or credits — just configure `openbuff.json` with your providers and run `bun start-cli`. The cloud infrastructure (web server, database, credit system) is only needed when developing the hosted web application.
+> **Openbuff is local-first and BYOK (Bring Your Own Key).** If you only want to use or develop the CLI with your own API keys, you do **not** need Docker, a database, GitHub OAuth credentials, or credits — just configure `openbuff.json` with your providers and run `bun start-cli`. The cloud infrastructure (web server, database, credit system) is only needed when developing the hosted web application.
 
 ## Getting Started
 
@@ -136,7 +136,7 @@ In order to run the CLI from other directories, you need to first publish the ag
 
 ## Understanding the Codebase
 
-Openbuff is organized as a monorepo with these main packages:
+Openbuff is organized as a monorepo with these main packages. Some package names still use `@codebuff/*` as compatibility/internal workspace names; do not rename them casually.
 
 - **web/**: Next.js web application and dashboard
 - **cli/**: CLI application that users interact with

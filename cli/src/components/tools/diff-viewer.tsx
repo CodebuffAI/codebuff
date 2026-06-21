@@ -1,9 +1,11 @@
 import { TextAttributes } from '@opentui/core'
 
 import { useTheme } from '../../hooks/use-theme'
+import { wrapTextToVisualLines } from '../../utils/text-layout'
 
 interface DiffViewerProps {
   diffText: string
+  availableWidth?: number
 }
 
 const DIFF_LINE_COLORS = {
@@ -48,8 +50,9 @@ const lineColor = (
   return { fg: '' }
 }
 
-export const DiffViewer = ({ diffText }: DiffViewerProps) => {
+export const DiffViewer = ({ diffText, availableWidth }: DiffViewerProps) => {
   const theme = useTheme()
+  const width = Math.max(10, availableWidth ?? 80)
 
   const lines = diffText.trim().split('\n')
 
@@ -59,17 +62,20 @@ export const DiffViewer = ({ diffText }: DiffViewerProps) => {
     >
       {lines
         .filter((rawLine) => !rawLine.startsWith('@@'))
-        .map((rawLine, idx) => {
+        .flatMap((rawLine, idx) => {
           const line = rawLine.length === 0 ? ' ' : rawLine
           const { fg, attrs } = lineColor(line, theme.name, theme.muted)
           const resolvedFg = fg || theme.foreground
-          return (
-            <text key={`diff-line-${idx}`} style={{ wrapMode: 'none' }}>
+          return wrapTextToVisualLines(line, width).map((wrappedLine, wrapIdx) => (
+            <text
+              key={`diff-line-${idx}-${wrapIdx}`}
+              style={{ wrapMode: 'none' }}
+            >
               <span fg={resolvedFg} attributes={attrs}>
-                {line}
+                {wrappedLine}
               </span>
             </text>
-          )
+          ))
         })}
     </box>
   )

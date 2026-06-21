@@ -4,6 +4,7 @@ import {
   getKeypadPrintableSequence,
   isKeypadEnter,
 } from '../../utils/keypad-keys'
+import { LONG_TEXT_THRESHOLD } from '../../utils/strings'
 
 /**
  * Tests for tab character cursor rendering in MultilineInput component.
@@ -633,6 +634,98 @@ describe('MultilineInput - Chinese/IME character input', () => {
     }
 
     expect(shouldAcceptCharacterInput(key)).toBe(true)
+  })
+})
+
+describe('MultilineInput - large printable key sequence paste fallback', () => {
+  function getPrintableKeySequence(key: {
+    sequence?: string
+    name?: string
+    ctrl?: boolean
+    meta?: boolean
+    option?: boolean
+  }): string | null {
+    if (!key.sequence || key.sequence.length < 1) {
+      return null
+    }
+
+    if (key.ctrl || key.meta || key.option) {
+      return null
+    }
+
+    const keypadValue = getKeypadPrintableSequence(key)
+    if (keypadValue !== null) {
+      return keypadValue
+    }
+
+    if (CONTROL_CHAR_REGEX.test(key.sequence)) {
+      return null
+    }
+
+    if (!isPrintableCharacterKey(key)) {
+      return null
+    }
+
+    return key.sequence
+  }
+
+  function getCharacterInputAction(key: {
+    sequence?: string
+    name?: string
+    ctrl?: boolean
+    meta?: boolean
+    option?: boolean
+  }): { action: 'insert' | 'paste' | 'ignore'; text?: string } {
+    const textToInsert = getPrintableKeySequence(key)
+    if (textToInsert === null) {
+      return { action: 'ignore' }
+    }
+
+    if (textToInsert.length > LONG_TEXT_THRESHOLD) {
+      return { action: 'paste', text: textToInsert }
+    }
+
+    return { action: 'insert', text: textToInsert }
+  }
+
+  test('delegates threshold+1 printable sequences to paste instead of inserting', () => {
+    const longText = 'a'.repeat(LONG_TEXT_THRESHOLD + 1)
+
+    expect(
+      getCharacterInputAction({
+        sequence: longText,
+        name: undefined,
+        ctrl: false,
+        meta: false,
+        option: false,
+      }),
+    ).toEqual({ action: 'paste', text: longText })
+  })
+
+  test('inserts printable sequences at the threshold', () => {
+    const thresholdText = 'a'.repeat(LONG_TEXT_THRESHOLD)
+
+    expect(
+      getCharacterInputAction({
+        sequence: thresholdText,
+        name: undefined,
+        ctrl: false,
+        meta: false,
+        option: false,
+      }),
+    ).toEqual({ action: 'insert', text: thresholdText })
+  })
+
+  test('continues to insert short Chinese/IME text', () => {
+    expect(
+      getCharacterInputAction({
+        sequence: '你好世界',
+        name: undefined,
+        ctrl: false,
+        meta: false,
+        option: false,
+      }),
+    ).toEqual({ action: 'insert', text: '你好世界' })
   })
 })
 

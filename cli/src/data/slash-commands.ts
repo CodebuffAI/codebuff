@@ -96,6 +96,30 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'Create a plan with GPT 5.4',
   },
   {
+    id: 'resume-plan',
+    label: 'resume-plan',
+    description: 'Resume a durable plan session from STATUS.md / PLAN.md',
+    aliases: ['rp'],
+  },
+  {
+    id: 'update-plan',
+    label: 'update-plan',
+    description: 'Revise durable plan artifacts based on current reality',
+    aliases: ['up'],
+  },
+  {
+    id: 'plan-status',
+    label: 'plan-status',
+    description: 'Report concise status from durable plan artifacts',
+    aliases: ['ps'],
+  },
+  {
+    id: 'lessons',
+    label: 'lessons',
+    description: 'Create or update LESSONS.md for a durable plan session',
+    aliases: ['lesson'],
+  },
+  {
     id: 'review',
     label: 'review',
     description: 'Review code changes with GPT 5.4',

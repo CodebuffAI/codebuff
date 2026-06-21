@@ -18,6 +18,7 @@ type StrReplaceTransactionEdit = {
     oldString: string
     newString: string
     allowMultiple: boolean
+    occurrenceIndex?: number
     basedOnRead?: ReplacementReadCapability | string
     skipIfMissing?: boolean
   }[]
@@ -67,7 +68,7 @@ export async function processEditTransaction(params: {
         path: edit.path,
         errorMessage: `Cannot apply ${edit.type} edit to ${edit.path}: file was not preloaded for transaction preflight. Re-read the target file, then retry the whole transaction.`,
       })
-      continue
+      break
     }
 
     const currentContent = workingContentByPath.get(edit.path)
@@ -84,7 +85,7 @@ export async function processEditTransaction(params: {
         path: edit.path,
         errorMessage: result.error,
       })
-      continue
+      break
     }
 
     workingContentByPath.set(edit.path, result.content)
@@ -167,23 +168,9 @@ async function processTransactionEdit(params: {
     case 'str_replace': {
       const initialContent = await initialContentPromise
       if (typeof initialContent === 'string') {
-        const actionableReplacements = edit.replacements.filter(
-          (replacement) => !isAlreadyAppliedReplacement(initialContent, replacement),
-        )
-        const skippedCount = edit.replacements.length - actionableReplacements.length
-
-        if (actionableReplacements.length === 0) {
-          return {
-            content: initialContent,
-            messages: [
-              `Skipped ${skippedCount} already-applied str_replace replacement(s) in ${edit.path}.`,
-            ],
-          }
-        }
-
         return processStrReplace({
           path: edit.path,
-          replacements: actionableReplacements,
+          replacements: edit.replacements,
           atomic: true,
           initialContentPromise: Promise.resolve(initialContent),
           logger,
@@ -214,16 +201,4 @@ async function processTransactionEdit(params: {
       }
     }
   }
-}
-
-function isAlreadyAppliedReplacement(
-  content: string,
-  replacement: StrReplaceTransactionEdit['replacements'][number],
-): boolean {
-  if (replacement.oldString === replacement.newString) return true
-  return (
-    replacement.skipIfMissing === true &&
-    replacement.newString === '' &&
-    !content.includes(replacement.oldString)
-  )
 }

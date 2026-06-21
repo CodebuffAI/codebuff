@@ -7,7 +7,7 @@ order: 7
 
 # SDK & Programmatic Access
 
-Run Openbuff agents from your own code using the Openbuff SDK.
+Run Openbuff agents from your own code using the SDK. The package currently keeps the compatibility name `@codebuff/sdk` and exports `CodebuffClient`.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ Load your local agents from `.agents/` and run a task:
 ```typescript
 const agents = await loadLocalAgents()
 
-const client = new OpenbuffClient({
+const client = new CodebuffClient({
   cwd: process.cwd(),
 })
 
@@ -108,7 +108,7 @@ All agents defined in your `.agents/` directory are available by their `id` fiel
 ```typescript
 const agents = await loadLocalAgents({ verbose: true })
 
-const client = new OpenbuffClient()
+const client = new CodebuffClient()
 await client.run({
   agent: 'codebuff-local-cli', // matches the id field in .agents/codebuff-local-cli.ts
   agentDefinitions: Object.values(agents),
@@ -118,10 +118,12 @@ await client.run({
 
 ## API Reference
 
-### `OpenbuffClient`
+### `CodebuffClient`
+
+`CodebuffClient` is the current SDK export name retained for compatibility.
 
 ```typescript
-const client = new OpenbuffClient({
+const client = new CodebuffClient({
   cwd?: string,  // Working directory for file operations
 })
 ```
@@ -183,7 +185,7 @@ function divide(a: number, b: number): number {
 
 async function generateTests(code: string) {
   const agents = await loadLocalAgents()
-  const client = new OpenbuffClient()
+  const client = new CodebuffClient()
 
   const { output } = await client.run({
     agent: 'codebuff-local-cli',
@@ -202,7 +204,7 @@ Create a local reviewer agent in `.agents/my-reviewer.ts`, then reference it by 
 ```typescript
 async function reviewPullRequest(diff: string) {
   const agents = await loadLocalAgents()
-  const client = new OpenbuffClient()
+  const client = new CodebuffClient()
 
   const { output } = await client.run({
     agent: 'my-reviewer', // defined in .agents/my-reviewer.ts
@@ -222,7 +224,7 @@ import * as path from 'path'
 
 async function addDocstringsToFiles(filePaths: string[]) {
   const agents = await loadLocalAgents()
-  const client = new OpenbuffClient()
+  const client = new CodebuffClient()
 
   const results = []
 
@@ -266,7 +268,7 @@ function processData(data) {
 
 async function refactorCode(code: string) {
   const agents = await loadLocalAgents()
-  const client = new OpenbuffClient()
+  const client = new CodebuffClient()
 
   const { output } = await client.run({
     agent: 'codebuff-local-cli',
@@ -286,7 +288,7 @@ import * as fs from 'fs'
 
 async function generateComponentWithContext() {
   const agents = await loadLocalAgents()
-  const client = new OpenbuffClient()
+  const client = new CodebuffClient()
 
   // Provide existing files as context
   const projectFiles = {

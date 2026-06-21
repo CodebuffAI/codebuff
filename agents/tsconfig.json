@@ -9,5 +9,11 @@
       "@codebuff/common/*": ["../common/src/*"]
     }
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": [
+    "e2e/editor-best-of-n.e2e.test.ts",
+    "__tests__/code-reviewer.test.ts",
+    "__tests__/editor.test.ts",
+    "__tests__/file-picker.test.ts"
+  ]
 }

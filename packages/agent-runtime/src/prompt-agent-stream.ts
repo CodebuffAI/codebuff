@@ -10,10 +10,6 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { ToolSet } from 'ai'
 
-function isEditorProposalImplementor(agentId: string): boolean {
-  return /^editor-implementor-proposal-\d+$/.test(agentId)
-}
-
 export const getAgentStreamFromTemplate = (params: {
   agentId?: string
   apiKey: string
@@ -78,7 +74,6 @@ export const getAgentStreamFromTemplate = (params: {
 
   const { model } = template
   const resolvedAgentId = agentId ?? template.id
-  const isProposalAgent = isEditorProposalImplementor(resolvedAgentId)
 
   const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
     agentId: resolvedAgentId,
@@ -91,9 +86,6 @@ export const getAgentStreamFromTemplate = (params: {
     logger,
     localAgentTemplates,
     localMode,
-    // Proposal agents only need to emit edit tool calls. Bounding output keeps
-    // local/OpenAI-compatible proposal streams from running indefinitely.
-    maxOutputTokens: isProposalAgent ? 32_000 : undefined,
     maxRetries: 3,
     messages,
     model,
@@ -101,10 +93,6 @@ export const getAgentStreamFromTemplate = (params: {
     signal: params.signal,
     spawnableAgents: template.spawnableAgents,
     stopSequences: [globalStopSequence],
-    // Proposal agents are useless unless the model emits at least one edit
-    // proposal. Ask tool-capable providers to require a tool call; provider
-    // compatibility downgrades this for APIs that reject `required`.
-    toolChoice: isProposalAgent ? 'required' : undefined,
     // Keep native tool schemas available. The XML parser remains a fallback for
     // models that print <codebuff_tool_call> blocks, but hiding native schemas
     // makes many OpenAI-compatible models answer in prose and produce no usable

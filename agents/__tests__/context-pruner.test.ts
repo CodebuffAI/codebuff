@@ -749,6 +749,77 @@ describe('context-pruner handleSteps', () => {
     expect(content).toContain('Let me read that file for you')
     expect(content).toContain('inspected files: test.ts')
   })
+
+  test('pins literal reviewer blocker lines under tight budgets and repeated compaction', () => {
+    const firstMessages = [
+      createMessage('user', 'Implement the feature'),
+      createMessage(
+        'user',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Open reviewer blockers/feedback (verbatim; controlling next action):',
+          'BLOCKING: Preserve this exact reviewer blocker text.',
+          'NON_BLOCKING: Also preserve this exact suggestion.',
+          'Changed files: src/feature.ts',
+          'Touched files: src/feature.ts, src/feature.test.ts',
+          'Next required action: Resolve the reviewer feedback below before any unrelated work.',
+        ].join('\n'),
+      ),
+      createMessage('assistant', 'x'.repeat(2000)),
+    ]
+
+    const firstResults = runHandleSteps(firstMessages, 250000, 200000, {
+      assistantToolBudget: 1,
+      userBudget: 1,
+    })
+    const firstContent = firstResults[0].input.messages[0].content[0].text
+    expect(firstContent).toContain('<pinned_active_work_state>')
+    expect(firstContent).toContain('BLOCKING: Preserve this exact reviewer blocker text.')
+    expect(firstContent).not.toContain('NON_BLOCKING: Also preserve this exact suggestion.')
+
+    const secondResults = runHandleSteps(
+      [firstResults[0].input.messages[0], createMessage('assistant', 'more work')],
+      250000,
+      200000,
+      { assistantToolBudget: 1, userBudget: 1 },
+    )
+    const secondContent = secondResults[0].input.messages[0].content[0].text
+    expect(secondContent).toContain('BLOCKING: Preserve this exact reviewer blocker text.')
+    expect(secondContent).not.toContain('NON_BLOCKING: Also preserve this exact suggestion.')
+    expect(secondContent.match(/BLOCKING: Preserve this exact reviewer blocker text\./g)).toHaveLength(1)
+  })
+
+  test('does not pin edited file and task ledger entries without active harness blockers', () => {
+    const messages = [
+      createMessage('user', 'Implement ledger preservation'),
+      createToolCallMessage('call-1', 'read_files', {
+        paths: ['agents/base2/base2.ts'],
+      }),
+      createToolCallMessage('call-2', 'str_replace', {
+        path: 'agents/base2/base2.ts',
+        replacements: [],
+      }),
+      createToolResultMessage('call-2', 'str_replace', {
+        file: 'agents/base2/base2.ts',
+        success: true,
+      }),
+      createToolCallMessage('call-3', 'write_todos', {
+        todos: [
+          { task: 'Track active work state', completed: true },
+          { task: 'Resolve reviewer blockers', completed: false },
+        ],
+      }),
+      createMessage('assistant', 'y'.repeat(2000)),
+    ]
+
+    const results = runHandleSteps(messages, 250000, 200000, {
+      assistantToolBudget: 1,
+      userBudget: 1,
+    })
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).not.toContain('<pinned_active_work_state>')
+  })
 })
 
 describe('context-pruner long message truncation', () => {
@@ -1189,6 +1260,122 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).toContain('- Todo 8')
     expect(content).toContain('- ...4 more not shown')
     expect(content).not.toContain('- Todo 9')
+  })
+
+  test('does not pin stale completed todos or historical completed work', () => {
+    const messages = [
+      createMessage(
+        'assistant',
+        [
+          'Todos: 417/821 complete',
+          '- Old completed task',
+          'Remaining: none',
+          'Historical changed files: src/old.ts',
+          'Historical touched files: src/old.ts',
+          'Latest work summary: Previous completed work touched: src/old.ts',
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Current phase: final_response_allowed',
+        ].join('\n'),
+      ),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).not.toContain('<pinned_active_work_state>')
+    expect(content).not.toContain('Todos: 417/821 complete')
+    expect(content).not.toContain('Remaining: none')
+    expect(content).not.toContain('Historical changed files: src/old.ts')
+    expect(content).not.toContain('Latest work summary: Previous completed work')
+  })
+
+  test('does not preserve user-message NON_BLOCKING-only active work as pinned or regular summary text', () => {
+    const messages = [
+      createMessage(
+        'user',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Current phase: final_response_allowed',
+          'Open reviewer blockers/feedback (verbatim; controlling next action):',
+          'NON_BLOCKING: Consider a follow-up polish pass.',
+          'Pending validation/reviewer gate files: src/stale.ts',
+          'Next required action: Resolve stale feedback before finalizing.',
+          'Last validation summary: Automated validation and reviewer gate passed.',
+          'Todos: 10/10 complete',
+          '- Old completed task',
+        ].join('\n'),
+      ),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).not.toContain('<pinned_active_work_state>')
+    expect(content).not.toContain('Harness pinned active-work state')
+    expect(content).not.toContain('NON_BLOCKING: Consider a follow-up polish pass.')
+    expect(content).not.toContain('Pending validation/reviewer gate files: src/stale.ts')
+    expect(content).not.toContain('Next required action: Resolve stale feedback before finalizing.')
+    expect(content).not.toContain('Current phase: final_response_allowed')
+    expect(content).not.toContain('Todos: 10/10 complete')
+    expect(content).not.toContain('- Old completed task')
+  })
+
+  test('preserves current pending state when stale finalization text appears earlier in the same user summary', () => {
+    const messages = [
+      createMessage(
+        'user',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Current phase: final_response_allowed',
+          'Pending validation/reviewer gate files: src/stale.ts',
+          'Next required action: Stale finalization action.',
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Current phase: awaiting_validation',
+          'Pending validation/reviewer gate files: src/current.ts',
+          'Next required action: Run validation for current work.',
+        ].join('\n'),
+      ),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('<pinned_active_work_state>')
+    expect(content).toContain('Current phase: awaiting_validation')
+    expect(content).toContain('Pending validation/reviewer gate files: src/current.ts')
+    expect(content).toContain('Next required action: Run validation for current work.')
+    expect(content).not.toContain('Current phase: final_response_allowed')
+    expect(content).not.toContain('Pending validation/reviewer gate files: src/stale.ts')
+    expect(content).not.toContain('Next required action: Stale finalization action.')
+  })
+
+  test('pins active harness phase and blocker lines', () => {
+    const messages = [
+      createMessage(
+        'assistant',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Current phase: blocked',
+          'Open reviewer blockers/feedback (verbatim; controlling next action):',
+          'BLOCKING: Fix src/current.ts before finalizing.',
+          'Pending validation/reviewer gate files: src/current.ts',
+          'Next required action: Resolve the reviewer feedback.',
+          'Historical changed files: src/old.ts',
+          'Latest work summary: Old completed edit',
+        ].join('\n'),
+      ),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('<pinned_active_work_state>')
+    expect(content).toContain('Current phase: blocked')
+    expect(content).toContain('BLOCKING: Fix src/current.ts before finalizing.')
+    expect(content).toContain('Pending validation/reviewer gate files: src/current.ts')
+    expect(content).toContain('Next required action: Resolve the reviewer feedback.')
+    expect(content).not.toContain('Historical changed files: src/old.ts')
+    expect(content).not.toContain('Latest work summary: Old completed edit')
   })
 })
 

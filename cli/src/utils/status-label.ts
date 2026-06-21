@@ -8,7 +8,6 @@ const AGENT_TYPE_LABELS: Array<{ pattern: string; label: string }> = [
   { pattern: 'code-searcher', label: 'searching codebase...' },
   { pattern: 'researcher-web', label: 'searching the web...' },
   { pattern: 'researcher-docs', label: 'reading documentation...' },
-  { pattern: 'editor-implementor-proposal', label: 'generating proposals...' },
   { pattern: 'editor', label: 'editing...' },
   { pattern: 'code-reviewer', label: 'reviewing changes...' },
   { pattern: 'thinker', label: 'planning...' },

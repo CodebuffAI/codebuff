@@ -1,5 +1,6 @@
 
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
+import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
@@ -8,11 +9,98 @@ import { CodebuffClient } from '../client'
 import * as databaseModule from '../impl/database'
 
 import type { CodebuffClientOptions } from '../run'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 describe('CodebuffClient handleEvent / handleStreamChunk', () => {
   afterEach(() => {
     mock.restore()
+  })
+
+  it('handles create_plan tool calls by writing the plan artifact', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let createPlanResult: ToolResultOutput[] | undefined
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (
+        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
+      ) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(
+          getStubProjectFileContext(),
+        )
+
+        createPlanResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'create_plan',
+            input: {
+              type: 'file',
+              path: '.agents/sessions/test-session/PLAN.md',
+              content: '# Plan\n\n- Write the plan artifact\n',
+            },
+          })
+        ).output
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const fs = createMockFs()
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+      cwd: '/repo',
+      fsSource: fs,
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'create a plan',
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(createPlanResult).toEqual([
+      {
+        type: 'json',
+        value: {
+          file: '.agents/sessions/test-session/PLAN.md',
+          message: 'Created file successfully.',
+        },
+      },
+    ])
+    expect(await fs.readFile('/repo/.agents/sessions/test-session/PLAN.md', 'utf-8')).toBe(
+      '# Plan\n\n- Write the plan artifact\n',
+    )
   })
 
   it('streams subagent start/finish once and forwards subagent chunks to handleStreamChunk', async () => {

@@ -45,7 +45,7 @@ const outputSchema = z.object({
 const description = `
 Suggest clickable followup prompts to the user. When the user clicks a suggestion, it sends that prompt as a new user message.
 
-Use this tool after completing a task to suggest what the user might want to do next. Good suggestions include:
+Use this tool after completing a task to suggest what the user might want to do next. Before calling this tool, first write a concise user-visible summary of what you did or reviewed so the user is never left with only followup suggestions. Good suggestions include:
 - Alternatives to the latest implementation like "Cache the data to local storage instead"
 - Related features like "Add a hover card to show the data from the state"
 - Cleanup opportunities like "Refactor app.ts into multiple files"

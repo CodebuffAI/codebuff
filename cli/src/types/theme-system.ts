@@ -113,12 +113,6 @@ export interface ChatTheme {
   /** Fast mode toggle text */
   modeFastText: string
 
-  /** Max mode toggle background */
-  modeMaxBg: string
-
-  /** Max mode toggle text */
-  modeMaxText: string
-
   /** Plan mode toggle background */
   modePlanBg: string
 

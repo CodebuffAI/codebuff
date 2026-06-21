@@ -40,7 +40,7 @@ The user-facing terminal UI, run via the `openbuff` CLI command (with fallback s
 - **Entry point:** `src/index.tsx` → `src/app.tsx` → `src/chat.tsx`
 - **Key responsibilities:**
   - Renders the chat interface, agent output, tool call results, and status indicators.
-  - Manages user input, slash commands (`/help`, `/provider`, `/models`), and agent mode selection (DEFAULT, MAX, PLAN).
+  - Manages user input, slash commands (`/help`, `/provider`, `/models`), and agent mode selection (DEFAULT, PLAN).
   - Handles local session persistence and chat history.
   - Calls `client.run()` from the SDK and processes streaming events.
 - **Depends on:** `sdk`, `common`
@@ -86,8 +86,8 @@ Shared types, utilities, constants, and tool definitions used across the entire 
 Prompt-based and programmatic agent definitions that ship with Openbuff.
 
 - **Key agents:**
-  - `base2/` — The default agent (base2, base2-max, base2-free, base2-plan).
-  - `editor/` — Code editing specialist with best-of-N selection and verification capabilities.
+  - `base2/` — The default agent family (base2, base2-plan).
+  - `editor/` — Code editing specialist.
   - `file-explorer/` — File picker, code searcher, directory lister, glob matcher.
   - `thinker/` — Deep reasoning agent.
   - `reviewer/` — Code review agent.
@@ -99,6 +99,7 @@ Prompt-based and programmatic agent definitions that ship with Openbuff.
 ### `web/` — Upstream Web Application (Legacy/Unused in Openbuff)
 
 The original Codebuff web server, marketing site, and API.
+
 - **Note:** In the Openbuff BYOK fork, this package is **not hosted, run, or required**. Openbuff does not proxy requests to any hosted backend or database. Users communicate directly with their chosen providers from their local machines. This directory is preserved strictly for upstream structural alignment and compatibility.
 
 ### `packages/internal/` — Internal Utilities
@@ -140,6 +141,7 @@ BuffBench evaluation suite for measuring agent performance on real-world coding 
 ### Bring Your Own Key (BYOK) & No Backend Fallback
 
 Openbuff operates on a strict BYOK architecture. There is absolutely no backend server fallback, hosted inference, or credit billing. Every single request is resolved directly to a configured LLM provider (specified in `openbuff.json` or its legacy compatibility counterpart `codebuff.json`):
+
 - All LLM interactions are initiated directly from the user's terminal to the provider's API.
 - Local API keys (e.g. `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, or custom keys) are loaded from environment variables or provider configuration.
 
@@ -151,9 +153,37 @@ All tool execution (such as reading/writing files, searching files, and running 
 
 To maintain robust and deterministic execution without unexpected crashes, the codebase avoids traditional exceptions in favor of the `ErrorOr<T>` pattern (`success(value)` or `failure(error)`), defined in `common/src/util/error.ts`.
 
+### Deterministic Edits, Reviewer Gates, and Plan Artifacts
+
+Three cross-cutting subsystems shape how the agent runtime, SDK, and CLI
+interact beyond raw model calls. Each is documented in detail in its own
+page; the high-level wiring is:
+
+- **Staged read-before-edit.** Edit tools (`str_replace`,
+  `edit_transaction`, patch applicators) can require a recent
+  `read_files` authorization (or an explicit `basedOnRead` capability)
+  before mutating a path under strict-mode flows. Successful edits
+  invalidate that authorization. See
+  [Deterministic Edit System](./deterministic-edit-system.md).
+- **Reviewer / validation gate.** A turn that opts into the gate tracks
+  pending gate files with working-tree content markers
+  (`sha256:<hash>:<byteLength>`), runs validation hooks plus a reviewer
+  gate, fails closed on missing/unreadable files, and exposes a
+  structured `<gate-state>` block as the stable user-visible contract.
+  See [Request Flow](./request-flow.md#reviewer--validation-gate-semantics).
+- **PlanLink and durable plan artifacts.** Plan artifacts under
+  `.agents/sessions/<plan>/` are attached to TUI sessions via PlanLink
+  slash commands (`/resume-plan`, `/update-plan`, `/plan-status`,
+  `/lessons`). `update_plan_status` is the preferred tool for
+  incremental `STATUS.md` and append-only lesson edits; `create_plan`
+  remains for whole-artifact creation or rewrite. See
+  [Local Mode](./local-mode.md) and
+  [Agents and Tools](./agents-and-tools.md).
+
 ### Compatibility Aliases & Legacy Support
 
 During the transition from the upstream Codebuff codebase, several namespaces and interfaces remain as legacy compatibility aliases so existing tools and projects do not break:
+
 - **CLI Commands:** The CLI binary is named `openbuff`, but continues to support commands like `codebuff --local` or legacy configuration hooks.
 - **Environment Variables:** `OPENBUFF_*` is preferred, but `CODEBUFF_*` prefixes are fully supported.
 - **Configuration Files:** `openbuff.json` is the standard configuration file; however, any existing `codebuff.json` is automatically parsed and processed with identical behavior.

@@ -1,6 +1,6 @@
 # Testing Patterns Guide
 
-This guide documents best practices for writing tests in the Codebuff codebase, based on lessons learned from buffbench runs and production issues.
+This guide documents best practices for writing tests in the Openbuff codebase, based on lessons learned from buffbench runs and production issues.
 
 ## Table of Contents
 

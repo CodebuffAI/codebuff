@@ -42,6 +42,7 @@ export type ToolName =
   | 'suggest_followups'
   | 'task_completed'
   | 'think_deeply'
+  | 'update_plan_status'
   | 'web_search'
   | 'write_file'
   | 'write_todos'
@@ -90,6 +91,7 @@ export interface ToolParamsMap {
   suggest_followups: SuggestFollowupsParams
   task_completed: TaskCompletedParams
   think_deeply: ThinkDeeplyParams
+  update_plan_status: UpdatePlanStatusParams
   web_search: WebSearchParams
   write_file: WriteFileParams
   write_todos: WriteTodosParams
@@ -705,7 +707,7 @@ export interface SpawnAgentsParams {
       directories?: string[]
       /** Starting URL to navigate to (browser-use) */
       url?: string
-      /** Array of strategy prompts (editor-multi-prompt, code-reviewer-multi-prompt) */
+      /** Optional agent-specific prompts */
       prompts?: string[]
       [key: string]: any
     }
@@ -789,6 +791,30 @@ export interface WebSearchParams {
   include_links?: boolean
   /** Maximum number of links to extract when include_links is true. Default: 40. */
   max_links?: number
+}
+
+/**
+ * Update durable plan session STATUS.md or LESSONS.md without rewriting the whole artifact.
+ */
+export interface UpdatePlanStatusParams {
+  /** Artifact path. Must be `.agents/sessions/<slug>/STATUS.md` or `.agents/sessions/<slug>/LESSONS.md`. */
+  path: string
+  /** Targeted checklist-line updates applied in order. */
+  updates?: {
+    /** Substring of the existing checklist task line to match case-insensitively. */
+    task: string
+    /** Sets the checkbox state when provided. */
+    completed?: boolean
+    /** Optional short note to append to the matched line in parentheses. */
+    note?: string
+  }[]
+  /** Optional delimited entry appended at the end of the artifact. */
+  append?: {
+    /** Short heading for the appended entry. */
+    heading: string
+    /** Markdown body for the appended entry. */
+    body: string
+  }
 }
 
 /**

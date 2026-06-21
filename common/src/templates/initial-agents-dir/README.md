@@ -12,14 +12,14 @@ Create specialized agent workflows that coordinate multiple AI agents to tackle 
 ## Need Help?
 
 - For examples, check the `examples/` directory.
-- Ask questions via [GitHub Issues](https://github.com/nicholasgriffintn/openbuff/issues).
+- Ask questions via [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues).
 - For legacy upstream docs, see [codebuff.com/docs](https://codebuff.com/docs) (hosted compatibility reference).
 
 # What is Openbuff?
 
 Openbuff is a **configurable, open-source AI coding assistant** that edits your codebase through natural language instructions. You bring your own providers and run locally (BYOK). Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
 
-Openbuff inherits the upstream [Codebuff evals](https://github.com/CodebuffAI/codebuff/tree/main/evals) benchmark (61% vs Claude Code's 53% across 175+ coding tasks over multiple open-source repos).
+Openbuff is evaluated with [BuffBench](https://github.com/AnzoBenjamin/openbuff/tree/main/evals), a benchmark built around real implementation tasks from open-source repos.
 
 ## How Openbuff Works
 
@@ -75,7 +75,7 @@ This agent systematically analyzes changes, reads relevant files for context, th
 
 # Agent Development Guide
 
-This guide covers everything you need to know about building custom Openbuff agents (upstream-compatible with Codebuff).
+This guide covers everything you need to know about building custom Openbuff agents.
 
 ## Agent Structure
 
@@ -281,14 +281,14 @@ async *handleSteps() {
 
 **Bring your own providers (BYOK)**: Openbuff's local/custom-provider mode lets you use your own API keys and configure any LLM provider — run models locally, connect to private endpoints, or mix-and-match providers to suit your workflow.
 
-**Fully customizable SDK**: Build on the upstream Codebuff SDK (`@codebuff/sdk`) to integrate coding assistance into your applications. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
+**Fully customizable SDK**: Build on the current SDK package (`@codebuff/sdk`) to integrate coding assistance into your applications. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
 
-Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk) (upstream Codebuff package).
+Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 ## Community & Support
 
 - **Examples**: Study the `examples/` directory for patterns
 - **Documentation**: Check the `docs/` directory and `types/` for detailed type information
-- **Issues**: [Report bugs and request features on GitHub](https://github.com/nicholasgriffintn/openbuff/issues)
+- **Issues**: [Report bugs and request features on GitHub](https://github.com/AnzoBenjamin/openbuff/issues)
 
 Happy agent building! 🤖

@@ -120,6 +120,8 @@ export interface ModelResult {
   reasoningEffort?: OpenbuffReasoningEffort
   /** The resolved effective model string after openbuff.json routing (e.g. for provider-options computation). */
   effectiveModel: string
+  /** Context window in tokens for the resolved configured model, when known from provider metadata. */
+  contextWindowTokens?: number
 }
 
 /**
@@ -160,6 +162,14 @@ export async function getModelForRequest(
     reasoningEffort = visionRoute.reasoningEffort
     configuredProviderModel = visionRoute.configuredProviderModel
   }
+  const contextWindowTokens = configuredProviderModel
+    ? resolveModelCapabilities({
+        providerId: configuredProviderModel.providerId,
+        model: effectiveModel,
+        loadedConfig: loadedProviderConfig,
+      }).context?.windowTokens
+    : undefined
+
   if (configuredProviderModel) {
     if (configuredProviderModel.provider.type === 'chatgpt-oauth') {
       const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
@@ -178,6 +188,7 @@ export async function getModelForRequest(
         compatibility: configuredProviderModel.compatibility,
         reasoningEffort,
         effectiveModel,
+        contextWindowTokens,
       }
     }
 
@@ -188,10 +199,13 @@ export async function getModelForRequest(
         compatibility: configuredProviderModel.compatibility,
         reasoningEffort,
         effectiveModel,
+        contextWindowTokens,
       }
     }
 
-    const isProposalAgent = Boolean(agentId && /^editor-implementor-proposal-\d+$/.test(agentId))
+    const isProposalAgent = Boolean(
+      agentId && /^editor-implementor-proposal-\d+$/.test(agentId),
+    )
 
     return {
       model: createConfiguredOpenAICompatibleModel({
@@ -202,6 +216,7 @@ export async function getModelForRequest(
       compatibility: configuredProviderModel.compatibility,
       reasoningEffort,
       effectiveModel,
+      contextWindowTokens,
     }
   }
 
@@ -234,6 +249,7 @@ export async function getModelForRequest(
           },
           reasoningEffort,
           effectiveModel,
+          contextWindowTokens,
         }
       }
 

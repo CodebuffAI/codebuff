@@ -557,7 +557,7 @@ function printCrashDiagnostics(code, signal) {
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
   console.error('Please report this issue at:')
-  console.error('  https://github.com/nicholasgriffintn/openbuff/issues')
+  console.error('  https://github.com/AnzoBenjamin/openbuff/issues')
   console.error('')
 }
 

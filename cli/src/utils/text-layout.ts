@@ -57,54 +57,65 @@ function measureLines(text: string, cols: number): number {
   return lines
 }
 
-export function getLastNVisualLines(text: string, cols: number, n: number): { lines: string[]; hasMore: boolean } {
-  if (n <= 0 || cols <= 0) return { lines: [], hasMore: false }
+export function wrapTextToVisualLines(text: string, cols: number): string[] {
+  const safeCols = Math.max(1, Math.floor(cols))
   const lines: string[] = []
-  if (!text) return { lines, hasMore: false }
 
-  const tokens = text.split(/(\s+)/)
-  let current = ''
-  let currentWidth = 0
-
-  const pushLine = () => {
-    lines.push(current)
-    current = ''
-    currentWidth = 0
-  }
-
-  const appendSegment = (segment: string) => {
-    if (!segment) return
-    const segWidth = stringWidth(segment)
-
-    if (segWidth > cols) {
-      for (const ch of Array.from(segment)) {
-        const w = stringWidth(ch)
-        if (currentWidth + w > cols) pushLine()
-        current += ch
-        currentWidth += w
-      }
+  const appendWrappedLine = (line: string) => {
+    if (line.length === 0) {
+      lines.push('')
       return
     }
 
-    if (currentWidth + segWidth > cols) pushLine()
-    current += segment
-    currentWidth += segWidth
-  }
+    const tokens = line.split(/(\s+)/)
+    let current = ''
+    let currentWidth = 0
 
-  for (const token of tokens) {
-    if (!token) continue
-    if (token.includes('\n')) {
-      const parts = token.split('\n')
-      for (let i = 0; i < parts.length; i++) {
-        appendSegment(parts[i])
-        if (i < parts.length - 1) pushLine()
-      }
-      continue
+    const pushLine = () => {
+      lines.push(current)
+      current = ''
+      currentWidth = 0
     }
-    appendSegment(token)
+
+    const appendSegment = (segment: string) => {
+      if (!segment) return
+      const segWidth = stringWidth(segment)
+
+      if (segWidth > safeCols) {
+        for (const ch of Array.from(segment)) {
+          const w = stringWidth(ch)
+          if (currentWidth + w > safeCols && current.length > 0) pushLine()
+          current += ch
+          currentWidth += w
+        }
+        return
+      }
+
+      if (currentWidth + segWidth > safeCols && current.length > 0) pushLine()
+      current += segment
+      currentWidth += segWidth
+    }
+
+    for (const token of tokens) {
+      appendSegment(token)
+    }
+
+    if (current.length > 0 || lines.length === 0) pushLine()
   }
 
-  if (current.length > 0 || lines.length === 0) pushLine()
+  text.split('\n').forEach(appendWrappedLine)
+  return lines
+}
+
+export function wrapTextPreservingNewlines(text: string, cols: number): string {
+  return wrapTextToVisualLines(text, cols).join('\n')
+}
+
+export function getLastNVisualLines(text: string, cols: number, n: number): { lines: string[]; hasMore: boolean } {
+  if (n <= 0 || cols <= 0) return { lines: [], hasMore: false }
+  if (!text) return { lines: [], hasMore: false }
+
+  const lines = wrapTextToVisualLines(text, cols)
   const hasMore = lines.length > n
   const lastLines = lines.slice(-n)
   return { lines: lastLines, hasMore }

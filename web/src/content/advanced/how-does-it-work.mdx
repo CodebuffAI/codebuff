@@ -11,26 +11,20 @@ Openbuff runs multiple agents, each tuned for a specific task.
 
 ## The Orchestrator
 
-The main agent ("Buffy") runs on Claude Opus 4.7. It reads your prompt, gathers context, and spawns subagents. The orchestrator is available in several variants:
+The main agent ("Buffy") reads your prompt, gathers context, and spawns subagents. In Openbuff, all models are resolved through your local `openbuff.json` provider routes. The orchestrator is available in two user-facing modes:
 
 - [`base2`](/publishers/openbuff/agents/base2) - Default mode orchestrator
-- [`base2-lite`](/publishers/openbuff/agents/base2-lite) - Lite mode (faster, cheaper)
-- [`base2-max`](/publishers/openbuff/agents/base2-max) - Max mode (best-of-N selection)
 - [`base2-plan`](/publishers/openbuff/agents/base2-plan) - Plan mode (no file writes)
 
 ## Subagents
 
-- [**File Picker**](/publishers/openbuff/agents/file-picker) (Gemini 2.0 Flash) - finds relevant files
+- [**File Picker**](/publishers/openbuff/agents/file-picker) - finds relevant files
 - [**Code Searcher**](/publishers/openbuff/agents/code-searcher) - grep-style pattern matching
-- [**Researcher**](/publishers/openbuff/agents/researcher) (Gemini 3.1 Flash Lite) - web and docs lookup
-- [**Thinker**](/publishers/openbuff/agents/thinker) (Claude Opus 4.7, GPT-5.4) - works through hard problems
-- [**Editor**](/publishers/openbuff/agents/editor) (Claude Opus 4.7, GPT-5.1, Kimi K2.6) - writes and modifies code
-- [**Reviewer**](/publishers/openbuff/agents/reviewer) (Claude Opus 4.7, Kimi K2.6 in Lite mode) - catches bugs and style issues
-- [**Basher**](/publishers/openbuff/agents/basher) (Gemini 3.1 Flash Lite) - runs terminal commands
-
-## Best-of-N Selection (Max Mode)
-
-In Max mode, Openbuff spawns multiple editors with different strategies. A selector compares the outputs and picks the best one.
+- [**Researcher**](/publishers/openbuff/agents/researcher) - web and docs lookup
+- [**Thinker**](/publishers/openbuff/agents/thinker) - works through hard problems
+- [**Editor**](/publishers/openbuff/agents/editor) - writes and modifies code
+- [**Reviewer**](/publishers/openbuff/agents/reviewer) - catches bugs and style issues
+- [**Basher**](/publishers/openbuff/agents/basher) - runs terminal commands
 
 ## The Pipeline
 

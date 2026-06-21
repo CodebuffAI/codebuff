@@ -56,6 +56,22 @@ SESSION=$(./scripts/tmux/tmux-cli.sh start \
 
 When verifying UI output, prefer checking the saved capture file for concrete strings that should and should not appear. For example, after expanding a code-searcher agent, check that the capture shows the search summary but not raw structured payload keys like `results:` or `stdout:`.
 
+## Deterministic lifecycle E2E coverage
+
+Gate and reviewer-spawn lifecycle behavior is covered by generator-boundary
+E2E tests in the agents package:
+
+- `agents/e2e/gate-lifecycle.e2e.test.ts` — exercises the pending gate
+  files set, validation hooks, durable pass freshness against
+  `sha256:<hash>:<byteLength>` markers, and the structured `<gate-state>`
+  user-visible contract.
+- `agents/e2e/reviewer-spawn-conditions.e2e.test.ts` — exercises the
+  conditions under which the reviewer gate spawns or is skipped.
+
+Both tests drive the agent generator with synthetic tool results rather
+than live providers, so they run deterministically without API keys or
+network access.
+
 ## Diagnosing long test output
 
 For broad test suites or failures with long output, preserve the complete log first and extract a focused failure view second. Do not rely only on the terminal tool's truncated summary or on `tail`, which can hide the first failing assertion.

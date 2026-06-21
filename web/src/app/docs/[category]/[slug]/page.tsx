@@ -26,59 +26,54 @@ export function generateStaticParams(): Array<{
 // FAQ structured data for SEO - parsed from the FAQ MDX content
 const FAQ_ITEMS = [
   {
-    question: 'What can Codebuff be used for?',
+    question: 'What can Openbuff be used for?',
     answer:
       'Software development: Writing features, tests, and scripts across common languages and frameworks. It can also run CLI commands, adjust build configs, review code, and answer questions about your repo.',
   },
   {
-    question: 'What model does Codebuff use?',
+    question: 'What model does Openbuff use?',
     answer:
-      'Multiple. The orchestrator uses Claude Opus 4.7 in Default and Max modes, or Kimi K2.6 in Lite mode. Subagents are matched to their tasks: Claude Opus 4.7 and GPT-5.4 for deep reasoning and code review, and Gemini 3.1 Flash Lite for terminal commands, file discovery, and web/docs research.',
+      'Openbuff uses the provider and model routes configured in openbuff.json. Default, Plan, and individual subagents can all be mapped to different models; Openbuff does not provide hosted inference or a fixed model lineup.',
   },
   {
-    question: 'Can I use my Claude Pro or Max subscription with Codebuff?',
-    answer:
-      'Connecting your Claude Pro or Max subscription to Codebuff is deprecated and will be removed on March 1st. At least one user had their Anthropic account disabled after heavy usage via Codebuff. We recommend switching to a Codebuff Strong subscription instead — it includes generous usage limits across all models without needing to connect an external subscription.',
-  },
-  {
-    question: 'Is Codebuff open source?',
-    answer: "Yes. It's Apache 2.0 at github.com/CodebuffAI/codebuff.",
+    question: 'Is Openbuff open source?',
+    answer: "Yes. It's Apache 2.0 at github.com/AnzoBenjamin/openbuff.",
   },
   {
     question: 'Do you store my data?',
     answer:
-      "We don't store your codebase. The server forwards requests to model providers. We keep small slices of chat logs for debugging.",
+      'Openbuff does not have a hosted backend. Your code is sent only to the model providers you configure in openbuff.json.',
   },
   {
     question:
       'Do you use model providers that train on my codebase or chat data?',
     answer:
-      "No, we don't choose providers that will train on your data in our standard modes.",
+      'You configure your own providers via openbuff.json. Check the data policies of your chosen providers directly.',
   },
   {
-    question: 'Can I trust Codebuff with full access to my terminal?',
+    question: 'Can I trust Openbuff with full access to my terminal?',
     answer:
-      'If you want isolation, use the Dockerfile to run Codebuff against a scoped copy of your codebase.',
+      'If you want isolation, use the Dockerfile to run Openbuff against a scoped copy of your codebase.',
   },
   {
-    question: 'Can I specify custom instructions for Codebuff?',
+    question: 'Can I specify custom instructions for Openbuff?',
     answer:
-      "Yes. Add knowledge.md files to describe patterns, constraints, and commands. Codebuff also reads AGENTS.md and CLAUDE.md if present. Per directory, it picks one: knowledge.md first, then AGENTS.md, then CLAUDE.md. Codebuff updates existing knowledge files but won't create them unless you ask.",
+      "Yes. Add knowledge.md files to describe patterns, constraints, and commands. Openbuff also reads AGENTS.md and CLAUDE.md if present. Per directory, it picks one: knowledge.md first, then AGENTS.md, then CLAUDE.md. Openbuff updates existing knowledge files but won't create them unless you ask.",
   },
   {
-    question: 'Can I tell Codebuff to ignore certain files?',
+    question: 'Can I tell Openbuff to ignore certain files?',
     answer:
-      'Codebuff by default will not read files that are specified in your .gitignore. You can also create a .codebuffignore file to specify additional files or folders to ignore.',
+      'Openbuff by default will not read files that are specified in your .gitignore. You can also create a .codebuffignore file to specify additional files or folders to ignore.',
   },
   {
-    question: 'How does Codebuff work?',
+    question: 'How does Openbuff work?',
     answer:
-      'Codebuff runs specialized models in parallel: one finds files, another reasons through the problem, another writes code, another reviews. A selector picks the best output. In Max mode, multiple implementations compete.',
+      'Openbuff runs specialized local agent loops: one can find files, another can reason through the problem, another writes code, and another reviews. All model calls go to your configured providers. In Max mode, multiple implementation proposals compete.',
   },
   {
-    question: 'How does Codebuff compare to Claude Code?',
+    question: 'How does Openbuff compare to Claude Code?',
     answer:
-      'Codebuff is faster, cheaper, and handles large codebases better. See the detailed comparison in our documentation.',
+      'Openbuff is a local-first, BYOK multi-agent coding CLI. See the detailed comparison in our documentation.',
   },
 ]
 

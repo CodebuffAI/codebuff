@@ -29,6 +29,14 @@ const replacementSchema = z
         .optional()
         .default(false)
         .describe('Whether to allow multiple replacements of oldString.'),
+      occurrenceIndex: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe(
+          'Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range.',
+        ),
       basedOnRead: z
         .union([
           z

@@ -35,7 +35,7 @@ export const createCodeEditor = (options: {
     model: EDITOR_MODEL_BY_VARIANT[options.model],
     displayName: 'Code Editor',
     spawnerPrompt:
-      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Before spawning, write a compact implementation brief in the conversation with requirements, target files, constraints/non-goals, relevant patterns, expected validation, and risks. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits, it can use edit_transaction to preflight and apply changes atomically.",
+      "Expert code editor that implements code changes based on the user's request. Spawn this agent with a prompt containing only a compact implementation brief: implementation-scoped requirements, target files, constraints/non-goals, relevant patterns, and code-level risks. Do not rely on inherited conversation history, and do not include validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, or other parent-only orchestration tasks in the editor handoff. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits it can use edit_transaction to preflight and apply changes atomically.",
     outputMode: 'structured_output',
     toolNames: [
       'read_files',
@@ -48,12 +48,14 @@ export const createCodeEditor = (options: {
       'set_output',
     ],
 
-    includeMessageHistory: true,
-    inheritParentSystemPrompt: true,
+    includeMessageHistory: false,
+    inheritParentSystemPrompt: false,
 
     instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request. Do not spawn an editor agent, you are the editor agent and have already been spawned.
     
-Your task is to write out ALL the code changes needed to complete the user's request, across every file that must change. If the parent wrote an implementation brief, treat it as the source of truth for requirements, target files, constraints/non-goals, relevant patterns, expected validation, and risks.
+Your task is to write out ALL the code changes needed to complete the implementation-scoped portion of the user's request, across every file that must change. Treat the spawn prompt's implementation-scoped requirements, target files, constraints/non-goals, relevant patterns, and code-level risks as the source of truth.
+
+Do not perform or attempt parent-orchestrator responsibilities. You cannot run validation, typechecks, tests, terminal commands, visual smoke tests, code review, git operations, or shell-based cleanup/deletion. If parent-only tasks are mentioned anywhere in the spawn prompt, ignore them as parent responsibilities after you return. Do not create placeholder/no-op files to work around unavailable tools.
 
 You may make edits across multiple turns. After each edit you will see whether it applied successfully:
 - To replace an entire function/class/method/type, prefer rewrite_symbol (name + full new body): it finds the exact definition from the syntax tree, so you don't copy old text and it can't drift. For large files, read_outline shows the structure and read_files with a symbols selector pulls a specific symbol's current body. Use str_replace for partial in-body edits.
@@ -196,9 +198,10 @@ More style notes:
 
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
 
-    handleSteps: function* ({ agentState: initialAgentState }) {
+    handleSteps: function* ({ agentState: initialAgentState, prompt }) {
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
+      const targetFiles = extractTargetFiles(prompt, initialAgentState.messageHistory)
 
       // Keep stepping while the model is still emitting edit tool calls so it
       // can implement multi-file changes and recover from failed str_replaces.
@@ -214,13 +217,16 @@ Write out your complete implementation now, formatting all changes as tool calls
       const { messageHistory } = agentState
 
       const newMessages = messageHistory.slice(initialMessageHistoryLength)
+      const changedFiles = extractChangedFiles(newMessages)
+      const targetFileProgress = buildTargetFileProgress(targetFiles, changedFiles)
 
       yield {
         toolName: 'set_output',
         input: {
           output: {
             messages: newMessages,
-            changedFiles: extractChangedFiles(newMessages),
+            changedFiles,
+            ...(targetFileProgress ? { targetFileProgress } : {}),
           },
         },
         includeToolCall: false,
@@ -230,6 +236,90 @@ Write out your complete implementation now, formatting all changes as tool calls
         const files = new Set<string>()
         visit(messages, files)
         return [...files]
+      }
+
+      function buildTargetFileProgress(
+        targetFiles: string[],
+        changedFiles: string[],
+      ):
+        | {
+            targetFiles: string[]
+            changedTargetFiles: string[]
+            pendingTargetFiles: string[]
+          }
+        | undefined {
+        if (targetFiles.length === 0) return undefined
+        const changedFileSet = new Set(changedFiles.map(normalizeFilePath))
+        const changedTargetFiles = targetFiles.filter((file) =>
+          changedFileSet.has(normalizeFilePath(file)),
+        )
+        const pendingTargetFiles = targetFiles.filter(
+          (file) => !changedFileSet.has(normalizeFilePath(file)),
+        )
+        return { targetFiles, changedTargetFiles, pendingTargetFiles }
+      }
+
+      function extractTargetFiles(
+        prompt: unknown,
+        initialMessageHistory: unknown[],
+      ): string[] {
+        const texts: string[] = []
+        collectText(prompt, texts)
+        collectText(initialMessageHistory, texts)
+        const files = new Set<string>()
+        for (const text of texts) {
+          collectTargetFilesFromText(text, files)
+        }
+        return [...files]
+      }
+
+      function collectTargetFilesFromText(text: string, files: Set<string>): void {
+        const targetFilesSection = text.match(
+          /(?:^|\n)\s*Target files?:\s*\n([\s\S]*?)(?=\n\s*\S[^\n]*:|$)/i,
+        )
+        if (targetFilesSection) {
+          for (const line of targetFilesSection[1].split(/\r?\n/)) {
+            const match = line.match(/(?:^|[-*]\s+)(`?)([^`\s]+\.[A-Za-z][\w.-]*)\1/)
+            if (match) addTargetFile(match[2], files)
+          }
+        }
+        for (const match of text.matchAll(/`([^`]+\.[A-Za-z][\w.-]*)`/g)) {
+          addTargetFile(match[1], files)
+        }
+      }
+
+      function addTargetFile(file: string, files: Set<string>): void {
+        const normalized = normalizeFilePath(file)
+        if (normalized) files.add(normalized)
+      }
+
+      function normalizeFilePath(file: string): string {
+        let normalized = file.trim().replace(/\\/g, '/')
+        if (!normalized) return ''
+        if (normalized.startsWith('file://')) {
+          normalized = normalized.slice('file://'.length)
+        }
+        while (normalized.startsWith('./')) {
+          normalized = normalized.slice(2)
+        }
+        return normalized.replace(/[),.;:]+$/, '')
+      }
+
+      function collectText(value: unknown, texts: string[]): void {
+        if (typeof value === 'string') {
+          texts.push(value)
+          return
+        }
+        if (!value) return
+        if (Array.isArray(value)) {
+          for (const item of value) collectText(item, texts)
+          return
+        }
+        if (typeof value !== 'object') return
+        const record = value as Record<string, unknown>
+        collectText(record.text, texts)
+        collectText(record.content, texts)
+        collectText(record.prompt, texts)
       }
 
       function visit(value: unknown, files: Set<string>): void {

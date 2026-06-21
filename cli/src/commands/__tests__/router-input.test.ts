@@ -210,6 +210,10 @@ describe('command-registry', () => {
       expect(modelDefault).toBeDefined()
       expect(modelDefault?.name).toBe('mode:default')
 
+      const modelExecutePlan = findCommand('model:execute_plan')
+      expect(modelExecutePlan).toBeDefined()
+      expect(modelExecutePlan?.name).toBe('mode:execute_plan')
+
       const quit = findCommand('quit')
       expect(quit).toBeDefined()
       expect(quit?.name).toBe('exit')
@@ -300,6 +304,18 @@ describe('command-registry', () => {
     test('connect:chatgpt command resolves to connect', () => {
       const command = findCommand('connect:chatgpt')
       expect(command).toBeDefined()
+    })
+
+    test('durable plan commands expose slash metadata and resolve aliases', () => {
+      for (const id of ['resume-plan', 'update-plan', 'plan-status', 'lessons']) {
+        expect(SLASH_COMMANDS.find((cmd) => cmd.id === id)).toBeDefined()
+        expect(findCommand(id)?.name).toBe(id)
+      }
+
+      expect(findCommand('rp')?.name).toBe('resume-plan')
+      expect(findCommand('up')?.name).toBe('update-plan')
+      expect(findCommand('ps')?.name).toBe('plan-status')
+      expect(findCommand('lesson')?.name).toBe('lessons')
     })
   })
 })

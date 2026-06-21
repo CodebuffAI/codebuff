@@ -6,6 +6,7 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../../utils/markdown-renderer'
+import { wrapTextPreservingNewlines } from '../../utils/text-layout'
 
 interface ContentWithMarkdownProps {
   content: string
@@ -21,10 +22,12 @@ export const ContentWithMarkdown = memo(
     codeBlockWidth,
     palette,
   }: ContentWithMarkdownProps) => {
+    const safeCodeBlockWidth = Math.max(10, codeBlockWidth)
+
     if (!hasMarkdown(content)) {
-      return content
+      return wrapTextPreservingNewlines(content, safeCodeBlockWidth)
     }
-    const options = { codeBlockWidth, palette }
+    const options = { codeBlockWidth: safeCodeBlockWidth, palette }
     if (isStreaming) {
       return renderStreamingMarkdown(content, options)
     }

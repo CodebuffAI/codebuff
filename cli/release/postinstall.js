@@ -30,5 +30,5 @@ console.log('Example:');
 console.log('  $ cd ~/my-project');
 console.log('  $ openbuff');
 console.log('\n');
-console.log('For more information, visit: https://github.com/nicholasgriffintn/openbuff');
+console.log('For more information, visit: https://github.com/AnzoBenjamin/openbuff');
 console.log('\n');

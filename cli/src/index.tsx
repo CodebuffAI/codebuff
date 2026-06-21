@@ -123,9 +123,6 @@ function parseArgs(): ParsedArgs {
       '--cwd <directory>',
       'Set the working directory (default: current directory)',
     )
-    .option('--lite', 'Start in LITE mode')
-    .option('--free', 'Start in LITE mode (deprecated alias)')
-    .option('--max', 'Start in MAX mode')
     .option('--plan', 'Start in PLAN mode')
     .option('--local', 'Local/BYOK mode (default; kept for compatibility)')
     .addHelpText('after', '\nCommands:\n  init                           Create local project context')
@@ -143,10 +140,8 @@ function parseArgs(): ParsedArgs {
 
   const continueFlag = options.continue
 
-  // Determine initial mode from flags (last flag wins if multiple specified)
+  // Determine initial mode from flags.
   let initialMode: AgentMode | undefined
-  if (options.free || options.lite) initialMode = 'LITE'
-  if (options.max) initialMode = 'MAX'
   if (options.plan) initialMode = 'PLAN'
 
   return {

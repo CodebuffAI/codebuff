@@ -54,6 +54,49 @@ export const handleEditTransaction = (async (
 
   await previousToolCallFinished
 
+  if (fileProcessingState.strictReadBeforeEdit) {
+    const failures: Array<{
+      editIndex: number
+      path: string
+      errorMessage: string
+    }> = []
+    edits.forEach((edit, editIndex) => {
+      const isAuthorized = Boolean(
+        fileProcessingState.readAuthorizationsByPath?.[edit.path],
+      )
+      if (isAuthorized) return
+      // Per-edit basedOnRead anchors satisfy strict mode without a prior read.
+      const hasBasedOnRead =
+        edit.type === 'str_replace' &&
+        Array.isArray(edit.replacements) &&
+        edit.replacements.some((replacement) =>
+          Boolean(replacement.basedOnRead),
+        )
+      if (hasBasedOnRead) return
+      failures.push({
+        editIndex,
+        path: edit.path,
+        errorMessage: `Edit blocked: strict read-before-edit is enabled and no read authorization exists for ${edit.path} in this turn. Call read_files for this exact path before retrying, or include a basedOnRead capability on at least one replacement.`,
+      })
+    })
+    if (failures.length > 0) {
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              errorMessage: [
+                'edit_transaction blocked: strict read-before-edit is enabled and one or more paths have no read authorization in this turn.',
+                'Recovery required: call read_files for each blocked path (the exact target file and line range) before retrying, or include a basedOnRead capability on at least one replacement of each blocked str_replace edit.',
+              ].join('\n'),
+              failures,
+            },
+          },
+        ],
+      }
+    }
+  }
+
   const uniquePaths = Array.from(new Set(edits.map((edit) => edit.path)))
   const initialContentByPath = new Map<string, string | null>()
   for (const path of uniquePaths) {
@@ -207,6 +250,14 @@ export const handleEditTransaction = (async (
     fileProcessingState.promisesByPath[file.path].push(fileProcessingResult)
     fileProcessingState.allPromises.push(fileProcessingResult)
     delete fileProcessingState.failedEditRequiresReadByPath[file.path]
+    // Strict read-before-edit: consume per-path read authorizations on success
+    // so subsequent edits to the same path must re-read or carry basedOnRead.
+    if (
+      fileProcessingState.strictReadBeforeEdit &&
+      fileProcessingState.readAuthorizationsByPath
+    ) {
+      delete fileProcessingState.readAuthorizationsByPath[file.path]
+    }
 
     appliedFiles.push({
       path: file.path,

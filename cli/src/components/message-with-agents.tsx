@@ -21,6 +21,7 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
+import { wrapTextPreservingNewlines } from '../utils/text-layout'
 
 import type { ChatMessage } from '../types/chat'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
@@ -117,13 +118,11 @@ export const MessageWithAgents = memo(
         })),
       )
 
-    const { onToggleCollapsed, onBuildFast, onBuildMax, onBuildLite, onFeedback, onCloseFeedback } =
+    const { onToggleCollapsed, onBuildFast, onFeedback, onCloseFeedback } =
       useMessageBlockStore(
         useShallow((state) => ({
           onToggleCollapsed: state.callbacks.onToggleCollapsed,
           onBuildFast: state.callbacks.onBuildFast,
-          onBuildMax: state.callbacks.onBuildMax,
-          onBuildLite: state.callbacks.onBuildLite,
           onFeedback: state.callbacks.onFeedback,
           onCloseFeedback: state.callbacks.onCloseFeedback,
         })),
@@ -192,8 +191,11 @@ export const MessageWithAgents = memo(
         ? theme?.muted ?? 'white'
         : theme?.muted ?? 'white'
 
-    const estimatedMessageWidth = availableWidth
-    const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
+    const messageContentWidth = Math.max(
+      10,
+      availableWidth - SIDE_GUTTER * 2 - (isUser ? 1 : 0),
+    )
+    const codeBlockWidth = Math.max(10, messageContentWidth - 8)
 
     const paletteForMessage: MarkdownPalette | undefined = useMemo(
       () => markdownPalette ? {
@@ -266,12 +268,10 @@ export const MessageWithAgents = memo(
                   textColor={textColor}
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
-                  availableWidth={availableWidth}
+                  availableWidth={messageContentWidth}
                   markdownPalette={markdownPalette!}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
-                  onBuildMax={onBuildMax}
-                  onBuildLite={onBuildLite}
                   onFeedback={onFeedback}
                   onCloseFeedback={onCloseFeedback}
                   validationErrors={message.validationErrors}
@@ -302,12 +302,10 @@ export const MessageWithAgents = memo(
                 textColor={textColor}
                 timestampColor={timestampColor}
                 markdownOptions={markdownOptions}
-                availableWidth={availableWidth}
+                availableWidth={messageContentWidth}
                 markdownPalette={markdownPalette!}
                 onToggleCollapsed={onToggleCollapsed}
                 onBuildFast={onBuildFast}
-                onBuildMax={onBuildMax}
-                onBuildLite={onBuildLite}
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
                 validationErrors={message.validationErrors}
@@ -374,6 +372,7 @@ const AgentMessage = memo(
 
     const bulletChar = '• '
     const fullPrefix = bulletChar
+    const agentContentWidth = Math.max(10, availableWidth - fullPrefix.length)
 
     const lines = message.content.split('\n').filter((line) => line.trim())
     const firstLine = lines[0] || ''
@@ -381,12 +380,18 @@ const AgentMessage = memo(
     const rawDisplayContent = isCollapsed ? lastLine : message.content
 
     const streamingPreview = isStreaming
-      ? firstLine.replace(/[#*_`~\[\]()]/g, '').trim() + '...'
+      ? wrapTextPreservingNewlines(
+          `${firstLine.replace(/[#*_`~\[\]()]/g, '').trim()}...`,
+          agentContentWidth,
+        )
       : ''
 
     const finishedPreview =
       !isStreaming && isCollapsed
-        ? lastLine.replace(/[#*_`~\[\]()]/g, '').trim()
+        ? wrapTextPreservingNewlines(
+            lastLine.replace(/[#*_`~\[\]()]/g, '').trim(),
+            agentContentWidth,
+          )
         : ''
 
     const agentCodeBlockWidth = Math.max(
@@ -403,7 +408,7 @@ const AgentMessage = memo(
     }
     const displayContent = hasMarkdown(rawDisplayContent)
       ? renderMarkdown(rawDisplayContent, agentMarkdownOptions)
-      : rawDisplayContent
+      : wrapTextPreservingNewlines(rawDisplayContent, agentContentWidth)
 
     const handleTitleClick = (): void => {
       onToggleCollapsed(message.id)
@@ -425,13 +430,17 @@ const AgentMessage = memo(
         style={{
           flexDirection: 'column',
           gap: 0,
-          flexShrink: 0,
+          flexShrink: 1,
+          width: '100%',
+          minWidth: 0,
         }}
       >
         <box
           style={{
             flexDirection: 'row',
-            flexShrink: 0,
+            flexShrink: 1,
+            width: '100%',
+            minWidth: 0,
           }}
         >
           <text style={{ wrapMode: 'none' }}>
@@ -443,6 +452,7 @@ const AgentMessage = memo(
               gap: 0,
               flexShrink: 1,
               flexGrow: 1,
+              minWidth: 0,
             }}
           >
             <Button

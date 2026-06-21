@@ -159,6 +159,18 @@ function getToolValidationHint(toolName: string): string | undefined {
   return undefined
 }
 
+function isFileChangingTool(toolName: string): boolean {
+  return (
+    toolName === 'apply_patch' ||
+    toolName === 'apply_smart_patch' ||
+    toolName === 'edit_transaction' ||
+    toolName === 'replace_range' ||
+    toolName === 'rewrite_symbol' ||
+    toolName === 'str_replace' ||
+    toolName === 'write_file'
+  )
+}
+
 export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   rawToolCall: {
     toolName: T
@@ -315,6 +327,33 @@ export async function executeToolCall<T extends ToolName>(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
     )
+    return previousToolCallFinished
+  }
+
+  const canSuggestFollowups = (agentState as { canSuggestFollowups?: boolean })
+    .canSuggestFollowups
+  if (toolName === 'suggest_followups') {
+    if (
+      canSuggestFollowups === false ||
+      toolCalls.some((call) => isFileChangingTool(call.toolName))
+    ) {
+      onResponseChunk({
+        type: 'error',
+        message:
+          'Tool `suggest_followups` is not available yet. Finish the requested work first; for edited code, wait until the automated validation/reviewer gate has passed and you have written a user-visible completion summary.',
+      })
+      return previousToolCallFinished
+    }
+  } else if (
+    canSuggestFollowups === true &&
+    isFileChangingTool(toolName) &&
+    toolCalls.some((call) => call.toolName === 'suggest_followups')
+  ) {
+    onResponseChunk({
+      type: 'error',
+      message:
+        'File-changing tools are not available after suggest_followups in the same step. If more edits are needed, make them before final follow-up suggestions so validation and review can rerun.',
+    })
     return previousToolCallFinished
   }
 

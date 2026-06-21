@@ -64,10 +64,10 @@ describe('CLI Argument Parsing', () => {
   test('parses --agent with full agent ID', () => {
     const result = parseTestArgs([
       '--agent',
-      'codebuff/base-lite@1.0.0',
+      'openbuff/base2@1.0.0',
       'hello',
     ])
-    expect(result.agent).toBe('codebuff/base-lite@1.0.0')
+    expect(result.agent).toBe('openbuff/base2@1.0.0')
     expect(result.initialPrompt).toBe('hello')
   })
 

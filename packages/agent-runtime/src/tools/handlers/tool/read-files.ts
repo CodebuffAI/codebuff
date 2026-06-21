@@ -45,11 +45,25 @@ export const handleReadFiles = (async (
 
   await previousToolCallFinished
 
-  for (const path of new Set([...paths, ...(ranges ?? []).map((range) => range.path)])) {
+  const authorizedPaths = new Set<string>([
+    ...paths,
+    ...(ranges ?? []).map((range) => range.path),
+    ...(symbolRequests ?? []).map((entry) => entry.path),
+  ])
+  for (const path of authorizedPaths) {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
     // A fresh read means the next edit should anchor to the same disk content
     // the model just saw, not stale in-memory content from an earlier edit chain.
     delete fileProcessingState.promisesByPath[path]
+  }
+
+  if (fileProcessingState.strictReadBeforeEdit) {
+    if (!fileProcessingState.readAuthorizationsByPath) {
+      fileProcessingState.readAuthorizationsByPath = {}
+    }
+    for (const path of authorizedPaths) {
+      fileProcessingState.readAuthorizationsByPath[path] = true
+    }
   }
 
   const addedFiles = await getFileReadingUpdates({

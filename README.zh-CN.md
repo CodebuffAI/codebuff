@@ -1,18 +1,18 @@
-# Openbuff & Freebuff
+# Openbuff
 
 [English](./README.md) | 简体中文
 
-**Openbuff** 是一款本地优先的 Codebuff 分叉版，通过用户配置的 OpenAI 兼容或 Anthropic 兼容提供商，根据自然语言指令直接修改你的代码库。**[Freebuff](https://www.npmjs.com/package/freebuff)** 是原版 Codebuff 的免费、广告支持版本——无需订阅、无需积分、零配置。
+**Openbuff** 是一款开源、本地优先的智能编程 CLI，通过用户配置的 OpenAI 兼容或 Anthropic 兼容提供商，根据自然语言指令直接修改你的代码库。
 
 与那种"一个模型干所有事"的工具不同，Openbuff 会协调多个专业化的智能体（agent）协同工作，理解你的项目并做出精准的改动。
 
-> **分支与兼容性说明：** Openbuff 是 Codebuff 的分支，专注于本地优先、自带密钥（BYOK）的使用模式，支持用户自定义提供商。在过渡期间，部分 Codebuff 名称——如包名 `@codebuff/sdk`、CLI 标志 `codebuff --local`、环境变量前缀 `CODEBUFF_*`、配置路径 `codebuff.json`——仍作为兼容别名保留，完全受支持。参见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)，了解如何使用 `openbuff.json`、`/provider add`、`/setup` 和 `OPENBUFF_*` 环境变量进行提供商配置。
+> **兼容性说明：** Openbuff 保留了一些上游兼容别名，确保已有项目继续可用。包名 `@codebuff/sdk`、SDK 导出名 `CodebuffClient`、CLI 兼容别名 `codebuff --local`、环境变量前缀 `CODEBUFF_*`、配置路径 `codebuff.json` 仍然受支持。新的文档和示例应优先使用 Openbuff 品牌以及 `openbuff` / `OPENBUFF_*` / `openbuff.json` 主名称，除非是在说明这些兼容别名。参见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
 
 <div align="center">
-  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
+  <img src="./assets/codebuff-vs-claude-code.png" alt="Openbuff vs Claude Code" width="400">
 </div>
 
-Codebuff 在 175+ 个真实开源仓库的编码任务评测上以 61% 对 53% 的成绩领先 Claude Code（[评测详情](evals/README.md)）。Openbuff 继承了这套多智能体架构。
+Openbuff 的多智能体架构基于真实开源仓库的编码任务评测持续优化（[评测详情](evals/README.md)）。
 
 
 ## 工作原理
@@ -25,7 +25,7 @@ Codebuff 在 175+ 个真实开源仓库的编码任务评测上以 61% 对 53% �
 4. **Reviewer Agent** —— 校验改动是否正确
 
 <div align="center">
-  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
+  <img src="./assets/multi-agents.png" alt="Openbuff Multi-Agents" width="250">
 </div>
 
 这种多智能体方案能带来更准的上下文理解、更精确的修改，以及更少的错误。
@@ -106,7 +106,7 @@ export default {
 
 ## SDK：在生产环境里跑智能体
 
-安装 [SDK 包](https://www.npmjs.com/package/@codebuff/sdk)。注意：在 Openbuff fork 过渡期间，SDK 仍使用旧的 `@codebuff/sdk` 包名和 `CodebuffClient` 导出名；这些 Codebuff 名称应视为兼容别名。
+安装 [SDK 包](https://www.npmjs.com/package/@codebuff/sdk)。注意：SDK 当前仍使用兼容包名 `@codebuff/sdk` 和导出名 `CodebuffClient`。
 
 ```bash
 npm install @codebuff/sdk
@@ -154,7 +154,7 @@ await client.run({
 
 ## 提供商配置
 
-Openbuff 默认在本地/BYOK 模式下运行：不需要 Codebuff 云认证、积分或托管推理。在 `openbuff.json` 中配置 OpenAI 兼容或 Anthropic 兼容提供商和按智能体路由的模型。详情请见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
+Openbuff 默认在本地/BYOK 模式下运行：不需要托管认证、积分或平台推理。在 `openbuff.json` 中配置 OpenAI 兼容或 Anthropic 兼容提供商和按智能体路由的模型。详情请见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
 
 在 CLI 内：
 
@@ -174,25 +174,13 @@ export OPENCODE_GO_API_KEY="your_key"
 bun run smoke:openbuff
 ```
 
-## Freebuff：免费的编程智能体
-
-不想订阅？**[Freebuff](https://www.npmjs.com/package/freebuff)** 是原版 Codebuff 的免费版本——无需订阅、无需积分、零配置，装上就能用。
-
-```bash
-npm install -g freebuff
-cd your-project
-freebuff
-```
-
-Freebuff 由广告支持，使用经过优化、兼顾速度与质量的模型。内置网页检索、浏览器使用等能力。详情见 [Freebuff README](./freebuff/README.md)。
-
 ## 为什么选 Openbuff
 
 **自定义工作流**：用 TypeScript 生成器把 AI 生成和程序化控制混着用。智能体可以派生子智能体、按条件分支、跑多步流程。
 
 **灵活的提供商**：与单提供商工具不同，Openbuff 可以将每个智能体路由到任何已配置的提供商：OpenAI API、Anthropic/Claude API、ChatGPT/Codex 订阅 OAuth、OpenRouter、opencode 网关、GLM/Z.ai、本地 Ollama/LM Studio，或其他 OpenAI 兼容或 Anthropic 兼容端点。
 
-**复用本地智能体**：组合打包的和项目本地 `.agents/`，无需依赖托管的 Codebuff 注册表。
+**复用本地智能体**：组合打包的和项目本地 `.agents/`，无需依赖托管注册表。
 
 **SDK**：把 Openbuff 嵌进你自己的应用里。可以创建自定义工具、对接 CI/CD，或把编码能力内嵌进你的产品。
 
@@ -245,7 +233,7 @@ sudo apt-get install tmux
 - 🐛 **修 bug** 或新增功能
 - 🤖 **打造专用智能体**并分享可复用的本地模板
 - 📚 **完善文档**或撰写教程
-- 💡 **分享想法**：在 [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues) 留言
+- 💡 **分享想法**：在 [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues) 留言
 
 ## 开始使用
 
@@ -255,18 +243,14 @@ sudo apt-get install tmux
 
 **SDK**：`npm install @codebuff/sdk`
 
-**Freebuff（免费版）**：`npm install -g freebuff`
-
 ### 资源
 
 **文档**：参见 [docs/](./docs) 目录和 [AGENTS.md](./AGENTS.md)
 
-**社区与支持**：[GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+**社区与支持**：[GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues)
 
 **贡献指南**：[CONTRIBUTING.md](./CONTRIBUTING.md) ——想贡献从这里开始！
 
 ## Star 历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=CodebuffAI/codebuff&type=Date)](https://www.star-history.com/#CodebuffAI/codebuff&Date)
-
-> Openbuff fork 维护者：公共仓库 URL 确定后，请将此徽章更新为 Openbuff 仓库。
+[![Star History Chart](https://api.star-history.com/svg?repos=AnzoBenjamin/openbuff&type=Date)](https://www.star-history.com/#AnzoBenjamin/openbuff&Date)

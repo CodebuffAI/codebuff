@@ -5,7 +5,7 @@ import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { formatTimeout } from '../utils/format-timeout'
-import { getLastNVisualLines } from '../utils/text-layout'
+import { wrapTextToVisualLines } from '../utils/text-layout'
 
 interface TerminalCommandDisplayProps {
   command: string
@@ -80,39 +80,28 @@ export const TerminalCommandDisplay = ({
 
   // With output - calculate visual lines
   const width = Math.max(10, availableWidth ?? separatorWidth)
-  const allLines = output.split('\n')
-
-  // Calculate total visual lines across all output lines
-  let totalVisualLines = 0
-  const visualLinesByOriginalLine: string[][] = []
-
-  for (const line of allLines) {
-    const { lines: wrappedLines } = getLastNVisualLines(line, width, Infinity)
-    visualLinesByOriginalLine.push(wrappedLines)
-    totalVisualLines += wrappedLines.length
-  }
-
+  const visualLines = wrapTextToVisualLines(output, width)
+  const totalVisualLines = visualLines.length
   const hasMoreLines = totalVisualLines > maxLines
-  const hiddenLinesCount = totalVisualLines - maxLines
+  let hiddenLinesCount = Math.max(0, totalVisualLines - maxLines)
 
-  // Build display output
+  // Build display output. For collapsed long output, keep both the beginning
+  // and the end so failures at the bottom still have nearby context.
   let displayOutput: string
   if (isExpanded || !hasMoreLines) {
-    displayOutput = output
+    displayOutput = visualLines.join('\n')
+  } else if (maxLines < 3) {
+    displayOutput = visualLines.slice(0, maxLines).join('\n')
   } else {
-    // Take first N visual lines
-    const displayLines: string[] = []
-    let count = 0
-
-    for (const wrappedLines of visualLinesByOriginalLine) {
-      for (const line of wrappedLines) {
-        if (count >= maxLines) break
-        displayLines.push(line)
-        count++
-      }
-      if (count >= maxLines) break
-    }
-
+    const availableExcerptLines = maxLines - 1
+    const headCount = Math.max(1, Math.ceil(availableExcerptLines / 2))
+    const tailCount = Math.max(1, availableExcerptLines - headCount)
+    hiddenLinesCount = Math.max(0, totalVisualLines - headCount - tailCount)
+    const displayLines = [
+      ...visualLines.slice(0, headCount),
+      `… (${hiddenLinesCount} more ${hiddenLinesCount === 1 ? 'line' : 'lines'})`,
+      ...visualLines.slice(-tailCount),
+    ]
     displayOutput = displayLines.join('\n')
   }
 

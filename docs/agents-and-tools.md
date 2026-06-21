@@ -5,6 +5,7 @@ Openbuff operates as an orchestrator of specialized, local-first agents. Instead
 ## Agents
 
 Agents in Openbuff can be either prompt-based or programmatic (utilizing `handleSteps` generator functions).
+
 - Shipped agents reside in the `agents/` monorepo package.
 - Project-local or custom agents live in the `.agents/` folder of your project.
 - Programmatic agent generator functions execute in a secure sandbox; agent templates define tool permissions and which subagents can be spawned.
@@ -18,9 +19,9 @@ Because Openbuff does not rely on a hosted model registry or credit-balance rout
 You can run individual specialized agents as direct terminal commands without the `openbuff` prefix. This is handled by shell shims:
 
 ```bash
-openbuff shims install openbuff/base-lite@1.0.0
+openbuff shims install openbuff/base2@1.0.0
 eval "$(openbuff shims env)"
-base-lite "fix this bug"
+base2 "fix this bug"
 ```
 
 For backward compatibility, the `codebuff` command prefix and legacy shims continue to function identically.
@@ -28,6 +29,7 @@ For backward compatibility, the `codebuff` command prefix and legacy shims conti
 ## Tools
 
 Tools represent the capabilities given to agents to interact with your system.
+
 - Tool schemas and validators live in `common/src/tools` as Zod definitions.
 - Tool executions are handled securely by the SDK on your local machine (reading/writing files, executing commands, searching codebase).
 - Since Openbuff has no hosted proxy backend, tool execution is extremely low-latency, and all outputs are processed directly by your locally configured models.
@@ -83,6 +85,48 @@ Example:
 }
 ```
 
+### `str_replace` and `edit_transaction`
+
+`str_replace` and `edit_transaction` are the primary deterministic edit
+tools. Under strict-mode edit flows they participate in staged
+read-before-edit enforcement:
+
+- A recent `read_files` call on the target path authorizes a subsequent
+  edit to that path.
+- `basedOnRead` (copied from a fresh `read_files` range header, or from
+  the echoed capability returned by a successful large-file edit) is the
+  explicit authorization path for ambiguous or large-file edits. The
+  runtime verifies the embedded hash before applying the edit.
+- A successful edit invalidates the per-path authorization. Editing the
+  same path again requires a new `read_files` call (or carrying the
+  echoed post-edit `basedOnRead` forward).
+- Stale or failed edits should be recovered by re-reading the exact
+  target range named in the diagnostic and retrying with the new
+  `basedOnRead`, not by guessing from memory.
+
+`edit_transaction` preflights every replacement against the same
+in-memory snapshot, so related cross-file or dependent same-file edits
+either all apply or none do. See
+[Deterministic Edit System](./deterministic-edit-system.md) for the full
+policy and gate semantics.
+
+### `create_plan` and `update_plan_status`
+
+Plan artifacts under `.agents/sessions/<plan>/` are managed with two
+dedicated tools:
+
+- `update_plan_status` — preferred for incremental updates to
+  `STATUS.md` task lines and append-only lesson notes. It preserves
+  surrounding user prose and ordering, so manual edits made by the user
+  are not clobbered.
+- `create_plan` — used to create a new plan artifact or perform a
+  whole-artifact rewrite. It overwrites the target file and is not the
+  right tool for incremental status or lesson updates.
+
+These tools back the PlanLink slash commands (`/resume-plan`,
+`/update-plan`, `/plan-status`, `/lessons`). See
+[Local Mode](./local-mode.md) for the user-facing command list.
+
 ### `apply_smart_patch`
 
 `apply_smart_patch` is a highly robust, self-healing unified-diff patch applicator. It applies unified diff hunk(s) containing changes to a file using three advanced protection layers:
@@ -103,4 +147,3 @@ Example:
   "allowPositionalFallback": false
 }
 ```
-

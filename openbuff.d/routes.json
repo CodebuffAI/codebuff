@@ -1,55 +1,38 @@
 {
   "defaultModel": "bluesminds/gpt-5.5",
-  "visionModel": "pioneer/claude-opus-4-8",
+  "visionModel": "bluesminds/gpt-5.5",
   "visionReasoningEffort": "high",
   "modes": {
     "default": "bluesminds/gpt-5.5",
-    "lite": "bluesminds/gpt-5.5",
-    "max": "bluesminds/gpt-5.5",
     "plan": "bluesminds/gpt-5.5"
   },
   "modeReasoningEfforts": {
-    "default": "high",
-    "max": "high"
+    "default": "high"
   },
   "agents": {
-    "editor-implementor-proposal-direct": "bluesminds/gpt-5.5",
     "base": "bluesminds/gpt-5.5",
     "base2": "bluesminds/gpt-5.5",
-    "base2-lite": "bluesminds/gpt-5.5",
     "base2-fast": "bluesminds/gpt-5.5",
     "base2-fast-no-validation": "bluesminds/gpt-5.5",
-    "base2-max": "bluesminds/gpt-5.5",
     "base2-plan": "bluesminds/gpt-5.5",
     "base-deep": "bluesminds/gpt-5.5",
     "thinker": "bluesminds/gpt-5.5",
     "thinker-gpt": "bluesminds/gpt-5.5",
     "thinker-gemini": "bluesminds/gpt-5.5",
     "thinker-with-files-gemini": "bluesminds/gpt-5.5",
-    "thinker-best-of-n": "bluesmminds/gpt-5.5",
-    "thinker-best-of-n-opus": "bluesminds/gpt-5.5",
-    "thinker-selector": "bluesminds/gpt-5.5",
-    "thinker-selector-opus": "bluesminds/gpt-5.5",
     "editor": "bluesminds/gpt-5.5",
     "editor-gpt-5": "bluesminds/gpt-5.5",
     "editor-implementor": "bluesminds/gpt-5.5",
     "editor-implementor-opus": "bluesminds/gpt-5.5",
     "editor-implementor-gpt-5": "bluesminds/gpt-5.5",
-    "editor-multi-prompt": "codex/gpt-5.4",
-    "best-of-n-selector": "codex/gpt-5.4",
-    "best-of-n-selector2": "bluesminds/gpt-5.5",
     "code-reviewer": "bluesminds/gpt-5.5",
     "code-reviewer-gpt": "bluesminds/gpt-5.5",
     "code-reviewer-kimi": "bluesminds/gpt-5.5",
     "code-reviewer-minimax": "bluesminds/gpt-5.5",
-    "code-reviewer-lite": "bluesminds/gpt-5.5",
     "code-reviewer-deepseek": "bluesminds/gpt-5.5",
     "code-reviewer-deepseek-flash": "bluesminds/gpt-5.5",
-    "code-reviewer-multi-prompt": "bluesminds/gpt-5.5",
     "file-picker": "bluesminds/gpt-5.5",
-    "file-picker-max": "bluesminds/gpt-5.5",
     "file-lister": "bluesminds/gpt-5.5",
-    "file-lister-max": "bluesminds/gpt-5.5",
     "file-explorer": "bluesminds/gpt-5.5",
     "code-searcher": "bluesminds/gpt-5.5",
     "directory-lister": "bluesminds/gpt-5.5",
@@ -65,11 +48,6 @@
     "gpt-5-agent": "bluesminds/gpt-5.5",
     "opus-agent": "bluesminds/gpt-5.5",
     "general-agent": "bluesminds/gpt-5.5",
-    "editor-implementor-proposal-1": "bluesmminds/gpt-5.5",
-    "editor-implementor-proposal-2": "bluesminds/gpt-5.5",
-    "editor-implementor-proposal-3": "bluesmminds/gpt-5.5",
-    "editor-implementor-proposal-4": "bluesminds/gpt-5.5",
-    "editor-implementor-proposal-5": "bluesminds/gpt-5.5",
     "claude-code-cli": "bluesminds/gpt-5.5",
     "codebuff-local-cli": "bluesminds/gpt-5.5",
     "codex-cli": "bluesminds/gpt-5.5",
@@ -78,28 +56,7 @@
     "notion-researcher": "bluesminds/gpt-5.5"
   },
   "agentReasoningEfforts": {
-    "base2-max": "high",
     "editor-implementor": "high",
-    "code-reviewer": "high",
-    "thinker-selector": "high",
-    "best-of-n-selector": "high",
-    "best-of-n-selector2": "high"
-  },
-  "editorMultiPrompt": {
-    "proposalModels": [
-      "bluesminds/gpt-5.5",
-      "codex/gpt-5.4",
-      "bluesmminds/gpt-5.5",
-      "bluesminds/gpt-5.5",
-      "bluesminds/gpt-5.5"
-    ],
-    "proposalReasoningEfforts": [
-      "high",
-      "high",
-      "high",
-      null,
-      "high"
-    ],
-    "selectorModel": "bluesminds/gpt-5.5"
+    "code-reviewer": "high"
   }
 }

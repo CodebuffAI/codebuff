@@ -3,8 +3,9 @@ import React from 'react'
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
+import { wrapTextPreservingNewlines } from '../../utils/text-layout'
 
-import type { ToolRenderConfig } from './types'
+import type { ToolRenderConfig, ToolRenderOptions } from './types'
 
 type QueryIndexResult = {
   path?: unknown
@@ -20,10 +21,17 @@ type QueryIndexOutput = {
   message?: unknown
 }
 
+/** Horizontal padding applied by the surrounding tool body indent. */
+const INDENT_LEFT = 2
+/** Extra indent applied to the per-result details/explanation rows. */
+const DETAIL_INDENT = 3
+/** Width reserved for the leading numeric prefix (e.g. "1. "). */
+const NUMBER_PREFIX_WIDTH = 3
+
 export const QueryIndexComponent = defineToolComponent({
   toolName: 'query_index',
 
-  render(toolBlock): ToolRenderConfig {
+  render(toolBlock, _theme, options: ToolRenderOptions): ToolRenderConfig {
     const input = toolBlock.input as Record<string, unknown> | undefined
     const query = typeof input?.query === 'string' ? input.query : ''
     const mode = typeof input?.mode === 'string' ? input.mode : 'search'
@@ -31,10 +39,17 @@ export const QueryIndexComponent = defineToolComponent({
     const to = typeof input?.to === 'string' ? input.to : ''
     const output = extractOutput(toolBlock.outputRaw ?? toolBlock.output)
     const results = extractResults(output)
+    const availableWidth = Math.max(20, options?.availableWidth ?? 80)
+    const headerDescriptionWidth = Math.max(10, availableWidth - INDENT_LEFT - 8)
+    const pathColWidth = Math.max(10, availableWidth - INDENT_LEFT - NUMBER_PREFIX_WIDTH)
+    const detailColWidth = Math.max(10, availableWidth - INDENT_LEFT - DETAIL_INDENT)
 
     const QueryIndexContent = () => {
       const theme = useTheme()
-      const description = buildDescription({ query, mode, from, to, results })
+      const description = wrapTextPreservingNewlines(
+        buildDescription({ query, mode, from, to, results }),
+        headerDescriptionWidth,
+      )
       const topResults = results.slice(0, 3)
 
       return (
@@ -45,28 +60,73 @@ export const QueryIndexComponent = defineToolComponent({
             descriptionColor={theme.primary}
           />
           {topResults.length > 0 ? (
-            <box style={{ flexDirection: 'column', gap: 0, paddingLeft: 2 }}>
-              {topResults.map((result, index) => (
-                <text key={`${String(result.path)}-${index}`} style={{ wrapMode: 'word' }}>
-                  <span fg={theme.muted}>{`${index + 1}. `}</span>
-                  <span fg={theme.foreground}>{String(result.path)}</span>
-                  {typeof result.score === 'number' ? (
-                    <span fg={theme.muted}>{` (${roundScore(result.score)})`}</span>
-                  ) : null}
-                  {formatMatchedOn(result) ? (
-                    <span fg={theme.muted}>{` · ${formatMatchedOn(result)}`}</span>
-                  ) : null}
-                  {formatSnippets(result) ? (
-                    <span fg={theme.muted}>{` · ${formatSnippets(result)}`}</span>
-                  ) : null}
-                  {formatRelated(result) ? (
-                    <span fg={theme.muted}>{` · ${formatRelated(result)}`}</span>
-                  ) : null}
-                  {typeof result.explanation === 'string' && result.explanation.length > 0 ? (
-                    <span fg={theme.muted}>{` — ${truncate(result.explanation, 120)}`}</span>
-                  ) : null}
-                </text>
-              ))}
+            <box style={{ flexDirection: 'column', gap: 0, paddingLeft: INDENT_LEFT, width: '100%' }}>
+              {topResults.map((result, index) => {
+                const details = [
+                  typeof result.score === 'number'
+                    ? `score ${roundScore(result.score)}`
+                    : '',
+                  formatMatchedOn(result)
+                    ? `matched: ${formatMatchedOn(result)}`
+                    : '',
+                ].filter(Boolean)
+                const snippet = formatSnippets(result)
+                const related = formatRelated(result)
+
+                const pathDisplay = wrapTextPreservingNewlines(
+                  String(result.path),
+                  pathColWidth,
+                )
+                const detailsDisplay =
+                  details.length > 0
+                    ? wrapTextPreservingNewlines(details.join(' · '), detailColWidth)
+                    : ''
+                const snippetDisplay = snippet
+                  ? wrapTextPreservingNewlines(snippet, detailColWidth)
+                  : ''
+                const relatedDisplay = related
+                  ? wrapTextPreservingNewlines(related, detailColWidth)
+                  : ''
+                const explanation =
+                  typeof result.explanation === 'string' && result.explanation.length > 0
+                    ? wrapTextPreservingNewlines(
+                        truncate(result.explanation, 160),
+                        detailColWidth,
+                      )
+                    : ''
+
+                return (
+                  <box
+                    key={`${String(result.path)}-${index}`}
+                    style={{ flexDirection: 'column', gap: 0, width: '100%' }}
+                  >
+                    <text style={{ wrapMode: 'word' }}>
+                      <span fg={theme.muted}>{`${index + 1}. `}</span>
+                      <span fg={theme.foreground}>{pathDisplay}</span>
+                    </text>
+                    {detailsDisplay ? (
+                      <text style={{ wrapMode: 'word', marginLeft: DETAIL_INDENT }}>
+                        <span fg={theme.muted}>{detailsDisplay}</span>
+                      </text>
+                    ) : null}
+                    {snippetDisplay ? (
+                      <text style={{ wrapMode: 'word', marginLeft: DETAIL_INDENT }}>
+                        <span fg={theme.muted}>{snippetDisplay}</span>
+                      </text>
+                    ) : null}
+                    {relatedDisplay ? (
+                      <text style={{ wrapMode: 'word', marginLeft: DETAIL_INDENT }}>
+                        <span fg={theme.muted}>{relatedDisplay}</span>
+                      </text>
+                    ) : null}
+                    {explanation ? (
+                      <text style={{ wrapMode: 'word', marginLeft: DETAIL_INDENT }}>
+                        <span fg={theme.muted}>{explanation}</span>
+                      </text>
+                    ) : null}
+                  </box>
+                )
+              })}
             </box>
           ) : null}
         </box>
@@ -125,7 +185,9 @@ function formatSnippets(result: QueryIndexResult): string {
     return ''
   }
   const first = result.matchedSnippets.find((item) => typeof item === 'string')
-  return typeof first === 'string' ? truncate(first, 80) : ''
+  if (typeof first !== 'string') return ''
+  const snippet = truncate(first, 80)
+  return /^snippet\s*:/i.test(snippet) ? snippet : `snippet: ${snippet}`
 }
 
 function formatRelated(result: QueryIndexResult): string {
@@ -135,7 +197,7 @@ function formatRelated(result: QueryIndexResult): string {
   const first = result.relatedFiles.find(isRecord)
   if (!first || typeof first.path !== 'string') return ''
   const reason = typeof first.reason === 'string' ? `: ${first.reason}` : ''
-  return `related to ${first.path}${reason}`
+  return truncate(`related to ${first.path}${reason}`, 120)
 }
 
 function roundScore(score: number): string {

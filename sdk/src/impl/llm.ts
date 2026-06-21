@@ -37,6 +37,8 @@ import type { JSONObject } from '@codebuff/common/types/json'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type { LanguageModel } from 'ai'
 import type z from 'zod/v4'
+import { trimMessagesToFitTokenLimit } from '@codebuff/agent-runtime/util/messages'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
 const providerOrder = {
@@ -277,6 +279,39 @@ function emitCacheDebugUsage(params: {
 const POST_STREAM_METADATA_TIMEOUT_MS = 500
 const MAX_STREAM_RETRIES = 2
 const STREAM_RETRY_BASE_DELAY_MS = 1000
+const MODEL_CONTEXT_MIN_RESERVED_TOKENS = 1_024
+const MODEL_CONTEXT_MAX_RESERVED_TOKENS = 16_000
+const MODEL_CONTEXT_RESERVED_FRACTION = 0.1
+
+function getMessageContextWindowTokens(
+  contextWindowTokens: number | undefined,
+): number | undefined {
+  if (contextWindowTokens === undefined) {
+    return undefined
+  }
+
+  const reservedTokens = Math.min(
+    MODEL_CONTEXT_MAX_RESERVED_TOKENS,
+    Math.max(
+      MODEL_CONTEXT_MIN_RESERVED_TOKENS,
+      Math.floor(contextWindowTokens * MODEL_CONTEXT_RESERVED_FRACTION),
+    ),
+  )
+  return Math.max(1, contextWindowTokens - reservedTokens)
+}
+
+export function getMessagesForModelContext(params: {
+  messages: Message[]
+  contextWindowTokens?: number
+  logger: ParamsOf<PromptAiSdkStreamFn>['logger']
+}): Message[] {
+  return trimMessagesToFitTokenLimit({
+    messages: params.messages,
+    systemTokens: 0,
+    maxTotalTokens: getMessageContextWindowTokens(params.contextWindowTokens),
+    logger: params.logger,
+  })
+}
 
 async function awaitOptionalPostStreamMetadata<T>(params: {
   promise: PromiseLike<T>
@@ -557,7 +592,7 @@ export async function* promptAiSdkStream(
       aiSDKModel = modelResult.model
       isChatGptOAuth = modelResult.isChatGptOAuth
       compatibility = modelResult.compatibility
-      const { reasoningEffort, effectiveModel } = modelResult
+      const { reasoningEffort, effectiveModel, contextWindowTokens } = modelResult
 
       if (isChatGptOAuth && attempt === 0) {
         trackEvent({
@@ -597,6 +632,11 @@ export async function* promptAiSdkStream(
         model: aiSDKModel,
         messages: convertCbToModelMessages({
           ...params,
+          messages: getMessagesForModelContext({
+            messages: params.messages,
+            contextWindowTokens,
+            logger,
+          }),
           includeCacheControl:
             isChatGptOAuth && compatibility.stripCacheControl === false,
         }),
@@ -1075,7 +1115,13 @@ export async function promptAiSdk(
     localMode: params.localMode,
     requiresVision: valueContainsImageInput(params.messages),
   }
-  const { model: aiSDKModel, compatibility, reasoningEffort, effectiveModel: effectiveModelSdk } = await getModelForRequest(modelParams)
+  const {
+    model: aiSDKModel,
+    compatibility,
+    reasoningEffort,
+    effectiveModel: effectiveModelSdk,
+    contextWindowTokens,
+  } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
     (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
@@ -1100,6 +1146,11 @@ export async function promptAiSdk(
     model: aiSDKModel,
     messages: convertCbToModelMessages({
       ...params,
+      messages: getMessagesForModelContext({
+        messages: params.messages,
+        contextWindowTokens,
+        logger,
+      }),
       includeCacheControl: compatibility.stripCacheControl === false,
     }),
     ...(hasProviderOptions(requestProviderOptions)
@@ -1163,7 +1214,13 @@ export async function promptAiSdkStructured<T>(
     localMode: params.localMode,
     requiresVision: valueContainsImageInput(params.messages),
   }
-  const { model: aiSDKModel, compatibility, reasoningEffort, effectiveModel: effectiveModelStructured } = await getModelForRequest(modelParams)
+  const {
+    model: aiSDKModel,
+    compatibility,
+    reasoningEffort,
+    effectiveModel: effectiveModelStructured,
+    contextWindowTokens,
+  } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
     (params as { providerOptions?: Record<string, JSONObject> }).providerOptions,
@@ -1189,6 +1246,11 @@ export async function promptAiSdkStructured<T>(
     output: 'object',
     messages: convertCbToModelMessages({
       ...params,
+      messages: getMessagesForModelContext({
+        messages: params.messages,
+        contextWindowTokens,
+        logger,
+      }),
       includeCacheControl: compatibility.stripCacheControl === false,
     }),
     ...(hasProviderOptions(requestProviderOptions)

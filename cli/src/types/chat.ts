@@ -76,9 +76,33 @@ export type ModeDividerContentBlock = {
   mode: string
 }
 
+export type PlanArtifactMetadata = {
+  sessionPath?: string
+  specPath?: string
+  planPath?: string
+  statusPath?: string
+  lessonsPath?: string
+  resumeCommand?: string
+  updateCommand?: string
+  statusCommand?: string
+  lessonsCommand?: string
+}
+
 export type PlanContentBlock = {
   type: 'plan'
   content: string
+  metadata?: PlanArtifactMetadata
+}
+
+export type GateStateStatus = 'pending' | 'passed' | 'failed' | 'skipped'
+
+export type GateStateContentBlock = {
+  type: 'gate-state'
+  gate: string
+  gateStatus: GateStateStatus
+  details?: string
+  /** Optional human label for the gate origin (e.g. "Base2"). */
+  origin?: string
 }
 
 export type AskUserContentBlock = {
@@ -146,6 +170,7 @@ export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
   | AskUserContentBlock
+  | GateStateContentBlock
   | HtmlContentBlock
   | ImageContentBlock
   | ModeDividerContentBlock
@@ -237,4 +262,10 @@ export function isAskUserBlock(
 
 export function isImageBlock(block: ContentBlock): block is ImageContentBlock {
   return block.type === 'image'
+}
+
+export function isGateStateBlock(
+  block: ContentBlock,
+): block is GateStateContentBlock {
+  return block.type === 'gate-state'
 }

@@ -134,18 +134,29 @@ export const handleWriteTodos = (async (params: {
     // Ignore write errors
   }
 
-  const todoSummary = getTodoSummary(mergedTodos)
-  const newlyPreservedCount = mergedTodos.length - incomingTodos.length
+  const todoSummary = getTodoSummary(incomingTodos)
+  const persistedHistoricalSummary = getTodoSummary(mergedTodos)
+  const historicalTodoCount = Math.max(
+    0,
+    persistedHistoricalSummary.totalCount - incomingTodos.length,
+  )
 
-  let message = `Todos written successfully. Current session progress: ${todoSummary.completedCount}/${todoSummary.totalCount} tasks completed.`
-  if (newlyPreservedCount > 0) {
-    message += ` Note: ${newlyPreservedCount} high-level task(s) from previous turns were preserved in the master checklist to prevent amnesia.`
+  let message = `Todos written successfully. Current active progress: ${todoSummary.completedCount}/${todoSummary.totalCount} tasks completed.`
+  if (historicalTodoCount > 0) {
+    message += ` Historical master checklist persists ${persistedHistoricalSummary.totalCount} total task(s), including approximately ${historicalTodoCount} task(s) not shown in the current active list.`
   }
 
   return {
     output: jsonToolResult({
       message,
       todoSummary,
+      currentTodos: incomingTodos.slice(0, MAX_RETURNED_TODOS),
+      persistedHistoricalSummary: {
+        totalCount: persistedHistoricalSummary.totalCount,
+        completedCount: persistedHistoricalSummary.completedCount,
+        remainingCount: persistedHistoricalSummary.remainingCount,
+        historicalTodoCount,
+      },
       masterTodosOmittedForLength: true,
     }),
   }

@@ -214,6 +214,120 @@ describe('processEditTransaction', () => {
     }
   })
 
+  it('evaluates skipIfMissing in replacement order against evolving content', async () => {
+    const initialContentByPath = new Map<string, string | null>([
+      ['src/helper.ts', 'console.log("debug")\nexport const value = 1\n'],
+    ])
+
+    const result = await processEditTransaction({
+      initialContentByPath,
+      logger,
+      edits: [
+        {
+          id: 'ordered-skip',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'console.log("debug")\n',
+              newString: '',
+              allowMultiple: false,
+            },
+            {
+              oldString: 'console.log("debug")\n',
+              newString: '',
+              allowMultiple: false,
+              skipIfMissing: true,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files[0].content).toBe('export const value = 1\n')
+    }
+  })
+
+  it('supports occurrenceIndex in transaction str_replace edits', async () => {
+    const initialContentByPath = new Map<string, string | null>([
+      ['src/helper.ts', 'const value = 1\nconst value = 1\n'],
+    ])
+
+    const result = await processEditTransaction({
+      initialContentByPath,
+      logger,
+      edits: [
+        {
+          id: 'second-occurrence',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'const value = 1',
+              newString: 'const value = 2',
+              allowMultiple: false,
+              occurrenceIndex: 2,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('files' in result).toBe(true)
+    if ('files' in result) {
+      expect(result.files[0].content).toBe('const value = 1\nconst value = 2\n')
+    }
+  })
+
+  it('stops preflight at the first failing edit to avoid speculative diagnostics', async () => {
+    const initialContentByPath = new Map<string, string | null>([
+      ['src/helper.ts', 'export const value = 1\n'],
+      ['src/other.ts', 'export const other = 1\n'],
+    ])
+
+    const result = await processEditTransaction({
+      initialContentByPath,
+      logger,
+      edits: [
+        {
+          id: 'first-failure',
+          type: 'str_replace',
+          path: 'src/helper.ts',
+          replacements: [
+            {
+              oldString: 'missing helper text',
+              newString: 'replacement',
+              allowMultiple: false,
+            },
+          ],
+        },
+        {
+          id: 'would-also-fail',
+          type: 'str_replace',
+          path: 'src/other.ts',
+          replacements: [
+            {
+              oldString: 'missing other text',
+              newString: 'replacement',
+              allowMultiple: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.failures).toHaveLength(1)
+      expect(result.failures[0]).toEqual(
+        expect.objectContaining({ editIndex: 0, id: 'first-failure' }),
+      )
+      expect(result.error).not.toContain('would-also-fail')
+    }
+  })
+
   it('does not skip stale replacements just because newString appears elsewhere', async () => {
     const initialContentByPath = new Map<string, string | null>([
       [

@@ -15,6 +15,7 @@ import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { getCliEnv } from '../utils/env'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
 import { formatCwd } from '../utils/path-helpers'
+import { wrapTextPreservingNewlines } from '../utils/text-layout'
 
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 
@@ -46,8 +47,6 @@ interface MessageBlockProps {
   markdownPalette: MarkdownPalette
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
-  onBuildMax: () => void
-  onBuildLite: () => void
   onFeedback?: (messageId: string) => void
   onCloseFeedback?: () => void
   validationErrors?: Array<{ id: string; message: string }>
@@ -130,8 +129,6 @@ export const MessageBlock = memo(({
   markdownPalette,
   onToggleCollapsed,
   onBuildFast,
-  onBuildMax,
-  onBuildLite,
   onFeedback,
   onCloseFeedback,
   validationErrors,
@@ -169,8 +166,6 @@ export const MessageBlock = memo(({
       markdownPalette,
       onToggleCollapsed,
       onBuildFast,
-      onBuildMax,
-      onBuildLite,
       onFeedback,
       onCloseFeedback,
       validationErrors,
@@ -186,6 +181,12 @@ export const MessageBlock = memo(({
 
   const theme = useTheme()
   const resolvedTextColor = textColor ?? theme.foreground
+  const bashCwdDisplay = bashCwd
+    ? wrapTextPreservingNewlines(
+        bashCwd,
+        Math.max(10, availableWidth - timestamp.length - 5),
+      )
+    : undefined
 
   return (
     <box
@@ -252,7 +253,7 @@ export const MessageBlock = memo(({
               fg: theme.muted,
             }}
           >
-            {bashCwd}
+            {bashCwdDisplay}
           </text>
         </box>
       )}
@@ -292,8 +293,6 @@ export const MessageBlock = memo(({
               markdownPalette={markdownPalette}
               onToggleCollapsed={onToggleCollapsed}
               onBuildFast={onBuildFast}
-              onBuildMax={onBuildMax}
-              onBuildLite={onBuildLite}
               isLastMessage={isLastMessage}
               contentToCopy={isUser ? content : undefined}
             />

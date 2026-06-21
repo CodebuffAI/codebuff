@@ -3,6 +3,7 @@ import React, { type ReactNode } from 'react'
 import stringWidth from 'string-width'
 
 import { useTheme } from '../../hooks/use-theme'
+import { wrapTextPreservingNewlines } from '../../utils/text-layout'
 import { Button } from '../button'
 
 import type { ChatTheme } from '../../types/theme-system'
@@ -17,6 +18,7 @@ interface ToolCallItemProps {
   onToggle?: () => void
   titleSuffix?: string
   dense?: boolean
+  availableWidth?: number
 }
 
 const isTextRenderable = (value: ReactNode): boolean => {
@@ -58,6 +60,7 @@ const renderExpandedContent = (
   value: ReactNode,
   theme: ChatTheme,
   getAttributes: (extra?: number) => number | undefined,
+  availableTextWidth: number,
 ): ReactNode => {
   if (
     value === null ||
@@ -69,13 +72,19 @@ const renderExpandedContent = (
   }
 
   if (isTextRenderable(value)) {
+    const expandedValue =
+      typeof value === 'string' || typeof value === 'number'
+        ? wrapTextPreservingNewlines(String(value), availableTextWidth)
+        : value
+
     return (
       <text
         fg={theme.foreground}
         key="tool-expanded-text"
         attributes={getAttributes()}
+        style={{ wrapMode: 'word' }}
       >
-        {value}
+        {expandedValue}
       </text>
     )
   }
@@ -85,7 +94,7 @@ const renderExpandedContent = (
       return (
         <box
           key="tool-expanded-node"
-          style={{ flexDirection: 'column', gap: 0 }}
+          style={{ flexDirection: 'column', gap: 0, width: '100%' }}
         >
           {value}
         </box>
@@ -103,7 +112,7 @@ const renderExpandedContent = (
         {value.map((child, idx) => (
           <box
             key={`tool-expanded-array-${idx}`}
-            style={{ flexDirection: 'column', gap: 0 }}
+            style={{ flexDirection: 'column', gap: 0, width: '100%' }}
           >
             {child}
           </box>
@@ -165,6 +174,7 @@ export const ToolCallItem = ({
   onToggle,
   titleSuffix,
   dense = false,
+  availableWidth,
 }: ToolCallItemProps) => {
   const theme = useTheme()
 
@@ -181,8 +191,20 @@ export const ToolCallItem = ({
   // Width in cells of the toggle label (toggle arrow or bullet). Used to align
   // expanded content directly under the toggle icon.
   const toggleIndent = stringWidth(toggleLabel)
-  const collapsedPreviewText = isStreaming ? streamingPreview : finishedPreview
-  const showCollapsedPreview = collapsedPreviewText.length > 0
+  const rawCollapsedPreviewText = isStreaming ? streamingPreview : finishedPreview
+  const collapsedPreviewWidth = Math.max(
+    10,
+    (availableWidth ?? 80) - toggleIndent,
+  )
+  const collapsedPreviewText = wrapTextPreservingNewlines(
+    rawCollapsedPreviewText,
+    collapsedPreviewWidth,
+  )
+  const expandedTextWidth = Math.max(
+    10,
+    (availableWidth ?? 80) - toggleIndent - (dense ? 0 : toggleIndent),
+  )
+  const showCollapsedPreview = rawCollapsedPreviewText.length > 0
 
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
@@ -262,9 +284,15 @@ export const ToolCallItem = ({
               paddingRight: dense ? 0 : toggleIndent,
               paddingTop: 0,
               paddingBottom: 0,
+              width: '100%',
             }}
           >
-            {renderExpandedContent(content, theme, getAttributes)}
+            {renderExpandedContent(
+              content,
+              theme,
+              getAttributes,
+              expandedTextWidth,
+            )}
           </box>
         )}
       </box>

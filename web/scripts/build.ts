@@ -197,7 +197,7 @@ async function showBuildLog() {
 }
 
 async function main() {
-  console.log('Codebuff Web Build')
+  console.log('Openbuff Web Build')
   console.log('─'.repeat(40))
 
   await clearLog()

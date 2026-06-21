@@ -61,15 +61,8 @@ No recovery — a failed str_replace (stale oldString) returns an error result, 
 Parent mismatch — base2.ts:185 spawns editor to "implement the changes" (the whole task), but the editor is architecturally a one-shot.
 The fix is small and high-confidence: replace the single yield 'STEP' with a bounded loop that keeps stepping while the model is still emitting edit tool calls, and stops on stepsComplete or a step budget. This is the same STEP/STEP_ALL pattern documented at agent-definition.ts:216.
 
-Multi-prompt editor (editor-multi-prompt.ts)
-This is a 3,350-line best-of-N orchestrator: spawn N proposal implementors with different strategy prompts → a selector picks the best → apply. Why it's "no better than default":
-
-Best-of-N only helps if selection is reliable. If the best-of-n-selector2 can't consistently pick the better diff, you pay N× cost for ~1× quality. That's the classic failure mode.
-It's now sequential, not parallel (see the comment at line 193: local/BYOK providers have low concurrency, so they serialized spawning). N=5 sequential proposals + selector is much slower for the same or worse result.
-Complexity is its own tax — 3,350 lines of orchestration (timeouts, repair phases, budget plans) is a large surface for bugs and stalls, which directly degrades real-world performance.
-No objective signal — selection is LLM-judgment only. A verify-then-repair loop (apply → typecheck/test → fix) tends to beat best-of-N on correctness at a fraction of the cost.
 BYOK angle
-Both editors hardcode models/providers (claude-opus-4.7 pinned to amazon-bedrock, gpt-5.5, etc.). For BYOK across heterogeneous models, the one-shot default editor hurts weaker models the most, and the concurrency-heavy best-of-N is the most fragile.
+The editor should avoid hardcoded provider assumptions and rely on configurable routes. For BYOK across heterogeneous models, the highest-leverage fix is making the default editor resilient with bounded continuation, validation, and repair instead of maintaining a separate high-cost best-of-N mode.
 
 Before I start changing code, I want to align on scope and direction, since "improve" here has real tradeoffs (and one path means touching that 3,350-line file).
 

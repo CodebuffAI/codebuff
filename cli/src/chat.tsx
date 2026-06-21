@@ -14,6 +14,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ModelRoutePicker } from './components/model-route-picker'
+import { PlanSessionPickerScreen } from './components/plan-session-picker-screen'
 import {
   ProviderPickerScreen,
   type ProviderPickerSelection,
@@ -125,6 +126,9 @@ export const Chat = ({
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
   const [modelRoutePickerOpen, setModelRoutePickerOpen] = useState(false)
   const [providerPickerOpen, setProviderPickerOpen] = useState(false)
+  const [planSessionPickerCommand, setPlanSessionPickerCommand] = useState<
+    string | null
+  >(null)
 
   const { validate: validateAgents } = useAgentValidation()
 
@@ -600,7 +604,7 @@ export const Chat = ({
     ],
   )
 
-  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildLite } = useChatInput({
+  const { inputWidth, handleBuildFast } = useChatInput({
     setInputValue,
     agentMode,
     setAgentMode,
@@ -686,6 +690,10 @@ export const Chat = ({
 
       if (result.openProviderPicker) {
         setProviderPickerOpen(true)
+      }
+
+      if (result.openPlanSessionPicker) {
+        setPlanSessionPickerCommand(result.openPlanSessionPicker)
       }
 
       if (result.openReviewScreen) {
@@ -1211,7 +1219,8 @@ export const Chat = ({
       askUserState !== null ||
       reviewMode ||
       modelRoutePickerOpen ||
-      providerPickerOpen,
+      providerPickerOpen ||
+      planSessionPickerCommand !== null,
   })
 
   // Sync message block context to zustand store for child components
@@ -1248,16 +1257,12 @@ export const Chat = ({
     setMessageBlockCallbacks({
       onToggleCollapsed: handleCollapseToggle,
       onBuildFast: handleBuildFast,
-      onBuildMax: handleBuildMax,
-      onBuildLite: handleBuildLite,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
     })
   }, [
     handleCollapseToggle,
     handleBuildFast,
-    handleBuildMax,
-    handleBuildLite,
     handleMessageFeedback,
     handleCloseFeedback,
     setMessageBlockCallbacks,
@@ -1386,6 +1391,40 @@ export const Chat = ({
     [setInputFocused, setInputMode, setMessages],
   )
 
+  const handlePlanSessionPickerCancel = useCallback(() => {
+    setPlanSessionPickerCommand(null)
+    setInputFocused(true)
+  }, [setInputFocused])
+
+  const handlePlanSessionPickerSelect = useCallback(
+    (sessionDir: string) => {
+      const command = planSessionPickerCommand
+      if (!command) return
+
+      setPlanSessionPickerCommand(null)
+      setInputFocused(true)
+
+      onSubmitPrompt(`/${command} ${sessionDir}`, agentMode)
+        .then((result) => handleCommandResult(result))
+        .catch((error) => {
+          logger.error(
+            { error, command, sessionDir },
+            '[plan-session-picker] Failed to submit selected plan session',
+          )
+          showClipboardMessage('Failed to open plan session', {
+            durationMs: 3000,
+          })
+        })
+    },
+    [
+      planSessionPickerCommand,
+      setInputFocused,
+      onSubmitPrompt,
+      agentMode,
+      handleCommandResult,
+    ],
+  )
+
   // Model route picker is a full-screen overlay — skip rendering chat UI
   // to avoid keyboard event conflicts.
   if (modelRoutePickerOpen) {
@@ -1402,6 +1441,16 @@ export const Chat = ({
 
   if (providerPickerOpen) {
     return <ProviderPickerScreen onSelect={handleProviderPickerSelect} />
+  }
+
+  if (planSessionPickerCommand) {
+    return (
+      <PlanSessionPickerScreen
+        command={planSessionPickerCommand}
+        onSelectSession={handlePlanSessionPickerSelect}
+        onCancel={handlePlanSessionPickerCancel}
+      />
+    )
   }
 
   return (

@@ -70,7 +70,7 @@ const TransactionHeader = ({ name }: { name: string }) => {
 export const EditTransactionComponent = defineToolComponent({
   toolName: 'edit_transaction',
 
-  render(toolBlock): ToolRenderConfig {
+  render(toolBlock, _theme, options): ToolRenderConfig {
     const files = getTransactionFiles(toolBlock)
     const error = getTransactionError(toolBlock)
     const isProposed = String(toolBlock.toolName).startsWith('propose_')
@@ -97,7 +97,12 @@ export const EditTransactionComponent = defineToolComponent({
               style={{ flexDirection: 'column', paddingLeft: 2, width: '100%' }}
             >
               <text style={{ wrapMode: 'word' }}>{file.path}</text>
-              {file.diff ? <DiffViewer diffText={file.diff} /> : null}
+              {file.diff ? (
+                <DiffViewer
+                  diffText={file.diff}
+                  availableWidth={Math.max(10, options.availableWidth - 4)}
+                />
+              ) : null}
             </box>
           ))}
         </box>

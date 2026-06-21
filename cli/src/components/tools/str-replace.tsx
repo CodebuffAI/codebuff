@@ -68,6 +68,7 @@ interface EditBodyProps {
   status: EditStatus
   message: string | null
   stats: DiffStats
+  availableWidth: number
 }
 
 const EditBody = ({
@@ -78,6 +79,7 @@ const EditBody = ({
   status,
   message,
   stats,
+  availableWidth,
 }: EditBodyProps) => {
   const theme = useTheme()
   const messageColor = status === 'failed' ? theme.error : theme.muted
@@ -99,7 +101,7 @@ const EditBody = ({
       ) : null}
       {!isCreate && diffText.length > 0 && (
         <box style={{ paddingLeft: 2, width: '100%' }}>
-          <DiffViewer diffText={diffText} />
+          <DiffViewer diffText={diffText} availableWidth={Math.max(10, availableWidth - 4)} />
         </box>
       )}
     </box>
@@ -177,7 +179,7 @@ function countDiffStats(diffText: string | null): DiffStats {
 export const StrReplaceComponent = defineToolComponent({
   toolName: 'str_replace',
 
-  render(toolBlock): ToolRenderConfig {
+  render(toolBlock, _theme, options): ToolRenderConfig {
     const diff = extractDiff(toolBlock)
     const filePath = extractFilePath(toolBlock)
     const isCreate = isCreateFile(toolBlock)
@@ -195,6 +197,7 @@ export const StrReplaceComponent = defineToolComponent({
           status={status}
           message={message}
           stats={stats}
+          availableWidth={options.availableWidth}
         />
       ),
     }

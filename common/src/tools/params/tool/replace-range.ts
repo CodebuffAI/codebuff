@@ -43,6 +43,7 @@ Use this tool for reliable edits to medium and large files after reading an exac
 
 Important:
 - Do not guess startLine/endLine/hash. Copy them from a fresh read_files.ranges header.
+- Do not include a trailing phantom line beyond the visible file length; if a stale-range diagnostic reports the current file length, re-read with endLine <= that line count.
 - The runtime verifies the current range hash before editing and rejects stale edits before changing the file.
 - newContent replaces the entire selected range, so include all lines that should remain in that range.
 - Prefer this over str_replace for large-file function/block edits or line-count-changing changes.

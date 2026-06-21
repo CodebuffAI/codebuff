@@ -4,7 +4,22 @@ import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInfoCommand } from './info'
 import { handleInitializationFlowLocally } from './init'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
+import {
+  formatArtifactsForPrompt,
+  hasAnyArtifact,
+  PLAN_ARTIFACT_NAMES,
+  readPlanArtifacts,
+  resolvePlanSessionDir,
+} from './plan-artifacts'
+import {
+  buildInterviewPrompt,
+  buildLessonsPrompt,
+  buildPlanPrompt,
+  buildResumePlanPrompt,
+  buildReviewPromptFromArgs,
+  buildUpdatePlanPrompt,
+  splitPlanCommandArgs,
+} from './prompt-builders'
 import { runBashCommand } from './router'
 import { useThemeStore } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
@@ -58,6 +73,7 @@ export type CommandResult = {
   openReviewScreen?: boolean
   openModelRoutePicker?: boolean
   openProviderPicker?: boolean
+  openPlanSessionPicker?: string
   preSelectAgents?: string[]
 } | void
 
@@ -140,6 +156,76 @@ export function defineCommandWithArgs(
 
 const clearInput = (params: RouterParams) => {
   params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+}
+
+const sendPromptCommand = (
+  params: RouterParams,
+  prompt: string,
+  mode: AgentMode = params.agentMode,
+) => {
+  params.sendMessage({
+    content: prompt,
+    agentMode: mode,
+  })
+  setTimeout(() => {
+    params.scrollToLatest()
+  }, 0)
+}
+
+const appendLocalMessage = (params: RouterParams, body: string) => {
+  params.setMessages((prev) => [
+    ...prev,
+    getUserMessage(params.inputValue.trim()),
+    getSystemMessage(body),
+  ])
+}
+
+const showMissingArtifactsMessage = (
+  params: RouterParams,
+  command: string,
+  sessionDir: string,
+) => {
+  appendLocalMessage(
+    params,
+    `/${command}: no plan artifacts found under ${sessionDir}. Expected one of: ${PLAN_ARTIFACT_NAMES.join(', ')}.`,
+  )
+}
+
+const openPlanSessionPicker = (
+  params: RouterParams,
+  command: string,
+): CommandResult => {
+  clearInput(params)
+  return { openPlanSessionPicker: command }
+}
+
+const formatPlanStatusReport = (
+  sessionDir: string,
+  artifacts: ReturnType<typeof readPlanArtifacts>,
+): string => {
+  if (!artifacts) {
+    return `/plan-status: session directory ${sessionDir} not found.`
+  }
+  const lines: string[] = [`Plan status for ${artifacts.sessionDir}:`]
+  const present = PLAN_ARTIFACT_NAMES.filter(
+    (name) => artifacts.presentPaths[name],
+  )
+  if (present.length === 0) {
+    lines.push('  (no plan artifacts found)')
+  } else {
+    lines.push('Artifacts found:')
+    for (const name of present) {
+      lines.push(`  - ${artifacts.presentPaths[name]}`)
+    }
+  }
+  if (artifacts.missing.length > 0) {
+    lines.push(`Missing: ${artifacts.missing.join(', ')}`)
+  }
+  const status = artifacts.files['STATUS.md']
+  if (status) {
+    lines.push('', `STATUS.md:`, status.trimEnd())
+  }
+  return lines.join('\n')
 }
 
 const ALL_COMMANDS: CommandDefinition[] = [
@@ -505,20 +591,135 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
 
-      // If user provided plan text directly, send it immediately
+      // If user provided plan text directly, send it immediately in plan mode
       if (trimmedArgs) {
-        params.sendMessage({
-          content: buildPlanPrompt(trimmedArgs),
-          agentMode: params.agentMode,
-        })
-        setTimeout(() => {
-          params.scrollToLatest()
-        }, 0)
+        sendPromptCommand(params, buildPlanPrompt(trimmedArgs), 'PLAN')
         return
       }
 
       // Otherwise enter plan mode
       useChatStore.getState().setInputMode('plan')
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'resume-plan',
+    aliases: ['rp'],
+    handler: (params, args) => {
+      params.saveToHistory(params.inputValue.trim())
+      const parsed = splitPlanCommandArgs(args)
+      if (!parsed) {
+        return openPlanSessionPicker(params, 'resume-plan')
+      }
+      const resolved = resolvePlanSessionDir(parsed.target)
+      if (!resolved.ok) {
+        appendLocalMessage(params, `/resume-plan: ${resolved.error}`)
+        clearInput(params)
+        return
+      }
+      const artifacts = readPlanArtifacts(parsed.target)
+      if (!hasAnyArtifact(artifacts)) {
+        showMissingArtifactsMessage(params, 'resume-plan', resolved.sessionDir)
+        clearInput(params)
+        return
+      }
+      clearInput(params)
+      sendPromptCommand(
+        params,
+        buildResumePlanPrompt({
+          target: artifacts!.sessionDir,
+          artifactsText: formatArtifactsForPrompt(artifacts!),
+        }),
+        'EXECUTE_PLAN',
+      )
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'update-plan',
+    aliases: ['up'],
+    handler: (params, args) => {
+      params.saveToHistory(params.inputValue.trim())
+      const parsed = splitPlanCommandArgs(args)
+      if (!parsed) {
+        return openPlanSessionPicker(params, 'update-plan')
+      }
+      const resolved = resolvePlanSessionDir(parsed.target)
+      if (!resolved.ok) {
+        appendLocalMessage(params, `/update-plan: ${resolved.error}`)
+        clearInput(params)
+        return
+      }
+      const artifacts = readPlanArtifacts(parsed.target)
+      if (!hasAnyArtifact(artifacts)) {
+        showMissingArtifactsMessage(params, 'update-plan', resolved.sessionDir)
+        clearInput(params)
+        return
+      }
+      clearInput(params)
+      sendPromptCommand(
+        params,
+        buildUpdatePlanPrompt({
+          target: artifacts!.sessionDir,
+          artifactsText: formatArtifactsForPrompt(artifacts!),
+          note: parsed.note,
+        }),
+        'PLAN',
+      )
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'plan-status',
+    aliases: ['ps'],
+    handler: (params, args) => {
+      params.saveToHistory(params.inputValue.trim())
+      const parsed = splitPlanCommandArgs(args)
+      if (!parsed) {
+        return openPlanSessionPicker(params, 'plan-status')
+      }
+      const resolved = resolvePlanSessionDir(parsed.target)
+      if (!resolved.ok) {
+        appendLocalMessage(params, `/plan-status: ${resolved.error}`)
+        clearInput(params)
+        return
+      }
+      const artifacts = readPlanArtifacts(parsed.target)
+      appendLocalMessage(
+        params,
+        formatPlanStatusReport(resolved.sessionDir, artifacts),
+      )
+      clearInput(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'lessons',
+    aliases: ['lesson'],
+    handler: (params, args) => {
+      params.saveToHistory(params.inputValue.trim())
+      const parsed = splitPlanCommandArgs(args)
+      if (!parsed) {
+        return openPlanSessionPicker(params, 'lessons')
+      }
+      const resolved = resolvePlanSessionDir(parsed.target)
+      if (!resolved.ok) {
+        appendLocalMessage(params, `/lessons: ${resolved.error}`)
+        clearInput(params)
+        return
+      }
+      const artifacts = readPlanArtifacts(parsed.target)
+      if (!hasAnyArtifact(artifacts)) {
+        showMissingArtifactsMessage(params, 'lessons', resolved.sessionDir)
+        clearInput(params)
+        return
+      }
+      clearInput(params)
+      sendPromptCommand(
+        params,
+        buildLessonsPrompt({
+          target: artifacts!.sessionDir,
+          artifactsText: formatArtifactsForPrompt(artifacts!),
+          note: parsed.note,
+        }),
+        'PLAN',
+      )
     },
   }),
   defineCommandWithArgs({
