@@ -5,7 +5,6 @@ import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { IS_FREEBUFF } from '../utils/constants'
 import { useChatStore } from '../state/chat-store'
-import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 
 const HELP_TIMEOUT = 60 * 1000 // 60 seconds
 
@@ -38,7 +37,6 @@ export const HelpBanner = () => {
   const theme = useTheme()
   const { data: subscriptionData } = useSubscriptionQuery()
   const hasSubscription = subscriptionData?.hasSubscription ?? false
-  const chatGptOAuth = getChatGptOAuthStatus()
 
   // Auto-hide after timeout
   React.useEffect(() => {
@@ -80,12 +78,7 @@ export const HelpBanner = () => {
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Tips</SectionHeader>
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
-            {IS_FREEBUFF && !chatGptOAuth.connected && (
-              <text style={{ fg: theme.muted }}>
-                Connect via /connect to unlock /plan & /review
-              </text>
-            )}
-            {IS_FREEBUFF && chatGptOAuth.connected && (
+            {IS_FREEBUFF && (
               <text style={{ fg: theme.muted }}>
                 Try workflow: /interview → /plan → implement → /review
               </text>

@@ -134,6 +134,10 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     getFleetHealth: async () => ({}),
     getDeploymentTtftP90Ms: () => undefined,
     activeCountForModel: async () => 0,
+    // Log-only per-IP instrumentation: instant-admit is disabled here, so this
+    // is never reached; trivial stubs keep the deps type satisfied.
+    countActiveSessionsForIpHash: async () => 0,
+    ipSessionCap: 30,
     promoteQueuedUser: async () => null,
     // No admits in handler tests — the rate-limit check reads empty and
     // every request falls through to the queue.

@@ -52,6 +52,7 @@ import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
 import { recordChatCompletionTrace } from '@/llm-api/chat-completion-trace'
 import { createRequestAuditRecord } from '@/llm-api/helpers'
+import { summarizeMessagesForLog } from '@/llm-api/log-summary'
 import { normalizeToolSchemas } from '@/llm-api/tool-schema'
 import {
   CanopyWaveError,
@@ -1211,6 +1212,15 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messagesOmitted: true,
+          // Raw messages are omitted (large + user content + base64 images), but
+          // their shape is what triages a provider failure — e.g. a "failed to
+          // decode image" 400 vs a pipeline bug hinges on the image's byte size
+          // and media type. PII-safe: counts/sizes/types only, never content.
+          messageSummary: summarizeMessagesForLog(typedBody.messages),
+          // Correlate this provider failure to the calling surface. For freebuff
+          // chat, `userId` above is the shared service account; the real user and
+          // thread live here (freebuff_chat_user_id / freebuff_chat_thread_id).
+          codebuffMetadata: typedBody.codebuff_metadata,
           accessTier: freebuffAccessTier,
           providerStatusCode: (
             openrouterError ??

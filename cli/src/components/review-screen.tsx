@@ -1,7 +1,7 @@
 import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useState } from 'react'
 
-import { buildReviewPrompt, REVIEW_BASE_PROMPT } from '../commands/prompt-builders'
+import { buildReviewPrompt } from '../commands/prompt-builders'
 import { useTheme } from '../hooks/use-theme'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -19,9 +19,6 @@ const REVIEW_OPTIONS: ReviewOption[] = [
   { id: 'branch', label: 'This branch vs main' },
   { id: 'custom', label: 'Custom...' },
 ]
-
-// Re-export for backward compatibility
-export { REVIEW_BASE_PROMPT }
 
 interface ReviewScreenProps {
   onSelectOption: (reviewText: string) => void

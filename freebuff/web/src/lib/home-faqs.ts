@@ -13,7 +13,7 @@ export const homeFaqs = [
   {
     question: 'What models do you use?',
     answer:
-      'In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- MiMo 2.5 Pro: smartest and multimodal, but slower.\n- Kimi K2.6: balanced and multimodal.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n- MiMo 2.5: multimodal.\n- MiniMax M3: smartest unlimited model, multimodal. Its API collects data for training.\n\nLimited mode uses DeepSeek V4 Flash and MiMo 2.5.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+      'Freebuff runs on the best open-source models available. In full mode, you can choose from:\n\n- DeepSeek V4 Pro: smartest. Its API collects data for training.\n- MiMo 2.5 Pro: smartest and multimodal, but slower.\n- Kimi K2.6: balanced and multimodal.\n- DeepSeek V4 Flash: most efficient. Its API also collects data for training.\n- MiMo 2.5: multimodal.\n- MiniMax M3: smartest unlimited model, multimodal. Its API collects data for training.\n\nLimited mode uses DeepSeek V4 Flash and MiMo 2.5.\n\nAlso, Gemini 3.1 Flash Lite handles file finding and research.',
   },
   {
     question: 'Which countries is Freebuff available in?',
@@ -41,7 +41,7 @@ export const homeFaqs = [
 - file-picker finds relevant files across your codebase
 - code-reviewer gives critical feedback on your changes
 - browser-use lets the AI control a real browser to test your app
-- thinker-gpt does deep reasoning (connect your ChatGPT subscription)
+- thinker does deep reasoning
 - and more.
 
 After every response, it generates 3 clickable follow-up suggestions so you always know what to do next.

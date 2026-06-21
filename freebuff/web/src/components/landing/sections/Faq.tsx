@@ -13,7 +13,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'What models do you use?',
-    a: 'In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5. Connect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
+    a: 'Freebuff runs on the best open-source models available. In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5.',
   },
   {
     q: 'Are you training on my data?',

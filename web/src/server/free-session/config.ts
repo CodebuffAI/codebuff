@@ -70,3 +70,18 @@ const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
 export function getInstantAdmitCapacity(id: string): number {
   return INSTANT_ADMIT_CAPACITY[id] ?? 0
 }
+
+/** Candidate per-egress-IP concurrent active-session ceiling, env-overridable
+ *  so it can be tuned from the logged distribution without a deploy. Currently
+ *  only tags the log line's `wouldBlock` — no request is rejected. See
+ *  `requestSession` and docs/freebuff-abuse-detection.md ("Mitigation gap"). */
+export function getIpSessionCap(): number {
+  return env.FREEBUFF_IP_SESSION_CAP
+}
+
+/** Only emit the per-IP concurrency log when an admission pushes a hash to at
+ *  least this many concurrent active sessions. Filters out the long tail of
+ *  singleton / low-concurrency IPs so the log stays cheap while still capturing
+ *  the shared-NAT-vs-farm distribution needed to set the real cap. Fixed
+ *  constant (not env-tuned like the cap) — a measurement detail, not a knob. */
+export const IP_SESSION_LOG_FLOOR = 5

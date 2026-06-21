@@ -1,9 +1,15 @@
 import { resolve } from 'path'
 import dotenv from 'dotenv'
 
+const repoRoot = resolve(import.meta.dirname, '../..')
+
 dotenv.config({
-  path: resolve(import.meta.dirname, '../../.env.local'),
+  path: resolve(repoRoot, '.env.local'),
   override: false,
+})
+dotenv.config({
+  path: resolve(repoRoot, '.env.development.local'),
+  override: true,
 })
 
 const FREEBUFF_PORT =

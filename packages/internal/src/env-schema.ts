@@ -86,6 +86,15 @@ export const serverEnvSchema = clientEnvSchema.extend({
     .int()
     .positive()
     .default(60 * 60 * 1000),
+  // Candidate per-egress-IP concurrent active-session ceiling. A residential /
+  // CGNAT IP rarely holds more than a handful of simultaneous freebuff sessions;
+  // a registration farm holds hundreds (the 2026-06-20 Indonesia farm: ~605 on
+  // one client_ip_hash, all idle). Currently LOG-ONLY: at admission we count
+  // active sessions sharing the hash and log what this cap *would* block — no
+  // request is rejected yet. The default is a starting guess to be tuned from
+  // the logged distribution before enforcement. See
+  // docs/freebuff-abuse-detection.md ("Mitigation gap").
+  FREEBUFF_IP_SESSION_CAP: z.coerce.number().int().positive().default(30),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -160,4 +169,5 @@ export const serverProcessEnv: ServerInput = {
   // Freebuff waiting room
   FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
   FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
+  FREEBUFF_IP_SESSION_CAP: process.env.FREEBUFF_IP_SESSION_CAP,
 }

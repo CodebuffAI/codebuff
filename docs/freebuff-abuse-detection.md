@@ -91,18 +91,30 @@ All read-only; run against prod via Infisical. Live in `scripts/`.
 |---|---|---|
 | `find-freebuff-api-suspects.ts` | Scores **individual accounts** by proxy/farm request fingerprints over a lookback window. **Start here.** | `infisical run --env=prod --silent -- bun scripts/find-freebuff-api-suspects.ts --hours 336 --min-score 50` |
 | `find-freebuff-sock-clusters.ts` | Groups **accounts into rings** by two shared-identity signals: `fingerprint_id` and `client_ip_hash`. Catches coordinated socks the per-account scorer sees one-at-a-time. | `… bun scripts/find-freebuff-sock-clusters.ts --min-users 4 --only-unbanned` |
+| `investigate-id-spike.ts` | Investigates a **live-counter / admission spike** straight off `free_session` + `free_session_admit` (no message rows needed, so it sees the idle-session farm the suspect scorer misses): admissions-per-hour histogram, per-country breakdown for a time window, then the target-country cohort with per-account flags (new-acct, IP/fingerprint sharing, fanout, null-repo, msgs==runs). **Start here when "country X spiked at time T".** | `… bun scripts/investigate-id-spike.ts --country ID --from "2026-06-20T06:00:00Z" --to "2026-06-20T11:00:00Z"` |
 | `inspect-freebuff-traces.ts` | Dumps stored request/response traces, `repo_url`, agent-step counts, models/agents for specific emails. Use to **confirm** before banning. | `… bun scripts/inspect-freebuff-traces.ts a@b.com c@d.com` |
 | `top-freebuff-users.ts` | Raw volume leaderboard for a given agent (message counts, tokens, time-of-day). | `… bun scripts/top-freebuff-users.ts 336 50 base2-free` |
 | `ban-freebuff-bots.ts` | Bans an email list (`banned=true` + clears `free_session`). **Dry-runs by default**; `--commit` to apply. | `… bun scripts/ban-freebuff-bots.ts list.txt` then `… --commit` |
-| `unban-freebuff-users.ts` | Reverses bans by email. | `… bun scripts/unban-freebuff-users.ts a@b.com` |
+| `find-false-positive-bans.ts` | **Reverse scan**: ranks *already-banned* accounts by the real-coder fingerprint (high agent-step coverage, no fanout, full subagent hierarchy, freebuff-family models only) to surface sweep false positives. Flags `1SHOT?` single-shot bulk. See [Unban review](#unban-review-catching-false-positives-after-a-sweep). | `… bun scripts/find-false-positive-bans.ts` |
+| `unban-freebuff-users.ts` | Reverses bans. Takes a **file** of emails (one per line); dry-runs without `--commit`. | `… bun scripts/unban-freebuff-users.ts list.txt --commit` |
 
 ## The signals (data model)
 
-Everything keys off three tables (`packages/internal/src/db/schema.ts`):
-`message` (per LLM call: `client_id`, `client_request_id` = run id, `agent_id`,
-`model`, `repo_url`, `request`/`response` JSON, `credits`), `agent_run`
-(`total_steps`, status), and `agent_step` (one row per real agent step, joined to
-`message` by `message_id`).
+Detection keys off four tables (`packages/internal/src/db/schema.ts`):
+
+- **`message`** — per LLM call: `client_id`, `client_request_id` (= run id),
+  `agent_id`, `model`, `repo_url`, `request`/`response` JSON, `credits`.
+- **`agent_run`** — `total_steps`, status.
+- **`agent_step`** — one row per real agent step, joined to `message` by
+  `message_id`.
+- **`free_session`** — one row per admitted session: `user_id`, `status`
+  (`active`/expired), `client_ip_hash` (hashed egress IP), `country_code` /
+  `geoip_country`, `active_instance_id`. **The only table that sees an
+  admit-and-idle farm** — those accounts never write a `message` row (see the
+  idle-session fingerprint below).
+
+The first three are message-driven and feed the suspect/cluster scanners; the
+table below contrasts a real coding session against scripted abuse on those rows.
 
 | Signal | Real CLI coding | Scripted abuse |
 |---|---|---|
@@ -113,7 +125,7 @@ Everything keys off three tables (`packages/internal/src/db/schema.ts`):
 | system prompt | starts with "You are Buffy" | arbitrary app/proxy prompt |
 | trace content | code, tool calls, file context | app-backend output (JSON APIs, chat, essays), often non-English, no code |
 
-### Two fingerprints
+### Three fingerprints
 
 - **Proxy fanout** — many distinct `client_id`s inside one run held open for
   hours/days; ~0 agent steps; null `repo_url`. A reseller forwarding many users
@@ -122,10 +134,28 @@ Everything keys off three tables (`packages/internal/src/db/schema.ts`):
 - **Bulk / farm** — `messageCount == runCount` (one message per run), ~0 agent
   steps, often coordinated same-day account batches with bot-generated display
   names. Single-shot completion scripting.
+- **Idle-session farm (admit-and-hold)** — accounts that get admitted, then send
+  **~0 messages**. They consume admission slots and inflate the "live now"
+  counter without ever calling the LLM, and (because they write no `message` row)
+  they are **invisible to the message-driven scanners** — you only see them in
+  `free_session`. The 2026-06-20 ID farm was 605 accounts on one `client_ip_hash`,
+  all `status='active'` on `deepseek-v4-flash`, most with zero messages. Detect it
+  directly off `free_session`, or with `scripts/investigate-id-spike.ts`:
 
-The suspect scorer in `find-freebuff-api-suspects.ts` encodes both, with
-dampeners for tenured accounts and a "real-steps" legit-power-user signal — read
-its scoring comment block before tuning thresholds.
+  ```sql
+  -- one IP holding hundreds of idle active sessions = farm
+  SELECT left(client_ip_hash,12) AS ip, COUNT(*) sessions,
+         mode() WITHIN GROUP (ORDER BY split_part(u.email,'@',2)) AS top_domain
+  FROM free_session fs JOIN "user" u ON u.id = fs.user_id
+  WHERE fs.status='active'
+  GROUP BY 1 HAVING COUNT(*) >= 50 ORDER BY 2 DESC;
+  ```
+
+The suspect scorer in `find-freebuff-api-suspects.ts` encodes the first two
+fingerprints, with dampeners for tenured accounts and a "real-steps"
+legit-power-user signal — read its scoring comment block before tuning
+thresholds. For the third, see the SQL above. Prevention for all three is the
+open work in [Mitigation gap](#mitigation-gap-idle-session-farms-evade-every-current-cap).
 
 ### Cross-account ring signals (`find-freebuff-sock-clusters.ts`)
 
@@ -152,14 +182,32 @@ investigation on 2026-06-10) **neither is wired into a request-time rate limit**
 - **`client_ip_hash` sharing** — accounts sharing an egress IP hash. Catches
   IP-stable farms, but **high false-positive**: universities, bootcamps, and CGNAT
   carriers legitimately share one IP across many users (measured: many 10–120-user
-  IPs with **0** banned). Read the **banned-% and domain diversity**: high banned-%
-  + one/two domains = farm; low banned-% + diverse/edu domains = shared NAT — review,
-  do **not** bulk-ban. This is why a hard per-IP rate limit was rejected: it would
-  throttle thousands of legit shared-network users for catches that detection
-  already makes.
+  IPs with **0** banned). Three discriminators separate a farm from a shared NAT:
+  - **Banned-% + domain diversity** — high banned-% with one/two domains = farm;
+    low banned-% with diverse/edu domains = shared NAT (review, do **not** bulk-ban).
+  - **Disposable domain + shared display-name token** — the strongest tell. The
+    2026-06-20 farm was 749 accounts on two throwaway domains (`@guzeil.com`,
+    `@gmosel.com`) registered in a 3-day burst, every display name ending in the
+    **same token** (`rosacloegraysonsteven`) — a name-template artifact no
+    shared-NAT cohort produces. One/two disposable domains **plus** a repeated name
+    token = farm, regardless of message volume.
+  - **Concurrent active-session count** — a NAT spreads users across time (a
+    handful active at any instant); a farm holds hundreds of `status='active'`
+    sessions on one hash *simultaneously*. This is also the basis for the proposed
+    fix (see [Mitigation gap](#mitigation-gap-idle-session-farms-evade-every-current-cap)).
+
+  A hard per-IP *request* rate limit was rejected — it throttles legit
+  shared-network users on every call for catches detection already makes. A per-IP
+  *concurrent-session* cap does not have that problem (Mitigation gap).
 
 ## Judgment / escalation playbook
 
+0. **If the trigger is a live-counter / country spike** ("country X jumped at
+   time T"), start with `investigate-id-spike.ts`, **not** the suspect scan — the
+   spike may be an idle-session farm with zero messages, which the message-driven
+   suspect/cluster scans cannot see. The spike tool reads `free_session` directly
+   and gives you the offending IP, domains, and cohort. Then proceed to step 1 for
+   the accounts that *do* have message activity (e.g. co-resident proxy resellers).
 1. **Run the suspect scan** (`--min-score 50` is a good ban-candidate cut;
    `--min-score 1 --json` to see the whole scored population).
 2. **Run the cluster scan** (`find-freebuff-sock-clusters.ts --only-unbanned`)
@@ -186,6 +234,56 @@ investigation on 2026-06-10) **neither is wired into a request-time rate limit**
    steps** is deliberately evading detection → strong ban signal. The suspect
    scan's missing-step ratio surfaces these.
 
+## Unban review: catching false positives after a sweep
+
+Bans are reversible, and broad sweeps — especially the IP/fingerprint-keyed ones
+that catch an idle-session farm — sweep in **co-resident real coders** as
+collateral. The 2026-06-20 Indonesia idle-farm ban produced a steady stream of
+support appeals; the review below cleared **32 real coders** in one pass while
+leaving the farm, premium sock accounts, and proxy resellers banned. Appeals are
+the visible tip — run this proactively after any bulk sweep.
+
+**The false-positive fingerprint (= a real freebuff coder, the inverse of the
+abuse table above):**
+
+- **~99% agent-step coverage** (`msgs_with_agent_step / msgs ≥ 0.9`) — the single
+  strongest tell. Scripted abuse has ~0; a real CLI agent loop records one step
+  per message.
+- **`maxClientIdsPerRun ≤ 2`** — no proxy fanout.
+- **Full subagent hierarchy** (`basher`, `file-picker`/`file-lister`,
+  `code-reviewer*`, `researcher-docs`/`-web`, `browser-use`, `base2-free-mimo`) —
+  only the real CLI spawns these. ≥3 distinct agents is a good cut.
+- **freebuff-family models only** — `deepseek` / `mimo` / `minimax` /
+  `moonshotai`(kimi) / `google`(gemini). Using a **non-freebuff** model
+  (`anthropic`/`openai`/`x-ai`/`z-ai`(glm)/`relace`/`bytedance`/raw numeric id)
+  via the free endpoint is the premium-**reselling** tell → stays banned. (Note:
+  `deepseek-v4-pro`, `mimo-v2.5-pro`, `kimi` are premium *within* freebuff —
+  legitimate for a real user, not a reselling signal.)
+- `repo_url` null is **not** a signal — it's null for all free-mode traffic.
+
+**Two traps that pass the structural filter but are still abuse — trace-confirm
+always:**
+
+- **Single-shot bulk (`msgs ≈ runs`)** — a chatbot/text-game backend that hits
+  the endpoint once per "run" still logs one agent_step per call, so it clears
+  the step-coverage gate. The clincher is the trace content. Example: `花火`
+  (a `@qq.com` account) scored as a candidate (99.9% coverage, freebuff models)
+  but its traces were a **Blue Archive role-play + a dorm-management text game**
+  on premium models with `msgs==runs` — kept banned. `find-false-positive-bans.ts`
+  flags these `1SHOT?` and holds them out of the auto-candidate file.
+- **Premium-only tri-word sock farms** — auto-generated handles
+  (`skier-knelt-unripe`…) running Claude-Opus/GPT-5 exclusively to multiply the
+  free premium quota. High coverage, but non-freebuff models → reselling.
+
+**Procedure:** run `find-false-positive-bans.ts` → trace-confirm the candidates
+(and **every** `1SHOT?` / premium-flagged row) with `inspect-freebuff-traces.ts`
+→ `unban-freebuff-users.ts <file> --commit`. There is no `banned_at` column, so
+scope a sweep's cohort by `MAX(message.finished_at)` (≈ when the ban cut them
+off). Banning clears `free_session`, so you can't see the shared IP afterward —
+but the message tables are enough, and sessions rebuild on the user's next CLI
+run (no action needed from them beyond restarting freebuff). The pattern is not
+region-specific: an April ban also had qq.com false positives.
+
 ## Operational hygiene
 
 - **Do not commit account identifiers** (emails) to the repo. Keep ban lists and
@@ -204,3 +302,39 @@ investigation on 2026-06-10) **neither is wired into a request-time rate limit**
 | `FREE_MODE_RATE_LIMITS` | `free-mode-rate-limiter.ts` | Model-agnostic burst/volume windows. |
 | `FREEBUFF_PREMIUM_SESSION_LIMIT` | `common/src/constants/freebuff-models.ts` | Premium sessions/Pacific-day at admission. |
 | Suspect score thresholds | `find-freebuff-api-suspects.ts` (`getScore`) | Proxy/farm cutoffs and dampeners. |
+
+## Mitigation gap: idle-session farms evade every current cap
+
+The 2026-06-20 ID farm exposed a structural hole. Every existing cap is keyed on
+something an admit-and-idle farm never produces:
+
+- `FREEBUFF_PREMIUM_SESSION_LIMIT` is **per-user** — N farm accounts get `N × 5`
+  sessions, and one admitted session holds a slot all day for free.
+- `FREE_MODE_*_RATE_LIMITS` fire on **messages** — an idle account sends none.
+- The suspect/cluster scanners read message tables — a zero-message account has
+  nothing to score (see the idle-session fingerprint).
+
+So a single IP held ~605 concurrent sessions undetected, surfacing only as an
+inflated "live now" counter. Banning works but is reactive — the farm re-registers.
+
+**The lever — per-`client_ip_hash` concurrent active-session cap at admission**
+(in `requestSession`, `web/src/server/free-session/public-api.ts`). A cap on
+*simultaneous active sessions per egress hash* targets the exact farm shape
+(hundreds concurrent from one hash) while leaving shared NATs (a few concurrent,
+spread over time) untouched — which is why it works where the rejected per-IP
+*request* limit didn't. Rollout:
+
+1. **Log-only first (shipped).** At each fresh instant-admission `requestSession`
+   counts the active sessions sharing the admission's `client_ip_hash` and emits
+   `metric = "freebuff_ip_session_cap"` to the freebuff Axiom dataset —
+   `activeForIp` is the post-admit concurrency, `wouldBlock` flags admissions the
+   current `FREEBUFF_IP_SESSION_CAP` guess (default 30) would reject. **Nothing is
+   blocked yet** (`enforced: false`). To keep volume down the log only fires once
+   the hash reaches `IP_SESSION_LOG_FLOOR` (5) concurrent sessions. Reclaims and
+   takeovers are not sampled (they hold an existing slot). Use the logged
+   distribution to find the real shared-NAT ceiling and set the cap above it.
+2. **Enforce as a soft gate (next).** Flip the log-only branch to reject over-cap
+   *fresh* admissions with a friendly `free_mode_cli_required`-style response so an
+   over-cap NAT user gets a nudge, never a ban. Add a partial index on
+   `free_session (client_ip_hash) WHERE status='active'` when enforcing, since the
+   count then gates the hot path.
