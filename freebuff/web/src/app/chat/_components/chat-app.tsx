@@ -4,7 +4,13 @@ import { Check, Menu, Pencil, Plus, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { ChatImage, ChatMessage, PendingImage, ThreadSummary } from './types'
+import type {
+  ChatImage,
+  ChatMessage,
+  PendingImage,
+  QueuedMessage,
+  ThreadSummary,
+} from './types'
 
 // NB: `@/components/*` is aliased to vly in this package, so import relatively.
 import { UnifiedNavbar } from '../../../components/landing/UnifiedNavbar'
@@ -66,6 +72,10 @@ export function ChatApp() {
   // so MessageList can restore the right scroll position for the content.
   const [viewThreadId, setViewThreadId] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
+  // Messages the user submitted while a run was in flight. Buffered here and
+  // auto-sent one at a time as each run finishes — the server only allows one
+  // run per thread (409 response_in_progress), so we serialize on the client.
+  const [queue, setQueue] = useState<QueuedMessage[]>([])
   // Full-access flag: gates image upload (limited users are restricted). Named
   // for what it controls now that there's a single model and no picker.
   const [canUploadImages, setCanUploadImages] = useState(false)
@@ -114,6 +124,9 @@ export function ChatApp() {
     async (threadId: string | null) => {
     abortRef.current?.abort()
     setStreaming(false)
+    // Queued messages belong to the thread being left; drop them so they don't
+    // drain onto the newly-opened thread.
+    setQueue([])
     clearPendingImages()
     setActiveThreadId(threadId)
     setSidebarOpen(false)
@@ -331,6 +344,36 @@ export function ChatApp() {
     abortRef.current?.abort()
   }, [])
 
+  // The composer always calls this. If a run is in flight, buffer the message
+  // instead of firing a concurrent request; otherwise send immediately.
+  const enqueueOrSend = useCallback(
+    (content: string, images: ChatImage[] = []) => {
+      if (!streaming) {
+        send(content, images)
+        return
+      }
+      setQueue((q) => [...q, { content, images }])
+      // The composer clears its own images; clear the draft text we own here.
+      changeDraft('')
+    },
+    [streaming, send, changeDraft],
+  )
+
+  const removeQueued = useCallback((index: number) => {
+    setQueue((q) => q.filter((_, i) => i !== index))
+  }, [])
+
+  // Drain one queued message whenever the run finishes. Done in an effect
+  // (not send's finally block) so it picks up the latest send closure — its
+  // activeThreadId is only correct after the first run's `meta` event assigns
+  // the server-generated thread id.
+  useEffect(() => {
+    if (streaming || queue.length === 0) return
+    const [next, ...rest] = queue
+    setQueue(rest)
+    send(next.content, next.images)
+  }, [streaming, queue, send])
+
   const removeThread = useCallback(
     async (threadId: string) => {
       setThreads((prev) => prev.filter((t) => t.id !== threadId))
@@ -377,7 +420,7 @@ export function ChatApp() {
     <Composer
       value={draft}
       onChange={changeDraft}
-      onSend={send}
+      onSend={enqueueOrSend}
       onStop={stop}
       streaming={streaming}
       canUploadImages={canUploadImages}
@@ -547,7 +590,12 @@ export function ChatApp() {
           </div>
         ) : (
           <>
-            <MessageList threadId={viewThreadId} messages={messages} />
+            <MessageList
+              threadId={viewThreadId}
+              messages={messages}
+              queued={queue}
+              onRemoveQueued={removeQueued}
+            />
             <div className="px-4 pb-4">
               <div className="mx-auto w-full max-w-3xl">
                 <ChatAds seed={adSeed} />

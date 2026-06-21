@@ -179,10 +179,10 @@ export function Composer(props: {
 
   const uploading = images.some((img) => img.status === 'uploading')
   const doneImages = images.filter((img) => img.status === 'done')
+  // Submitting while a run streams is allowed — the message is queued by the
+  // parent and auto-sent when the run finishes.
   const canSend =
-    !props.streaming &&
-    !uploading &&
-    (value.trim().length > 0 || doneImages.length > 0)
+    !uploading && (value.trim().length > 0 || doneImages.length > 0)
 
   const submit = () => {
     if (!canSend) return

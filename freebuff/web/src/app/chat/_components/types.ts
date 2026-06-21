@@ -31,6 +31,13 @@ export interface PendingImage {
   error?: string
 }
 
+/** A message the user submitted while a run was in flight, buffered on the
+ *  client and auto-sent once the active run finishes. */
+export interface QueuedMessage {
+  content: string
+  images: ChatImage[]
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
