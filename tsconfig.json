@@ -15,7 +15,8 @@
       "@codebuff/billing/*": ["./packages/billing/src/*"],
       "@codebuff/bigquery/*": ["./packages/bigquery/src/*"],
       "@codebuff/internal/*": ["./packages/internal/src/*"],
-      "@codebuff/code-map/*": ["./packages/code-map/*"]
+      "@codebuff/code-map/*": ["./packages/code-map/*"],
+      "@codebuff/freebuff-desktop/*": ["./freebuff-desktop/src/*"]
     }
   },
   "files": [],
@@ -30,6 +31,7 @@
     { "path": "./packages/llm-providers" },
     { "path": "./packages/internal" },
     { "path": "./packages/code-map" },
-    { "path": "./scripts" }
+    { "path": "./scripts" },
+    { "path": "./freebuff-desktop" }
   ]
 }

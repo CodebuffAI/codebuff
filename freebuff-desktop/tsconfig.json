@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["bun", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@codebuff/common/*": ["../common/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

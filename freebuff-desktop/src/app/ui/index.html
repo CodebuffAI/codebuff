@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Freebuff Desktop</title>
+    <style>
+      :root {
+        --bg: #0b0e14;
+        --surface: #11151d;
+        --surface-2: #161b25;
+        --raised: #1b212c;
+        --border: #232a36;
+        --border-strong: #2f3947;
+        --text: #e7edf5;
+        --muted: #8a95a6;
+        --faint: #5b6677;
+        --accent: #4d8dff;
+        --green: #46c46a;
+        --amber: #e0a93b;
+        --red: #f2685f;
+        --purple: #9b7bff;
+        --radius: 10px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13.5px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        padding: 8px 14px;
+        transition: filter 0.12s ease, background 0.12s ease;
+      }
+      button:hover { filter: brightness(1.08); }
+      button:active { filter: brightness(0.95); }
+      button:disabled { opacity: 0.45; cursor: default; }
+      button.ghost { background: transparent; border: 1px solid var(--border-strong); color: var(--text); font-weight: 500; }
+      button.ghost:hover { background: var(--surface-2); }
+      button.green { background: var(--green); }
+      button.danger { background: transparent; border: 1px solid var(--border-strong); color: var(--red); font-weight: 500; }
+      button.danger:hover { background: rgba(242, 104, 95, 0.1); }
+      button.sm { padding: 5px 10px; font-size: 12px; }
+      a { color: var(--accent); text-decoration: none; }
+      ::-webkit-scrollbar { width: 9px; height: 9px; }
+      ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+
+      /* ---- App shell ---- */
+      #app { display: grid; grid-template-columns: 248px minmax(0, 1fr) 380px; height: 100vh; }
+      @media (min-width: 1500px) { #app { grid-template-columns: 280px minmax(0, 1fr) 440px; } }
+      .col { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--bg); }
+      .col:last-child { border-right: none; }
+      .col-head {
+        height: 46px; flex: 0 0 46px; display: flex; align-items: center; gap: 8px;
+        padding: 0 14px; border-bottom: 1px solid var(--border); font-weight: 650; font-size: 13px;
+        background: var(--surface); letter-spacing: 0.2px;
+      }
+      .col-body { flex: 1; overflow-y: auto; min-height: 0; }
+
+      /* segmented switcher (narrow only) */
+      #tabs { display: none; }
+      @media (max-width: 999px) {
+        #app { grid-template-columns: 1fr; grid-template-rows: 44px 1fr; }
+        #tabs { display: flex; grid-row: 1; border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px; gap: 6px; }
+        #tabs button { flex: 1; background: transparent; color: var(--muted); font-weight: 600; border-radius: 7px; padding: 6px; position: relative; }
+        #tabs button.active { background: var(--raised); color: var(--text); }
+        .col { grid-row: 2; border-right: none; display: none; }
+        .col.active { display: flex; }
+      }
+      .tab-badge {
+        position: absolute; top: 2px; right: 8px; background: var(--accent); color: #fff;
+        font-size: 9px; min-width: 15px; height: 15px; border-radius: 8px; padding: 0 4px;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+
+      /* ---- Header brand ---- */
+      .brand { display: flex; align-items: center; gap: 9px; }
+      .brand .mark { color: var(--accent); font-size: 15px; }
+      .proj { display: flex; flex-direction: column; line-height: 1.25; }
+      .proj .name { font-size: 12.5px; font-weight: 650; }
+      .proj .branch { font-size: 10.5px; color: var(--faint); font-weight: 500; }
+      .activity { margin-left: auto; display: flex; gap: 10px; font-size: 11px; color: var(--muted); font-weight: 500; }
+      .activity b { color: var(--text); font-weight: 650; }
+      .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; animation: pulse 1.3s ease-in-out infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(77, 141, 255, 0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(77, 141, 255, 0); } }
+
+      /* ---- Board ---- */
+      .cta {
+        margin: 10px; padding: 9px 11px; border-radius: var(--radius); cursor: pointer;
+        background: rgba(70, 196, 106, 0.1); border: 1px solid rgba(70, 196, 106, 0.35);
+        color: var(--green); font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 7px;
+      }
+      .cta:hover { background: rgba(70, 196, 106, 0.16); }
+      .cta.scout-cta { background: rgba(155, 123, 255, 0.1); border-color: rgba(155, 123, 255, 0.35); color: var(--purple); margin-top: 6px; }
+      .cta.scout-cta:hover { background: rgba(155, 123, 255, 0.16); }
+      .section-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin: 14px 12px 5px; font-weight: 650; }
+      .card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        margin: 5px 10px; padding: 9px 11px; cursor: pointer; transition: border-color 0.12s ease;
+      }
+      .card:hover { border-color: var(--border-strong); }
+      .card.sel { border-color: var(--accent); background: var(--surface-2); }
+      .card.waiting { opacity: 0.62; }
+      .card .ti { font-weight: 600; font-size: 12.5px; margin-bottom: 5px; }
+      .card .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .badge { font-size: 10px; padding: 1.5px 7px; border-radius: 20px; font-weight: 600; border: 1px solid var(--border-strong); color: var(--muted); }
+      .badge.dot::before { content: "●"; margin-right: 4px; font-size: 8px; vertical-align: 1px; }
+      .badge.b-running { color: var(--accent); border-color: rgba(77, 141, 255, 0.4); }
+      .badge.b-review { color: var(--green); border-color: rgba(70, 196, 106, 0.4); }
+      .badge.b-merged { color: var(--faint); }
+      .badge.b-blocked, .badge.b-failed { color: var(--red); border-color: rgba(242, 104, 95, 0.4); }
+      .badge.b-waiting { color: var(--amber); border-color: rgba(224, 169, 59, 0.4); }
+      .badge.scout { color: var(--purple); border-color: rgba(155, 123, 255, 0.4); }
+      .badge.dep { color: var(--muted); }
+
+      .docs-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 12.5px; }
+      .docs-item:hover { background: var(--surface-2); }
+      .docs-item.sel { background: var(--surface-2); color: var(--accent); }
+      .docs-item .pdot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; background: var(--border-strong); }
+      .docs-item.present .pdot { background: var(--green); }
+
+      /* ---- Chat ---- */
+      .chat { display: flex; flex-direction: column; height: 100%; }
+      .chat-log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+      .kbd-hint { margin: 18px 12px 12px; font-size: 10.5px; color: var(--faint); line-height: 1.9; }
+      .kbd-hint b { color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-weight: 600; }
+      .empty { margin: auto; max-width: 360px; text-align: center; color: var(--muted); }
+      .empty h2 { color: var(--text); font-size: 16px; margin: 0 0 6px; font-weight: 650; }
+      .empty p { font-size: 13px; margin: 0 0 16px; }
+      .examples { display: flex; flex-direction: column; gap: 8px; }
+      .ex { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; font-size: 12.5px; cursor: pointer; color: var(--text); text-align: left; }
+      .ex:hover { border-color: var(--accent); }
+      .msg { max-width: 92%; }
+      .msg.user { align-self: flex-end; }
+      .bubble { padding: 9px 13px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
+      .msg.user .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+      .msg.assistant .bubble { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+      .acts { display: flex; flex-direction: column; gap: 3px; margin: 2px 0; }
+      .act { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+      .act .ic { font-size: 12px; }
+      .act.subtle { color: var(--faint); font-size: 11px; }
+      .thinking { color: var(--faint); font-size: 12px; font-style: italic; }
+      .composer { border-top: 1px solid var(--border); padding: 12px; background: var(--surface); }
+      .composer .box { display: flex; gap: 8px; align-items: flex-end; }
+      textarea {
+        flex: 1; resize: none; background: var(--bg); color: var(--text); border: 1px solid var(--border-strong);
+        border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 13px; max-height: 160px; min-height: 42px;
+      }
+      textarea:focus { outline: none; border-color: var(--accent); }
+
+      /* ---- Detail ---- */
+      .detail { padding: 16px; }
+      .detail .empty { margin-top: 60px; }
+      .detail h2 { font-size: 15px; margin: 0 0 6px; line-height: 1.3; }
+      .strip { display: flex; gap: 4px; margin: 14px 0 4px; }
+      .stage { flex: 1; text-align: center; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em;
+        padding: 6px 2px; border-radius: 7px; border: 1px solid var(--border); color: var(--faint); position: relative; }
+      .stage.done { color: var(--green); border-color: rgba(70, 196, 106, 0.35); }
+      .stage.skipped { color: var(--faint); border-style: dashed; }
+      .stage.active { color: var(--accent); border-color: var(--accent); background: rgba(77, 141, 255, 0.08); }
+      .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); margin: 16px 0 5px; font-weight: 650; }
+      .evi { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; font-size: 12px; }
+      .evi.verified { border-color: rgba(70, 196, 106, 0.3); }
+      .evi.unverified { border-color: rgba(224, 169, 59, 0.3); color: var(--amber); }
+      .evi .vtag { font-weight: 650; }
+      .spec { font-size: 12.5px; color: var(--muted); white-space: pre-wrap; }
+      .actions { display: flex; gap: 8px; margin: 16px 0 4px; flex-wrap: wrap; }
+      .rc-box { margin: 10px 0; display: none; }
+      .rc-box.open { display: block; }
+      .filediff { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; margin: 6px 0; overflow: hidden; }
+      .filediff summary { padding: 7px 11px; font-size: 11.5px; font-family: ui-monospace, monospace; cursor: pointer; color: var(--text); background: var(--surface-2); }
+      .filediff pre { margin: 0; padding: 8px 11px; font-size: 11px; font-family: ui-monospace, monospace; overflow-x: auto; white-space: pre; line-height: 1.45; }
+      .dl-add { color: var(--green); } .dl-del { color: var(--red); } .dl-hunk { color: var(--purple); }
+      .transcript { font-size: 11px; font-family: ui-monospace, monospace; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; }
+      .blocked-note { background: rgba(242, 104, 95, 0.08); border: 1px solid rgba(242, 104, 95, 0.3); color: var(--red); border-radius: 9px; padding: 9px 11px; font-size: 12px; white-space: pre-wrap; }
+      .cap { font-size: 11px; color: var(--faint); margin-top: 6px; }
+      .cap.over { color: var(--red); }
+      .pr { font-size: 11.5px; color: var(--muted); font-family: ui-monospace, monospace; word-break: break-all; }
+
+      /* toasts */
+      #toasts { position: fixed; top: 14px; right: 14px; z-index: 1100; display: flex; flex-direction: column; gap: 8px; max-width: 320px; }
+      .toast { background: var(--raised); border: 1px solid var(--border-strong); border-left-width: 3px; border-radius: 9px;
+        padding: 10px 12px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0,0,0,0.5); cursor: pointer;
+        animation: toastIn 0.18s ease; display: flex; gap: 8px; align-items: flex-start; }
+      .toast.review { border-left-color: var(--green); }
+      .toast.blocked { border-left-color: var(--red); }
+      .toast.merged { border-left-color: var(--muted); }
+      .toast .tt { font-weight: 600; }
+      .toast .ts { color: var(--muted); font-size: 11.5px; }
+      @keyframes toastIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+
+      /* help overlay */
+      #help { position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
+      .help-card { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 22px 24px; max-width: 460px; width: 100%; box-shadow: 0 12px 48px rgba(0,0,0,0.6); }
+      .help-card h3 { margin: 0 0 4px; font-size: 16px; }
+      .help-card p { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; }
+      .help-card h4 { margin: 16px 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+      .help-grid { display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; }
+      .help-grid b { color: var(--accent); font-weight: 650; }
+      .help-keys { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 12px; color: var(--muted); }
+      .help-keys b { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="tabs">
+      <button data-pane="board" class="active" onclick="setPane('board')">Tasks</button>
+      <button data-pane="main" onclick="goChat()">Chat</button>
+      <button data-pane="detail" onclick="setPane('detail')">Detail</button>
+    </div>
+    <div id="toasts"></div>
+    <div id="app">
+      <!-- LEFT: board -->
+      <div class="col" id="col-board">
+        <div class="col-head brand">
+          <span class="mark">◆</span>
+          <div class="proj"><span class="name" id="projName">Freebuff</span><span class="branch" id="projBranch"></span></div>
+          <button class="ghost sm" style="margin-left:auto" onclick="openPreview()" title="Preview index.html">◐ Preview</button>
+          <button class="ghost sm" onclick="openRun()" title="Run a command in the project">▶ Run</button>
+        </div>
+        <div class="col-body">
+          <div id="cta"></div>
+          <div id="columns"></div>
+          <div class="section-h">Governing Docs</div>
+          <div id="docs"></div>
+          <div class="kbd-hint"><b>j/k</b> move · <b>a</b> approve · <b>r</b> changes · <b>p</b> preview · <b>c</b> chat</div>
+        </div>
+      </div>
+
+      <!-- CENTER: chat or doc editor -->
+      <div class="col active" id="col-main">
+        <div class="col-head" id="mainHead"><span id="mainTitle">Orchestrator</span><span class="activity" id="activity"></span><button class="ghost sm" style="margin-left:10px" onclick="toggleHelp()" title="Help (?)">?</button></div>
+        <div class="col-body" id="mainBody"><!-- chat or doc --></div>
+      </div>
+
+      <!-- RIGHT: task detail -->
+      <div class="col" id="col-detail">
+        <div class="col-head">Task Detail</div>
+        <div class="col-body"><div id="detail"><div class="detail"><div class="empty">Select a task to see its pipeline, diff, and review actions.</div></div></div></div>
+      </div>
+    </div>
+
+    <script>
+      const STAGES = ['implement', 'simplify', 'review', 'test', 'pr']
+      const COLS = [
+        ['proposed', 'Proposed'], ['ready', 'Ready'], ['running', 'Running'],
+        ['awaiting-approval', 'Needs review'], ['blocked', 'Blocked'], ['merged', 'Merged'],
+        ['archived', 'Archived'],
+      ]
+      const EXAMPLES = [
+        'Build a Breakout game in index.html with vanilla JS and canvas.',
+        'Add a dark-mode toggle that persists to localStorage.',
+        'Set up a landing page with a hero, features, and footer.',
+      ]
+      const state = { snap: null, sel: null, chat: [], transcripts: {}, artifacts: {}, view: 'chat', doc: null, pane: 'main', rcOpen: false, pendingAbandon: null }
+
+      // ---- SSE ----
+      const es = new EventSource('/api/events')
+      es.onmessage = (e) => {
+        const ev = JSON.parse(e.data)
+        if (ev.type === 'state') { state.snap = ev.snapshot; processToasts(); renderAll() }
+        else if (ev.type === 'chat') onChat(ev.event)
+        else if (ev.type === 'agent') onAgent(ev)
+      }
+
+      function tasks() { return state.snap ? state.snap.tasks : [] }
+      function task(id) { return tasks().find((t) => t.id === id) }
+      function isMerged(id) { const t = task(id); return t && t.status === 'merged' }
+      function unmergedParents(t) { return (t.parents || []).filter((p) => !isMerged(p)) }
+      // A 'ready' task whose parents aren't all merged is really waiting, not runnable.
+      function effectiveStatus(t) {
+        if (t.status === 'ready' && unmergedParents(t).length) return 'waiting'
+        return t.status
+      }
+
+      // ---- Chat events ----
+      function freshAssistant() {
+        let last = state.chat[state.chat.length - 1]
+        if (!last || last.role !== 'assistant' || last.done) { last = { role: 'assistant', text: '', acts: [] }; state.chat.push(last) }
+        return last
+      }
+      function friendlyTool(name, input) {
+        try {
+          if (name === 'create_task') return { ic: '➕', text: 'New task: ' + (input.title || '…') }
+          if (name === 'update_task') return { ic: '✏️', text: 'Updated task ' + input.taskId }
+          if (name === 'add_dependency') return { ic: '🔗', text: input.to + ' depends on ' + input.from }
+          if (name === 'remove_dependency') return { ic: '✂️', text: 'Removed ' + input.from + ' → ' + input.to }
+          if (name === 'abandon_task') return { ic: '🗑', text: 'Abandoned ' + input.taskId }
+          if (name === 'send_guidance') return { ic: '💬', text: 'Steered ' + input.taskId }
+          return { ic: '·', text: name.replace(/_/g, ' '), subtle: true }
+        } catch { return { ic: '·', text: name, subtle: true } }
+      }
+      function onChat(event) {
+        if (event.type === 'text') { freshAssistant().text += event.text }
+        else if (event.type === 'tool_call') { freshAssistant().acts.push({ toolName: event.toolName, input: event.input }) }
+        else if (event.type === 'finish') { const l = state.chat[state.chat.length - 1]; if (l && l.role === 'assistant') l.done = true }
+        if (state.view === 'chat') renderMain()
+      }
+      function onAgent(ev) {
+        const t = (state.transcripts[ev.taskId] = state.transcripts[ev.taskId] || [])
+        if (ev.event.type === 'tool_call') t.push('▸ ' + ev.stage + ': ' + ev.event.toolName)
+        else if (ev.event.type === 'finish') t.push('✓ ' + ev.stage)
+        if (t.length > 80) t.splice(0, t.length - 80)
+        if (state.sel === ev.taskId) renderDetail()
+      }
+
+      // ---- Render ----
+      function renderAll() { renderHeader(); renderBoard(); if (state.view !== 'doc') renderMain(); renderDetail() }
+
+      function renderHeader() {
+        const s = state.snap; if (!s) return
+        const repo = s.project.repoUrl || s.project.rootPath || ''
+        document.getElementById('projName').textContent = repo.split('/').filter(Boolean).pop() || 'project'
+        document.getElementById('projBranch').textContent = '⎇ ' + s.project.defaultBranch
+        const running = s.usage.running, cap = s.usage.cap
+        const merged = tasks().filter((t) => t.status === 'merged').length
+        document.getElementById('activity').innerHTML =
+          '<span>' + (running > 0 ? '<span class="pulse"></span>' : '▶ ') + '<b>' + running + '</b>/' + cap + ' running</span><span>✓ <b>' + merged + '</b> merged</span>'
+      }
+
+      function renderBoard() {
+        const ts = tasks()
+        const reviewCount = ts.filter((t) => t.status === 'awaiting-approval').length
+        const proposedCount = ts.filter((t) => t.status === 'proposed').length
+        document.getElementById('cta').innerHTML =
+          (reviewCount ? '<div class="cta" onclick="selectFirstReview()">✓ ' + reviewCount + ' task' + (reviewCount > 1 ? 's' : '') + ' ready for your review</div>' : '') +
+          (proposedCount ? '<div class="cta scout-cta" onclick="selectFirst(\'proposed\')">💡 ' + proposedCount + ' suggestion' + (proposedCount > 1 ? 's' : '') + ' from Scout</div>' : '')
+        const group = (s) => ts.filter((t) =>
+          s === 'blocked' ? ['blocked', 'failed'].includes(t.status)
+          : s === 'archived' ? t.status === 'abandoned'
+          : s === 'ready' ? t.status === 'ready'
+          : t.status === s)
+        document.getElementById('columns').innerHTML = COLS.map(([s, label]) => {
+          const items = group(s)
+          if (!items.length && ['merged', 'blocked', 'proposed', 'archived'].includes(s)) return ''
+          return '<div class="section-h">' + label + ' · ' + items.length + '</div>' + items.map(cardHtml).join('')
+        }).join('')
+        renderDocs()
+        renderTabBadges(reviewCount)
+      }
+
+      // Status pill for a task; `withStage` appends "· <stage>" (board cards only).
+      function statusBadgeHtml(t, withStage) {
+        const eff = effectiveStatus(t)
+        if (eff === 'waiting') return '<span class="badge dot b-waiting">waiting on ' + unmergedParents(t).join(', ') + '</span>'
+        const cls = eff === 'awaiting-approval' ? 'review' : eff
+        const label = eff === 'awaiting-approval' ? 'needs review' : eff
+        return '<span class="badge dot b-' + cls + '">' + label + (withStage && t.stage ? ' · ' + t.stage : '') + '</span>'
+      }
+      function cardHtml(t) {
+        const eff = effectiveStatus(t)
+        const scout = t.origin === 'scout' ? '<span class="badge scout">scout</span>' : ''
+        return '<div class="card ' + (state.sel === t.id ? 'sel' : '') + (eff === 'waiting' ? ' waiting' : '') + '" onclick="selectTask(\'' + t.id + '\')">' +
+          '<div class="ti">' + esc(t.title) + '</div><div class="row">' + statusBadgeHtml(t, true) + scout + '</div></div>'
+      }
+
+      function renderDocs() {
+        const docs = state.snap ? state.snap.docs : []
+        document.getElementById('docs').innerHTML = docs.map((d) =>
+          '<div class="docs-item ' + (d.present ? 'present' : '') + (state.view === 'doc' && state.doc === d.name ? ' sel' : '') + '" onclick="openDoc(\'' + d.name + '\')"><span class="pdot"></span>' + d.name + '.md</div>'
+        ).join('')
+      }
+
+      function renderTabBadges(reviewCount) {
+        const mainBtn = document.querySelector('#tabs [data-pane="detail"]')
+        if (mainBtn) mainBtn.innerHTML = 'Detail' + (reviewCount ? '<span class="tab-badge">' + reviewCount + '</span>' : '')
+      }
+
+      // ---- Main pane: chat or doc ----
+      function renderMain() {
+        document.getElementById('mainTitle').textContent = state.view === 'doc' ? state.doc + '.md' : (state.view === 'run' ? 'Run' : 'Orchestrator')
+        const body = document.getElementById('mainBody')
+        if (state.view === 'doc') { renderDocEditor(body); return }
+        if (state.view === 'run') { renderRunPanel(body); return }
+        if (state.view === 'preview') { renderPreviewPanel(body); return }
+        body.innerHTML =
+          '<div class="chat"><div class="chat-log" id="chatLog"></div>' +
+          '<div class="composer"><div class="box"><textarea id="chatInput" placeholder="Describe what to build, or steer a task…" rows="1"></textarea>' +
+          '<button id="sendBtn">Send</button></div></div></div>'
+        const ta = document.getElementById('chatInput')
+        ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px' })
+        ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } })
+        document.getElementById('sendBtn').onclick = send
+        renderChatLog()
+      }
+
+      function renderChatLog() {
+        const log = document.getElementById('chatLog'); if (!log) return
+        if (!state.chat.length) {
+          log.innerHTML = '<div class="empty"><h2>What should we build?</h2><p>Describe a feature or a whole project — the orchestrator breaks it into tasks and drives them to review-ready PRs.</p><div class="examples">' +
+            EXAMPLES.map((x) => '<button class="ex" onclick="useExample(this)">' + esc(x) + '</button>').join('') + '</div></div>'
+          return
+        }
+        log.innerHTML = state.chat.map((m) => {
+          if (m.role === 'user') return '<div class="msg user"><div class="bubble">' + esc(m.text) + '</div></div>'
+          const acts = (m.acts || []).length ? '<div class="acts">' + m.acts.map((a) => { const f = friendlyTool(a.toolName, a.input); return '<div class="act ' + (f.subtle ? 'subtle' : '') + '"><span class="ic">' + f.ic + '</span>' + esc(f.text) + '</div>' }).join('') + '</div>' : ''
+          const txt = m.text ? '<div class="bubble">' + esc(m.text) + '</div>' : (!m.done && !acts ? '<div class="thinking">Thinking…</div>' : '')
+          return '<div class="msg assistant">' + acts + txt + '</div>'
+        }).join('')
+        log.scrollTop = log.scrollHeight
+      }
+
+      function useExample(el) { const ta = document.getElementById('chatInput'); ta.value = el.textContent; ta.focus() }
+      async function send() {
+        const ta = document.getElementById('chatInput'); const message = ta.value.trim(); if (!message) return
+        ta.value = ''; ta.style.height = 'auto'
+        state.chat.push({ role: 'user', text: message, done: true }); renderChatLog()
+        await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message }) })
+      }
+
+      // ---- Doc viewer/editor ----
+      async function openDoc(name) {
+        state.view = 'doc'; state.doc = name
+        setPane('main'); renderDocs(); renderMain()
+        const r = await fetch('/api/doc/' + name).then((x) => x.json())
+        state.docData = r; renderMain()
+      }
+      function backToChat() { state.view = 'chat'; state.docData = null; renderDocs(); renderMain() }
+      function goChat() { backToChat(); setPane('main') }
+
+      // ---- Help overlay ----
+      function toggleHelp() {
+        let el = document.getElementById('help')
+        if (el) { el.remove(); return }
+        el = document.createElement('div'); el.id = 'help'
+        el.onclick = (e) => { if (e.target.id === 'help') el.remove() }
+        el.innerHTML =
+          '<div class="help-card"><h3>◆ Freebuff Desktop</h3>' +
+          '<p>Chat with the orchestrator to break work into tasks; each runs a quality-gate pipeline and arrives as a review-ready PR.</p>' +
+          '<div class="help-grid">' +
+          '<div><b>Build</b> — describe a feature or whole project in the chat</div>' +
+          '<div><b>Review</b> — open a task, read its diff &amp; evidence, then Approve &amp; Merge</div>' +
+          '<div><b>Preview</b> — see web projects live (⤢ for fullscreen); auto-refreshes on merge</div>' +
+          '<div><b>Run</b> — run a command (CLI, tests, build) in the project</div>' +
+          '<div><b>Docs</b> — edit the governing docs that steer every agent</div>' +
+          '</div><h4>Keyboard</h4><div class="help-keys">' +
+          '<span><b>j</b>/<b>k</b> move tasks</span><span><b>a</b> approve</span><span><b>r</b> request changes</span>' +
+          '<span><b>p</b> preview</span><span><b>c</b> chat</span><span><b>?</b> help</span><span><b>Esc</b> close</span>' +
+          '</div></div>'
+        document.body.appendChild(el)
+      }
+
+      // ---- Preview panel (iframe the project's index.html) ----
+      function nextNonce() { return (state.previewNonce = (state.previewNonce || 0) + 1) }
+      function openPreview() { state.view = 'preview'; setPane('main'); renderMain() }
+      function renderPreviewPanel(body) {
+        const nonce = nextNonce()
+        body.innerHTML =
+          '<div style="display:flex;flex-direction:column;height:100%">' +
+          '<div style="display:flex;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border)">' +
+          '<button class="ghost sm" onclick="backToChat()">← Chat</button>' +
+          '<button class="ghost sm" onclick="openPreview()">↻ Refresh</button>' +
+          '<button class="ghost sm" onclick="toggleFullscreen()">⤢ Fullscreen</button>' +
+          '<a class="ghost sm" style="padding:5px 10px;border:1px solid var(--border-strong);border-radius:8px;text-decoration:none" href="/preview/index.html" target="_blank">Open ↗</a>' +
+          '<span style="color:var(--muted);font-size:12px;margin-left:auto">Live preview of index.html on main</span></div>' +
+          '<iframe src="/preview/index.html?_=' + nonce + '" style="flex:1;border:none;width:100%;background:var(--bg)"></iframe></div>'
+      }
+      function toggleFullscreen() {
+        state.previewFullscreen = !state.previewFullscreen
+        let el = document.getElementById('fsPreview')
+        if (state.previewFullscreen) {
+          if (!el) { el = document.createElement('div'); el.id = 'fsPreview'; document.body.appendChild(el) }
+          const nonce = nextNonce()
+          el.style.cssText = 'position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:var(--bg)'
+          el.innerHTML =
+            '<div style="display:flex;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border)">' +
+            '<button class="ghost sm" onclick="toggleFullscreen()">✕ Close (Esc)</button>' +
+            '<button class="ghost sm" onclick="refreshPreview()">↻ Refresh</button>' +
+            '<span style="color:var(--muted);font-size:12px;margin-left:auto">Fullscreen preview · main</span></div>' +
+            '<iframe src="/preview/index.html?_=' + nonce + '" style="flex:1;border:none;width:100%;background:var(--bg)"></iframe>'
+        } else if (el) { el.remove() }
+      }
+
+      // ---- Run panel ----
+      function openRun() { state.view = 'run'; setPane('main'); renderMain() }
+      function renderRunPanel(body) {
+        const rc = state.snap ? state.snap.project.runConfig : {}
+        const suggestions = [rc.test, rc.devServer, rc.build].filter(Boolean)
+        const cmd = state.lastRunCmd || ''
+        body.innerHTML =
+          '<div style="padding:16px;display:flex;flex-direction:column;height:100%;gap:10px">' +
+          '<div style="display:flex;gap:8px;align-items:center"><button class="ghost sm" onclick="backToChat()">← Chat</button>' +
+          '<span style="color:var(--muted);font-size:12px">Runs in the project root. Best for CLIs, tests, builds.</span></div>' +
+          '<div style="display:flex;gap:8px"><input id="runCmd" placeholder="e.g. node index.js list · npm test · python3 -m http.server 8000" value="' + esc(cmd) + '" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border-strong);border-radius:9px;padding:9px 11px;font:inherit;font-family:ui-monospace,monospace;font-size:12.5px" />' +
+          '<button id="runBtn" onclick="runCmd()">Run</button></div>' +
+          (suggestions.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap">' + suggestions.map((s) => '<button class="ghost sm" onclick="document.getElementById(\'runCmd\').value=this.textContent" style="font-family:ui-monospace,monospace">' + esc(s) + '</button>').join('') + '</div>' : '') +
+          '<div id="runOut" style="flex:1;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px;font-family:ui-monospace,monospace;font-size:11.5px;white-space:pre-wrap;color:var(--muted)">' + (state.lastRunOut || 'Output appears here.') + '</div>' +
+          '</div>'
+        const input = document.getElementById('runCmd')
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runCmd() })
+        input.focus()
+      }
+      async function runCmd() {
+        const command = (document.getElementById('runCmd').value || '').trim(); if (!command) return
+        state.lastRunCmd = command
+        const out = document.getElementById('runOut'); out.textContent = '$ ' + command + '\n\nRunning…'
+        document.getElementById('runBtn').disabled = true
+        try {
+          const r = await fetch('/api/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ command }) }).then((x) => x.json())
+          const head = '$ ' + command + (r.timedOut ? '  (timed out)' : '  (exit ' + r.exitCode + ')') + '\n\n'
+          const txt = head + ansiStrip((r.stdout || '') + (r.stderr ? '\n' + r.stderr : '')).trim()
+          state.lastRunOut = esc(txt); out.innerHTML = state.lastRunOut
+        } catch (e) { out.textContent = 'Failed to run: ' + e }
+        const b = document.getElementById('runBtn'); if (b) b.disabled = false
+      }
+      function ansiStrip(s) { return String(s).replace(/\x1b\[[0-9;]*m/g, '') }
+      function renderDocEditor(body) {
+        const d = state.docData
+        body.innerHTML =
+          '<div style="padding:16px;display:flex;flex-direction:column;height:100%">' +
+          '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button class="ghost sm" onclick="backToChat()">← Chat</button>' +
+          '<span style="color:var(--muted);font-size:12px">Edits save directly to this project.</span></div>' +
+          '<textarea id="docEdit" style="flex:1;max-height:none;font-family:ui-monospace,monospace;font-size:12.5px" placeholder="(empty — write the guidance that steers every agent here)">' + (d ? esc(d.content) : 'Loading…') + '</textarea>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-top:10px"><button id="docSave" onclick="saveDoc()">Save</button><span class="cap" id="docCap"></span></div></div>'
+        const ta = document.getElementById('docEdit')
+        if (ta && d) { ta.oninput = updateCap; updateCap() }
+      }
+      function updateCap() {
+        const ta = document.getElementById('docEdit'); const cap = state.docData && state.docData.cap
+        if (!ta || !cap) return
+        const lines = ta.value ? ta.value.split('\n').length : 0
+        const over = lines > cap.lines
+        const el = document.getElementById('docCap'); el.textContent = lines + ' / ' + cap.lines + ' lines'
+        el.className = 'cap' + (over ? ' over' : ''); document.getElementById('docSave').disabled = over
+      }
+      async function saveDoc() {
+        const content = document.getElementById('docEdit').value
+        const r = await fetch('/api/doc/' + state.doc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content }) })
+        if (!r.ok) { const e = await r.json(); alert(e.error || 'Could not save'); return }
+        const btn = document.getElementById('docSave'); btn.textContent = 'Saved ✓'; setTimeout(() => (btn.textContent = 'Save'), 1200)
+      }
+
+      // ---- Detail ----
+      async function selectTask(id) {
+        state.sel = id; state.rcOpen = false
+        try { state.artifacts[id] = await fetch('/api/task/' + id + '/artifacts').then((x) => x.json()) } catch {}
+        setPane('detail'); renderBoard(); renderDetail()
+      }
+      function selectFirstReview() { selectFirst('awaiting-approval') }
+      function selectFirst(status) { const t = tasks().find((x) => x.status === status); if (t) selectTask(t.id) }
+
+      function renderDetail() {
+        const el = document.getElementById('detail'); const t = state.sel && task(state.sel)
+        if (!t) { el.innerHTML = '<div class="detail"><div class="empty">Select a task to see its pipeline, diff, and review actions.</div></div>'; return }
+        const a = state.artifacts[t.id] || {}
+        const doneIdx = t.lastCompletedStage ? STAGES.indexOf(t.lastCompletedStage) : -1
+        const strip = STAGES.map((s, i) => {
+          const cls = t.stage === s ? 'active' : i <= doneIdx ? 'done' : ''
+          return '<div class="stage ' + cls + '">' + s + '</div>'
+        }).join('')
+
+        const finished = ['awaiting-approval', 'merged', 'blocked', 'failed'].includes(t.status)
+        const reviewEvi = finished ? (a.reviewNotes
+          ? '<div class="evi"><span class="vtag">Review</span> — ' + esc(a.reviewNotes.slice(0, 600)) + '</div>'
+          : '<div class="evi"><span class="vtag" style="color:var(--green)">Review</span> — passed, no findings</div>') : ''
+        const testOk = t.status !== 'blocked' && t.status !== 'failed'
+        const testEvi = finished ? (a.testEvidence
+          ? '<div class="evi ' + (testOk ? 'verified' : 'unverified') + '"><span class="vtag">' + (testOk ? '✓ Test' : '⚠ Test') + '</span> — ' + esc(a.testEvidence.slice(0, 500)) + '</div>'
+          : '<div class="evi unverified"><span class="vtag">⚠ Not verified</span> — no runtime test ran for this change</div>') : ''
+        const testShot = a.testScreenshot ? '<div class="lbl">Browser test — what it actually rendered</div><img src="data:image/png;base64,' + a.testScreenshot + '" alt="screenshot" style="width:100%;border:1px solid var(--border);border-radius:9px;display:block" />' : ''
+
+        const blocked = a.blockReason ? '<div class="lbl">Needs you</div><div class="blocked-note">' + esc(a.blockReason) + '</div>' : ''
+        const pr = t.prUrl ? '<div class="lbl">PR</div><div class="pr">' + esc(t.prUrl) + '</div>' : ''
+        const diff = a.diff ? '<div class="lbl">Changes</div>' + renderDiff(a.diff) : ''
+        const transcript = (state.transcripts[t.id] || []).join('\n')
+        const tr = transcript ? '<div class="lbl">Agent activity</div><div class="transcript">' + esc(transcript) + '</div>' : ''
+
+        const abandonLabel = state.pendingAbandon === t.id ? 'Click again to confirm' : 'Abandon'
+        let actions = ''
+        if (t.status === 'awaiting-approval') {
+          actions = '<div class="actions"><button class="green" onclick="approve(\'' + t.id + '\')">Approve &amp; Merge</button>' +
+            '<button class="ghost" onclick="toggleRC()">Request changes</button>' +
+            '<button class="danger" onclick="abandon(\'' + t.id + '\')">' + abandonLabel + '</button></div>' + rcBox(t.id)
+        } else if (['blocked', 'failed'].includes(t.status)) {
+          actions = '<div class="actions"><button class="ghost" onclick="toggleRC()">Retry with guidance</button>' +
+            '<button class="danger" onclick="abandon(\'' + t.id + '\')">' + abandonLabel + '</button></div>' + rcBox(t.id)
+        } else if (t.status === 'merged') {
+          actions = '<div class="actions"><span class="badge dot b-merged" style="padding:5px 11px">Merged ✓</span>' +
+            '<button class="ghost sm" onclick="openPreview()">◐ View result</button></div>'
+        } else if (t.status === 'proposed') {
+          actions = '<div class="actions"><button class="green" onclick="accept(\'' + t.id + '\')">Accept &amp; run</button>' +
+            '<button class="danger" onclick="dismiss(\'' + t.id + '\')">Dismiss</button></div>'
+        }
+
+        el.innerHTML = '<div class="detail"><h2>' + esc(t.title) + '</h2>' +
+          '<div class="row">' + statusBadgeHtml(t) + (t.origin === 'scout' ? '<span class="badge scout">scout</span>' : '') + '</div>' +
+          '<div class="strip">' + strip + '</div>' +
+          (t.rationale ? '<div class="lbl">Why</div><div class="spec">' + esc(t.rationale) + '</div>' : '') +
+          '<div class="lbl">Spec</div><div class="spec">' + esc(t.description || '') + '</div>' +
+          actions + blocked + reviewEvi + (reviewEvi ? '<div style="height:6px"></div>' : '') + testEvi + testShot + pr + diff + tr + '</div>'
+      }
+
+      function rcBox(id) {
+        return '<div class="rc-box ' + (state.rcOpen ? 'open' : '') + '"><textarea id="rcText" placeholder="What should change? (this re-runs the pipeline with your guidance)" rows="3" style="width:100%"></textarea>' +
+          '<div style="margin-top:8px;display:flex;gap:8px"><button class="sm" onclick="submitRC(\'' + id + '\')">Submit</button><button class="ghost sm" onclick="toggleRC()">Cancel</button></div></div>'
+      }
+      function toggleRC() { state.rcOpen = !state.rcOpen; renderDetail(); if (state.rcOpen) { const r = document.getElementById('rcText'); if (r) r.focus() } }
+      async function submitRC(id) {
+        const comments = (document.getElementById('rcText').value || '').trim(); if (!comments) return
+        state.rcOpen = false
+        await fetch('/api/task/' + id + '/request-changes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ comments }) })
+      }
+      async function approve(id) { await fetch('/api/task/' + id + '/approve', { method: 'POST' }) }
+      async function accept(id) { await fetch('/api/task/' + id + '/accept', { method: 'POST' }) }
+      async function dismiss(id) { await fetch('/api/task/' + id + '/dismiss', { method: 'POST' }) }
+      async function abandon(id) {
+        // Two-step confirm, stored in state so SSE re-renders don't wipe it.
+        if (state.pendingAbandon !== id) {
+          state.pendingAbandon = id; renderDetail()
+          setTimeout(() => { if (state.pendingAbandon === id) { state.pendingAbandon = null; renderDetail() } }, 3000)
+          return
+        }
+        state.pendingAbandon = null
+        await fetch('/api/task/' + id + '/abandon', { method: 'POST' })
+      }
+
+      function renderDiff(diff) {
+        const files = diff.split(/^diff --git /m).filter(Boolean)
+        return files.map((f, i) => {
+          const fname = (f.match(/a\/(\S+) b\//) || [, 'changed file'])[1]
+          const lines = ('diff --git ' + f).split('\n').map((l) =>
+            l.startsWith('+') && !l.startsWith('+++') ? '<span class="dl-add">' + esc(l) + '</span>' :
+            l.startsWith('-') && !l.startsWith('---') ? '<span class="dl-del">' + esc(l) + '</span>' :
+            l.startsWith('@@') ? '<span class="dl-hunk">' + esc(l) + '</span>' : esc(l)
+          ).join('\n')
+          return '<details class="filediff" ' + (files.length === 1 ? 'open' : '') + '><summary>' + esc(fname) + '</summary><pre>' + lines + '</pre></details>'
+        }).join('')
+      }
+
+      // ---- narrow pane switching ----
+      function setPane(p) {
+        state.pane = p
+        document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.pane === p))
+        const map = { board: 'col-board', main: 'col-main', detail: 'col-detail' }
+        document.querySelectorAll('.col').forEach((c) => c.classList.remove('active'))
+        document.getElementById(map[p]).classList.add('active')
+      }
+
+      // ---- Toasts: nudge when the machine needs you (transitions in SSE state) ----
+      function processToasts() {
+        const ts = tasks()
+        let merged = false
+        if (state.prevStatuses) {
+          for (const t of ts) {
+            const was = state.prevStatuses[t.id]
+            if (was && was !== t.status) {
+              if (t.status === 'awaiting-approval') toast('review', t.title, 'ready for your review', t.id)
+              else if (t.status === 'blocked' || t.status === 'failed') toast('blocked', t.title, 'needs attention', t.id)
+              else if (t.status === 'merged') { toast('merged', t.title, 'merged ✓', null); merged = true }
+            }
+          }
+        }
+        state.prevStatuses = Object.fromEntries(ts.map((t) => [t.id, t.status]))
+        if (merged) refreshPreview() // a change just landed on main — update any open preview
+      }
+      function refreshPreview() {
+        const nonce = nextNonce()
+        const fs = document.getElementById('fsPreview')
+        if (state.previewFullscreen && fs) { const f = fs.querySelector('iframe'); if (f) f.src = '/preview/index.html?_=' + nonce }
+        else if (state.view === 'preview') { const f = document.querySelector('#mainBody iframe'); if (f) f.src = '/preview/index.html?_=' + nonce }
+      }
+      function toast(kind, title, sub, taskId) {
+        const el = document.createElement('div')
+        el.className = 'toast ' + kind
+        el.innerHTML = '<div><div class="tt">' + esc(title) + '</div><div class="ts">' + sub + '</div></div>'
+        el.onclick = () => { if (taskId) selectTask(taskId); el.remove() }
+        document.getElementById('toasts').appendChild(el)
+        setTimeout(() => el.remove(), kind === 'merged' ? 3500 : 9000)
+      }
+
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
+
+      // expose
+      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send })
+      // ---- Keyboard shortcuts (skip while typing in a field) ----
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { if (document.getElementById('help')) return toggleHelp(); if (state.previewFullscreen) return toggleFullscreen() }
+        const tag = (e.target.tagName || '').toLowerCase()
+        if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return
+        if (e.key === '?') { e.preventDefault(); return toggleHelp() }
+        const ts = tasks()
+        const idx = ts.findIndex((t) => t.id === state.sel)
+        if (e.key === 'j' && ts.length) { e.preventDefault(); selectTask(ts[idx < 0 ? 0 : Math.min(ts.length - 1, idx + 1)].id) }
+        else if (e.key === 'k' && ts.length) { e.preventDefault(); selectTask(ts[idx < 0 ? 0 : Math.max(0, idx - 1)].id) }
+        else if (e.key === 'a') { const t = task(state.sel); if (t && t.status === 'awaiting-approval') approve(t.id) }
+        else if (e.key === 'r') { const t = task(state.sel); if (t && ['awaiting-approval', 'blocked', 'failed'].includes(t.status)) { state.rcOpen = true; renderDetail(); const r = document.getElementById('rcText'); if (r) r.focus() } }
+        else if (e.key === 'p') { e.preventDefault(); openPreview() }
+        else if (e.key === 'c') { e.preventDefault(); goChat(); const i = document.getElementById('chatInput'); if (i) i.focus() }
+      })
+
+      // Load the persisted chat transcript so the conversation survives reloads.
+      fetch('/api/chat-history').then((r) => r.json()).then((hist) => {
+        if (Array.isArray(hist) && hist.length) {
+          state.chat = hist.map((m) => ({ role: m.role, text: m.text, acts: m.acts || [], done: true }))
+          if (state.view === 'chat') renderChatLog()
+        }
+      }).catch(() => {})
+
+      renderMain()
+      setPane('main') // sync the narrow-mode switcher with the visible pane on load
+    </script>
+  </body>
+</html>

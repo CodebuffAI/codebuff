@@ -44,3 +44,4 @@ IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning. Alway
 - `docs/patterns/handle-steps-generators.md` — handleSteps generator patterns and spawn_agents tool calls
 - `docs/freebuff-abuse-detection.md` — Finding/actioning free-mode endpoint abuse: detection scripts, signals, ban playbook
 - `docs/logging.md` — Unified Axiom `freebuff` dataset: how server/CLI/browser logs+events get there, APL query scripts (`scripts/logs/`), and the ingest-cost levers
+- `docs/desktop/e2e-testing.md` — How to drive Freebuff Desktop end-to-end headlessly (start server, send a build via the HTTP/SSE API, approve tasks, verify outcomes); gotchas & failure modes

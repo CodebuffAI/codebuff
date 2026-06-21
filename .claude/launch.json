@@ -22,6 +22,15 @@
       ],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "freebuff-desktop",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "freebuff-desktop/src/app/server.ts"
+      ],
+      "port": 8787,
+      "autoPort": false
     }
   ]
 }
