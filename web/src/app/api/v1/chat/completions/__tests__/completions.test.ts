@@ -254,6 +254,14 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           status: 'running',
         }
       }
+      if (runId === 'run-chat-thinker-gemini') {
+        // The freebuff web chat's gemini-thinker child agent.
+        return {
+          agent_id: 'thinker-gemini',
+          ancestor_run_ids: [],
+          status: 'running',
+        }
+      }
       if (runId === 'run-browser-use-child') {
         return {
           agent_id: 'browser-use',
@@ -1795,7 +1803,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: allowedFreeModeHeaders('test-api-key-new-free'),
           body: JSON.stringify({
-            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
             stream: false,
             codebuff_metadata: {
               run_id: 'run-free-deepseek',
@@ -1857,7 +1865,85 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
       const body = await response.json()
       expect(response.status).toBe(403)
-      expect(body.error).toBe('free_mode_invalid_agent_model')
+      expect(body.error).toBe('free_mode_gemini_thinker_required')
+    })
+
+    it('rejects Gemini Pro from the unmetered service account on a non-thinker agent', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-freebuff-web-service',
+          },
+          body: JSON.stringify({
+            // Dated snapshot id — must still be recognized as Gemini Pro. The
+            // run resolves to agent 'agent-123' (run-123), not a gemini-thinker.
+            model: `${FREEBUFF_GEMINI_PRO_MODEL_ID}-20260219`,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'freebuff-web-project-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        isFreebuffWebServiceUser: (userId) =>
+          userId === 'freebuff-web-service-user',
+      })
+
+      const body = await response.json()
+      expect(response.status).toBe(403)
+      expect(body.error).toBe('free_mode_gemini_thinker_required')
+    })
+
+    it('allows Gemini Pro from the service account via the chat thinker-gemini agent', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-api-key-freebuff-web-service',
+          },
+          body: JSON.stringify({
+            model: FREEBUFF_GEMINI_PRO_MODEL_ID,
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-chat-thinker-gemini',
+              client_id: 'freebuff-web-project-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletionsForTest({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        checkSessionAdmissible: mockCheckSessionAdmissibleAllow,
+        isFreebuffWebServiceUser: (userId) =>
+          userId === 'freebuff-web-service-user',
+      })
+
+      expect(response.status).toBe(200)
     })
 
     it(

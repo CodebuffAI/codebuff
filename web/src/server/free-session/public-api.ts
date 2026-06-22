@@ -2,7 +2,6 @@ import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_LIMITED_SESSION_PERIOD,
   FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
@@ -13,6 +12,7 @@ import {
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+  isFreebuffGeminiProModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
@@ -917,7 +917,7 @@ export async function checkSessionAdmissible(params: {
   // the parent's session row instead of rejecting on model mismatch.
   const isSmartSessionGeminiThinker =
     params.requireActiveSession === true &&
-    params.requestedModel === FREEBUFF_GEMINI_PRO_MODEL_ID &&
+    isFreebuffGeminiProModelId(params.requestedModel) &&
     canFreebuffModelSpawnGeminiThinker(row.model)
 
   // Reject requests for a model the session isn't bound to. Sub-agents may
@@ -927,7 +927,7 @@ export async function checkSessionAdmissible(params: {
   if (
     params.requestedModel &&
     (isSupportedFreebuffModelId(params.requestedModel) ||
-      params.requestedModel === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
+      isFreebuffGeminiProModelId(params.requestedModel)) &&
     params.requestedModel !== row.model &&
     !isSmartSessionGeminiThinker
   ) {

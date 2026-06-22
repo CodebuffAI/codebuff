@@ -3,13 +3,14 @@ import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
   type FreebuffAccessTier,
   FREEBUFF_FORCE_LIMITED_MODE,
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
+  isFreebuffGeminiProModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isFreebuffTracedModelId,
   isSupportedFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 import {
+  isFreebuffGeminiProAgent,
   isFreebuffGeminiThinkerAgent,
   isFreebuffRootAgent,
   isFreeMode,
@@ -658,6 +659,40 @@ export async function postChatCompletions(params: {
       )
     }
 
+    // Gemini Pro is a premium model with NO user-facing picker entry: the only
+    // legitimate callers are the gemini-thinker subagents (CLI
+    // `thinker-with-files-gemini`, chat `thinker-gemini`). Bind the model to
+    // those agents on every UNBILLED path — free mode AND the unmetered
+    // freebuff-web service account (the chat). The free-mode agent+model gate
+    // below already enforces this for free mode, but it is skipped for the
+    // service account, which would otherwise let any agent (or a leaked service
+    // key) pull free premium Gemini. Paid requests are billed, so they're left
+    // alone. Suffix-tolerant on the model id so a dated snapshot can't dodge it.
+    if (
+      (isFreeModeRequest || isUnmeteredServiceRequest) &&
+      isFreebuffGeminiProModelId(typedBody.model) &&
+      !isFreebuffGeminiProAgent(agentId)
+    ) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+        userId,
+        properties: {
+          error: 'free_mode_gemini_thinker_required',
+          agentId,
+          model: typedBody.model,
+        },
+        logger,
+      })
+      return NextResponse.json(
+        {
+          error: 'free_mode_gemini_thinker_required',
+          message:
+            'Gemini Pro is only available through the gemini-thinker subagent.',
+        },
+        { status: 403 },
+      )
+    }
+
     // Free-mode requests must use an allowlisted agent+model combination.
     // Without this gate, an attacker on a brand-new unpaid account can set
     // cost_mode='free' to bypass both the paid-account check and the balance
@@ -764,7 +799,7 @@ export async function postChatCompletions(params: {
       isFreeModeRequest &&
       freebuffAccessTier === 'limited' &&
       (isSupportedFreebuffModelId(typedBody.model) ||
-        typedBody.model === FREEBUFF_GEMINI_PRO_MODEL_ID) &&
+        isFreebuffGeminiProModelId(typedBody.model)) &&
       !isFreebuffModelAllowedForAccessTier(typedBody.model, freebuffAccessTier)
     ) {
       trackEvent({

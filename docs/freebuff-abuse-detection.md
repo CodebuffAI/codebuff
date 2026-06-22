@@ -46,6 +46,27 @@ Both live in `web/src/app/api/v1/chat/completions/_post.ts`:
   `403 free_mode_cli_required` (a friendly nudge to `npm i -g freebuff`, **not**
   a ban). Scoped to root agents; subagents are constrained by the agent-hierarchy
   gate.
+- **Gemini-Pro → thinker-subagent binding** — Gemini Pro
+  (`google/gemini-3.1-pro-preview`) has **no user-facing picker entry**; its only
+  legitimate callers are the two gemini-thinker subagents (CLI
+  `thinker-with-files-gemini`, chat `thinker-gemini`, set
+  `FREEBUFF_GEMINI_PRO_AGENT_IDS`). The endpoint rejects Gemini Pro from any
+  other agent on every **unbilled** path — free mode **and** the unmetered
+  freebuff-web service account (the chat) — with `403
+  free_mode_gemini_thinker_required`. The free-mode agent+model allowlist already
+  covered free mode; this guard additionally closes the service-account path (a
+  leaked service key or stray agent can't pull free premium Gemini). Paid
+  requests are billed and unaffected. Model match is **suffix-tolerant**
+  (`isFreebuffGeminiProModelId` / `freebuffModelIdMatches`) so a dated provider
+  snapshot (`…-preview-20260219`) can't dodge it.
+
+> **Model-id suffix gotcha.** OpenRouter/our routing append a dated snapshot to
+> model ids — the DB stores `google/gemini-3.1-pro-preview-20260219`, not the bare
+> `FREEBUFF_GEMINI_PRO_MODEL_ID`. **Never** compare a model with `=== <constant>`;
+> use `freebuffModelIdMatches(candidate, baseId)` / `isFreebuffGeminiProModelId`
+> (and the now suffix-tolerant `isFreebuffPremiumModelId`). A bare `===` silently
+> returns zero rows / skips a gate. This also bit the first Gemini abuse scan
+> (`scripts/investigate-gemini-abuse.ts`), which now prefix-matches.
 
 ## The `/abuse` admin dashboard
 

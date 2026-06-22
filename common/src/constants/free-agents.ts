@@ -1,6 +1,9 @@
 import { parseAgentId } from '../util/agent-id-parsing'
 
-import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from './freebuff-gemini-thinker'
+import {
+  FREEBUFF_GEMINI_PRO_AGENT_IDS,
+  FREEBUFF_GEMINI_THINKER_AGENT_ID,
+} from './freebuff-gemini-thinker'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -172,6 +175,19 @@ export function isFreebuffGeminiThinkerAgent(fullAgentId: string): boolean {
   if (!agentId) return false
   if (publisherId && publisherId !== 'codebuff') return false
   return agentId === FREEBUFF_GEMINI_THINKER_AGENT_ID
+}
+
+/**
+ * True if this agent is permitted to call the premium Gemini Pro model — i.e.
+ * one of the two gemini-thinker subagents (CLI `thinker-with-files-gemini` or
+ * chat `thinker-gemini`). Publisher-spoof-safe like the other gates: a
+ * non-codebuff publisher never matches.
+ */
+export function isFreebuffGeminiProAgent(fullAgentId: string): boolean {
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
+  if (!agentId) return false
+  if (publisherId && publisherId !== 'codebuff') return false
+  return FREEBUFF_GEMINI_PRO_AGENT_IDS.has(agentId)
 }
 
 export function shouldUseLocalTokenCountForFreebuffDeepseekFlash(params: {
