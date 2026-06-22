@@ -130,9 +130,6 @@ export function FreebuffModelSelector({
     { getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime },
   );
   const premiumStatus = checkPremiumLimit?.();
-  const premiumRemaining = premiumStatus
-    ? Math.max(0, Math.floor(premiumStatus.value))
-    : null;
 
   // Standard (non-premium) models share a tier-scaled daily quota too.
   const { check: checkStandardLimit } = useRateLimit(
@@ -140,13 +137,21 @@ export function FreebuffModelSelector({
     { getServerTimeMutation: api.coding_agent.rateLimiter.getServerTime },
   );
   const standardStatus = checkStandardLimit?.();
-  const standardRemaining = standardStatus
-    ? Math.max(0, Math.floor(standardStatus.value))
-    : null;
 
   // Referral tier progress for the subtle "refer friends" footer: how many
   // more qualified referrals unlock the next limit bump.
   const viewer = useQuery(api.users.viewer);
+  const isGodUser = viewer?.role === "god";
+  const premiumRemaining = isGodUser
+    ? null
+    : premiumStatus
+      ? Math.max(0, Math.floor(premiumStatus.value))
+      : null;
+  const standardRemaining = isGodUser
+    ? null
+    : standardStatus
+      ? Math.max(0, Math.floor(standardStatus.value))
+      : null;
   const referralCount = viewer?.qualified_referral_count ?? 0;
   const nextTier = viewer ? getNextReferralTier(referralCount) : null;
   const currentTier = getReferralTier(referralCount);

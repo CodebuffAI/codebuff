@@ -73,14 +73,15 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   const identity = await args.ctx.auth.getUserIdentity();
   const qualifiedReferralCount = getQualifiedReferralCount(identity, user);
 
-  const isPlatformAdmin = user.role === "god" || user.role === "admin";
+  const isGodRole = user.role === "god";
+  const isPlatformAdmin = isGodRole || user.role === "admin";
   const rateLimitKey = getRateLimitKeyForUser(user);
 
   // Geographic access tier, resolved by the Next.js token route and carried
   // as a tamper-proof JWT claim. God-role users are exempt from all geo
   // enforcement — checked against the users row, so it can't be spoofed.
   const accessTier: FreebuffWebAccessTier =
-    user.role === "god" ? "full" : await getWebAccessTier(args.ctx);
+    isGodRole ? "full" : await getWebAccessTier(args.ctx);
 
   if (accessTier === "blocked") {
     return {
@@ -103,7 +104,7 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
       ? resolveFreebuffWebModelForLimitedTier(args.freebuffModel)
       : args.freebuffModel;
 
-  if (!args.skipRateLimitCheck) {
+  if (!args.skipRateLimitCheck && !isGodRole) {
     // Freebuff agent chat is gated by its own stricter bucket
     // (20 messages / 3 hours, full burst). All other paths — project
     // creation and the legacy/non-Freebuff agents — keep using the
@@ -168,7 +169,7 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   // already been coerced to the allowed free model set above, so referrals only
   // scale the free-model bucket for India/other limited regions.
   // Done late so we only consume the allowance once the other gates pass.
-  if (!args.skipRateLimitCheck && args.agentType === "Freebuff") {
+  if (!args.skipRateLimitCheck && !isGodRole && args.agentType === "Freebuff") {
     const daily = isFreebuffPremiumModelId(freebuffModel)
       ? await checkPremiumModelRateLimit(
           args.ctx,
