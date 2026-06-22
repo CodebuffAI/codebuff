@@ -16,6 +16,24 @@ export function Footer() {
   if (pathname === '/cli') return null
   if (pathname === '/get-started') return null
   if (pathname === '/landing') return null
+  if (pathname === '/blog' || pathname.startsWith('/blog/')) return null
+
+  // Freebuff Web — app surfaces manage their own chrome; only a few public
+  // marketing pages under /web keep the global footer.
+  if (pathname.startsWith('/web')) {
+    const keepGlobalFooter =
+      pathname === '/web/about' ||
+      pathname.startsWith('/web/about/') ||
+      pathname === '/web/pricing' ||
+      pathname.startsWith('/web/pricing/') ||
+      pathname === '/web/contact' ||
+      pathname.startsWith('/web/contact/') ||
+      pathname === '/web/privacy' ||
+      pathname.startsWith('/web/privacy/') ||
+      pathname === '/web/terms' ||
+      pathname.startsWith('/web/terms/')
+    if (!keepGlobalFooter) return null
+  }
 
   return (
     <footer className="w-full">

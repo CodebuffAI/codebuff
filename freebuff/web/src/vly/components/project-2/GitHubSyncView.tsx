@@ -456,7 +456,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
     <FeatureGate
       featureId="github_integration"
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background p-8">
+        <div className="flex min-h-[12rem] items-center justify-center p-8">
           <div className="w-full max-w-2xl">
             <UpgradePrompt
               featureId="github_integration"
@@ -467,7 +467,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
         </div>
       }
     >
-      <div className="space-y-6 p-4">
+      <div className="min-h-0 flex-1 space-y-6">
 
         {/* GitHub Connection Status */}
         <Card className="border-border bg-card">
@@ -489,7 +489,7 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm text-orange-700">
+                  <span className="text-sm text-orange-400">
                     GitHub App not installed
                   </span>
                 </div>
@@ -665,21 +665,21 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
                       {validation.isValidating ? (
                         <>
                           <Loader className="h-3 w-3 animate-spin text-blue-500" />
-                          <span className="text-blue-600">
+                          <span className="text-blue-400">
                             Checking availability...
                           </span>
                         </>
                       ) : validation.isValid === true ? (
                         <>
                           <CheckCircle className="h-3 w-3 text-green-500" />
-                          <span className="text-green-600">
+                          <span className="text-green-400">
                             {validation.message}
                           </span>
                         </>
                       ) : validation.isValid === false ? (
                         <>
                           <XCircle className="h-3 w-3 text-red-500" />
-                          <span className="text-red-600">
+                          <span className="text-red-400">
                             {validation.message}
                           </span>
                         </>

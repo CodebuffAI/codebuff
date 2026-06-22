@@ -399,10 +399,7 @@ export const signedInUser = async (ctx: MutationCtx, referralCode?: string) => {
       patchData.freebuff_user_id = freebuffUserId
     }
 
-    if (
-      webReferralScore !== undefined &&
-      user.qualified_referral_count !== webReferralScore
-    ) {
+    if (webReferralScore !== undefined) {
       patchData.qualified_referral_count = webReferralScore
     }
 
@@ -524,10 +521,33 @@ export const viewer = query({
 
     // Delegate to internal cached version, falling back to email for legacy
     // Clerk-era users until the next mutation patches freebuff_user_id.
-    return await ctx.runQuery(internal.users.viewerInternal, {
+    const user = await ctx.runQuery(internal.users.viewerInternal, {
       freebuffUserId: identity.subject,
       email: identity.email,
     })
+    if (!user) {
+      return null
+    }
+
+    const qualifiedReferralCount = getQualifiedReferralCount(identity, user)
+    if (qualifiedReferralCount === user.qualified_referral_count) {
+      return user
+    }
+
+    return { ...user, qualified_referral_count: qualifiedReferralCount }
+  },
+})
+
+/** Keep users.qualified_referral_count in sync with the JWT claim. */
+export const syncQualifiedReferralCount = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      throw new Error('Not authenticated')
+    }
+    await syncQualifiedReferralCountFromJwt(ctx, user)
+    return { success: true }
   },
 })
 
@@ -579,6 +599,37 @@ export const getUserByEmail = internalQuery({
       .unique()
   },
 })
+
+/** Qualified web referral count minted on the Convex JWT by convex-token. */
+export function getWebReferralScoreFromIdentity(
+  identity: { [key: string]: unknown } | null,
+): number | undefined {
+  if (!identity) return undefined
+  const score = identity.web_referral_score
+  return typeof score === 'number' ? score : undefined
+}
+
+/** Prefer the fresh JWT claim; fall back to the denormalized users row. */
+export function getQualifiedReferralCount(
+  identity: { [key: string]: unknown } | null,
+  user: Doc<'users'> | null,
+): number {
+  const fromJwt = getWebReferralScoreFromIdentity(identity)
+  if (fromJwt !== undefined) return fromJwt
+  return user?.qualified_referral_count ?? 0
+}
+
+export async function syncQualifiedReferralCountFromJwt(
+  ctx: MutationCtx,
+  user: Doc<'users'>,
+): Promise<void> {
+  const identity = await ctx.auth.getUserIdentity()
+  const score = getWebReferralScoreFromIdentity(identity)
+  if (score === undefined || user.qualified_referral_count === score) {
+    return
+  }
+  await ctx.db.patch(user._id, { qualified_referral_count: score })
+}
 
 /**
  * Get the user from the database and require authentication

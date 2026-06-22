@@ -5,7 +5,7 @@ import {
 } from "@codebuff/common/constants/freebuff-referral-tiers";
 import { components } from "../_generated/api";
 import { query } from "../_generated/server";
-import { getAuthUser } from "../users";
+import { getAuthUser, getQualifiedReferralCount } from "../users";
 import type { MutationCtx, ActionCtx, QueryCtx } from "../_generated/server";
 import type { GenericQueryCtx, GenericDataModel } from "convex/server";
 import { v } from "convex/values";
@@ -101,8 +101,9 @@ export const { getRateLimit, getServerTime } = rateLimiter.hookAPI(
 async function getReferralTierForCaller(
   ctx: QueryCtx,
 ): Promise<FreebuffReferralTier> {
+  const identity = await ctx.auth.getUserIdentity();
   const user = await getAuthUser(ctx);
-  return getReferralTier(user?.qualified_referral_count);
+  return getReferralTier(getQualifiedReferralCount(identity, user));
 }
 
 // Validator matching the args the useRateLimit React hook sends. The

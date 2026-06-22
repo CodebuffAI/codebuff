@@ -1,5 +1,7 @@
 'use client'
 
+import type { ComponentProps } from 'react'
+
 import { UnifiedNavbar } from './UnifiedNavbar'
 
 /**
@@ -7,6 +9,6 @@ import { UnifiedNavbar } from './UnifiedNavbar'
  * shared {@link UnifiedNavbar}: just the brand on the left and the unified
  * product/social/account cluster on the right, tracking window scroll.
  */
-export function LandingNavbar() {
-  return <UnifiedNavbar />
+export function LandingNavbar(props: ComponentProps<typeof UnifiedNavbar>) {
+  return <UnifiedNavbar {...props} />
 }

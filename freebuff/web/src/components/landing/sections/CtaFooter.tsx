@@ -2,11 +2,8 @@
 
 import { motion } from 'framer-motion'
 
-import { DiscordIcon, GitHubIcon } from '../icons'
+import { NavSocialLinks } from '../NavSocialLinks'
 import { Parallax } from '../Parallax'
-
-const DISCORD_URL = 'https://discord.gg/yXG3w7wxfs'
-const GITHUB_URL = 'https://github.com/CodebuffAI/codebuff'
 
 // Real platform routes (verified against the freebuff/web app router).
 const NAV_LINKS = [
@@ -123,26 +120,7 @@ export function CtaFooter() {
               © {new Date().getFullYear()} Freebuff. All rights reserved.
             </span>
             <span className="h-4 w-px bg-white/10" />
-            <div className="flex items-center gap-3 text-white/40">
-              <a
-                href={DISCORD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Discord"
-                className="transition-colors hover:text-white"
-              >
-                <DiscordIcon className="h-[18px] w-[18px]" />
-              </a>
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="GitHub"
-                className="transition-colors hover:text-white"
-              >
-                <GitHubIcon className="h-[18px] w-[18px]" />
-              </a>
-            </div>
+            <NavSocialLinks />
           </div>
         </div>
       </div>

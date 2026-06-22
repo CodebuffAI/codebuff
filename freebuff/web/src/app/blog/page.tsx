@@ -100,7 +100,7 @@ export default function BlogIndexPage() {
         ]}
       />
 
-      <section className="container mx-auto max-w-6xl px-4 pt-16 pb-12 md:pt-24">
+      <section className="container mx-auto max-w-6xl px-4 pt-28 pb-12 md:pt-36">
         <h1 className="font-serif text-4xl font-medium leading-[1.05] text-white md:text-6xl lg:text-7xl">
           {renderHeadline(blogConfig.indexHeadline)}
         </h1>

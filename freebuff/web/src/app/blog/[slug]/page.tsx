@@ -101,7 +101,7 @@ export default async function BlogPostPage({
         ]}
       />
 
-      <article className="container mx-auto max-w-3xl px-4 pt-12 pb-16 md:pt-20">
+      <article className="container mx-auto max-w-3xl px-4 pt-28 pb-16 md:pt-36">
         <PostHero post={post} />
         <div className="mt-10" data-speakable="true">
           <PostBody blocks={post.body} />

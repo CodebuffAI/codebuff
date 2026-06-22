@@ -13,16 +13,13 @@ import {
 } from '@/vly/components/auth/AuthComponents'
 
 import { AccountMenu } from './AccountMenu'
-import { DiscordIcon, GitHubIcon } from './icons'
+import { NavSocialLinks } from './NavSocialLinks'
 
 const PRODUCT_LINKS = [
   { label: 'CLI', href: '/cli' },
   { label: 'Web', href: '/web' },
   { label: 'Chat', href: '/chat' },
 ]
-
-const DISCORD_URL = 'https://discord.gg/yXG3w7wxfs'
-const GITHUB_URL = 'https://github.com/CodebuffAI/codebuff'
 
 /**
  * The single site-wide nav bar. The right cluster (CLI · Web · Chat · Discord ·
@@ -127,30 +124,7 @@ export function UnifiedNavbar({
             )}
           />
 
-          <a
-            href={DISCORD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Discord"
-            className={cn(
-              'items-center rounded-md p-2 text-white/50 transition-colors hover:text-white',
-              hideRightOnMobile ? 'hidden sm:flex' : 'flex',
-            )}
-          >
-            <DiscordIcon className="h-[18px] w-[18px]" />
-          </a>
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub"
-            className={cn(
-              'items-center rounded-md p-2 text-white/50 transition-colors hover:text-white',
-              hideRightOnMobile ? 'hidden sm:flex' : 'flex',
-            )}
-          >
-            <GitHubIcon className="h-[18px] w-[18px]" />
-          </a>
+          <NavSocialLinks hideOnMobile={hideRightOnMobile} />
 
           <AccountMenu />
           {showSignIn && (

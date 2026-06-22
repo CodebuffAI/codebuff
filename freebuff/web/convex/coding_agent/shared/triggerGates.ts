@@ -1,7 +1,7 @@
 import type { MutationCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { internal } from "../../_generated/api";
-import { getAuthUser } from "../../users";
+import { getAuthUser, getQualifiedReferralCount } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
 import {
   checkUserRateLimit,
@@ -69,6 +69,9 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
       error: { kind: "AUTH_ERROR", message: "User not found" },
     };
   }
+
+  const identity = await args.ctx.auth.getUserIdentity();
+  const qualifiedReferralCount = getQualifiedReferralCount(identity, user);
 
   const isPlatformAdmin = user.role === "god" || user.role === "admin";
   const rateLimitKey = getRateLimitKeyForUser(user);
@@ -170,12 +173,12 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
       ? await checkPremiumModelRateLimit(
           args.ctx,
           rateLimitKey,
-          user.qualified_referral_count,
+          qualifiedReferralCount,
         )
       : await checkStandardModelRateLimit(
           args.ctx,
           rateLimitKey,
-          user.qualified_referral_count,
+          qualifiedReferralCount,
         );
     if (!daily.success) return { ok: false, error: daily.error };
   }

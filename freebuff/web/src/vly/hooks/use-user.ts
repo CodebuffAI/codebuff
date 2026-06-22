@@ -19,6 +19,7 @@ export function useSignedInUser() {
   // has stored the user.
   const user = useQuery(api.users.viewer)
   const createUser = useMutation(api.users.getOrCreateSignedInUser)
+  const syncReferralCount = useMutation(api.users.syncQualifiedReferralCount)
 
   useEffect(() => {
     // Get referral code from cookie on mount
@@ -94,6 +95,13 @@ export function useSignedInUser() {
     referralCode,
     referralCodeLoaded,
   ])
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || user === undefined || user === null) {
+      return
+    }
+    void syncReferralCount({})
+  }, [isLoading, isAuthenticated, user?._id, syncReferralCount])
 
   return user
 }
