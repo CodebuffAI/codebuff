@@ -4,22 +4,29 @@
  *
  * Electron's main process runs Node, not Bun. To honor "Bun main process"
  * (reuse sdk/ + agent-runtime, which export Bun-targeted TS) the shell spawns
- * `bun src/app/server.ts` as a child orchestrator process and talks to it over
- * local HTTP/SSE on 127.0.0.1. The renderer is the existing self-contained UI
- * the Bun server serves, so there is no separate build step.
+ * the Bun orchestrator as a child process and talks to it over local HTTP/SSE
+ * on 127.0.0.1. The renderer is the existing self-contained UI the Bun server
+ * serves, so there is no separate renderer build step.
  *
- *   bun --cwd freebuff-desktop run app        # launch the desktop app
+ * Two run modes, see resolveOrchestrator():
+ *   - dev: spawn a system `bun` on the TS source (src/app/server.ts).
+ *   - packaged: spawn the Bun binary shipped in app resources on the pre-bundled
+ *     orchestrator.js (scripts/fetch-bun.ts + scripts/build-orchestrator.ts,
+ *     wired into the app via the electron-builder extraResources config). The
+ *     user needs no system Bun.
+ *
+ *   bun --cwd freebuff-desktop run app        # launch from source (dev)
  *   FREEBUFF_TARGET_REPO=/path/to/repo bun --cwd freebuff-desktop run app
  */
 
 const { app, BrowserWindow, Menu, shell, dialog } = require('electron')
 const { spawn } = require('node:child_process')
+const fs = require('node:fs')
 const path = require('node:path')
 const net = require('node:net')
 const http = require('node:http')
 
 const PKG_DIR = path.join(__dirname, '..')
-const SERVER_ENTRY = path.join(PKG_DIR, 'src', 'app', 'server.ts')
 
 /** @type {import('node:child_process').ChildProcess | null} */
 let serverProc = null
@@ -27,10 +34,30 @@ let serverProc = null
 let mainWindow = null
 let shuttingDown = false
 
-// The bun binary that runs the orchestrator. Resolved from PATH by default;
-// override with FREEBUFF_BUN_PATH if bun lives somewhere non-standard.
-function resolveBun() {
-  return process.env.FREEBUFF_BUN_PATH || 'bun'
+// How to launch the orchestrator, per run mode. FREEBUFF_BUN_PATH overrides the
+// bun binary in either mode (e.g. to test the dev path against a specific bun).
+function resolveOrchestrator() {
+  if (app.isPackaged) {
+    const exe = process.platform === 'win32' ? '.exe' : ''
+    const res = process.resourcesPath
+    const orchDir = path.join(res, 'orchestrator')
+    return {
+      bun: process.env.FREEBUFF_BUN_PATH || path.join(res, 'bun', `bun${exe}`),
+      args: [path.join(orchDir, 'orchestrator.js')],
+      // cwd is the orchestrator dir so the bundled `import 'playwright'` resolves
+      // from the node_modules shipped beside it.
+      cwd: orchDir,
+      uiPath: path.join(orchDir, 'ui', 'index.html'),
+      packaged: true,
+    }
+  }
+  return {
+    bun: process.env.FREEBUFF_BUN_PATH || 'bun',
+    args: [path.join(PKG_DIR, 'src', 'app', 'server.ts')],
+    cwd: PKG_DIR,
+    uiPath: undefined,
+    packaged: false,
+  }
 }
 
 // Ask the OS for an unused loopback port so two instances never collide.
@@ -73,25 +100,37 @@ function waitForServer(port, timeoutMs = 30000) {
 
 function startOrchestrator(port) {
   return new Promise((resolve, reject) => {
-    const bun = resolveBun()
+    const { bun, args, cwd, uiPath, packaged } = resolveOrchestrator()
+
+    // extraResources can lose the executable bit when unpacked; restore it.
+    if (packaged && process.platform !== 'win32') {
+      try {
+        fs.chmodSync(bun, 0o755)
+      } catch {
+        /* best-effort */
+      }
+    }
+
     const env = { ...process.env, PORT: String(port) }
+    if (uiPath) env.FREEBUFF_UI_PATH = uiPath
     if (process.env.FREEBUFF_TARGET_REPO) {
       env.TARGET_REPO = process.env.FREEBUFF_TARGET_REPO
     }
 
-    serverProc = spawn(bun, [SERVER_ENTRY], {
-      cwd: PKG_DIR,
+    serverProc = spawn(bun, args, {
+      cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     serverProc.on('error', (err) => {
-      // Almost always "bun: command not found".
       reject(
         new Error(
           `Failed to start the orchestrator with "${bun}": ${err.message}\n\n` +
-            'Make sure Bun is installed and on PATH, or set FREEBUFF_BUN_PATH ' +
-            'to the bun binary.',
+            (packaged
+              ? 'The bundled Bun binary could not be launched.'
+              : 'Make sure Bun is installed and on PATH, or set FREEBUFF_BUN_PATH ' +
+                'to the bun binary.'),
         ),
       )
     })

@@ -1,0 +1,4 @@
+# Packaging artifacts (scripts/fetch-bun.ts + scripts/build-orchestrator.ts)
+staging/
+# electron-builder output
+dist/

@@ -25,7 +25,10 @@ import {
 import { ensureSampleRepo } from './sample-repo'
 
 const PORT = Number(process.env.PORT ?? 8787)
-const UI_PATH = join(import.meta.dir, 'ui', 'index.html')
+// In dev the UI sits next to this source file. In the packaged app the
+// orchestrator is a bundled file, so the shell points FREEBUFF_UI_PATH at the
+// ui/index.html shipped in app resources.
+const UI_PATH = process.env.FREEBUFF_UI_PATH ?? join(import.meta.dir, 'ui', 'index.html')
 
 // Initial project: explicit env override > last-opened folder > scaffolded demo.
 // Only the demo path gets sample files; a real folder the user opened is left alone.
