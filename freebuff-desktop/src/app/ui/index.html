@@ -195,7 +195,6 @@
       .filediff summary { padding: 7px 11px; font-size: 11.5px; font-family: ui-monospace, monospace; cursor: pointer; color: var(--text); background: var(--surface-2); }
       .filediff pre { margin: 0; padding: 8px 11px; font-size: 11px; font-family: ui-monospace, monospace; overflow-x: auto; white-space: pre; line-height: 1.45; }
       .dl-add { color: var(--green); } .dl-del { color: #b58986; } .dl-hunk { color: var(--faint); }
-      .transcript { font-size: 11px; font-family: ui-monospace, monospace; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; }
       .blocked-note { background: var(--surface-2); border: 1px solid var(--border-strong); border-left: 2px solid var(--border-strong); color: var(--muted); border-radius: 9px; padding: 9px 11px; font-size: 12px; white-space: pre-wrap; }
       .cap { font-size: 11px; color: var(--faint); margin-top: 6px; }
       .cap.over { color: var(--amber); }
@@ -275,6 +274,23 @@
       .acts-fold > summary .ic-svg { color: var(--faint); width: 13px; height: 13px; }
       .acts-fold[open] > summary { margin-bottom: 5px; }
       .act .ic-svg { color: var(--faint); }
+      /* tool chip: bold short label + a muted, truncating argument */
+      .act { min-width: 0; align-items: baseline; }
+      .act .ic-svg { align-self: center; }
+      .act .tname { font-weight: 650; color: var(--text); flex: 0 0 auto; }
+      .act.subtle .tname { color: var(--muted); font-weight: 550; }
+      .act .targ { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .act .targ.mono { font-family: ui-monospace, monospace; font-size: 11px; }
+
+      /* streamed per-task activity feed: stage headers + agent prose + tool chips */
+      .agent-feed { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+      .tr-stage { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); font-weight: 650; margin: 9px 0 3px; display: flex; align-items: center; gap: 6px; }
+      .tr-stage:first-child { margin-top: 0; }
+      .tr-stage.done { color: var(--green); }
+      .tr-stage .ic-svg { width: 13px; height: 13px; }
+      .tr-stage .sp { display: inline-block; width: 8px; height: 8px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.9s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .tr-text { font-size: 11.5px; color: var(--muted); white-space: pre-wrap; word-break: break-word; line-height: 1.5; margin: 1px 0; }
 
       /* composer: one rounded container with an inline toolbar */
       .composer { border-top: 1px solid var(--border); padding: 12px 16px 16px; background: var(--bg); }
@@ -381,6 +397,14 @@
         external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
         copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
         activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+        book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+        fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/>',
+        folder: '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/>',
+        terminal: '<path d="M4 17l6-6-6-6"/><path d="M12 19h8"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
+        globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+        flask: '<path d="M9 3h6"/><path d="M10 3v6l-4.5 9A2 2 0 0 0 7.3 21h9.4a2 2 0 0 0 1.8-3l-4.5-9V3"/>',
+        save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
       }
       function icon(name, extra) {
         const p = ICON[name]; if (!p) return ''
@@ -479,29 +503,150 @@
         if (!last || last.role !== 'assistant' || last.done) { last = { role: 'assistant', text: '', acts: [] }; state.chat.push(last) }
         return last
       }
+      // Map a raw tool name (e.g. "read_files") to a short, human label + an argument
+      // summary, mirroring the CLI's tool renderers. `ic` is an ICON registry key.
+      function shortPath(p) {
+        const s = String(p == null ? '' : p)
+        return s.length > 54 ? '…' + s.slice(-52) : s
+      }
+      function pathArg(input) {
+        if (!input) return ''
+        if (Array.isArray(input.paths)) return input.paths.map(shortPath).join(', ')
+        if (input.path) return shortPath(input.path)
+        if (input.filePath) return shortPath(input.filePath)
+        return ''
+      }
+      // Fallback for any unmapped tool: a readable name plus a best-effort arg, so a
+      // newly-added tool still shows context instead of a bare snake_case identifier.
+      function unknownTool(name, input) {
+        const d = pathArg(input) || input.query || input.command || input.pattern || input.url || input.title || ''
+        return { ic: 'dot', label: name.replace(/_/g, ' '), detail: String(d), subtle: true, mono: !!(input.command || input.pattern || input.url) }
+      }
       function friendlyTool(name, input) {
+        input = input || {}
         try {
-          if (name === 'create_task') return { ic: 'plus', text: 'New task: ' + (input.title || '…') }
-          if (name === 'update_task') return { ic: 'pencil', text: 'Updated task ' + input.taskId }
-          if (name === 'add_dependency') return { ic: 'link', text: input.to + ' depends on ' + input.from }
-          if (name === 'remove_dependency') return { ic: 'x', text: 'Removed ' + input.from + ' → ' + input.to }
-          if (name === 'abandon_task') return { ic: 'trash', text: 'Abandoned ' + input.taskId }
-          if (name === 'send_guidance') return { ic: 'message', text: 'Steered ' + input.taskId }
-          return { ic: 'dot', text: name.replace(/_/g, ' '), subtle: true }
-        } catch { return { ic: 'dot', text: name, subtle: true } }
+          switch (name) {
+            // Orchestrator task-graph tools
+            case 'create_task': return { ic: 'plus', label: 'New task', detail: input.title || '' }
+            case 'update_task': return { ic: 'pencil', label: 'Update task', detail: input.taskId || '' }
+            case 'add_dependency': return { ic: 'link', label: 'Link', detail: (input.to || '') + ' needs ' + (input.from || '') }
+            case 'remove_dependency': return { ic: 'x', label: 'Unlink', detail: (input.from || '') + ' → ' + (input.to || '') }
+            case 'abandon_task': return { ic: 'trash', label: 'Abandon', detail: input.taskId || '' }
+            case 'send_guidance': return { ic: 'message', label: 'Steer', detail: input.taskId || '' }
+            case 'get_task': return { ic: 'search', label: 'Look up task', detail: input.taskId || '', subtle: true }
+            case 'list_tasks': return { ic: 'search', label: 'List tasks', detail: '', subtle: true }
+            case 'read_doc': return { ic: 'fileText', label: 'Read doc', detail: input.name ? input.name + '.md' : '', subtle: true }
+            // Coding tools (stage agents)
+            case 'read_files': return { ic: 'book', label: 'Read', detail: pathArg(input) }
+            case 'read_subtree': return { ic: 'folder', label: 'List tree', detail: pathArg(input) }
+            case 'list_directory': return { ic: 'folder', label: 'List', detail: pathArg(input) }
+            case 'glob': return { ic: 'search', label: 'Find', detail: input.pattern || '', mono: true }
+            case 'code_search': return { ic: 'search', label: 'Search', detail: input.pattern || '', mono: true }
+            case 'str_replace': return { ic: 'pencil', label: 'Edit', detail: pathArg(input) }
+            case 'write_file': return { ic: 'pencil', label: 'Write', detail: pathArg(input) }
+            case 'run_terminal_command': return { ic: 'terminal', label: 'Terminal', detail: input.command || '', mono: true }
+            case 'tmux_run': return { ic: 'terminal', label: 'Run', detail: Array.isArray(input.commands) ? input.commands.join(' ; ') : '', mono: true }
+            case 'web_test': return { ic: 'flask', label: 'Browser test', detail: '' }
+            case 'web_search': return { ic: 'globe', label: 'Web search', detail: input.query || '' }
+            case 'read_url': return { ic: 'globe', label: 'Read URL', detail: input.url || '', mono: true }
+            case 'set_output': return { ic: 'save', label: 'Record result', detail: '', subtle: true }
+            case 'report_review': return input.pass
+              ? { ic: 'check', label: 'Review', detail: 'passed' }
+              : { ic: 'x', label: 'Review', detail: 'changes needed' }
+            case 'report_test': return input.passed
+              ? { ic: 'check', label: 'Test', detail: 'passed' }
+              : { ic: 'x', label: 'Test', detail: 'failed' }
+            default: return unknownTool(name, input)
+          }
+        } catch { return unknownTool(name, input) }
+      }
+      // Render one tool call as a chip: icon + bold label + a muted (optional mono) arg.
+      function toolChipHtml(toolName, input) {
+        const f = friendlyTool(toolName, input)
+        const detail = f.detail ? '<span class="targ' + (f.mono ? ' mono' : '') + '">' + esc(f.detail) + '</span>' : ''
+        return '<div class="act' + (f.subtle ? ' subtle' : '') + '">' + icon(f.ic) + '<span class="tname">' + esc(f.label) + '</span>' + detail + '</div>'
       }
       function onChat(event) {
         if (event.type === 'text') { freshAssistant().text += event.text }
         else if (event.type === 'tool_call') { freshAssistant().acts.push({ toolName: event.toolName, input: event.input }) }
         else if (event.type === 'finish') { const l = state.chat[state.chat.length - 1]; if (l && l.role === 'assistant') l.done = true }
-        if (state.view === 'chat') renderMain()
+        // Re-render only the chat log (not the whole pane) so a fast token stream
+        // doesn't rebuild — and steal focus from — the composer every token.
+        if (state.view === 'chat') scheduleChatRender()
       }
+
+      // ---- Per-task agent activity (streamed pipeline stages) ----
+      const STAGE_LABELS = { implement: 'Implement', simplify: 'Simplify', review: 'Review', test: 'Test', pr: 'Open PR', scout: 'Scout' }
+      function stageLabel(s) { return STAGE_LABELS[s] || s.replace(/_/g, ' ') }
       function onAgent(ev) {
-        const t = (state.transcripts[ev.taskId] = state.transcripts[ev.taskId] || [])
-        if (ev.event.type === 'tool_call') t.push('▸ ' + ev.stage + ': ' + ev.event.toolName)
-        else if (ev.event.type === 'finish') t.push('✓ ' + ev.stage)
-        if (t.length > 80) t.splice(0, t.length - 80)
-        if (state.sel === ev.taskId) renderDetail()
+        const list = (state.transcripts[ev.taskId] = state.transcripts[ev.taskId] || [])
+        const e = ev.event
+        const lastStage = list.length ? list[list.length - 1].stage : null
+        // Open a new stage section whenever the active stage changes.
+        if (ev.stage !== lastStage && (e.type === 'text' || e.type === 'tool_call' || e.type === 'finish')) {
+          list.push({ type: 'stage', stage: ev.stage, done: false })
+        }
+        if (e.type === 'text') {
+          const last = list[list.length - 1]
+          if (last && last.type === 'text' && last.stage === ev.stage) last.text += e.text
+          else list.push({ type: 'text', stage: ev.stage, text: e.text })
+        } else if (e.type === 'tool_call') {
+          list.push({ type: 'tool', stage: ev.stage, toolName: e.toolName, input: e.input })
+        } else if (e.type === 'finish') {
+          // Mark the current stage's header done so its spinner becomes a check.
+          for (let i = list.length - 1; i >= 0; i--) {
+            if (list[i].type === 'stage' && list[i].stage === ev.stage) { list[i].done = true; break }
+          }
+        }
+        if (list.length > 240) list.splice(0, list.length - 240)
+        if (state.sel === ev.taskId) scheduleDetailRender()
+      }
+      // Consume the run of consecutive tool entries at `i` into one tight `.acts` block.
+      function toolGroupHtml(items, i) {
+        let group = ''
+        while (i < items.length && items[i].type === 'tool') { group += toolChipHtml(items[i].toolName, items[i].input); i++ }
+        return { html: '<div class="acts">' + group + '</div>', next: i }
+      }
+      // Render a task's streamed activity: stage headers (spinner while running, check
+      // when done), the agent's prose, and grouped tool chips.
+      function renderTranscript(list) {
+        if (!list || !list.length) return ''
+        let html = '', i = 0
+        while (i < list.length) {
+          const item = list[i]
+          if (item.type === 'stage') {
+            const sp = item.done ? icon('check') : '<span class="sp"></span>'
+            html += '<div class="tr-stage ' + (item.done ? 'done' : '') + '">' + sp + esc(stageLabel(item.stage)) + '</div>'
+            i++
+          } else if (item.type === 'tool') {
+            const g = toolGroupHtml(list, i); html += g.html; i = g.next
+          } else if (item.type === 'text') {
+            if (item.text && item.text.trim()) html += '<div class="tr-text">' + esc(item.text) + '</div>'
+            i++
+          } else i++
+        }
+        return html
+      }
+
+      // rAF-batched re-renders so a fast token stream coalesces into one frame.
+      let _chatPending = false, _detailPending = false
+      function scheduleChatRender() {
+        if (_chatPending) return
+        _chatPending = true
+        requestAnimationFrame(() => { _chatPending = false; if (state.view === 'chat') renderChatLog() })
+      }
+      function scheduleDetailRender() {
+        if (_detailPending) return
+        _detailPending = true
+        requestAnimationFrame(() => {
+          _detailPending = false
+          // The feed is the only per-token-changing part of the detail pane (the rest
+          // is snapshot-driven), so update just it when present — avoids re-splitting/
+          // escaping the diff and rebuilding the whole pane every frame.
+          const af = document.getElementById('agentFeed')
+          if (af && state.sel) { af.innerHTML = renderTranscript(state.transcripts[state.sel]); af.scrollTop = af.scrollHeight }
+          else renderDetail()
+        })
       }
 
       // ---- Render ----
@@ -621,7 +766,7 @@
         log.innerHTML = state.chat.map((m) => {
           if (m.role === 'user') return '<div class="msg user"><div class="bubble">' + esc(m.text) + '</div></div>'
           const n = (m.acts || []).length
-          const items = n ? m.acts.map((a) => { const f = friendlyTool(a.toolName, a.input); return '<div class="act ' + (f.subtle ? 'subtle' : '') + '">' + icon(f.ic) + esc(f.text) + '</div>' }).join('') : ''
+          const items = n ? m.acts.map((a) => toolChipHtml(a.toolName, a.input)).join('') : ''
           // Collapse the tool activity behind a "Worked · N steps" fold (open while streaming).
           const acts = n ? '<details class="acts-fold"' + (m.done ? '' : ' open') + '><summary>' + icon('activity') + 'Worked · ' + n + (n > 1 ? ' steps' : ' step') + '</summary><div class="acts">' + items + '</div></details>' : ''
           const txt = m.text ? '<div class="md">' + mdToHtml(m.text) + '</div>' : (!m.done && !acts ? '<div class="thinking">Thinking…</div>' : '')
@@ -855,8 +1000,8 @@
         const blocked = a.blockReason ? '<div class="lbl">Needs you</div><div class="blocked-note">' + esc(a.blockReason) + '</div>' : ''
         const pr = t.prUrl ? '<div class="lbl">PR</div><div class="pr">' + esc(t.prUrl) + '</div>' : ''
         const diff = a.diff ? '<div class="lbl">Changes</div>' + renderDiff(a.diff) : ''
-        const transcript = (state.transcripts[t.id] || []).join('\n')
-        const tr = transcript ? '<div class="lbl">Agent activity</div><div class="transcript">' + esc(transcript) + '</div>' : ''
+        const feed = renderTranscript(state.transcripts[t.id])
+        const tr = feed ? '<div class="lbl">Agent activity</div><div class="agent-feed" id="agentFeed">' + feed + '</div>' : ''
 
         const abandonLabel = state.pendingAbandon === t.id ? 'Click again to confirm' : 'Abandon'
         let actions = ''
@@ -881,6 +1026,8 @@
           (t.rationale ? '<div class="lbl">Why</div><div class="spec">' + esc(t.rationale) + '</div>' : '') +
           '<div class="lbl">Spec</div><div class="spec">' + esc(t.description || '') + '</div>' +
           actions + blocked + reviewEvi + (reviewEvi ? '<div style="height:6px"></div>' : '') + testEvi + testShot + pr + diff + tr + '</div>'
+        // Keep the streamed activity tailing the latest output.
+        const af = document.getElementById('agentFeed'); if (af) af.scrollTop = af.scrollHeight
       }
 
       function rcBox(id) {
