@@ -376,11 +376,43 @@ export function isSupportedFreebuffModelId(
   return SUPPORTED_FREEBUFF_MODELS.some((m) => m.id === id)
 }
 
+/**
+ * Match a model id against a base id, tolerating the dated provider snapshot
+ * suffix OpenRouter (and our own routing) appends, e.g.
+ * `google/gemini-3.1-pro-preview-20260219` for base `google/gemini-3.1-pro-preview`.
+ * Mirrors the suffix logic in `isFreeModeAllowedAgentModel` (free-agents.ts) —
+ * the two MUST stay in sync. Only a `-YYYYMMDD`-style suffix matches, so e.g.
+ * `mimo-v2.5-pro` never matches the base `mimo-v2.5`.
+ */
+export function freebuffModelIdMatches(
+  candidate: string | null | undefined,
+  baseId: string,
+): boolean {
+  if (!candidate) return false
+  if (candidate === baseId) return true
+  const prefix = baseId + '-'
+  if (!candidate.startsWith(prefix)) return false
+  return /^\d{6,8}(?:$|[-:])/.test(candidate.slice(prefix.length))
+}
+
+/** Whether the requested model is Gemini Pro, tolerating the dated snapshot
+ *  suffix. Use this instead of `=== FREEBUFF_GEMINI_PRO_MODEL_ID` so a caller
+ *  can't dodge a Gemini gate by sending the dated id. */
+export function isFreebuffGeminiProModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_GEMINI_PRO_MODEL_ID)
+}
+
 export function isFreebuffPremiumModelId(
   id: string | null | undefined,
 ): id is FreebuffPremiumModelId {
   if (!id) return false
-  return FREEBUFF_PREMIUM_MODEL_IDS.some((modelId) => modelId === id)
+  // Suffix-tolerant: a dated variant of a premium id (e.g. a dated Kimi) must
+  // still count as premium so it can't dodge the premium daily rate cap.
+  return FREEBUFF_PREMIUM_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
 }
 
 export function isFreebuffMultimodalModelId(
