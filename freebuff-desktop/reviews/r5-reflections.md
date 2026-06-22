@@ -118,3 +118,99 @@ dependency" is itself a change that needs the lockfile committed — easy to mis
 the local `node_modules` is already warm.
 
 ---
+
+## Project 4 — Particle fireworks (canvas)
+
+Best outcome of the run, and built on the freshly-merged `main` (PR #211) from a new
+worktree — so this was also the first real test that the *shipped* code works from a
+clean checkout. Prompt → 5-task chain (skeleton+loop → particle system w/ pooling →
+click-launch rockets → auto-launch → color variety + perf) → all merged → verified
+live: rockets rise from the bottom with glowing particle trails, explode at apex,
+particles fall under gravity and fade, dark sky, **steady 120 fps**, no console
+errors. The agent even added an on-screen FPS counter on its own to satisfy the
+"verify performance" task — a nice emergent quality signal that the gate's intent
+propagates into the build.
+
+**[Scout cap — third live confirmation] CONSISTENT.** Held at exactly 4 proposals
+(t6–t9) again. The cap is now boringly reliable across three projects.
+
+**[fell short → FIXED] A `failed` task gave no reason.** This session's environment
+deleted the orchestrator's own source worktree mid-build; the running server's cwd
+vanished and the in-flight task threw → went to `failed`. The UI *does* offer "Retry
+with guidance" on a failed task (good), but the throw→failed path never recorded a
+`blockReason`, so the task showed a red "failed" badge and a retry button with **no
+explanation of what went wrong**. Fix: the catch block now captures the error as the
+blockReason (`Pipeline error: …`), so a failed task explains itself and the retry is
+actionable. (The *recovery itself* worked once I restarted from a clean worktree:
+fresh checkout off main → re-pointed the project → rebuilt with zero issues.)
+
+**[reflection — resilience to infra vs. code failures] open.** The deeper lesson:
+the engine cleanly distinguishes *review/test* failures (`blocked`, with findings)
+from a thrown *pipeline* error (`failed`), but both now share the same retry path,
+which is right. What's still missing is the difference between a **code** failure
+(re-running won't help without a change) and an **infra** failure (transient — the
+backend was down, cwd vanished); the latter is safely auto-retryable, the former
+isn't. A future resilience pass (roadmap §"Resilience: cancellation + stage retry")
+could classify the error and auto-retry transient ones a bounded number of times
+before surfacing to the human. For now, surfacing the reason is the 80/20.
+
+**[process — the cost of a volatile cwd] note.** Running the orchestrator *from* a
+git worktree that tooling may garbage-collect is fragile: when the worktree went
+away, the server became a zombie (alive in memory, but every git/file op failing).
+A shipped Electron build won't have this problem (stable install dir), but for the
+dev/testing loop it argues for running the server from a stable checkout (e.g. the
+`.worktrees/freebuff-desktop-next` the app itself now uses), not an ephemeral one.
+
+---
+
+## Project 5 — Countdown timer
+
+The polished finale, and it just *worked* — no app shortfall to fix in the build
+itself. Prompt → 3-task chain (skeleton → countdown logic → flip-style polish) → all
+merged → verified live: flip-clock digit cards counting `0193d : 08h : 04m : 57s`,
+default target **next New Year (2027-01-01)**, ticks every second, datetime-local
+picker, dark centered card, no console errors. localStorage persistence is correctly
+wired (load on init, save on a valid date change) — empty on first load only because
+the *default* isn't persisted until the user picks, which is the right behavior. A
+clean demonstration that the orchestrator reliably ships small, correct single-file
+apps end to end.
+
+**[the fix for this project — the run's #1 recurring gap] DONE.** Three projects in a
+row I flagged the same thing: a task can sit in one stage for minutes (the Playwright
+test stage dominates), and with only a static `· review` badge it reads as a *hang*,
+not progress. Since the countdown left no build-specific bug to chase, I spent the
+project-5 fix on that signal: the running-stage badge now shows a **live elapsed
+timer** (`· test 1m`, ticking each second). Implemented as an in-place 1s ticker over
+`.elapsed[data-since]` spans rather than a full re-render — deliberately, so it can't
+steal focus from an open request-changes textarea. Verified live: the span ticks
+47s→48s with no console errors; `fmtElapsed` renders `5s` / `2m` / `1h03m`.
+
+---
+
+## Run retrospective — 5 projects
+
+**What went well.** The core loop is solid: a one-paragraph prompt reliably becomes a
+sensible 3–5-task DAG that builds, gates (simplify → adversarial review → multi-
+surface test), and merges into clean single-file apps. Every one of the five worked
+on live verification. The adversarial review has real teeth (it caught a genuine
+float bug in the calculator). The mid-run fixes compounded: keep-work retry, feed-
+findings, crash recovery, Scout cap, failed-reason, and now stage-elapsed — several
+of which I then watched pay off *live* in later projects (Scout cap held at 4 across
+projects 3/4/5; crash recovery resumed a restart with no lost work).
+
+**What still falls short (ranked).**
+1. **Speed / cost.** The full gate on every task is the dominant cost — a 4–5 task
+   build is 10–15 min wall-clock, mostly the test stage. Model tiering (cheap
+   implement, stronger reviewer) and skipping the browser test for non-visual diffs
+   would help. The stage-elapsed badge makes the wait *legible* but doesn't shorten it.
+2. **Gate depth on non-functional requirements.** The render-check can't verify
+   motion/feel — "flip-style *animation*" produced flip-look cards but I couldn't
+   confirm the flip transition actually animates; same shape as project 1's "is the
+   AI unbeatable?" gap. Logic gets a real assertion now; visual-motion still doesn't.
+3. **Resilience classification.** Infra failures vs. code failures still share one
+   retry path (see project 4) — transient errors should auto-retry.
+4. **Scope ceiling.** Everything built was a single `index.html`. The orchestrator
+   hasn't been pushed on multi-file projects, shared modules, or a real test command
+   beyond the demo — the next interesting stress test.
+
+---

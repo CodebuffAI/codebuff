@@ -371,6 +371,10 @@ export class Engine {
         void this.runScout(taskId) // fire-and-forget: don't block the task settling
       }
     } catch (err) {
+      // Capture the error as the blockReason so the UI's "Retry with guidance"
+      // path shows *why* it failed (a thrown pipeline error — infra blip, SDK
+      // error — otherwise leaves a red `failed` task with no explanation).
+      this.store.setArtifact(taskId, 'blockReason', `Pipeline error: ${(err as Error).message}`)
       this.store.updateTask(taskId, { status: 'failed', stage: null }, this.now())
       this.emit({ type: 'log', message: `Task ${taskId} errored: ${(err as Error).message}` })
     } finally {

@@ -123,6 +123,7 @@
       .badge { font-size: 10px; padding: 1.5px 7px; border-radius: 20px; font-weight: 600; border: 1px solid var(--border-strong); color: var(--muted); }
       .badge.dot::before { content: "●"; margin-right: 4px; font-size: 8px; vertical-align: 1px; }
       .badge.b-running { color: var(--accent); border-color: var(--accent-line); }
+      .badge .elapsed { opacity: 0.7; font-variant-numeric: tabular-nums; }
       .badge.b-review { color: var(--green); border-color: var(--green-line); }
       .badge.b-merged { color: var(--faint); }
       .badge.b-blocked, .badge.b-failed { color: var(--muted); border-color: var(--border-strong); }
@@ -322,6 +323,15 @@
       // ---- Render ----
       function renderAll() { renderHeader(); renderBoard(); if (state.view !== 'doc') renderMain(); renderDetail() }
 
+      // Tick the running-stage elapsed badges every second in place — keeps a slow
+      // stage visibly counting up between SSE state events, without a full re-render
+      // (which would steal focus from an open request-changes textarea).
+      setInterval(() => {
+        document.querySelectorAll('.elapsed[data-since]').forEach((el) => {
+          el.textContent = fmtElapsed(Date.now() - Number(el.getAttribute('data-since')))
+        })
+      }, 1000)
+
       function renderHeader() {
         const s = state.snap; if (!s) return
         const repo = s.project.repoUrl || s.project.rootPath || ''
@@ -354,13 +364,30 @@
         renderTabBadges(reviewCount)
       }
 
-      // Status pill for a task; `withStage` appends "· <stage>" (board cards only).
+      // Compact elapsed like "5s", "2m", "1h03m" — so a slow stage reads as progress.
+      function fmtElapsed(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000))
+        if (s < 60) return s + 's'
+        const m = Math.floor(s / 60)
+        if (m < 60) return m + 'm'
+        return Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0') + 'm'
+      }
+      // Status pill for a task; `withStage` appends "· <stage> <elapsed>" (board cards only).
+      // The elapsed span carries data-since so a 1s ticker can update it without a
+      // full re-render (which would steal focus from the request-changes textarea).
       function statusBadgeHtml(t, withStage) {
         const eff = effectiveStatus(t)
         if (eff === 'waiting') return '<span class="badge dot b-waiting">waiting on ' + unmergedParents(t).join(', ') + '</span>'
         const cls = eff === 'awaiting-approval' ? 'review' : eff
         const label = eff === 'awaiting-approval' ? 'needs review' : eff
-        return '<span class="badge dot b-' + cls + '">' + label + (withStage && t.stage ? ' · ' + t.stage : '') + '</span>'
+        let suffix = ''
+        if (withStage && t.stage) {
+          suffix = ' · ' + t.stage
+          if (eff === 'running' && t.updatedAt) {
+            suffix += ' <span class="elapsed" data-since="' + t.updatedAt + '">' + fmtElapsed(Date.now() - t.updatedAt) + '</span>'
+          }
+        }
+        return '<span class="badge dot b-' + cls + '">' + label + suffix + '</span>'
       }
       function cardHtml(t) {
         const eff = effectiveStatus(t)
