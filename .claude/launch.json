@@ -25,9 +25,10 @@
     },
     {
       "name": "freebuff-desktop",
-      "runtimeExecutable": "bun",
+      "runtimeExecutable": "bash",
       "runtimeArgs": [
-        "freebuff-desktop/src/app/server.ts"
+        "-c",
+        "PORT=8787 exec bun freebuff-desktop/src/app/server.ts"
       ],
       "port": 8787,
       "autoPort": false
