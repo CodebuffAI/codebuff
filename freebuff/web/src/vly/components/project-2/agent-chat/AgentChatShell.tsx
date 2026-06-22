@@ -465,10 +465,13 @@ export function AgentChatShell({
   const selectedLimitCheck = isSelectedPremiumModel
     ? checkPremiumLimit?.()
     : checkStandardLimit?.();
-  const selectedDailyRemaining = selectedLimitCheck
-    ? Math.max(0, Math.floor(selectedLimitCheck.value))
-    : null;
   const viewer = useQuery(api.users.viewer);
+  const isGodUser = viewer?.role === "god";
+  const selectedDailyRemaining = isGodUser
+    ? null
+    : selectedLimitCheck
+      ? Math.max(0, Math.floor(selectedLimitCheck.value))
+      : null;
   const referralCount = viewer?.qualified_referral_count ?? 0;
 
   const showReferralLimitMessage = useCallback(() => {
