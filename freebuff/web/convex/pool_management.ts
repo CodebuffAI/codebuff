@@ -17,6 +17,20 @@ function getProjectPoolSize() {
   return Math.max(MIN_PROJECT_POOL_SIZE, configuredPoolSize);
 }
 
+function getPoolSnapshotIds(): string[] {
+  const fullSnapshotId = process.env.DAYTONA_SNAPSHOT_ID;
+  if (!fullSnapshotId) {
+    throw new Error("DAYTONA_SNAPSHOT_ID is not configured");
+  }
+
+  const smallSnapshotId = process.env.DAYTONA_SNAPSHOT_SMALL_ID;
+  if (!smallSnapshotId || smallSnapshotId === fullSnapshotId) {
+    return [fullSnapshotId];
+  }
+
+  return [fullSnapshotId, smallSnapshotId];
+}
+
 export const flushProjectPoolAndInitializeNew = internalAction({
   args: {
     newPoolSize: v.optional(v.number()),
@@ -34,15 +48,17 @@ export const flushProjectPoolAndInitializeNew = internalAction({
       MIN_PROJECT_POOL_SIZE,
       args.newPoolSize ?? getProjectPoolSize(),
     );
+    const snapshotIds = getPoolSnapshotIds();
 
     // Create new projects first to avoid having an empty pool
     for (let i = 0; i < newPoolSize; i++) {
+      const snapshotId = snapshotIds[i % snapshotIds.length];
       await ctx.runAction(
         internal.codesandbox.createProject.initializeUnassignedProject,
-        {},
+        { snapshotId },
       );
 
-      console.log("Initialized unassigned project", i);
+      console.log("Initialized unassigned project", i, { snapshotId });
     }
 
     // Delete only the old projects after new ones are created
@@ -127,17 +143,37 @@ export const replenishPoolIfEmpty = internalMutation({
       .collect();
 
     const minPoolSize = getProjectPoolSize();
+    const snapshotIds = getPoolSnapshotIds();
+
+    const fullSnapshotId = snapshotIds[0];
+    const snapshotCounts = new Map<string, number>();
+    for (const snapshotId of snapshotIds) {
+      snapshotCounts.set(snapshotId, 0);
+    }
+    for (const project of unassignedProjects) {
+      const snapshotId = project.template_id ?? fullSnapshotId;
+      if (snapshotCounts.has(snapshotId)) {
+        snapshotCounts.set(snapshotId, (snapshotCounts.get(snapshotId) ?? 0) + 1);
+      }
+    }
 
     if (unassignedProjects.length <= minPoolSize) {
-      for (
-        let i = 0;
-        i < Math.max(0, minPoolSize - unassignedProjects.length);
-        i++
-      ) {
+      const targetPerSnapshot = Math.ceil(minPoolSize / snapshotIds.length);
+      const snapshotsToCreate: string[] = [];
+
+      for (const snapshotId of snapshotIds) {
+        const currentCount = snapshotCounts.get(snapshotId) ?? 0;
+        const missingCount = Math.max(0, targetPerSnapshot - currentCount);
+        for (let i = 0; i < missingCount; i++) {
+          snapshotsToCreate.push(snapshotId);
+        }
+      }
+
+      for (const snapshotId of snapshotsToCreate) {
         await ctx.scheduler.runAfter(
           0,
           internal.codesandbox.createProject.initializeUnassignedProject,
-          {},
+          { snapshotId },
         );
       }
     }
