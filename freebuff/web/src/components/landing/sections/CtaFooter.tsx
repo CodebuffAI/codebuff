@@ -3,7 +3,9 @@
 import { motion } from 'framer-motion'
 
 import { NavSocialLinks } from '../NavSocialLinks'
+import { GitHubStarLink } from '../GitHubStarLink'
 import { Parallax } from '../Parallax'
+import { TooltipProvider } from '@/vly/components/ui/tooltip'
 
 // Real platform routes (verified against the freebuff/web app router).
 const NAV_LINKS = [
@@ -120,7 +122,12 @@ export function CtaFooter() {
               © {new Date().getFullYear()} Freebuff. All rights reserved.
             </span>
             <span className="h-4 w-px bg-white/10" />
-            <NavSocialLinks />
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-3">
+                <NavSocialLinks />
+                <GitHubStarLink />
+              </div>
+            </TooltipProvider>
           </div>
         </div>
       </div>

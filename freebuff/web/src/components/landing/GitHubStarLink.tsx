@@ -104,7 +104,7 @@ export function GitHubStarLink({
               : 'Star Codebuff on GitHub'
           }
           className={cn(
-            'items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-white/55 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white',
+            'inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-white/55 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white',
             hideOnMobile ? 'hidden sm:inline-flex' : 'inline-flex',
             className,
           )}

@@ -13,7 +13,9 @@ import {
 } from '@/vly/components/auth/AuthComponents'
 
 import { AccountMenu } from './AccountMenu'
+import { GitHubStarLink } from './GitHubStarLink'
 import { NavSocialLinks } from './NavSocialLinks'
+import { TooltipProvider } from '@/vly/components/ui/tooltip'
 
 const PRODUCT_LINKS = [
   { label: 'CLI', href: '/cli' },
@@ -22,8 +24,8 @@ const PRODUCT_LINKS = [
 ]
 
 /**
- * The single site-wide nav bar. The right cluster (CLI · Web · Chat · Discord ·
- * GitHub · account) is identical on every page so the chrome feels unified; the
+ * The single site-wide nav bar. The right cluster (CLI · Web · Chat · GitHub ·
+ * Discord · blog · account) is identical on every page so the chrome feels unified;
  * left cluster is a brand mark (always linking home) plus an optional
  * page-specific tab group (`leftNav`). It scrubs with scroll exactly like the
  * landing hero: compacts + reveals a shadow gradient on the way down, restores
@@ -110,21 +112,29 @@ export function UnifiedNavbar({
         {/* Right cluster: unified product links · socials · account */}
         <motion.div
           style={{ scale }}
-          className="flex flex-shrink-0 origin-right items-center gap-1 sm:gap-2"
+          className="flex flex-shrink-0 origin-right items-center gap-2 sm:gap-3"
         >
-          {rightExtras}
-          <ProductLinks
-            className={hideRightOnMobile ? 'hidden sm:flex' : 'flex'}
-          />
+          <TooltipProvider delayDuration={200}>
+            {rightExtras}
+            <ProductLinks
+              className={hideRightOnMobile ? 'hidden sm:flex' : 'flex'}
+              trailing={
+                <GitHubStarLink
+                  hideOnMobile={hideRightOnMobile}
+                  className="ml-1 sm:ml-2"
+                />
+              }
+            />
 
-          <span
-            className={cn(
-              'mx-0.5 h-4 w-px bg-white/15 sm:mx-1',
-              hideRightOnMobile ? 'hidden sm:block' : 'block',
-            )}
-          />
+            <span
+              className={cn(
+                'mx-1 h-4 w-px bg-white/15 sm:mx-2',
+                hideRightOnMobile ? 'hidden sm:block' : 'block',
+              )}
+            />
 
-          <NavSocialLinks hideOnMobile={hideRightOnMobile} />
+            <NavSocialLinks hideOnMobile={hideRightOnMobile} />
+          </TooltipProvider>
 
           <AccountMenu />
           {showSignIn && (
@@ -144,7 +154,13 @@ export function UnifiedNavbar({
   )
 }
 
-function ProductLinks({ className }: { className?: string }) {
+function ProductLinks({
+  className,
+  trailing,
+}: {
+  className?: string
+  trailing?: ReactNode
+}) {
   const pathname = usePathname()
   const isActive = (href: string) =>
     pathname === href || pathname?.startsWith(`${href}/`)
@@ -166,6 +182,7 @@ function ProductLinks({ className }: { className?: string }) {
           {link.label}
         </Link>
       ))}
+      {trailing}
     </nav>
   )
 }
