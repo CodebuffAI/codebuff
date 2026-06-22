@@ -13,7 +13,7 @@
  */
 
 import { DocStore } from './docs'
-import { wouldCreateCycle } from './graph'
+import { TERMINAL_STATUSES, transitiveDependents, wouldCreateCycle } from './graph'
 import type { Store } from './store'
 import type {
   DocName,
@@ -131,20 +131,21 @@ export class Orchestrator {
   }
 
   /**
-   * Stop work and mark the task abandoned; its unmerged dependents (which were
-   * waiting on its merge and never started) are marked `blocked` for the human to
-   * redirect or drop (§8). Worktree GC is performed by the engine reacting to the
-   * status change.
+   * Stop work and mark the task abandoned; all its (transitive) dependents are marked
+   * `blocked` for the human to redirect or drop (§8). Dependents may now have started
+   * before the parent merged, so this cascades down the whole subgraph — worktree GC
+   * for any that started is performed by the engine reacting to the status change.
    */
   abandonTask(input: { taskId: TaskId }): void {
     const task = this.requireTask(input.taskId)
     const now = this.now()
     this.deps.store.updateTask(task.id, { status: 'abandoned', stage: null }, now)
-    for (const childId of this.deps.store.childrenOf(task.id)) {
-      const child = this.deps.store.getTask(childId)
-      if (child && child.status !== 'merged' && child.status !== 'abandoned') {
-        this.deps.store.updateTask(childId, { status: 'blocked' }, now)
-      }
+    const isTerminal = (id: TaskId) => {
+      const t = this.deps.store.getTask(id)
+      return !t || TERMINAL_STATUSES.has(t.status)
+    }
+    for (const childId of transitiveDependents(task.id, (id) => this.deps.store.childrenOf(id), isTerminal)) {
+      this.deps.store.updateTask(childId, { status: 'blocked' }, now)
     }
   }
 

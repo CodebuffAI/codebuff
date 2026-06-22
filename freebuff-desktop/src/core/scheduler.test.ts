@@ -21,6 +21,7 @@ function task(partial: Partial<Task> & { id: string; status: TaskStatus }): Task
     status: partial.status,
     parents: partial.parents ?? [],
     branch: null,
+    baseRef: null,
     worktreePath: null,
     prUrl: null,
     lastCompletedStage: null,
@@ -90,13 +91,22 @@ describe('selectAdmittable', () => {
     expect(admitted).toEqual(['r2'])
   })
 
-  test('does not admit tasks with unmerged parents', () => {
+  test('does not admit a child whose parent is still running', () => {
     const tasks = [
       task({ id: 'parent', status: 'running', createdAt: 1 }),
       task({ id: 'child', status: 'ready', createdAt: 2, parents: ['parent'] }),
     ]
     const admitted = selectAdmittable({ tasks, concurrencyCap: 5, budgetExhausted: false })
     expect(admitted).toEqual([])
+  })
+
+  test('admits a child once its parent passes review (before merge)', () => {
+    const tasks = [
+      task({ id: 'parent', status: 'awaiting-approval', createdAt: 1 }),
+      task({ id: 'child', status: 'ready', createdAt: 2, parents: ['parent'] }),
+    ]
+    const admitted = selectAdmittable({ tasks, concurrencyCap: 5, budgetExhausted: false })
+    expect(admitted).toEqual(['child'])
   })
 
   test('admits a child once its parent is merged', () => {

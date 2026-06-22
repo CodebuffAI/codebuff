@@ -88,6 +88,19 @@ describe('Orchestrator.abandonTask', () => {
     expect(store.getTask(a)!.status).toBe('abandoned')
     expect(store.getTask(b)!.status).toBe('blocked')
   })
+
+  test('cascades to transitive dependents (grandchildren)', () => {
+    const { store, orch } = harness()
+    // a → b → c: dependents now start before the parent merges, so the whole
+    // subgraph must be blocked when the root is abandoned (§8).
+    const a = orch.createTask({ title: 'A', description: '' }).taskId
+    const b = orch.createTask({ title: 'B', description: '', parents: [a] }).taskId
+    const c = orch.createTask({ title: 'C', description: '', parents: [b] }).taskId
+    orch.abandonTask({ taskId: a })
+    expect(store.getTask(a)!.status).toBe('abandoned')
+    expect(store.getTask(b)!.status).toBe('blocked')
+    expect(store.getTask(c)!.status).toBe('blocked')
+  })
 })
 
 describe('Orchestrator.sendGuidance', () => {

@@ -490,10 +490,15 @@
       function tasks() { return state.snap ? state.snap.tasks : [] }
       function task(id) { return tasks().find((t) => t.id === id) }
       function isMerged(id) { const t = task(id); return t && t.status === 'merged' }
+      function isWorkflowDone(id) { const t = task(id); return t && (t.status === 'awaiting-approval' || t.status === 'merged') }
+      // Parents not yet merged: a child runs while these are in review, but can't MERGE until they land.
       function unmergedParents(t) { return (t.parents || []).filter((p) => !isMerged(p)) }
-      // A 'ready' task whose parents aren't all merged is really waiting, not runnable.
+      // Parents whose workflow (review + testing) isn't done yet: a child can't even START until these pass.
+      function pendingParents(t) { return (t.parents || []).filter((p) => !isWorkflowDone(p)) }
+      // A 'ready' task is only truly waiting if a parent hasn't finished its workflow;
+      // once parents reach review it can run, stacked on their unmerged branches (§8).
       function effectiveStatus(t) {
-        if (t.status === 'ready' && unmergedParents(t).length) return 'waiting'
+        if (t.status === 'ready' && pendingParents(t).length) return 'waiting'
         return t.status
       }
 
@@ -706,7 +711,7 @@
       // full re-render (which would steal focus from the request-changes textarea).
       function statusBadgeHtml(t, withStage) {
         const eff = effectiveStatus(t)
-        if (eff === 'waiting') return '<span class="badge dot b-waiting">waiting on ' + unmergedParents(t).join(', ') + '</span>'
+        if (eff === 'waiting') return '<span class="badge dot b-waiting">waiting on ' + pendingParents(t).join(', ') + '</span>'
         const cls = eff === 'awaiting-approval' ? 'review' : eff
         const label = eff === 'awaiting-approval' ? 'needs review' : eff
         let suffix = ''
@@ -1006,7 +1011,14 @@
         const abandonLabel = state.pendingAbandon === t.id ? 'Click again to confirm' : 'Abandon'
         let actions = ''
         if (t.status === 'awaiting-approval') {
-          actions = '<div class="actions"><button class="green" onclick="approve(\'' + t.id + '\')">' + icon('check') + 'Approve &amp; Merge</button>' +
+          // Merge gate (§8): a dependent's branch is stacked on its parents, so it
+          // can't merge until they do. It already RAN (review + tests passed); the
+          // merge button just waits for the parents to land, then it auto-restacks.
+          const blockingParents = unmergedParents(t)
+          const mergeBtn = blockingParents.length
+            ? '<button class="green" disabled title="Waiting on parent(s) ' + blockingParents.join(', ') + ' to merge">' + icon('check') + 'Waiting on parent merge</button>'
+            : '<button class="green" onclick="approve(\'' + t.id + '\')">' + icon('check') + 'Approve &amp; Merge</button>'
+          actions = '<div class="actions">' + mergeBtn +
             '<button class="ghost" onclick="toggleRC()">Request changes</button>' +
             '<button class="danger" onclick="abandon(\'' + t.id + '\')">' + abandonLabel + '</button></div>' + rcBox(t.id)
         } else if (['blocked', 'failed'].includes(t.status)) {
@@ -1122,7 +1134,7 @@
         const idx = ts.findIndex((t) => t.id === state.sel)
         if (e.key === 'j' && ts.length) { e.preventDefault(); selectTask(ts[idx < 0 ? 0 : Math.min(ts.length - 1, idx + 1)].id) }
         else if (e.key === 'k' && ts.length) { e.preventDefault(); selectTask(ts[idx < 0 ? 0 : Math.max(0, idx - 1)].id) }
-        else if (e.key === 'a') { const t = task(state.sel); if (t && t.status === 'awaiting-approval') approve(t.id) }
+        else if (e.key === 'a') { const t = task(state.sel); if (t && t.status === 'awaiting-approval' && !unmergedParents(t).length) approve(t.id) }
         else if (e.key === 'r') { const t = task(state.sel); if (t && ['awaiting-approval', 'blocked', 'failed'].includes(t.status)) { state.rcOpen = true; renderDetail(); const r = document.getElementById('rcText'); if (r) r.focus() } }
         else if (e.key === 'p') { e.preventDefault(); openPreview() }
         else if (e.key === 'c') { e.preventDefault(); goChat(); const i = document.getElementById('chatInput'); if (i) i.focus() }

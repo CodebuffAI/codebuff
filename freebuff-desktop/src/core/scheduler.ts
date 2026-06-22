@@ -68,7 +68,8 @@ export interface AdmissionInput {
  * Pick the tasks to start now: FIFO among `ready` + unblocked candidates, up to
  * the free concurrency slots, and only while under budget (§9, §13).
  *
- * - "Unblocked" = every parent is merged (§8).
+ * - "Unblocked" = every parent has finished its workflow (`awaiting-approval` or
+ *   `merged`) — dependents start before the human merges the parent (§8).
  * - Order is creation order (FIFO) — there is no priority field (§17).
  * - Hitting a ceiling pauses *new* work; it never touches running tasks.
  */

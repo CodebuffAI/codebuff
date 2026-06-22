@@ -111,9 +111,21 @@ export interface Task {
   /** The spec the Task Agent works from. */
   description: string
   status: TaskStatus
-  /** Dependency parents (§8). A task is unblocked when all parents are merged. */
+  /**
+   * Dependency parents (§8). A task may *start* once all parents have finished
+   * their workflow (`awaiting-approval` or `merged`); it may only *merge* once all
+   * parents are `merged` (see graph.ts `isUnblocked` / `isMergeable`).
+   */
   parents: TaskId[]
   branch: string | null
+  /**
+   * The commit the branch was based on — `main` for an independent task, or an
+   * integration base (main + unmerged parent branches) for a dependent that started
+   * before its parents merged (§8). Used as the `--onto … <oldBase>` upstream when
+   * restacking the child after a parent's tip moves or merges, so only the child's
+   * own commits are replayed. Null until the worktree is created.
+   */
+  baseRef: string | null
   worktreePath: string | null
   prUrl: string | null
   /** Resume marker (§6.5): relaunch re-runs the next stage after this one. */

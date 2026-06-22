@@ -1,13 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
-import { isUnblocked, wouldCreateCycle } from './graph'
+import { isMergeable, isUnblocked, wouldCreateCycle } from './graph'
 import type { DependencyEdge, TaskId, TaskStatus } from './types'
 
-describe('isUnblocked', () => {
+describe('isUnblocked (start gate: parent workflow done)', () => {
   const statuses: Record<TaskId, TaskStatus> = {
-    a: 'merged',
-    b: 'running',
-    c: 'merged',
+    merged: 'merged',
+    review: 'awaiting-approval',
+    running: 'running',
+    ready: 'ready',
   }
   const statusOf = (id: TaskId) => statuses[id]
 
@@ -16,15 +17,43 @@ describe('isUnblocked', () => {
   })
 
   test('all parents merged → unblocked', () => {
-    expect(isUnblocked({ parents: ['a', 'c'] }, statusOf)).toBe(true)
+    expect(isUnblocked({ parents: ['merged'] }, statusOf)).toBe(true)
   })
 
-  test('any parent not merged → blocked', () => {
-    expect(isUnblocked({ parents: ['a', 'b'] }, statusOf)).toBe(false)
+  test('parent awaiting-approval → unblocked (can start before merge)', () => {
+    expect(isUnblocked({ parents: ['review'] }, statusOf)).toBe(true)
+    expect(isUnblocked({ parents: ['review', 'merged'] }, statusOf)).toBe(true)
+  })
+
+  test('parent still running/ready → blocked (workflow not done yet)', () => {
+    expect(isUnblocked({ parents: ['running'] }, statusOf)).toBe(false)
+    expect(isUnblocked({ parents: ['review', 'running'] }, statusOf)).toBe(false)
+    expect(isUnblocked({ parents: ['ready'] }, statusOf)).toBe(false)
   })
 
   test('unknown parent → blocked', () => {
     expect(isUnblocked({ parents: ['zzz'] }, statusOf)).toBe(false)
+  })
+})
+
+describe('isMergeable (merge gate: all parents merged)', () => {
+  const statuses: Record<TaskId, TaskStatus> = {
+    merged: 'merged',
+    review: 'awaiting-approval',
+  }
+  const statusOf = (id: TaskId) => statuses[id]
+
+  test('no parents → mergeable', () => {
+    expect(isMergeable({ parents: [] }, statusOf)).toBe(true)
+  })
+
+  test('all parents merged → mergeable', () => {
+    expect(isMergeable({ parents: ['merged'] }, statusOf)).toBe(true)
+  })
+
+  test('parent only in review → NOT mergeable (must wait for parent merge)', () => {
+    expect(isMergeable({ parents: ['review'] }, statusOf)).toBe(false)
+    expect(isMergeable({ parents: ['merged', 'review'] }, statusOf)).toBe(false)
   })
 })
 

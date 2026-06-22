@@ -23,6 +23,7 @@ import type { PrintModeEvent, RunState } from '@codebuff/sdk'
 
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
+import { isMergeable, RESTACKABLE_STATUSES, TERMINAL_STATUSES, transitiveDependents } from '../core/graph'
 import { Orchestrator } from '../core/orchestrator'
 import { PipelineRunner, type PipelineExecutors } from '../core/pipeline'
 import {
@@ -96,6 +97,17 @@ export class Engine {
 
   private listeners = new Set<(e: EngineEvent) => void>()
   private activePipelines = new Set<string>()
+  /**
+   * Deferred action for a child whose worktree is busy (it's mid-pipeline) when a
+   * parent's tip moves (`restack`) or the parent is abandoned (`block`). Applied at
+   * the next safe boundary — when the child's pipeline settles (§8). In-memory only:
+   * on restart, `running` tasks are requeued to `ready` and the re-run path rebases
+   * onto the current base anyway, so nothing is lost.
+   */
+  private pendingChildAction = new Map<
+    string,
+    { kind: 'restack' } | { kind: 'block'; reason: string }
+  >()
   private guidance = new Map<string, string[]>()
   private chatRun: RunState | undefined
   /** Serializes chat turns so concurrent messages don't race on `chatRun` (§12). */
@@ -355,17 +367,42 @@ export class Engine {
       let task = this.store.getTask(taskId)!
       if (!task.branch) {
         const slug = `${slugify(task.title)}-${taskId}`
-        const { branch, worktreePath } = await this.worktrees.create(taskId, slug)
-        this.store.updateTask(taskId, { branch, worktreePath }, this.now())
+        const { branch, worktreePath, baseSha } = await this.worktrees.create(taskId, slug)
+        // Dependent (§8): branch off `main`, then merge in any parent whose work
+        // hasn't landed yet so the child builds on it before the human merges. A
+        // conflict among the parents has no auto-resolver — block for a human.
+        let baseRef = baseSha
+        const parentBranches = this.unmergedParentBranches(task)
+        if (parentBranches.length > 0) {
+          const merged = await this.worktrees.mergeParentBranches(taskId, parentBranches)
+          if (!merged.clean) {
+            this.store.updateTask(taskId, { branch, worktreePath, baseRef }, this.now())
+            this.blockChild(
+              taskId,
+              `Couldn't build on unmerged parent branch(es) ${parentBranches.join(', ')} — ` +
+                `they conflict.\nResolve by merging a parent first, or abandon.` +
+                (merged.detail ? `\n\n${merged.detail}` : ''),
+            )
+            return
+          }
+          baseRef = merged.baseSha!
+        }
+        this.store.updateTask(taskId, { branch, worktreePath, baseRef }, this.now())
         task = this.store.getTask(taskId)!
       } else if (task.lastCompletedStage === null) {
-        // Re-run (request-changes / blocked-retry): rebase onto latest main to KEEP
-        // the existing implementation + fix attempts (so a review-blocked retry
+        // Re-run (request-changes / blocked-retry): rebase onto the current base to
+        // KEEP the existing implementation + fix attempts (so a review-blocked retry
         // refines the work instead of restarting and thrashing on the same issue).
-        // Only reset to main from scratch if the branch genuinely no longer applies
-        // (a sibling-merge conflict, §8).
-        const rebase = await this.worktrees.rebaseOntoDefault(taskId, { fetch: false })
-        if (!rebase.clean) await this.worktrees.resetToDefault(taskId)
+        // The base is latest main for an independent task, or a fresh integration of
+        // main + unmerged parents for a dependent (§8). Only reset from scratch if the
+        // branch genuinely no longer applies.
+        if (task.parents.length > 0) {
+          // null → parents conflict and the task is now blocked; don't run the pipeline.
+          if ((await this.rebaseOntoFreshBase(task, 'reset')) === null) return
+        } else {
+          const rebase = await this.worktrees.rebaseOntoDefault(taskId, { fetch: false })
+          if (!rebase.clean) await this.worktrees.resetToDefault(taskId)
+        }
       }
       this.emit({ type: 'log', message: `Starting pipeline for ${taskId} (${task.title})` })
       const result = await this.pipeline.run(taskId)
@@ -377,8 +414,14 @@ export class Engine {
         this.store.setArtifact(taskId, 'blockReason', result.reason)
       }
       this.guidance.delete(taskId)
-      if (result.status === 'awaiting-approval' && this.enableScout) {
-        void this.runScout(taskId) // fire-and-forget: don't block the task settling
+      if (result.status === 'awaiting-approval') {
+        // This task's branch tip is now stable. If it has dependents that already
+        // started on an older tip (it was re-run after request-changes), restack them
+        // onto the new tip; on first completion there are none, so this is a no-op (§8).
+        await this.restackChildrenOf(taskId)
+        if (this.enableScout) {
+          void this.runScout(taskId) // fire-and-forget: don't block the task settling
+        }
       }
     } catch (err) {
       // Capture the error as the blockReason so the UI's "Retry with guidance"
@@ -389,8 +432,109 @@ export class Engine {
       this.emit({ type: 'log', message: `Task ${taskId} errored: ${(err as Error).message}` })
     } finally {
       this.activePipelines.delete(taskId)
+      // Now that the worktree is idle, apply any action deferred while it was busy
+      // (a parent moved → restack, or a parent was abandoned → block) (§8).
+      await this.applyPendingChildAction(taskId)
       this.emitState()
       void this.tick()
+    }
+  }
+
+  // — Dependency restacking (§8) —
+
+  /** Branches of a task's parents whose work hasn't merged yet (merged parents are
+   * already on `main`, so they're excluded). These get merged into / restacked under
+   * a dependent so it builds on their not-yet-landed code. */
+  private unmergedParentBranches(task: Task): string[] {
+    return task.parents
+      .map((id) => this.store.getTask(id))
+      .filter((p): p is Task => !!p && p.status === 'awaiting-approval' && !!p.branch)
+      .map((p) => p.branch!)
+  }
+
+  /** Restack every live dependent of `parentId` whose tip just changed (parent
+   * re-ran or merged). A dependent that hasn't started yet has no branch and simply
+   * gets a fresh base when the scheduler admits it, so it's skipped here. */
+  private async restackChildrenOf(parentId: string): Promise<void> {
+    for (const childId of this.store.childrenOf(parentId)) {
+      const child = this.store.getTask(childId)
+      if (!child || !child.branch) continue
+      // Only restack actively-progressing dependents. A `blocked`/`failed` child is
+      // awaiting human action and is reviewed on a stable diff (§13) — don't rebase it
+      // underneath the human; its re-run recomputes the base anyway (§8, §12).
+      if (!RESTACKABLE_STATUSES.has(child.status)) continue
+      if (this.activePipelines.has(childId)) {
+        // Worktree busy — defer the restack until the pipeline settles.
+        this.pendingChildAction.set(childId, { kind: 'restack' })
+        continue
+      }
+      await this.restackChild(child)
+    }
+  }
+
+  /**
+   * Rebase a dependent's branch onto a freshly-recomputed integration base (main +
+   * its still-unmerged parents), replaying only the child's own commits. Returns the
+   * new base SHA, or null if the parents themselves conflict (the task is blocked).
+   * `onSelfConflict` decides what to do if the child's commits don't replay: `block`
+   * it for a human (the restack-cascade path), or `reset` to the base so the pipeline
+   * re-implements from there (the re-run path) (§8, §12).
+   */
+  private async rebaseOntoFreshBase(
+    task: Task,
+    onSelfConflict: 'block' | 'reset',
+  ): Promise<string | null> {
+    const base = await this.worktrees.integrationBaseSha(task.id, this.unmergedParentBranches(task))
+    if (!base.clean) {
+      this.blockChild(task.id, `Parent branches conflict — can't rebuild this task's base.${base.detail ? `\n\n${base.detail}` : ''}`)
+      return null
+    }
+    // `--onto newBase <oldBase>` needs the real old base to replay only the task's own
+    // commits. Without a recorded baseRef (e.g. a pre-v3 row) we can't pick a safe
+    // upstream, so treat it as a non-clean replay rather than guessing.
+    const res = task.baseRef
+      ? await this.worktrees.restack(task.id, base.baseSha, task.baseRef)
+      : { clean: false, detail: 'no recorded base to restack from' }
+    if (!res.clean) {
+      if (onSelfConflict === 'block') {
+        this.blockChild(task.id, `Couldn't restack onto the updated parent work — it conflicts.\nRequest changes to re-run from the new base, or abandon.${res.detail ? `\n\n${res.detail}` : ''}`)
+        return null
+      }
+      await this.worktrees.resetTo(task.id, base.baseSha)
+    }
+    this.store.updateTask(task.id, { baseRef: base.baseSha }, this.now())
+    return base.baseSha
+  }
+
+  /** Restack one dependent whose parent's tip moved (re-ran or merged). After a
+   * successful restack the child's tip moved too, so cascade to its dependents (§8). */
+  private async restackChild(child: Task): Promise<void> {
+    if ((await this.rebaseOntoFreshBase(child, 'block')) === null) return
+    this.emit({ type: 'log', message: `Restacked ${child.id} onto updated base` })
+    await this.restackChildrenOf(child.id)
+  }
+
+  private blockChild(taskId: string, reason: string): void {
+    this.store.updateTask(taskId, { status: 'blocked', stage: null }, this.now())
+    this.store.setArtifact(taskId, 'blockReason', reason)
+    this.emit({ type: 'log', message: `Task ${taskId} blocked: ${reason.split('\n')[0]}` })
+  }
+
+  /** Apply a restack/block deferred while a child's worktree was busy (§8). */
+  private async applyPendingChildAction(taskId: string): Promise<void> {
+    const action = this.pendingChildAction.get(taskId)
+    if (!action) return
+    this.pendingChildAction.delete(taskId)
+    const task = this.store.getTask(taskId)
+    if (!task || TERMINAL_STATUSES.has(task.status)) return
+    if (action.kind === 'block') {
+      this.blockChild(taskId, action.reason)
+      // The child was built on an abandoned parent; drop its worktree and branch so a
+      // later re-run starts fresh from main (§8).
+      await this.worktrees.remove(taskId).catch(() => {})
+      this.store.updateTask(taskId, { branch: null, worktreePath: null, baseRef: null }, this.now())
+    } else if (task.branch) {
+      await this.restackChild(task)
     }
   }
 
@@ -399,10 +543,26 @@ export class Engine {
   async approveAndMerge(taskId: string): Promise<void> {
     const task = this.store.getTask(taskId)
     if (!task || task.status !== 'awaiting-approval' || !task.branch) return
+    // Merge gate (§8): a dependent's branch is stacked on its parents' commits, so it
+    // can't land ahead of them. Block merging until every parent is merged; once a
+    // parent merges we restack this child onto `main` (below), making it mergeable.
+    const statusOf = (id: string) => this.store.getTask(id)?.status
+    if (!isMergeable(task, statusOf)) {
+      const pending = task.parents.filter((p) => this.store.getTask(p)?.status !== 'merged')
+      this.emit({
+        type: 'log',
+        message: `Can't merge ${taskId} yet — waiting on parent merge: ${pending.join(', ')}`,
+      })
+      return
+    }
     const message = `${task.title} (#${taskId})`
 
     if (await this.worktrees.hasRemote()) {
       await this.worktrees.squashMerge(taskId, task.branch)
+      // `gh pr merge` lands the squash on the remote only; pull it into the local
+      // default branch so the restack below (and future dependents) build on the
+      // just-merged parent rather than a stale `main` (§8).
+      await this.worktrees.syncDefaultFromRemote().catch(() => {})
     } else {
       // Rebase onto latest main before merging (§8): a sibling task may have
       // merged first and touched the same lines. If the rebase doesn't apply
@@ -430,6 +590,10 @@ export class Engine {
     this.store.updateTask(taskId, { status: 'merged', stage: null }, this.now())
     await this.worktrees.remove(taskId).catch(() => {})
     this.emit({ type: 'log', message: `Merged ${taskId}` })
+    // This task's content is now squashed onto `main`. Restack its live dependents
+    // off `main` (dropping this parent's now-landed commits) so they keep building
+    // and become mergeable in turn (§8).
+    await this.restackChildrenOf(taskId)
     this.emitState()
     void this.tick()
   }
@@ -458,9 +622,34 @@ export class Engine {
   }
 
   async abandon(taskId: string): Promise<void> {
+    // orchestrator.abandonTask marks the task abandoned and cascades `blocked` to all
+    // (transitive) dependents — their work was built on this one (§8). Capture the same
+    // set first so we can clean up the worktrees of any that already started.
+    const isTerminal = (id: string) => {
+      const t = this.store.getTask(id)
+      return !t || TERMINAL_STATUSES.has(t.status)
+    }
+    const descendants = transitiveDependents(taskId, (id) => this.store.childrenOf(id), isTerminal)
     this.orchestrator.abandonTask({ taskId })
     this.guidance.delete(taskId)
     await this.worktrees.remove(taskId).catch(() => {})
+    const reason =
+      `A task this depended on was abandoned — its work was built on it. ` +
+      `Request changes to re-run from main, or abandon.`
+    for (const id of descendants) {
+      this.guidance.delete(id)
+      if (this.activePipelines.has(id)) {
+        // Running — block + GC when its pipeline settles (don't touch a busy worktree).
+        this.pendingChildAction.set(id, { kind: 'block', reason })
+        continue
+      }
+      this.store.setArtifact(id, 'blockReason', reason)
+      if (this.store.getTask(id)?.branch) {
+        await this.worktrees.remove(id).catch(() => {})
+        // Clear branch/base so a later re-run starts fresh from main (§8).
+        this.store.updateTask(id, { branch: null, worktreePath: null, baseRef: null }, this.now())
+      }
+    }
     this.emitState()
     void this.tick()
   }
@@ -527,9 +716,12 @@ export class Engine {
             "that advance the project's priorities — natural next features, polish, " +
             'or debt the just-finished work created. Lean toward proposing useful ' +
             'next steps. Each create_task needs a short imperative title, a concrete ' +
-            'description, and a one-line rationale. Prefer INDEPENDENT tasks. Do NOT ' +
-            'duplicate an existing task. Only propose nothing if the project is ' +
-            'genuinely complete given the priorities.',
+            'description, and a one-line rationale. Prefer independent tasks when work ' +
+            "is genuinely separate, but don't avoid dependencies: a dependent task now " +
+            'starts as soon as its parent passes review and testing (it no longer waits ' +
+            'for the human to merge), so wire a dependency whenever work builds on ' +
+            'another task. Do NOT duplicate an existing task. Only propose nothing if ' +
+            'the project is genuinely complete given the priorities.',
           instructionsPrompt: 'Create your proposed follow-up tasks now using create_task.',
         },
         prompt:

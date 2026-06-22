@@ -152,4 +152,80 @@ describe('WorktreeManager (real git)', () => {
     await mgr.remove('t1')
     expect(existsSync(worktreePath)).toBe(false)
   })
+
+  // — Dependents building on unmerged parents (§8) —
+
+  test('mergeParentBranches builds the child on a parent\'s unmerged work', async () => {
+    const mgr = new WorktreeManager({ repoRoot, runner: bunRunner })
+    // Parent has unmerged work on its own branch.
+    const parent = await mgr.create('tp', 'parent')
+    writeFileSync(join(parent.worktreePath, 'parent.txt'), 'from parent\n')
+    await git(['add', '.'], parent.worktreePath)
+    await git(['commit', '-m', 'parent work'], parent.worktreePath)
+
+    // Child starts off main (no parent.txt yet), then merges the parent branch in.
+    const child = await mgr.create('tc', 'child')
+    expect(existsSync(join(child.worktreePath, 'parent.txt'))).toBe(false)
+    const res = await mgr.mergeParentBranches('tc', [parent.branch])
+    expect(res.clean).toBe(true)
+    expect(res.baseSha).toBeTruthy()
+    expect(existsSync(join(child.worktreePath, 'parent.txt'))).toBe(true)
+  })
+
+  test('integrationBaseSha with no parents returns the main tip', async () => {
+    const mgr = new WorktreeManager({ repoRoot, runner: bunRunner })
+    const res = await mgr.integrationBaseSha('tc', [])
+    expect(res.clean).toBe(true)
+    expect(res.baseSha).toBe((await git(['rev-parse', 'main'])).trim())
+  })
+
+  test('integrationBaseSha reports a conflict when parents collide, and cleans up', async () => {
+    const mgr = new WorktreeManager({ repoRoot, runner: bunRunner })
+    const p1 = await mgr.create('tp1', 'p1')
+    writeFileSync(join(p1.worktreePath, 'file.txt'), 'p1 version\n')
+    await git(['add', '.'], p1.worktreePath)
+    await git(['commit', '-m', 'p1 edit'], p1.worktreePath)
+
+    const p2 = await mgr.create('tp2', 'p2')
+    writeFileSync(join(p2.worktreePath, 'file.txt'), 'p2 version\n')
+    await git(['add', '.'], p2.worktreePath)
+    await git(['commit', '-m', 'p2 edit'], p2.worktreePath)
+
+    const res = await mgr.integrationBaseSha('tc', [p1.branch, p2.branch])
+    expect(res.clean).toBe(false)
+    expect(res.detail).toBeTruthy()
+    // The throwaway base worktree was removed.
+    expect(existsSync(join(repoRoot, '.freebuff', 'worktrees', '_base-tc'))).toBe(false)
+  })
+
+  test('restack replays only the child\'s commits onto main after the parent merges', async () => {
+    const mgr = new WorktreeManager({ repoRoot, runner: bunRunner })
+    // Parent's unmerged work.
+    const parent = await mgr.create('tp', 'parent')
+    writeFileSync(join(parent.worktreePath, 'parent.txt'), 'from parent\n')
+    await git(['add', '.'], parent.worktreePath)
+    await git(['commit', '-m', 'parent work'], parent.worktreePath)
+
+    // Child built on the parent, then adds its own commit.
+    const child = await mgr.create('tc', 'child')
+    const merged = await mgr.mergeParentBranches('tc', [parent.branch])
+    const oldBase = merged.baseSha!
+    writeFileSync(join(child.worktreePath, 'child.txt'), 'from child\n')
+    await git(['add', '.'], child.worktreePath)
+    await git(['commit', '-m', 'child work'], child.worktreePath)
+
+    // Parent merges to main; recompute the base (no unmerged parents left → main tip).
+    await mgr.localSquashMerge(parent.branch, 'merge parent')
+    const newBase = await mgr.integrationBaseSha('tc', [])
+    const res = await mgr.restack('tc', newBase.baseSha, oldBase)
+    expect(res.clean).toBe(true)
+
+    // Child keeps its own file + main's parent file; its PR diff is ONLY child.txt
+    // (the parent's now-landed commit was dropped by the --onto restack).
+    expect(existsSync(join(child.worktreePath, 'child.txt'))).toBe(true)
+    expect(existsSync(join(child.worktreePath, 'parent.txt'))).toBe(true)
+    const prDiff = await mgr.diffAgainstDefault('tc')
+    expect(prDiff).toContain('child.txt')
+    expect(prDiff).not.toContain('parent.txt')
+  })
 })

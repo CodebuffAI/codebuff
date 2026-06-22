@@ -272,19 +272,27 @@ product and we harden the two highest-value surfaces first.
 
 ## 8. Task Graph & Dependencies
 
-V1 keeps dependencies deliberately simple — **ordering only, everything branches
-from `main`.** (The more elaborate "build on an unmerged parent branch + an
-integration agent that auto-resolves conflicts" model was considered and cut; it's a
-possible later addition if real usage demands it.)
+Dependencies have **two gates** so a dependent can make progress without waiting on
+the human to merge: it **starts** as soon as its parents finish their workflow
+(review + testing), and only **merges** after its parents merge.
 
-- **Edge semantics:** `B depends on A` ⇒ B is not started until **A is merged to
-  `main`**. Because B then branches from `main`, it already contains A's work — no
-  branching from an unmerged parent, no ephemeral integration branches. If work
-  genuinely must build on other work, this is how: the dependent simply waits for
-  the merge.
+- **Edge semantics:** `B depends on A` ⇒
+  - **Start gate** — B starts once A reaches `awaiting-approval` (A's pipeline —
+    implement → review → test → PR — is done). B branches from `main` and merges A's
+    unmerged branch in, so it builds on A's not-yet-landed code. With several unmerged
+    parents, B branches off an integration of all of them; if they conflict, B is
+    `blocked` for a human (no auto-resolver).
+  - **Merge gate** — B can only merge once all its parents are merged: its branch is
+    stacked on their commits, so it can't land ahead of them. When a parent merges, B
+    is **restacked** onto `main` (`git rebase --onto`, dropping the parent's now-landed
+    commits) so it becomes mergeable on its own.
 - **Independent tasks run fully in parallel.** Tasks with no dependency between them
   branch from `main` and run concurrently (up to the concurrency cap), each opening
   its own PR. This is the common case and the main source of throughput.
+- **Parent disruption restacks the child.** If a parent re-runs (request-changes) its
+  tip moves; the child is restacked onto the new tip. If the child is mid-pipeline the
+  restack is deferred until it settles. A restack that conflicts → the child is
+  `blocked` for a human.
 - **Sibling-merge races.** Two independent tasks can touch the same files. Before a
   task is surfaced, the scheduler **rebases its branch onto latest `main` and
   re-runs the test pass**; if the rebase doesn't apply cleanly, the task is marked
@@ -293,10 +301,10 @@ possible later addition if real usage demands it.)
 - **Cycle prevention.** The orchestrator's `add_dependency` tool rejects edges that
   would create a cycle.
 - **Merge & cascade.** Approval **squash-merges** the PR to `main` via
-  `gh pr merge --squash` (one clean commit per task), which unblocks any dependents
-  waiting on it. If the human **abandons or rejects** a task, its dependents — which
-  were waiting on its merge and never started — are marked `blocked` for the user to
-  redirect or drop.
+  `gh pr merge --squash` (one clean commit per task), which restacks any dependents
+  onto `main`. If the human **abandons or rejects** a task, its (transitive) dependents
+  — whose work was built on it — are marked `blocked` for the user to redirect or drop;
+  any that already started have their worktrees GC'd so a re-run starts fresh.
 
 ## 9. Continuous Task Generation (the Scout)
 
@@ -305,10 +313,10 @@ loop keeps turning without waiting on the human to merge:
 - Reads **`priorities.md`**, the just-completed work, and the current graph.
 - Proposes follow-up tasks (bug fixes it noticed, natural next steps, debt it
   created, opportunities aligned with the project's priorities).
-- **Prefers independent tasks.** Because a dependency makes a task wait for the
-  parent's *merge* (§8), and merges wait on the human, the Scout defaults to
-  standalone tasks branched from `main` — so the machine keeps moving while you're
-  away. It wires a dependency only when work genuinely needs prior work merged first.
+- **Wires dependencies freely.** A dependent now starts as soon as its parent passes
+  review + testing (§8) — it no longer waits on the human to merge — so the Scout wires
+  a dependency whenever work builds on another task, and still prefers independent
+  tasks when work is genuinely separate.
 - New tasks enter as **`proposed`** with a one-line rationale. There is no priority
   field — once promoted, they run in creation order (FIFO).
 

@@ -24,7 +24,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` applies steps past the current version. */
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 
 /** camelCase task field → snake_case column, for the dynamic `updateTask` patch. */
 const TASK_UPDATE_COLUMNS: Record<string, string> = {
@@ -32,6 +32,7 @@ const TASK_UPDATE_COLUMNS: Record<string, string> = {
   description: 'description',
   status: 'status',
   branch: 'branch',
+  baseRef: 'base_ref',
   worktreePath: 'worktree_path',
   prUrl: 'pr_url',
   lastCompletedStage: 'last_completed_stage',
@@ -74,6 +75,7 @@ type TaskRow = {
   description: string
   status: TaskStatus
   branch: string | null
+  base_ref: string | null
   worktree_path: string | null
   pr_url: string | null
   last_completed_stage: PipelineStage | null
@@ -143,6 +145,7 @@ export class Store {
         description              TEXT NOT NULL,
         status                   TEXT NOT NULL DEFAULT 'proposed',
         branch                   TEXT,
+        base_ref                 TEXT,
         worktree_path            TEXT,
         pr_url                   TEXT,
         last_completed_stage     TEXT,
@@ -196,7 +199,24 @@ export class Store {
         PRIMARY KEY (task_id, key)
       );
     `)
+
+    // v2→v3: dependents may start before their parents merge, branching off an
+    // integration base instead of `main` (§8). `base_ref` records that base so the
+    // child can be restacked onto `main` once its parents merge. `CREATE TABLE IF
+    // NOT EXISTS` above won't add the column to a pre-existing table, so add it
+    // explicitly; existing rows get NULL, correct for independent/merged tasks.
+    this.addColumnIfMissing('tasks', 'base_ref', 'TEXT')
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
+  }
+
+  /** Idempotent `ALTER TABLE … ADD COLUMN` for in-place schema upgrades. */
+  private addColumnIfMissing(table: string, column: string, type: string): void {
+    const cols = this.db.query(`PRAGMA table_info(${table})`).all() as {
+      name: string
+    }[]
+    if (cols.some((c) => c.name === column)) return
+    this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
   }
 
   // — Projects —
@@ -260,6 +280,7 @@ export class Store {
       status: input.status ?? 'proposed',
       parents,
       branch: null,
+      baseRef: null,
       worktreePath: null,
       prUrl: null,
       lastCompletedStage: null,
@@ -343,6 +364,7 @@ export class Store {
         | 'description'
         | 'status'
         | 'branch'
+        | 'baseRef'
         | 'worktreePath'
         | 'prUrl'
         | 'lastCompletedStage'
@@ -530,6 +552,7 @@ function rowToTask(row: TaskRow, parents: TaskId[]): Task {
     status: row.status,
     parents,
     branch: row.branch,
+    baseRef: row.base_ref,
     worktreePath: row.worktree_path,
     prUrl: row.pr_url,
     lastCompletedStage: row.last_completed_stage,
