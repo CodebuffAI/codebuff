@@ -6,35 +6,82 @@
  *
  *   bun freebuff-desktop/src/app/server.ts
  *   PORT=8787 TARGET_REPO=/path/to/repo bun freebuff-desktop/src/app/server.ts
+ *
+ * The project directory is not fixed at launch: the user can open any local git
+ * repo from the UI (§6.2). On open we tear down the engine, stand up a fresh one
+ * pointed at the chosen folder, and remember it for next launch.
  */
 
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 import { Engine, type EngineEvent } from './engine'
+import {
+  browseDir,
+  readLastProject,
+  validateProjectDir,
+  writeLastProject,
+} from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 
 const PORT = Number(process.env.PORT ?? 8787)
-const TARGET_REPO =
-  process.env.TARGET_REPO ?? join(process.env.HOME ?? '/tmp', 'freebuff-desktop-demo')
 const UI_PATH = join(import.meta.dir, 'ui', 'index.html')
 
-await ensureSampleRepo(TARGET_REPO)
+// Initial project: explicit env override > last-opened folder > scaffolded demo.
+// Only the demo path gets sample files; a real folder the user opened is left alone.
+function defaultRepo(): string {
+  return join(process.env.HOME ?? '/tmp', 'freebuff-desktop-demo')
+}
+const initialRepo = process.env.TARGET_REPO ?? readLastProject() ?? defaultRepo()
+if (initialRepo === defaultRepo()) await ensureSampleRepo(initialRepo)
 
-const engine = new Engine({
-  repoRoot: TARGET_REPO,
-  repoUrl: TARGET_REPO,
-  concurrencyCap: Number(process.env.CONCURRENCY ?? 2),
-  // Scout on by default — proposals are a reviewable backlog (§9), not auto-run,
-  // so it's safe. Set ENABLE_SCOUT=0 to disable.
-  enableScout: process.env.ENABLE_SCOUT !== '0',
-})
+// — Engine lifecycle —
+// SSE subscribers live at the server level, not on the engine, so an open-project
+// swap keeps every connected client streaming from the new engine without a reconnect.
+const subscribers = new Set<(e: EngineEvent) => void>()
+const broadcast = (e: EngineEvent) => {
+  for (const s of subscribers) s(e)
+}
 
-// Discovered run-config (§6.4). For the demo repo this is the node test runner;
-// a real attach would run the setup agent. Kept simple here.
-engine.store.updateProjectRunConfig('project', {
-  test: process.env.TEST_CMD ?? 'node --test',
-})
+let currentRepo = initialRepo
+let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).defaultBranch)
+let engineUnsub = engine.on(broadcast)
+
+function makeEngine(repoRoot: string, defaultBranch?: string): Engine {
+  const e = new Engine({
+    repoRoot,
+    repoUrl: repoRoot,
+    defaultBranch,
+    concurrencyCap: Number(process.env.CONCURRENCY ?? 2),
+    // Scout on by default — proposals are a reviewable backlog (§9), not auto-run,
+    // so it's safe. Set ENABLE_SCOUT=0 to disable.
+    enableScout: process.env.ENABLE_SCOUT !== '0',
+  })
+  // Discovered run-config (§6.4). For the demo repo this is the node test runner;
+  // a real attach would run the setup agent. Kept simple here.
+  e.store.updateProjectRunConfig('project', {
+    test: process.env.TEST_CMD ?? 'node --test',
+  })
+  return e
+}
+
+/** Tear down the current engine and open `dir` as the project (§6.2). */
+async function openProject(dir: string): Promise<{ ok: boolean; error?: string }> {
+  const info = await validateProjectDir(dir)
+  if (!info.ok) return { ok: false, error: info.error }
+
+  engineUnsub()
+  engine.close()
+
+  currentRepo = info.path
+  engine = makeEngine(info.path, info.defaultBranch)
+  engineUnsub = engine.on(broadcast)
+  writeLastProject(info.path)
+
+  // Push the new project's state to every connected client immediately.
+  broadcast({ type: 'state', snapshot: engine.snapshot() })
+  return { ok: true }
+}
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -65,21 +112,23 @@ const server = Bun.serve({
 
     // — Server-Sent Events: live engine state + agent activity —
     if (pathname === '/api/events') {
-      let unsub: () => void = () => {}
+      let send: (e: EngineEvent) => void = () => {}
       const stream = new ReadableStream({
         start(controller) {
-          const send = (e: EngineEvent) => {
+          send = (e: EngineEvent) => {
             try {
               controller.enqueue(`data: ${JSON.stringify(e)}\n\n`)
             } catch {
-              unsub()
+              subscribers.delete(send)
             }
           }
+          // Subscribe at the server level so an open-project engine swap keeps this
+          // connection live and streaming from whichever engine is current.
           send({ type: 'state', snapshot: engine.snapshot() })
-          unsub = engine.on(send)
+          subscribers.add(send)
         },
         cancel() {
-          unsub()
+          subscribers.delete(send)
         },
       })
       return new Response(stream, {
@@ -98,7 +147,7 @@ const server = Bun.serve({
       rel = decodeURIComponent(rel.split('?')[0])
       if (rel.includes('..')) return new Response('Forbidden', { status: 403 })
       if (rel.endsWith('/')) rel += 'index.html'
-      const full = join(TARGET_REPO, rel)
+      const full = join(currentRepo, rel)
       if (!existsSync(full)) return new Response('Not found', { status: 404 })
       return new Response(Bun.file(full))
     }
@@ -106,6 +155,18 @@ const server = Bun.serve({
     if (pathname === '/api/state') return json(engine.snapshot())
 
     if (pathname === '/api/chat-history') return json(engine.chatHistory())
+
+    // — Project directory: browse the filesystem and open a folder (§6.2) —
+    if (pathname === '/api/fs/list') {
+      return json(browseDir(url.searchParams.get('path') ?? undefined))
+    }
+
+    if (pathname === '/api/project/open' && req.method === 'POST') {
+      const { path } = await body(req)
+      if (!path) return json({ error: 'path required' }, 400)
+      const result = await openProject(String(path))
+      return result.ok ? json({ ok: true, path: currentRepo }) : json(result, 400)
+    }
 
     if (pathname === '/api/chat' && req.method === 'POST') {
       const { message } = await body(req)
@@ -185,4 +246,4 @@ const server = Bun.serve({
 })
 
 console.log(`Freebuff Desktop orchestrator on http://localhost:${server.port}`)
-console.log(`Target repo: ${TARGET_REPO}`)
+console.log(`Target repo: ${currentRepo}`)

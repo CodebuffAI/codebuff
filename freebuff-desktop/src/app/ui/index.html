@@ -217,6 +217,26 @@
       .help-grid b { color: var(--accent); font-weight: 650; }
       .help-keys { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 12px; color: var(--muted); }
       .help-keys b { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; font-weight: 600; }
+
+      /* folder picker overlay */
+      #fp { position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
+      .fp-card { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 20px 22px; max-width: 540px; width: 100%; box-shadow: 0 12px 48px rgba(0,0,0,0.6); display: flex; flex-direction: column; max-height: 80vh; }
+      .fp-card h3 { margin: 0 0 4px; font-size: 16px; }
+      .fp-card p { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; }
+      .fp-path { display: flex; gap: 8px; margin-bottom: 10px; }
+      .fp-path input { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 9px; padding: 8px 11px; font: inherit; font-family: ui-monospace, monospace; font-size: 12px; }
+      .fp-path input:focus { outline: none; border-color: var(--accent); }
+      .fp-list { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); min-height: 180px; }
+      .fp-row { display: flex; align-items: center; gap: 9px; padding: 7px 12px; cursor: pointer; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+      .fp-row:last-child { border-bottom: none; }
+      .fp-row:hover { background: var(--surface-2); }
+      .fp-row .ic { width: 16px; text-align: center; flex: 0 0 16px; }
+      .fp-row .repo-tag { margin-left: auto; font-size: 10px; color: var(--green); border: 1px solid var(--green-line); border-radius: 20px; padding: 1px 7px; font-weight: 600; }
+      .fp-row.up { color: var(--muted); }
+      .fp-empty { padding: 18px 12px; color: var(--faint); font-size: 12px; text-align: center; }
+      .fp-foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+      .fp-cur { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .fp-err { color: var(--amber); font-size: 12px; margin-top: 8px; min-height: 16px; }
     </style>
   </head>
   <body>
@@ -231,7 +251,8 @@
       <div class="col" id="col-board">
         <div class="col-head brand">
           <div class="proj"><span class="name" id="projName">Freebuff</span><span class="branch" id="projBranch"></span></div>
-          <button class="ghost sm" style="margin-left:auto" onclick="openPreview()" title="Preview index.html">◐ Preview</button>
+          <button class="ghost sm" style="margin-left:auto" onclick="openFolderPicker()" title="Open a project folder">📂 Open</button>
+          <button class="ghost sm" onclick="openPreview()" title="Preview index.html">◐ Preview</button>
           <button class="ghost sm" onclick="openRun()" title="Run a command in the project">▶ Run</button>
         </div>
         <div class="col-body">
@@ -482,6 +503,69 @@
         document.body.appendChild(el)
       }
 
+      // ---- Folder picker: open a local git repo as the project ----
+      async function openFolderPicker() {
+        if (document.getElementById('fp')) return
+        const el = document.createElement('div'); el.id = 'fp'
+        el.onclick = (e) => { if (e.target.id === 'fp') el.remove() }
+        el.innerHTML =
+          '<div class="fp-card"><h3>Open a project folder</h3>' +
+          '<p>Pick a local git repository. The orchestrator will run tasks against it.</p>' +
+          '<div class="fp-path"><input id="fpInput" placeholder="Type or paste an absolute path…" spellcheck="false" />' +
+          '<button class="ghost sm" onclick="fpGoTyped()">Go</button></div>' +
+          '<div class="fp-list" id="fpList"></div>' +
+          '<div class="fp-err" id="fpErr"></div>' +
+          '<div class="fp-foot"><span class="fp-cur" id="fpCur"></span>' +
+          '<button class="ghost sm" onclick="document.getElementById(\'fp\').remove()">Cancel</button>' +
+          '<button id="fpOpen" onclick="fpConfirm()">Open this folder</button></div></div>'
+        document.body.appendChild(el)
+        document.getElementById('fpInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') fpGoTyped() })
+        await fpBrowse(null)
+      }
+      async function fpBrowse(path) {
+        const qs = path ? '?path=' + encodeURIComponent(path) : ''
+        let data
+        try { data = await fetch('/api/fs/list' + qs).then((r) => r.json()) } catch { return }
+        state.fp = data
+        const list = document.getElementById('fpList'); if (!list) return
+        const rows = []
+        if (data.parent) rows.push('<div class="fp-row up" onclick="fpBrowse(' + jsStr(data.parent) + ')"><span class="ic">↑</span>Parent folder</div>')
+        for (const e of data.entries) {
+          rows.push('<div class="fp-row" onclick="fpBrowse(' + jsStr(e.path) + ')"><span class="ic">' + (e.isRepo ? '◆' : '📁') + '</span>' +
+            esc(e.name) + (e.isRepo ? '<span class="repo-tag">git</span>' : '') + '</div>')
+        }
+        list.innerHTML = rows.length ? rows.join('') : '<div class="fp-empty">No subfolders here.</div>'
+        const input = document.getElementById('fpInput'); if (input) input.value = data.path
+        const cur = document.getElementById('fpCur'); if (cur) cur.textContent = data.isRepo ? '✓ git repo — ready to open' : 'Not a git repo'
+        const openBtn = document.getElementById('fpOpen'); if (openBtn) openBtn.disabled = !data.isRepo
+        const err = document.getElementById('fpErr'); if (err) err.textContent = ''
+      }
+      function fpGoTyped() { const v = (document.getElementById('fpInput').value || '').trim(); if (v) fpBrowse(v) }
+      // Load the persisted chat transcript (on first load and after switching projects).
+      function loadChatHistory() {
+        return fetch('/api/chat-history').then((r) => r.json()).then((hist) => {
+          state.chat = (Array.isArray(hist) ? hist : []).map((m) => ({ role: m.role, text: m.text, acts: m.acts || [], done: true }))
+          if (state.view === 'chat') renderChatLog()
+        }).catch(() => {})
+      }
+      async function fpConfirm() {
+        const path = state.fp && state.fp.path; if (!path) return
+        const btn = document.getElementById('fpOpen'); const err = document.getElementById('fpErr')
+        btn.disabled = true; btn.textContent = 'Opening…'
+        try {
+          const r = await fetch('/api/project/open', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) })
+          const data = await r.json()
+          if (!r.ok) { err.textContent = data.error || 'Could not open folder'; btn.disabled = false; btn.textContent = 'Open this folder'; return }
+          // Reset client view to the new project; SSE pushes the fresh state.
+          state.sel = null; state.chat = []; state.transcripts = {}; state.artifacts = {}; state.prevStatuses = null
+          document.getElementById('fp').remove()
+          loadChatHistory()
+          backToChat()
+        } catch (e) { err.textContent = 'Could not open folder'; btn.disabled = false; btn.textContent = 'Open this folder' }
+      }
+      // Single-quote-safe arg for inline onclick handlers (paths may contain quotes/spaces).
+      function jsStr(s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'" }
+
       // ---- Preview panel (iframe the project's index.html) ----
       function nextNonce() { return (state.previewNonce = (state.previewNonce || 0) + 1) }
       function openPreview() { state.view = 'preview'; setPane('main'); renderMain() }
@@ -713,10 +797,10 @@
       function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
 
       // expose
-      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send })
+      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send, openFolderPicker, fpBrowse, fpGoTyped, fpConfirm })
       // ---- Keyboard shortcuts (skip while typing in a field) ----
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { if (document.getElementById('help')) return toggleHelp(); if (state.previewFullscreen) return toggleFullscreen() }
+        if (e.key === 'Escape') { const fp = document.getElementById('fp'); if (fp) return fp.remove(); if (document.getElementById('help')) return toggleHelp(); if (state.previewFullscreen) return toggleFullscreen() }
         const tag = (e.target.tagName || '').toLowerCase()
         if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return
         if (e.key === '?') { e.preventDefault(); return toggleHelp() }
@@ -730,13 +814,8 @@
         else if (e.key === 'c') { e.preventDefault(); goChat(); const i = document.getElementById('chatInput'); if (i) i.focus() }
       })
 
-      // Load the persisted chat transcript so the conversation survives reloads.
-      fetch('/api/chat-history').then((r) => r.json()).then((hist) => {
-        if (Array.isArray(hist) && hist.length) {
-          state.chat = hist.map((m) => ({ role: m.role, text: m.text, acts: m.acts || [], done: true }))
-          if (state.view === 'chat') renderChatLog()
-        }
-      }).catch(() => {})
+      // Restore the persisted chat transcript so the conversation survives reloads.
+      loadChatHistory()
 
       renderMain()
       setPane('main') // sync the narrow-mode switcher with the visible pane on load

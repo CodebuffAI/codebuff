@@ -235,6 +235,16 @@ export class Engine {
     this.emit({ type: 'state', snapshot: this.snapshot() })
   }
 
+  /**
+   * Release process-level resources (the SQLite handle, listeners) so the engine
+   * can be discarded when the user opens a different project directory (§6.2). The
+   * in-memory pipeline state is dropped with the instance.
+   */
+  close() {
+    this.listeners.clear()
+    this.store.close()
+  }
+
   artifacts(taskId: string) {
     return this.store.getArtifacts(taskId)
   }
