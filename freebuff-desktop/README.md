@@ -27,12 +27,40 @@ The core has no Electron or React dependency and is exercised with `bun test`.
 Electron's main process runs Node, not Bun. To honor the PRD's "Bun main process"
 (reuse `sdk/` and `agent-runtime` directly, which export Bun-targeted TS) the app is
 structured as **an Electron UI shell + a Bun orchestrator process** it spawns and
-talks to over local IPC. This `core/` module is that Bun process's engine; the
-Electron shell and the IPC bridge are a later layer in this same package.
+talks to over local IPC.
+
+```
+electron/main.cjs (Node)                src/app/server.ts (Bun)
+┌─────────────────────────┐  spawn   ┌───────────────────────────────┐
+│ BrowserWindow            ├─────────►│ Engine (store/worktree/docs/   │
+│  └ loads 127.0.0.1:PORT  │  HTTP/   │ scheduler/pipeline) +          │
+│ child-process lifecycle  │◄── SSE ──┤ self-contained UI (index.html) │
+└─────────────────────────┘          └───────────────────────────────┘
+```
+
+`electron/main.cjs` picks a free loopback port, spawns `bun src/app/server.ts` with
+that `PORT`, waits for `/api/state` to answer, then points the window at it. There is
+no separate renderer build step — the Bun server serves the existing UI and the
+window talks to it over fetch + EventSource, exactly as a browser would. The window
+owns the orchestrator's lifecycle: closing/quitting the app stops the Bun process.
 
 ## Run
 
 ```bash
+# Launch the desktop app (Electron shell + Bun orchestrator)
+bun --cwd freebuff-desktop run app
+
+# Point it at a real repo instead of the bundled demo repo
+FREEBUFF_TARGET_REPO=/path/to/repo bun --cwd freebuff-desktop run app
+
+# Just the orchestrator + UI in a browser (no Electron window), for fast iteration
+PORT=8787 bun --cwd freebuff-desktop run app:server   # then open http://localhost:8787
+
 bun test --cwd freebuff-desktop      # unit tests for the core
 bun --cwd freebuff-desktop run typecheck
 ```
+
+Env vars consumed by the shell: `FREEBUFF_TARGET_REPO` (repo to operate on) and
+`FREEBUFF_BUN_PATH` (override the `bun` binary if it isn't on `PATH`). The
+orchestrator itself reads `PORT`, `TARGET_REPO`, `TEST_CMD`, `CONCURRENCY`, and
+`ENABLE_SCOUT` (see `src/app/server.ts`).
