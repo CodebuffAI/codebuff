@@ -55,7 +55,7 @@ function makeEngine(repoRoot: string, defaultBranch?: string): Engine {
     repoRoot,
     repoUrl: repoRoot,
     defaultBranch,
-    concurrencyCap: Number(process.env.CONCURRENCY ?? 2),
+    concurrencyCap: Number(process.env.CONCURRENCY ?? 5),
     // Scout on by default — proposals are a reviewable backlog (§9), not auto-run,
     // so it's safe. Set ENABLE_SCOUT=0 to disable.
     enableScout: process.env.ENABLE_SCOUT !== '0',

@@ -15,8 +15,8 @@
         --border: #262626;        /* hairline dividers */
         --border-strong: #383838; /* control outlines, scrollbar */
         --text: #ececec;          /* neutral light text */
-        --muted: #9b9b9b;         /* secondary text */
-        --faint: #6a6a6a;         /* tertiary / labels */
+        --muted: #b3b3b3;         /* secondary text */
+        --faint: #888888;         /* tertiary / labels */
         --accent: #7cff3f;        /* freebuff brand lime — the single interactive accent */
         --accent-dim: rgba(124, 255, 63, 0.1);
         --accent-line: rgba(124, 255, 63, 0.38);
@@ -685,7 +685,14 @@
           // is snapshot-driven), so update just it when present — avoids re-splitting/
           // escaping the diff and rebuilding the whole pane every frame.
           const af = document.getElementById('agentFeed')
-          if (af && state.sel) { af.innerHTML = renderTranscript(state.transcripts[state.sel]); af.scrollTop = af.scrollHeight }
+          if (af && state.sel) {
+            // Only tail the stream if the user is already at the bottom; if they've
+            // scrolled up to read, leave their position alone instead of yanking it
+            // down on every streamed token.
+            const pinned = af.scrollHeight - af.scrollTop - af.clientHeight < 24
+            af.innerHTML = renderTranscript(state.transcripts[state.sel])
+            if (pinned) af.scrollTop = af.scrollHeight
+          }
           else renderDetail()
         })
       }
@@ -783,28 +790,34 @@
         if (m < 60) return m + 'm'
         return Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0') + 'm'
       }
-      // Status pill for a task; `withStage` appends "· <stage> <elapsed>" (board cards only).
-      // The elapsed span carries data-since so a 1s ticker can update it without a
-      // full re-render (which would steal focus from the request-changes textarea).
-      function statusBadgeHtml(t, withStage) {
+      // Status pill for a task (detail pane only — board cards live under a status
+      // section header, so the word would be redundant there).
+      function statusBadgeHtml(t) {
         const eff = effectiveStatus(t)
         if (eff === 'waiting') return '<span class="badge dot b-waiting">waiting on ' + pendingParents(t).join(', ') + '</span>'
         const cls = eff === 'awaiting-approval' ? 'review' : eff
         const label = eff === 'awaiting-approval' ? 'needs review' : eff
-        let suffix = ''
-        if (withStage && t.stage) {
-          suffix = ' · ' + t.stage
-          if (eff === 'running' && t.updatedAt) {
-            suffix += ' <span class="elapsed" data-since="' + t.updatedAt + '">' + fmtElapsed(Date.now() - t.updatedAt) + '</span>'
-          }
+        return '<span class="badge dot b-' + cls + '">' + label + '</span>'
+      }
+      // Per-card meta: the card sits under a status section header ("Ready · 5",
+      // "Running · 2"), so the status word and origin are redundant clutter. Surface
+      // only what the header can't — a dependency wait, or the live stage + elapsed
+      // for running work. The elapsed span carries data-since so a 1s ticker can
+      // update it in place without a full re-render.
+      function cardMetaHtml(t) {
+        const eff = effectiveStatus(t)
+        if (eff === 'waiting') return '<span class="badge dot b-waiting">waiting on ' + pendingParents(t).join(', ') + '</span>'
+        if (eff === 'running' && t.stage) {
+          const el = t.updatedAt ? ' <span class="elapsed" data-since="' + t.updatedAt + '">' + fmtElapsed(Date.now() - t.updatedAt) + '</span>' : ''
+          return '<span class="badge dot b-running">' + t.stage + el + '</span>'
         }
-        return '<span class="badge dot b-' + cls + '">' + label + suffix + '</span>'
+        return ''
       }
       function cardHtml(t) {
         const eff = effectiveStatus(t)
-        const scout = t.origin === 'scout' ? '<span class="badge scout">scout</span>' : ''
+        const meta = cardMetaHtml(t)
         return '<div class="card ' + (state.sel === t.id ? 'sel' : '') + (eff === 'waiting' ? ' waiting' : '') + '" onclick="selectTask(\'' + t.id + '\')">' +
-          '<div class="ti">' + esc(t.title) + '</div><div class="row">' + statusBadgeHtml(t, true) + scout + '</div></div>'
+          '<div class="ti">' + esc(t.title) + '</div>' + (meta ? '<div class="row">' + meta + '</div>' : '') + '</div>'
       }
 
       function renderDocs() {
