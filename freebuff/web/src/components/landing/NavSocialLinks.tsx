@@ -1,6 +1,6 @@
 'use client'
 
-import { Newspaper } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -46,7 +46,7 @@ export function NavSocialLinks({
                 onBlog && 'text-white',
               )}
             >
-              <Newspaper className="h-[18px] w-[18px]" />
+              <BookOpen className="h-[18px] w-[18px]" />
             </Link>
           </TooltipTrigger>
           <TooltipContent side="bottom">Blog</TooltipContent>

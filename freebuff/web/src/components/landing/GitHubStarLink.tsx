@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 
 import { GitHubIcon } from './icons'
-import { GITHUB_REPO_URL } from './nav-links'
+import { GITHUB_REPO, GITHUB_REPO_URL } from './nav-links'
 
 function formatStarCount(count: number): string {
   if (count >= 10_000) {
@@ -23,6 +23,52 @@ function formatStarCount(count: number): string {
   return count.toLocaleString()
 }
 
+function parseShieldsStarCount(message: string): number | null {
+  const trimmed = message.trim()
+  if (!trimmed) return null
+
+  const normalized = trimmed.toLowerCase()
+  if (normalized.endsWith('k')) {
+    const value = Number.parseFloat(normalized.slice(0, -1))
+    return Number.isFinite(value) ? Math.round(value * 1000) : null
+  }
+  if (normalized.endsWith('m')) {
+    const value = Number.parseFloat(normalized.slice(0, -1))
+    return Number.isFinite(value) ? Math.round(value * 1_000_000) : null
+  }
+
+  const digits = Number.parseInt(trimmed.replace(/,/g, ''), 10)
+  return Number.isFinite(digits) ? digits : null
+}
+
+async function fetchStarsFromShields(): Promise<number | null> {
+  const response = await fetch(
+    `https://img.shields.io/github/stars/${GITHUB_REPO}.json`,
+  )
+  if (!response.ok) return null
+
+  const data = (await response.json()) as { message?: string }
+  if (typeof data.message !== 'string') return null
+
+  return parseShieldsStarCount(data.message)
+}
+
+async function resolveStarCount(): Promise<number | null> {
+  try {
+    const response = await fetch('/api/github/stars')
+    if (response.ok) {
+      const data = (await response.json()) as { stars?: number | null }
+      if (typeof data.stars === 'number') {
+        return data.stars
+      }
+    }
+  } catch {
+    // Fall through to shields.io.
+  }
+
+  return fetchStarsFromShields()
+}
+
 export function GitHubStarLink({
   className,
   hideOnMobile = false,
@@ -31,22 +77,15 @@ export function GitHubStarLink({
   hideOnMobile?: boolean
 }) {
   const [stars, setStars] = useState<number | null>(null)
-  const [repoUrl, setRepoUrl] = useState(GITHUB_REPO_URL)
+  const repoUrl = GITHUB_REPO_URL
 
   useEffect(() => {
     let cancelled = false
-    void fetch('/api/github/stars')
-      .then((response) => response.json())
-      .then((data: { stars?: number | null; url?: string }) => {
-        if (cancelled) return
-        if (typeof data.stars === 'number') {
-          setStars(data.stars)
-        }
-        if (typeof data.url === 'string') {
-          setRepoUrl(data.url)
-        }
-      })
-      .catch(() => {})
+    void resolveStarCount().then((count) => {
+      if (!cancelled && count != null) {
+        setStars(count)
+      }
+    })
     return () => {
       cancelled = true
     }
@@ -72,7 +111,7 @@ export function GitHubStarLink({
         >
           <GitHubIcon className="h-[16px] w-[16px] shrink-0" />
           <span className="text-xs font-medium tabular-nums">
-            {stars != null ? formatStarCount(stars) : '—'}
+            {stars != null ? formatStarCount(stars) : '…'}
           </span>
           <Star className="h-3 w-3 shrink-0 fill-current opacity-80" />
         </a>
