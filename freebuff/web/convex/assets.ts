@@ -34,6 +34,21 @@ type AssetsCollection = z.infer<typeof AssetsCollectionSchema>;
 
 // 16 MiB limit for Convex functions (leaving some margin)
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MiB
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/svg+xml",
+  "image/webp",
+]);
+const ALLOWED_IMAGE_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".svg",
+  ".webp",
+];
 
 // Helper function to read/write assets metadata JSON outside codebase
 class AssetsManager {
@@ -169,6 +184,18 @@ export const uploadAsset = action({
     if (args.fileSize > MAX_FILE_SIZE) {
       throw new Error(
         `File size ${Math.round(args.fileSize / 1024 / 1024)}MB exceeds the maximum limit of ${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB`,
+      );
+    }
+
+    const normalizedName = args.originalName.toLowerCase();
+    const hasAllowedExtension = ALLOWED_IMAGE_EXTENSIONS.some((ext) =>
+      normalizedName.endsWith(ext),
+    );
+    const hasAllowedMimeType = ALLOWED_IMAGE_MIME_TYPES.has(args.fileType);
+
+    if (!hasAllowedExtension || !hasAllowedMimeType) {
+      throw new Error(
+        "Only image files are allowed: .jpg, .jpeg, .png, .gif, .svg, .webp",
       );
     }
 

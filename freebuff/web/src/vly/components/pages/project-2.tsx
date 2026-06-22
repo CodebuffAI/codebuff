@@ -95,6 +95,8 @@ function viewToTab(view: ActiveView): IframeTab {
       return "editor";
     case "keys":
       return "keys";
+    case "assets":
+      return "assets";
     case "versions":
       return "versions";
     case "integrations":
@@ -116,6 +118,8 @@ function tabToView(tab: IframeTab): ActiveView {
       return "editor";
     case "keys":
       return "keys";
+    case "assets":
+      return "assets";
     case "versions":
       return "versions";
     case "integrations":

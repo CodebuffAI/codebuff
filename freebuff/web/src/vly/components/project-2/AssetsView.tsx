@@ -56,6 +56,21 @@ interface AssetsViewProps {
 
 function AssetsView({ semanticIdentifier }: AssetsViewProps) {
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_IMAGE_MIME_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+  ]);
+  const ALLOWED_IMAGE_EXTENSIONS = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".svg",
+    ".webp",
+  ];
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -89,39 +104,15 @@ function AssetsView({ semanticIdentifier }: AssetsViewProps) {
       return false;
     }
 
-    const codeExtensions = [
-      ".js",
-      ".ts",
-      ".tsx",
-      ".jsx",
-      ".py",
-      ".java",
-      ".cpp",
-      ".c",
-      ".php",
-      ".rb",
-      ".go",
-      ".rs",
-      ".swift",
-      ".kt",
-      ".scala",
-      ".css",
-      ".scss",
-      ".less",
-      ".html",
-      ".htm",
-      ".xml",
-      ".json",
-      ".yaml",
-      ".yml",
-    ];
-
     const fileName = file.name.toLowerCase();
-    const isCodeFile = codeExtensions.some((ext) => fileName.endsWith(ext));
+    const hasAllowedExtension = ALLOWED_IMAGE_EXTENSIONS.some((ext) =>
+      fileName.endsWith(ext),
+    );
+    const hasAllowedMimeType = ALLOWED_IMAGE_MIME_TYPES.has(file.type);
 
-    if (isCodeFile) {
+    if (!hasAllowedExtension || !hasAllowedMimeType) {
       toast.error(
-        "Code files not allowed. Upload images, documents, or media files.",
+        "Only image files are allowed: .jpg, .jpeg, .png, .gif, .svg, .webp",
       );
       return false;
     }
@@ -405,7 +396,7 @@ function AssetsView({ semanticIdentifier }: AssetsViewProps) {
               type="file"
               onChange={handleFileSelect}
               className="hidden"
-              accept="image/*,.pdf,.doc,.docx,.txt,.md,.svg,.webp,.ico,.zip,.rar,.mp4,.mp3,.wav,.avi"
+              accept="image/jpeg,image/png,image/gif,image/svg+xml,image/webp,.jpg,.jpeg,.png,.gif,.svg,.webp"
             />
 
             <AnimatePresence mode="wait">
@@ -523,7 +514,7 @@ function AssetsView({ semanticIdentifier }: AssetsViewProps) {
                         : "Drop files here or click to browse"}
                     </p>
                     <p className="mt-1 text-sm text-zinc-500">
-                      Images, documents, media files only (max 5MB)
+                      Images only: .jpg, .jpeg, .png, .gif, .svg, .webp (max 5MB)
                     </p>
                   </div>
                   {!dragActive && (

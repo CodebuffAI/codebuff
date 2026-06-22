@@ -26,6 +26,7 @@ import {
   ScrollText,
   Code2,
   KeyRound,
+  FolderOpen,
   Loader,
   ArrowLeft,
   Plug,
@@ -54,6 +55,7 @@ const IntegrationsView = lazy(() => import('./IntegrationsView'))
 const UiIntegrationView = lazy(() => import('./UiIntegrationView'))
 const BackendManagement = lazy(() => import('./BackendManagement'))
 const GitCommitsView = lazy(() => import('./GitCommitsView'))
+const AssetsView = lazy(() => import('./AssetsView'))
 
 // Tab IDs shown in the iframe area. These are deliberately a subset of the
 // older `ActiveView` union — see project-2.tsx for the full set.
@@ -64,6 +66,7 @@ export type IframeTab =
   | 'editor'
   | 'versions'
   | 'keys'
+  | 'assets'
   | 'integrations'
   | 'ui-components'
 
@@ -128,6 +131,7 @@ const TOP_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'editor', label: 'Editor', Icon: Code2 },
   { id: 'versions', label: 'Versions', Icon: History },
   { id: 'keys', label: 'API Keys', Icon: KeyRound },
+  { id: 'assets', label: 'Assets', Icon: FolderOpen },
   { id: 'integrations', label: 'Integrations', Icon: Plug },
   { id: 'ui-components', label: 'UI', Icon: Component },
 ]
@@ -452,6 +456,12 @@ function ActiveSurface({
       {activeTab === 'keys' && (
         <ViewSurface>
           <EnvVarsView project={project} />
+        </ViewSurface>
+      )}
+
+      {activeTab === 'assets' && (
+        <ViewSurface>
+          <AssetsView semanticIdentifier={semanticIdentifier} />
         </ViewSurface>
       )}
 
