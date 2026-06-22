@@ -6,15 +6,17 @@
     <title>Freebuff Desktop</title>
     <style>
       :root {
-        --bg: #0b0e14;
-        --surface: #11151d;
-        --surface-2: #161b25;
-        --raised: #1b212c;
-        --border: #232a36;
-        --border-strong: #2f3947;
-        --text: #e7edf5;
-        --muted: #8a95a6;
-        --faint: #5b6677;
+        /* Neutral grayscale canvas, Codex-style: near-black, no blue tint, hairline
+           borders. Color is reserved strictly for interactive/status elements. */
+        --bg: #0e0e0e;            /* near-black main canvas */
+        --surface: #161616;       /* panels, cards, column heads */
+        --surface-2: #1d1d1d;     /* hover / nested fills */
+        --raised: #242424;        /* elevated surfaces — toasts, bubbles, help card */
+        --border: #262626;        /* hairline dividers */
+        --border-strong: #383838; /* control outlines, scrollbar */
+        --text: #ececec;          /* neutral light text */
+        --muted: #9b9b9b;         /* secondary text */
+        --faint: #6a6a6a;         /* tertiary / labels */
         --accent: #7cff3f;        /* freebuff brand lime — the single interactive accent */
         --accent-dim: rgba(124, 255, 63, 0.1);
         --accent-line: rgba(124, 255, 63, 0.38);
@@ -47,6 +49,10 @@
         color: #08120a;
         font-weight: 600;
         padding: 8px 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         transition: filter 0.12s ease, background 0.12s ease;
       }
       button:hover { filter: brightness(1.08); }
@@ -151,7 +157,7 @@
       .msg { max-width: 92%; }
       .msg.user { align-self: flex-end; }
       .bubble { padding: 9px 13px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
-      .msg.user .bubble { background: var(--accent); color: #08120a; font-weight: 500; border-bottom-right-radius: 4px; }
+      .msg.user .bubble { background: var(--raised); color: var(--text); border: 1px solid var(--border-strong); border-bottom-right-radius: 4px; }
       .msg.assistant .bubble { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
       .acts { display: flex; flex-direction: column; gap: 3px; margin: 2px 0; }
       .act { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -218,6 +224,70 @@
       .help-keys { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 12px; color: var(--muted); }
       .help-keys b { color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; font-weight: 600; }
 
+      /* ============ Codex-style refinements ============ */
+      .ic-svg { width: 15px; height: 15px; flex: 0 0 auto; vertical-align: -2px; }
+      .col-head { font-weight: 600; }              /* quieter chrome */
+      .activity .ic-svg { margin-right: 4px; }
+
+      /* roomier chat column, lighter card hover */
+      .chat-log { padding: 22px 24px; gap: 18px; }
+      .card { transition: background 0.12s ease, border-color 0.12s ease; }
+      .card:hover { border-color: var(--border); background: var(--surface-2); }
+
+      /* assistant messages flow on the canvas (no bubble); user keeps a subtle one */
+      .msg { max-width: 100%; }
+      .msg.user { align-self: flex-end; max-width: 84%; }
+      .msg.assistant { align-self: stretch; }
+
+      /* markdown prose */
+      .md { line-height: 1.62; font-size: 13.5px; }
+      .md > :first-child { margin-top: 0; }
+      .md > :last-child { margin-bottom: 0; }
+      .md p { margin: 0 0 10px; }
+      .md h1, .md h2, .md h3 { margin: 16px 0 8px; line-height: 1.3; font-weight: 650; }
+      .md h1 { font-size: 17px; } .md h2 { font-size: 15px; } .md h3 { font-size: 13.5px; }
+      .md ul, .md ol { margin: 0 0 10px; padding-left: 20px; }
+      .md li { margin: 3px 0; }
+      .md li::marker { color: var(--faint); }
+      .md strong { font-weight: 650; color: var(--text); }
+      .md em { font-style: italic; }
+      .md a { color: var(--accent); }
+      .md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0.5px 5px; }
+      .md blockquote { margin: 0 0 10px; padding: 1px 0 1px 12px; border-left: 2px solid var(--border-strong); color: var(--muted); }
+      .md hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+      .md table { border-collapse: collapse; margin: 0 0 10px; font-size: 12.5px; display: block; max-width: 100%; overflow-x: auto; }
+      .md th, .md td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; }
+      .md th { background: var(--surface-2); font-weight: 600; }
+
+      /* fenced code blocks → titled cards (Codex-style) */
+      .codeblock { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin: 0 0 10px; overflow: hidden; }
+      .cb-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+      .cb-copy { margin-left: auto; background: transparent; color: var(--faint); border: none; border-radius: 6px; padding: 3px 7px; font-size: 11px; font-weight: 500; }
+      .cb-copy:hover { background: var(--surface); color: var(--text); filter: none; }
+      .cb-copy .ic-svg { width: 13px; height: 13px; }
+      .codeblock pre { margin: 0; padding: 10px 12px; overflow-x: auto; font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; white-space: pre; }
+
+      /* collapsible "Worked" activity fold */
+      .acts-fold { margin: 0 0 2px; }
+      .acts-fold > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); padding: 3px 0; user-select: none; }
+      .acts-fold > summary::-webkit-details-marker { display: none; }
+      .acts-fold > summary:hover { color: var(--text); }
+      .acts-fold > summary .ic-svg { color: var(--faint); width: 13px; height: 13px; }
+      .acts-fold[open] > summary { margin-bottom: 5px; }
+      .act .ic-svg { color: var(--faint); }
+
+      /* composer: one rounded container with an inline toolbar */
+      .composer { border-top: 1px solid var(--border); padding: 12px 16px 16px; background: var(--bg); }
+      .composer-box { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 7px 9px 9px; transition: border-color 0.12s ease; }
+      .composer-box:focus-within { border-color: var(--accent); }
+      .composer-box textarea { width: 100%; resize: none; background: transparent; color: var(--text); border: none; border-radius: 0; padding: 6px 7px 2px; font: inherit; font-size: 13.5px; line-height: 1.5; max-height: 200px; min-height: 26px; display: block; }
+      .composer-box textarea:focus { outline: none; border: none; }
+      .composer-bar { display: flex; align-items: center; gap: 8px; padding: 4px 2px 0; }
+      .composer-hint { font-size: 11px; color: var(--faint); }
+      .send-btn { margin-left: auto; width: 30px; height: 30px; padding: 0; border-radius: 8px; }
+      .send-btn .ic-svg { width: 16px; height: 16px; }
+      .send-btn:disabled { opacity: 0.4; }
+
       /* folder picker overlay */
       #fp { position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
       .fp-card { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 20px 22px; max-width: 540px; width: 100%; box-shadow: 0 12px 48px rgba(0,0,0,0.6); display: flex; flex-direction: column; max-height: 80vh; }
@@ -251,9 +321,9 @@
       <div class="col" id="col-board">
         <div class="col-head brand">
           <div class="proj"><span class="name" id="projName">Freebuff</span><span class="branch" id="projBranch"></span></div>
-          <button class="ghost sm" style="margin-left:auto" onclick="openFolderPicker()" title="Open a project folder">📂 Open</button>
-          <button class="ghost sm" onclick="openPreview()" title="Preview index.html">◐ Preview</button>
-          <button class="ghost sm" onclick="openRun()" title="Run a command in the project">▶ Run</button>
+          <button class="ghost sm" style="margin-left:auto" onclick="openFolderPicker()" title="Open a project folder"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/></svg> Open</button>
+          <button class="ghost sm" onclick="openPreview()" title="Preview index.html"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Preview</button>
+          <button class="ghost sm" onclick="openRun()" title="Run a command in the project"><svg class="ic-svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4v16l13-8z"/></svg> Run</button>
         </div>
         <div class="col-body">
           <div id="cta"></div>
@@ -291,6 +361,99 @@
       ]
       const state = { snap: null, sel: null, chat: [], transcripts: {}, artifacts: {}, view: 'chat', doc: null, pane: 'main', rcOpen: false, pendingAbandon: null }
 
+      // ---- Thin line icons (lucide-style), so the UI reads designed, not emoji-y ----
+      const ICON = {
+        plus: '<path d="M5 12h14M12 5v14"/>',
+        pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+        link: '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>',
+        x: '<path d="M18 6 6 18M6 6l12 12"/>',
+        trash: '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>',
+        message: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>',
+        dot: '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5a6 6 0 0 0-12 0c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+        play: '<path d="M7 4v16l13-8z" fill="currentColor" stroke="currentColor"/>',
+        eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+        arrowUp: '<path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>',
+        arrowLeft: '<path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>',
+        refresh: '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/>',
+        maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+        external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+        copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+        activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+      }
+      function icon(name, extra) {
+        const p = ICON[name]; if (!p) return ''
+        return '<svg class="ic-svg' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>'
+      }
+
+      // ---- Minimal, safe markdown → HTML for assistant messages (Codex-style prose) ----
+      // Input is escaped up front, so every branch below works on already-safe text.
+      function mdInline(s) {
+        const codes = []
+        s = s.replace(/`([^`]+)`/g, (m, c) => { codes.push(c); return ' ' + (codes.length - 1) + ' ' })
+        s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+             .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+             .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        return s.replace(/ (\d+) /g, (m, i) => '<code>' + codes[+i] + '</code>')
+      }
+      let cbSeq = 0
+      function codeCard(b) {
+        const id = 'cb' + (++cbSeq)
+        return '<div class="codeblock"><div class="cb-head"><span>' + esc(b.lang || 'code') + '</span>' +
+          '<button class="cb-copy" onclick="copyCode(this,\'' + id + '\')">' + icon('copy') + 'Copy</button></div>' +
+          '<pre data-cb="' + id + '">' + b.body + '</pre></div>'
+      }
+      function copyCode(btn, id) {
+        const pre = document.querySelector('pre[data-cb="' + id + '"]'); if (!pre) return
+        navigator.clipboard.writeText(pre.textContent).then(() => {
+          const o = btn.innerHTML; btn.innerHTML = icon('check') + 'Copied'
+          setTimeout(() => { btn.innerHTML = o }, 1200)
+        }).catch(() => {})
+      }
+      function mdToHtml(src) {
+        let s = esc(src == null ? '' : String(src))
+        const code = []
+        s = s.replace(/```([^\n`]*)\n?([\s\S]*?)```/g, (m, lang, body) => {
+          code.push({ lang: (lang || '').trim(), body: body.replace(/\n$/, '') })
+          return 'CB' + (code.length - 1) + ''
+        })
+        const lines = s.split('\n')
+        const out = []
+        let para = [], list = null
+        const flushPara = () => { if (para.length) { out.push('<p>' + mdInline(para.join(' ')) + '</p>'); para = [] } }
+        const flushList = () => { if (list) { out.push('<' + list.type + '>' + list.items.map((it) => '<li>' + mdInline(it) + '</li>').join('') + '</' + list.type + '>'); list = null } }
+        const flushAll = () => { flushPara(); flushList() }
+        for (let i = 0; i < lines.length; i++) {
+          const ln = lines[i]; let m
+          if (m = ln.match(/^CB(\d+)$/)) { flushAll(); out.push(codeCard(code[+m[1]])); continue }
+          if (/^\s*$/.test(ln)) { flushAll(); continue }
+          if (m = ln.match(/^(#{1,3})\s+(.*)$/)) { flushAll(); const l = m[1].length; out.push('<h' + l + '>' + mdInline(m[2]) + '</h' + l + '>'); continue }
+          if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(ln)) { flushAll(); out.push('<hr>'); continue }
+          if (m = ln.match(/^>\s?(.*)$/)) {
+            flushAll(); const bq = [m[1]]
+            while (i + 1 < lines.length && (m = lines[i + 1].match(/^>\s?(.*)$/))) { bq.push(m[1]); i++ }
+            out.push('<blockquote>' + mdInline(bq.join(' ')) + '</blockquote>'); continue
+          }
+          // table: a header row with pipes followed by a |---|---| separator
+          if (ln.indexOf('|') !== -1 && i + 1 < lines.length && /-/.test(lines[i + 1]) && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+            flushAll()
+            const row = (r) => r.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map((c) => c.trim())
+            const head = row(ln); i++
+            const rows = []
+            while (i + 1 < lines.length && lines[i + 1].indexOf('|') !== -1 && !/^\s*$/.test(lines[i + 1])) { rows.push(row(lines[i + 1])); i++ }
+            out.push('<table><thead><tr>' + head.map((h) => '<th>' + mdInline(h) + '</th>').join('') + '</tr></thead><tbody>' +
+              rows.map((r) => '<tr>' + r.map((c) => '<td>' + mdInline(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table>')
+            continue
+          }
+          if (m = ln.match(/^\s*[-*+]\s+(.*)$/)) { flushPara(); if (!list || list.type !== 'ul') { flushList(); list = { type: 'ul', items: [] } } list.items.push(m[1]); continue }
+          if (m = ln.match(/^\s*\d+[.)]\s+(.*)$/)) { flushPara(); if (!list || list.type !== 'ol') { flushList(); list = { type: 'ol', items: [] } } list.items.push(m[1]); continue }
+          flushList(); para.push(ln.trim())
+        }
+        flushAll()
+        return out.join('')
+      }
+
       // ---- SSE ----
       const es = new EventSource('/api/events')
       es.onmessage = (e) => {
@@ -318,14 +481,14 @@
       }
       function friendlyTool(name, input) {
         try {
-          if (name === 'create_task') return { ic: '➕', text: 'New task: ' + (input.title || '…') }
-          if (name === 'update_task') return { ic: '✏️', text: 'Updated task ' + input.taskId }
-          if (name === 'add_dependency') return { ic: '🔗', text: input.to + ' depends on ' + input.from }
-          if (name === 'remove_dependency') return { ic: '✂️', text: 'Removed ' + input.from + ' → ' + input.to }
-          if (name === 'abandon_task') return { ic: '🗑', text: 'Abandoned ' + input.taskId }
-          if (name === 'send_guidance') return { ic: '💬', text: 'Steered ' + input.taskId }
-          return { ic: '·', text: name.replace(/_/g, ' '), subtle: true }
-        } catch { return { ic: '·', text: name, subtle: true } }
+          if (name === 'create_task') return { ic: 'plus', text: 'New task: ' + (input.title || '…') }
+          if (name === 'update_task') return { ic: 'pencil', text: 'Updated task ' + input.taskId }
+          if (name === 'add_dependency') return { ic: 'link', text: input.to + ' depends on ' + input.from }
+          if (name === 'remove_dependency') return { ic: 'x', text: 'Removed ' + input.from + ' → ' + input.to }
+          if (name === 'abandon_task') return { ic: 'trash', text: 'Abandoned ' + input.taskId }
+          if (name === 'send_guidance') return { ic: 'message', text: 'Steered ' + input.taskId }
+          return { ic: 'dot', text: name.replace(/_/g, ' '), subtle: true }
+        } catch { return { ic: 'dot', text: name, subtle: true } }
       }
       function onChat(event) {
         if (event.type === 'text') { freshAssistant().text += event.text }
@@ -361,7 +524,7 @@
         const running = s.usage.running, cap = s.usage.cap
         const merged = tasks().filter((t) => t.status === 'merged').length
         document.getElementById('activity').innerHTML =
-          '<span>' + (running > 0 ? '<span class="pulse"></span>' : '▶ ') + '<b>' + running + '</b>/' + cap + ' running</span><span>✓ <b>' + merged + '</b> merged</span>'
+          '<span>' + (running > 0 ? '<span class="pulse"></span>' : icon('play')) + '<b>' + running + '</b>/' + cap + ' running</span><span>' + icon('check') + '<b>' + merged + '</b> merged</span>'
       }
 
       function renderBoard() {
@@ -369,8 +532,8 @@
         const reviewCount = ts.filter((t) => t.status === 'awaiting-approval').length
         const proposedCount = ts.filter((t) => t.status === 'proposed').length
         document.getElementById('cta').innerHTML =
-          (reviewCount ? '<div class="cta" onclick="selectFirstReview()">✓ ' + reviewCount + ' task' + (reviewCount > 1 ? 's' : '') + ' ready for your review</div>' : '') +
-          (proposedCount ? '<div class="cta scout-cta" onclick="selectFirst(\'proposed\')">💡 ' + proposedCount + ' suggestion' + (proposedCount > 1 ? 's' : '') + ' from Scout</div>' : '')
+          (reviewCount ? '<div class="cta" onclick="selectFirstReview()">' + icon('check') + reviewCount + ' task' + (reviewCount > 1 ? 's' : '') + ' ready for your review</div>' : '') +
+          (proposedCount ? '<div class="cta scout-cta" onclick="selectFirst(\'proposed\')">' + icon('lightbulb') + proposedCount + ' suggestion' + (proposedCount > 1 ? 's' : '') + ' from Scout</div>' : '')
         const group = (s) => ts.filter((t) =>
           s === 'blocked' ? ['blocked', 'failed'].includes(t.status)
           : s === 'archived' ? t.status === 'abandoned'
@@ -438,8 +601,9 @@
         if (state.view === 'preview') { renderPreviewPanel(body); return }
         body.innerHTML =
           '<div class="chat"><div class="chat-log" id="chatLog"></div>' +
-          '<div class="composer"><div class="box"><textarea id="chatInput" placeholder="Describe what to build, or steer a task…" rows="1"></textarea>' +
-          '<button id="sendBtn">Send</button></div></div></div>'
+          '<div class="composer"><div class="composer-box"><textarea id="chatInput" placeholder="Describe what to build, or steer a task…" rows="1"></textarea>' +
+          '<div class="composer-bar"><span class="composer-hint">↵ send · ⇧↵ newline</span>' +
+          '<button id="sendBtn" class="send-btn" title="Send">' + icon('arrowUp') + '</button></div></div></div></div>'
         const ta = document.getElementById('chatInput')
         ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px' })
         ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } })
@@ -456,8 +620,11 @@
         }
         log.innerHTML = state.chat.map((m) => {
           if (m.role === 'user') return '<div class="msg user"><div class="bubble">' + esc(m.text) + '</div></div>'
-          const acts = (m.acts || []).length ? '<div class="acts">' + m.acts.map((a) => { const f = friendlyTool(a.toolName, a.input); return '<div class="act ' + (f.subtle ? 'subtle' : '') + '"><span class="ic">' + f.ic + '</span>' + esc(f.text) + '</div>' }).join('') + '</div>' : ''
-          const txt = m.text ? '<div class="bubble">' + esc(m.text) + '</div>' : (!m.done && !acts ? '<div class="thinking">Thinking…</div>' : '')
+          const n = (m.acts || []).length
+          const items = n ? m.acts.map((a) => { const f = friendlyTool(a.toolName, a.input); return '<div class="act ' + (f.subtle ? 'subtle' : '') + '">' + icon(f.ic) + esc(f.text) + '</div>' }).join('') : ''
+          // Collapse the tool activity behind a "Worked · N steps" fold (open while streaming).
+          const acts = n ? '<details class="acts-fold"' + (m.done ? '' : ' open') + '><summary>' + icon('activity') + 'Worked · ' + n + (n > 1 ? ' steps' : ' step') + '</summary><div class="acts">' + items + '</div></details>' : ''
+          const txt = m.text ? '<div class="md">' + mdToHtml(m.text) + '</div>' : (!m.done && !acts ? '<div class="thinking">Thinking…</div>' : '')
           return '<div class="msg assistant">' + acts + txt + '</div>'
         }).join('')
         log.scrollTop = log.scrollHeight
@@ -574,10 +741,10 @@
         body.innerHTML =
           '<div style="display:flex;flex-direction:column;height:100%">' +
           '<div style="display:flex;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border)">' +
-          '<button class="ghost sm" onclick="backToChat()">← Chat</button>' +
-          '<button class="ghost sm" onclick="openPreview()">↻ Refresh</button>' +
-          '<button class="ghost sm" onclick="toggleFullscreen()">⤢ Fullscreen</button>' +
-          '<a class="ghost sm" style="padding:5px 10px;border:1px solid var(--border-strong);border-radius:8px;text-decoration:none" href="/preview/index.html" target="_blank">Open ↗</a>' +
+          '<button class="ghost sm" onclick="backToChat()">' + icon('arrowLeft') + ' Chat</button>' +
+          '<button class="ghost sm" onclick="openPreview()">' + icon('refresh') + ' Refresh</button>' +
+          '<button class="ghost sm" onclick="toggleFullscreen()">' + icon('maximize') + ' Fullscreen</button>' +
+          '<a class="ghost sm" style="padding:5px 10px;border:1px solid var(--border-strong);border-radius:8px;text-decoration:none" href="/preview/index.html" target="_blank">Open ' + icon('external') + '</a>' +
           '<span style="color:var(--muted);font-size:12px;margin-left:auto">Live preview of index.html on main</span></div>' +
           '<iframe src="/preview/index.html?_=' + nonce + '" style="flex:1;border:none;width:100%;background:var(--bg)"></iframe></div>'
       }
@@ -590,8 +757,8 @@
           el.style.cssText = 'position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:var(--bg)'
           el.innerHTML =
             '<div style="display:flex;gap:8px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border)">' +
-            '<button class="ghost sm" onclick="toggleFullscreen()">✕ Close (Esc)</button>' +
-            '<button class="ghost sm" onclick="refreshPreview()">↻ Refresh</button>' +
+            '<button class="ghost sm" onclick="toggleFullscreen()">' + icon('x') + ' Close</button>' +
+            '<button class="ghost sm" onclick="refreshPreview()">' + icon('refresh') + ' Refresh</button>' +
             '<span style="color:var(--muted);font-size:12px;margin-left:auto">Fullscreen preview · main</span></div>' +
             '<iframe src="/preview/index.html?_=' + nonce + '" style="flex:1;border:none;width:100%;background:var(--bg)"></iframe>'
         } else if (el) { el.remove() }
@@ -605,7 +772,7 @@
         const cmd = state.lastRunCmd || ''
         body.innerHTML =
           '<div style="padding:16px;display:flex;flex-direction:column;height:100%;gap:10px">' +
-          '<div style="display:flex;gap:8px;align-items:center"><button class="ghost sm" onclick="backToChat()">← Chat</button>' +
+          '<div style="display:flex;gap:8px;align-items:center"><button class="ghost sm" onclick="backToChat()">' + icon('arrowLeft') + ' Chat</button>' +
           '<span style="color:var(--muted);font-size:12px">Runs in the project root. Best for CLIs, tests, builds.</span></div>' +
           '<div style="display:flex;gap:8px"><input id="runCmd" placeholder="e.g. node index.js list · npm test · python3 -m http.server 8000" value="' + esc(cmd) + '" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border-strong);border-radius:9px;padding:9px 11px;font:inherit;font-family:ui-monospace,monospace;font-size:12.5px" />' +
           '<button id="runBtn" onclick="runCmd()">Run</button></div>' +
@@ -634,7 +801,7 @@
         const d = state.docData
         body.innerHTML =
           '<div style="padding:16px;display:flex;flex-direction:column;height:100%">' +
-          '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button class="ghost sm" onclick="backToChat()">← Chat</button>' +
+          '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><button class="ghost sm" onclick="backToChat()">' + icon('arrowLeft') + ' Chat</button>' +
           '<span style="color:var(--muted);font-size:12px">Edits save directly to this project.</span></div>' +
           '<textarea id="docEdit" style="flex:1;max-height:none;font-family:ui-monospace,monospace;font-size:12.5px" placeholder="(empty — write the guidance that steers every agent here)">' + (d ? esc(d.content) : 'Loading…') + '</textarea>' +
           '<div style="display:flex;align-items:center;gap:10px;margin-top:10px"><button id="docSave" onclick="saveDoc()">Save</button><span class="cap" id="docCap"></span></div></div>'
@@ -694,7 +861,7 @@
         const abandonLabel = state.pendingAbandon === t.id ? 'Click again to confirm' : 'Abandon'
         let actions = ''
         if (t.status === 'awaiting-approval') {
-          actions = '<div class="actions"><button class="green" onclick="approve(\'' + t.id + '\')">Approve &amp; Merge</button>' +
+          actions = '<div class="actions"><button class="green" onclick="approve(\'' + t.id + '\')">' + icon('check') + 'Approve &amp; Merge</button>' +
             '<button class="ghost" onclick="toggleRC()">Request changes</button>' +
             '<button class="danger" onclick="abandon(\'' + t.id + '\')">' + abandonLabel + '</button></div>' + rcBox(t.id)
         } else if (['blocked', 'failed'].includes(t.status)) {
@@ -702,9 +869,9 @@
             '<button class="danger" onclick="abandon(\'' + t.id + '\')">' + abandonLabel + '</button></div>' + rcBox(t.id)
         } else if (t.status === 'merged') {
           actions = '<div class="actions"><span class="badge dot b-merged" style="padding:5px 11px">Merged ✓</span>' +
-            '<button class="ghost sm" onclick="openPreview()">◐ View result</button></div>'
+            '<button class="ghost sm" onclick="openPreview()">' + icon('eye') + ' View result</button></div>'
         } else if (t.status === 'proposed') {
-          actions = '<div class="actions"><button class="green" onclick="accept(\'' + t.id + '\')">Accept &amp; run</button>' +
+          actions = '<div class="actions"><button class="green" onclick="accept(\'' + t.id + '\')">' + icon('play') + 'Accept &amp; run</button>' +
             '<button class="danger" onclick="dismiss(\'' + t.id + '\')">Dismiss</button></div>'
         }
 
@@ -797,7 +964,7 @@
       function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
 
       // expose
-      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send, openFolderPicker, fpBrowse, fpGoTyped, fpConfirm })
+      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send, copyCode, openFolderPicker, fpBrowse, fpGoTyped, fpConfirm })
       // ---- Keyboard shortcuts (skip while typing in a field) ----
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { const fp = document.getElementById('fp'); if (fp) return fp.remove(); if (document.getElementById('help')) return toggleHelp(); if (state.previewFullscreen) return toggleFullscreen() }
