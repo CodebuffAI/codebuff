@@ -133,6 +133,13 @@ export interface Task {
   /** Current stage while `running`; null otherwise. */
   stage: PipelineStage | null
   origin: TaskOrigin
+  /**
+   * The task whose completion spawned this one — set by the Scout (§9) to the
+   * just-shipped task it fired off. Lets the UI group proposals under the work
+   * that motivated them. Null for human-created tasks and legacy scout tasks.
+   * This is provenance only, NOT a dependency edge (see `parents`).
+   */
+  spawnedFrom: TaskId | null
   /** One-line "why this task" — shown on the card, required for scout tasks (§9). */
   rationale: string | null
   /** Count of review→fix→re-review rounds spent (§7, default cap 2). */

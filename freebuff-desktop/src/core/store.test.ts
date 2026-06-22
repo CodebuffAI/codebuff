@@ -65,10 +65,12 @@ describe('Store', () => {
       description: '',
       origin: 'scout',
       rationale: 'follows from parent',
+      spawnedFrom: 'parent',
       parents: ['parent'],
       createdAt: 2,
     })
     expect(store.getTask('child')!.parents).toEqual(['parent'])
+    expect(store.getTask('child')!.spawnedFrom).toBe('parent')
     expect(store.childrenOf('parent')).toEqual(['child'])
     store.close()
   })

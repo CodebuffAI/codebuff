@@ -40,6 +40,12 @@ export function buildOrchestratorTools(
   origin: TaskOrigin = 'human',
   /** Called when send_guidance validates, so the engine can deliver it to the task. */
   onGuidance?: (taskId: string, message: string) => void,
+  /**
+   * Provenance stamped on every task this tool set creates. The Scout passes the
+   * just-shipped task id so its proposals group under it in the UI (§9). Undefined
+   * for the human orchestrator.
+   */
+  spawnedFrom?: string,
 ): CustomToolDefinition<string, any, any>[] {
   return [
     getCustomToolDefinition({
@@ -63,7 +69,7 @@ export function buildOrchestratorTools(
         guard(() =>
           orch.createTask(
             { title: input.title, description: input.description, parents: input.parents },
-            { origin, rationale: input.rationale ?? null },
+            { origin, rationale: input.rationale ?? null, spawnedFrom: spawnedFrom ?? null },
           ),
         ),
     }),

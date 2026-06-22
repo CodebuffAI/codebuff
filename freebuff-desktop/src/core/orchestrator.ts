@@ -75,7 +75,12 @@ export class Orchestrator {
 
   createTask(
     input: { title: string; description: string; parents?: TaskId[] },
-    meta: { origin?: TaskOrigin; rationale?: string | null } = {},
+    meta: {
+      origin?: TaskOrigin
+      rationale?: string | null
+      /** Provenance for Scout proposals: the task that spawned this one (§9). */
+      spawnedFrom?: TaskId | null
+    } = {},
   ): { taskId: TaskId } {
     const parents = input.parents ?? []
     for (const parent of parents) {
@@ -94,6 +99,7 @@ export class Orchestrator {
       description: input.description,
       parents,
       origin: meta.origin ?? 'human',
+      spawnedFrom: meta.spawnedFrom ?? null,
       rationale: meta.rationale ?? null,
       createdAt: this.now(),
     })

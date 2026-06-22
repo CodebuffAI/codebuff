@@ -87,11 +87,10 @@ export class Engine {
   private readonly repoRoot: string
   private readonly orchestratorTools: ReturnType<typeof buildOrchestratorTools>
   private readonly enableScout: boolean
-  /** Cap on outstanding Scout proposals so the backlog can't grow unbounded — the
-   * Scout fires off every shipped task, so without this a 3-task project piles up
-   * 8+ proposals (§9). When the backlog is full the Scout skips until the human
-   * accepts/dismisses some. */
-  private readonly scoutBacklogCap = 4
+  /** How many follow-ups the Scout proposes per shipped task (§9). There is no
+   * global backlog cap — proposals are grouped under the task that spawned them in
+   * the UI, so a growing backlog stays organized rather than a flat wall. */
+  private readonly scoutPerRun = 3
   /** Budget ledger key. One Freebuff account per local app in M0 (§13). */
   private readonly accountId = 'local'
 
@@ -679,25 +678,19 @@ export class Engine {
   private async runScout(parentTaskId: string): Promise<void> {
     const parent = this.store.getTask(parentTaskId)
     if (!parent) return
-    // Backlog cap: the Scout fires off every shipped task, so without a ceiling a
-    // small project accumulates a wall of proposals. Skip while the proposed
-    // backlog is full — it resumes once the human accepts/dismisses some (§9).
-    const proposedCount = this.store
-      .listTasks(this.projectId)
-      .filter((t) => t.status === 'proposed').length
-    if (proposedCount >= this.scoutBacklogCap) {
-      this.emit({
-        type: 'log',
-        message: `Scout skipped: ${proposedCount} proposals already pending (cap ${this.scoutBacklogCap})`,
-      })
-      return
-    }
+    // No backlog cap: the Scout proposes a few follow-ups for every shipped task,
+    // and the UI groups them under the task that spawned them (§9), so the backlog
+    // stays organized instead of a flat wall. Each proposal is stamped with
+    // `spawnedFrom: parentTaskId` for that grouping.
+    //
     // Only create_task: a small model given read/inspect tools burns its turn
     // researching and never proposes. We inline the context it needs below.
-    const scoutTools = buildOrchestratorTools(this.orchestrator, 'scout').filter(
-      (t) => t.toolName === 'create_task',
-    )
-    const slots = this.scoutBacklogCap - proposedCount
+    const scoutTools = buildOrchestratorTools(
+      this.orchestrator,
+      'scout',
+      undefined,
+      parentTaskId,
+    ).filter((t) => t.toolName === 'create_task')
     const priorities = this.docs.read('priorities').trim()
     const existing = this.store
       .listTasks(this.projectId)
@@ -712,7 +705,7 @@ export class Engine {
           toolNames: scoutTools.map((t) => t.toolName),
           systemPrompt:
             `You are the Scout (§9). A task just shipped. Your job is to keep the ` +
-            `project moving by proposing the next ${slots === 1 ? '1' : `1–${slots}`} concrete, worthwhile task${slots === 1 ? '' : 's'} ` +
+            `project moving by proposing the next 1–${this.scoutPerRun} concrete, worthwhile tasks ` +
             "that advance the project's priorities — natural next features, polish, " +
             'or debt the just-finished work created. Lean toward proposing useful ' +
             'next steps. Each create_task needs a short imperative title, a concrete ' +
@@ -728,7 +721,7 @@ export class Engine {
           `Just shipped: "${parent.title}"\n${parent.description}\n\n` +
           (priorities ? `Project priorities:\n${priorities}\n\n` : 'Project priorities: (none set yet)\n\n') +
           `Existing tasks (do not duplicate):\n${existing}\n\n` +
-          `Propose up to ${slots} worthwhile follow-up task${slots === 1 ? '' : 's'} via create_task.`,
+          `Propose up to ${this.scoutPerRun} worthwhile follow-up tasks via create_task.`,
         customToolDefinitions: scoutTools,
         handleEvent: (event) => {
           if (event.type === 'finish') this.recordSpend(event.totalCost)

@@ -24,7 +24,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` applies steps past the current version. */
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 /** camelCase task field → snake_case column, for the dynamic `updateTask` patch. */
 const TASK_UPDATE_COLUMNS: Record<string, string> = {
@@ -49,6 +49,8 @@ export interface NewTaskInput {
   description: string
   parents?: TaskId[]
   origin: TaskOrigin
+  /** Provenance: the task whose completion spawned this one (Scout, §9). */
+  spawnedFrom?: TaskId | null
   rationale?: string | null
   /** Defaults to `proposed`; human-seeded tasks may enter as `ready`. */
   status?: TaskStatus
@@ -81,6 +83,7 @@ type TaskRow = {
   last_completed_stage: PipelineStage | null
   stage: PipelineStage | null
   origin: TaskOrigin
+  spawned_from: string | null
   rationale: string | null
   review_retries: number
   changes_requested_rounds: number
@@ -151,6 +154,7 @@ export class Store {
         last_completed_stage     TEXT,
         stage                    TEXT,
         origin                   TEXT NOT NULL,
+        spawned_from             TEXT,
         rationale                TEXT,
         review_retries           INTEGER NOT NULL DEFAULT 0,
         changes_requested_rounds INTEGER NOT NULL DEFAULT 0,
@@ -206,6 +210,11 @@ export class Store {
     // NOT EXISTS` above won't add the column to a pre-existing table, so add it
     // explicitly; existing rows get NULL, correct for independent/merged tasks.
     this.addColumnIfMissing('tasks', 'base_ref', 'TEXT')
+
+    // v3→v4: the Scout stamps each proposal with the task that spawned it so the
+    // UI can group proposals under the work that motivated them (§9). Existing
+    // rows get NULL (correct for human tasks and pre-v4 scout proposals).
+    this.addColumnIfMissing('tasks', 'spawned_from', 'TEXT')
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
@@ -286,6 +295,7 @@ export class Store {
       lastCompletedStage: null,
       stage: null,
       origin: input.origin,
+      spawnedFrom: input.spawnedFrom ?? null,
       rationale: input.rationale ?? null,
       reviewRetries: 0,
       changesRequestedRounds: 0,
@@ -297,9 +307,9 @@ export class Store {
         .query(
           `INSERT INTO tasks
             (id, project_id, created_at, title, description, status, origin,
-             rationale, updated_at)
+             spawned_from, rationale, updated_at)
            VALUES ($id, $project, $created, $title, $desc, $status, $origin,
-             $rationale, $updated)`,
+             $spawnedFrom, $rationale, $updated)`,
         )
         .run({
           $id: task.id,
@@ -309,6 +319,7 @@ export class Store {
           $desc: task.description,
           $status: task.status,
           $origin: task.origin,
+          $spawnedFrom: task.spawnedFrom,
           $rationale: task.rationale,
           $updated: task.updatedAt,
         })
@@ -558,6 +569,7 @@ function rowToTask(row: TaskRow, parents: TaskId[]): Task {
     lastCompletedStage: row.last_completed_stage,
     stage: row.stage,
     origin: row.origin,
+    spawnedFrom: row.spawned_from,
     rationale: row.rationale,
     reviewRetries: row.review_retries,
     changesRequestedRounds: row.changes_requested_rounds,

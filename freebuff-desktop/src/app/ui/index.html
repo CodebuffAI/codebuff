@@ -98,10 +98,18 @@
       }
 
       /* ---- Header brand ---- */
-      .brand { display: flex; align-items: center; gap: 9px; }
-      .proj { display: flex; flex-direction: column; line-height: 1.25; }
-      .proj .name { font-size: 12.5px; font-weight: 650; }
-      .proj .branch { font-size: 10.5px; color: var(--faint); font-weight: 500; }
+      /* The header doubles as the window drag handle (frameless shell); buttons opt
+         out via .brand-actions. On macOS the traffic-light cluster floats over the
+         top-left (titleBarStyle: hiddenInset), so inset the content to clear it. */
+      .brand { display: flex; align-items: center; gap: 8px; -webkit-app-region: drag; }
+      body.is-mac .brand { padding-left: 74px; }
+      .proj { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+      .proj .name { font-size: 12.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .proj .branch { font-size: 10.5px; color: var(--faint); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .brand-actions { margin-left: auto; display: flex; gap: 2px; -webkit-app-region: no-drag; }
+      .icon-btn { background: transparent; border: 1px solid transparent; color: var(--muted); padding: 6px; border-radius: 7px; }
+      .icon-btn:hover { background: var(--surface-2); color: var(--text); border-color: var(--border); filter: none; }
+      .icon-btn .ic-svg { width: 16px; height: 16px; }
       .activity { margin-left: auto; display: flex; gap: 10px; font-size: 11px; color: var(--muted); font-weight: 500; }
       .activity b { color: var(--text); font-weight: 650; }
       .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; animation: pulse 1.3s ease-in-out infinite; }
@@ -114,8 +122,6 @@
         color: var(--accent); font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 7px;
       }
       .cta:hover { background: rgba(124, 255, 63, 0.16); }
-      .cta.scout-cta { background: var(--surface); border-color: var(--border-strong); color: var(--muted); margin-top: 6px; }
-      .cta.scout-cta:hover { background: var(--surface-2); }
       .section-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin: 14px 12px 5px; font-weight: 650; }
       .card {
         background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -136,6 +142,32 @@
       .badge.b-waiting { color: var(--muted); border-color: var(--border-strong); }
       .badge.scout { color: var(--muted); border-color: var(--border-strong); }
       .badge.dep { color: var(--muted); }
+
+      /* ---- Scout suggestions: grouped under the task that spawned them (§9) ---- */
+      .sgroup-h {
+        display: flex; align-items: center; gap: 6px; margin: 12px 10px 3px;
+        padding-left: 2px; font-size: 11px; color: var(--faint);
+      }
+      .sgroup-h .ic-svg { width: 13px; height: 13px; flex: 0 0 13px; }
+      .sgroup-h .sgt { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .acceptall {
+        margin-left: auto; flex: 0 0 auto; background: transparent; border: 1px solid var(--border-strong);
+        color: var(--muted); font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 7px;
+      }
+      .acceptall:hover { background: var(--surface-2); color: var(--text); filter: none; }
+      .card.proposal { margin-left: 18px; } /* indent under the group rule */
+      .card.proposal .why { font-size: 11.5px; color: var(--muted); margin: 0 0 8px; line-height: 1.45; }
+      .qa { display: flex; gap: 6px; }
+      .qa-accept {
+        flex: 1; background: var(--accent); color: #08120a; font-size: 11.5px; font-weight: 650;
+        padding: 5px 10px; border-radius: 7px; gap: 5px;
+      }
+      .qa-dismiss {
+        background: transparent; border: 1px solid var(--border-strong); color: var(--muted);
+        font-size: 11.5px; font-weight: 500; padding: 5px 9px; border-radius: 7px;
+      }
+      .qa-dismiss:hover { background: var(--surface-2); color: var(--text); filter: none; }
+      .qa-accept .ic-svg, .qa-dismiss .ic-svg { width: 13px; height: 13px; }
 
       .docs-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 12.5px; }
       .docs-item:hover { background: var(--surface-2); }
@@ -188,6 +220,8 @@
       .evi.unverified { border-color: var(--border-strong); color: var(--muted); }
       .evi .vtag { font-weight: 650; }
       .spec { font-size: 12.5px; color: var(--muted); white-space: pre-wrap; }
+      .spawn-note { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11.5px; color: var(--faint); }
+      .spawn-note .ic-svg { width: 13px; height: 13px; }
       .actions { display: flex; gap: 8px; margin: 16px 0 4px; flex-wrap: wrap; }
       .rc-box { margin: 10px 0; display: none; }
       .rc-box.open { display: block; }
@@ -336,10 +370,12 @@
       <!-- LEFT: board -->
       <div class="col" id="col-board">
         <div class="col-head brand">
-          <div class="proj"><span class="name" id="projName">Freebuff</span><span class="branch" id="projBranch"></span></div>
-          <button class="ghost sm" style="margin-left:auto" onclick="openFolderPicker()" title="Open a project folder"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/></svg> Open</button>
-          <button class="ghost sm" onclick="openPreview()" title="Preview index.html"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Preview</button>
-          <button class="ghost sm" onclick="openRun()" title="Run a command in the project"><svg class="ic-svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4v16l13-8z"/></svg> Run</button>
+          <div class="proj"><span class="name" id="projName" title="">Freebuff</span><span class="branch" id="projBranch"></span></div>
+          <div class="brand-actions">
+            <button class="icon-btn" onclick="openFolderPicker()" title="Open a project folder"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/></svg></button>
+            <button class="icon-btn" onclick="openPreview()" title="Preview index.html"><svg class="ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button class="icon-btn" onclick="openRun()" title="Run a command in the project"><svg class="ic-svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4v16l13-8z"/></svg></button>
+          </div>
         </div>
         <div class="col-body">
           <div id="cta"></div>
@@ -669,7 +705,8 @@
       function renderHeader() {
         const s = state.snap; if (!s) return
         const repo = s.project.repoUrl || s.project.rootPath || ''
-        document.getElementById('projName').textContent = repo.split('/').filter(Boolean).pop() || 'project'
+        const name = repo.split('/').filter(Boolean).pop() || 'project'
+        const pn = document.getElementById('projName'); pn.textContent = name; pn.title = name
         document.getElementById('projBranch').textContent = '⎇ ' + s.project.defaultBranch
         const running = s.usage.running, cap = s.usage.cap
         const merged = tasks().filter((t) => t.status === 'merged').length
@@ -680,10 +717,8 @@
       function renderBoard() {
         const ts = tasks()
         const reviewCount = ts.filter((t) => t.status === 'awaiting-approval').length
-        const proposedCount = ts.filter((t) => t.status === 'proposed').length
         document.getElementById('cta').innerHTML =
-          (reviewCount ? '<div class="cta" onclick="selectFirstReview()">' + icon('check') + reviewCount + ' task' + (reviewCount > 1 ? 's' : '') + ' ready for your review</div>' : '') +
-          (proposedCount ? '<div class="cta scout-cta" onclick="selectFirst(\'proposed\')">' + icon('lightbulb') + proposedCount + ' suggestion' + (proposedCount > 1 ? 's' : '') + ' from Scout</div>' : '')
+          (reviewCount ? '<div class="cta" onclick="selectFirstReview()">' + icon('check') + reviewCount + ' task' + (reviewCount > 1 ? 's' : '') + ' ready for your review</div>' : '')
         const group = (s) => ts.filter((t) =>
           s === 'blocked' ? ['blocked', 'failed'].includes(t.status)
           : s === 'archived' ? t.status === 'abandoned'
@@ -692,11 +727,53 @@
         document.getElementById('columns').innerHTML = COLS.map(([s, label]) => {
           const items = group(s)
           if (!items.length && ['merged', 'blocked', 'proposed', 'archived'].includes(s)) return ''
+          // Proposals render grouped under the task that spawned them, with inline
+          // one-click accept/dismiss — not as a flat status column.
+          if (s === 'proposed') return proposedSectionHtml(items)
           return '<div class="section-h">' + label + ' · ' + items.length + '</div>' + items.map(cardHtml).join('')
         }).join('')
         renderDocs()
         renderTabBadges(reviewCount)
       }
+
+      // Scout proposals (§9) grouped under the task that spawned them, so the backlog
+      // reads as "what each finished task suggests next" instead of one flat wall.
+      // Each proposal carries inline one-click accept / dismiss.
+      function proposedSectionHtml(items) {
+        if (!items.length) return ''
+        // Preserve task order while bucketing by spawnedFrom; a null/unknown parent
+        // (human-proposed or legacy) collects into a trailing "Other" group.
+        const order = [], groups = new Map()
+        for (const t of items) {
+          const parent = t.spawnedFrom ? task(t.spawnedFrom) : null
+          const key = parent ? parent.id : ''
+          if (!groups.has(key)) { groups.set(key, { parent, list: [] }); order.push(key) }
+          groups.get(key).list.push(t)
+        }
+        let html = '<div class="section-h">Suggestions · ' + items.length + '</div>'
+        for (const key of order) {
+          const { parent, list } = groups.get(key)
+          const ids = list.map((t) => t.id).join(',')
+          const head = parent
+            ? icon('lightbulb') + '<span class="sgt">from "' + esc(parent.title) + '"</span>' +
+              (list.length > 1 ? '<button class="acceptall" onclick="acceptMany(\'' + ids + '\')" title="Accept all ' + list.length + '">' + icon('check') + 'Accept all</button>' : '')
+            : '<span class="sgt">Other suggestions</span>'
+          html += '<div class="sgroup-h">' + head + '</div>' + list.map(proposalCardHtml).join('')
+        }
+        return html
+      }
+      function proposalCardHtml(t) {
+        const why = t.rationale ? '<div class="why">' + esc(t.rationale) + '</div>' : ''
+        const stop = 'event.stopPropagation();'
+        return '<div class="card proposal ' + (state.sel === t.id ? 'sel' : '') + '" onclick="selectTask(\'' + t.id + '\')">' +
+          '<div class="ti">' + esc(t.title) + '</div>' + why +
+          '<div class="qa">' +
+            '<button class="qa-accept" title="Accept &amp; run" onclick="' + stop + 'accept(\'' + t.id + '\')">' + icon('check') + 'Accept</button>' +
+            '<button class="qa-dismiss" title="Dismiss" onclick="' + stop + 'dismiss(\'' + t.id + '\')">' + icon('x') + '</button>' +
+          '</div></div>'
+      }
+      // Accept several proposals in one click (a group's "Accept all").
+      async function acceptMany(csv) { for (const id of csv.split(',')) await accept(id) }
 
       // Compact elapsed like "5s", "2m", "1h03m" — so a slow stage reads as progress.
       function fmtElapsed(ms) {
@@ -1032,8 +1109,14 @@
             '<button class="danger" onclick="dismiss(\'' + t.id + '\')">Dismiss</button></div>'
         }
 
+        // For a Scout proposal, name the shipped task it followed from (§9).
+        const spawnParent = t.spawnedFrom ? task(t.spawnedFrom) : null
+        const spawnNote = spawnParent
+          ? '<div class="spawn-note">' + icon('lightbulb') + 'Suggested after "' + esc(spawnParent.title) + '"</div>'
+          : ''
         el.innerHTML = '<div class="detail"><h2>' + esc(t.title) + '</h2>' +
           '<div class="row">' + statusBadgeHtml(t) + (t.origin === 'scout' ? '<span class="badge scout">scout</span>' : '') + '</div>' +
+          spawnNote +
           '<div class="strip">' + strip + '</div>' +
           (t.rationale ? '<div class="lbl">Why</div><div class="spec">' + esc(t.rationale) + '</div>' : '') +
           '<div class="lbl">Spec</div><div class="spec">' + esc(t.description || '') + '</div>' +
@@ -1123,7 +1206,7 @@
       function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
 
       // expose
-      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send, copyCode, openFolderPicker, fpBrowse, fpGoTyped, fpConfirm })
+      Object.assign(window, { selectTask, selectFirstReview, selectFirst, openDoc, backToChat, goChat, openRun, runCmd, openPreview, refreshPreview, toggleFullscreen, toggleHelp, saveDoc, approve, accept, acceptMany, dismiss, abandon, toggleRC, submitRC, useExample, setPane, send, copyCode, openFolderPicker, fpBrowse, fpGoTyped, fpConfirm })
       // ---- Keyboard shortcuts (skip while typing in a field) ----
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { const fp = document.getElementById('fp'); if (fp) return fp.remove(); if (document.getElementById('help')) return toggleHelp(); if (state.previewFullscreen) return toggleFullscreen() }
@@ -1139,6 +1222,10 @@
         else if (e.key === 'p') { e.preventDefault(); openPreview() }
         else if (e.key === 'c') { e.preventDefault(); goChat(); const i = document.getElementById('chatInput'); if (i) i.focus() }
       })
+
+      // On macOS the frameless window's traffic lights overlap the header — flag the
+      // body so the brand header can inset to clear them (see .brand CSS).
+      if (window.freebuffDesktop && window.freebuffDesktop.platform === 'darwin') document.body.classList.add('is-mac')
 
       // Restore the persisted chat transcript so the conversation survives reloads.
       loadChatHistory()

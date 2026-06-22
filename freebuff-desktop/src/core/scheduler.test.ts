@@ -27,6 +27,7 @@ function task(partial: Partial<Task> & { id: string; status: TaskStatus }): Task
     lastCompletedStage: null,
     stage: null,
     origin: 'human',
+    spawnedFrom: null,
     rationale: null,
     reviewRetries: 0,
     changesRequestedRounds: 0,

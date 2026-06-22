@@ -5,6 +5,7 @@ import { join } from 'path'
 
 import { bunRunner } from '../core/exec'
 import type { PipelineExecutors } from '../core/pipeline'
+import { buildOrchestratorTools } from './agents/orchestrator-agent'
 import { Engine } from './engine'
 
 /** All-pass stub executors so the engine loop runs without the SDK/LLM. */
@@ -210,21 +211,19 @@ describe('Engine budget gate (§13)', () => {
   })
 })
 
-describe('Scout backlog cap (§9)', () => {
-  // The Scout fires off every shipped task, so without a ceiling a small project
-  // piles up a wall of proposals. It must skip while the proposed backlog is full.
-  const cap = 4
-
-  test('skips when the proposed backlog is at the cap', async () => {
+describe('Scout (§9)', () => {
+  test('runs regardless of how many proposals are already pending (no backlog cap)', async () => {
     let runs = 0
     const { engine, cleanup } = tempEngine({ client: { run: async () => { runs++ } } })
     try {
       const parent = engine.orchestrator.createTask({ title: 'shipped', description: 'd' })
-      for (let i = 0; i < cap; i++) {
+      // A deep backlog used to make the Scout skip; now it always runs and the UI
+      // groups proposals under the task that spawned them.
+      for (let i = 0; i < 8; i++) {
         engine.orchestrator.createTask({ title: `p${i}`, description: 'd' }, { origin: 'scout' })
       }
       await (engine as any).runScout(parent.taskId)
-      expect(runs).toBe(0) // backlog full → Scout never invokes the model
+      expect(runs).toBe(1) // no cap → Scout still invokes the model
       cleanup()
     } catch (err) {
       cleanup()
@@ -232,14 +231,25 @@ describe('Scout backlog cap (§9)', () => {
     }
   })
 
-  test('runs when there is room in the backlog', async () => {
-    let runs = 0
-    const { engine, cleanup } = tempEngine({ client: { run: async () => { runs++ } } })
+  test('stamps each proposal with the task that spawned it', async () => {
+    // Drive create_task the way the Scout's tool binding does, then assert the
+    // proposal carries `spawnedFrom` so the UI can group it under its parent.
+    const { engine, cleanup } = tempEngine({})
     try {
       const parent = engine.orchestrator.createTask({ title: 'shipped', description: 'd' })
-      engine.orchestrator.createTask({ title: 'p0', description: 'd' }, { origin: 'scout' })
-      await (engine as any).runScout(parent.taskId)
-      expect(runs).toBe(1) // room left → Scout invokes the model
+      const tools = buildOrchestratorTools(
+        engine.orchestrator,
+        'scout',
+        undefined,
+        parent.taskId,
+      )
+      const createTask = tools.find((t) => t.toolName === 'create_task')!
+      await createTask.execute({ title: 'follow-up', description: 'd', rationale: 'why' })
+      const proposal = engine.store
+        .listTasks((engine as any).projectId)
+        .find((t) => t.title === 'follow-up')!
+      expect(proposal.origin).toBe('scout')
+      expect(proposal.spawnedFrom).toBe(parent.taskId)
       cleanup()
     } catch (err) {
       cleanup()
