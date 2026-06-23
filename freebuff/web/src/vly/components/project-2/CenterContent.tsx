@@ -19,8 +19,12 @@ import styles from "./CenterContent.module.css";
 import { useProjectConnection } from "@/vly/hooks/useProjectConnection";
 import { toast } from "sonner";
 import { useSignedInUser } from "@/vly/hooks/use-user";
-import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
+import {
+  getExternalPreviewUrl,
+  getDaytonaPreviewUrl,
+} from "@/vly/lib/project-preview-url";
 import { GravityAdSlot } from "./agent-chat/GravityAdSlot";
+import { ConnectedRepoEnvPanel } from "./ConnectedRepoEnvPanel";
 import {
   Tooltip,
   TooltipContent,
@@ -70,6 +74,14 @@ type PreviewConnectionStatus =
   | "restarting";
 
 const MAX_AUTO_SCREENSHOT_FAILURES = 3;
+
+// Ports baked into the golden snapshot's start-services.sh (see
+// codebase-utils/golden-image.ts). Inlined here to avoid importing the
+// node-only golden image module into client code.
+const OPENVSCODE_PORT = 8080;
+const TTYD_PORT = 7681;
+
+type WorkspaceViewMode = "preview" | "code" | "terminal" | "env";
 
 const connectionStatusMeta: Record<
   PreviewConnectionStatus,
@@ -274,6 +286,14 @@ export function CenterContent({
 }: CenterContentProps) {
   const [isIframeActive, setIsIframeActive] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
+  // Connected-repo (Freebuff Cloud) projects get hosted editor + terminal tabs.
+  const isConnectedRepo =
+    (project as any)?.project_type === "connected_repo";
+  const [viewMode, setViewMode] = useState<WorkspaceViewMode>("preview");
+  const editorUrl = getDaytonaPreviewUrl(project, OPENVSCODE_PORT);
+  const terminalUrl = getDaytonaPreviewUrl(project, TTYD_PORT);
+  const workspaceUrl =
+    viewMode === "code" ? editorUrl : viewMode === "terminal" ? terminalUrl : null;
   const isMobile = useIsMobile();
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -907,6 +927,24 @@ export function CenterContent({
                   <span className="opacity-40">/</span>
                 )}
               </span>
+              {isConnectedRepo && (
+                <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
+                  {(["preview", "code", "terminal", "env"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setViewMode(mode)}
+                      className={`rounded px-2 py-0.5 text-[11px] font-medium capitalize transition-colors ${
+                        viewMode === mode
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* flex-1 slot for the above-iframe ad. Stretch (not center) so
                   the description can use every pixel between nav controls and
                   status buttons; CSS truncate handles width-based clipping. */}
@@ -1071,7 +1109,33 @@ export function CenterContent({
               // Debug logs
               return null;
             })()}
-            {navState.iframeSrc ? (
+            {isConnectedRepo && viewMode === "env" ? (
+              <div className="absolute inset-0">
+                <ConnectedRepoEnvPanel
+                  semanticIdentifier={project?.semantic_identifier ?? ""}
+                  onOpenView={(view) => setViewMode(view)}
+                />
+              </div>
+            ) : isConnectedRepo && viewMode !== "preview" ? (
+              workspaceUrl ? (
+                <iframe
+                  key={`${viewMode}-${project?.sandbox_id ?? ""}`}
+                  className="absolute inset-0 h-full w-full border-0"
+                  src={workspaceUrl}
+                  title={viewMode === "code" ? "Editor" : "Terminal"}
+                  allow="clipboard-read; clipboard-write"
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
+                  suppressHydrationWarning
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-50">
+                  <p className="text-slate-500">
+                    {viewMode === "code" ? "Editor" : "Terminal"} not available
+                    yet.
+                  </p>
+                </div>
+              )
+            ) : navState.iframeSrc ? (
               <iframe
                 key={navState.iframeKey}
                 ref={iframeRef}
@@ -1123,7 +1187,10 @@ export function CenterContent({
               )}
             </AnimatePresence>
             <AnimatePresence>
-              {!isIframeActive && navState.iframeSrc && !isSelectingElement && (
+              {!isIframeActive &&
+                navState.iframeSrc &&
+                !isSelectingElement &&
+                !(isConnectedRepo && viewMode !== "preview") && (
                 <motion.div
                   className="absolute inset-0 z-10 flex transform-gpu cursor-pointer flex-col items-center justify-center bg-black/35 hover:bg-black/20"
                   onClick={handleOverlayClick}

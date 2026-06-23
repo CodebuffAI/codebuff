@@ -163,6 +163,9 @@ export async function createDaytonaSandbox(
       effectiveSnapshotId,
     );
 
+    // Snapshot-based sandboxes inherit the snapshot's fixed CPU/RAM/disk, so
+    // sizing tiers are expressed as separate snapshots (standard vs limited),
+    // not as per-create resource overrides.
     const sandbox = await daytona.create({
       snapshot: effectiveSnapshotId,
       public: true,

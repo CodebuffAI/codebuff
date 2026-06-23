@@ -2078,6 +2078,126 @@ if (!hasIntegration) {
     return "failed";
   }
 
+  // ===========================================================================
+  // Freebuff Cloud (connect-a-repo) preview control
+  //
+  // Connected-repo projects do not run the fixed Vite + Convex dev sessions.
+  // Instead the agent controls a single long-running "preview" process whose
+  // command + port are stored on the project's runtime_config. These helpers
+  // run that process in a dedicated Daytona session and expose its logs.
+  // ===========================================================================
+  static readonly PREVIEW_SESSION_ID = "freebuff-preview";
+
+  /** Resolve the public preview URL for an arbitrary port (e.g. a dev server). */
+  async getPreviewLinkForPort(port: number): Promise<string> {
+    if (!this.sandbox) {
+      throw new Error("Cannot get preview url: sandbox not initialized");
+    }
+    const result = await this.sandbox.getPreviewLink(port);
+    return result.url;
+  }
+
+  /**
+   * Clone a git repository into the project path. Replaces any existing
+   * contents. `cloneUrl` should already include credentials when needed.
+   */
+  async cloneRepo(
+    cloneUrl: string,
+    branch?: string,
+  ): Promise<{ output: string; exitCode?: number }> {
+    const branchFlag = branch ? `--branch ${branch}` : "";
+    const command = [
+      `rm -rf ${this.projectPath}`,
+      `mkdir -p ${this.projectPath}`,
+      `git clone --depth 1 ${branchFlag} "${cloneUrl}" ${this.projectPath}`,
+    ].join(" && ");
+    return this.runCommand(command, 300_000);
+  }
+
+  /**
+   * (Re)start the agent-controlled preview process. The previous preview
+   * session is torn down first so the latest command wins.
+   */
+  async startPreviewProcess(command: string): Promise<void> {
+    if (!this.sandbox) {
+      throw new Error("Cannot start preview: sandbox not initialized");
+    }
+    await this.stopPreviewProcess();
+    await this.sandbox.process.createSession(
+      DaytonaCodebase.PREVIEW_SESSION_ID,
+    );
+    const fullCommand = `cd ${this.projectPath} && ${command}`;
+    await this.sandbox.process.executeSessionCommand(
+      DaytonaCodebase.PREVIEW_SESSION_ID,
+      { command: fullCommand, runAsync: true },
+    );
+  }
+
+  /** Stop the agent-controlled preview process if it is running. */
+  async stopPreviewProcess(): Promise<void> {
+    if (!this.sandbox) {
+      return;
+    }
+    const sessions = await this.sandbox.process.listSessions();
+    if (
+      sessions.some(
+        (s) => s.sessionId === DaytonaCodebase.PREVIEW_SESSION_ID,
+      )
+    ) {
+      try {
+        await this.sandbox.process.deleteSession(
+          DaytonaCodebase.PREVIEW_SESSION_ID,
+        );
+      } catch (error) {
+        console.warn("Failed to delete preview session:", error);
+      }
+    }
+  }
+
+  /** Whether the agent-controlled preview process is currently running. */
+  async isPreviewProcessRunning(): Promise<boolean> {
+    if (!this.sandbox) {
+      return false;
+    }
+    const sessions = await this.sandbox.process.listSessions();
+    const session = sessions.find(
+      (s) => s.sessionId === DaytonaCodebase.PREVIEW_SESSION_ID,
+    );
+    if (!session || session.commands.length === 0) {
+      return false;
+    }
+    const last = session.commands[session.commands.length - 1];
+    return last.exitCode === null || last.exitCode === undefined;
+  }
+
+  /** Fetch the recent logs from the agent-controlled preview process. */
+  async getPreviewLogs(maxChars = 10_000): Promise<string> {
+    if (!this.sandbox) {
+      return "";
+    }
+    try {
+      const session = await this.sandbox.process.getSession(
+        DaytonaCodebase.PREVIEW_SESSION_ID,
+      );
+      const lastCmd = session.commands?.[session.commands.length - 1];
+      if (!lastCmd?.id) {
+        return "";
+      }
+      const logs = await this.sandbox.process.getSessionCommandLogs(
+        DaytonaCodebase.PREVIEW_SESSION_ID,
+        lastCmd.id,
+      );
+      const text =
+        logs.output ??
+        [logs.stdout, logs.stderr].filter(Boolean).join("\n") ??
+        "";
+      return text.length > maxChars ? text.slice(-maxChars) : text;
+    } catch (error) {
+      console.warn("Failed to read preview logs:", error);
+      return "";
+    }
+  }
+
   /**
    * Wait for specific sessions to be deleted.
    * Polls the session list until all specified sessions are gone or timeout is reached.

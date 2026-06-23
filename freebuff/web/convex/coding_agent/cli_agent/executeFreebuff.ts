@@ -20,6 +20,7 @@ import { initializeCodebase } from '../../../codebase-utils/codebase/initializeC
 import {
   bundledAgentDefinitions,
   resolveFreebuffAgentId,
+  CONNECTED_REPO_AGENT_GUIDANCE,
 } from './freebuff_bundled_agents'
 
 function requireEnv(name: string) {
@@ -630,12 +631,112 @@ function parseCreateDiff(diff: string) {
     .join('\n')
 }
 
+interface FreebuffRuntimeConfig {
+  install_command?: string
+  preview_command?: string
+  preview_port?: number
+  build_command?: string
+  detection_status?: 'pending' | 'detecting' | 'ready' | 'failed'
+}
+
+/**
+ * Preview control for connected-repo (Freebuff Cloud) projects. The agent
+ * drives this through `run_terminal_command` using a `freebuff-preview`
+ * command namespace (documented in the system prompt appendix), e.g.
+ *   freebuff-preview set "bun run dev" 5173
+ *   freebuff-preview restart | stop | status | logs
+ * This keeps preview control inside the existing tool surface without adding
+ * new entries to the shared tool registry.
+ */
+async function handleFreebuffPreviewCommand(
+  codebase: DaytonaCodebase,
+  rawCommand: string,
+  hooks: {
+    getRuntimeConfig: () => Promise<FreebuffRuntimeConfig | undefined>
+    setRuntimeConfig: (config: FreebuffRuntimeConfig) => Promise<void>
+    setPreviewUrl: (url: string) => Promise<void>
+  },
+): Promise<string> {
+  // Tokenize, honoring a single double-quoted command argument.
+  const args = rawCommand.trim().slice('freebuff-preview'.length).trim()
+  const sub = args.split(/\s+/)[0] ?? ''
+  const rest = args.slice(sub.length).trim()
+
+  const current = (await hooks.getRuntimeConfig()) ?? {}
+
+  if (sub === 'set') {
+    const quoted = rest.match(/^"([^"]+)"\s*(\d+)?$/)
+    const previewCommand = quoted ? quoted[1] : rest.replace(/\s+\d+$/, '')
+    const portMatch = quoted?.[2] ?? rest.match(/(\d+)\s*$/)?.[1]
+    const previewPort = portMatch ? Number(portMatch) : current.preview_port
+    if (!previewCommand) {
+      return JSON.stringify({ errorMessage: 'Usage: freebuff-preview set "<command>" <port>' })
+    }
+    await hooks.setRuntimeConfig({
+      preview_command: previewCommand,
+      ...(previewPort ? { preview_port: previewPort } : {}),
+      detection_status: 'ready',
+    })
+    await codebase.startPreviewProcess(previewCommand)
+    let url: string | undefined
+    if (previewPort) {
+      url = await codebase.getPreviewLinkForPort(previewPort)
+      await hooks.setPreviewUrl(url)
+    }
+    return JSON.stringify({ message: 'Preview started', previewCommand, previewPort, previewUrl: url })
+  }
+
+  if (sub === 'restart') {
+    if (!current.preview_command) {
+      return JSON.stringify({ errorMessage: 'No preview command set yet. Use: freebuff-preview set "<command>" <port>' })
+    }
+    await codebase.startPreviewProcess(current.preview_command)
+    let url: string | undefined
+    if (current.preview_port) {
+      url = await codebase.getPreviewLinkForPort(current.preview_port)
+      await hooks.setPreviewUrl(url)
+    }
+    return JSON.stringify({ message: 'Preview restarted', previewUrl: url })
+  }
+
+  if (sub === 'stop') {
+    await codebase.stopPreviewProcess()
+    return JSON.stringify({ message: 'Preview stopped' })
+  }
+
+  if (sub === 'logs') {
+    const logs = await codebase.getPreviewLogs()
+    return JSON.stringify({ logs: logs || '(no preview logs yet)' })
+  }
+
+  if (sub === 'status') {
+    const running = await codebase.isPreviewProcessRunning()
+    return JSON.stringify({
+      running,
+      previewCommand: current.preview_command ?? null,
+      previewPort: current.preview_port ?? null,
+    })
+  }
+
+  return JSON.stringify({
+    errorMessage:
+      'Unknown freebuff-preview subcommand. Use: set "<command>" <port> | restart | stop | logs | status',
+  })
+}
+
 function buildFreebuffOverrideTools(
   getCodebase: () => Promise<DaytonaCodebase>,
   options: {
     onAskUser?: (input: unknown) => never
+    // Connected-repo (Freebuff Cloud) context. When present, git commands are
+    // allowed and the `freebuff-preview` command namespace is enabled.
+    projectType?: string
+    getRuntimeConfig?: () => Promise<FreebuffRuntimeConfig | undefined>
+    setRuntimeConfig?: (config: FreebuffRuntimeConfig) => Promise<void>
+    setPreviewUrl?: (url: string) => Promise<void>
   } = {},
 ) {
+  const isConnectedRepo = options.projectType === 'connected_repo'
   const writeFileTool = async (input: any) => {
     const codebase = await getCodebase()
     const filePath = normalizePath(input?.path)
@@ -778,12 +879,26 @@ function buildFreebuffOverrideTools(
     run_terminal_command: async (input: any) => {
       const codebase = await getCodebase()
       const command = String(input?.command ?? '')
-      if (commandIsBlocked(command)) {
+
+      // Connected-repo projects manage their own git (real repo, branches),
+      // and expose preview control via the `freebuff-preview` namespace.
+      if (isConnectedRepo) {
+        if (command.trim().startsWith('freebuff-preview')) {
+          const output = await handleFreebuffPreviewCommand(codebase, command, {
+            getRuntimeConfig:
+              options.getRuntimeConfig ?? (async () => undefined),
+            setRuntimeConfig: options.setRuntimeConfig ?? (async () => {}),
+            setPreviewUrl: options.setPreviewUrl ?? (async () => {}),
+          })
+          return asJson({ output: truncateToolOutput(output), exitCode: 0 })
+        }
+      } else if (commandIsBlocked(command)) {
         return asJson({
           errorMessage:
             'Git and GitHub commands are blocked; Vly manages version control.',
         })
       }
+
       const timeoutSeconds = Number(input?.timeout_seconds ?? 30)
       const result = await codebase.runCommand(
         command,
@@ -1075,14 +1190,32 @@ export const runFreebuffAgent = internalAction({
         return codebasePromise
       }
 
+      // Connected-repo (Freebuff Cloud) projects manage their own git and
+      // preview process; detect the project type once so the override tools
+      // can adjust behavior.
+      const connectedRepoProject = await ctx.runQuery(
+        internal.cloud.connectRepoMutations.getConnectedRepoProject,
+        { projectId: args.projectId },
+      )
+      const connectedRepoContext =
+        connectedRepoProject?.project_type === 'connected_repo'
+          ? { projectType: 'connected_repo' as const }
+          : undefined
+
       const agentId = resolveFreebuffAgentId(args.freebuffModel)
       const supportsImages = isFreebuffMultimodalModelId(args.freebuffModel)
 
       // Vision-capable models get real multimodal content. Text-only models
       // fall back to inlining image URLs so the model at least has a reference.
-      const userMessage = supportsImages
+      const baseUserMessage = supportsImages
         ? args.userMessage
         : await appendImageUrlsToMessage(ctx, args.userMessage, args.images)
+      // Connected-repo guidance is injected per-run here (rather than in the
+      // shared system-prompt appendix) so default template projects are
+      // completely unaffected.
+      const userMessage = connectedRepoContext
+        ? `${CONNECTED_REPO_AGENT_GUIDANCE}\n\n---\n\n${baseUserMessage}`
+        : baseUserMessage
 
       const imageContents = supportsImages
         ? await loadImageContents(ctx, args.images)
@@ -1113,6 +1246,27 @@ export const runFreebuffAgent = internalAction({
           onAskUser: (input) => {
             pendingAskUserQuestions = sanitizeAskUserQuestions(input)
             throw createAskUserPauseError(input)
+          },
+          projectType: connectedRepoContext?.projectType,
+          getRuntimeConfig: async () => {
+            const project = await ctx.runQuery(
+              internal.cloud.connectRepoMutations.getConnectedRepoProject,
+              { projectId: args.projectId },
+            )
+            return project?.runtime_config ?? undefined
+          },
+          setRuntimeConfig: async (config) => {
+            await ctx.runMutation(
+              internal.cloud.connectRepoMutations.updateRuntimeConfig,
+              { projectId: args.projectId, config },
+            )
+          },
+          setPreviewUrl: async (url) => {
+            await ctx.runMutation(
+              internal.cloud.connectRepoMutations
+                .setConnectedRepoPreviewUrl,
+              { projectId: args.projectId, preview_url: url },
+            )
           },
         }) as any,
         handleEvent: async (event: any) => {

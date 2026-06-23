@@ -5,10 +5,14 @@ export type ProjectPreviewLike = {
   sandbox_id?: string | null;
   preview_url?: string | null;
   pretty_preview_url?: string | null;
+  // Freebuff Cloud (connected repo) fields.
+  project_type?: "template" | "connected_repo" | null;
+  runtime_config?: { preview_port?: number | null } | null;
 };
 
 export function getDaytonaPreviewUrl(
   project: ProjectPreviewLike | null | undefined,
+  port: number = DAYTONA_PREVIEW_PORT,
 ) {
   const sandboxId = project?.sandbox_id;
   if (!sandboxId?.startsWith(DAYTONA_SANDBOX_PREFIX)) {
@@ -20,12 +24,24 @@ export function getDaytonaPreviewUrl(
     return null;
   }
 
-  return `https://${DAYTONA_PREVIEW_PORT}-${daytonaSandboxId}.proxy.daytona.works`;
+  return `https://${port}-${daytonaSandboxId}.proxy.daytona.works`;
 }
 
 export function getDirectPreviewUrl(
   project: ProjectPreviewLike | null | undefined,
 ) {
+  // Connected repos run the dev server on an agent-detected port; honor the
+  // stored preview_url first, then derive from the configured preview_port.
+  if (project?.project_type === "connected_repo") {
+    const port = project?.runtime_config?.preview_port ?? undefined;
+    return (
+      project?.preview_url ??
+      (port ? getDaytonaPreviewUrl(project, port) : null) ??
+      project?.pretty_preview_url ??
+      null
+    );
+  }
+
   return (
     project?.preview_url ??
     getDaytonaPreviewUrl(project) ??
@@ -37,5 +53,10 @@ export function getDirectPreviewUrl(
 export function getExternalPreviewUrl(
   project: ProjectPreviewLike | null | undefined,
 ) {
+  // For connected repos, the pretty (*.freebuff.dev) proxy isn't wired to the
+  // dynamic port, so use the direct preview URL.
+  if (project?.project_type === "connected_repo") {
+    return getDirectPreviewUrl(project);
+  }
   return project?.pretty_preview_url ?? getDirectPreviewUrl(project);
 }

@@ -111,6 +111,27 @@ Freebuff Web projects are Vite + React + Convex apps. After changing files, you 
 - Keep components focused and readable. Extract repeated UI patterns only when it clearly reduces duplication.
 `.trim()
 
+/**
+ * Extra guidance injected ONLY for connected-repo (Freebuff Cloud) projects.
+ * Kept out of the shared system-prompt appendix so default Freebuff Web
+ * (template) projects are completely unaffected. Prepended to the user prompt
+ * at runtime in executeFreebuff when the project is a connected repo.
+ */
+export const CONNECTED_REPO_AGENT_GUIDANCE = `
+# Connected GitHub Repository (Freebuff Cloud)
+
+This project is NOT the default Vly template — it is an existing GitHub repository the user connected. Therefore:
+- The repo is already cloned into \`/home/daytona/codebase/\`. It may use any framework, package manager, and port — do not assume Vite/Convex.
+- You ARE allowed to use \`git\` and \`gh\` here; the project owns its git history and branches. Commit and push as appropriate.
+- You control the preview/dev server through the \`run_terminal_command\` tool using the \`freebuff-preview\` command namespace (do NOT start long-running dev servers directly, they will time out):
+  - \`freebuff-preview set "<dev command>" <port>\` — set and start the preview (e.g. \`freebuff-preview set "bun run dev" 5173\`). Returns the public preview URL.
+  - \`freebuff-preview restart\` — restart the preview with the stored command.
+  - \`freebuff-preview stop\` — stop the preview process.
+  - \`freebuff-preview logs\` — read recent preview/dev-server logs (use this to debug a broken preview).
+  - \`freebuff-preview status\` — check whether the preview is running and what command/port it uses.
+- When first opening a repo, inspect \`package.json\`/lockfiles, install dependencies, then run \`freebuff-preview set\` with the correct dev command and port so the preview comes up.
+`.trim()
+
 function withFreebuffWebSystemPromptAppendix(
   agent: AgentDefinition,
 ): AgentDefinition {

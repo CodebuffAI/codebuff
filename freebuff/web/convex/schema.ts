@@ -172,12 +172,44 @@ export default defineSchema(
       prod_deployment_slug: v.optional(v.string()),
       convex_url: v.optional(v.string()),
       spec: v.optional(v.string()),
+
+      // --- Freebuff Cloud (connect-a-repo) ---------------------------------
+      // Discriminates the two project lifecycles. Absent => "template" (the
+      // existing pooled Vly snapshot + auto Convex + Vite-on-5173 flow).
+      project_type: v.optional(
+        v.union(v.literal('template'), v.literal('connected_repo')),
+      ),
+      // For connected_repo projects: the GitHub repo backing this project.
+      repo_full_name: v.optional(v.string()), // "owner/name"
+      repo_default_branch: v.optional(v.string()),
+      current_branch: v.optional(v.string()),
+      github_installation_id: v.optional(v.number()),
+      // Agent-controlled runtime configuration for arbitrary repos. The
+      // preview command + port are detected during environment interpretation
+      // and can be overridden by the agent via the set_runtime_config tool.
+      runtime_config: v.optional(
+        v.object({
+          install_command: v.optional(v.string()),
+          preview_command: v.optional(v.string()),
+          preview_port: v.optional(v.number()),
+          build_command: v.optional(v.string()),
+          detection_status: v.optional(
+            v.union(
+              v.literal('pending'),
+              v.literal('detecting'),
+              v.literal('ready'),
+              v.literal('failed'),
+            ),
+          ),
+        }),
+      ),
     })
       .index('by_semantic_identifier', ['semantic_identifier'])
       .index('by_sandbox_id', ['sandbox_id'])
       .index('by_state', ['state'])
       .index('by_prod_deployment_slug', ['prod_deployment_slug'])
-      .index('by_organization', ['organization_id']),
+      .index('by_organization', ['organization_id'])
+      .index('by_project_type', ['project_type']),
 
     daytona_migration: defineTable({
       project_id: v.id('project'),
@@ -1083,6 +1115,41 @@ export default defineSchema(
       key: v.string(),
       value: v.boolean(),
     }).index('by_key', ['key']),
+
+    // Golden Daytona snapshots built/promoted from the admin dashboard.
+    // The `primary` row is the base snapshot used to create all new sandboxes.
+    daytona_snapshot: defineTable({
+      // Daytona snapshot name/id (unique on the Daytona side).
+      snapshot_id: v.string(),
+      name: v.string(),
+      tier: v.union(
+        v.literal('small'),
+        v.literal('medium'),
+        v.literal('large'),
+      ),
+      specs: v.object({
+        cpu: v.string(),
+        ram: v.string(),
+        disk: v.string(),
+      }),
+      status: v.union(
+        v.literal('building'),
+        v.literal('ready'),
+        v.literal('primary'),
+        v.literal('failed'),
+      ),
+      // Monotonic version label, e.g. "golden-2026-06-23-1".
+      version: v.string(),
+      // Daytona server the snapshot lives on (legacy/new).
+      daytona_server: v.optional(v.union(v.literal('legacy'), v.literal('new'))),
+      build_logs: v.optional(v.string()),
+      error: v.optional(v.string()),
+      created_by: v.optional(v.id('users')),
+      created_at: v.number(),
+      promoted_at: v.optional(v.number()),
+    })
+      .index('by_status', ['status'])
+      .index('by_snapshot_id', ['snapshot_id']),
 
     // Email notifications queue for Tickets
     emailQueue: defineTable({

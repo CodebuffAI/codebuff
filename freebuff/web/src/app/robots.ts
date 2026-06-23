@@ -15,6 +15,7 @@ export default function robots(): MetadataRoute.Robots {
 
   const disallow = [
     '/api/',
+    '/cloud',
     '/web/admin/',
     '/web/dashboard/',
     '/web/project/',
