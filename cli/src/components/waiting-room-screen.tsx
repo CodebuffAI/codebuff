@@ -685,10 +685,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   {limitedModeNotice}
                 </text>
               )}
-              <FreebuffReferralBanner />
               {reserveStreakSlot && (
                 <StreakInlineLine streak={streak} marginTop={1} />
               )}
+              <FreebuffReferralBanner />
             </box>
           )}
 

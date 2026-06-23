@@ -1,0 +1,1 @@
+ALTER TABLE "referral_qualification" ADD COLUMN "github_login" text;

@@ -267,6 +267,10 @@ export const referralQualification = pgTable(
     oldest_public_repo_created_at: timestamp('oldest_public_repo_created_at', {
       mode: 'date',
     }),
+    // The GitHub login (handle) captured on the same API call. Used to
+    // personalize invite landing pages ("X invited you…") when the inviter has
+    // no display name set. Nullable (unknown / not fetched / pre-backfill rows).
+    github_login: text('github_login'),
     // Extra public signals captured on the same API call, for future tiering /
     // threshold experiments without a re-crawl. Nullable (unknown / not fetched).
     github_followers: integer('github_followers'),

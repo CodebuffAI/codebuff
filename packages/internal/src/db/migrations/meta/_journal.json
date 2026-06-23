@@ -484,6 +484,13 @@
       "when": 1782193211881,
       "tag": "0068_pretty_archangel",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1782251007749,
+      "tag": "0069_early_boomerang",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
  * naturally; the only scroll-linked motion is the relative drift between the
  * background layers, the cost chart, and the foreground bushes.
  */
-export function CliHero() {
+export function CliHero({ referrerName }: { referrerName?: string | null }) {
   const sceneRef = useRef<HTMLDivElement>(null)
 
   const { scrollYProgress } = useScroll({
@@ -55,6 +55,16 @@ export function CliHero() {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
           className="lp-gpu flex w-full flex-col items-center"
         >
+          {referrerName && (
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-forest/30 bg-forest/10 px-4 py-1.5 text-sm text-forest-bright">
+              <span aria-hidden>✦</span>
+              <span>
+                <span className="font-medium text-white">{referrerName}</span>{' '}
+                invited you to try Freebuff
+              </span>
+            </div>
+          )}
+
           <h1 className="lp-hero-heading text-balance text-[34px] font-normal leading-[1.1] text-white md:text-[52px] lg:text-[58px]">
             The free coding agent for your{' '}
             <span className="text-forest-bright">terminal</span>

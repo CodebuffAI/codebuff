@@ -49,7 +49,7 @@ export default async function GetStartedPage({
   return (
     <>
       <GetStartedReferrerCapture referrerName={referrerName} />
-      <CliLanding faqs={faqs} />
+      <CliLanding faqs={faqs} referrerName={referrerName} />
     </>
   )
 }

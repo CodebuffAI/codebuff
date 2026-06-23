@@ -32,12 +32,18 @@ const INSTALL_STEPS: { command: string; label: string; desc: string }[] = [
   },
 ]
 
-export function CliLanding({ faqs }: { faqs: FaqItem[] }) {
+export function CliLanding({
+  faqs,
+  referrerName,
+}: {
+  faqs: FaqItem[]
+  referrerName?: string | null
+}) {
   return (
     <div className="dark relative min-h-screen bg-black font-paragraph font-light text-white">
       <LandingNavbar />
       <main>
-        <CliHero />
+        <CliHero referrerName={referrerName} />
         <div className="relative z-10 bg-black">
           <InstallSection />
           <Faq items={faqs} />

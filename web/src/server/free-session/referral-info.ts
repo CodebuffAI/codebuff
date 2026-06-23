@@ -23,13 +23,28 @@ export async function getFreebuffReferralInfo(
   if (!FREEBUFF_GLM_V52_REFERRAL_ENABLED) return null
   const [[userRow], [githubAccount], weekly] = await Promise.all([
     db
-      .select({ referralCode: schema.user.referral_code })
+      .select({
+        referralCode: schema.user.referral_code,
+        name: schema.user.name,
+      })
       .from(schema.user)
       .where(eq(schema.user.id, userId))
       .limit(1),
+    // Join the GitHub account to its cached qualification row to recover the
+    // GitHub login, used as a display-name fallback for the invite page.
     db
-      .select({ provider: schema.account.provider })
+      .select({
+        provider: schema.account.provider,
+        githubLogin: schema.referralQualification.github_login,
+      })
       .from(schema.account)
+      .leftJoin(
+        schema.referralQualification,
+        eq(
+          schema.referralQualification.github_user_id,
+          schema.account.providerAccountId,
+        ),
+      )
       .where(
         and(
           eq(schema.account.userId, userId),
@@ -45,6 +60,10 @@ export async function getFreebuffReferralInfo(
 
   return {
     code,
+    // Prefer the display name; fall back to the GitHub login (handle) so
+    // GitHub-only users with no name set still personalize the invite page.
+    referrerName:
+      userRow?.name?.trim() || githubAccount?.githubLogin?.trim() || null,
     // The weekly limit IS the (capped) qualified GLM referral count.
     qualifiedCount: weekly.limit,
     weeklySessionsRemaining: weekly.remaining,

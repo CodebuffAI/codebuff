@@ -347,18 +347,21 @@ async function readQualificationCache(
  */
 async function writeQualificationCache(params: {
   githubUserId: string
+  githubLogin: string
   userId: string
   qualified: boolean
   reason: ReferralDisqualifyReason | null
   facts: GitHubFacts
   now: Date
 }): Promise<void> {
-  const { githubUserId, userId, qualified, reason, facts, now } = params
+  const { githubUserId, githubLogin, userId, qualified, reason, facts, now } =
+    params
 
   const columns = {
     user_id: userId,
     qualified,
     reason,
+    github_login: githubLogin,
     github_account_created_at: facts.accountCreatedAt,
     oldest_public_repo_created_at: facts.oldestPublicRepoCreatedAt,
     github_followers: facts.followers,
@@ -495,6 +498,7 @@ export async function getReferralQualification(params: {
   }
   await writeQualificationCache({
     githubUserId,
+    githubLogin: data.githubLogin,
     userId,
     qualified,
     reason,
