@@ -26,14 +26,27 @@ export function getFreebuffPremiumResetAt(params: {
   ).resetsAt
 }
 
+/**
+ * Human "resets in …" countdown. Daily pools stop at hours (`withDays` off);
+ * the weekly GLM pool sets `withDays` so a multi-day window reads as "2d 5h"
+ * instead of a 100-hour figure.
+ */
 export function formatFreebuffPremiumResetCountdown(
   resetAt: Date,
   nowMs: number,
+  { withDays = false }: { withDays?: boolean } = {},
 ): string {
   const diffMs = resetAt.getTime() - nowMs
   if (!Number.isFinite(diffMs) || diffMs <= 0) return 'now'
 
   const totalMinutes = Math.max(1, Math.floor(diffMs / 60_000))
+  if (withDays) {
+    const days = Math.floor(totalMinutes / (60 * 24))
+    if (days > 0) {
+      const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+      return hours === 0 ? `${days}d` : `${days}d ${hours}h`
+    }
+  }
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
 

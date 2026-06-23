@@ -59,6 +59,12 @@ export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
 export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
+/** GLM 5.2 (Z.ai), served by Fireworks serverless. Unlike the other picker
+ *  models it is NOT freely available — it is unlocked by referring friends.
+ *  Each qualified referral grants one 1-hour GLM session per week (capped at
+ *  FREEBUFF_GLM_V52_REFERRAL_CAP). Gated by a per-user weekly session pool whose
+ *  limit equals the caller's GLM referral score (see the free-session quota). */
+export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
 /** UI-only rollout switch. Backend support and free-mode allowlists remain
  *  wired even when these models are hidden from the Freebuff picker. */
 export const FREEBUFF_ENABLE_MIMO_MODELS_IN_UI = true
@@ -72,6 +78,26 @@ export const FREEBUFF_PREMIUM_SESSION_LIMIT = 5
 export const FREEBUFF_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
+/** GLM 5.2 referral-reward session pool. Distinct from the premium daily pool:
+ *  GLM sessions reset weekly (Pacific) and the per-user limit is the caller's
+ *  GLM referral score, capped at FREEBUFF_GLM_V52_REFERRAL_CAP. */
+export const FREEBUFF_WEEKLY_SESSION_PERIOD = 'pacific_week'
+export const FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE =
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
+export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24 * 7
+/** Max number of qualified referrals that count toward GLM sessions, i.e. the
+ *  most 1-hour GLM sessions a user can earn per week. */
+export const FREEBUFF_GLM_V52_REFERRAL_CAP = 10
+/** Master kill-switch for the GLM 5.2 referral program. While true, qualified
+ *  referrals grant weekly GLM sessions and the CLI advertises the perk. Flip to
+ *  false to wind the program down: entitlement drops to 0 for everyone and the
+ *  CLI stops showing the banner. The perk is intentionally framed as
+ *  limited-time in the UI so turning this off isn't a surprise. */
+export const FREEBUFF_GLM_V52_REFERRAL_ENABLED = true
+/** GLM sessions are exactly one hour of wall-clock time, regardless of the
+ *  global free-session length, so the "1 hour per referral per week" promise is
+ *  exact. */
+export const FREEBUFF_GLM_V52_SESSION_LENGTH_MS = 60 * 60 * 1000
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
@@ -181,16 +207,34 @@ const MINIMAX_M3_MODEL = {
   multimodal: true,
 } as const satisfies FreebuffModelOption
 
+const GLM_V52_MODEL = {
+  id: FREEBUFF_GLM_V52_MODEL_ID,
+  displayName: 'GLM 5.2',
+  tagline: 'Unlock by referring friends',
+  availability: 'always',
+  // No data-collection warning: served by Fireworks (no provider-side
+  // training), and omitting it keeps GLM out of FREEBUFF_TRACED_MODEL_IDS.
+  // `premium` drives the "Premium" badge styling in the picker; GLM's real
+  // gate is its weekly referral-session pool, not the daily premium pool.
+  premium: true,
+  multimodal: false,
+} as const satisfies FreebuffModelOption
+
 export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MIMO_V25_PRO_MODEL,
   KIMI_MODEL,
   MINIMAX_M3_MODEL,
+  GLM_V52_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   MIMO_V25_MODEL,
   MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
+// GLM 5.2 is intentionally NOT in FREEBUFF_MODELS: it isn't a freely-pickable
+// grid model, it's a referral reward surfaced by the separate referral banner.
+// It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
+// a valid model id once the user's weekly entitlement admits them.
 export const FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
@@ -205,6 +249,11 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
 ] as const
+
+/** Models unlocked by referrals, metered by the weekly GLM session pool rather
+ *  than the daily premium pool. Kept separate from FREEBUFF_PREMIUM_MODEL_IDS
+ *  so GLM never falls into the shared 5/day premium quota. */
+export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
@@ -411,6 +460,18 @@ export function isFreebuffPremiumModelId(
   // Suffix-tolerant: a dated variant of a premium id (e.g. a dated Kimi) must
   // still count as premium so it can't dodge the premium daily rate cap.
   return FREEBUFF_PREMIUM_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
+
+/** Whether the requested model is the GLM 5.2 referral reward, tolerating the
+ *  dated snapshot suffix. GLM is metered by the weekly referral-session pool
+ *  rather than the daily premium pool, so callers branch on this before the
+ *  premium check. */
+export function isFreebuffGlmV52ModelId(
+  id: string | null | undefined,
+): boolean {
+  return FREEBUFF_GLM_V52_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
 }

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
 import { FreebuffModelSelector } from './freebuff-model-selector'
+import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import { ShimmerText } from './shimmer-text'
 import {
   refreshFreebuffLandingMetadata,
@@ -31,7 +32,10 @@ import {
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
 } from '@codebuff/common/constants/freebuff-models'
-import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import {
+  getRateLimitsByModel,
+  getReferralInfo,
+} from '@codebuff/common/types/freebuff-session'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 import { pluralize } from '@codebuff/common/util/string'
 
@@ -493,7 +497,17 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const noticeRows = limitedModeNotice
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
-  const belowPickerRows = streakRows + noticeRows
+  // GLM referral banner (landing, full tier). Reserve the rows it occupies so
+  // the scrollbox shrinks to make room. Locked = one quiet line (marginTop +
+  // 1); unlocked = the accent card (marginTop + border 2 + status + action +
+  // limited-time footnote + optional connect-github row).
+  const referralInfo = isLanding ? getReferralInfo(session) : undefined
+  const referralBannerRows = !referralInfo
+    ? 0
+    : referralInfo.weeklySessionsRemaining > 0
+      ? 1 + 5 + (referralInfo.githubLinked ? 0 : 1)
+      : 1 + 1
+  const belowPickerRows = streakRows + noticeRows + referralBannerRows
   const counterRows = showBelowPickerCounter
     ? 1 /* marginTop */ + wrappedRows(counterText)
     : 0
@@ -671,6 +685,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   {limitedModeNotice}
                 </text>
               )}
+              <FreebuffReferralBanner />
               {reserveStreakSlot && (
                 <StreakInlineLine streak={streak} marginTop={1} />
               )}

@@ -96,3 +96,41 @@ export function getZonedDayBounds(
     resetsAt: getUtcForZonedTime(tomorrow, timeZone, 0, 0),
   }
 }
+
+/**
+ * Bounds of the calendar week containing `now` in `timeZone`. `startsAt` is
+ * midnight at the start of the week, `resetsAt` is midnight 7 days later (the
+ * next reset). `weekStartsOn` is 0=Sunday … 6=Saturday; defaults to Monday (1).
+ * Pure calendar math via `addDaysToYmd`, so it handles DST and month/year
+ * boundaries the same way `getZonedDayBounds` does.
+ */
+export function getZonedWeekBounds(
+  now: Date,
+  timeZone: string,
+  weekStartsOn: number = 1,
+): { startsAt: Date; resetsAt: Date } {
+  const nowParts = getZonedParts(now, timeZone)
+  // Day-of-week of the zoned calendar date (0=Sunday). Built from a UTC date so
+  // the weekday is read off the y/m/d only, independent of the actual offset.
+  const dow = new Date(
+    Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day),
+  ).getUTCDay()
+  const daysSinceWeekStart = (dow - weekStartsOn + 7) % 7
+  const weekStart = addDaysToYmd(
+    nowParts.year,
+    nowParts.month,
+    nowParts.day,
+    -daysSinceWeekStart,
+  )
+  const nextWeekStart = addDaysToYmd(
+    weekStart.year,
+    weekStart.month,
+    weekStart.day,
+    7,
+  )
+
+  return {
+    startsAt: getUtcForZonedTime(weekStart, timeZone, 0, 0),
+    resetsAt: getUtcForZonedTime(nextWeekStart, timeZone, 0, 0),
+  }
+}

@@ -19,7 +19,9 @@ import type { FreebuffAccessTier } from '../constants/freebuff-models'
 export interface FreebuffSessionRateLimit {
   model: string
   limit: number
-  period: 'pacific_day'
+  /** 'pacific_day' for the daily premium/limited pools; 'pacific_week' for the
+   *  GLM 5.2 referral pool, which resets weekly. */
+  period: 'pacific_day' | 'pacific_week'
   resetTimeZone: string
   resetAt: string
   /** Deprecated wire field kept for older clients. Session usage now resets
@@ -32,6 +34,39 @@ export type FreebuffSessionRateLimitByModel = Record<
   string,
   FreebuffSessionRateLimit
 >
+
+/**
+ * Referral status surfaced to the CLI model-selector so it can render the
+ * "invite friends → unlock GLM 5.2" banner: the user's share code, how many
+ * qualified GLM referrals they have, and their weekly GLM session balance.
+ * Present on the pre-join (`none`) response. All counts are full-tier only —
+ * limited users never earn GLM sessions.
+ */
+export interface FreebuffReferralInfo {
+  /** The user's referral code (`user.referral_code`), used to build the share
+   *  link. */
+  code: string
+  /** Qualified GLM referrals (capped). Equals the weekly GLM session
+   *  entitlement; the CLI knows the cap constant locally. */
+  qualifiedCount: number
+  /** GLM sessions still available this week (entitlement − used, ≥ 0). */
+  weeklySessionsRemaining: number
+  /** ISO timestamp of the next weekly reset. */
+  resetAt: string
+  /** Whether the current user has a GitHub account linked. Referrals only
+   *  qualify with a connected, sufficiently-old GitHub, so the CLI prompts
+   *  Google-only users to connect one. */
+  githubLinked: boolean
+}
+
+/** Pull the referral block off whichever session status carries it. Loose
+ *  parameter type for the same reason as `getRateLimitsByModel`. */
+export const getReferralInfo = (
+  session: { status: string } | null | undefined,
+): FreebuffReferralInfo | undefined =>
+  session && 'referral' in session
+    ? (session as { referral?: FreebuffReferralInfo }).referral
+    : undefined
 
 /** Pull the per-model shared session-quota snapshot off whichever statuses
  *  carry it (queued, active, ended, none). Returns undefined for terminal /
@@ -131,6 +166,8 @@ export type FreebuffSessionServerResponse =
        *  the picker show today's session usage before the user commits
        *  to a queue. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
+      /** Referral status for the "unlock GLM 5.2" banner. Full-tier only. */
+      referral?: FreebuffReferralInfo
     } & FreebuffLimitedModeReason)
   | ({
       status: 'queued'
@@ -243,9 +280,10 @@ export type FreebuffSessionServerResponse =
       accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
-      /** Max session units permitted per Pacific day (e.g. 5). */
+      /** Max session units permitted per period (e.g. 5/day premium, or the
+       *  user's weekly GLM referral entitlement). */
       limit: number
-      period: 'pacific_day'
+      period: 'pacific_day' | 'pacific_week'
       resetTimeZone: string
       resetAt: string
       /** Deprecated wire field kept for older clients. */
