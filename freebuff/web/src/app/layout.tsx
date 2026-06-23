@@ -5,12 +5,14 @@ import Script from 'next/script'
 
 import { OrganizationJsonLd, WebSiteJsonLd } from '@/components/blog/json-ld'
 import { Footer } from '@/components/footer'
+import { AttributionCapture } from '@/components/attribution-capture'
 import { ReferralCodeCapture } from '@/components/referral-code-capture'
 import { ReferrerTracker } from '@/components/referrer-tracker'
 import { ThemeProvider } from '@/components/theme-provider'
 import { blogConfig } from '@/lib/blog/config'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
+import { REDDIT_PIXEL_ID } from '@/lib/reddit-pixel-config'
 import { PostHogProvider } from '@/lib/PostHogProvider'
 import SessionProvider from '@/lib/SessionProvider'
 import { cn } from '@/lib/utils'
@@ -90,6 +92,7 @@ export default function RootLayout({
   const siteUrl = siteConfig.url()
   const gravityPixelId = process.env.NEXT_PUBLIC_GRAVITY_PIXEL_ID
   const gravityPixelIdJson = JSON.stringify(gravityPixelId)
+  const redditPixelIdJson = JSON.stringify(REDDIT_PIXEL_ID)
   return (
     <html lang="en" suppressHydrationWarning>
       {/*
@@ -121,12 +124,24 @@ export default function RootLayout({
             }}
           />
         )}
+        <Script
+          id="reddit-pixel"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              !function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);
+              rdt('init', ${redditPixelIdJson}, { optOut: false, useDecimalCurrencyValues: true });
+              rdt('track', 'PageVisit');
+            `,
+          }}
+        />
         <OrganizationJsonLd siteUrl={siteUrl} />
         <WebSiteJsonLd siteUrl={siteUrl} />
         <ThemeProvider attribute="class">
           <SessionProvider>
             <PostHogProvider>
               <ReferrerTracker />
+              <AttributionCapture />
               <ReferralCodeCapture />
               <div className="flex-grow">{children}</div>
               <Footer />

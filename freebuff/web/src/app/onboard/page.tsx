@@ -30,6 +30,7 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card'
+import { OnboardConversionTracker } from '@/components/onboard-conversion-tracker'
 import { logger } from '@/util/logger'
 
 function normalizeReferrer(raw: string | undefined): string | null {
@@ -238,11 +239,14 @@ const Onboard = async ({ searchParams }: PageProps) => {
   const isReplay = await hasCliSessionForAuthHash(fingerprintHash, user.id)
   if (isReplay) {
     return (
-      <StatusCard
-        title="Already connected!"
-        description="Your account is already connected to your CLI."
-        message="Feel free to close this window and head back to your terminal."
-      />
+      <>
+        <StatusCard
+          title="Already connected!"
+          description="Your account is already connected to your CLI."
+          message="Feel free to close this window and head back to your terminal."
+        />
+        <OnboardConversionTracker />
+      </>
     )
   }
 
@@ -270,11 +274,14 @@ const Onboard = async ({ searchParams }: PageProps) => {
 
   if (success) {
     return (
-      <StatusCard
-        title="Login successful!"
-        description=""
-        message="Return to your terminal to continue."
-      />
+      <>
+        <StatusCard
+          title="Login successful!"
+          description=""
+          message="Return to your terminal to continue."
+        />
+        <OnboardConversionTracker />
+      </>
     )
   }
 

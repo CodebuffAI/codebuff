@@ -8,6 +8,8 @@ import { z } from 'zod'
 
 import type { GravityContext } from '@gravity-ai/api'
 
+import { trackRedditGravityAdClick } from '@/lib/reddit-funnel'
+
 const ROTATE_INTERVAL_MS = 60_000
 const FETCH_TIMEOUT_MS = 5_000
 /** Auctions per cycle; the slot pauses after this many until the next send. */
@@ -140,6 +142,7 @@ export const ChatAds = memo(function ChatAds({
       ad={ad}
       variant="banner"
       className="mb-2 w-full"
+      onClick={() => trackRedditGravityAdClick('chat')}
       slotProps={{
         container: {
           style: {

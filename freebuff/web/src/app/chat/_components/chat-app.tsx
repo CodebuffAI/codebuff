@@ -20,6 +20,7 @@ import {
   isChatStreamEvent,
 } from '@/app/chat/blocks'
 import { cn } from '@/lib/utils'
+import { trackRedditFirstPromptOnce } from '@/lib/reddit-funnel'
 import { ChatAds } from './chat-ads'
 import { ChatBackdrop } from './chat-backdrop'
 import { Composer } from './composer'
@@ -201,6 +202,7 @@ export function ChatApp() {
       writeDraft(draftThreadRef.current, '')
       setStreaming(true)
       setAdSeed((prev) => ({ seq: (prev?.seq ?? 0) + 1, content }))
+      trackRedditFirstPromptOnce()
 
       const controller = new AbortController()
       abortRef.current = controller

@@ -17,6 +17,7 @@ import { useRateLimit } from "@convex-dev/rate-limiter/react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
+import { trackRedditFirstPromptOnce } from "@/lib/reddit-funnel";
 import { useMessageQueue } from "@/vly/hooks/useMessageQueue";
 import { AgentThreadList } from "./AgentThreadList";
 import { ChatInput } from "../ChatInput";
@@ -806,6 +807,8 @@ export function AgentChatShell({
       ) {
         return false;
       }
+
+      trackRedditFirstPromptOnce();
 
       // Freebuff Web threads are normalized server-side, but the active thread
       // query can lag behind the first send. Default to Freebuff so the selected

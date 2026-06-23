@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
+import { trackRedditFirstPromptOnce } from "@/lib/reddit-funnel";
 
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -375,6 +376,8 @@ export function ChatShell({
         !selectedNodeInfoRef.current?.image
       )
         return false;
+
+      trackRedditFirstPromptOnce();
 
       // Check if we're rate limited (use hook's status for proactive check)
       if (!checkRateLimitAndNotify(retryAt, "sending another message")) {

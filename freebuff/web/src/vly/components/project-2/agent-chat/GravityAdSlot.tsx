@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react'
 import type { RefObject } from 'react'
 
 import { cn } from '@/vly/lib/utils'
+import { trackRedditGravityAdClick } from '@/lib/reddit-funnel'
 
 import type {
   GravityContext as GravitySdkContext,
@@ -275,6 +276,7 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
       rel="noopener noreferrer sponsored"
       onClick={(e) => {
         handleClick()
+        trackRedditGravityAdClick('web')
         if (!href) e.preventDefault()
       }}
       data-gravity-ad
@@ -553,6 +555,7 @@ export function GravityAdSlot({
           className,
         )}
         slotProps={slotProps}
+        onClick={() => trackRedditGravityAdClick('web')}
         labelText="Ad"
         openInNewTab
       />

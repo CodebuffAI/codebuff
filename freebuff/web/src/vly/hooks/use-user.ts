@@ -8,6 +8,7 @@ import {
   getReferralCodeFromCookie,
   clearReferralCookie,
 } from '@/app/web/actions/referral'
+import { trackRedditSignUp } from '@/lib/reddit-funnel'
 
 export function useSignedInUser() {
   const { isLoading, isAuthenticated } = useConvexAuth()
@@ -48,12 +49,16 @@ export function useSignedInUser() {
 
     if (needsUserLink && !hasAttemptedUserLink.current) {
       hasAttemptedUserLink.current = true
+      const isNewUser = user === null
       // User is authenticated with Convex but either not found in Convex DB,
       // or found by legacy email without a Freebuff id. Create or link it.
       const attemptCreateUser = async (retryCount = 0) => {
         try {
           // Only pass referralCode if it exists
           await createUser(referralCode ? { referralCode } : {})
+          if (isNewUser) {
+            trackRedditSignUp()
+          }
           // Clear the referral cookie after successful user creation
           if (referralCode) {
             await clearReferralCookie()

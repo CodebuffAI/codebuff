@@ -1,6 +1,7 @@
 'use client'
 
 import { api } from '@/convex/_generated/api'
+import { trackRedditGravityAdClick } from '@/lib/reddit-funnel'
 import {
   ChevronDown,
   Loader,
@@ -951,6 +952,7 @@ const AgentAdMessage: React.FC<{
         }}
         variant="inline"
         className="w-full"
+        onClick={() => trackRedditGravityAdClick('web')}
         slotProps={{
           container: {
             style: {

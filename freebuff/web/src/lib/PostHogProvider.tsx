@@ -8,6 +8,10 @@ import { PostHogProvider as PostHogProviderWrapper } from 'posthog-js/react'
 import { useEffect, useRef, type ReactNode } from 'react'
 
 import { shipBrowserLog } from './browser-log-shipper'
+import {
+  trackRedditLogin,
+  trackRedditOncePerSession,
+} from './reddit-funnel'
 
 export function PostHogProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession()
@@ -63,6 +67,9 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
         user_id: session.user.id,
         name: session.user.name,
       })
+      if (!hadSession) {
+        trackRedditOncePerSession('login', trackRedditLogin)
+      }
     } else if (hadSession && !hasSession) {
       posthog.reset()
     }

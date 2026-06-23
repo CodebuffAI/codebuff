@@ -177,6 +177,16 @@ export enum AnalyticsEvent {
   FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED = 'freebuff.home_install_guide_expanded',
   FREEBUFF_HOME_FAQ_OPENED = 'freebuff.home_faq_opened',
 
+  // Freebuff - acquisition attribution (UTM / ad-click params captured as
+  // super-properties; filter by utm_source, reddit_click_id, is_reddit_traffic)
+  FREEBUFF_ATTRIBUTED = 'freebuff.attributed',
+  // Freebuff - Reddit ad funnel (filter in PostHog by reddit_click_id / utm_source)
+  FREEBUFF_REDDIT_FUNNEL_CLI_INSTALLED = 'freebuff.reddit_funnel.cli_installed',
+  FREEBUFF_REDDIT_FUNNEL_LOGIN = 'freebuff.reddit_funnel.login',
+  FREEBUFF_REDDIT_FUNNEL_SIGN_UP = 'freebuff.reddit_funnel.sign_up',
+  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT = 'freebuff.reddit_funnel.first_prompt',
+  FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'freebuff.reddit_funnel.gravity_ad_click',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 

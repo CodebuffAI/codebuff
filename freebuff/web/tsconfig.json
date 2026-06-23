@@ -34,7 +34,8 @@
       "@/lib/freebuff-public-env": ["./src/lib/freebuff-public-env.ts"],
       "@/lib/freebuff-server-env": ["./src/lib/freebuff-server-env.ts"],
       "@/lib/vly-convex-jwt": ["./src/lib/vly-convex-jwt.ts"],
-      "@/lib/record-ad-event": ["./src/lib/record-ad-event.ts"],
+      "@/lib/reddit-funnel": ["./src/lib/reddit-funnel.ts"],
+      "@/lib/reddit-pixel-config": ["./src/lib/reddit-pixel-config.ts"],
       "@/lib/last-provider": ["./src/lib/last-provider.ts"],
       "@/lib/link-provider": ["./src/lib/link-provider.ts"],
       "@/lib/blog/*": ["./src/lib/blog/*"],
@@ -53,6 +54,12 @@
       ],
       "@/components/referrer-tracker": [
         "./src/components/referrer-tracker.tsx"
+      ],
+      "@/components/attribution-capture": [
+        "./src/components/attribution-capture.tsx"
+      ],
+      "@/components/onboard-conversion-tracker": [
+        "./src/components/onboard-conversion-tracker.tsx"
       ],
       "@/components/sign-in/*": ["./src/components/sign-in/*"],
       "@/components/theme-provider": ["./src/components/theme-provider.tsx"],
