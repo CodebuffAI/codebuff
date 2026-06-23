@@ -1,13 +1,12 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
-import { env } from '@codebuff/common/env'
 import { getCiEnv } from '@codebuff/common/env-ci'
 import { z } from 'zod'
 
 
 import { getApiClient, setApiClientAuthToken } from './codebuff-api'
+import { getConfigDir as getConfigDirBase } from './config-dir'
 import { logger } from './logger'
 
 import type { CiEnv } from '@codebuff/common/types/contracts/env'
@@ -31,18 +30,10 @@ const credentialsSchema = z
   })
   .catchall(z.unknown())
 
-// Get the config directory path
-export const getConfigDir = (): string => {
-  return path.join(
-    os.homedir(),
-    '.config',
-    'manicode' +
-      // on a development stack?
-      (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
-        ? `-${env.NEXT_PUBLIC_CB_ENVIRONMENT}`
-        : ''),
-  )
-}
+// Get the config directory path.
+// Re-exported as a wrapper (rather than a bare `export ... from`) so existing
+// tests can still `spyOn(authModule, 'getConfigDir')`.
+export const getConfigDir = (): string => getConfigDirBase()
 
 // Get the credentials file path
 export const getCredentialsPath = (): string => {
