@@ -233,13 +233,23 @@ export const getCliByokSettings = query({
   },
 })
 
+const GPT_MODEL_PREFERENCES = ['default', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini']
+
+const CLAUDE_MODEL_PREFERENCES = [
+  'default',
+  'claude-opus-4-8',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5',
+  'us.anthropic.claude-opus-4-8',
+  'us.anthropic.claude-sonnet-4-6',
+  'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+]
+
 const CLI_PREFERENCE_VALUES = {
   gpt_auth_method: ['oauth', 'byok'],
   claude_provider_preference: ['anthropic', 'bedrock'],
-  // Kept only for backward compatibility with older clients. Codex and Claude
-  // Code runs now use the CLI default model instead of exposing stale model IDs.
-  gpt_model_preference: ['default'],
-  claude_model_preference: ['default'],
+  gpt_model_preference: GPT_MODEL_PREFERENCES,
+  claude_model_preference: CLAUDE_MODEL_PREFERENCES,
 } as const
 
 export const setCliPreference = mutation({

@@ -87,6 +87,184 @@ import { formatRetryTime } from "@/vly/lib/rateLimitHelpers";
 type AgentType = "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff";
 const GEMINI_CLI_MAINTENANCE_MESSAGE = "gemini is currently under maintence.";
 
+type CliByokSettings = FunctionReturnType<typeof api.users.getCliByokSettings>;
+type ResolvedCliByokSettings = NonNullable<CliByokSettings>;
+
+type CliPreferenceKey =
+  | "gpt_auth_method"
+  | "claude_provider_preference"
+  | "gpt_model_preference"
+  | "claude_model_preference";
+
+const CODEX_MODEL_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "gpt-5.5", label: "GPT 5.5" },
+  { value: "gpt-5.4", label: "GPT 5.4" },
+  { value: "gpt-5.4-mini", label: "GPT 5.4 Mini" },
+] as const;
+
+const CLAUDE_ANTHROPIC_MODEL_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+] as const;
+
+const CLAUDE_BEDROCK_MODEL_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "us.anthropic.claude-opus-4-8", label: "US Opus 4.8" },
+  { value: "us.anthropic.claude-sonnet-4-6", label: "US Sonnet 4.6" },
+  {
+    value: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    label: "US Haiku 4.5",
+  },
+] as const;
+
+const CliRuntimePreferenceSelector: React.FC<{
+  agentType: "Codex" | "Claude Code";
+  settings: ResolvedCliByokSettings;
+  onSelect: (key: CliPreferenceKey, value: string) => Promise<void>;
+  disabled?: boolean;
+}> = ({ agentType, settings, onSelect, disabled = false }) => {
+  const isCodex = agentType === "Codex";
+  const activeValue = isCodex
+    ? settings.gptAuthMethod
+    : settings.claudeProviderPreference;
+
+  const options = isCodex
+    ? [
+        {
+          value: "oauth",
+          label: "ChatGPT OAuth",
+          configured: settings.hasCodexOauth,
+        },
+        {
+          value: "byok",
+          label: "OpenAI BYOK",
+          configured: settings.hasOpenAiApiKey,
+        },
+      ]
+    : [
+        {
+          value: "anthropic",
+          label: "Anthropic BYOK",
+          configured: settings.hasAnthropicApiKey,
+        },
+        {
+          value: "bedrock",
+          label: "AWS Bedrock BYOK",
+          configured: settings.hasBedrockBearerToken,
+        },
+      ];
+
+  const activeLabel = options.find((option) => option.value === activeValue)?.label;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <button
+          type="button"
+          disabled={disabled}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="font-medium text-foreground">{activeLabel ?? "Provider"}</span>
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56 p-1">
+        {options.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              void onSelect(
+                isCodex ? "gpt_auth_method" : "claude_provider_preference",
+                option.value,
+              );
+            }}
+            className="flex items-center justify-between gap-2"
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-sm">{option.label}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {option.configured ? "Configured" : "Needs setup"}
+              </span>
+            </span>
+            {activeValue === option.value && <Check className="h-3.5 w-3.5" />}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault();
+            window.location.href = "/web/settings#ai-credentials";
+          }}
+        >
+          Configure credentials
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const CliModelPreferenceSelector: React.FC<{
+  agentType: "Codex" | "Claude Code";
+  settings: ResolvedCliByokSettings;
+  onSelect: (key: CliPreferenceKey, value: string) => Promise<void>;
+  disabled?: boolean;
+}> = ({ agentType, settings, onSelect, disabled = false }) => {
+  const options =
+    agentType === "Codex"
+      ? CODEX_MODEL_OPTIONS
+      : settings.claudeProviderPreference === "bedrock"
+        ? CLAUDE_BEDROCK_MODEL_OPTIONS
+        : CLAUDE_ANTHROPIC_MODEL_OPTIONS;
+
+  const activeValue =
+    agentType === "Codex"
+      ? settings.gptModelPreference
+      : settings.claudeModelPreference;
+  const activeLabel =
+    options.find((option) => option.value === activeValue)?.label ??
+    options[0]?.label ??
+    "Model";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <button
+          type="button"
+          disabled={disabled}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="font-medium text-foreground">{activeLabel}</span>
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64 p-1">
+        {options.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              void onSelect(
+                agentType === "Codex"
+                  ? "gpt_model_preference"
+                  : "claude_model_preference",
+                option.value,
+              );
+            }}
+            className="flex items-center justify-between gap-2"
+          >
+            <span className="truncate text-sm">{option.label}</span>
+            {activeValue === option.value && <Check className="h-3.5 w-3.5" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 // Compact, subtle runtime errors component for agent chat
 const CompactRuntimeErrors: React.FC<{
   project: NonNullable<FunctionReturnType<typeof api.project.getProjectData>>;
@@ -313,6 +491,7 @@ export function AgentChatShell({
     api.coding_agent.cli_agent.agent_thread.switchAgentOnThread,
   );
   const byokSettings = useQuery(api.users.getCliByokSettings);
+  const setCliPreference = useMutation(api.users.setCliPreference);
 
   // Send message mutation
   const sendMessage = useMutation(
@@ -516,6 +695,89 @@ export function AgentChatShell({
       window.localStorage.setItem(FREEBUFF_MODEL_STORAGE_KEY, resolved);
     }
   }, []);
+
+  const handleCliPreferenceChange = useCallback(
+    async (key: CliPreferenceKey, value: string) => {
+      try {
+        await setCliPreference({ key, value });
+        if (key === "gpt_auth_method") {
+          toast.success(
+            value === "oauth"
+              ? "Codex auth mode set to OAuth"
+              : "Codex auth mode set to BYOK",
+          );
+          return;
+        }
+        if (key === "gpt_model_preference") {
+          return;
+        }
+        if (key === "claude_model_preference") {
+          return;
+        }
+        if (key === "claude_provider_preference") {
+          const nextModelDefault =
+            value === "bedrock"
+              ? "us.anthropic.claude-sonnet-4-6"
+              : "claude-sonnet-4-6";
+          await setCliPreference({
+            key: "claude_model_preference",
+            value: nextModelDefault,
+          });
+        }
+        toast.success(
+          value === "anthropic"
+            ? "Claude provider set to Anthropic"
+            : "Claude provider set to Bedrock",
+        );
+      } catch {
+        if (
+          key === "gpt_model_preference" ||
+          key === "claude_model_preference"
+        ) {
+          return;
+        }
+        toast.error(
+          key === "gpt_auth_method"
+            ? "Failed to update Codex auth method"
+            : "Failed to set Claude provider",
+        );
+      }
+    },
+    [byokSettings?.claudeProviderPreference, setCliPreference],
+  );
+
+  const customCliModelSelector =
+    activeThread?.agent_type === "Codex" && byokSettings ? (
+      <>
+        <CliRuntimePreferenceSelector
+          agentType="Codex"
+          settings={byokSettings}
+          onSelect={handleCliPreferenceChange}
+          disabled={isProcessing}
+        />
+        <CliModelPreferenceSelector
+          agentType="Codex"
+          settings={byokSettings}
+          onSelect={handleCliPreferenceChange}
+          disabled={isProcessing}
+        />
+      </>
+    ) : activeThread?.agent_type === "Claude Code" && byokSettings ? (
+      <>
+        <CliRuntimePreferenceSelector
+          agentType="Claude Code"
+          settings={byokSettings}
+          onSelect={handleCliPreferenceChange}
+          disabled={isProcessing}
+        />
+        <CliModelPreferenceSelector
+          agentType="Claude Code"
+          settings={byokSettings}
+          onSelect={handleCliPreferenceChange}
+          disabled={isProcessing}
+        />
+      </>
+    ) : undefined;
 
   // State for editing thread title
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -1461,7 +1723,7 @@ export function AgentChatShell({
                     onFreebuffModelChange={
                       isFreebuffThread ? handleFreebuffModelChange : undefined
                     }
-                    customModelSelector={undefined}
+                    customModelSelector={customCliModelSelector}
                     syncStatus={undefined}
                     activeEntryPointId={undefined}
                     restoreMessage={messageToRestore}

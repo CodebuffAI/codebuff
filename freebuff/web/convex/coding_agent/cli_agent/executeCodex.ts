@@ -28,6 +28,7 @@ export interface ExecuteCodexArgs {
   userMessage: string;
   images: Id<"_storage">[] | undefined;
   gptAuthMethod: "oauth" | "byok";
+  gptModelPreference?: string;
   openAiApiKey?: string;
 }
 
@@ -43,6 +44,22 @@ export interface ExecuteCodexResult {
 const CODEX_RUN_TIMEOUT_MS = 9 * 60 * 1000;
 const CLI_AGENT_TIMEOUT_MESSAGE =
   "Maximum time limit for a prompt reached. Engagement required to continue.";
+
+const CODEX_MODEL_PREFERENCE_SET = new Set<string>([
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+]);
+
+const resolveCodexModelPreference = (
+  preference: string | undefined,
+): string | undefined => {
+  const selected = preference?.trim();
+  if (selected && CODEX_MODEL_PREFERENCE_SET.has(selected)) {
+    return selected;
+  }
+  return undefined;
+};
 
 export async function executeCodex(
   ctx: ActionCtx,
@@ -157,15 +174,19 @@ export async function executeCodex(
     resumeMode: ResumeCommandMode = "subcommand",
   ) => {
     const escapedSessionId = sessionId ? escapeShellArg(sessionId) : undefined;
+    const selectedModel = resolveCodexModelPreference(args.gptModelPreference);
+    const modelFlag = selectedModel
+      ? ` --model ${escapeShellArg(selectedModel)}`
+      : "";
     const codexExecCommand = (() => {
       if (!escapedSessionId) {
-        return `codex exec --yolo --color never --json ${escapedPrompt}`;
+        return `codex exec --yolo --color never --json${modelFlag} ${escapedPrompt}`;
       }
       if (resumeMode === "legacy_flag") {
-        return `codex exec --resume ${escapedSessionId} --yolo --color never --json ${escapedPrompt}`;
+        return `codex exec --resume ${escapedSessionId} --yolo --color never --json${modelFlag} ${escapedPrompt}`;
       }
       // codex exec resume does not accept --color; keep args to the supported subset.
-      return `codex exec resume ${escapedSessionId} --yolo --json ${escapedPrompt}`;
+      return `codex exec resume ${escapedSessionId} --yolo --json${modelFlag} ${escapedPrompt}`;
     })();
     const authEnv =
       authSource === "stored_chatgpt"
@@ -249,7 +270,9 @@ export async function executeCodex(
       haystack.includes("conversation not found") ||
       haystack.includes("session not found") ||
       haystack.includes("unknown session") ||
-      haystack.includes("invalid session")
+      haystack.includes("invalid session") ||
+      haystack.includes("thread/resume failed") ||
+      haystack.includes("no rollout found for thread id")
     );
   };
 

@@ -18,6 +18,7 @@ export interface ExecuteClaudeCodeArgs {
   userMessage: string;
   images: Id<"_storage">[] | undefined;
   claudeProviderPreference: "anthropic" | "bedrock";
+  claudeModelPreference?: string;
   anthropicApiKey?: string;
   bedrockBearerToken?: string;
 }
@@ -35,6 +36,39 @@ const CLAUDE_RUN_TIMEOUT_MS = 9 * 60 * 1000;
 const CLI_AGENT_TIMEOUT_MESSAGE =
   "Maximum time limit for a prompt reached. Engagement required to continue.";
 
+const ANTHROPIC_CLAUDE_MODELS = [
+  "claude-opus-4-8",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5",
+] as const;
+
+const BEDROCK_CLAUDE_MODELS = [
+  "us.anthropic.claude-opus-4-8",
+  "us.anthropic.claude-sonnet-4-6",
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+] as const;
+
+const ANTHROPIC_CLAUDE_MODEL_SET = new Set<string>(ANTHROPIC_CLAUDE_MODELS);
+const BEDROCK_CLAUDE_MODEL_SET = new Set<string>(BEDROCK_CLAUDE_MODELS);
+
+const resolveClaudeModelPreference = (
+  provider: "anthropic" | "bedrock",
+  preference: string | undefined,
+) => {
+  const selected = preference?.trim();
+  if (provider === "bedrock") {
+    if (selected && BEDROCK_CLAUDE_MODEL_SET.has(selected)) {
+      return selected;
+    }
+    return "us.anthropic.claude-sonnet-4-6";
+  }
+
+  if (selected && ANTHROPIC_CLAUDE_MODEL_SET.has(selected)) {
+    return selected;
+  }
+  return "claude-sonnet-4-6";
+};
+
 export async function executeClaudeCode(
   ctx: ActionCtx,
   codebase: DaytonaCodebase,
@@ -43,6 +77,10 @@ export async function executeClaudeCode(
   const selectedProvider = args.claudeProviderPreference;
   const anthropicApiKey = args.anthropicApiKey?.trim() || undefined;
   const awsBearerToken = args.bedrockBearerToken?.trim() || undefined;
+  const selectedModel = resolveClaudeModelPreference(
+    selectedProvider,
+    args.claudeModelPreference,
+  );
 
   if (selectedProvider === "anthropic" && !anthropicApiKey) {
     return {
@@ -115,6 +153,8 @@ export async function executeClaudeCode(
   // Build the base Claude Code command with escaped inputs
   const commandParts = [
     "claude",
+    "--model",
+    escapeShellArg(selectedModel),
     "--dangerously-skip-permissions",
     resumeFlag.trim(),
     "-p",

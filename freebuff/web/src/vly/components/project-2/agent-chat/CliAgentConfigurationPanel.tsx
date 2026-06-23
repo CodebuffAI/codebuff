@@ -20,6 +20,30 @@ export type CliAgentType = "Freebuff" | "Codex" | "Claude Code";
 type ByokKind = "openai" | "anthropic" | "bedrock";
 type PanelAgent = Exclude<CliAgentType, "Freebuff">;
 
+const CODEX_MODEL_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "gpt-5.5", label: "GPT 5.5" },
+  { value: "gpt-5.4", label: "GPT 5.4" },
+  { value: "gpt-5.4-mini", label: "GPT 5.4 Mini" },
+] as const;
+
+const CLAUDE_ANTHROPIC_MODEL_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+] as const;
+
+const CLAUDE_BEDROCK_MODEL_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "us.anthropic.claude-opus-4-8", label: "US Opus 4.8" },
+  { value: "us.anthropic.claude-sonnet-4-6", label: "US Sonnet 4.6" },
+  {
+    value: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    label: "US Haiku 4.5",
+  },
+] as const;
+
 const MASKED_SECRET = "••••••••••••••••";
 type CliByokSettings = FunctionReturnType<typeof api.users.getCliByokSettings>;
 
@@ -327,7 +351,9 @@ export function CliAgentConfigurationPanel({
   const showCodex = !agent || agent === "Codex";
   const showClaude = !agent || agent === "Claude Code";
   const gptAuthMethod = settings?.gptAuthMethod ?? "oauth";
+  const gptModelPreference = settings?.gptModelPreference ?? "default";
   const claudeProvider = settings?.claudeProviderPreference ?? "bedrock";
+  const claudeModelPreference = settings?.claudeModelPreference ?? "default";
 
   return (
     <div className={cn("grid gap-4", className)}>
@@ -389,6 +415,26 @@ export function CliAgentConfigurationPanel({
             OAuth: {settings?.hasCodexOauth ? "Connected" : "Not connected"} ·
             OpenAI key: {settings?.hasOpenAiApiKey ? "Saved" : "Not saved"}
           </p>
+          <div className="mt-3">
+            <p className="text-xs text-muted-foreground">Codex model</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {CODEX_MODEL_OPTIONS.map((model) => (
+                <ChoiceButton
+                  key={model.value}
+                  active={gptModelPreference === model.value}
+                  configured={true}
+                  onClick={() =>
+                    void setCliPreference({
+                      key: "gpt_model_preference",
+                      value: model.value,
+                    })
+                  }
+                >
+                  {model.label}
+                </ChoiceButton>
+              ))}
+            </div>
+          </div>
           {gptAuthMethod === "oauth" ? (
             <div className="mt-3 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -489,6 +535,10 @@ export function CliAgentConfigurationPanel({
                     key: "claude_provider_preference",
                     value: "anthropic",
                   });
+                  await setCliPreference({
+                    key: "claude_model_preference",
+                    value: "claude-sonnet-4-6",
+                  });
                   toast.success("Claude provider set to Anthropic");
                 } catch {
                   toast.error("Failed to set Claude provider");
@@ -506,6 +556,10 @@ export function CliAgentConfigurationPanel({
                     key: "claude_provider_preference",
                     value: "bedrock",
                   });
+                  await setCliPreference({
+                    key: "claude_model_preference",
+                    value: "us.anthropic.claude-sonnet-4-6",
+                  });
                   toast.success("Claude provider set to Bedrock");
                 } catch {
                   toast.error("Failed to set Claude provider");
@@ -514,6 +568,29 @@ export function CliAgentConfigurationPanel({
             >
               AWS Bedrock BYOK
             </ChoiceButton>
+          </div>
+          <div className="mt-3">
+            <p className="text-xs text-muted-foreground">Claude model</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(claudeProvider === "bedrock"
+                ? CLAUDE_BEDROCK_MODEL_OPTIONS
+                : CLAUDE_ANTHROPIC_MODEL_OPTIONS
+              ).map((model) => (
+                <ChoiceButton
+                  key={model.value}
+                  active={claudeModelPreference === model.value}
+                  configured={true}
+                  onClick={() =>
+                    void setCliPreference({
+                      key: "claude_model_preference",
+                      value: model.value,
+                    })
+                  }
+                >
+                  {model.label}
+                </ChoiceButton>
+              ))}
+            </div>
           </div>
           {claudeProvider === "anthropic" ? (
             <ByokSecretField

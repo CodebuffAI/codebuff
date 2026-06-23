@@ -147,6 +147,7 @@ export const execute = internalAction({
         userMessage: args.userMessage,
         images: args.images,
         claudeProviderPreference,
+        claudeModelPreference: executingUser.claude_model_preference ?? 'default',
         anthropicApiKey,
         bedrockBearerToken,
       });
@@ -180,6 +181,7 @@ export const execute = internalAction({
         userMessage: args.userMessage,
         images: args.images,
         gptAuthMethod,
+        gptModelPreference: executingUser.gpt_model_preference ?? 'default',
         openAiApiKey,
       });
     } else if (args.agentType === "Gemini CLI") {
