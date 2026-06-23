@@ -44,7 +44,26 @@ export const listConnectableRepositories = action({
       }),
     ),
   }),
-  handler: async (ctx) => {
+  handler: async (
+    ctx,
+  ): Promise<{
+    installation: {
+      account_login?: string;
+      account_type?: string;
+      installation_id?: number;
+      manage_url?: string;
+    } | null;
+    repos: Array<{
+      name: string;
+      full_name: string;
+      owner: string;
+      private: boolean;
+      description: string | null;
+      html_url: string;
+      default_branch: string;
+      permission_push: boolean;
+    }>;
+  }> => {
     const authUser = await getAuthUser(ctx);
     if (!authUser) {
       throw new Error("Not authenticated");
