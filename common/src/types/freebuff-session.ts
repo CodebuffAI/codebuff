@@ -46,6 +46,10 @@ export interface FreebuffReferralInfo {
   /** The user's referral code (`user.referral_code`), used to build the share
    *  link. */
   code: string
+  /** The inviter's display name (`user.name`), used to personalize the invite
+   *  landing page ("X invited you to try Freebuff!"). Null when the user has no
+   *  name set. */
+  referrerName: string | null
   /** Qualified GLM referrals (capped). Equals the weekly GLM session
    *  entitlement; the CLI knows the cap constant locally. */
   qualifiedCount: number

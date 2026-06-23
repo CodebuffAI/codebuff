@@ -1313,7 +1313,7 @@
 
     "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
-    "posthog-node": ["posthog-node@5.38.3", "", { "dependencies": { "@posthog/core": "^1.37.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-sO+SQzpdC7bXzV7JM6f5iyqiq4su96iGeHlLDuFcB5iwEw06GR5WrakWmI3/KKwnwHTT8bLT9HLsFMM888BeQw=="],
+    "posthog-node": ["posthog-node@5.38.4", "", { "dependencies": { "@posthog/core": "^1.37.1" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-Jti056f+5C9y1MXb5yhxwwYBITxypWZHWcAp+UevcZ7/AKEQdSB9FiJP3WzEznw4vH3Bz0IlRKVgsofizRAoEA=="],
 
     "preact": ["preact@10.29.2", "", {}, "sha512-7tNmwg/7mzzAoB/8kSg6Hl37JraAZw3Z3A0JSY7VXlZwo82Xn0G7wKbNNs2qoF4ZEEsQGTwDAroNdqKs1ofJxQ=="],
 
