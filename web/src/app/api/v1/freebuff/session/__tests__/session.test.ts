@@ -142,6 +142,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     // No admits in handler tests — the rate-limit check reads empty and
     // every request falls through to the queue.
     listRecentFreeSessionAdmits: async () => [],
+    getGlmReferralEntitlement: async () => 0,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     queueDepthsByModel: async () => {

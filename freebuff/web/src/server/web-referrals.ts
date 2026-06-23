@@ -1,4 +1,5 @@
 import {
+  evaluateGlmReferralForReferredUser,
   evaluateWebReferralForReferredUser,
   getReferralScore,
   redeemReferralCode,
@@ -28,26 +29,44 @@ export async function syncWebReferralState(params: {
 
   const cookieCode = await getReferralCode()
   if (cookieCode) {
-    const result = await redeemReferralCode({
-      userId,
-      referralCode: cookieCode,
-      program: 'web',
-      logger,
-    })
+    // The same freebuff.com referral link drives both the Web tier ('web') and
+    // the CLI GLM reward ('glm'), so redeem the cookie under both programs.
+    // Each is independently scored and burned-once; the referrer benefits from
+    // whichever surface they actually use.
+    const [webResult, glmResult] = await Promise.all([
+      redeemReferralCode({
+        userId,
+        referralCode: cookieCode,
+        program: 'web',
+        logger,
+      }),
+      redeemReferralCode({
+        userId,
+        referralCode: cookieCode,
+        program: 'glm',
+        logger,
+      }),
+    ])
     // Every outcome except invalid_code is terminal for this user, so drop
     // the cookie to keep future token mints cheap. An unknown code may be a
     // legacy Convex-format code that the spin flow still wants; leave it for
     // the attribution window to expire.
-    if (result.ok || result.error !== 'invalid_code') {
+    const stillRedeemable = [webResult, glmResult].some(
+      (result) => !result.ok && result.error === 'invalid_code',
+    )
+    if (!stillRedeemable) {
       await clearReferralCode()
     }
   }
 
-  await evaluateWebReferralForReferredUser({ userId, logger }).catch(
-    (error) => {
+  await Promise.all([
+    evaluateWebReferralForReferredUser({ userId, logger }).catch((error) => {
       logger.warn({ error, userId }, 'Failed to evaluate pending web referral')
-    },
-  )
+    }),
+    evaluateGlmReferralForReferredUser({ userId, logger }).catch((error) => {
+      logger.warn({ error, userId }, 'Failed to evaluate pending GLM referral')
+    }),
+  ])
 
   return getReferralScore({ userId, program: 'web' })
 }

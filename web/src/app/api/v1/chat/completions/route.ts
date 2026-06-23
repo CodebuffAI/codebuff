@@ -2,7 +2,10 @@ import {
   insertChatCompletionTraceBigquery,
   insertMessageBigquery,
 } from '@codebuff/bigquery'
-import { evaluateReferralForReferredUser } from '@codebuff/billing/referral-program'
+import {
+  evaluateGlmReferralForReferredUser,
+  evaluateReferralForReferredUser,
+} from '@codebuff/billing/referral-program'
 import { ensureSubscriberBlockGrant } from '@codebuff/billing/subscription'
 import { getUserUsageData } from '@codebuff/billing/usage-service'
 import { trackEvent } from '@codebuff/common/analytics'
@@ -40,6 +43,19 @@ const recordUsageAndEvaluateReferral: RecordFreebuffUsageDayFn = async (
       logger.error(
         { error, userId: params.userId },
         'Post-usage referral evaluation failed',
+      )
+    })
+    // GLM referrals qualify on GitHub account age alone (no activation gate),
+    // but we piggyback on the same new-usage-day trigger so a pending GLM
+    // referral ages in without a dedicated sweep. Independent of the CLI eval
+    // above; the evaluatePendingReferrals sweep covers missed flips.
+    void evaluateGlmReferralForReferredUser({
+      userId: params.userId,
+      logger,
+    }).catch((error: unknown) => {
+      logger.error(
+        { error, userId: params.userId },
+        'Post-usage GLM referral evaluation failed',
       )
     })
   }

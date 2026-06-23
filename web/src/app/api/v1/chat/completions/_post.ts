@@ -4,6 +4,7 @@ import {
   type FreebuffAccessTier,
   FREEBUFF_FORCE_LIMITED_MODE,
   isFreebuffGeminiProModelId,
+  isFreebuffGlmV52ModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffPremiumModelId,
   isFreebuffTracedModelId,
@@ -836,7 +837,12 @@ export async function postChatCompletions(params: {
         userEmail: userInfo.email,
         claimedInstanceId,
         requestedModel: typedBody.model,
-        requireActiveSession: isFreebuffGeminiThinkerAgent(agentId),
+        // GLM 5.2 always requires a live session row so its weekly referral
+        // entitlement is enforced even if the waiting room is globally off
+        // (fail closed — never hand out un-metered GLM time).
+        requireActiveSession:
+          isFreebuffGeminiThinkerAgent(agentId) ||
+          isFreebuffGlmV52ModelId(typedBody.model),
       })
       if (!freeModeSessionGate.ok) {
         trackEvent({

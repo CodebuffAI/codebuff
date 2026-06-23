@@ -5,6 +5,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_MIMO_V25_MODEL_ID,
@@ -124,6 +125,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
           sessionUnits: a.session_units ?? 1,
         }))
     },
+    getGlmReferralEntitlement: async () => 0,
     promoteQueuedUser: async ({
       userId,
       model,
@@ -1765,6 +1767,87 @@ describe('checkSessionAdmissible', () => {
     })
     if (result.ok) throw new Error('unreachable')
     expect(result.code).toBe('session_superseded')
+  })
+})
+
+describe('GLM 5.2 weekly referral pool', () => {
+  // The fixed test clock is 2026-04-17T12:00Z (a Friday). Its Pacific week
+  // starts Monday 2026-04-13 07:00Z, so admits on 04-14/04-16 count and an
+  // admit on 04-12 (prior week) does not.
+  test('rejects GLM with no referral entitlement as rate_limited (weekly)', async () => {
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 0,
+      getInstantAdmitCapacity: () => 3,
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_V52_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.limit).toBe(0)
+    expect(state.period).toBe('pacific_week')
+  })
+
+  test('admits a GLM session when the user has referral entitlement', async () => {
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 2,
+      getInstantAdmitCapacity: () => 3,
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_V52_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('active')
+  })
+
+  test('rejects once the weekly GLM entitlement is used up', async () => {
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 2,
+      getInstantAdmitCapacity: () => 3,
+    })
+    deps.admits.push(
+      {
+        user_id: 'u1',
+        model: FREEBUFF_GLM_V52_MODEL_ID,
+        admitted_at: new Date('2026-04-14T10:00:00Z'),
+      },
+      {
+        user_id: 'u1',
+        model: FREEBUFF_GLM_V52_MODEL_ID,
+        admitted_at: new Date('2026-04-16T10:00:00Z'),
+      },
+    )
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_V52_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.limit).toBe(2)
+    expect(state.recentCount).toBe(2)
+  })
+
+  test('ignores GLM admits from a prior week', async () => {
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 1,
+      getInstantAdmitCapacity: () => 3,
+    })
+    // 2026-04-12 is the Sunday before this week's Monday start → prior week.
+    deps.admits.push({
+      user_id: 'u1',
+      model: FREEBUFF_GLM_V52_MODEL_ID,
+      admitted_at: new Date('2026-04-12T10:00:00Z'),
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_V52_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('active')
   })
 })
 

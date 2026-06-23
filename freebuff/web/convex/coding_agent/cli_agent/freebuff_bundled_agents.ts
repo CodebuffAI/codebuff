@@ -5,6 +5,7 @@ import contextPruner from '../../../../../agents/context-pruner'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -14,6 +15,7 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 import codeReviewerDeepseek from '../../../../../agents/reviewer/code-reviewer-deepseek'
 import codeReviewerDeepseekFlash from '../../../../../agents/reviewer/code-reviewer-deepseek-flash'
+import codeReviewerGlm from '../../../../../agents/reviewer/code-reviewer-glm'
 import codeReviewerKimi from '../../../../../agents/reviewer/code-reviewer-kimi'
 import codeReviewerLite from '../../../../../agents/reviewer/code-reviewer-lite'
 import codeReviewerMinimax from '../../../../../agents/reviewer/code-reviewer-minimax'
@@ -182,6 +184,14 @@ const base2FreeMinimaxM3 = withFreebuffWebSystemPromptAppendix({
   displayName: 'Buffy the MiniMax M3 Free Orchestrator',
 })
 
+const base2FreeGlm = withFreebuffWebSystemPromptAppendix({
+  ...createBase2('free', {
+    model: FREEBUFF_GLM_V52_MODEL_ID,
+  }),
+  id: 'base2-free-glm',
+  displayName: 'Buffy the GLM 5.2 Free Orchestrator',
+})
+
 /**
  * Maps a Freebuff model id (as shown in the web/CLI model switcher) to the
  * bundled base2-free agent that pins that model. Used by executeFreebuff to
@@ -196,6 +206,7 @@ export const FREEBUFF_MODEL_TO_AGENT_ID: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
   [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free-minimax',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
+  [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
 }
 
 /** Resolve a selected Freebuff model id to the bundled agent id to run. Falls
@@ -216,11 +227,13 @@ export const bundledAgentDefinitions = [
   base2FreeMimoPro,
   base2FreeMinimax,
   base2FreeMinimaxM3,
+  base2FreeGlm,
   basher,
   browserUse,
   contextPruner,
   codeReviewerDeepseek,
   codeReviewerDeepseekFlash,
+  codeReviewerGlm,
   codeReviewerKimi,
   codeReviewerLite,
   codeReviewerMinimax,

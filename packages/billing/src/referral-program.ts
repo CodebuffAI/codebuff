@@ -1,7 +1,13 @@
 import {
   FREEBUFF_WEB_REFERRAL_LIMIT,
   isGithubAccountOldEnoughForReferral,
+  MIN_GITHUB_ACCOUNT_AGE_MONTHS,
+  MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
 } from '@codebuff/common/constants/freebuff-referral-tiers'
+import {
+  FREEBUFF_GLM_V52_REFERRAL_CAP,
+  FREEBUFF_GLM_V52_REFERRAL_ENABLED,
+} from '@codebuff/common/constants/freebuff-models'
 import { getFreebuffUsageDateKey } from '@codebuff/common/util/freebuff-streak'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -9,6 +15,7 @@ import { and, count, desc, eq, sql } from 'drizzle-orm'
 
 import {
   getReferralQualification,
+  tryConsumeGlmReferralBonus,
   tryConsumeReferralBonus,
 } from './referral-qualification'
 
@@ -55,8 +62,12 @@ export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
  * - 'web': Freebuff Web — GitHub account age only (see
  *   MIN_GITHUB_ACCOUNT_AGE_MONTHS in common). Perks: tiered daily model
  *   limits + watermark removal.
+ * - 'glm': Freebuff CLI GLM 5.2 reward — GitHub account age only, but with the
+ *   stricter MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM bar. Perks: one 1-hour GLM 5.2
+ *   session per week per qualified referral (capped at
+ *   FREEBUFF_GLM_V52_REFERRAL_CAP).
  */
-export type ReferralProgram = 'cli' | 'web'
+export type ReferralProgram = 'cli' | 'web' | 'glm'
 
 export type RedeemReferralError =
   | 'invalid_code'
@@ -147,11 +158,18 @@ export async function redeemReferralCode(params: {
       .from(schema.user)
       .where(eq(schema.user.id, userId))
       .limit(1),
-    // One referrer per user, ever.
+    // One referrer per user, per program. Scoped to `program` so a user can
+    // hold (at most) one referral in each program — e.g. a 'web' tier referral
+    // and a 'glm' referral from the same freebuff.com link.
     db
       .select({ referrerId: schema.referral.referrer_id })
       .from(schema.referral)
-      .where(eq(schema.referral.referred_id, userId))
+      .where(
+        and(
+          eq(schema.referral.referred_id, userId),
+          eq(schema.referral.program, program),
+        ),
+      )
       .limit(1),
   ])
 
@@ -171,7 +189,7 @@ export async function redeemReferralCode(params: {
 
   // These two need referrer.id; run them together.
   const [[reverse], [{ n: referrerCount }]] = await Promise.all([
-    // No A-refers-B then B-refers-A loops.
+    // No A-refers-B then B-refers-A loops within the same program.
     db
       .select({ referrerId: schema.referral.referrer_id })
       .from(schema.referral)
@@ -179,6 +197,7 @@ export async function redeemReferralCode(params: {
         and(
           eq(schema.referral.referrer_id, userId),
           eq(schema.referral.referred_id, referrer.id),
+          eq(schema.referral.program, program),
         ),
       )
       .limit(1),
@@ -197,15 +216,23 @@ export async function redeemReferralCode(params: {
       ),
   ])
   if (reverse) return { ok: false, error: 'reverse_referral' }
+  // CLI uses the per-user referral_limit column (default 5). Web and GLM have
+  // their own headroom: web tops out at 7 qualified, GLM at
+  // FREEBUFF_GLM_V52_REFERRAL_CAP (10), so both need a signup cap above their
+  // qualified ceiling to leave room for unqualified signups.
   const referralLimit =
-    program === 'web' ? FREEBUFF_WEB_REFERRAL_LIMIT : referrer.referralLimit
+    program === 'cli'
+      ? referrer.referralLimit
+      : program === 'glm'
+        ? FREEBUFF_GLM_V52_REFERRAL_CAP * 2
+        : FREEBUFF_WEB_REFERRAL_LIMIT
   if (referrerCount >= referralLimit) {
     return { ok: false, error: 'referrer_limit_reached' }
   }
 
   // credits=0: v2 never mints credits (grant-credits throws on type='referral').
-  // onConflictDoNothing guards the (referrer_id, referred_id) PK against racing
-  // double-submits.
+  // onConflictDoNothing guards the (referrer_id, referred_id, program) PK
+  // against racing double-submits.
   await db
     .insert(schema.referral)
     .values({
@@ -380,21 +407,36 @@ export async function evaluateReferralForReferredUser(params: {
 }
 
 /**
- * Evaluate the referred user's pending Freebuff Web referral and complete it
- * if the web gate passes: GitHub account at least
- * MIN_GITHUB_ACCOUNT_AGE_MONTHS old (no repo requirement — web perks cost
- * less than CLI Opus access) + the shared burn-once ledger. Idempotent and
- * cheap to re-run: completed referrals return no_pending_referral and the
- * GitHub facts are cached. A too-new account stays pending, so it ages in on
- * a later evaluation.
+ * Shared evaluator for the account-age-only programs ('web' and 'glm'): both
+ * complete a pending referral when the referred user's GitHub account is old
+ * enough (no repo / activation requirement, unlike 'cli'). They differ only in
+ * the age bar and which burn-once ledger they consume, passed in by the thin
+ * wrappers below. Idempotent and cheap to re-run: completed referrals return
+ * no_pending_referral and the GitHub facts are cached; a too-new account stays
+ * pending and ages in on a later evaluation.
  */
-export async function evaluateWebReferralForReferredUser(params: {
+async function evaluateAccountAgeReferral(params: {
   userId: string
   logger: Logger
+  program: 'web' | 'glm'
+  minAccountAgeMonths: number
+  consumeBonus: (args: {
+    githubUserId: string
+    consumedByUserId: string
+    now: Date
+  }) => Promise<boolean>
   now?: Date
   fetchFn?: typeof fetch
 }): Promise<ReferralEvaluation> {
-  const { userId, logger, now = new Date(), fetchFn } = params
+  const {
+    userId,
+    logger,
+    program,
+    minAccountAgeMonths,
+    consumeBonus,
+    now = new Date(),
+    fetchFn,
+  } = params
 
   const [pending] = await db
     .select({ referrerId: schema.referral.referrer_id })
@@ -403,7 +445,7 @@ export async function evaluateWebReferralForReferredUser(params: {
       and(
         eq(schema.referral.referred_id, userId),
         eq(schema.referral.status, 'pending'),
-        eq(schema.referral.program, 'web'),
+        eq(schema.referral.program, program),
       ),
     )
     .limit(1)
@@ -426,22 +468,21 @@ export async function evaluateWebReferralForReferredUser(params: {
     !isGithubAccountOldEnoughForReferral(
       qualification.accountCreatedAt?.getTime(),
       now.getTime(),
+      minAccountAgeMonths,
     )
   ) {
     return { outcome: 'not_qualified', reason: 'account_too_new' }
   }
 
-  // Burn-once across BOTH programs: one GitHub identity, one bonus, ever.
-  const burned = await tryConsumeReferralBonus({
+  const burned = await consumeBonus({
     githubUserId: qualification.githubUserId,
     consumedByUserId: userId,
-    requireBrightLine: false,
     now,
   })
   if (!burned) {
     logger.warn(
-      { userId, githubUserId: qualification.githubUserId },
-      'Web referral gate passed but GitHub identity already consumed a bonus',
+      { userId, program, githubUserId: qualification.githubUserId },
+      'Referral gate passed but GitHub identity already consumed this bonus',
     )
     return { outcome: 'bonus_already_consumed' }
   }
@@ -453,15 +494,78 @@ export async function evaluateWebReferralForReferredUser(params: {
       and(
         eq(schema.referral.referred_id, userId),
         eq(schema.referral.status, 'pending'),
-        eq(schema.referral.program, 'web'),
+        eq(schema.referral.program, program),
       ),
     )
 
   logger.info(
-    { userId, referrerId: pending.referrerId },
-    'Web referral completed: referred GitHub account met the age requirement',
+    { userId, program, referrerId: pending.referrerId },
+    'Referral completed: referred GitHub account met the age requirement',
   )
   return { outcome: 'completed', referrerId: pending.referrerId }
+}
+
+/**
+ * Freebuff Web referral: GitHub account at least MIN_GITHUB_ACCOUNT_AGE_MONTHS
+ * old + the shared burn-once ledger (web perks cost less than CLI Opus access).
+ */
+export function evaluateWebReferralForReferredUser(params: {
+  userId: string
+  logger: Logger
+  now?: Date
+  fetchFn?: typeof fetch
+}): Promise<ReferralEvaluation> {
+  return evaluateAccountAgeReferral({
+    ...params,
+    program: 'web',
+    minAccountAgeMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS,
+    // Shared burn-once across BOTH legacy programs: one GitHub identity, one
+    // bonus, ever.
+    consumeBonus: ({ githubUserId, consumedByUserId, now }) =>
+      tryConsumeReferralBonus({
+        githubUserId,
+        consumedByUserId,
+        requireBrightLine: false,
+        now,
+      }),
+  })
+}
+
+/**
+ * GLM referral: the stricter MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM age bar + GLM's
+ * own burn-once ledger, independent of any web/cli bonus the same GitHub
+ * identity may already hold.
+ */
+export function evaluateGlmReferralForReferredUser(params: {
+  userId: string
+  logger: Logger
+  now?: Date
+  fetchFn?: typeof fetch
+}): Promise<ReferralEvaluation> {
+  return evaluateAccountAgeReferral({
+    ...params,
+    program: 'glm',
+    minAccountAgeMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+    consumeBonus: tryConsumeGlmReferralBonus,
+  })
+}
+
+/**
+ * The referrer's GLM session entitlement: their GLM referral score, capped at
+ * FREEBUFF_GLM_V52_REFERRAL_CAP. This is the number of 1-hour GLM 5.2 sessions
+ * they may start per (Pacific) week — read live by the free-session quota.
+ */
+export async function getGlmReferralEntitlement(params: {
+  userId: string
+}): Promise<number> {
+  // Kill-switch: while the program is wound down nobody earns GLM sessions,
+  // and we skip the score query entirely.
+  if (!FREEBUFF_GLM_V52_REFERRAL_ENABLED) return 0
+  const score = await getReferralScore({
+    userId: params.userId,
+    program: 'glm',
+  })
+  return Math.min(score, FREEBUFF_GLM_V52_REFERRAL_CAP)
 }
 
 /**

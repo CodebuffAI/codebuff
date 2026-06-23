@@ -8,6 +8,7 @@ import {
   getSessionState,
   requestSession,
 } from '@/server/free-session/public-api'
+import { getFreebuffReferralInfo } from '@/server/free-session/referral-info'
 import {
   getFreeModeAccessTier,
   getFreeModePrivacyDecision,
@@ -297,6 +298,18 @@ export async function getFreebuffSession(
       deps: deps.sessionDeps,
     })
     if (state.status === 'none') {
+      // Referral banner data is full-tier only (limited users can't earn GLM
+      // sessions). Best-effort: a failure here must not break session polling.
+      const referral =
+        state.accessTier === 'full'
+          ? await getFreebuffReferralInfo(auth.userId).catch((error) => {
+              deps.logger.warn(
+                { error, userId: auth.userId },
+                '[freebuff/session] failed to build referral info',
+              )
+              return null
+            })
+          : null
       return NextResponse.json(
         {
           status: 'none',
@@ -304,6 +317,7 @@ export async function getFreebuffSession(
           message: 'Call POST to join the waiting room.',
           queueDepthByModel: state.queueDepthByModel,
           rateLimitsByModel: state.rateLimitsByModel,
+          ...(referral ? { referral } : {}),
           ...toLimitedModeReason(countryAccess),
         },
         { status: 200 },

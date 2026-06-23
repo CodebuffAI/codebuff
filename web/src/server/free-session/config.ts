@@ -1,6 +1,7 @@
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
@@ -65,6 +66,9 @@ const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
   [FREEBUFF_KIMI_MODEL_ID]: 10_000,
   [FREEBUFF_MINIMAX_MODEL_ID]: 10_000,
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 10_000,
+  // GLM is gated by the per-user weekly referral entitlement (checked before
+  // admission), not by deployment capacity, so entitled users skip the queue.
+  [FREEBUFF_GLM_V52_MODEL_ID]: 10_000,
 }
 
 export function getInstantAdmitCapacity(id: string): number {

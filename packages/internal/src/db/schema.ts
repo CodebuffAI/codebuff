@@ -217,7 +217,13 @@ export const referral = pgTable(
     qualified_at: timestamp('qualified_at', { mode: 'date' }),
   },
   (table) => [
-    primaryKey({ columns: [table.referrer_id, table.referred_id] }),
+    // Program is part of the PK so a referred user can participate in more than
+    // one program for the same referrer (e.g. a single freebuff.com link grants
+    // both the Web tier 'web' row and the CLI GLM 'glm' row). Each program is
+    // scored and burned-once independently downstream.
+    primaryKey({
+      columns: [table.referrer_id, table.referred_id, table.program],
+    }),
     // Score reads: count qualified referrals per referrer / referred.
     index('idx_referral_qualified_referrer').on(
       table.referrer_id,
@@ -271,7 +277,8 @@ export const referralQualification = pgTable(
       .notNull()
       .defaultNow(),
     // Burn-once: set the first time this GitHub account is consumed to grant a
-    // referral bonus. A non-null value means it can never earn another.
+    // referral bonus. A non-null value means it can never earn another. Shared
+    // by the CLI ('cli') and Freebuff Web ('web') programs.
     bonus_consumed_at: timestamp('bonus_consumed_at', { mode: 'date' }),
     // The freebuff user that earned the bonus credited to this GitHub account
     // (the referred user), kept for auditability.
@@ -279,6 +286,14 @@ export const referralQualification = pgTable(
       () => user.id,
       { onDelete: 'set null' },
     ),
+    // Separate burn-once ledger for the GLM 5.2 program. Kept independent of the
+    // shared bonus above so a GitHub identity that already earned a web/cli
+    // bonus can still qualify exactly one GLM referral (and vice versa) — the
+    // GLM reward is a distinct perk, not the same single-bonus pool.
+    glm_bonus_consumed_at: timestamp('glm_bonus_consumed_at', { mode: 'date' }),
+    glm_bonus_consumed_by_user_id: text(
+      'glm_bonus_consumed_by_user_id',
+    ).references(() => user.id, { onDelete: 'set null' }),
   },
   (table) => [index('idx_referral_qualification_user').on(table.user_id)],
 )

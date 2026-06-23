@@ -49,6 +49,7 @@ export const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m3': 'accounts/fireworks/models/minimax-m3',
   'moonshotai/kimi-k2.6': 'accounts/fireworks/models/kimi-k2p6',
   'z-ai/glm-5.1': 'accounts/fireworks/models/glm-5p1',
+  'z-ai/glm-5.2': 'accounts/fireworks/models/glm-5p2',
 }
 
 /** Models that stay limited to freebuff deployment hours even on serverless. */
@@ -244,6 +245,14 @@ export const FIREWORKS_PRICING_MAP: Record<string, FireworksPricing> = {
     outputCostPerToken: 4.0 / 1_000_000,
   },
   'z-ai/glm-5.1': {
+    inputCostPerToken: 1.4 / 1_000_000,
+    cachedInputCostPerToken: 0.26 / 1_000_000,
+    outputCostPerToken: 4.4 / 1_000_000,
+  },
+  // Matches Fireworks' published GLM 5.2 serverless list price ($1.4/M in,
+  // $4.4/M out, 1M context); cached-input rate mirrors 5.1 (not separately
+  // published).
+  'z-ai/glm-5.2': {
     inputCostPerToken: 1.4 / 1_000_000,
     cachedInputCostPerToken: 0.26 / 1_000_000,
     outputCostPerToken: 4.4 / 1_000_000,

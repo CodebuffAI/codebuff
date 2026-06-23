@@ -4,7 +4,10 @@ import {
   LIMITED_FREEBUFF_MODEL_ID,
   resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
-import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import {
+  getRateLimitsByModel,
+  getReferralInfo,
+} from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
 
 import {
@@ -226,6 +229,7 @@ function toLandingSession(
       ? current.queueDepthByModel
       : undefined
   const rateLimitsByModel = getRateLimitsByModel(current)
+  const referral = getReferralInfo(current)
   const countryCode =
     current && 'countryCode' in current ? current.countryCode : undefined
   const countryBlockReason =
@@ -242,6 +246,7 @@ function toLandingSession(
     ...(accessTier ? { accessTier } : {}),
     ...(queueDepthByModel ? { queueDepthByModel } : {}),
     ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
+    ...(referral ? { referral } : {}),
     ...(countryCode ? { countryCode } : {}),
     ...(countryBlockReason ? { countryBlockReason } : {}),
     ...(ipPrivacySignals ? { ipPrivacySignals } : {}),
@@ -646,6 +651,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                   rateLimitsByModel:
                     response.rateLimitsByModel ??
                     landingSession.rateLimitsByModel,
+                  // Carry the referral block so the "change model" picker shows
+                  // the GLM banner too (the server only attaches it to `none`).
+                  referral: getReferralInfo(response) ?? landingSession.referral,
                   countryCode:
                     response.countryCode ?? landingSession.countryCode,
                   countryBlockReason:

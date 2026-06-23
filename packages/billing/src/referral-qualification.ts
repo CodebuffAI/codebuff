@@ -562,3 +562,36 @@ export async function tryConsumeReferralBonus(params: {
 
   return consumed.length > 0
 }
+
+/**
+ * GLM-program burn-once. Identical to `tryConsumeReferralBonus` but against the
+ * separate `glm_bonus_consumed_at` ledger, so a GitHub identity earns at most
+ * one GLM referral independently of any web/cli bonus it may already hold. The
+ * GLM program checks account age against the stored facts itself, so this never
+ * requires the bright-line `qualified` column.
+ */
+export async function tryConsumeGlmReferralBonus(params: {
+  githubUserId: string
+  consumedByUserId: string
+  now?: Date
+}): Promise<boolean> {
+  const { githubUserId, consumedByUserId, now = new Date() } = params
+
+  const consumed = await db
+    .update(schema.referralQualification)
+    .set({
+      glm_bonus_consumed_at: now,
+      glm_bonus_consumed_by_user_id: consumedByUserId,
+    })
+    .where(
+      and(
+        eq(schema.referralQualification.github_user_id, githubUserId),
+        isNull(schema.referralQualification.glm_bonus_consumed_at),
+      ),
+    )
+    .returning({
+      githubUserId: schema.referralQualification.github_user_id,
+    })
+
+  return consumed.length > 0
+}

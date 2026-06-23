@@ -16,6 +16,7 @@ import {
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
+  isFreebuffGlmV52ModelId,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
 } from '@codebuff/common/constants/freebuff-models'
@@ -138,7 +139,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const availableModels = useMemo(
-    () => getFreebuffModelsForAccessTier(accessTier),
+    // GLM 5.2 is a referral reward, not a freely-pickable model, so it's
+    // surfaced by the separate FreebuffReferralBanner rather than this grid.
+    () =>
+      getFreebuffModelsForAccessTier(accessTier).filter(
+        (m) => !isFreebuffGlmV52ModelId(m.id),
+      ),
     [accessTier],
   )
   const recommendedModel = useMemo(() => {

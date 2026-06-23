@@ -15,6 +15,11 @@
  *  referrer just gets no credit (anti-farming). */
 export const MIN_GITHUB_ACCOUNT_AGE_MONTHS = 4
 
+/** GLM 5.2 referral program uses a stricter account-age bar than the web
+ *  program (no public-repo requirement, but the account must be a full year
+ *  old) since the reward — paid GLM serverless time — costs more to abuse. */
+export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM = 12
+
 export interface FreebuffReferralTier {
   /** Tier index (0-based, in ascending order of referralsRequired). */
   tier: number
@@ -115,15 +120,18 @@ export function getNextReferralTier(
 
 /** Whether a GitHub account created at `githubCreatedAtMs` satisfies the
  *  referral age requirement at time `nowMs`. Months are computed on the
- *  calendar (e.g. created Jan 15 qualifies on/after May 15). */
+ *  calendar (e.g. created Jan 15 qualifies on/after May 15). `minMonths`
+ *  defaults to the web bar; the GLM program passes
+ *  MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM. */
 export function isGithubAccountOldEnoughForReferral(
   githubCreatedAtMs: number | null | undefined,
   nowMs: number = Date.now(),
+  minMonths: number = MIN_GITHUB_ACCOUNT_AGE_MONTHS,
 ): boolean {
   if (githubCreatedAtMs == null || !Number.isFinite(githubCreatedAtMs)) {
     return false
   }
   const threshold = new Date(githubCreatedAtMs)
-  threshold.setUTCMonth(threshold.getUTCMonth() + MIN_GITHUB_ACCOUNT_AGE_MONTHS)
+  threshold.setUTCMonth(threshold.getUTCMonth() + minMonths)
   return nowMs >= threshold.getTime()
 }

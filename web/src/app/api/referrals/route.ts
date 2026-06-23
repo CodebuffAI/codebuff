@@ -6,7 +6,7 @@ import {
 } from '@codebuff/billing/referral-program'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod/v4'
@@ -40,15 +40,21 @@ export async function GET() {
   }
 
   try {
-    // Who did this user refer?
+    // Who did this user refer? Grouped by referred_id: one person can now have
+    // multiple referral rows (the referral PK includes `program`, e.g. a single
+    // freebuff.com link redeems under both 'web' and 'glm'), so collapse them
+    // to one entry per referred user. credits/is_legacy are aggregated so a
+    // legacy credit row still surfaces.
     const referralsQuery = db
       .select({
         id: schema.referral.referred_id,
-        credits: schema.referral.credits,
-        is_legacy: schema.referral.is_legacy,
+        credits: sql<number>`MAX(${schema.referral.credits})`.as('credits'),
+        is_legacy:
+          sql<boolean>`BOOL_OR(${schema.referral.is_legacy})`.as('is_legacy'),
       })
       .from(schema.referral)
       .where(eq(schema.referral.referrer_id, session.user.id))
+      .groupBy(schema.referral.referred_id)
       .as('referralsQuery')
     const referrals = await db
       .select({

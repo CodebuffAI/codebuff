@@ -2,6 +2,9 @@ import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+  FREEBUFF_GLM_V52_MODEL_IDS,
+  FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE,
+  FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS,
   FREEBUFF_LIMITED_SESSION_LIMIT,
   FREEBUFF_LIMITED_SESSION_PERIOD,
   FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
@@ -12,14 +15,20 @@ import {
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+  FREEBUFF_WEEKLY_SESSION_PERIOD,
   isFreebuffGeminiProModelId,
+  isFreebuffGlmV52ModelId,
   isFreebuffModelAllowedForAccessTier,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
   resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
-import { getZonedDayBounds } from '@codebuff/common/util/zoned-time'
+import {
+  getZonedDayBounds,
+  getZonedWeekBounds,
+} from '@codebuff/common/util/zoned-time'
+import { getGlmReferralEntitlement } from '@codebuff/billing/referral-program'
 
 import {
   getInstantAdmitCapacity,
@@ -83,17 +92,37 @@ interface SessionQuotaSnapshot {
 interface SessionQuotaConfig {
   models: readonly string[]
   limit: number
-  period: 'pacific_day'
+  period: 'pacific_day' | 'pacific_week'
   resetTimeZone: string
   windowHours: number
   accessTier?: FreebuffAccessTier
 }
 
+/** GLM 5.2's per-user weekly session pool. Unlike the daily pools the limit is
+ *  dynamic: it equals the caller's GLM referral entitlement (qualified GLM
+ *  referrals, capped). A limit of 0 means the user has earned no GLM sessions,
+ *  so admission is rejected as `rate_limited`. */
+async function glmReferralQuotaConfig(
+  userId: string,
+  deps: SessionDeps,
+): Promise<SessionQuotaConfig> {
+  const limit = await deps.getGlmReferralEntitlement(userId)
+  return {
+    models: FREEBUFF_GLM_V52_MODEL_IDS,
+    limit,
+    period: FREEBUFF_WEEKLY_SESSION_PERIOD,
+    resetTimeZone: FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE,
+    windowHours: FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS,
+  }
+}
+
 /** Returns the session-quota config for `model`, or undefined when the model
  *  is unlimited. Only premium models count against (and are gated by) the
  *  shared daily session pool; full-tier non-premium ("Unlimited") models have
- *  no session quota. The broader per-request abuse ceiling lives in the Redis
- *  free-mode rate limiter, which spans every model. */
+ *  no session quota. GLM 5.2 has its own weekly referral pool (see
+ *  `glmReferralQuotaConfig`), resolved by the async callers before this. The
+ *  broader per-request abuse ceiling lives in the Redis free-mode rate limiter,
+ *  which spans every model. */
 function quotaConfigForModel(
   model: string,
   accessTier: FreebuffAccessTier,
@@ -133,10 +162,13 @@ async function fetchSessionQuotaSnapshot(
   deps: SessionDeps,
 ): Promise<SessionQuotaSnapshot> {
   const now = nowOf(deps)
-  const day = getZonedDayBounds(now, config.resetTimeZone)
+  const bounds =
+    config.period === 'pacific_week'
+      ? getZonedWeekBounds(now, config.resetTimeZone)
+      : getZonedDayBounds(now, config.resetTimeZone)
   const admits = await deps.listRecentFreeSessionAdmits({
     userId,
-    since: day.startsAt,
+    since: bounds.startsAt,
     models: config.models,
     accessTier: config.accessTier,
   })
@@ -148,11 +180,11 @@ async function fetchSessionQuotaSnapshot(
       limit: config.limit,
       period: config.period,
       resetTimeZone: config.resetTimeZone,
-      resetAt: day.resetsAt.toISOString(),
+      resetAt: bounds.resetsAt.toISOString(),
       windowHours: config.windowHours,
       recentCount,
     },
-    resetsAt: day.resetsAt,
+    resetsAt: bounds.resetsAt,
   }
 }
 
@@ -182,6 +214,16 @@ async function fetchRateLimitSnapshot(
     }
   | undefined
 > {
+  // GLM 5.2 uses its own weekly referral pool with a per-user dynamic limit,
+  // resolved before the static daily-pool config.
+  if (isFreebuffGlmV52ModelId(model)) {
+    const config = await glmReferralQuotaConfig(userId, deps)
+    const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
+    return {
+      info: toRateLimitInfo(model, snapshot),
+      resetsAt: snapshot.resetsAt,
+    }
+  }
   const config = quotaConfigForModel(model, accessTier)
   if (!config) return undefined
   const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
@@ -198,6 +240,10 @@ async function fetchRateLimitsByModel(
 ): Promise<Record<string, FreebuffSessionRateLimit>> {
   const config = quotaConfigForAccessTier(accessTier)
   const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
+  // GLM's weekly referral pool is deliberately NOT folded in here: this runs on
+  // every session poll, and GLM usage is surfaced via the dedicated `referral`
+  // block on the landing response instead, so we keep the hot path to a single
+  // admits query.
   return Object.fromEntries(
     config.models.map(
       (model) => [model, toRateLimitInfo(model, snapshot)] as const,
@@ -257,6 +303,11 @@ export interface SessionDeps {
     since: Date
     accessTier?: FreebuffAccessTier
   }) => Promise<{ admittedAt: Date; model: string; sessionUnits: number }[]>
+  /** The caller's GLM 5.2 weekly session entitlement: number of qualified GLM
+   *  referrals (capped). Drives the dynamic limit of the GLM weekly pool.
+   *  Indirected through deps so the session tests can set it without seeding
+   *  referral rows. */
+  getGlmReferralEntitlement: (userId: string) => Promise<number>
   /** Instant-admit promotion: flips a specific queued row to active. Returns
    *  the updated row or null if the row wasn't in a queued state. */
   promoteQueuedUser: (params: {
@@ -300,6 +351,8 @@ const defaultDeps: SessionDeps = {
   activeCountForModel,
   countActiveSessionsForIpHash,
   listRecentFreeSessionAdmits,
+  getGlmReferralEntitlement: (userId: string) =>
+    getGlmReferralEntitlement({ userId }),
   promoteQueuedUser,
   getInstantAdmitCapacity,
   getFleetHealth,
@@ -319,6 +372,28 @@ const defaultDeps: SessionDeps = {
 }
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
+
+/**
+ * The caller's GLM 5.2 weekly session balance, for the CLI referral banner:
+ * `limit` is their entitlement (capped qualified GLM referrals), `used` is the
+ * GLM sessions started since this week's Pacific reset, `remaining` is the
+ * floor-0 difference, and `resetAt` is the next reset. Reuses the same weekly
+ * pool the admission gate enforces, so the banner and the gate never disagree.
+ */
+export async function getGlmWeeklyUsage(
+  userId: string,
+  deps: SessionDeps = defaultDeps,
+): Promise<{ limit: number; used: number; remaining: number; resetAt: string }> {
+  const config = await glmReferralQuotaConfig(userId, deps)
+  const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
+  const used = snapshot.info.recentCount
+  return {
+    limit: config.limit,
+    used,
+    remaining: Math.max(0, config.limit - used),
+    resetAt: snapshot.resetsAt.toISOString(),
+  }
+}
 
 /**
  * Log-only abuse instrumentation, fired once per **fresh** instant-admission
@@ -416,7 +491,7 @@ export type RequestSessionResult =
       accessTier?: FreebuffAccessTier
       model: string
       limit: number
-      period: 'pacific_day'
+      period: 'pacific_day' | 'pacific_week'
       resetTimeZone: string
       resetAt: string
       windowHours: number
@@ -655,7 +730,18 @@ async function attachRateLimit(
   if (view.status === 'ended') {
     return { ...view, rateLimitsByModel: allRateLimitsByModel }
   }
-  const rateLimit = allRateLimitsByModel[view.model]
+  // GLM isn't in the shared snapshot (its weekly pool is kept off the per-poll
+  // path). Resolve the bound model's quota directly only when the session is
+  // actually on GLM — so an active GLM session carries its weekly `rateLimit`
+  // (the CLI status bar then shows the 1-hour countdown instead of treating it
+  // as an unlimited model). One extra query, and only for GLM sessions.
+  let rateLimit: FreebuffSessionRateLimit | undefined =
+    allRateLimitsByModel[view.model]
+  if (!rateLimit && isFreebuffGlmV52ModelId(view.model)) {
+    rateLimit = (
+      await fetchRateLimitSnapshot(userId, view.model, accessTier, deps)
+    )?.info
+  }
   return {
     ...view,
     ...(rateLimit ? { rateLimit } : {}),
