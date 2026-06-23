@@ -15,11 +15,13 @@ import {
 import { Input } from '@/vly/components/ui/input'
 import { Textarea } from '@/vly/components/ui/textarea'
 import {
+  AlertTriangle,
   Building2,
   Github,
   Loader2,
   Lock,
   Plus,
+  RefreshCw,
   Search,
   ShieldCheck,
 } from 'lucide-react'
@@ -63,6 +65,7 @@ export function ConnectRepoDialog({
 
   const [repos, setRepos] = useState<Repo[] | null>(null)
   const [installLogin, setInstallLogin] = useState<string | null>(null)
+  const [manageUrl, setManageUrl] = useState<string | null>(null)
   const [loadingRepos, setLoadingRepos] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Repo | null>(null)
@@ -103,10 +106,23 @@ export function ConnectRepoDialog({
       const result = await listRepos({})
       setRepos(result.repos)
       setInstallLogin(result.installation?.account_login ?? null)
+      setManageUrl(result.installation?.manage_url ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoadingRepos(false)
+    }
+  }
+
+  const handleApprovePermissions = async () => {
+    setError(null)
+    try {
+      // Prefer the precise installation permission-update page; fall back to
+      // the generic app install/configure page if we don't have it.
+      const url = manageUrl ?? (await getConfigureUrl({}))
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -150,6 +166,12 @@ export function ConnectRepoDialog({
       a[0].localeCompare(b[0]),
     )
   }, [repos, search])
+
+  // If the installation only has read access to every repo, the app's
+  // permissions haven't been approved on this install yet (e.g. a stale
+  // install predating the Contents: write upgrade). Prompt to approve.
+  const allReadOnly =
+    repos !== null && repos.length > 0 && repos.every((r) => !r.permission_push)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -216,6 +238,41 @@ export function ConnectRepoDialog({
               </Button>
             ) : (
               <>
+                {allReadOnly && (
+                  <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <span className="text-foreground">
+                        Freebuff only has{' '}
+                        <span className="font-medium">read-only</span> access to
+                        these repos, so it can&apos;t commit or push yet. Approve
+                        the updated permissions on GitHub, then refresh.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleApprovePermissions}
+                        className="h-7"
+                      >
+                        <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                        Approve permissions on GitHub
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleLoadRepos}
+                        disabled={loadingRepos}
+                        className="h-7"
+                      >
+                        <RefreshCw
+                          className={`mr-1.5 h-3.5 w-3.5 ${loadingRepos ? 'animate-spin' : ''}`}
+                        />
+                        Refresh
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">
                     {installLogin ? (

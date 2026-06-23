@@ -23,6 +23,11 @@ export const listConnectableRepositories = action({
       v.object({
         account_login: v.optional(v.string()),
         account_type: v.optional(v.string()),
+        installation_id: v.optional(v.number()),
+        // GitHub page where the installer approves updated app permissions
+        // (e.g. after we add Contents: write). Surfaced so the connect dialog
+        // can prompt the user when their install is on a stale permission set.
+        manage_url: v.optional(v.string()),
       }),
       v.null(),
     ),
@@ -63,19 +68,33 @@ export const listConnectableRepositories = action({
     const octokit: any = await createOctokitInstance(installationId);
 
     // Installation metadata (so the UI can show which org/user the app is on).
-    let installation: { account_login?: string; account_type?: string } | null =
-      null;
+    let accountLogin: string | undefined;
+    let accountType: string | undefined;
     try {
       const inst: any = await octokit.rest.apps.getInstallation({
         installation_id: installationId,
       });
-      installation = {
-        account_login: inst?.data?.account?.login,
-        account_type: inst?.data?.account?.type,
-      };
+      accountLogin = inst?.data?.account?.login;
+      accountType = inst?.data?.account?.type;
     } catch {
-      installation = null;
+      // Non-fatal: we still have installationId for the manage URL below.
     }
+
+    // Where the installer approves updated permissions. Org installs live under
+    // /organizations/<org>/..., user installs under /settings/installations/...
+    // The /permissions/update page surfaces any pending permission request
+    // (e.g. the Contents: write upgrade) with an Accept button.
+    const manageUrl =
+      accountType === "Organization" && accountLogin
+        ? `https://github.com/organizations/${accountLogin}/settings/installations/${installationId}/permissions/update`
+        : `https://github.com/settings/installations/${installationId}/permissions/update`;
+
+    const installation = {
+      account_login: accountLogin,
+      account_type: accountType,
+      installation_id: installationId,
+      manage_url: manageUrl,
+    };
 
     // Paginate over all repos the installation can access.
     const repos: any[] = [];
