@@ -1,6 +1,5 @@
 import {
   createPostHogClient,
-  generateAnonymousId,
   type AnalyticsClientWithIdentify,
   type PostHogClientOptions,
 } from '@codebuff/common/analytics-core'
@@ -12,6 +11,7 @@ import {
 import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
 import { shouldMirrorAnalyticsEvent } from '@codebuff/common/util/log-mirror'
 
+import { getOrCreatePersistentAnonymousId } from './anonymous-id'
 import { enqueueClientLog } from './log-shipper'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -73,7 +73,7 @@ function resolveDeps(): ResolvedAnalyticsDeps {
     isProd: injectedDeps?.isProd ?? defaultIsProd,
     createClient: injectedDeps?.createClient ?? createPostHogClient,
     generateAnonymousId:
-      injectedDeps?.generateAnonymousId ?? generateAnonymousId,
+      injectedDeps?.generateAnonymousId ?? getOrCreatePersistentAnonymousId,
   }
 }
 

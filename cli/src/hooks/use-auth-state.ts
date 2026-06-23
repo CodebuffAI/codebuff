@@ -67,9 +67,21 @@ export const useAuthState = ({
           authToken: userCredentials?.authToken || '',
         }
         setUser(userData)
+        // Identify first so the login event is attributed to the real user id
+        // and the pre-login anonymous history is aliased in.
         setAuthLoggerContext({
           userId: authQuery.data.id,
           email: authQuery.data.email || '',
+        })
+        // Returning users restore an existing session instead of going through
+        // the login modal, so `cli.login` would otherwise never fire for them —
+        // making them look like a login-step drop-off in the funnel even though
+        // they're authenticated. Emit it here too, tagged by `via`.
+        trackEvent(AnalyticsEvent.LOGIN, {
+          userId: authQuery.data.id,
+          via: 'session_restore',
+          hasEmail: Boolean(authQuery.data.email),
+          hasName: Boolean(userCredentials?.name),
         })
       }
     } else if (authQuery.isError) {
@@ -82,9 +94,19 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      // Identify first (aliases the pre-login anonymous history to the real
+      // user id) so the login event below is attributed to the user.
+      if (loggedInUser.id && loggedInUser.email) {
+        setAuthLoggerContext({
+          userId: loggedInUser.id,
+          email: loggedInUser.email,
+        })
+      }
+
       // Track successful login
       trackEvent(AnalyticsEvent.LOGIN, {
         userId: loggedInUser.id,
+        via: 'modal',
         hasEmail: Boolean(loggedInUser.email),
         hasName: Boolean(loggedInUser.name),
       })
@@ -96,13 +118,6 @@ export const useAuthState = ({
       setInputFocused(true)
       setUser(loggedInUser)
       setIsAuthenticated(true)
-
-      if (loggedInUser.id && loggedInUser.email) {
-        setAuthLoggerContext({
-          userId: loggedInUser.id,
-          email: loggedInUser.email,
-        })
-      }
     },
     [resetChatStore, resetLoginState, setInputFocused],
   )
