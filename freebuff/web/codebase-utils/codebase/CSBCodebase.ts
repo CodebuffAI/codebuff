@@ -825,29 +825,59 @@ export class CSBCodebase
         return [];
       }
 
-      const cleanedOutput = result.output
-        .replace(/[\x00-\x1F\x7F]/g, "")
-        .trim();
+      if (result.exitCode === 0) {
+        const cleanedOutput = result.output
+          .replace(/[\x00-\x1F\x7F]/g, "")
+          .trim();
 
-      if (!cleanedOutput || cleanedOutput === "") {
-        // no commits yet or empty output
-        return [];
+        if (!cleanedOutput || cleanedOutput === "") {
+          return [];
+        }
+
+        try {
+          const parsedCommits: {
+            commit: string;
+            author: string;
+            author_email: string;
+            epoch: number;
+            message: string;
+          }[] = JSON.parse(cleanedOutput);
+
+          return parsedCommits.map((commit) => ({
+            hash: commit.commit,
+            message: commit.message,
+            author: commit.author,
+            timestamp: commit.epoch,
+          }));
+        } catch {
+          // Fall through to plain git-log parsing below.
+        }
       }
 
-      const parsedCommits: {
-        commit: string;
-        author: string;
-        author_email: string;
-        epoch: number;
-        message: string;
-      }[] = JSON.parse(cleanedOutput);
+      const fallbackResult = await this.runCommand(
+        `git log --max-count=${maxCount} --format="%H%x1f%an%x1f%at%x1f%s"`,
+      );
+      if (fallbackResult.output.includes("fatal: your current branch")) {
+        return [];
+      }
+      if (fallbackResult.exitCode !== 0) {
+        throw new Error(fallbackResult.output);
+      }
 
-      return parsedCommits.map((commit) => ({
-        hash: commit.commit,
-        message: commit.message,
-        author: commit.author,
-        timestamp: commit.epoch,
-      }));
+      return fallbackResult.output
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [hash, author, timestamp, ...messageParts] = line.split("\u001f");
+          return {
+            hash,
+            author,
+            timestamp: Number(timestamp || 0),
+            message: messageParts.join("\u001f") || "",
+          };
+        })
+        .filter((commit) => Boolean(commit.hash));
     } catch (err) {
       console.error("Failed to get commits", err);
       throw err;

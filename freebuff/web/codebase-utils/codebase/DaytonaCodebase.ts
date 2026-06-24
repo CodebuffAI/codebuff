@@ -1374,29 +1374,59 @@ if (!hasIntegration) {
     try {
       // the -m is for monochrome output
       // Limit to maxCount commits for performance (default 100)
-      const result = await this.runCommand(
+      const jcResult = await this.runCommand(
         `git log --max-count=${maxCount} | jc --git-log -m`,
       );
 
-      if (result.output.includes("fatal: your current branch")) {
-        // no commits yet
+      if (jcResult.output.includes("fatal: your current branch")) {
         return [];
       }
 
-      const parsedCommits: {
-        commit: string;
-        author: string;
-        author_email: string;
-        epoch: number;
-        message: string;
-      }[] = JSON.parse(result.output.replace(/[\x00-\x1F\x7F]/g, ""));
+      if (jcResult.exitCode === 0) {
+        try {
+          const parsedCommits: {
+            commit: string;
+            author: string;
+            author_email: string;
+            epoch: number;
+            message: string;
+          }[] = JSON.parse(jcResult.output.replace(/[\x00-\x1F\x7F]/g, ""));
 
-      return parsedCommits.map((commit) => ({
-        hash: commit.commit,
-        message: commit.message,
-        author: commit.author,
-        timestamp: commit.epoch,
-      }));
+          return parsedCommits.map((commit) => ({
+            hash: commit.commit,
+            message: commit.message,
+            author: commit.author,
+            timestamp: commit.epoch,
+          }));
+        } catch {
+          // Fall through to plain git-log parsing below.
+        }
+      }
+
+      const fallbackResult = await this.runCommand(
+        `git log --max-count=${maxCount} --format="%H%x1f%an%x1f%at%x1f%s"`,
+      );
+      if (fallbackResult.output.includes("fatal: your current branch")) {
+        return [];
+      }
+      if (fallbackResult.exitCode !== 0) {
+        throw new Error(fallbackResult.output);
+      }
+
+      return fallbackResult.output
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [hash, author, timestamp, ...messageParts] = line.split("\u001f");
+          return {
+            hash,
+            author,
+            timestamp: Number(timestamp || 0),
+            message: messageParts.join("\u001f") || "",
+          };
+        })
+        .filter((commit) => Boolean(commit.hash));
     } catch (err) {
       console.error("Failed to get commits");
       throw err;
