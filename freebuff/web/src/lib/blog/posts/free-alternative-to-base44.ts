@@ -11,12 +11,13 @@ export const post: Post = {
   readingMinutes: 6,
   authorId: 'victor-cheng',
   keywords: [
-    'free base44',
-    'base44 alternative',
+    'free base44 alternative',
+    'base44 ai app builder',
+    'base44.com alternative',
+    'base44 internal tool builder',
     'base44 free',
     'base44 vs freebuff',
     'free internal tool builder',
-    'free ai app builder',
   ],
   body: [
     {
@@ -32,13 +33,20 @@ export const post: Post = {
       type: 'compare',
       competitor: 'Base44',
       rows: [
-        { feature: 'Price', freebuff: 'Free', competitor: 'Per-seat monthly plan' },
+        { feature: 'Price', freebuff: 'Free', competitor: '$40–$80/mo (Builder–Pro)' },
+        { feature: 'Message credits', freebuff: 'None', competitor: '250–500/mo on paid tiers' },
+        { feature: 'Integration credits', freebuff: 'Included', competitor: '10k–20k/mo on paid tiers' },
         { feature: 'Real DB (not demo)', freebuff: 'Yes — included', competitor: 'Yes on paid plans' },
         { feature: 'Auth', freebuff: 'Free, included', competitor: 'Paid plans' },
         { feature: 'GitHub eject', freebuff: 'One click', competitor: 'Limited' },
         { feature: 'CLI for power-user edits', freebuff: 'Yes (Freebuff CLI)', competitor: 'No' },
         { feature: 'Custom domains', freebuff: 'Yes', competitor: 'Paid plans' },
       ],
+    },
+    { type: 'h2', text: 'What Base44 costs in 2026' },
+    {
+      type: 'p',
+      text: 'Base44 Builder is **$40/mo** (annual billing) with 250 message credits. Pro is **$80/mo** with 500 message credits and more integrations. Elite is $160/mo. See [base44.com/pricing](https://www.base44.com/pricing) for the live tier table.',
     },
     {
       type: 'callout',

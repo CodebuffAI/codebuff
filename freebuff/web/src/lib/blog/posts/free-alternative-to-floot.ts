@@ -12,12 +12,11 @@ export const post: Post = {
   readingMinutes: 5,
   authorId: 'victor-cheng',
   keywords: [
-    'free floot',
-    'floot alternative',
+    'free floot alternative',
+    'floot ai app builder',
+    'floot.com alternative',
     'floot free',
     'floot vs freebuff',
-    'floot.com alternative',
-    'free ai web app builder',
   ],
   body: [
     {
@@ -33,12 +32,17 @@ export const post: Post = {
       type: 'compare',
       competitor: 'Floot',
       rows: [
-        { feature: 'Price', freebuff: 'Free', competitor: 'Free preview; paid tier coming' },
+        { feature: 'Price', freebuff: 'Free', competitor: 'Free preview; ~$25/mo paid (est.)' },
         { feature: 'Auth + DB', freebuff: 'Included', competitor: 'Limited on free' },
         { feature: 'Deployed URL', freebuff: 'Free, per change', competitor: 'Free during preview' },
         { feature: 'GitHub eject', freebuff: 'One click', competitor: 'Limited' },
         { feature: 'Paired CLI agent', freebuff: 'Yes (Freebuff CLI)', competitor: 'No' },
       ],
+    },
+    { type: 'h2', text: 'What Floot costs' },
+    {
+      type: 'p',
+      text: 'Floot launched with a free preview period. Paid tiers are rolling out — budget **$20–$50/mo** for a typical AI app-builder subscription once you need production domains, higher limits, and sustained iteration beyond preview.',
     },
     {
       type: 'callout',

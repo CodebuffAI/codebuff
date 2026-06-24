@@ -12,13 +12,11 @@ export const post: Post = {
   readingMinutes: 6,
   authorId: 'victor-cheng',
   keywords: [
-    'free emergent',
     'free emergent alternative',
     'emergent.sh free',
-    'emergent free',
-    'emergent competitor',
+    'emergent.sh ai app builder',
+    'emergent ai app builder',
     'emergent vs freebuff',
-    'free ai builder for startups',
     'free ai app generator',
   ],
   body: [
@@ -33,14 +31,19 @@ export const post: Post = {
     },
     {
       type: 'lede',
-      text: 'Emergent has been a favorite for "agent does the whole app" demos. The catch: serious use lands in the $99/mo plan fast. Freebuff Web replicates the loop and removes the bill.',
+      text: 'Emergent has been a favorite for "agent does the whole app" demos. The catch: serious use lands above $50/mo fast. Freebuff Web replicates the loop and removes the bill.',
+    },
+    { type: 'h2', text: 'What Emergent costs in 2026' },
+    {
+      type: 'p',
+      text: 'Emergent paid plans typically range from **$25/mo** on entry tiers to **$99/mo** for higher credit pools. Many active builders report spending around **$50/mo** once they move past the free allowance. Check [emergent.sh](https://emergent.sh) for current plan names and limits.',
     },
     { type: 'h2', text: 'Feature-by-feature: Freebuff Web vs Emergent' },
     {
       type: 'compare',
       competitor: 'Emergent',
       rows: [
-        { feature: 'Price', freebuff: 'Free', competitor: '$25–$99/mo' },
+        { feature: 'Price', freebuff: 'Free', competitor: '$25–$99/mo (typical ~$50/mo)' },
         { feature: 'Credit / token meter', freebuff: 'None', competitor: 'Yes' },
         { feature: 'Auth + database', freebuff: 'Wired in', competitor: 'Wired in' },
         { feature: 'Deployed URL', freebuff: 'Yes, free', competitor: 'Yes' },

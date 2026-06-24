@@ -3,7 +3,7 @@ import type { Post } from '../types'
 export const post: Post = {
   slug: 'free-alternative-to-replit',
   title: 'The free alternative to Replit Agent',
-  subtitle: 'Build, deploy, iterate — without the Core subscription.',
+  subtitle: 'Build, deploy, iterate — including Replit Design Mode workflows — without the Core subscription.',
   description:
     'Freebuff Web is the free alternative to Replit Agent — generate full-stack apps with auth, database, and hosting from a single prompt. No Core subscription.',
   category: 'Comparisons',
@@ -12,29 +12,32 @@ export const post: Post = {
   readingMinutes: 7,
   authorId: 'freebuff-team',
   keywords: [
-    'free replit',
     'free replit alternative',
-    'replit free',
     'replit agent free',
+    'replit design mode free',
+    'replit ai app builder',
     'replit core free',
-    'replit competitor',
     'replit vs freebuff',
     'free online ide with agent',
-    'free in browser coding agent',
   ],
   body: [
     {
       type: 'tldr',
       items: [
         'Freebuff Web is a free alternative to Replit Agent — prompt-to-deployed-app in a browser.',
-        'Replit Core is $25/mo (with Agent included); Freebuff Web is $0.',
+        'Replit Core is $25/mo (with Agent and Design Mode); Freebuff Web is $0.',
         'Auth, database, file storage, and hosting are wired in by default.',
         'You also get the Freebuff CLI for heavy refactors that browser editors are bad at.',
       ],
     },
     {
       type: 'lede',
-      text: 'Replit Agent made in-browser app building feel real. Freebuff Web is the same feeling without the $25/mo Core subscription gate.',
+      text: 'Replit Agent and Replit Design Mode made in-browser app building feel real. Freebuff Web is the same feeling without the $25/mo Core subscription gate.',
+    },
+    { type: 'h2', text: 'What Replit costs in 2026' },
+    {
+      type: 'p',
+      text: 'Replit Core is **$25/mo** on monthly billing ($20/mo billed annually). That unlocks Agent, Design Mode, and production deploys for most solo builders. Teams that outgrow Core often move to **Replit Pro at $100/mo**. See [replit.com/pricing](https://replit.com/pricing) for current tiers.',
     },
     { type: 'h2', text: 'The Replit Agent loop, but free' },
     {
@@ -46,7 +49,7 @@ export const post: Post = {
       type: 'compare',
       competitor: 'Replit Agent (with Core)',
       rows: [
-        { feature: 'Price', freebuff: 'Free', competitor: '$25/mo (Core)' },
+        { feature: 'Price', freebuff: 'Free', competitor: '$25/mo (Core); $100/mo (Pro)' },
         { feature: 'Auth + database', freebuff: 'Included', competitor: 'Included' },
         { feature: 'File storage', freebuff: 'Included', competitor: 'Included' },
         { feature: 'Deployed URL on every change', freebuff: 'Yes', competitor: 'Yes' },
