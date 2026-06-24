@@ -79,6 +79,9 @@ const CopyInviteLinkButton: React.FC<{
         paddingLeft: 2,
         paddingRight: 2,
         backgroundColor: 'transparent',
+        // Hug the label and never let a width-constrained row squash the
+        // bordered box (which would clip the label and mangle the border).
+        flexShrink: 0,
       }}
     >
       <text style={{ wrapMode: 'none' }}>
@@ -182,7 +185,7 @@ export const FreebuffReferralBanner: React.FC = () => {
           marginTop: 1,
         }}
       >
-        <text style={{ wrapMode: 'none' }}>
+        <text style={{ wrapMode: 'word' }}>
           <span fg={theme.muted}>✦ </span>
           {qualifiedCount > 0 ? (
             <>
