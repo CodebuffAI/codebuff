@@ -29,6 +29,11 @@ export async function executeGemini(
   codebase: DaytonaCodebase,
   args: ExecuteGeminiArgs,
 ): Promise<ExecuteGeminiResult> {
+  const projectRecord = await ctx.runQuery(internal.project.getProject, {
+    projectId: args.projectId,
+  });
+  const shouldInjectConvexDeployKey = projectRecord?.project_type === "template";
+
   // Get Google API key
   const googleApiKey = process.env.GOOGLE_API_KEY;
   if (!googleApiKey) {
@@ -121,9 +126,12 @@ export async function executeGemini(
   const googleCloudLocation =
     process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
 
-  // Build the gemini command
-  // Format: cd /home/daytona/codebase && unset GOOGLE_API_KEY GEMINI_API_KEY && GOOGLE_API_KEY="..." GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT="..." GOOGLE_CLOUD_LOCATION="..." CONVEX_DEPLOY_KEY="$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")" GIT_TERMINAL_PROMPT=0 PATH="..." gemini -p "prompt" --output-format stream-json --yolo
-  const fullCommand = `cd /home/daytona/codebase && unset GOOGLE_API_KEY GEMINI_API_KEY && GOOGLE_API_KEY=${escapedApiKey} GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT="${googleCloudProject}" GOOGLE_CLOUD_LOCATION="${googleCloudLocation}" CONVEX_DEPLOY_KEY="$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")" GIT_TERMINAL_PROMPT=0 PATH=${pathValue} gemini -p ${escapedPrompt} --output-format stream-json --yolo`;
+  // Build the gemini command. For connected-repo cloud projects, do not inject
+  // Convex deploy credentials.
+  const convexEnvPrefix = shouldInjectConvexDeployKey
+    ? 'CONVEX_DEPLOY_KEY="$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")" '
+    : "";
+  const fullCommand = `cd /home/daytona/codebase && unset GOOGLE_API_KEY GEMINI_API_KEY && GOOGLE_API_KEY=${escapedApiKey} GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT="${googleCloudProject}" GOOGLE_CLOUD_LOCATION="${googleCloudLocation}" ${convexEnvPrefix}GIT_TERMINAL_PROMPT=0 PATH=${pathValue} gemini -p ${escapedPrompt} --output-format stream-json --yolo`;
 
   // Set up streaming assistant_stream array
   const assistantStream: Array<{

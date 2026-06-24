@@ -74,6 +74,11 @@ export async function executeClaudeCode(
   codebase: DaytonaCodebase,
   args: ExecuteClaudeCodeArgs,
 ): Promise<ExecuteClaudeCodeResult> {
+  const projectRecord = await ctx.runQuery(internal.project.getProject, {
+    projectId: args.projectId,
+  });
+  const shouldInjectConvexDeployKey = projectRecord?.project_type === "template";
+
   const selectedProvider = args.claudeProviderPreference;
   const anthropicApiKey = args.anthropicApiKey?.trim() || undefined;
   const awsBearerToken = args.bedrockBearerToken?.trim() || undefined;
@@ -183,8 +188,7 @@ export async function executeClaudeCode(
   const pathValue = `"$HOME/.local/share/npm-global/bin:/home/daytona/.local/bin:${systemPath}"`;
 
   // Build env vars array (matching old agent's executeCommand env vars + AWS Bedrock config)
-  // Use command substitution to get deploy key inline (faster than separate command)
-  // $(cat ... || echo "") will return empty string if file doesn't exist
+  // For connected-repo cloud projects, do not inject Convex deploy credentials.
   const envVars = [
     `ANTHROPIC_API_KEY=`,
     `AWS_BEARER_TOKEN_BEDROCK=`,
@@ -203,7 +207,9 @@ export async function executeClaudeCode(
     ...(selectedProvider === "anthropic" && escapedAnthropicApiKey
       ? [`ANTHROPIC_API_KEY=${escapedAnthropicApiKey}`]
       : []),
-    `CONVEX_DEPLOY_KEY=$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")`,
+    ...(shouldInjectConvexDeployKey
+      ? [`CONVEX_DEPLOY_KEY=$(cat $HOME/.vly-convex/dev.key 2>/dev/null || echo "")`]
+      : []),
     `GIT_TERMINAL_PROMPT=0`,
     `PATH=${pathValue}`,
   ].join(" ");

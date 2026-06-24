@@ -103,8 +103,7 @@ export async function executeCodex(
   const projectRecord = await ctx.runQuery(internal.project.getProject, {
     projectId: args.projectId,
   });
-  const shouldInjectConvexDeployKey =
-    projectRecord?.project_type !== "connected_repo";
+  const shouldInjectConvexDeployKey = projectRecord?.project_type === "template";
 
   // For first message, check if AGENTS.md exists and create it if it doesn't
   if (isFirstMessage) {
