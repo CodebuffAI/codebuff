@@ -18,9 +18,14 @@ import type { OAuthProviderType } from 'next-auth/providers/oauth-types'
 export function SignInButton({
   providerName,
   providerDomain,
+  onSelect,
 }: {
   providerName: OAuthProviderType
   providerDomain: string
+  /** Fires right before the OAuth redirect, so callers can record analytics
+   *  (e.g. an onboarding-funnel "sign-in clicked" event). Optional — pages
+   *  that don't pass it (like /login) record nothing. */
+  onSelect?: () => void
 }) {
   const [isPending, startTransition] = useTransition()
   const [isLastUsed, setIsLastUsed] = useState(false)
@@ -32,6 +37,7 @@ export function SignInButton({
   }, [providerName])
 
   const handleSignIn = () => {
+    onSelect?.()
     rememberLastProvider(providerName)
     startTransition(async () => {
       const searchParamsString = searchParams.toString()

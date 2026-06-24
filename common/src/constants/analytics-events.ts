@@ -173,8 +173,19 @@ export enum AnalyticsEvent {
   // Freebuff - Creator Attribution
   FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
 
-  // Freebuff - Get Started Page
+  // Freebuff - Get Started Page (referral onboarding funnel, in order:
+  //   viewed → sign_in_clicked → signed_in → eligibility_resolved →
+  //   [connect_github_clicked] → install_command_copied | web_clicked).
+  // Every event carries a `referrer` prop (the inviter's name) for per-referrer
+  // funnel breakdowns.
   FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
+  FREEBUFF_GET_STARTED_SIGN_IN_CLICKED = 'freebuff.get_started_sign_in_clicked',
+  FREEBUFF_GET_STARTED_SIGNED_IN = 'freebuff.get_started_signed_in',
+  FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED = 'freebuff.get_started_eligibility_resolved',
+  FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED = 'freebuff.get_started_connect_github_clicked',
+  FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',
+  FREEBUFF_GET_STARTED_WEB_CLICKED = 'freebuff.get_started_web_clicked',
+  // Deprecated (previous get-started design — no longer fired):
   FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
   FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
 
