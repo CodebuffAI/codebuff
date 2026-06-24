@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 
 import { Clickable } from './clickable'
 import { useTheme } from '../hooks/use-theme'
@@ -14,6 +14,39 @@ import type { ReactNode } from 'react'
 
 /** Time in ms before the "copied" state resets */
 export const COPIED_RESET_DELAY_MS = 2000
+
+/**
+ * The copy-and-confirm state machine: copies `text` to the clipboard and flips
+ * `isCopied` true for {@link COPIED_RESET_DELAY_MS} before resetting. Lifted out
+ * of {@link CopyButton} so callers that render their own button (and may fire
+ * the copy from elsewhere, e.g. keyboard navigation) can share the same
+ * lifecycle instead of re-implementing it.
+ */
+export function useCopyToClipboard(text: string): {
+  isCopied: boolean
+  copy: () => void
+} {
+  const { setTimeout } = useTimeout()
+  const [isCopied, setIsCopied] = useState(false)
+
+  const copy = useCallback(() => {
+    void (async () => {
+      try {
+        await copyTextToClipboard(text, { suppressGlobalMessage: true })
+        setIsCopied(true)
+        setTimeout(
+          'reset-copied',
+          () => setIsCopied(false),
+          COPIED_RESET_DELAY_MS,
+        )
+      } catch (_error) {
+        // Error is already logged and displayed by copyTextToClipboard.
+      }
+    })()
+  }, [text, setTimeout])
+
+  return { isCopied, copy }
+}
 
 /** Icon shown in collapsed state */
 export const COPY_ICON_COLLAPSED = '⎘'
@@ -130,22 +163,14 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
   leadingSpace = true,
   style,
 }) => {
-  const [isCopied, setIsCopied] = useState(false)
+  const { isCopied, copy } = useCopyToClipboard(textToCopy)
   const [isHovered, setIsHovered] = useState(false)
-  const { setTimeout } = useTimeout()
 
-  const handleCopy = async () => {
-    try {
-      await copyTextToClipboard(textToCopy, {
-        suppressGlobalMessage: true,
-      })
-      const newState = copyButtonHandlers.handleCopy()
-      setIsCopied(newState.isCopied)
-      setIsHovered(newState.isHovered)
-      setTimeout('reset-copied', () => setIsCopied(false), COPIED_RESET_DELAY_MS)
-    } catch (_error) {
-      // Error is already logged and displayed by copyTextToClipboard
-    }
+  const handleCopy = () => {
+    // copyButtonHandlers.handleCopy() encodes "clear hover on copy"; the copied
+    // flag + reset timer now live in useCopyToClipboard.
+    setIsHovered(copyButtonHandlers.handleCopy().isHovered)
+    copy()
   }
 
   const handleMouseOver = () => {
