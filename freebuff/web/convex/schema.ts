@@ -811,6 +811,38 @@ export default defineSchema(
       .index('by_token_expires_at', ['token_expires_at'])
       .index('by_rotation_lock_expires_at', ['rotation_lock_expires_at']),
 
+    // Freebuff Cloud: cached list of connectable repos/installations per user so
+    // the connect dialog renders instantly instead of hitting GitHub every open.
+    // Refreshed on demand (refresh button) or when the cache is missing/stale.
+    github_repo_cache: defineTable({
+      user_id: v.id('users'),
+      installations: v.array(
+        v.object({
+          installation_id: v.number(),
+          account_login: v.string(),
+          account_type: v.optional(v.string()),
+          contents_permission: v.optional(v.string()),
+          can_write: v.boolean(),
+          manage_url: v.string(),
+        }),
+      ),
+      repos: v.array(
+        v.object({
+          name: v.string(),
+          full_name: v.string(),
+          owner: v.string(),
+          private: v.boolean(),
+          description: v.union(v.string(), v.null()),
+          html_url: v.string(),
+          default_branch: v.string(),
+          permission_push: v.boolean(),
+          installation_id: v.number(),
+          pushed_at: v.union(v.string(), v.null()),
+        }),
+      ),
+      updated_at: v.number(),
+    }).index('by_user', ['user_id']),
+
     github_sync_state: defineTable({
       project_id: v.id('project'),
       github_repo_name: v.string(),

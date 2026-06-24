@@ -39,8 +39,12 @@ function manageUrlFor(
  * "Can we push" is the AND of two facts:
  *   - the app's installation-wide `Contents` grant is write/admin, and
  *   - the user's own role on the repo allows push.
+ *
+ * The result is written to the per-user `github_repo_cache` so the dialog can
+ * render instantly from the DB; this action is only run on first load or when
+ * the user hits Refresh.
  */
-export const listConnectableRepositories = action({
+export const refreshConnectableRepositories = action({
   args: {},
   returns: v.object({
     installations: v.array(
@@ -65,6 +69,8 @@ export const listConnectableRepositories = action({
         default_branch: v.string(),
         permission_push: v.boolean(),
         installation_id: v.number(),
+        // Last push timestamp (ISO) used to sort most-recent-first.
+        pushed_at: v.union(v.string(), v.null()),
       }),
     ),
   }),
@@ -89,6 +95,7 @@ export const listConnectableRepositories = action({
       default_branch: string;
       permission_push: boolean;
       installation_id: number;
+      pushed_at: string | null;
     }>;
   }> => {
     const authUser = await getAuthUser(ctx);
@@ -140,6 +147,7 @@ export const listConnectableRepositories = action({
       default_branch: string;
       permission_push: boolean;
       installation_id: number;
+      pushed_at: string | null;
     }> = [];
 
     for (const inst of installationsRaw) {
@@ -191,6 +199,7 @@ export const listConnectableRepositories = action({
             // can write.
             permission_push: appCanWrite && !!userPush,
             installation_id: installationId,
+            pushed_at: repo.pushed_at ?? null,
           });
         }
         if (batch.length < 100) break;
@@ -198,7 +207,18 @@ export const listConnectableRepositories = action({
       }
     }
 
-    repos.sort((a, b) => a.full_name.localeCompare(b.full_name));
+    // Most-recently-pushed first so active repos surface at the top.
+    repos.sort((a, b) => {
+      const ta = a.pushed_at ? Date.parse(a.pushed_at) : 0;
+      const tb = b.pushed_at ? Date.parse(b.pushed_at) : 0;
+      return tb - ta;
+    });
+
+    await ctx.runMutation(internal.github.repoCacheStore.setRepoCache, {
+      userId: authUser._id,
+      installations,
+      repos,
+    });
 
     return { installations, repos };
   },

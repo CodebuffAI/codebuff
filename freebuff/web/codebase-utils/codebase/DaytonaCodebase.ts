@@ -180,7 +180,11 @@ export class DaytonaCodebase
     }
 
     const ensureGitResult = await this.runCommand(
-      '[ -d .git ] || (git init -b main >/dev/null 2>&1 || git init >/dev/null 2>&1); ' +
+      // Trust the working dir so git doesn't bail with "dubious ownership" when
+      // the codebase is owned by a different uid than the sandbox process.
+      "git config --global --add safe.directory '*' >/dev/null 2>&1 || true; " +
+        `git config --global --add safe.directory ${this.projectPath} >/dev/null 2>&1 || true; ` +
+        '[ -d .git ] || (git init -b main >/dev/null 2>&1 || git init >/dev/null 2>&1); ' +
         'git config user.name >/dev/null 2>&1 || git config user.name "Freebuff Agent"; ' +
         'git config user.email >/dev/null 2>&1 || git config user.email "agent@mail.freebuff.app"; ' +
         "git rev-parse --is-inside-work-tree",
@@ -2107,6 +2111,9 @@ if (!hasIntegration) {
   ): Promise<{ output: string; exitCode?: number }> {
     const branchFlag = branch ? `--branch ${branch}` : "";
     const command = [
+      // Trust the target dir up front so the clone + later git ops don't hit
+      // git's "dubious ownership" guard inside the sandbox.
+      "git config --global --add safe.directory '*' >/dev/null 2>&1 || true",
       `rm -rf ${this.projectPath}`,
       `mkdir -p ${this.projectPath}`,
       `git clone --depth 1 ${branchFlag} "${cloneUrl}" ${this.projectPath}`,

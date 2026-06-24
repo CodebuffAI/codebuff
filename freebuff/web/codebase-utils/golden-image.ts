@@ -179,6 +179,10 @@ export const GOLDEN_SNAPSHOT_SETUP_COMMANDS: string[] = [
     "echo 'daytona ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/daytona",
     `mkdir -p ${DAYTONA_REPO_PATH}`,
     "chown -R daytona:daytona /home/daytona",
+    // Trust all repo directories system-wide so cloned repos don't trip git's
+    // "detected dubious ownership" guard (the codebase dir can be owned by a
+    // different uid than the process running git inside the sandbox).
+    "git config --system --add safe.directory '*'",
     // Write the start-services script via base64 to keep it a single RUN layer.
     `echo "${Buffer.from(START_SERVICES_SCRIPT).toString("base64")}" | base64 -d > /usr/local/bin/start-services.sh`,
     "chmod +x /usr/local/bin/start-services.sh",

@@ -148,6 +148,7 @@ import type * as github_git_secureCredentials from "../github/git/secureCredenti
 import type * as github_index from "../github/index.js";
 import type * as github_manualSync from "../github/manualSync.js";
 import type * as github_octokit from "../github/octokit.js";
+import type * as github_repoCacheStore from "../github/repoCacheStore.js";
 import type * as github_repositories from "../github/repositories.js";
 import type * as github_services_deploymentService from "../github/services/deploymentService.js";
 import type * as github_services_octokitService from "../github/services/octokitService.js";
@@ -380,6 +381,7 @@ declare const fullApi: ApiFromModules<{
   "github/index": typeof github_index;
   "github/manualSync": typeof github_manualSync;
   "github/octokit": typeof github_octokit;
+  "github/repoCacheStore": typeof github_repoCacheStore;
   "github/repositories": typeof github_repositories;
   "github/services/deploymentService": typeof github_services_deploymentService;
   "github/services/octokitService": typeof github_services_octokitService;
