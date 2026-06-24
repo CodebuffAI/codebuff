@@ -78,6 +78,10 @@ export class DaytonaCodebase
   private readonly projectDir = "codebase"; // Project directory (relative path for file operations)
   private readonly projectPath = "/home/daytona/codebase"; // Absolute path for git operations
   private gitRepositoryEnsured = false;
+  // Reentrancy guard: runCommand() calls ensureGitRepository() for git commands,
+  // and ensureGitRepository() itself runs git commands. Without this guard a
+  // git-leading ensure command recurses infinitely (stack overflow).
+  private gitRepositoryEnsuring = false;
 
   // Stats scripts version tracking - only set after successful installation
   private statsScriptsVersion: string | undefined;
@@ -175,32 +179,39 @@ export class DaytonaCodebase
   }
 
   private async ensureGitRepository(): Promise<void> {
-    if (this.gitRepositoryEnsured) {
+    if (this.gitRepositoryEnsured || this.gitRepositoryEnsuring) {
       return;
     }
 
-    const ensureGitResult = await this.runCommand(
-      // Trust the working dir so git doesn't bail with "dubious ownership" when
-      // the codebase is owned by a different uid than the sandbox process.
-      "git config --global --add safe.directory '*' >/dev/null 2>&1 || true; " +
-        `git config --global --add safe.directory ${this.projectPath} >/dev/null 2>&1 || true; ` +
+    // Block the runCommand() -> ensureGitRepository() reentry for the duration
+    // of this call so the git commands below can't recurse back into us.
+    this.gitRepositoryEnsuring = true;
+    try {
+      const ensureGitResult = await this.runCommand(
         '[ -d .git ] || (git init -b main >/dev/null 2>&1 || git init >/dev/null 2>&1); ' +
-        'git config user.name >/dev/null 2>&1 || git config user.name "Freebuff Agent"; ' +
-        'git config user.email >/dev/null 2>&1 || git config user.email "agent@mail.freebuff.app"; ' +
-        "git rev-parse --is-inside-work-tree",
-      10000,
-    );
-
-    if (
-      ensureGitResult.exitCode !== 0 ||
-      !ensureGitResult.output.toLowerCase().includes("true")
-    ) {
-      throw new Error(
-        `Failed to initialize git repository: ${ensureGitResult.output}`,
+          // Trust the working dir so git doesn't bail with "dubious ownership"
+          // when the codebase is owned by a different uid than the process.
+          "git config --global --add safe.directory '*' >/dev/null 2>&1 || true; " +
+          `git config --global --add safe.directory ${this.projectPath} >/dev/null 2>&1 || true; ` +
+          'git config user.name >/dev/null 2>&1 || git config user.name "Freebuff Agent"; ' +
+          'git config user.email >/dev/null 2>&1 || git config user.email "agent@mail.freebuff.app"; ' +
+          "git rev-parse --is-inside-work-tree",
+        10000,
       );
-    }
 
-    this.gitRepositoryEnsured = true;
+      if (
+        ensureGitResult.exitCode !== 0 ||
+        !ensureGitResult.output.toLowerCase().includes("true")
+      ) {
+        throw new Error(
+          `Failed to initialize git repository: ${ensureGitResult.output}`,
+        );
+      }
+
+      this.gitRepositoryEnsured = true;
+    } finally {
+      this.gitRepositoryEnsuring = false;
+    }
   }
 
   public static async create(
@@ -982,7 +993,7 @@ if (!hasIntegration) {
         throw new Error("SANDBOX NOT ACTIVE");
       }
 
-      if (this.isGitCommand(command)) {
+      if (!this.gitRepositoryEnsuring && this.isGitCommand(command)) {
         await this.ensureGitRepository();
       }
 
@@ -2110,12 +2121,15 @@ if (!hasIntegration) {
     branch?: string,
   ): Promise<{ output: string; exitCode?: number }> {
     const branchFlag = branch ? `--branch ${branch}` : "";
+    // NOTE: keep the FIRST segment a non-git command (`rm -rf`). runCommand()
+    // calls ensureGitRepository() when isGitCommand() is true, which would both
+    // recurse infinitely (stack overflow) and `git init` before the clone.
     const command = [
-      // Trust the target dir up front so the clone + later git ops don't hit
-      // git's "dubious ownership" guard inside the sandbox.
-      "git config --global --add safe.directory '*' >/dev/null 2>&1 || true",
       `rm -rf ${this.projectPath}`,
       `mkdir -p ${this.projectPath}`,
+      // Trust the target dir so the clone + later git ops don't hit git's
+      // "dubious ownership" guard inside the sandbox.
+      "git config --global --add safe.directory '*' >/dev/null 2>&1 || true",
       `git clone --depth 1 ${branchFlag} "${cloneUrl}" ${this.projectPath}`,
     ].join(" && ");
     return this.runCommand(command, 300_000);
