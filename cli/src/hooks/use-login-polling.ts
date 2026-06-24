@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { LOGIN_WEBSITE_URL } from '../login/constants'
 import { pollLoginStatus } from '../login/login-flow'
+import { trackEvent } from '../utils/analytics'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
@@ -67,6 +68,7 @@ export function useLoginPolling({
       {
         sleep,
         logger,
+        trackEvent,
       },
       {
         baseUrl: LOGIN_WEBSITE_URL,
@@ -74,6 +76,7 @@ export function useLoginPolling({
         fingerprintHash,
         expiresAt,
         shouldContinue: () => active,
+        via: 'modal',
       },
     )
       .then((result) => {

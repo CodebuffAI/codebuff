@@ -3,6 +3,7 @@ import { safeOpen } from '../utils/open-url'
 
 import { LOGIN_WEBSITE_URL } from '../login/constants'
 import { generateLoginUrl } from '../login/login-flow'
+import { trackEvent } from '../utils/analytics'
 import { logger } from '../utils/logger'
 
 interface UseFetchLoginUrlParams {
@@ -30,10 +31,12 @@ export function useFetchLoginUrl({
       return generateLoginUrl(
         {
           logger,
+          trackEvent,
         },
         {
           baseUrl: LOGIN_WEBSITE_URL,
           fingerprintId,
+          via: 'modal',
         },
       )
     },

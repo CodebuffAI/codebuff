@@ -34,8 +34,8 @@ export async function runPlainLogin(): Promise<void> {
   let loginData
   try {
     loginData = await generateLoginUrl(
-      { logger },
-      { baseUrl: LOGIN_WEBSITE_URL, fingerprintId },
+      { logger, trackEvent },
+      { baseUrl: LOGIN_WEBSITE_URL, fingerprintId, via: 'plain_command' },
     )
   } catch (error) {
     console.error(
@@ -63,12 +63,13 @@ export async function runPlainLogin(): Promise<void> {
     })
 
   const result = await pollLoginStatus(
-    { sleep, logger },
+    { sleep, logger, trackEvent },
     {
       baseUrl: LOGIN_WEBSITE_URL,
       fingerprintId,
       fingerprintHash: loginData.fingerprintHash,
       expiresAt: loginData.expiresAt,
+      via: 'plain_command',
     },
   )
 

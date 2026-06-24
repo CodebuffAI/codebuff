@@ -17,6 +17,13 @@ export enum AnalyticsEvent {
   INVALID_COMMAND = 'cli.invalid_command',
   KNOWLEDGE_FILE_UPDATED = 'cli.knowledge_file_updated',
   LOGIN = 'cli.login',
+  // Login funnel — the path between launch and a successful `cli.login`.
+  // Emitted from login-flow.ts (the chokepoint both the modal and the
+  // `login` command share); all tagged with `via` (modal | plain_command).
+  LOGIN_STARTED = 'cli.login_started',
+  LOGIN_FAILED = 'cli.login_failed',
+  LOGIN_TIMEOUT = 'cli.login_timeout',
+  LOGIN_ABORTED = 'cli.login_aborted',
   SLASH_MENU_ACTIVATED = 'cli.slash_menu_activated',
   SLASH_COMMAND_USED = 'cli.slash_command_used',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
