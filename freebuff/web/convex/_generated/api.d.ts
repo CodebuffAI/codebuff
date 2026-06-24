@@ -31,6 +31,8 @@ import type * as cloud_connectRepo from "../cloud/connectRepo.js";
 import type * as cloud_connectRepoEnv from "../cloud/connectRepoEnv.js";
 import type * as cloud_connectRepoMutations from "../cloud/connectRepoMutations.js";
 import type * as cloud_connection from "../cloud/connection.js";
+import type * as cloud_git from "../cloud/git.js";
+import type * as cloud_preview from "../cloud/preview.js";
 import type * as cloud_publish from "../cloud/publish.js";
 import type * as cloud_runtime_base_BaseCloudRuntimeService from "../cloud/runtime/base/BaseCloudRuntimeService.js";
 import type * as cloud_runtime_services_CloudConnectionRuntimeService from "../cloud/runtime/services/CloudConnectionRuntimeService.js";
@@ -276,6 +278,8 @@ declare const fullApi: ApiFromModules<{
   "cloud/connectRepoEnv": typeof cloud_connectRepoEnv;
   "cloud/connectRepoMutations": typeof cloud_connectRepoMutations;
   "cloud/connection": typeof cloud_connection;
+  "cloud/git": typeof cloud_git;
+  "cloud/preview": typeof cloud_preview;
   "cloud/publish": typeof cloud_publish;
   "cloud/runtime/base/BaseCloudRuntimeService": typeof cloud_runtime_base_BaseCloudRuntimeService;
   "cloud/runtime/services/CloudConnectionRuntimeService": typeof cloud_runtime_services_CloudConnectionRuntimeService;

@@ -1,16 +1,12 @@
 "use client";
 
-import { Project2 } from "./project-2";
+import { CloudProjectWorkspace } from "./cloud-project-workspace";
 
 export function CloudProject2({
-  shouldShowPublicModel = false,
+  shouldShowPublicModel: _shouldShowPublicModel = false,
 }: {
   shouldShowPublicModel?: boolean;
 }) {
-  return (
-    <Project2
-      shouldShowPublicModel={shouldShowPublicModel}
-      runtimeSurface="cloud"
-    />
-  );
+  void _shouldShowPublicModel;
+  return <CloudProjectWorkspace />;
 }

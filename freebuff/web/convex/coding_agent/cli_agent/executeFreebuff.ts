@@ -640,13 +640,17 @@ interface FreebuffRuntimeConfig {
 }
 
 /**
- * Preview control for connected-repo (Freebuff Cloud) projects. The agent
- * drives this through `run_terminal_command` using a `freebuff-preview`
- * command namespace (documented in the system prompt appendix), e.g.
- *   freebuff-preview set "bun run dev" 5173
- *   freebuff-preview restart | stop | status | logs
- * This keeps preview control inside the existing tool surface without adding
- * new entries to the shared tool registry.
+ * Preview / build configuration for connected-repo (Freebuff Cloud) projects.
+ * The agent drives this through `run_terminal_command` using a
+ * `freebuff-preview` command namespace (documented in the connected-repo
+ * guidance), e.g.
+ *   freebuff-preview set "bun run dev" 5173   # save the dev command (no start)
+ *   freebuff-preview set-build "bun run build" # save the build command
+ *   freebuff-preview start | restart | stop | status | logs
+ *
+ * IMPORTANT: `set` only SAVES the command — it does NOT start the dev server.
+ * The user starts/stops the preview from the Cloud UI so they control sandbox
+ * resource usage. The agent should configure commands and let the user start.
  */
 async function handleFreebuffPreviewCommand(
   codebase: DaytonaCodebase,
@@ -672,21 +676,31 @@ async function handleFreebuffPreviewCommand(
     if (!previewCommand) {
       return JSON.stringify({ errorMessage: 'Usage: freebuff-preview set "<command>" <port>' })
     }
+    // Save only — do NOT start the dev server. The user starts it from the UI.
     await hooks.setRuntimeConfig({
       preview_command: previewCommand,
       ...(previewPort ? { preview_port: previewPort } : {}),
       detection_status: 'ready',
     })
-    await codebase.startPreviewProcess(previewCommand)
-    let url: string | undefined
-    if (previewPort) {
-      url = await codebase.getPreviewLinkForPort(previewPort)
-      await hooks.setPreviewUrl(url)
-    }
-    return JSON.stringify({ message: 'Preview started', previewCommand, previewPort, previewUrl: url })
+    return JSON.stringify({
+      message:
+        'Saved preview command. The user can start the dev server from the Cloud UI (it is not started automatically).',
+      previewCommand,
+      previewPort,
+    })
   }
 
-  if (sub === 'restart') {
+  if (sub === 'set-build') {
+    const quoted = rest.match(/^"([^"]+)"\s*$/)
+    const buildCommand = quoted ? quoted[1] : rest
+    if (!buildCommand) {
+      return JSON.stringify({ errorMessage: 'Usage: freebuff-preview set-build "<command>"' })
+    }
+    await hooks.setRuntimeConfig({ build_command: buildCommand })
+    return JSON.stringify({ message: 'Saved build command', buildCommand })
+  }
+
+  if (sub === 'start' || sub === 'restart') {
     if (!current.preview_command) {
       return JSON.stringify({ errorMessage: 'No preview command set yet. Use: freebuff-preview set "<command>" <port>' })
     }
@@ -696,7 +710,7 @@ async function handleFreebuffPreviewCommand(
       url = await codebase.getPreviewLinkForPort(current.preview_port)
       await hooks.setPreviewUrl(url)
     }
-    return JSON.stringify({ message: 'Preview restarted', previewUrl: url })
+    return JSON.stringify({ message: 'Preview started', previewUrl: url })
   }
 
   if (sub === 'stop') {
@@ -715,12 +729,13 @@ async function handleFreebuffPreviewCommand(
       running,
       previewCommand: current.preview_command ?? null,
       previewPort: current.preview_port ?? null,
+      buildCommand: current.build_command ?? null,
     })
   }
 
   return JSON.stringify({
     errorMessage:
-      'Unknown freebuff-preview subcommand. Use: set "<command>" <port> | restart | stop | logs | status',
+      'Unknown freebuff-preview subcommand. Use: set "<command>" <port> | set-build "<command>" | start | restart | stop | logs | status',
   })
 }
 

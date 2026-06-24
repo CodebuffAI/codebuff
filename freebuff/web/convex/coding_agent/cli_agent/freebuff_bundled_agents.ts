@@ -123,13 +123,15 @@ export const CONNECTED_REPO_AGENT_GUIDANCE = `
 This project is NOT the default Vly template — it is an existing GitHub repository the user connected. Therefore:
 - The repo is already cloned into \`/home/daytona/codebase/\`. It may use any framework, package manager, and port — do not assume Vite/Convex.
 - You ARE allowed to use \`git\` and \`gh\` here; the project owns its git history and branches. Commit and push as appropriate.
-- You control the preview/dev server through the \`run_terminal_command\` tool using the \`freebuff-preview\` command namespace (do NOT start long-running dev servers directly, they will time out):
-  - \`freebuff-preview set "<dev command>" <port>\` — set and start the preview (e.g. \`freebuff-preview set "bun run dev" 5173\`). Returns the public preview URL.
+- You CONFIGURE the preview/dev server through the \`run_terminal_command\` tool using the \`freebuff-preview\` command namespace (do NOT start long-running dev servers directly with raw shell commands, they will time out):
+  - \`freebuff-preview set "<dev command>" <port>\` — SAVE the dev/preview command and port (e.g. \`freebuff-preview set "bun run dev" 5173\`). This does NOT start the server; the user starts it from the Cloud UI so they control sandbox resources.
+  - \`freebuff-preview set-build "<build command>"\` — SAVE the production build command (e.g. \`freebuff-preview set-build "bun run build"\`).
+  - \`freebuff-preview start\` — start the dev server with the stored command (only when the user explicitly asks you to run it). Returns the public preview URL.
   - \`freebuff-preview restart\` — restart the preview with the stored command.
-  - \`freebuff-preview stop\` — stop the preview process.
+  - \`freebuff-preview stop\` — stop the preview process to free resources.
   - \`freebuff-preview logs\` — read recent preview/dev-server logs (use this to debug a broken preview).
   - \`freebuff-preview status\` — check whether the preview is running and what command/port it uses.
-- When first opening a repo, inspect \`package.json\`/lockfiles, install dependencies, then run \`freebuff-preview set\` with the correct dev command and port so the preview comes up.
+- The preview is NOT auto-started when the repo is connected. When first opening a repo (or when asked to set things up), inspect \`package.json\`/lockfiles, install dependencies, then SAVE the correct commands with \`freebuff-preview set\` and \`freebuff-preview set-build\`. Do NOT start the dev server yourself unless the user explicitly asks you to — tell them they can start the preview from the UI.
 `.trim()
 
 function withFreebuffWebSystemPromptAppendix(

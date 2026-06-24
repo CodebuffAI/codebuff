@@ -248,18 +248,19 @@ export const connectRepo = action({
         },
       );
 
-      // Interpret the environment (install + detect preview command/port) and
-      // bring the preview up before the agent starts editing.
-      await ctx.scheduler.runAfter(
-        0,
-        internal.cloud.connectRepo.detectAndStartPreview,
-        { projectId },
-      );
+      // NOTE: We intentionally do NOT auto-detect or auto-start the preview
+      // here. Booting a dev server on every connect wastes sandbox resources
+      // and takes control away from the user. Instead the agent configures the
+      // preview/build commands on the first prompt (via the `freebuff-preview`
+      // tool namespace), and the user explicitly starts the dev server from the
+      // Cloud UI when they want it running.
 
-      // Start the first agent run on the Freebuff free model by default.
+      // Start the first agent run on the Freebuff free model (MiniMax) by
+      // default. The seed prompt asks the agent to inspect the repo and set the
+      // preview + build commands WITHOUT starting the server.
       const seedMessage =
         args.initialMessage?.trim() ||
-        `I just connected the GitHub repo ${args.repoFullName}. Inspect the project, get the dev/preview server running, and tell me what it does.`;
+        `I just connected the GitHub repo ${args.repoFullName}. Inspect the project to understand what it is, then configure (but do NOT start) the dev/preview command and the build command using the freebuff-preview tooling so I can start the preview myself from the UI. Finally, summarize what the project does and what env vars or setup it needs.`;
       await ctx.runMutation(
         api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
         {
