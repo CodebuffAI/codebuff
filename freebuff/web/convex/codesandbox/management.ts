@@ -120,6 +120,7 @@ export const verifyProjectAccessAndConnect = action({
     try {
       // Get package manager (uses saved value or detects for legacy projects)
       const packageManager = await getProjectPackageManager(ctx, project);
+      const isConnectedRepoProject = project.project_type === "connected_repo";
       const projectCacheKey = project._id.toString();
       const warmState = projectConnectionWarmCache.get(projectCacheKey) ?? {};
       const now = Date.now();
@@ -137,6 +138,20 @@ export const verifyProjectAccessAndConnect = action({
         packageManager,
         daytonaServer,
       );
+
+      // Connected-repo cloud projects do not run the legacy Daytona
+      // integrations + fixed dev-server stack (Convex/Vite sessions). Running
+      // those checks here adds latency and can fail because these projects have
+      // no paired Convex instance by default.
+      if (isConnectedRepoProject) {
+        projectConnectionWarmCache.set(projectCacheKey, {
+          ...warmState,
+          workspaceIntegrityEnsuredAt: now,
+          integrationsEnsuredAt: now,
+          devServersEnsuredAt: now,
+        });
+        return null;
+      }
 
       // Ensure workspace integrity (configuration, stats scripts, monitoring)
       // This runs once per user session to avoid race conditions from parallel initializations

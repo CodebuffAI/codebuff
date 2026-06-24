@@ -618,7 +618,9 @@ function ProjectWrapper({
 
     const initialState = project.state;
     initialProjectStateRef.current = initialState ?? "active";
+    const isConnectedRepoProject = project.project_type === "connected_repo";
     const looksLikeFirstBuild =
+      !isConnectedRepoProject &&
       !hasGeneratedProjectContent &&
       (initialState === "processing" || initialState === "initializing");
     if (looksLikeFirstBuild) {
@@ -629,6 +631,10 @@ function ProjectWrapper({
   useEffect(() => {
     if (hasRevealedIframe) return;
     if (project === undefined || project === null) return;
+    if (project.project_type === "connected_repo") {
+      setHasRevealedIframe(true);
+      return;
+    }
     if (hasGeneratedProjectContent) {
       setHasRevealedIframe(true);
       return;
