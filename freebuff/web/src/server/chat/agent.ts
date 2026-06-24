@@ -12,7 +12,7 @@ import { logger } from '@/util/logger'
 
 import { toolCallDisplay } from '@/app/chat/blocks'
 
-import type { ChatStreamEvent } from '@/app/chat/blocks'
+import type { ChatStreamEvent, SuggestedFollowup } from '@/app/chat/blocks'
 
 type SdkModule = typeof import('@codebuff/sdk')
 
@@ -62,6 +62,28 @@ const HIDDEN_TOOL_NAMES = new Set([
   'set_messages',
   'add_message',
 ])
+
+/** Pulls the validated followups out of a suggest_followups tool call. Drops
+ *  any entry without a non-empty prompt; trims the prompt and optional label. */
+function parseSuggestedFollowups(
+  input: Record<string, unknown>,
+): SuggestedFollowup[] {
+  const raw = (input as { followups?: unknown }).followups
+  const items = Array.isArray(raw) ? raw : raw ? [raw] : []
+  const followups: SuggestedFollowup[] = []
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue
+    const { prompt, label } = item as Record<string, unknown>
+    if (typeof prompt !== 'string' || !prompt.trim()) continue
+    followups.push({
+      prompt: prompt.trim(),
+      ...(typeof label === 'string' && label.trim()
+        ? { label: label.trim() }
+        : {}),
+    })
+  }
+  return followups
+}
 
 /**
  * Resolves each attachment's storageId to a serving URL via the blob store,
@@ -241,6 +263,20 @@ export async function runChatAgent(params: {
         params.onEvent({ type: 'agent_finish', agentId: event.agentId })
       } else if (event.type === 'tool_call') {
         if (HIDDEN_TOOL_NAMES.has(event.toolName)) {
+          return
+        }
+        // suggest_followups drives a dedicated UI (clickable followup cards),
+        // not a generic tool row — normalize it into a `suggestions` event and
+        // don't track it for tool_result forwarding.
+        if (event.toolName === 'suggest_followups') {
+          const followups = parseSuggestedFollowups(event.input)
+          if (followups.length > 0) {
+            params.onEvent({
+              type: 'suggestions',
+              toolCallId: event.toolCallId,
+              followups,
+            })
+          }
           return
         }
         // Tool calls carry the calling agent's id; anything not tracked as a

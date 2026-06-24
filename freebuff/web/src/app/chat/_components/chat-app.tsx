@@ -597,6 +597,7 @@ export function ChatApp() {
               messages={messages}
               queued={queue}
               onRemoveQueued={removeQueued}
+              onSendSuggestion={(prompt) => enqueueOrSend(prompt)}
             />
             <div className="px-4 pb-4">
               <div className="mx-auto w-full max-w-3xl">

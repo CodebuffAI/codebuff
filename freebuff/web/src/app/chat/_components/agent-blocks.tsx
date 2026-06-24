@@ -15,6 +15,7 @@ import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Markdown } from './markdown'
+import { SuggestedFollowups } from './suggested-followups'
 import { ThinkingRow } from './thinking-block'
 
 /** Renders a block tree: markdown text, thinking rows, tool-call rows, and
@@ -28,6 +29,11 @@ export function BlockList(props: {
   /** Render thinking rows expanded by default (the deep-thinking agent's
    *  reasoning is the point, so it stays visible). */
   expandThinking?: boolean
+  /** Sends a suggested followup's prompt as the next user message. Only wired
+   *  at the top level (suggestions never nest inside an agent box), so a
+   *  suggestions block renders its interactive cards only when this is set and
+   *  this is the latest turn. */
+  onSendSuggestion?: (prompt: string) => void
 }) {
   return (
     <div className={cn('space-y-3', props.nested && 'space-y-2.5')}>
@@ -49,6 +55,17 @@ export function BlockList(props: {
         }
         if (block.type === 'tool') {
           return <ToolRow key={block.toolCallId} tool={block} />
+        }
+        if (block.type === 'suggestions') {
+          // Only the latest assistant turn shows interactive followups.
+          if (!props.latest || !props.onSendSuggestion) return null
+          return (
+            <SuggestedFollowups
+              key={i}
+              followups={block.followups}
+              onSend={props.onSendSuggestion}
+            />
+          )
         }
         return (
           <AgentBox key={block.agentId} agent={block} latest={props.latest} />
