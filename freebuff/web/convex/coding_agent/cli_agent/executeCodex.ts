@@ -79,16 +79,20 @@ export async function executeCodex(
       .trim();
   };
 
-  const normalizeByokOpenAiKey = (value: string | undefined): string | undefined => {
+  const normalizeByokOpenAiKey = (
+    value: string | undefined,
+  ): string | undefined => {
     const trimmed = value?.trim();
     if (!trimmed) {
       return undefined;
     }
+    const withoutAssignment = trimmed.replace(/^OPENAI_API_KEY\s*=\s*/i, "");
+    const unquoted = withoutAssignment.replace(/^['"]|['"]$/g, "");
     // Common paste typo: keys accidentally start with "ssk-".
-    if (trimmed.startsWith("ssk-")) {
-      return trimmed.slice(1);
+    if (unquoted.startsWith("ssk-")) {
+      return unquoted.slice(1);
     }
-    return trimmed;
+    return unquoted;
   };
 
   const sanitizeCodexShellCommand = (command: string): string =>
@@ -96,7 +100,8 @@ export async function executeCodex(
       .replaceAll("$HOME/.local//share", "$HOME/.local/share")
       .replaceAll("VVLY_CODEX_USE_STORED_CREDENTIALS", "VLY_CODEX_USE_STORED_CREDENTIALS")
       .replaceAll(".vly-convex/devv.key", ".vly-convex/dev.key")
-      .replaceAll(" codex exec --yolo ---color ", " codex exec --yolo --color ");
+      .replaceAll(" codex exec --yolo ---color ", " codex exec --yolo --color ")
+      .replace(/OPENAI_API_KEY=(['"]?)ssk-/g, "OPENAI_API_KEY=$1sk-");
 
   // Check if this is the first message (no active session ID means new thread)
   const isFirstMessage = !args.activeSessionId;
