@@ -36,12 +36,33 @@ export async function GET() {
       .where(eq(schema.user.id, userId))
       .limit(1),
     getReferralScore({ userId, program: 'web' }),
+    // Each signup attributed to this referrer, with just enough of the referred
+    // user's GitHub qualification joined in to explain WHY a pending row hasn't
+    // qualified yet — never their identity (see the response mapping below).
     db
       .select({
         status: schema.referral.status,
         createdAt: schema.referral.created_at,
+        // Null when the friend has no GitHub account linked at all.
+        githubAccountId: schema.account.providerAccountId,
+        // Last cached qualification reason for that GitHub identity.
+        qualReason: schema.referralQualification.reason,
       })
       .from(schema.referral)
+      .leftJoin(
+        schema.account,
+        and(
+          eq(schema.account.userId, schema.referral.referred_id),
+          eq(schema.account.provider, 'github'),
+        ),
+      )
+      .leftJoin(
+        schema.referralQualification,
+        eq(
+          schema.referralQualification.github_user_id,
+          schema.account.providerAccountId,
+        ),
+      )
       .where(
         and(
           eq(schema.referral.referrer_id, userId),
@@ -67,6 +88,17 @@ export async function GET() {
     recentReferrals: recentReferrals.map((referral) => ({
       status: referral.status,
       createdAt: referral.createdAt.getTime(),
+      // Why a pending signup hasn't qualified yet, derived for the referrer
+      // without revealing who the friend is. Null when already qualified or
+      // when it's simply awaiting the friend's next sign-in (no known block).
+      blockedReason:
+        referral.status === 'completed'
+          ? null
+          : !referral.githubAccountId
+            ? 'no_github'
+            : referral.qualReason === 'account_too_new'
+              ? 'account_too_new'
+              : null,
     })),
     leaderboard,
   })
