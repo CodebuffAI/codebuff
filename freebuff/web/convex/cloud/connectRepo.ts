@@ -22,6 +22,10 @@ export const connectRepo = action({
   args: {
     repoFullName: v.string(), // "owner/name"
     defaultBranch: v.optional(v.string()),
+    // Which installation owns this repo (personal vs a specific org). Lets us
+    // clone with the correct installation token when the user has the app on
+    // multiple accounts. Falls back to the connection's installation_id.
+    installationId: v.optional(v.number()),
     // Optional first user message; defaults to an environment-interpretation
     // seed so the agent gets the preview running before anything else.
     initialMessage: v.optional(v.string()),
@@ -54,8 +58,11 @@ export const connectRepo = action({
       internal.github.repositories.getUserAndConnection,
       { userId: user._id },
     );
-    const installationId = userAndConnection?.connection.installation_id;
-    if (!userAndConnection || !installationId) {
+    // Prefer the installation the client resolved for this repo (multi-org),
+    // falling back to the connection's stored installation_id.
+    const effectiveInstallationId =
+      args.installationId ?? userAndConnection?.connection.installation_id;
+    if (!userAndConnection || !effectiveInstallationId) {
       return {
         success: false,
         error: {
@@ -138,6 +145,40 @@ export const connectRepo = action({
       };
     }
 
+    // SECURITY: ensure the installation we're about to clone with actually
+    // belongs to this user (don't trust a client-supplied installation id).
+    try {
+      const instRes = await fetch(
+        "https://api.github.com/user/installations?per_page=100",
+        {
+          headers: {
+            Authorization: `Bearer ${userAccessToken}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": "freebuff-cloud",
+          },
+        },
+      );
+      if (instRes.ok) {
+        const instData = (await instRes.json()) as {
+          installations?: Array<{ id: number }>;
+        };
+        const ids = (instData.installations ?? []).map((i) => i.id);
+        if (!ids.includes(effectiveInstallationId)) {
+          return {
+            success: false,
+            error: {
+              kind: "INSTALLATION_NOT_FOUND",
+              message:
+                "The Freebuff app isn't installed on that account. Reinstall it and try again.",
+            },
+          };
+        }
+      }
+    } catch {
+      // Non-fatal: the clone below fails loudly if the installation genuinely
+      // can't reach the repo.
+    }
+
     // Resolve which golden snapshot to boot (standard vs limited country).
     // Read the access tier from the auth identity (mirrors getWebAccessTier,
     // which requires a query/mutation ctx not available in actions).
@@ -181,7 +222,7 @@ export const connectRepo = action({
         throw new Error("Connected repos require a Daytona-backed sandbox");
       }
 
-      const token = await getInstallationToken(installationId);
+      const token = await getInstallationToken(effectiveInstallationId);
       const cloneUrl = `https://x-access-token:${token}@github.com/${args.repoFullName}.git`;
       const defaultBranch = args.defaultBranch ?? "main";
       const cloneResult = await codebase.cloneRepo(cloneUrl, undefined);
@@ -199,7 +240,7 @@ export const connectRepo = action({
           sandbox_id: sandboxId,
           repo_full_name: args.repoFullName,
           repo_default_branch: defaultBranch,
-          github_installation_id: installationId,
+          github_installation_id: effectiveInstallationId,
           github_url: `https://github.com/${args.repoFullName}`,
           template_id: snapshotId,
         },

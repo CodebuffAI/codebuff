@@ -19,11 +19,13 @@ export function CloudPasswordGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      if (sessionStorage.getItem(STORAGE_KEY) === CLOUD_PASSWORD) {
+      // localStorage so the password only needs to be entered once per device
+      // (persists across sessions/tabs), not every new session.
+      if (localStorage.getItem(STORAGE_KEY) === CLOUD_PASSWORD) {
         setUnlocked(true)
       }
     } catch {
-      // sessionStorage unavailable — fall through to the prompt.
+      // localStorage unavailable — fall through to the prompt.
     }
     setChecked(true)
   }, [])
@@ -40,7 +42,7 @@ export function CloudPasswordGate({ children }: { children: React.ReactNode }) {
     e.preventDefault()
     if (value === CLOUD_PASSWORD) {
       try {
-        sessionStorage.setItem(STORAGE_KEY, CLOUD_PASSWORD)
+        localStorage.setItem(STORAGE_KEY, CLOUD_PASSWORD)
       } catch {
         // Ignore storage failures; unlock for this session anyway.
       }

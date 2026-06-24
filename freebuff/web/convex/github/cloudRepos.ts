@@ -2,34 +2,57 @@
 
 import { getAuthUser } from "!/users";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
 import { GITHUB_APP_CONFIG } from "./config";
 
+const GH_HEADERS = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  Accept: "application/vnd.github+json",
+  "User-Agent": "freebuff-cloud",
+  "X-GitHub-Api-Version": "2022-11-28",
+});
+
+function manageUrlFor(
+  installationId: number,
+  accountLogin: string | undefined,
+  accountType: string | undefined,
+): string {
+  // Org installs live under /organizations/<org>/..., user installs under
+  // /settings/installations/... The /permissions/update page surfaces any
+  // pending permission request (e.g. the Contents: write upgrade) to accept.
+  return accountType === "Organization" && accountLogin
+    ? `https://github.com/organizations/${accountLogin}/settings/installations/${installationId}/permissions/update`
+    : `https://github.com/settings/installations/${installationId}/permissions/update`;
+}
+
 /**
- * Freebuff Cloud repository discovery.
+ * Freebuff Cloud repository discovery (multi-org aware).
  *
- * Unlike the legacy `listUserRepositories` (which calls the user-scoped
- * `GET /user/repos` endpoint), this lists every repository the *GitHub App
- * installation* can access via `GET /installation/repositories`. That is
- * exactly the set of repos the Freebuff app was granted on — including repos
- * owned by organizations the user installed the app on — so connecting an
- * already-app-enabled org repo "just works".
+ * Uses the user's OAuth token to enumerate EVERY Freebuff app installation the
+ * user can access (`GET /user/installations`) — personal account plus every
+ * org they installed on — then lists the repos under each
+ * (`GET /user/installations/{id}/repositories`). Each repo is tagged with the
+ * installation_id it belongs to so the connect flow can clone with the right
+ * installation token, and grouped by owner in the UI.
+ *
+ * "Can we push" is the AND of two facts:
+ *   - the app's installation-wide `Contents` grant is write/admin, and
+ *   - the user's own role on the repo allows push.
  */
 export const listConnectableRepositories = action({
   args: {},
   returns: v.object({
-    installation: v.union(
+    installations: v.array(
       v.object({
-        account_login: v.optional(v.string()),
+        installation_id: v.number(),
+        account_login: v.string(),
         account_type: v.optional(v.string()),
-        installation_id: v.optional(v.number()),
-        // GitHub page where the installer approves updated app permissions
-        // (e.g. after we add Contents: write). Surfaced so the connect dialog
-        // can prompt the user when their install is on a stale permission set.
-        manage_url: v.optional(v.string()),
+        // Installation-wide Contents grant ("read" | "write" | "admin").
+        contents_permission: v.optional(v.string()),
+        can_write: v.boolean(),
+        manage_url: v.string(),
       }),
-      v.null(),
     ),
     repos: v.array(
       v.object({
@@ -41,18 +64,21 @@ export const listConnectableRepositories = action({
         html_url: v.string(),
         default_branch: v.string(),
         permission_push: v.boolean(),
+        installation_id: v.number(),
       }),
     ),
   }),
   handler: async (
     ctx,
   ): Promise<{
-    installation: {
-      account_login?: string;
+    installations: Array<{
+      installation_id: number;
+      account_login: string;
       account_type?: string;
-      installation_id?: number;
-      manage_url?: string;
-    } | null;
+      contents_permission?: string;
+      can_write: boolean;
+      manage_url: string;
+    }>;
     repos: Array<{
       name: string;
       full_name: string;
@@ -62,6 +88,7 @@ export const listConnectableRepositories = action({
       html_url: string;
       default_branch: string;
       permission_push: boolean;
+      installation_id: number;
     }>;
   }> => {
     const authUser = await getAuthUser(ctx);
@@ -76,79 +103,104 @@ export const listConnectableRepositories = action({
     if (!userAndConnection) {
       throw new Error("GitHub account not connected");
     }
-    const installationId = userAndConnection.connection.installation_id;
-    if (!installationId) {
-      throw new Error(
-        "GitHub App installation not found. Install the Freebuff app first.",
-      );
+    const userToken = userAndConnection.connection.access_token;
+    if (!userToken) {
+      throw new Error("GitHub authorization expired. Reconnect GitHub.");
     }
 
-    const { createOctokitInstance } = await import("./services/octokitService");
-    const octokit: any = await createOctokitInstance(installationId);
+    // 1. Every installation the user can access (personal + each org).
+    const instRes = await fetch(
+      "https://api.github.com/user/installations?per_page=100",
+      { headers: GH_HEADERS(userToken) },
+    );
+    if (instRes.status === 401) {
+      throw new Error("GitHub authorization expired. Reconnect GitHub.");
+    }
+    if (!instRes.ok) {
+      throw new Error(`Failed to list installations (${instRes.status}).`);
+    }
+    const instData: any = await instRes.json();
+    const installationsRaw: any[] = instData?.installations ?? [];
 
-    // Installation metadata (so the UI can show which org/user the app is on).
-    let accountLogin: string | undefined;
-    let accountType: string | undefined;
-    try {
-      const inst: any = await octokit.rest.apps.getInstallation({
-        installation_id: installationId,
+    const installations: Array<{
+      installation_id: number;
+      account_login: string;
+      account_type?: string;
+      contents_permission?: string;
+      can_write: boolean;
+      manage_url: string;
+    }> = [];
+    const repos: Array<{
+      name: string;
+      full_name: string;
+      owner: string;
+      private: boolean;
+      description: string | null;
+      html_url: string;
+      default_branch: string;
+      permission_push: boolean;
+      installation_id: number;
+    }> = [];
+
+    for (const inst of installationsRaw) {
+      const installationId: number = inst.id;
+      const accountLogin: string = inst.account?.login ?? "";
+      const accountType: string | undefined = inst.account?.type;
+      const contentsPermission: string | undefined = inst.permissions?.contents;
+      const appCanWrite =
+        contentsPermission === "write" || contentsPermission === "admin";
+
+      console.log("[cloudRepos] installation", {
+        installationId,
+        account_login: accountLogin,
+        account_type: accountType,
+        contents_permission: contentsPermission,
       });
-      accountLogin = inst?.data?.account?.login;
-      accountType = inst?.data?.account?.type;
-    } catch {
-      // Non-fatal: we still have installationId for the manage URL below.
+
+      installations.push({
+        installation_id: installationId,
+        account_login: accountLogin,
+        account_type: accountType,
+        contents_permission: contentsPermission,
+        can_write: appCanWrite,
+        manage_url: manageUrlFor(installationId, accountLogin, accountType),
+      });
+
+      // 2. Repos under this installation the user can access. The repo
+      // `permissions` here reflect the *user's* role (user-token call).
+      let page = 1;
+      while (page <= 10) {
+        const repoRes = await fetch(
+          `https://api.github.com/user/installations/${installationId}/repositories?per_page=100&page=${page}`,
+          { headers: GH_HEADERS(userToken) },
+        );
+        if (!repoRes.ok) break;
+        const repoData: any = await repoRes.json();
+        const batch: any[] = repoData?.repositories ?? [];
+        for (const repo of batch) {
+          const userPush = repo.permissions?.push ?? true;
+          repos.push({
+            name: repo.name,
+            full_name: repo.full_name,
+            owner: repo.owner?.login ?? repo.full_name.split("/")[0],
+            private: !!repo.private,
+            description: repo.description ?? null,
+            html_url: repo.html_url,
+            default_branch: repo.default_branch ?? "main",
+            // Pushable only when BOTH the app (installation-wide) and the user
+            // can write.
+            permission_push: appCanWrite && !!userPush,
+            installation_id: installationId,
+          });
+        }
+        if (batch.length < 100) break;
+        page += 1;
+      }
     }
 
-    // Where the installer approves updated permissions. Org installs live under
-    // /organizations/<org>/..., user installs under /settings/installations/...
-    // The /permissions/update page surfaces any pending permission request
-    // (e.g. the Contents: write upgrade) with an Accept button.
-    const manageUrl =
-      accountType === "Organization" && accountLogin
-        ? `https://github.com/organizations/${accountLogin}/settings/installations/${installationId}/permissions/update`
-        : `https://github.com/settings/installations/${installationId}/permissions/update`;
+    repos.sort((a, b) => a.full_name.localeCompare(b.full_name));
 
-    const installation = {
-      account_login: accountLogin,
-      account_type: accountType,
-      installation_id: installationId,
-      manage_url: manageUrl,
-    };
-
-    // Paginate over all repos the installation can access.
-    const repos: any[] = [];
-    let page = 1;
-    // Cap pages defensively so a huge org install can't hang the request.
-    while (page <= 10) {
-      const response: any =
-        await octokit.rest.apps.listReposAccessibleToInstallation({
-          per_page: 100,
-          page,
-        });
-      const batch: any[] = response?.data?.repositories ?? [];
-      repos.push(...batch);
-      if (batch.length < 100) break;
-      page += 1;
-    }
-
-    return {
-      installation,
-      repos: repos
-        .map((repo: any) => ({
-          name: repo.name,
-          full_name: repo.full_name,
-          owner: repo.owner?.login ?? repo.full_name.split("/")[0],
-          private: !!repo.private,
-          description: repo.description ?? null,
-          html_url: repo.html_url,
-          default_branch: repo.default_branch ?? "main",
-          // Only repos the install can push to are usable for commit-on-behalf.
-          permission_push: !!(repo.permissions?.push ?? true),
-        }))
-        // Most-recently-updated style ordering isn't returned here; sort by name
-        // grouped by owner for a stable, scannable list.
-        .sort((a, b) => a.full_name.localeCompare(b.full_name)),
-    };
+    return { installations, repos };
   },
 });
 
@@ -156,17 +208,43 @@ export const listConnectableRepositories = action({
  * URL where the user manages which repositories/orgs the Freebuff app can
  * access. Used by the connect dialog's "add more repositories" link and to
  * (re)install on an organization.
+ *
+ * When `returnUrl` is provided we mint an OAuth state carrying it so that after
+ * the install/configure round-trip GitHub's setup callback redirects back to
+ * the right place (e.g. /cloud) instead of the default /web.
  */
 export const getGitHubAppConfigureUrl = action({
-  args: {},
+  args: {
+    returnUrl: v.optional(v.string()),
+  },
   returns: v.string(),
-  handler: async (ctx): Promise<string> => {
+  handler: async (ctx, args): Promise<string> => {
     const authUser = await getAuthUser(ctx);
     if (!authUser) throw new Error("Not authenticated");
     const slug = GITHUB_APP_CONFIG.APP_SLUG;
     if (!slug) {
       throw new Error("GitHub App slug not configured");
     }
-    return `https://github.com/apps/${slug}/installations/new`;
+
+    const base = `https://github.com/apps/${slug}/installations/new`;
+    if (!args.returnUrl) {
+      return base;
+    }
+
+    const state: string = await ctx.runAction(
+      api.utils.crypto.generateSecureState,
+      {},
+    );
+    await ctx.runMutation(internal.github.auth.oauth._storeOAuthState, {
+      user_id: authUser._id,
+      state,
+      return_url: args.returnUrl,
+    });
+
+    const redirectUri =
+      process.env.GITHUB_REDIRECT_URI ||
+      "http://localhost:3000/github/callback";
+
+    return `${base}?state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`;
   },
 });

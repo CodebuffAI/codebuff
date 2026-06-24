@@ -35,6 +35,16 @@ type Repo = {
   html_url: string
   default_branch: string
   permission_push: boolean
+  installation_id: number
+}
+
+type Installation = {
+  installation_id: number
+  account_login: string
+  account_type?: string
+  contents_permission?: string
+  can_write: boolean
+  manage_url: string
 }
 
 export function ConnectRepoDialog({
@@ -64,8 +74,7 @@ export function ConnectRepoDialog({
   const connectRepo = useAction(api.cloud.connectRepo.connectRepo)
 
   const [repos, setRepos] = useState<Repo[] | null>(null)
-  const [installLogin, setInstallLogin] = useState<string | null>(null)
-  const [manageUrl, setManageUrl] = useState<string | null>(null)
+  const [installations, setInstallations] = useState<Installation[]>([])
   const [loadingRepos, setLoadingRepos] = useState(false)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Repo | null>(null)
@@ -92,7 +101,9 @@ export function ConnectRepoDialog({
   const handleManageAccess = async () => {
     setError(null)
     try {
-      const url = await getConfigureUrl({})
+      // Pass returnUrl so GitHub's post-install callback comes back to /cloud
+      // (or wherever the dialog lives) instead of the default /web.
+      const url = await getConfigureUrl({ returnUrl })
       window.open(url, '_blank', 'noopener,noreferrer')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -105,8 +116,7 @@ export function ConnectRepoDialog({
     try {
       const result = await listRepos({})
       setRepos(result.repos)
-      setInstallLogin(result.installation?.account_login ?? null)
-      setManageUrl(result.installation?.manage_url ?? null)
+      setInstallations(result.installations)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -114,16 +124,9 @@ export function ConnectRepoDialog({
     }
   }
 
-  const handleApprovePermissions = async () => {
+  const handleApprovePermissions = async (manageUrl: string) => {
     setError(null)
-    try {
-      // Prefer the precise installation permission-update page; fall back to
-      // the generic app install/configure page if we don't have it.
-      const url = manageUrl ?? (await getConfigureUrl({}))
-      window.open(url, '_blank', 'noopener,noreferrer')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
+    window.open(manageUrl, '_blank', 'noopener,noreferrer')
   }
 
   const handleConnect = async () => {
@@ -134,6 +137,7 @@ export function ConnectRepoDialog({
       const result = await connectRepo({
         repoFullName: selected.full_name,
         defaultBranch: selected.default_branch,
+        installationId: selected.installation_id,
         ...(initialMessage.trim()
           ? { initialMessage: initialMessage.trim() }
           : {}),
@@ -151,7 +155,15 @@ export function ConnectRepoDialog({
     }
   }
 
-  // Group repos by owner so org repos are easy to find.
+  const installationByAccount = useMemo(() => {
+    const map = new Map<string, Installation>()
+    for (const inst of installations) {
+      if (inst.account_login) map.set(inst.account_login, inst)
+    }
+    return map
+  }, [installations])
+
+  // Group repos by owner so each org (installation) is its own section.
   const grouped = useMemo(() => {
     const filtered = (repos ?? []).filter((r) =>
       r.full_name.toLowerCase().includes(search.toLowerCase()),
@@ -167,11 +179,11 @@ export function ConnectRepoDialog({
     )
   }, [repos, search])
 
-  // If the installation only has read access to every repo, the app's
-  // permissions haven't been approved on this install yet (e.g. a stale
-  // install predating the Contents: write upgrade). Prompt to approve.
-  const allReadOnly =
-    repos !== null && repos.length > 0 && repos.every((r) => !r.permission_push)
+  // Installations whose app grant is still read-only (Contents not write yet).
+  const readOnlyInstallations = useMemo(
+    () => installations.filter((i) => !i.can_write),
+    [installations],
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -238,26 +250,32 @@ export function ConnectRepoDialog({
               </Button>
             ) : (
               <>
-                {allReadOnly && (
+                {readOnlyInstallations.length > 0 && (
                   <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                       <span className="text-foreground">
-                        Freebuff only has{' '}
-                        <span className="font-medium">read-only</span> access to
-                        these repos, so it can&apos;t commit or push yet. Approve
-                        the updated permissions on GitHub, then refresh.
+                        Freebuff has{' '}
+                        <span className="font-medium">read-only</span> access on{' '}
+                        {readOnlyInstallations
+                          .map((i) => i.account_login)
+                          .join(', ')}
+                        , so it can&apos;t commit or push there yet. Approve the
+                        Contents: write permission for each, then refresh.
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleApprovePermissions}
-                        className="h-7"
-                      >
-                        <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                        Approve permissions on GitHub
-                      </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {readOnlyInstallations.map((inst) => (
+                        <Button
+                          key={inst.installation_id}
+                          size="sm"
+                          onClick={() => handleApprovePermissions(inst.manage_url)}
+                          className="h-7"
+                        >
+                          <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                          Approve {inst.account_login}
+                        </Button>
+                      ))}
                       <Button
                         size="sm"
                         variant="outline"
@@ -274,18 +292,11 @@ export function ConnectRepoDialog({
                   </div>
                 )}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {installLogin ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Building2 className="h-3.5 w-3.5" />
-                        Installed on{' '}
-                        <span className="font-medium text-foreground">
-                          {installLogin}
-                        </span>
-                      </span>
-                    ) : (
-                      'Repositories the Freebuff app can access'
-                    )}
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Building2 className="h-3.5 w-3.5" />
+                    {installations.length > 0
+                      ? `Installed on ${installations.map((i) => i.account_login).join(', ')}`
+                      : 'Repositories the Freebuff app can access'}
                   </span>
                   <button
                     type="button"
@@ -311,10 +322,25 @@ export function ConnectRepoDialog({
                       app access.
                     </p>
                   ) : (
-                    grouped.map(([owner, ownerRepos]) => (
+                    grouped.map(([owner, ownerRepos]) => {
+                      const ownerInstall = installationByAccount.get(owner)
+                      return (
                       <div key={owner}>
-                        <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {owner}
+                        <div className="flex items-center justify-between px-2 py-1">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {owner}
+                          </span>
+                          {ownerInstall && !ownerInstall.can_write && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleApprovePermissions(ownerInstall.manage_url)
+                              }
+                              className="text-[11px] font-medium text-amber-500 hover:underline"
+                            >
+                              Approve write access
+                            </button>
+                          )}
                         </div>
                         {ownerRepos.map((repo) => {
                           const disabled = !repo.permission_push
@@ -354,7 +380,8 @@ export function ConnectRepoDialog({
                           )
                         })}
                       </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
                 <Textarea
