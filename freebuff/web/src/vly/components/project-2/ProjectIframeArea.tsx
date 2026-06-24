@@ -19,7 +19,7 @@
  * as tabs; they also surface a "← Back to preview" affordance.
  */
 
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import {
   Globe2,
   Database,
@@ -154,6 +154,7 @@ export function ProjectIframeArea({
   openInNewTab,
   onRefresh,
 }: ProjectIframeAreaProps) {
+  const isConnectedRepo = project.project_type === 'connected_repo'
   const { isPlatformAdmin } = useIsPlatformAdmin()
   const projectPauseStatus = useQuery(
     api.deployment_queries.getProjectPauseStatus,
@@ -171,6 +172,30 @@ export function ProjectIframeArea({
       ? `/web/project/${semanticIdentifier}/settings?section=database`
       : null
 
+  const tabsToRender = isConnectedRepo
+    ? TOP_TABS.filter(
+        ({ id }) =>
+          id !== 'database' &&
+          id !== 'logs' &&
+          id !== 'keys' &&
+          id !== 'assets',
+      )
+    : TOP_TABS
+
+  useEffect(() => {
+    if (!isConnectedRepo) {
+      return
+    }
+    if (
+      activeTab === 'database' ||
+      activeTab === 'logs' ||
+      activeTab === 'keys' ||
+      activeTab === 'assets'
+    ) {
+      setActiveTab('preview')
+    }
+  }, [activeTab, isConnectedRepo, setActiveTab])
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
@@ -178,7 +203,7 @@ export function ProjectIframeArea({
         <div className="flex flex-shrink-0 flex-col bg-background">
           <div className="flex items-center justify-between gap-2 px-3 py-1.5">
             <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-              {TOP_TABS.map(({ id, label }) => {
+              {tabsToRender.map(({ id, label }) => {
                 const isActive = activeTab === id
                 return (
                   <button

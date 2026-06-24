@@ -846,7 +846,7 @@ export function CenterContent({
     };
   }, [isIframeActive]);
 
-  if (!activeEntryPoint) {
+  if (!activeEntryPoint && !isConnectedRepo && !navState.iframeSrc) {
     return (
       <div className="flex h-full w-full items-center justify-center p-4 text-muted-foreground">
         <p>Select a page to view its content.</p>
