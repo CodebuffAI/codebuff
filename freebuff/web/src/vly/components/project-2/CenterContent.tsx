@@ -864,11 +864,14 @@ export function CenterContent({
               iframe gets the full available height; the floating "Open
               in new tab" + bottom Chat tab cover navigation needs. --- */}
         <TooltipProvider delayDuration={200}>
-          {!isConnectedRepo && (
-            <div
-              className="hidden w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 lg:flex"
-              style={{ minHeight: 32 }}
-            >
+          <div
+            className={`${
+              isConnectedRepo
+                ? "flex"
+                : "hidden lg:flex"
+            } w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1`}
+            style={{ minHeight: 32 }}
+          >
             <div className="flex items-center gap-0.5">
                 <ToolbarTooltip label="Back">
                   <button
@@ -1098,7 +1101,6 @@ export function CenterContent({
                 </ToolbarTooltip>
               </div>
             </div>
-          )}
         </TooltipProvider>
         {/* --- Static iframe, never animates or remounts unless parent navigation --- */}
         <div className="min-h-0 w-full flex-1">
