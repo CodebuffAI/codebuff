@@ -24,6 +24,7 @@ import {
   formatFreebuffPremiumResetCountdown,
   getFreebuffPremiumResetAt,
 } from '../utils/freebuff-premium-reset'
+import { getFreebuffStreakLine } from '../utils/freebuff-streak-line'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
@@ -37,7 +38,6 @@ import {
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
-import { pluralize } from '@codebuff/common/util/string'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
@@ -286,29 +286,31 @@ const TakeoverPrompt: React.FC = () => {
 }
 
 /** Inline streak indicator rendered as the line immediately after the
- *  sessions-used/title row. Shows "Streak: N days" when the user has a
- *  streak; for streak === 0 the row is rendered blank so the picker
- *  doesn't jump once they earn their first day. */
+ *  sessions-used/title row. Shows "N day streak" with a week of filled/empty
+ *  progress dots; for streak === 0 the row is rendered blank so new / lapsed
+ *  users are nudged to start using the product rather than shown an empty
+ *  streak (and so the picker doesn't jump once they earn their first day). */
 const StreakInlineLine: React.FC<{
   streak: number
   marginTop: number
 }> = ({ streak, marginTop }) => {
   const theme = useTheme()
+  const line = getFreebuffStreakLine(streak)
 
-  if (streak <= 0) {
+  if (!line) {
     return <text style={{ marginTop, flexShrink: 0 }}> </text>
   }
 
   return (
     <text
       style={{
-        fg: theme.muted,
         marginTop,
         flexShrink: 0,
         wrapMode: 'none',
       }}
     >
-      Streak: {pluralize(streak, 'day')}
+      <span fg={theme.foreground}>{line.label}</span>
+      <span fg={theme.primary}>{`  ${line.dots}`}</span>
     </text>
   )
 }
@@ -506,7 +508,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     ? 0
     : referralInfo.weeklySessionsRemaining > 0
       ? 1 + 5 + (referralInfo.githubLinked ? 0 : 1)
-      : 1 + 1
+      : // Locked: marginTop + the invite line, which can wrap to two rows now
+        // that it carries the full "most powerful open-source model" pitch.
+        1 + 2
   const belowPickerRows = streakRows + noticeRows + referralBannerRows
   const counterRows = showBelowPickerCounter
     ? 1 /* marginTop */ + wrappedRows(counterText)
