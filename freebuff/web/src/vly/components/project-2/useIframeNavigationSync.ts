@@ -17,15 +17,28 @@ export function useIframeNavigationSync({
   setActiveEntryPoint,
 }: UseIframeNavigationSyncProps) {
   const finalUrl = useMemo(() => {
+    if (!project) {
+      return null;
+    }
+
+    const baseUrl = getExternalPreviewUrl(project);
+    if (!baseUrl) {
+      return null;
+    }
+
+    // Connected-repo projects can have a live preview URL before any entry
+    // points exist. Fall back to the root preview URL in that case.
     if (
-      !project ||
       activeEntryPoint?.page?.page_display_url === null ||
       activeEntryPoint?.page?.page_display_url === undefined
     ) {
-      return null;
+      try {
+        return new URL("/", baseUrl).href;
+      } catch {
+        return null;
+      }
     }
-    const baseUrl = getExternalPreviewUrl(project);
-    if (!baseUrl) return null;
+
     try {
       return new URL(activeEntryPoint.page.page_display_url, baseUrl).href;
     } catch {

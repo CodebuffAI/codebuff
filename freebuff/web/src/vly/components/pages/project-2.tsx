@@ -311,6 +311,15 @@ function ProjectWrapper({
       setTimeout(() => setAllowProjectCalled(true), 0);
     }
 
+    // The legacy "Security Migration in Progress" dialog is only for old
+    // CodeSandbox-backed projects waiting on convex instance migration.
+    // Daytona-backed projects use a different migration flow/UI.
+    const isLegacyCodeSandbox = !project.sandbox_id.startsWith("daytona:");
+    if (!isLegacyCodeSandbox) {
+      setTimeout(() => setProjectStatus(null), 0);
+      return;
+    }
+
     // Check if migration is needed (only when migration check has completed)
     if (migrationRecord === undefined) {
       // Still loading migration status, don't block
@@ -609,7 +618,9 @@ function ProjectWrapper({
 
     const initialState = project.state;
     initialProjectStateRef.current = initialState ?? "active";
+    const isConnectedRepoProject = project.project_type === "connected_repo";
     const looksLikeFirstBuild =
+      !isConnectedRepoProject &&
       !hasGeneratedProjectContent &&
       (initialState === "processing" || initialState === "initializing");
     if (looksLikeFirstBuild) {
@@ -620,6 +631,10 @@ function ProjectWrapper({
   useEffect(() => {
     if (hasRevealedIframe) return;
     if (project === undefined || project === null) return;
+    if (project.project_type === "connected_repo") {
+      setHasRevealedIframe(true);
+      return;
+    }
     if (hasGeneratedProjectContent) {
       setHasRevealedIframe(true);
       return;

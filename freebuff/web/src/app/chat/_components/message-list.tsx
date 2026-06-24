@@ -85,6 +85,8 @@ export function MessageList(props: {
    *  after the transcript and auto-sent as each run finishes. */
   queued?: QueuedMessage[]
   onRemoveQueued?: (index: number) => void
+  /** Sends a clicked suggested followup's prompt as the next user message. */
+  onSendSuggestion?: (prompt: string) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedToBottom = useRef(true)
@@ -144,6 +146,7 @@ export function MessageList(props: {
                 <BlockList
                   blocks={message.blocks}
                   latest={i === props.messages.length - 1}
+                  onSendSuggestion={props.onSendSuggestion}
                 />
               ) : message.content ? (
                 <Markdown text={message.content} />

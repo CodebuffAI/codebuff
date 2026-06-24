@@ -8,6 +8,8 @@
  * parentAgentId (in practice two levels today).
  */
 
+import type { SuggestFollowup } from '@codebuff/common/tools/params/tool/suggest-followups'
+
 export type TextBlock = { type: 'text'; text: string }
 
 export type ThinkingBlock = {
@@ -43,7 +45,26 @@ export type AgentBlock = {
   blocks: ChatBlock[]
 }
 
-export type ChatBlock = TextBlock | ThinkingBlock | ToolBlock | AgentBlock
+/** One clickable followup the agent suggested via suggest_followups. `prompt`
+ *  is the full text sent as the next user message; `label` is the short title
+ *  shown on the card (the prompt is revealed on hover). Re-exported from the
+ *  tool's own schema type so the shape stays in lockstep with the tool. */
+export type SuggestedFollowup = SuggestFollowup
+
+/** Clickable followup prompts the agent suggested for this turn (rendered under
+ *  the latest assistant message; interactive only there). */
+export type SuggestionsBlock = {
+  type: 'suggestions'
+  toolCallId: string
+  followups: SuggestedFollowup[]
+}
+
+export type ChatBlock =
+  | TextBlock
+  | ThinkingBlock
+  | ToolBlock
+  | AgentBlock
+  | SuggestionsBlock
 
 /** Normalized streaming events sent over SSE (alongside meta/error/done). */
 export type ChatStreamEvent =
@@ -71,6 +92,11 @@ export type ChatStreamEvent =
       verbs?: ToolVerbs
     }
   | { type: 'agent_tool_done'; toolCallId: string }
+  | {
+      type: 'suggestions'
+      toolCallId: string
+      followups: SuggestedFollowup[]
+    }
 
 const CHAT_STREAM_EVENT_TYPES = new Set<string>([
   'delta',
@@ -81,6 +107,7 @@ const CHAT_STREAM_EVENT_TYPES = new Set<string>([
   'agent_finish',
   'agent_tool',
   'agent_tool_done',
+  'suggestions',
 ] satisfies ChatStreamEvent['type'][])
 
 /** Picks block-tree events out of the SSE stream (which also carries
@@ -254,6 +281,22 @@ export class BlockTreeBuilder {
         }
         break
       }
+      case 'suggestions': {
+        closeOpenThinking(this.blocks)
+        // Only the latest set is ever shown, so replace any prior block rather
+        // than stacking (an agent could call suggest_followups more than once).
+        // The "latest turn only" half of that policy is the render gate in
+        // agent-blocks.tsx (BlockList renders this block only when `latest`).
+        const block: SuggestionsBlock = {
+          type: 'suggestions',
+          toolCallId: event.toolCallId,
+          followups: event.followups,
+        }
+        const existing = this.blocks.findIndex((b) => b.type === 'suggestions')
+        if (existing >= 0) this.blocks[existing] = block
+        else this.blocks.push(block)
+        break
+      }
     }
   }
 
@@ -264,7 +307,9 @@ export class BlockTreeBuilder {
     return (
       this.agents.size > 0 ||
       this.tools.size > 0 ||
-      this.blocks.some((b) => b.type === 'thinking')
+      this.blocks.some(
+        (b) => b.type === 'thinking' || b.type === 'suggestions',
+      )
     )
   }
 
@@ -303,7 +348,7 @@ export function isChatBlockArray(value: unknown): value is ChatBlock[] {
       (b) =>
         b &&
         typeof b === 'object' &&
-        ['text', 'thinking', 'tool', 'agent'].includes(
+        ['text', 'thinking', 'tool', 'agent', 'suggestions'].includes(
           (b as { type?: string }).type ?? '',
         ),
     )

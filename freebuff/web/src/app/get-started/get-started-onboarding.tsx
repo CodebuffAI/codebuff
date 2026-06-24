@@ -1,8 +1,20 @@
 'use client'
 
-import { Check, Copy, Github, Loader2, ShieldCheck, TriangleAlert } from 'lucide-react'
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  Github,
+  Loader2,
+  ShieldCheck,
+  TriangleAlert,
+} from 'lucide-react'
+import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import posthog from 'posthog-js'
 import { useEffect, useState } from 'react'
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import type { ReferralEligibilityData } from '../api/web/referral-eligibility/route'
 
@@ -12,6 +24,36 @@ import { startProviderLink } from '@/lib/link-provider'
 import { cn } from '@/lib/utils'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
+
+/** The referrer's name, attached to every funnel event so the onboarding funnel
+ *  can be segmented by who sent the invite. Reads the `?referrer=` URL param
+ *  first, then falls back to the value GetStartedReferrerCapture persisted to
+ *  localStorage — the param doesn't always survive the OAuth round-trip. */
+function referrerProps(): { referrer: string | null } {
+  if (typeof window === 'undefined') return { referrer: null }
+  const fromUrl = new URLSearchParams(window.location.search).get('referrer')
+  if (fromUrl) return { referrer: fromUrl }
+  try {
+    return { referrer: localStorage.getItem('freebuff_referrer') }
+  } catch {
+    return { referrer: null }
+  }
+}
+
+/** Map the eligibility response to a single funnel-friendly status string. */
+function eligibilityStatus(data: ReferralEligibilityData): string {
+  if (!data.githubLinked) return 'no_github'
+  if (data.qualifies) return 'qualifies'
+  if (data.accountAgeKnown) return 'github_too_young'
+  return 'age_unknown'
+}
+
+function captureSignInClicked(provider: 'github' | 'google'): void {
+  posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_SIGN_IN_CLICKED, {
+    provider,
+    ...referrerProps(),
+  })
+}
 
 /**
  * The single focal card on /get-started. Drives the visitor straight to the
@@ -33,22 +75,42 @@ export function GetStartedOnboarding() {
     if (status !== 'authenticated') return
     let cancelled = false
     setEligibility(null)
+    // Funnel step: the visitor is authenticated on the page (just returned from
+    // OAuth, or already signed in).
+    posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_SIGNED_IN, {
+      ...referrerProps(),
+    })
     fetch('/api/web/referral-eligibility')
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then((data: ReferralEligibilityData) => {
-        if (!cancelled) setEligibility(data)
+        if (cancelled) return
+        setEligibility(data)
+        // Funnel step: did the invite qualify? (qualifies / github_too_young /
+        // no_github / age_unknown)
+        posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED, {
+          status: eligibilityStatus(data),
+          github_linked: data.githubLinked,
+          qualifies: data.qualifies,
+          ...referrerProps(),
+        })
       })
       .catch(() => {
         // On failure, fall back to a neutral signed-in view (install only).
-        if (!cancelled) {
-          setEligibility({
-            signedIn: true,
-            githubLinked: true,
-            qualifies: false,
-            accountAgeKnown: false,
-            minMonths: 12,
-          })
+        if (cancelled) return
+        const fallback: ReferralEligibilityData = {
+          signedIn: true,
+          githubLinked: true,
+          qualifies: false,
+          accountAgeKnown: false,
+          minMonths: 12,
         }
+        setEligibility(fallback)
+        posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED, {
+          status: 'error',
+          github_linked: null,
+          qualifies: false,
+          ...referrerProps(),
+        })
       })
     return () => {
       cancelled = true
@@ -62,7 +124,7 @@ export function GetStartedOnboarding() {
       ) : status !== 'authenticated' ? (
         <SignedOut />
       ) : !eligibility ? (
-        <CardSpinner label="Checking your GitHub…" />
+        <CardSpinner label="Checking your account…" />
       ) : (
         <SignedIn eligibility={eligibility} />
       )}
@@ -81,10 +143,14 @@ function SignedOut() {
 
       <div className="space-y-3">
         <div className="relative">
-          <span className="absolute -top-2 right-3 z-10 rounded-full border border-acid-matrix/50 bg-black px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-acid-matrix">
+          <span className="absolute -top-2.5 right-3 z-10 rounded-full border border-acid-matrix/50 bg-black px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-acid-matrix">
             Recommended
           </span>
-          <SignInButton providerDomain="github.com" providerName="github" />
+          <SignInButton
+            providerDomain="github.com"
+            providerName="github"
+            onSelect={() => captureSignInClicked('github')}
+          />
         </div>
         <p className="px-1 text-xs leading-relaxed text-white/45">
           Sign in with GitHub so your invite counts — your account just needs to
@@ -99,7 +165,11 @@ function SignedOut() {
           <span className="h-px flex-1 bg-white/10" />
         </div>
 
-        <SignInButton providerDomain="google.com" providerName="google" />
+        <SignInButton
+          providerDomain="google.com"
+          providerName="google"
+          onSelect={() => captureSignInClicked('google')}
+        />
       </div>
     </div>
   )
@@ -115,9 +185,13 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
         body="You're signed in with Google. Your referral only counts once you connect a GitHub account that's at least a year old."
         action={
           <Button
-            onClick={() =>
+            onClick={() => {
+              posthog.capture(
+                AnalyticsEvent.FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED,
+                { ...referrerProps() },
+              )
               startProviderLink('github', returnPathWithReferrer())
-            }
+            }}
             className="h-11 w-full bg-acid-matrix/90 font-medium text-black transition-all duration-300 hover:bg-acid-matrix hover:shadow-[0_0_20px_rgba(124,255,63,0.3)]"
           >
             <Github className="mr-2 h-4 w-4" />
@@ -136,7 +210,6 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
         tone="success"
         icon={<ShieldCheck className="h-5 w-5" />}
         title="You're all set — your invite qualifies"
-        body="Nice. Install Freebuff and start coding for free in your terminal."
       >
         <InstallBlock />
       </StatusCard>
@@ -169,10 +242,12 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
   )
 }
 
+const ACCENT_TONE = 'border-acid-matrix/30 bg-acid-matrix/10 text-acid-matrix'
+
 const TONES = {
-  success: 'border-acid-matrix/30 bg-acid-matrix/10 text-acid-matrix',
+  success: ACCENT_TONE,
   warn: 'border-amber-400/30 bg-amber-400/10 text-amber-300',
-  action: 'border-acid-matrix/30 bg-acid-matrix/10 text-acid-matrix',
+  action: ACCENT_TONE,
   neutral: 'border-white/15 bg-white/5 text-white/70',
 } as const
 
@@ -187,7 +262,7 @@ function StatusCard({
   tone: keyof typeof TONES
   icon: React.ReactNode
   title: string
-  body: string
+  body?: string
   action?: React.ReactNode
   children?: React.ReactNode
 }) {
@@ -204,7 +279,9 @@ function StatusCard({
         </span>
         <div className="space-y-1.5">
           <h2 className="text-lg font-medium text-white">{title}</h2>
-          <p className="text-sm leading-relaxed text-white/55">{body}</p>
+          {body && (
+            <p className="text-sm leading-relaxed text-white/55">{body}</p>
+          )}
         </div>
       </div>
       {action}
@@ -215,15 +292,43 @@ function StatusCard({
 
 function InstallBlock({ muted = false }: { muted?: boolean }) {
   return (
-    <div className={cn('space-y-2', muted && 'opacity-60')}>
-      <p className="text-center text-xs uppercase tracking-wider text-white/35">
-        Install in your terminal
-      </p>
-      <CommandLine command={INSTALL_COMMAND} />
-      <p className="text-center text-xs text-white/40">
-        Then run <code className="text-white/70">freebuff</code> inside any
-        project.
-      </p>
+    <div className={cn('space-y-3', muted && 'opacity-60')}>
+      <div className="space-y-2">
+        <p className="text-center text-xs uppercase tracking-wider text-white/35">
+          Install in your terminal
+        </p>
+        <CommandLine command={INSTALL_COMMAND} />
+        <p className="text-center text-xs text-white/40">
+          Then run <code className="text-white/70">freebuff</code> inside any
+          project.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="text-[11px] uppercase tracking-wider text-white/30">
+          or
+        </span>
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+
+      <Button
+        asChild
+        variant="outline"
+        className="h-11 w-full border-zinc-700 bg-transparent text-white transition-all duration-300 hover:border-acid-matrix/40 hover:text-acid-matrix"
+      >
+        <Link
+          href="/web"
+          onClick={() =>
+            posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_WEB_CLICKED, {
+              ...referrerProps(),
+            })
+          }
+        >
+          Build in your browser with Freebuff Web
+          <ArrowUpRight className="h-4 w-4" />
+        </Link>
+      </Button>
     </div>
   )
 }
@@ -233,24 +338,31 @@ function CommandLine({ command }: { command: string }) {
   const copy = () => {
     navigator.clipboard?.writeText(command)
     setCopied(true)
+    posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED, {
+      ...referrerProps(),
+    })
     setTimeout(() => setCopied(false), 1400)
   }
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 font-mono text-sm">
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={copied ? 'Copied' : `Copy: ${command}`}
+      className="group flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-left font-mono text-sm transition-colors hover:border-white/20 hover:bg-white/[0.05]"
+    >
       <span className="select-none text-acid-matrix">$</span>
-      <code className="flex-1 select-all text-white/90">{command}</code>
-      <button
-        onClick={copy}
-        aria-label={`Copy: ${command}`}
-        className="text-white/40 transition-colors hover:text-white"
+      <code className="flex-1 text-white/90">{command}</code>
+      <span
+        aria-hidden
+        className="text-white/40 transition-colors group-hover:text-white"
       >
         {copied ? (
           <Check className="h-4 w-4 text-acid-matrix" />
         ) : (
           <Copy className="h-4 w-4" />
         )}
-      </button>
-    </div>
+      </span>
+    </button>
   )
 }
 

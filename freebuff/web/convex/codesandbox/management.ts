@@ -120,15 +120,38 @@ export const verifyProjectAccessAndConnect = action({
     try {
       // Get package manager (uses saved value or detects for legacy projects)
       const packageManager = await getProjectPackageManager(ctx, project);
+      const isConnectedRepoProject = project.project_type === "connected_repo";
       const projectCacheKey = project._id.toString();
       const warmState = projectConnectionWarmCache.get(projectCacheKey) ?? {};
       const now = Date.now();
 
       // Initialize codebase with correct package manager
+      const daytonaServer = project.sandbox_id.startsWith("daytona:")
+        ? ((
+            await ctx.runQuery(internal.project.getProjectDaytonaMigration, {
+              projectId: project._id,
+            })
+          )?.daytona_server ?? "legacy")
+        : "legacy";
       const codebase = await initializeCodebase(
         project.sandbox_id,
         packageManager,
+        daytonaServer,
       );
+
+      // Connected-repo cloud projects do not run the legacy Daytona
+      // integrations + fixed dev-server stack (Convex/Vite sessions). Running
+      // those checks here adds latency and can fail because these projects have
+      // no paired Convex instance by default.
+      if (isConnectedRepoProject) {
+        projectConnectionWarmCache.set(projectCacheKey, {
+          ...warmState,
+          workspaceIntegrityEnsuredAt: now,
+          integrationsEnsuredAt: now,
+          devServersEnsuredAt: now,
+        });
+        return null;
+      }
 
       // Ensure workspace integrity (configuration, stats scripts, monitoring)
       // This runs once per user session to avoid race conditions from parallel initializations
@@ -234,8 +257,8 @@ export const verifyProjectAccessAndConnect = action({
 
       projectConnectionWarmCache.set(projectCacheKey, warmState);
     } catch (error) {
-      console.error("Failed to connect to CodeSandbox:", error);
-      throw new Error("Failed to connect to CodeSandbox project");
+      console.error("Failed to connect to project sandbox:", error);
+      throw new Error("Failed to connect to project sandbox");
     }
   },
 });
@@ -432,19 +455,19 @@ export const ExportDevToProdDataInternal = internalAction({
       );
     }
 
-    // PRE-CHECK 3: Connect to CodeSandbox (verifies sandbox is online)
-    console.log("Connecting to CodeSandbox...");
+    // PRE-CHECK 3: Connect to sandbox (verifies sandbox is online)
+    console.log("Connecting to project sandbox...");
     let codebase: DaytonaCodebase;
     try {
       codebase = (await initializeCodebase(
         project.sandbox_id,
         project.packageManager,
       )) as DaytonaCodebase;
-      console.log("✓ CodeSandbox connection established");
+      console.log("✓ Project sandbox connection established");
     } catch (error) {
-      console.error("Failed to connect to CodeSandbox:", error);
+      console.error("Failed to connect to project sandbox:", error);
       throw new Error(
-        `CodeSandbox connection failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Project sandbox connection failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     // Step 0.O: Get the convex prod deploy key

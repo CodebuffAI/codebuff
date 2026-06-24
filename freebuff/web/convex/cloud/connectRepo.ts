@@ -290,6 +290,8 @@ interface DetectedConfig {
   build_command?: string;
 }
 
+const DEFAULT_CONNECTED_REPO_PORT = 5173;
+
 /**
  * Best-effort environment interpretation for a freshly cloned repo. Reads
  * package.json to infer install/preview/build commands and a likely dev-server
@@ -326,9 +328,30 @@ export const detectAndStartPreview = internalAction({
 
       const detected = await inferConfigFromRepo(codebase);
 
-      await codebase.runCommand(detected.install_command, 300_000);
+      const installResult = await codebase.runCommand(
+        detected.install_command,
+        300_000,
+      );
+      if (installResult.exitCode && installResult.exitCode !== 0) {
+        console.warn(
+          "[connectRepo] install command failed; continuing to preview startup",
+          {
+            projectId: args.projectId,
+            command: detected.install_command,
+            tail: installResult.output.slice(-500),
+          },
+        );
+      }
 
       await codebase.startPreviewProcess(detected.preview_command);
+      const previewRunning = await waitForPreviewProcess(codebase);
+      if (!previewRunning) {
+        const logs = await codebase.getPreviewLogs(4000);
+        throw new Error(
+          `Preview process exited early for command: ${detected.preview_command}\n${logs}`,
+        );
+      }
+
       const previewUrl = await codebase.getPreviewLinkForPort(
         detected.preview_port,
       );
@@ -368,6 +391,7 @@ export const detectAndStartPreview = internalAction({
 async function inferConfigFromRepo(
   codebase: DaytonaCodebase,
 ): Promise<DetectedConfig> {
+  let hasPackageJson = false;
   let pkg: {
     scripts?: Record<string, string>;
     packageManager?: string;
@@ -375,62 +399,47 @@ async function inferConfigFromRepo(
   try {
     const raw = await codebase.readFile("package.json");
     pkg = JSON.parse(raw);
+    hasPackageJson = true;
   } catch {
     // Non-Node project — fall back to a generic static server.
   }
 
   const scripts = pkg.scripts ?? {};
+  const install = hasPackageJson ? "bun install" : "true";
 
-  // Pick a package manager: prefer the one pinned in package.json, else bun.
-  const pm = pkg.packageManager?.startsWith("pnpm")
-    ? "pnpm"
-    : pkg.packageManager?.startsWith("yarn")
-      ? "yarn"
-      : "bun";
-  const install =
-    pm === "bun"
-      ? "bun install"
-      : pm === "pnpm"
-        ? "pnpm install"
-        : "yarn install";
-  const runPrefix =
-    pm === "bun" ? "bun run" : pm === "pnpm" ? "pnpm run" : "yarn";
+  // Standardize connected-repo preview on Daytona proxy port 5173 and bind to
+  // all interfaces so the preview endpoint is always reachable externally.
+  const previewEnvPrefix =
+    `HOST=0.0.0.0 HOSTNAME=0.0.0.0 PORT=${DEFAULT_CONNECTED_REPO_PORT}`;
 
-  // Pick a dev/start script.
-  const devScriptName = scripts.dev
-    ? "dev"
+  const previewCommand = scripts.dev
+    ? `${previewEnvPrefix} bun dev --host 0.0.0.0 --port ${DEFAULT_CONNECTED_REPO_PORT}`
     : scripts.start
-      ? "start"
+      ? `${previewEnvPrefix} bun run start`
       : scripts.develop
-        ? "develop"
-        : undefined;
+        ? `${previewEnvPrefix} bun run develop`
+        : `python3 -m http.server ${DEFAULT_CONNECTED_REPO_PORT} --bind 0.0.0.0`;
 
-  const previewCommand = devScriptName
-    ? `${runPrefix} ${devScriptName}`
-    : "python3 -m http.server 5173";
-
-  const buildCommand = scripts.build ? `${runPrefix} build` : undefined;
-
-  // Guess the dev-server port from common framework defaults.
-  const port = guessPort(scripts[devScriptName ?? ""] ?? "", devScriptName);
+  const buildCommand = scripts.build ? "bun run build" : undefined;
 
   return {
     install_command: install,
     preview_command: previewCommand,
-    preview_port: port,
+    preview_port: DEFAULT_CONNECTED_REPO_PORT,
     build_command: buildCommand,
   };
 }
 
-function guessPort(devScript: string, devScriptName?: string): number {
-  // Honor an explicit --port flag if present.
-  const portFlag = devScript.match(/--port[ =](\d+)/);
-  if (portFlag) return Number(portFlag[1]);
-  if (/next/.test(devScript)) return 3000;
-  if (/vite/.test(devScript)) return 5173;
-  if (/react-scripts/.test(devScript)) return 3000;
-  if (/astro/.test(devScript)) return 4321;
-  if (/remix/.test(devScript)) return 3000;
-  if (devScriptName === "start") return 3000;
-  return 5173;
+async function waitForPreviewProcess(
+  codebase: DaytonaCodebase,
+  timeoutMs: number = 10_000,
+): Promise<boolean> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await codebase.isPreviewProcessRunning()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return false;
 }

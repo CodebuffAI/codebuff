@@ -846,7 +846,7 @@ export function CenterContent({
     };
   }, [isIframeActive]);
 
-  if (!activeEntryPoint) {
+  if (!activeEntryPoint && !isConnectedRepo && !navState.iframeSrc) {
     return (
       <div className="flex h-full w-full items-center justify-center p-4 text-muted-foreground">
         <p>Select a page to view its content.</p>
@@ -865,7 +865,11 @@ export function CenterContent({
               in new tab" + bottom Chat tab cover navigation needs. --- */}
         <TooltipProvider delayDuration={200}>
           <div
-            className="hidden w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 lg:flex"
+            className={`${
+              isConnectedRepo
+                ? "flex"
+                : "hidden lg:flex"
+            } w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1`}
             style={{ minHeight: 32 }}
           >
             <div className="flex items-center gap-0.5">
@@ -1096,7 +1100,7 @@ export function CenterContent({
                   </button>
                 </ToolbarTooltip>
               </div>
-          </div>
+            </div>
         </TooltipProvider>
         {/* --- Static iframe, never animates or remounts unless parent navigation --- */}
         <div className="min-h-0 w-full flex-1">

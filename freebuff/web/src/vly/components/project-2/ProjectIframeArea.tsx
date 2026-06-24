@@ -19,7 +19,7 @@
  * as tabs; they also surface a "← Back to preview" affordance.
  */
 
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import {
   Globe2,
   Database,
@@ -154,6 +154,7 @@ export function ProjectIframeArea({
   openInNewTab,
   onRefresh,
 }: ProjectIframeAreaProps) {
+  const isConnectedRepo = project.project_type === 'connected_repo'
   const { isPlatformAdmin } = useIsPlatformAdmin()
   const projectPauseStatus = useQuery(
     api.deployment_queries.getProjectPauseStatus,
@@ -171,10 +172,19 @@ export function ProjectIframeArea({
       ? `/web/project/${semanticIdentifier}/settings?section=database`
       : null
 
+  useEffect(() => {
+    if (!isConnectedRepo) {
+      return
+    }
+    if (activeTab !== 'preview') {
+      setActiveTab('preview')
+    }
+  }, [activeTab, isConnectedRepo, setActiveTab])
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
-      {!hideTabs && (
+      {!hideTabs && !isConnectedRepo && (
         <div className="flex flex-shrink-0 flex-col bg-background">
           <div className="flex items-center justify-between gap-2 px-3 py-1.5">
             <div className="flex min-w-0 items-center gap-1 overflow-x-auto">

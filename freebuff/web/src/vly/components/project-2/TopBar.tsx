@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import {
   ChevronDown,
-  Loader2,
   Eye,
   Share2,
   Settings,
@@ -39,7 +38,7 @@ import {
   TooltipTrigger,
 } from '@/vly/components/ui/tooltip'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQuery } from 'convex/react'
+import { useQuery } from 'convex/react'
 import { signOut } from 'next-auth/react'
 import type { ProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
@@ -76,37 +75,10 @@ export function TopBar({
     project?._id ? { projectId: project._id } : 'skip',
   )
   void _onMobileSidebarToggle
-  const [deployDialogOpen, setDeployDialogOpen] = useState(false)
-  const [isPublishing, setIsPublishing] = useState(false)
   const router = useRouter()
-
-  const publishProject = useMutation(api.community.publishProject)
+  const [deployDialogOpen, setDeployDialogOpen] = useState(false)
 
   const currentUserId = useQuery(api.community.getCurrentUserId)
-
-  // Posted to community after a successful deployment
-  const handleDeployTriggered = async () => {
-    if (!project) return
-    setIsPublishing(true)
-    try {
-      await publishProject({
-        projectId: project._id,
-        title:
-          project.name || project.semantic_identifier || 'Untitled Project',
-        // Leave the description blank rather than stamping every auto-published
-        // project with the same boilerplate line. The card falls back to a
-        // subtle label when no real description exists.
-        description: '',
-        tags: [],
-      })
-      toast.success('Published to community.')
-    } catch (_publishError) {
-      void _publishError
-      toast.error('Failed to publish to community. Please try again.')
-    } finally {
-      setIsPublishing(false)
-    }
-  }
 
   const openPreviewInNewTab = () => {
     const url = getExternalPreviewUrl(project) ?? ''
@@ -342,31 +314,23 @@ export function TopBar({
             </TooltipContent>
           </Tooltip>
 
-          {/* Publish - primary CTA */}
           <DeploymentDialog
             isOpen={deployDialogOpen}
             onOpenChange={setDeployDialogOpen}
             projectId={project._id}
             settingsHref={`/web/project/${project.semantic_identifier}/settings?section=deployments`}
-            onDeployTriggered={handleDeployTriggered}
             trigger={
               <button
                 type="button"
-                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:ml-1 sm:px-3"
-                disabled={isPublishing}
+                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:ml-1 sm:px-3"
                 aria-label="Publish"
               >
-                {isPublishing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Rocket className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">
-                  {isPublishing ? 'Publishing…' : 'Publish'}
-                </span>
+                <Rocket className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Publish</span>
               </button>
             }
           />
+
         </div>
       </div>
 
