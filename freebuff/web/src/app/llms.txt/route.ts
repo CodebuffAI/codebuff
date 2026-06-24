@@ -43,7 +43,6 @@ Freebuff is built by the Codebuff team (https://codebuff.com) on the same agent 
 - [Home](${siteUrl}/): What Freebuff is, install instructions, and FAQ
 - [Get started](${siteUrl}/get-started): Step-by-step setup guide for the CLI
 - [Freebuff Web](${siteUrl}/web): The free full-stack app builder
-- [Pricing](${siteUrl}/web/pricing): Freebuff Web pricing (free tier included)
 - [Community](${siteUrl}/web/community): Apps built with Freebuff Web
 - [Blog](${siteUrl}${blogConfig.basePath}): Guides and comparisons ([RSS](${siteUrl}${blogConfig.basePath}/rss.xml))
 - [Privacy policy](${siteUrl}/web/privacy)

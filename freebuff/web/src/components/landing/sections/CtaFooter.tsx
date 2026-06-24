@@ -14,7 +14,6 @@ const NAV_LINKS = [
   { text: 'Chat', href: '/chat' },
   { text: 'Blog', href: '/blog' },
   { text: 'Live', href: '/live' },
-  { text: 'Pricing', href: '/web/pricing' },
 ]
 // Legal lives on codebuff.com (mirrors the site-wide footer).
 const LEGAL_LINKS = [

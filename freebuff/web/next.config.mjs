@@ -162,8 +162,13 @@ const nextConfig = {
       },
       {
         source: '/pricing',
-        destination: '/web/pricing',
-        permanent: false,
+        destination: '/web',
+        permanent: true,
+      },
+      {
+        source: '/web/pricing',
+        destination: '/web',
+        permanent: true,
       },
       {
         source: '/contact',

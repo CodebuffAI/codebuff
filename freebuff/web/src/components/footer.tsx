@@ -24,8 +24,6 @@ export function Footer() {
     const keepGlobalFooter =
       pathname === '/web/about' ||
       pathname.startsWith('/web/about/') ||
-      pathname === '/web/pricing' ||
-      pathname.startsWith('/web/pricing/') ||
       pathname === '/web/contact' ||
       pathname.startsWith('/web/contact/') ||
       pathname === '/web/privacy' ||

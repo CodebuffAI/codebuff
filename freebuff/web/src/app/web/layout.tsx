@@ -17,7 +17,6 @@ import { TooltipProvider } from '@/vly/components/ui/tooltip'
 // Prefix-matched public areas (the path and everything beneath it).
 const PUBLIC_WEB_PREFIXES = [
   '/web/about',
-  '/web/pricing',
   '/web/community',
   '/web/contact',
   '/web/privacy',
