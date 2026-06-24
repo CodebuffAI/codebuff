@@ -100,6 +100,11 @@ export async function executeCodex(
 
   // Check if this is the first message (no active session ID means new thread)
   const isFirstMessage = !args.activeSessionId;
+  const projectRecord = await ctx.runQuery(internal.project.getProject, {
+    projectId: args.projectId,
+  });
+  const shouldInjectConvexDeployKey =
+    projectRecord?.project_type !== "connected_repo";
 
   // For first message, check if AGENTS.md exists and create it if it doesn't
   if (isFirstMessage) {
@@ -213,7 +218,10 @@ export async function executeCodex(
         : `OPENAI_API_KEY=${escapeShellArg(openAiApiKey || "")} VLY_CODEX_AUTH_SOURCE="${authSource}"`;
     const convexDeployKeyExpr =
       '$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || cat "$HOME/.vly-coonvex/dev.key" 2>/dev/null || echo "")';
-    const baseCommand = `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="${convexDeployKeyExpr}" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
+    const convexEnvPrefix = shouldInjectConvexDeployKey
+      ? `CONVEX_DEPLOY_KEY="${convexDeployKeyExpr}" `
+      : "";
+    const baseCommand = `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} ${convexEnvPrefix}GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
     return sanitizeCodexShellCommand(baseCommand);
   };
   let fullCommand = "";
