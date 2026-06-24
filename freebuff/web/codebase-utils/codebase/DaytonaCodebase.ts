@@ -2125,6 +2125,10 @@ if (!hasIntegration) {
     // calls ensureGitRepository() when isGitCommand() is true, which would both
     // recurse infinitely (stack overflow) and `git init` before the clone.
     const command = [
+      // runCommand() executes inside /home/daytona/codebase by default; move to
+      // a stable parent before replacing that directory to avoid git failing
+      // with: "Unable to read current working directory".
+      "cd /home/daytona",
       `rm -rf ${this.projectPath}`,
       `mkdir -p ${this.projectPath}`,
       // Trust the target dir so the clone + later git ops don't hit git's
