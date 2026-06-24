@@ -1,0 +1,134 @@
+import { describe, test, expect, mock } from 'bun:test'
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { createMockLogger } from '@codebuff/common/testing/mock-types'
+
+import { generateLoginUrl, pollLoginStatus } from '../../login/login-flow'
+import { createMockApiClient } from '../helpers/mock-api-client'
+
+import type { ApiResponse } from '../../utils/codebuff-api'
+
+const createClock = () => {
+  let current = 0
+  return {
+    sleep: async (ms: number) => {
+      current += ms
+    },
+    now: () => current,
+  }
+}
+
+// Typed so `.mock.calls[i]` is `[AnalyticsEvent, props?]` rather than the empty
+// tuple inferred from `mock(() => {})` (which makes indexing a type error).
+const createTrackEventMock = () =>
+  mock((_event: AnalyticsEvent, _properties?: Record<string, any>) => {})
+
+describe('login-flow analytics instrumentation', () => {
+  test('generateLoginUrl emits LOGIN_STARTED on entry and nothing else on success', async () => {
+    const trackEvent = createTrackEventMock()
+    const loginCode = mock(async () => ({
+      ok: true as const,
+      status: 200,
+      data: {
+        loginUrl: 'https://cli.test/login?code=abc',
+        fingerprintHash: 'hash-1',
+        expiresAt: '2030-01-01T00:00:00Z',
+      },
+    }))
+    const apiClient = createMockApiClient({ loginCode })
+
+    await generateLoginUrl(
+      { logger: createMockLogger(), apiClient, trackEvent },
+      { baseUrl: 'https://cli.test', fingerprintId: 'finger-1', via: 'modal' },
+    )
+
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(trackEvent.mock.calls[0][0]).toBe(AnalyticsEvent.LOGIN_STARTED)
+    expect(trackEvent.mock.calls[0][1]).toEqual({ via: 'modal' })
+  })
+
+  test('generateLoginUrl emits LOGIN_FAILED with reason on a failed URL request', async () => {
+    const trackEvent = createTrackEventMock()
+    const loginCode = mock(
+      async () =>
+        ({ ok: false, status: 500, error: 'boom' }) as ApiResponse<never>,
+    )
+    const apiClient = createMockApiClient({ loginCode })
+
+    await expect(
+      generateLoginUrl(
+        { logger: createMockLogger(), apiClient, trackEvent },
+        {
+          baseUrl: 'https://cli.test',
+          fingerprintId: 'finger-1',
+          via: 'plain_command',
+        },
+      ),
+    ).rejects.toThrow()
+
+    // Two events: the initial LOGIN_STARTED and then LOGIN_FAILED. Match on the
+    // payload rather than the enum identity so the assertion is unambiguous.
+    expect(trackEvent).toHaveBeenCalledTimes(2)
+    expect(trackEvent.mock.calls[0][1]).toEqual({ via: 'plain_command' })
+    const failedCall = trackEvent.mock.calls.find(
+      (c) => c[1]?.reason === 'url_request',
+    )
+    expect(failedCall).toBeDefined()
+    expect(failedCall![1]).toEqual({
+      via: 'plain_command',
+      reason: 'url_request',
+      status: 500,
+    })
+  })
+
+  test('pollLoginStatus emits LOGIN_TIMEOUT with attempts + via', async () => {
+    const trackEvent = createTrackEventMock()
+    const loginStatus = mock(
+      async () => ({ ok: false, status: 401 }) as ApiResponse<{ user?: unknown }>,
+    )
+    const apiClient = createMockApiClient({ loginStatus })
+    const clock = createClock()
+
+    const result = await pollLoginStatus(
+      { sleep: clock.sleep, logger: createMockLogger(), now: clock.now, apiClient, trackEvent },
+      {
+        baseUrl: 'https://cli.test',
+        fingerprintId: 'finger-1',
+        fingerprintHash: 'hash-1',
+        expiresAt: '2030-01-01T00:00:00Z',
+        intervalMs: 10,
+        timeoutMs: 30,
+        via: 'modal',
+      },
+    )
+
+    expect(result.status).toBe('timeout')
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(trackEvent.mock.calls[0][0]).toBe(AnalyticsEvent.LOGIN_TIMEOUT)
+    expect(trackEvent.mock.calls[0][1]).toMatchObject({ via: 'modal' })
+    expect(trackEvent.mock.calls[0][1]!.attempts).toBeGreaterThan(0)
+  })
+
+  test('pollLoginStatus emits LOGIN_ABORTED when shouldContinue is false', async () => {
+    const trackEvent = createTrackEventMock()
+    const apiClient = createMockApiClient()
+    const clock = createClock()
+
+    const result = await pollLoginStatus(
+      { sleep: clock.sleep, logger: createMockLogger(), now: clock.now, apiClient, trackEvent },
+      {
+        baseUrl: 'https://cli.test',
+        fingerprintId: 'finger-1',
+        fingerprintHash: 'hash-1',
+        expiresAt: '2030-01-01T00:00:00Z',
+        shouldContinue: () => false,
+        via: 'modal',
+      },
+    )
+
+    expect(result.status).toBe('aborted')
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(trackEvent.mock.calls[0][0]).toBe(AnalyticsEvent.LOGIN_ABORTED)
+    expect(trackEvent.mock.calls[0][1]).toMatchObject({ via: 'modal' })
+  })
+})
