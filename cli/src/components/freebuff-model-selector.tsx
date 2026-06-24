@@ -24,6 +24,7 @@ import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 
 import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
+import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
@@ -180,6 +181,26 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // default selection; their own model when expanded for a returning user).
   const [focusedId, setFocusedId] = useState<string>(() => selectedModel)
 
+  // Focus targets contributed by the sibling referral banner (its copy / GLM
+  // buttons). The picker owns the only landing-screen keyboard handler, so it
+  // appends these after its own rows: arrowing down past the "see all models"
+  // toggle walks into them, and wrapping carries back up. `setLandingFocusedId`
+  // mirrors our cursor out so the banner can render its focused button.
+  const extraTargets = useFreebuffLandingFocusStore((s) => s.extraTargets)
+  const setLandingFocusedId = useFreebuffLandingFocusStore(
+    (s) => s.setFocusedId,
+  )
+  const extraTargetIds = useMemo(
+    () => extraTargets.map((t) => t.id),
+    [extraTargets],
+  )
+  useEffect(() => {
+    setLandingFocusedId(focusedId)
+  }, [focusedId, setLandingFocusedId])
+  // Clear the mirrored cursor when the picker unmounts so a stale id doesn't
+  // leave the banner's button looking focused on a screen without the picker.
+  useEffect(() => () => setLandingFocusedId(null), [setLandingFocusedId])
+
   const sections = useMemo(() => {
     if (!expanded) return [] as readonly Section[]
     if (accessTier === 'limited') {
@@ -212,10 +233,16 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     ],
     [recommendedModel, sections],
   )
-  // Keyboard-navigable ids include the toggle so Tab/arrows can reach it.
+  // Keyboard-navigable ids: the model rows, then the toggle, then any focus
+  // targets the referral banner registered (so arrowing down past "see all
+  // models" reaches its buttons; nextFreebuffModelId wraps back to the top).
   const navIds = useMemo(
-    () => (canCollapse ? [...renderedModelIds, TOGGLE_ID] : renderedModelIds),
-    [canCollapse, renderedModelIds],
+    () => [
+      ...renderedModelIds,
+      ...(canCollapse ? [TOGGLE_ID] : []),
+      ...extraTargetIds,
+    ],
+    [canCollapse, renderedModelIds, extraTargetIds],
   )
 
   // Keep focus valid as the list expands/collapses or the selection changes
@@ -410,6 +437,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   useEffect(() => {
     const sb = scrollRef.current
     if (!sb || !needsScroll) return
+    // Referral-banner focus targets live outside the scrollbox, so they have no
+    // offset entry — there's nothing to scroll into view when one is focused.
     const entry = offsetById[focusedId]
     if (!entry) return
     const viewportHeight = sb.viewport.height
@@ -477,6 +506,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             toggleExpanded()
             return
           }
+          // A referral-banner button (copy invite link / use GLM) is focused —
+          // fire its registered action instead of joining a queue.
+          const extraTarget = extraTargets.find((t) => t.id === focusedId)
+          if (extraTarget) {
+            key.preventDefault?.()
+            key.stopPropagation?.()
+            extraTarget.activate()
+            return
+          }
           if (isJoinable(focusedId) && focusedId !== committedModelId) {
             key.preventDefault?.()
             key.stopPropagation?.()
@@ -504,6 +542,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         committedModelId,
         isJoinable,
         navIds,
+        extraTargets,
       ],
     ),
   )
