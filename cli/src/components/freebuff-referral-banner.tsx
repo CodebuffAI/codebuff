@@ -3,7 +3,10 @@ import React, { useCallback, useEffect, useState } from 'react'
 
 import { Button } from './button'
 import { useCopyToClipboard } from './copy-button'
-import { FREEBUFF_GLM_V52_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_GLM_V52_REFERRAL_CAP,
+} from '@codebuff/common/constants/freebuff-models'
 import { getReferralInfo } from '@codebuff/common/types/freebuff-session'
 import { pluralize } from '@codebuff/common/util/string'
 
@@ -79,6 +82,9 @@ const CopyInviteLinkButton: React.FC<{
         paddingLeft: 2,
         paddingRight: 2,
         backgroundColor: 'transparent',
+        // Hug the label and never let a width-constrained row squash the
+        // bordered box (which would clip the label and mangle the border).
+        flexShrink: 0,
       }}
     >
       <text style={{ wrapMode: 'none' }}>
@@ -182,24 +188,25 @@ export const FreebuffReferralBanner: React.FC = () => {
           marginTop: 1,
         }}
       >
-        <text style={{ wrapMode: 'none' }}>
+        <text style={{ wrapMode: 'word' }}>
           <span fg={theme.muted}>✦ </span>
           {qualifiedCount > 0 ? (
             <>
               <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>
                 {' '}
-                — weekly sessions used, resets in {resetsIn}. Refer more:
+                — weekly sessions used, resets in {resetsIn}. Refer more (
+                {qualifiedCount}/{FREEBUFF_GLM_V52_REFERRAL_CAP}):
               </span>
             </>
           ) : (
             <>
-              <span fg={theme.muted}>Refer a friend to unlock </span>
-              <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>
-                {' '}
-                — the most powerful open-source model:
+                Refer up to {FREEBUFF_GLM_V52_REFERRAL_CAP} friends for more
+                sessions of{' '}
               </span>
+              <span fg={theme.foreground}>GLM 5.2</span>
+              <span fg={theme.muted}>, the most powerful open-source model:</span>
             </>
           )}
         </text>
@@ -275,7 +282,11 @@ export const FreebuffReferralBanner: React.FC = () => {
           isCopied={isCopied}
           focused={copyFocused}
           onCopy={copy}
-          label={`⎘ Invite a friend (${qualifiedCount} joined)`}
+          label={
+            qualifiedCount >= FREEBUFF_GLM_V52_REFERRAL_CAP
+              ? `✔ Max sessions earned (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`
+              : `⎘ Invite for +1/wk (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`
+          }
         />
       </box>
 

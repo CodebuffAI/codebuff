@@ -60,11 +60,68 @@ interface ReferralStatus {
   nextTier: FreebuffReferralTier | null;
   tiers: FreebuffReferralTier[];
   minGithubAccountAgeMonths: number;
-  recentReferrals: { status: "pending" | "completed"; createdAt: number }[];
+  recentReferrals: {
+    status: "pending" | "completed";
+    createdAt: number;
+    /** Why a pending signup hasn't qualified yet; null when qualified or just awaiting verification. */
+    blockedReason: "no_github" | "account_too_new" | null;
+  }[];
   leaderboard: ReferralLeaderboardEntry[];
 }
 
 const numberFormatter = new Intl.NumberFormat("en-US");
+
+/** Amber tint for signups that need the friend to do something to qualify. */
+const ACTION_BADGE_CLASS =
+  "border-amber-500/30 bg-amber-500/15 text-amber-600 hover:bg-amber-500/15 dark:text-amber-400";
+
+/**
+ * Map a recent signup to its referrer-facing status: a short badge label, an
+ * optional explanation of what's still needed, and the badge styling. Reasons
+ * are intentionally about the qualification gate only — never the friend's
+ * identity — so the referrer learns what to nudge without seeing who signed up.
+ */
+function describeReferral(
+  referral: {
+    status: "pending" | "completed";
+    blockedReason: "no_github" | "account_too_new" | null;
+  },
+  minGithubAccountAgeMonths: number,
+): {
+  label: string;
+  detail: string | null;
+  variant: "default" | "secondary";
+  badgeClass?: string;
+} {
+  if (referral.status === "completed") {
+    return { label: "Qualified", detail: null, variant: "default" };
+  }
+  switch (referral.blockedReason) {
+    // The only state the referrer can act on — nudge the friend to link GitHub.
+    case "no_github":
+      return {
+        label: "Needs GitHub",
+        detail:
+          "Signed up but hasn't connected a GitHub account yet. Ask them to link GitHub in settings so the referral can qualify.",
+        variant: "secondary",
+        badgeClass: ACTION_BADGE_CLASS,
+      };
+    // Account age is re-checked on every sign-in, so this can still qualify
+    // later once the account is old enough — not a dead end.
+    case "account_too_new":
+      return {
+        label: "GitHub too new",
+        detail: `Their GitHub account is under ${minGithubAccountAgeMonths} months old. It'll qualify automatically once it's old enough and they sign in again.`,
+        variant: "secondary",
+      };
+    default:
+      return {
+        label: "Pending",
+        detail: "We'll re-check automatically the next time your friend signs in.",
+        variant: "secondary",
+      };
+  }
+}
 
 export default function ReferralsPage() {
   const user = useSignedInUser();
@@ -325,8 +382,9 @@ export default function ReferralsPage() {
           <CardHeader>
             <CardTitle>Recent signups</CardTitle>
             <CardDescription>
-              Signups through your link stay pending until the GitHub account
-              passes the age and one-time bonus checks.
+              Signups through your link stay pending until your friend's GitHub
+              account passes the age and one-time bonus checks. We re-check each
+              time they sign in — the status below shows what's still needed.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -338,23 +396,35 @@ export default function ReferralsPage() {
               </div>
             ) : status.recentReferrals.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {status.recentReferrals.map((referral, index) => (
-                  <div
-                    key={`${referral.createdAt}-${index}`}
-                    className="flex items-center justify-between rounded-2xl border border-border/60 bg-background/45 p-4 text-sm"
-                  >
-                    <span className="text-muted-foreground">
-                      {new Date(referral.createdAt).toLocaleDateString()}
-                    </span>
-                    <Badge
-                      variant={
-                        referral.status === "completed" ? "default" : "secondary"
-                      }
+                {status.recentReferrals.map((referral, index) => {
+                  const display = describeReferral(
+                    referral,
+                    status.minGithubAccountAgeMonths,
+                  );
+                  return (
+                    <div
+                      key={`${referral.createdAt}-${index}`}
+                      className="flex flex-col gap-2 rounded-2xl border border-border/60 bg-background/45 p-4 text-sm"
                     >
-                      {referral.status === "completed" ? "Qualified" : "Pending"}
-                    </Badge>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">
+                          {new Date(referral.createdAt).toLocaleDateString()}
+                        </span>
+                        <Badge
+                          variant={display.variant}
+                          className={display.badgeClass}
+                        >
+                          {display.label}
+                        </Badge>
+                      </div>
+                      {display.detail && (
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {display.detail}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
