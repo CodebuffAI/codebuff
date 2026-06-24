@@ -1,3 +1,5 @@
+"use node";
+
 import { internal } from "../../../_generated/api";
 import type { Doc, Id } from "../../../_generated/dataModel";
 import type { ActionCtx } from "../../../_generated/server";

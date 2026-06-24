@@ -1,3 +1,5 @@
+"use node";
+
 import type { Doc } from "../../../_generated/dataModel";
 import { DaytonaCodebase } from "../../../../codebase-utils/codebase/DaytonaCodebase";
 

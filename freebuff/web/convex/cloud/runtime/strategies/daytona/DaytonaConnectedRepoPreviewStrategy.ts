@@ -1,3 +1,5 @@
+"use node";
+
 import { DaytonaCodebase } from "../../../../../codebase-utils/codebase/DaytonaCodebase";
 import {
   DetectedPreviewConfig,
