@@ -79,6 +79,18 @@ export async function executeCodex(
       .trim();
   };
 
+  const normalizeByokOpenAiKey = (value: string | undefined): string | undefined => {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    // Common paste typo: keys accidentally start with "ssk-".
+    if (trimmed.startsWith("ssk-")) {
+      return trimmed.slice(1);
+    }
+    return trimmed;
+  };
+
   // Check if this is the first message (no active session ID means new thread)
   const isFirstMessage = !args.activeSessionId;
 
@@ -192,7 +204,9 @@ export async function executeCodex(
       authSource === "stored_chatgpt"
         ? `OPENAI_API_KEY= VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
         : `OPENAI_API_KEY=${escapeShellArg(openAiApiKey || "")} VLY_CODEX_AUTH_SOURCE="${authSource}"`;
-    return `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || echo "")" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
+    const convexDeployKeyExpr =
+      '$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || cat "$HOME/.vly-coonvex/dev.key" 2>/dev/null || echo "")';
+    return `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="${convexDeployKeyExpr}" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
   };
   let fullCommand = "";
 
@@ -764,7 +778,7 @@ export async function executeCodex(
     let resolvedOpenAiApiKey: string | undefined = undefined;
 
     if (args.gptAuthMethod === "byok") {
-      resolvedOpenAiApiKey = args.openAiApiKey?.trim() || undefined;
+      resolvedOpenAiApiKey = normalizeByokOpenAiKey(args.openAiApiKey);
       if (!resolvedOpenAiApiKey) {
         assistantStream.push({
           type: "assistant",
@@ -781,6 +795,22 @@ export async function executeCodex(
         return { success: true, sessionId: undefined };
       }
       authSource = "byok_openai";
+
+      if (!resolvedOpenAiApiKey.startsWith("sk-")) {
+        assistantStream.push({
+          type: "assistant",
+          content:
+            "Your OpenAI API key looks invalid (it should start with `sk-`). Go to Settings > AI Credentials, update it, and retry.",
+        });
+        await ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_message.updateAgentMessageStream,
+          {
+            messageId: args.messageId,
+            assistantStream: [...assistantStream],
+          },
+        );
+        return { success: true, sessionId: undefined };
+      }
     } else {
       const executingUser = await ctx.runQuery(internal.users.get, {
         userId: args.executingUserId,
@@ -928,6 +958,24 @@ export async function executeCodex(
     };
 
     let result = await runCodexCommandAndProcessOutput(fullCommand);
+
+    // Some Codex CLI runs emit a new thread id then exit non-zero before the
+    // first turn completes. Retry once by resuming that fresh session.
+    if (
+      !shouldTerminate &&
+      !activeSessionId &&
+      newSessionId &&
+      result.exitCode !== null &&
+      result.exitCode !== 0
+    ) {
+      fullCommand = buildCodexCommand(
+        newSessionId,
+        authSource,
+        resolvedOpenAiApiKey,
+        "subcommand",
+      );
+      result = await runCodexCommandAndProcessOutput(fullCommand);
+    }
 
     // Resume compatibility / stale-session fallback:
     // 1) Try current syntax first: codex exec resume <SESSION_ID> ...

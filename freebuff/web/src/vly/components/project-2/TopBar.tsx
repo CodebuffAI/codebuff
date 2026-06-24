@@ -83,6 +83,7 @@ export function TopBar({
   const publishProject = useMutation(api.community.publishProject)
 
   const currentUserId = useQuery(api.community.getCurrentUserId)
+  const isConnectedRepo = project?.project_type === 'connected_repo'
 
   // Posted to community after a successful deployment
   const handleDeployTriggered = async () => {
@@ -342,31 +343,32 @@ export function TopBar({
             </TooltipContent>
           </Tooltip>
 
-          {/* Publish - primary CTA */}
-          <DeploymentDialog
-            isOpen={deployDialogOpen}
-            onOpenChange={setDeployDialogOpen}
-            projectId={project._id}
-            settingsHref={`/web/project/${project.semantic_identifier}/settings?section=deployments`}
-            onDeployTriggered={handleDeployTriggered}
-            trigger={
-              <button
-                type="button"
-                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:ml-1 sm:px-3"
-                disabled={isPublishing}
-                aria-label="Publish"
-              >
-                {isPublishing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Rocket className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">
-                  {isPublishing ? 'Publishing…' : 'Publish'}
-                </span>
-              </button>
-            }
-          />
+          {!isConnectedRepo && (
+            <DeploymentDialog
+              isOpen={deployDialogOpen}
+              onOpenChange={setDeployDialogOpen}
+              projectId={project._id}
+              settingsHref={`/web/project/${project.semantic_identifier}/settings?section=deployments`}
+              onDeployTriggered={handleDeployTriggered}
+              trigger={
+                <button
+                  type="button"
+                  className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:ml-1 sm:px-3"
+                  disabled={isPublishing}
+                  aria-label="Publish"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Rocket className="h-3.5 w-3.5" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isPublishing ? 'Publishing…' : 'Publish'}
+                  </span>
+                </button>
+              }
+            />
+          )}
         </div>
       </div>
 
