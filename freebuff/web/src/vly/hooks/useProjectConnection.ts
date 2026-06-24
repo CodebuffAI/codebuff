@@ -4,9 +4,12 @@ import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { useCallback, useEffect, useRef } from "react";
 
+export type ProjectRuntimeSurface = "web" | "cloud";
+
 interface UseProjectConnectionParams {
   semanticIdentifier: string | undefined;
   onSuccess?: () => void;
+  runtimeSurface?: ProjectRuntimeSurface;
 }
 
 interface CheckProjectConnectionOptions {
@@ -17,10 +20,19 @@ interface CheckProjectConnectionOptions {
 export function useProjectConnection({
   semanticIdentifier,
   onSuccess,
+  runtimeSurface = "web",
 }: UseProjectConnectionParams) {
-  const verifyProjectAccessAndConnectAction = useAction(
+  const verifyProjectAccessAndConnectWebAction = useAction(
     api.codesandbox.management.verifyProjectAccessAndConnect,
   );
+  const verifyProjectAccessAndConnectCloudAction = useAction(
+    (api as any).cloud.connection.verifyProjectAccessAndConnect,
+  );
+  const isCloudRoute = runtimeSurface === "cloud";
+
+  const verifyProjectAccessAndConnectAction = isCloudRoute
+    ? verifyProjectAccessAndConnectCloudAction
+    : verifyProjectAccessAndConnectWebAction;
 
   const hasToasted = useRef(false);
 
@@ -58,7 +70,7 @@ export function useProjectConnection({
   // Use useQuery for automatic, declarative data fetching
   // React Query handles deduplication, caching, and prevents duplicate requests
   const query = useQuery({
-    queryKey: ["projectConnection", semanticIdentifier],
+    queryKey: ["projectConnection", runtimeSurface, semanticIdentifier],
     queryFn: async () => {
       if (!semanticIdentifier) {
         throw new Error("No semantic identifier provided");

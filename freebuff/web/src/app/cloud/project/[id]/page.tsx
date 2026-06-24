@@ -1,6 +1,7 @@
 'use client'
 
-import { Project2, ProjectLoadingScreen } from '@/vly/components/pages/project-2'
+import { ProjectLoadingScreen } from '@/vly/components/pages/project-2'
+import { CloudProject2 } from '@/vly/components/pages/cloud-project-2'
 import { ProjectErrorBoundary } from '@/vly/components/error-boundary'
 import {
   useParams,
@@ -108,7 +109,7 @@ function ProjectPageContent({
 
   return (
     <>
-      <Project2 shouldShowPublicModel={shouldShowPublicModel} />
+      <CloudProject2 shouldShowPublicModel={shouldShowPublicModel} />
       {needsMigration && (
         <MigrationOverlay semanticIdentifier={semanticIdentifier} />
       )}

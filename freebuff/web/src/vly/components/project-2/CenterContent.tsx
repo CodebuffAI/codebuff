@@ -17,6 +17,7 @@ import { useIsMobile } from "@/vly/hooks/use-mobile";
 import { Spinner3D } from "./Spinner3D";
 import styles from "./CenterContent.module.css";
 import { useProjectConnection } from "@/vly/hooks/useProjectConnection";
+import type { ProjectRuntimeSurface } from "@/vly/hooks/useProjectConnection";
 import { toast } from "sonner";
 import { useSignedInUser } from "@/vly/hooks/use-user";
 import {
@@ -62,6 +63,7 @@ interface CenterContentProps {
    * user is signaling they want to interact with the preview.
    */
   onClickToTest?: () => void;
+  runtimeSurface?: ProjectRuntimeSurface;
 }
 
 type ScreenshotTrigger = "auto" | "manual";
@@ -283,12 +285,11 @@ export function CenterContent({
   refreshTrigger = 0,
   forceShowClickToTest = false,
   onClickToTest,
+  runtimeSurface = "web",
 }: CenterContentProps) {
   const [isIframeActive, setIsIframeActive] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
-  // Connected-repo (Freebuff Cloud) projects get hosted editor + terminal tabs.
-  const isConnectedRepo =
-    (project as any)?.project_type === "connected_repo";
+  const isConnectedRepo = runtimeSurface === "cloud";
   const [viewMode, setViewMode] = useState<WorkspaceViewMode>("preview");
   const editorUrl = getDaytonaPreviewUrl(project, OPENVSCODE_PORT);
   const terminalUrl = getDaytonaPreviewUrl(project, TTYD_PORT);
@@ -466,6 +467,7 @@ export function CenterContent({
     checkProjectConnection,
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
+    runtimeSurface,
     onSuccess: () => {
       // Force refresh the iframe content after successful connection. Only
       // skip pretty-domain previews because programmatic reloads break styles.

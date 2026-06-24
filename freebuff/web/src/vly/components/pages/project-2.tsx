@@ -40,6 +40,7 @@ import {
 } from "@/vly/components/project-2/StarterUpgradePopup";
 import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
 import { AmbientBackdrop } from "@/vly/components/app-shell/AmbientBackdrop";
+import type { ProjectRuntimeSurface } from "@/vly/hooks/useProjectConnection";
 import {
   ProjectIframeArea,
   type IframeTab,
@@ -136,8 +137,10 @@ function tabToView(tab: IframeTab): ActiveView {
 
 export function Project2({
   shouldShowPublicModel = false,
+  runtimeSurface = "web",
 }: {
   shouldShowPublicModel?: boolean;
+  runtimeSurface?: ProjectRuntimeSurface;
 }) {
   const params = useParams();
   const semanticIdentifier = typeof params.id === "string" ? params.id : "";
@@ -151,6 +154,7 @@ export function Project2({
       key={semanticIdentifier}
       semanticIdentifier={semanticIdentifier}
       shouldShowPublicModel={shouldShowPublicModel}
+      runtimeSurface={runtimeSurface}
     />
   );
 }
@@ -176,9 +180,11 @@ function ProjectPausedBanner({ projectId }: { projectId?: Id<"project"> }) {
 function ProjectWrapper({
   semanticIdentifier,
   shouldShowPublicModel = false,
+  runtimeSurface = "web",
 }: {
   semanticIdentifier: string;
   shouldShowPublicModel?: boolean;
+  runtimeSurface?: ProjectRuntimeSurface;
 }) {
   const { projectTheme, toggleProjectTheme } = useProjectPageTheme();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
@@ -471,8 +477,9 @@ function ProjectWrapper({
 
   const [isSelectingElement, setIsSelectingElement] = useState(false);
   const [currentPageUrl, setCurrentPageUrl] = useState<string>("");
+  const isCloudSurface = runtimeSurface === "cloud";
   const [showDeploymentDialog, setShowDeploymentDialog] = useState(
-    shouldShowPublicModel,
+    isCloudSurface ? false : shouldShowPublicModel,
   );
   // Mobile-only "tab" state. Desktop renders chat and iframe side-by-side
   // and ignores this entirely. On mobile we swap full-screen between the
@@ -618,20 +625,19 @@ function ProjectWrapper({
 
     const initialState = project.state;
     initialProjectStateRef.current = initialState ?? "active";
-    const isConnectedRepoProject = project.project_type === "connected_repo";
     const looksLikeFirstBuild =
-      !isConnectedRepoProject &&
+      !isCloudSurface &&
       !hasGeneratedProjectContent &&
       (initialState === "processing" || initialState === "initializing");
     if (looksLikeFirstBuild) {
       setHasRevealedIframe(false);
     }
-  }, [hasGeneratedProjectContent, project]);
+  }, [hasGeneratedProjectContent, isCloudSurface, project]);
 
   useEffect(() => {
     if (hasRevealedIframe) return;
     if (project === undefined || project === null) return;
-    if (project.project_type === "connected_repo") {
+    if (isCloudSurface) {
       setHasRevealedIframe(true);
       return;
     }
@@ -645,7 +651,7 @@ function ProjectWrapper({
       // Refresh iframe once the build settles so it picks up the new server.
       setIframeRefreshKey((k) => k + 1);
     }
-  }, [hasGeneratedProjectContent, hasRevealedIframe, project]);
+  }, [hasGeneratedProjectContent, hasRevealedIframe, isCloudSurface, project]);
 
   // ── Chat expand / collapse via explicit, intentional triggers ───────
   // Per design feedback we no longer auto-expand on any pointerdown in the
@@ -777,14 +783,16 @@ function ProjectWrapper({
   return (
     <>
       {/* Deployment Dialog - triggered by publish URL param */}
-      <Suspense fallback={<div />}>
-        <DeploymentDialog
-          isOpen={showDeploymentDialog}
-          onOpenChange={setShowDeploymentDialog}
-          projectId={project._id}
-          settingsHref={`/web/project/${semanticIdentifier}/settings?section=deployments`}
-        />
-      </Suspense>
+      {!isCloudSurface && (
+        <Suspense fallback={<div />}>
+          <DeploymentDialog
+            isOpen={showDeploymentDialog}
+            onOpenChange={setShowDeploymentDialog}
+            projectId={project._id}
+            settingsHref={`/web/project/${semanticIdentifier}/settings?section=deployments`}
+          />
+        </Suspense>
+      )}
 
       <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-background">
         {/* Top bar — hidden on the mobile Preview tab so the iframe gets
@@ -793,6 +801,7 @@ function ProjectWrapper({
           <div className="relative z-50 flex-shrink-0">
             <TopBar
               project={project}
+              runtimeSurface={runtimeSurface}
               projectTheme={projectTheme}
               onToggleProjectTheme={toggleProjectTheme}
             />
@@ -935,6 +944,7 @@ function ProjectWrapper({
                 if (url) window.open(url, "_blank", "noopener,noreferrer");
               }}
               onRefresh={() => setIframeRefreshKey((k) => k + 1)}
+              runtimeSurface={runtimeSurface}
             />
           </section>
         </div>
