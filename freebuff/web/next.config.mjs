@@ -1,4 +1,5 @@
 import { resolve } from 'path'
+import { blogSlugRedirects } from './blog-redirects.mjs'
 import dotenv from 'dotenv'
 
 const repoRoot = resolve(import.meta.dirname, '../..')
@@ -128,7 +129,12 @@ const nextConfig = {
   },
   reactStrictMode: false,
   async redirects() {
+    const blogRedirects = blogSlugRedirects.map((r) => ({
+      ...r,
+      permanent: true,
+    }))
     return [
+      ...blogRedirects,
       {
         source: '/b/:hash',
         destination: 'https://go.trybeluga.ai/:hash',

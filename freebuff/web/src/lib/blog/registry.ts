@@ -1,58 +1,67 @@
 import { post as bestFreeCliCodingAgents2026 } from './posts/best-free-cli-coding-agents-2026'
 import { post as codingAgentBenchmarksWhatTheyMiss } from './posts/coding-agent-benchmarks-what-they-miss'
 import { post as freeAlternativeToA0Dev } from './posts/free-alternative-to-a0-dev'
-import { post as freeAlternativeToAntigravity } from './posts/free-alternative-to-antigravity'
-import { post as freeAlternativeToAnything } from './posts/free-alternative-to-anything'
-import { post as freeAlternativeToAura } from './posts/free-alternative-to-aura'
-import { post as freeAlternativeToBase44 } from './posts/free-alternative-to-base44'
 import { post as freeAlternativeToBloom } from './posts/free-alternative-to-bloom'
-import { post as freeAlternativeToBolt } from './posts/free-alternative-to-bolt'
-import { post as freeAlternativeToCanva } from './posts/free-alternative-to-canva'
-import { post as freeAlternativeToCosmic } from './posts/free-alternative-to-cosmic'
-import { post as freeAlternativeToFigmaMake } from './posts/free-alternative-to-figma-make'
-import { post as freeAlternativeToGoogleAiStudio } from './posts/free-alternative-to-google-ai-studio'
-import { post as freeAlternativeToMacaly } from './posts/free-alternative-to-macaly'
-import { post as freeAlternativeToMagicPatterns } from './posts/free-alternative-to-magic-patterns'
-import { post as freeAlternativeToMocha } from './posts/free-alternative-to-mocha'
-import { post as freeAlternativeToOrchids } from './posts/free-alternative-to-orchids'
-import { post as freeAlternativeToSameNew } from './posts/free-alternative-to-same-new'
-import { post as freeAlternativeToV0 } from './posts/free-alternative-to-v0'
-import { post as freeAlternativeToClaudeCode } from './posts/free-alternative-to-claude-code'
-import { post as freeAlternativeToCodex } from './posts/free-alternative-to-codex'
-import { post as freeAlternativeToCursor } from './posts/free-alternative-to-cursor'
 import { post as freeAlternativeToDevin } from './posts/free-alternative-to-devin'
-import { post as freeAlternativeToEmergent } from './posts/free-alternative-to-emergent'
-import { post as freeAlternativeToFloot } from './posts/free-alternative-to-floot'
 import { post as freeAlternativeToGeminiCli } from './posts/free-alternative-to-gemini-cli'
 import { post as freeAlternativeToHeyboss } from './posts/free-alternative-to-heyboss'
-import { post as freeAlternativeToLovable } from './posts/free-alternative-to-lovable'
-import { post as freeAlternativeToOpencode } from './posts/free-alternative-to-opencode'
-import { post as freeAlternativeToReplit } from './posts/free-alternative-to-replit'
 import { post as freeAlternativeToVibecode } from './posts/free-alternative-to-vibecode'
 import { post as freeAlternativeToWindsurf } from './posts/free-alternative-to-windsurf'
+import { post as freeAntigravityCliCodingAgentAlternativeFreebuff } from './posts/free-antigravity-cli-coding-agent-alternative-freebuff'
+import { post as freeAnythingComAiAppBuilderAlternativeFreebuff } from './posts/free-anything-com-ai-app-builder-alternative-freebuff'
+import { post as freeAuraBuildAiWebsiteBuilderAlternativeFreebuff } from './posts/free-aura-build-ai-website-builder-alternative-freebuff'
+import { post as freeBase44AiAppBuilderAlternativeFreebuff } from './posts/free-base44-ai-app-builder-alternative-freebuff'
+import { post as freeBoltNewAiAppBuilderAlternativeFreebuff } from './posts/free-bolt-new-ai-app-builder-alternative-freebuff'
+import { post as freeCanvaCodeAiAppBuilderAlternativeFreebuff } from './posts/free-canva-code-ai-app-builder-alternative-freebuff'
+import { post as freeClaudeCodeCliCodingAgentAlternativeFreebuff } from './posts/free-claude-code-cli-coding-agent-alternative-freebuff'
+import { post as freeCodexCliOpenaiCodingAgentAlternativeFreebuff } from './posts/free-codex-cli-openai-coding-agent-alternative-freebuff'
+import { post as freeCosmicNewAiAppBuilderAlternativeFreebuff } from './posts/free-cosmic-new-ai-app-builder-alternative-freebuff'
+import { post as freeCursorAgentCliCodingAlternativeFreebuff } from './posts/free-cursor-agent-cli-coding-alternative-freebuff'
+import { post as freeEmergentShAiAppBuilderAlternativeFreebuff } from './posts/free-emergent-sh-ai-app-builder-alternative-freebuff'
+import { post as freeFigmaMakeAiAppBuilderAlternativeFreebuff } from './posts/free-figma-make-ai-app-builder-alternative-freebuff'
+import { post as freeFlootAiAppBuilderAlternativeFreebuff } from './posts/free-floot-ai-app-builder-alternative-freebuff'
+import { post as freeGetmochaMochaAiAppBuilderAlternativeFreebuff } from './posts/free-getmocha-mocha-ai-app-builder-alternative-freebuff'
+import { post as freeGithubCopilotCliCodingAgentAlternativeFreebuff } from './posts/free-github-copilot-cli-coding-agent-alternative-freebuff'
+import { post as freeGoogleAiStudioGeminiAppBuilderAlternativeFreebuff } from './posts/free-google-ai-studio-gemini-app-builder-alternative-freebuff'
+import { post as freeLovableDevAiAppBuilderAlternativeFreebuff } from './posts/free-lovable-dev-ai-app-builder-alternative-freebuff'
+import { post as freeMacalyAiAppBuilderAlternativeFreebuff } from './posts/free-macaly-ai-app-builder-alternative-freebuff'
+import { post as freeMagicPatternsAiUiGeneratorAlternativeFreebuff } from './posts/free-magic-patterns-ai-ui-generator-alternative-freebuff'
+import { post as freeOpencodeCliCodingAgentAlternativeFreebuff } from './posts/free-opencode-cli-coding-agent-alternative-freebuff'
+import { post as freeOrchidsAiAppBuilderAlternativeFreebuff } from './posts/free-orchids-ai-app-builder-alternative-freebuff'
+import { post as freePiCodingAgentCliAlternativeFreebuff } from './posts/free-pi-coding-agent-cli-alternative-freebuff'
+import { post as freeReplitAgentDesignModeAppBuilderAlternativeFreebuff } from './posts/free-replit-agent-design-mode-app-builder-alternative-freebuff'
+import { post as freeSameNewAiAppBuilderAlternativeFreebuff } from './posts/free-same-new-ai-app-builder-alternative-freebuff'
+import { post as freeV0VercelAiAppBuilderAlternativeFreebuff } from './posts/free-v0-vercel-ai-app-builder-alternative-freebuff'
 import { post as freebuffInTheWildMay } from './posts/freebuff-in-the-wild-may'
 import { post as freebuffLaunch } from './posts/freebuff-launch'
 import { post as freebuffSubagentsDeepDive } from './posts/freebuff-subagents-deep-dive'
 import { post as freebuffWebLaunch } from './posts/freebuff-web-launch'
 import { post as freebuffWebVsLovableBoltReplit } from './posts/freebuff-web-vs-lovable-bolt-replit'
-import { post as howOneAnythingUserSaved288SwitchingToFreebuff } from './posts/how-one-anything-user-saved-288-switching-to-freebuff'
-import { post as howOneAuraUserSaved600SwitchingToFreebuff } from './posts/how-one-aura-user-saved-600-switching-to-freebuff'
-import { post as howOneBase44UserSaved960SwitchingToFreebuff } from './posts/how-one-base44-user-saved-960-switching-to-freebuff'
-import { post as howOneBoltUserSaved600SwitchingToFreebuff } from './posts/how-one-bolt-user-saved-600-switching-to-freebuff'
-import { post as howOneCanvaUserSaved252SwitchingToFreebuff } from './posts/how-one-canva-user-saved-252-switching-to-freebuff'
-import { post as howOneCosmicUserSaved360SwitchingToFreebuff } from './posts/how-one-cosmic-user-saved-360-switching-to-freebuff'
-import { post as howOneEmergentUserSaved600SwitchingToFreebuff } from './posts/how-one-emergent-user-saved-600-switching-to-freebuff'
-import { post as howOneFigmaMakeUserSaved240SwitchingToFreebuff } from './posts/how-one-figma-make-user-saved-240-switching-to-freebuff'
-import { post as howOneFlootUserSaved300SwitchingToFreebuff } from './posts/how-one-floot-user-saved-300-switching-to-freebuff'
-import { post as howOneGoogleAiStudioUserSaved240SwitchingToFreebuff } from './posts/how-one-google-ai-studio-user-saved-240-switching-to-freebuff'
-import { post as howOneLovableUserSaved600SwitchingToFreebuff } from './posts/how-one-lovable-user-saved-600-switching-to-freebuff'
-import { post as howOneMacalyUserSaved300SwitchingToFreebuff } from './posts/how-one-macaly-user-saved-300-switching-to-freebuff'
-import { post as howOneMagicPatternsUserSaved1200SwitchingToFreebuff } from './posts/how-one-magic-patterns-user-saved-1200-switching-to-freebuff'
-import { post as howOneMochaUserSaved600SwitchingToFreebuff } from './posts/how-one-mocha-user-saved-600-switching-to-freebuff'
-import { post as howOneOrchidsUserSaved600SwitchingToFreebuff } from './posts/how-one-orchids-user-saved-600-switching-to-freebuff'
-import { post as howOneReplitUserSaved300SwitchingToFreebuff } from './posts/how-one-replit-user-saved-300-switching-to-freebuff'
-import { post as howOneSameNewUserSaved600SwitchingToFreebuff } from './posts/how-one-same-new-user-saved-600-switching-to-freebuff'
-import { post as howOneV0UserSaved360SwitchingToFreebuff } from './posts/how-one-v0-user-saved-360-switching-to-freebuff'
+import { post as save1200PerYearMagicPatternsAiUiGeneratorFreebuffAlternative } from './posts/save-1200-per-year-magic-patterns-ai-ui-generator-freebuff-alternative'
+import { post as save240PerYearAntigravityCliGeminiFreebuffAlternative } from './posts/save-240-per-year-antigravity-cli-gemini-freebuff-alternative'
+import { post as save240PerYearClaudeCodeCliFreebuffAlternative } from './posts/save-240-per-year-claude-code-cli-freebuff-alternative'
+import { post as save240PerYearCodexCliChatgptPlusFreebuffAlternative } from './posts/save-240-per-year-codex-cli-chatgpt-plus-freebuff-alternative'
+import { post as save240PerYearCursorAgentProFreebuffCliAlternative } from './posts/save-240-per-year-cursor-agent-pro-freebuff-cli-alternative'
+import { post as save240PerYearFigmaMakeAiAppBuilderFreebuffAlternative } from './posts/save-240-per-year-figma-make-ai-app-builder-freebuff-alternative'
+import { post as save240PerYearGoogleAiStudioGeminiAppBuilderFreebuffAlternative } from './posts/save-240-per-year-google-ai-studio-gemini-app-builder-freebuff-alternative'
+import { post as save240PerYearPiCodingAgentApiFreebuffCliAlternative } from './posts/save-240-per-year-pi-coding-agent-api-freebuff-cli-alternative'
+import { post as save252PerYearCanvaCodeAiAppBuilderFreebuffAlternative } from './posts/save-252-per-year-canva-code-ai-app-builder-freebuff-alternative'
+import { post as save288PerYearAnythingComAiAppBuilderFreebuffAlternative } from './posts/save-288-per-year-anything-com-ai-app-builder-freebuff-alternative'
+import { post as save300PerYearFlootAiAppBuilderFreebuffAlternative } from './posts/save-300-per-year-floot-ai-app-builder-freebuff-alternative'
+import { post as save300PerYearMacalyAiAppBuilderFreebuffAlternative } from './posts/save-300-per-year-macaly-ai-app-builder-freebuff-alternative'
+import { post as save300PerYearReplitAgentDesignModeFreebuffAlternative } from './posts/save-300-per-year-replit-agent-design-mode-freebuff-alternative'
+import { post as save360PerYearCosmicNewAiAppBuilderFreebuffAlternative } from './posts/save-360-per-year-cosmic-new-ai-app-builder-freebuff-alternative'
+import { post as save360PerYearOpencodeCliApiCostsFreebuffAlternative } from './posts/save-360-per-year-opencode-cli-api-costs-freebuff-alternative'
+import { post as save360PerYearV0VercelAiAppBuilderFreebuffAlternative } from './posts/save-360-per-year-v0-vercel-ai-app-builder-freebuff-alternative'
+import { post as save468PerYearGithubCopilotCliProPlusFreebuffAlternative } from './posts/save-468-per-year-github-copilot-cli-pro-plus-freebuff-alternative'
+import { post as save600PerYearAuraBuildAiWebsiteBuilderFreebuffAlternative } from './posts/save-600-per-year-aura-build-ai-website-builder-freebuff-alternative'
+import { post as save600PerYearBoltNewAiAppBuilderFreebuffAlternative } from './posts/save-600-per-year-bolt-new-ai-app-builder-freebuff-alternative'
+import { post as save600PerYearEmergentAiAppBuilderFreebuffAlternative } from './posts/save-600-per-year-emergent-ai-app-builder-freebuff-alternative'
+import { post as save600PerYearGetmochaMochaAiAppBuilderFreebuffAlternative } from './posts/save-600-per-year-getmocha-mocha-ai-app-builder-freebuff-alternative'
+import { post as save600PerYearLovableDevAiAppBuilderFreebuffAlternative } from './posts/save-600-per-year-lovable-dev-ai-app-builder-freebuff-alternative'
+import { post as save600PerYearOrchidsAiAppBuilderFreebuffAlternative } from './posts/save-600-per-year-orchids-ai-app-builder-freebuff-alternative'
+import { post as save600PerYearSameNewAiAppBuilderFreebuffAlternative } from './posts/save-600-per-year-same-new-ai-app-builder-freebuff-alternative'
+import { post as save960PerYearBase44AiAppBuilderFreebuffAlternative } from './posts/save-960-per-year-base44-ai-app-builder-freebuff-alternative'
 import { post as sideIncomeWithFreebuffIndia } from './posts/side-income-with-freebuff-india'
 import { post as stateOfFreeAiCoding2026 } from './posts/state-of-free-ai-coding-2026'
 import { post as switchFromCursorToFreebuff } from './posts/switch-from-cursor-to-freebuff'
@@ -64,10 +73,7 @@ import type { Post } from './types'
 
 /**
  * Canonical list of all published blog posts.
- *
- * Add a new post by creating it in `posts/<slug>.ts` and appending it here.
- * The blog index, sitemap, RSS feed, and `/blog/[slug]` route all read from
- * this list.
+ * Regenerated by scripts/regenerate-blog-registry.ts — add static posts there.
  */
 const allPosts: Post[] = [
   // Launches
@@ -75,60 +81,71 @@ const allPosts: Post[] = [
   freebuffWebLaunch,
   vlyBecomesFreebuffWeb,
 
-  // Comparisons — CLI agents
-  freeAlternativeToClaudeCode,
-  freeAlternativeToCodex,
-  freeAlternativeToCursor,
+  // Comparisons — CLI agents (SEO slugs)
+  freeClaudeCodeCliCodingAgentAlternativeFreebuff,
+  freeCodexCliOpenaiCodingAgentAlternativeFreebuff,
+  freeCursorAgentCliCodingAlternativeFreebuff,
+  freeOpencodeCliCodingAgentAlternativeFreebuff,
+  freeAntigravityCliCodingAgentAlternativeFreebuff,
+  freePiCodingAgentCliAlternativeFreebuff,
+  freeGithubCopilotCliCodingAgentAlternativeFreebuff,
   freeAlternativeToWindsurf,
   freeAlternativeToDevin,
-  freeAlternativeToOpencode,
   freeAlternativeToGeminiCli,
-  freeAlternativeToAntigravity,
 
-  // Comparisons — App builders (DesignArena competitors)
-  freeAlternativeToAnything,
-  freeAlternativeToAura,
-  freeAlternativeToBase44,
-  freeAlternativeToBolt,
-  freeAlternativeToCanva,
-  freeAlternativeToCosmic,
-  freeAlternativeToEmergent,
-  freeAlternativeToFigmaMake,
-  freeAlternativeToFloot,
-  freeAlternativeToGoogleAiStudio,
-  freeAlternativeToLovable,
-  freeAlternativeToMacaly,
-  freeAlternativeToMagicPatterns,
-  freeAlternativeToMocha,
-  freeAlternativeToOrchids,
-  freeAlternativeToReplit,
-  freeAlternativeToSameNew,
-  freeAlternativeToV0,
-  freeAlternativeToVibecode,
-  freeAlternativeToHeyboss,
+  // Comparisons — App builders
+  freeAnythingComAiAppBuilderAlternativeFreebuff,
+  freeAuraBuildAiWebsiteBuilderAlternativeFreebuff,
+  freeBase44AiAppBuilderAlternativeFreebuff,
+  freeBoltNewAiAppBuilderAlternativeFreebuff,
+  freeCanvaCodeAiAppBuilderAlternativeFreebuff,
+  freeCosmicNewAiAppBuilderAlternativeFreebuff,
+  freeEmergentShAiAppBuilderAlternativeFreebuff,
+  freeFigmaMakeAiAppBuilderAlternativeFreebuff,
+  freeFlootAiAppBuilderAlternativeFreebuff,
+  freeGetmochaMochaAiAppBuilderAlternativeFreebuff,
+  freeGoogleAiStudioGeminiAppBuilderAlternativeFreebuff,
+  freeLovableDevAiAppBuilderAlternativeFreebuff,
+  freeMacalyAiAppBuilderAlternativeFreebuff,
+  freeMagicPatternsAiUiGeneratorAlternativeFreebuff,
+  freeOrchidsAiAppBuilderAlternativeFreebuff,
+  freeReplitAgentDesignModeAppBuilderAlternativeFreebuff,
+  freeSameNewAiAppBuilderAlternativeFreebuff,
+  freeV0VercelAiAppBuilderAlternativeFreebuff,
   freeAlternativeToA0Dev,
   freeAlternativeToBloom,
+  freeAlternativeToHeyboss,
+  freeAlternativeToVibecode,
   freebuffWebVsLovableBoltReplit,
 
-  // Savings stories — App builder switches
-  howOneAnythingUserSaved288SwitchingToFreebuff,
-  howOneAuraUserSaved600SwitchingToFreebuff,
-  howOneBase44UserSaved960SwitchingToFreebuff,
-  howOneBoltUserSaved600SwitchingToFreebuff,
-  howOneCanvaUserSaved252SwitchingToFreebuff,
-  howOneCosmicUserSaved360SwitchingToFreebuff,
-  howOneEmergentUserSaved600SwitchingToFreebuff,
-  howOneFigmaMakeUserSaved240SwitchingToFreebuff,
-  howOneFlootUserSaved300SwitchingToFreebuff,
-  howOneGoogleAiStudioUserSaved240SwitchingToFreebuff,
-  howOneLovableUserSaved600SwitchingToFreebuff,
-  howOneMacalyUserSaved300SwitchingToFreebuff,
-  howOneMagicPatternsUserSaved1200SwitchingToFreebuff,
-  howOneMochaUserSaved600SwitchingToFreebuff,
-  howOneOrchidsUserSaved600SwitchingToFreebuff,
-  howOneReplitUserSaved300SwitchingToFreebuff,
-  howOneSameNewUserSaved600SwitchingToFreebuff,
-  howOneV0UserSaved360SwitchingToFreebuff,
+  // Savings — CLI
+  save240PerYearAntigravityCliGeminiFreebuffAlternative,
+  save240PerYearClaudeCodeCliFreebuffAlternative,
+  save240PerYearCodexCliChatgptPlusFreebuffAlternative,
+  save240PerYearCursorAgentProFreebuffCliAlternative,
+  save240PerYearPiCodingAgentApiFreebuffCliAlternative,
+  save360PerYearOpencodeCliApiCostsFreebuffAlternative,
+  save468PerYearGithubCopilotCliProPlusFreebuffAlternative,
+
+  // Savings — App builders
+  save1200PerYearMagicPatternsAiUiGeneratorFreebuffAlternative,
+  save240PerYearFigmaMakeAiAppBuilderFreebuffAlternative,
+  save240PerYearGoogleAiStudioGeminiAppBuilderFreebuffAlternative,
+  save252PerYearCanvaCodeAiAppBuilderFreebuffAlternative,
+  save288PerYearAnythingComAiAppBuilderFreebuffAlternative,
+  save300PerYearFlootAiAppBuilderFreebuffAlternative,
+  save300PerYearMacalyAiAppBuilderFreebuffAlternative,
+  save300PerYearReplitAgentDesignModeFreebuffAlternative,
+  save360PerYearCosmicNewAiAppBuilderFreebuffAlternative,
+  save360PerYearV0VercelAiAppBuilderFreebuffAlternative,
+  save600PerYearAuraBuildAiWebsiteBuilderFreebuffAlternative,
+  save600PerYearBoltNewAiAppBuilderFreebuffAlternative,
+  save600PerYearEmergentAiAppBuilderFreebuffAlternative,
+  save600PerYearGetmochaMochaAiAppBuilderFreebuffAlternative,
+  save600PerYearLovableDevAiAppBuilderFreebuffAlternative,
+  save600PerYearOrchidsAiAppBuilderFreebuffAlternative,
+  save600PerYearSameNewAiAppBuilderFreebuffAlternative,
+  save960PerYearBase44AiAppBuilderFreebuffAlternative,
 
   // Guides
   bestFreeCliCodingAgents2026,
@@ -142,15 +159,12 @@ const allPosts: Post[] = [
   // Engineering
   freebuffSubagentsDeepDive,
 
-  // Community / Voices
+  // Community
   whatDevelopersAreSaying,
   sideIncomeWithFreebuffIndia,
   freebuffInTheWildMay,
 ]
 
-/**
- * Sorted newest-first. Used by the index, RSS, and sitemap.
- */
 export function getAllPosts(): Post[] {
   return [...allPosts].sort((a, b) =>
     b.publishedAt.localeCompare(a.publishedAt),
@@ -164,7 +178,6 @@ export function getPostBySlug(slug: string): Post | undefined {
 export function getFeaturedPosts(limit = 3): Post[] {
   const featured = getAllPosts().filter((p) => p.featured)
   if (featured.length >= limit) return featured.slice(0, limit)
-  // Pad with the most recent posts if we don't have enough featured ones.
   const seen = new Set(featured.map((p) => p.slug))
   for (const p of getAllPosts()) {
     if (featured.length >= limit) break
