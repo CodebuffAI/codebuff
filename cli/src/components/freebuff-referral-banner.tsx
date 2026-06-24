@@ -1,19 +1,18 @@
 import { TextAttributes } from '@opentui/core'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
 import { Button } from './button'
-import { COPIED_RESET_DELAY_MS } from './copy-button'
+import { useCopyToClipboard } from './copy-button'
 import { FREEBUFF_GLM_V52_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 import { getReferralInfo } from '@codebuff/common/types/freebuff-session'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
+import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTheme } from '../hooks/use-theme'
-import { useTimeout } from '../hooks/use-timeout'
 import { LOGIN_WEBSITE_URL } from '../login/constants'
-import { copyTextToClipboard } from '../utils/clipboard'
 import { formatFreebuffPremiumResetCountdown } from '../utils/freebuff-premium-reset'
 import { safeOpen } from '../utils/open-url'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -30,45 +29,46 @@ function referralLink(code: string, referrerName: string | null): string {
   return `${LOGIN_WEBSITE_URL}/get-started?${params.toString()}`
 }
 
+// Navigation ids for the banner's keyboard-focusable buttons. The model
+// selector owns the landing keyboard handler and reaches these via the shared
+// landing-focus store (arrow down past "see all models" → these buttons).
+const COPY_FOCUS_ID = '__freebuff_referral_copy__'
+const GLM_FOCUS_ID = '__freebuff_referral_glm__'
+
 /**
  * A bordered, button-styled "copy invite link" control. Reads as clickable
- * (rounded border + hover highlight) and flips to an accent "✔ Copied!"
- * confirmation for a couple seconds after a successful copy.
+ * (rounded border + hover/keyboard-focus highlight) and flips to an accent
+ * "✔ Copied!" confirmation for a couple seconds after a successful copy.
+ * Presentational: the copy action and copied flag are owned by the banner so
+ * the same action can be fired by keyboard navigation from the model picker.
  */
-const CopyInviteLinkButton: React.FC<{ link: string; label?: string }> = ({
-  link,
-  label = '⎘ Copy invite link',
-}) => {
+const CopyInviteLinkButton: React.FC<{
+  isCopied: boolean
+  focused: boolean
+  onCopy: () => void
+  label?: string
+}> = ({ isCopied, focused, onCopy, label = '⎘ Copy invite link' }) => {
   const theme = useTheme()
-  const { setTimeout } = useTimeout()
   const [isHovered, setIsHovered] = useState(false)
-  const [isCopied, setIsCopied] = useState(false)
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await copyTextToClipboard(link, { suppressGlobalMessage: true })
-      setIsCopied(true)
-      setIsHovered(false)
-      setTimeout('reset-copied', () => setIsCopied(false), COPIED_RESET_DELAY_MS)
-    } catch (_error) {
-      // copyTextToClipboard already logs and surfaces the failure.
-    }
-  }, [link, setTimeout])
-
+  // Keyboard focus and mouse hover share the highlighted look; a keyboard-
+  // focused row gets the brighter accent border so it matches the picker's
+  // focused-row treatment above it.
   const borderColor = isCopied
     ? theme.primary
-    : isHovered
-      ? theme.foreground
-      : theme.border
+    : focused
+      ? theme.primary
+      : isHovered
+        ? theme.foreground
+        : theme.border
   const fg = isCopied
     ? theme.primary
-    : isHovered
+    : focused || isHovered
       ? theme.foreground
       : theme.muted
 
   return (
     <Button
-      onClick={handleCopy}
+      onClick={onCopy}
       onMouseOver={() => setIsHovered(true)}
       onMouseOut={() => setIsHovered(false)}
       border
@@ -106,6 +106,17 @@ export const FreebuffReferralBanner: React.FC = () => {
   const session = useFreebuffSessionStore((s) => s.session)
   const now = useNow(60_000)
   const [joining, setJoining] = useState(false)
+  // Whether the model selector's mirrored cursor (it owns the landing keyboard
+  // handler) currently sits on one of this banner's buttons. Selecting the
+  // booleans rather than the raw id means arrowing among the model rows above
+  // doesn't re-render the banner — only crossing into/out of its buttons does.
+  const copyFocused = useFreebuffLandingFocusStore(
+    (s) => s.focusedId === COPY_FOCUS_ID,
+  )
+  const glmFocused = useFreebuffLandingFocusStore(
+    (s) => s.focusedId === GLM_FOCUS_ID,
+  )
+  const setExtraTargets = useFreebuffLandingFocusStore((s) => s.setExtraTargets)
 
   const useGlm = useCallback(() => {
     setJoining((wasJoining) => {
@@ -122,14 +133,38 @@ export const FreebuffReferralBanner: React.FC = () => {
   // `referral` block for non-full tiers; this is a belt-and-suspenders guard.
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
-  if (accessTier === 'limited') return null
-
   const referral = getReferralInfo(session)
-  if (!referral) return null
+  const link = referral
+    ? referralLink(referral.code, referral.referrerName)
+    : ''
+  const { isCopied, copy } = useCopyToClipboard(link)
+
+  // Register this banner's buttons as keyboard focus targets so the model
+  // selector's arrow navigation flows from "see all models" into them (and
+  // wraps back up). Locked state shows just the copy button; the unlocked card
+  // leads with "Use GLM 5.2" then the invite button.
+  const hidden = accessTier === 'limited' || !referral
+  const isLocked = (referral?.weeklySessionsRemaining ?? 0) <= 0
+  useEffect(() => {
+    if (hidden) {
+      setExtraTargets([])
+      return
+    }
+    setExtraTargets(
+      isLocked
+        ? [{ id: COPY_FOCUS_ID, activate: copy }]
+        : [
+            { id: GLM_FOCUS_ID, activate: useGlm },
+            { id: COPY_FOCUS_ID, activate: copy },
+          ],
+    )
+    return () => setExtraTargets([])
+  }, [hidden, isLocked, copy, useGlm, setExtraTargets])
+
+  if (accessTier === 'limited' || !referral) return null
 
   const { qualifiedCount, weeklySessionsRemaining, resetAt, githubLinked } =
     referral
-  const link = referralLink(referral.code, referral.referrerName)
   const resetsIn = formatFreebuffPremiumResetCountdown(new Date(resetAt), now, {
     withDays: true,
   })
@@ -161,11 +196,18 @@ export const FreebuffReferralBanner: React.FC = () => {
             <>
               <span fg={theme.muted}>Refer a friend to unlock </span>
               <span fg={theme.foreground}>GLM 5.2</span>
-              <span fg={theme.muted}> (limited time):</span>
+              <span fg={theme.muted}>
+                {' '}
+                — the most powerful open-source model:
+              </span>
             </>
           )}
         </text>
-        <CopyInviteLinkButton link={link} />
+        <CopyInviteLinkButton
+          isCopied={isCopied}
+          focused={copyFocused}
+          onCopy={copy}
+        />
       </box>
     )
   }
@@ -209,12 +251,20 @@ export const FreebuffReferralBanner: React.FC = () => {
           style={{
             paddingLeft: 2,
             paddingRight: 2,
-            backgroundColor: 'transparent',
+            // Keyboard focus fills the button so the primary action pops, the
+            // same inversion the takeover prompt uses for its focused choice.
+            backgroundColor: glmFocused ? theme.primary : 'transparent',
           }}
         >
           <text style={{ wrapMode: 'none' }}>
             <span
-              fg={joining ? theme.muted : theme.primary}
+              fg={
+                joining
+                  ? theme.muted
+                  : glmFocused
+                    ? theme.background
+                    : theme.primary
+              }
               attributes={TextAttributes.BOLD}
             >
               {joining ? 'Starting…' : '▶ Use GLM 5.2 ↵'}
@@ -222,7 +272,9 @@ export const FreebuffReferralBanner: React.FC = () => {
           </text>
         </Button>
         <CopyInviteLinkButton
-          link={link}
+          isCopied={isCopied}
+          focused={copyFocused}
+          onCopy={copy}
           label={`⎘ Invite a friend (${qualifiedCount} joined)`}
         />
       </box>
