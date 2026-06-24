@@ -9,6 +9,8 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
 import { getAuthUser } from "../users";
+import { CloudPreviewRuntimeService } from "./runtime/services/CloudPreviewRuntimeService";
+import { DaytonaConnectedRepoPreviewStrategy } from "./runtime/strategies/daytona/DaytonaConnectedRepoPreviewStrategy";
 
 /**
  * Connect an existing GitHub repository as a Freebuff Cloud project.
@@ -283,15 +285,6 @@ export const connectRepo = action({
   },
 });
 
-interface DetectedConfig {
-  install_command: string;
-  preview_command: string;
-  preview_port: number;
-  build_command?: string;
-}
-
-const DEFAULT_CONNECTED_REPO_PORT = 5173;
-
 /**
  * Best-effort environment interpretation for a freshly cloned repo. Reads
  * package.json to infer install/preview/build commands and a likely dev-server
@@ -303,143 +296,12 @@ export const detectAndStartPreview = internalAction({
   args: { projectId: v.id("project") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await ctx.runQuery(
-      internal.cloud.connectRepoMutations.getConnectedRepoProject,
-      { projectId: args.projectId },
+    const service = new CloudPreviewRuntimeService(
+      ctx,
+      new DaytonaConnectedRepoPreviewStrategy(),
     );
-    if (!project || project.project_type !== "connected_repo") {
-      return null;
-    }
-
-    await ctx.runMutation(
-      internal.cloud.connectRepoMutations.updateRuntimeConfig,
-      { projectId: args.projectId, config: { detection_status: "detecting" } },
-    );
-
-    try {
-      const codebase = await initializeCodebase(
-        project.sandbox_id,
-        project.packageManager,
-        "new",
-      );
-      if (!(codebase instanceof DaytonaCodebase)) {
-        throw new Error("Connected repos require a Daytona-backed sandbox");
-      }
-
-      const detected = await inferConfigFromRepo(codebase);
-
-      const installResult = await codebase.runCommand(
-        detected.install_command,
-        300_000,
-      );
-      if (installResult.exitCode && installResult.exitCode !== 0) {
-        console.warn(
-          "[connectRepo] install command failed; continuing to preview startup",
-          {
-            projectId: args.projectId,
-            command: detected.install_command,
-            tail: installResult.output.slice(-500),
-          },
-        );
-      }
-
-      await codebase.startPreviewProcess(detected.preview_command);
-      const previewRunning = await waitForPreviewProcess(codebase);
-      if (!previewRunning) {
-        const logs = await codebase.getPreviewLogs(4000);
-        throw new Error(
-          `Preview process exited early for command: ${detected.preview_command}\n${logs}`,
-        );
-      }
-
-      const previewUrl = await codebase.getPreviewLinkForPort(
-        detected.preview_port,
-      );
-
-      await ctx.runMutation(
-        internal.cloud.connectRepoMutations.updateRuntimeConfig,
-        {
-          projectId: args.projectId,
-          config: {
-            install_command: detected.install_command,
-            preview_command: detected.preview_command,
-            preview_port: detected.preview_port,
-            ...(detected.build_command
-              ? { build_command: detected.build_command }
-              : {}),
-            detection_status: "ready",
-          },
-        },
-      );
-      await ctx.runMutation(
-        internal.cloud.connectRepoMutations.setConnectedRepoPreviewUrl,
-        { projectId: args.projectId, preview_url: previewUrl },
-      );
-    } catch (error) {
-      console.error("detectAndStartPreview failed:", error);
-      await ctx.runMutation(
-        internal.cloud.connectRepoMutations.updateRuntimeConfig,
-        { projectId: args.projectId, config: { detection_status: "failed" } },
-      );
-    }
+    await service.detectAndStartPreview(args.projectId);
 
     return null;
   },
 });
-
-/** Infer install/preview/build commands + port from the repo contents. */
-async function inferConfigFromRepo(
-  codebase: DaytonaCodebase,
-): Promise<DetectedConfig> {
-  let hasPackageJson = false;
-  let pkg: {
-    scripts?: Record<string, string>;
-    packageManager?: string;
-  } = {};
-  try {
-    const raw = await codebase.readFile("package.json");
-    pkg = JSON.parse(raw);
-    hasPackageJson = true;
-  } catch {
-    // Non-Node project — fall back to a generic static server.
-  }
-
-  const scripts = pkg.scripts ?? {};
-  const install = hasPackageJson ? "bun install" : "true";
-
-  // Standardize connected-repo preview on Daytona proxy port 5173 and bind to
-  // all interfaces so the preview endpoint is always reachable externally.
-  const previewEnvPrefix =
-    `HOST=0.0.0.0 HOSTNAME=0.0.0.0 PORT=${DEFAULT_CONNECTED_REPO_PORT}`;
-
-  const previewCommand = scripts.dev
-    ? `${previewEnvPrefix} bun dev --host 0.0.0.0 --port ${DEFAULT_CONNECTED_REPO_PORT}`
-    : scripts.start
-      ? `${previewEnvPrefix} bun run start`
-      : scripts.develop
-        ? `${previewEnvPrefix} bun run develop`
-        : `python3 -m http.server ${DEFAULT_CONNECTED_REPO_PORT} --bind 0.0.0.0`;
-
-  const buildCommand = scripts.build ? "bun run build" : undefined;
-
-  return {
-    install_command: install,
-    preview_command: previewCommand,
-    preview_port: DEFAULT_CONNECTED_REPO_PORT,
-    build_command: buildCommand,
-  };
-}
-
-async function waitForPreviewProcess(
-  codebase: DaytonaCodebase,
-  timeoutMs: number = 10_000,
-): Promise<boolean> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    if (await codebase.isPreviewProcessRunning()) {
-      return true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  return false;
-}

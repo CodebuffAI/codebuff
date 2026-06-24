@@ -41,6 +41,7 @@ import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@/convex/_generated/dataModel'
 import { api } from '@/convex/_generated/api'
 import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
+import type { ProjectRuntimeSurface } from '@/vly/hooks/useProjectConnection'
 import { CenterContent } from './CenterContent'
 import { GodModeActions } from './GodModeActions'
 import {
@@ -121,6 +122,7 @@ interface ProjectIframeAreaProps {
    * same refreshTrigger the desktop refresh button uses).
    */
   onRefresh?: () => void
+  runtimeSurface?: ProjectRuntimeSurface
 }
 
 /** Primary tabs that swap the right-hand iframe surface. */
@@ -153,8 +155,9 @@ export function ProjectIframeArea({
   hideTabs = false,
   openInNewTab,
   onRefresh,
+  runtimeSurface = 'web',
 }: ProjectIframeAreaProps) {
-  const isConnectedRepo = project.project_type === 'connected_repo'
+  const isCloudSurface = runtimeSurface === 'cloud'
   const { isPlatformAdmin } = useIsPlatformAdmin()
   const projectPauseStatus = useQuery(
     api.deployment_queries.getProjectPauseStatus,
@@ -173,18 +176,18 @@ export function ProjectIframeArea({
       : null
 
   useEffect(() => {
-    if (!isConnectedRepo) {
+    if (!isCloudSurface) {
       return
     }
     if (activeTab !== 'preview') {
       setActiveTab('preview')
     }
-  }, [activeTab, isConnectedRepo, setActiveTab])
+  }, [activeTab, isCloudSurface, setActiveTab])
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
-      {!hideTabs && !isConnectedRepo && (
+      {!hideTabs && !isCloudSurface && (
         <div className="flex flex-shrink-0 flex-col bg-background">
           <div className="flex items-center justify-between gap-2 px-3 py-1.5">
             <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
@@ -350,6 +353,7 @@ export function ProjectIframeArea({
                   refreshTrigger={refreshTrigger}
                   forceShowClickToTest={isChatExpanded}
                   onClickToTest={onClickToTest}
+                  runtimeSurface={runtimeSurface}
                 />
               </Suspense>
               {shouldShowPauseOverlay && (
@@ -394,6 +398,7 @@ function ActiveSurface({
   refreshTrigger,
   forceShowClickToTest,
   onClickToTest,
+  runtimeSurface,
 }: {
   activeTab: IframeTab
   project: NonNullable<FunctionReturnType<typeof api.project.getProjectData>>
@@ -408,6 +413,7 @@ function ActiveSurface({
   refreshTrigger: number
   forceShowClickToTest: boolean
   onClickToTest?: () => void
+  runtimeSurface: ProjectRuntimeSurface
 }) {
   return (
     <>
@@ -425,6 +431,7 @@ function ActiveSurface({
             refreshTrigger={refreshTrigger}
             forceShowClickToTest={forceShowClickToTest}
             onClickToTest={onClickToTest}
+            runtimeSurface={runtimeSurface}
           />
         </div>
       )}

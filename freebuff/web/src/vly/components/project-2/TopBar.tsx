@@ -38,10 +38,11 @@ import {
   TooltipTrigger,
 } from '@/vly/components/ui/tooltip'
 import { useRouter } from 'next/navigation'
-import { useQuery } from 'convex/react'
+import { useAction, useQuery } from 'convex/react'
 import { signOut } from 'next-auth/react'
 import type { ProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
+import type { ProjectRuntimeSurface } from '@/vly/hooks/useProjectConnection'
 
 /**
  * Compact, Lovable-style top bar for the project page.
@@ -59,9 +60,11 @@ import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
 export function TopBar({
   project,
   onMobileSidebarToggle: _onMobileSidebarToggle,
+  runtimeSurface = 'web',
 }: {
   project: FunctionReturnType<typeof api.project.getProjectData>
   onMobileSidebarToggle?: () => void
+  runtimeSurface?: ProjectRuntimeSurface
   // Kept for backwards compatibility with existing call sites — dark mode is
   // enforced for Freebuff Web so these props are no longer used.
   projectTheme?: ProjectPageTheme
@@ -74,9 +77,15 @@ export function TopBar({
     api.github.repositories.getProjectSyncStatus,
     project?._id ? { projectId: project._id } : 'skip',
   )
+  const triggerConnectedRepoPublish = useAction(
+    (api as any).cloud.publish.triggerConnectedRepoPublish,
+  )
   void _onMobileSidebarToggle
   const router = useRouter()
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
+  const [isCloudPublishing, setIsCloudPublishing] = useState(false)
+  const isConnectedRepo = project?.project_type === 'connected_repo'
+  const isCloudSurface = runtimeSurface === 'cloud'
 
   const currentUserId = useQuery(api.community.getCurrentUserId)
 
@@ -102,6 +111,23 @@ export function TopBar({
   const openSettings = () => {
     if (!project) return
     router.push(`/web/project/${project.semantic_identifier}/settings`)
+  }
+
+  const triggerCloudPublish = async () => {
+    if (!project?.semantic_identifier || isCloudPublishing) return
+    try {
+      setIsCloudPublishing(true)
+      await triggerConnectedRepoPublish({
+        semanticIdentifier: project.semantic_identifier,
+      })
+      toast.success('Cloud publish queued')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to queue cloud publish'
+      toast.error(message)
+    } finally {
+      setIsCloudPublishing(false)
+    }
   }
 
   if (!project) return null
@@ -314,22 +340,41 @@ export function TopBar({
             </TooltipContent>
           </Tooltip>
 
-          <DeploymentDialog
-            isOpen={deployDialogOpen}
-            onOpenChange={setDeployDialogOpen}
-            projectId={project._id}
-            settingsHref={`/web/project/${project.semantic_identifier}/settings?section=deployments`}
-            trigger={
-              <button
-                type="button"
-                className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:ml-1 sm:px-3"
-                aria-label="Publish"
-              >
-                <Rocket className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Publish</span>
-              </button>
-            }
-          />
+          {!isConnectedRepo && (
+            <DeploymentDialog
+              isOpen={deployDialogOpen}
+              onOpenChange={setDeployDialogOpen}
+              projectId={project._id}
+              settingsHref={`/web/project/${project.semantic_identifier}/settings?section=deployments`}
+              trigger={
+                <button
+                  type="button"
+                  className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:ml-1 sm:px-3"
+                  aria-label="Publish"
+                >
+                  <Rocket className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Publish</span>
+                </button>
+              }
+            />
+          )}
+
+          {isConnectedRepo && isCloudSurface && (
+            <button
+              type="button"
+              onClick={() => {
+                void triggerCloudPublish()
+              }}
+              disabled={isCloudPublishing}
+              className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:ml-1 sm:px-3"
+              aria-label="Publish"
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">
+                {isCloudPublishing ? 'Publishing...' : 'Publish'}
+              </span>
+            </button>
+          )}
 
         </div>
       </div>
