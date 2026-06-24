@@ -11,6 +11,7 @@ import { GetStartedOnboarding } from './get-started-onboarding'
 
 import type { Metadata } from 'next'
 
+import { blogConfig } from '@/lib/blog/config'
 import { siteConfig } from '@/lib/constant'
 
 function normalizeReferrer(raw: string | undefined): string | null {
@@ -29,12 +30,34 @@ export async function generateMetadata({
   const title = referrerName
     ? `${referrerName} invited you to try Freebuff!`
     : 'Get Started with Freebuff'
+  // These links get pasted into chats and social feeds, so personalize the
+  // unfurled preview card too — not just the browser tab title.
+  const description = referrerName
+    ? `${referrerName} is inviting you to Freebuff — a free AI coding agent. Code for free, no subscription, no credit card.`
+    : siteConfig.description
+  const url = `${siteConfig.url()}/get-started`
 
   return {
     title,
-    description: siteConfig.description,
+    description,
     alternates: {
-      canonical: `${siteConfig.url()}/get-started`,
+      canonical: url,
+    },
+    openGraph: {
+      url,
+      title,
+      description,
+      siteName: 'Freebuff',
+      images: [siteConfig.socialImage],
+      type: 'website',
+      locale: blogConfig.locale,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      site: `@${blogConfig.twitterHandle}`,
+      images: [siteConfig.socialImage],
     },
   }
 }
