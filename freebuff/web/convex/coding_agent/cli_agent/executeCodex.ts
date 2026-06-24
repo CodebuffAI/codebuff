@@ -91,6 +91,13 @@ export async function executeCodex(
     return trimmed;
   };
 
+  const sanitizeCodexShellCommand = (command: string): string =>
+    command
+      .replaceAll("$HOME/.local//share", "$HOME/.local/share")
+      .replaceAll("VVLY_CODEX_USE_STORED_CREDENTIALS", "VLY_CODEX_USE_STORED_CREDENTIALS")
+      .replaceAll(".vly-convex/devv.key", ".vly-convex/dev.key")
+      .replaceAll(" codex exec --yolo ---color ", " codex exec --yolo --color ");
+
   // Check if this is the first message (no active session ID means new thread)
   const isFirstMessage = !args.activeSessionId;
 
@@ -202,11 +209,12 @@ export async function executeCodex(
     })();
     const authEnv =
       authSource === "stored_chatgpt"
-        ? `OPENAI_API_KEY= VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
+        ? `OPENAI_API_KEY="" VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
         : `OPENAI_API_KEY=${escapeShellArg(openAiApiKey || "")} VLY_CODEX_AUTH_SOURCE="${authSource}"`;
     const convexDeployKeyExpr =
       '$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || cat "$HOME/.vly-coonvex/dev.key" 2>/dev/null || echo "")';
-    return `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="${convexDeployKeyExpr}" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
+    const baseCommand = `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} CONVEX_DEPLOY_KEY="${convexDeployKeyExpr}" GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
+    return sanitizeCodexShellCommand(baseCommand);
   };
   let fullCommand = "";
 
