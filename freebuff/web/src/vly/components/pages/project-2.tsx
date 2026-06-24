@@ -311,6 +311,15 @@ function ProjectWrapper({
       setTimeout(() => setAllowProjectCalled(true), 0);
     }
 
+    // The legacy "Security Migration in Progress" dialog is only for old
+    // CodeSandbox-backed projects waiting on convex instance migration.
+    // Daytona-backed projects use a different migration flow/UI.
+    const isLegacyCodeSandbox = !project.sandbox_id.startsWith("daytona:");
+    if (!isLegacyCodeSandbox) {
+      setTimeout(() => setProjectStatus(null), 0);
+      return;
+    }
+
     // Check if migration is needed (only when migration check has completed)
     if (migrationRecord === undefined) {
       // Still loading migration status, don't block

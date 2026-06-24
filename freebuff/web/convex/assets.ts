@@ -302,7 +302,7 @@ export const getAssets = action({
           project.packageManager,
         );
       } catch (shellError) {
-        console.error("Failed to create CSB codebase:", shellError);
+        console.error("Failed to initialize project codebase:", shellError);
         // Return empty array instead of throwing - this prevents UI errors
         console.log(
           "Returning empty assets array due to shell connection issue",

@@ -998,11 +998,20 @@ if (!hasIntegration) {
       }
 
       try {
-        const deployKeyResult = await this.sandbox.process.executeCommand(
-          'cat $HOME/.vly-convex/dev.key 2>/dev/null || echo ""',
+        // Ensure the project directory exists before we ask Daytona to execute
+        // inside it. If the cwd is missing, shell startup errors can leak into
+        // env-var export handling and break unrelated commands.
+        await this.sandbox.process.executeCommand(
+          `mkdir -p ${this.projectPath}`,
+          "/home/daytona",
         );
 
-        const deployKey = deployKeyResult.result;
+        const deployKeyResult = await this.sandbox.process.executeCommand(
+          'cat $HOME/.vly-convex/dev.key 2>/dev/null || true',
+          "/home/daytona",
+        );
+
+        const deployKey = deployKeyResult.result.trim();
         const prefixedCommand = command;
 
         const output = await this.sandbox.process.executeCommand(
