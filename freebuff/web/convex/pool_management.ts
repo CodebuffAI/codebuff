@@ -5,6 +5,20 @@ import { allProjects, projectsByDay } from "./aggregates/admin_aggregates";
 
 const MIN_PROJECT_POOL_SIZE = 10;
 
+// Spacing between sandbox creations during a pool flush. Daytona throttles its
+// control-plane API (429 ThrottlerException) when many sandboxes are created in
+// a tight burst, so we deliberately pace the loop. Overridable via env.
+function getPoolCreateDelayMs(): number {
+  const configured = process.env.POOL_CREATE_DELAY_MS
+    ? Number.parseInt(process.env.POOL_CREATE_DELAY_MS, 10)
+    : Number.NaN;
+  return Number.isFinite(configured) && configured >= 0 ? configured : 1500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function getProjectPoolSize() {
   const configuredPoolSize = process.env.MIN_POOL_SIZE
     ? Number.parseInt(process.env.MIN_POOL_SIZE, 10)
@@ -49,17 +63,34 @@ export const flushProjectPoolAndInitializeNew = internalAction({
       args.newPoolSize ?? getProjectPoolSize(),
     );
     const snapshotIds = getPoolSnapshotIds();
+    const createDelayMs = getPoolCreateDelayMs();
 
-    // Create new projects first to avoid having an empty pool
+    // Create new projects first to avoid having an empty pool. Pace the loop so
+    // we don't trip Daytona's API throttle, and don't let one failed creation
+    // abort the whole flush — log it and keep going.
+    let created = 0;
     for (let i = 0; i < newPoolSize; i++) {
       const snapshotId = snapshotIds[i % snapshotIds.length];
-      await ctx.runAction(
-        internal.codesandbox.createProject.initializeUnassignedProject,
-        { snapshotId },
-      );
+      try {
+        await ctx.runAction(
+          internal.codesandbox.createProject.initializeUnassignedProject,
+          { snapshotId },
+        );
+        created += 1;
+        console.log("Initialized unassigned project", i, { snapshotId });
+      } catch (error) {
+        console.error("Failed to initialize unassigned project", i, {
+          snapshotId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
 
-      console.log("Initialized unassigned project", i, { snapshotId });
+      if (createDelayMs > 0 && i < newPoolSize - 1) {
+        await sleep(createDelayMs);
+      }
     }
+
+    console.log("Pool flush created projects", { created, newPoolSize });
 
     // Delete only the old projects after new ones are created
     if (!args.skipFlushing && oldProjectIds.length > 0) {
@@ -169,11 +200,14 @@ export const replenishPoolIfEmpty = internalMutation({
         }
       }
 
-      for (const snapshotId of snapshotsToCreate) {
+      // Stagger scheduled creations so they don't all hit Daytona's API at
+      // once and trip the 429 throttle.
+      const createDelayMs = getPoolCreateDelayMs();
+      for (let i = 0; i < snapshotsToCreate.length; i++) {
         await ctx.scheduler.runAfter(
-          0,
+          i * createDelayMs,
           internal.codesandbox.createProject.initializeUnassignedProject,
-          { snapshotId },
+          { snapshotId: snapshotsToCreate[i] },
         );
       }
     }

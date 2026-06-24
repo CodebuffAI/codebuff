@@ -146,6 +146,76 @@ export async function createCodeSandbox() {
   }
 }
 
+/**
+ * True when an error is Daytona's "Too Many Requests" throttle. We match by
+ * name/status rather than `instanceof` so it survives across bundles where the
+ * SDK error class identity may differ.
+ */
+export function isDaytonaRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const e = error as {
+    name?: string;
+    statusCode?: number;
+    message?: string;
+  };
+  return (
+    e.name === "DaytonaRateLimitError" ||
+    e.statusCode === 429 ||
+    (typeof e.message === "string" &&
+      /too many requests|throttlerexception|rate limit/i.test(e.message))
+  );
+}
+
+/** Pull a Retry-After delay (ms) from the error's response headers, if present. */
+function getRetryAfterMs(error: unknown): number | undefined {
+  const headers = (error as { headers?: Record<string, unknown> } | undefined)
+    ?.headers;
+  if (!headers) {
+    return undefined;
+  }
+  const raw =
+    (typeof headers.get === "function"
+      ? (headers as { get: (k: string) => unknown }).get("retry-after")
+      : (headers["retry-after"] ?? headers["Retry-After"])) ?? undefined;
+  if (raw == null) {
+    return undefined;
+  }
+  const seconds = Number.parseInt(String(raw), 10);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : undefined;
+}
+
+/**
+ * Retry a Daytona call when it trips the API throttle (429). Uses the server's
+ * Retry-After header when provided, otherwise exponential backoff with jitter.
+ * Non-rate-limit errors are rethrown immediately.
+ */
+export async function withDaytonaRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  label = "daytona call",
+  maxRetries = 5,
+): Promise<T> {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!isDaytonaRateLimitError(error) || attempt >= maxRetries) {
+        throw error;
+      }
+      const backoff = Math.min(2 ** attempt * 1000, 30_000);
+      const jitter = Math.floor(Math.random() * 500);
+      const waitMs = (getRetryAfterMs(error) ?? backoff) + jitter;
+      attempt += 1;
+      console.warn(
+        `[${label}] rate limited (429); retry ${attempt}/${maxRetries} in ${waitMs}ms`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+}
+
 export async function createDaytonaSandbox(
   daytonaServer: DaytonaServer = "new",
   snapshotId?: string,
@@ -166,11 +236,15 @@ export async function createDaytonaSandbox(
     // Snapshot-based sandboxes inherit the snapshot's fixed CPU/RAM/disk, so
     // sizing tiers are expressed as separate snapshots (standard vs limited),
     // not as per-create resource overrides.
-    const sandbox = await daytona.create({
-      snapshot: effectiveSnapshotId,
-      public: true,
-      autoStopInterval: 10,
-    });
+    const sandbox = await withDaytonaRateLimitRetry(
+      () =>
+        daytona.create({
+          snapshot: effectiveSnapshotId,
+          public: true,
+          autoStopInterval: 10,
+        }),
+      "createDaytonaSandbox",
+    );
 
     return { id: sandbox.id };
   } catch (error) {
