@@ -737,6 +737,12 @@ export const deployOnFreestyle = internalAction({
         )
       }
 
+      const isCloudProject = project.project_type === 'connected_repo'
+      const cloudBuildCommand =
+        isCloudProject && typeof project.runtime_config?.build_command === 'string'
+          ? project.runtime_config.build_command
+          : undefined
+
       const [result, err] = await deployCodebaseProd(
         args.slug,
         codebase as any, // Type assertion needed for deployCodebaseProd
@@ -764,6 +770,10 @@ export const deployOnFreestyle = internalAction({
         skipBranding,
         prodCredentials,
         existingVercelProjectId,
+        {
+          buildMode: isCloudProject ? 'artifact_vercel' : 'convex_vercel',
+          buildCommand: cloudBuildCommand,
+        },
       )
 
       console.log('[DEBUG] deployCodebaseProd result:', result)

@@ -345,6 +345,52 @@ export class DeploymentError extends Error {
   }
 }
 
+type DeploymentBuildMode = "convex_vercel" | "artifact_vercel";
+
+abstract class BaseDeploymentBuildStrategy {
+  constructor(
+    protected readonly codebase: Codebase & PackageManagerCodebase,
+    protected readonly packageManager: ReturnType<PackageManagerCodebase["getPackageManager"]>,
+  ) {}
+
+  abstract runBuild(): Promise<void>;
+}
+
+class ConvexDeploymentBuildStrategy extends BaseDeploymentBuildStrategy {
+  constructor(
+    codebase: Codebase & PackageManagerCodebase,
+    packageManager: ReturnType<PackageManagerCodebase["getPackageManager"]>,
+    private readonly convexProdDeployKey: string,
+  ) {
+    super(codebase, packageManager);
+  }
+
+  async runBuild(): Promise<void> {
+    await this.codebase.runCommandThrow(
+      `${this.packageManager.add("convex@latest")} && CONVEX_DEPLOY_KEY='${this.convexProdDeployKey}' ${this.packageManager.run("convex deploy --yes --cmd 'tsc -b && vite build'")}`,
+      120_000,
+    );
+  }
+}
+
+class ArtifactDeploymentBuildStrategy extends BaseDeploymentBuildStrategy {
+  constructor(
+    codebase: Codebase & PackageManagerCodebase,
+    packageManager: ReturnType<PackageManagerCodebase["getPackageManager"]>,
+    private readonly buildCommand?: string,
+  ) {
+    super(codebase, packageManager);
+  }
+
+  async runBuild(): Promise<void> {
+    const command =
+      this.buildCommand && this.buildCommand.trim().length > 0
+        ? this.buildCommand
+        : `${this.packageManager.run("build")} || ${this.packageManager.run("tsc -b && vite build")}`;
+    await this.codebase.runCommandThrow(command, 120_000);
+  }
+}
+
 async function uploadFilesToVercel(
   files: VercelDeploymentFile[],
 ): Promise<void> {
@@ -541,6 +587,10 @@ export async function deployCodebaseProd(
   skipBranding: boolean,
   prodCredentials?: { name: string; key: string; url?: string },
   existingVercelProjectId?: string,
+  options?: {
+    buildMode?: DeploymentBuildMode;
+    buildCommand?: string;
+  },
 ): Promise<
   Result<
     { deploymentId: string; projectId: string; domains: string[] },
@@ -556,102 +606,119 @@ export async function deployCodebaseProd(
   );
 
   try {
-    await setLog("Setting up Convex prod deployment...");
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "Deployment cancelled by user"
-    ) {
-      return Failure(new DeploymentError(error.message, { buildLog: "" }));
-    }
-    throw error;
-  }
+    const buildMode = options?.buildMode ?? "convex_vercel";
+    const isArtifactOnlyBuild = buildMode === "artifact_vercel";
 
-  // Use provided credentials (self-hosted) or fetch from VLY
-  const {
-    key: convexProdDeployKey,
-    name: prodDeploymentName,
-    url: prodDeploymentUrl,
-  } = prodCredentials
-    ? {
-        key: prodCredentials.key as `prod:${string}|${string}`,
-        name: prodCredentials.name,
-        url: prodCredentials.url,
-      }
-    : { ...(await getConvexProdDeployKey(codebase)), url: undefined };
-
-  const strippedProdDeployKey = convexProdDeployKey.split(":")[1];
-
-  try {
-    await setLog("Setting environment variables...");
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "Deployment cancelled by user"
-    ) {
-      return Failure(new DeploymentError(error.message, { buildLog: "" }));
-    }
-    throw error;
-  }
-
-  await setEnvVarsOnDeployment(
-    prodDeploymentName,
-    strippedProdDeployKey,
-    envVars.backend,
-    prodDeploymentUrl,
-  );
-
-  try {
-    await setLog("Running build...");
-
-    const pm = codebase.getPackageManager();
-
-    await codebase.runCommandThrow(
-      `${pm.add("convex@latest")} && CONVEX_DEPLOY_KEY='${convexProdDeployKey}' ${pm.run("convex deploy --yes --cmd 'tsc -b && vite build'")}`,
-      120_000,
+    await setLog(
+      isArtifactOnlyBuild
+        ? "Preparing deployment build..."
+        : "Setting up Convex prod deployment...",
     );
 
-    if (!skipBranding && isProdBrandingInjectionEnabled) {
+    let convexProdDeployKey: string | undefined;
+    let prodDeploymentName: string | undefined;
+    let prodDeploymentUrl: string | undefined;
+
+    if (!isArtifactOnlyBuild) {
+      // Use provided credentials (self-hosted) or fetch from VLY
+      const credentials = prodCredentials
+        ? {
+            key: prodCredentials.key as `prod:${string}|${string}`,
+            name: prodCredentials.name,
+            url: prodCredentials.url,
+          }
+        : { ...(await getConvexProdDeployKey(codebase)), url: undefined };
+
+      convexProdDeployKey = credentials.key;
+      prodDeploymentName = credentials.name;
+      prodDeploymentUrl = credentials.url;
+      const strippedProdDeployKey = convexProdDeployKey.split(":")[1];
+
       try {
-        const html = await codebase.readFile("dist/index.html");
-        const updatedHtml = injectBranding(html);
-        await codebase.writeFile("dist/index.html", updatedHtml);
-      } catch (err) {
-        console.error("Branding injection failed:", err);
+        await setLog("Setting environment variables...");
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "Deployment cancelled by user"
+        ) {
+          return Failure(new DeploymentError(error.message, { buildLog: "" }));
+        }
+        throw error;
       }
-    } else if (!isProdBrandingInjectionEnabled) {
-      console.log(
-        "[Deploy] Skipping branding injection - disabled by admin setting",
-      );
-    } else {
-      console.log(
-        "[Deploy] Skipping branding injection - user has no_vlyai_branding feature",
+
+      await setEnvVarsOnDeployment(
+        prodDeploymentName,
+        strippedProdDeployKey,
+        envVars.backend,
+        prodDeploymentUrl,
       );
     }
 
     try {
-      await setLog("Copying build artifacts...");
+      await setLog("Running build...");
+
+      const pm = codebase.getPackageManager();
+      const buildStrategy = isArtifactOnlyBuild
+        ? new ArtifactDeploymentBuildStrategy(codebase, pm, options?.buildCommand)
+        : new ConvexDeploymentBuildStrategy(codebase, pm, convexProdDeployKey!);
+
+      await buildStrategy.runBuild();
+
+      if (!skipBranding && isProdBrandingInjectionEnabled) {
+        try {
+          const html = await codebase.readFile("dist/index.html");
+          const updatedHtml = injectBranding(html);
+          await codebase.writeFile("dist/index.html", updatedHtml);
+        } catch (err) {
+          console.error("Branding injection failed:", err);
+        }
+      } else if (!isProdBrandingInjectionEnabled) {
+        console.log(
+          "[Deploy] Skipping branding injection - disabled by admin setting",
+        );
+      } else {
+        console.log(
+          "[Deploy] Skipping branding injection - user has no_vlyai_branding feature",
+        );
+      }
+
+      try {
+        await setLog("Copying build artifacts...");
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "Deployment cancelled by user"
+        ) {
+          return Failure(new DeploymentError(error.message, { buildLog: "" }));
+        }
+        throw error;
+      }
+
+      // Stage only dist/ into isolate — Vercel serves static files directly, no server entrypoint needed
+      await codebase.runCommandThrow(
+        "mkdir -p isolate && find isolate -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cp -R dist/* isolate",
+        20_000,
+      );
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "Deployment cancelled by user"
-      ) {
-        return Failure(new DeploymentError(error.message, { buildLog: "" }));
+      if (error instanceof Error) {
+        if (error.message === "Deployment cancelled by user") {
+          return Failure(new DeploymentError(error.message, { buildLog: "" }));
+        }
+        console.error("Error running build:", error.message);
+        return Failure(
+          new DeploymentError("Failed to deploy codebase", {
+            buildLog: error.message,
+          }),
+        );
       }
       throw error;
     }
-
-    // Stage only dist/ into isolate — Vercel serves static files directly, no server entrypoint needed
-    await codebase.runCommandThrow(
-      "mkdir -p isolate && find isolate -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cp -R dist/* isolate",
-      20_000,
-    );
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "Deployment cancelled by user") {
         return Failure(new DeploymentError(error.message, { buildLog: "" }));
       }
-      console.error("Error running build:", error.message);
+      console.error("Error preparing deployment:", error.message);
       return Failure(
         new DeploymentError("Failed to deploy codebase", {
           buildLog: error.message,
