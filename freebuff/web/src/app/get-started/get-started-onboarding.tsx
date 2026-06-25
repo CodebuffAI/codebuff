@@ -57,13 +57,14 @@ function captureSignInClicked(provider: 'github' | 'google'): void {
 
 /**
  * The single focal card on /get-started. Drives the visitor straight to the
- * one action we want (sign in to claim the invite) and then tells them, in
- * plain terms, whether the referral they're claiming will actually count:
+ * one action we want (sign in with a 1-year-old GitHub account) and then tells
+ * them, in plain terms, that doing so unlocks GLM 5.2 for BOTH them and the
+ * friend who invited them — that mutual reward is the motivation to connect:
  *
  *   - signed out          → embedded GitHub (recommended) + Google sign-in
- *   - signed in, no GitHub → prompt to connect GitHub so the invite qualifies
- *   - GitHub < 1 year old  → it won't count, but Freebuff is still free
- *   - GitHub ≥ 1 year old  → all set, here's how to install
+ *   - signed in, no GitHub → connect GitHub so you both unlock GLM 5.2
+ *   - GitHub < 1 year old  → neither of you unlocks it yet, but Freebuff is free
+ *   - GitHub ≥ 1 year old  → you both unlocked GLM 5.2; here's how to install
  */
 export function GetStartedOnboarding() {
   const { status } = useSession()
@@ -153,8 +154,8 @@ function SignedOut() {
           />
         </div>
         <p className="px-1 text-xs leading-relaxed text-white/45">
-          Sign in with GitHub so your invite counts — your account just needs to
-          be at least a year old.
+          If your account is at least a year old, you and your inviter both
+          unlock GLM 5.2.
         </p>
 
         <div className="flex items-center gap-3 py-1">
@@ -181,8 +182,8 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
       <StatusCard
         tone="action"
         icon={<Github className="h-5 w-5" />}
-        title="Connect GitHub to claim your invite"
-        body="You're signed in with Google. Your referral only counts once you connect a GitHub account that's at least a year old."
+        title="Connect GitHub to unlock GLM 5.2"
+        body="You're signed in with Google. Connect a GitHub account that's at least a year old, and you and your inviter both unlock it."
         action={
           <Button
             onClick={() => {
@@ -209,7 +210,7 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
       <StatusCard
         tone="success"
         icon={<ShieldCheck className="h-5 w-5" />}
-        title="You're all set — your invite qualifies"
+        title="GLM 5.2 unlocked — for you and your inviter"
       >
         <InstallBlock />
       </StatusCard>
@@ -222,7 +223,7 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
         tone="warn"
         icon={<TriangleAlert className="h-5 w-5" />}
         title="Your GitHub account is under a year old"
-        body="This referral won't count toward your inviter — but Freebuff is still completely free for you. Install it and start coding."
+        body="GLM 5.2 needs a GitHub account at least a year old, so this invite won't unlock it yet — but Freebuff is still free. Install it and start coding."
       >
         <InstallBlock />
       </StatusCard>
@@ -235,7 +236,7 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
       tone="neutral"
       icon={<Check className="h-5 w-5" />}
       title="You're signed in"
-      body="Install Freebuff and start coding for free. If your GitHub account is at least a year old, your invite counts automatically."
+      body="Install Freebuff and start coding for free. If your GitHub account is at least a year old, you and your inviter both unlock GLM 5.2 automatically."
     >
       <InstallBlock />
     </StatusCard>

@@ -568,48 +568,132 @@ export async function getGlmReferralEntitlement(params: {
   return Math.min(score, FREEBUFF_GLM_V52_REFERRAL_CAP)
 }
 
-/**
- * Batch sweep over pending referrals, oldest first. For a cron. Each referred
- * user is evaluated independently; failures are logged and skipped.
- */
-export async function evaluatePendingReferrals(params: {
+/** A pending-referral evaluator, keyed by the program it completes. */
+export type ReferralEvaluator = (params: {
+  userId: string
   logger: Logger
-  limit?: number
   now?: Date
   fetchFn?: typeof fetch
-}): Promise<{ evaluated: number; completed: number }> {
-  const { logger, limit = 100, now = new Date(), fetchFn } = params
+}) => Promise<ReferralEvaluation>
 
-  const pendings = await db
+/**
+ * Dispatch table: which evaluator completes a pending row of each program.
+ * The sweep uses this so every program gets a backstop — historically it only
+ * swept 'cli', so 'web' and 'glm' pending rows that missed their live trigger
+ * (web token refresh / first freebuff message of the day) had no catch-up and
+ * stayed pending forever, even after the referred GitHub account aged past the
+ * program's bar.
+ */
+export const REFERRAL_PROGRAM_EVALUATORS: Record<
+  ReferralProgram,
+  ReferralEvaluator
+> = {
+  cli: evaluateReferralForReferredUser,
+  web: evaluateWebReferralForReferredUser,
+  glm: evaluateGlmReferralForReferredUser,
+}
+
+/** All referral programs, in sweep order. */
+export const ALL_REFERRAL_PROGRAMS: ReferralProgram[] = ['cli', 'web', 'glm']
+
+export interface ReferralSweepResult {
+  evaluated: number
+  completed: number
+  /** Per-program tallies, so a cron run can be read at a glance. */
+  byProgram: Record<string, { evaluated: number; completed: number }>
+}
+
+/** The referred-user ids with a pending row in `program`, oldest first. */
+async function fetchPendingReferredIds(
+  program: ReferralProgram,
+  limit: number,
+): Promise<string[]> {
+  const rows = await db
     .select({ referredId: schema.referral.referred_id })
     .from(schema.referral)
     .where(
       and(
         eq(schema.referral.status, 'pending'),
-        eq(schema.referral.program, 'cli'),
+        eq(schema.referral.program, program),
       ),
     )
     .orderBy(schema.referral.created_at)
     .limit(limit)
+  return rows.map((r) => r.referredId)
+}
 
-  let completed = 0
-  for (const { referredId } of pendings) {
-    try {
-      const result = await evaluateReferralForReferredUser({
-        userId: referredId,
-        logger,
-        now,
-        fetchFn,
-      })
-      if (result.outcome === 'completed') completed++
-    } catch (error) {
-      logger.error(
-        { error, referredId },
-        'Failed to evaluate pending referral; skipping',
-      )
-    }
+/**
+ * Batch sweep over pending referrals, oldest first, across every program. For
+ * a cron. Each referred user is evaluated with their program's own evaluator;
+ * failures are logged and skipped so one bad row never stalls the run. This is
+ * the only catch-up path for referrals whose live trigger was missed (or whose
+ * referred GitHub account only ages past the bar later), so it must cover all
+ * programs — not just 'cli'.
+ *
+ * `fetchPending` and `evaluators` are injectable so the orchestration is
+ * unit-testable without a database (see docs/testing.md: DI over mocking).
+ */
+export async function evaluatePendingReferrals(params: {
+  logger: Logger
+  programs?: ReferralProgram[]
+  /** Max rows to evaluate per program per run. */
+  limit?: number
+  now?: Date
+  fetchFn?: typeof fetch
+  fetchPending?: (
+    program: ReferralProgram,
+    limit: number,
+  ) => Promise<string[]>
+  evaluators?: Record<ReferralProgram, ReferralEvaluator>
+}): Promise<ReferralSweepResult> {
+  const {
+    logger,
+    programs = ALL_REFERRAL_PROGRAMS,
+    limit = 100,
+    now = new Date(),
+    fetchFn,
+    fetchPending = fetchPendingReferredIds,
+    evaluators = REFERRAL_PROGRAM_EVALUATORS,
+  } = params
+
+  const result: ReferralSweepResult = {
+    evaluated: 0,
+    completed: 0,
+    byProgram: {},
   }
-  return { evaluated: pendings.length, completed }
+
+  for (const program of programs) {
+    const evaluate = evaluators[program]
+    const referredIds = await fetchPending(program, limit)
+    let completed = 0
+
+    for (const referredId of referredIds) {
+      try {
+        const evaluation = await evaluate({
+          userId: referredId,
+          logger,
+          now,
+          fetchFn,
+        })
+        if (evaluation.outcome === 'completed') completed++
+      } catch (error) {
+        logger.error(
+          { error, referredId, program },
+          'Failed to evaluate pending referral; skipping',
+        )
+      }
+    }
+
+    result.byProgram[program] = { evaluated: referredIds.length, completed }
+    result.evaluated += referredIds.length
+    result.completed += completed
+  }
+
+  logger.info(
+    { evaluated: result.evaluated, completed: result.completed, byProgram: result.byProgram },
+    'Pending-referral sweep complete',
+  )
+  return result
 }
 
 /**

@@ -1,0 +1,41 @@
+name: Freebuff Referral Sweep
+
+# Backstop that completes pending referrals whose live trigger was missed, or
+# whose referred GitHub account only ages past the program bar later. Calls the
+# /api/admin/referral-sweep endpoint, which re-evaluates pending rows across all
+# programs (cli, web, glm) and completes any that now qualify. Idempotent and
+# cheap (GitHub facts are cached), so frequent runs are fine.
+
+on:
+  schedule:
+    # Every 15 minutes — bounds the worst-case "my friend qualified but I didn't
+    # get my GLM yet" delay for friends who aren't actively using the app.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger referral-sweep
+        env:
+          REFERRAL_SWEEP_SECRET: ${{ secrets.REFERRAL_SWEEP_SECRET }}
+          REFERRAL_SWEEP_URL: ${{ vars.REFERRAL_SWEEP_URL || 'https://www.codebuff.com/api/admin/referral-sweep' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$REFERRAL_SWEEP_SECRET" ]; then
+            echo "REFERRAL_SWEEP_SECRET is not set — skipping."
+            exit 0
+          fi
+          status=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+            -X POST "$REFERRAL_SWEEP_URL" \
+            -H "Authorization: Bearer $REFERRAL_SWEEP_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 120)
+          echo "HTTP $status"
+          cat /tmp/resp.json
+          echo
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi

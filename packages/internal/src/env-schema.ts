@@ -65,6 +65,12 @@ export const serverEnvSchema = clientEnvSchema.extend({
   // 503 if the secret isn't configured.
   BOT_SWEEP_SECRET: z.string().min(16).optional(),
 
+  // Shared secret for the referral-sweep GitHub Action. Callers must send
+  // `Authorization: Bearer $REFERRAL_SWEEP_SECRET` to /api/admin/referral-sweep.
+  // Optional so dev environments can start without it; the endpoint returns
+  // 503 if the secret isn't configured.
+  REFERRAL_SWEEP_SECRET: z.string().min(16).optional(),
+
   // Optional GitHub PAT used by the bot-sweep to look up each suspect's
   // GitHub account age. Without it we fall back to unauthenticated API
   // calls (60 req/hr from the server IP) which is enough for a normal
@@ -153,6 +159,7 @@ export const serverProcessEnv: ServerInput = {
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
   BOT_SWEEP_SECRET: process.env.BOT_SWEEP_SECRET,
+  REFERRAL_SWEEP_SECRET: process.env.REFERRAL_SWEEP_SECRET,
   BOT_SWEEP_GITHUB_TOKEN: process.env.BOT_SWEEP_GITHUB_TOKEN,
 
   // Freebuff free sessions
