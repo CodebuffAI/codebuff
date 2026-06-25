@@ -1,4 +1,10 @@
 import { Button } from "@/vly/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/vly/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { useAction, useQuery } from "convex/react";
@@ -12,7 +18,7 @@ export function GodModeActions({
   project,
 }: {
   isExpanded?: boolean;
-  layout?: "vertical" | "horizontal";
+  layout?: "vertical" | "horizontal" | "icons";
   project: Doc<"project">;
 }) {
   const convexInstance = useQuery(api.project.getConvexInstance, {
@@ -70,6 +76,121 @@ export function GodModeActions({
     });
     window.dispatchEvent(event);
   };
+
+  const handleMigrate = async () => {
+    setMigrating(true);
+    try {
+      alert("migrating to daytona");
+      const result = await migrateToDaytona({ projectId: project._id });
+      console.log(`migrated to daytona: ${result.daytonaSandboxId}`);
+      alert("Migration successful");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to migrate to Daytona");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  // Compact, tab-like admin controls: icon-only buttons with tooltips that sit
+  // inline in the workspace tab row (no separate "God Mode" box). Kept subtly
+  // emerald-tinted so admins can still tell them apart from normal tabs.
+  if (layout === "icons") {
+    const iconBtn =
+      "flex h-7 w-7 items-center justify-center rounded-md text-emerald-400/80 transition-colors hover:bg-emerald-500/10 hover:text-emerald-300 disabled:opacity-50";
+    return (
+      <TooltipProvider delayDuration={200}>
+        <div className="flex flex-shrink-0 items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleOpenAdminPanel}
+                className={iconBtn}
+                aria-label="Admin actions"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              Admin actions (⌘K)
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={getSandboxUrl(project.sandbox_id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={iconBtn}
+                aria-label="Open sandbox"
+              >
+                <FileEdit className="h-4 w-4" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              Open sandbox
+            </TooltipContent>
+          </Tooltip>
+
+          {convexInstance?.devDeploymentName && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href={`https://dashboard.convex.dev/d/${convexInstance.devDeploymentName}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={iconBtn}
+                  aria-label="Convex dashboard"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/convex-color.svg" alt="" className="h-4 w-4" />
+                </a>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                Convex dashboard
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className={iconBtn}
+                aria-label="Download code"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              {downloading ? "Downloading…" : "Download code"}
+            </TooltipContent>
+          </Tooltip>
+
+          {!project.sandbox_id?.startsWith("daytona:") && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleMigrate}
+                  disabled={migrating}
+                  className={iconBtn}
+                  aria-label="Migrate to Daytona"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                {migrating ? "Migrating…" : "Migrate to Daytona"}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </TooltipProvider>
+    );
+  }
 
   return (
     <div
@@ -167,23 +288,7 @@ export function GodModeActions({
 
         {!project.sandbox_id?.startsWith("daytona:") && (
           <Button
-            onClick={async () => {
-              setMigrating(true);
-              try {
-                alert("migrating to daytona");
-                const result = await migrateToDaytona({
-                  projectId: project._id,
-                });
-                console.log(`migrated to daytona: ${result.daytonaSandboxId}`);
-                alert("Migration successful");
-                window.location.reload();
-              } catch (err) {
-                console.error(err);
-                alert("Failed to migrate to Daytona");
-              } finally {
-                setMigrating(false);
-              }
-            }}
+            onClick={handleMigrate}
             disabled={migrating}
             variant="outline"
             className={actionButtonClass}

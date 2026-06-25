@@ -23,7 +23,6 @@ import { Suspense, lazy, useEffect } from 'react'
 import {
   Globe2,
   Database,
-  ScrollText,
   Code2,
   KeyRound,
   FolderOpen,
@@ -31,8 +30,6 @@ import {
   ArrowLeft,
   Plug,
   Component,
-  Maximize2,
-  History,
   RotateCw,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -44,6 +41,12 @@ import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
 import type { ProjectRuntimeSurface } from '@/vly/hooks/useProjectConnection'
 import { CenterContent } from './CenterContent'
 import { GodModeActions } from './GodModeActions'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/vly/components/ui/tooltip'
 import {
   FeatureGate,
   UpgradePrompt,
@@ -125,16 +128,22 @@ interface ProjectIframeAreaProps {
   runtimeSurface?: ProjectRuntimeSurface
 }
 
-/** Primary tabs that swap the right-hand iframe surface. */
-const TOP_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
+/** Primary tabs (icon + label) that swap the right-hand iframe surface. */
+const PRIMARY_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'preview', label: 'Preview', Icon: Globe2 },
   { id: 'database', label: 'Data', Icon: Database },
-  { id: 'logs', label: 'Logs', Icon: ScrollText },
-  { id: 'editor', label: 'Editor', Icon: Code2 },
-  { id: 'versions', label: 'Versions', Icon: History },
   { id: 'keys', label: 'API Keys', Icon: KeyRound },
-  { id: 'assets', label: 'Assets', Icon: FolderOpen },
   { id: 'integrations', label: 'Integrations', Icon: Plug },
+]
+
+/**
+ * Secondary tabs rendered as compact icon-only buttons with tooltips, pushed to
+ * the right behind a separator. (Logs + Versions are intentionally omitted —
+ * Versions lives in the side rail and Logs was removed.)
+ */
+const ICON_TABS: { id: IframeTab; label: string; Icon: typeof Globe2 }[] = [
+  { id: 'editor', label: 'Editor', Icon: Code2 },
+  { id: 'assets', label: 'Assets', Icon: FolderOpen },
   { id: 'ui-components', label: 'UI', Icon: Component },
 ]
 
@@ -189,37 +198,71 @@ export function ProjectIframeArea({
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
       {!hideTabs && !isCloudSurface && (
         <div className="flex flex-shrink-0 flex-col bg-background">
-          <div className="flex items-center justify-between gap-2 px-3 py-1.5">
-            <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-              {TOP_TABS.map(({ id, label }) => {
-                const isActive = activeTab === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setActiveTab(id)}
-                    className={`flex h-8 flex-shrink-0 items-center rounded-md px-2 text-sm transition-colors ${
-                      isActive
-                        ? 'text-foreground'
-                        : 'text-foreground/55 hover:text-foreground'
-                    }`}
-                    aria-pressed={isActive}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-              {isPlatformAdmin && (
-                <div className="hidden md:block">
-                  <GodModeActions
-                    isExpanded={false}
-                    layout="horizontal"
-                    project={project}
-                  />
-                </div>
-              )}
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1 px-3 py-1">
+              {/* Primary tabs: compact icon + label */}
+              <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+                {PRIMARY_TABS.map(({ id, label, Icon }) => {
+                  const isActive = activeTab === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setActiveTab(id)}
+                      className={`flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium transition-colors ${
+                        isActive
+                          ? 'bg-muted/70 text-foreground'
+                          : 'text-foreground/55 hover:bg-muted/40 hover:text-foreground'
+                      }`}
+                      aria-pressed={isActive}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex-1" />
+
+              {/* Secondary tabs: icon-only with tooltips, behind a separator */}
+              <div className="flex flex-shrink-0 items-center gap-0.5">
+                <div className="mx-1 h-5 w-px bg-border/60" aria-hidden />
+                {ICON_TABS.map(({ id, label, Icon }) => {
+                  const isActive = activeTab === id
+                  return (
+                    <Tooltip key={id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab(id)}
+                          aria-label={label}
+                          aria-pressed={isActive}
+                          className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                            isActive
+                              ? 'bg-muted/70 text-foreground'
+                              : 'text-foreground/55 hover:bg-muted/40 hover:text-foreground'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        {label}
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+
+                {isPlatformAdmin && (
+                  <div className="hidden items-center gap-0.5 md:flex">
+                    <div className="mx-1 h-5 w-px bg-border/60" aria-hidden />
+                    <GodModeActions layout="icons" project={project} />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </TooltipProvider>
           {showSelfHostMigrationBanner === true && (
             <div className="px-3 pb-2">
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
