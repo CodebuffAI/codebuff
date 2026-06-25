@@ -202,10 +202,7 @@ export const FreebuffReferralBanner: React.FC = () => {
             </>
           ) : (
             <>
-              <span fg={theme.muted}>
-                Refer up to {FREEBUFF_GLM_V52_REFERRAL_CAP} friends for more
-                sessions of{' '}
-              </span>
+              <span fg={theme.muted}>Refer friends to access </span>
               <span fg={theme.foreground}>GLM 5.2</span>
               <span fg={theme.muted}>, the most powerful open-source model:</span>
             </>

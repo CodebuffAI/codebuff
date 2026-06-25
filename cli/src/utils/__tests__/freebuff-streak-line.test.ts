@@ -27,14 +27,14 @@ describe('getFreebuffStreakLine', () => {
     })
   })
 
-  test('stays full once the streak reaches the milestone', () => {
+  test('stays full and gains a "+" once the streak passes the week', () => {
     expect(getFreebuffStreakLine(9)).toEqual({
       label: '9 day streak',
-      dots: '●●●●●●●',
+      dots: '●●●●●●●+',
     })
     expect(getFreebuffStreakLine(19)).toEqual({
       label: '19 day streak',
-      dots: '●●●●●●●',
+      dots: '●●●●●●●+',
     })
   })
 })
