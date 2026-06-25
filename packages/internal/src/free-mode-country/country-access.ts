@@ -275,6 +275,28 @@ function residentialProxyRisk(
   return risk
 }
 
+// A residential-proxy detection is only treated as a gating signal when it
+// looks like an ACTIVE exit: ipinfo has seen it recently or it's seen on a
+// meaningful share of days. A stale + infrequent hit (including one with no
+// recency/frequency metadata) is too weak to gate on — it's far more likely an
+// ordinary user briefly caught in a proxy pool than an abuser — so we let it
+// through with no second-opinion lookup. Tunable thresholds.
+const RES_PROXY_ACTIVE_RECENCY_MS = THIRTY_DAYS_MS
+const RES_PROXY_ACTIVE_FREQUENCY_PCT = 20
+
+function isActiveResidentialProxy(args: {
+  lastSeen: string | null | undefined
+  percentDaysSeen: number | null | undefined
+}): boolean {
+  const ageMs = lastSeenAgeMs(args.lastSeen)
+  const recentlySeen = ageMs !== null && ageMs <= RES_PROXY_ACTIVE_RECENCY_MS
+  const frequentlySeen =
+    typeof args.percentDaysSeen === 'number' &&
+    Number.isFinite(args.percentDaysSeen) &&
+    args.percentDaysSeen >= RES_PROXY_ACTIVE_FREQUENCY_PCT
+  return recentlySeen || frequentlySeen
+}
+
 function maxPrivacySignalRisk(
   ipPrivacy: FreeModeIpPrivacy | null | undefined,
 ): number {
@@ -595,7 +617,21 @@ function privacySignalsFromIpinfo(
   if (data.vpn === true || anonymous.is_vpn === true) signals.push('vpn')
   if (data.proxy === true || anonymous.is_proxy === true) signals.push('proxy')
   if (data.tor === true || anonymous.is_tor === true) signals.push('tor')
-  if (anonymous.is_res_proxy === true) signals.push('res_proxy')
+
+  // Only gate on a residential proxy that looks like an active exit; a stale +
+  // infrequent hit is too weak to flag (see isActiveResidentialProxy).
+  const isResProxy = anonymous.is_res_proxy === true
+  const weakResProxy =
+    isResProxy &&
+    !isActiveResidentialProxy({
+      lastSeen:
+        typeof anonymous.last_seen === 'string' ? anonymous.last_seen : null,
+      percentDaysSeen:
+        typeof anonymous.percent_days_seen === 'number'
+          ? anonymous.percent_days_seen
+          : null,
+    })
+  if (isResProxy && !weakResProxy) signals.push('res_proxy')
 
   // Relay (Apple iCloud Private Relay etc.) is a green flag. ipinfo also sets
   // is_anonymous + is_hosting on relay exits because they ride on Akamai/
@@ -626,7 +662,11 @@ function privacySignalsFromIpinfo(
     signals.push('service')
   }
   if (data.is_anonymous === true) {
-    signals.push('anonymous')
+    // If a weak (ignored) residential proxy is the ONLY thing ipinfo flagged,
+    // don't let the is_anonymous rollup re-introduce the gate we just dropped —
+    // otherwise "let weak res_proxy through" wouldn't actually hold.
+    const onlyWeakResProxy = weakResProxy && signals.length === 0
+    if (!onlyWeakResProxy) signals.push('anonymous')
   }
   return signals
 }
@@ -672,6 +712,11 @@ function pushUniqueSignal(
 function signalFromSpurValue(value: unknown): FreeModeIpPrivacySignal | null {
   if (typeof value !== 'string') return null
   const normalized = value.toUpperCase()
+  // Relay first (e.g. ICLOUD_RELAY_PROXY): Apple iCloud Private Relay is a
+  // benign consumer feature, not an anonymizer — mirror the ipinfo `relay`
+  // green-flag handling. Checked before PROXY because the operator name also
+  // contains "PROXY".
+  if (normalized.includes('RELAY')) return 'relay'
   if (normalized.includes('RESIDENTIAL') || normalized.includes('RES_PROXY')) {
     return 'res_proxy'
   }
@@ -711,6 +756,13 @@ export function privacySignalsFromSpur(
     if (!tunnel || typeof tunnel !== 'object') continue
     const tunnelRecord = tunnel as Record<string, unknown>
     const operatorSignal = signalFromSpurValue(tunnelRecord.operator)
+    // A relay tunnel (Apple iCloud Private Relay reports as operator
+    // ICLOUD_RELAY_PROXY with type PROXY) is benign — classify the whole tunnel
+    // as relay and don't also emit the generic `proxy` from its type.
+    if (operatorSignal === 'relay') {
+      pushUniqueSignal(signals, 'relay')
+      continue
+    }
     if (operatorSignal) pushUniqueSignal(signals, operatorSignal)
     const signal = signalFromSpurValue(tunnelRecord.type)
     if (signal) pushUniqueSignal(signals, signal)
@@ -726,10 +778,18 @@ export function privacySignalsFromSpur(
     if (signal) pushUniqueSignal(signals, signal)
   }
 
+  // Entries under client.proxies are proxy networks observed running on the
+  // client devices behind this IP (PACKETSTREAM, NETNUT, OXYLABS, …) — i.e.
+  // residential proxies. Classify them as res_proxy (consistent with ipinfo's
+  // res_proxy handling) rather than a generic datacenter proxy, unless the name
+  // explicitly indicates VPN/Tor/relay.
   const proxies = Array.isArray(client.proxies) ? client.proxies : []
   for (const proxy of proxies) {
-    const signal = signalFromSpurValue(proxy) ?? 'proxy'
-    pushUniqueSignal(signals, signal)
+    const signal = signalFromSpurValue(proxy)
+    pushUniqueSignal(
+      signals,
+      signal === null || signal === 'proxy' ? 'res_proxy' : signal,
+    )
   }
 
   return signals
@@ -785,6 +845,16 @@ export function privacySignalsFromScamalytics(
       ? (root.scamalytics_proxy as Record<string, unknown>)
       : {}
 
+  // Apple iCloud Private Relay is a benign consumer feature. Scamalytics tags
+  // these IPs is_vpn + is_datacenter (and external sources report proxy_type
+  // DCH) because the relay rides on Akamai/Cloudflare hosting — emit only
+  // `relay` and skip those artifacts, mirroring the ipinfo/Spur relay handling.
+  // The fraud score is evaluated separately by the caller and stays low (~2)
+  // for genuine relay IPs, so this only removes the spurious hard `vpn` signal.
+  if (proxy.is_apple_icloud_private_relay === true) {
+    return ['relay']
+  }
+
   if (proxy.is_vpn === true) pushUniqueSignal(signals, 'vpn')
   if (proxy.is_tor === true) pushUniqueSignal(signals, 'tor')
   if (proxy.is_proxy === true || proxy.is_public_proxy === true) {
@@ -793,9 +863,6 @@ export function privacySignalsFromScamalytics(
   if (proxy.is_web_proxy === true) pushUniqueSignal(signals, 'proxy')
   if (proxy.is_residential_proxy === true || proxy.is_res_proxy === true) {
     pushUniqueSignal(signals, 'res_proxy')
-  }
-  if (proxy.is_apple_icloud_private_relay === true) {
-    pushUniqueSignal(signals, 'relay')
   }
   if (
     proxy.is_datacenter === true ||

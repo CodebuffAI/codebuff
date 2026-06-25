@@ -863,9 +863,65 @@ describe('free mode country access', () => {
 
     expect(requestedUrl).toBe('https://api.spur.us/v2/context/198.51.100.45')
     expect(tokenHeader).toBe('spur-token')
+    // OXYLABS_PROXY (a residential-proxy network under client.proxies) is
+    // classified as res_proxy, not a generic datacenter proxy.
     expect(privacy).toEqual({
-      signals: ['vpn', 'tor', 'proxy'],
+      signals: ['vpn', 'tor', 'res_proxy'],
     })
+  })
+
+  test('classifies a Spur iCloud Private Relay tunnel as benign relay', () => {
+    // Real Spur shape for Apple Private Relay; reported as a PROXY-type tunnel
+    // with operator ICLOUD_RELAY_PROXY. Must come back as relay (not proxy), so
+    // it never trips the hard-signal second-opinion gate.
+    expect(
+      privacySignalsFromSpur({
+        infrastructure: 'DATACENTER',
+        risks: ['TUNNEL'],
+        tunnels: [
+          { anonymous: true, operator: 'ICLOUD_RELAY_PROXY', type: 'PROXY' },
+        ],
+      }),
+    ).toEqual(['relay'])
+  })
+
+  test('classifies Spur client.proxies as residential proxies', () => {
+    expect(
+      privacySignalsFromSpur({
+        client: {
+          proxies: ['PACKETSTREAM_PROXY', 'NETNUT_PROXY'],
+        },
+      }),
+    ).toEqual(['res_proxy'])
+  })
+
+  test('Spur relay tunnel does not flag traffic as suspicious', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        // Force the second opinion via a soft IPinfo signal, then confirm Spur
+        // clears the relay IP rather than flagging it as a proxy.
+        lookupIpPrivacy: async () => ({ signals: ['hosting'] }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: privacySignalsFromSpur({
+            tunnels: [{ operator: 'ICLOUD_RELAY_PROXY', type: 'PROXY' }],
+          }),
+        }),
+        lookupScamalyticsIpRisk: async () => ({
+          signals: [],
+          score: 5,
+          risk: 'low',
+        }),
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.spurStatus).toBe('clean')
+    expect(access.spurIpPrivacy?.signals).toEqual(['relay'])
   })
 
   test('parses Scamalytics fraud score and proxy signals', async () => {
@@ -880,7 +936,6 @@ describe('free mode country access', () => {
           scamalytics_proxy: {
             is_vpn: true,
             is_datacenter: true,
-            is_apple_icloud_private_relay: true,
           },
         },
         external_datasources: {
@@ -901,10 +956,31 @@ describe('free mode country access', () => {
       'https://api11.scamalytics.com/v3/codebuff/?key=scamalytics-token&ip=198.51.100.46',
     )
     expect(risk).toEqual({
-      signals: ['vpn', 'relay', 'hosting'],
+      signals: ['vpn', 'hosting'],
       score: 88,
       risk: 'high',
     })
+  })
+
+  test('classifies Scamalytics Apple iCloud Private Relay as benign relay', () => {
+    // Real Scamalytics shape for Apple Private Relay: it tags the IP is_vpn +
+    // is_datacenter (and external sources say DCH) because the relay rides on
+    // hosting. Must come back as relay only — the spurious hard `vpn` is
+    // suppressed so a relay user isn't flagged suspicious.
+    expect(
+      privacySignalsFromScamalytics({
+        scamalytics: {
+          scamalytics_proxy: {
+            is_vpn: true,
+            is_datacenter: true,
+            is_apple_icloud_private_relay: true,
+          },
+        },
+        external_datasources: {
+          ip2proxy: { proxy_type: 'DCH' },
+        },
+      }),
+    ).toEqual(['relay'])
   })
 
   test('parses Scamalytics datasource VPN/Tor types without treating generic proxy labels as hard evidence', () => {
@@ -1016,6 +1092,125 @@ describe('free mode country access', () => {
     })
     expect(access.allowed).toBe(false)
     expect(access.blockReason).toBe('missing_client_ip')
+  })
+
+  test('ignores a stale, infrequent residential proxy as a signal', async () => {
+    // Last seen months ago and rarely seen: too weak to gate on. The
+    // is_anonymous rollup (driven solely by res_proxy) is suppressed too, so
+    // the IP comes back completely clean.
+    const fetch = async () =>
+      Response.json({
+        as: { type: 'isp', name: 'Comcast Cable' },
+        anonymous: {
+          last_seen: '2025-01-01',
+          percent_days_seen: 3,
+          is_proxy: false,
+          is_relay: false,
+          is_tor: false,
+          is_vpn: false,
+          is_res_proxy: true,
+        },
+        is_anonymous: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.80',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy?.signals).toEqual([])
+  })
+
+  test('keeps an actively-seen residential proxy as a signal', async () => {
+    const recent = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10)
+    const fetch = async () =>
+      Response.json({
+        as: { type: 'isp', name: 'Comcast Cable' },
+        anonymous: {
+          last_seen: recent,
+          percent_days_seen: 80,
+          is_proxy: false,
+          is_relay: false,
+          is_tor: false,
+          is_vpn: false,
+          is_res_proxy: true,
+        },
+        is_anonymous: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.81',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy?.signals).toEqual(['res_proxy', 'anonymous'])
+  })
+
+  test('grants weak-residential-proxy traffic full access with no second opinion', async () => {
+    let spurCalled = false
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        // Unique IP: this test exercises the REAL ipinfo lookup, which populates
+        // the process-wide ipinfoPrivacyCache. Using the shared 203.0.113.10
+        // would leak a cached entry into the access-cache test's fetch-count
+        // assertion when bun runs both files in one process.
+        'x-forwarded-for': '198.51.100.90',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        fetch: (async (url: string | URL | Request) => {
+          if (String(url).includes('ipinfo.io')) {
+            return Response.json({
+              as: { type: 'isp' },
+              anonymous: {
+                last_seen: '2025-01-01',
+                percent_days_seen: 2,
+                is_res_proxy: true,
+              },
+              is_anonymous: true,
+            })
+          }
+          spurCalled = true
+          return Response.json({})
+        }) as unknown as typeof globalThis.fetch,
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
+    expect(access.ipPrivacy?.signals).toEqual([])
+    expect(access.spurStatus).toBe('not_checked')
+    expect(spurCalled).toBe(false)
+  })
+
+  test('keeps a weak residential proxy gated when another hard signal is present', async () => {
+    // The is_anonymous suppression only applies when res_proxy is the SOLE
+    // flag; a co-occurring VPN must still gate normally.
+    const fetch = async () =>
+      Response.json({
+        as: { type: 'hosting' },
+        anonymous: {
+          last_seen: '2025-01-01',
+          percent_days_seen: 2,
+          is_vpn: true,
+          is_res_proxy: true,
+        },
+        is_anonymous: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.82',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    // res_proxy dropped (weak), but vpn + hosting + anonymous remain.
+    expect(privacy?.signals).toEqual(['vpn', 'hosting', 'anonymous'])
   })
 
   test('grants full access to relay-only traffic without a second opinion', async () => {
