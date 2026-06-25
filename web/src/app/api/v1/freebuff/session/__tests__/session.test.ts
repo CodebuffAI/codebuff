@@ -124,36 +124,32 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   let instanceCounter = 0
   return {
     rows,
-    isWaitingRoomEnabled: () => true,
     graceMs: 30 * 60 * 1000,
     sessionLengthMs: 60 * 60 * 1000,
-    // Keep instant-admit disabled in handler tests — they verify queue/state
-    // transitions, not admission policy. With capacity 0 the deps below
-    // aren't reached, so they're trivial stubs.
-    getInstantAdmitCapacity: () => 0,
     getFleetHealth: async () => ({}),
     getDeploymentTtftP90Ms: () => undefined,
-    activeCountForModel: async () => 0,
-    // Log-only per-IP instrumentation: instant-admit is disabled here, so this
-    // is never reached; trivial stubs keep the deps type satisfied.
+    // Log-only per-IP instrumentation. Trivial stub keeps the deps type
+    // satisfied; handler tests don't assert on the concurrency log.
     countActiveSessionsForIpHash: async () => 0,
     ipSessionCap: 30,
-    promoteQueuedUser: async () => null,
-    // No admits in handler tests — the rate-limit check reads empty and
-    // every request falls through to the queue.
+    // Every free session is admitted immediately: flip the freshly-joined
+    // queued row to active in the same request so handler responses reflect
+    // the new no-waiting-room contract.
+    promoteQueuedUser: async ({ userId, model, sessionLengthMs, now }) => {
+      const row = rows.get(userId)
+      if (!row || row.status !== 'queued' || row.model !== model) return null
+      row.status = 'active'
+      row.admitted_at = now
+      row.expires_at = new Date(now.getTime() + sessionLengthMs)
+      row.updated_at = now
+      return row
+    },
+    // No admits in handler tests — the rate-limit check reads empty so every
+    // request is admitted.
     listRecentFreeSessionAdmits: async () => [],
     getGlmReferralEntitlement: async () => 0,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
-    queueDepthsByModel: async () => {
-      const out: Record<string, number> = {}
-      for (const r of rows.values()) {
-        if (r.status !== 'queued') continue
-        out[r.model] = (out[r.model] ?? 0) + 1
-      }
-      return out
-    },
-    queuePositionFor: async () => 1,
     endSession: async ({ userId }) => {
       rows.delete(userId)
     },
@@ -244,7 +240,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.instanceId).toBe('inst-1')
     expect(sessionDeps.rows.get('u1')).toMatchObject({
       country_code: 'US',
@@ -252,16 +248,6 @@ describe('POST /api/v1/freebuff/session', () => {
       ip_privacy_signals: [],
       client_ip_hash: 'test-ip-hash',
     })
-  })
-
-  test('returns disabled when waiting room flag is off', async () => {
-    const sessionDeps = makeSessionDeps({ isWaitingRoomEnabled: () => false })
-    const resp = await postFreebuffSession(
-      makeReq('ok'),
-      makeDeps(sessionDeps, 'u1'),
-    )
-    const body = await resp.json()
-    expect(body.status).toBe('disabled')
   })
 
   test('creates a limited DeepSeek Flash session for disallowed country', async () => {
@@ -272,7 +258,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.accessTier).toBe('limited')
     expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(body.countryCode).toBe('JP')
@@ -292,7 +278,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.accessTier).toBe('limited')
     expect(body.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(sessionDeps.rows.get('u1')).toMatchObject({
@@ -309,7 +295,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.accessTier).toBe('limited')
     expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
@@ -322,7 +308,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.accessTier).toBe('limited')
     expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
@@ -334,7 +320,7 @@ describe('POST /api/v1/freebuff/session', () => {
       makeDeps(sessionDeps, 'u1'),
     )
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
   })
 
   test('puts VPN/proxy privacy signals in limited mode before joining the queue', async () => {
@@ -370,7 +356,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.accessTier).toBe('limited')
     expect(body.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(body.countryBlockReason).toBe('anonymous_network')
@@ -418,7 +404,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.accessTier).toBe('full')
     expect(body.ipPrivacySignals).toBeUndefined()
   })
@@ -431,7 +417,7 @@ describe('POST /api/v1/freebuff/session', () => {
     )
     expect(resp.status).toBe(200)
     const body = await resp.json()
-    expect(body.status).toBe('queued')
+    expect(body.status).toBe('active')
     expect(body.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     expect(sessionDeps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })

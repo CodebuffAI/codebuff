@@ -80,30 +80,18 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       currentNow = n
     },
     _now: () => currentNow,
-    isWaitingRoomEnabled: () => true,
     graceMs: GRACE_MS,
     sessionLengthMs: SESSION_LEN,
     // Log-only per-IP concurrency instrumentation. Default to a no-op count so
     // existing tests are unaffected; the instrumentation tests override this.
     countActiveSessionsForIpHash: async () => 0,
     ipSessionCap: 30,
-    // Test default: instant-admit disabled (capacity 0) so existing FIFO
-    // queue tests stay green. Tests that exercise instant admission opt in
-    // via `getInstantAdmitCapacity: () => N`.
-    getInstantAdmitCapacity: () => 0,
     // Empty fleet → every model resolves to the absence-default 'healthy', so
     // backup-capable models pin to 'deployment'. Routing tests override this.
     getFleetHealth: async () => ({}),
     // No measured TTFT by default → no TTFT-based serverless trip. TTFT tests
     // override this.
     getDeploymentTtftP90Ms: () => undefined,
-    activeCountForModel: async (model) => {
-      let n = 0
-      for (const r of rows.values()) {
-        if (r.status === 'active' && r.model === model) n++
-      }
-      return n
-    },
     listRecentFreeSessionAdmits: async ({
       userId,
       models,
@@ -175,27 +163,6 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       }
       rows.delete(userId)
     },
-    queueDepthsByModel: async () => {
-      const out: Record<string, number> = {}
-      for (const r of rows.values()) {
-        if (r.status !== 'queued') continue
-        out[r.model] = (out[r.model] ?? 0) + 1
-      }
-      return out
-    },
-    queuePositionFor: async ({ userId, model, queuedAt }) => {
-      let pos = 0
-      for (const r of rows.values()) {
-        if (r.status !== 'queued' || r.model !== model) continue
-        if (
-          r.queued_at.getTime() < queuedAt.getTime() ||
-          (r.queued_at.getTime() === queuedAt.getTime() && r.user_id <= userId)
-        ) {
-          pos++
-        }
-      }
-      return pos
-    },
     joinOrTakeOver: async ({ userId, model, accessTier, now }) => {
       const existing = rows.get(userId)
       const nextInstance = newInstanceId()
@@ -258,17 +225,6 @@ describe('requestSession', () => {
     deps = makeDeps()
   })
 
-  test('disabled flag returns { status: disabled } and does not touch DB', async () => {
-    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
-    const state = await requestSession({
-      userId: 'u1',
-      model: DEFAULT_MODEL,
-      deps: offDeps,
-    })
-    expect(state).toEqual({ status: 'disabled' })
-    expect(offDeps.rows.size).toBe(0)
-  })
-
   test('banned user is rejected before joinOrTakeOver runs', async () => {
     const state = await requestSession({
       userId: 'u1',
@@ -277,22 +233,50 @@ describe('requestSession', () => {
       deps,
     })
     expect(state).toEqual({ status: 'banned' })
-    // No row should be created — the point is to keep banned bots out of
-    // queueDepthsByModel entirely, not just until the next evictBanned tick.
+    // No row should be created — banned bots never reach joinOrTakeOver.
     expect(deps.rows.size).toBe(0)
   })
 
-  test('first call puts user in queue at position 1', async () => {
+  test('first call admits the user immediately into an active session', async () => {
     const state = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.position).toBe(1)
-    expect(state.queueDepth).toBe(1)
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    expect(state.remainingMs).toBe(SESSION_LEN)
     expect(state.instanceId).toBe('inst-1')
+    expect(deps.rows.get('u1')?.status).toBe('active')
+  })
+
+  test('concurrent admit: promote no-op falls back to the active row, not queued', async () => {
+    // Simulate a racing request that already flipped the row to active: this
+    // request's promote matches nothing (returns null), but a re-read finds the
+    // active row. We must surface `active`, never a phantom `queued` view.
+    deps.promoteQueuedUser = async ({ userId, now }) => {
+      const row = deps.rows.get(userId)!
+      row.status = 'active'
+      row.admitted_at = now
+      row.expires_at = new Date(now.getTime() + SESSION_LEN)
+      return null // our UPDATE matched nothing because the row was already active
+    }
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('active')
+  })
+
+  test('promote no-op with no active row throws (never returns queued)', async () => {
+    // Promotion returns null and the row stays queued (pathological). With no
+    // admission tick to advance it, returning `queued` would wedge the client,
+    // so requestSession must throw and let the client retry POST.
+    deps.promoteQueuedUser = async () => null
+    await expect(
+      requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps }),
+    ).rejects.toThrow(/could not be admitted/)
   })
 
   test('removed GLM 5.1 request falls back to the default model', async () => {
@@ -301,8 +285,8 @@ describe('requestSession', () => {
       model: REMOVED_GLM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     expect(deps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
@@ -326,56 +310,21 @@ describe('requestSession', () => {
       model: REMOVED_GLM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
     expect(deps.rows.get('u1')?.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
-  test('queued response includes a per-model depth snapshot for the selector', async () => {
-    deps._tick(new Date('2026-04-17T16:00:00Z'))
-    // Seed 2 users in MiniMax + 1 in DeepSeek so the returned map captures both.
-    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
-    deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
-    deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({
-      userId: 'u3',
-      model: 'deepseek/deepseek-v4-pro',
-      deps,
-    })
-
-    const state = await getSessionState({ userId: 'u1', deps })
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.queueDepthByModel).toEqual({
-      [DEFAULT_MODEL]: 2,
-      'deepseek/deepseek-v4-pro': 1,
-    })
-  })
-
-  test('second call from same user rotates instance id, keeps queue position', async () => {
+  test('second call from same user rotates instance id, preserves active session', async () => {
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const second = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
       deps,
     })
-    if (second.status !== 'queued') throw new Error('unreachable')
-    expect(second.position).toBe(1)
+    if (second.status !== 'active') throw new Error('unreachable')
     expect(second.instanceId).toBe('inst-2')
-  })
-
-  test('multiple users queue in FIFO order', async () => {
-    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
-    deps._tick(new Date(deps._now().getTime() + 1000))
-    await requestSession({ userId: 'u2', model: DEFAULT_MODEL, deps })
-
-    const s1 = await getSessionState({ userId: 'u1', deps })
-    const s2 = await getSessionState({ userId: 'u2', deps })
-    if (s1.status !== 'queued' || s2.status !== 'queued')
-      throw new Error('unreachable')
-    expect(s1.position).toBe(1)
-    expect(s2.position).toBe(2)
   })
 
   test('active unexpired session → rotate instance id, preserve active state', async () => {
@@ -396,40 +345,25 @@ describe('requestSession', () => {
     expect(second.instanceId).not.toBe('inst-1') // rotated
   })
 
-  test('instant-admit: below capacity admits the user in the same request', async () => {
-    const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 3 })
-    const state = await requestSession({
-      userId: 'u1',
-      model: DEFAULT_MODEL,
-      deps: admitDeps,
-    })
-    expect(state.status).toBe('active')
-    if (state.status !== 'active') throw new Error('unreachable')
-    expect(state.remainingMs).toBe(SESSION_LEN)
-    // The row in storage is flipped too, so the next GET /session also sees active.
-    expect(admitDeps.rows.get('u1')?.status).toBe('active')
-  })
-
-  test('instant-admit: queues once active-count reaches capacity', async () => {
-    const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 2 })
+  test('admits every user immediately regardless of how many are active', async () => {
     const s1 = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
-      deps: admitDeps,
+      deps,
     })
     const s2 = await requestSession({
       userId: 'u2',
       model: DEFAULT_MODEL,
-      deps: admitDeps,
+      deps,
     })
     const s3 = await requestSession({
       userId: 'u3',
       model: DEFAULT_MODEL,
-      deps: admitDeps,
+      deps,
     })
     expect(s1.status).toBe('active')
     expect(s2.status).toBe('active')
-    expect(s3.status).toBe('queued')
+    expect(s3.status).toBe('active')
   })
 
   // --- Log-only per-IP concurrent-session instrumentation -----------------
@@ -448,10 +382,9 @@ describe('requestSession', () => {
     checkedAt: new Date('2026-04-17T12:00:00Z'),
   })
 
-  test('instant-admit: samples per-IP concurrency but never blocks (log-only)', async () => {
+  test('admission: samples per-IP concurrency but never blocks (log-only)', async () => {
     const ipHashCalls: string[] = []
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       // Simulate a hash already far over the cap (default 30); log-only must
       // still admit.
       countActiveSessionsForIpHash: async (hash) => {
@@ -469,10 +402,9 @@ describe('requestSession', () => {
     expect(ipHashCalls).toEqual(['hash-farm'])
   })
 
-  test('instant-admit: skips per-IP sampling when no client_ip_hash is known', async () => {
+  test('admission: skips per-IP sampling when no client_ip_hash is known', async () => {
     const ipHashCalls: string[] = []
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       countActiveSessionsForIpHash: async (hash) => {
         ipHashCalls.push(hash)
         return 0
@@ -491,7 +423,6 @@ describe('requestSession', () => {
   test('reclaim/takeover does not re-sample per-IP concurrency', async () => {
     const ipHashCalls: string[] = []
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       countActiveSessionsForIpHash: async (hash) => {
         ipHashCalls.push(hash)
         return 1
@@ -515,9 +446,8 @@ describe('requestSession', () => {
     expect(ipHashCalls).toEqual(['hash-a'])
   })
 
-  test('instant-admit pins minimax-m3 to the deployment when healthy', async () => {
+  test('admission pins minimax-m3 to the deployment when healthy', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
       }),
@@ -530,9 +460,8 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('deployment')
   })
 
-  test('instant-admit pins minimax-m3 to serverless when degraded', async () => {
+  test('admission pins minimax-m3 to serverless when degraded', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'degraded',
       }),
@@ -545,9 +474,8 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
   })
 
-  test('instant-admit pins minimax-m3 to serverless when unhealthy', async () => {
+  test('admission pins minimax-m3 to serverless when unhealthy', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'unhealthy',
       }),
@@ -560,9 +488,8 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
   })
 
-  test('instant-admit pins minimax-m3 to serverless when measured TTFT p90 > 4s, even while Prometheus health is healthy', async () => {
+  test('admission pins minimax-m3 to serverless when measured TTFT p90 > 4s, even while Prometheus health is healthy', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
       }),
@@ -577,9 +504,8 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
   })
 
-  test('instant-admit keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 4s', async () => {
+  test('admission keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 4s', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
       }),
@@ -596,7 +522,6 @@ describe('requestSession', () => {
 
   test('models without a serverless backup get no route pin', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       // Even a degraded fleet leaves a non-backup model unpinned: there is no
       // safe serverless target to divert it to.
       getFleetHealth: async () => ({ [DEFAULT_MODEL]: 'degraded' }),
@@ -612,7 +537,6 @@ describe('requestSession', () => {
   test('route is sticky: a serverless pin survives a later takeover even after the deployment recovers', async () => {
     let health: 'healthy' | 'degraded' = 'degraded'
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: health }),
     })
     // Admitted while degraded → pinned to serverless.
@@ -637,7 +561,6 @@ describe('requestSession', () => {
 
   test('checkSessionAdmissible surfaces the session route pin', async () => {
     const admitDeps = makeDeps({
-      getInstantAdmitCapacity: () => 3,
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'unhealthy',
       }),
@@ -659,31 +582,6 @@ describe('requestSession', () => {
       throw new Error('expected ok active gate')
     }
     expect(gate.fireworksRoute).toBe('serverless')
-  })
-
-  test('instant-admit: per-model capacities are independent', async () => {
-    // MiniMax saturated at 1 active, DeepSeek still has room.
-    const admitDeps = makeDeps({
-      getInstantAdmitCapacity: (model) => (model === DEFAULT_MODEL ? 1 : 10),
-    })
-    admitDeps._tick(new Date('2026-04-17T16:00:00Z'))
-    await requestSession({
-      userId: 'u1',
-      model: DEFAULT_MODEL,
-      deps: admitDeps,
-    })
-    const s2 = await requestSession({
-      userId: 'u2',
-      model: DEFAULT_MODEL,
-      deps: admitDeps,
-    })
-    const s3 = await requestSession({
-      userId: 'u3',
-      model: 'deepseek/deepseek-v4-pro',
-      deps: admitDeps,
-    })
-    expect(s2.status).toBe('queued')
-    expect(s3.status).toBe('active')
   })
 
   // Per-user premium session limit (5 units per Pacific day) — the wire
@@ -756,9 +654,11 @@ describe('requestSession', () => {
       model: PREMIUM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit).toEqual(expectedRateLimit(PREMIUM_MODEL, 0))
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    // The pre-reset admit doesn't count; only the admit just written for this
+    // admission falls inside today's window.
+    expect(state.rateLimit).toEqual(expectedRateLimit(PREMIUM_MODEL, 1))
   })
 
   test('rate_limited: 5th Kimi admit today blocks the 6th attempt', async () => {
@@ -807,8 +707,8 @@ describe('requestSession', () => {
       model: REMOVED_GLM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     expect(state.model).toBe(FALLBACK_FREEBUFF_MODEL_ID)
   })
 
@@ -826,9 +726,11 @@ describe('requestSession', () => {
       model: PREMIUM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit?.recentCount).toBe(0)
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    // The 5 pre-reset admits don't count; the count is 1 because this request
+    // admits immediately and writes its own (post-reset) admit row.
+    expect(state.rateLimit?.recentCount).toBe(1)
   })
 
   test('rate_limited: Minimax is unlimited even with many recent admits', async () => {
@@ -845,8 +747,8 @@ describe('requestSession', () => {
       model: DEFAULT_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     // No rate-limit info for unrated models — the CLI skips the quota line.
     expect(state.rateLimit).toBeUndefined()
   })
@@ -858,8 +760,8 @@ describe('requestSession', () => {
       accessTier: 'limited',
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
     expect(state.model).toBe('deepseek/deepseek-v4-flash')
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
@@ -872,8 +774,8 @@ describe('requestSession', () => {
       accessTier: 'limited',
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
     expect(state.model).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
@@ -900,8 +802,8 @@ describe('requestSession', () => {
       accessTier: 'limited',
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
     expect(state.accessTier).toBe('limited')
     expect(state.instanceId).not.toBe('full-inst')
     expect(deps.rows.get('u1')?.access_tier).toBe('limited')
@@ -953,12 +855,14 @@ describe('requestSession', () => {
       accessTier: 'limited',
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit?.recentCount).toBe(0)
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    // The full-tier Flash admits don't count toward the limited quota; the
+    // count is 1 from this request's own immediate limited-tier admission.
+    expect(state.rateLimit?.recentCount).toBe(1)
   })
 
-  test('queued DeepSeek response carries the current admit count', async () => {
+  test('DeepSeek admit response carries the current admit count', async () => {
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     // 2 admits today — under the limit so the user still queues.
@@ -977,8 +881,9 @@ describe('requestSession', () => {
       model: PREMIUM_MODEL,
       deps,
     })
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit).toEqual(expectedRateLimit(PREMIUM_MODEL, 2))
+    if (state.status !== 'active') throw new Error('unreachable')
+    // Two prior admits + the one just written for this admission = 3.
+    expect(state.rateLimit).toEqual(expectedRateLimit(PREMIUM_MODEL, 3))
   })
 
   test('rate_limited: fractional premium usage under the cap can start another session', async () => {
@@ -1004,9 +909,10 @@ describe('requestSession', () => {
       deps,
     })
 
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    expect(state.rateLimit?.recentCount).toBe(4.9)
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    // 4.9 prior units + the 1.0-unit admit just written for this admission.
+    expect(state.rateLimit?.recentCount).toBe(5.9)
   })
 
   test('rate_limited: takeover of an active premium row is allowed even when at cap', async () => {
@@ -1055,10 +961,10 @@ describe('requestSession', () => {
   })
 
   test('rate_limited: reclaim of a queued premium row is allowed even when at cap', async () => {
-    // Same reclaim exception for queued rows: if a user has already queued
-    // (say they slipped in just before their 5th admit landed), a subsequent
-    // POST from the same CLI must preserve their queue position instead of
-    // flipping to rate_limited.
+    // Reclaim exception for queued rows: if a user has a leftover queued row
+    // (e.g. from before instant admission), a subsequent POST from the same CLI
+    // must not flip to rate_limited. The row is now promoted to active in the
+    // same request (every free session is admitted immediately).
     deps._tick(PREMIUM_OPEN_TIME)
     const now = deps._now()
     for (let i = 0; i < PREMIUM_LIMIT; i++) {
@@ -1086,12 +992,12 @@ describe('requestSession', () => {
       model: PREMIUM_MODEL,
       deps,
     })
-    expect(state.status).toBe('queued')
-    if (state.status !== 'queued') throw new Error('unreachable')
-    // Same position (1) since we preserved queued_at and nobody else is
-    // ahead; the instance id rotated so any prior CLI is superseded.
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    // The instance id rotated so any prior CLI is superseded. Promotion writes
+    // a fresh admit, so the snapshot reflects the 5 prior + 1 new = 6 units.
     expect(state.instanceId).not.toBe('inst-pre')
-    expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT)
+    expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT + 1)
   })
 
   test('rate_limited: expired premium row is not a reclaim — quota still applies', async () => {
@@ -1128,11 +1034,11 @@ describe('requestSession', () => {
     expect(state.status).toBe('rate_limited')
   })
 
-  test('instant-admit bumps the quota count for the freshly-written admit row', async () => {
-    const admitDeps = makeDeps({ getInstantAdmitCapacity: () => 3 })
+  test('admission bumps the quota count for the freshly-written admit row', async () => {
+    const admitDeps = makeDeps()
     admitDeps._tick(PREMIUM_OPEN_TIME)
-    // 1 existing admit today; this new call should instant-admit and
-    // write a second row, so the response's recentCount reflects 2.
+    // 1 existing admit today; this new call is admitted immediately and
+    // writes a second row, so the response's recentCount reflects 2.
     const now = admitDeps._now()
     admitDeps.admits.push({
       user_id: 'u1',
@@ -1155,12 +1061,6 @@ describe('getSessionState', () => {
     deps = makeDeps()
   })
 
-  test('disabled flag returns disabled', async () => {
-    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
-    const state = await getSessionState({ userId: 'u1', deps: offDeps })
-    expect(state).toEqual({ status: 'disabled' })
-  })
-
   test('banned user returns banned without hitting the DB', async () => {
     const state = await getSessionState({
       userId: 'u1',
@@ -1170,12 +1070,11 @@ describe('getSessionState', () => {
     expect(state).toEqual({ status: 'banned' })
   })
 
-  test('no row returns none with empty queue-depth snapshot', async () => {
+  test('no row returns none', async () => {
     const state = await getSessionState({ userId: 'u1', deps })
     expect(state).toEqual({
       status: 'none',
       accessTier: 'full',
-      queueDepthByModel: {},
     })
   })
 
@@ -1208,7 +1107,6 @@ describe('getSessionState', () => {
     expect(state).toEqual({
       status: 'none',
       accessTier: 'limited',
-      queueDepthByModel: {},
     })
     expect(deps.rows.has('u1')).toBe(false)
   })
@@ -1230,7 +1128,6 @@ describe('getSessionState', () => {
     expect(state).toEqual({
       status: 'none',
       accessTier: 'limited',
-      queueDepthByModel: {},
     })
     expect(deps.rows.has('u1')).toBe(false)
   })
@@ -1252,7 +1149,6 @@ describe('getSessionState', () => {
     expect(state).toEqual({
       status: 'none',
       accessTier: 'limited',
-      queueDepthByModel: {},
     })
     expect(deps.rows.has('u1')).toBe(false)
   })
@@ -1316,8 +1212,9 @@ describe('getSessionState', () => {
       deps,
     })
     if (state.status !== 'active') throw new Error('unreachable')
+    // Seeded admit (1h ago) + this request's own immediate admission = 2.
     expect(state.rateLimit).toEqual(
-      expectedRateLimit(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 1),
+      expectedRateLimit(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 2),
     )
   })
 
@@ -1432,7 +1329,6 @@ describe('getSessionState', () => {
     expect(state).toEqual({
       status: 'none',
       accessTier: 'full',
-      queueDepthByModel: {},
     })
   })
 })
@@ -1443,24 +1339,26 @@ describe('checkSessionAdmissible', () => {
     deps = makeDeps()
   })
 
-  test('disabled flag → ok with reason=disabled', async () => {
-    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
+  test('missing instance id always requires an update, even with requireActiveSession', async () => {
     const result = await checkSessionAdmissible({
       userId: 'u1',
       claimedInstanceId: undefined,
-      deps: offDeps,
+      requestedModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      requireActiveSession: true,
+      deps,
     })
-    expect(result.ok).toBe(true)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('unreachable')
+    expect(result.code).toBe('freebuff_update_required')
   })
 
-  test('requireActiveSession ignores disabled shortcut and requires a row', async () => {
-    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
+  test('instance id but no row → waiting_room_required', async () => {
     const result = await checkSessionAdmissible({
       userId: 'u1',
       claimedInstanceId: 'inst-1',
       requestedModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       requireActiveSession: true,
-      deps: offDeps,
+      deps,
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('unreachable')
@@ -1478,51 +1376,12 @@ describe('checkSessionAdmissible', () => {
     expect(result.code).toBe('waiting_room_required')
   })
 
-  test('bypassed email (team@codebuff.com) → ok with reason=disabled, no DB read', async () => {
-    const result = await checkSessionAdmissible({
-      userId: 'u1',
-      userEmail: 'team@codebuff.com',
-      claimedInstanceId: undefined,
-      deps,
-    })
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error('unreachable')
-    expect(result.reason).toBe('disabled')
-    expect(deps.rows.size).toBe(0)
-  })
-
-  test('requireActiveSession ignores bypassed emails', async () => {
-    const result = await checkSessionAdmissible({
-      userId: 'u1',
-      userEmail: 'team@codebuff.com',
-      claimedInstanceId: 'inst-1',
-      requestedModel: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-      requireActiveSession: true,
-      deps,
-    })
-    expect(result.ok).toBe(false)
-    if (result.ok) throw new Error('unreachable')
-    expect(result.code).toBe('waiting_room_required')
-  })
-
-  test('bypassed email is case-insensitive', async () => {
-    const result = await checkSessionAdmissible({
-      userId: 'u1',
-      userEmail: 'Team@Codebuff.COM',
-      claimedInstanceId: undefined,
-      deps,
-    })
-    expect(result.ok).toBe(true)
-  })
-
-  test('requireActiveSession still admits Gemini thinker for smart model rows when waiting room is disabled', async () => {
-    // requireActiveSession=true forces a DB-backed row check even when the
-    // waiting room is globally off — the gemini-thinker child agent uses this
-    // path so its Gemini Pro call only succeeds when the parent session is
+  test('requireActiveSession admits Gemini thinker for smart model rows', async () => {
+    // requireActiveSession=true allows the gemini-thinker child agent's Gemini
+    // Pro call through against the parent session row when that session is
     // bound to one of the smart freebuff models (Kimi or DeepSeek).
-    const offDeps = makeDeps({ isWaitingRoomEnabled: () => false })
-    const now = offDeps._now()
-    offDeps.rows.set('u1', {
+    const now = deps._now()
+    deps.rows.set('u1', {
       user_id: 'u1',
       status: 'active',
       active_instance_id: 'inst-1',
@@ -1539,13 +1398,26 @@ describe('checkSessionAdmissible', () => {
       claimedInstanceId: 'inst-1',
       requestedModel: FREEBUFF_GEMINI_PRO_MODEL_ID,
       requireActiveSession: true,
-      deps: offDeps,
+      deps,
     })
     expect(result.ok).toBe(true)
   })
 
-  test('queued session → waiting_room_queued', async () => {
-    await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
+  test('queued row → waiting_room_queued', async () => {
+    // requestSession no longer persists queued rows, but a leftover queued row
+    // (seeded directly) must still be rejected with the queued gate code.
+    const now = deps._now()
+    deps.rows.set('u1', {
+      user_id: 'u1',
+      status: 'queued',
+      active_instance_id: 'inst-1',
+      model: DEFAULT_MODEL,
+      queued_at: now,
+      admitted_at: null,
+      expires_at: null,
+      created_at: now,
+      updated_at: now,
+    })
     const result = await checkSessionAdmissible({
       userId: 'u1',
       claimedInstanceId: 'inst-1',
@@ -1777,7 +1649,6 @@ describe('GLM 5.2 weekly referral pool', () => {
   test('rejects GLM with no referral entitlement as rate_limited (weekly)', async () => {
     const deps = makeDeps({
       getGlmReferralEntitlement: async () => 0,
-      getInstantAdmitCapacity: () => 3,
     })
     const state = await requestSession({
       userId: 'u1',
@@ -1793,7 +1664,6 @@ describe('GLM 5.2 weekly referral pool', () => {
   test('admits a GLM session when the user has referral entitlement', async () => {
     const deps = makeDeps({
       getGlmReferralEntitlement: async () => 2,
-      getInstantAdmitCapacity: () => 3,
     })
     const state = await requestSession({
       userId: 'u1',
@@ -1806,7 +1676,6 @@ describe('GLM 5.2 weekly referral pool', () => {
   test('rejects once the weekly GLM entitlement is used up', async () => {
     const deps = makeDeps({
       getGlmReferralEntitlement: async () => 2,
-      getInstantAdmitCapacity: () => 3,
     })
     deps.admits.push(
       {
@@ -1834,7 +1703,6 @@ describe('GLM 5.2 weekly referral pool', () => {
   test('ignores GLM admits from a prior week', async () => {
     const deps = makeDeps({
       getGlmReferralEntitlement: async () => 1,
-      getInstantAdmitCapacity: () => 3,
     })
     // 2026-04-12 is the Sunday before this week's Monday start → prior week.
     deps.admits.push({
@@ -1861,7 +1729,7 @@ describe('endUserSession', () => {
   })
 
   test('rounds active premium session usage up to nearest tenth on early end', async () => {
-    const deps = makeDeps({ getInstantAdmitCapacity: () => 3 })
+    const deps = makeDeps()
     deps._tick(new Date('2026-04-17T16:00:00Z'))
     const state = await requestSession({
       userId: 'u1',
@@ -1875,22 +1743,5 @@ describe('endUserSession', () => {
 
     expect(deps.rows.has('u1')).toBe(false)
     expect(deps.admits[0]?.session_units).toBe(0.3)
-  })
-
-  test('is no-op when disabled', async () => {
-    const deps = makeDeps({ isWaitingRoomEnabled: () => false })
-    deps.rows.set('u1', {
-      user_id: 'u1',
-      status: 'active',
-      active_instance_id: 'x',
-      model: DEFAULT_MODEL,
-      queued_at: new Date(),
-      admitted_at: null,
-      expires_at: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    await endUserSession({ userId: 'u1', deps })
-    expect(deps.rows.has('u1')).toBe(true)
   })
 })

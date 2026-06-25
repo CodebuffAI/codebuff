@@ -1,43 +1,12 @@
-import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_GLM_V52_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
-  FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
 import { env } from '@codebuff/internal/env'
 
-/**
- * Advisory lock ID claimed by the admission tick so only one pod admits
- * users at a time. Unique magic number — keep in sync with
- * packages/internal/src/db/advisory-lock.ts if centralising later.
- */
-export const FREEBUFF_ADMISSION_LOCK_ID = 573924815
+/** Throttle for the traffic-driven expiry sweep (`maybeSweepExpired`): at most
+ *  one sweep per this interval per instance. Free sessions are admitted
+ *  immediately on request — there is no admission tick — so expiry cleanup is
+ *  driven opportunistically off the request path instead of a background loop. */
+export const EXPIRY_SWEEP_THROTTLE_MS = 15_000
 
-/** Admission tick cadence. Each tick admits at most one user, so this is the
- *  drip rate: staggering admissions keeps newly-admitted CLIs from all hitting
- *  Fireworks simultaneously even when a large block of sessions expires at once. */
-export const ADMISSION_TICK_MS = 15_000
 export const SESSION_GRACE_MS = 30 * 60 * 1000
-
-export function isWaitingRoomEnabled(): boolean {
-  return env.FREEBUFF_WAITING_ROOM_ENABLED
-}
-
-/** Per-account override on top of the global kill switch. The internal
- *  `team@codebuff.com` account drives e2e tests in CI; landing it in the
- *  queue would make those tests flake whenever the waiting room is warm.
- *  Bypassed users behave exactly as if the waiting room were disabled. */
-const WAITING_ROOM_BYPASS_EMAILS = new Set<string>(['team@codebuff.com'])
-export function isWaitingRoomBypassedForEmail(
-  email: string | null | undefined,
-): boolean {
-  if (!email) return false
-  return WAITING_ROOM_BYPASS_EMAILS.has(email.toLowerCase())
-}
 
 export function getSessionLengthMs(): number {
   return env.FREEBUFF_SESSION_LENGTH_MS
@@ -49,30 +18,6 @@ export function getSessionLengthMs(): number {
  *  `expires_at + grace`; past that the gate returns `session_expired`. */
 export function getSessionGraceMs(): number {
   return SESSION_GRACE_MS
-}
-
-/**
- * Per-model instant-admit capacity: how many concurrent active sessions a
- * deployment can hold before new joiners fall back to the FIFO queue + tick.
- * Deployment-sizing knob — kept server-side so we can tune without bumping
- * the shared `common` package that the CLI consumes. Unknown ids → 0 (always
- * queue).
- */
-const INSTANT_ADMIT_CAPACITY: Record<string, number> = {
-  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 10_000,
-  [FREEBUFF_MIMO_V25_MODEL_ID]: 10_000,
-  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 10_000,
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 10_000,
-  [FREEBUFF_KIMI_MODEL_ID]: 10_000,
-  [FREEBUFF_MINIMAX_MODEL_ID]: 10_000,
-  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 10_000,
-  // GLM is gated by the per-user weekly referral entitlement (checked before
-  // admission), not by deployment capacity, so entitled users skip the queue.
-  [FREEBUFF_GLM_V52_MODEL_ID]: 10_000,
-}
-
-export function getInstantAdmitCapacity(id: string): number {
-  return INSTANT_ADMIT_CAPACITY[id] ?? 0
 }
 
 /** Candidate per-egress-IP concurrent active-session ceiling, env-overridable

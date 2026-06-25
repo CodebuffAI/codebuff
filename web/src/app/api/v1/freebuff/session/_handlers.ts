@@ -314,8 +314,7 @@ export async function getFreebuffSession(
         {
           status: 'none',
           accessTier: state.accessTier,
-          message: 'Call POST to join the waiting room.',
-          queueDepthByModel: state.queueDepthByModel,
+          message: 'Call POST to start a free session.',
           rateLimitsByModel: state.rateLimitsByModel,
           ...(referral ? { referral } : {}),
           ...toLimitedModeReason(countryAccess),

@@ -831,9 +831,9 @@ export async function postChatCompletions(params: {
 
     let freeModeSessionGate: SessionGateResult | null = null
 
-    // Freebuff waiting-room gate. Usually enforced only when
-    // FREEBUFF_WAITING_ROOM_ENABLED=true. Runs before the rate limiter so
-    // rejected requests don't burn a queued user's free-mode counters.
+    // Freebuff free-session gate: every free-mode request must carry a valid
+    // active session (instance id). Runs before the rate limiter so rejected
+    // requests don't burn the user's free-mode counters.
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id

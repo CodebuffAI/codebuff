@@ -31,16 +31,12 @@ import {
 import { getGlmReferralEntitlement } from '@codebuff/billing/referral-program'
 
 import {
-  getInstantAdmitCapacity,
   getIpSessionCap,
   IP_SESSION_LOG_FLOOR,
   getSessionGraceMs,
   getSessionLengthMs,
-  isWaitingRoomBypassedForEmail,
-  isWaitingRoomEnabled,
 } from './config'
 import {
-  activeCountForModel,
   countActiveSessionsForIpHash,
   endSession,
   FreeSessionModelLockedError,
@@ -48,8 +44,6 @@ import {
   joinOrTakeOver,
   listRecentFreeSessionAdmits,
   promoteQueuedUser,
-  queueDepthsByModel,
-  queuePositionFor,
 } from './store'
 import { maybeSweepExpired } from './admission'
 import { getFleetHealth, routeForAdmission } from './fireworks-health'
@@ -282,16 +276,6 @@ export interface SessionDeps {
     now: Date
     sessionLengthMs: number
   }) => Promise<void>
-  queueDepthsByModel: () => Promise<Record<string, number>>
-  queuePositionFor: (params: {
-    userId: string
-    model: string
-    queuedAt: Date
-  }) => Promise<number>
-  /** Instant-admit check: returns the number of active sessions currently
-   *  bound to a given model. Compared against the model's configured
-   *  `instantAdmitCapacity` to decide whether a new joiner skips the queue. */
-  activeCountForModel: (model: string) => Promise<number>
   /** Log-only abuse instrumentation: number of active sessions sharing one
    *  hashed egress IP, sampled at fresh admission. Feeds the per-IP
    *  concurrency log; does not gate admission (see `requestSession`). */
@@ -309,8 +293,9 @@ export interface SessionDeps {
    *  Indirected through deps so the session tests can set it without seeding
    *  referral rows. */
   getGlmReferralEntitlement: (userId: string) => Promise<number>
-  /** Instant-admit promotion: flips a specific queued row to active. Returns
-   *  the updated row or null if the row wasn't in a queued state. */
+  /** Admission: flips a freshly-joined queued row to active in the same
+   *  request (every free session is admitted immediately — there is no queue).
+   *  Returns the updated row or null if the row wasn't in a queued state. */
   promoteQueuedUser: (params: {
     userId: string
     model: string
@@ -318,11 +303,7 @@ export interface SessionDeps {
     now: Date
     fireworksRoute?: FireworksRoute | null
   }) => Promise<InternalSessionRow | null>
-  /** Per-model capacity lookup. Indirected through deps so tests can
-   *  force-enable / force-disable instant admit without mutating the
-   *  shared model registry. */
-  getInstantAdmitCapacity: (model: string) => number
-  /** Cached Fireworks fleet-health snapshot, used at instant-admit time to pin
+  /** Cached Fireworks fleet-health snapshot, used at admission time to pin
    *  a backup-capable session to 'deployment' (healthy) or 'serverless'
    *  (degraded/unhealthy) for its whole life. */
   getFleetHealth: () => Promise<FleetHealth>
@@ -330,7 +311,6 @@ export interface SessionDeps {
    *  undefined when there aren't enough samples. Over 2s pins new sessions to
    *  serverless even while Prometheus health still reads healthy. */
   getDeploymentTtftP90Ms: (model: string) => number | undefined
-  isWaitingRoomEnabled: () => boolean
   /** Plain values, not getters: these never change at runtime. The deps
    *  interface uses values rather than thunks so tests can pass numbers
    *  inline without wrapping. */
@@ -352,18 +332,13 @@ const defaultDeps: SessionDeps = {
   getSessionRow,
   joinOrTakeOver,
   endSession,
-  queueDepthsByModel,
-  queuePositionFor,
-  activeCountForModel,
   countActiveSessionsForIpHash,
   listRecentFreeSessionAdmits,
   getGlmReferralEntitlement: (userId: string) =>
     getGlmReferralEntitlement({ userId }),
   promoteQueuedUser,
-  getInstantAdmitCapacity,
   getFleetHealth,
   getDeploymentTtftP90Ms: deploymentTtftP90Ms,
-  isWaitingRoomEnabled,
   get graceMs() {
     // Read-through getter keeps the default deps aligned with config while
     // tests can still inject a plain graceMs value through SessionDeps.
@@ -465,21 +440,12 @@ async function viewForRow(
   deps: SessionDeps,
   row: InternalSessionRow,
 ): Promise<SessionStateResponse | null> {
-  const [position, depthsByModel] =
-    row.status === 'queued'
-      ? await Promise.all([
-          deps.queuePositionFor({
-            userId,
-            model: row.model,
-            queuedAt: row.queued_at,
-          }),
-          deps.queueDepthsByModel(),
-        ])
-      : [0, {}]
+  // Free sessions are admitted immediately, so a row is never persisted as
+  // `queued` between requests — no queue position or depth to compute.
   return toSessionStateResponse({
     row,
-    position,
-    queueDepthByModel: depthsByModel,
+    position: 0,
+    queueDepthByModel: {},
     graceMs: deps.graceMs,
     now: nowOf(deps),
   })
@@ -488,9 +454,9 @@ async function viewForRow(
 export type RequestSessionResult =
   | SessionStateResponse
   | {
-      /** User asked to queue/switch to a different model while their active
-       *  session is still bound to another. The CLI must end the existing
-       *  session first (DELETE /session) before re-queueing. */
+      /** User asked to switch to a different model while their active session
+       *  is still bound to another. The CLI must end the existing session
+       *  first (DELETE /session) before requesting the new model. */
       status: 'model_locked'
       accessTier?: FreebuffAccessTier
       currentModel: string
@@ -518,21 +484,18 @@ export type RequestSessionResult =
     }
 
 /**
- * Client calls this on CLI startup with the model they want to use.
- * Semantics:
- *   - Waiting room disabled → { status: 'disabled' } (model still respected
- *     downstream by chat-completions)
- *   - No existing session → create queued row for `model`, fresh instance_id
+ * Client calls this on CLI startup with the model they want to use. Every
+ * caller is admitted immediately — there is no waiting room, FIFO queue, or
+ * capacity cap; a freshly created row is `queued` only transiently within this
+ * call and is promoted to `active` before returning. Semantics:
+ *   - No existing session → create + admit an active session for `model`
  *   - Existing active (unexpired), same model → rotate instance_id (takeover)
  *   - Existing active (unexpired), different model → { status: 'model_locked' }
- *   - Existing queued, same model → rotate instance_id, preserve position
- *   - Existing queued, different model → switch to new model and join the
- *     back of that model's queue
- *   - Existing expired → re-queue at the back of `model`'s queue with fresh
- *     instance_id
+ *   - Existing expired / different model → re-admit a fresh active session
+ *   - Banned / rate-limited / model unavailable → corresponding status
  *
  * `joinOrTakeOver` (when it doesn't throw) always returns a row that maps to
- * a non-null view (queued or active-unexpired), so the cast below is sound.
+ * a non-null view, so the cast below is sound.
  */
 export async function requestSession(params: {
   userId: string
@@ -541,8 +504,7 @@ export async function requestSession(params: {
   userEmail?: string | null | undefined
   countryAccess?: FreeSessionCountryAccessMetadata
   /** True if the account is banned. Short-circuited here so banned bots never
-   *  create a queued row — otherwise they inflate `queueDepth` between the
-   *  15s admission ticks that run `evictBanned`. */
+   *  create a session row at all. */
   userBanned?: boolean
   deps?: SessionDeps
 }): Promise<RequestSessionResult> {
@@ -553,17 +515,9 @@ export async function requestSession(params: {
   if (params.userBanned) {
     return { status: 'banned' }
   }
-  if (
-    !deps.isWaitingRoomEnabled() ||
-    isWaitingRoomBypassedForEmail(params.userEmail)
-  ) {
-    return { status: 'disabled' }
-  }
 
-  // Traffic-driven safety net: keep expired sessions swept even if the
-  // admission interval is starved/dead, so un-swept `active` zombies can't
-  // accumulate and exhaust per-model instant-admit capacity. Throttled and
-  // fire-and-forget — never blocks or fails the request.
+  // Traffic-driven expiry sweep: keep expired rows from accumulating without a
+  // background tick. Throttled and fire-and-forget — never blocks the request.
   void deps.maybeSweepExpired?.()
 
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
@@ -646,65 +600,67 @@ export async function requestSession(params: {
     throw err
   }
 
-  // Instant-admit: if the model has spare capacity (fewer active sessions
-  // than its configured `instantAdmitCapacity`), skip the waiting room
-  // entirely and flip the user to active in this same request. The tick
-  // + FIFO queue only engage once we hit the threshold, so backpressure
-  // kicks in exactly when the deployment needs it.
-  //
-  // Race note: two concurrent joiners may each see `active < capacity`
-  // and both get admitted, overshooting the cap by up to `concurrency - 1`.
-  // Capacities are chosen with headroom for this, and the configured
-  // value is a comfort threshold not a hard ceiling.
+  // Admit immediately. There is no waiting room or capacity cap — a freshly
+  // joined row is `queued` only transiently within this request; we flip it to
+  // active right here. (Takeover/reclaim of an already-active row stays active
+  // and skips this block, preserving its existing upstream pin.)
   if (row.status === 'queued') {
-    const capacity = deps.getInstantAdmitCapacity(model)
-    if (capacity > 0) {
-      const activeCount = await deps.activeCountForModel(model)
-      if (activeCount < capacity) {
-        // Pin the new session to its upstream from current deployment health.
-        // Only backup-capable models (e.g. minimax/minimax-m3) need a probe;
-        // everything else routes through default deployment behavior (null).
-        // The probe is cached (~25s) so this is a cheap map read in the hot
-        // path. Decided once here and frozen — see `routeForAdmission`.
-        let fireworksRoute: FireworksRoute | null = null
-        let pinnedHealth: FireworksHealth | undefined
-        let pinnedTtftP90Ms: number | undefined
-        if (hasFireworksServerlessBackup(model)) {
-          const fleet = await deps.getFleetHealth()
-          pinnedHealth = fleet[model] ?? 'healthy'
-          pinnedTtftP90Ms = deps.getDeploymentTtftP90Ms(model)
-          fireworksRoute = routeForAdmission(model, fleet, pinnedTtftP90Ms)
-        }
-        const promoted = await deps.promoteQueuedUser({
-          userId: params.userId,
-          model,
-          sessionLengthMs: deps.sessionLengthMs,
-          now,
-          fireworksRoute,
-        })
-        if (promoted) {
-          row = promoted
-          // Observability for the no-waiting-room load shedder: one log per
-          // fresh admission of a backup-capable model (M3) — not on
-          // takeover/reclaim, which keeps the existing pin. The metric tag
-          // makes the deployment-vs-serverless split chartable in the
-          // freebuff Axiom dataset, and `health` shows what drove it. Gated to
-          // backup-capable models so it stays low-volume.
-          if (fireworksRoute) {
-            logger.info(
-              {
-                metric: 'freebuff_fireworks_route',
-                userId: params.userId,
-                model,
-                route: fireworksRoute,
-                health: pinnedHealth,
-                ttftP90Ms: pinnedTtftP90Ms,
-              },
-              '[FreeSession] pinned fireworks upstream at admission',
-            )
-          }
-          await logIpSessionConcurrency(params, model, deps)
-        }
+    // Pin the new session to its upstream from current deployment health.
+    // Only backup-capable models (e.g. minimax/minimax-m3) need a probe;
+    // everything else routes through default deployment behavior (null).
+    // The probe is cached (~25s) so this is a cheap map read in the hot
+    // path. Decided once here and frozen — see `routeForAdmission`.
+    let fireworksRoute: FireworksRoute | null = null
+    let pinnedHealth: FireworksHealth | undefined
+    let pinnedTtftP90Ms: number | undefined
+    if (hasFireworksServerlessBackup(model)) {
+      const fleet = await deps.getFleetHealth()
+      pinnedHealth = fleet[model] ?? 'healthy'
+      pinnedTtftP90Ms = deps.getDeploymentTtftP90Ms(model)
+      fireworksRoute = routeForAdmission(model, fleet, pinnedTtftP90Ms)
+    }
+    const promoted = await deps.promoteQueuedUser({
+      userId: params.userId,
+      model,
+      sessionLengthMs: deps.sessionLengthMs,
+      now,
+      fireworksRoute,
+    })
+    if (promoted) {
+      row = promoted
+      // One log per fresh admission of a backup-capable model (M3) — not on
+      // takeover/reclaim, which keeps the existing pin. The metric tag makes
+      // the deployment-vs-serverless split chartable in the freebuff Axiom
+      // dataset, and `health` shows what drove it. Gated to backup-capable
+      // models so it stays low-volume.
+      if (fireworksRoute) {
+        logger.info(
+          {
+            metric: 'freebuff_fireworks_route',
+            userId: params.userId,
+            model,
+            route: fireworksRoute,
+            health: pinnedHealth,
+            ttftP90Ms: pinnedTtftP90Ms,
+          },
+          '[FreeSession] pinned fireworks upstream at admission',
+        )
+      }
+      await logIpSessionConcurrency(params, model, deps)
+    } else {
+      // Promotion no-op'd: the `UPDATE ... WHERE status='queued'` matched
+      // nothing because a concurrent request for this same account already
+      // flipped the row to active between `joinOrTakeOver` and here. Re-read and
+      // use that active row. If it's somehow not active, fail loudly so the
+      // client retries POST — we must never return a `queued` view now that
+      // there is no admission tick to advance it.
+      const current = await deps.getSessionRow(params.userId)
+      if (current && current.status === 'active') {
+        row = current
+      } else {
+        throw new Error(
+          `free session could not be admitted (user=${params.userId}, model=${model})`,
+        )
       }
     }
   }
@@ -797,27 +753,19 @@ export async function getSessionState(params: {
   if (params.userBanned) {
     return { status: 'banned' }
   }
-  if (
-    !deps.isWaitingRoomEnabled() ||
-    isWaitingRoomBypassedForEmail(params.userEmail)
-  ) {
-    return { status: 'disabled' }
-  }
   const row = await deps.getSessionRow(params.userId)
 
-  // Build a `none` response with live queue depths so the CLI's pre-join
-  // picker can show "N ahead" hints without first committing the user to a
-  // queue, plus per-user quota snapshots so exhausted models are visible
-  // before POST.
+  // Build a `none` response with per-user quota snapshots so exhausted models
+  // are visible in the CLI's pre-join picker before POST.
   const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
-    const [queueDepthByModel, rateLimitsByModel] = await Promise.all([
-      deps.queueDepthsByModel(),
-      fetchRateLimitsByModel(params.userId, accessTier, deps),
-    ])
+    const rateLimitsByModel = await fetchRateLimitsByModel(
+      params.userId,
+      accessTier,
+      deps,
+    )
     return {
       status: 'none',
       accessTier,
-      queueDepthByModel,
       ...nonEmptyRateLimitsByModel(
         onlyUsedRateLimitsByModel(rateLimitsByModel),
       ),
@@ -854,12 +802,6 @@ export async function endUserSession(params: {
   deps?: SessionDeps
 }): Promise<void> {
   const deps = params.deps ?? defaultDeps
-  if (
-    !deps.isWaitingRoomEnabled() ||
-    isWaitingRoomBypassedForEmail(params.userEmail)
-  ) {
-    return
-  }
   await deps.endSession({
     userId: params.userId,
     now: nowOf(deps),
@@ -868,6 +810,9 @@ export async function endUserSession(params: {
 }
 
 export type SessionGateResult =
+  // `disabled` is no longer produced by `checkSessionAdmissible` (free-session
+  // enforcement is always on), but kept as an "allowed, nothing to pin" result
+  // so callers/tests have a neutral ok-variant.
   | { ok: true; reason: 'disabled' }
   | {
       ok: true
@@ -926,13 +871,6 @@ export async function checkSessionAdmissible(params: {
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
   const accessTier = params.accessTier ?? 'full'
-  if (
-    !params.requireActiveSession &&
-    (!deps.isWaitingRoomEnabled() ||
-      isWaitingRoomBypassedForEmail(params.userEmail))
-  ) {
-    return { ok: true, reason: 'disabled' }
-  }
 
   // Pre-waiting-room CLIs never send a freebuff_instance_id. Classify that up
   // front so the caller gets a distinct code (→ 426 Upgrade Required) and the

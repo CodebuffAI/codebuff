@@ -1,11 +1,8 @@
 import { db } from '@codebuff/internal/db'
-import { coerceBool } from '@codebuff/internal/db/advisory-lock'
 import * as schema from '@codebuff/internal/db/schema'
 import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 
-import { FREEBUFF_ADMISSION_LOCK_ID } from './config'
-
-import type { FireworksHealth, FireworksRoute } from './fireworks-health'
+import type { FireworksRoute } from './fireworks-health'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type {
   FreeSessionCountryAccessMetadata,
@@ -235,98 +232,6 @@ export async function endSession(params: {
   })
 }
 
-export async function queueDepth(params: { model: string }): Promise<number> {
-  const rows = await db
-    .select({ n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'queued'),
-        eq(schema.freeSession.model, params.model),
-      ),
-    )
-  return Number(rows[0]?.n ?? 0)
-}
-
-/**
- * Single-query read of queued-row counts bucketed by model. Powers the
- * per-model "N ahead" hint in the waiting-room model selector — one round-trip
- * covers every model's queue depth, so the UI stays cheap to refresh.
- * Models with no queued rows are absent from the map; callers should default
- * missing keys to 0.
- *
- * Excludes rows whose user is banned: `evictBanned` only runs on the 15s
- * admission tick, so between ticks a flood of banned bots would inflate
- * queueDepth by their count and then snap back down. Filtering here keeps
- * the user-facing counter stable.
- */
-export async function queueDepthsByModel(): Promise<Record<string, number>> {
-  const rows = await db
-    .select({ model: schema.freeSession.model, n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'queued'),
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${schema.user}
-          WHERE ${schema.user.id} = ${schema.freeSession.user_id}
-            AND ${schema.user.banned} = true
-        )`,
-      ),
-    )
-    .groupBy(schema.freeSession.model)
-  const out: Record<string, number> = {}
-  for (const row of rows) out[row.model] = Number(row.n)
-  return out
-}
-
-/**
- * Count of rows currently in `active` status for one model — the threshold
- * check that gates instant admission. Hot-path lookup; callers avoid the
- * full `activeCountsByModel` scan when they only need one model's count.
- */
-export async function activeCountForModel(model: string): Promise<number> {
-  // Count only genuinely-live sessions, not rows that are still `active` but
-  // already past `expires_at`. Capacity must reflect live concurrency even when
-  // the expiry sweeper lags (e.g. the admission tick's `setInterval` gets
-  // starved under load): un-swept zombies must never consume instant-admit
-  // slots. `expires_at > now()` is evaluated in the DB to avoid app/DB clock
-  // skew. Matches the index `idx_free_session_expiry`.
-  const rows = await db
-    .select({ n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'active'),
-        eq(schema.freeSession.model, model),
-        sql`${schema.freeSession.expires_at} > now()`,
-      ),
-    )
-  return Number(rows[0]?.n ?? 0)
-}
-
-/**
- * Single-query read of active-row counts bucketed by model. Mirrors
- * `queueDepthsByModel` so the admission tick can log per-model utilization
- * alongside per-model queue depth. Models with no active sessions are absent
- * from the map; callers should default missing keys to 0.
- */
-export async function activeCountsByModel(): Promise<Record<string, number>> {
-  const rows = await db
-    .select({ model: schema.freeSession.model, n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'active'),
-        sql`${schema.freeSession.expires_at} > now()`,
-      ),
-    )
-    .groupBy(schema.freeSession.model)
-  const out: Record<string, number> = {}
-  for (const row of rows) out[row.model] = Number(row.n)
-  return out
-}
-
 /**
  * Count sessions currently in `active` status that share one hashed egress IP.
  * Powers the log-only per-IP concurrency instrumentation in `requestSession`:
@@ -346,32 +251,6 @@ export async function countActiveSessionsForIpHash(
       and(
         eq(schema.freeSession.status, 'active'),
         eq(schema.freeSession.client_ip_hash, clientIpHash),
-      ),
-    )
-  return Number(rows[0]?.n ?? 0)
-}
-
-export async function queuePositionFor(params: {
-  userId: string
-  model: string
-  queuedAt: Date
-}): Promise<number> {
-  const rows = await db
-    .select({ n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'queued'),
-        eq(schema.freeSession.model, params.model),
-        sql`(${schema.freeSession.queued_at}, ${schema.freeSession.user_id}) <= (${params.queuedAt.toISOString()}::timestamptz, ${params.userId})`,
-        // Exclude banned users ahead of us — matches queueDepthsByModel so the
-        // "Position N / M" counter doesn't briefly jump when banned rows are
-        // swept by the admission tick.
-        sql`NOT EXISTS (
-          SELECT 1 FROM ${schema.user}
-          WHERE ${schema.user.id} = ${schema.freeSession.user_id}
-            AND ${schema.user.banned} = true
-        )`,
       ),
     )
   return Number(rows[0]?.n ?? 0)
@@ -397,131 +276,6 @@ export async function sweepExpired(
     )
     .returning({ user_id: schema.freeSession.user_id })
   return deleted.length
-}
-
-/**
- * Drop any free_session row whose user has been banned. Bans flipped via the
- * admin UI / direct SQL / Stripe webhook don't cascade into free_session, so
- * without this sweep a banned user keeps holding their admitted slot until
- * expires_at. Cheap to call every tick (EXISTS subquery, indexed PK lookup).
- */
-export async function evictBanned(): Promise<number> {
-  const deleted = await db
-    .delete(schema.freeSession)
-    .where(
-      sql`EXISTS (
-        SELECT 1 FROM ${schema.user}
-        WHERE ${schema.user.id} = ${schema.freeSession.user_id}
-          AND ${schema.user.banned} = true
-      )`,
-    )
-    .returning({ user_id: schema.freeSession.user_id })
-  return deleted.length
-}
-
-/**
- * Atomically admit one queued user for a specific model, gated by the
- * upstream health for that model's deployment and guarded by an advisory
- * xact lock so only one pod admits per tick (per model).
- *
- * Each model has its own queue; this admits the longest-waiting user from
- * the given model's queue. Health is passed in (resolved by the caller from
- * a single fleet probe) rather than fetched here, so a slow probe doesn't
- * hold a Postgres connection open.
- *
- * Return semantics:
- *   - `{ admitted: [row], skipped: null }` — admitted one user
- *   - `{ admitted: [], skipped: null }` — empty queue or another pod held the lock
- *   - `{ admitted: [], skipped: 'degraded' | 'unhealthy' }` — health blocked admission
- *
- * Only `healthy` admits; `degraded` and `unhealthy` both pause admission (the
- * distinction is for observability — degraded means "upstream loaded",
- * unhealthy means "upstream unreachable or saturated").
- */
-export async function admitFromQueue(params: {
-  model: string
-  sessionLengthMs: number
-  now: Date
-  health: FireworksHealth
-  /** Sticky upstream pin for the admitted session (see `routeForAdmission`).
-   *  This path only admits when `health === 'healthy'`, so in practice it pins
-   *  backup-capable models to 'deployment'; null leaves the column unset. */
-  fireworksRoute?: FireworksRoute | null
-}): Promise<{
-  admitted: InternalSessionRow[]
-  skipped: FireworksHealth | null
-}> {
-  const { model, sessionLengthMs, now, health, fireworksRoute } = params
-
-  if (health !== 'healthy') {
-    return { admitted: [], skipped: health }
-  }
-
-  return db.transaction(async (tx) => {
-    // Per-model lock: hashing the model into the lock id lets distinct model
-    // queues admit concurrently while still serializing within a single queue.
-    const modelLockId = FREEBUFF_ADMISSION_LOCK_ID + hashStringToInt32(model)
-    const lockResult = await tx.execute<{ acquired: unknown }>(
-      sql`SELECT pg_try_advisory_xact_lock(${modelLockId}) AS acquired`,
-    )
-    if (
-      !coerceBool(
-        (lockResult as unknown as Array<{ acquired: unknown }>)[0]?.acquired,
-      )
-    ) {
-      return { admitted: [], skipped: null }
-    }
-
-    const candidates = await tx
-      .select({ user_id: schema.freeSession.user_id })
-      .from(schema.freeSession)
-      .where(
-        and(
-          eq(schema.freeSession.status, 'queued'),
-          eq(schema.freeSession.model, model),
-        ),
-      )
-      .orderBy(
-        asc(schema.freeSession.queued_at),
-        asc(schema.freeSession.user_id),
-      )
-      .limit(1)
-      .for('update', { skipLocked: true })
-
-    const candidate = candidates[0]
-    if (!candidate) return { admitted: [], skipped: null }
-
-    const expiresAt = new Date(now.getTime() + sessionLengthMs)
-    const admitted = await tx
-      .update(schema.freeSession)
-      .set({
-        status: 'active',
-        admitted_at: now,
-        expires_at: expiresAt,
-        fireworks_route: fireworksRoute ?? null,
-        updated_at: now,
-      })
-      .where(
-        and(
-          eq(schema.freeSession.status, 'queued'),
-          eq(schema.freeSession.user_id, candidate.user_id),
-        ),
-      )
-      .returning()
-
-    if (admitted.length > 0) {
-      await tx.insert(schema.freeSessionAdmit).values(
-        admitted.map((r) => ({
-          user_id: r.user_id,
-          model: r.model,
-          access_tier: r.access_tier ?? 'full',
-          admitted_at: now,
-        })),
-      )
-    }
-
-    return { admitted: admitted as InternalSessionRow[], skipped: null }
-  })
 }
 
 /**
@@ -616,13 +370,4 @@ export async function listRecentFreeSessionAdmits(params: {
     model: r.model,
     sessionUnits: Number(r.session_units),
   }))
-}
-
-/** Stable 31-bit hash so model-keyed advisory lock ids don't overflow int4. */
-function hashStringToInt32(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) | 0
-  }
-  return Math.abs(h) % 0x40000000
 }

@@ -1,233 +1,85 @@
-import { afterEach, describe, expect, test } from 'bun:test'
-import { sleep } from '@codebuff/common/util/promise'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { EXPIRY_SWEEP_THROTTLE_MS } from '../config'
 import {
   __resetFreeSessionAdmissionForTests,
-  runAdmissionTick,
-  runTick,
+  maybeSweepExpired,
 } from '../admission'
 
-import type { AdmissionDeps } from '../admission'
-import type { FireworksHealth, FleetHealth } from '../fireworks-health'
-
 const NOW = new Date('2026-04-17T12:00:00Z')
-const TEST_MODEL = 'test-model'
 
-function makeAdmissionDeps(
-  overrides: Partial<AdmissionDeps> = {},
-): AdmissionDeps & {
-  calls: { admit: number }
-} {
-  const calls = { admit: 0 }
-  const deps: AdmissionDeps & { calls: { admit: number } } = {
-    calls,
-    sweepExpired: async () => 0,
-    evictBanned: async () => 0,
-    queueDepth: async () => 0,
-    activeCountsByModel: async () => ({}),
-    getFleetHealth: async () => ({}),
-    admitFromQueue: async ({ health }) => {
-      calls.admit += 1
-      if (health !== 'healthy') {
-        return { admitted: [], skipped: health }
-      }
-      return { admitted: [{ user_id: 'u0' }], skipped: null }
-    },
-    sessionLengthMs: 60 * 60 * 1000,
-    graceMs: 30 * 60 * 1000,
-    now: () => NOW,
-    // Default to a single model so per-tick assertions (admitted: 1) stay
-    // crisp regardless of how many production models are registered.
-    models: [TEST_MODEL],
-    ...overrides,
-  }
-  return deps
-}
-
-function fleet(
-  health: FireworksHealth,
-  model: string = TEST_MODEL,
-): FleetHealth {
-  return { [model]: health }
-}
-
-describe('runAdmissionTick', () => {
-  test('admits one user per tick when healthy', async () => {
-    const deps = makeAdmissionDeps()
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(1)
-    expect(result.skipped).toBeNull()
-  })
-
-  test('skips admission when the model deployment is degraded', async () => {
-    const deps = makeAdmissionDeps({
-      getFleetHealth: async () => fleet('degraded'),
-    })
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(0)
-    expect(result.skipped).toBe('degraded')
-  })
-
-  test('skips admission when the model deployment is unhealthy', async () => {
-    const deps = makeAdmissionDeps({
-      getFleetHealth: async () => fleet('unhealthy'),
-    })
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(0)
-    expect(result.skipped).toBe('unhealthy')
-  })
-
-  test('sweeps expired sessions even when skipping admission', async () => {
-    let swept = 0
-    const deps = makeAdmissionDeps({
-      sweepExpired: async () => {
-        swept = 3
-        return 3
-      },
-      getFleetHealth: async () => fleet('unhealthy'),
-    })
-    const result = await runAdmissionTick(deps)
-    expect(swept).toBe(3)
-    expect(result.expired).toBe(3)
-  })
-
-  test('admits per-model based on per-deployment health', async () => {
-    // Two models: 'good' is healthy, 'bad' is degraded. A single tick should
-    // admit 1 from 'good' and skip 'bad', surfacing the worst skip reason.
-    const deps = makeAdmissionDeps({
-      models: ['good', 'bad'],
-      getFleetHealth: async () => ({ good: 'healthy', bad: 'degraded' }),
-    })
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(1)
-    expect(result.skipped).toBe('degraded')
-  })
-
-  test('absent fleet entry defaults to healthy (serverless model)', async () => {
-    // Model isn't in the fleet map (e.g. served via Fireworks serverless).
-    // Admission should proceed rather than stall waiting for a probe that
-    // will never include this deployment.
-    const deps = makeAdmissionDeps({
-      models: ['serverless-model'],
-      getFleetHealth: async () => ({}),
-    })
-    const result = await runAdmissionTick(deps)
-    expect(result.admitted).toBe(1)
-    expect(result.skipped).toBeNull()
-  })
-
-  test('propagates expiry count and admit count together', async () => {
-    const deps = makeAdmissionDeps({
-      sweepExpired: async () => 2,
-    })
-    const result = await runAdmissionTick(deps)
-    expect(result.expired).toBe(2)
-    expect(result.admitted).toBe(1)
-  })
-
-  test('forwards grace ms to sweepExpired', async () => {
-    const received: number[] = []
-    const deps = makeAdmissionDeps({
-      graceMs: 12_345,
-      sweepExpired: async (_now, graceMs) => {
-        received.push(graceMs)
-        return 0
-      },
-    })
-    await runAdmissionTick(deps)
-    expect(received).toEqual([12_345])
-  })
-
-  test('evicts banned users every tick and surfaces the count', async () => {
-    let evictCalls = 0
-    const deps = makeAdmissionDeps({
-      evictBanned: async () => {
-        evictCalls += 1
-        return 4
-      },
-    })
-    const result = await runAdmissionTick(deps)
-    expect(evictCalls).toBe(1)
-    expect(result.evictedBanned).toBe(4)
-  })
-
-  test('still evicts banned users when admission is paused by health', async () => {
-    let evictCalls = 0
-    const deps = makeAdmissionDeps({
-      getFleetHealth: async () => fleet('unhealthy'),
-      evictBanned: async () => {
-        evictCalls += 1
-        return 2
-      },
-    })
-    const result = await runAdmissionTick(deps)
-    expect(evictCalls).toBe(1)
-    expect(result.evictedBanned).toBe(2)
-    expect(result.admitted).toBe(0)
-    expect(result.skipped).toBe('unhealthy')
-  })
-})
-
-describe('runTick watchdog', () => {
-  afterEach(() => {
+describe('maybeSweepExpired', () => {
+  beforeEach(() => {
+    // Clear the module-level throttle state so each test starts fresh.
     __resetFreeSessionAdmissionForTests()
   })
 
-  test('a hung tick no longer blocks subsequent ticks after the watchdog trips', async () => {
-    const hungDeps = makeAdmissionDeps({
-      // Never settles — simulates a DB query or upstream fetch with no timeout.
-      sweepExpired: () => new Promise<number>(() => {}),
+  test('calls sweepExpired with the supplied now and graceMs', async () => {
+    const calls: { now: Date; graceMs: number }[] = []
+    await maybeSweepExpired({
+      sweepExpired: async (now, graceMs) => {
+        calls.push({ now, graceMs })
+        return 0
+      },
+      graceMs: 1000,
+      now: () => NOW,
     })
-    void runTick(hungDeps, 20)
-
-    // Before the watchdog trips, the inFlight guard rejects new ticks.
-    const blockedDeps = makeAdmissionDeps()
-    expect(runTick(blockedDeps, 20)).toBeUndefined()
-    expect(blockedDeps.calls.admit).toBe(0)
-
-    await sleep(40)
-
-    // After the trip, a fresh tick runs to completion.
-    const freshDeps = makeAdmissionDeps()
-    await runTick(freshDeps, 1000)
-    expect(freshDeps.calls.admit).toBe(1)
+    expect(calls).toEqual([{ now: NOW, graceMs: 1000 }])
   })
 
-  test('a tick that completes normally clears the guard without tripping the watchdog', async () => {
-    const first = makeAdmissionDeps()
-    await runTick(first, 1000)
-    expect(first.calls.admit).toBe(1)
-
-    const second = makeAdmissionDeps()
-    await runTick(second, 1000)
-    expect(second.calls.admit).toBe(1)
+  test('is throttled — a second call within the window does not sweep again', async () => {
+    let sweepCalls = 0
+    const deps = {
+      sweepExpired: async () => {
+        sweepCalls += 1
+        return 0
+      },
+      graceMs: 1000,
+      // Second call is well within EXPIRY_SWEEP_THROTTLE_MS of the first.
+      now: () => new Date(NOW.getTime() + EXPIRY_SWEEP_THROTTLE_MS - 1),
+    }
+    await maybeSweepExpired({ ...deps, now: () => NOW })
+    await maybeSweepExpired(deps)
+    expect(sweepCalls).toBe(1)
   })
 
-  test('a late-completing abandoned tick does not clear a newer tick’s guard', async () => {
-    let resolveHang: (n: number) => void = () => {}
-    const hungDeps = makeAdmissionDeps({
-      sweepExpired: () => new Promise<number>((r) => (resolveHang = r)),
+  test('sweeps again once the throttle window has elapsed', async () => {
+    let sweepCalls = 0
+    const sweepExpired = async () => {
+      sweepCalls += 1
+      return 0
+    }
+    await maybeSweepExpired({ sweepExpired, graceMs: 1000, now: () => NOW })
+    await maybeSweepExpired({
+      sweepExpired,
+      graceMs: 1000,
+      now: () => new Date(NOW.getTime() + EXPIRY_SWEEP_THROTTLE_MS),
     })
-    const hungTick = runTick(hungDeps, 20)
+    expect(sweepCalls).toBe(2)
+  })
 
-    await sleep(40) // watchdog trips, guard released
+  test('after __resetFreeSessionAdmissionForTests it sweeps again immediately', async () => {
+    let sweepCalls = 0
+    const sweepExpired = async () => {
+      sweepCalls += 1
+      return 0
+    }
+    await maybeSweepExpired({ sweepExpired, graceMs: 1000, now: () => NOW })
+    // Without a reset this second call would be throttled.
+    __resetFreeSessionAdmissionForTests()
+    await maybeSweepExpired({ sweepExpired, graceMs: 1000, now: () => NOW })
+    expect(sweepCalls).toBe(2)
+  })
 
-    // Start a slow-but-healthy second tick, then let the abandoned first
-    // tick complete while the second is still in flight.
-    let resolveSecond: (n: number) => void = () => {}
-    const secondDeps = makeAdmissionDeps({
-      sweepExpired: () => new Promise<number>((r) => (resolveSecond = r)),
-    })
-    const secondTick = runTick(secondDeps, 10_000)
-    resolveHang(0)
-    await hungTick
-
-    // The second tick still holds the guard: a third tick is rejected.
-    const thirdDeps = makeAdmissionDeps()
-    expect(runTick(thirdDeps, 1000)).toBeUndefined()
-    expect(thirdDeps.calls.admit).toBe(0)
-
-    resolveSecond(0)
-    await secondTick
+  test('never throws when sweepExpired rejects', async () => {
+    await expect(
+      maybeSweepExpired({
+        sweepExpired: async () => {
+          throw new Error('db down')
+        },
+        graceMs: 1000,
+        now: () => NOW,
+      }),
+    ).resolves.toBeUndefined()
   })
 })
