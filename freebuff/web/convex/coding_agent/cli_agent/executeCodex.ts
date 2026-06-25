@@ -348,6 +348,25 @@ export async function executeCodex(
     );
   };
 
+  // OpenAI returns these codes/messages when the OAuth refresh token stored in
+  // /home/daytona/.codex/auth.json has been invalidated (user logged out of
+  // ChatGPT elsewhere, rotated session, TTL elapsed, etc.). When we see them,
+  // codex has crashed mid-refresh and there's nothing useful to retry — the
+  // user has to re-authenticate.
+  const hasOAuthInvalidationSignal = (errorText?: string) => {
+    const haystack = [...rawCliOutputLines.slice(-20), errorText || ""]
+      .join("\n")
+      .toLowerCase();
+    return (
+      haystack.includes("refresh_token_invalidated") ||
+      haystack.includes("refresh_token_expired") ||
+      haystack.includes("invalid_grant") ||
+      haystack.includes("invalid_refresh_token") ||
+      haystack.includes("account is no longer authenticated") ||
+      haystack.includes("please log in again")
+    );
+  };
+
   const SESSION_ID_REGEX =
     /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
   const extractSessionIdCandidate = (value: unknown): string | undefined => {
@@ -873,6 +892,29 @@ export async function executeCodex(
         );
         return { success: true, sessionId: undefined };
       }
+
+      // BYOK runs after a prior OAuth login: if /home/daytona/.codex/auth.json
+      // still has the OAuth `tokens` blob, codex's auth precedence picks
+      // ChatGPT mode and tries to refresh that (often dead) refresh_token,
+      // ignoring OPENAI_API_KEY env var entirely — surfacing as
+      // "refresh_token_invalidated" even when BYOK is selected.
+      //
+      // The encrypted backup lives in user.codex_auth_encrypted_payload, so
+      // wiping the on-disk copy is safe: switching back to OAuth restores it
+      // via restoreCodexAuthFromStoredCredentials().
+      try {
+        await codebase.runCommand(
+          'rm -f "/home/daytona/.codex/auth.json"',
+          5000,
+        );
+      } catch (cleanupError) {
+        // Non-fatal — worst case codex still tries OAuth, hits the
+        // invalidation handler we added below, and surfaces a clean prompt.
+        console.error(
+          "[Codex] Failed to clear stale auth.json before BYOK run:",
+          cleanupError,
+        );
+      }
     } else {
       const executingUser = await ctx.runQuery(internal.users.get, {
         userId: args.executingUserId,
@@ -1132,6 +1174,80 @@ export async function executeCodex(
 
     // Check exit code
     if (result.exitCode !== null && result.exitCode !== 0) {
+      // OAuth refresh-token invalidation: codex tried to refresh the stored
+      // ChatGPT session and OpenAI rejected it. This fires in two shapes:
+      //
+      //   - stored_chatgpt run: the user's OAuth session is genuinely dead.
+      //     Flip codex_oauth_revoked so the next run forces device-auth.
+      //   - byok_openai run: a leftover OAuth auth.json on disk made codex
+      //     prefer ChatGPT mode and ignore OPENAI_API_KEY. Wipe it and ask
+      //     the user to retry; do NOT touch codex_oauth_revoked (the OAuth
+      //     state belongs to a separate auth method the user isn't using).
+      //
+      // Both shapes get a clean assistantStream message instead of the raw
+      // "Command failed with exit code 1" + JSON tail.
+      if (hasOAuthInvalidationSignal(result.error)) {
+        const isOauthRun = authSource === "stored_chatgpt";
+
+        if (isOauthRun) {
+          try {
+            await ctx.runMutation(internal.users.setCodexOauthRevokedInternal, {
+              userId: args.executingUserId,
+              revoked: true,
+            });
+          } catch (markError) {
+            console.error(
+              "[Codex] Failed to mark codex_oauth_revoked after refresh_token_invalidated:",
+              markError,
+            );
+          }
+        }
+
+        // Wipe the dead/stale auth.json + device-auth scratch so the next
+        // attempt starts clean (device-auth for OAuth, raw env var for BYOK).
+        try {
+          await codebase.runCommand(
+            `cd /home/daytona/codebase && export PATH=${pathValue} && (codex logout || true) && rm -f "/home/daytona/.codex/auth.json" "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"`,
+            10000,
+          );
+        } catch (cleanupError) {
+          console.error(
+            "[Codex] Failed to clean up stale auth.json after refresh_token_invalidated:",
+            cleanupError,
+          );
+        }
+
+        const friendlyMessage = isOauthRun
+          ? [
+              "Your ChatGPT session has expired and Codex couldn't refresh it.",
+              "",
+              "Go to Settings > AI Credentials and reconnect ChatGPT (or paste an OpenAI API key for BYOK), then send your message again.",
+            ].join("\n")
+          : [
+              "Codex ran into a stale ChatGPT login on this sandbox while you have BYOK selected. I've cleared it for you.",
+              "",
+              "Send your message again — the next run will use your OpenAI API key directly.",
+            ].join("\n");
+
+        assistantStream.push({
+          type: "assistant",
+          content: friendlyMessage,
+        });
+        try {
+          await ctx.runMutation(
+            internal.coding_agent.cli_agent.agent_message
+              .updateAgentMessageStream,
+            {
+              messageId: args.messageId,
+              assistantStream: [...assistantStream],
+            },
+          );
+        } catch {
+          // Non-fatal — onComplete will still flush the assistantStream.
+        }
+        return { success: true, sessionId: undefined };
+      }
+
       const errorTail = rawCliOutputLines.slice(-6).join(" | ");
       throw new Error(
         `Command failed with exit code ${result.exitCode}: ${result.error || "Unknown error"}${errorTail ? `. CLI output: ${errorTail}` : ""}`,
