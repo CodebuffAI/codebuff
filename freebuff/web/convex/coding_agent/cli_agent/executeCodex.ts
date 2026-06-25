@@ -87,7 +87,8 @@ export async function executeCodex(
       return undefined;
     }
     const withoutAssignment = trimmed.replace(/^OPENAI_API_KEY\s*=\s*/i, "");
-    const unquoted = withoutAssignment.replace(/^['"]|['"]$/g, "");
+    const withoutBearer = withoutAssignment.replace(/^Bearer\s+/i, "");
+    const unquoted = withoutBearer.replace(/^['"]|['"]$/g, "").trim();
     // Common paste typo: keys accidentally start with "ssk-".
     if (unquoted.startsWith("ssk-")) {
       return unquoted.slice(1);
@@ -99,6 +100,14 @@ export async function executeCodex(
     command
       .replaceAll("$HOME/.local//share", "$HOME/.local/share")
       .replaceAll("VVLY_CODEX_USE_STORED_CREDENTIALS", "VLY_CODEX_USE_STORED_CREDENTIALS")
+      .replaceAll(
+        "VLY_CODEX_USE_STORED_CREDENTIALS=1VLY_CODEX_AUTH_SOURCE",
+        "VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE",
+      )
+      .replaceAll(
+        'OPENAI_API_KEY=""VLY_CODEX_USE_STORED_CREDENTIALS',
+        'OPENAI_API_KEY="" VLY_CODEX_USE_STORED_CREDENTIALS',
+      )
       .replaceAll(".vly-convex/devv.key", ".vly-convex/dev.key")
       .replaceAll(" codex exec --yolo ---color ", " codex exec --yolo --color ")
       .replace(/OPENAI_API_KEY=(['"]?)ssk-/g, "OPENAI_API_KEY=$1sk-");
@@ -216,16 +225,18 @@ export async function executeCodex(
       // codex exec resume does not accept --color; keep args to the supported subset.
       return `codex exec resume ${escapedSessionId} --yolo --json${modelFlag} ${escapedPrompt}`;
     })();
+    const authPrefix =
+      authSource === "stored_chatgpt" ? "unset OPENAI_API_KEY && " : "";
     const authEnv =
       authSource === "stored_chatgpt"
-        ? `OPENAI_API_KEY="" VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
+        ? `VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE="${authSource}"`
         : `OPENAI_API_KEY=${escapeShellArg(openAiApiKey || "")} VLY_CODEX_AUTH_SOURCE="${authSource}"`;
     const convexDeployKeyExpr =
       '$(cat "$HOME/.vly-convex/dev.key" 2>/dev/null || cat "$HOME/.vly-coonvex/dev.key" 2>/dev/null || echo "")';
     const convexEnvPrefix = shouldInjectConvexDeployKey
       ? `CONVEX_DEPLOY_KEY="${convexDeployKeyExpr}" `
       : "";
-    const baseCommand = `cd /home/daytona/codebase && export PATH=${pathValue} && ${authEnv} ${convexEnvPrefix}GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
+    const baseCommand = `cd /home/daytona/codebase && export PATH=${pathValue} && ${authPrefix}${authEnv} ${convexEnvPrefix}GIT_TERMINAL_PROMPT=0 ${codexExecCommand}`;
     return sanitizeCodexShellCommand(baseCommand);
   };
   let fullCommand = "";
