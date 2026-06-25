@@ -4,10 +4,6 @@ import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
-import {
-  isOutOfCreditsError,
-  OUT_OF_CREDITS_MESSAGE,
-} from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
@@ -19,8 +15,6 @@ import {
 } from '../../utils/message-updater'
 import { createModeDividerMessage } from '../../utils/send-message-helpers'
 import { yieldToEventLoop } from '../../utils/yield-to-event-loop'
-import { invalidateActivityQuery } from '../use-activity-query'
-import { usageQueryKeys } from '../use-usage-query'
 
 import type {
   PendingAttachment,
@@ -378,22 +372,12 @@ export const handleRunCompletion = (params: {
   }
 
   if (output.type === 'error') {
-    if (isOutOfCreditsError(output)) {
-      updater.setError(OUT_OF_CREDITS_MESSAGE)
-      useChatStore.getState().setInputMode('outOfCredits')
-      invalidateActivityQuery(usageQueryKeys.current())
-      finalizeAfterError()
-      return
-    }
-
     // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
     updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
 
     finalizeAfterError()
     return
   }
-
-  invalidateActivityQuery(usageQueryKeys.current())
 
   finalizeQueueState({
     setStreamStatus,
@@ -460,13 +444,6 @@ export const handleRunError = (params: {
     isQueuePausedRef,
   })
   timerController.stop('error')
-
-  if (isOutOfCreditsError(error)) {
-    updater.setError(OUT_OF_CREDITS_MESSAGE)
-    useChatStore.getState().setInputMode('outOfCredits')
-    invalidateActivityQuery(usageQueryKeys.current())
-    return
-  }
 
   // Use setError for all errors so they display in UserErrorBanner consistently
   const errorMessage = errorInfo.message || 'An unexpected error occurred'

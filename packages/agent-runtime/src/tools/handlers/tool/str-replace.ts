@@ -1,4 +1,4 @@
-import { postStreamProcessing } from './write-file'
+import { normalizeToolPath, postStreamProcessing } from './write-file'
 import { processStrReplace } from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -11,6 +11,15 @@ import type {
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+
+// Fix C: after this many consecutive str_replace attempts on the same path
+// that returned an error or an auto-corrected near-match, hard-block further
+// str_replace calls on that path and direct the agent to a whole-symbol or
+// whole-file edit instead. Stops the retry-cascade corruption seen when the
+// agent keeps retrying a stale oldString.
+const STR_REPLACE_MAX_CONSECUTIVE_FAILURES = 3
+
+const NEAR_MATCH_AUTOCORRECT_MARKER = 'auto-corrected a near-match edit'
 
 export const handleStrReplace = (async (
   params: {
@@ -39,9 +48,46 @@ export const handleStrReplace = (async (
     requestOptionalFile,
     writeToClient,
   } = params
-  const { path, replacements, atomic } = toolCall.input
+  const path = normalizeToolPath(toolCall.input.path)
+  const { replacements, atomic } = toolCall.input
 
   await previousToolCallFinished
+
+  const hasReadCapability = replacements.some((replacement) =>
+    Boolean(replacement.basedOnRead),
+  )
+
+  // A fresh basedOnRead anchor proves the agent has just seen the current
+  // disk content, so it can clear a stale failedEditRequiresReadByPath flag
+  // and the Fix C consecutive-failure counter.
+  if (hasReadCapability) {
+    delete fileProcessingState.failedEditRequiresReadByPath[path]
+    delete fileProcessingState.consecutiveStrReplaceFailuresByPath[path]
+  }
+
+  // Fix C: per-path consecutive-failure circuit breaker. If the agent has
+  // already had several consecutive failed/auto-corrected str_replace attempts
+  // on this path, refuse the next attempt and direct the agent to a
+  // whole-symbol or whole-file edit instead of allowing another retry spiral.
+  const consecutiveFailures =
+    fileProcessingState.consecutiveStrReplaceFailuresByPath[path] ?? 0
+  if (consecutiveFailures >= STR_REPLACE_MAX_CONSECUTIVE_FAILURES) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: path,
+            errorMessage: [
+              `str_replace circuit breaker: ${consecutiveFailures} consecutive failed or auto-corrected attempts on \`${path}\` in this turn.`,
+              'Continuing to retry str_replace on this path is likely to corrupt the file.',
+              'Next: switch to a whole-symbol or whole-file edit instead — use rewrite_symbol for an entire function/method/type, or write_file to reconstruct the whole file. If you must use str_replace, first re-read the exact current lines with read_files and copy oldString verbatim from that fresh output.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
 
   if (fileProcessingState.failedEditRequiresReadByPath[path]) {
     return {
@@ -52,17 +98,13 @@ export const handleStrReplace = (async (
             file: path,
             errorMessage: [
               'Edit blocked: a previous str_replace failed for this file.',
-              'Recovery required: re-read the exact current lines with read_files before attempting another str_replace on this path.',
+              'Next: re-read the exact current lines with read_files before attempting another str_replace on this path, or supply a fresh basedOnRead capability.',
             ].join('\n'),
           },
         },
       ],
     }
   }
-
-  const hasReadCapability = replacements.some((replacement) =>
-    Boolean(replacement.basedOnRead),
-  )
 
   if (
     fileProcessingState.strictReadBeforeEdit &&
@@ -76,8 +118,8 @@ export const handleStrReplace = (async (
           value: {
             file: path,
             errorMessage: [
-              `Edit blocked: strict read-before-edit is enabled and no read authorization exists for ${path} in this turn.`,
-              `Recovery required: call read_files for ${path} (the exact target file and line range) before retrying str_replace, or include a basedOnRead capability on at least one replacement.`,
+              `Edit blocked: strict read-before-edit is enabled and no read authorization exists for ${path}.`,
+              `Next: call read_files for ${path} (the exact target file and line range) before retrying str_replace, or include a basedOnRead capability on at least one replacement.`,
             ].join('\n'),
           },
         },
@@ -132,17 +174,28 @@ export const handleStrReplace = (async (
   const strReplaceResult = await newPromise
   if ('error' in strReplaceResult) {
     fileProcessingState.failedEditRequiresReadByPath[path] = true
+    // Fix C: a hard error counts as a consecutive failure.
+    fileProcessingState.consecutiveStrReplaceFailuresByPath[path] =
+      (fileProcessingState.consecutiveStrReplaceFailuresByPath[path] ?? 0) + 1
   } else {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
-    // Strict read-before-edit: a successful edit consumes the per-path read
-    // authorization so a second edit on the same path must either re-read or
-    // anchor itself with a fresh basedOnRead capability.
-    if (
-      fileProcessingState.strictReadBeforeEdit &&
-      fileProcessingState.readAuthorizationsByPath
-    ) {
-      delete fileProcessingState.readAuthorizationsByPath[path]
+    // Fix C: an auto-corrected near-match is a weak/suspect outcome and also
+    // counts toward the circuit breaker. A clean, exact-match success clears
+    // the counter so the agent can recover on the same path.
+    const hadAutoCorrect = strReplaceResult.messages.some((msg) =>
+      msg.includes(NEAR_MATCH_AUTOCORRECT_MARKER),
+    )
+    if (hadAutoCorrect) {
+      fileProcessingState.consecutiveStrReplaceFailuresByPath[path] =
+        (fileProcessingState.consecutiveStrReplaceFailuresByPath[path] ?? 0) + 1
+    } else {
+      delete fileProcessingState.consecutiveStrReplaceFailuresByPath[path]
     }
+    // Strict read-before-edit: read authorization is sticky once granted by
+    // read_files or write_file. Successful edits on the same path remain
+    // authorized for subsequent edits; only a failed edit (which sets
+    // failedEditRequiresReadByPath) or an externally-changed file (anchored
+    // with a fresh basedOnRead capability) re-enables the strict gate.
   }
 
   const clientToolResult = await postStreamProcessing<'str_replace'>(

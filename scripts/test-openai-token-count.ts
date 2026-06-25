@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+export {}
+
 /**
  * Tests the OpenAI Responses API token counting endpoint (POST /v1/responses/input_tokens/count)
  * against the real API to verify our integration works correctly.

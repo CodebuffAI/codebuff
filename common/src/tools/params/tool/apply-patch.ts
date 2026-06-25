@@ -1,6 +1,7 @@
 import z from 'zod/v4'
 
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { basedOnReadRangeSchema } from '../based-on-read'
 
 import type { $ToolParams } from '../../constants'
 
@@ -22,27 +23,6 @@ export const applyPatchResultSchema = z.union([
 const toolName = 'apply_patch'
 const endsAgentStep = false
 
-const readCapabilitySchema = z
-  .object({
-    startLine: z
-      .number()
-      .int()
-      .min(1)
-      .describe('1-indexed inclusive start line from the read_files.ranges result this patch hunk is based on.'),
-    endLine: z
-      .number()
-      .int()
-      .min(1)
-      .describe('1-indexed inclusive end line from the read_files.ranges result this patch hunk is based on.'),
-    hash: z
-      .string()
-      .min(1)
-      .describe('The sha256 rangeHash returned by read_files.ranges for this exact range.'),
-  })
-  .refine((capability) => capability.startLine <= capability.endLine, {
-    message: 'basedOnRead.startLine must be <= basedOnRead.endLine',
-  })
-
 const operationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('create_file'),
@@ -54,7 +34,7 @@ const operationSchema = z.discriminatedUnion('type', [
     path: z.string().min(1, 'Path cannot be empty'),
     diff: z.string().min(1, 'Diff cannot be empty'),
     basedOnRead: z
-      .array(readCapabilitySchema)
+      .array(basedOnReadRangeSchema)
       .optional()
       .describe(
         'Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing.',

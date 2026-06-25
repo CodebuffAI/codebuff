@@ -18,14 +18,9 @@ const PROJECT_ROOT = resolve(import.meta.dir, '..')
 const LOG_DIR = join(PROJECT_ROOT, 'debug', 'console')
 const PID_FILE = join(LOG_DIR, 'services.json')
 
-// Get port from environment (Bun loads .env files automatically)
-const PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'
-
 interface ServicePids {
   studio?: number
   sdk?: number
-  web?: number
-  port: string
 }
 
 function sleep(ms: number): Promise<void> {
@@ -82,11 +77,9 @@ function killDrizzleStudio(): boolean {
 async function main(): Promise<void> {
   let stopped = false
   const pids = loadPids()
-  const port = pids?.port || PORT
 
   // Kill tracked processes
   if (pids) {
-    if (pids.web && killPid(pids.web)) stopped = true
     if (pids.studio && killPid(pids.studio)) stopped = true
     if (pids.sdk && killPid(pids.sdk)) stopped = true
 
@@ -98,8 +91,8 @@ async function main(): Promise<void> {
     }
   }
 
-  // Also kill by port (worktree-safe fallback)
-  if (killProcessesOnPort(port)) {
+  // Also kill Drizzle Studio by port as a fallback.
+  if (killProcessesOnPort('4983')) {
     stopped = true
   }
 
@@ -110,7 +103,7 @@ async function main(): Promise<void> {
 
   if (stopped) {
     await sleep(500)
-    console.log(`✓ Services stopped (port ${port})`)
+    console.log('✓ Optional services stopped')
   } else {
     console.log('No services were running')
   }

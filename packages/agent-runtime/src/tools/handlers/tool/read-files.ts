@@ -1,5 +1,6 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
+import { normalizeToolPath } from './write-file'
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { extractSlices, type ExtractedSlice } from '../../../structural-read'
 import { renderReadFilesResult } from '../../../util/render-read-files-result'
@@ -33,13 +34,13 @@ export const handleReadFiles = (async (
     fileContext,
     fileProcessingState,
   } = params
-  const paths = toolCall.input.paths.map(normalizeReadFilesPath)
+  const paths = toolCall.input.paths.map(normalizeToolPath)
   const ranges = toolCall.input.ranges?.map((range) => ({
     ...range,
-    path: normalizeReadFilesPath(range.path),
+    path: normalizeToolPath(range.path),
   }))
   const symbolRequests = toolCall.input.symbols?.map((entry) => ({
-    path: normalizeReadFilesPath(entry.path),
+    path: normalizeToolPath(entry.path),
     names: entry.names,
   }))
 
@@ -103,6 +104,3 @@ export const handleReadFiles = (async (
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
 
-function normalizeReadFilesPath(path: string): string {
-  return path.replace(/^(?:\.\/)+/, '')
-}

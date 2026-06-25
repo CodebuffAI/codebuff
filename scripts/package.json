@@ -13,6 +13,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
+    "guard:byok-wording": "bun run byok-wording-guard.ts",
+    "guard:memory-drift": "bun run memory-drift-guard.ts",
+    "guard:sync-agent-config": "bun run sync-agent-config.ts",
     "debug-log-subset": "bun run debug-log-subset.ts",
     "typecheck-all": "bun run typecheck-all.ts"
   },
@@ -22,7 +25,6 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.19",
-    "@codebuff/bigquery": "workspace:*",
     "@codebuff/common": "workspace:*"
   },
   "devDependencies": {}

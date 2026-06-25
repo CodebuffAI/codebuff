@@ -13,7 +13,7 @@ const baseDefinition = createCliAgent({
   cliSpecificDocs: `## Openbuff CLI Specific Guidance
 
 - The ready state is the Openbuff banner, working directory, and bordered input box with the agent selector.
-- For smoke tests, \`/help\` is useful because it validates the overlay, shortcuts, features, and credits copy in one step.
+- For smoke tests, \`/help\` is useful because it validates the overlay, shortcuts, features, and setup/help copy in one step.
 - For implementation-oriented tests, prefer asking the CLI to inspect or reason about a specific file rather than making edits unless the parent prompt explicitly asks for edits.
 - Long Openbuff responses live in a scrollable viewport. If the bottom of the answer already shows the core recommendation, do not spend many extra steps trying to reconstruct every hidden line.
 - Avoid key combinations like Shift+Arrow or repeated history/navigation probing unless you have a clear reason; they can open overlays or mutate the input state unexpectedly.

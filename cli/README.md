@@ -57,10 +57,10 @@ See [tmux.knowledge.md](tmux.knowledge.md) for comprehensive tmux documentation 
 
 ## Build
 
-Build the package:
+Build the binary:
 
 ```bash
-bun run build
+bun run build:binary
 ```
 
 ## Run
@@ -68,7 +68,7 @@ bun run build
 Run the built TUI:
 
 ```bash
-bun run start
+bun run dev
 ```
 
 Or use the binary directly:

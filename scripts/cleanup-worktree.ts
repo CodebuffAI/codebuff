@@ -22,7 +22,6 @@ const WorktreeArgsSchema = z.object({
 type WorktreeArgs = z.infer<typeof WorktreeArgsSchema>
 
 interface WorktreePorts {
-  webPort?: number
   backendPort?: number
 }
 
@@ -126,14 +125,6 @@ function getWorktreePorts(worktreePath: string): WorktreePorts {
       try {
         const content = readFileSync(envPath, 'utf-8')
 
-        // Parse PORT or NEXT_PUBLIC_WEB_PORT for web port
-        const webPortMatch = content.match(
-          /^(?:PORT|NEXT_PUBLIC_WEB_PORT)=(\d+)/m,
-        )
-        if (webPortMatch) {
-          ports.webPort = parseInt(webPortMatch[1], 10)
-        }
-
         // Parse backend port from NEXT_PUBLIC_CODEBUFF_BACKEND_URL
         const backendUrlMatch = content.match(
           /^NEXT_PUBLIC_CODEBUFF_BACKEND_URL=.*:(\d+)/m,
@@ -142,7 +133,7 @@ function getWorktreePorts(worktreePath: string): WorktreePorts {
           ports.backendPort = parseInt(backendUrlMatch[1], 10)
         }
 
-        if (ports.webPort || ports.backendPort) {
+        if (ports.backendPort) {
           break // Found ports, no need to check other files
         }
       } catch {
@@ -183,21 +174,12 @@ async function killProcessOnPort(port: number): Promise<boolean> {
 async function killWorktreePorts(worktreePath: string): Promise<void> {
   const ports = getWorktreePorts(worktreePath)
 
-  if (!ports.webPort && !ports.backendPort) {
+  if (!ports.backendPort) {
     console.log('  No port configuration found, skipping port cleanup')
     return
   }
 
   console.log('  Killing processes on worktree ports...')
-
-  if (ports.webPort) {
-    const killed = await killProcessOnPort(ports.webPort)
-    if (killed) {
-      console.log(`  ✓ Cleaned up web port ${ports.webPort}`)
-    } else {
-      console.log(`  ○ No process found on web port ${ports.webPort}`)
-    }
-  }
 
   if (ports.backendPort) {
     const killed = await killProcessOnPort(ports.backendPort)

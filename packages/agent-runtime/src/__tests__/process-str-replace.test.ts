@@ -655,6 +655,204 @@ function test3() {
     }
   })
 
+  it('should refuse auto-correction when oldStr is a strict subset of a wider matching region', async () => {
+    // Regression test for the "edit breaks files for no reason" failure mode:
+    // a 10-line oldStr that matches the bottom 10 lines of an 11-line JSDoc'd
+    // block used to auto-correct against the narrower 10-line slice and
+    // silently orphan the `/**` opener. The subset-safety check in
+    // tryNearMatchAutoCorrect must now refuse this and surface a normal
+    // "Edit blocked" recovery error instead.
+    const initialContent = [
+      '/**',
+      ' * Subtract two numbers.',
+      ' * @param a first number',
+      ' * @param b second number',
+      ' * @returns a - b',
+      ' */',
+      'export function subtract(a: number, b: number) {',
+      '  return a - b',
+      '}',
+      '',
+      'export const VERSION = "1.0"',
+    ].join('\n')
+
+    // 10-line oldStr: missing the `/**` opener AND has one trailing-version
+    // diff ("1.0.0" vs "1.0") so it does not exactly match anywhere in the
+    // file. The 10-line slice at lines 2-11 of the file has similarity ~0.99;
+    // the wider 11-line slice at lines 1-11 has similarity ~0.97 (extra
+    // `/**` line + the trailing-version diff). Both are above
+    // NEAR_MATCH_MIN_SIMILARITY (0.92), so subset-safety must fire.
+    const oldStr = [
+      ' * Subtract two numbers.',
+      ' * @param a first number',
+      ' * @param b second number',
+      ' * @returns a - b',
+      ' */',
+      'export function subtract(a: number, b: number) {',
+      '  return a - b',
+      '}',
+      '',
+      'export const VERSION = "1.0.0"',
+    ].join('\n')
+    const newStr = oldStr.replace('"1.0.0"', '"2.0.0"')
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        { oldString: oldStr, newString: newStr, allowMultiple: false },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    // Subset-safety must refuse: the 10-line chosen block is a strict
+    // subset of the wider 11-line block at the same location. Expect an
+    // error result (no auto-corrected content) so the model re-reads the
+    // file rather than orphaning the `/**` opener.
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The old string')
+      expect(result.error).toContain(
+        'target block was already changed/removed',
+      )
+    }
+  })
+
+  it('should refuse to auto-correct a stale oldString at sub-0.92 similarity even with a single candidate and no runner-up (Fix A)', async () => {
+    // Regression test for Fix A: the adaptive 0.80 near-match branch was
+    // removed. A stale oldString that is ~0.84 similar to a single candidate
+    // (no distinct runner-up) used to auto-correct under the old 0.80 path with
+    // no margin check. It must now fall through to the rich diagnostic error so
+    // the model re-reads instead of guessing, mirroring the subset-safety test
+    // above.
+    const initialContent = [
+      'export function processRefund(order: Order) {',
+      '  const amount = order.totalCents',
+      '  const reason = order.refundReason',
+      '  return issueRefund(amount, reason)',
+      '}',
+    ].join('\n')
+    // Stale oldString: several small diffs (renamed identifiers, dropped line)
+    // put similarity well below 0.92 but above 0.80, with exactly one candidate.
+    const oldStr = [
+      'export function processRefund(order: Order) {',
+      '  const amount = order.totalAmount',
+      '  const reason = order.returnReason',
+      '  return issueRefund(amount)',
+      '}',
+    ].join('\n')
+    const newStr = [
+      'export function processRefund(order: Order) {',
+      '  const amount = order.totalCents',
+      '  const reason = order.refundReason',
+      '  return issueRefund(amount, reason, true)',
+      '}',
+    ].join('\n')
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        { oldString: oldStr, newString: newStr, allowMultiple: false },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The old string')
+      expect(
+        result.error.includes('Closest candidate ranges') ||
+          result.error.includes(
+            'target block was already changed/removed',
+          ),
+      ).toBe(true)
+    }
+  })
+
+  it('should reject a near-match auto-correction that would leave unbalanced brackets (Fix B)', async () => {
+    // Regression test for Fix B (isResultDelimiterBalanced): a near-match that
+    // meets the 0.92 threshold must still be rejected when the newStr drops a
+    // closing brace (net bracket delta != 0). The file has a balanced
+    // switch/case structure; the oldString is a near-match to one case body,
+    // and the newString removes the case's closing `}`.
+    const initialContent = [
+      'switch (status) {',
+      '  case "open": {',
+      '    handleOpen(record)',
+      '    break',
+      '  }',
+      '  case "closed": {',
+      '    handleClosed(record)',
+      '    break',
+      '  }',
+      '}',
+    ].join('\n')
+    // Near-match to the `case "closed"` body: one identifier drift keeps it
+    // below an exact match but above 0.92 similarity, single candidate.
+    const oldStr = [
+      '  case "closed": {',
+      '    handleClose(record)',
+      '    break',
+      '  }',
+    ].join('\n')
+    // newStr drops the closing `}`: net `{` delta goes from +1/-1 (balanced)
+    // to +1/-0 (unbalanced), so isResultDelimiterBalanced must reject it.
+    const newStr = [
+      '  case "closed": {',
+      '    handleClosed(record)',
+      '    break',
+    ].join('\n')
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        { oldString: oldStr, newString: newStr, allowMultiple: false },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The old string')
+      // The delimiter-balance check makes tryNearMatchAutoCorrect return null,
+      // so the rich diagnostic error (with candidate ranges) is emitted.
+      expect(result.error).toContain(
+        'Closest candidate ranges',
+      )
+    }
+  })
+
+  it('should not auto-correct a short oldString below the autocorrect min length (Fix E)', async () => {
+    // Regression test for Fix E: NEAR_MATCH_AUTOCORRECT_MIN_OLD_STR_LENGTH is
+    // 30 in source. A short oldString (< 30 chars after trim) that misses an
+    // exact match must NOT be auto-corrected even if a single high-similarity
+    // candidate exists, because short strings too easily match the wrong spot.
+    // It must instead return an error.
+    const initialContent = [
+      'const alphaValue = 1',
+      'const betaValue = 2',
+    ].join('\n')
+    // 24 chars after trim — below the 30-char autocorrect threshold.
+    const oldStr = 'const alphaValu = 1'
+    const newStr = 'const alphaValue = 10'
+
+    const result = await processStrReplace({
+      path: 'test.ts',
+      replacements: [
+        { oldString: oldStr, newString: newStr, allowMultiple: false },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('The old string')
+    }
+  })
+
   it('should fail safely when near matches are ambiguous', async () => {
     const initialContent = [
       'export function loadUtilityConfig() {',
@@ -915,6 +1113,48 @@ function test3() {
     if ('error' in result) {
       expect(result.error).toContain('Large-file edit blocked for large.ts')
       expect(result.error).toContain('basedOnRead anchor was stale')
+    }
+  })
+
+  it('should emit a fresh capability token for the current range content when rejecting a stale basedOnRead anchor (Gap #3)', async () => {
+    // When the hash mismatches, the agent should be told BOTH that the anchor is
+    // stale AND given a ready-to-use fresh token for the current content of the
+    // same line range, so after re-reading oldString it can retry without
+    // hand-deriving a new hash.
+    const lines = Array.from({ length: 1_001 }, (_, index) =>
+      index === 300 || index === 700
+        ? 'const target = 1;'
+        : `const filler${index} = ${index};`,
+    )
+    const initialContent = lines.join('\n')
+    const staleToken = encodeReadCapabilityToken({
+      startLine: 301,
+      endLine: 301,
+      hash: getContentHash('const target = 0;'),
+    })
+
+    const result = await processStrReplace({
+      path: 'large.ts',
+      replacements: [
+        {
+          oldString: 'const target = 1;',
+          newString: 'const target = 2;',
+          allowMultiple: false,
+          basedOnRead: staleToken,
+        },
+      ],
+      initialContentPromise: Promise.resolve(initialContent),
+      logger,
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      // The fresh-token hint points at the CURRENT content of the same line range.
+      const expectedFreshHash = getContentHash(lines[300])
+      expect(result.error).toContain('readCapability=cap.')
+      expect(result.error).toContain('Fresh capability token for the CURRENT content of lines 301-301')
+      // The emitted token decodes to the current content hash, not the stale one.
+      expect(result.error).toContain(expectedFreshHash)
     }
   })
 

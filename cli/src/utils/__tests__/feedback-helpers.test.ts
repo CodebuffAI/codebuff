@@ -180,7 +180,6 @@ describe('buildFeedbackPayload', () => {
     target: null as ReturnType<typeof createMessage> | null,
     recentMessages: [] as RecentMessageSummary[],
     agentMode: null as string | null,
-    sessionCreditsUsed: null as number | null,
     errors: null as Array<{ id: string; message: string }> | null,
     clientFeedbackId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   }
@@ -282,25 +281,15 @@ describe('buildFeedbackPayload', () => {
     const payload = buildFeedbackPayload({
       ...baseParams,
       agentMode: 'MAX',
-      sessionCreditsUsed: 3.5,
       recentMessages,
       errors,
     })
 
     expect(payload.agentMode).toBe('MAX')
-    expect(payload.sessionCreditsUsed).toBe(3.5)
     expect(payload.recentMessages).toEqual(recentMessages)
     expect(payload.errors).toEqual(errors)
   })
 
-  test('includes sessionCreditsUsed: 0 (not dropped)', () => {
-    const payload = buildFeedbackPayload({
-      ...baseParams,
-      sessionCreditsUsed: 0,
-    })
-
-    expect(payload.sessionCreditsUsed).toBe(0)
-  })
 
   test('omits empty recentMessages', () => {
     const payload = buildFeedbackPayload({
@@ -386,7 +375,6 @@ describe('Cross-layer validation', () => {
       target,
       recentMessages,
       agentMode: 'MAX',
-      sessionCreditsUsed: 3.5,
       errors: [{ id: 'err-1', message: 'Something went wrong' }],
       clientFeedbackId: 'c3d4e5f6-a7b8-4012-8def-123456789012',
     })
@@ -403,7 +391,6 @@ describe('Cross-layer validation', () => {
       target: null,
       recentMessages: [],
       agentMode: null,
-      sessionCreditsUsed: null,
       errors: null,
       clientFeedbackId: 'd4e5f6a7-b8c9-4123-9efa-234567890123',
     })
@@ -420,7 +407,6 @@ describe('Cross-layer validation', () => {
       target: null,
       recentMessages: [],
       agentMode: null,
-      sessionCreditsUsed: null,
       errors: null,
       clientFeedbackId: 'e5f6a7b8-c9d0-4234-afab-345678901234',
     })

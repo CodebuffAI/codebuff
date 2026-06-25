@@ -46,7 +46,7 @@ export type PromptAiSdkStreamFn = (
     userInputId: string
     agentId?: string
     maxRetries?: number
-    onCostCalculated?: (credits: number) => Promise<void>
+    onCostCalculated?: (providerCostCents: number) => Promise<void>
     onCacheDebugProviderRequestBuilt?: (params: {
       provider: string
       rawBody: unknown
@@ -60,13 +60,13 @@ export type PromptAiSdkStreamFn = (
     spawnableAgents?: string[]
     /** Map of locally available agent templates - used to transform agent tool calls */
     localAgentTemplates?: Record<string, AgentTemplate>
-    /** Cost mode - 'free' mode means 0 credits charged for all agents */
+    /** Optional provider cost/accounting mode forwarded to provider adapters. */
     costMode?: string
     /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
     localMode?: boolean
-    /** Extra key/values merged into the request's `codebuff_metadata` field.
-     *  Used to forward client-scoped identifiers (e.g. `freebuff_instance_id`)
-     *  that server-side gates read from the chat-completions body. */
+    /** Extra key/values merged into the request's provider metadata field.
+     *  Used to forward client-scoped identifiers or provider-routing metadata
+     *  that downstream adapters read from the chat-completions body. */
     extraCodebuffMetadata?: Record<string, string>
     sendAction: SendActionFn
     logger: Logger
@@ -87,7 +87,7 @@ export type PromptAiSdkFn = (
     userId: string | undefined
     chargeUser?: boolean
     agentId?: string
-    onCostCalculated?: (credits: number) => Promise<void>
+    onCostCalculated?: (providerCostCents: number) => Promise<void>
     onCacheDebugProviderRequestBuilt?: (params: {
       provider: string
       rawBody: unknown
@@ -98,7 +98,7 @@ export type PromptAiSdkFn = (
     cacheDebugCorrelation?: string
     agentProviderOptions?: OpenRouterProviderRoutingOptions
     maxRetries?: number
-    /** Cost mode - 'free' mode means 0 credits charged for all agents */
+    /** Optional provider cost/accounting mode forwarded to provider adapters. */
     costMode?: string
     /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
     localMode?: boolean
@@ -126,7 +126,7 @@ export type PromptAiSdkStructuredInput<T> = {
   timeout?: number
   chargeUser?: boolean
   agentId?: string
-  onCostCalculated?: (credits: number) => Promise<void>
+  onCostCalculated?: (providerCostCents: number) => Promise<void>
   onCacheDebugProviderRequestBuilt?: (params: {
     provider: string
     rawBody: unknown

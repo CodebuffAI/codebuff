@@ -309,10 +309,10 @@ export const runAgentStep = async (
 
   let stepCreditsUsed = 0
 
-  const onCostCalculated = async (credits: number) => {
-    stepCreditsUsed += credits
-    agentState.creditsUsed += credits
-    agentState.directCreditsUsed += credits
+  const onCostCalculated = async (providerCostCents: number) => {
+    stepCreditsUsed += providerCostCents
+    agentState.creditsUsed += providerCostCents
+    agentState.directCreditsUsed += providerCostCents
   }
 
   const iterationNum = agentState.messageHistory.length
@@ -976,9 +976,9 @@ export async function loopAgentSteps(
           agentState: currentAgentState,
           localAgentTemplates,
           nResponses,
-          onCostCalculated: async (credits: number) => {
-            currentAgentState.creditsUsed += credits
-            currentAgentState.directCreditsUsed += credits
+          onCostCalculated: async (providerCostCents: number) => {
+            currentAgentState.creditsUsed += providerCostCents
+            currentAgentState.directCreditsUsed += providerCostCents
           },
           prompt: currentPrompt,
           runId,

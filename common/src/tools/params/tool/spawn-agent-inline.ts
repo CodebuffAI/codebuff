@@ -5,6 +5,7 @@ import {
   coerceToObject,
   textToolResultSchema,
 } from '../utils'
+import { agentHandoffSchema } from './spawn-agents'
 
 import type { $ToolParams } from '../../constants'
 
@@ -14,6 +15,11 @@ const inputSchema = z
   .object({
     agent_type: z.string().describe('Agent to spawn'),
     prompt: z.string().optional().describe('Prompt to send to the agent'),
+    handoff: agentHandoffSchema
+      .optional()
+      .describe(
+        'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
+      ),
     params: z
       .preprocess(coerceToObject, z.record(z.string(), z.any()))
       .optional()

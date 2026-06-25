@@ -811,10 +811,19 @@ function validateReadCapability(params: {
   const currentRange = lines.slice(startLine - 1, end).join('\n')
   const currentHash = getContentHash(currentRange)
   if (currentHash !== hash) {
+    // Mint a fresh capability token for the CURRENT content of the same line
+    // range, so after a re-read confirms oldString the agent can retry
+    // immediately without having to re-derive a hash/token by hand.
+    const freshToken = encodeReadCapabilityToken({
+      startLine,
+      endLine: end,
+      hash: currentHash,
+    })
     return [
       `Large-file edit blocked for ${path}: the basedOnRead range is stale.`,
       `Expected ${hash} for lines ${startLine}-${endLine}, but current hash is ${currentHash}.`,
       `Re-read with read_files ranges: [{ path: "${path}", startLine: ${startLine}, endLine: ${endLine} }] and retry with the new rangeHash.`,
+      `Fresh capability token for the CURRENT content of lines ${startLine}-${end} (copy oldString verbatim from a fresh read_files output, then pass this token as basedOnRead on your next edit to this range):\nreadCapability=${freshToken}`,
       'Tip: when editing the same file multiple times, batch all replacements into a SINGLE str_replace call (each with its own basedOnRead) so earlier edits do not invalidate later ranges.',
     ].join('\n')
   }
@@ -1369,20 +1378,80 @@ const NEAR_MATCH_MIN_SIMILARITY = 0.92
 const NEAR_MATCH_MIN_MARGIN = 0.05
 const NEAR_MATCH_AMBIGUOUS_SECOND = 0.85
 // Short strings are too easy to match in the wrong place; require substance.
+// Fix E: the auto-correct path requires a longer oldString than the diagnostic
+// path. A short oldString is the most common way to auto-correct into the wrong
+// neighbor, so we gate auto-correction on this higher threshold while still
+// emitting candidate-range diagnostics for anything below it.
+const NEAR_MATCH_AUTOCORRECT_MIN_OLD_STR_LENGTH = 30
 const NEAR_MATCH_MIN_OLD_STR_LENGTH = 10
+
+/**
+ * Fix B: cheap, language-agnostic structural sanity check. Apply `newStr` at
+ * the single occurrence of `matchedBlock` and verify the replacement does not
+ * change the net count of structural brackets ()[]{}. This catches edits that
+ * would orphan a brace or split a sibling block even when every
+ * similarity/subset/uniqueness gate passed. Intentionally bracket-only: quote
+ * and backtick balance is language-dependent and noisy. Returns true when
+ * balanced (or when the replacement does not touch any brackets), false when
+ * the delta is non-zero.
+ */
+function isResultDelimiterBalanced(
+  matchedBlock: string,
+  newStr: string,
+): boolean {
+  const bracketDelta = (s: string, open: string, close: string): number => {
+    let delta = 0
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i]
+      if (ch === open) delta++
+      else if (ch === close) delta--
+    }
+    return delta
+  }
+  // Compare the net bracket delta of the old block vs the new block. A whole-file
+  // scan would double-count brackets elsewhere and be misleading for deletions.
+  const pairs: Array<[string, string]> = [
+    ['(', ')'],
+    ['[', ']'],
+    ['{', '}'],
+  ]
+  for (const [open, close] of pairs) {
+    const oldDelta = bracketDelta(matchedBlock, open, close)
+    const newDelta = bracketDelta(newStr, open, close)
+    if (oldDelta !== newDelta) return false
+  }
+  return true
+}
 
 /**
  * After exact and indentation matching fail, decide whether the closest
  * candidate is a safe single-winner auto-correction. Returns the candidate's
  * real current block text (which occurs exactly once in the content) when ALL
  * deterministic gates pass, otherwise null. Never guesses on ambiguity.
+ *
+ * Gates (all must pass):
+ *  - oldString length >= NEAR_MATCH_AUTOCORRECT_MIN_OLD_STR_LENGTH (Fix E)
+ *  - best similarity >= NEAR_MATCH_MIN_SIMILARITY (0.92); the earlier 0.80
+ *    adaptive branch was removed because it auto-corrected with no margin or
+ *    runner-up gate, which corrupted files by editing the wrong block (Fix A).
+ *  - unambiguous winner vs any distinct non-overlapping runner-up
+ *  - not a strict subset of a wider high-similarity region
+ *  - location-unique (occurs exactly once)
+ *  - resulting content (after applying newStr at the match) has balanced
+ *    brackets ()[]{} — rejects edits that would orphan a brace / split a
+ *    block (Fix B, defense-in-depth against the exact transcript corruption).
  */
 function tryNearMatchAutoCorrect(params: {
   initialContent: string
   oldStr: string
+  newStr: string
 }): { oldStr: string; startLine: number; endLine: number; similarity: number } | null {
-  const { initialContent, oldStr } = params
-  if (oldStr.trim().length < NEAR_MATCH_MIN_OLD_STR_LENGTH) return null
+  const { initialContent, oldStr, newStr } = params
+  // Fix E: require a substantive oldString before any auto-correction. The
+  // diagnostic path (rich error with candidate ranges) still uses the lower
+  // NEAR_MATCH_MIN_OLD_STR_LENGTH, but auto-correcting a very short oldString
+  // is the most common way to edit the wrong neighbor.
+  if (oldStr.trim().length < NEAR_MATCH_AUTOCORRECT_MIN_OLD_STR_LENGTH) return null
 
   const matches = findClosestMatches({ initialContent, oldStr, limit: 8 })
   const best = matches[0]
@@ -1397,6 +1466,12 @@ function tryNearMatchAutoCorrect(params: {
       match.startLine > best.endLine || match.endLine < best.startLine,
   )
 
+  // Fix A: only the strict 0.92 path remains. The earlier 0.80 adaptive
+  // branch auto-corrected with no margin check and no unambiguous-winner
+  // proof, which was the direct cause of the cascading-corruption transcript
+  // (every "auto-corrected a near-match edit (84% similar)" event came from
+  // that branch). Below 0.92, fall through to the rich diagnostic error so
+  // the model re-reads instead of guessing.
   let isUnambiguous = false
   if (best.similarity >= NEAR_MATCH_MIN_SIMILARITY) {
     if (!second) {
@@ -1410,21 +1485,45 @@ function tryNearMatchAutoCorrect(params: {
         isUnambiguous = true
       }
     }
-  } else if (best.similarity >= 0.80) {
-    // Adaptive: if the best match is at least 80% similar and there's absolutely
-    // no other candidate (second best similarity < 0.45), we can confidently autocorrect.
-    if (!second || second.similarity < 0.45) {
-      isUnambiguous = true
-    }
   }
 
   if (!isUnambiguous) return null
+
+  // SUBSET SAFETY: a chosen block that appears exactly once in the file is
+  // still not safe to auto-correct if it is a strict subset of a larger
+  // candidate that also has high similarity. In that case the model almost
+  // certainly intended the larger block (its oldString was malformed or
+  // remembered from a slightly-stale read), and replacing the subset would
+  // orphan the surrounding lines. This is the canonical "edit breaks files
+  // for no reason" symptom: a 10-line slice of an 11-line JSDoc'd function
+  // passes the occurrences === 1 check but, on apply, leaves the unmatched
+  // line floating. Require the chosen block to be the maximal high-similarity
+  // region at its location.
+  const bestIsStrictSubset = matches.some(
+    (match) =>
+      match !== best &&
+      match.startLine <= best.startLine &&
+      match.endLine >= best.endLine &&
+      (match.startLine < best.startLine || match.endLine > best.endLine) &&
+      match.similarity >= NEAR_MATCH_MIN_SIMILARITY,
+  )
+  if (bestIsStrictSubset) return null
 
   // The chosen block must be location-unique so replaceAll edits exactly the
   // intended spot. (It is also necessarily different from oldStr, since an
   // exact single match would have returned earlier.)
   const occurrences = initialContent.split(best.closestBlock).length - 1
   if (occurrences !== 1) return null
+
+  // Fix B: defense-in-depth delimiter-balance check. Apply newStr at the
+  // matched block and verify the resulting content does not gain or lose
+  // structural brackets. This catches the transcript's failure mode (an
+  // auto-correct landing inside the wrong `case` orphaned an `if` body and
+  // split a sibling component) even if every other gate passed. Intentionally
+  // bracket-only — quote/backtick balance is language-dependent and noisy.
+  if (!isResultDelimiterBalanced(best.closestBlock, newStr)) {
+    return null
+  }
 
   return {
     oldStr: best.closestBlock,
@@ -1488,7 +1587,7 @@ const tryMatchOldStr = (params: {
   // the old all-whitespace-stripped fallback's risk of silently editing the
   // wrong line (e.g. a utility and its test sharing a similar line). Genuine
   // ambiguity falls through to the rich diagnostics below and fails cleanly.
-  const nearMatch = tryNearMatchAutoCorrect({ initialContent, oldStr })
+  const nearMatch = tryNearMatchAutoCorrect({ initialContent, oldStr, newStr })
   if (nearMatch) {
     logger.debug('Matched with near-match auto-correction')
     return {

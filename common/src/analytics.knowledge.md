@@ -1,6 +1,6 @@
 # Analytics Architecture
 
-This document describes the server-side and CLI analytics implementation using PostHog.
+This document describes the runtime and CLI analytics implementation using PostHog.
 
 ## Overview
 
@@ -8,7 +8,7 @@ The codebase has **two separate analytics modules** serving different use cases:
 
 | Module | Location | Use Case |
 |--------|----------|----------|
-| Server-side | `common/src/analytics.ts` | Web API routes, agent-runtime, billing |
+| Runtime | `common/src/analytics.ts` | Agent runtime and local integration processes |
 | CLI | `cli/src/utils/analytics.ts` | Interactive CLI application |
 
 Both modules share common types and utilities from `common/src/analytics-core.ts`.
@@ -37,9 +37,9 @@ Both modules share common types and utilities from `common/src/analytics-core.ts
         └───────────────────────┘   └─────────────────────┘
 ```
 
-## Server-side Analytics (`common/src/analytics.ts`)
+## Runtime Analytics (`common/src/analytics.ts`)
 
-**Stateless** - designed for multi-user server environments where each request has a different user.
+**Stateless** - designed for runtime processes where each request can identify its own user or session.
 
 ### Key Functions
 
@@ -67,9 +67,8 @@ trackEvent({
 
 ### Callers
 
-- Web API routes (`web/src/app/api/v1/*`)
 - Agent runtime (`packages/agent-runtime`)
-- Billing (`packages/billing`)
+- Local integration helpers that emit shared analytics events
 
 ## CLI Analytics (`cli/src/utils/analytics.ts`)
 
@@ -118,7 +117,7 @@ trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, { input: '...' })
 
 Both modules support **dependency injection** for testing without `mock.module()`:
 
-### Server-side Testing
+### Runtime Testing
 
 ```typescript
 import { resetServerAnalyticsState, type ServerAnalyticsDeps } from '@codebuff/common/analytics'
@@ -172,9 +171,8 @@ All analytics events are defined in `common/src/constants/analytics-events.ts` a
 ## Related Files
 
 - `common/src/analytics-core.ts` - Shared types and utilities
-- `common/src/analytics.ts` - Server-side implementation
+- `common/src/analytics.ts` - Runtime implementation
 - `cli/src/utils/analytics.ts` - CLI implementation
 - `common/src/util/analytics-dispatcher.ts` - CLI log-based event dispatcher
 - `common/src/util/analytics-log.ts` - Analytics log payload helpers
 - `common/src/constants/analytics-events.ts` - Event definitions
-- `web/src/app/analytics.knowledge.md` - Client-side (browser) PostHog patterns

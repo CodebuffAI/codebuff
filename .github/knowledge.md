@@ -25,8 +25,8 @@ GitHub API URLs are extracted as environment variables to avoid duplication:
 
 ```yaml
 env:
-  GITHUB_API_URL: https://api.github.com/repos/CodebuffAI/codebuff
-  GITHUB_UPLOADS_URL: https://uploads.github.com/repos/CodebuffAI/codebuff
+  GITHUB_API_URL: https://api.github.com/repos/AnzoBenjamin/openbuff
+  GITHUB_UPLOADS_URL: https://uploads.github.com/repos/AnzoBenjamin/openbuff
 ```
 
 This pattern:
@@ -37,10 +37,7 @@ This pattern:
 
 ## CI/CD Pipeline Overview
 
-The CI pipeline consists of two main jobs:
-
-1. **Build Job**: Installs dependencies, builds web, runs typecheck, and builds npm-app
-2. **Test Job**: Runs tests for npm-app, backend, and common packages in parallel using matrix strategy
+The CI pipeline focuses on the retained local/BYOK workspace: installing dependencies, typechecking, building the CLI/SDK surfaces, and running CLI/common/SDK/agent-runtime tests. Hosted web/backend/billing jobs are not part of the active Openbuff pipeline.
 
 ### Key Configuration
 
@@ -51,19 +48,7 @@ The CI pipeline consists of two main jobs:
 
 ### Test Strategy
 
-Tests run in parallel using matrix strategy:
-
-```yaml
-strategy:
-  matrix:
-    package: [npm-app, backend, common]
-```
-
-Each test job:
-
-- Runs unit tests only (excludes integration tests)
-- Uses `nick-fields/retry@v3` for reliability
-- Sets `CODEBUFF_GITHUB_ACTIONS=true` and `NEXT_PUBLIC_CB_ENVIRONMENT=test`
+Tests should prefer focused package commands for retained packages (`cli`, `sdk`, `common`, `packages/agent-runtime`) plus root typecheck coverage. CI-specific flags such as `CODEBUFF_GITHUB_ACTIONS=true` remain compatibility/internal names and do not imply hosted product mode.
 
 ### Environment Variables
 

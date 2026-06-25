@@ -234,28 +234,8 @@ When the user presses Escape:
 
 ---
 
-## Legacy / Upstream Codebuff Server (Compatibility History)
+## Removed Upstream Hosted Server Path
 
-The upstream Codebuff project routes inference and authentication through a
-hosted Next.js application in `web/` with credit billing, run records, and
-provider proxying. **That path is not part of the Openbuff primary flow.**
-The `web/` package and related billing/bigquery packages are preserved for
-upstream structural alignment and ease of merging upstream changes — they
-are not started, hosted, or required by Openbuff users.
+The upstream Codebuff project routed inference and authentication through a hosted server with product billing, run records, and provider proxying. That path is not part of Openbuff and the hosted web, billing, BigQuery, and free-mode product surfaces have been removed from the active workspace.
 
-In the historical upstream flow, a request would have continued past the
-agent runtime as follows:
-
-1. `promptAiSdkStream()` would POST to `/api/v1/chat/completions` on the
-   Codebuff web server.
-2. The server validated the API key, ban status, free-mode country, agent
-   run record, subscription billing block, and credit balance.
-3. The server then routed to Fireworks AI, OpenAI direct, or OpenRouter
-   based on the model.
-4. The streaming SSE response was forwarded back to the AI SDK client.
-
-Openbuff replaces that entire hop with direct, BYOK provider calls from the
-local process. No credits are deducted, no run records are written to a
-hosted database, and no telemetry is uploaded. This section is retained
-solely as historical/compatibility context for contributors merging from
-upstream.
+Openbuff replaces that entire hop with direct, BYOK provider calls from the local process. No Openbuff credits are deducted, no run records are written to a hosted database, and no telemetry is uploaded.

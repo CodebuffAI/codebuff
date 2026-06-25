@@ -16,7 +16,6 @@ Dynamic imports make code harder to analyze, break tree-shaking, and can hide ci
 
 **Exceptions** (where dynamic imports are acceptable):
 - **WASM modules**: Heavy WASM binaries that need lazy loading (e.g., QuickJS)
-- **Client-side only libraries in Next.js**: Libraries like Stripe that must only load in the browser
 - **Test utilities**: Mock module helpers that intentionally use dynamic imports
 
 ## Test Naming Conventions
@@ -793,14 +792,14 @@ Tool markdown output (via `renderMarkdown`) now gets wrapped in a `<text>` eleme
 Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances
 ```
 
-**Solution**: `cli/src/components/branch-item.tsx` inspects expanded content:
+**Solution**: `cli/src/components/blocks/agent-branch-wrapper.tsx` inspects expanded content:
 
 - If text-renderable → stays inside `<text>`
 - Otherwise → renders the raw element tree directly
 
 This prevents invalid children from reaching `TextNodeRenderable` while preserving formatted markdown.
 
-**Related**: `cli/src/hooks/use-message-renderer.tsx` ensures toggle headers render within a single `<text>` block for StyledText compatibility.
+**Related**: `cli/src/components/message-with-agents.tsx` renders toggle headers within a single `<text>` block for StyledText compatibility.
 
 
 

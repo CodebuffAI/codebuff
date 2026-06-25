@@ -1,4 +1,13 @@
 import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
+import {
+  formatPatternsIndexPrompt,
+  loadPatternsIndex,
+} from '@codebuff/common/util/patterns'
+import {
+  formatRoutedKnowledgeSection,
+  loadRouterTable,
+  resolveRoutedKnowledgeFiles,
+} from '@codebuff/common/util/router'
 import { escapeString } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
@@ -140,6 +149,45 @@ export async function formatPrompt(
           return `\`\`\`${path}\n${content.trim()}\n\`\`\``
         })
         .join('\n\n'),
+    [PLACEHOLDER.ROUTED_KNOWLEDGE_FILES]: () => {
+      // P0.11 task-routed knowledge loader. When `<projectRoot>/ROUTER.md`
+      // exists and has an entry for the current agent, render only the files
+      // that entry lists. Otherwise fall back to today's behavior (all root
+      // knowledge files) so this change is strictly additive. User-level
+      // knowledge files (`~/.knowledge.md`) are always merged in, matching
+      // the existing `KNOWLEDGE_FILES_CONTENTS` provider.
+      const routerTable = loadRouterTable(fileContext.projectRoot, logger)
+      const routed = resolveRoutedKnowledgeFiles({
+        routerTable,
+        agentId: agentTemplate?.id,
+        knowledgeFiles: fileContext.knowledgeFiles,
+        logger,
+      })
+      const blocks: string[] = []
+      for (const p of routed) {
+        const content = (fileContext.knowledgeFiles[p] ?? '').trim()
+        if (!content) continue
+        blocks.push('```' + p + '\n' + content + '\n```')
+      }
+      for (const [p, content] of Object.entries(
+        fileContext.userKnowledgeFiles ?? {},
+      )) {
+        const trimmed = (content ?? '').trim()
+        if (!trimmed) continue
+        blocks.push('```' + p + '\n' + trimmed + '\n```')
+      }
+      if (blocks.length === 0) return ''
+      return blocks.join('\n\n')
+    },
+    [PLACEHOLDER.PATTERNS_INDEX]: () => {
+      // P1.14 patterns library. Renders a compact catalog of available
+      // pattern guides from `agents/patterns/INDEX.md`. Individual pattern
+      // files are NOT loaded here — agents `read_files` the specific pattern
+      // on demand when a task matches. Returns '' when the index is absent
+      // or empty so the placeholder collapses cleanly.
+      const index = loadPatternsIndex(fileContext.projectRoot, logger)
+      return formatPatternsIndexPrompt({ index })
+    },
   }
 
   for (const varName of placeholderValues) {

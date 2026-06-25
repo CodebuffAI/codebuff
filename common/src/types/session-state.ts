@@ -49,6 +49,26 @@ export type AgentState = {
    * This is updated on every agent step via the /api/v1/token-count endpoint.
    */
   contextTokenCount: number
+  /**
+   * Cross-turn read authorization registry for the strict read-before-edit
+   * gate. Each entry is a path that the agent has read (or successfully
+   * written) at least once during this run, granting a sticky read auth
+   * that lets subsequent edits on the same path proceed without a redundant
+   * read_files round-trip. Survives across LLM turns because it lives on
+   * agentState rather than on the per-turn fileProcessingState, which is
+   * recreated on every processStream / runProgrammaticStep invocation.
+   *
+   * NOTE: this map grows monotonically for the lifetime of a single
+   * agentState. It is bounded by the number of distinct paths the agent
+   * touches, which in practice stays small. A long-lived agent that
+   * processes many unrelated files in one run could accumulate a non-trivial
+   * number of entries, but each entry is just a `true` literal so the memory
+   * footprint is negligible compared to the rest of agentState. No eviction
+   * is implemented; if that ever becomes a concern, the right place to add
+   * one is `getInitialAgentState` (reset) and the write-back in
+   * stream-parser.ts / run-programmatic-step.ts (cap or LRU).
+   */
+  readAuthorizationsByPath?: Record<string, true>
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
@@ -137,6 +157,7 @@ export function getInitialAgentState(): AgentState {
     systemPrompt: '',
     toolDefinitions: {},
     contextTokenCount: 0,
+    readAuthorizationsByPath: {},
   }
 }
 export function getInitialSessionState(

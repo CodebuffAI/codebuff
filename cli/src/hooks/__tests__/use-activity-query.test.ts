@@ -729,21 +729,20 @@ describe('error-only entries and persistent error handling', () => {
     expect(isEntryStale(serializedKey, staleTime)).toBe(true)
   })
 
-  test('simulates subscription query polling with persistent errors', () => {
-    // This test simulates the exact bug scenario:
-    // - useSubscriptionQuery with staleTime=30s, refetchInterval=60s
-    // - Endpoint returns errors
-    // - Without fix: isEntryStale returns true immediately, causing rapid refetches
-    // - With fix: isEntryStale uses errorUpdatedAt, preventing rapid refetches
+  test('simulates polling with persistent errors', () => {
+    // This test simulates a polling query whose endpoint returns errors.
+    // Without the fix, isEntryStale returned true immediately and caused
+    // rapid refetches. With the fix, isEntryStale uses errorUpdatedAt,
+    // preventing rapid refetches.
     
-    const subscriptionKey = ['subscription', 'current']
-    const serializedKey = JSON.stringify(subscriptionKey)
-    const staleTime = 30000 // 30 seconds (matches useSubscriptionQuery)
+    const queryKey = ['activity', 'current']
+    const serializedKey = JSON.stringify(queryKey)
+    const staleTime = 30000
     const refetchInterval = 60000 // 60 seconds
     const error = new Error('Failed to fetch subscription: 500')
     
     // Simulate first fetch failure at t=0
-    setErrorOnlyCacheEntry(subscriptionKey, error, mockNow)
+    setErrorOnlyCacheEntry(queryKey, error, mockNow)
     
     // Immediately after error, entry should NOT be stale
     // This is the critical fix - prevents immediate refetch loop
@@ -822,8 +821,8 @@ describe('error-only entries and persistent error handling', () => {
 /**
  * Tests for the retry infinite loop bug.
  *
- * BUG: When useSubscriptionQuery fetched /api/user/subscription and got a 401,
- * it would retry every ~1 second infinitely instead of respecting retry:1.
+ * BUG: When a polling query fetched an endpoint and got a 401, it would retry
+ * every ~1 second infinitely instead of respecting retry:1.
  *
  * ROOT CAUSE: In doFetch's catch block, when scheduling a retry:
  *   1. retryCounts.set(key, next)   // Sets count to 1
@@ -836,13 +835,13 @@ describe('error-only entries and persistent error handling', () => {
  * and clearRetryState (clears both). The retry scheduling block now uses
  * clearRetryTimeout so the retry count is preserved.
  */
-describe('retry infinite loop bug fix (subscription 401 scenario)', () => {
+describe('retry infinite loop bug fix (401 scenario)', () => {
   beforeEach(() => {
     resetActivityQueryCache()
   })
 
   test('retry count is preserved after scheduling a retry', () => {
-    const queryKey = ['subscription', 'current']
+    const queryKey = ['activity', 'current']
     const maxRetries = 1
 
     // Simulate a mounted component (refCount > 0)
@@ -861,7 +860,7 @@ describe('retry infinite loop bug fix (subscription 401 scenario)', () => {
   })
 
   test('retries are exhausted after maxRetries attempts', () => {
-    const queryKey = ['subscription', 'current']
+    const queryKey = ['activity', 'current']
     const maxRetries = 1
 
     _retryTestHelpers.setRefCount(queryKey, 1)
@@ -878,9 +877,8 @@ describe('retry infinite loop bug fix (subscription 401 scenario)', () => {
   })
 
   test('simulates full subscription 401 scenario: fetch + 1 retry + stop', () => {
-    // This reproduces the exact bug scenario:
-    // useSubscriptionQuery with retry:1 hitting a 401 on /api/user/subscription
-    const queryKey = ['subscription', 'current']
+    // This reproduces the bug scenario: a polling query with retry:1 hitting a 401.
+    const queryKey = ['activity', 'current']
     const maxRetries = 1
 
     // Component is mounted
@@ -914,7 +912,7 @@ describe('retry infinite loop bug fix (subscription 401 scenario)', () => {
     // This test documents the OLD buggy behavior.
     // The old code called clearRetryState (which deletes retryCounts) right after
     // setting the retry count, effectively resetting it to 0 every time.
-    const queryKey = ['subscription', 'current']
+    const queryKey = ['activity', 'current']
 
     _retryTestHelpers.setRefCount(queryKey, 1)
 

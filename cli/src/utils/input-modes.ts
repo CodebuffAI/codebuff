@@ -10,14 +10,11 @@ export type InputMode =
   | 'plan'
   | 'review'
   | 'interview'
-  | 'usage'
   | 'image'
   | 'help'
   | 'connect:chatgpt'
   | 'openbuff:provider'
   | 'openbuff:models'
-  | 'outOfCredits'
-  | 'subscriptionLimit'
 
 // Theme color keys that are valid color values (must match ChatTheme keys)
 export type ThemeColorKey =
@@ -111,16 +108,6 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     disableSlashSuggestions: true,
     blockKeyboardExit: false,
   },
-  usage: {
-    icon: null,
-    label: null,
-    color: 'foreground',
-    placeholder: 'enter a coding task or / for commands',
-    widthAdjustment: 0,
-    showAgentModeToggle: true,
-    disableSlashSuggestions: false,
-    blockKeyboardExit: false,
-  },
   image: {
     icon: '📎',
     label: null,
@@ -170,26 +157,6 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
     blockKeyboardExit: false,
-  },
-  outOfCredits: {
-    icon: null,
-    label: null,
-    color: 'warning',
-    placeholder: '',
-    widthAdjustment: 0,
-    showAgentModeToggle: false,
-    disableSlashSuggestions: true,
-    blockKeyboardExit: false,
-  },
-  subscriptionLimit: {
-    icon: null,
-    label: null,
-    color: 'warning',
-    placeholder: '',
-    widthAdjustment: 0,
-    showAgentModeToggle: false,
-    disableSlashSuggestions: true,
-    blockKeyboardExit: true, // User must click "Continue with credits" or wait for reset
   },
 }
 

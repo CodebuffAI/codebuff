@@ -20,6 +20,7 @@ function freshState(): FileProcessingState {
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
+    consecutiveStrReplaceFailuresByPath: {},
   }
 }
 
@@ -170,5 +171,69 @@ describe('rewrite_symbol handler', () => {
     expect(capturedPatch).toBeDefined()
     expect(capturedPatch).toContain('-  const open = useRef(0)')
     expect(capturedPatch).toContain('+  const open = useRef(1)')
+  })
+
+  test('includes a contiguous preceding JSDoc block in the replaced range (no orphan/duplication)', async () => {
+    const src = [
+      '/**',
+      ' * Original doc.',
+       ' */',
+      'export function documented() {',
+      '  return 1',
+      '}',
+    ].join('\n')
+
+    // Capture the apply patch passed through to str_replace so we can verify
+    // end-to-end that the preceding JSDoc block is removed as part of the
+    // replaced range (not left orphaned to be duplicated by the new content's
+    // own doc block).
+    let capturedPatch: string | undefined
+    const requestClientToolCall = async (toolCall: any) => {
+      capturedPatch = toolCall?.input?.content
+      return [
+        {
+          type: 'json' as const,
+          value: { file: 'svc.ts', message: 'applied' },
+        },
+      ]
+    }
+
+    const result = await handleRewriteSymbol({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 't5',
+        input: {
+          path: 'svc.ts',
+          symbol: 'documented',
+          content:
+            '/**\n * New doc.\n */\nexport function documented() {\n  return 2\n}',
+        },
+      },
+      fileProcessingState: freshState(),
+      logger: noopLogger,
+      requestClientToolCall,
+      writeToClient: () => {},
+      requestOptionalFile: async () => src,
+    } as any)
+
+    const value = outputJson(result)
+    expect(value.errorMessage).toBeUndefined()
+    expect(value.file).toBe('svc.ts')
+    // The apply patch must REMOVE the old JSDoc block (as `-` diff lines) so it
+    // is deleted atomically with the symbol — this is the end-to-end wiring
+    // check for Gap #1. If the range were not extended, these lines would be
+    // left as unchanged context and the new content's own doc block would
+    // duplicate them.
+    expect(capturedPatch).toBeDefined()
+    // The old doc interior line must be REMOVED (prefixed with `-`), proving
+    // the preceding JSDoc block was included in the replaced range. If the
+    // range were not extended, this line would be left as unchanged context
+    // (space-prefixed) and the new content's own doc block would duplicate it.
+    expect(capturedPatch).toContain('- * Original doc.')
+    // The new doc interior must be added.
+    expect(capturedPatch).toContain('+ * New doc.')
+    // No duplication: the old doc line must NOT also appear as unchanged
+    // context (space-prefixed) in the same patch.
+    expect(capturedPatch).not.toMatch(/^ \* Original doc\.$/m)
   })
 })

@@ -5,16 +5,22 @@
 import fs from 'fs'
 import path from 'path'
 
+import {
+  ACTIVE_SESSION_POINTER_FILENAME,
+  PLAN_ARTIFACT_NAMES,
+  TRI_STATE_CHECKBOX_LINE_RE,
+  isValidPlanSlug,
+  readActiveSessionPointer,
+  readCurrentTaskAnnotation,
+  readPlanState,
+  type PlanArtifactName,
+  type PlanSessionStatus,
+  type PlanSessionState,
+} from '@codebuff/common/util/plan-artifacts'
+
 import { getProjectRoot } from '../project-files'
 
-export const PLAN_ARTIFACT_NAMES = [
-  'SPEC.md',
-  'PLAN.md',
-  'STATUS.md',
-  'LESSONS.md',
-] as const
-
-export type PlanArtifactName = (typeof PLAN_ARTIFACT_NAMES)[number]
+export { PLAN_ARTIFACT_NAMES }
 
 /**
  * Max bytes read per plan artifact when assembling the prompt. Keeps prompts
@@ -37,6 +43,59 @@ export type PlanArtifacts = {
   truncated: PlanArtifactName[]
 }
 
+// TRI_STATE_CHECKBOX_LINE_RE is imported from @codebuff/common/util/plan-artifacts
+// so the CLI and the runtime handler share the canonical tri-state regex.
+
+/**
+ * Count progress inside a session. Returns done/total counts based on
+ * checklist marks in PLAN.md (falls back to zeros if PLAN.md is absent).
+ */
+function countProgress(absSessionDir: string): { done: number; total: number } {
+  const planPath = path.join(absSessionDir, 'PLAN.md')
+  if (!fs.existsSync(planPath)) return { done: 0, total: 0 }
+  const raw = fs.readFileSync(planPath, 'utf8')
+  let done = 0
+  let total = 0
+  for (const line of raw.split('\n')) {
+    const m = line.match(TRI_STATE_CHECKBOX_LINE_RE)
+    if (!m) continue
+    total += 1
+    if (m[2] === 'x' || m[2] === 'X') done += 1
+  }
+  return { done, total }
+}
+
+function readCurrentTaskForSession(absSessionDir: string): string | null {
+  const planPath = path.join(absSessionDir, 'PLAN.md')
+  if (!fs.existsSync(planPath)) return null
+  // readCurrentTaskAnnotation is pure regex matching and cannot throw, so no
+  // try/catch is needed here.
+  const raw = fs.readFileSync(planPath, 'utf8')
+  return readCurrentTaskAnnotation(raw)
+}
+
+/**
+ * Read STATE.json for a session, falling back to a synthesized default
+ * (active, no current task) when STATE.json is missing or unparseable.
+ *
+ * Delegates to the shared `readPlanState` for parsing/validation so the
+ * normalization rules live in one place (`common/src/util/plan-artifacts.ts`)
+ * and stay in lockstep with the runtime handler.
+ */
+function readStateForSession(absSessionDir: string, slug: string): PlanSessionState {
+  const state = !fs.existsSync(absSessionDir) ? null : readPlanState(slug)
+  if (state) return state
+  const now = new Date().toISOString()
+  return {
+    schemaVersion: 1,
+    slug,
+    status: 'active',
+    currentTask: null,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
 export type PlanSessionSummary = {
   /** Session slug under .agents/sessions. */
   slug: string
@@ -46,6 +105,16 @@ export type PlanSessionSummary = {
   absSessionDir: string
   /** Artifact names present in this session. */
   artifacts: PlanArtifactName[]
+  /** Session lifecycle status (active / paused / completed / archived). */
+  status: PlanSessionStatus
+  /** Current task pointer (may differ from STATE.json when PLAN.md is the source of truth). */
+  currentTask: string | null
+  /** ISO timestamp from STATE.json (or fallback). */
+  updatedAt: string
+  /** Done / total checklist counts derived from PLAN.md. */
+  progress: { done: number; total: number }
+  /** True when this session is the project-wide active session. */
+  isActive: boolean
 }
 
 type ResolveResult =
@@ -166,15 +235,25 @@ export function hasAnyArtifact(artifacts: PlanArtifacts | null): boolean {
 /**
  * List durable plan sessions under `.agents/sessions/*` that contain at least
  * one known plan artifact. Directories are returned newest first by mtime.
+ *
+ * Each summary now includes the session's lifecycle status (from
+ * `.agents/sessions/<slug>/STATE.json`), progress, current task pointer, and
+ * whether the session is the project-wide active session (from
+ * `.agents/ACTIVE_SESSION`). Sessions without STATE.json are treated as
+ * `active` by default.
  */
 export function listPlanSessions(): PlanSessionSummary[] {
   const projectRoot = getProjectRoot()
   const sessionsRoot = path.join(projectRoot, '.agents', 'sessions')
   if (!fs.existsSync(sessionsRoot)) return []
 
+  // The project-root resolver is wired once in setProjectRoot (see
+  // cli/src/project-files.ts), so readPlanState can locate STATE.json here.
   const rootWithSep = sessionsRoot.endsWith(path.sep)
     ? sessionsRoot
     : sessionsRoot + path.sep
+
+  const activeSlug = readActiveSessionPointer()
 
   return fs
     .readdirSync(sessionsRoot, { withFileTypes: true })
@@ -182,6 +261,7 @@ export function listPlanSessions(): PlanSessionSummary[] {
     .map((entry) => {
       const absSessionDir = path.resolve(sessionsRoot, entry.name)
       if (!absSessionDir.startsWith(rootWithSep)) return null
+      if (!isValidPlanSlug(entry.name)) return null
 
       const artifacts = PLAN_ARTIFACT_NAMES.filter((name) => {
         const artifactPath = path.join(absSessionDir, name)
@@ -190,20 +270,55 @@ export function listPlanSessions(): PlanSessionSummary[] {
 
       if (artifacts.length === 0) return null
 
-      return {
+      const state = readStateForSession(absSessionDir, entry.name)
+      const progress = countProgress(absSessionDir)
+      // STATE.json is the canonical source for `currentTask`, but PLAN.md's
+      // `<!-- current-task: ... -->` annotation takes precedence when present
+      // (it is updated atomically with task transitions).
+      const annotationTask = readCurrentTaskForSession(absSessionDir)
+      const currentTask = annotationTask ?? state.currentTask
+
+      const summary: PlanSessionSummary & { mtimeMs: number } = {
         slug: entry.name,
         sessionDir: `.agents/sessions/${entry.name}`,
         absSessionDir,
         artifacts,
+        status: state.status,
+        currentTask,
+        updatedAt: state.updatedAt,
+        progress,
+        isActive: activeSlug === entry.name,
         mtimeMs: fs.statSync(absSessionDir).mtimeMs,
       }
+      return summary
     })
-    .filter(
-      (
-        session,
-      ): session is PlanSessionSummary & { mtimeMs: number } =>
-        session !== null,
-    )
+    .filter((session): session is PlanSessionSummary & { mtimeMs: number } => session !== null)
     .sort((a, b) => b.mtimeMs - a.mtimeMs || a.slug.localeCompare(b.slug))
-    .map(({ mtimeMs: _mtimeMs, ...session }) => session)
+    .map((session): PlanSessionSummary => {
+      const { mtimeMs: _mtimeMs, ...rest } = session
+      return rest
+    })
 }
+
+/**
+ * Read STATE.json for a given session slug. Returns null if the session
+ * directory or STATE.json do not exist. Convenience wrapper around the
+ * common module's readPlanState that injects the project root.
+ */
+export function readPlanSessionState(slug: string): PlanSessionState | null {
+  if (!isValidPlanSlug(slug)) return null
+  const dir = path.join(getProjectRoot(), '.agents', 'sessions', slug)
+  if (!fs.existsSync(dir)) return null
+  return readPlanState(slug)
+}
+
+/**
+ * Returns the slug of the project-wide active session, or null when no
+ * session is currently marked active.
+ */
+export function getActivePlanSessionSlug(): string | null {
+  return readActiveSessionPointer()
+}
+
+/** Re-export the active-session pointer filename for callers (e.g. CLI banners). */
+export const ACTIVE_SESSION_FILE_NAME = ACTIVE_SESSION_POINTER_FILENAME

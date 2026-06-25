@@ -6,6 +6,7 @@ import {
   jsonToolResultSchema,
   normalizeReplacementAliases,
 } from '../utils'
+import { basedOnReadSchema } from '../based-on-read'
 
 import { updateFileResultSchema } from './str-replace'
 
@@ -37,24 +38,7 @@ const replacementSchema = z
         .describe(
           'Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range.',
         ),
-      basedOnRead: z
-        .union([
-          z
-            .string()
-            .min(1)
-            .describe(
-              'The single readCapability token copied verbatim from a fresh read_files range header (e.g. "cap.ABC123"). Optional; useful to constrain ambiguous large-file edits to a specific range.',
-            ),
-          z.object({
-            startLine: z.number().int().min(1),
-            endLine: z.number().int().min(1),
-            hash: z.string().min(1),
-          }),
-        ])
-        .optional()
-        .describe(
-          'Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, transaction preflight falls back to deterministic full-file oldString matching when it can identify exactly one safe target.',
-        ),
+      basedOnRead: basedOnReadSchema,
       skipIfMissing: z
         .boolean()
         .optional()
@@ -64,16 +48,6 @@ const replacementSchema = z
         ),
     }),
   )
-  .refine(
-    (replacement) =>
-      !replacement.basedOnRead ||
-      typeof replacement.basedOnRead === 'string' ||
-      replacement.basedOnRead.startLine <= replacement.basedOnRead.endLine,
-    {
-      message: 'basedOnRead.startLine must be <= basedOnRead.endLine',
-    },
-  )
-
 const editBaseSchema = z.object({
   id: z
     .string()

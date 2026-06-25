@@ -6,6 +6,7 @@ import {
   createAgentState,
   executeSubagent,
   extractSubagentContextParams,
+  buildSpawnParamsWithHandoff,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -89,7 +90,12 @@ export const handleSpawnAgents = (async (
 
   const results = await Promise.allSettled(
     agents.map(
-      async ({ agent_type: agentTypeStr, prompt, params: spawnParams }) => {
+      async ({
+        agent_type: agentTypeStr,
+        prompt,
+        params: spawnParams,
+        handoff,
+      }) => {
         const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
           ...params,
           agentTypeStr,
@@ -97,6 +103,11 @@ export const handleSpawnAgents = (async (
         })
 
         validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+        const runtimeSpawnParams = buildSpawnParamsWithHandoff({
+          agentType,
+          handoff,
+          spawnParams,
+        })
 
         const subAgentState = createAgentState(
           agentType,
@@ -115,7 +126,7 @@ export const handleSpawnAgents = (async (
           ancestorRunIds: parentAgentState.ancestorRunIds,
           userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
           prompt: prompt || '',
-          spawnParams,
+          spawnParams: runtimeSpawnParams,
           agentTemplate,
           parentAgentState,
           agentState: subAgentState,

@@ -1,0 +1,32 @@
+# Standalone utility scripts not referenced in markdown or package.json.
+# These are run directly via `bun scripts/<name>.ts` for ad-hoc operations.
+# Keep sorted alphabetically. Remove entries if a script gains docs/package.json coverage.
+analyze-buffbench-logs.ts
+analyze-edit-blocks.ts
+analyze-model-usage.ts
+benchmark-providers.ts
+calculate-dau.ts
+calculate-weekly-usage.ts
+chatgpt-oauth-validate.ts
+check-tool-registration.ts
+compare-buffbench-runs.ts
+compare-cache-debug.ts
+convert-escaped-newlines.ts
+count-edit-file.ts
+dev.ts
+export-user-emails.ts
+fat-sdk-openrouter-example.ts
+fireworks-deployment-stats.ts
+get-changelog.ts
+investigate-user.ts
+query-minimax-cache-stats.ts
+query-usage-stats.ts
+test-canopywave-e2e.ts
+test-canopywave-long.ts
+test-canopywave.ts
+test-fireworks-cache-intervals.ts
+test-fireworks-long.ts
+test-fireworks.ts
+test-openai-token-count.ts
+test-siliconflow.ts
+unban-user.ts

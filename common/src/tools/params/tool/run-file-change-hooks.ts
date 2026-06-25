@@ -51,6 +51,12 @@ export const runFileChangeHooksParams = {
         z.object({
           errorMessage: z.string(),
         }),
+        z.object({
+          validationStatus: z.enum(['no_hooks_configured', 'hooks_skipped']),
+          message: z.string(),
+          configuredHookCount: z.number().optional(),
+          changedFiles: z.array(z.string()).optional(),
+        }),
       ])
       .array(),
   ),

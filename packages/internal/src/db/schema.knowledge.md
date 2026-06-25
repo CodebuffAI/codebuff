@@ -1,4 +1,6 @@
-# Database Schema Guidelines
+# Legacy Hosted Database Schema Guidelines
+
+> **Legacy hosted-surface note:** Openbuff's active product scope is local/BYOK CLI and SDK usage. These database notes are retained only for legacy upstream schema context while `packages/internal` still exists for shared provider helpers. Do not use this file to introduce new Openbuff-hosted web, billing, credit, subscription, Stripe, or product-auth surfaces.
 
 ## Local Development Setup
 
@@ -13,7 +15,7 @@ SELECT ... FROM table \watch seconds;
 Local database setup requires:
 
 1. Docker running
-2. Run: `bun run exec -- bun --cwd common db:start`
+2. Run: `bun --cwd packages/internal run db:start`
 3. Then run schema operations
 
 ## Environment Setup
@@ -22,8 +24,8 @@ Database setup requires:
 
 1. Running Docker instance
 2. **Infisical CLI**: Must be logged in for environment variables
-3. **Use `exec` runner**: All commands must use `bun run exec --` to load environment variables
-4. Commands: Start Docker → `bun run exec -- bun --cwd common db:start` → schema operations
+3. **Use Infisical CLI**: Load environment variables via Infisical before running commands
+4. Commands: Start Docker → `bun --cwd packages/internal run db:start` → schema operations
 
 ## Index Management
 
@@ -48,7 +50,7 @@ Key indexing decisions:
 
 - Use Postgres GENERATED ALWAYS AS for computed values from other columns
 - Use defaultNow() for new timestamp columns without external source
-- Store actual values from external sources (e.g., Stripe) rather than calculating locally
+- Store actual values from external upstream sources rather than recalculating them locally when maintaining legacy hosted schemas
 
 ## Referral System Implementation
 
@@ -88,5 +90,5 @@ Message table stores:
 
 ## Data Sources
 
-- Stripe is source of truth for user account data
-- Keep Stripe and database synced via webhooks
+- Legacy upstream hosted deployments treated external payment providers as source-of-truth systems for account data.
+- Openbuff local/BYOK mode does not use hosted payment-provider billing or database webhook synchronization.

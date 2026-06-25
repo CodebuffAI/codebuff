@@ -53,7 +53,6 @@ export interface BuildFeedbackPayloadParams {
   target: ChatMessage | null
   recentMessages: RecentMessageSummary[]
   agentMode: string | null
-  sessionCreditsUsed: number | null
   errors: Array<{ id: string; message: string }> | null
   clientFeedbackId: string
 }
@@ -68,7 +67,6 @@ export function buildFeedbackPayload(
     target,
     recentMessages,
     agentMode,
-    sessionCreditsUsed,
     errors,
     clientFeedbackId,
   } = params
@@ -96,7 +94,6 @@ export function buildFeedbackPayload(
     }),
     ...(target?.credits != null && { credits: target.credits }),
     ...(agentMode != null && agentMode !== '' && { agentMode }),
-    ...(sessionCreditsUsed != null && { sessionCreditsUsed }),
     ...(recentMessages.length > 0 && { recentMessages }),
     ...(truncatedErrors && truncatedErrors.length > 0 && { errors: truncatedErrors }),
   }

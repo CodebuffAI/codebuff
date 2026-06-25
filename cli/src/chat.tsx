@@ -1,6 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
-import { safeOpen } from './utils/open-url'
 import {
   useCallback,
   useEffect,
@@ -22,7 +21,6 @@ import {
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
-import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { TopBanner } from './components/top-banner'
@@ -38,7 +36,6 @@ import { useChatMessages } from './hooks/use-chat-messages'
 import { useChatState } from './hooks/use-chat-state'
 import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
-import { useSubscriptionQuery } from './hooks/use-subscription-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
 
@@ -46,8 +43,6 @@ import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { useUsageMonitor } from './hooks/use-usage-monitor'
-import { WEBSITE_URL } from './components/logo-constants'
 import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
@@ -135,8 +130,6 @@ export const Chat = ({
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
 
-  // Monitor usage data and auto-show banner when thresholds are crossed
-  useUsageMonitor()
 
   // Get chat state from extracted hook
   const {
@@ -170,10 +163,6 @@ export const Chat = ({
 
   const { statusMessage } = useClipboard()
 
-  // Fetch subscription data early - needed for session credits tracking and ad gating
-  const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: 60 * 1000,
-  })
   // Set initial mode from CLI flag on mount
   useEffect(() => {
     if (initialMode) {
@@ -435,7 +424,6 @@ export const Chat = ({
     resumeQueue,
     continueChat,
     continueChatId,
-    subscriptionData,
   })
 
   sendMessageRef.current = sendMessage
@@ -1162,18 +1150,8 @@ export const Chat = ({
       onScrollUp: scrollUp,
       onScrollDown: scrollDown,
       onToggleAll: handleToggleAll,
-      onOpenBuyCredits: () => {
-        // If credits have been restored, just return to default mode
-        if (areCreditsRestored()) {
-          setInputMode('default')
-          return
-        }
-        // Otherwise open the buy credits page
-        safeOpen(WEBSITE_URL + '/usage')
-      },
     }),
     [
-      setInputMode,
       handleCloseFeedback,
       setFeedbackText,
       setInputValue,
@@ -1313,26 +1291,6 @@ export const Chat = ({
     activeAgentTypes,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
-
-  // Auto-show subscription limit banner when rate limit becomes active
-  const subscriptionLimitShownRef = useRef(false)
-  const subscriptionRateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
-  const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
-  useEffect(() => {
-    const isLimited = subscriptionRateLimit?.limited === true
-    if (isLimited && !subscriptionLimitShownRef.current) {
-      subscriptionLimitShownRef.current = true
-      // Skip showing the banner if user prefers to always fall back to a-la-carte
-      if (!fallbackToALaCarte) {
-        useChatStore.getState().setInputMode('subscriptionLimit')
-      }
-    } else if (!isLimited) {
-      subscriptionLimitShownRef.current = false
-      if (useChatStore.getState().inputMode === 'subscriptionLimit') {
-        useChatStore.getState().setInputMode('default')
-      }
-    }
-  }, [subscriptionRateLimit?.limited, fallbackToALaCarte])
 
   const inputBoxTitle = useMemo(() => {
     const segments: string[] = []

@@ -157,8 +157,8 @@ export type RunOptions = {
   signal?: AbortSignal
   costMode?: string
   /** Extra key/values merged into each LLM request's `codebuff_metadata`.
-   *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers like
-   *  `freebuff_instance_id` that server-side gates read from the request body. */
+   *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers or
+   *  provider-routing metadata that downstream adapters read from the request body. */
   extraCodebuffMetadata?: Record<string, string>
 }
 

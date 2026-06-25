@@ -789,6 +789,59 @@ describe('context-pruner handleSteps', () => {
     expect(secondContent.match(/BLOCKING: Preserve this exact reviewer blocker text\./g)).toHaveLength(1)
   })
 
+  test('pins plan-declared open questions (header + Q\d bullets) across compaction', () => {
+    const firstMessages = [
+      createMessage('user', 'Resume the harness review'),
+      createMessage(
+        'user',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Open questions (block Milestone 4):',
+          '- Q2 \u2014 docs/harness-card.md: top-level contributor doc or per-agent artifact?',
+          '- Q3 \u2014 should Fix B live in base2 gate-state or run-agent-step?',
+          'Next required action: Resolve Q2 with the user before starting Milestone 4.',
+        ].join('\n'),
+      ),
+      createMessage('assistant', 'x'.repeat(2000)),
+    ]
+
+    const firstResults = runHandleSteps(firstMessages, 250000, 200000, {
+      assistantToolBudget: 1,
+      userBudget: 1,
+    })
+    const firstContent = firstResults[0].input.messages[0].content[0].text
+    expect(firstContent).toContain('<pinned_active_work_state>')
+    expect(firstContent).toContain(
+      'Open questions (block Milestone 4):',
+    )
+    expect(firstContent).toContain(
+      '- Q2 \u2014 docs/harness-card.md: top-level contributor doc or per-agent artifact?',
+    )
+    expect(firstContent).toContain(
+      '- Q3 \u2014 should Fix B live in base2 gate-state or run-agent-step?',
+    )
+    expect(firstContent).toContain(
+      'Next required action: Resolve Q2 with the user before starting Milestone 4.',
+    )
+
+    const secondResults = runHandleSteps(
+      [firstResults[0].input.messages[0], createMessage('assistant', 'more work')],
+      250000,
+      200000,
+      { assistantToolBudget: 1, userBudget: 1 },
+    )
+    const secondContent = secondResults[0].input.messages[0].content[0].text
+    expect(secondContent).toContain(
+      'Open questions (block Milestone 4):',
+    )
+    expect(secondContent).toContain(
+      '- Q2 \u2014 docs/harness-card.md: top-level contributor doc or per-agent artifact?',
+    )
+    expect(secondContent).toContain(
+      'Next required action: Resolve Q2 with the user before starting Milestone 4.',
+    )
+  })
+
   test('does not pin edited file and task ledger entries without active harness blockers', () => {
     const messages = [
       createMessage('user', 'Implement ledger preservation'),
@@ -1154,9 +1207,14 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     mockAgentState = createMockAgentState([], 0)
   })
 
-  const runHandleSteps = (messages: Message[]) => {
+  const runHandleSteps = (
+    messages: Message[],
+    contextTokenCount = 250000,
+    maxContextLength = 200000,
+    budgets?: { assistantToolBudget?: number; userBudget?: number },
+  ) => {
     mockAgentState.messageHistory = messages
-    mockAgentState.contextTokenCount = 250000
+    mockAgentState.contextTokenCount = contextTokenCount
     const mockLogger = {
       debug: () => {},
       info: () => {},
@@ -1166,7 +1224,7 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
       logger: mockLogger,
-      params: { maxContextLength: 200000 },
+      params: { maxContextLength, ...budgets },
     })
     const results: any[] = []
     let result = generator.next()
@@ -1287,6 +1345,66 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).not.toContain('Remaining: none')
     expect(content).not.toContain('Historical changed files: src/old.ts')
     expect(content).not.toContain('Latest work summary: Previous completed work')
+  })
+
+  test('preserves incomplete workflow todo progress even when gate phase is final-response allowed', () => {
+    const messages = [
+      createMessage(
+        'user',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'This generated state survives context compaction and overrides stale summarized dialogue.',
+          'Current phase: final_response_allowed',
+          'Workflow todo progress (authoritative resumable state):',
+          'Completed 1/3.',
+          'Next workflow action: Apply a targeted guard/fix with focused regression coverage',
+          'Continue from this item; do not restart earlier completed workflow steps. Mark this item complete with write_todos once it is actually completed before moving to a different workflow item.',
+        ].join('\n'),
+      ),
+      createMessage('assistant', 'y'.repeat(2000)),
+    ]
+
+    const results = runHandleSteps(messages, 250000, 200000, {
+      assistantToolBudget: 1,
+      userBudget: 1,
+    })
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('<pinned_active_work_state>')
+    expect(content).toContain('Current phase: final_response_allowed')
+    expect(content).toContain(
+      'Workflow todo progress (authoritative resumable state):',
+    )
+    expect(content).toContain('Completed 1/3.')
+    expect(content).toContain(
+      'Next workflow action: Apply a targeted guard/fix with focused regression coverage',
+    )
+    expect(content).toContain('Continue from this item; do not restart earlier completed workflow steps.')
+    expect(content.match(/Next workflow action:/g)).toHaveLength(1)
+  })
+
+  test('does not preserve completed workflow todo progress in final-response allowed state', () => {
+    const messages = [
+      createMessage(
+        'user',
+        [
+          'Harness pinned active-work state (controlling state; do not ignore):',
+          'Current phase: final_response_allowed',
+          'Workflow todo progress (authoritative resumable state):',
+          'Completed 3/3.',
+          'Next workflow action:',
+          'Continue from this item; do not restart earlier completed workflow steps. Mark this item complete with write_todos once it is actually completed before moving to a different workflow item.',
+        ].join('\n'),
+      ),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).not.toContain('<pinned_active_work_state>')
+    expect(content).not.toContain('Workflow todo progress')
+    expect(content).not.toContain('Completed 3/3.')
+    expect(content).not.toContain('Next workflow action:')
   })
 
   test('does not preserve user-message NON_BLOCKING-only active work as pinned or regular summary text', () => {

@@ -10,10 +10,7 @@ const evalsClientEnv: ClientEnv = {
   NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebuff.test',
   NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog-key',
   NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test.posthog.com',
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
-  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'https://test.stripe.com/portal',
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: undefined,
-  NEXT_PUBLIC_WEB_PORT: 3000,
 }
 
 const evalsCiEnv: CiEnv = {

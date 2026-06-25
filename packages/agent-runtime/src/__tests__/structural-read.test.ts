@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { handleReadOutline } from '../tools/handlers/tool/read-outline'
 import { handleReadSlices } from '../tools/handlers/tool/read-slices'
 import { processStrReplace } from '../process-str-replace'
-import { extractSlices } from '../structural-read'
+import { extractSlices, extendRangeToPrecedingComment } from '../structural-read'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -131,5 +131,85 @@ describe('extractSlices (shared core for read_files symbols + read_slices)', () 
   test('omits symbols that are not found', async () => {
     const slices = await extractSlices(TS_SRC, 'svc.ts', ['doesNotExist'])
     expect(slices).toEqual([])
+  })
+})
+
+describe('extendRangeToPrecedingComment', () => {
+  test('extends upward to include a single-line JSDoc block', () => {
+    const lines = [
+      '/** JSDoc */',
+      'export function foo() {',
+      '  return 1',
+      '}',
+    ]
+    const result = extendRangeToPrecedingComment(lines, 2)
+    expect(result.startLine).toBe(1)
+    expect(result.commentPrefix).toContain('/** JSDoc */')
+  })
+
+  test('extends upward to include a multi-line JSDoc block', () => {
+    const lines = [
+      '/**',
+      ' * First line.',
+      ' * Second line.',
+       ' */',
+      'export function bar() {',
+      '  return 2',
+      '}',
+    ]
+    const result = extendRangeToPrecedingComment(lines, 5)
+    expect(result.startLine).toBe(1)
+    expect(result.commentPrefix).toContain('* First line.')
+    expect(result.commentPrefix).toContain('*/')
+  })
+
+  test('extends upward to include a run of // line comments', () => {
+    const lines = [
+      '// line one',
+      '// line two',
+      'export function baz() {',
+      '  return 3',
+      '}',
+    ]
+    const result = extendRangeToPrecedingComment(lines, 3)
+    expect(result.startLine).toBe(1)
+    expect(result.commentPrefix).toContain('// line one')
+    expect(result.commentPrefix).toContain('// line two')
+  })
+
+  test('does NOT extend when there is a blank line gap before the doc block', () => {
+    const lines = [
+      '/** doc */',
+      '',
+      'export function qux() {',
+      '  return 4',
+      '}',
+    ]
+    const result = extendRangeToPrecedingComment(lines, 3)
+    expect(result.startLine).toBe(3)
+    expect(result.commentPrefix).toBe('')
+  })
+
+  test('does NOT extend when there is no preceding comment', () => {
+    const lines = [
+      'export function noDoc() {',
+      '  return 5',
+      '}',
+    ]
+    const result = extendRangeToPrecedingComment(lines, 1)
+    expect(result.startLine).toBe(1)
+    expect(result.commentPrefix).toBe('')
+  })
+
+  test('does NOT extend when preceding line is regular code', () => {
+    const lines = [
+      'const x = 1',
+      'export function afterCode() {',
+      '  return 6',
+      '}',
+    ]
+    const result = extendRangeToPrecedingComment(lines, 2)
+    expect(result.startLine).toBe(2)
+    expect(result.commentPrefix).toBe('')
   })
 })

@@ -404,6 +404,62 @@ describe('editor agent', () => {
       expect((result.value as any).input.output.changedFiles).toEqual([])
     })
 
+    test('reports apply_patch and apply_smart_patch paths as changed files', () => {
+      const mockAgentState = createMockAgentState([])
+      const mockLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+
+      const generator = editor.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        params: {},
+      })
+
+      generator.next()
+
+      const updatedState = createMockAgentState([
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolName: 'apply_patch',
+              input: {
+                operation: {
+                  type: 'update_file',
+                  path: 'src/from-apply-patch.ts',
+                  diff: '@@\n-before\n+after\n',
+                },
+              },
+            },
+            {
+              type: 'tool-call',
+              toolName: 'apply_smart_patch',
+              input: {
+                path: 'src/from-smart-patch.ts',
+                patch: '@@\n-before\n+after\n',
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = generator.next({
+        agentState: updatedState,
+        toolResult: undefined,
+        stepsComplete: true,
+      })
+
+      expect((result.value as any).input.output.changedFiles).toEqual([
+        'src/from-apply-patch.ts',
+        'src/from-smart-patch.ts',
+      ])
+    })
+
     test('works with empty initial message history', () => {
       const mockAgentState = createMockAgentState([])
       const mockLogger = {

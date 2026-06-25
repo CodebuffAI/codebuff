@@ -143,6 +143,62 @@ describe('Schema handling error recovery', () => {
         },
       })
     })
+
+    test('preserves structured handoff on direct agent tool calls', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'file_picker',
+        input: {
+          prompt: 'Find relevant files',
+          params: { directories: ['src'] },
+          handoff: {
+            summary: 'Use the existing implementation notes',
+            successCriteria: ['Return the most relevant files'],
+          },
+        },
+        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'codebuff/file-picker@1.0.0',
+              prompt: 'Find relevant files',
+              params: { directories: ['src'] },
+              handoff: {
+                summary: 'Use the existing implementation notes',
+                successCriteria: ['Return the most relevant files'],
+              },
+            },
+          ],
+        },
+      })
+    })
+
+    test('preserves invalid direct agent handoff values for schema rejection', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'file_picker',
+        input: {
+          prompt: 'Find relevant files',
+          handoff: 'not structured',
+        },
+        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'codebuff/file-picker@1.0.0',
+              prompt: 'Find relevant files',
+              handoff: 'not structured',
+            },
+          ],
+        },
+      })
+    })
   })
 
   describe('ensureJsonSchemaCompatible in tools/prompts.ts', () => {

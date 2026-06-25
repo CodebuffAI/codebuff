@@ -43,18 +43,39 @@ export type FileProcessingState = {
   fileChanges: Exclude<FileProcessing, { error: string }>[]
   firstFileProcessed: boolean
   failedEditRequiresReadByPath: Record<string, boolean>
-  // Milestone 2 (staged, opt-in): per-turn read-before-edit enforcement.
-  // When `strictReadBeforeEdit` is true, str_replace/edit_transaction require
-  // either a per-path read authorization (registered by read_files in the same
-  // turn) or a per-replacement `basedOnRead` capability. Both fields are
-  // optional to preserve existing default behavior for callers/tests that
-  // construct state manually.
+  // Fix C: per-path consecutive-failure circuit breaker. Counts consecutive
+  // str_replace attempts on a path that returned an error or an auto-corrected
+  // near-match. After STR_REPLACE_MAX_CONSECUTIVE_FAILURES such attempts on the
+  // same path, further str_replace calls on that path are hard-blocked with a
+  // directive to switch to rewrite_symbol (whole-symbol) or write_file
+  // (whole-file) instead. A successful, non-auto-corrected str_replace clears
+  // the counter. A fresh basedOnRead anchor (read_files) also clears it.
+  consecutiveStrReplaceFailuresByPath: Record<string, number>
+  // Milestone 1: per-turn read-before-edit enforcement.
+  // Existing-file edits require either a per-path read authorization
+  // (registered by read_files in the same turn) or an edit-specific freshness
+  // capability such as basedOnRead/expectedHash. New-file creation may proceed
+  // without a prior read when the target path does not exist. These remain
+  // optional so existing tests/callers that construct partial state objects keep
+  // default legacy behavior unless the runtime initializes strict mode.
   strictReadBeforeEdit?: boolean
+  // Per-turn read authorization. Populated by read_files (and by write_file on
+  // a successful write) during a single LLM turn. Hydrated at the top of
+  // processStream / runProgrammaticStep from the durable agentState map and
+  // written back in their `finally` blocks, so a path read in turn N is
+  // authorized for editing in turn N+1 without a redundant read_files
+  // round-trip. See session-state.ts for the durable per-run registry and its
+  // growth characteristics; this in-memory map shares the same shape and
+  // similar per-turn bounds.
   readAuthorizationsByPath?: Record<string, true>
 }
 
+export function normalizeToolPath(path: string): string {
+  return path.replace(/^(?:\.\/)+/, '')
+}
+
 export function getFileProcessingValues(
-  state: FileProcessingState,
+  state: Partial<FileProcessingState>,
 ): FileProcessingState {
   const fileProcessingValues: FileProcessingState = {
     promisesByPath: {},
@@ -63,7 +84,8 @@ export function getFileProcessingValues(
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
-    strictReadBeforeEdit: false,
+    consecutiveStrReplaceFailuresByPath: {},
+    strictReadBeforeEdit: true,
     readAuthorizationsByPath: {},
   }
   for (const [key, value] of Object.entries(state)) {
@@ -107,7 +129,10 @@ export const handleWriteFile = (async (
     requestOptionalFile,
     writeToClient,
   } = params
-  const { path, content } = toolCall.input
+  const path = normalizeToolPath(toolCall.input.path)
+  const { content } = toolCall.input
+  const { basedOnRead } = toolCall.input
+  const hasBasedOnRead = Boolean(basedOnRead)
 
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
   const fileProcessingPromises = fileProcessingState.allPromises
@@ -119,13 +144,18 @@ export const handleWriteFile = (async (
   const previousPromises = fileProcessingPromisesByPath[path]
   const previousEdit = previousPromises[previousPromises.length - 1]
 
-  const latestContentPromise = previousEdit
-    ? previousEdit.then((maybeResult) =>
-        maybeResult && 'content' in maybeResult
-          ? maybeResult.content
-          : requestOptionalFile({ ...params, filePath: path }),
+  let existingDiskContentPromise: Promise<string | null> | undefined
+  const getExistingDiskContent = () => {
+    if (!existingDiskContentPromise) {
+      existingDiskContentPromise = previousToolCallFinished.then(() =>
+        requestOptionalFile({
+          ...params,
+          filePath: path,
+        }),
       )
-    : requestOptionalFile({ ...params, filePath: path })
+    }
+    return existingDiskContentPromise
+  }
 
   const fileContentWithoutStartNewline = content.startsWith('\n')
     ? content.slice(1)
@@ -133,19 +163,55 @@ export const handleWriteFile = (async (
 
   logger.debug({ path, content }, `write_file ${path}`)
 
-  const newPromise = processFileBlock({
-    path,
-    initialContentPromise: latestContentPromise,
-    newContent: fileContentWithoutStartNewline,
-    logger,
-  })
-    .then((result) => {
-      // Check for abort and throw at the boundary
-      if (result.aborted) {
-        throw new AbortError(result.reason)
+  const newPromise = (async () => {
+    let initialContent: string | null
+    if (previousEdit) {
+      const previousResult = await previousEdit
+      if ('content' in previousResult) {
+        initialContent = previousResult.content
+      } else {
+        return {
+          tool: 'write_file' as const,
+          path,
+          error: [
+            `write_file blocked for ${path}: a prior same-turn edit to this path did not produce current file content.`,
+            `Next: call read_files for ${path} before retrying write_file so the next edit starts from a known current file state.`,
+          ].join('\n'),
+        }
       }
-      return result.value
+    } else {
+      const existingDiskContent = await getExistingDiskContent()
+      if (
+        fileProcessingState.strictReadBeforeEdit &&
+        existingDiskContent !== null &&
+        !hasBasedOnRead &&
+        !fileProcessingState.readAuthorizationsByPath?.[path]
+      ) {
+        return {
+          tool: 'write_file' as const,
+          path,
+          error: [
+            `write_file blocked: strict read-before-edit is enabled and ${path} already exists, but no read authorization exists for this path.`,
+            `Next: call read_files for ${path} before retrying write_file, or supply a basedOnRead capability for the existing content you intend to overwrite.`,
+            'New-file creation is still allowed without a prior read when the target path does not exist.',
+          ].join('\n'),
+        }
+      }
+      initialContent = existingDiskContent
+    }
+
+    const result = await processFileBlock({
+      path,
+      initialContentPromise: Promise.resolve(initialContent),
+      newContent: fileContentWithoutStartNewline,
+      logger,
     })
+    // Check for abort and throw at the boundary
+    if (result.aborted) {
+      throw new AbortError(result.reason)
+    }
+    return result.value
+  })()
     .catch((error) => {
       // AbortError propagates up - don't convert to tool error
       if (error instanceof AbortError) {
@@ -165,16 +231,49 @@ export const handleWriteFile = (async (
   fileProcessingPromisesByPath[path].push(newPromise)
   fileProcessingPromises.push(newPromise)
 
-  await previousToolCallFinished
-
-  return {
-    output: await postStreamProcessing<'write_file'>(
-      await newPromise,
-      fileProcessingState,
-      writeToClient,
-      requestClientToolCall,
-    ),
+  const writeFileResult = await newPromise
+  if ('error' in writeFileResult) {
+    fileProcessingState.failedEditRequiresReadByPath[path] = true
+  } else {
+    delete fileProcessingState.failedEditRequiresReadByPath[path]
+    // Strict read-before-edit: a successful write_file (whether creating a new
+    // file or overwriting an existing one) grants a sticky read authorization
+    // for the written path. This eliminates redundant read round-trips for the
+    // very common write-then-edit flow without weakening the strict gate: any
+    // edit on the path only requires a fresh read or basedOnRead anchor when
+    // either the prior edit failed or the file content has changed externally.
+    if (fileProcessingState.strictReadBeforeEdit) {
+      // Lazy-init to mirror the read_files handler, which is the canonical
+      // initializer for readAuthorizationsByPath. This keeps the write_file
+      // handler usable in isolation (e.g. unit tests) without requiring a
+      // prior read_files call.
+      fileProcessingState.readAuthorizationsByPath ??= {}
+      fileProcessingState.readAuthorizationsByPath[path] = true
+    }
   }
+
+  const output = await postStreamProcessing<'write_file'>(
+    writeFileResult,
+    fileProcessingState,
+    writeToClient,
+    requestClientToolCall,
+  )
+
+  const firstOutput = output[0]
+  if (
+    firstOutput?.type === 'json' &&
+    firstOutput.value &&
+    typeof firstOutput.value === 'object' &&
+    'errorMessage' in firstOutput.value
+  ) {
+    fileProcessingState.failedEditRequiresReadByPath[path] = true
+  }
+  // The agent fully supplied the new content, so a follow-up edit can still
+  // anchor to the prior read (or to the just-granted write authorization)
+  // without re-reading the file. This eliminates redundant re-reads for
+  // multi-write and write-then-edit flows in the same session.
+
+  return { output }
 }) satisfies CodebuffToolHandlerFunction<'write_file'>
 
 type PostStreamProcessingTools = Exclude<FileProcessingTools, 'edit_transaction'>

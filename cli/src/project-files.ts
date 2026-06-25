@@ -1,6 +1,8 @@
 import { mkdirSync, readdirSync, statSync } from 'fs'
 import path from 'path'
 
+import { setProjectRootResolver } from '@codebuff/common/util/plan-artifacts'
+
 import { getConfigDir } from './utils/auth'
 
 let projectRoot: string | undefined
@@ -12,6 +14,11 @@ function ensureChatDirectory(dir: string) {
 
 export function setProjectRoot(dir: string) {
   projectRoot = dir
+  // Wire the durable plan-artifact module's project-root resolver once at the
+  // CLI bootstrap so per-call helpers (listPlanSessions, readPlanSessionState,
+  // getActivePlanSessionSlug, the runtime update_plan_status handler, etc.)
+  // don't have to re-wire it ad hoc.
+  setProjectRootResolver(() => projectRoot as string)
   return projectRoot
 }
 

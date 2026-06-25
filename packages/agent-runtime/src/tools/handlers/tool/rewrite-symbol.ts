@@ -1,6 +1,7 @@
 import { handleStrReplace } from './str-replace'
 import {
   extractSlices,
+  extendRangeToPrecedingComment,
   getFileStructure,
   mintSliceCapability,
 } from '../../../structural-read'
@@ -114,9 +115,29 @@ export const handleRewriteSymbol = (async (params: {
     )
   }
 
+  // Extend the replacement range upward to include a contiguous preceding
+  // comment/doc block (JSDoc `/** ... */`, block `/* ... */`, or `//` run).
+  // Without this, rewrite_symbol would leave the old doc block orphaned while
+  // the new content's own doc block duplicates it — shifting line numbers and
+  // invalidating any cached anchors the agent holds for subsequent edits.
+  const extended = extendRangeToPrecedingComment(lines, match.startLine)
+  const oldString =
+    extended.startLine === match.startLine
+      ? match.oldString
+      : lines.slice(extended.startLine - 1, match.endLine).join('\n')
+  const basedOnRead =
+    extended.startLine === match.startLine
+      ? match.readCapability
+      : mintSliceCapability({
+          content: raw,
+          startLine: extended.startLine,
+          endLine: match.endLine,
+        }).readCapability
+
   // Delegate to the str_replace handler: it owns atomic apply, stale detection,
   // capability validation, and the client write. The oldString is the symbol's
-  // exact current text, so it matches uniquely; basedOnRead anchors large files.
+  // exact current text (plus any preceding doc block), so it matches uniquely;
+  // basedOnRead anchors large files.
   return handleStrReplace({
     ...(params as any),
     previousToolCallFinished: Promise.resolve(),
@@ -127,10 +148,10 @@ export const handleRewriteSymbol = (async (params: {
         path,
         replacements: [
           {
-            oldString: match.oldString,
+            oldString,
             newString: newContent,
             allowMultiple: false,
-            basedOnRead: match.readCapability,
+            basedOnRead,
           },
         ],
       },

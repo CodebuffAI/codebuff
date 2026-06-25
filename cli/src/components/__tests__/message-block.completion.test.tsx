@@ -50,7 +50,7 @@ const baseProps = {
 }
 
 describe('MessageBlock completion time', () => {
-  test('renders completion time and credits when complete', () => {
+  test('renders completion time and cost when complete', () => {
     const markup = renderToStaticMarkup(
       <MessageBlock
         {...baseProps}
@@ -61,7 +61,7 @@ describe('MessageBlock completion time', () => {
     )
 
     expect(markup).toContain('7s')
-    expect(markup).toContain('3 credits')
+    expect(markup).toContain('cost 3')
   })
 
   test('omits completion line when not complete', () => {
@@ -75,28 +75,6 @@ describe('MessageBlock completion time', () => {
     )
 
     expect(markup).not.toContain('7s')
-    expect(markup).not.toContain('3 credits')
-  })
-
-  test('pluralizes credit label correctly', () => {
-    const singularMarkup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={true}
-        completionTime="7s"
-        credits={1}
-      />,
-    )
-    expect(singularMarkup).toContain('1 credit')
-
-    const pluralMarkup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={true}
-        completionTime="7s"
-        credits={4}
-      />,
-    )
-    expect(pluralMarkup).toContain('4 credits')
+    expect(markup).not.toContain('cost 3')
   })
 })

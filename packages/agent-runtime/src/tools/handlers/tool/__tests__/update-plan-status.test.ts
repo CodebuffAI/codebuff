@@ -53,9 +53,10 @@ describe('validatePlanStatusPath', () => {
     ).toMatch(/traversal/)
   })
 
-  test('rejects SPEC.md/PLAN.md and other names', () => {
+  test('rejects SPEC.md and other non-updatable names', () => {
+    // SPEC.md is create-only — not allowed by update_plan_status.
     expect(
-      validatePlanStatusPath('.agents/sessions/foo/PLAN.md'),
+      validatePlanStatusPath('.agents/sessions/foo/SPEC.md'),
     ).toMatch(/only \.agents/)
     expect(
       validatePlanStatusPath('.agents/sessions/foo/NOTES.md'),
@@ -115,6 +116,48 @@ describe('applyTaskUpdate', () => {
     const result = applyTaskUpdate(lines, { task: 'unknown' })
     expect(result.matched).toBe(false)
     expect(result.lines).toEqual(lines)
+  })
+
+  test('applies tri-state status: in_progress', () => {
+    const lines = ['- [ ] Task A']
+    const result = applyTaskUpdate(lines, {
+      task: 'Task A',
+      status: 'in_progress',
+    })
+    expect(result.matched).toBe(true)
+    expect(result.lines[0]).toBe('- [~] Task A')
+  })
+
+  test('applies tri-state status: blocked and cancelled', () => {
+    const blocked = applyTaskUpdate(['- [ ] Task A'], {
+      task: 'Task A',
+      status: 'blocked',
+    })
+    expect(blocked.lines[0]).toBe('- [!] Task A')
+    const cancelled = applyTaskUpdate(['- [ ] Task A'], {
+      task: 'Task A',
+      status: 'cancelled',
+    })
+    expect(cancelled.lines[0]).toBe('- [/] Task A')
+  })
+
+  test('status overrides completed when both are provided', () => {
+    const lines = ['- [x] Task A']
+    const result = applyTaskUpdate(lines, {
+      task: 'Task A',
+      status: 'in_progress',
+      completed: true,
+    })
+    expect(result.lines[0]).toBe('- [~] Task A')
+  })
+
+  test('reverts a completed task back to pending via tri-state', () => {
+    const lines = ['- [x] Task A']
+    const result = applyTaskUpdate(lines, {
+      task: 'Task A',
+      status: 'pending',
+    })
+    expect(result.lines[0]).toBe('- [ ] Task A')
   })
 })
 
@@ -296,5 +339,171 @@ describe('handleUpdatePlanStatus', () => {
     const value = result.output[0].value as { message?: string }
     expect(value.message).toMatch(/No changes applied/)
     expect(fs.readFileSync(target, 'utf8')).toBe('- [ ] Task A\n')
+  })
+
+  test('sessionStatus creates STATE.json with the new status', async () => {
+    const target = path.join(
+      tempDir,
+      '.agents/sessions/demo/STATUS.md',
+    )
+    fs.writeFileSync(target, '# Status\n\n- [ ] Task A\n')
+
+    const result = await handleUpdatePlanStatus({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeCall({
+        path: '.agents/sessions/demo/STATUS.md',
+        sessionStatus: 'paused',
+      }),
+      logger: silentLogger,
+    })
+
+    const value = result.output[0].value as { message?: string }
+    expect(value.message).toMatch(/Session status -> paused/)
+
+    const statePath = path.join(
+      tempDir,
+      '.agents',
+      'sessions',
+      'demo',
+      'STATE.json',
+    )
+    expect(fs.existsSync(statePath)).toBe(true)
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    expect(state.slug).toBe('demo')
+    expect(state.status).toBe('paused')
+    expect(state.schemaVersion).toBe(1)
+  })
+
+  test('currentTask updates the PLAN.md annotation', async () => {
+    const planPath = path.join(
+      tempDir,
+      '.agents/sessions/demo/PLAN.md',
+    )
+    fs.writeFileSync(planPath, '# Plan\n\n- [ ] P0-7 work\n- [ ] P0-8 other\n')
+
+    const result = await handleUpdatePlanStatus({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeCall({
+        path: '.agents/sessions/demo/PLAN.md',
+        currentTask: 'P0-8 other',
+      }),
+      logger: silentLogger,
+    })
+
+    const value = result.output[0].value as { message?: string }
+    expect(value.message).toMatch(/Current task -> "P0-8 other"/)
+
+    const next = fs.readFileSync(planPath, 'utf8')
+    expect(next).toContain('<!-- current-task: P0-8 other -->')
+    // P0-7 must be preserved.
+    expect(next).toContain('- [ ] P0-7 work')
+  })
+
+  test('currentTask with empty string clears the pointer', async () => {
+    const planPath = path.join(
+      tempDir,
+      '.agents/sessions/demo/PLAN.md',
+    )
+    fs.writeFileSync(
+      planPath,
+      '# Plan\n<!-- current-task: P0-7 -->\n- [ ] P0-7 work\n',
+    )
+
+    const result = await handleUpdatePlanStatus({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeCall({
+        path: '.agents/sessions/demo/PLAN.md',
+        currentTask: '',
+      }),
+      logger: silentLogger,
+    })
+
+    const value = result.output[0].value as { message?: string }
+    expect(value.message).toMatch(/Current task pointer cleared/)
+
+    const next = fs.readFileSync(planPath, 'utf8')
+    expect(next).toContain('<!-- current-task: none -->')
+    expect(next).not.toContain('<!-- current-task: P0-7 -->')
+  })
+
+  test('tri-state in_progress status auto-sets currentTask in PLAN.md', async () => {
+    const planPath = path.join(
+      tempDir,
+      '.agents/sessions/demo/PLAN.md',
+    )
+    fs.writeFileSync(
+      planPath,
+      '# Plan\n- [ ] P0-7 work\n- [ ] P0-8 other\n',
+    )
+
+    const result = await handleUpdatePlanStatus({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeCall({
+        path: '.agents/sessions/demo/PLAN.md',
+        updates: [{ task: 'P0-7 work', status: 'in_progress' }],
+      }),
+      logger: silentLogger,
+    })
+
+    const value = result.output[0].value as { message?: string }
+    expect(value.message).toMatch(/Current task -> "P0-7 work"/)
+
+    const next = fs.readFileSync(planPath, 'utf8')
+    expect(next).toContain('- [~] P0-7 work')
+    expect(next).toContain('<!-- current-task: P0-7 work -->')
+  })
+
+  test('sessionStatus and currentTask together write both to STATE.json', async () => {
+    const planPath = path.join(
+      tempDir,
+      '.agents/sessions/demo/PLAN.md',
+    )
+    fs.writeFileSync(planPath, '# Plan\n- [ ] P0-7 work\n')
+
+    const result = await handleUpdatePlanStatus({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeCall({
+        path: '.agents/sessions/demo/PLAN.md',
+        sessionStatus: 'active',
+        currentTask: 'P0-7 work',
+      }),
+      logger: silentLogger,
+    })
+
+    const value = result.output[0].value as { message?: string }
+    expect(value.message).toMatch(/Session status -> active/)
+    expect(value.message).toMatch(/Current task -> "P0-7 work"/)
+
+    const statePath = path.join(
+      tempDir,
+      '.agents',
+      'sessions',
+      'demo',
+      'STATE.json',
+    )
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    expect(state.status).toBe('active')
+    expect(state.currentTask).toBe('P0-7 work')
+  })
+
+  test('rejects unknown sessionStatus values', async () => {
+    const target = path.join(
+      tempDir,
+      '.agents/sessions/demo/STATUS.md',
+    )
+    fs.writeFileSync(target, '# Status\n')
+
+    const result = await handleUpdatePlanStatus({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeCall({
+        path: '.agents/sessions/demo/STATUS.md',
+        // Bypass the zod schema by casting — the handler must still defend.
+        sessionStatus: 'bogus' as 'active',
+      }),
+      logger: silentLogger,
+    })
+
+    const value = result.output[0].value as { errorMessage?: string }
+    expect(value.errorMessage).toMatch(/unknown sessionStatus/)
   })
 })

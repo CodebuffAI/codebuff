@@ -26,35 +26,27 @@ To develop the CLI locally, you do not need to run a web server or database. Sim
    ```
    This will boot the terminal UI (TUI) client in your current terminal session, pointing to the local monorepo source.
 
-## Optional Backend & Integration Services
+## Optional Local Integration Services
 
-While Openbuff is focused entirely on the local BYOK model, the repository retains the upstream web/database monorepo stack for compatibility and integration testing. If you are developing features that interact with these legacy layers or running full-stack integration tests:
+Openbuff no longer requires a hosted web app, billing system, or BigQuery pipeline for CLI/SDK development. The remaining service helpers are only for local integration dependencies that retained packages may need during development.
 
-1. **Start Services (Web & DB):**
+1. **Start Services:**
    ```bash
    bun up
    ```
-   This starts the local Postgres database, Docker containers, and the Next.js web application.
 
 2. **Check Status / Stop Services:**
    ```bash
    bun ps    # Check running services
-   bun down  # Stop all docker services
+   bun down  # Stop local services
    ```
 
 3. **Logs:**
-   Log outputs for different components are written to `debug/console/` (e.g., `db.log`, `studio.log`, `sdk.log`, `web.log`).
+   Log outputs are written to `debug/console/`.
 
 ## Package Management
 
 - Always use `bun` for package management: `bun install`, `bun add <pkg>`, `bun run ...` (avoid `npm` or `yarn` inside the workspace to keep lockfiles consistent).
-
-## Database Migrations (Legacy/Optional)
-
-If modifying the upstream schema in `packages/internal/src/db/`:
-- Edit the schema using Drizzle's TypeScript DSL.
-- Avoid hand-writing migration SQL.
-- Run the internal DB scripts to generate and apply migrations locally.
 
 ## Running Tests
 

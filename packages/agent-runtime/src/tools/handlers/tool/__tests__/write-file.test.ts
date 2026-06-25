@@ -27,6 +27,7 @@ function createFileProcessingState(): FileProcessingState {
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
+    consecutiveStrReplaceFailuresByPath: {},
   }
 }
 
@@ -97,6 +98,7 @@ describe('handleWriteFile', () => {
         fileChanges: [],
         firstFileProcessed: true,
         failedEditRequiresReadByPath: {},
+        consecutiveStrReplaceFailuresByPath: {},
       }
 
       const result = getFileProcessingValues(state)

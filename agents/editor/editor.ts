@@ -238,6 +238,110 @@ Write out your complete implementation now, formatting all changes as tool calls
         return [...files]
       }
 
+      // NOTE: these helpers are inlined here (rather than imported from
+      // agents/base2/gate-files) because `handleSteps` is serialized via
+      // `.toString()` and reconstructed with `new Function(...)`, which drops
+      // the module closure. Any module-scope reference would be `undefined`
+      // at runtime. Keep these in sync with agents/base2/gate-files.ts and
+      // the parallel inline copies in agents/base2/base2.ts.
+      function isFileChangingTool(toolName: string): boolean {
+        return (
+          toolName === 'apply_patch' ||
+          toolName === 'apply_smart_patch' ||
+          toolName === 'edit_transaction' ||
+          toolName === 'replace_range' ||
+          toolName === 'rewrite_symbol' ||
+          toolName === 'str_replace' ||
+          toolName === 'write_file'
+        )
+      }
+
+      function hasEditArtifact(record: Record<string, unknown>): boolean {
+        if (
+          typeof record.unifiedDiff === 'string' ||
+          typeof record.diff === 'string' ||
+          typeof record.patch === 'string'
+        ) {
+          return true
+        }
+        if (record.success === true) return true
+        if (
+          record.success === false ||
+          'error' in record ||
+          'errorMessage' in record
+        ) {
+          return false
+        }
+        if (typeof record.message !== 'string') return false
+        return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
+          record.message,
+        )
+      }
+
+      function collectToolInputFiles(input: unknown, out: Set<string>): void {
+        if (!input || typeof input !== 'object') return
+        const record = input as Record<string, unknown>
+        if (typeof record.path === 'string') out.add(record.path)
+        const operation = record.operation
+        if (
+          operation &&
+          typeof operation === 'object' &&
+          typeof (operation as Record<string, unknown>).path === 'string'
+        ) {
+          out.add((operation as Record<string, string>).path)
+        }
+        const edits = record.edits
+        if (Array.isArray(edits)) {
+          for (const edit of edits) {
+            if (
+              edit &&
+              typeof edit === 'object' &&
+              typeof (edit as Record<string, unknown>).path === 'string'
+            ) {
+              out.add((edit as Record<string, string>).path)
+            }
+          }
+        }
+      }
+
+      function visit(value: unknown, out: Set<string>): void {
+        if (!value) return
+        if (Array.isArray(value)) {
+          for (const item of value) visit(item, out)
+          return
+        }
+        if (typeof value !== 'object') return
+
+        const record = value as Record<string, unknown>
+        if (record.type === 'json' && 'value' in record) {
+          visit(record.value, out)
+        }
+        const toolName =
+          typeof record.toolName === 'string'
+            ? record.toolName
+            : typeof record.cb_tool_name === 'string'
+              ? record.cb_tool_name
+              : ''
+        const input = record.input
+        if (isFileChangingTool(toolName)) {
+          collectToolInputFiles(input, out)
+        }
+        if (typeof record.file === 'string' && hasEditArtifact(record)) {
+          out.add(record.file)
+        }
+        if (Array.isArray(record.changedFiles)) {
+          for (const file of record.changedFiles) {
+            if (typeof file === 'string') out.add(file)
+          }
+        }
+        if (typeof record.path === 'string' && hasEditArtifact(record)) {
+          out.add(record.path)
+        }
+        for (const nested of Object.values(record)) {
+          if (nested !== input) visit(nested, out)
+        }
+      }
+
       function buildTargetFileProgress(
         targetFiles: string[],
         changedFiles: string[],
@@ -322,73 +426,7 @@ Write out your complete implementation now, formatting all changes as tool calls
         collectText(record.prompt, texts)
       }
 
-      function visit(value: unknown, files: Set<string>): void {
-        if (!value) return
-        if (Array.isArray(value)) {
-          for (const item of value) visit(item, files)
-          return
-        }
-        if (typeof value !== 'object') return
-
-        const record = value as Record<string, unknown>
-        const toolName =
-          typeof record.toolName === 'string'
-            ? record.toolName
-            : typeof record.cb_tool_name === 'string'
-              ? record.cb_tool_name
-              : ''
-        if (isFileChangingTool(toolName)) {
-          collectInputFiles(record.input, files)
-        }
-        if (record.type === 'json' && 'value' in record) {
-          visit(record.value, files)
-        }
-        if (typeof record.file === 'string' && hasEditArtifact(record)) {
-          files.add(record.file)
-        }
-        if (typeof record.path === 'string' && hasEditArtifact(record)) {
-          files.add(record.path)
-        }
-        for (const nested of Object.values(record)) {
-          if (nested !== record.input) visit(nested, files)
-        }
-      }
-
-      function collectInputFiles(input: unknown, files: Set<string>): void {
-        if (!input || typeof input !== 'object') return
-        const record = input as Record<string, unknown>
-        if (typeof record.path === 'string') files.add(record.path)
-        const edits = record.edits
-        if (!Array.isArray(edits)) return
-        for (const edit of edits) {
-          if (
-            edit &&
-            typeof edit === 'object' &&
-            typeof (edit as Record<string, unknown>).path === 'string'
-          ) {
-            files.add((edit as Record<string, string>).path)
-          }
-        }
-      }
-
-      function isFileChangingTool(toolName: string): boolean {
-        return (
-          toolName === 'str_replace' ||
-          toolName === 'write_file' ||
-          toolName === 'replace_range' ||
-          toolName === 'rewrite_symbol' ||
-          toolName === 'edit_transaction'
-        )
-      }
-
-      function hasEditArtifact(record: Record<string, unknown>): boolean {
-        return (
-          typeof record.unifiedDiff === 'string' ||
-          typeof record.diff === 'string' ||
-          typeof record.patch === 'string'
-        )
-      }
-    },
+      },
   } satisfies Omit<AgentDefinition, 'id'>
 }
 

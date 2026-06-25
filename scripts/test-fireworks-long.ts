@@ -21,9 +21,11 @@
  *   bun scripts/test-fireworks-long.ts glm-5.1 --deployment
  */
 
-import { FIREWORKS_DEPLOYMENT_MAP } from '../web/src/llm-api/fireworks-config'
+export {}
 
-export { }
+const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
+  'z-ai/glm-5.1': 'accounts/james-65d217/deployments/mjb4i7ea',
+}
 
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 

@@ -1,6 +1,6 @@
 /**
  * Provide sensible defaults for required client env vars during SDK tests.
- * Keeps tests from failing when a developer hasn't exported the full web env.
+ * Keeps tests from failing when a developer hasn't exported local integration env.
  */
 const testDefaults: Record<string, string> = {
   NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
@@ -8,11 +8,7 @@ const testDefaults: Record<string, string> = {
   NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebuff.com',
   NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog-key',
   NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://us.i.posthog.com',
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder',
-  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL:
-    'https://billing.stripe.com/p/login/test_placeholder',
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: 'test-verification',
-  NEXT_PUBLIC_WEB_PORT: '3000',
 }
 
 const serverDefaults: Record<string, string> = {
@@ -24,9 +20,6 @@ const serverDefaults: Record<string, string> = {
   CODEBUFF_GITHUB_ID: 'test-id',
   CODEBUFF_GITHUB_SECRET: 'test-secret',
   NEXTAUTH_SECRET: 'test-secret',
-  STRIPE_SECRET_KEY: 'sk_test_dummy',
-  STRIPE_WEBHOOK_SECRET_KEY: 'whsec_dummy',
-  STRIPE_TEAM_FEE_PRICE_ID: 'price_test',
   LOOPS_API_KEY: 'test',
   DISCORD_PUBLIC_KEY: 'test',
   DISCORD_BOT_TOKEN: 'test',

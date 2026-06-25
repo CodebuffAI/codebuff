@@ -4,7 +4,7 @@
 
 ## Scope: Openbuff / BYOK only
 
-This proposal applies to **Openbuff (bring-your-own-key) mode**. Freebuff already has a dedicated model selection flow (`FreebuffModelSelector`, `/model` alias, session model choice) and does not expose provider configuration. In Freebuff mode, `/setup` should either route to the existing Freebuff model picker or explain that provider setup requires Openbuff/BYOK.
+This proposal applies to **Openbuff (bring-your-own-key) mode**. The removed upstream free-mode product did not expose provider configuration; active Openbuff setup should focus exclusively on local/BYOK provider routing.
 
 ## Problem Statement
 
@@ -57,7 +57,6 @@ The codebase already has reusable components for interactive selection:
 - **`SelectableList`** (`cli/src/components/selectable-list.tsx`) — keyboard-navigable list with hover, focus, and scroll
 - **`useSearchableList`** (`cli/src/hooks/use-searchable-list.ts`) — search filtering with focus management
 - **`ChatHistoryScreen`** (`cli/src/components/chat-history-screen.tsx`) — full-screen searchable list with keyboard nav
-- **`FreebuffModelSelector`** (`cli/src/components/freebuff-model-selector.tsx`) — multi-section model picker with keyboard navigation
 - **MultilineInput** — reusable text input with cursor support
 
 ### Config File Format (illustrative)
@@ -111,7 +110,7 @@ For terminal apps, a full-screen screen is better than a popup because:
 
 1. Provider/model configuration has multiple sections (providers, modes, agent overrides)
 2. Keyboard focus management in a small popup overlaps with chat input
-3. Existing full-screen patterns (`ChatHistoryScreen`, `FreebuffModelSelector`) are well-established
+3. Existing full-screen patterns (`ChatHistoryScreen`) are well-established
 4. Screens have room for status, help, and actionable sections
 
 Recommended keyboard model (consistent with existing screens):
@@ -159,7 +158,7 @@ This requires:
 **New components:**
 
 ```
-cli/src/components/model-setup-screen.tsx   — main dashboard + route editor
+cli/src/components/model-setup-screen.tsx   — local setup screen + route editor
 cli/src/components/model-picker-screen.tsx  — searchable model list
 cli/src/components/provider-picker-screen.tsx — preset provider list
 cli/src/components/reasoning-effort-picker.tsx — effort selection
@@ -277,12 +276,12 @@ For custom: shows a form screen for provider id, provider type (`openai-compatib
 **Goal:** Single entry point that shows everything and lets users edit anything.
 
 ```
-/setup           → opens OpenbuffSetupScreen (unified dashboard)
+/setup           → opens OpenbuffSetupScreen (unified local setup screen)
 /provider setup  → opens provider section of setup screen
 /models configure → opens model routing section of setup screen
 ```
 
-The unified dashboard is the Phase 2 `ModelSetupScreen` with provider management added. Sections can be collapsed/expanded via keyboard.
+The unified local setup screen is the Phase 2 `ModelSetupScreen` with provider management added. Sections can be collapsed/expanded via keyboard.
 
 ### Phase 5: Model Discovery (Optional)
 
@@ -306,7 +305,6 @@ Leverage existing building blocks:
 | `useSearchableList` | `cli/src/hooks/use-searchable-list.ts` | Search/filter in all pickers |
 | `MultilineInput` | `cli/src/components/multiline-input.tsx` | Search input, custom provider fields |
 | `Button` | `cli/src/components/button.tsx` | Action buttons (save, add, delete) |
-| `FreebuffModelSelector` | `cli/src/components/freebuff-model-selector.tsx` | Pattern for multi-section picker |
 | `ChatHistoryScreen` | `cli/src/components/chat-history-screen.tsx` | Pattern for full-screen with search + list |
 
 ### State Management
@@ -364,7 +362,7 @@ When saving the draft, reuse `providerConfigFileSchema.safeParse()` from `sdk/sr
 | **1** | Post-connect auto-configure prompt | Small (1-2 days) | Eliminates the #1 new-user confusion |
 | **2** | Searchable model route picker (`ModelSetupScreen`) | Medium (3-5 days) | Major UX improvement for all model routing |
 | **3** | Provider picker screen | Medium (2-3 days) | Better than text wizard for provider setup |
-| **4** | Unified `/setup` dashboard | Medium (2-3 days) | Single entry point for all config |
+| **4** | Unified `/setup` local setup screen | Medium (2-3 days) | Single entry point for all config |
 | **5** | Model discovery (optional) | Medium (3-5 days) | Nice-to-have for dynamic model lists |
 
 **Recommended start:** Phase 1 (post-connect auto-configure) is the highest-ROI change. It's small, safe, and eliminates the most common failure mode for new users.

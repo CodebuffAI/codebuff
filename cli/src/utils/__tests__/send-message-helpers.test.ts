@@ -1657,7 +1657,7 @@ describe('markMessageComplete', () => {
     expect(result.completionTime).toBe('5s')
   })
 
-  test('adds credits', () => {
+  test('preserves cost metadata', () => {
     const result = markMessageComplete(baseMessage, { credits: 100 })
 
     expect(result.credits).toBe(100)

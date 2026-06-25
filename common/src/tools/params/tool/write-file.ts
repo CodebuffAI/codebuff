@@ -2,6 +2,7 @@ import z from 'zod/v4'
 
 import { updateFileResultSchema } from './str-replace'
 import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
+import { basedOnReadSchema } from '../based-on-read'
 
 import type { $ToolParams } from '../../constants'
 
@@ -17,6 +18,7 @@ const inputSchema = z
       .string()
       .describe('What the change is intended to do in only one sentence.'),
     content: z.string().describe(`Complete file content to write to the file.`),
+    basedOnRead: basedOnReadSchema,
   })
   .describe(`Create or overwrite a file with the given content.`)
 const description = `

@@ -12,7 +12,11 @@ import {
 } from '../util/format-validation-issues'
 import { formatValueForError } from '../util/format-value'
 import { codebuffToolHandlers } from './handlers/list'
-import { getMatchingSpawn } from './handlers/tool/spawn-agent-utils'
+import {
+  getMatchingSpawn,
+  isBaseAgent,
+  toolNotAgentError,
+} from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
 import { ensureZodSchema } from './prompts'
 
@@ -146,17 +150,74 @@ function stringInputError(
   }
 }
 
-function getToolValidationHint(toolName: string): string | undefined {
-  if (toolName === 'str_replace' || toolName === 'propose_str_replace') {
+function getFieldSpecificHint(
+  toolName: string,
+  issues: ValidationIssue[],
+): string | undefined {
+  // Fix D: when the model emits the wrong JS type for a known-typed field,
+  // surface the exact expected shape so it can self-correct on the next attempt
+  // instead of looping on a generic Zod message. This covers the three fields
+  // most commonly emitted with the wrong type during edit-tool calls.
+  if (toolName !== 'str_replace' && toolName !== 'propose_str_replace') {
+    return undefined
+  }
+
+  const paths = new Set(
+    issues
+      .map((issue) => issue.path?.map((segment) => String(segment)).join('.'))
+      .filter((p): p is string => Boolean(p)),
+  )
+  const fieldNames = new Set(
+    issues.flatMap((issue) => issue.path?.map((segment) => String(segment)) ?? []),
+  )
+
+  if (
+    paths.has('atomic') ||
+    fieldNames.has('atomic') ||
+    // Equivalent fields on other edit tools, kept for forward symmetry.
+    fieldNames.has('useAtomicBatch')
+  ) {
     return [
+      'Hint: `atomic` must be a boolean (true/false), not a string. Omit it entirely for the default (false).',
+      'Example: { "path": "file.ts", "atomic": true, "replacements": [{ ... }] }',
+    ].join('\n')
+  }
+
+  if (paths.has('basedOnRead') || fieldNames.has('basedOnRead')) {
+    return [
+      'Hint: `basedOnRead` must be a read-capability token string returned by read_files (e.g. "cap.<base64>") OR an object { startLine, endLine, hash }. A wrapped object like { "$text": "..." } is not accepted.',
+      'Copy the `readCapability` value verbatim from the read_files range header output.',
+    ].join('\n')
+  }
+
+  if (paths.has('occurrenceIndex') || fieldNames.has('occurrenceIndex')) {
+    return [
+      'Hint: `occurrenceIndex` must be a positive integer (1-indexed), not a string. Omit it unless you need to target a specific duplicate.',
+    ].join('\n')
+  }
+
+  return undefined
+}
+
+function getToolValidationHint(
+  toolName: string,
+  issues?: ValidationIssue[],
+): string | undefined {
+  const fieldHint = issues ? getFieldSpecificHint(toolName, issues) : undefined
+
+  if (toolName === 'str_replace' || toolName === 'propose_str_replace') {
+    const base = [
       'Expected shape: { "path": string, "replacements": [{ "oldString": string, "newString": string, "allowMultiple"?: boolean }] }.',
       'If a previous edit failed, stop retrying from memory: re-read the exact current lines with read_files before issuing another replacement.',
     ].join('\n')
+    return fieldHint ? `${base}\n\n${fieldHint}` : base
   }
   if (toolName === 'write_file' || toolName === 'propose_write_file') {
-    return 'Expected shape: { "path": string, "instructions": string, "content": string }. Quote string values and escape newlines/quotes inside content.'
+    const base =
+      'Expected shape: { "path": string, "instructions": string, "content": string }. Quote string values and escape newlines/quotes inside content.'
+    return fieldHint ? `${base}\n\n${fieldHint}` : base
   }
-  return undefined
+  return fieldHint
 }
 
 function isFileChangingTool(toolName: string): boolean {
@@ -199,8 +260,8 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   const result = paramsSchema.safeParse(processedParameters.input)
 
   if (!result.success) {
-    const hint = getToolValidationHint(toolName)
     const issues = result.error.issues as ValidationIssue[]
+    const hint = getToolValidationHint(toolName, issues)
     const summary = formatValidationIssues({ issues, toolName })
     const validationDetails = JSON.stringify(result.error.issues, null, 2)
     return {
@@ -262,7 +323,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   userInputId: string
 
   fetch: typeof globalThis.fetch
-  onCostCalculated: (credits: number) => Promise<void>
+  onCostCalculated: (providerCostCents: number) => Promise<void>
   onResponseChunk: (chunk: string | PrintModeEvent) => void
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
@@ -363,8 +424,7 @@ export async function executeToolCall<T extends ToolName>(
   if (toolName === 'spawn_agents') {
     const agents = effectiveInput.agents
     if (Array.isArray(agents)) {
-      const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']
-      const isBaseAgent = BASE_AGENTS.includes(agentTemplate.id)
+      const isParentBaseAgent = isBaseAgent(agentTemplate.id)
 
       const validationResults = await Promise.allSettled(
         agents.map(async (agent) => {
@@ -380,7 +440,7 @@ export async function executeToolCall<T extends ToolName>(
           }
 
           let agentIdToLoad = agentTypeStr
-          if (!isBaseAgent) {
+          if (!isParentBaseAgent) {
             const matchingSpawn = getMatchingSpawn(
               agentTemplate.spawnableAgents,
               agentTypeStr,
@@ -389,7 +449,7 @@ export async function executeToolCall<T extends ToolName>(
               if (toolNames.includes(agentTypeStr as ToolName)) {
                 return {
                   valid: false as const,
-                  error: `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+                  error: toolNotAgentError(agentTypeStr),
                 }
               }
               return {
@@ -413,7 +473,7 @@ export async function executeToolCall<T extends ToolName>(
               if (toolNames.includes(agentTypeStr as ToolName)) {
                 return {
                   valid: false as const,
-                  error: `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+                  error: toolNotAgentError(agentTypeStr),
                 }
               }
               return {
@@ -798,6 +858,9 @@ export function tryTransformAgentToolCall(params: {
   }
   if (input.params && typeof input.params === 'object') {
     agentEntry.params = input.params
+  }
+  if (Object.hasOwn(input, 'handoff')) {
+    agentEntry.handoff = input.handoff
   }
   const spawnAgentsInput = {
     agents: [agentEntry],

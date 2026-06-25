@@ -4,8 +4,6 @@ import React from 'react'
 import { ChatGptConnectBanner } from './chatgpt-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
-import { SubscriptionLimitBanner } from './subscription-limit-banner'
-import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
 
 /**
@@ -23,9 +21,7 @@ const BANNER_REGISTRY: Record<
 > = {
   default: () => <PendingAttachmentsBanner />,
   image: () => <PendingAttachmentsBanner />,
-  usage: ({ showTime }: { showTime: number }) => <UsageBanner showTime={showTime} />,
   help: () => <HelpBanner />,
-  subscriptionLimit: () => <SubscriptionLimitBanner />,
   ...(CHATGPT_OAUTH_ENABLED
     ? { 'connect:chatgpt': () => <ChatGptConnectBanner /> }
     : {}),
@@ -41,21 +37,11 @@ const BANNER_REGISTRY: Record<
 export const InputModeBanner = () => {
   const inputMode = useChatStore((state) => state.inputMode)
 
-  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(() =>
-    Date.now(),
-  )
-
-  React.useEffect(() => {
-    if (inputMode === 'usage') {
-      setUsageBannerShowTime(Date.now())
-    }
-  }, [inputMode])
-
   const renderBanner = BANNER_REGISTRY[inputMode]
 
   if (!renderBanner) {
     return null
   }
 
-  return <>{renderBanner({ showTime: usageBannerShowTime })}</>
+  return <>{renderBanner({ showTime: Date.now() })}</>
 }

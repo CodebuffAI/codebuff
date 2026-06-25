@@ -1,3 +1,0 @@
-[test]
-# Preload web globals (Request, Response, Headers, fetch) for Next.js server modules
-preload = ["./test/setup-globals.ts", "../sdk/test/setup-env.ts", "../test/setup-bigquery-mocks.ts"]

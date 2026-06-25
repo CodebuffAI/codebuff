@@ -167,11 +167,12 @@ export async function callMainPrompt(
   const { action, promptId, sendAction, logger } = params
   const { fileContext } = action.sessionState
 
-  // Start this turn's cost accounting fresh. creditsUsed/directCreditsUsed
-  // accumulate the cost of the current prompt (see onCostCalculated in
-  // run-agent-step) and are surfaced as totalCost, so resetting here scopes the
-  // reported cost to this turn rather than the whole session. (Historically
-  // this also enforced server-authoritative credit state; under BYOK there is
+  // Start this turn's provider-cost accounting fresh. The legacy
+  // creditsUsed/directCreditsUsed fields now store provider cost in cents for
+  // the current prompt (see onCostCalculated in run-agent-step) and are surfaced
+  // as totalCost, so resetting here scopes the reported cost to this turn
+  // rather than the whole session. (Historically this also enforced
+  // server-authoritative credit state; under BYOK there is
   // no server and this is purely local per-turn cost accounting.)
   action.sessionState.mainAgentState.creditsUsed = 0
   action.sessionState.mainAgentState.directCreditsUsed = 0

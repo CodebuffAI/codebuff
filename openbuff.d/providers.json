@@ -156,6 +156,7 @@
         "gpt-5.5",
         "gpt-5.4",
         "pioneer/auto",
+        "zai-org/GLM-5.2",
         "MiniMaxAI/MiniMax-M3",
         "deepseek-ai/DeepSeek-V4-Pro",
         "deepseek-ai/DeepSeek-V4-Flash",
@@ -229,7 +230,18 @@
         },
         "MiniMaxAI/MiniMax-M3": {
           "input": {
-            "image": false
+            "image": true
+          },
+          "context": {
+            "windowTokens": 500000
+          }
+        },
+        "zai-org/GLM-5.2": {
+          "input": {
+            "image": true
+          },
+          "context": {
+            "windowTokens": 1000000
           }
         }
       }
@@ -351,6 +363,123 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       }
+    },
+    "evomap": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.evomap.ai/v1",
+      "apiKeyEnv": "EVOMAP_API_KEY",
+      "models": [
+        "evomap-gpt-5.5"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
+    },
+    "bai": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.b.ai/v1",
+      "apiKeyEnv": "BAI_API_KEY",
+      "models": [
+        "minimax-m3"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
+    },
+    "zyloo": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.zyloo.io/v1",
+      "apiKeyEnv": "ZYLOO_API_KEY",
+      "models": [
+        "zyloo/gpt-5.4",
+        "zyloo/claude-sonnet-4-6"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      },
+      "modelCapabilities": {
+        "zyloo/gpt-5.4": {
+          "input": {
+            "image": true
+          },
+          "context": {
+            "windowTokens": 1000000
+          }
+        }
+      }
+    },
+    "openmodel": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.openmodel.app/v1",
+      "apiKeyEnv": "OM_API_KEY",
+      "models": [
+        "deepseek-v4-flash"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      },
+      "modelCapabilities": {
+        "deepseek-v4-flash": {
+          "input": {
+            "image": false
+          },
+          "context": {
+            "windowTokens": 1000000
+          }
+        }
+      }
+    },
+    "kimchi": {
+      "type": "openai-compatible",
+      "baseURL": "https://llm.kimchi.dev/openai/v1",
+      "apiKeyEnv": "KIMCHI_API_KEY",
+      "models": [
+        "minimax-m3"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      },
+      "modelCapabilities": {
+        "minimax-m3": {
+          "input": {
+            "image": false
+          },
+          "context": {
+            "windowTokens": 1000000
+          }
+        }
+      }
+
     }
   }
 }

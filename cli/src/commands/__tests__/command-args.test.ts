@@ -333,6 +333,14 @@ describe('command factory pattern', () => {
       expect(call.content).toContain('.agents/sessions/auth-refresh')
       expect(call.content).toContain('in progress: task one')
       expect(call.content).toContain('# Plan')
+      expect(call.content).toContain('initial authoritative source of truth')
+      expect(call.content).toContain(
+        'Use the injected STATUS.md and PLAN.md contents to find the next actionable milestone',
+      )
+      expect(call.content).toContain(
+        'Read artifacts directly only when their injected contents are missing, truncated, stale, or have changed',
+      )
+      expect(call.content).not.toContain('Read STATUS.md and PLAN.md first')
       expect(call.content).toContain('update_plan_status')
     })
 

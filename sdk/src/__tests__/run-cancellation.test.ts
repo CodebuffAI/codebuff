@@ -276,7 +276,7 @@ describe('Run Cancellation Handling', () => {
     apiError.responseBody = JSON.stringify({
       error: 'session_model_mismatch',
       message:
-        'This session is bound to deepseek; restart freebuff to switch models.',
+        'This session is bound to deepseek; restart openbuff to switch models.',
     })
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(
@@ -303,7 +303,7 @@ describe('Run Cancellation Handling', () => {
       error?: string
     }
     expect(output.message).toBe(
-      'This session is bound to deepseek; restart freebuff to switch models.',
+      'This session is bound to deepseek; restart openbuff to switch models.',
     )
     expect(output.statusCode).toBe(409)
     expect(output.error).toBe('session_model_mismatch')

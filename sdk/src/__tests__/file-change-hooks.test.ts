@@ -46,12 +46,35 @@ describe('selectMatchingHooks', () => {
   })
 })
 
-function jsonValue(out: CodebuffToolOutput<'run_file_change_hooks'>): any {
+function jsonValue(
+  out: CodebuffToolOutput<'run_file_change_hooks'>,
+): Record<string, unknown>[] | undefined {
   const first = Array.isArray(out) ? out[0] : undefined
-  return first && first.type === 'json' ? first.value : undefined
+  return first && first.type === 'json'
+    ? (first.value as Record<string, unknown>[])
+    : undefined
 }
 
 describe('runFileChangeHooks', () => {
+  test('reports when no hooks are configured without invoking a runner', async () => {
+    const { run, calls } = fakeRunner({})
+    const out = await runFileChangeHooks({
+      files: ['src/a.ts'],
+      cwd: '/repo',
+      hooks: [],
+      runCommand: run,
+    })
+
+    expect(calls).toEqual([])
+    expect(jsonValue(out)).toEqual([
+      {
+        validationStatus: 'no_hooks_configured',
+        message: 'No configured file-change hooks ran.',
+        changedFiles: ['src/a.ts'],
+      },
+    ])
+  })
+
   test('runs matching hooks and reports per-hook exit codes', async () => {
     const { run, calls } = fakeRunner({
       'tsc --noEmit': { exitCode: 0 },
@@ -65,14 +88,32 @@ describe('runFileChangeHooks', () => {
     })
     expect(calls).toEqual(['tsc --noEmit', 'bun test']) // py hook not matched
     const results = jsonValue(out)
+    expect(results).toBeDefined()
     expect(results).toHaveLength(2)
-    expect(results[0]).toMatchObject({ hookName: 'typecheck', exitCode: 0 })
-    expect(results[1]).toMatchObject({ hookName: 'test-ts', exitCode: 1 })
+    expect(results![0]).toMatchObject({ hookName: 'typecheck', exitCode: 0 })
+    expect(results![1]).toMatchObject({ hookName: 'test-ts', exitCode: 1 })
     // A consumer (the gate) can detect failure via exitCode !== 0.
-    expect(results.some((r: any) => r.exitCode !== 0)).toBe(true)
+    expect(results!.some((r) => r.exitCode !== 0)).toBe(true)
   })
 
-  test('returns empty array when no hooks match (no-op, gate passes)', async () => {
+  test('reports successful matching hooks', async () => {
+    const { run, calls } = fakeRunner({
+      'tsc --noEmit': { exitCode: 0, stdout: 'ok' },
+    })
+    const out = await runFileChangeHooks({
+      files: ['README.md'],
+      cwd: '/repo',
+      hooks,
+      runCommand: run,
+    })
+
+    expect(calls).toEqual(['tsc --noEmit'])
+    expect(jsonValue(out)).toEqual([
+      { hookName: 'typecheck', exitCode: 0, stdout: 'ok', stderr: '' },
+    ])
+  })
+
+  test('reports when configured hooks are skipped because none match', async () => {
     const { run, calls } = fakeRunner({})
     const out = await runFileChangeHooks({
       files: ['README.md'],
@@ -81,6 +122,14 @@ describe('runFileChangeHooks', () => {
       runCommand: run,
     })
     expect(calls).toEqual([])
-    expect(jsonValue(out)).toEqual([])
+    expect(jsonValue(out)).toEqual([
+      {
+        validationStatus: 'hooks_skipped',
+        message:
+          'Configured file-change hooks were skipped because none matched the changed files.',
+        configuredHookCount: 1,
+        changedFiles: ['README.md'],
+      },
+    ])
   })
 })

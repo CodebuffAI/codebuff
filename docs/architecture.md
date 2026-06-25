@@ -4,7 +4,7 @@ Openbuff is an independent, local-first, and Bring Your Own Key (BYOK) fork of C
 
 ## Monorepo Package Structure
 
-While Openbuff runs entirely client-side/locally, it maintains structural monorepo compatibility with upstream Codebuff. Some backend, database, and billing packages remain in the repository for legacy code compatibility and ease of merging updates, but they are completely unused or disabled during local BYOK execution.
+Openbuff keeps the monorepo focused on local CLI/SDK execution. Hosted web, billing, BigQuery, and free-mode product surfaces have been removed from the active workspace.
 
 ```
                                   ┌──────────┐
@@ -23,12 +23,11 @@ While Openbuff runs entirely client-side/locally, it maintains structural monore
           │               │               │
     ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
     │  agents/  │   │  common/  │   │ internal/ │
-    └───────────┘   └─────┬─────┘   └─────┬─────┘
-                          │               │
-                    ┌─────┼─────┐   ┌─────┼─────────┐
-                    │     │     │   │     │         │
-               billing/ bigquery/ code-map/    web/
-               (unused) (unused)            (legacy web)
+    └───────────┘   └───────────┘   └─────┬─────┘
+                                          │
+                                    ┌─────▼─────┐
+                                    │ code-map/ │
+                                    └───────────┘
 ```
 
 ## Packages
@@ -37,7 +36,7 @@ While Openbuff runs entirely client-side/locally, it maintains structural monore
 
 The user-facing terminal UI, run via the `openbuff` CLI command (with fallback support for `codebuff --local`). Built with [OpenTUI](https://github.com/nickhudkins/opentui) (a React renderer for terminals) and React hooks.
 
-- **Entry point:** `src/index.tsx` → `src/app.tsx` → `src/chat.tsx`
+- **Entry point:** `cli/src/index.tsx` → `cli/src/app.tsx` → `cli/src/chat.tsx`
 - **Key responsibilities:**
   - Renders the chat interface, agent output, tool call results, and status indicators.
   - Manages user input, slash commands (`/help`, `/provider`, `/models`), and agent mode selection (DEFAULT, PLAN).
@@ -49,7 +48,7 @@ The user-facing terminal UI, run via the `openbuff` CLI command (with fallback s
 
 The public SDK used by the CLI and available to external users via `@codebuff/sdk` on npm.
 
-- **Entry point:** `src/client.ts` (`CodebuffClient` / compatible alias) → `src/run.ts` (`run()`)
+- **Entry point:** `sdk/src/client.ts` (`CodebuffClient` / compatible alias) → `sdk/src/run.ts` (`run()`)
 - **Key responsibilities:**
   - Orchestrates agent runs: initializes local session state, registers tool handlers, calls `callMainPrompt()`.
   - **Executes tool calls locally** on the user's machine (file edits, terminal commands, code search).
@@ -60,7 +59,7 @@ The public SDK used by the CLI and available to external users via `@codebuff/sd
 
 The core agent loop that drives LLM inference, tool execution, and multi-step reasoning.
 
-- **Entry point:** `src/main-prompt.ts` → `src/run-agent-step.ts` (`loopAgentSteps()`)
+- **Entry point:** `packages/agent-runtime/src/main-prompt.ts` → `packages/agent-runtime/src/run-agent-step.ts` (`loopAgentSteps()`)
 - **Key responsibilities:**
   - Runs the agent loop: local LLM call → process response → execute tool calls locally → repeat.
   - Manages agent templates, system prompts, and tool definitions.
@@ -96,20 +95,9 @@ Prompt-based and programmatic agent definitions that ship with Openbuff.
   - `context-pruner.ts` — Conversation summarization to manage context length.
 - **Depends on:** `common` (for agent definition types and tool params)
 
-### `web/` — Upstream Web Application (Legacy/Unused in Openbuff)
-
-The original Codebuff web server, marketing site, and API.
-
-- **Note:** In the Openbuff BYOK fork, this package is **not hosted, run, or required**. Openbuff does not proxy requests to any hosted backend or database. Users communicate directly with their chosen providers from their local machines. This directory is preserved strictly for upstream structural alignment and compatibility.
-
 ### `packages/internal/` — Internal Utilities
 
-Server-side utilities, database schema, and provider wrappers shared between `web` and `sdk`. Under Openbuff, the SDK uses the local `openai-compatible` client wrappers directly to contact user-configured endpoints.
-
-### `packages/billing/` and `packages/bigquery/` (Unused in Openbuff)
-
-- **`packages/billing/`**: Upstream billing and credit tracking. Openbuff does not charge credits or require a subscription, making this package completely unused.
-- **`packages/bigquery/`**: Upstream telemetry/analytics. In Openbuff, no analytics or telemetry data is uploaded to any central server.
+Provider wrappers and support utilities used by the SDK to contact user-configured endpoints directly. This package is retained only where it supports local/BYOK provider routing.
 
 ### `packages/code-map/` — Code Parsing
 

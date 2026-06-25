@@ -49,8 +49,35 @@ export async function runFileChangeHooks(params: {
   const hooks =
     params.hooks ?? loadProviderConfigSync().config.fileChangeHooks ?? []
   const matching = selectMatchingHooks(hooks, files)
+  if (hooks.length === 0) {
+    return [
+      {
+        type: 'json',
+        value: [
+          {
+            validationStatus: 'no_hooks_configured',
+            message: 'No configured file-change hooks ran.',
+            changedFiles: files,
+          },
+        ],
+      },
+    ] as CodebuffToolOutput<'run_file_change_hooks'>
+  }
   if (matching.length === 0) {
-    return [{ type: 'json', value: [] }] as CodebuffToolOutput<'run_file_change_hooks'>
+    return [
+      {
+        type: 'json',
+        value: [
+          {
+            validationStatus: 'hooks_skipped',
+            message:
+              'Configured file-change hooks were skipped because none matched the changed files.',
+            configuredHookCount: hooks.length,
+            changedFiles: files,
+          },
+        ],
+      },
+    ] as CodebuffToolOutput<'run_file_change_hooks'>
   }
 
   const run = params.runCommand ?? runTerminalCommand

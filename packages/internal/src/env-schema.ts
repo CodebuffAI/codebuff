@@ -16,29 +16,14 @@ export const serverEnvSchema = clientEnvSchema.extend({
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
   IPINFO_TOKEN: z.string().min(1),
-  // ZeroClick tenant API key used for server-side offer fallback requests.
-  ZEROCLICK_API_KEY: z.string().min(1).optional(),
-  // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
-  // Optional: when unset the Carbon provider returns no ad and callers fall
-  // back to their cached ads / fallback content. `CVADC53U` is the public
-  // test key from BSA docs and is safe to use in dev.
-  CARBON_ZONE_KEY: z.string().min(1).optional(),
   PORT: z.coerce.number().min(1000),
 
-  // Web/Database variables
+  // Database and retained integration variables
   DATABASE_URL: z.string().min(1),
   CODEBUFF_GITHUB_ID: z.string().min(1),
   CODEBUFF_GITHUB_SECRET: z.string().min(1),
-  FREEBUFF_GITHUB_ID: z.string().min(1).optional(),
-  FREEBUFF_GITHUB_SECRET: z.string().min(1).optional(),
   NEXTAUTH_URL: z.url().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
-  STRIPE_SECRET_KEY: z.string().min(1),
-  STRIPE_WEBHOOK_SECRET_KEY: z.string().min(1),
-  STRIPE_TEAM_FEE_PRICE_ID: z.string().min(1),
-  STRIPE_SUBSCRIPTION_100_PRICE_ID: z.string().min(1),
-  STRIPE_SUBSCRIPTION_200_PRICE_ID: z.string().min(1),
-  STRIPE_SUBSCRIPTION_500_PRICE_ID: z.string().min(1),
   LOOPS_API_KEY: z.string().min(1),
   DISCORD_PUBLIC_KEY: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1),
@@ -56,27 +41,6 @@ export const serverEnvSchema = clientEnvSchema.extend({
   // sweep but risks rate-limiting.
   BOT_SWEEP_GITHUB_TOKEN: z.string().min(1).optional(),
 
-  // Freebuff waiting room. Defaults to OFF so the feature requires explicit
-  // opt-in per environment — the CLI/SDK do not yet send
-  // freebuff_instance_id, so enabling this before they ship would reject
-  // every free-mode request with 428 waiting_room_required.
-  FREEBUFF_WAITING_ROOM_ENABLED: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((v) => v === 'true'),
-  FREEBUFF_SESSION_LENGTH_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(60 * 60 * 1000),
-
-  // Dev-only override: when 'true', force free-mode requests to the 'limited'
-  // access tier so the limited UX (single DeepSeek Flash model) can be
-  // exercised on localhost. Ignored unless NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'.
-  FREEBUFF_DEV_FORCE_LIMITED: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((v) => v === 'true'),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -107,27 +71,14 @@ export const serverProcessEnv: ServerInput = {
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
   IPINFO_TOKEN: process.env.IPINFO_TOKEN,
-  ZEROCLICK_API_KEY: process.env.ZEROCLICK_API_KEY,
-  CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,
 
-  // Web/Database variables
+  // Database and retained integration variables
   DATABASE_URL: process.env.DATABASE_URL,
   CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID,
   CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
-  FREEBUFF_GITHUB_ID: process.env.FREEBUFF_GITHUB_ID,
-  FREEBUFF_GITHUB_SECRET: process.env.FREEBUFF_GITHUB_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY,
-  STRIPE_TEAM_FEE_PRICE_ID: process.env.STRIPE_TEAM_FEE_PRICE_ID,
-  STRIPE_SUBSCRIPTION_100_PRICE_ID:
-    process.env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
-  STRIPE_SUBSCRIPTION_200_PRICE_ID:
-    process.env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
-  STRIPE_SUBSCRIPTION_500_PRICE_ID:
-    process.env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
   LOOPS_API_KEY: process.env.LOOPS_API_KEY,
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
@@ -135,8 +86,4 @@ export const serverProcessEnv: ServerInput = {
   BOT_SWEEP_SECRET: process.env.BOT_SWEEP_SECRET,
   BOT_SWEEP_GITHUB_TOKEN: process.env.BOT_SWEEP_GITHUB_TOKEN,
 
-  // Freebuff waiting room
-  FREEBUFF_WAITING_ROOM_ENABLED: process.env.FREEBUFF_WAITING_ROOM_ENABLED,
-  FREEBUFF_SESSION_LENGTH_MS: process.env.FREEBUFF_SESSION_LENGTH_MS,
-  FREEBUFF_DEV_FORCE_LIMITED: process.env.FREEBUFF_DEV_FORCE_LIMITED,
 }

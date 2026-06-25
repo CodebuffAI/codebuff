@@ -1,14 +1,23 @@
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { describe, expect, it } from 'bun:test'
 
 import { handleEditTransaction } from '../tools/handlers/tool/edit-transaction'
 import { handleReadFiles } from '../tools/handlers/tool/read-files'
+import { handleReplaceRange } from '../tools/handlers/tool/replace-range'
 import { handleStrReplace } from '../tools/handlers/tool/str-replace'
 import { handleWriteFile } from '../tools/handlers/tool/write-file'
 import { encodeReadCapabilityToken, getContentHash } from '../process-str-replace'
-import { mockFileContext } from './test-utils'
+import { processStream } from '../tools/stream-parser'
+import { createMockStreamWithToolCalls, mockFileContext } from './test-utils'
 
 import type { FileProcessingState } from '../tools/handlers/tool/write-file'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { AgentTemplate } from '../templates/types'
 
 const logger: Logger = {
   debug: () => {},
@@ -25,6 +34,7 @@ function createFileProcessingState(): FileProcessingState {
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
+    consecutiveStrReplaceFailuresByPath: {},
   }
 }
 
@@ -187,6 +197,164 @@ describe('read_files edit-state recovery', () => {
       )
       expect(value.patch).toBe(appliedPatches[0])
       expect(value.unifiedDiff).toBe(appliedPatches[0])
+    }
+  })
+
+  it('registers write_file processing before waiting for previous tool completion', async () => {
+    const path = 'packages/agent-runtime/src/util/render-read-files-result.ts'
+    const diskContent = 'export const value = 1\n'
+    const newContent = 'export const value = 2\n'
+    const fileProcessingState = createFileProcessingState()
+    const appliedPatches: string[] = []
+    let optionalFileReadCount = 0
+    let releasePreviousTool!: () => void
+    const previousToolCallFinished = new Promise<void>((resolve) => {
+      releasePreviousTool = resolve
+    })
+
+    const resultPromise = handleWriteFile({
+      previousToolCallFinished,
+      toolCall: {
+        toolCallId: 'queued-write-before-previous-finished',
+        toolName: 'write_file',
+        input: {
+          path,
+          content: newContent,
+        },
+      },
+      agentState: { messageHistory: [] },
+      clientSessionId: 'test-session',
+      fileProcessingState,
+      fingerprintId: 'test-fingerprint',
+      logger,
+      prompt: undefined,
+      userId: undefined,
+      userInputId: 'test-input',
+      requestOptionalFile: async ({ filePath }: { filePath: string }) => {
+        optionalFileReadCount += 1
+        return filePath === path ? diskContent : null
+      },
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return []
+      },
+      writeToClient: () => {},
+    } as any)
+
+    expect(fileProcessingState.allPromises).toHaveLength(1)
+    expect(fileProcessingState.promisesByPath[path]).toHaveLength(1)
+    expect(appliedPatches).toHaveLength(0)
+    expect(optionalFileReadCount).toBe(0)
+
+    releasePreviousTool()
+    const result = await resultPromise
+
+    expect(appliedPatches).toHaveLength(1)
+    expect(optionalFileReadCount).toBe(1)
+    expect(result.output[0]?.type).toBe('json')
+    if (result.output[0]?.type === 'json') {
+      const value = result.output[0].value as {
+        file?: string
+        message?: string
+        patch?: string
+        unifiedDiff?: string
+      }
+      expect(value.file).toBe(path)
+      expect(value.message).toBe(
+        'Applied write_file edit; synthesized result because the client returned an empty response.',
+      )
+      expect(value.patch).toBe(appliedPatches[0])
+      expect(value.unifiedDiff).toBe(appliedPatches[0])
+    }
+  })
+
+  it('does not deadlock when two same-path write_file calls are queued before the first finishes', async () => {
+    const path = 'packages/agent-runtime/src/util/render-read-files-result.ts'
+    const diskContent = 'export const value = 1\n'
+    const firstContent = 'export const value = 2\n'
+    const secondContent = 'export const value = 3\n'
+    const fileProcessingState = createFileProcessingState()
+    const appliedPatches: string[] = []
+    let optionalFileReadCount = 0
+
+    const firstResultPromise = handleWriteFile({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'same-path-first-write',
+        toolName: 'write_file',
+        input: {
+          path,
+          content: firstContent,
+        },
+      },
+      agentState: { messageHistory: [] },
+      clientSessionId: 'test-session',
+      fileProcessingState,
+      fingerprintId: 'test-fingerprint',
+      logger,
+      prompt: undefined,
+      userId: undefined,
+      userInputId: 'test-input',
+      requestOptionalFile: async ({ filePath }: { filePath: string }) => {
+        optionalFileReadCount += 1
+        return filePath === path ? diskContent : null
+      },
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return []
+      },
+      writeToClient: () => {},
+    } as any)
+
+    const secondResultPromise = handleWriteFile({
+      previousToolCallFinished: firstResultPromise.then(() => {}),
+      toolCall: {
+        toolCallId: 'same-path-second-write',
+        toolName: 'write_file',
+        input: {
+          path,
+          content: secondContent,
+        },
+      },
+      agentState: { messageHistory: [] },
+      clientSessionId: 'test-session',
+      fileProcessingState,
+      fingerprintId: 'test-fingerprint',
+      logger,
+      prompt: undefined,
+      userId: undefined,
+      userInputId: 'test-input',
+      requestOptionalFile: async () => {
+        optionalFileReadCount += 1
+        throw new Error('second same-path write_file must reuse prior edit content')
+      },
+      requestClientToolCall: async (toolCall: any) => {
+        appliedPatches.push(toolCall.input.content)
+        return []
+      },
+      writeToClient: () => {},
+    } as any)
+
+    expect(fileProcessingState.allPromises).toHaveLength(2)
+    expect(fileProcessingState.promisesByPath[path]).toHaveLength(2)
+
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('same-path write_file deadlocked')), 100),
+    )
+    const [firstResult, secondResult] = await Promise.race([
+      Promise.all([firstResultPromise, secondResultPromise]),
+      timeout,
+    ])
+
+    expect(optionalFileReadCount).toBe(1)
+    expect(appliedPatches).toHaveLength(2)
+    expect(firstResult.output[0]?.type).toBe('json')
+    expect(secondResult.output[0]?.type).toBe('json')
+    if (firstResult.output[0]?.type === 'json') {
+      expect(firstResult.output[0].value).toMatchObject({ file: path })
+    }
+    if (secondResult.output[0]?.type === 'json') {
+      expect(secondResult.output[0].value).toMatchObject({ file: path })
     }
   })
 
@@ -1158,7 +1326,7 @@ describe('read_files edit-state recovery', () => {
       }
     })
 
-    it('strict read_files authorizes one str_replace and the authorization is invalidated after success', async () => {
+    it('strict read_files authorizes consecutive str_replaces via sticky read authorization', async () => {
       const path = 'src/helper.ts'
       const diskContent = 'export const value = 1\n'
       const fileProcessingState = createFileProcessingState()
@@ -1224,16 +1392,22 @@ describe('read_files edit-state recovery', () => {
       if (firstOutput.type === 'json') {
         expect(firstOutput.value).not.toHaveProperty('errorMessage')
       }
-      // Authorization consumed.
+      // Sticky auth: a successful str_replace does NOT consume the per-path
+      // read authorization, so back-to-back edits on the same path do not
+      // force redundant read round-trips. Only a failed edit (which sets
+      // failedEditRequiresReadByPath) or an externally-changed file
+      // (anchored with a fresh basedOnRead capability) re-enables the gate.
       expect(
         fileProcessingState.readAuthorizationsByPath?.[path],
-      ).toBeUndefined()
+      ).toBe(true)
 
-      // A second str_replace without re-reading must now be blocked.
+      // A second str_replace without re-reading must now SUCCEED using the
+      // sticky auth granted by the original read_files call.
+      let secondApplyCount = 0
       const secondResult = await handleStrReplace({
         previousToolCallFinished: Promise.resolve(),
         toolCall: {
-          toolCallId: 'strict-second-edit',
+          toolCallId: 'strict-second-edit-sticky',
           toolName: 'str_replace',
           input: {
             path,
@@ -1250,17 +1424,307 @@ describe('read_files edit-state recovery', () => {
         logger,
         requestOptionalFile: async ({ filePath }: { filePath: string }) =>
           filePath === path ? diskContent : null,
-        requestClientToolCall: async () => {
-          throw new Error('client apply must not be called for blocked second edit')
+        requestClientToolCall: async (toolCall: any) => {
+          secondApplyCount += 1
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
         },
         writeToClient: () => {},
       } as any)
 
+      // Second str_replace applied via sticky auth (no re-read required).
+      expect(secondApplyCount).toBe(1)
       const secondOutput = secondResult.output[0]
       expect(secondOutput.type).toBe('json')
       if (secondOutput.type === 'json') {
-        expect(secondOutput.value).toHaveProperty('errorMessage')
+        expect(secondOutput.value).not.toHaveProperty('errorMessage')
       }
+      // Auth still persists after the second successful edit.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+    })
+
+    it('strict read_files grants sticky read authorization that survives four consecutive str_replaces (read -> edit -> edit -> edit)', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      // Single read_files call grants the initial per-path authorization.
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'sticky-read-init',
+          toolName: 'read_files',
+          input: { paths: [path] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              filePath === path ? diskContent : null,
+            ]),
+          ),
+        logger,
+      } as any)
+
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+
+      // Four back-to-back edits with no intervening read_files calls. Each
+      // edit increments its own apply counter via requestClientToolCall. If
+      // any of them were blocked, the client would never be invoked and the
+      // counter would stay at zero for that edit.
+      const edits: Array<{ from: number; to: number }> = [
+        { from: 1, to: 2 },
+        { from: 2, to: 3 },
+        { from: 3, to: 4 },
+        { from: 4, to: 5 },
+      ]
+      let totalApplies = 0
+
+      for (const [i, step] of edits.entries()) {
+        const result = await handleStrReplace({
+          previousToolCallFinished: Promise.resolve(),
+          toolCall: {
+            toolCallId: `sticky-edit-${i}`,
+            toolName: 'str_replace',
+            input: {
+              path,
+              replacements: [
+                {
+                  oldString: `export const value = ${step.from}`,
+                  newString: `export const value = ${step.to}`,
+                  allowMultiple: false,
+                },
+              ],
+            },
+          },
+          fileProcessingState,
+          logger,
+          requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+            filePath === path ? diskContent : null,
+          requestClientToolCall: async (toolCall: any) => {
+            totalApplies += 1
+            return [
+              {
+                type: 'json' as const,
+                value: { file: toolCall.input.path, message: 'applied' },
+              },
+            ]
+          },
+          writeToClient: () => {},
+        } as any)
+
+        // Every edit must apply successfully via the sticky auth and must
+        // NOT carry an errorMessage.
+        const output = result.output[0]
+        expect(output.type).toBe('json')
+        if (output.type === 'json') {
+          expect(output.value).not.toHaveProperty('errorMessage')
+        }
+      }
+
+      // All four edits applied via the original read_files authorization.
+      expect(totalApplies).toBe(4)
+      // Auth is still active after the entire read -> edit x4 chain.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+      // No failure flag was raised on any of the four edits.
+      expect(
+        fileProcessingState.failedEditRequiresReadByPath?.[path],
+      ).toBeUndefined()
+    })
+
+    it('strict read_files authorizes str_replace with equivalent normalized path spellings', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-read-dot-slash',
+          toolName: 'read_files',
+          input: { paths: [`./${path}`] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              filePath === path ? diskContent : null,
+            ]),
+          ),
+        logger,
+      } as any)
+
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[`./${path}`],
+      ).toBeUndefined()
+
+      let applied = false
+      const result = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-edit-normalized-path',
+          toolName: 'str_replace',
+          input: {
+            path: `./${path}`,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).toMatchObject({ file: path })
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+      // Sticky auth: the str_replace success keeps the per-path authorization
+      // alive so subsequent edits on `path` (and equivalent spellings such
+      // as `./path`) do not require a re-read.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+    })
+
+    it('strict edit_transaction accepts multi-file reads and edits with equivalent normalized path spellings', async () => {
+      const path = 'src/helper.ts'
+      const otherPath = 'src/other.ts'
+      const diskContentByPath: Record<string, string> = {
+        [path]: 'export const value = 1\n',
+        [otherPath]: 'export const other = 1\n',
+      }
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-transaction-read-normalized',
+          toolName: 'read_files',
+          input: { paths: [`./${path}`, otherPath] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              diskContentByPath[filePath] ?? null,
+            ]),
+          ),
+        logger,
+      } as any)
+
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+      expect(fileProcessingState.readAuthorizationsByPath?.[otherPath]).toBe(true)
+
+      let applied = false
+      const result = await handleEditTransaction({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-transaction-normalized',
+          toolName: 'edit_transaction',
+          input: {
+            edits: [
+              {
+                type: 'str_replace',
+                path,
+                replacements: [
+                  {
+                    oldString: 'export const value = 1',
+                    newString: 'export const value = 2',
+                    allowMultiple: false,
+                  },
+                ],
+              },
+              {
+                type: 'str_replace',
+                path: `./${otherPath}`,
+                replacements: [
+                  {
+                    oldString: 'export const other = 1',
+                    newString: 'export const other = 2',
+                    allowMultiple: false,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          diskContentByPath[filePath] ?? null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: {
+                message: 'applied transaction batch',
+                files: toolCall.input.map(
+                  (change: { path: string; content: string }) => ({
+                    path: change.path,
+                    patch: change.content,
+                    messages: [],
+                  }),
+                ),
+              },
+            },
+          ]
+        },
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+      // Sticky auth: edit_transaction success does NOT consume the per-path
+      // authorization, so subsequent single-file edits on those paths
+      // remain authorized without a re-read.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[otherPath],
+      ).toBe(true)
     })
 
     it('strict edit_transaction blocks unread paths and lists failures', async () => {
@@ -1396,5 +1860,864 @@ describe('read_files edit-state recovery', () => {
         expect(output.value).not.toHaveProperty('errorMessage')
       }
     })
+
+    it('strict write_file blocks existing-file overwrites without prior read and does not call client apply', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      const result = await handleWriteFile({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-write-blocked',
+          toolName: 'write_file',
+          input: {
+            path,
+            instructions: 'Update helper value',
+            content: 'export const value = 2\n',
+          },
+        },
+        agentState: { messageHistory: [] },
+        clientSessionId: 'test-session',
+        fileProcessingState,
+        fingerprintId: 'test-fingerprint',
+        logger,
+        prompt: undefined,
+        userId: undefined,
+        userInputId: 'test-input',
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called for blocked write_file')
+        },
+        writeToClient: () => {},
+      } as any)
+
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as { file?: string; errorMessage?: string }
+        expect(value.file).toBe(path)
+        expect(String(value.errorMessage)).toContain('write_file blocked')
+        expect(String(value.errorMessage)).toContain('read_files')
+      }
+    })
+
+    it('strict write_file allows new-file creation without prior read', async () => {
+      const path = 'src/new-helper.ts'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      let applied = false
+      const result = await handleWriteFile({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-write-new-file',
+          toolName: 'write_file',
+          input: {
+            path,
+            instructions: 'Create helper value',
+            content: 'export const value = 1\n',
+          },
+        },
+        agentState: { messageHistory: [] },
+        clientSessionId: 'test-session',
+        fileProcessingState,
+        fingerprintId: 'test-fingerprint',
+        logger,
+        prompt: undefined,
+        userId: undefined,
+        userInputId: 'test-input',
+        requestOptionalFile: async () => null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'created' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+    })
+
+    it('strict write_file new-file creation grants read auth so a follow-up str_replace can edit without re-reading', async () => {
+      const path = 'src/newly-written-helper.ts'
+      const writtenContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      let writeApplied = false
+      const writeResult = await handleWriteFile({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-write-new-file-grants-auth',
+          toolName: 'write_file',
+          input: {
+            path,
+            instructions: 'Create helper value',
+            content: writtenContent,
+          },
+        },
+        agentState: { messageHistory: [] },
+        clientSessionId: 'test-session',
+        fileProcessingState,
+        fingerprintId: 'test-fingerprint',
+        logger,
+        prompt: undefined,
+        userId: undefined,
+        userInputId: 'test-input',
+        requestOptionalFile: async () => null,
+        requestClientToolCall: async (toolCall: any) => {
+          writeApplied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'created' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(writeApplied).toBe(true)
+      const writeOutput = writeResult.output[0]
+      expect(writeOutput.type).toBe('json')
+      if (writeOutput.type === 'json') {
+        expect(writeOutput.value).not.toHaveProperty('errorMessage')
+      }
+
+      // The fix: a successful write_file (even on a brand-new file with no prior
+      // read) must grant a one-shot read authorization so the very common
+      // write-then-edit flow does not need a redundant read round-trip.
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+
+      // A follow-up str_replace must succeed using the just-granted auth
+      // without the agent having to call read_files separately.
+      let strReplaceApplied = false
+      const strReplaceResult = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-edit-after-new-write',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? writtenContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          strReplaceApplied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(strReplaceApplied).toBe(true)
+      const strReplaceOutput = strReplaceResult.output[0]
+      expect(strReplaceOutput.type).toBe('json')
+      if (strReplaceOutput.type === 'json') {
+        expect(strReplaceOutput.value).not.toHaveProperty('errorMessage')
+      }
+
+      // Sticky auth: the write_file grant (and the follow-up str_replace)
+      // remain in force across subsequent edits on the same path. A third
+      // str_replace without re-reading must SUCCEED and keep auth alive,
+      // because the strict gate only re-enables after a failed edit or an
+      // externally-changed file (anchored with a fresh basedOnRead capability).
+      let thirdApplyCount = 0
+      const thirdResult = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-edit-sticky-after-write',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 2',
+                newString: 'export const value = 3',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? writtenContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          thirdApplyCount += 1
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      // Third str_replace applied via sticky auth (no re-read required).
+      expect(thirdApplyCount).toBe(1)
+      const thirdOutput = thirdResult.output[0]
+      expect(thirdOutput.type).toBe('json')
+      if (thirdOutput.type === 'json') {
+        expect(thirdOutput.value).not.toHaveProperty('errorMessage')
+      }
+      // Auth remains true across the entire write -> edit -> edit -> edit
+      // chain with no intervening read_files calls.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+    })
+
+    it('strict read_files authorizes one write_file overwrite and the authorization is preserved after success', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-write-read',
+          toolName: 'read_files',
+          input: { paths: [path] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              filePath === path ? diskContent : null,
+            ]),
+          ),
+        logger,
+      } as any)
+
+      expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
+
+      let applied = false
+      const result = await handleWriteFile({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-write-authorized',
+          toolName: 'write_file',
+          input: {
+            path,
+            instructions: 'Update helper value',
+            content: 'export const value = 2\n',
+          },
+        },
+        agentState: { messageHistory: [] },
+        clientSessionId: 'test-session',
+        fileProcessingState,
+        fingerprintId: 'test-fingerprint',
+        logger,
+        prompt: undefined,
+        userId: undefined,
+        userInputId: 'test-input',
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+    })
+
+    it('strict replace_range blocks without prior read or freshness anchor and does not call client apply', async () => {
+      const path = 'src/helper.ts'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      const result = await handleReplaceRange({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'replace-range-blocked',
+          toolName: 'replace_range',
+          input: {
+            path,
+            startLine: 1,
+            endLine: 1,
+            newContent: 'export const value = 2',
+          },
+        },
+        fileProcessingState,
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called for blocked replace_range')
+        },
+      } as any)
+
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as { file?: string; errorMessage?: string }
+        expect(value.file).toBe(path)
+        expect(String(value.errorMessage)).toContain('replace_range blocked')
+        expect(String(value.errorMessage)).toContain('read_files')
+      }
+      expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+    })
+
+    it('replace_range preserves strict read authorization on success and only flags re-read after client errors', async () => {
+      const path = 'src/helper.ts'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+      fileProcessingState.readAuthorizationsByPath = { [path]: true }
+
+      const successResult = await handleReplaceRange({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'replace-range-success',
+          toolName: 'replace_range',
+          input: {
+            path,
+            startLine: 1,
+            endLine: 1,
+            expectedHash: 'sha256:current',
+            newContent: 'export const value = 2',
+          },
+        },
+        fileProcessingState,
+        requestClientToolCall: async (toolCall: any) => [
+          {
+            type: 'json' as const,
+            value: { file: toolCall.input.path, message: 'replaced' },
+          },
+        ],
+      } as any)
+
+      expect(successResult.output[0]?.type).toBe('json')
+      // Sticky auth: a successful replace_range does NOT consume the auth.
+      expect(
+        fileProcessingState.readAuthorizationsByPath?.[path],
+      ).toBe(true)
+      expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBeUndefined()
+
+      const errorResult = await handleReplaceRange({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'replace-range-error',
+          toolName: 'replace_range',
+          input: {
+            path,
+            startLine: 1,
+            endLine: 1,
+            expectedHash: 'sha256:stale',
+            newContent: 'export const value = 3',
+          },
+        },
+        fileProcessingState,
+        requestClientToolCall: async (toolCall: any) => [
+          {
+            type: 'json' as const,
+            value: {
+              file: toolCall.input.path,
+              errorMessage: 'replace_range rejected: stale range',
+            },
+          },
+        ],
+      } as any)
+
+      expect(errorResult.output[0]?.type).toBe('json')
+      expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+    })
+
+    it('Reduction A: strict replace_range allows when expectedHash is supplied as freshness anchor', async () => {
+      const path = 'src/helper.ts'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+      // No read authorization registered — only expectedHash as anchor.
+
+      let applied = false
+      const result = await handleReplaceRange({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'replace-range-anchor',
+          toolName: 'replace_range',
+          input: {
+            path,
+            startLine: 1,
+            endLine: 1,
+            expectedHash: 'sha256:fresh',
+            newContent: 'export const value = 2',
+          },
+        },
+        fileProcessingState,
+        requestClientToolCall: async (toolCall: any) => {
+          applied = true
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'replaced' },
+            },
+          ]
+        },
+      } as any)
+
+      expect(applied).toBe(true)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+      expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBeUndefined()
+    })
+
+    it('Reduction D: strict str_replace error message omits "in this turn" and "Recovery required:"', async () => {
+      const path = 'src/helper.ts'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+
+      const result = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'strict-msg-check',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                old_string: 'export const value = 1',
+                new_string: 'export const value = 2',
+              },
+            ],
+          },
+        },
+        fileProcessingState,
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called for blocked str_replace')
+        },
+      } as any)
+
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as { errorMessage?: string }
+        expect(String(value.errorMessage)).not.toContain('in this turn')
+        expect(String(value.errorMessage)).not.toContain('Recovery required:')
+        // Should still mention the actionable next step.
+        expect(String(value.errorMessage)).toContain('read_files')
+      }
+    })
+
+    it('Reduction E: basedOnRead bypasses failedEditRequiresReadByPath from a prior failed edit', async () => {
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const fileProcessingState = createFileProcessingState()
+      fileProcessingState.strictReadBeforeEdit = true
+      // Simulate a prior failed edit that flagged the path as needing re-read.
+      fileProcessingState.failedEditRequiresReadByPath = { [path]: true }
+
+      // First, a basedOnRead-anchored write_file should NOT be blocked even
+      // though failedEditRequiresReadByPath[path] is true and no read
+      // authorization is registered.
+      const writeResult = await handleWriteFile({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'e-bypass-write',
+          toolName: 'write_file',
+          input: {
+            path,
+            instructions: 'Update helper value',
+            content: 'export const value = 2\n',
+            basedOnRead: {
+              startLine: 1,
+              endLine: 1,
+              hash: 'sha256:prior-fresh',
+            },
+          },
+        },
+        agentState: { messageHistory: [] },
+        clientSessionId: 'test-session',
+        fileProcessingState,
+        fingerprintId: 'test-fingerprint',
+        logger,
+        prompt: undefined,
+        userId: undefined,
+        userInputId: 'test-input',
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => [
+          {
+            type: 'json' as const,
+            value: { file: toolCall.input.path, message: 'applied' },
+          },
+        ],
+        writeToClient: () => {},
+      } as any)
+
+      const writeOutput = writeResult.output[0]
+      expect(writeOutput.type).toBe('json')
+      if (writeOutput.type === 'json') {
+        expect(writeOutput.value).not.toHaveProperty('errorMessage')
+      }
+    })
+
+    it('strict read_files auth survives across separate fileProcessingState instances (cross-turn state isolation)', async () => {
+      // Regression: read_files populates fileProcessingState.readAuthorizationsByPath,
+      // but the runtime recreates a fresh fileProcessingState on every
+      // processStream/runProgrammaticStep invocation. A model that reads in
+      // turn N and edits in turn N+1 must still have the per-path authorization
+      // available, otherwise the strict gate blocks the edit on the first
+      // attempt and forces a redundant read round-trip.
+      //
+      // The fix: readAuthorizationsByPath must be persisted on agentState
+      // (which survives across turns) and hydrated into the per-turn
+      // fileProcessingState at the start of each invocation. The test below
+      // mirrors that hydration: after read_files populates state A, the
+      // authorization set is copied into state B (the next turn's state).
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+      const strictReadBeforeEdit = true
+
+      // --- Turn 1: read_files populates auth on state A ---
+      const stateA = createFileProcessingState()
+      stateA.strictReadBeforeEdit = strictReadBeforeEdit
+
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'cross-turn-read',
+          toolName: 'read_files',
+          input: { paths: [path] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState: stateA,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              filePath === path ? diskContent : null,
+            ]),
+          ),
+        logger,
+      } as any)
+
+      expect(stateA.readAuthorizationsByPath?.[path]).toBe(true)
+
+      // --- Turn boundary: persist auth from state A to agentState, then
+      // hydrate a fresh state B (simulating what processStream must do). ---
+      const persistedAuth = { ...(stateA.readAuthorizationsByPath ?? {}) }
+      expect(persistedAuth[path]).toBe(true)
+
+      const stateB = createFileProcessingState()
+      stateB.strictReadBeforeEdit = strictReadBeforeEdit
+      stateB.readAuthorizationsByPath = { ...persistedAuth }
+
+      // --- Turn 2: str_replace on the fresh state B must succeed without
+      // requiring the agent to re-read the file. ---
+      let applyCount = 0
+      const result = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'cross-turn-edit',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState: stateB,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applyCount += 1
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      expect(applyCount).toBe(1)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        expect(output.value).not.toHaveProperty('errorMessage')
+      }
+      // The fix must keep the auth alive after the cross-turn edit so a
+      // third turn's edit (or a follow-up edit_transaction) also succeeds
+      // without re-reading.
+      expect(stateB.readAuthorizationsByPath?.[path]).toBe(true)
+    })
+
+    it('strict str_replace on a fresh fileProcessingState without hydrated auth blocks (proves the cross-turn bug exists without the fix)', async () => {
+      // Companion to the test above: this one models the BUG. It builds a
+      // fresh state B without hydrating auth from state A, then confirms the
+      // strict gate blocks the edit. This is the exact user-reported failure
+      // mode: read in turn N, edit in turn N+1, first edit is blocked.
+      const path = 'src/helper.ts'
+      const diskContent = 'export const value = 1\n'
+
+      // Turn 1: read_files populates auth on state A.
+      const stateA = createFileProcessingState()
+      stateA.strictReadBeforeEdit = true
+      await handleReadFiles({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'bug-demo-read',
+          toolName: 'read_files',
+          input: { paths: [path] },
+        },
+        fileContext: mockFileContext,
+        fileProcessingState: stateA,
+        requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+          Object.fromEntries(
+            filePaths.map((filePath) => [
+              filePath,
+              filePath === path ? diskContent : null,
+            ]),
+          ),
+        logger,
+      } as any)
+      expect(stateA.readAuthorizationsByPath?.[path]).toBe(true)
+
+      // Turn 2: a FRESH state B with no hydration (the current bug). The
+      // strict gate must block the first edit, forcing a redundant read.
+      const stateB = createFileProcessingState()
+      stateB.strictReadBeforeEdit = true
+      expect(stateB.readAuthorizationsByPath?.[path]).toBeUndefined()
+
+      let applyCount = 0
+      const result = await handleStrReplace({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'bug-demo-edit-blocked',
+          toolName: 'str_replace',
+          input: {
+            path,
+            replacements: [
+              {
+                oldString: 'export const value = 1',
+                newString: 'export const value = 2',
+                allowMultiple: false,
+              },
+            ],
+          },
+        },
+        fileProcessingState: stateB,
+        logger,
+        requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+          filePath === path ? diskContent : null,
+        requestClientToolCall: async (toolCall: any) => {
+          applyCount += 1
+          return [
+            {
+              type: 'json' as const,
+              value: { file: toolCall.input.path, message: 'applied' },
+            },
+          ]
+        },
+        writeToClient: () => {},
+      } as any)
+
+      // Without hydration, the strict gate blocks the edit. The client is
+      // never invoked and the error message points at the missing read.
+      expect(applyCount).toBe(0)
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as { file?: string; errorMessage?: string }
+        expect(value.file).toBe(path)
+        expect(String(value.errorMessage)).toContain(
+          'strict read-before-edit is enabled',
+        )
+      }
+    })
   })
 })
+
+
+// === End-to-end cross-turn test for processStream → read_files → str_replace ===
+// Reproduces the user-reported failure mode: reading in turn N does not
+// grant authorization for editing in turn N+1, because each processStream
+// invocation used to create a fresh fileProcessingState. The fix persists
+// readAuthorizationsByPath on agentState across LLM turns.
+
+describe('processStream cross-turn read-before-edit', () => {
+  const testAgentTemplate: AgentTemplate = {
+    id: 'test-agent',
+    displayName: 'Test Agent',
+    spawnerPrompt: 'Test agent',
+    model: 'claude-3-5-sonnet-20241022',
+    inputSchema: {},
+    outputMode: 'structured_output',
+    includeMessageHistory: true,
+    inheritParentSystemPrompt: false,
+    mcpServers: {},
+    toolNames: ['read_files', 'str_replace', 'end_turn'],
+    spawnableAgents: [],
+    systemPrompt: 'Test system prompt',
+    instructionsPrompt: 'Test instructions',
+    stepPrompt: 'Test step prompt',
+  }
+
+  it('persists read auth across consecutive processStream invocations (cross-turn)', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState
+    const targetPath = 'src/example.ts'
+    const diskContent = 'export const value = 1\n'
+
+    let appliedPatches: string[] = []
+
+    const agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      sendAction: () => {},
+      requestFiles: async () => ({ [targetPath]: diskContent }),
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === targetPath ? diskContent : null,
+      // requestClientToolCall is intentionally not mocked: the
+      // executeToolCall wrapper in tool-executor.ts installs its own
+      // requestClientToolCall closure that delegates to requestToolCall,
+      // so mocking only requestToolCall exercises the real cross-turn path
+      // without intercepting the wrapper.
+      requestToolCall: async (params: any) => {
+        if (params.toolName === 'str_replace' || params.toolName === 'write_file') {
+          appliedPatches.push(params.input?.content ?? '')
+        }
+        return { output: [] }
+      },
+    } as AgentRuntimeDeps & AgentRuntimeScopedDeps
+
+    // Turn 1: read_files should grant authorization on agentState.
+    const stream1 = createMockStreamWithToolCalls([
+      'Reading the file now.',
+      { toolName: 'read_files', input: { paths: [targetPath] } },
+      { toolName: 'end_turn', input: {} },
+    ])
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState,
+      agentStepId: 'turn-1',
+      agentTemplate: testAgentTemplate,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': testAgentTemplate },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: stream1,
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: () => {},
+    })
+
+    // After turn 1: agentState must carry the read authorization forward.
+    expect(agentState.readAuthorizationsByPath?.[targetPath]).toBe(true)
+
+    // Turn 2: str_replace on the same path must succeed without re-reading.
+    const stream2 = createMockStreamWithToolCalls([
+      'Editing the file now.',
+      {
+        toolName: 'str_replace',
+        input: {
+          path: targetPath,
+          replacements: [
+            {
+              oldString: 'export const value = 1',
+              newString: 'export const value = 2',
+              allowMultiple: false,
+            },
+          ],
+        },
+      },
+      { toolName: 'end_turn', input: {} },
+    ])
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState,
+      agentStepId: 'turn-2',
+      agentTemplate: testAgentTemplate,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': testAgentTemplate },
+      messages: agentState.messageHistory,
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: stream2,
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: () => {},
+    })
+
+    // The edit must have been applied (no strict-gate block, no re-read needed).
+    expect(appliedPatches).toHaveLength(1)
+    expect(appliedPatches[0]).toContain('export const value = 2')
+  })
+})
+

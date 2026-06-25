@@ -1,85 +1,8 @@
 import { describe, test, expect } from 'bun:test'
 
-import {
-  isOutOfCreditsError,
-  OUT_OF_CREDITS_MESSAGE,
-  createErrorMessage,
-} from '../error-handling'
+import { createErrorMessage } from '../error-handling'
 
 describe('error-handling', () => {
-  describe('isOutOfCreditsError', () => {
-    test('returns true for error with statusCode 402', () => {
-      const error = { statusCode: 402, message: 'Payment required' }
-      expect(isOutOfCreditsError(error)).toBe(true)
-    })
-
-    test('returns false for error with statusCode 401', () => {
-      const error = { statusCode: 401, message: 'Unauthorized' }
-      expect(isOutOfCreditsError(error)).toBe(false)
-    })
-
-    test('returns false for error with statusCode 403', () => {
-      const error = { statusCode: 403, message: 'Forbidden' }
-      expect(isOutOfCreditsError(error)).toBe(false)
-    })
-
-    test('returns false for error with statusCode 500', () => {
-      const error = { statusCode: 500, message: 'Server error' }
-      expect(isOutOfCreditsError(error)).toBe(false)
-    })
-
-    test('returns false for null error', () => {
-      expect(isOutOfCreditsError(null)).toBe(false)
-    })
-
-    test('returns false for undefined error', () => {
-      expect(isOutOfCreditsError(undefined)).toBe(false)
-    })
-
-    test('returns false for string error', () => {
-      expect(isOutOfCreditsError('error string')).toBe(false)
-    })
-
-    test('returns false for Error object without statusCode', () => {
-      const error = new Error('Plain error')
-      expect(isOutOfCreditsError(error)).toBe(false)
-    })
-
-    test('returns false for error with non-402 numeric statusCode', () => {
-      const error = { statusCode: 400, message: 'Bad request' }
-      expect(isOutOfCreditsError(error)).toBe(false)
-    })
-
-    test('returns false for error with string statusCode', () => {
-      const error = { statusCode: '402', message: 'Payment required' }
-      expect(isOutOfCreditsError(error)).toBe(false)
-    })
-
-    test('returns true for 402 errors with additional properties', () => {
-      const error = {
-        statusCode: 402,
-        message: 'Payment required',
-        details: { credits: 0 },
-        timestamp: new Date().toISOString(),
-      }
-      expect(isOutOfCreditsError(error)).toBe(true)
-    })
-  })
-
-  describe('OUT_OF_CREDITS_MESSAGE', () => {
-    test('contains usage URL', () => {
-      expect(OUT_OF_CREDITS_MESSAGE).toContain('/usage')
-    })
-
-    test('contains out of credits message', () => {
-      expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('out of credits')
-    })
-
-    test('contains add credits instruction', () => {
-      expect(OUT_OF_CREDITS_MESSAGE.toLowerCase()).toContain('add credits')
-    })
-  })
-
   describe('createErrorMessage', () => {
     test('creates message from Error object', () => {
       const error = new Error('Something went wrong')
@@ -142,7 +65,7 @@ describe('error-handling', () => {
       expect(result.content).toContain('Unknown error occurred')
     })
 
-    test('handles out of credits error', () => {
+    test('handles payment required errors as normal errors', () => {
       const error = { statusCode: 402, message: 'Payment required' }
       const result = createErrorMessage(error, 'msg-402')
 
@@ -224,8 +147,6 @@ describe('error-handling', () => {
         retryAfter: 60,
       }
 
-      expect(isOutOfCreditsError(rateLimitError)).toBe(false)
-
       const result = createErrorMessage(rateLimitError, 'msg-rate')
       expect(result.content).toContain('Too many requests')
     })
@@ -235,8 +156,6 @@ describe('error-handling', () => {
         statusCode: 500,
         message: 'Internal server error',
       }
-
-      expect(isOutOfCreditsError(serverError)).toBe(false)
 
       const result = createErrorMessage(serverError, 'msg-500')
       expect(result.content).toContain('Internal server error')
@@ -249,8 +168,6 @@ describe('error-handling', () => {
         errors: [{ field: 'prompt', message: 'Required' }],
       }
 
-      expect(isOutOfCreditsError(validationError)).toBe(false)
-
       const result = createErrorMessage(validationError, 'msg-400')
       expect(result.content).toContain('Invalid request parameters')
     })
@@ -260,8 +177,6 @@ describe('error-handling', () => {
         statusCode: 403,
         message: 'Access denied',
       }
-
-      expect(isOutOfCreditsError(forbiddenError)).toBe(false)
 
       const result = createErrorMessage(forbiddenError, 'msg-403')
       expect(result.content).toContain('Access denied')
@@ -273,8 +188,6 @@ describe('error-handling', () => {
         message: 'Resource not found',
       }
 
-      expect(isOutOfCreditsError(notFoundError)).toBe(false)
-
       const result = createErrorMessage(notFoundError, 'msg-404')
       expect(result.content).toContain('Resource not found')
     })
@@ -284,8 +197,6 @@ describe('error-handling', () => {
         statusCode: 409,
         message: 'Conflict detected',
       }
-
-      expect(isOutOfCreditsError(conflictError)).toBe(false)
 
       const result = createErrorMessage(conflictError, 'msg-409')
       expect(result.content).toContain('Conflict detected')

@@ -553,22 +553,82 @@ const definition: AgentDefinition = {
     function extractActiveWorkLines(text: string): string[] {
       const pinned: string[] = []
       let isInFinalResponseAllowedState = false
+      let finalResponseAllowedPhaseLine = ''
+      let workflowTodoLines: string[] = []
+      let workflowTodoHasNextAction = false
+
+      function flushWorkflowTodoLines(): void {
+        if (workflowTodoLines.length > 0 && workflowTodoHasNextAction) {
+          if (finalResponseAllowedPhaseLine) {
+            addUniqueLine(pinned, finalResponseAllowedPhaseLine)
+          }
+          for (const workflowLine of workflowTodoLines) {
+            addUniqueLine(pinned, workflowLine)
+          }
+        }
+        workflowTodoLines = []
+        workflowTodoHasNextAction = false
+      }
 
       for (const line of text.split('\n')) {
         const trimmed = line.trim()
-        if (!trimmed) continue
+        if (!trimmed) {
+          flushWorkflowTodoLines()
+          continue
+        }
+
+        if (/^Workflow todo progress \(authoritative resumable state\):/i.test(trimmed)) {
+          flushWorkflowTodoLines()
+          workflowTodoLines = [trimmed]
+          workflowTodoHasNextAction = false
+          continue
+        }
+
+        if (workflowTodoLines.length > 0) {
+          if (/^Completed \d+\/\d+\./i.test(trimmed)) {
+            workflowTodoLines.push(trimmed)
+            continue
+          }
+          const nextActionMatch = trimmed.match(/^Next workflow action:\s*(.+)$/i)
+          if (nextActionMatch) {
+            workflowTodoLines.push(trimmed)
+            workflowTodoHasNextAction = nextActionMatch[1].trim().length > 0
+            continue
+          }
+          if (/^Continue from this item;/i.test(trimmed)) {
+            workflowTodoLines.push(trimmed)
+            continue
+          }
+          flushWorkflowTodoLines()
+        }
 
         const phaseMatch = trimmed.match(/^Current phase:\s*(\S+)/i)
         if (phaseMatch) {
           isInFinalResponseAllowedState =
             phaseMatch[1].toLowerCase() === 'final_response_allowed'
-          if (!isInFinalResponseAllowedState) {
+          if (isInFinalResponseAllowedState) {
+            finalResponseAllowedPhaseLine = trimmed
+          } else {
+            finalResponseAllowedPhaseLine = ''
             addUniqueLine(pinned, trimmed)
           }
           continue
         }
 
         if (/^BLOCKING:/i.test(trimmed)) {
+          addUniqueLine(pinned, trimmed)
+          continue
+        }
+
+        // Pin plan-declared blocking open questions (e.g. "Open questions (block Milestone 4)")
+        // verbatim, plus their Q\d sub-bullets, so a resuming agent sees the controlling
+        // fact without re-reading STATUS.md.
+        if (/^Open questions?\s*\(block/i.test(trimmed)) {
+          addUniqueLine(pinned, trimmed)
+          continue
+        }
+
+        if (/^[-*]\s*Q\d+\b\s*[:\u2014-]/i.test(trimmed)) {
           addUniqueLine(pinned, trimmed)
           continue
         }
@@ -583,6 +643,7 @@ const definition: AgentDefinition = {
           addUniqueLine(pinned, trimmed)
         }
       }
+      flushWorkflowTodoLines()
       return pinned
     }
 
@@ -600,13 +661,37 @@ const definition: AgentDefinition = {
       }
       const sanitizedLines: string[] = []
       let skippingTodoList = false
+      let skippingWorkflowTodoProgress = false
 
       for (const line of withoutSystemReminders.split('\n')) {
         const trimmed = line.trim()
+        const isWorkflowTodoProgressLine =
+          /^Workflow todo progress \(authoritative resumable state\):/i.test(
+            trimmed,
+          ) ||
+          /^Completed \d+\/\d+\./i.test(trimmed) ||
+          /^Next workflow action:/i.test(trimmed) ||
+          /^Continue from this item;/i.test(trimmed)
         const isOperationalLine =
           /^(Harness pinned active-work state|Open reviewer blockers\/feedback|Current phase:|Pending validation\/reviewer gate files:|Historical changed files:|Historical touched files:|Latest work summary:|Last validation summary:|Next required action:|Todos:|Remaining:)/i.test(
             trimmed,
-          ) || /^(BLOCKING|NON_BLOCKING):/i.test(trimmed)
+          ) ||
+          /^(BLOCKING|NON_BLOCKING):/i.test(trimmed) ||
+          /^Open questions?\s*\(block/i.test(trimmed) ||
+          /^[-*]\s*Q\d+\b\s*[:\u2014-]/i.test(trimmed)
+
+        if (/^Workflow todo progress \(authoritative resumable state\):/i.test(trimmed)) {
+          skippingTodoList = false
+          skippingWorkflowTodoProgress = true
+          continue
+        }
+
+        if (skippingWorkflowTodoProgress) {
+          if (!trimmed || isWorkflowTodoProgressLine) {
+            continue
+          }
+          skippingWorkflowTodoProgress = false
+        }
 
         if (/^(Todos:|Remaining:)/i.test(trimmed)) {
           skippingTodoList = true

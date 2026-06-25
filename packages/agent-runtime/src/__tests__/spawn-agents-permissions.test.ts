@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:te
 import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
-import { getMatchingSpawn } from '../tools/handlers/tool/spawn-agent-utils'
+import {
+  BASE_AGENT_IDS,
+  getMatchingSpawn,
+  isBaseAgent,
+  toolNotAgentError,
+} from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
@@ -132,5 +137,50 @@ describe('Spawn Agents Permissions', () => {
         toolCall,
       }),
     ).rejects.toThrow('is not allowed to spawn child agent type reviewer')
+  })
+})
+
+describe('base-agent spawn helpers', () => {
+  it('exposes the canonical set of base agent ids', () => {
+    // Guard against accidental additions/removals — runtime spawn-permission
+    // checks and the tool-executor pre-validation block must agree.
+    expect([...BASE_AGENT_IDS].sort()).toEqual(
+      ['base', 'base-experimental', 'base-free', 'base-max'],
+    )
+  })
+
+  it('isBaseAgent returns true for every entry in BASE_AGENT_IDS', () => {
+    for (const id of BASE_AGENT_IDS) {
+      expect(isBaseAgent(id)).toBe(true)
+    }
+  })
+
+  it('isBaseAgent returns false for non-base agents and arbitrary strings', () => {
+    expect(isBaseAgent('thinker')).toBe(false)
+    expect(isBaseAgent('reviewer')).toBe(false)
+    expect(isBaseAgent('file-picker')).toBe(false)
+    expect(isBaseAgent('base-fork')).toBe(false)
+    expect(isBaseAgent('Base')).toBe(false) // case-sensitive
+    expect(isBaseAgent('')).toBe(false)
+    expect(isBaseAgent(' base')).toBe(false) // whitespace-sensitive
+  })
+
+  it('toolNotAgentError formats the canonical tool-vs-agent message', () => {
+    expect(toolNotAgentError('read_files')).toBe(
+      `"read_files" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+    )
+    expect(toolNotAgentError('code_search')).toContain('"code_search"')
+    expect(toolNotAgentError('code_search')).toContain(
+      'is a tool, not an agent',
+    )
+  })
+
+  it('toolNotAgentError preserves empty and special-char inputs verbatim', () => {
+    // Edge-case inputs are passed through unchanged so the error string stays
+    // useful for debugging in logs and reviewer output.
+    expect(toolNotAgentError('')).toBe(
+      `"" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+    )
+    expect(toolNotAgentError('weird name!')).toContain('"weird name!"')
   })
 })

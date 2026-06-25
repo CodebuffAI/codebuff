@@ -185,10 +185,10 @@ describe('use-suggestion-engine - filterFileMatches', () => {
   const sampleFiles = [
     'cli/src/hooks/use-suggestion-engine.ts',
     'cli/src/hooks/use-timeout.ts',
-    'cli/src/hooks/use-usage-query.ts',
+    'cli/src/hooks/use-message-queue.ts',
     'cli/src/components/suggestion-menu.tsx',
     'cli/src/chat.tsx',
-    'web/src/components/ui/button.tsx',
+    'app/src/components/ui/button.tsx',
     'backend/src/tools/definitions/list.ts',
     'common/src/util/file.ts',
     'packages/agent-runtime/src/index.ts',
@@ -203,7 +203,7 @@ describe('use-suggestion-engine - filterFileMatches', () => {
         results.some((r) => r.filePath.includes('use-suggestion-engine')),
       ).toBe(true)
       expect(results.some((r) => r.filePath.includes('use-timeout'))).toBe(true)
-      expect(results.some((r) => r.filePath.includes('use-usage-query'))).toBe(
+      expect(results.some((r) => r.filePath.includes('use-message-queue'))).toBe(
         true,
       )
     })
@@ -219,19 +219,19 @@ describe('use-suggestion-engine - filterFileMatches', () => {
       ).toBe(true)
     })
 
-    test('matches "web/ui/button" to button component', () => {
-      const results = filterFileMatches(sampleFiles, 'web/ui/button')
+    test('matches "app/ui/button" to button component', () => {
+      const results = filterFileMatches(sampleFiles, 'app/ui/button')
 
       expect(results.length).toBeGreaterThan(0)
       expect(
-        results.some((r) => r.filePath === 'web/src/components/ui/button.tsx'),
+        results.some((r) => r.filePath === 'app/src/components/ui/button.tsx'),
       ).toBe(true)
     })
 
     test('does not match when segments are not found in order', () => {
-      const results = filterFileMatches(sampleFiles, 'web/cli/use-')
+      const results = filterFileMatches(sampleFiles, 'app/cli/use-')
 
-      // Should not match because "web" comes after "cli" in file paths
+      // Should not match because "app" comes after "cli" in file paths
       expect(results.length).toBe(0)
     })
 
@@ -350,16 +350,16 @@ describe('use-suggestion-engine - filterFileMatches', () => {
 
     test('prioritizes longer contiguous segments including slashes', () => {
       const files = [
-        'web/src/components/ui/button.tsx',
-        'web/something/ui/button.tsx',
-        'website/ui/button.tsx',
+        'app/src/components/ui/button.tsx',
+        'app/something/ui/button.tsx',
+        'application/ui/button.tsx',
       ]
-      const results = filterFileMatches(files, 'web/ui')
+      const results = filterFileMatches(files, 'app/ui')
 
-      // 'web/src/components/ui' has the longest contiguous match 'web/'
-      // but 'website/ui' has 'website/ui' which is also long
+      // 'app/src/components/ui' has the longest contiguous match 'app/'
+      // but 'application/ui' has 'application/ui' which is also long
       // The actual behavior prioritizes the one with longest exact query match
-      expect(results[0].filePath).toBe('web/src/components/ui/button.tsx') // Has 'web/' + 'ui' matching
+      expect(results[0].filePath).toBe('app/src/components/ui/button.tsx') // Has 'app/' + 'ui' matching
     })
 
     test('ranks results by total contiguous match length for slash queries', () => {

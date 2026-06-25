@@ -52,34 +52,4 @@ jobs:
       - name: Run agents e2e tests
         run: cd agents && bun run test:e2e --timeout=120000
 
-      # Documentation quality checks
-      - name: Install Vale
-        run: |
-          wget -q https://github.com/errata-ai/vale/releases/download/v3.13.0/vale_3.13.0_Linux_64-bit.tar.gz
-          tar -xzf vale_3.13.0_Linux_64-bit.tar.gz
-          sudo mv vale /usr/local/bin/
-          vale --version
-
-      - name: Run Vale docs linting
-        run: cd web && vale src/content/ --minAlertLevel=warning
-
-      - name: Run documentation content integrity tests
-        run: cd web && bun run test:docs:integrity
-
-      - name: Install Playwright browsers
-        run: cd web && bunx playwright install --with-deps chromium
-
-      - name: Run web E2E tests (chromium)
-        run: cd web && bun run e2e --project=chromium
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: debug/playwright-report/
-          retention-days: 7
-
-      - name: Cleanup e2e database
-        if: always()
-        run: bun --cwd packages/internal db:e2e:down
+      # Hosted web docs and Playwright checks were removed with the web package.

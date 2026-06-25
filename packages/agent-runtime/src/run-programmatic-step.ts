@@ -253,6 +253,12 @@ export async function runProgrammaticStep(
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolMessage[] = []
+  // Hydrate cross-turn read authorization from agentState. Each
+  // runProgrammaticStep invocation creates a fresh fileProcessingState, so
+  // any read auth granted by read_files or write_file in a prior turn would
+  // otherwise be lost. The agentState.readAuthorizationsByPath registry
+  // survives across LLM turns because agentState is the durable per-run
+  // state object.
   const fileProcessingState: FileProcessingState = {
     promisesByPath: {},
     allPromises: [],
@@ -260,6 +266,9 @@ export async function runProgrammaticStep(
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
+    consecutiveStrReplaceFailuresByPath: {},
+    strictReadBeforeEdit: true,
+    readAuthorizationsByPath: { ...(agentState.readAuthorizationsByPath ?? {}) },
   }
   const agentContext = cloneDeep(agentState.agentContext)
   const _sendSubagentChunk = (data: {
@@ -479,6 +488,25 @@ export async function runProgrammaticStep(
       generateN: undefined,
     }
   } finally {
+    // Write back cross-turn read authorization. Any path that read_files or
+    // write_file granted auth on during this programmatic step must be
+    // persisted on agentState so the next runProgrammaticStep invocation
+    // (or the next processStream call) can hydrate it. Running in finally
+    // ensures the write-back fires on both the success and the error paths,
+    // so a successful read_files followed by a downstream error still
+    // carries its auth to the next turn. The read-back half of the fix
+    // is the hydration in the fileProcessingState initializer above.
+    if (!agentState.readAuthorizationsByPath) {
+      agentState.readAuthorizationsByPath = {}
+    }
+    for (const [authPath, auth] of Object.entries(
+      fileProcessingState.readAuthorizationsByPath ?? {},
+    )) {
+      if (auth) {
+        agentState.readAuthorizationsByPath[authPath] = true
+      }
+    }
+
     if (endTurn) {
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)

@@ -6,6 +6,7 @@ import {
   jsonToolResultSchema,
   normalizeReplacementAliases,
 } from '../utils'
+import { basedOnReadSchema } from '../based-on-read'
 
 import type { $ToolParams } from '../../constants'
 
@@ -71,51 +72,8 @@ const inputSchema = z
                     .describe(
                       'When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range.',
                     ),
-                  basedOnRead: z
-                    .union([
-                      z
-                        .string()
-                        .min(1)
-                        .describe(
-                          'The single readCapability token copied verbatim from a fresh read_files range header (e.g. "cap.ABC123"). Preferred: one value to copy instead of three.',
-                        ),
-                      z.object({
-                        startLine: z
-                          .number()
-                          .int()
-                          .min(1)
-                          .describe(
-                            '1-indexed inclusive start line from the read_files.ranges result this replacement is based on.',
-                          ),
-                        endLine: z
-                          .number()
-                          .int()
-                          .min(1)
-                          .describe(
-                            '1-indexed inclusive end line from the read_files.ranges result this replacement is based on.',
-                          ),
-                        hash: z
-                          .string()
-                          .min(1)
-                          .describe(
-                            'The sha256 rangeHash returned by read_files.ranges for this exact range.',
-                          ),
-                      }),
-                    ])
-                    .optional()
-                    .describe(
-                      'Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, the runtime falls back to full-file deterministic oldString matching when it can identify exactly one safe target.',
-                    ),
+                  basedOnRead: basedOnReadSchema,
                 }),
-              )
-              .refine(
-                (replacement) =>
-                  !replacement.basedOnRead ||
-                  typeof replacement.basedOnRead === 'string' ||
-                  replacement.basedOnRead.startLine <= replacement.basedOnRead.endLine,
-                {
-                  message: 'basedOnRead.startLine must be <= basedOnRead.endLine',
-                },
               )
               .describe('Pair of oldString and newString values.'),
           )

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Check the status of development services
+ * Check the status of optional local development services.
  *
  * Usage:
  *   bun status-services    # Check if services are running
@@ -17,17 +17,11 @@ import { join, resolve } from 'path'
 const PROJECT_ROOT = resolve(import.meta.dir, '..')
 const LOG_DIR = join(PROJECT_ROOT, 'debug', 'console')
 const PID_FILE = join(LOG_DIR, 'services.json')
-
-// Get config from environment (Bun loads .env files automatically)
-const APP_URL = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
-const PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'
 const STUDIO_PORT = '4983' // Drizzle Studio default port
 
 interface ServicePids {
   studio?: number
   sdk?: number
-  web?: number
-  port: string
 }
 
 function ok(name: string, message: string): void {
@@ -89,18 +83,9 @@ function isDockerDbRunning(): boolean {
   }
 }
 
-async function checkHealth(): Promise<boolean> {
-  try {
-    const response = await fetch(`${APP_URL}/api/healthz`, { signal: AbortSignal.timeout(3000) })
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
 async function main(): Promise<void> {
   console.log('')
-  console.log(`Service Status (port ${PORT}):`)
+  console.log('Optional Service Status:')
   console.log('')
 
   const pids = loadPids()
@@ -112,20 +97,6 @@ async function main(): Promise<void> {
     anyRunning = true
   } else {
     fail('db', 'not running')
-  }
-
-  // Check web server
-  const webProcesses = getProcessesOnPort(PORT)
-  if (webProcesses.length > 0) {
-    const healthy = await checkHealth()
-    if (healthy) {
-      ok('web', `running on port ${PORT} (healthy)`)
-    } else {
-      warn('web', `running on port ${PORT} (not responding to health check)`)
-    }
-    anyRunning = true
-  } else {
-    fail('web', `not running on port ${PORT}`)
   }
 
   // Check studio by port
@@ -153,9 +124,9 @@ async function main(): Promise<void> {
   console.log('')
 
   if (anyRunning) {
-    console.log('  To stop: bun down')
+    console.log('  To stop optional services: bun down')
   } else {
-    console.log('  To start: bun up')
+    console.log('  To start optional services: bun up')
   }
 
   console.log('')

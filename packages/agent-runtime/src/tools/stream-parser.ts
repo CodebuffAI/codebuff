@@ -47,7 +47,7 @@ export async function processStream(
     signal: AbortSignal
     userId: string | undefined
 
-    onCostCalculated: (credits: number) => Promise<void>
+    onCostCalculated: (providerCostCents: number) => Promise<void>
     onResponseChunk: (chunk: string | PrintModeEvent) => void
   } & Omit<
     ExecuteToolCallParams<any>,
@@ -98,6 +98,11 @@ export async function processStream(
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
 
+  // Hydrate cross-turn read authorization from agentState. Each processStream
+  // invocation creates a fresh fileProcessingState, so any read auth granted
+  // by read_files or write_file in a prior turn would otherwise be lost. The
+  // agentState.readAuthorizationsByPath registry survives across LLM turns
+  // because agentState is the durable per-run state object.
   const fileProcessingState: FileProcessingState = {
     promisesByPath: {},
     allPromises: [],
@@ -105,6 +110,9 @@ export async function processStream(
     fileChanges: [],
     firstFileProcessed: false,
     failedEditRequiresReadByPath: {},
+    consecutiveStrReplaceFailuresByPath: {},
+    strictReadBeforeEdit: true,
+    readAuthorizationsByPath: { ...(agentState.readAuthorizationsByPath ?? {}) },
   }
 
   // === RESPONSE HANDLER ===
@@ -335,6 +343,23 @@ export async function processStream(
     }
   } finally {
     // === FINALIZATION ===
+    // Write back cross-turn read authorization. Any path that read_files or
+    // write_file granted auth on during this turn must be persisted on
+    // agentState so the next processStream invocation (next LLM turn) can
+    // hydrate it. This is the write-back half of the cross-turn state
+    // isolation fix; the read-back half is the hydration in the
+    // fileProcessingState initializer above.
+    if (!agentState.readAuthorizationsByPath) {
+      agentState.readAuthorizationsByPath = {}
+    }
+    for (const [path, auth] of Object.entries(
+      fileProcessingState.readAuthorizationsByPath ?? {},
+    )) {
+      if (auth) {
+        agentState.readAuthorizationsByPath[path] = true
+      }
+    }
+
     // Trigger cleanup of the processStreamWithTools generator so it flushes any
     // remaining buffered text to assistantMessages before we build the history.
     // On path B (AbortError thrown mid-stream) the generator is already completed

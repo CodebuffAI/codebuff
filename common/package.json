@@ -35,7 +35,6 @@
     "posthog-node": "^5.8.0",
     "readable-stream": "^4.7.0",
     "seedrandom": "^3.0.5",
-    "stripe": "^16.11.0",
     "zod": "^4.2.1",
     "zod-from-json-schema": "0.4.2"
   },

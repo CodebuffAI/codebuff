@@ -46,7 +46,7 @@
 - Notes:
   - Unlike previous finetunes, this also provided "additional file context" to the teacher model, so it not only used a stronger model, but also more informative context.
   - Forced maximum adapter size, and 1 epoch
-  - Only used 'Key' traces AFAIK - TODO: Will this worsen non-obvious, or encourage 'Key' to pick too many?
+  - Only used 'Key' traces AFAIK - TODO: Will this worsen non-obvious, or encourage 'Key' to pick too many? <!-- allow-todo -->
 - Est costs:
   - ~$150 for finetuning ($3.00/1M tokens _ 1 epoch _ 44.7M tokens)
   - over $660 for generating relabel inputs (at $15.00/1M input Claude tokens + some additional file context tokens)
@@ -146,16 +146,4 @@
 
 ## Scripts
 
-Contains a variety of scripts for inspecting and processing finetuning data from BigQuery.
-
-`print-recent-traces.ts [--prod]` - Prints the most recent traces from BigQuery.
-
-`print-recent-relabels.ts [--prod]` - Prints the most recent relabels from BigQuery.
-
-`relabel-traces.ts [--prod]` - Relabels traces in BigQuery, ie: generates new outputs using more powerful models for real production inputs.
-
-`relabel-traces-with-context.ts [--prod]` - Relabels traces using the uploaded "full file context"
-
-`collect-tuning-data.ts <model> [--prod]` - Downloads tuning data from BigQuery, using real inputs + relabeled outputs. The `model` parameter controls which relabeler model is used.
-
-`relabel-for-offline-scoring.ts [--relabel|--score] [--prod]` - Relabels validation traces for offline evaluation or scores existing relabels using metrics like Jaccard similarity and MRR.
+The hosted BigQuery trace/relabel inspection scripts have been removed from Openbuff's local/BYOK workspace. Keep this directory focused on retained offline tuning artifacts only.

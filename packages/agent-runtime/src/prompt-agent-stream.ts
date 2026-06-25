@@ -36,7 +36,7 @@ export const getAgentStreamFromTemplate = (params: {
   }) => void
   onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
 
-  onCostCalculated?: (credits: number) => Promise<void>
+  onCostCalculated?: (providerCostCents: number) => Promise<void>
   promptAiSdkStream: PromptAiSdkStreamFn
   sendAction: SendActionFn
   trackEvent: TrackEventFn

@@ -1,5 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
 import { getErrorObject, promptAborted, promptSuccess } from '@codebuff/common/util/error'
@@ -80,10 +80,10 @@ function valueContainsImageInput(value: unknown): boolean {
   return valueContainsImageInput(record.content)
 }
 
-function calculateUsedCredits(params: { costDollars: number }): number {
+function calculateProviderCostCents(params: { costDollars: number }): number {
   const { costDollars } = params
 
-  return Math.round(costDollars * (1 + PROFIT_MARGIN) * 100)
+  return Math.round(costDollars * 100)
 }
 
 export function getProviderOptions(params: {
@@ -149,7 +149,7 @@ export function getProviderOptions(params: {
   }
 }
 
-// Usage accounting type for OpenRouter/Codebuff backend responses
+// Provider usage accounting type for OpenRouter-compatible responses.
 // Forked from https://github.com/OpenRouterTeam/ai-sdk-provider/
 type OpenRouterUsageAccounting = {
   cost: number | null
@@ -1012,11 +1012,12 @@ export async function* promptAiSdkStream(
         }
       }
 
-      // Skip cost tracking for ChatGPT OAuth (user is on their own subscription)
+      // Skip provider-cost tracking for ChatGPT OAuth because the request runs
+      // under the user's provider-owned ChatGPT/Codex subscription.
       if (!isChatGptOAuth && !compatibility.stripProviderMetadata) {
         const providerMetadataResult = await awaitOptionalPostStreamMetadata({
           promise: response.providerMetadata,
-          label: 'provider billing metadata',
+          label: 'provider usage metadata',
           logger,
         })
         const providerMetadata = providerMetadataResult ?? {}
@@ -1033,10 +1034,10 @@ export async function* promptAiSdkStream(
           }
         }
 
-        // Call the cost callback if provided
+        // Report provider cost in cents for local/BYOK telemetry only.
         if (params.onCostCalculated && costOverrideDollars) {
           await params.onCostCalculated(
-            calculateUsedCredits({ costDollars: costOverrideDollars }),
+            calculateProviderCostCents({ costDollars: costOverrideDollars }),
           )
         }
       }
@@ -1181,10 +1182,10 @@ export async function promptAiSdk(
     }
   }
 
-  // Call the cost callback if provided
+  // Report provider cost in cents for local/BYOK telemetry only.
   if (params.onCostCalculated && costOverrideDollars) {
     await params.onCostCalculated(
-      calculateUsedCredits({ costDollars: costOverrideDollars }),
+      calculateProviderCostCents({ costDollars: costOverrideDollars }),
     )
   }
 
@@ -1283,10 +1284,10 @@ export async function promptAiSdkStructured<T>(
     }
   }
 
-  // Call the cost callback if provided
+  // Report provider cost in cents for local/BYOK telemetry only.
   if (params.onCostCalculated && costOverrideDollars) {
     await params.onCostCalculated(
-      calculateUsedCredits({ costDollars: costOverrideDollars }),
+      calculateProviderCostCents({ costDollars: costOverrideDollars }),
     )
   }
 

@@ -56,10 +56,10 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('escape in usage mode exits mode', () => {
+    test('escape in image mode exits mode', () => {
       const state: ChatKeyboardState = {
         ...defaultState,
-        inputMode: 'usage',
+        inputMode: 'image',
       }
       expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
         type: 'exit-input-mode',
@@ -641,16 +641,6 @@ describe('resolveChatKeyboardAction', () => {
       const state: ChatKeyboardState = {
         ...defaultState,
         feedbackMode: true,
-      }
-      expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
-        type: 'none',
-      })
-    })
-
-    test('Ctrl+T blocked in outOfCredits mode', () => {
-      const state: ChatKeyboardState = {
-        ...defaultState,
-        inputMode: 'outOfCredits',
       }
       expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
         type: 'none',

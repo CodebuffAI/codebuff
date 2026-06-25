@@ -170,6 +170,40 @@ export function getMatchingSpawn(
 }
 
 /**
+ * Agent IDs that have unrestricted spawning permissions.
+ *
+ * Base agents can spawn any agent type directly via `normalizeAgentIdForLookup`;
+ * non-base agents must declare the child agent in their `spawnableAgents` list
+ * and pass through `getMatchingSpawn`. Centralizing this list here keeps the
+ * runtime's `validateAndGetAgentTemplate` and `tool-executor.ts` pre-validation
+ * paths in lockstep — adding a new base agent is now a single edit.
+ */
+export const BASE_AGENT_IDS = [
+  'base',
+  'base-free',
+  'base-max',
+  'base-experimental',
+] as const
+
+/**
+ * Returns true if the given agent ID is a base agent with unrestricted
+ * spawning permissions. Shared by `validateAndGetAgentTemplate` and the
+ * `tool-executor.ts` spawn_agents pre-validation block.
+ */
+export function isBaseAgent(agentId: string): boolean {
+  return (BASE_AGENT_IDS as readonly string[]).includes(agentId)
+}
+
+/**
+ * Canonical error message when a requested spawn target is a tool rather than
+ * an agent. Centralized so wording stays consistent across every callsite that
+ * rejects a tool-name being passed to `spawn_agents` / `spawn_agent_inline`.
+ */
+export function toolNotAgentError(agentTypeStr: string): string {
+  return `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`
+}
+
+/**
  * Validates agent template and permissions
  */
 export async function validateAndGetAgentTemplate(
@@ -181,17 +215,14 @@ export async function validateAndGetAgentTemplate(
   } & ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
 ): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
   const { agentTypeStr, parentAgentTemplate } = params
-  const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']
-  const isBaseAgent = BASE_AGENTS.includes(parentAgentTemplate.id)
-  const agentType = isBaseAgent
+  const isParentBaseAgent = isBaseAgent(parentAgentTemplate.id)
+  const agentType = isParentBaseAgent
     ? normalizeAgentIdForLookup(agentTypeStr)
     : getMatchingSpawn(parentAgentTemplate.spawnableAgents, agentTypeStr)
 
   if (!agentType) {
     if (toolNames.includes(agentTypeStr as any)) {
-      throw new Error(
-        `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
-      )
+      throw new Error(toolNotAgentError(agentTypeStr))
     }
     throw new Error(
       `Agent type ${parentAgentTemplate.id} is not allowed to spawn child agent type ${agentTypeStr}.`,
@@ -205,14 +236,38 @@ export async function validateAndGetAgentTemplate(
 
   if (!agentTemplate) {
     if (toolNames.includes(agentTypeStr as any)) {
-      throw new Error(
-        `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
-      )
+      throw new Error(toolNotAgentError(agentTypeStr))
     }
     throw new Error(`Agent type ${agentTypeStr} not found.`)
   }
 
   return { agentTemplate, agentType }
+}
+
+export function buildSpawnParamsWithHandoff(params: {
+  agentType: string
+  handoff?: unknown
+  spawnParams?: Record<string, unknown>
+}): Record<string, unknown> | undefined {
+  const { agentType, handoff, spawnParams } = params
+
+  if (handoff === undefined) {
+    return spawnParams
+  }
+
+  if (
+    spawnParams &&
+    Object.prototype.hasOwnProperty.call(spawnParams, 'handoff')
+  ) {
+    throw new Error(
+      `Invalid handoff for agent ${agentType}: use the top-level handoff field, not params.handoff.`,
+    )
+  }
+
+  return {
+    ...(spawnParams ?? {}),
+    handoff,
+  }
 }
 
 /**

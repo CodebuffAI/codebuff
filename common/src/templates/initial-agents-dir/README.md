@@ -13,7 +13,7 @@ Create specialized agent workflows that coordinate multiple AI agents to tackle 
 
 - For examples, check the `examples/` directory.
 - Ask questions via [GitHub Issues](https://github.com/AnzoBenjamin/openbuff/issues).
-- For legacy upstream docs, see [codebuff.com/docs](https://codebuff.com/docs) (hosted compatibility reference).
+- For Openbuff docs, see the repository `docs/` directory. Legacy Codebuff names in examples are compatibility aliases, not the preferred Openbuff product direction.
 
 # What is Openbuff?
 

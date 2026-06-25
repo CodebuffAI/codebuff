@@ -98,13 +98,13 @@ describe('tool validation error handling', () => {
       rawToolCall: {
         toolName: 'list_directory',
         toolCallId: 'bare-path-tool-call-id',
-        input: '{"path": web/src/app/api/agents}',
+        input: '{"path": app/src/api/agents}',
       },
     })
 
     expect('error' in result).toBe(false)
     if (!('error' in result)) {
-      expect(result.input).toEqual({ path: 'web/src/app/api/agents' })
+      expect(result.input).toEqual({ path: 'app/src/api/agents' })
     }
   })
 
@@ -145,11 +145,78 @@ describe('tool validation error handling', () => {
       rawToolCall: {
         toolName: 'write_file',
         toolCallId: 'unrelated-bare-path-tool-call-id',
-        input: '{"path": web/src/app/api/agents}',
+        input: '{"path": app/src/api/agents}',
       },
     })
 
     expect('error' in result).toBe(true)
+  })
+
+  it('should hint that atomic must be a boolean when str_replace receives a string (Fix D)', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'str-replace-atomic-string-tool-call-id',
+        input: { path: 'f.ts', atomic: 'true', replacements: [] },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('`atomic` must be a boolean')
+    }
+  })
+
+  it('should hint that basedOnRead must be a token/object when str_replace receives a wrong shape (Fix D)', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'str-replace-basedonread-shape-tool-call-id',
+        input: {
+          path: 'f.ts',
+          replacements: [
+            {
+              oldString: 'a',
+              newString: 'b',
+              allowMultiple: false,
+              // Wrapped-object shape that is not the accepted { startLine,
+              // endLine, hash } form.
+              basedOnRead: { $text: 'cap.something' },
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('`basedOnRead` must be')
+    }
+  })
+
+  it('should hint that occurrenceIndex must be a positive integer when str_replace receives a string (Fix D)', () => {
+    const result = parseRawToolCall({
+      rawToolCall: {
+        toolName: 'str_replace',
+        toolCallId: 'str-replace-occurrenceindex-string-tool-call-id',
+        input: {
+          path: 'f.ts',
+          replacements: [
+            {
+              oldString: 'a',
+              newString: 'b',
+              allowMultiple: false,
+              occurrenceIndex: '1',
+            },
+          ],
+        },
+      },
+    })
+
+    expect('error' in result).toBe(true)
+    if ('error' in result) {
+      expect(result.error).toContain('`occurrenceIndex` must be')
+    }
   })
 
   it('should parse stringified params for spawn_agents entries', () => {

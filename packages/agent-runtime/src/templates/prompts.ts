@@ -1,3 +1,4 @@
+import { agentHandoffSchema } from '@codebuff/common/tools/params/tool/spawn-agents'
 import { buildArray } from '@codebuff/common/util/array'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
@@ -58,6 +59,10 @@ export function buildAgentToolInputSchema(
   if (inputSchema?.params) {
     schemaFields.params = inputSchema.params
   }
+
+  schemaFields.handoff = agentHandoffSchema.optional().describe(
+    'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
+  )
 
   return z
     .object(schemaFields)

@@ -86,7 +86,7 @@ export async function sendSignupEventToLoops(params: {
   email: string | null
   name: string | null
   logger: Logger
-  signupSource?: 'codebuff' | 'freebuff'
+  signupSource?: 'codebuff' | 'openbuff'
 }): Promise<void> {
   const { userId, email, name, logger, signupSource } = params
 
@@ -109,7 +109,7 @@ export async function sendSignupEventToLoops(params: {
       userId,
       contactProperties: {
         firstName: name?.split(' ')[0] ?? '',
-        signupSource: signupSource ?? 'codebuff',
+        signupSource: signupSource ?? 'openbuff',
       },
     })
 

@@ -1,3 +1,10 @@
+import {
+  getSessionDirForArtifact,
+  isSessionPlanPath,
+  normalizePlanPath,
+  validatePlanArtifactPath as sharedValidatePlanArtifactPath,
+} from '@codebuff/common/util/plan-artifacts'
+
 import { postStreamProcessing } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -9,46 +16,15 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const SESSION_PLAN_RE =
-  /(?:^|\/)\.agents\/sessions\/([^/]+)\/PLAN\.md$/i
 const TASK_MARKER_RE = /^\s*[-*]\s*\[[ xX]\]/gm
 const NONTRIVIAL_CONTENT_LENGTH = 500
 
-/** Artifact basenames allowed under .agents/sessions/<slug>/ */
-const ALLOWED_ARTIFACT_NAMES = ['SPEC.md', 'PLAN.md', 'STATUS.md', 'LESSONS.md'] as const
-
-/** Strict shape: optional leading "./" then ".agents/sessions/<slug>/<ARTIFACT>" */
-const ALLOWED_SESSION_ARTIFACT_RE =
-  /^(?:\.\/)?\.agents\/sessions\/([A-Za-z0-9._-]+)\/(SPEC|PLAN|STATUS|LESSONS)\.md$/
-
 /**
- * Normalize a path for validation: convert backslashes to forward slashes
- * and strip a single leading "./". Does not collapse ".." segments — those
- * are rejected by validatePlanArtifactPath as traversal attempts.
- */
-function normalizePlanPath(p: string): string {
-  return p.replace(/\\/g, '/')
-}
-
-/**
- * Validate a create_plan path. Returns an error string when invalid,
- * or null when the path is an allowed durable session artifact.
+ * Validate a create_plan path. Delegates to the centralized durable plan
+ * artifact policy in @codebuff/common.
  */
 export function validatePlanArtifactPath(path: string): string | null {
-  if (typeof path !== 'string' || !path.trim()) {
-    return 'create_plan: path must be a non-empty string.'
-  }
-  const normalized = normalizePlanPath(path.trim())
-  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
-    return `create_plan: absolute paths are not allowed (got "${path}"). Use .agents/sessions/<slug>/(SPEC|PLAN|STATUS|LESSONS).md.`
-  }
-  if (normalized.split('/').includes('..')) {
-    return `create_plan: path traversal ("..") is not allowed (got "${path}").`
-  }
-  if (!ALLOWED_SESSION_ARTIFACT_RE.test(normalized)) {
-    return `create_plan: only .agents/sessions/<slug>/(${ALLOWED_ARTIFACT_NAMES.join('|')}) paths are allowed (got "${path}").`
-  }
-  return null
+  return sharedValidatePlanArtifactPath(path)
 }
 
 /**
@@ -58,7 +34,7 @@ export function validatePlanArtifactPath(path: string): string | null {
  * Heuristic: multiple task/status checkbox markers OR long enough content.
  */
 export function isNonTrivialSessionPlan(path: string, content: string): boolean {
-  if (!SESSION_PLAN_RE.test(normalizePlanPath(path))) return false
+  if (!isSessionPlanPath(path)) return false
   const matches = content.match(TASK_MARKER_RE)
   if (matches && matches.length >= 2) return true
   return content.length >= NONTRIVIAL_CONTENT_LENGTH
@@ -74,12 +50,10 @@ export function buildMissingCompanionWarning(params: {
   planContent: string
   queuedPaths: string[]
 }): string | null {
-  const normalized = normalizePlanPath(params.planPath)
-  const match = normalized.match(SESSION_PLAN_RE)
-  if (!match) return null
+  const sessionDir = getSessionDirForArtifact(params.planPath)
+  if (!sessionDir) return null
   if (!isNonTrivialSessionPlan(params.planPath, params.planContent)) return null
 
-  const sessionDir = `.agents/sessions/${match[1]}`
   const queued = new Set(params.queuedPaths.map((p) => normalizePlanPath(p)))
   const missing: string[] = []
   if (!queued.has(`${sessionDir}/STATUS.md`)) missing.push('STATUS.md')

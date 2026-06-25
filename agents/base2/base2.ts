@@ -278,6 +278,8 @@ ${
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
+${PLACEHOLDER.ROUTED_KNOWLEDGE_FILES}
+${PLACEHOLDER.PATTERNS_INDEX}
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
 # Initial Git Changes
@@ -406,6 +408,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       )
         ? mutableAgentState.messageHistory.length
         : 0
+      let currentConversationMessages: unknown = mutableAgentState.messageHistory
       if (shouldProactivelyQueryIndex(prompt)) {
         yield {
           toolName: 'query_index',
@@ -468,6 +471,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
         const stepResult = yield 'STEP'
         const { stepsComplete } = stepResult
+        if (Array.isArray((stepResult as any)?.agentState?.messageHistory)) {
+          currentConversationMessages = (stepResult as any).agentState.messageHistory
+        }
         let editsThisStep = false
         const files = extractChangedFiles(
           (stepResult as any) && (stepResult as any).toolResult,
@@ -485,6 +491,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           processedMessageHistoryLength,
         )
         if (Array.isArray(messageHistory)) {
+          currentConversationMessages = messageHistory
           updateWorkflowTodoProgressFromMessages(messageHistory)
           processedMessageHistoryLength = messageHistory.length
         }
@@ -570,6 +577,69 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                   'validation/reviewer',
                   'failed',
                   'edits-detected-without-pending-gate-files: edits were detected, but there are no pending gate files to validate or review.',
+                ),
+              ].join('\n'),
+            },
+            includeToolCall: false,
+          } as any
+          continue
+        }
+        const conversationGatePass = getConversationGatePassForPendingFiles(
+          currentPendingGateFiles,
+          currentConversationMessages,
+        )
+        if (runValidationGate && editsHappened && conversationGatePass) {
+          const conversationReviewerVerdict =
+            conversationGatePass.reviewerVerdict || 'LOOKS_GOOD'
+          const conversationValidationSummary =
+            activeWorkState.lastValidationSummary ||
+            activeWorkState.gatePassedValidationSummary ||
+            'No configured file-change hooks ran.'
+          activeWorkState.openReviewerBlockers = []
+          activeWorkState.pendingGateFiles = []
+          activeWorkState.latestWorkSummary = ''
+          activeWorkState.nextRequiredAction = ''
+          activeWorkState.currentPhase = 'final_response_allowed'
+          activeWorkState.lastReviewerGateSkipReason = ''
+          activeWorkState.lastValidationSummary = conversationValidationSummary
+          for (const file of currentPendingGateFiles) {
+            gatePassedFiles.add(file)
+          }
+          activeWorkState.gatePassedFiles = Array.from(gatePassedFiles)
+          activeWorkState.gatePassedPendingFiles = currentPendingGateFiles
+          activeWorkState.gatePassedReviewerVerdict = conversationReviewerVerdict
+          activeWorkState.gatePassedValidationSummary = conversationValidationSummary
+          activeWorkState.gatePassedFingerprint = buildGateFingerprint(
+            currentPendingGateFiles,
+            currentGitStatusLineMap,
+            conversationValidationSummary,
+          )
+          pendingGateFiles.clear()
+          editsHappened = false
+          gatePassedForCurrentEdits = true
+          finalResponseGateOpen = true
+          mutableAgentState.canSuggestFollowups = true
+          markActiveWorkStateChanged()
+          emitGateTelemetry({
+            currentPhase: 'final_response_allowed',
+            pendingFileCount: currentPendingGateFiles.length,
+            pendingFiles: currentPendingGateFiles,
+            reviewerStatus: 'passed',
+            validationStatus: 'passed',
+            reuseReason: 'conversation-gate-state',
+            reviewerVerdict: conversationReviewerVerdict,
+          })
+          yield {
+            toolName: 'add_message',
+            input: {
+              role: 'user',
+              content: [
+                `Previous validation and reviewer gate already passed in this conversation with ${conversationReviewerVerdict} for pending files: ${currentPendingGateFiles.join(', ')}.`,
+                'Reusing that unchanged gate result; you may now provide the final user-visible summary and optional follow-up suggestions. Do not make more edits unless absolutely necessary; any new edits will rerun the gate.',
+                formatGateStateBlock(
+                  'validation/reviewer',
+                  'passed',
+                  `conversation gate-state reuse; reviewer verdict ${conversationReviewerVerdict}; pending files: ${currentPendingGateFiles.join(', ')}`,
                 ),
               ].join('\n'),
             },
@@ -806,21 +876,23 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           gatePassedForCurrentEdits = passedPendingFiles.length > 0
           finalResponseGateOpen = true
           mutableAgentState.canSuggestFollowups = true
-          const noConfiguredHooksRan =
-            validationSummary === 'No configured file-change hooks ran.'
+          const validationHooksSkipped =
+            validationSummary === 'No configured file-change hooks ran.' ||
+            validationSummary ===
+              'Configured file-change hooks were skipped because none matched the changed files.'
           const passVerdict = reviewerFinalizationVerdict || 'LOOKS_GOOD'
           const passDetails =
             passedPendingFiles.length > 0
-              ? `reviewer verdict ${passVerdict}; ${noConfiguredHooksRan ? 'no configured file-change hooks ran' : 'validation hooks ran'}; pending files: ${passedPendingFiles.join(', ')}`
-              : `no edited files were detected; reviewer verdict ${passVerdict || 'n/a'}; hooks ran=${!noConfiguredHooksRan}`
+              ? `reviewer verdict ${passVerdict}; ${validationHooksSkipped ? validationSummary : 'validation hooks ran'}; pending files: ${passedPendingFiles.join(', ')}`
+              : `no edited files were detected; reviewer verdict ${passVerdict || 'n/a'}; hooks ran=${!validationHooksSkipped}`
           emitGateTelemetry({
             currentPhase: 'final_response_allowed',
             pendingFileCount: passedPendingFiles.length,
             pendingFiles: passedPendingFiles,
             reviewerStatus: passedPendingFiles.length > 0 ? 'passed' : 'skipped',
-            validationStatus: noConfiguredHooksRan ? 'skipped' : 'passed',
+            validationStatus: validationHooksSkipped ? 'skipped' : 'passed',
             reviewerVerdict: passVerdict,
-            hooksRan: !noConfiguredHooksRan,
+            hooksRan: !validationHooksSkipped,
           })
           yield {
             toolName: 'add_message',
@@ -828,8 +900,8 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
               role: 'user',
               content: [
                 passedPendingFiles.length > 0
-                  ? noConfiguredHooksRan
-                    ? `Reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}. No configured file-change hooks ran, so automated validation did not execute.`
+                  ? validationHooksSkipped
+                    ? `Reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}. ${validationSummary}`
                     : `Automated validation and reviewer gate passed with ${passVerdict} for pending files: ${passedPendingFiles.join(', ')}.`
                   : 'No edited files were detected.',
                 'You may now provide the final user-visible summary and optional follow-up suggestions. Do not make more edits unless absolutely necessary; any new edits will rerun the gate.',
@@ -1007,6 +1079,118 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         return left.every((file) => rightFiles.has(file))
       }
 
+      function getConversationGatePassForPendingFiles(
+        files: string[],
+        messages: unknown,
+      ):
+        | { reviewerVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' }
+        | undefined {
+        if (files.length === 0 || !Array.isArray(messages)) return undefined
+        let latestMatchingPass:
+          | { reviewerVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' }
+          | undefined
+        for (const message of messages) {
+          if (latestMatchingPass && messageChangedFiles(message)) {
+            latestMatchingPass = undefined
+          }
+          const gateStates = extractGateStateBlocksFromMessage(message)
+          for (const gateState of gateStates) {
+            if (
+              gateState.gate !== 'validation/reviewer' ||
+              gateState.status !== 'passed'
+            ) {
+              continue
+            }
+            const gateFiles = extractPendingFilesFromGateDetails(
+              gateState.details,
+            )
+            if (!gateFileSetsEqual(files, gateFiles)) continue
+            latestMatchingPass = {
+              reviewerVerdict: extractReviewerVerdictFromGateDetails(
+                gateState.details,
+              ),
+            }
+          }
+        }
+        return latestMatchingPass
+      }
+
+      function extractGateStateBlocksFromMessage(
+        message: unknown,
+      ): Array<{ gate: string; status: string; details: string }> {
+        const texts: string[] = []
+        collectMessageText(message, texts)
+        const states: Array<{ gate: string; status: string; details: string }> = []
+        for (const text of texts) {
+          const matches = text.matchAll(/<gate-state>([\s\S]*?)<\/gate-state>/g)
+          for (const match of matches) {
+            try {
+              const parsed = JSON.parse(match[1]) as Record<string, unknown>
+              states.push({
+                gate: String(parsed.gate ?? ''),
+                status: String(parsed.status ?? ''),
+                details: String(parsed.details ?? ''),
+              })
+            } catch {
+              // Ignore malformed gate-state blocks; only explicit valid JSON
+              // can prove a prior pass.
+            }
+          }
+        }
+        return states
+      }
+
+      function collectMessageText(value: unknown, out: string[]): void {
+        if (!value) return
+        if (typeof value === 'string') {
+          out.push(value)
+          return
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) collectMessageText(item, out)
+          return
+        }
+        if (typeof value !== 'object') return
+        const record = value as Record<string, unknown>
+        if (typeof record.text === 'string') out.push(record.text)
+        if (typeof record.content === 'string') out.push(record.content)
+        if (record.type === 'text' && typeof record.value === 'string') {
+          out.push(record.value)
+        }
+        if (record.type === 'json' && 'value' in record) {
+          collectMessageText(record.value, out)
+        }
+        if (Array.isArray(record.content)) collectMessageText(record.content, out)
+      }
+
+      function extractPendingFilesFromGateDetails(details: string): string[] {
+        const match = details.match(/\bpending files\s*:\s*([^;\n]+)/i)
+        if (!match) return []
+        const rawFiles = match[1]
+          .split(',')
+          .map((file) => file.trim())
+          .filter(
+            (file) =>
+              file.length > 0 &&
+              file !== '(unknown files)' &&
+              file !== '(unknown)' &&
+              file !== '(none)',
+          )
+        return normalizeGateFileList(rawFiles)
+      }
+
+      function extractReviewerVerdictFromGateDetails(
+        details: string,
+      ): 'LOOKS_GOOD' | 'NON_BLOCKING' | '' {
+        if (/\bNON_BLOCKING\b/.test(details)) return 'NON_BLOCKING'
+        if (/\bLOOKS_GOOD\b/.test(details)) return 'LOOKS_GOOD'
+        return ''
+      }
+
+      function messageChangedFiles(message: unknown): boolean {
+        return extractChangedFilesFromMessages([message], 0).length > 0
+      }
+
       function hasDurableGatePassForPendingFiles(
         files: string[],
         currentStatusLines: Map<string, string>,
@@ -1093,7 +1277,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
               'Workflow todo progress (authoritative resumable state):',
               `Completed ${workflowTodoProgress.completedCount}/${workflowTodoProgress.totalCount}.`,
               `Next workflow action: ${workflowTodoProgress.nextWorkflowAction}`,
-              'Continue from this item; do not restart earlier completed workflow steps. Mark this item complete with write_todos before advancing to the next workflow item.',
+              'Continue from this item; do not restart earlier completed workflow steps. Mark this item complete with write_todos once it is actually completed before moving to a different workflow item.',
             ].join('\n'),
           )
         }
@@ -1378,6 +1562,14 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         if (!input || typeof input !== 'object') return
         const record = input as Record<string, unknown>
         if (typeof record.path === 'string') out.add(record.path)
+        const operation = record.operation
+        if (
+          operation &&
+          typeof operation === 'object' &&
+          typeof (operation as Record<string, unknown>).path === 'string'
+        ) {
+          out.add((operation as Record<string, string>).path)
+        }
         const edits = record.edits
         if (Array.isArray(edits)) {
           for (const edit of edits) {
@@ -1394,11 +1586,13 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
       function isFileChangingTool(toolName: string): boolean {
         return (
-          toolName === 'str_replace' ||
-          toolName === 'write_file' ||
+          toolName === 'apply_patch' ||
+          toolName === 'apply_smart_patch' ||
+          toolName === 'edit_transaction' ||
           toolName === 'replace_range' ||
           toolName === 'rewrite_symbol' ||
-          toolName === 'edit_transaction'
+          toolName === 'str_replace' ||
+          toolName === 'write_file'
         )
       }
 
@@ -1747,6 +1941,17 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       function summarizeHookResults(toolResult: unknown): string {
         const hooks = extractHookResults(toolResult)
         if (hooks.length === 0) return 'No configured file-change hooks ran.'
+        const statusHook = hooks.find(
+          (hook) => typeof (hook as any).validationStatus === 'string',
+        )
+        if (statusHook) {
+          if (typeof (statusHook as any).message === 'string') {
+            return (statusHook as any).message
+          }
+          return (statusHook as any).validationStatus === 'hooks_skipped'
+            ? 'Configured file-change hooks were skipped because none matched the changed files.'
+            : 'No configured file-change hooks ran.'
+        }
         const names = hooks
           .map((hook) =>
             typeof (hook as any).hookName === 'string'
@@ -1842,7 +2047,7 @@ function buildExecutePlanInstructionsPrompt(params: {
     '',
     '## Durable plan execution mode',
     '',
-    'You are in EXECUTE_PLAN mode. Your job is to execute or resume durable plan artifacts, not merely revise them. Read the durable plan artifacts (especially STATUS.md and PLAN.md), continue from the next actionable milestone, and use normal project source editing tools when implementation work is required.',
+    'You are in EXECUTE_PLAN mode. Your job is to execute or resume durable plan artifacts, not merely revise them. Treat durable artifact contents already provided in the conversation as the initial authoritative context; read artifacts directly only when their contents are missing, truncated, stale, or have changed. Continue from the next actionable milestone, and use normal project source editing tools when implementation work is required.',
     '',
     'Keep STATUS.md and LESSONS.md current throughout execution. Prefer update_plan_status for incremental STATUS.md / LESSONS.md updates; use create_plan for SPEC.md / PLAN.md revisions, substantial rewrites, or creating missing artifacts. PLAN mode remains plan-only, but EXECUTE_PLAN is allowed to edit project source to complete the plan.',
   ].join('\n')
@@ -1872,7 +2077,7 @@ function buildImplementationStepPrompt({
 function buildExecutePlanStepPrompt({}: {}) {
   return buildArray(
     'You are in EXECUTE_PLAN mode. Execute or resume durable plan artifacts, using the project source editing tools when implementation work is required. Unlike PLAN mode, you may edit project source files to complete planned tasks.',
-    'Treat SPEC.md, PLAN.md, STATUS.md, and LESSONS.md under the durable plan session as authoritative. Read STATUS.md and PLAN.md before acting, continue from the next incomplete or blocked item, and do not restart completed work unless the artifacts say it is necessary.',
+    'Treat SPEC.md, PLAN.md, STATUS.md, and LESSONS.md under the durable plan session as authoritative. Use any artifact contents already present in the conversation as the initial source of truth, confirm the next incomplete or blocked item from that context, and read artifacts directly only when contents are missing, truncated, stale, or have changed. Do not repeatedly re-read unchanged artifacts or source files after confirming the next item; continue from it unless the artifacts say completed work must be revisited.',
     'Keep STATUS.md current as you progress: update completed/pending/blocked items, current state, validation results, and the next checkpoint. Keep LESSONS.md current with gotchas, decisions, reusable findings, and follow-up notes discovered during execution. Prefer update_plan_status for incremental STATUS.md / LESSONS.md updates; use create_plan for SPEC.md / PLAN.md revisions, substantial rewrites, or creating missing artifacts.',
     'Use normal implementation behavior for source changes: gather context before editing, follow project conventions, validate meaningful changes when appropriate, and summarize the completed work concisely. Do not let plan artifacts drift behind actual implementation state.',
   ).join('\n')

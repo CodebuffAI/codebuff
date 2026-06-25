@@ -19,6 +19,7 @@ import {
 import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
+import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
@@ -27,6 +28,7 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
   let mockLoopAgentSteps: any
+  let capturedLoopOptions: any
   let capturedSubAgentState: any
 
   let handleSpawnAgentsBaseParams: ParamsExcluding<
@@ -43,6 +45,7 @@ describe('Spawn Agents Message History', () => {
       runAgentStep,
       'loopAgentSteps',
     ).mockImplementation(async (options) => {
+      capturedLoopOptions = options
       capturedSubAgentState = options.agentState
       return {
         agentState: {
@@ -77,6 +80,7 @@ describe('Spawn Agents Message History', () => {
 
   afterEach(() => {
     mock.restore()
+    capturedLoopOptions = undefined
     capturedSubAgentState = undefined
   })
 
@@ -233,6 +237,83 @@ describe('Spawn Agents Message History', () => {
     expect(spawnMessage.role).toBe('user')
     expect(spawnMessage.tags).toContain('SUBAGENT_SPAWN')
     expect(spawnMessage.content[0]?.text).toContain('Subagent child-agent has been spawned')
+  })
+
+  it('propagates top-level handoff into the child spawn params payload', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = createMockAgent('child-agent', true)
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+      toolName: 'spawn_agents' as const,
+      toolCallId: 'test-tool-call-id',
+      input: {
+        agents: [
+          {
+            agent_type: 'child-agent',
+            prompt: 'test prompt',
+            params: { existing: 'value' },
+            handoff: {
+              summary: 'Continue the implementation',
+              artifacts: ['.agents/sessions/example/STATUS.md'],
+              constraints: ['Do not edit unrelated files'],
+            },
+          },
+        ],
+      },
+    }
+
+    await handleSpawnAgents({
+      ...handleSpawnAgentsBaseParams,
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedLoopOptions.spawnParams).toEqual({
+      existing: 'value',
+      handoff: {
+        summary: 'Continue the implementation',
+        artifacts: ['.agents/sessions/example/STATUS.md'],
+        constraints: ['Do not edit unrelated files'],
+      },
+    })
+  })
+
+  it('propagates top-level handoff into inline child spawn params payload', async () => {
+    const parentAgent = createMockAgent('parent', true)
+    const childAgent = createMockAgent('child-agent', true)
+    const sessionState = getInitialSessionState(mockFileContext)
+    const toolCall: CodebuffToolCall<'spawn_agent_inline'> = {
+      toolName: 'spawn_agent_inline' as const,
+      toolCallId: 'test-tool-call-id',
+      input: {
+        agent_type: 'child-agent',
+        prompt: 'test prompt',
+        params: { existing: 'inline-value' },
+        handoff: {
+          summary: 'Continue inline',
+          nonGoals: ['Do not fork context'],
+        },
+      },
+    }
+
+    await handleSpawnAgentInline({
+      ...handleSpawnAgentsBaseParams,
+      tools: {},
+      agentState: sessionState.mainAgentState,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
+      toolCall,
+    })
+
+    expect(capturedLoopOptions.spawnParams).toEqual({
+      existing: 'inline-value',
+      handoff: {
+        summary: 'Continue inline',
+        nonGoals: ['Do not fork context'],
+      },
+    })
   })
 
   it('should handle message history with only system messages', async () => {

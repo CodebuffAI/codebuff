@@ -7,20 +7,14 @@
  *   # Test 1: Hit Fireworks API directly
  *   bun scripts/test-fireworks.ts direct
  *
- *   # Test 2: Hit our chat completions endpoint (requires running web server + valid API key)
- *   CODEBUFF_API_KEY=<key> bun scripts/test-fireworks.ts endpoint
- *
- *   # Run both tests
- *   CODEBUFF_API_KEY=<key> bun scripts/test-fireworks.ts both
  */
 
 export {}
 
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
 const FIREWORKS_MODEL = 'accounts/fireworks/models/minimax-m2p5'
-const OPENROUTER_MODEL = 'minimax/minimax-m2.5'
 
-// Same pricing constants as web/src/llm-api/fireworks.ts
+// Fireworks pricing constants used by this diagnostic script.
 const FIREWORKS_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
 const FIREWORKS_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
 const FIREWORKS_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
@@ -172,145 +166,6 @@ async function testFireworksDirect() {
   console.log()
 }
 
-// ─── Chat Completions Endpoint Test ─────────────────────────────────────────
-
-async function testChatCompletionsEndpoint() {
-  const codebuffApiKey = process.env.CODEBUFF_API_KEY
-  if (!codebuffApiKey) {
-    console.error('❌ CODEBUFF_API_KEY is not set. Pass it as an env var.')
-    console.error('   Example: CODEBUFF_API_KEY=<key> bun scripts/test-fireworks.ts endpoint')
-    process.exit(1)
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'http://localhost:3000'
-  const endpoint = `${appUrl}/api/v1/chat/completions`
-
-  console.log('── Test 2: Chat Completions Endpoint (non-streaming) ──')
-  console.log(`Endpoint: ${endpoint}`)
-  console.log(`Model: ${OPENROUTER_MODEL} (should route to Fireworks)`)
-  console.log(`Prompt: "${testPrompt}"`)
-  console.log()
-
-  // We need a valid run_id. This is tricky without a full setup,
-  // so we'll just fire the request and check the error to confirm routing.
-  // If you have a valid run_id, set it via RUN_ID env var.
-  const runId = process.env.RUN_ID ?? 'test-run-id-fireworks'
-
-  const startTime = Date.now()
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${codebuffApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [{ role: 'user', content: testPrompt }],
-      max_tokens: 64,
-      stream: false,
-      codebuff_metadata: {
-        run_id: runId,
-        client_id: 'test-fireworks-script',
-        cost_mode: 'free',
-      },
-    }),
-  })
-
-  const elapsed = Date.now() - startTime
-  const data = await response.json()
-
-  if (response.ok) {
-    const content = data.choices?.[0]?.message?.content ?? '<no content>'
-    console.log(`✅ Response (${elapsed}ms):`)
-    console.log(`   Content: ${content}`)
-    console.log(`   Model: ${data.model}`)
-    console.log(`   Provider: ${data.provider}`)
-    console.log(`   Usage: ${JSON.stringify(data.usage)}`)
-  } else {
-    // Even an auth/validation error confirms the endpoint is reachable
-    console.log(`⚠️  Response ${response.status} (${elapsed}ms):`)
-    console.log(`   ${JSON.stringify(data)}`)
-    if (response.status === 400 && data.message?.includes('runId')) {
-      console.log('   ℹ️  This is expected if you don\'t have a valid run_id.')
-      console.log('   ℹ️  The request reached the endpoint successfully — routing is wired up.')
-    } else if (response.status === 401) {
-      console.log('   ℹ️  Auth failed. Make sure CODEBUFF_API_KEY is valid.')
-    }
-  }
-  console.log()
-
-  // Streaming test
-  console.log('── Test 2b: Chat Completions Endpoint (streaming) ──')
-  const streamStart = Date.now()
-  const streamResponse = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${codebuffApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [{ role: 'user', content: testPrompt }],
-      max_tokens: 64,
-      stream: true,
-      codebuff_metadata: {
-        run_id: runId,
-        client_id: 'test-fireworks-script',
-        cost_mode: 'free',
-      },
-    }),
-  })
-
-  const streamElapsed = Date.now() - streamStart
-
-  if (streamResponse.ok) {
-    const reader = streamResponse.body?.getReader()
-    if (!reader) {
-      console.error('❌ No response body reader')
-      process.exit(1)
-    }
-
-    const decoder = new TextDecoder()
-    let streamContent = ''
-    let chunkCount = 0
-
-    let done = false
-    while (!done) {
-      const result = await reader.read()
-      done = result.done
-      if (done) break
-
-      const text = decoder.decode(result.value, { stream: true })
-      const lines = text.split('\n').filter((l) => l.startsWith('data: '))
-
-      for (const line of lines) {
-        const raw = line.slice('data: '.length)
-        if (raw === '[DONE]') continue
-
-        try {
-          const chunk = JSON.parse(raw)
-          chunkCount++
-          const delta = chunk.choices?.[0]?.delta
-          if (delta?.content) streamContent += delta.content
-        } catch {
-          // skip non-JSON lines
-        }
-      }
-    }
-
-    console.log(`✅ Stream response (${streamElapsed}ms, ${chunkCount} chunks):`)
-    console.log(`   Content: ${streamContent}`)
-  } else {
-    const data = await streamResponse.json()
-    console.log(`⚠️  Response ${streamResponse.status} (${streamElapsed}ms):`)
-    console.log(`   ${JSON.stringify(data)}`)
-    if (streamResponse.status === 400 && data.message?.includes('runId')) {
-      console.log('   ℹ️  Expected without a valid run_id. Endpoint is reachable and routing works.')
-    }
-  }
-  console.log()
-}
-
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -324,16 +179,9 @@ async function main() {
     case 'direct':
       await testFireworksDirect()
       break
-    case 'endpoint':
-      await testChatCompletionsEndpoint()
-      break
-    case 'both':
-      await testFireworksDirect()
-      await testChatCompletionsEndpoint()
-      break
     default:
       console.error(`Unknown mode: ${mode}`)
-      console.error('Usage: bun scripts/test-fireworks.ts [direct|endpoint|both]')
+      console.error('Usage: bun scripts/test-fireworks.ts [direct]')
       process.exit(1)
   }
 

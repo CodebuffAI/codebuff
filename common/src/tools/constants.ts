@@ -13,7 +13,6 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'set_messages',
   'add_message',
   'update_subgoal',
-  'create_plan',
   'render_ui',
   'suggest_followups',
   'task_completed',

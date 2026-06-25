@@ -47,6 +47,71 @@ export function extractImportLines(
   return out
 }
 
+// Extend a symbol's 1-indexed start line upward to include a contiguous,
+// immediately-preceding comment block (JSDoc slash-star block, block comment,
+// or consecutive slash-slash line comments). Stops at the first blank line or
+// non-comment line, and only extends when the comment block is directly
+// adjacent to the symbol (no blank-line gap). Returns the adjusted start line
+// (unchanged if there is no preceding comment block).
+//
+// Used by rewrite_symbol so the old doc-block is replaced atomically with the
+// symbol, avoiding orphan/duplicate JSDoc blocks that would shift line numbers
+// and invalidate cached anchors on subsequent edits.
+export function extendRangeToPrecedingComment(
+  lines: string[],
+  symbolStartLine: number,
+): { startLine: number; commentPrefix: string } {
+  // The line immediately preceding the symbol (1-indexed → 0-indexed).
+  const prevIdx = symbolStartLine - 2
+  if (prevIdx < 0) return { startLine: symbolStartLine, commentPrefix: '' }
+
+  const prevLine = lines[prevIdx]
+
+  // Case 1: preceding line ends a block/JSDoc comment (`*/`). Walk upward to
+  // find the matching opener `/*`, requiring no blank line in between.
+  if (/\*\/\s*$/.test(prevLine)) {
+    let openerIdx = prevIdx
+    let foundOpen = false
+    while (openerIdx >= 0) {
+      const line = lines[openerIdx]
+      if (openerIdx !== prevIdx && line.trim() === '') {
+        // Blank line between opener and closer → not contiguous.
+        return { startLine: symbolStartLine, commentPrefix: '' }
+      }
+      if (line.includes('/*') && !/^\s*\*\//.test(line)) {
+        foundOpen = true
+        break
+      }
+      openerIdx--
+    }
+    if (foundOpen) {
+      const blockLines = lines.slice(openerIdx, prevIdx + 1)
+      return {
+        startLine: openerIdx + 1,
+        commentPrefix: blockLines.join('\n') + '\n',
+      }
+    }
+  }
+
+  // Case 2: preceding line is a `//` line comment. Grab the contiguous run.
+  if (/^\s*\/\//.test(prevLine)) {
+    let runStart = prevIdx
+    while (
+      runStart - 1 >= 0 &&
+      /^\s*\/\//.test(lines[runStart - 1])
+    ) {
+      runStart--
+    }
+    const runLines = lines.slice(runStart, prevIdx + 1)
+    return {
+      startLine: runStart + 1,
+      commentPrefix: runLines.join('\n') + '\n',
+    }
+  }
+
+  return { startLine: symbolStartLine, commentPrefix: '' }
+}
+
 /**
  * Mint a read capability token for a 1-indexed inclusive line range, using the
  * exact same LF-normalization + hashing as read_files / str_replace so the

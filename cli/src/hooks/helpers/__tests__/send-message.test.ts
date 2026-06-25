@@ -1,4 +1,4 @@
-import { describe, expect, test, mock, beforeEach, afterEach } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
 import type { ChatMessage } from '../../../types/chat'
 import type { SendMessageTimerController } from '../../../utils/send-message-timer'
@@ -16,17 +16,10 @@ const ensureEnv = () => {
     process.env.NEXT_PUBLIC_POSTHOG_API_KEY || 'phc_test_key'
   process.env.NEXT_PUBLIC_POSTHOG_HOST_URL =
     process.env.NEXT_PUBLIC_POSTHOG_HOST_URL || 'https://posthog.codebuff.test'
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY =
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_123'
-  process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL =
-    process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL ||
-    'https://stripe.codebuff.test'
-  process.env.NEXT_PUBLIC_WEB_PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'
 }
 
 ensureEnv()
 
-const { useChatStore } = await import('../../../state/chat-store')
 const { createStreamController } = await import('../../stream-state')
 const { setupStreamingContext, handleRunCompletion, handleRunError, finalizeQueueState, resetEarlyReturnState } = await import(
   '../send-message'
@@ -510,16 +503,6 @@ describe('finalizeQueueState', () => {
 })
 
 describe('handleRunError', () => {
-  let originalGetState: typeof useChatStore.getState
-
-  beforeEach(() => {
-    originalGetState = useChatStore.getState
-  })
-
-  afterEach(() => {
-    useChatStore.getState = originalGetState
-  })
-
   test('stores error in userError field for regular errors', () => {
     let messages: ChatMessage[] = [
       {
@@ -609,42 +592,6 @@ describe('handleRunError', () => {
     // Error should be in userError field
     expect(aiMessage!.userError).toBe('Something failed')
     expect(aiMessage!.isComplete).toBe(true)
-  })
-
-  test('handles regular errors without switching input mode', () => {
-    let messages: ChatMessage[] = [
-      {
-        id: 'ai-1',
-        variant: 'ai',
-        content: '',
-        blocks: [],
-        timestamp: 'now',
-      },
-    ]
-
-    const timerController = createMockTimerController()
-    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
-      messages = fn(messages)
-    })
-
-    const setInputModeMock = mock(() => {})
-    useChatStore.getState = () => ({
-      ...originalGetState(),
-      setInputMode: setInputModeMock,
-    })
-
-    handleRunError({
-      error: new Error('Regular error'),
-      timerController,
-      updater,
-      setIsRetrying: () => {},
-      setStreamStatus: () => {},
-      setCanProcessQueue: () => {},
-      updateChainInProgress: () => {},
-    })
-
-    // Should NOT switch input mode for regular errors
-    expect(setInputModeMock).not.toHaveBeenCalled()
   })
 
   test('resets isProcessingQueueRef to false on error', () => {
@@ -793,7 +740,7 @@ describe('handleRunError', () => {
     expect(timerController.stopCalls).toContain('error')
   })
 
-  test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
+  test('Payment required error (402) is displayed without switching input mode', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -807,12 +754,6 @@ describe('handleRunError', () => {
     const timerController = createMockTimerController()
     const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
       messages = fn(messages)
-    })
-
-    const setInputModeMock = mock(() => {})
-    useChatStore.getState = () => ({
-      ...originalGetState(),
-      setInputMode: setInputModeMock,
     })
 
     const paymentError = createPaymentRequiredError('Out of credits')
@@ -840,9 +781,6 @@ describe('handleRunError', () => {
 
     // Message should be marked complete
     expect(aiMessage!.isComplete).toBe(true)
-
-    // Input mode should switch to outOfCredits
-    expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
 
     // Timer should still be stopped with error
     expect(timerController.stopCalls).toContain('error')

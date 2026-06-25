@@ -1,12 +1,21 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import { existsSync } from 'node:fs'
 
+import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import {
+  isValidPlanSlug,
+  writeActiveSessionPointer,
+} from '@codebuff/common/util/plan-artifacts'
+
+import { registerPlanTimelineCommand } from './plan-timeline'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInfoCommand } from './info'
 import { handleInitializationFlowLocally } from './init'
 import {
   formatArtifactsForPrompt,
+  getActivePlanSessionSlug,
   hasAnyArtifact,
+  listPlanSessions,
   PLAN_ARTIFACT_NAMES,
   readPlanArtifacts,
   resolvePlanSessionDir,
@@ -226,6 +235,66 @@ const formatPlanStatusReport = (
     lines.push('', `STATUS.md:`, status.trimEnd())
   }
   return lines.join('\n')
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  active: '[active]   ',
+  paused: '[paused]   ',
+  completed: '[completed]',
+  archived: '[archived] ',
+}
+
+const formatPlanListReport = (): string => {
+  const sessions = listPlanSessions()
+  if (sessions.length === 0) {
+    return [
+      'No plan sessions found under .agents/sessions/.',
+      'Use /plan <slug> to start one, or /plans for this list.',
+    ].join('\n')
+  }
+  const active = getActivePlanSessionSlug()
+  const lines: string[] = [`Plan sessions (${sessions.length}):`]
+  for (const session of sessions) {
+    const badge = STATUS_BADGE[session.status] ?? `[${session.status}]`
+    const activeMarker = session.isActive ? ' * ' : '   '
+    const progress =
+      session.progress.total > 0
+        ? ` ${session.progress.done}/${session.progress.total} done`
+        : ''
+    const current = session.currentTask ? `  current: "${session.currentTask}"` : ''
+    lines.push(
+      `${activeMarker}${badge} ${session.slug}${progress}${current}`,
+    )
+  }
+  if (active) {
+    lines.push('', `Active session: ${active}`)
+  }
+  return lines.join('\n')
+}
+
+const setPlanUse = (slug: string): string => {
+  const trimmed = slug.trim()
+  if (!trimmed) {
+    return '/plan-use: missing session slug. Usage: /plan-use <slug>.'
+  }
+  if (!isValidPlanSlug(trimmed)) {
+    return `/plan-use: invalid slug "${trimmed}". Slugs may contain letters, digits, dots, underscores, and dashes.`
+  }
+  const resolved = resolvePlanSessionDir(trimmed)
+  if (!resolved.ok) {
+    return `/plan-use: ${resolved.error}`
+  }
+  // Reject slugs whose session directory does not exist on disk; otherwise the
+  // active-session pointer becomes stale and the next agent run silently "uses"
+  // a session that has no artifacts.
+  if (!existsSync(resolved.absSessionDir)) {
+    return `/plan-use: no plan session found at ${resolved.sessionDir}. Use /plans to list existing sessions, or /plan <slug> to start one.`
+  }
+  const written = writeActiveSessionPointer(trimmed)
+  if (!written) {
+    return '/plan-use: failed to write .agents/ACTIVE_SESSION (project root not set?).'
+  }
+  return `Active session set to ${trimmed} (${resolved.sessionDir}).`
 }
 
 const ALL_COMMANDS: CommandDefinition[] = [
@@ -689,6 +758,33 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
+  defineCommand({
+    name: 'plans',
+    aliases: ['plan-ls'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      appendLocalMessage(params, formatPlanListReport())
+      clearInput(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'plan-use',
+    aliases: ['plan-active', 'use-plan'],
+    handler: (params, args) => {
+      params.saveToHistory(params.inputValue.trim())
+      const trimmed = args.trim()
+      if (!trimmed) {
+        appendLocalMessage(
+          params,
+          '/plan-use: missing session slug. Usage: /plan-use <slug>.',
+        )
+        clearInput(params)
+        return
+      }
+      appendLocalMessage(params, setPlanUse(trimmed))
+      clearInput(params)
+    },
+  }),
   defineCommandWithArgs({
     name: 'lessons',
     aliases: ['lesson'],
@@ -746,6 +842,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       return { openReviewScreen: true }
     },
   }),
+  registerPlanTimelineCommand(),
   defineCommand({
     name: 'theme:toggle',
     handler: (params) => {

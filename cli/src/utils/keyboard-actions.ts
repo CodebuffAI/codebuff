@@ -105,9 +105,6 @@ export type ChatKeyboardAction =
   // Paste action (dispatcher checks clipboard content to route to image or text handler)
   | { type: 'paste' }
 
-  // Out of credits action
-  | { type: 'open-buy-credits' }
-
   // No action needed
   | { type: 'none' }
 
@@ -134,19 +131,6 @@ export function resolveChatKeyboardAction(
   const isEnter = isPlainEnterKey(key)
   const isPageUp = key.name === 'pageup' && !hasModifier(key)
   const isPageDown = key.name === 'pagedown' && !hasModifier(key)
-
-  // Priority 0: Out of credits mode - Enter opens buy credits page
-  if (state.inputMode === 'outOfCredits') {
-    if (isEnter) {
-      return { type: 'open-buy-credits' }
-    }
-    // Allow Escape or Ctrl+C to exit out-of-credits mode (return to normal input)
-    if (isEscape || isCtrlC) {
-      return { type: 'exit-input-mode' }
-    }
-    // Block most other inputs in this mode
-    return { type: 'none' }
-  }
 
   // Priority 1: Feedback mode - block global keys except Escape/Ctrl-C/Ctrl-V
   if (state.feedbackMode) {

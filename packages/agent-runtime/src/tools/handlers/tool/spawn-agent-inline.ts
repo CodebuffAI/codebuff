@@ -6,6 +6,7 @@ import {
   executeSubagent,
   createAgentState,
   extractSubagentContextParams,
+  buildSpawnParamsWithHandoff,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -71,6 +72,7 @@ export const handleSpawnAgentInline = (async (
     agent_type: agentTypeStr,
     prompt,
     params: spawnParams,
+    handoff,
   } = toolCall.input
 
   await previousToolCallFinished
@@ -86,6 +88,11 @@ export const handleSpawnAgentInline = (async (
   })
 
   validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+  const runtimeSpawnParams = buildSpawnParamsWithHandoff({
+    agentType,
+    handoff,
+    spawnParams,
+  })
 
   // Override template for inline agent to share system prompt & message history with parent
   const inlineTemplate = {
@@ -119,7 +126,7 @@ export const handleSpawnAgentInline = (async (
     ancestorRunIds: parentAgentState.ancestorRunIds,
     userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
     prompt: prompt || '',
-    spawnParams,
+    spawnParams: runtimeSpawnParams,
     agentTemplate: inlineTemplate,
     parentAgentState,
     agentState: childAgentState,

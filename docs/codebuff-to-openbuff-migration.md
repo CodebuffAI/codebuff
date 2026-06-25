@@ -85,8 +85,6 @@ common/src/constants/paths.ts
 | Variable | Status | File | Notes |
 |----------|--------|------|-------|
 | `CODEBUFF_GITHUB_ACTIONS` | ⚠️ Only name | `common/src/env.ts` | `IS_CI` check |
-| `CODEBUFF_GITHUB_ID` | ⚠️ Only name | `packages/internal/src/env-schema.ts` | GitHub OAuth |
-| `CODEBUFF_GITHUB_SECRET` | ⚠️ Only name | `packages/internal/src/env-schema.ts` | GitHub OAuth |
 | `CODEBUFF_GITHUB_TOKEN` | ⚠️ Only name | Various | Release scripts, eval scripts |
 | `CODEBUFF_IS_BINARY` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
 | `CODEBUFF_CLI_VERSION` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
@@ -102,7 +100,7 @@ common/src/constants/paths.ts
 
 > ⚠️ **Note about `NEXT_PUBLIC_*` variables:** These are Next.js build-time env vars baked into the client bundle at compile time (via `next.config.js`). Adding an `OPENBUFF_*` alias for these is **not** as simple as adding a runtime fallback — it requires changes to the Next.js build pipeline, the env schema, and the `env-process.ts` accessors in coordination. These should be handled in a separate build-config migration phase.
 
-**TODO:** Consider adding `OPENBUFF_*` aliases for the most commonly used ones (at minimum: `OPENBUFF_CLI_VERSION`, `OPENBUFF_IS_BINARY`, `OPENBUFF_API_KEY`).
+**TODO:** Consider adding `OPENBUFF_*` aliases for the most commonly used ones (at minimum: `OPENBUFF_CLI_VERSION`, `OPENBUFF_IS_BINARY`, `OPENBUFF_API_KEY`). <!-- allow-todo -->
 
 ---
 
@@ -190,9 +188,9 @@ sdk/src/provider-config.ts
 Throughout the CLI codebase, branding is dynamically resolved:
 
 ```typescript
-// Pattern found in multiple files:
-const brandName = IS_FREEBUFF ? 'Freebuff' : isLocalMode() ? 'Openbuff' : 'Codebuff'
-const cliName = IS_FREEBUFF ? 'freebuff' : isLocalMode() ? 'openbuff' : 'codebuff'
+// Compatibility pattern in retained CLI surfaces:
+const brandName = isLocalMode() ? 'Openbuff' : 'Codebuff'
+const cliName = isLocalMode() ? 'openbuff' : 'codebuff'
 ```
 
 ### 4.2 Files Using Dynamic Branding
@@ -201,8 +199,8 @@ const cliName = IS_FREEBUFF ? 'freebuff' : isLocalMode() ? 'openbuff' : 'codebuf
 |------|-------|
 | `cli/src/hooks/use-send-message.ts` (line ~368) | Error message branding |
 | `cli/src/hooks/use-exit-handler.ts` (line ~31) | "To continue this session later, run: <name>" |
-| `cli/src/hooks/use-gravity-ad.ts` (line ~493) | Analytics product name |
-| `cli/src/login/plain-login.ts` (lines ~25, ~77) | Login header and "run <name> to start" |
+| `cli/src/hooks/use-send-message.ts` (line ~368) | Analytics product name |
+| `cli/src/hooks/use-exit-handler.ts` (line ~31) | Login header and "run <name> to start" |
 | `cli/src/utils/terminal-title.ts` (line ~18) | Terminal window title prefix |
 | `cli/src/utils/chatgpt-oauth.ts` (line ~125) | OAuth UI branding |
 | `cli/src/commands/init.ts` (line ~20) | Initialization branding |
@@ -246,11 +244,9 @@ All internal packages use `@codebuff/*` import paths:
 | `@codebuff/common` | ⚠️ Codebuff name |
 | `@codebuff/sdk` | ⚠️ Codebuff name |
 | `@codebuff/internal` | ⚠️ Codebuff name |
-| `@codebuff/billing` | ⚠️ Codebuff name |
-| `@codebuff/bigquery` | ⚠️ Codebuff name |
 | `@codebuff/agent-runtime` | ⚠️ Codebuff name |
 
-**TODO:** These require significant migration effort (package.json renames, import rewrites across hundreds of files).
+**TODO:** These require significant migration effort (package.json renames, import rewrites across hundreds of files). <!-- allow-todo -->
 
 ### 5.4 SDK README
 
@@ -269,8 +265,8 @@ The config file format uses `codebuff_metadata` as the key name in chat completi
 extraCodebuffMetadata?: Record<string, string>
 ```
 
-> ⚠️ **WARNING: `codebuff_metadata` is a wire protocol key.**
-> This field name is part of the API contract with the server-side chat completions endpoint. Renaming it to `openbuff_metadata` would **break the server-side API** and require coordinated changes to the web backend (`web/src/app/api/v1/chat/completions/_post.ts`), the SDK, and all clients. Do **not** rename this without a coordinated server/client migration plan.
+> ⚠️ **WARNING: `codebuff_metadata` is a compatibility wire protocol key.**
+> This field name is still used by SDK/client compatibility code. Renaming it to `openbuff_metadata` would require a coordinated SDK/client migration. Do **not** rename this without a compatibility plan.
 
 ### 6.2 Config File Content
 
@@ -294,33 +290,13 @@ The system prompt infrastructure uses `CODEBUFF_*` placeholders that get substit
 
 **Detail:** These are defined in `.agents/types/secret-agent-definition.ts` using the pattern `{CODEBUFF_${name}}`.
 
-**TODO:** Consider renaming to `{OPENBUFF_*}` or making them generic, but this is low priority since they're internal.
+**TODO:** Consider renaming to `{OPENBUFF_*}` or making them generic, but this is low priority since they're internal. <!-- allow-todo -->
 
 ---
 
-## 8. Freebuff Integration
+## 8. Removed Free-Mode Product Surfaces
 
-### 8.1 Freebuff-Specific Code
-
-The Freebuff variant uses its own env vars that fall back to Codebuff ones:
-
-```typescript
-// freebuff/web/src/app/api/auth/[...nextauth]/auth-options.ts (line ~88)
-clientId: env.FREEBUFF_GITHUB_ID ?? env.CODEBUFF_GITHUB_ID,
-clientSecret: env.FREEBUFF_GITHUB_SECRET ?? env.CODEBUFF_GITHUB_SECRET,
-```
-
-### 8.2 Freebuff Instance Metadata
-
-Freebuff sessions inject `freebuff_instance_id` into `codebuff_metadata`:
-
-```typescript
-// cli/src/hooks/use-send-message.ts
-extraCodebuffMetadata:
-  IS_FREEBUFF && freebuffInstanceId
-    ? { freebuff_instance_id: freebuffInstanceId }
-    : undefined,
-```
+The upstream Freebuff/free-mode web product, waiting room, hosted auth, and instance metadata flow are removed from active Openbuff. Openbuff local/BYOK mode routes directly to the user's configured providers and does not require product admission, hosted sessions, or free-mode queue metadata.
 
 ---
 
@@ -340,7 +316,6 @@ extraCodebuffMetadata:
 | `common/src/templates/initial-agents-dir/README.md` | Agent README template that should use Openbuff branding and label compatibility names explicitly |
 | `.github/knowledge.md` | CI configuration |
 | `cli/release-staging/README.md` | Release notes |
-| `freebuff/README.md` | Freebuff description |
 
 ### 9.2 Files with Codebuff in the Path (Hardcoded)
 
@@ -360,7 +335,7 @@ extraCodebuffMetadata:
 - Config file paths (`openbuff.json` ↔ `codebuff.json`)
 - Global config directories (`~/.config/openbuff/` + legacy paths)
 - CLI description text ("Openbuff CLI - local/BYOK AI coding assistant")
-- Dynamic branding (resolves to Openbuff/Freebuff/Codebuff automatically)
+- Dynamic branding for retained Openbuff/Codebuff compatibility surfaces
 - `--local` CLI flag maintained as compatibility
 - `openbuff` binary name
 
@@ -373,7 +348,7 @@ extraCodebuffMetadata:
 - `CODEBUFF_CLI_EDITOR`, `CODEBUFF_EDITOR` — CLI config
 - `CODEBUFF_GITHUB_*` — CI/release specific; `OPENBUFF_GITHUB_TOKEN` is supported by the CLI release script as the primary token name with `CODEBUFF_GITHUB_TOKEN` as a compatibility fallback
 - `CODEBUFF_FULL_TELEMETRY` — debug telemetry
-- `NEXT_PUBLIC_CODEBUFF_APP_URL` — web app URL
+- `NEXT_PUBLIC_CODEBUFF_APP_URL` — compatibility app URL used by retained legacy interfaces
 - Analytics events (`UPDATE_CODEBUFF_FAILED`, `CODEBUFF_REFERRER_ATTRIBUTED`)
 
 ### ⚠️ Package Ecosystem (Non-trivial Migration)
