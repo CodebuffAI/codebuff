@@ -270,22 +270,7 @@ export async function runProgrammaticStep(
     strictReadBeforeEdit: true,
     readAuthorizationsByPath: { ...(agentState.readAuthorizationsByPath ?? {}) },
   }
-  const agentContext = cloneDeep(agentState.agentContext)
-  const _sendSubagentChunk = (data: {
-    userInputId: string
-    agentId: string
-    agentType: string
-    chunk: string
-    prompt?: string
-    forwardToPrompt?: boolean
-  }) => {
-    sendAction({
-      action: {
-        type: 'subagent-response-chunk',
-        ...data,
-      },
-    })
-  }
+  const agentContext = agentState.agentContext
 
   let toolResult: ToolResultOutput[] | undefined = undefined
   let endTurn = false
