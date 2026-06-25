@@ -231,7 +231,7 @@ describe('free mode country access cache', () => {
     ).toBe(FREE_MODE_COUNTRY_CACHE_TRANSIENT_BLOCK_TTL_MS)
   })
 
-  test('stores allowed decisions when clean Spur context clears a hard IPinfo signal', async () => {
+  test('stores allowed decisions when a clean second opinion clears a hard IPinfo signal', async () => {
     const cacheStore: FreeModeCountryAccessCacheStore = {
       get: mock(async () => null),
       set: mock(async () => {}),
@@ -260,7 +260,9 @@ describe('free mode country access cache', () => {
     })
 
     expect(access.allowed).toBe(true)
-    expect(access.spurStatus).toBe('clean')
+    // Hard signal → Scamalytics consulted first; it clears, so Spur isn't called.
+    expect(access.scamalyticsStatus).toBe('clean')
+    expect(access.spurStatus).toBe('not_checked')
     expect(cacheStore.set).toHaveBeenCalledWith({
       userId,
       access,

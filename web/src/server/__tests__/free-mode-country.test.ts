@@ -174,10 +174,12 @@ describe('free mode country access', () => {
     expect(access.countryCode).toBe('US')
     expect(access.blockReason).toBe(null)
     expect(access.ipPrivacy?.signals).toEqual(['vpn'])
-    expect(access.spurIpPrivacy?.signals).toEqual([])
-    expect(access.spurStatus).toBe('clean')
+    // Hard ipinfo signal → Scamalytics is consulted first; it clears the IP, so
+    // sequential escalation stops early and Spur is never called.
     expect(access.scamalyticsStatus).toBe('clean')
     expect(access.scamalyticsScore).toBe(10)
+    expect(access.spurStatus).toBe('not_checked')
+    expect(access.spurIpPrivacy).toBe(null)
     expect(getFreeModePrivacyDecision(access)).toBe(
       'ipinfo_suspicious_spur_clean',
     )
@@ -209,8 +211,11 @@ describe('free mode country access', () => {
     expect(access.allowed).toBe(true)
     expect(access.blockReason).toBe(null)
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
-    expect(access.spurIpPrivacy?.signals).toEqual([])
-    expect(access.spurStatus).toBe('clean')
+    // Scamalytics (consulted first for a hard signal) clears it; Spur is not
+    // called.
+    expect(access.scamalyticsStatus).toBe('clean')
+    expect(access.spurStatus).toBe('not_checked')
+    expect(access.spurIpPrivacy).toBe(null)
     // res_proxy with no recency/frequency metadata scores at the low base
     // (stale/unknown exit), not a flat hard-signal 70 — it's no longer binary.
     expect(getFreeModeRiskScore(access)).toBe(25)
@@ -416,7 +421,10 @@ describe('free mode country access', () => {
     expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
   })
 
-  test('allows suspicious IPinfo traffic when Scamalytics is clean', async () => {
+  test('allows hard IPinfo traffic when the second provider clears it after the first flags', async () => {
+    // Hard origin consults Scamalytics first; it flags (score >= 50), so the
+    // sequential escalation does NOT stop — it consults Spur, which clears the
+    // IP. A clean second opinion is decisive for a hard signal, so allow.
     const access = await getFreeModeCountryAccess(
       makeReq({
         'cf-ipcountry': 'US',
@@ -428,23 +436,75 @@ describe('free mode country access', () => {
         lookupIpPrivacy: async () => ({
           signals: ['res_proxy'],
         }),
-        lookupSpurIpPrivacy: async () => ({
-          signals: ['proxy'],
-        }),
         lookupScamalyticsIpRisk: async () => ({
           signals: [],
-          score: 20,
-          risk: 'low',
+          score: 60,
+          risk: 'medium',
+        }),
+        lookupSpurIpPrivacy: async () => ({
+          signals: [],
         }),
       },
     )
 
     expect(access.allowed).toBe(true)
     expect(access.blockReason).toBe(null)
-    expect(access.spurStatus).toBe('suspicious')
-    expect(access.scamalyticsStatus).toBe('clean')
-    expect(getFreeModeRiskScore(access)).toBe(75)
+    expect(access.scamalyticsStatus).toBe('suspicious')
+    expect(access.spurStatus).toBe('clean')
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
+  })
+
+  test('hard signal cleared by the first provider stops before the second (early-stop)', async () => {
+    let spurCalls = 0
+    let scamCalls = 0
+    const access = await getFreeModeCountryAccess(
+      makeReq({ 'cf-ipcountry': 'US', 'x-forwarded-for': '203.0.113.10' }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({ signals: ['vpn'] }),
+        lookupScamalyticsIpRisk: async () => {
+          scamCalls++
+          return { signals: [], score: 10, risk: 'low' }
+        },
+        lookupSpurIpPrivacy: async () => {
+          spurCalls++
+          return { signals: [] }
+        },
+      },
+    )
+    expect(access.allowed).toBe(true)
+    // Scamalytics consulted first for a hard signal; it clears, so Spur is not.
+    expect(scamCalls).toBe(1)
+    expect(spurCalls).toBe(0)
+  })
+
+  test('soft signal consults both providers so corroboration can hard-block', async () => {
+    let spurCalls = 0
+    let scamCalls = 0
+    // ipinfo is only soft (hosting); Spur flags res_proxy first but we must
+    // still consult Scamalytics, because a 403 hard block requires both second
+    // opinions to corroborate the residential proxy.
+    const access = await getFreeModeCountryAccess(
+      makeReq({ 'cf-ipcountry': 'US', 'x-forwarded-for': '203.0.113.10' }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({ signals: ['hosting'] }),
+        lookupSpurIpPrivacy: async () => {
+          spurCalls++
+          return { signals: ['res_proxy'] }
+        },
+        lookupScamalyticsIpRisk: async () => {
+          scamCalls++
+          return { signals: ['res_proxy'], score: 60, risk: 'medium' }
+        },
+      },
+    )
+    expect(access.allowed).toBe(false)
+    expect(spurCalls).toBe(1)
+    expect(scamCalls).toBe(1)
+    expect(shouldHardBlockFreeModeAccess(access)).toBe(true)
   })
 
   test('keeps Scamalytics outages limited instead of hard-blocked', async () => {

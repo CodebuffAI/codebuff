@@ -447,7 +447,10 @@ export function getFreeModePrivacyDecision(
   >,
 ): FreebuffPrivacyDecision {
   if (countryAccess.allowed) {
-    return countryAccess.spurStatus === 'clean' &&
+    // ipinfo flagged something but a second opinion (Spur OR Scamalytics —
+    // whichever the sequential escalation consulted) cleared it.
+    return (countryAccess.spurStatus === 'clean' ||
+      countryAccess.scamalyticsStatus === 'clean') &&
       countryAccess.ipPrivacy?.signals.length
       ? 'ipinfo_suspicious_spur_clean'
       : 'allowed_clean'
@@ -504,15 +507,9 @@ export function getFreeModePrivacyProviderDecision(
   if (countryAccess.scamalyticsStatus === 'failed') {
     return 'scamalytics_failed'
   }
-  if (
-    countryAccess.spurStatus === 'clean' &&
-    countryAccess.scamalyticsStatus === 'suspicious'
-  ) {
-    return 'scamalytics_only'
-  }
-  if (countryAccess.spurStatus === 'clean') {
-    return 'ipinfo_only'
-  }
+  // Suspicious (flagging) verdicts are decisive, so check them before clean
+  // ones: with sequential escalation a clean opinion from one provider can
+  // coexist with a flag from the other on a limited decision.
   if (
     countryAccess.spurStatus === 'suspicious' &&
     hasHardBlockedPrivacySignal(countryAccess.ipPrivacy) &&
@@ -522,6 +519,17 @@ export function getFreeModePrivacyProviderDecision(
   }
   if (countryAccess.spurStatus === 'suspicious') {
     return 'corroborated_soft'
+  }
+  if (countryAccess.scamalyticsStatus === 'suspicious') {
+    return 'scamalytics_only'
+  }
+  // A clean second opinion (from whichever provider the escalation consulted)
+  // cleared the otherwise-suspicious ipinfo result.
+  if (
+    countryAccess.spurStatus === 'clean' ||
+    countryAccess.scamalyticsStatus === 'clean'
+  ) {
+    return 'ipinfo_only'
   }
   return 'not_checked'
 }
@@ -995,62 +1003,6 @@ export async function lookupScamalyticsIpRisk(params: {
   return risk
 }
 
-async function lookupSpurPrivacyStatus(
-  clientIp: string,
-  options: FreeModeCountryAccessOptions,
-): Promise<{
-  privacy: FreeModeIpPrivacy | null
-  status: FreebuffSpurStatus
-}> {
-  try {
-    const privacy = options.lookupSpurIpPrivacy
-      ? await options.lookupSpurIpPrivacy(clientIp)
-      : await lookupSpurIpPrivacy({
-          ip: clientIp,
-          token: options.spurToken,
-          fetch: options.fetch ?? globalThis.fetch,
-        })
-    if (!privacy) return { privacy: null, status: 'failed' }
-    return {
-      privacy,
-      status: hasHardBlockedPrivacySignal(privacy) ? 'suspicious' : 'clean',
-    }
-  } catch {
-    return { privacy: null, status: 'failed' }
-  }
-}
-
-async function lookupScamalyticsStatus(
-  clientIp: string,
-  options: FreeModeCountryAccessOptions,
-): Promise<{
-  risk: FreeModeScamalyticsIpRisk | null
-  status: FreebuffScamalyticsStatus
-}> {
-  try {
-    const risk = options.lookupScamalyticsIpRisk
-      ? await options.lookupScamalyticsIpRisk(clientIp)
-      : await lookupScamalyticsIpRisk({
-          ip: clientIp,
-          user: options.scamalyticsUser,
-          apiKey: options.scamalyticsApiKey ?? '',
-          fetch: options.fetch ?? globalThis.fetch,
-        })
-    if (!risk) return { risk: null, status: 'failed' }
-    const score = risk.score ?? 0
-    return {
-      risk,
-      status:
-        hasHardBlockedPrivacySignal(risk) ||
-        score >= SCAMALYTICS_LIMITED_RISK_SCORE
-          ? 'suspicious'
-          : 'clean',
-    }
-  } catch {
-    return { risk: null, status: 'failed' }
-  }
-}
-
 const NOT_CHECKED_SPUR_CONTEXT = {
   spurIpPrivacy: null,
   spurStatus: 'not_checked' as const,
@@ -1061,6 +1013,133 @@ const NOT_CHECKED_SCAMALYTICS_CONTEXT = {
   scamalyticsStatus: 'not_checked' as const,
   scamalyticsScore: null,
   scamalyticsRisk: null,
+}
+
+// --- Sequential second-opinion escalation ------------------------------------
+// The gate has always had two rules; this just applies them by consulting
+// providers ONE AT A TIME instead of always calling both:
+//
+//   - ipinfo HARD signal (vpn/proxy/tor/res_proxy): LIMITED unless a second
+//     opinion CLEARS it. Consult until one returns clean (→ allow) and stop —
+//     the cost win, since Scamalytics clears most legitimate VPN users on the
+//     first call. A provider outage can't clear, so anonymizer traffic stays
+//     limited.
+//   - ipinfo SOFT signal (anonymous/hosting/service) or suspicious client
+//     hints: ALLOWED unless a second opinion FLAGS it. Consult BOTH (no early
+//     stop): when ipinfo itself is clean/soft, the 403 hard block needs Spur
+//     AND Scamalytics to corroborate res_proxy/tor, so we need both verdicts.
+//     An outage adds no evidence, so the user stays allowed.
+//
+// Hard origin consults Scamalytics first (most likely to clear); soft/hints
+// consults Spur first (the strongest detector).
+
+type SecondOpinionContext = {
+  spurIpPrivacy: FreeModeIpPrivacy | null
+  spurStatus: FreebuffSpurStatus
+  scamalyticsIpPrivacy: FreeModeIpPrivacy | null
+  scamalyticsStatus: FreebuffScamalyticsStatus
+  scamalyticsScore: number | null
+  scamalyticsRisk: string | null
+}
+
+async function consultSpurInto(
+  clientIp: string,
+  options: FreeModeCountryAccessOptions,
+  ctx: SecondOpinionContext,
+): Promise<FreebuffSpurStatus> {
+  let privacy: FreeModeIpPrivacy | null = null
+  try {
+    privacy = options.lookupSpurIpPrivacy
+      ? await options.lookupSpurIpPrivacy(clientIp)
+      : await lookupSpurIpPrivacy({
+          ip: clientIp,
+          token: options.spurToken,
+          fetch: options.fetch ?? globalThis.fetch,
+        })
+  } catch {
+    privacy = null
+  }
+  ctx.spurIpPrivacy = privacy
+  ctx.spurStatus = !privacy
+    ? 'failed'
+    : hasHardBlockedPrivacySignal(privacy)
+      ? 'suspicious'
+      : 'clean'
+  return ctx.spurStatus
+}
+
+async function consultScamalyticsInto(
+  clientIp: string,
+  options: FreeModeCountryAccessOptions,
+  ctx: SecondOpinionContext,
+): Promise<FreebuffScamalyticsStatus> {
+  let risk: FreeModeScamalyticsIpRisk | null = null
+  try {
+    risk = options.lookupScamalyticsIpRisk
+      ? await options.lookupScamalyticsIpRisk(clientIp)
+      : await lookupScamalyticsIpRisk({
+          ip: clientIp,
+          user: options.scamalyticsUser,
+          apiKey: options.scamalyticsApiKey ?? '',
+          fetch: options.fetch ?? globalThis.fetch,
+        })
+  } catch {
+    risk = null
+  }
+  ctx.scamalyticsIpPrivacy = risk ? { signals: risk.signals } : null
+  ctx.scamalyticsScore = risk?.score ?? null
+  ctx.scamalyticsRisk = risk?.risk ?? null
+  ctx.scamalyticsStatus =
+    !risk
+      ? 'failed'
+      : hasHardBlockedPrivacySignal(risk) ||
+          (risk.score ?? 0) >= SCAMALYTICS_LIMITED_RISK_SCORE
+        ? 'suspicious'
+        : 'clean'
+  return ctx.scamalyticsStatus
+}
+
+async function resolvePrivacyEscalation(args: {
+  clientIp: string
+  options: FreeModeCountryAccessOptions
+  ipPrivacy: FreeModeIpPrivacy
+  hintsSuspicious: boolean
+}): Promise<
+  { allowed: boolean; blockReason: 'anonymous_network' | null } & SecondOpinionContext
+> {
+  const { clientIp, options, ipPrivacy, hintsSuspicious } = args
+  const ctx: SecondOpinionContext = {
+    ...NOT_CHECKED_SPUR_CONTEXT,
+    ...NOT_CHECKED_SCAMALYTICS_CONTEXT,
+  }
+  const allowed = { allowed: true, blockReason: null } as const
+  const limited = { allowed: false, blockReason: 'anonymous_network' } as const
+
+  const hasLimitedSignal = ipPrivacy.signals.some((signal) =>
+    FREE_MODE_LIMITED_PRIVACY_SIGNALS.has(signal),
+  )
+  // Clean ipinfo and no suspicious hints: allow without any second opinion.
+  if (!hasLimitedSignal && !hintsSuspicious) {
+    return { ...allowed, ...ctx }
+  }
+
+  // Hard signal: limited UNLESS a second opinion clears it. The `||`
+  // short-circuit IS the early stop — if Scamalytics clears it, Spur is never
+  // consulted.
+  if (hasHardBlockedPrivacySignal(ipPrivacy)) {
+    const cleared =
+      (await consultScamalyticsInto(clientIp, options, ctx)) === 'clean' ||
+      (await consultSpurInto(clientIp, options, ctx)) === 'clean'
+    return { ...(cleared ? allowed : limited), ...ctx }
+  }
+
+  // Soft signal / suspicious hints: allowed UNLESS a second opinion flags it.
+  // Consult both — a corroborated 403 hard block needs both providers' signals.
+  await consultSpurInto(clientIp, options, ctx)
+  await consultScamalyticsInto(clientIp, options, ctx)
+  const flagged =
+    ctx.spurStatus === 'suspicious' || ctx.scamalyticsStatus === 'suspicious'
+  return { ...(flagged ? limited : allowed), ...ctx }
 }
 
 export async function getFreeModeCountryAccess(
@@ -1246,127 +1325,21 @@ export async function getFreeModeCountryAccess(
     }
   }
 
-  if (
-    ipPrivacy.signals.some((signal) =>
-      FREE_MODE_LIMITED_PRIVACY_SIGNALS.has(signal),
-    )
-  ) {
-    const [
-      { privacy: spurIpPrivacy, status: spurStatus },
-      { risk: scamalyticsIpRisk, status: scamalyticsStatus },
-    ] = await Promise.all([
-      lookupSpurPrivacyStatus(clientIp, options),
-      lookupScamalyticsStatus(clientIp, options),
-    ])
-    const scamalyticsContext = {
-      scamalyticsIpPrivacy: scamalyticsIpRisk
-        ? { signals: scamalyticsIpRisk.signals }
-        : null,
-      scamalyticsStatus,
-      scamalyticsScore: scamalyticsIpRisk?.score ?? null,
-      scamalyticsRisk: scamalyticsIpRisk?.risk ?? null,
-    }
-
-    // Hard IPinfo signals (vpn/proxy/tor/res_proxy) are genuine anonymizer
-    // detections: keep the strict rule that a second opinion must affirmatively
-    // clear the IP, so a provider being down does NOT let real VPN traffic in.
-    //
-    // Soft-only signals (relay/hosting/anonymous/service) are noisy and
-    // false-positive prone — `relay` is Apple iCloud Private Relay (a default
-    // consumer feature) and `hosting` catches legit cloud dev environments.
-    // For those we only downgrade when a provider AFFIRMATIVELY flags the IP as
-    // suspicious; a `failed`/unavailable provider no longer blocks the user.
-    // This keeps legitimate users in allowed countries out of limited mode when
-    // a second-opinion provider (e.g. Scamalytics) is unavailable.
-    const ipinfoHasHardSignal = hasHardBlockedPrivacySignal(ipPrivacy)
-    const cleared = ipinfoHasHardSignal
-      ? spurStatus === 'clean' || scamalyticsStatus === 'clean'
-      : spurStatus !== 'suspicious' && scamalyticsStatus !== 'suspicious'
-
-    if (cleared) {
-      return {
-        ...baseAccess,
-        allowed: true,
-        blockReason: null,
-        ipPrivacy,
-        spurIpPrivacy,
-        spurStatus,
-        ...scamalyticsContext,
-        clientIpHash,
-        clientHints,
-      }
-    }
-
-    return {
-      ...baseAccess,
-      allowed: false,
-      blockReason: 'anonymous_network',
-      ipPrivacy,
-      spurIpPrivacy,
-      spurStatus,
-      ...scamalyticsContext,
-      clientIpHash,
-      clientHints,
-    }
-  }
-
-  // IPinfo is clean, but client-supplied hints (browser timezone/languages)
-  // look inconsistent with the IP country — escalate to the second-opinion
-  // providers. Spur is strong on exactly this case: residential VPN exits
-  // IPinfo misses. Either provider flagging the IP downgrades to limited;
-  // provider failures do NOT downgrade here since the primary verdict was
-  // clean and hints are client-controlled.
-  if (clientHints?.suspicious) {
-    const [
-      { privacy: spurIpPrivacy, status: spurStatus },
-      { risk: scamalyticsIpRisk, status: scamalyticsStatus },
-    ] = await Promise.all([
-      lookupSpurPrivacyStatus(clientIp, options),
-      lookupScamalyticsStatus(clientIp, options),
-    ])
-    const scamalyticsContext = {
-      scamalyticsIpPrivacy: scamalyticsIpRisk
-        ? { signals: scamalyticsIpRisk.signals }
-        : null,
-      scamalyticsStatus,
-      scamalyticsScore: scamalyticsIpRisk?.score ?? null,
-      scamalyticsRisk: scamalyticsIpRisk?.risk ?? null,
-    }
-
-    if (spurStatus === 'suspicious' || scamalyticsStatus === 'suspicious') {
-      return {
-        ...baseAccess,
-        allowed: false,
-        blockReason: 'anonymous_network',
-        ipPrivacy,
-        spurIpPrivacy,
-        spurStatus,
-        ...scamalyticsContext,
-        clientIpHash,
-        clientHints,
-      }
-    }
-
-    return {
-      ...baseAccess,
-      allowed: true,
-      blockReason: null,
-      ipPrivacy,
-      spurIpPrivacy,
-      spurStatus,
-      ...scamalyticsContext,
-      clientIpHash,
-      clientHints,
-    }
-  }
+  // Sequential second-opinion escalation. Returns the allow/limit verdict plus
+  // the Spur/Scamalytics context fields, which override the not-checked defaults
+  // in baseAccess. Covers all three cases (limited ipinfo signal, suspicious
+  // client hints on a clean IP, or a fully clean IP that consults no provider).
+  const escalation = await resolvePrivacyEscalation({
+    clientIp,
+    options,
+    ipPrivacy,
+    hintsSuspicious: Boolean(clientHints?.suspicious),
+  })
 
   return {
     ...baseAccess,
-    allowed: true,
-    blockReason: null,
+    ...escalation,
     ipPrivacy,
-    spurIpPrivacy: null,
-    spurStatus: 'not_checked',
     clientIpHash,
     clientHints,
   }
