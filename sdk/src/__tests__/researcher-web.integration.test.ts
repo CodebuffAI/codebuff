@@ -13,6 +13,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 const DEFAULT_TIMEOUT_MS = 120_000
 const EXPECTED_KEYWORD = 'useActionState'
 const RESEARCHER_WEB_MAX_AGENT_STEPS = 10
+const RUN_LIVE_INTEGRATION = process.env.RUN_CODEBUFF_E2E === 'true'
 
 function loadEnvValue(name: string): string | undefined {
   if (process.env[name] && process.env[name] !== 'test') {
@@ -134,10 +135,17 @@ describe('researcher-web SDK integration', () => {
   it(
     `runs researcher-web through the SDK and answers with ${EXPECTED_KEYWORD}`,
     async () => {
+      if (!RUN_LIVE_INTEGRATION) {
+        console.log(
+          'Skipping researcher-web SDK integration test: set RUN_CODEBUFF_E2E=true and CODEBUFF_API_KEY to run.',
+        )
+        return
+      }
+
       const apiKey = loadEnvValue('CODEBUFF_API_KEY')
       if (!apiKey) {
         console.log(
-          'Skipping researcher-web SDK integration test: set CODEBUFF_API_KEY to run.',
+          'Skipping researcher-web SDK integration test: set RUN_CODEBUFF_E2E=true and CODEBUFF_API_KEY to run.',
         )
         return
       }
