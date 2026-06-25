@@ -7,12 +7,12 @@ import type { ActionCtx } from "../_generated/server";
 import { getAuthUser } from "../users";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
+import { escapeShellArg } from "../coding_agent/cli_agent/shellEscape";
 
 /**
  * Git integration for Freebuff Cloud (connected-repo) projects: branch status,
- * listing, switching, and creating branches. Commits / pushes / PRs are driven
- * by the agent (the UI fires a chat prompt for those), but lightweight branch
- * operations run here directly so the top-nav branch switcher feels instant.
+ * listing/switching/creating branches, committing, pushing, and syncing from
+ * remote. All operations run directly in the project sandbox.
  */
 
 const BRANCH_NAME = /^[A-Za-z0-9._\-/]+$/;
@@ -23,6 +23,30 @@ function assertBranchName(branch: string): string {
     throw new Error("Invalid branch name.");
   }
   return trimmed;
+}
+
+function assertCommitMessage(message: string): string {
+  const trimmed = (message || "").trim();
+  if (!trimmed) {
+    throw new Error("Commit message is required.");
+  }
+  return trimmed;
+}
+
+function summarizeOutput(output: string, maxChars = 320): string {
+  const trimmed = (output || "").trim();
+  if (!trimmed) return "";
+  return trimmed.length > maxChars
+    ? `${trimmed.slice(trimmed.length - maxChars)}`
+    : trimmed;
+}
+
+async function getCurrentBranch(codebase: DaytonaCodebase): Promise<string> {
+  const branchResult = await codebase.runCommand(
+    "git rev-parse --abbrev-ref HEAD",
+    10_000,
+  );
+  return branchResult.output.trim() || "main";
 }
 
 async function getMemberProjectCodebase(
@@ -198,5 +222,199 @@ export const createBranch = action({
     );
 
     return { success: true, currentBranch: branch, message: `Created and switched to ${branch}` };
+  },
+});
+
+export const commitChanges = action({
+  args: {
+    semanticIdentifier: v.string(),
+    message: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    currentBranch: v.string(),
+    changedFiles: v.number(),
+    message: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    currentBranch: string;
+    changedFiles: number;
+    message: string;
+  }> => {
+    const commitMessage = assertCommitMessage(args.message);
+    const { project, codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    await codebase.runCommand("git add -A", 30_000);
+
+    const stagedResult = await codebase.runCommand(
+      "git diff --cached --name-only",
+      10_000,
+    );
+    const stagedFiles = stagedResult.output
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+
+    const currentBranch = await getCurrentBranch(codebase);
+
+    if (stagedFiles.length === 0) {
+      const statusResult = await codebase.runCommand("git status --porcelain", 10_000);
+      const changedFiles = statusResult.output
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0).length;
+      return {
+        success: true,
+        currentBranch,
+        changedFiles,
+        message: "No changes to commit.",
+      };
+    }
+
+    const commitResult = await codebase.runCommand(
+      `git commit -m ${escapeShellArg(commitMessage)}`,
+      60_000,
+    );
+    if (commitResult.exitCode && commitResult.exitCode !== 0) {
+      return {
+        success: false,
+        currentBranch,
+        changedFiles: stagedFiles.length,
+        message:
+          summarizeOutput(commitResult.output) ||
+          "Commit failed. Please verify git user name/email and try again.",
+      };
+    }
+
+    await ctx.runMutation(internal.cloud.connectRepoMutations.setCurrentBranch, {
+      projectId: project._id,
+      branch: currentBranch,
+    });
+
+    return {
+      success: true,
+      currentBranch,
+      changedFiles: 0,
+      message: summarizeOutput(commitResult.output) || "Committed changes.",
+    };
+  },
+});
+
+export const pushCurrentBranch = action({
+  args: { semanticIdentifier: v.string() },
+  returns: v.object({
+    success: v.boolean(),
+    currentBranch: v.string(),
+    changedFiles: v.number(),
+    message: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    currentBranch: string;
+    changedFiles: number;
+    message: string;
+  }> => {
+    const { project, codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    const currentBranch = await getCurrentBranch(codebase);
+    const pushResult = await codebase.runCommand(
+      `git push origin ${escapeShellArg(currentBranch)}`,
+      120_000,
+    );
+
+    const statusResult = await codebase.runCommand("git status --porcelain", 10_000);
+    const changedFiles = statusResult.output
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0).length;
+
+    if (pushResult.exitCode && pushResult.exitCode !== 0) {
+      return {
+        success: false,
+        currentBranch,
+        changedFiles,
+        message: summarizeOutput(pushResult.output) || `Failed to push ${currentBranch}.`,
+      };
+    }
+
+    await ctx.runMutation(internal.cloud.connectRepoMutations.setCurrentBranch, {
+      projectId: project._id,
+      branch: currentBranch,
+    });
+
+    return {
+      success: true,
+      currentBranch,
+      changedFiles,
+      message: summarizeOutput(pushResult.output) || `Pushed ${currentBranch}.`,
+    };
+  },
+});
+
+export const syncFromRemote = action({
+  args: { semanticIdentifier: v.string() },
+  returns: v.object({
+    success: v.boolean(),
+    currentBranch: v.string(),
+    changedFiles: v.number(),
+    message: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    currentBranch: string;
+    changedFiles: number;
+    message: string;
+  }> => {
+    const { project, codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    const currentBranch = await getCurrentBranch(codebase);
+    const syncResult = await codebase.runCommand(
+      `git pull --rebase origin ${escapeShellArg(currentBranch)}`,
+      120_000,
+    );
+
+    const statusResult = await codebase.runCommand("git status --porcelain", 10_000);
+    const changedFiles = statusResult.output
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0).length;
+
+    if (syncResult.exitCode && syncResult.exitCode !== 0) {
+      return {
+        success: false,
+        currentBranch,
+        changedFiles,
+        message:
+          summarizeOutput(syncResult.output) ||
+          `Failed to sync ${currentBranch} from remote.`,
+      };
+    }
+
+    await ctx.runMutation(internal.cloud.connectRepoMutations.setCurrentBranch, {
+      projectId: project._id,
+      branch: currentBranch,
+    });
+
+    return {
+      success: true,
+      currentBranch,
+      changedFiles,
+      message: summarizeOutput(syncResult.output) || `Synced ${currentBranch} from remote.`,
+    };
   },
 });

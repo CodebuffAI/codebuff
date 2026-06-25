@@ -1,27 +1,25 @@
 'use client'
 
 import { api } from '@/convex/_generated/api'
-import { useAction, useMutation } from 'convex/react'
+import { useAction } from 'convex/react'
 import { useCallback, useEffect, useState } from 'react'
 import {
   GitBranch,
   GitCommitHorizontal,
-  GitPullRequest,
   Github,
   RefreshCw,
   Loader2,
   AlertTriangle,
   FileDiff,
   Download,
+  Upload,
 } from 'lucide-react'
 import { CloudBranchSwitcher } from './CloudBranchSwitcher'
 import { toast } from 'sonner'
 
 /**
- * Git actions surface for Freebuff Cloud. Lightweight branch ops run directly
- * against the sandbox; anything that touches history (commit, push, PR) is
- * delegated to the agent by firing a chat prompt, so the agent owns the full
- * workflow (writing commit messages, opening PRs via `gh`, etc.).
+ * Git actions surface for Freebuff Cloud. Branching, commit, push, and sync
+ * all run directly in the connected-repo sandbox.
  */
 export function CloudGitPanel({
   semanticIdentifier,
@@ -35,15 +33,16 @@ export function CloudGitPanel({
   onAfterPrompt?: () => void
 }) {
   const getGitStatus = useAction(api.cloud.git.getGitStatus)
-  const sendMessage = useMutation(
-    api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
-  )
+  const commitChanges = useAction(api.cloud.git.commitChanges)
+  const pushCurrentBranch = useAction(api.cloud.git.pushCurrentBranch)
+  const syncFromRemote = useAction(api.cloud.git.syncFromRemote)
 
   const [currentBranch, setCurrentBranch] = useState(fallbackBranch ?? 'main')
   const [defaultBranch, setDefaultBranch] = useState<string | null>(null)
   const [changedFiles, setChangedFiles] = useState(0)
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState<string | null>(null)
+  const [commitMessage, setCommitMessage] = useState('')
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -65,15 +64,26 @@ export function CloudGitPanel({
 
   const onMain = defaultBranch != null && currentBranch === defaultBranch
 
-  const firePrompt = async (label: string, message: string) => {
+  const runAction = async (
+    label: string,
+    action: () => Promise<{
+      success: boolean
+      message: string
+      currentBranch: string
+      changedFiles: number
+    }>,
+  ) => {
     setSending(label)
     try {
-      await sendMessage({
-        projectSemanticIdentifier: semanticIdentifier,
-        message,
-        agentType: 'Freebuff',
-      })
-      toast.success(`Asked the agent to ${label.toLowerCase()}.`)
+      const result = await action()
+      if (!result.success) {
+        toast.error(result.message)
+      } else {
+        toast.success(result.message)
+      }
+      setCurrentBranch(result.currentBranch)
+      setChangedFiles(result.changedFiles)
+      void refresh()
       onAfterPrompt?.()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : `Failed to ${label}`)
@@ -145,54 +155,63 @@ export function CloudGitPanel({
         )}
       </div>
 
-      {/* Agent-driven git actions */}
+      {/* Direct git actions */}
       <div className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Actions
         </p>
-        <GitActionButton
-          icon={<GitCommitHorizontal className="h-4 w-4" />}
-          title="Commit & push"
-          description="Stage all changes, write a commit message, and push to the current branch."
-          loading={sending === 'commit and push'}
-          onClick={() =>
-            void firePrompt(
-              'commit and push',
-              `Stage all current changes, write a clear conventional commit message describing them, commit, and push to the "${currentBranch}" branch.`,
-            )
-          }
-        />
-        <GitActionButton
-          icon={<GitPullRequest className="h-4 w-4" />}
-          title="Open a pull request"
-          description="Commit & push the current branch, then open a PR with a summary using gh."
-          loading={sending === 'open a pull request'}
-          onClick={() =>
-            void firePrompt(
-              'open a pull request',
-              `Commit and push my current changes on "${currentBranch}", then open a GitHub pull request into "${
-                defaultBranch ?? 'the default branch'
-              }" using the gh CLI. Write a concise PR title and a description summarizing the changes.`,
-            )
-          }
-        />
+        <div className="rounded-xl border border-border bg-card p-3">
+          <label className="mb-1.5 block text-xs text-muted-foreground">
+            Commit message
+          </label>
+          <input
+            value={commitMessage}
+            onChange={(e) => setCommitMessage(e.target.value)}
+            placeholder="feat: update homepage copy"
+            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+          />
+        </div>
         <GitActionButton
           icon={<Download className="h-4 w-4" />}
-          title="Pull latest"
-          description="Pull the latest changes for the current branch from the remote."
-          loading={sending === 'pull latest'}
+          title="Sync from GitHub"
+          description="Pull and rebase the current branch from origin."
+          loading={sending === 'sync from github'}
           onClick={() =>
-            void firePrompt(
-              'pull latest',
-              `Pull the latest changes for the "${currentBranch}" branch from the remote and resolve any straightforward conflicts.`,
+            void runAction('sync from github', () =>
+              syncFromRemote({ semanticIdentifier }),
+            )
+          }
+        />
+        <GitActionButton
+          icon={<GitCommitHorizontal className="h-4 w-4" />}
+          title="Commit"
+          description="Stage all changes and create a commit on the current branch."
+          loading={sending === 'commit'}
+          disabled={!commitMessage.trim()}
+          onClick={() =>
+            void runAction('commit', () =>
+              commitChanges({
+                semanticIdentifier,
+                message: commitMessage,
+              }),
+            )
+          }
+        />
+        <GitActionButton
+          icon={<Upload className="h-4 w-4" />}
+          title="Push"
+          description="Push the current branch to origin."
+          loading={sending === 'push'}
+          onClick={() =>
+            void runAction('push', () =>
+              pushCurrentBranch({ semanticIdentifier }),
             )
           }
         />
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Commits, pushes, and PRs are handled by the agent so it can write
-        messages and resolve issues. Watch the chat for progress.
+        Git operations run directly against your connected repository sandbox.
       </p>
     </div>
   )
@@ -203,19 +222,21 @@ function GitActionButton({
   title,
   description,
   loading,
+  disabled,
   onClick,
 }: {
   icon: React.ReactNode
   title: string
   description: string
   loading?: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 disabled:opacity-60"
     >
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
