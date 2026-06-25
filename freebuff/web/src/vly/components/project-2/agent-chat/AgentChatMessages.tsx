@@ -56,6 +56,7 @@ import {
   type GravityAdMessage,
 } from './GravityAdSlot'
 import { ThinkingState } from '../ThinkingState'
+import { ReviewingState } from '../ReviewingState'
 import { useSession } from 'next-auth/react'
 
 // Scroll to Bottom Button Component
@@ -747,6 +748,32 @@ const buildActivitySummary = (items: AssistantStreamItemType[]) => {
   return items.map(getActivityItemLabel).filter(Boolean).join(', ')
 }
 
+// Subagent stream items carry the agent id as their title (e.g.
+// "code-reviewer-minimax-m3"); all reviewer variants contain "review".
+const REVIEWER_TITLE_RE = /review/i
+
+// Whether a code-reviewer subagent is the activity currently streaming. We walk
+// from the end of the stream: if the most recent meaningful activity is a
+// reviewer subagent (and not assistant text that came after it), the run is in
+// its review phase. Tool/status/reasoning items run in parallel with review, so
+// they're skipped rather than treated as "review finished".
+const isReviewingNow = (
+  stream: AssistantStreamItemType[],
+  isStreaming: boolean,
+) => {
+  if (!isStreaming) return false
+  for (let i = stream.length - 1; i >= 0; i--) {
+    const item = stream[i]
+    if (item.type === 'subagent') {
+      return REVIEWER_TITLE_RE.test(item.title ?? '')
+    }
+    if (item.type === 'text' && (item.content ?? '').trim().length > 0) {
+      return false
+    }
+  }
+  return false
+}
+
 const PLACEHOLDER_ACTIVITY_CONTENT = new Set([
   '',
   'running tool',
@@ -1208,11 +1235,16 @@ const AgentMessageCard: React.FC<{
         </div>
       ) : null}
 
-      {/* Animated thinking indicator while the agent is working. Shows on its
-          own before the first stream output, and below the stream while it
-          continues. Hidden once streaming ends or the time-limit panel shows. */}
+      {/* Animated working indicator. While a code-reviewer subagent is
+          streaming, swap in a distinct "Reviewing changes" indicator so the
+          review phase is visually separate from general work. Hidden once
+          streaming ends or the time-limit panel shows. */}
       {isStreaming && !isPromptTimeLimit && (
-        <ThinkingState activityKey={message._id} />
+        isReviewingNow(assistantStream, isStreaming) ? (
+          <ReviewingState activityKey={message._id} />
+        ) : (
+          <ThinkingState activityKey={message._id} />
+        )
       )}
 
       {isPromptTimeLimit && (

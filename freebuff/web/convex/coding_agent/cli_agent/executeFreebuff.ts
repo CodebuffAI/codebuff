@@ -1131,11 +1131,20 @@ export const runFreebuffAgent = internalAction({
     let pendingAskUserQuestions: AskUserQuestion[] | undefined
 
     const abortController = new AbortController()
+    const runStartedAtMs = Date.now()
     const timeoutHandle = setTimeout(() => {
       abortController.abort(
         new Error('Freebuff run exceeded 9-minute time limit'),
       )
     }, FREEBUFF_RUN_TIMEOUT_MS)
+
+    // Review-phase instrumentation. The code reviewer runs as a spawned subagent
+    // (kept inline by design). We track whether a reviewer was streaming and how
+    // recently, so that if the run crosses the time limit we can clearly flag
+    // whether the review step is what pushed it over (visible in Convex logs
+    // during testing).
+    let reviewerEverRan = false
+    let lastReviewerChunkAtMs = 0
 
     // Cooperative cancellation: the running SDK call can't be force-killed, so
     // we poll the run ledger (set to 'cancelled' when the user terminates the
@@ -1429,6 +1438,13 @@ export const runFreebuffAgent = internalAction({
               chunk: chunk.chunk ?? '',
             })
           } else if (chunk.type === 'subagent_chunk') {
+            if (
+              typeof chunk.agentType === 'string' &&
+              /review/i.test(chunk.agentType)
+            ) {
+              reviewerEverRan = true
+              lastReviewerChunkAtMs = Date.now()
+            }
             eventBuffer.append({
               type: 'subagent_delta',
               agentType: chunk.agentType,
@@ -1484,6 +1500,30 @@ export const runFreebuffAgent = internalAction({
         }
 
         const isLocalTimeout = abortController.signal.aborted
+
+        // Make it obvious in testing when a run crosses the time limit, and
+        // whether the (inline) review step is the likely culprit. A reviewer
+        // streaming within ~20s of the abort strongly implies review pushed the
+        // turn over the limit.
+        if (isLocalTimeout) {
+          const elapsedMs = Date.now() - runStartedAtMs
+          const reviewActiveNearAbort =
+            reviewerEverRan && Date.now() - lastReviewerChunkAtMs < 20_000
+          console.warn(
+            '[vly-freebuff-workpool] run hit time limit',
+            JSON.stringify({
+              runId: args.runId,
+              projectId: args.projectId,
+              connectedRepo: !!connectedRepoContext,
+              continuationCount: args.continuationCount ?? 0,
+              elapsedMs,
+              elapsedSeconds: Math.round(elapsedMs / 1000),
+              reviewerEverRan,
+              reviewActiveNearAbort,
+              likelyCausedByReview: reviewActiveNearAbort,
+            }),
+          )
+        }
 
         // Time limit hit but the agent isn't done. For cloud (connected_repo)
         // projects, transparently continue from the full state instead of
