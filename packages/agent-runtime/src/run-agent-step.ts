@@ -387,7 +387,10 @@ export const runAgentStep = async (
       model,
       duration: Date.now() - startTime,
       contextTokenCount: agentState.contextTokenCount,
-      agentMessages: agentState.messageHistory.concat().reverse(),
+      // Limit debug-log message history to the most recent 50 messages to
+      // avoid MB-sized log lines on long sessions. Reverse so the most recent
+      // message appears first.
+      agentMessages: agentState.messageHistory.slice(-50).reverse(),
       system,
       prompt,
       params: spawnParams,
