@@ -491,6 +491,13 @@
       "when": 1782251007749,
       "tag": "0069_early_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1782368966523,
+      "tag": "0070_ambitious_hedge_knight",
+      "breakpoints": true
     }
   ]
 }

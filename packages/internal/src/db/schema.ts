@@ -1237,6 +1237,11 @@ export const chatMessage = pgTable(
     // persisted. Serving URLs are resolved on read, never stored. Null for
     // turns without images.
     images: jsonb('images'),
+    // Document attachments on user turns: an array of { storageId, mediaType,
+    // name, chars, tokens, truncated }. Unlike images, the blob holds the
+    // EXTRACTED text (converted to LLM-readable UTF-8 at upload time), so the
+    // chat agent can read it inline or search it. Null for turns without docs.
+    attachments: jsonb('attachments'),
     model: text('model'),
     created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
       .notNull()

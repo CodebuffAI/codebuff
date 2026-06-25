@@ -6,6 +6,8 @@ import type { NextRequest } from 'next/server'
 
 import { BlockTreeBuilder } from '@/app/chat/blocks'
 import {
+  CHAT_DOC_MAX_COUNT,
+  CHAT_DOC_THREAD_SEARCH_MAX_FILES,
   CHAT_IMAGE_ALLOWED_TYPES_SET,
   CHAT_IMAGE_MAX_COUNT,
   CHAT_MESSAGE_MAX_CHARS,
@@ -23,12 +25,13 @@ import {
   getThread,
   insertMessage,
   isUserBanned,
+  listThreadDocumentRefs,
   releaseThreadRun,
   touchThread,
 } from '@/server/chat/store'
 import { logger } from '@/util/logger'
 
-import type { ChatImageRef } from '@/server/chat/store'
+import type { ChatDocumentRef, ChatImageRef } from '@/server/chat/store'
 
 /**
  * Validates the client-supplied image refs into trusted ChatImageRefs. The
@@ -52,6 +55,39 @@ function parseImageRefs(raw: unknown): ChatImageRef[] {
       continue
     }
     refs.push({ storageId, mediaType })
+  }
+  return refs
+}
+
+/**
+ * Validates the client-supplied document refs into trusted ChatDocumentRefs.
+ * Like images, the client sends only opaque storageIds (from /api/chat/upload)
+ * plus metadata the server already produced; the extracted text is re-fetched
+ * server-side from the blob store. Returns at most CHAT_DOC_MAX_COUNT entries;
+ * anything malformed is dropped.
+ */
+function parseDocumentRefs(raw: unknown): ChatDocumentRef[] {
+  if (!Array.isArray(raw)) return []
+  const refs: ChatDocumentRef[] = []
+  for (const item of raw) {
+    if (refs.length >= CHAT_DOC_MAX_COUNT) break
+    if (!item || typeof item !== 'object') continue
+    const { storageId, mediaType, name, chars, truncated } =
+      item as Record<string, unknown>
+    if (
+      typeof storageId !== 'string' ||
+      typeof mediaType !== 'string' ||
+      typeof name !== 'string'
+    ) {
+      continue
+    }
+    refs.push({
+      storageId,
+      mediaType,
+      name,
+      chars: typeof chars === 'number' ? chars : 0,
+      truncated: truncated === true,
+    })
   }
   return refs
 }
@@ -103,8 +139,9 @@ export async function POST(request: NextRequest) {
   const threadIdInput =
     typeof body?.threadId === 'string' ? body.threadId : null
   let images = parseImageRefs(body?.images)
+  let attachments = parseDocumentRefs(body?.attachments)
 
-  if (!content && images.length === 0) {
+  if (!content && images.length === 0 && attachments.length === 0) {
     return NextResponse.json(
       { error: 'empty_message', message: 'Message cannot be empty.' },
       { status: 400 },
@@ -175,10 +212,11 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Image upload is full-access only; drop any images a limited user smuggled
+  // Upload is full-access only; drop any attachments a limited user smuggled
   // in (they're pinned to a text-only model).
   if (accessTier !== 'full') {
     images = []
+    attachments = []
   }
 
   // The server picks the model from the access tier (full → MiniMax M3,
@@ -196,7 +234,21 @@ export async function POST(request: NextRequest) {
   const threadId = thread.id
   const previousRunState = thread.run_state
 
-  await insertMessage({ threadId, userId, role: 'user', content, images })
+  // Files uploaded earlier in this thread stay searchable on follow-up turns.
+  // Gather them BEFORE inserting the current message so it isn't double-counted;
+  // a brand-new thread has none.
+  const priorAttachments = claimedThread
+    ? await listThreadDocumentRefs(threadId, CHAT_DOC_THREAD_SEARCH_MAX_FILES)
+    : []
+
+  await insertMessage({
+    threadId,
+    userId,
+    role: 'user',
+    content,
+    images,
+    attachments,
+  })
 
   // DAU signal: one event per user-submitted chat message. userId is the
   // canonical codebuff Postgres user id (next-auth session.user.id), matching
@@ -240,6 +292,8 @@ export async function POST(request: NextRequest) {
           prompt: content,
           model,
           images,
+          attachments,
+          priorAttachments,
           previousRunState,
           userId,
           threadId,
@@ -263,7 +317,14 @@ export async function POST(request: NextRequest) {
           // logger.* (not console.*) so this reaches Axiom with structured
           // context; a bare console.error here is invisible to log queries.
           logger.error(
-            { error, userId, threadId, model, imageCount: images.length },
+            {
+              error,
+              userId,
+              threadId,
+              model,
+              imageCount: images.length,
+              attachmentCount: attachments.length,
+            },
             'Chat stream agent run threw',
           )
           enqueueGenericError()

@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from 'convex/browser'
 
 import { api } from '@/convex/_generated/api'
+import { logger } from '@/util/logger'
 
 import type { ChatImageRef } from './store'
 import type { Id } from '@/convex/_generated/dataModel'
@@ -88,6 +89,48 @@ export function getBlobStore(): BlobStore {
   }
   store = new ConvexBlobStore(url)
   return store
+}
+
+/**
+ * Resolves a batch of blob refs to URLs and fetches each, applying `transform`
+ * to the response. URLs always come from our own blob store (never the client),
+ * so there's no SSRF surface. Refs whose blob is missing, or whose fetch fails,
+ * are skipped (logged; abort-aware) rather than failing the whole batch — the
+ * shared contract the image and document loaders both need.
+ */
+export async function loadBlobs<R extends { storageId: string }, T>(
+  refs: R[],
+  signal: AbortSignal,
+  transform: (res: Response, ref: R) => T | Promise<T>,
+): Promise<T[]> {
+  if (refs.length === 0) return []
+  const urls = await getBlobStore().getUrls(refs.map((r) => r.storageId))
+  const results = await Promise.all(
+    refs.map(async (ref) => {
+      const url = urls[ref.storageId]
+      if (!url) {
+        logger.warn(
+          { storageId: ref.storageId },
+          'Chat blob missing; skipping it',
+        )
+        return null
+      }
+      try {
+        const res = await fetch(url, { signal })
+        if (!res.ok) throw new Error(`status ${res.status}`)
+        return await transform(res, ref)
+      } catch (error) {
+        if (!signal.aborted) {
+          logger.error(
+            { error, storageId: ref.storageId },
+            'Chat blob fetch failed; skipping it',
+          )
+        }
+        return null
+      }
+    }),
+  )
+  return results.filter((r): r is Awaited<T> => r !== null) as T[]
 }
 
 /** A message image attachment with its serving URL resolved for the client. */

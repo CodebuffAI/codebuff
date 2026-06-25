@@ -1,0 +1,150 @@
+import { describe, expect, it, mock } from 'bun:test'
+
+import type { ChatDocumentRef } from '@/server/chat/store'
+
+// Mock the blob store + fetch BEFORE importing the module under test, so
+// buildDocumentContext resolves document text from this in-memory map instead
+// of Convex/network.
+const TEXT: Record<string, string> = {}
+
+mock.module('@/server/chat/blob-store', () => ({
+  getBlobStore: () => ({
+    getUrls: async (ids: string[]) =>
+      Object.fromEntries(
+        ids.filter((id) => id in TEXT).map((id) => [id, `mock://${id}`]),
+      ),
+    upload: async () => '',
+    deleteMany: async () => {},
+  }),
+}))
+
+globalThis.fetch = (async (url: unknown) => {
+  const id = String(url).replace('mock://', '')
+  return { ok: true, text: async () => TEXT[id] ?? '' } as Response
+}) as typeof fetch
+
+const { buildDocumentContext, searchDocs, sanitizeFileName } = await import(
+  '@/server/chat/document-context'
+)
+
+const SIGNAL = new AbortController().signal
+
+function doc(storageId: string, text: string, name = storageId): ChatDocumentRef {
+  TEXT[storageId] = text
+  return {
+    storageId,
+    mediaType: 'text/plain',
+    name,
+    chars: text.length,
+    truncated: false,
+  }
+}
+
+/** A doc larger than the inline budget, with a sentinel past the head excerpt. */
+function bigDoc(storageId: string, sentinel: string): ChatDocumentRef {
+  const lines: string[] = []
+  for (let i = 0; i < 1000; i++) {
+    lines.push(`line ${i} padding padding padding padding padding`)
+  }
+  lines[500] = `${sentinel} is on this line`
+  return doc(storageId, lines.join('\n'))
+}
+
+async function runSearch(tool: any, query: string) {
+  const out = await tool.execute({ query })
+  return out[0].value as {
+    totalMatches: number
+    matches?: { file: string; snippet: string }[]
+  }
+}
+
+describe('sanitizeFileName', () => {
+  it('strips quotes/angle brackets/newlines that could break the prompt tag', () => {
+    expect(sanitizeFileName('evil" ><attached_file>')).toBe('evil attached_file')
+    expect(sanitizeFileName('a\nb\tc')).toBe('a b c')
+  })
+  it('falls back to "file" for an empty result and bounds length', () => {
+    expect(sanitizeFileName('<<<>>>')).toBe('file')
+    expect(sanitizeFileName('x'.repeat(500)).length).toBe(200)
+  })
+})
+
+describe('buildDocumentContext', () => {
+  it('returns empty when there are no documents', async () => {
+    const ctx = await buildDocumentContext([], [], SIGNAL)
+    expect(ctx.promptSuffix).toBe('')
+    expect(ctx.searchTool).toBeUndefined()
+  })
+
+  it('inlines a small current doc in full and registers no search tool', async () => {
+    const ctx = await buildDocumentContext(
+      [doc('small', 'the secret is APPLE_42', 'notes.txt')],
+      [],
+      SIGNAL,
+    )
+    expect(ctx.promptSuffix).toContain('APPLE_42')
+    expect(ctx.promptSuffix).toContain('name="notes.txt"')
+    expect(ctx.searchTool).toBeUndefined()
+  })
+
+  it('sanitizes the filename in the inlined tag', async () => {
+    const ctx = await buildDocumentContext(
+      [doc('x', 'hello', 'evil" ><b>name')],
+      [],
+      SIGNAL,
+    )
+    expect(ctx.promptSuffix).toContain('name="evil b name"')
+    expect(ctx.promptSuffix).not.toContain('evil"')
+  })
+
+  it('shows only a head excerpt for a large current doc and makes it searchable', async () => {
+    const ctx = await buildDocumentContext(
+      [bigDoc('big', 'ZZZ_SENTINEL')],
+      [],
+      SIGNAL,
+    )
+    // The sentinel is past the inline head excerpt.
+    expect(ctx.promptSuffix).not.toContain('ZZZ_SENTINEL')
+    expect(ctx.searchTool).toBeDefined()
+    const res = await runSearch(ctx.searchTool, 'ZZZ_SENTINEL')
+    expect(res.totalMatches).toBe(1)
+    expect(res.matches![0].snippet).toContain('ZZZ_SENTINEL')
+  })
+
+  it('makes a prior-message doc searchable with no inline excerpt (lazy load)', async () => {
+    const ctx = await buildDocumentContext(
+      [], // no new attachment this turn
+      [bigDoc('prior', 'PRIOR_SENTINEL')],
+      SIGNAL,
+    )
+    expect(ctx.promptSuffix).toBe('')
+    expect(ctx.searchTool).toBeDefined()
+    const res = await runSearch(ctx.searchTool, 'PRIOR_SENTINEL')
+    expect(res.totalMatches).toBe(1)
+  })
+
+  it('does not double-count a doc present as both current and prior', async () => {
+    const shared = bigDoc('dup', 'DUP_SENTINEL')
+    const ctx = await buildDocumentContext([shared], [shared], SIGNAL)
+    const res = await runSearch(ctx.searchTool, 'DUP_SENTINEL')
+    // One match, not two — the prior copy was filtered out.
+    expect(res.totalMatches).toBe(1)
+  })
+})
+
+describe('searchDocs ReDoS guards', () => {
+  const docs = [{ name: 'a.txt', text: 'aaaaaaaaaa\nbbbb', truncated: false }]
+
+  it('treats an over-long regex as a literal substring instead of compiling it', () => {
+    const query = 'a'.repeat(201)
+    // Would be a valid (harmless) regex, but exceeds the length cap → literal.
+    // No 201-'a' literal run exists, so zero matches and, crucially, no throw.
+    const { totalMatches } = searchDocs(docs, query, true)
+    expect(totalMatches).toBe(0)
+  })
+
+  it('still matches a short literal under the regex path', () => {
+    const { totalMatches } = searchDocs(docs, 'a{3}', true)
+    expect(totalMatches).toBe(1) // regex a{3} matches the run of a's
+  })
+})

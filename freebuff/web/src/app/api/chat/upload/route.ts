@@ -3,13 +3,20 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import {
+  CHAT_DOC_MAX_BYTES,
   CHAT_IMAGE_ALLOWED_TYPES_SET,
   CHAT_IMAGE_MAX_BYTES,
+  classifyAttachment,
 } from '@/app/chat/models'
 import { getChatAccessTier } from '@/server/chat/access'
 import { getChatUserId } from '@/server/chat/auth'
 import { getBlobStore } from '@/server/chat/blob-store'
 import { CHAT_DISABLED, chatDisabledResponse } from '@/server/chat/disabled'
+import {
+  EmptyDocumentError,
+  extractText,
+  UnsupportedDocumentError,
+} from '@/server/chat/extract'
 import { isUserBanned } from '@/server/chat/store'
 import { logger } from '@/util/logger'
 
@@ -17,8 +24,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-// Slightly above CHAT_IMAGE_MAX_BYTES to allow for multipart overhead; the
-// real per-file limit is enforced on the parsed file below.
+// Slightly above the largest per-file limit to allow for multipart overhead;
+// the real per-file limit is enforced on the parsed file below.
 const MAX_BODY_BYTES = CHAT_IMAGE_MAX_BYTES + 1024 * 1024
 
 export async function POST(request: NextRequest) {
@@ -36,12 +43,12 @@ export async function POST(request: NextRequest) {
   const contentLength = Number(request.headers.get('content-length') ?? 0)
   if (contentLength > MAX_BODY_BYTES) {
     return NextResponse.json(
-      { error: 'image_too_large', message: 'Image is too large (max 10 MB).' },
+      { error: 'file_too_large', message: 'File is too large.' },
       { status: 413 },
     )
   }
 
-  // Image upload is a full-access-only feature: limited users (unsupported
+  // Upload is a full-access-only feature: limited users (unsupported
   // countries, VPN/proxy) are pinned to a text-only model, so don't accept
   // their uploads either.
   const [accessTier, banned] = await Promise.all([
@@ -56,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
   if (accessTier !== 'full') {
     return NextResponse.json(
-      { error: 'forbidden', message: 'Image upload is not available.' },
+      { error: 'forbidden', message: 'File upload is not available.' },
       { status: 403 },
     )
   }
@@ -81,6 +88,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const kind = classifyAttachment(file.name, file.type)
+  if (kind === 'image') {
+    return handleImageUpload(file, userId)
+  }
+  if (kind === 'document') {
+    return handleDocumentUpload(file, userId)
+  }
+  return NextResponse.json(
+    {
+      error: 'unsupported_type',
+      message:
+        'Unsupported file type. Upload an image, or a text, code, CSV, JSON, Markdown, PDF, or Word file.',
+    },
+    { status: 400 },
+  )
+}
+
+/** Stores an image's raw bytes and returns a ref + an immediate preview URL. */
+async function handleImageUpload(file: File, userId: string) {
   const mediaType = file.type
   if (!CHAT_IMAGE_ALLOWED_TYPES_SET.has(mediaType)) {
     return NextResponse.json(
@@ -93,7 +119,7 @@ export async function POST(request: NextRequest) {
   }
   if (file.size > CHAT_IMAGE_MAX_BYTES) {
     return NextResponse.json(
-      { error: 'image_too_large', message: 'Image is too large (max 10 MB).' },
+      { error: 'file_too_large', message: 'Image is too large (max 10 MB).' },
       { status: 413 },
     )
   }
@@ -109,6 +135,7 @@ export async function POST(request: NextRequest) {
       throw new Error('Could not resolve uploaded image URL')
     }
     return NextResponse.json({
+      kind: 'image',
       storageId,
       url,
       mediaType,
@@ -120,6 +147,84 @@ export async function POST(request: NextRequest) {
       {
         error: 'upload_failed',
         message: 'Could not upload the image. Please try again.',
+      },
+      { status: 500 },
+    )
+  }
+}
+
+/**
+ * Converts a document to text (the hard part of file upload) and stores the
+ * EXTRACTED text — not the original bytes — in the blob store, so the chat
+ * agent can read or search it later. Returns a ref carrying the size metadata
+ * the agent uses to decide inline-vs-search.
+ */
+async function handleDocumentUpload(file: File, userId: string) {
+  if (file.size > CHAT_DOC_MAX_BYTES) {
+    return NextResponse.json(
+      { error: 'file_too_large', message: 'File is too large (max 5 MB).' },
+      { status: 413 },
+    )
+  }
+
+  let text: string
+  let truncated: boolean
+  try {
+    const result = await extractText({
+      bytes: await file.arrayBuffer(),
+      mediaType: file.type,
+      fileName: file.name,
+    })
+    text = result.text
+    truncated = result.truncated
+  } catch (error) {
+    if (
+      error instanceof UnsupportedDocumentError ||
+      error instanceof EmptyDocumentError
+    ) {
+      return NextResponse.json(
+        { error: 'extract_failed', message: error.message },
+        { status: 400 },
+      )
+    }
+    logger.error(
+      { error, userId, name: file.name, type: file.type },
+      'Chat document extraction failed',
+    )
+    return NextResponse.json(
+      {
+        error: 'extract_failed',
+        message: 'Could not read this file. Please try a different file.',
+      },
+      { status: 422 },
+    )
+  }
+
+  try {
+    const bytes = new TextEncoder().encode(text)
+    const storageId = await getBlobStore().upload(
+      // Copy into a standalone ArrayBuffer (TextEncoder may return a view over
+      // a larger pooled buffer).
+      bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer,
+      'text/plain; charset=utf-8',
+    )
+    return NextResponse.json({
+      kind: 'document',
+      storageId,
+      mediaType: file.type || 'text/plain',
+      name: file.name,
+      chars: text.length,
+      truncated,
+    })
+  } catch (error) {
+    logger.error({ error, userId, name: file.name }, 'Chat document upload failed')
+    return NextResponse.json(
+      {
+        error: 'upload_failed',
+        message: 'Could not upload the file. Please try again.',
       },
       { status: 500 },
     )

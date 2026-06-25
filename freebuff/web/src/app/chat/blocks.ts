@@ -133,6 +133,12 @@ export function toolCallDisplay(
   if (toolName === 'read_url') {
     return { label: asTrimmedString(input.url) }
   }
+  if (toolName === 'search_files') {
+    return {
+      label: asTrimmedString(input.query),
+      verbs: { running: 'Searching files', done: 'Searched files' },
+    }
+  }
   if (toolName === 'gravity_index') {
     switch (input.action) {
       case 'search':
