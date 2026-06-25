@@ -487,6 +487,12 @@ export async function postChatCompletions(params: {
             resolvedCountry: countryAccess.countryCode,
             countryBlockReason: countryAccess.blockReason,
             ipPrivacySignals: countryAccess.ipPrivacy?.signals,
+            // Metadata behind the risk score, so "why was this scored 85?" is
+            // answerable from logs (not persisted on cache-read rows).
+            ipPrivacyAsType: countryAccess.ipPrivacy?.asType,
+            ipPrivacyProviderName: countryAccess.ipPrivacy?.providerName,
+            ipPrivacyLastSeen: countryAccess.ipPrivacy?.lastSeen,
+            ipPrivacyPercentDaysSeen: countryAccess.ipPrivacy?.percentDaysSeen,
             spurIpPrivacySignals: countryAccess.spurIpPrivacy?.signals,
             spurStatus: countryAccess.spurStatus,
             scamalyticsIpPrivacySignals:
