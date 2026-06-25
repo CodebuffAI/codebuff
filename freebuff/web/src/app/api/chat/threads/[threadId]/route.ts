@@ -9,7 +9,7 @@ import {
   deleteThread,
   getThread,
   listMessages,
-  listThreadImageStorageIds,
+  listThreadBlobStorageIds,
   renameThread,
 } from '@/server/chat/store'
 import { logger } from '@/util/logger'
@@ -69,7 +69,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   // Gather the thread's image blobs before deleting the rows (which cascades
   // the messages away). Only delete the blobs once we've confirmed the thread
   // was actually the user's and is now gone.
-  const storageIds = await listThreadImageStorageIds(threadId)
+  const storageIds = await listThreadBlobStorageIds(threadId)
   const deleted = await deleteThread(userId, threadId)
   if (!deleted) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })

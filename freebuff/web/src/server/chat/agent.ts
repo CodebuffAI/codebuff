@@ -1,13 +1,19 @@
 import { getCachedFreebuffWebServiceAccountApiKey } from '@codebuff/internal/freebuff/web-service-account'
 
-import type { ChatImageRef } from './store'
-import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
+import type { ChatDocumentRef, ChatImageRef } from './store'
+import type {
+  AgentDefinition,
+  CustomToolDefinition,
+  MessageContent,
+  RunState,
+} from '@codebuff/sdk'
 
 import baseChatAgent from '../../../../../agents/base-chat'
 import researcherWebAgent from '../../../../../agents/researcher/researcher-web'
 import thinkerGeminiAgent from '../../../../../agents/thinker/thinker-gemini'
 import { CHAT_MODELS } from '@/app/chat/models'
-import { getBlobStore } from '@/server/chat/blob-store'
+import { loadBlobs } from '@/server/chat/blob-store'
+import { buildDocumentContext } from '@/server/chat/document-context'
 import { logger } from '@/util/logger'
 
 import { toolCallDisplay } from '@/app/chat/blocks'
@@ -96,36 +102,15 @@ async function buildImageContent(
   images: ChatImageRef[],
   signal: AbortSignal,
 ): Promise<MessageContent[]> {
-  const urls = await getBlobStore().getUrls(images.map((img) => img.storageId))
-  const parts = await Promise.all(
-    images.map(async (img): Promise<MessageContent | null> => {
-      const url = urls[img.storageId]
-      if (!url) {
-        logger.warn(
-          { storageId: img.storageId },
-          'Chat image blob missing; sending message without it',
-        )
-        return null
-      }
-      try {
-        const res = await fetch(url, { signal })
-        if (!res.ok) {
-          throw new Error(`status ${res.status}`)
-        }
-        const base64 = Buffer.from(await res.arrayBuffer()).toString('base64')
-        return { type: 'image', image: base64, mediaType: img.mediaType }
-      } catch (error) {
-        if (!signal.aborted) {
-          logger.error(
-            { error, storageId: img.storageId },
-            'Chat image fetch failed; sending message without it',
-          )
-        }
-        return null
-      }
+  const resolved = await loadBlobs(
+    images,
+    signal,
+    async (res, img): Promise<MessageContent> => ({
+      type: 'image',
+      image: Buffer.from(await res.arrayBuffer()).toString('base64'),
+      mediaType: img.mediaType,
     }),
   )
-  const resolved = parts.filter((p): p is MessageContent => p !== null)
   // Make the happy path observable: how many images actually made it into the
   // request, their byte sizes and media types. A 78-byte image here next to a
   // downstream "failed to decode image" provider error means the image is
@@ -168,6 +153,11 @@ export async function runChatAgent(params: {
   model: string
   /** Image attachments for this turn; already validated by the caller. */
   images?: ChatImageRef[]
+  /** Document attachments for this turn; already validated by the caller. */
+  attachments?: ChatDocumentRef[]
+  /** Document attachments from earlier messages in the thread, kept searchable
+   *  so a continued conversation can still read previously-uploaded files. */
+  priorAttachments?: ChatDocumentRef[]
   previousRunState: unknown
   userId: string
   threadId: string
@@ -182,13 +172,41 @@ export async function runChatAgent(params: {
     throw new Error(`Unknown chat model: ${params.model}`)
   }
 
-  const content = params.images?.length
+  // Images go in the multimodal content array (base64 parts). Documents go in
+  // the PROMPT text — not content — because the SDK treats the first text
+  // content part as the user message and drops the prompt, so a doc in content
+  // would replace the user's question. Documents may also yield a search_files
+  // tool over any long files, plus instructions telling the agent to use it.
+  const content: MessageContent[] = params.images?.length
     ? await buildImageContent(params.images, params.signal)
-    : undefined
+    : []
+  const docContext = await buildDocumentContext(
+    params.attachments ?? [],
+    params.priorAttachments ?? [],
+    params.signal,
+  )
+  const prompt = docContext.promptSuffix
+    ? `${params.prompt}\n\n${docContext.promptSuffix}`
+    : params.prompt
 
+  const customToolDefinitions: CustomToolDefinition[] = docContext.searchTool
+    ? [docContext.searchTool]
+    : []
+
+  // Per-turn agent overrides: bind the model, and when files are attached,
+  // grant the search tool and append file-handling guidance (base-chat's static
+  // prompt otherwise says it has no filesystem).
   const agent = {
     ...baseChatAgent,
     model: backendModel,
+    ...(docContext.searchTool
+      ? { toolNames: [...(baseChatAgent.toolNames ?? []), 'search_files'] }
+      : {}),
+    ...(docContext.instructions
+      ? {
+          instructionsPrompt: `${baseChatAgent.instructionsPrompt}\n\n${docContext.instructions}`,
+        }
+      : {}),
   } as AgentDefinition
 
   const previousRun =
@@ -213,12 +231,13 @@ export async function runChatAgent(params: {
       researcherWebAgent as AgentDefinition,
       thinkerGeminiAgent as AgentDefinition,
     ],
+    ...(customToolDefinitions.length > 0 ? { customToolDefinitions } : {}),
     // No filesystem: skip project discovery entirely.
     projectFiles: {},
     knowledgeFiles: {},
     maxAgentSteps: 10,
-    prompt: params.prompt,
-    ...(content && content.length > 0 ? { content } : {}),
+    prompt,
+    ...(content.length > 0 ? { content } : {}),
     previousRun,
     costMode: 'normal',
     signal: params.signal,

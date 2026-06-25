@@ -48,6 +48,11 @@ const nextConfig = {
     '@codebuff/code-map',
     '@codebuff/code-map/parse',
     '@codebuff/code-map/languages',
+    // Document extraction for chat uploads: unpdf bundles pdf.js (dynamic
+    // imports/workers) and mammoth uses Node built-ins + dynamic requires —
+    // keep both unbundled so they load from node_modules at runtime.
+    'unpdf',
+    'mammoth',
   ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],

@@ -1,9 +1,9 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { FileText, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
-import type { ChatImage, ChatMessage, QueuedMessage } from './types'
+import type { ChatDocument, ChatImage, ChatMessage, QueuedMessage } from './types'
 import type { ReactNode } from 'react'
 
 import { CopyButton } from '@/components/copy-button'
@@ -11,17 +11,40 @@ import { cn } from '@/lib/utils'
 import { BlockList } from './agent-blocks'
 import { Markdown } from './markdown'
 
-// A user turn's bubble: the attached-image grid plus the text bubble. Shared by
-// the real transcript and the pending "queued" messages; `dimmed` greys out a
-// not-yet-sent message and `trailing` slots in an action (e.g. a remove button).
+// A user turn's bubble: the attached image grid + document chips plus the text
+// bubble. Shared by the real transcript and the pending "queued" messages;
+// `dimmed` greys out a not-yet-sent message and `trailing` slots in an action
+// (e.g. a remove button).
 function UserBubble(props: {
   content: string
   images?: ChatImage[]
+  documents?: ChatDocument[]
   dimmed?: boolean
   trailing?: ReactNode
 }) {
   return (
     <div className="flex flex-col items-end gap-2">
+      {props.documents && props.documents.length > 0 && (
+        <div
+          className={cn(
+            'flex max-w-[85%] flex-wrap justify-end gap-2',
+            props.dimmed && 'opacity-50',
+          )}
+        >
+          {props.documents.map((doc, idx) => (
+            <div
+              key={idx}
+              title={doc.name}
+              className="flex max-w-[14rem] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2"
+            >
+              <FileText className="h-4 w-4 shrink-0 text-white/70" />
+              <span className="truncate text-xs text-foreground/90">
+                {doc.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {props.images && props.images.length > 0 && (
         <div
           className={cn(
@@ -140,6 +163,7 @@ export function MessageList(props: {
               key={message.id}
               content={message.content}
               images={message.images}
+              documents={message.documents}
               trailing={
                 <CopyButton
                   value={message.content}
@@ -180,6 +204,7 @@ export function MessageList(props: {
             key={i}
             content={message.content}
             images={message.images}
+            documents={message.documents}
             dimmed
             trailing={
               <button

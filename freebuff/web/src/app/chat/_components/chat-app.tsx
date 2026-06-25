@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type {
+  ChatDocument,
   ChatImage,
   ChatMessage,
-  PendingImage,
+  PendingAttachment,
   QueuedMessage,
   ThreadSummary,
 } from './types'
@@ -90,9 +91,11 @@ export function ChatApp() {
     content: string
   } | null>(null)
   const [draft, setDraft] = useState('')
-  // Composer image attachments, lifted here so they reset on thread switch
-  // (the Composer stays mounted across threads).
-  const [pendingImages, setPendingImages] = useState<PendingImage[]>([])
+  // Composer attachments (images + documents), lifted here so they reset on
+  // thread switch (the Composer stays mounted across threads).
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingAttachment[]
+  >([])
   const abortRef = useRef<AbortController | null>(null)
   // The thread whose messages are on screen; guards against stale loads.
   const viewedThreadRef = useRef<string | null>(null)
@@ -114,9 +117,11 @@ export function ChatApp() {
     setCanUploadImages(Boolean(data.canUploadImages))
   }, [])
 
-  const clearPendingImages = useCallback(() => {
-    setPendingImages((prev) => {
-      prev.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+  const clearPendingAttachments = useCallback(() => {
+    setPendingAttachments((prev) => {
+      prev.forEach((a) => {
+        if (a.previewUrl) URL.revokeObjectURL(a.previewUrl)
+      })
       return []
     })
   }, [])
@@ -128,7 +133,7 @@ export function ChatApp() {
     // Queued messages belong to the thread being left; drop them so they don't
     // drain onto the newly-opened thread.
     setQueue([])
-    clearPendingImages()
+    clearPendingAttachments()
     setActiveThreadId(threadId)
     setSidebarOpen(false)
     viewedThreadRef.current = threadId
@@ -157,10 +162,13 @@ export function ChatApp() {
         content: m.content,
         blocks: isChatBlockArray(m.blocks) ? m.blocks : undefined,
         images: Array.isArray(m.images) ? (m.images as ChatImage[]) : undefined,
+        documents: Array.isArray(m.attachments)
+          ? (m.attachments as ChatDocument[])
+          : undefined,
       })),
     )
     },
-    [clearPendingImages],
+    [clearPendingAttachments],
   )
 
   useEffect(() => {
@@ -183,13 +191,18 @@ export function ChatApp() {
   }, [sidebarOpen])
 
   const send = useCallback(
-    async (content: string, sentImages: ChatImage[] = []) => {
+    async (
+      content: string,
+      sentImages: ChatImage[] = [],
+      sentDocuments: ChatDocument[] = [],
+    ) => {
       const threadIdAtSend = activeThreadId
       const userMessage: ChatMessage = {
         id: `local-user-${Date.now()}`,
         role: 'user',
         content,
         images: sentImages.length > 0 ? sentImages : undefined,
+        documents: sentDocuments.length > 0 ? sentDocuments : undefined,
       }
       const assistantMessage: ChatMessage = {
         id: `local-assistant-${Date.now()}`,
@@ -222,10 +235,18 @@ export function ChatApp() {
           body: JSON.stringify({
             threadId: threadIdAtSend,
             content,
-            // Send only opaque refs; the server resolves URLs itself.
+            // Send only opaque refs; the server resolves URLs / re-fetches the
+            // extracted text itself.
             images: sentImages.map((img) => ({
               storageId: img.storageId,
               mediaType: img.mediaType,
+            })),
+            attachments: sentDocuments.map((doc) => ({
+              storageId: doc.storageId,
+              mediaType: doc.mediaType,
+              name: doc.name,
+              chars: doc.chars,
+              truncated: doc.truncated,
             })),
           }),
           signal: controller.signal,
@@ -349,13 +370,17 @@ export function ChatApp() {
   // The composer always calls this. If a run is in flight, buffer the message
   // instead of firing a concurrent request; otherwise send immediately.
   const enqueueOrSend = useCallback(
-    (content: string, images: ChatImage[] = []) => {
+    (
+      content: string,
+      images: ChatImage[] = [],
+      documents: ChatDocument[] = [],
+    ) => {
       if (!streaming) {
-        send(content, images)
+        send(content, images, documents)
         return
       }
-      setQueue((q) => [...q, { content, images }])
-      // The composer clears its own images; clear the draft text we own here.
+      setQueue((q) => [...q, { content, images, documents }])
+      // The composer clears its own attachments; clear the draft we own here.
       changeDraft('')
     },
     [streaming, send, changeDraft],
@@ -373,7 +398,7 @@ export function ChatApp() {
     if (streaming || queue.length === 0) return
     const [next, ...rest] = queue
     setQueue(rest)
-    send(next.content, next.images)
+    send(next.content, next.images, next.documents)
   }, [streaming, queue, send])
 
   const removeThread = useCallback(
@@ -425,9 +450,9 @@ export function ChatApp() {
       onSend={enqueueOrSend}
       onStop={stop}
       streaming={streaming}
-      canUploadImages={canUploadImages}
-      images={pendingImages}
-      setImages={setPendingImages}
+      canUpload={canUploadImages}
+      attachments={pendingAttachments}
+      setAttachments={setPendingAttachments}
       autoFocus
     />
   )

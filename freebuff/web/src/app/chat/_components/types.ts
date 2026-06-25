@@ -16,18 +16,34 @@ export interface ChatImage {
   name?: string
 }
 
-/** A composer attachment, tracked while it uploads to Convex. */
-export interface PendingImage {
+/** An uploaded document (code/text/CSV/…, later PDF/DOCX) attached to a user
+ *  message. The blob holds the extracted text; the UI only renders a labeled
+ *  chip, so no serving URL is needed. */
+export interface ChatDocument {
+  storageId: string
+  mediaType: string
+  name: string
+  chars: number
+  truncated: boolean
+}
+
+/** A composer attachment (image or document), tracked while it uploads. */
+export interface PendingAttachment {
   /** Local id (not the storage id) so list updates are stable. */
   id: string
+  kind: 'image' | 'document'
   name: string
   mediaType: string
-  /** Object URL for instant local preview while/after uploading. */
-  previewUrl: string
   status: 'uploading' | 'done' | 'error'
   /** Set once the upload succeeds. */
   storageId?: string
+  /** Images only: object URL for instant local preview, and the resolved
+   *  serving URL once uploaded. */
+  previewUrl?: string
   url?: string
+  /** Documents only: extracted-text size metadata, set once uploaded. */
+  chars?: number
+  truncated?: boolean
   error?: string
 }
 
@@ -36,6 +52,7 @@ export interface PendingImage {
 export interface QueuedMessage {
   content: string
   images: ChatImage[]
+  documents: ChatDocument[]
 }
 
 export interface ChatMessage {
@@ -47,6 +64,8 @@ export interface ChatMessage {
   blocks?: ChatBlock[]
   /** Image attachments on user turns. */
   images?: ChatImage[]
+  /** Document attachments on user turns. */
+  documents?: ChatDocument[]
   /** Set while the assistant message is still streaming in. */
   streaming?: boolean
   /** Inline error shown in place of/after content. */

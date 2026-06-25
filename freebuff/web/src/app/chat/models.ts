@@ -61,6 +61,171 @@ export const CHAT_IMAGE_MAX_COUNT = 4 // images per message
 
 export const CHAT_MESSAGE_MAX_CHARS = 32_000
 
+/**
+ * Document (non-image file) upload constraints, shared by the composer and the
+ * upload endpoint. Documents are converted to text server-side (see
+ * src/server/chat/extract.ts) and given to the agent either inline (small
+ * files) or via a search tool (large files), so the agent never has to hold a
+ * whole long file in context.
+ *
+ * Browsers report wildly inconsistent MIME types for code/text files (a .ts
+ * file is often `video/mp2t`, a .py file is often empty), so document detection
+ * keys off the file extension first. Phase 1 covers plain-text/code/data
+ * formats; richer formats (PDF, DOCX) are extracted in Phase 2.
+ */
+export const CHAT_DOC_ALLOWED_EXTENSIONS = [
+  // Rich documents (extracted via dedicated parsers — see extract.ts)
+  '.pdf',
+  '.docx',
+  // Plain text & docs
+  '.txt',
+  '.text',
+  '.md',
+  '.markdown',
+  '.rst',
+  '.log',
+  // Data / config
+  '.csv',
+  '.tsv',
+  '.json',
+  '.jsonl',
+  '.ndjson',
+  '.xml',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.ini',
+  '.env',
+  '.properties',
+  // Web
+  '.html',
+  '.htm',
+  '.css',
+  '.scss',
+  '.sass',
+  '.less',
+  '.svg',
+  // Code
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.py',
+  '.rb',
+  '.go',
+  '.rs',
+  '.java',
+  '.kt',
+  '.kts',
+  '.scala',
+  '.c',
+  '.h',
+  '.cc',
+  '.cpp',
+  '.cxx',
+  '.hpp',
+  '.cs',
+  '.php',
+  '.swift',
+  '.m',
+  '.mm',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.fish',
+  '.ps1',
+  '.bat',
+  '.sql',
+  '.r',
+  '.lua',
+  '.pl',
+  '.dart',
+  '.ex',
+  '.exs',
+  '.erl',
+  '.clj',
+  '.hs',
+  '.vue',
+  '.svelte',
+  '.graphql',
+  '.gql',
+  '.proto',
+  '.tf',
+  '.dockerfile',
+] as const
+/** Membership-test form of CHAT_DOC_ALLOWED_EXTENSIONS (lowercase). */
+export const CHAT_DOC_ALLOWED_EXTENSIONS_SET: ReadonlySet<string> = new Set(
+  CHAT_DOC_ALLOWED_EXTENSIONS,
+)
+/** MIME types that are unambiguously extractable text, used as a fallback when
+ *  a file has no/odd extension. */
+export const CHAT_DOC_ALLOWED_MIME_SET: ReadonlySet<string> = new Set([
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'text/tab-separated-values',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'application/x-yaml',
+  'text/yaml',
+])
+export const CHAT_DOC_MAX_BYTES = 5 * 1024 * 1024 // 5 MB per document
+export const CHAT_DOC_MAX_COUNT = 5 // documents per message
+/** Most-recent documents from a thread's history kept searchable on follow-up
+ *  turns, so the agent can read/search files uploaded earlier in the
+ *  conversation (not just in the current message). Their text is loaded lazily
+ *  (only if the agent actually searches), so this bounds memory, not latency. */
+export const CHAT_DOC_THREAD_SEARCH_MAX_FILES = 50
+/** Cap on the TOTAL extracted text (chars) held in memory at once for a single
+ *  search across a thread's files. Bounds peak memory when a thread has many or
+ *  large prior files (the chat instance has a ~512MB ceiling); the most-recent
+ *  files are kept up to this budget. ~16M chars ≈ 16 MB. */
+export const CHAT_DOC_SEARCH_TOTAL_CHAR_BUDGET = 16_000_000
+
+/** Lowercased file extension including the dot (e.g. ".ts"), or "" if none. */
+export function fileExtension(name: string): string {
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0) return ''
+  return name.slice(dot).toLowerCase()
+}
+
+/** Classifies an upload as an image, a (Phase 1) document, or unsupported.
+ *  Shared by the composer (gating the picker) and the upload endpoint
+ *  (authoritative validation). */
+export function classifyAttachment(
+  name: string,
+  mimeType: string,
+): 'image' | 'document' | null {
+  if (CHAT_IMAGE_ALLOWED_TYPES_SET.has(mimeType)) return 'image'
+  const ext = fileExtension(name)
+  if (CHAT_DOC_ALLOWED_EXTENSIONS_SET.has(ext)) return 'document'
+  if (CHAT_DOC_ALLOWED_MIME_SET.has(mimeType)) return 'document'
+  // Common case: an extensionless dotfile like "Dockerfile" / "Makefile".
+  const base = name.split('/').pop() ?? name
+  if (/^(dockerfile|makefile|rakefile|gemfile|procfile)$/i.test(base)) {
+    return 'document'
+  }
+  return null
+}
+
+/** When a message's combined extracted document text is at or under this many
+ *  characters, the full text is inlined into the prompt. Above it, only a head
+ *  excerpt is inlined and the agent uses the search_files tool to pull relevant
+ *  sections — so a long file never has to sit whole in context. ~24k chars is
+ *  roughly 6k tokens. */
+export const CHAT_DOC_INLINE_CHAR_BUDGET = 24_000
+/** Characters of each large document inlined as a head excerpt alongside the
+ *  search tool, so the agent has immediate orientation (title, imports, shape)
+ *  before it searches. */
+export const CHAT_DOC_HEAD_CHARS = 4_000
+/** Hard cap on extracted text per document; longer files are truncated (the
+ *  tail is dropped) and flagged. Keeps one pathological upload from blowing out
+ *  memory or the search index. ~1M chars ≈ 250k tokens. */
+export const CHAT_DOC_MAX_TEXT_CHARS = 1_000_000
+
 /** Sidebar title from the first user message. Code-point-safe truncation so
  *  the 60-char cut can't split an emoji/surrogate pair. */
 export function deriveThreadTitle(content: string): string {
@@ -68,5 +233,5 @@ export function deriveThreadTitle(content: string): string {
   const codePoints = [...firstLine]
   return codePoints.length > 60
     ? `${codePoints.slice(0, 60).join('').trimEnd()}…`
-    : firstLine || 'Image'
+    : firstLine || 'Attachment'
 }

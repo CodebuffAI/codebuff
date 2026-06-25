@@ -5,7 +5,20 @@ import {
   chatUsageEvent,
   user,
 } from '@codebuff/internal/db/schema'
-import { and, count, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm'
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from 'drizzle-orm'
+
+import { collectDocumentRefs } from './document-refs'
 
 export type ChatRole = 'user' | 'assistant'
 
@@ -16,6 +29,21 @@ export type ChatRole = 'user' | 'assistant'
 export interface ChatImageRef {
   storageId: string
   mediaType: string
+}
+
+/** A persisted document attachment on a user message (a code/text/CSV/PDF/DOCX
+ *  file). Unlike images, the blob holds the EXTRACTED text (already converted to
+ *  LLM-readable UTF-8 at upload time), not the original bytes. Stored in
+ *  chat_message.attachments. `chars` is shown in the UI chip; `truncated` flags
+ *  a file longer than the cap. The inline-vs-search decision is made from the
+ *  refetched text length at send time, not from these fields. */
+export interface ChatDocumentRef {
+  storageId: string
+  /** The original file's media type / extension hint, for the UI icon. */
+  mediaType: string
+  name: string
+  chars: number
+  truncated: boolean
 }
 
 export async function listThreads(userId: string) {
@@ -157,6 +185,7 @@ export async function listMessages(threadId: string) {
       content: chatMessage.content,
       blocks: chatMessage.blocks,
       images: chatMessage.images,
+      attachments: chatMessage.attachments,
       model: chatMessage.model,
       created_at: chatMessage.created_at,
     })
@@ -176,6 +205,8 @@ export async function insertMessage(params: {
   blocks?: unknown
   /** Image attachments for user turns; omitted/empty for text-only turns. */
   images?: ChatImageRef[]
+  /** Document attachments for user turns; omitted/empty when none. */
+  attachments?: ChatDocumentRef[]
   model?: string
 }) {
   const [message] = await db
@@ -187,6 +218,7 @@ export async function insertMessage(params: {
       content: params.content,
       blocks: params.blocks,
       images: params.images?.length ? params.images : undefined,
+      attachments: params.attachments?.length ? params.attachments : undefined,
       model: params.model,
     })
     .returning()
@@ -245,19 +277,51 @@ export async function isUserBanned(userId: string) {
   return row?.banned ?? false
 }
 
-/** Collects every image storageId attached to a thread's messages, so the
- *  blobs can be deleted when the thread is. Postgres cascade-deletes the rows
- *  but not the blobs, so callers must clean those up explicitly. */
-export async function listThreadImageStorageIds(
+/** Collects every blob storageId attached to a thread's messages (image bytes
+ *  AND extracted-document text), so the blobs can be deleted when the thread
+ *  is. Postgres cascade-deletes the rows but not the blobs, so callers must
+ *  clean those up explicitly. */
+export async function listThreadBlobStorageIds(
   threadId: string,
 ): Promise<string[]> {
   const rows = await db
-    .select({ images: chatMessage.images })
+    .select({
+      images: chatMessage.images,
+      attachments: chatMessage.attachments,
+    })
     .from(chatMessage)
     .where(eq(chatMessage.thread_id, threadId))
-  return rows.flatMap((row) =>
-    Array.isArray(row.images)
+  return rows.flatMap((row) => [
+    ...(Array.isArray(row.images)
       ? (row.images as ChatImageRef[]).map((img) => img.storageId)
-      : [],
-  )
+      : []),
+    ...(Array.isArray(row.attachments)
+      ? (row.attachments as ChatDocumentRef[]).map((doc) => doc.storageId)
+      : []),
+  ])
+}
+
+/**
+ * Gathers document attachments from a thread's messages, most-recent first,
+ * capped at `limit` refs total. Used to keep previously-uploaded files
+ * readable/searchable when a thread is continued — without re-fetching their
+ * text up front (callers load it lazily). Excludes images. The blobs persist
+ * until the thread is deleted, so a file stays available for the life of the
+ * thread.
+ */
+export async function listThreadDocumentRefs(
+  threadId: string,
+  limit: number,
+): Promise<ChatDocumentRef[]> {
+  const rows = await db
+    .select({ attachments: chatMessage.attachments })
+    .from(chatMessage)
+    .where(
+      and(
+        eq(chatMessage.thread_id, threadId),
+        isNotNull(chatMessage.attachments),
+      ),
+    )
+    .orderBy(desc(chatMessage.created_at), desc(chatMessage.id))
+  return collectDocumentRefs(rows, limit)
 }
