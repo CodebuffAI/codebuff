@@ -1021,6 +1021,12 @@ if (!hasIntegration) {
             CONVEX_DEPLOY_KEY: deployKey,
             GIT_TERMINAL_PROMPT: "0", // Disable git interactive prompts
             PATH: `/home/daytona/.local/bin:${process.env.PATH || "/usr/local/bin:/usr/bin:/bin"}`,
+            // The golden image has no `USER daytona` directive (unlike the /web
+            // snapshot), so sandbox commands run as root with $HOME=/root by
+            // default. Force $HOME=/home/daytona so codex, claude-code, gemini
+            // and friends find their auth/config files where we wrote them
+            // (e.g. /home/daytona/.codex/auth.json).
+            HOME: "/home/daytona",
           },
           timeout,
         );
@@ -1051,7 +1057,7 @@ if (!hasIntegration) {
 
       try {
         const output = await this.sandbox.fs.downloadFile(
-          path.join(this.projectDir, filePath),
+          path.join(this.projectPath, filePath),
         );
         return output.toString();
       } catch (e: any) {
@@ -1078,7 +1084,7 @@ if (!hasIntegration) {
 
       try {
         const output = await this.sandbox.fs.downloadFile(
-          path.join(this.projectDir, filePath),
+          path.join(this.projectPath, filePath),
         );
         const ext = filePath.split(".").pop()?.toLowerCase() || "";
         const binaryExtensions = [
@@ -1122,7 +1128,7 @@ if (!hasIntegration) {
       try {
         await this.sandbox.fs.uploadFile(
           Buffer.from(content),
-          path.join(this.projectDir, filePath),
+          path.join(this.projectPath, filePath),
           10,
         );
       } catch (e) {
@@ -1140,7 +1146,7 @@ if (!hasIntegration) {
       try {
         await this.sandbox.fs.uploadFile(
           Buffer.from(content),
-          path.join(this.projectDir, filePath),
+          path.join(this.projectPath, filePath),
           10,
         );
       } catch (e) {
@@ -1214,7 +1220,7 @@ if (!hasIntegration) {
       }
 
       try {
-        await this.sandbox.fs.deleteFile(path.join(this.projectDir, filePath));
+        await this.sandbox.fs.deleteFile(path.join(this.projectPath, filePath));
       } catch (e) {
         throw new Error("ERROR RUNNING COMMAND: " + e);
       }
@@ -1255,7 +1261,7 @@ if (!hasIntegration) {
 
       try {
         await this.sandbox.fs.createFolder(
-          path.join(this.projectDir, dirPath),
+          path.join(this.projectPath, dirPath),
           "755",
         );
       } catch (e) {
@@ -3424,10 +3430,16 @@ if (!hasIntegration) {
 
       try {
         // Create PTY session
+        // NOTE: The /cloud golden image runs as root (no USER directive in
+        // golden-image.ts), so $HOME defaults to /root. Codex/Claude/Gemini all
+        // read their auth/config from $HOME/.codex (etc.), and we write those
+        // files to /home/daytona/.codex hardcoded. Force HOME=/home/daytona so
+        // /cloud behaves like /web (which has USER daytona in its Dockerfile).
         ptyHandle = await this.sandbox.process.createPty({
           id: sessionId,
           cols: 120,
           rows: 30,
+          envs: { HOME: "/home/daytona" },
           onData: (data: Uint8Array) => {
             const text = new TextDecoder().decode(data);
             void onStdout(text);
