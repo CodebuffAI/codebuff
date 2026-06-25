@@ -4,9 +4,10 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  * Identifies which upstream ad network served an ad. Stored on
  * `ad_impression.provider` so we can slice analytics and know which request
  * shape to expect when firing impressions. Add a new id here when wiring in
- * another provider (e.g. 'zeroclick').
+ * another provider. (The DB column is plain text, so historical values like
+ * 'zeroclick' may still appear on old rows even after a provider is removed.)
  */
-export type AdProviderId = 'gravity' | 'carbon' | 'zeroclick'
+export type AdProviderId = 'gravity' | 'carbon'
 
 /**
  * Normalized ad shape returned by every provider. The CLI renders against

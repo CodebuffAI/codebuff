@@ -286,6 +286,12 @@ export async function queueDepthsByModel(): Promise<Record<string, number>> {
  * full `activeCountsByModel` scan when they only need one model's count.
  */
 export async function activeCountForModel(model: string): Promise<number> {
+  // Count only genuinely-live sessions, not rows that are still `active` but
+  // already past `expires_at`. Capacity must reflect live concurrency even when
+  // the expiry sweeper lags (e.g. the admission tick's `setInterval` gets
+  // starved under load): un-swept zombies must never consume instant-admit
+  // slots. `expires_at > now()` is evaluated in the DB to avoid app/DB clock
+  // skew. Matches the index `idx_free_session_expiry`.
   const rows = await db
     .select({ n: count() })
     .from(schema.freeSession)
@@ -293,6 +299,7 @@ export async function activeCountForModel(model: string): Promise<number> {
       and(
         eq(schema.freeSession.status, 'active'),
         eq(schema.freeSession.model, model),
+        sql`${schema.freeSession.expires_at} > now()`,
       ),
     )
   return Number(rows[0]?.n ?? 0)
@@ -308,7 +315,12 @@ export async function activeCountsByModel(): Promise<Record<string, number>> {
   const rows = await db
     .select({ model: schema.freeSession.model, n: count() })
     .from(schema.freeSession)
-    .where(eq(schema.freeSession.status, 'active'))
+    .where(
+      and(
+        eq(schema.freeSession.status, 'active'),
+        sql`${schema.freeSession.expires_at} > now()`,
+      ),
+    )
     .groupBy(schema.freeSession.model)
   const out: Record<string, number> = {}
   for (const row of rows) out[row.model] = Number(row.n)

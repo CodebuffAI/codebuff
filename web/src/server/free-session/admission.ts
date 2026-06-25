@@ -140,7 +140,11 @@ export async function runAdmissionTick(
         // Prometheus health is healthy, but a high measured TTFT can still
         // divert to serverless here; most real traffic hits the instant-admit
         // path in requestSession.
-        fireworksRoute: routeForAdmission(model, fleet, deploymentTtftP90Ms(model)),
+        fireworksRoute: routeForAdmission(
+          model,
+          fleet,
+          deploymentTtftP90Ms(model),
+        ),
       })
       const depth = await deps.queueDepth({ model })
       return { model, admittedCount: admitted.length, depth, skipped }
@@ -252,4 +256,45 @@ export function stopFreeSessionAdmission(): void {
 
 export function __resetFreeSessionAdmissionForTests(): void {
   stopFreeSessionAdmission()
+  lastOpportunisticSweepAt = 0
+  opportunisticSweepInFlight = false
+}
+
+let lastOpportunisticSweepAt = 0
+let opportunisticSweepInFlight = false
+
+/**
+ * Traffic-driven safety net for the expiry sweep. The admission tick's
+ * `setInterval` is `.unref()`'d and can be starved when the event loop is
+ * saturated under load — exactly when zombies accumulate fastest — silently
+ * stopping the sweep until the process restarts. This is called from the
+ * `requestSession` hot path so cleanup keeps happening as long as requests
+ * flow, independent of the interval.
+ *
+ * Best-effort and non-blocking: throttled to one sweep per `ADMISSION_TICK_MS`
+ * per instance, guarded against overlap, and never rejects (the caller `void`s
+ * it). A lagging or dead interval can no longer let `active` rows pile up past
+ * `expires_at` and exhaust instant-admit capacity.
+ */
+export async function maybeSweepExpired(
+  deps: Pick<AdmissionDeps, 'sweepExpired' | 'graceMs' | 'now'> = defaultDeps,
+): Promise<void> {
+  const now = (deps.now ?? (() => new Date()))()
+  if (opportunisticSweepInFlight) return
+  if (now.getTime() - lastOpportunisticSweepAt < ADMISSION_TICK_MS) return
+  opportunisticSweepInFlight = true
+  lastOpportunisticSweepAt = now.getTime()
+  try {
+    const swept = await deps.sweepExpired(now, deps.graceMs)
+    if (swept > 0) {
+      logger.info(
+        { metric: 'freebuff_opportunistic_sweep', swept },
+        '[FreeSessionAdmission] opportunistic sweep removed expired sessions',
+      )
+    }
+  } catch (error) {
+    logger.error({ error }, '[FreeSessionAdmission] opportunistic sweep failed')
+  } finally {
+    opportunisticSweepInFlight = false
+  }
 }

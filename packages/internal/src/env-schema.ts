@@ -21,8 +21,6 @@ export const serverEnvSchema = clientEnvSchema.extend({
   SPUR_TOKEN: z.string().min(1),
   SCAMALYTICS_API_KEY: z.string().min(1),
   COMPOSIO_API_KEY: z.string().min(1).optional(),
-  // ZeroClick tenant API key used for server-side offer fallback requests.
-  ZEROCLICK_API_KEY: z.string().min(1).optional(),
   // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
   // Optional: when unset the Carbon provider returns no ad and callers fall
   // back to their cached ads / fallback content. `CVADC53U` is the public
@@ -131,7 +129,6 @@ export const serverProcessEnv: ServerInput = {
   SPUR_TOKEN: process.env.SPUR_TOKEN,
   SCAMALYTICS_API_KEY: process.env.SCAMALYTICS_API_KEY,
   COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY,
-  ZEROCLICK_API_KEY: process.env.ZEROCLICK_API_KEY,
   CARBON_ZONE_KEY: process.env.CARBON_ZONE_KEY,
   PORT: process.env.PORT,
 

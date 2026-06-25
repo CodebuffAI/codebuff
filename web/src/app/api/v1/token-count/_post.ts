@@ -23,11 +23,15 @@ const tokenCountRequestSchema = z.object({
   messages: z.array(z.any()),
   system: z.string().optional(),
   model: z.string().optional(),
-  tools: z.array(z.object({
-    name: z.string(),
-    description: z.string().optional(),
-    input_schema: z.any().optional(),
-  })).optional(),
+  tools: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        input_schema: z.any().optional(),
+      }),
+    )
+    .optional(),
 })
 
 type TokenCountRequest = z.infer<typeof tokenCountRequestSchema>
@@ -87,25 +91,26 @@ export async function postTokenCount(params: {
     const inputTokens = useOpenAI
       ? await countTokensViaOpenAI({ messages, system, model, fetch, logger })
       : await countTokensViaAnthropic({
-        messages,
-        system,
-        model,
-        tools,
-        fetch,
-        logger,
-      })
+          messages,
+          system,
+          model,
+          tools,
+          fetch,
+          logger,
+        })
 
-    logger.info({
-      userId,
-      messageCount: messages.length,
-      hasSystem: !!system,
-      hasTools: !!tools,
-      toolCount: tools?.length,
-      model: model ?? DEFAULT_ANTHROPIC_MODEL,
-      tokenCount: inputTokens,
-      provider: useOpenAI ? 'openai' : 'anthropic',
-    },
-      `Token count: ${inputTokens}`
+    logger.info(
+      {
+        userId,
+        messageCount: messages.length,
+        hasSystem: !!system,
+        hasTools: !!tools,
+        toolCount: tools?.length,
+        model: model ?? DEFAULT_ANTHROPIC_MODEL,
+        tokenCount: inputTokens,
+        provider: useOpenAI ? 'openai' : 'anthropic',
+      },
+      `Token count: ${inputTokens}`,
     )
 
     return NextResponse.json({ inputTokens })
@@ -124,6 +129,14 @@ export async function postTokenCount(params: {
 
 // Buffer to add to token count for non-Anthropic models since tokenizers differ
 const NON_ANTHROPIC_TOKEN_BUFFER = 0.3
+
+// Hard cap on the upstream token-count call. This runs synchronously on every
+// agent step's hot path; without a timeout a slow/hung provider request holds a
+// server request slot open (Bun's default fetch idle timeout is ~300s), which
+// under load piles up in-flight requests and saturates the instance. A bounded
+// failure is far better than a hang: callers treat a token-count error as a
+// soft miss and proceed.
+const TOKEN_COUNT_FETCH_TIMEOUT_MS = 10_000
 
 export async function countTokensViaOpenAI(params: {
   messages: TokenCountRequest['messages']
@@ -153,6 +166,7 @@ export async function countTokensViaOpenAI(params: {
         input,
         ...(system && { instructions: system }),
       }),
+      signal: AbortSignal.timeout(TOKEN_COUNT_FETCH_TIMEOUT_MS),
     },
   )
 
@@ -174,7 +188,11 @@ export type ResponsesApiContentPart =
   | { type: 'input_image'; image_url: string }
 
 export type ResponsesApiInputItem =
-  | { type: 'message'; role: 'user' | 'assistant' | 'developer'; content: string | ResponsesApiContentPart[] }
+  | {
+      type: 'message'
+      role: 'user' | 'assistant' | 'developer'
+      content: string | ResponsesApiContentPart[]
+    }
   | { type: 'function_call'; id: string; name: string; arguments: string }
   | { type: 'function_call_output'; call_id: string; output: string }
 
@@ -242,7 +260,8 @@ function buildMessageContent(
   }
 
   const hasImages = content.some(
-    (part) => part.type === 'image' && typeof part.image === 'string' && part.image,
+    (part) =>
+      part.type === 'image' && typeof part.image === 'string' && part.image,
   )
 
   if (!hasImages) {
@@ -255,7 +274,8 @@ function buildMessageContent(
     if (part.type === 'text' && typeof part.text === 'string' && part.text) {
       parts.push({ type: 'input_text', text: part.text })
     } else if (part.type === 'json') {
-      const text = typeof part.value === 'string' ? part.value : JSON.stringify(part.value)
+      const text =
+        typeof part.value === 'string' ? part.value : JSON.stringify(part.value)
       if (text) {
         parts.push({ type: 'input_text', text })
       }
@@ -272,7 +292,11 @@ function buildMessageContent(
 
 function toImageUrl(image: unknown, mediaType?: string): string | null {
   if (typeof image !== 'string' || !image) return null
-  if (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('data:')) {
+  if (
+    image.startsWith('http://') ||
+    image.startsWith('https://') ||
+    image.startsWith('data:')
+  ) {
     return image
   }
   return `data:${mediaType ?? 'image/png'};base64,${image}`
@@ -284,7 +308,11 @@ function extractTextParts(content: Array<Record<string, unknown>>): string {
     if (part.type === 'text' && typeof part.text === 'string') {
       parts.push(part.text)
     } else if (part.type === 'json') {
-      parts.push(typeof part.value === 'string' ? part.value : JSON.stringify(part.value))
+      parts.push(
+        typeof part.value === 'string'
+          ? part.value
+          : JSON.stringify(part.value),
+      )
     }
   }
   return parts.join('\n')
@@ -327,6 +355,7 @@ async function countTokensViaAnthropic(params: {
         ...(system && { system }),
         ...(tools && { tools }),
       }),
+      signal: AbortSignal.timeout(TOKEN_COUNT_FETCH_TIMEOUT_MS),
     },
   )
 
