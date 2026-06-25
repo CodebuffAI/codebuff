@@ -45,6 +45,7 @@ import {
   ProjectIframeArea,
   type IframeTab,
 } from "../project-2/ProjectIframeArea";
+import { SandboxTierNotice } from "../project-2/SandboxTierNotice";
 
 // Lazy load heavy components that may not be immediately visible
 const SyncStatusBanner = lazy(() =>
@@ -817,6 +818,10 @@ function ProjectWrapper({
               onFixConflictClick={() => updateActiveView("github")}
             />
           </Suspense>
+        )}
+
+        {(!isMobile || mobileView === "chat") && (
+          <SandboxTierNotice runtimeSurface={runtimeSurface} />
         )}
 
         {/* Main split: chat left | iframe area right (desktop).

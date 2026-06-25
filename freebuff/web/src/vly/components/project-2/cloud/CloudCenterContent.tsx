@@ -33,6 +33,7 @@ import {
   getDaytonaPreviewUrl,
 } from '@/vly/lib/project-preview-url'
 import { ConnectedRepoEnvPanel } from '../ConnectedRepoEnvPanel'
+import { CloudCustomLinksPanel } from './CloudCustomLinksPanel'
 import { GravityAdSlot } from '../agent-chat/GravityAdSlot'
 import {
   Tooltip,
@@ -45,7 +46,7 @@ import {
 const OPENVSCODE_PORT = 43867
 const TTYD_PORT = 7681
 
-export type CloudViewMode = 'preview' | 'code' | 'terminal' | 'env'
+export type CloudViewMode = 'preview' | 'code' | 'terminal' | 'env' | 'links'
 
 /** Lifecycle phase of the user-controlled dev server / preview. */
 type PreviewPhase = 'idle' | 'starting' | 'failed' | 'connected'
@@ -135,6 +136,7 @@ export function CloudCenterContent({
   const [isRestarting, setIsRestarting] = useState(false)
   const editorUrl = getDaytonaPreviewUrl(project, OPENVSCODE_PORT)
   const terminalUrl = getDaytonaPreviewUrl(project, TTYD_PORT)
+  const isWorkspaceView = viewMode === 'code' || viewMode === 'terminal'
   const workspaceUrl =
     viewMode === 'code' ? editorUrl : viewMode === 'terminal' ? terminalUrl : null
 
@@ -171,6 +173,7 @@ export function CloudCenterContent({
 
   const [isIframeReactReady, setIsIframeReactReady] = useState(false)
   const [hasIframeLoaded, setHasIframeLoaded] = useState(false)
+  const [workspaceIframeLoaded, setWorkspaceIframeLoaded] = useState(false)
 
   const {
     navState,
@@ -248,6 +251,14 @@ export function CloudCenterContent({
     const timeoutId = window.setTimeout(() => setHasIframeLoaded(true), 1200)
     return () => window.clearTimeout(timeoutId)
   }, [isDaytonaProject, navState.iframeKey, navState.iframeSrc])
+
+  React.useEffect(() => {
+    if (!isWorkspaceView) {
+      setWorkspaceIframeLoaded(false)
+      return
+    }
+    setWorkspaceIframeLoaded(false)
+  }, [isWorkspaceView, workspaceUrl])
 
   React.useEffect(() => {
     const handleRouteChange = (event: MessageEvent) => {
@@ -621,7 +632,14 @@ export function CloudCenterContent({
                   onOpenView={(view) => onViewModeChange(view)}
                 />
               </div>
-            ) : viewMode !== 'preview' ? (
+            ) : viewMode === 'links' ? (
+              <div className="absolute inset-0">
+                <CloudCustomLinksPanel
+                  semanticIdentifier={semanticIdentifier}
+                  onOpenView={(view) => onViewModeChange(view)}
+                />
+              </div>
+            ) : isWorkspaceView ? (
               workspaceUrl ? (
                 <iframe
                   key={`${viewMode}-${project?.sandbox_id ?? ''}`}
@@ -631,6 +649,7 @@ export function CloudCenterContent({
                   allow="clipboard-read; clipboard-write"
                   sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
                   suppressHydrationWarning
+                  onLoad={() => setWorkspaceIframeLoaded(true)}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-background">
@@ -670,6 +689,36 @@ export function CloudCenterContent({
                 onOpenSettings={handleOpenPreviewSettings}
               />
             )}
+
+            <AnimatePresence>
+              {isWorkspaceView && workspaceUrl && !workspaceIframeLoaded && (
+                <motion.div
+                  className="absolute inset-0 z-40 flex items-center justify-center bg-background/90 backdrop-blur-sm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div
+                    className="flex flex-col items-center gap-4"
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.98, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Spinner3D size={30} />
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-foreground">
+                        Opening {viewMode === 'code' ? 'VS Code' : 'terminal'}…
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Loading the sandbox workspace session.
+                      </p>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <AnimatePresence>
               {shouldShowConnectionOverlay && (

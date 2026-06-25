@@ -15,6 +15,7 @@ import { ProjectLoadingScreen } from './project-2'
 import { CloudTopBar } from '../project-2/cloud/CloudTopBar'
 import { CloudIframeArea } from '../project-2/cloud/CloudIframeArea'
 import type { CloudTab } from '../project-2/cloud/CloudWorkspaceTabs'
+import { SandboxTierNotice } from '../project-2/SandboxTierNotice'
 
 /**
  * Cloud-only project workspace shell. Forked from the shared web `Project2`
@@ -145,6 +146,10 @@ function CloudProjectWorkspaceInner({
           <div className="relative z-50 flex-shrink-0">
             <CloudTopBar project={project} />
           </div>
+        )}
+
+        {(!isMobile || mobileView === 'chat') && (
+          <SandboxTierNotice runtimeSurface="cloud" />
         )}
 
         <div className="flex min-h-0 flex-1 overflow-hidden">

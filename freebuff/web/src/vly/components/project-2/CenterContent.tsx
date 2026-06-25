@@ -295,6 +295,7 @@ export function CenterContent({
   const [viewMode, setViewMode] = useState<WorkspaceViewMode>("preview");
   const editorUrl = getDaytonaPreviewUrl(project, OPENVSCODE_PORT);
   const terminalUrl = getDaytonaPreviewUrl(project, TTYD_PORT);
+  const isWorkspaceView = viewMode === "code" || viewMode === "terminal";
   const workspaceUrl =
     viewMode === "code" ? editorUrl : viewMode === "terminal" ? terminalUrl : null;
   const isMobile = useIsMobile();
@@ -329,6 +330,7 @@ export function CenterContent({
   const autoScreenshotFailureCountRef = useRef(0);
   const [isIframeReactReady, setIsIframeReactReady] = useState(false);
   const [hasIframeLoaded, setHasIframeLoaded] = useState(false);
+  const [workspaceIframeLoaded, setWorkspaceIframeLoaded] = useState(false);
   const projectId = project?._id;
 
   // Check if auto screenshot should be triggered (based on commit count)
@@ -414,6 +416,14 @@ export function CenterContent({
 
     return () => window.clearTimeout(timeoutId);
   }, [isDaytonaProject, navState.iframeKey, navState.iframeSrc]);
+
+  React.useEffect(() => {
+    if (!(isConnectedRepo && isWorkspaceView)) {
+      setWorkspaceIframeLoaded(false);
+      return;
+    }
+    setWorkspaceIframeLoaded(false);
+  }, [isConnectedRepo, isWorkspaceView, workspaceUrl]);
 
   const handleRefresh = React.useCallback(() => {
     const iframe = iframeRef.current;
@@ -1124,7 +1134,7 @@ export function CenterContent({
                   onOpenView={(view) => setViewMode(view)}
                 />
               </div>
-            ) : isConnectedRepo && viewMode !== "preview" ? (
+            ) : isConnectedRepo && isWorkspaceView ? (
               workspaceUrl ? (
                 <iframe
                   key={`${viewMode}-${project?.sandbox_id ?? ""}`}
@@ -1134,6 +1144,7 @@ export function CenterContent({
                   allow="clipboard-read; clipboard-write"
                   sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
                   suppressHydrationWarning
+                  onLoad={() => setWorkspaceIframeLoaded(true)}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-slate-50">
@@ -1161,6 +1172,38 @@ export function CenterContent({
                 <p className="text-slate-500">No preview available.</p>
               </div>
             )}
+            <AnimatePresence>
+              {isConnectedRepo &&
+                isWorkspaceView &&
+                workspaceUrl &&
+                !workspaceIframeLoaded && (
+                  <motion.div
+                    className="absolute inset-0 z-40 flex items-center justify-center bg-background/90 backdrop-blur-sm"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <motion.div
+                      className="flex flex-col items-center gap-4"
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.98, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Spinner3D size={30} />
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-foreground">
+                          Opening {viewMode === "code" ? "VS Code" : "terminal"}…
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Loading the sandbox workspace session.
+                        </p>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+            </AnimatePresence>
             {/* Connection loading overlay */}
             <AnimatePresence>
               {shouldShowConnectionOverlay && (

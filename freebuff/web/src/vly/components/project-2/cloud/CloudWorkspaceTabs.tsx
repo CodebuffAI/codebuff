@@ -7,16 +7,18 @@ import {
   TerminalSquare,
   FileCog,
   GitBranch,
+  PanelRight,
   SlidersHorizontal,
 } from 'lucide-react'
 
-export type CloudTab = 'preview' | 'code' | 'terminal' | 'env' | 'git'
+export type CloudTab = 'preview' | 'code' | 'terminal' | 'env' | 'links' | 'git'
 
 const TABS: { id: CloudTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'preview', label: 'Preview', Icon: Globe2 },
   { id: 'code', label: 'Code', Icon: Code2 },
   { id: 'terminal', label: 'Terminal', Icon: TerminalSquare },
   { id: 'env', label: 'API Keys', Icon: FileCog },
+  { id: 'links', label: 'Links', Icon: PanelRight },
   { id: 'git', label: 'Git', Icon: GitBranch },
 ]
 
@@ -26,6 +28,7 @@ const TAB_SETTINGS_SECTION: Record<CloudTab, string> = {
   code: 'preview',
   terminal: 'preview',
   env: 'env',
+  links: 'preview',
   git: 'git',
 }
 

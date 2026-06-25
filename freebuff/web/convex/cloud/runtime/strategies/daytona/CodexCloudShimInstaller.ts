@@ -2,6 +2,10 @@
 
 import { DaytonaCodebase } from "../../../../../codebase-utils/codebase/DaytonaCodebase";
 
+const DAYTONA_CLI_BIN_DIR = "/home/daytona/.local/share/npm-global/bin";
+const DAYTONA_LOCAL_BIN_DIR = "/home/daytona/.local/bin";
+const ROOT_CLI_BIN_DIR = "/root/.local/share/npm-global/bin";
+
 /**
  * Installs a Cloud-only codex shim in the Daytona sandbox.
  *
@@ -21,7 +25,7 @@ export class CodexCloudShimInstaller {
     const encodedScript = Buffer.from(shimScript, "utf8").toString("base64");
 
     await codebase.runCommand(
-      `cd /home/daytona/codebase && BIN_DIR="$HOME/.local/share/npm-global/bin" && mkdir -p "$BIN_DIR" && if [ -f "$BIN_DIR/codex" ] && [ ! -f "$BIN_DIR/codex.vly.real" ] && ! grep -q "vly-codex-shim" "$BIN_DIR/codex" 2>/dev/null; then mv "$BIN_DIR/codex" "$BIN_DIR/codex.vly.real"; fi && if [ ! -e "$BIN_DIR/codex.vly.real" ]; then for CANDIDATE in /usr/local/bin/codex /usr/bin/codex /opt/bin/codex; do if [ -x "$CANDIDATE" ] && ! grep -q "vly-codex-shim" "$CANDIDATE" 2>/dev/null; then ln -sf "$CANDIDATE" "$BIN_DIR/codex.vly.real"; break; fi; done; fi && printf '%s' '${encodedScript}' | base64 -d > "$BIN_DIR/codex" && chmod +x "$BIN_DIR/codex"`,
+      `cd /home/daytona/codebase && BIN_DIR="${DAYTONA_CLI_BIN_DIR}" && DAYTONA_LOCAL_BIN="${DAYTONA_LOCAL_BIN_DIR}" && ROOT_BIN_DIR="${ROOT_CLI_BIN_DIR}" && mkdir -p "$BIN_DIR" "$DAYTONA_LOCAL_BIN" "$ROOT_BIN_DIR" && if [ -f "$BIN_DIR/codex" ] && [ ! -f "$BIN_DIR/codex.vly.real" ] && ! grep -q "vly-codex-shim" "$BIN_DIR/codex" 2>/dev/null; then mv "$BIN_DIR/codex" "$BIN_DIR/codex.vly.real"; fi && if [ ! -e "$BIN_DIR/codex.vly.real" ]; then for CANDIDATE in /usr/local/bin/codex /usr/bin/codex /opt/bin/codex; do if [ -x "$CANDIDATE" ] && ! grep -q "vly-codex-shim" "$CANDIDATE" 2>/dev/null; then ln -sf "$CANDIDATE" "$BIN_DIR/codex.vly.real"; break; fi; done; fi && printf '%s' '${encodedScript}' | base64 -d > "$BIN_DIR/codex" && chmod +x "$BIN_DIR/codex" && ln -sf "$BIN_DIR/codex" "$DAYTONA_LOCAL_BIN/codex" && ln -sf "$BIN_DIR/codex" "$ROOT_BIN_DIR/codex"`,
       10_000,
     );
   }
@@ -52,7 +56,7 @@ export class CodexCloudShimInstaller {
       "}",
       "",
       "resolve_real_codex() {",
-      "  local prefix=\"$HOME/.local/share/npm-global\"",
+      "  local prefix=\"/home/daytona/.local/share/npm-global\"",
       "  local real_link=\"$prefix/bin/codex.vly.real\"",
       "  local package_bin=\"$prefix/lib/node_modules/@openai/codex/bin/codex.js\"",
       "  local fallback_install_prefix=\"$prefix/vly-codex-real\"",

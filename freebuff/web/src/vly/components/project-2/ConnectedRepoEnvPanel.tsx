@@ -126,6 +126,12 @@ export function ConnectedRepoEnvPanel({
         missing.
       </p>
 
+      <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+        Auth setup tip: keep provider keys + callback URLs here, then run any
+        interactive login in <strong>Terminal</strong> (for example,
+        <code> supabase login</code> or <code>npx convex login</code>).
+      </div>
+
       <div className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2">
         <div className="text-[11px] text-muted-foreground">
           Active file: <code>{filePath}</code>

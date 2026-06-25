@@ -75,15 +75,16 @@ export function CloudOnboardingChecklist({
     {
       Icon: FileCog,
       title: 'Set environment variables',
-      description: 'Add API keys, secrets, and .env config the app needs.',
+      description:
+        'Add API keys, auth secrets, and callback URLs in .env / .env.local.',
       action: () => onOpenTab('env'),
-      cta: 'Open Env',
+      cta: 'Open API Keys',
     },
     {
       Icon: TerminalSquare,
       title: 'Authenticate & configure',
       description:
-        'Run any interactive login/setup in the terminal or VS Code.',
+        'Run interactive auth flows (Supabase, Convex, OAuth CLIs) in terminal/VS Code.',
       action: () => onOpenTab('terminal'),
       cta: 'Open Terminal',
     },
