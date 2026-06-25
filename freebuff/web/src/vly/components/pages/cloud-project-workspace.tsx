@@ -4,7 +4,8 @@ import { api } from '@/convex/_generated/api'
 import { useQuery, useConvexAuth } from 'convex/react'
 import { motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
 
 import { AgentChatShell } from '../project-2/agent-chat'
 import { useIsMobile } from '@/vly/hooks/use-mobile'
@@ -48,10 +49,35 @@ function CloudProjectWorkspaceInner({
 
   const [cloudTab, setCloudTab] = useState<CloudTab>('preview')
   const [isChatExpanded, setIsChatExpanded] = useState(false)
-  const [isSelectingElement, setIsSelectingElement] = useState(false)
   const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat')
   const [refreshKey, setRefreshKey] = useState(0)
   const chatAsideRef = useRef<HTMLElement>(null)
+  // Imperative bridge so the preview pane can push dev-server logs into chat.
+  const sendChatMessageRef = useRef<
+    ((message: string) => Promise<boolean>) | null
+  >(null)
+
+  const handleSendLogsToChat = useCallback(
+    async (logs: string, previewCommand: string | null) => {
+      const send = sendChatMessageRef.current
+      if (!send) {
+        toast.error('Chat is not ready yet — try again in a moment.')
+        return
+      }
+      if (isMobile) setMobileView('chat')
+      const commandLine = previewCommand
+        ? `The dev server command is:\n\`${previewCommand}\`\n\n`
+        : ''
+      const message =
+        `The dev server failed to start. ${commandLine}` +
+        `Here are the recent logs — please diagnose the issue (e.g. missing env vars, wrong command/port) and fix it so the preview runs:\n\n` +
+        '```\n' +
+        logs.slice(-6000) +
+        '\n```'
+      await send(message)
+    },
+    [isMobile],
+  )
 
   const [hasAuthSettled, setHasAuthSettled] = useState(false)
   useEffect(() => {
@@ -139,8 +165,10 @@ function CloudProjectWorkspaceInner({
               <AgentChatShell
                 project={project}
                 projectSemanticIdentifier={semanticIdentifier}
-                isSelectingElement={isSelectingElement}
-                setIsSelectingElement={setIsSelectingElement}
+                hideElementSelector
+                onRegisterSendMessage={(send) => {
+                  sendChatMessageRef.current = send
+                }}
                 onOpenGitHub={() => {
                   if (project.repo_full_name) {
                     window.open(
@@ -175,13 +203,13 @@ function CloudProjectWorkspaceInner({
                 setCloudTab(tab)
                 if (!isMobile && tab !== 'preview') setIsChatExpanded(false)
               }}
-              isSelectingElement={isSelectingElement}
               forceShowClickToTest={!isMobile && isChatExpanded}
               onClickToTest={() => {
                 if (!isMobile) setIsChatExpanded(false)
               }}
               refreshTrigger={refreshKey}
               hideTabs={isMobile}
+              onSendLogsToChat={handleSendLogsToChat}
             />
           </section>
         </div>

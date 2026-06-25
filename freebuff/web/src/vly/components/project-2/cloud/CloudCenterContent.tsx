@@ -13,7 +13,12 @@ import {
   Play,
   Square,
   Loader2,
+  Settings,
+  MessageSquare,
+  AlertTriangle,
+  TerminalSquare,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import React, { useRef, useState } from 'react'
 import { useIframeNavigationSync } from '../useIframeNavigationSync'
 import { Spinner3D } from '../Spinner3D'
@@ -25,6 +30,7 @@ import {
   getDaytonaPreviewUrl,
 } from '@/vly/lib/project-preview-url'
 import { ConnectedRepoEnvPanel } from '../ConnectedRepoEnvPanel'
+import { GravityAdSlot } from '../agent-chat/GravityAdSlot'
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +43,20 @@ const OPENVSCODE_PORT = 8080
 const TTYD_PORT = 7681
 
 export type CloudViewMode = 'preview' | 'code' | 'terminal' | 'env'
+
+/** Lifecycle phase of the user-controlled dev server / preview. */
+type PreviewPhase = 'idle' | 'starting' | 'failed' | 'connected'
+
+type PreviewState = {
+  running: boolean
+  listening: boolean
+  statusCode: string | null
+  logs: string
+  previewCommand: string | null
+  previewPort: number | null
+  buildCommand: string | null
+  previewUrl: string | null
+}
 
 type PreviewConnectionStatus =
   | 'loading'
@@ -79,13 +99,22 @@ interface CloudCenterContentProps {
   forceShowClickToTest?: boolean
   onClickToTest?: () => void
   refreshTrigger?: number
+  /** Send the captured dev-server logs into the agent chat for diagnosis. */
+  onSendLogsToChat?: (logs: string, previewCommand: string | null) => void
 }
 
 /**
  * Cloud-only preview/code/terminal/env surface. Forked from the shared web
  * CenterContent so Freebuff Cloud can evolve independently — trimmed of
- * web-only features (auto screenshots, god-mode publish, ad slot) and given a
- * user-controlled dev-server lifecycle.
+ * web-only features (auto screenshots, god-mode publish) and given a
+ * user-controlled dev-server lifecycle. Keeps the above-iframe sponsored slot.
+ *
+ * Preview lifecycle: the dev server never auto-starts. The user presses Start
+ * (centered over the empty pane). We then poll the sandbox for the real
+ * dev-server state and stream its logs; the preview iframe is only mounted once
+ * the server is actually answering HTTP — so the Daytona proxy's "Is the Sandbox
+ * started?" error page never leaks into the iframe. If the server fails to come
+ * up, the logs and a "Send logs to chat" button are surfaced for diagnosis.
  */
 export function CloudCenterContent({
   project,
@@ -96,7 +125,9 @@ export function CloudCenterContent({
   forceShowClickToTest = false,
   onClickToTest,
   refreshTrigger = 0,
+  onSendLogsToChat,
 }: CloudCenterContentProps) {
+  const router = useRouter()
   const [isIframeActive, setIsIframeActive] = useState(false)
   const [isRestarting, setIsRestarting] = useState(false)
   const editorUrl = getDaytonaPreviewUrl(project, OPENVSCODE_PORT)
@@ -114,13 +145,25 @@ export function CloudCenterContent({
   // --- Dev server lifecycle (user-controlled) ------------------------------
   const startPreviewAction = useAction(api.cloud.preview.startPreview)
   const stopPreviewAction = useAction(api.cloud.preview.stopPreview)
-  const getPreviewStatusAction = useAction(
-    api.cloud.preview.getPreviewRuntimeStatus,
-  )
-  const [previewRunning, setPreviewRunning] = useState<boolean | null>(null)
-  const [previewCommand, setPreviewCommand] = useState<string | null>(null)
-  const [isStartingPreview, setIsStartingPreview] = useState(false)
+  const getPreviewStateAction = useAction(api.cloud.preview.getPreviewState)
+
+  const [previewState, setPreviewState] = useState<PreviewState | null>(null)
+  const [isStarting, setIsStarting] = useState(false)
   const [isStoppingPreview, setIsStoppingPreview] = useState(false)
+  const [hasAttemptedStart, setHasAttemptedStart] = useState(false)
+
+  const running = previewState?.running ?? false
+  const listening = previewState?.listening ?? false
+  const previewCommand = previewState?.previewCommand ?? null
+  const previewLogs = previewState?.logs ?? ''
+
+  const phase: PreviewPhase = listening
+    ? 'connected'
+    : running || isStarting
+      ? 'starting'
+      : hasAttemptedStart
+        ? 'failed'
+        : 'idle'
 
   const [isIframeReactReady, setIsIframeReactReady] = useState(false)
   const [hasIframeLoaded, setHasIframeLoaded] = useState(false)
@@ -142,20 +185,57 @@ export function CloudCenterContent({
 
   const isDaytonaProject = project?.sandbox_id?.startsWith('daytona:') === true
 
-  const refreshPreviewStatus = React.useCallback(async () => {
-    if (!semanticIdentifier) return
-    try {
-      const status = await getPreviewStatusAction({ semanticIdentifier })
-      setPreviewRunning(status.running)
-      setPreviewCommand(status.previewCommand)
-    } catch {
-      // Sandbox may be cold; leave state as-is.
-    }
-  }, [getPreviewStatusAction, semanticIdentifier])
+  const refreshPreviewState =
+    React.useCallback(async (): Promise<PreviewState | null> => {
+      if (!semanticIdentifier) return null
+      try {
+        const state = await getPreviewStateAction({ semanticIdentifier })
+        setPreviewState(state)
+        return state
+      } catch {
+        // Sandbox may be cold; leave state as-is.
+        return null
+      }
+    }, [getPreviewStateAction, semanticIdentifier])
 
+  // Initial snapshot so a server the agent already started (or a return visit)
+  // shows the live preview immediately.
   React.useEffect(() => {
-    void refreshPreviewStatus()
-  }, [refreshPreviewStatus])
+    void refreshPreviewState()
+  }, [refreshPreviewState])
+
+  // Poll while the server is coming up so we can stream logs and detect the
+  // moment it starts answering HTTP. Stops as soon as it connects, crashes, or
+  // the user leaves the preview tab — we never poll an idle sandbox. Each probe
+  // hits the sandbox (connect + curl + logs), so we self-schedule the next tick
+  // only after the previous one resolves to avoid overlapping requests.
+  const shouldPollPreview =
+    viewMode === 'preview' && !listening && (isStarting || running)
+  React.useEffect(() => {
+    if (!shouldPollPreview) return
+    let cancelled = false
+    let timer: number | undefined
+    const tick = async () => {
+      if (cancelled) return
+      const state = await refreshPreviewState()
+      if (cancelled) return
+      if (state?.listening) {
+        setIsStarting(false)
+        return
+      }
+      if (state && !state.running) {
+        // Process exited before binding the port -> treat as a failed start.
+        setIsStarting(false)
+        return
+      }
+      timer = window.setTimeout(tick, 3000)
+    }
+    timer = window.setTimeout(tick, 1500)
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [shouldPollPreview, refreshPreviewState])
 
   React.useEffect(() => {
     setIsIframeReactReady(false)
@@ -187,6 +267,19 @@ export function CloudCenterContent({
     }
   }, [baseUrl, navState.index, navState.stack])
 
+  // Auto-refresh once the dev server starts answering. There can be a short lag
+  // between "port is listening" and the proxy resolving the container, so we
+  // give it a beat before the (now first) mount settles.
+  const wasListeningRef = useRef(false)
+  React.useEffect(() => {
+    if (listening && !wasListeningRef.current) {
+      wasListeningRef.current = true
+      const id = window.setTimeout(() => handleRefresh(), 600)
+      return () => window.clearTimeout(id)
+    }
+    if (!listening) wasListeningRef.current = false
+  }, [listening, handleRefresh])
+
   const lastRefreshTriggerRef = useRef<number>(refreshTrigger)
   React.useEffect(() => {
     if (refreshTrigger === lastRefreshTriggerRef.current) return
@@ -214,15 +307,20 @@ export function CloudCenterContent({
   })
 
   const shouldShowConnectionOverlay =
-    isConnecting && !(isDaytonaProject && (hasIframeLoaded || isIframeReactReady))
+    phase === 'connected' &&
+    isConnecting &&
+    !(isDaytonaProject && (hasIframeLoaded || isIframeReactReady))
   const isPreviewLoaded = hasIframeLoaded || isIframeReactReady
   const connectionStatus: PreviewConnectionStatus = (() => {
     if (!project) return 'loading'
     if (isRestarting) return 'restarting'
     if (isConnectionError) return 'error'
-    if (isConnecting) return navState.iframeSrc ? 'booting' : 'loading'
-    if (isConnectionSuccess) return 'connected'
-    if (isDaytonaProject && isPreviewLoaded) return 'connected'
+    if (phase === 'starting') return 'booting'
+    if (phase === 'connected') {
+      if (isConnectionSuccess) return 'connected'
+      if (isDaytonaProject && isPreviewLoaded) return 'connected'
+      return 'booting'
+    }
     return 'idle'
   })()
   const connectionStatusInfo = connectionStatusMeta[connectionStatus]
@@ -239,6 +337,10 @@ export function CloudCenterContent({
     }
   }
 
+  const handleOpenPreviewSettings = () => {
+    router.push(`/cloud/project/${semanticIdentifier}/settings?section=preview`)
+  }
+
   const handleRestartComputer = async () => {
     if (!project) return
     try {
@@ -253,21 +355,20 @@ export function CloudCenterContent({
   }
 
   const handleStartPreview = async () => {
-    if (!semanticIdentifier || isStartingPreview) return
+    if (!semanticIdentifier || isStarting) return
+    setHasAttemptedStart(true)
+    setIsStarting(true)
     try {
-      setIsStartingPreview(true)
       const result = await startPreviewAction({ semanticIdentifier })
       if (!result.running) {
         toast.error(result.message)
+        setIsStarting(false)
       } else {
-        setPreviewRunning(true)
-        toast.success('Dev server starting — preview will appear shortly.')
-        setTimeout(() => handleRefresh(), 4000)
+        void refreshPreviewState()
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to start dev server')
-    } finally {
-      setIsStartingPreview(false)
+      setIsStarting(false)
     }
   }
 
@@ -276,7 +377,10 @@ export function CloudCenterContent({
     try {
       setIsStoppingPreview(true)
       await stopPreviewAction({ semanticIdentifier })
-      setPreviewRunning(false)
+      setIsStarting(false)
+      setHasAttemptedStart(false)
+      wasListeningRef.current = false
+      await refreshPreviewState()
       toast.success('Dev server stopped.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to stop dev server')
@@ -284,6 +388,17 @@ export function CloudCenterContent({
       setIsStoppingPreview(false)
     }
   }
+
+  const handleSendLogsToChat = () => {
+    const trimmed = previewLogs.trim()
+    onSendLogsToChat?.(
+      trimmed.length > 0 ? trimmed : '(no dev server logs were captured)',
+      previewCommand,
+    )
+    toast.success('Sent dev server logs to chat for diagnosis.')
+  }
+
+  const isPreviewRunning = running || phase === 'connected'
 
   return (
     <div
@@ -339,7 +454,7 @@ export function CloudCenterContent({
                     e.stopPropagation()
                     handleRefresh()
                   }}
-                  disabled={!navState.iframeSrc}
+                  disabled={!navState.iframeSrc || phase !== 'connected'}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Refresh"
                 >
@@ -356,53 +471,46 @@ export function CloudCenterContent({
               )}
             </span>
 
-            {viewMode === 'preview' && (
-              <div className="flex shrink-0 items-center gap-1">
-                {previewRunning ? (
-                  <CloudToolbarTooltip label="Stop dev server (free up sandbox resources)">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        void handleStopPreview()
-                      }}
-                      disabled={isStoppingPreview}
-                      className="flex h-7 items-center gap-1 rounded-md border border-border bg-muted/40 px-2 text-[11px] font-medium text-foreground/80 transition hover:bg-muted hover:text-foreground disabled:opacity-50"
-                    >
-                      {isStoppingPreview ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Square className="h-3 w-3 text-red-400" />
-                      )}
-                      Stop
-                    </button>
-                  </CloudToolbarTooltip>
-                ) : (
-                  <CloudToolbarTooltip label="Start the dev server">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        void handleStartPreview()
-                      }}
-                      disabled={isStartingPreview}
-                      className="flex h-7 items-center gap-1 rounded-md bg-primary/15 px-2 text-[11px] font-semibold text-primary transition hover:bg-primary/25 disabled:opacity-50"
-                    >
-                      {isStartingPreview ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Play className="h-3 w-3" />
-                      )}
-                      Start
-                    </button>
-                  </CloudToolbarTooltip>
-                )}
-              </div>
-            )}
-
-            <div className="flex min-w-0 flex-1 items-center" />
+            {/* Above-iframe sponsored slot. Stretches to fill remaining toolbar
+                width; CSS truncate handles clipping. Mirrors Freebuff Web. */}
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden px-1">
+              <GravityAdSlot
+                messages={[
+                  {
+                    role: 'user',
+                    content: `Previewing ${project?.name || project?.semantic_identifier || semanticIdentifier || 'a project'} in Freebuff Cloud`,
+                  },
+                ]}
+                sessionId={`${project?.semantic_identifier ?? semanticIdentifier ?? 'project'}-above-iframe`}
+                slotKey={`Above-iFrame-${project?.semantic_identifier ?? semanticIdentifier ?? 'project'}`}
+                placement="above-iframe"
+                variant="nav"
+              />
+            </div>
 
             <div className="flex items-center gap-0.5">
+              {/* The Start control lives in the center of the empty pane, not
+                  here. Stop stays in the toolbar while the server is running. */}
+              {viewMode === 'preview' && isPreviewRunning && (
+                <CloudToolbarTooltip label="Stop dev server (free up sandbox resources)">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleStopPreview()
+                    }}
+                    disabled={isStoppingPreview}
+                    className="mr-0.5 flex h-7 items-center gap-1 rounded-md border border-border bg-muted/40 px-2 text-[11px] font-medium text-foreground/80 transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    {isStoppingPreview ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Square className="h-3 w-3 text-red-400" />
+                    )}
+                    Stop
+                  </button>
+                </CloudToolbarTooltip>
+              )}
               <CloudToolbarTooltip
                 label={`Connection: ${connectionStatusInfo.label}`}
               >
@@ -419,6 +527,15 @@ export function CloudCenterContent({
                     className={`relative h-2.5 w-2.5 rounded-full ${connectionStatusInfo.dotClassName}`}
                   />
                 </div>
+              </CloudToolbarTooltip>
+              <CloudToolbarTooltip label="Preview settings">
+                <button
+                  onClick={handleOpenPreviewSettings}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground"
+                  aria-label="Preview settings"
+                >
+                  <Settings className="h-4 w-4" strokeWidth={1.5} />
+                </button>
               </CloudToolbarTooltip>
               <CloudToolbarTooltip
                 label={isRestarting ? 'Restarting computer…' : 'Restart computer'}
@@ -460,7 +577,7 @@ export function CloudCenterContent({
               <CloudToolbarTooltip label="Open preview in new tab">
                 <button
                   onClick={handleOpenInNewTab}
-                  disabled={!navState.iframeSrc}
+                  disabled={!navState.iframeSrc || phase !== 'connected'}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="Open in new tab"
                 >
@@ -503,7 +620,7 @@ export function CloudCenterContent({
                   </p>
                 </div>
               )
-            ) : navState.iframeSrc ? (
+            ) : phase === 'connected' && navState.iframeSrc ? (
               <iframe
                 key={navState.iframeKey}
                 ref={iframeRef}
@@ -517,43 +634,20 @@ export function CloudCenterContent({
                 onLoad={() => setHasIframeLoaded(true)}
               />
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background p-6 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-card">
-                  <Play className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {previewCommand
-                      ? "Dev server isn't running"
-                      : 'No preview command configured yet'}
-                  </p>
-                  <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-                    {previewCommand
-                      ? "Start the dev server when you're ready — it stays off until you ask so you control sandbox resources."
-                      : 'Ask the agent to set up the dev server (e.g. "set up the preview"), or configure it in Settings.'}
-                  </p>
-                </div>
-                {previewCommand && (
-                  <button
-                    type="button"
-                    onClick={() => void handleStartPreview()}
-                    disabled={isStartingPreview}
-                    className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-                  >
-                    {isStartingPreview ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                    Start dev server
-                  </button>
-                )}
-                {previewCommand && (
-                  <code className="rounded bg-muted/50 px-2 py-1 font-mono text-[11px] text-muted-foreground">
-                    {previewCommand}
-                  </code>
-                )}
-              </div>
+              <PreviewControlPanel
+                phase={phase}
+                previewCommand={previewCommand}
+                logs={previewLogs}
+                statusCode={previewState?.statusCode ?? null}
+                isStarting={isStarting}
+                isStopping={isStoppingPreview}
+                onStart={() => void handleStartPreview()}
+                onStop={() => void handleStopPreview()}
+                onSendLogsToChat={
+                  onSendLogsToChat ? handleSendLogsToChat : undefined
+                }
+                onOpenSettings={handleOpenPreviewSettings}
+              />
             )}
 
             <AnimatePresence>
@@ -590,7 +684,7 @@ export function CloudCenterContent({
               {!isIframeActive &&
                 navState.iframeSrc &&
                 !isSelectingElement &&
-                viewMode === 'preview' && (
+                phase === 'connected' && (
                   <motion.div
                     className="absolute inset-0 z-10 flex transform-gpu cursor-pointer flex-col items-center justify-center bg-black/35 hover:bg-black/20"
                     onClick={handleOverlayClick}
@@ -627,6 +721,236 @@ export function CloudCenterContent({
             </AnimatePresence>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Centered control surface shown in place of the iframe whenever the dev server
+ * isn't actively serving. Owns the Start button (idle), the streaming-log view
+ * (starting / failed), and the "Send logs to chat" escape hatch.
+ */
+function PreviewControlPanel({
+  phase,
+  previewCommand,
+  logs,
+  statusCode,
+  isStarting,
+  isStopping,
+  onStart,
+  onStop,
+  onSendLogsToChat,
+  onOpenSettings,
+}: {
+  phase: PreviewPhase
+  previewCommand: string | null
+  logs: string
+  statusCode: string | null
+  isStarting: boolean
+  isStopping: boolean
+  onStart: () => void
+  onStop: () => void
+  onSendLogsToChat?: () => void
+  onOpenSettings: () => void
+}) {
+  const showLogs = phase === 'starting' || phase === 'failed'
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-background p-6 text-center">
+      {phase === 'idle' && (
+        <>
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card">
+            <Play className="h-6 w-6 text-primary" />
+          </div>
+          <div className="max-w-sm">
+            <p className="text-sm font-semibold text-foreground">
+              {previewCommand
+                ? 'Preview is off'
+                : 'No preview command configured yet'}
+            </p>
+            <p className="mx-auto mt-1 text-xs text-muted-foreground">
+              {previewCommand
+                ? "The dev server stays off until you start it, so you control sandbox resources. Logs stream here while it boots."
+                : 'Ask the agent to set up the dev server (e.g. "set up the preview"), or configure it in Settings.'}
+            </p>
+          </div>
+
+          {previewCommand && (
+            <PreviewCommandBadge
+              command={previewCommand}
+              onOpenSettings={onOpenSettings}
+            />
+          )}
+
+          {previewCommand ? (
+            <button
+              type="button"
+              onClick={onStart}
+              disabled={isStarting}
+              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:opacity-60"
+            >
+              {isStarting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Start dev server
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
+            >
+              <Settings className="h-4 w-4" />
+              Open settings
+            </button>
+          )}
+        </>
+      )}
+
+      {showLogs && (
+        <>
+          {phase === 'starting' ? (
+            <>
+              <Spinner3D size={34} />
+              <div className="max-w-sm">
+                <p className="text-sm font-semibold text-foreground">
+                  Starting dev server…
+                </p>
+                <p className="mx-auto mt-1 text-xs text-muted-foreground">
+                  Waiting for it to start serving. The preview opens
+                  automatically once it&apos;s reachable.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/30 bg-red-500/10">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+              <div className="max-w-md">
+                <p className="text-sm font-semibold text-foreground">
+                  Dev server didn&apos;t start
+                </p>
+                <p className="mx-auto mt-1 text-xs text-muted-foreground">
+                  The process exited before serving
+                  {statusCode && statusCode !== '000'
+                    ? ` (last status ${statusCode})`
+                    : ''}
+                  . Check the logs below — it&apos;s often a missing env var or a
+                  bad command. Send them to chat and the agent will fix it.
+                </p>
+              </div>
+            </>
+          )}
+
+          {previewCommand && (
+            <PreviewCommandBadge
+              command={previewCommand}
+              onOpenSettings={onOpenSettings}
+            />
+          )}
+
+          <PreviewLogView logs={logs} />
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {onSendLogsToChat && (
+              <button
+                type="button"
+                onClick={onSendLogsToChat}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Send logs to chat
+              </button>
+            )}
+            {phase === 'failed' ? (
+              <button
+                type="button"
+                onClick={onStart}
+                disabled={isStarting}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+              >
+                {isStarting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 text-primary" />
+                )}
+                Try again
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onStop}
+                disabled={isStopping}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+              >
+                {isStopping ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Square className="h-4 w-4 text-red-400" />
+                )}
+                Stop
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function PreviewCommandBadge({
+  command,
+  onOpenSettings,
+}: {
+  command: string
+  onOpenSettings: () => void
+}) {
+  return (
+    <div className="flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 pl-2.5 pr-1">
+      <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Preview
+      </span>
+      <code className="truncate font-mono text-[11px] text-foreground/85">
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={onOpenSettings}
+        aria-label="Edit preview command in settings"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
+      >
+        <Settings className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function PreviewLogView({ logs }: { logs: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const text = logs.trim().length > 0 ? logs : 'Waiting for output…'
+
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [logs])
+
+  return (
+    <div className="w-full max-w-xl overflow-hidden rounded-lg border border-border bg-[#0b0b0d] text-left">
+      <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-1.5">
+        <TerminalSquare className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Dev server logs
+        </span>
+      </div>
+      <div
+        ref={scrollRef}
+        className="max-h-56 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground/80"
+      >
+        <pre className="whitespace-pre-wrap break-words">{text}</pre>
       </div>
     </div>
   )

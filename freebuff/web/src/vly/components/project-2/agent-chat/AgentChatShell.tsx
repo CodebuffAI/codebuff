@@ -439,6 +439,16 @@ interface AgentChatShellProps {
   onOpenVersions?: () => void;
   onOpenGitHub?: () => void;
   githubActionLabel?: string;
+  /** Hide preview element picker (general cloud repos don't support it). */
+  hideElementSelector?: boolean;
+  /**
+   * Optional hook to let an external surface (e.g. the Freebuff Cloud preview
+   * pane) push a message into this chat — used to forward dev-server logs for
+   * diagnosis. Receives a stable sender; called whenever the sender changes.
+   */
+  onRegisterSendMessage?: (
+    send: (message: string) => Promise<boolean>,
+  ) => void;
 }
 
 export function AgentChatShell({
@@ -450,6 +460,8 @@ export function AgentChatShell({
   onOpenVersions,
   onOpenGitHub,
   githubActionLabel = "GitHub",
+  hideElementSelector = false,
+  onRegisterSendMessage,
 }: AgentChatShellProps) {
   const vlyAgentDisplayName = "freebuff agent 2.0";
   // All hooks must be called unconditionally before any early returns
@@ -968,6 +980,12 @@ export function AgentChatShell({
     },
     [handleSendMessage],
   );
+
+  // Expose the sender to an external surface (cloud preview "send logs to chat").
+  // No-op on Freebuff Web, which never passes this prop.
+  useEffect(() => {
+    onRegisterSendMessage?.(sendAutomatedAgentMessage);
+  }, [onRegisterSendMessage, sendAutomatedAgentMessage]);
 
   // Listen for vly-toolbar-select events from the codesandbox iframe
   useEffect(() => {
@@ -1568,7 +1586,7 @@ export function AgentChatShell({
                   )}
 
               {/* Selected Node Preview - Shows selected element before chat input */}
-              {selectedNodeInfo && (
+              {!hideElementSelector && selectedNodeInfo && (
                 <div className="border-t border-border/40 bg-muted/30 px-4 py-2">
                   <div className="flex items-center gap-2 text-xs">
                     <svg
@@ -1731,6 +1749,7 @@ export function AgentChatShell({
                     activeEntryPointId={undefined}
                     restoreMessage={messageToRestore}
                     compactMode={true}
+                    hideElementSelector={hideElementSelector}
                   />
                 </div>
               )}

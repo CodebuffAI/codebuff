@@ -29,6 +29,20 @@ function requireEnv(name: string) {
   return value
 }
 
+async function readResumeStateFromStorage(
+  ctx: ActionCtx,
+  storageId: Id<'_storage'>,
+): Promise<any | undefined> {
+  const blob = await ctx.storage.get(storageId)
+  if (!blob) return undefined
+  try {
+    return JSON.parse(await blob.text())
+  } catch (error) {
+    console.error('[vly-freebuff-workpool] failed to parse run state', error)
+    return undefined
+  }
+}
+
 async function readStoredRunState(
   ctx: ActionCtx,
   threadId: Id<'agent_thread'>,
@@ -39,118 +53,72 @@ async function readStoredRunState(
   )
   const storageId = (thread as any)?.active_freebuff_run_state_storage_id
   if (!storageId) return undefined
-
-  const blob = await ctx.storage.get(storageId)
-  if (!blob) return undefined
-  return normalizeStoredRunState(JSON.parse(await blob.text())) as any
+  return readResumeStateFromStorage(ctx, storageId)
 }
 
-const MAX_PREVIOUS_RUN_MESSAGES = 8
-const MAX_MESSAGE_CONTENT_CHARS = 1600
-
-function clipText(value: string) {
-  if (value.length <= MAX_MESSAGE_CONTENT_CHARS) return value
-  return value.slice(-MAX_MESSAGE_CONTENT_CHARS)
-}
-
-function sanitizeMessageContent(content: unknown): unknown {
-  if (typeof content === 'string') {
-    return clipText(content)
+function trimOutput(output: unknown) {
+  const o = output as { type?: unknown; message?: unknown } | undefined
+  return {
+    type: typeof o?.type === 'string' ? o.type : 'error',
+    message:
+      typeof o?.message === 'string'
+        ? o.message.slice(-2000)
+        : 'Previous run output trimmed',
   }
-
-  if (!Array.isArray(content)) return content
-
-  return content.map((item) => {
-    if (!item || typeof item !== 'object') return item
-    const record = { ...(item as Record<string, unknown>) }
-    if (typeof record.text === 'string') {
-      record.text = clipText(record.text)
-    }
-    if (typeof record.content === 'string') {
-      record.content = clipText(record.content)
-    }
-    return record
-  })
 }
 
-function pruneMessageHistory(history: unknown[]) {
-  const allowedRoles = new Set(['user', 'assistant'])
-  return history
-    .filter((entry) => {
-      if (!entry || typeof entry !== 'object') return false
-      const role = (entry as { role?: unknown }).role
-      return typeof role === 'string' && allowedRoles.has(role)
-    })
-    .map((entry) => {
-      const record = { ...(entry as Record<string, unknown>) }
-      record.content = sanitizeMessageContent(record.content)
-      delete record.toolCalls
-      delete record.tool_calls
-      delete record.reasoning
-      delete record.thinking
-      return record
-    })
-    .slice(-MAX_PREVIOUS_RUN_MESSAGES)
-}
+// Resume-blob modes (both Freebuff Web template projects and Freebuff Cloud
+// connected repos resume with FULL conversation context — no message pruning,
+// role-stripping, or content clipping — so every "continue" keeps complete
+// history, the same way the CLI/SDK resumes from the full `sessionState`):
+//   - 'continuation' (mid-task auto-continue): verbatim full sessionState,
+//     including the file-index cache and pending/queued tool calls, so the
+//     agent picks up exactly where it left off.
+//   - 'full' (between turns): keep the full conversation history; only drop the
+//     heavy, rebuildable file-index cache to keep the persisted blob smaller.
+type ResumeMode = 'continuation' | 'full'
 
-function normalizeStoredRunState(runState: unknown) {
-  if (!runState || typeof runState !== 'object') return undefined
-
-  const typedRunState = runState as {
+function buildResumeState(runState: unknown, mode: ResumeMode) {
+  const typed = runState as {
     sessionState?: {
       fileContext?: {
         fileTree?: unknown[]
         fileTokenScores?: Record<string, unknown>
         tokenCallers?: Record<string, unknown>
-        recentlyReadFiles?: unknown[]
-      }
-      mainAgentState?: {
-        messageHistory?: unknown[]
-        pendingToolCalls?: unknown[]
-        queuedToolCalls?: unknown[]
       }
     }
     traceSessionId?: string
-    output?: { type?: unknown; message?: unknown }
+    output?: unknown
+  }
+  const sessionState = typed?.sessionState
+  if (!sessionState) return undefined
+
+  if (mode === 'continuation') {
+    // Verbatim — never mutate the caller's object.
+    return {
+      sessionState,
+      traceSessionId: typed.traceSessionId,
+      output: trimOutput(typed.output),
+    }
   }
 
-  if (!typedRunState.sessionState) return undefined
-
-  const history = typedRunState.sessionState.mainAgentState?.messageHistory
-  if (Array.isArray(history)) {
-    typedRunState.sessionState.mainAgentState!.messageHistory =
-      pruneMessageHistory(history)
-  }
-
-  // Drop heavyweight cached indexing state from previous runs. This avoids
-  // dragging huge stale context into simple follow-up prompts.
-  if (typedRunState.sessionState.fileContext) {
-    typedRunState.sessionState.fileContext.fileTree = []
-    typedRunState.sessionState.fileContext.fileTokenScores = {}
-    typedRunState.sessionState.fileContext.tokenCallers = {}
-    typedRunState.sessionState.fileContext.recentlyReadFiles = []
-  }
-
-  if (typedRunState.sessionState.mainAgentState) {
-    typedRunState.sessionState.mainAgentState.pendingToolCalls = []
-    typedRunState.sessionState.mainAgentState.queuedToolCalls = []
+  // Shallow-clone so concurrent persists in the same handler don't see
+  // mutations. Keep the full message history; only drop the rebuildable
+  // file-index cache.
+  const outSession: any = { ...sessionState }
+  if (sessionState.fileContext) {
+    outSession.fileContext = {
+      ...sessionState.fileContext,
+      fileTree: [],
+      fileTokenScores: {},
+      tokenCallers: {},
+    }
   }
 
   return {
-    sessionState: typedRunState.sessionState,
-    traceSessionId: typedRunState.traceSessionId,
-    // SDK resume only needs `sessionState` + `traceSessionId`. Keep a tiny
-    // output envelope so persisted blobs don't carry huge allMessages payloads.
-    output: {
-      type:
-        typeof typedRunState.output?.type === 'string'
-          ? typedRunState.output.type
-          : 'error',
-      message:
-        typeof typedRunState.output?.message === 'string'
-          ? clipText(typedRunState.output.message)
-          : 'Previous run output trimmed',
-    },
+    sessionState: outSession,
+    traceSessionId: typed.traceSessionId,
+    output: trimOutput(typed.output),
   }
 }
 
@@ -1020,18 +988,35 @@ function gravityIndexStatusEvent(input: unknown): {
   }
 }
 
+// In-action time limit. We abort ~1 minute before the 10-minute cron sweep so
+// the handler can persist state and schedule a continuation before Convex (or
+// the sweep) reclaims the run.
 const FREEBUFF_RUN_TIMEOUT_MS = 9 * 60 * 1000
+
+// How many times a single user turn may auto-continue across the in-action time
+// limit before we stop and ask the user to resume manually. Each continuation
+// resumes from the FULL persisted session state, so the agent always keeps
+// complete context. The agent's own step budget (`stepsRemaining`, persisted in
+// sessionState) is the primary bound on total work; this is a wall-clock safety
+// ceiling so a pathological loop can't run forever.
+const MAX_FREEBUFF_CONTINUATIONS = 10
+
+const CONTINUATION_PROMPT =
+  'Continue working on the current task from exactly where you left off. ' +
+  'Do not restart or repeat work that is already done — pick up the next step ' +
+  'and keep going until the task is fully complete.'
 
 async function persistRunState(
   ctx: ActionCtx,
   runState: unknown,
+  mode: ResumeMode,
 ): Promise<Id<'_storage'> | undefined> {
   try {
-    const normalizedRunState = normalizeStoredRunState(runState)
-    if (!normalizedRunState) {
+    const resumeState = buildResumeState(runState, mode)
+    if (!resumeState) {
       return undefined
     }
-    const blob = new Blob([JSON.stringify(normalizedRunState)], {
+    const blob = new Blob([JSON.stringify(resumeState)], {
       type: 'application/json',
     })
     return await ctx.storage.store(blob)
@@ -1085,9 +1070,17 @@ export const runFreebuffAgent = internalAction({
     images: v.optional(v.array(v.id('_storage'))),
     sandboxId: v.string(),
     packageManager: v.optional(v.union(v.literal('bun'), v.literal('pnpm'))),
+    // Auto-continuation across the in-action time limit. When set, this run
+    // resumes the same user turn from the full session state in
+    // `resumeFromStorageId` instead of starting a fresh turn. `continuationCount`
+    // bounds how many times we may transparently continue.
+    continuationCount: v.optional(v.number()),
+    resumeFromStorageId: v.optional(v.id('_storage')),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const isContinuation = !!args.resumeFromStorageId
+
     await ctx.runMutation(
       (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
         .markFreebuffAgentRunRunning,
@@ -1115,7 +1108,12 @@ export const runFreebuffAgent = internalAction({
     }
 
     const eventBuffer = createRunEventBuffer({ ctx, ...args })
-    await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
+    // On a continuation the message is already streaming into the same assistant
+    // bubble — don't emit another `start` (it would reset nothing useful and the
+    // turn already began).
+    if (!isContinuation) {
+      await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
+    }
     let pendingAskUserQuestions: AskUserQuestion[] | undefined
 
     const abortController = new AbortController()
@@ -1185,6 +1183,74 @@ export const runFreebuffAgent = internalAction({
       }
     }
 
+    // Long-running-task handling: when we hit the in-action time limit, persist
+    // the FULL session state and schedule another run that resumes the SAME
+    // turn with complete context — instead of stopping and waiting for the user
+    // to type "continue". Returns true when a continuation was scheduled (the
+    // caller should then exit without recording a terminal/pause event so the
+    // message keeps streaming seamlessly).
+    const attemptContinuation = async (runState: any): Promise<boolean> => {
+      const nextCount = (args.continuationCount ?? 0) + 1
+      if (nextCount > MAX_FREEBUFF_CONTINUATIONS) return false
+      if (!runState?.sessionState) return false
+
+      const resumeStorageId = await persistRunState(
+        ctx,
+        runState,
+        'continuation',
+      )
+      if (!resumeStorageId) return false
+
+      // Refresh the run ledger (reset started_at) so the 10-minute timeout sweep
+      // doesn't reap an actively-continuing run. Returns ok:false if the run was
+      // cancelled/finished out from under us.
+      const restart = await ctx.runMutation(
+        (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+          .restartFreebuffAgentRunForContinuation,
+        { runId: args.runId },
+      )
+      if (!restart?.ok) return false
+
+      await recordRunEvent({
+        ctx,
+        ...args,
+        event: {
+          type: 'status',
+          title: 'Working',
+          content: 'Continuing — picking up where the last step left off.',
+        },
+      })
+
+      const scheduledId = await ctx.scheduler.runAfter(
+        0,
+        internal.coding_agent.cli_agent.executeFreebuff.runFreebuffAgent,
+        {
+          runId: args.runId,
+          userId: args.userId,
+          projectId: args.projectId,
+          threadId: args.threadId,
+          messageId: args.messageId,
+          userMessage: args.userMessage,
+          freebuffModel: args.freebuffModel,
+          images: args.images,
+          sandboxId: args.sandboxId,
+          packageManager: args.packageManager,
+          continuationCount: nextCount,
+          resumeFromStorageId: resumeStorageId,
+        },
+      )
+
+      // Keep work_id pointed at the live scheduled function so a user cancel can
+      // still abort the pending continuation.
+      await ctx.runMutation(
+        (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
+          .setFreebuffAgentRunWorkId,
+        { runId: args.runId, workId: String(scheduledId) },
+      )
+
+      return true
+    }
+
     try {
       installPromiseWithResolversPolyfill()
 
@@ -1232,13 +1298,21 @@ export const runFreebuffAgent = internalAction({
         ? `${CONNECTED_REPO_AGENT_GUIDANCE}\n\n---\n\n${baseUserMessage}`
         : baseUserMessage
 
-      const imageContents = supportsImages
-        ? await loadImageContents(ctx, args.images)
-        : []
+      // On a continuation we resume the same turn: send the internal continue
+      // directive, skip re-injecting images/guidance (already in history), and
+      // resume from the full state blob we persisted at the time limit.
+      const imageContents =
+        !isContinuation && supportsImages
+          ? await loadImageContents(ctx, args.images)
+          : []
       const multimodalContent =
         imageContents.length > 0
           ? [{ type: 'text' as const, text: userMessage }, ...imageContents]
           : undefined
+      const promptForRun = isContinuation ? CONTINUATION_PROMPT : userMessage
+      const previousRun = isContinuation
+        ? await readResumeStateFromStorage(ctx, args.resumeFromStorageId!)
+        : await readStoredRunState(ctx, args.threadId)
       const codebase = await getCodebase()
       const projectFiles = await buildDaytonaProjectFiles(codebase)
 
@@ -1251,10 +1325,10 @@ export const runFreebuffAgent = internalAction({
         // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
         // union). Runtime shape is identical.
         agentDefinitions: bundledAgentDefinitions as any,
-        prompt: userMessage,
+        prompt: promptForRun,
         ...(multimodalContent ? { content: multimodalContent } : {}),
         projectFiles,
-        previousRun: await readStoredRunState(ctx, args.threadId),
+        previousRun,
         costMode: 'normal',
         signal: abortController.signal,
         overrideTools: buildFreebuffOverrideTools(getCodebase, {
@@ -1353,9 +1427,11 @@ export const runFreebuffAgent = internalAction({
       await eventBuffer.flush()
 
       // Always persist run state (success or error) when sessionState exists,
-      // so a follow-up "continue" prompt can resume from the same history.
+      // so a follow-up "continue" prompt can resume from the same history. Both
+      // web template projects and cloud connected repos keep the FULL
+      // conversation context on resume.
       const runStateStorageId = runState.sessionState
-        ? await persistRunState(ctx, runState)
+        ? await persistRunState(ctx, runState, 'full')
         : undefined
 
       // User terminated the thread mid-run. Save partial state cleanly and bail
@@ -1394,6 +1470,17 @@ export const runFreebuffAgent = internalAction({
         }
 
         const isLocalTimeout = abortController.signal.aborted
+
+        // Time limit hit but the agent isn't done. For cloud (connected_repo)
+        // projects, transparently continue from the full state instead of
+        // pausing, so long tasks keep progressing with complete context. Web
+        // template projects keep the original behavior (pause, manual continue).
+        // Falls through to a pause once the continuation ceiling is exhausted.
+        if (isLocalTimeout && connectedRepoContext) {
+          const continued = await attemptContinuation(runState)
+          if (continued) return null
+        }
+
         const message = isLocalTimeout
           ? 'Maximum time limit for a prompt reached. Engagement required to continue.'
           : runState.output.message

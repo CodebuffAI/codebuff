@@ -118,6 +118,8 @@ interface ChatInputProps {
   restoreMessage?: string | null;
   // Compact mode for agent chat
   compactMode?: boolean;
+  /** Hide the preview element picker (not supported on general cloud repos). */
+  hideElementSelector?: boolean;
 }
 
 // Add new interface for pending images
@@ -177,6 +179,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     activeEntryPointId,
     restoreMessage,
     compactMode = false,
+    hideElementSelector = false,
   }) => {
     // Use chat storage context for persistent state
     const {
@@ -976,84 +979,85 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                     <div
                       className={`flex items-center ${compactMode ? "gap-1.5" : "gap-2"}`}
                     >
-                      {/* Select Element Button - moved to the leftmost position */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className={`flex items-center justify-center rounded-full ${isSelectingElement ? "pulse-select-btn bg-blue-600 ring-2 ring-blue-400" : "pulse-select-btn-idle"} ${compactMode ? "h-6 w-6" : "h-8 w-8"}`}
-                            style={{
-                              backgroundColor: isSelectingElement
-                                ? undefined
-                                : isProjectDark
-                                  ? "#3c3c3c"
-                                  : "#B794D1",
-                            }}
-                            onClick={() =>
-                              setIsSelectingElement(!isSelectingElement)
-                            }
-                          >
-                            {/* Use the same SVG as the original toolbar button for consistency */}
-                            <svg
-                              width={compactMode ? "16" : "20"}
-                              height={compactMode ? "16" : "20"}
-                              viewBox="0 0 20 20"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
+                      {!hideElementSelector && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className={`flex items-center justify-center rounded-full ${isSelectingElement ? "pulse-select-btn bg-blue-600 ring-2 ring-blue-400" : "pulse-select-btn-idle"} ${compactMode ? "h-6 w-6" : "h-8 w-8"}`}
                               style={{
-                                display: "inline-block",
-                                verticalAlign: "middle",
+                                backgroundColor: isSelectingElement
+                                  ? undefined
+                                  : isProjectDark
+                                    ? "#3c3c3c"
+                                    : "#B794D1",
                               }}
-                              className="flex-shrink-0"
+                              onClick={() =>
+                                setIsSelectingElement(!isSelectingElement)
+                              }
                             >
-                              <circle
-                                cx="10"
-                                cy="10"
-                                r="8"
-                                stroke="#fff"
-                                strokeWidth="1.5"
+                              {/* Use the same SVG as the original toolbar button for consistency */}
+                              <svg
+                                width={compactMode ? "16" : "20"}
+                                height={compactMode ? "16" : "20"}
+                                viewBox="0 0 20 20"
                                 fill="none"
-                              />
-                              <line
-                                x1="10"
-                                y1="2"
-                                x2="10"
-                                y2="6"
-                                stroke="#fff"
-                                strokeWidth="1.5"
-                              />
-                              <line
-                                x1="10"
-                                y1="14"
-                                x2="10"
-                                y2="18"
-                                stroke="#fff"
-                                strokeWidth="1.5"
-                              />
-                              <line
-                                x1="2"
-                                y1="10"
-                                x2="6"
-                                y2="10"
-                                stroke="#fff"
-                                strokeWidth="1.5"
-                              />
-                              <line
-                                x1="14"
-                                y1="10"
-                                x2="18"
-                                y2="10"
-                                stroke="#fff"
-                                strokeWidth="1.5"
-                              />
-                              <circle cx="10" cy="10" r="2" fill="#fff" />
-                            </svg>
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Select element from preview</p>
-                        </TooltipContent>
-                      </Tooltip>
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{
+                                  display: "inline-block",
+                                  verticalAlign: "middle",
+                                }}
+                                className="flex-shrink-0"
+                              >
+                                <circle
+                                  cx="10"
+                                  cy="10"
+                                  r="8"
+                                  stroke="#fff"
+                                  strokeWidth="1.5"
+                                  fill="none"
+                                />
+                                <line
+                                  x1="10"
+                                  y1="2"
+                                  x2="10"
+                                  y2="6"
+                                  stroke="#fff"
+                                  strokeWidth="1.5"
+                                />
+                                <line
+                                  x1="10"
+                                  y1="14"
+                                  x2="10"
+                                  y2="18"
+                                  stroke="#fff"
+                                  strokeWidth="1.5"
+                                />
+                                <line
+                                  x1="2"
+                                  y1="10"
+                                  x2="6"
+                                  y2="10"
+                                  stroke="#fff"
+                                  strokeWidth="1.5"
+                                />
+                                <line
+                                  x1="14"
+                                  y1="10"
+                                  x2="18"
+                                  y2="10"
+                                  stroke="#fff"
+                                  strokeWidth="1.5"
+                                />
+                                <circle cx="10" cy="10" r="2" fill="#fff" />
+                              </svg>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Select element from preview</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                       <input
                         type="file"
                         ref={fileInputRef}

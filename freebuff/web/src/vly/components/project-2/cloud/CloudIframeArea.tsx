@@ -17,6 +17,7 @@ interface CloudIframeAreaProps {
   onClickToTest?: () => void
   refreshTrigger?: number
   hideTabs?: boolean
+  onSendLogsToChat?: (logs: string, previewCommand: string | null) => void
 }
 
 /**
@@ -34,6 +35,7 @@ export function CloudIframeArea({
   onClickToTest,
   refreshTrigger,
   hideTabs,
+  onSendLogsToChat,
 }: CloudIframeAreaProps) {
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
@@ -67,6 +69,7 @@ export function CloudIframeArea({
             forceShowClickToTest={forceShowClickToTest}
             onClickToTest={onClickToTest}
             refreshTrigger={refreshTrigger}
+            onSendLogsToChat={onSendLogsToChat}
           />
         )}
       </div>

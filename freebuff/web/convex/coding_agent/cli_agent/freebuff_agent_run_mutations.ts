@@ -69,6 +69,37 @@ export const markFreebuffAgentRunRunning = internalMutation({
   },
 })
 
+// Refresh a run for an auto-continuation across the in-action time limit.
+// Resets `started_at` so the 10-minute timeout sweep doesn't reap a run that is
+// actively continuing, and clears any partial terminal timestamps. Returns
+// `ok: false` if the run was cancelled/finished out from under us so the caller
+// stops continuing.
+export const restartFreebuffAgentRunForContinuation = internalMutation({
+  args: {
+    runId: v.string(),
+  },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, args) => {
+    const runDoc = await ctx.db
+      .query('freebuff_agent_runs')
+      .withIndex('by_run_id', (q) => q.eq('run_id', args.runId))
+      .unique()
+    if (!runDoc) return { ok: false }
+    if (TERMINAL_RUN_STATUSES.has(runDoc.status)) return { ok: false }
+
+    const now = Date.now()
+    await ctx.db.patch(runDoc._id, {
+      status: 'running',
+      started_at: now,
+      last_event_at: now,
+      completed_at: undefined,
+      timed_out_at: undefined,
+      error: undefined,
+    })
+    return { ok: true }
+  },
+})
+
 // Mark a run as cancelled (user terminated the thread). If the run was
 // scheduled but hasn't started yet, also cancels the pending Convex scheduler
 // invocation so it never runs. If it's already running, the action polls the
