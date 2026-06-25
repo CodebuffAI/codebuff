@@ -45,6 +45,13 @@ export function chatModelForAccessTier(accessTier: FreebuffAccessTier): string {
   return accessTier === 'full' ? DEFAULT_CHAT_MODEL_ID : LIMITED_CHAT_MODEL_ID
 }
 
+/** Resolves a chat-product model id to the backend id sent through the agent
+ *  framework. Returns null for an unknown id; callers decide whether that's
+ *  fatal (runChatAgent throws) or skippable (title generation no-ops). */
+export function chatBackendModelId(modelId: string): string | null {
+  return CHAT_MODELS.find((m) => m.id === modelId)?.backendId ?? null
+}
+
 /** Image-upload constraints, shared by the composer and the upload endpoint. */
 export const CHAT_IMAGE_ALLOWED_TYPES = [
   'image/jpeg',
@@ -61,6 +68,20 @@ export const CHAT_IMAGE_MAX_COUNT = 4 // images per message
 
 export const CHAT_MESSAGE_MAX_CHARS = 32_000
 
+/** Max length of a sidebar thread title, in code points. */
+export const THREAD_TITLE_MAX_CODEPOINTS = 60
+
+/** Code-point-safe truncation (with an ellipsis) so the cut can't split an
+ *  emoji/surrogate pair. Returns the input unchanged when within the limit. */
+export function truncateThreadTitle(
+  text: string,
+  max = THREAD_TITLE_MAX_CODEPOINTS,
+): string {
+  const codePoints = [...text]
+  return codePoints.length > max
+    ? `${codePoints.slice(0, max).join('').trimEnd()}…`
+    : text
+}
 /**
  * Document (non-image file) upload constraints, shared by the composer and the
  * upload endpoint. Documents are converted to text server-side (see
@@ -226,12 +247,9 @@ export const CHAT_DOC_HEAD_CHARS = 4_000
  *  memory or the search index. ~1M chars ≈ 250k tokens. */
 export const CHAT_DOC_MAX_TEXT_CHARS = 1_000_000
 
-/** Sidebar title from the first user message. Code-point-safe truncation so
- *  the 60-char cut can't split an emoji/surrogate pair. */
+/** Placeholder sidebar title from the first user message, shown until the
+ *  model-generated title arrives (see server/chat/title.ts). */
 export function deriveThreadTitle(content: string): string {
   const firstLine = content.trim().split('\n')[0] ?? ''
-  const codePoints = [...firstLine]
-  return codePoints.length > 60
-    ? `${codePoints.slice(0, 60).join('').trimEnd()}…`
-    : firstLine || 'Attachment'
+  return firstLine ? truncateThreadTitle(firstLine) : 'Attachment'
 }

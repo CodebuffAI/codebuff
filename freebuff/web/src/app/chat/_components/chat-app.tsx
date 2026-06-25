@@ -308,6 +308,23 @@ export function ChatApp() {
               setViewThreadId(event.threadId)
               viewedThreadRef.current = event.threadId
               writeThreadIdToUrl(event.threadId)
+              // Show the new thread in the sidebar immediately with the
+              // prompt-prefix placeholder title; a later `title` event swaps in
+              // the model-generated one, and refreshThreads() reconciles at the
+              // end.
+              setThreads((prev) =>
+                prev.some((t) => t.id === event.threadId)
+                  ? prev
+                  : [
+                      {
+                        id: event.threadId,
+                        title: event.title,
+                        model: event.model ?? '',
+                        updated_at: new Date().toISOString(),
+                      },
+                      ...prev,
+                    ],
+              )
               // Re-home any follow-up typing from the "new chat" draft slot
               // to the thread the server just created.
               if (draftThreadRef.current === null) {
@@ -316,6 +333,14 @@ export function ChatApp() {
                 writeDraft(null, '')
                 if (pending) writeDraft(event.threadId, pending)
               }
+            } else if (event.type === 'title') {
+              // Server finished generating the short thread name; swap it into
+              // the sidebar in place of the placeholder.
+              setThreads((prev) =>
+                prev.map((t) =>
+                  t.id === event.threadId ? { ...t, title: event.title } : t,
+                ),
+              )
             } else if (isChatStreamEvent(event)) {
               blockTree.apply(event)
               scheduleFlush()

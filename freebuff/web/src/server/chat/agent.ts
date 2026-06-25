@@ -11,7 +11,7 @@ import type {
 import baseChatAgent from '../../../../../agents/base-chat'
 import researcherWebAgent from '../../../../../agents/researcher/researcher-web'
 import thinkerGeminiAgent from '../../../../../agents/thinker/thinker-gemini'
-import { CHAT_MODELS } from '@/app/chat/models'
+import { chatBackendModelId } from '@/app/chat/models'
 import { loadBlobs } from '@/server/chat/blob-store'
 import { buildDocumentContext } from '@/server/chat/document-context'
 import { logger } from '@/util/logger'
@@ -27,7 +27,7 @@ let sdkPromise: Promise<SdkModule> | null = null
 /** The SDK ships WASM modules bundlers can't process, and Next refuses to
  *  externalize symlinked workspace packages — so load it at runtime from
  *  node_modules, hidden from both bundlers. */
-function loadSdk(): Promise<SdkModule> {
+export function loadSdk(): Promise<SdkModule> {
   sdkPromise ??= import(
     /* webpackIgnore: true */ /* turbopackIgnore: true */ '@codebuff/sdk'
   )
@@ -38,7 +38,7 @@ function loadSdk(): Promise<SdkModule> {
  *  @codebuff/internal) so it never has to be distributed through this
  *  server's environment. An explicit CODEBUFF_API_KEY (local dev,
  *  emergencies) overrides the lookup. */
-async function getChatApiKey(): Promise<string> {
+export async function getChatApiKey(): Promise<string> {
   const envKey = process.env.CODEBUFF_API_KEY
   if (envKey) {
     return envKey
@@ -167,7 +167,7 @@ export async function runChatAgent(params: {
 }): Promise<ChatAgentResult> {
   const [apiKey, { run }] = await Promise.all([getChatApiKey(), loadSdk()])
 
-  const backendModel = CHAT_MODELS.find((m) => m.id === params.model)?.backendId
+  const backendModel = chatBackendModelId(params.model)
   if (!backendModel) {
     throw new Error(`Unknown chat model: ${params.model}`)
   }

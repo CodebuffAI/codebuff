@@ -27,8 +27,10 @@ import {
   isUserBanned,
   listThreadDocumentRefs,
   releaseThreadRun,
+  renameThread,
   touchThread,
 } from '@/server/chat/store'
+import { generateThreadTitle } from '@/server/chat/title'
 import { logger } from '@/util/logger'
 
 import type { ChatDocumentRef, ChatImageRef } from '@/server/chat/store'
@@ -268,8 +270,41 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       controller.enqueue(
-        sseEncode({ type: 'meta', threadId, title: thread.title }),
+        sseEncode({ type: 'meta', threadId, title: thread.title, model }),
       )
+
+      // For a brand-new thread, generate a short topic title from the first
+      // message in parallel with the response run. The thread already has a
+      // prompt-prefix placeholder title; when the model returns, persist the
+      // nicer one and push a `title` event so the sidebar swaps it live. Best-
+      // effort — failures keep the placeholder. Awaited before close so the
+      // rename lands before the client's end-of-stream thread refresh.
+      const titleTask = claimedThread
+        ? null
+        : (async () => {
+            try {
+              const title = await generateThreadTitle({
+                prompt: content,
+                model,
+                userId,
+                threadId,
+                signal: request.signal,
+              })
+              if (!title || title === thread.title) return
+              await renameThread(userId, threadId, title)
+              try {
+                controller.enqueue(sseEncode({ type: 'title', threadId, title }))
+              } catch {
+                // Stream already closed; the title is persisted for next load.
+              }
+            } catch (error) {
+              logger.warn(
+                { error, userId, threadId },
+                'Chat thread title task failed',
+              )
+            }
+          })()
+
       let runState: unknown
       // Mirrors the client's tree so subagent activity survives reloads
       // (and client disconnects) via chat_message.blocks.
@@ -349,6 +384,9 @@ export async function POST(request: NextRequest) {
       }
       // Also releases the thread's run claim.
       await touchThread({ threadId, model, runState })
+      // Make sure the title rename (and its `title` event) lands before the
+      // stream closes — the title run is usually quick and already done.
+      if (titleTask) await titleTask
       try {
         controller.enqueue(sseEncode({ type: 'done' }))
         controller.close()
