@@ -34,9 +34,7 @@ describe('/api/v1/ads POST endpoint', () => {
   let loggerWithContext: LoggerWithContextFn
   let trackEvent: TrackEventFn
 
-  const getUserInfoFromApiKey: GetUserInfoFromApiKeyFn = async ({
-    apiKey,
-  }) => {
+  const getUserInfoFromApiKey: GetUserInfoFromApiKeyFn = async ({ apiKey }) => {
     if (apiKey !== 'test-key') return null
     return {
       id: 'user-123',
@@ -78,7 +76,7 @@ describe('/api/v1/ads POST endpoint', () => {
     })
   }
 
-  test('falls back from Gravity to ZeroClick to Carbon in the waiting room', async () => {
+  test('falls back from Gravity to Carbon in the waiting room', async () => {
     const upstreamUrls: string[] = []
     const fetchMock = mock(
       async (url: string | URL | Request): Promise<Response> => {
@@ -87,10 +85,6 @@ describe('/api/v1/ads POST endpoint', () => {
 
         if (urlString.includes('server.trygravity.ai')) {
           return new Response(null, { status: 204 })
-        }
-
-        if (urlString.includes('zeroclick.dev')) {
-          return Response.json([])
         }
 
         if (urlString.includes('srv.buysellads.com')) {
@@ -127,7 +121,6 @@ describe('/api/v1/ads POST endpoint', () => {
       fetch: fetchMock as unknown as typeof globalThis.fetch,
       serverEnv: {
         GRAVITY_API_KEY: 'gravity-key',
-        ZEROCLICK_API_KEY: 'zeroclick-key',
         CARBON_ZONE_KEY: 'carbon-zone',
         CB_ENVIRONMENT: 'prod',
       },
@@ -135,8 +128,7 @@ describe('/api/v1/ads POST endpoint', () => {
 
     expect(response.status).toBe(200)
     expect(upstreamUrls[0]).toContain('server.trygravity.ai')
-    expect(upstreamUrls[1]).toContain('zeroclick.dev')
-    expect(upstreamUrls[2]).toContain('srv.buysellads.com')
+    expect(upstreamUrls[1]).toContain('srv.buysellads.com')
 
     const body = await response.json()
     expect(body.provider).toBe('carbon')
@@ -205,9 +197,6 @@ describe('/api/v1/ads POST endpoint', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(upstreamUrls.some((url) => url.includes('zeroclick.dev'))).toBe(
-      false,
-    )
 
     const body = await response.json()
     expect(body.provider).toBe('carbon')
@@ -250,7 +239,6 @@ describe('/api/v1/ads POST endpoint', () => {
         fetch: fetchMock as unknown as typeof globalThis.fetch,
         serverEnv: {
           GRAVITY_API_KEY: 'gravity-key',
-          ZEROCLICK_API_KEY: 'zeroclick-key',
           CARBON_ZONE_KEY: 'carbon-zone',
           CB_ENVIRONMENT: 'prod',
         },

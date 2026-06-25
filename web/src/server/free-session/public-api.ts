@@ -51,6 +51,7 @@ import {
   queueDepthsByModel,
   queuePositionFor,
 } from './store'
+import { maybeSweepExpired } from './admission'
 import { getFleetHealth, routeForAdmission } from './fireworks-health'
 import { toSessionStateResponse } from './session-view'
 
@@ -339,6 +340,11 @@ export interface SessionDeps {
    *  `requestSession`). The emit floor is the fixed `IP_SESSION_LOG_FLOOR`
    *  constant, not injected. */
   ipSessionCap: number
+  /** Best-effort, throttled traffic-driven expiry sweep. Called fire-and-forget
+   *  from the hot path so cleanup survives a starved/dead admission interval.
+   *  Optional + omitted in unit tests (no real DB); prod wires the real
+   *  throttled sweep via `defaultDeps`. */
+  maybeSweepExpired?: () => void | Promise<void>
   now?: () => Date
 }
 
@@ -369,6 +375,7 @@ const defaultDeps: SessionDeps = {
   get ipSessionCap() {
     return getIpSessionCap()
   },
+  maybeSweepExpired,
 }
 
 const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
@@ -383,7 +390,12 @@ const nowOf = (deps: SessionDeps): Date => (deps.now ?? (() => new Date()))()
 export async function getGlmWeeklyUsage(
   userId: string,
   deps: SessionDeps = defaultDeps,
-): Promise<{ limit: number; used: number; remaining: number; resetAt: string }> {
+): Promise<{
+  limit: number
+  used: number
+  remaining: number
+  resetAt: string
+}> {
   const config = await glmReferralQuotaConfig(userId, deps)
   const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
   const used = snapshot.info.recentCount
@@ -547,6 +559,12 @@ export async function requestSession(params: {
   ) {
     return { status: 'disabled' }
   }
+
+  // Traffic-driven safety net: keep expired sessions swept even if the
+  // admission interval is starved/dead, so un-swept `active` zombies can't
+  // accumulate and exhaust per-model instant-admit capacity. Throttled and
+  // fire-and-forget — never blocks or fails the request.
+  void deps.maybeSweepExpired?.()
 
   // Rate-limit check runs before joinOrTakeOver so heavy users never even
   // create a queued row. Premium models share one daily Pacific-time
