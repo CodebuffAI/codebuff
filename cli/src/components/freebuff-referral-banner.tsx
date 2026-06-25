@@ -112,6 +112,7 @@ export const FreebuffReferralBanner: React.FC = () => {
   const session = useFreebuffSessionStore((s) => s.session)
   const now = useNow(60_000)
   const [joining, setJoining] = useState(false)
+  const [glmHovered, setGlmHovered] = useState(false)
   // Whether the model selector's mirrored cursor (it owns the landing keyboard
   // handler) currently sits on one of this banner's buttons. Selecting the
   // booleans rather than the raw id means arrowing among the model rows above
@@ -241,7 +242,7 @@ export const FreebuffReferralBanner: React.FC = () => {
       titleAlignment="left"
     >
       <text style={{ wrapMode: 'none' }}>
-        <span fg={theme.primary} attributes={TextAttributes.BOLD}>
+        <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {pluralize(sessionsLeft, 'session')}
         </span>
         <span fg={theme.foreground}> available this week</span>
@@ -251,16 +252,25 @@ export const FreebuffReferralBanner: React.FC = () => {
       <box style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
         <Button
           onClick={useGlm}
+          onMouseOver={() => setGlmHovered(true)}
+          onMouseOut={() => setGlmHovered(false)}
           border
           borderStyle="rounded"
-          borderColor={theme.primary}
+          // Standard button treatment: muted border at rest, green when
+          // keyboard-focused, brighter on hover — same scheme as the
+          // "Copy invite link" button below it.
+          borderColor={
+            glmFocused
+              ? theme.primary
+              : glmHovered
+                ? theme.foreground
+                : theme.border
+          }
           customBorderChars={BORDER_CHARS}
           style={{
             paddingLeft: 2,
             paddingRight: 2,
-            // Keyboard focus fills the button so the primary action pops, the
-            // same inversion the takeover prompt uses for its focused choice.
-            backgroundColor: glmFocused ? theme.primary : 'transparent',
+            backgroundColor: 'transparent',
           }}
         >
           <text style={{ wrapMode: 'none' }}>
@@ -268,9 +278,9 @@ export const FreebuffReferralBanner: React.FC = () => {
               fg={
                 joining
                   ? theme.muted
-                  : glmFocused
-                    ? theme.background
-                    : theme.primary
+                  : glmFocused || glmHovered
+                    ? theme.foreground
+                    : theme.muted
               }
               attributes={TextAttributes.BOLD}
             >

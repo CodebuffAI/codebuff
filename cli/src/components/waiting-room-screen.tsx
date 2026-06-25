@@ -28,6 +28,7 @@ import { getFreebuffStreakLine } from '../utils/freebuff-streak-line'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
+import { INVERTED_CTA_FG } from '../utils/ui-constants'
 import {
   FREEBUFF_ENABLE_STREAK_IN_UI,
   FREEBUFF_LIMITED_SESSION_LIMIT,
@@ -255,7 +256,9 @@ const TakeoverPrompt: React.FC = () => {
         >
           <text
             style={{
-              fg: isTakeoverFocused ? theme.background : theme.foreground,
+              // theme.background is 'transparent' and can't serve as inverted
+              // text — on the green fill it renders the label invisible.
+              fg: isTakeoverFocused ? INVERTED_CTA_FG : theme.foreground,
               bg: isTakeoverFocused ? theme.primary : undefined,
             }}
             attributes={TextAttributes.BOLD}

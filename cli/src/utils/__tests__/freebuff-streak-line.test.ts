@@ -27,10 +27,14 @@ describe('getFreebuffStreakLine', () => {
     })
   })
 
-  test('dots roll over into the next week past day 7', () => {
+  test('stays full once the streak reaches the milestone', () => {
     expect(getFreebuffStreakLine(9)).toEqual({
       label: '9 day streak',
-      dots: '●●○○○○○',
+      dots: '●●●●●●●',
+    })
+    expect(getFreebuffStreakLine(19)).toEqual({
+      label: '19 day streak',
+      dots: '●●●●●●●',
     })
   })
 })
