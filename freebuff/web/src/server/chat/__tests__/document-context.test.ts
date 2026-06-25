@@ -7,16 +7,49 @@ import type { ChatDocumentRef } from '@/server/chat/store'
 // of Convex/network.
 const TEXT: Record<string, string> = {}
 
-mock.module('@/server/chat/blob-store', () => ({
-  getBlobStore: () => ({
+mock.module('@/server/chat/blob-store', () => {
+  const getBlobStore = () => ({
     getUrls: async (ids: string[]) =>
       Object.fromEntries(
         ids.filter((id) => id in TEXT).map((id) => [id, `mock://${id}`]),
       ),
     upload: async () => '',
     deleteMany: async () => {},
-  }),
-}))
+  })
+  return {
+    getBlobStore,
+    // The module under test imports `loadBlobs` from here, so this mock must
+    // provide it too — otherwise the import errors ("Export named 'loadBlobs'
+    // not found"). Because bun's mock.module is process-global, an incomplete
+    // mock also breaks any later test file that imports blob-store. Mirror the
+    // real helper (resolve URLs via the mocked store, fetch each, apply the
+    // transform, skip missing/failed) against the in-memory TEXT map + mocked
+    // fetch below.
+    loadBlobs: async <R extends { storageId: string }, T>(
+      refs: R[],
+      signal: AbortSignal,
+      transform: (res: Response, ref: R) => T | Promise<T>,
+    ): Promise<T[]> => {
+      if (refs.length === 0) return []
+      const urls = await getBlobStore().getUrls(refs.map((r) => r.storageId))
+      const out = await Promise.all(
+        refs.map(async (ref) => {
+          const url = urls[ref.storageId]
+          if (!url) return null
+          try {
+            const res = await fetch(url, { signal })
+            if (!res.ok) throw new Error(`status ${res.status}`)
+            return await transform(res, ref)
+          } catch {
+            return null
+          }
+        }),
+      )
+      return out.filter((r): r is Awaited<T> => r !== null) as T[]
+    },
+    hydrateMessageImages: async (messages: unknown) => messages,
+  }
+})
 
 globalThis.fetch = (async (url: unknown) => {
   const id = String(url).replace('mock://', '')

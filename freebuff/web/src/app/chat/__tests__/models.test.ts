@@ -40,7 +40,7 @@ describe('deriveThreadTitle', () => {
   })
 
   it('falls back for empty input', () => {
-    expect(deriveThreadTitle('   \n\n')).toBe('Image')
+    expect(deriveThreadTitle('   \n\n')).toBe('Attachment')
   })
 
   it('truncates long titles with an ellipsis', () => {
