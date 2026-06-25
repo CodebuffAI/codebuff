@@ -93,17 +93,15 @@ export const handleSkill = (async (params: {
   await previousToolCallFinished
 
   const skills = fileContext.skills ?? {}
-  const cachedSkill = skills[name]
 
-  // If skill not in cache, try to load it dynamically from disk
-  // This supports skills created during the session
-  const diskSkill = cachedSkill
-    ? null
-    : fileContext.projectRoot
-      ? await loadSkillFromDisk(fileContext.projectRoot, name)
-      : null
+  // Always prefer the on-disk copy so skills installed or updated during the
+  // session (e.g. via `npx skills add`) are picked up with their latest
+  // contents. Fall back to the cache pre-loaded at session start.
+  const diskSkill = fileContext.projectRoot
+    ? await loadSkillFromDisk(fileContext.projectRoot, name)
+    : null
 
-  const skill = cachedSkill ?? diskSkill
+  const skill = diskSkill ?? skills[name]
 
   if (!skill) {
     const availableSkills = Object.keys(skills)

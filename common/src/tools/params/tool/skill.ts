@@ -37,7 +37,7 @@ const baseDescription = `Load a skill by name to get its full instructions. Skil
 The following are the pre-loaded skills available at session start:
 ${AVAILABLE_SKILLS_PLACEHOLDER}
 
-Note: You can also load any skill that was created during this session by specifying its name. The skill will be loaded dynamically from disk.
+Note: You can load any skill by name, including ones created or installed during this session (e.g. via \`npx skills add\`). The skill is always read fresh from disk, so its latest contents are used.
 
 Example:
 ${$getNativeToolCallExampleString({
