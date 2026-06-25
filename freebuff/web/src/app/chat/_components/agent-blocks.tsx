@@ -111,6 +111,13 @@ function AgentBox({ agent, latest }: { agent: AgentBlock; latest?: boolean }) {
             done
           </span>
         )}
+        {/* When collapsed, preview the spawn prompt inline. The expanded body
+            (below) shows it in full, so only render this in the closed state. */}
+        {!open && agent.prompt && (
+          <span className="min-w-0 flex-1 truncate text-[13px] font-normal leading-5 text-muted-foreground/50">
+            {agent.prompt}
+          </span>
+        )}
       </button>
       {open && (
         <div className="border-t border-white/[0.06] px-3.5 py-3 text-[13.5px] leading-6">

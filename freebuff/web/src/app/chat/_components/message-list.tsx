@@ -152,7 +152,10 @@ export function MessageList(props: {
   }, [threadId, props.messages, props.queued])
 
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto">
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,transparent_0,black_16px,black_calc(100%-16px),transparent_100%)]"
+    >
       <div
         aria-live="polite"
         className="mx-auto w-full max-w-3xl px-4 py-8 space-y-7"
@@ -219,7 +222,6 @@ export function MessageList(props: {
             }
           />
         ))}
-        <div className="h-8" />
       </div>
     </div>
   )
