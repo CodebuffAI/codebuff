@@ -322,7 +322,8 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-glow-pulse,
   .animate-scan-line,
-  .animate-terminal-cursor {
+  .animate-terminal-cursor,
+  .lp-lm-pulse {
     animation: none;
   }
   .neon-text {

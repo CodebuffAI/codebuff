@@ -4,7 +4,8 @@ import { motion } from 'framer-motion'
 import { ChevronDown, Cpu, Globe2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 
 // NB: `@/components/*` is aliased to `src/vly/components/*` in this package's
 // tsconfig, so the landing chrome is imported relatively instead.
@@ -30,6 +31,12 @@ const MAP_SIZE = { width: 1000, height: 520 }
 type CountryPoint = readonly [lat: number, lon: number]
 type PlottedCountry = FreebuffLiveStats['countries'][number] & {
   point: CountryPoint
+}
+type ProjectedCountry = PlottedCountry & {
+  x: number
+  y: number
+  radius: number
+  showLabel: boolean
 }
 
 const COUNTRY_POINT_LOOKUP = COUNTRY_POINTS as Record<string, CountryPoint>
@@ -158,6 +165,25 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   )
 }
 
+const MAX_VISIBLE_LABELS = 18
+
+const MapLand = memo(function MapLand() {
+  return (
+    <>
+      {WORLD_LAND_PATHS.map((path, index) => (
+        <path
+          key={`${index}-${path.slice(0, 16)}`}
+          d={path}
+          fill="url(#live-land)"
+          fillRule="evenodd"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth="0.75"
+        />
+      ))}
+    </>
+  )
+})
+
 function WorldMap({
   stats,
   compact = false,
@@ -167,14 +193,91 @@ function WorldMap({
   compact?: boolean
   isLoading?: boolean
 }) {
-  const maxCount = Math.max(1, ...stats.countries.map((row) => row.count))
-  const plottedCountries = stats.countries
-    .map((country) => {
-      const point = COUNTRY_POINT_LOOKUP[country.countryCode]
-      return point ? { ...country, point } : null
-    })
-    .filter(isPlottedCountry)
-  const unplottedCount = stats.countries.length - plottedCountries.length
+  const { plottedCountries, unplottedCount } = useMemo(() => {
+    const maxCount = Math.max(1, ...stats.countries.map((row) => row.count))
+    const plotted = stats.countries
+      .map((country) => {
+        const point = COUNTRY_POINT_LOOKUP[country.countryCode]
+        return point ? { ...country, point } : null
+      })
+      .filter(isPlottedCountry)
+      .map((country, index): ProjectedCountry => {
+        const [lat, lon] = country.point
+        const { x, y } = projectPoint(lat, lon)
+        const radius = 6 + Math.sqrt(country.count / maxCount) * 24
+
+        return {
+          ...country,
+          x,
+          y,
+          radius,
+          showLabel: index < MAX_VISIBLE_LABELS && radius >= 12,
+        }
+      })
+
+    return {
+      plottedCountries: plotted,
+      unplottedCount: stats.countries.length - plotted.length,
+    }
+  }, [stats.countries])
+
+  const staticMarkers = useMemo(
+    () =>
+      plottedCountries.map(({ countryCode, count, x, y, radius, showLabel }) => {
+        const dotRadius = Math.max(3.8, Math.min(6.5, radius * 0.25))
+        const labelWidth = String(count).length * 10 + 20
+
+        return (
+          <g key={countryCode}>
+            <circle
+              className="lp-lm-pulse"
+              cx={x}
+              cy={y}
+              r={radius}
+              fill="rgba(34, 211, 238, 0.14)"
+              stroke="rgba(34, 211, 238, 0.48)"
+              strokeWidth="1.8"
+              style={{
+                '--dur': '3.6s',
+                '--delay': `${(countryCode.charCodeAt(0) % 10) * 0.12}s`,
+              } as CSSProperties}
+            />
+            <circle
+              cx={x}
+              cy={y}
+              r={dotRadius}
+              fill="#7CFF3F"
+              stroke="rgba(255,255,255,0.82)"
+              strokeWidth="1.2"
+            />
+            {showLabel && (
+              <g>
+                <rect
+                  x={x + radius * 0.46}
+                  y={y - radius - 17}
+                  width={labelWidth}
+                  height="24"
+                  rx="5"
+                  fill="rgba(0,0,0,0.66)"
+                  stroke="rgba(255,255,255,0.14)"
+                />
+                <text
+                  x={x + radius * 0.46 + 10}
+                  y={y - radius}
+                  className="fill-white font-mono text-[16px] font-medium"
+                >
+                  {count}
+                </text>
+              </g>
+            )}
+            <title>
+              {countryName(countryCode)}: {count}
+            </title>
+          </g>
+        )
+      }),
+    [plottedCountries],
+  )
 
   return (
     <section className="relative self-start overflow-hidden rounded-lg border border-white/10 bg-[#020807] shadow-[0_24px_90px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.05)]">
@@ -223,21 +326,6 @@ function WorldMap({
             <stop offset="55%" stopColor="rgba(124,255,63,0.11)" />
             <stop offset="100%" stopColor="rgba(34,211,238,0.12)" />
           </linearGradient>
-          <filter id="land-shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow
-              dx="0"
-              dy="10"
-              stdDeviation="12"
-              floodColor="rgba(0,0,0,0.55)"
-            />
-          </filter>
-          <filter id="marker-glow" x="-90%" y="-90%" width="280%" height="280%">
-            <feGaussianBlur stdDeviation="7" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
 
         <rect
@@ -263,81 +351,8 @@ function WorldMap({
           d="M0 355 C170 303 305 379 475 330 S760 298 1000 342 V520 H0Z"
           fill="rgba(34, 211, 238, 0.055)"
         />
-        {WORLD_LAND_PATHS.map((path, index) => (
-          <path
-            key={`${index}-${path.slice(0, 16)}`}
-            d={path}
-            fill="url(#live-land)"
-            fillRule="evenodd"
-            stroke="rgba(255,255,255,0.16)"
-            strokeWidth="0.8"
-            filter="url(#land-shadow)"
-          />
-        ))}
-
-        {plottedCountries.map(({ countryCode, count, point }, index) => {
-          const [lat, lon] = point
-          const { x, y } = projectPoint(lat, lon)
-          const radius = 6 + Math.sqrt(count / maxCount) * 24
-          const showLabel = index < 9 || radius >= 19
-
-          return (
-            <g key={countryCode}>
-              <motion.circle
-                cx={x}
-                cy={y}
-                r={radius}
-                fill="rgba(34, 211, 238, 0.18)"
-                stroke="rgba(34, 211, 238, 0.58)"
-                strokeWidth="2"
-                initial={{ opacity: 0.28, scale: 0.74 }}
-                animate={{
-                  opacity: [0.28, 0.82, 0.28],
-                  scale: [0.85, 1, 0.85],
-                }}
-                transition={{
-                  duration: 3.2,
-                  delay: index * 0.04,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                style={{ transformOrigin: `${x}px ${y}px` }}
-                filter="url(#marker-glow)"
-              />
-              <circle
-                cx={x}
-                cy={y}
-                r={Math.max(3.8, Math.min(6.5, radius * 0.25))}
-                fill="#7CFF3F"
-                stroke="rgba(255,255,255,0.82)"
-                strokeWidth="1.2"
-              />
-              {showLabel && (
-                <g>
-                  <rect
-                    x={x + radius * 0.46}
-                    y={y - radius - 17}
-                    width={String(count).length * 10 + 20}
-                    height="24"
-                    rx="5"
-                    fill="rgba(0,0,0,0.66)"
-                    stroke="rgba(255,255,255,0.14)"
-                  />
-                  <text
-                    x={x + radius * 0.46 + 10}
-                    y={y - radius}
-                    className="fill-white font-mono text-[16px] font-medium"
-                  >
-                    {count}
-                  </text>
-                </g>
-              )}
-              <title>
-                {countryName(countryCode)}: {count}
-              </title>
-            </g>
-          )
-        })}
+        <MapLand />
+        {staticMarkers}
       </svg>
 
       {plottedCountries.length === 0 && isLoading && (
@@ -368,7 +383,10 @@ export function CompactLiveStats({
 }: {
   initialStats?: FreebuffLiveStats
 }) {
-  const stats = useLiveStats(initialStats, { refreshOnMount: true })
+  const stats = useLiveStats(initialStats, {
+    refreshOnMount: true,
+    pauseWhenHidden: true,
+  })
   const isLoading = stats.generatedAt === EMPTY_LIVE_STATS.generatedAt
 
   return (
@@ -530,7 +548,7 @@ export default function LiveClient({
   initialStats: FreebuffLiveStats
 }) {
   const [hasMounted, setHasMounted] = useState(false)
-  const stats = useLiveStats(initialStats)
+  const stats = useLiveStats(initialStats, { pauseWhenHidden: true })
 
   useEffect(() => {
     setHasMounted(true)
