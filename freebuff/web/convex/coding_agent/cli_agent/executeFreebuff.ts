@@ -613,7 +613,8 @@ interface FreebuffRuntimeConfig {
  * `freebuff-preview` command namespace (documented in the connected-repo
  * guidance), e.g.
  *   freebuff-preview set "bun run dev" 5173   # save the dev command (no start)
- *   freebuff-preview set-build "bun run build" # save the build command
+ *   freebuff-preview set-install "bun install"  # save the install command
+ *   freebuff-preview set-build "bun run build" # save the build/deploy command
  *   freebuff-preview start | restart | stop | status | logs
  *
  * IMPORTANT: `set` only SAVES the command — it does NOT start the dev server.
@@ -668,6 +669,18 @@ async function handleFreebuffPreviewCommand(
     return JSON.stringify({ message: 'Saved build command', buildCommand })
   }
 
+  if (sub === 'set-install') {
+    const quoted = rest.match(/^"([^"]+)"\s*$/)
+    const installCommand = quoted ? quoted[1] : rest
+    if (!installCommand) {
+      return JSON.stringify({
+        errorMessage: 'Usage: freebuff-preview set-install "<command>"',
+      })
+    }
+    await hooks.setRuntimeConfig({ install_command: installCommand })
+    return JSON.stringify({ message: 'Saved install command', installCommand })
+  }
+
   if (sub === 'start' || sub === 'restart') {
     if (!current.preview_command) {
       return JSON.stringify({ errorMessage: 'No preview command set yet. Use: freebuff-preview set "<command>" <port>' })
@@ -695,6 +708,7 @@ async function handleFreebuffPreviewCommand(
     const running = await codebase.isPreviewProcessRunning()
     return JSON.stringify({
       running,
+      installCommand: current.install_command ?? null,
       previewCommand: current.preview_command ?? null,
       previewPort: current.preview_port ?? null,
       buildCommand: current.build_command ?? null,
@@ -703,7 +717,7 @@ async function handleFreebuffPreviewCommand(
 
   return JSON.stringify({
     errorMessage:
-      'Unknown freebuff-preview subcommand. Use: set "<command>" <port> | set-build "<command>" | start | restart | stop | logs | status',
+      'Unknown freebuff-preview subcommand. Use: set "<command>" <port> | set-install "<command>" | set-build "<command>" | start | restart | stop | logs | status',
   })
 }
 

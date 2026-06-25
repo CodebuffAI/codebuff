@@ -247,6 +247,36 @@ export const getProjectData = query({
   },
 });
 
+/**
+ * Persist the Freebuff Cloud onboarding-checklist dismissal at the project
+ * level so it never reappears once closed (any project member can dismiss it).
+ */
+export const setCloudOnboardingDismissed = mutation({
+  args: {
+    semanticIdentifier: v.string(),
+    dismissed: v.boolean(),
+  },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, args): Promise<{ ok: boolean }> => {
+    const user = await getAuthUser(ctx);
+    if (!user) return { ok: false };
+
+    const project = await ctx.runQuery(
+      internal.project.getVerifiedAccessProjectInternal,
+      {
+        userId: user._id,
+        semanticIdentifier: args.semanticIdentifier,
+      },
+    );
+    if (!project) return { ok: false };
+
+    await ctx.db.patch(project._id, {
+      cloud_onboarding_dismissed: args.dismissed,
+    });
+    return { ok: true };
+  },
+});
+
 // client side - main project data only
 export const getProjectDataById = query({
   // Validators for arguments.

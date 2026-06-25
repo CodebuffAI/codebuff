@@ -7,18 +7,15 @@ import { initializeCodebase } from "../../codebase-utils/codebase/initializeCode
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action, internalAction } from "../_generated/server";
+import { action } from "../_generated/server";
 import { getAuthUser } from "../users";
-import { CloudPreviewRuntimeService } from "./runtime/services/CloudPreviewRuntimeService";
-import { DaytonaConnectedRepoPreviewStrategy } from "./runtime/strategies/daytona/DaytonaConnectedRepoPreviewStrategy";
 
 /**
  * Connect an existing GitHub repository as a Freebuff Cloud project.
  *
  * Flow: verify GitHub App install -> boot a sandbox from the primary golden
  * snapshot -> clone the repo with an installation token -> create a
- * connected_repo project -> kick off environment interpretation + the first
- * agent run (free model by default).
+ * connected_repo project -> kick off the first agent run (free model by default).
  */
 export const connectRepo = action({
   args: {
@@ -28,8 +25,8 @@ export const connectRepo = action({
     // clone with the correct installation token when the user has the app on
     // multiple accounts. Falls back to the connection's installation_id.
     installationId: v.optional(v.number()),
-    // Optional first user message; defaults to an environment-interpretation
-    // seed so the agent gets the preview running before anything else.
+    // Optional first user message; defaults to a seed prompt that asks the
+    // agent to inspect the repo and save install/preview/build commands.
     initialMessage: v.optional(v.string()),
     freebuffModel: v.optional(v.string()),
   },
@@ -260,7 +257,7 @@ export const connectRepo = action({
       // preview + build commands WITHOUT starting the server.
       const seedMessage =
         args.initialMessage?.trim() ||
-        `I just connected the GitHub repo ${args.repoFullName}. Inspect the project to understand what it is, then configure (but do NOT start) the dev/preview command and the build command using the freebuff-preview tooling so I can start the preview myself from the UI. Finally, summarize what the project does and what env vars or setup it needs.`;
+        `I just connected the GitHub repo ${args.repoFullName}. Inspect the project to understand what it is, then configure (but do NOT start) the install, dev/preview, and build commands using the freebuff-preview tooling so I can start the preview myself from the UI. Finally, summarize what the project does and what env vars or setup it needs.`;
       await ctx.runMutation(
         api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
         {
@@ -283,26 +280,5 @@ export const connectRepo = action({
         },
       };
     }
-  },
-});
-
-/**
- * Best-effort environment interpretation for a freshly cloned repo. Reads
- * package.json to infer install/preview/build commands and a likely dev-server
- * port, installs dependencies, starts the preview process, and stores the
- * detected config + preview URL. The agent can override any of this later via
- * the set_runtime_config / restart_preview tools.
- */
-export const detectAndStartPreview = internalAction({
-  args: { projectId: v.id("project") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const service = new CloudPreviewRuntimeService(
-      ctx,
-      new DaytonaConnectedRepoPreviewStrategy(),
-    );
-    await service.detectAndStartPreview(args.projectId);
-
-    return null;
   },
 });

@@ -132,10 +132,10 @@ function CloudProjectWorkspaceInner({
   const isSideTabActive = !isMobile && cloudTab !== 'preview'
   const chatWidth = isSideTabActive
     ? isChatExpanded
-      ? '40%'
+      ? '34%'
       : '26%'
     : isChatExpanded
-      ? '58%'
+      ? '50%'
       : '42%'
 
   return (

@@ -774,10 +774,10 @@ function ProjectWrapper({
   const isSideTabActive = !isMobile && activeTab !== "preview";
   const chatWidth = isSideTabActive
     ? isChatExpanded
-      ? "40%"
+      ? "34%"
       : "26%"
     : isChatExpanded
-      ? "58%"
+      ? "50%"
       : "42%";
 
   return (

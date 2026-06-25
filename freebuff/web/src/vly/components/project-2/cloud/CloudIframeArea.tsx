@@ -42,6 +42,7 @@ export function CloudIframeArea({
       {!hideTabs && (
         <CloudOnboardingChecklist
           semanticIdentifier={semanticIdentifier}
+          serverDismissed={project.cloud_onboarding_dismissed === true}
           onOpenTab={onCloudTabChange}
         />
       )}

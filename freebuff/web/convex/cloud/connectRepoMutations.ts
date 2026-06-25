@@ -162,7 +162,7 @@ export const getConnectedRepoForMember = internalQuery({
 
 /**
  * Internal: merge a partial runtime_config into the project. Used by the
- * agent's set_runtime_config tool and the environment-interpretation step.
+ * agent's `freebuff-preview` pseudo-CLI and the Cloud settings UI.
  */
 export const updateRuntimeConfig = internalMutation({
   args: {

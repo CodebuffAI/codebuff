@@ -17,6 +17,9 @@ import {
   MessageSquare,
   AlertTriangle,
   TerminalSquare,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import React, { useRef, useState } from 'react'
@@ -146,6 +149,7 @@ export function CloudCenterContent({
   const startPreviewAction = useAction(api.cloud.preview.startPreview)
   const stopPreviewAction = useAction(api.cloud.preview.stopPreview)
   const getPreviewStateAction = useAction(api.cloud.preview.getPreviewState)
+  const setRuntimeConfigAction = useAction(api.cloud.preview.setRuntimeConfig)
 
   const [previewState, setPreviewState] = useState<PreviewState | null>(null)
   const [isStarting, setIsStarting] = useState(false)
@@ -398,6 +402,22 @@ export function CloudCenterContent({
     toast.success('Sent dev server logs to chat for diagnosis.')
   }
 
+  const handleSaveCommand = async (command: string) => {
+    if (!semanticIdentifier) return
+    try {
+      await setRuntimeConfigAction({
+        semanticIdentifier,
+        previewCommand: command,
+      })
+      await refreshPreviewState()
+      toast.success('Saved preview command')
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to save preview command',
+      )
+    }
+  }
+
   const isPreviewRunning = running || phase === 'connected'
 
   return (
@@ -646,6 +666,7 @@ export function CloudCenterContent({
                 onSendLogsToChat={
                   onSendLogsToChat ? handleSendLogsToChat : undefined
                 }
+                onSaveCommand={handleSaveCommand}
                 onOpenSettings={handleOpenPreviewSettings}
               />
             )}
@@ -741,6 +762,7 @@ function PreviewControlPanel({
   onStart,
   onStop,
   onSendLogsToChat,
+  onSaveCommand,
   onOpenSettings,
 }: {
   phase: PreviewPhase
@@ -752,6 +774,7 @@ function PreviewControlPanel({
   onStart: () => void
   onStop: () => void
   onSendLogsToChat?: () => void
+  onSaveCommand: (command: string) => Promise<void>
   onOpenSettings: () => void
 }) {
   const showLogs = phase === 'starting' || phase === 'failed'
@@ -772,18 +795,17 @@ function PreviewControlPanel({
             <p className="mx-auto mt-1 text-xs text-muted-foreground">
               {previewCommand
                 ? "The dev server stays off until you start it, so you control sandbox resources. Logs stream here while it boots."
-                : 'Ask the agent to set up the dev server (e.g. "set up the preview"), or configure it in Settings.'}
+                : 'Set the dev command below (or ask the agent to "set up the preview"). You can edit it any time.'}
             </p>
           </div>
 
-          {previewCommand && (
-            <PreviewCommandBadge
-              command={previewCommand}
-              onOpenSettings={onOpenSettings}
-            />
-          )}
+          <PreviewCommandEditor
+            command={previewCommand}
+            onSave={onSaveCommand}
+            onOpenSettings={onOpenSettings}
+          />
 
-          {previewCommand ? (
+          {previewCommand && (
             <button
               type="button"
               onClick={onStart}
@@ -796,15 +818,6 @@ function PreviewControlPanel({
                 <Play className="h-4 w-4" />
               )}
               Start dev server
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
-            >
-              <Settings className="h-4 w-4" />
-              Open settings
             </button>
           )}
         </>
@@ -840,18 +853,17 @@ function PreviewControlPanel({
                     ? ` (last status ${statusCode})`
                     : ''}
                   . Check the logs below — it&apos;s often a missing env var or a
-                  bad command. Send them to chat and the agent will fix it.
+                  bad command. Fix the command inline or send the logs to chat.
                 </p>
               </div>
             </>
           )}
 
-          {previewCommand && (
-            <PreviewCommandBadge
-              command={previewCommand}
-              onOpenSettings={onOpenSettings}
-            />
-          )}
+          <PreviewCommandEditor
+            command={previewCommand}
+            onSave={onSaveCommand}
+            onOpenSettings={onOpenSettings}
+          />
 
           <PreviewLogView logs={logs} />
 
@@ -902,26 +914,123 @@ function PreviewControlPanel({
   )
 }
 
-function PreviewCommandBadge({
+/**
+ * Inline preview-command override. Lets the user read and edit the dev command
+ * right in the preview pane (no trip to Settings) — handy for fixing a bad
+ * command without leaving the workspace. The settings gear is still available
+ * for the full preview/port/build config.
+ */
+function PreviewCommandEditor({
   command,
+  onSave,
   onOpenSettings,
 }: {
-  command: string
+  command: string | null
+  onSave: (command: string) => Promise<void>
   onOpenSettings: () => void
 }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(command ?? '')
+  const [saving, setSaving] = useState(false)
+
+  React.useEffect(() => {
+    if (!editing) setValue(command ?? '')
+  }, [command, editing])
+
+  const save = async () => {
+    const trimmed = value.trim()
+    if (!trimmed || saving) return
+    setSaving(true)
+    try {
+      await onSave(trimmed)
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex w-full max-w-xl items-center gap-1.5 rounded-lg border border-primary/40 bg-background py-1 pl-2.5 pr-1">
+        <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Preview
+        </span>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void save()
+            } else if (e.key === 'Escape') {
+              setEditing(false)
+            }
+          }}
+          spellCheck={false}
+          placeholder="npm run dev -- -p 3000 -H 0.0.0.0"
+          className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+        />
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={saving || !value.trim()}
+          aria-label="Save preview command"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-emerald-400 transition hover:bg-emerald-500/10 disabled:opacity-40"
+        >
+          {saving ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Check className="h-3.5 w-3.5" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+          aria-label="Cancel"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  if (!command) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
+      >
+        <Pencil className="h-4 w-4" />
+        Set preview command
+      </button>
+    )
+  }
+
   return (
-    <div className="flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 pl-2.5 pr-1">
+    <div className="flex w-full max-w-xl items-center gap-1.5 rounded-lg border border-border bg-muted/40 py-1 pl-2.5 pr-1">
       <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         Preview
       </span>
-      <code className="truncate font-mono text-[11px] text-foreground/85">
+      <code className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-foreground/85">
         {command}
       </code>
       <button
         type="button"
+        onClick={() => setEditing(true)}
+        aria-label="Edit preview command"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
         onClick={onOpenSettings}
-        aria-label="Edit preview command in settings"
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        aria-label="Open full preview settings"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
       >
         <Settings className="h-3 w-3" />
       </button>

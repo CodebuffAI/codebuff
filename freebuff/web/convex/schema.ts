@@ -184,9 +184,9 @@ export default defineSchema(
       repo_default_branch: v.optional(v.string()),
       current_branch: v.optional(v.string()),
       github_installation_id: v.optional(v.number()),
-      // Agent-controlled runtime configuration for arbitrary repos. The
-      // preview command + port are detected during environment interpretation
-      // and can be overridden by the agent via the set_runtime_config tool.
+      // Agent-controlled runtime configuration for arbitrary repos. The agent
+      // configures commands via the `freebuff-preview` pseudo-CLI (set /
+      // set-install / set-build); the user starts/stops the preview from the UI.
       runtime_config: v.optional(
         v.object({
           install_command: v.optional(v.string()),
@@ -203,6 +203,10 @@ export default defineSchema(
           ),
         }),
       ),
+      // Freebuff Cloud: once the user dismisses the getting-started checklist we
+      // never show it again for this project (persisted server-side so it sticks
+      // across devices/sessions, not just one browser's localStorage).
+      cloud_onboarding_dismissed: v.optional(v.boolean()),
     })
       .index('by_semantic_identifier', ['semantic_identifier'])
       .index('by_sandbox_id', ['sandbox_id'])
