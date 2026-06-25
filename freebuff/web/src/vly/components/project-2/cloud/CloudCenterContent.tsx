@@ -41,8 +41,8 @@ import {
   TooltipTrigger,
 } from '@/vly/components/ui/tooltip'
 
-// Ports baked into the golden snapshot's start-services.sh.
-const OPENVSCODE_PORT = 8080
+// Cloud workspace service ports (editor port is forced by cloud connection strategy).
+const OPENVSCODE_PORT = 43867
 const TTYD_PORT = 7681
 
 export type CloudViewMode = 'preview' | 'code' | 'terminal' | 'env'

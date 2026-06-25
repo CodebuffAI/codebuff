@@ -167,6 +167,8 @@ export function ProjectIframeArea({
   runtimeSurface = 'web',
 }: ProjectIframeAreaProps) {
   const isCloudSurface = runtimeSurface === 'cloud'
+  const isConnectedRepoProject = project.project_type === 'connected_repo'
+  const shouldHideDataTab = isCloudSurface || isConnectedRepoProject
   const { isPlatformAdmin } = useIsPlatformAdmin()
   const projectPauseStatus = useQuery(
     api.deployment_queries.getProjectPauseStatus,
@@ -185,13 +187,18 @@ export function ProjectIframeArea({
       : null
 
   useEffect(() => {
-    if (!isCloudSurface) {
+    if (isCloudSurface && activeTab !== 'preview') {
+      setActiveTab('preview')
       return
     }
-    if (activeTab !== 'preview') {
+    if (shouldHideDataTab && activeTab === 'database') {
       setActiveTab('preview')
     }
-  }, [activeTab, isCloudSurface, setActiveTab])
+  }, [activeTab, isCloudSurface, shouldHideDataTab, setActiveTab])
+
+  const primaryTabs = shouldHideDataTab
+    ? PRIMARY_TABS.filter(({ id }) => id !== 'database')
+    : PRIMARY_TABS
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
@@ -202,7 +209,7 @@ export function ProjectIframeArea({
             <div className="flex items-center gap-1 px-3 py-1">
               {/* Primary tabs: compact icon + label */}
               <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-                {PRIMARY_TABS.map(({ id, label, Icon }) => {
+                {primaryTabs.map(({ id, label, Icon }) => {
                   const isActive = activeTab === id
                   return (
                     <button

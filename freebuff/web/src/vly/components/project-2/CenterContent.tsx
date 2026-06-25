@@ -289,7 +289,9 @@ export function CenterContent({
 }: CenterContentProps) {
   const [isIframeActive, setIsIframeActive] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
-  const isConnectedRepo = runtimeSurface === "cloud";
+  const effectiveRuntimeSurface: ProjectRuntimeSurface =
+    project?.project_type === "connected_repo" ? "cloud" : runtimeSurface;
+  const isConnectedRepo = effectiveRuntimeSurface === "cloud";
   const [viewMode, setViewMode] = useState<WorkspaceViewMode>("preview");
   const editorUrl = getDaytonaPreviewUrl(project, OPENVSCODE_PORT);
   const terminalUrl = getDaytonaPreviewUrl(project, TTYD_PORT);
@@ -467,7 +469,7 @@ export function CenterContent({
     checkProjectConnection,
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
-    runtimeSurface,
+    runtimeSurface: effectiveRuntimeSurface,
     onSuccess: () => {
       // Force refresh the iframe content after successful connection. Only
       // skip pretty-domain previews because programmatic reloads break styles.

@@ -40,6 +40,7 @@ import type * as cloud_runtime_services_CloudPublishRuntimeService from "../clou
 import type * as cloud_runtime_strategies_ConnectionStrategy from "../cloud/runtime/strategies/ConnectionStrategy.js";
 import type * as cloud_runtime_strategies_PublishStrategy from "../cloud/runtime/strategies/PublishStrategy.js";
 import type * as cloud_runtime_strategies_daytona_ArtifactPublishStrategy from "../cloud/runtime/strategies/daytona/ArtifactPublishStrategy.js";
+import type * as cloud_runtime_strategies_daytona_CodexCloudShimInstaller from "../cloud/runtime/strategies/daytona/CodexCloudShimInstaller.js";
 import type * as cloud_runtime_strategies_daytona_DaytonaConnectionStrategy from "../cloud/runtime/strategies/daytona/DaytonaConnectionStrategy.js";
 import type * as codebaseStructure from "../codebaseStructure.js";
 import type * as codesandbox_create from "../codesandbox/create.js";
@@ -284,6 +285,7 @@ declare const fullApi: ApiFromModules<{
   "cloud/runtime/strategies/ConnectionStrategy": typeof cloud_runtime_strategies_ConnectionStrategy;
   "cloud/runtime/strategies/PublishStrategy": typeof cloud_runtime_strategies_PublishStrategy;
   "cloud/runtime/strategies/daytona/ArtifactPublishStrategy": typeof cloud_runtime_strategies_daytona_ArtifactPublishStrategy;
+  "cloud/runtime/strategies/daytona/CodexCloudShimInstaller": typeof cloud_runtime_strategies_daytona_CodexCloudShimInstaller;
   "cloud/runtime/strategies/daytona/DaytonaConnectionStrategy": typeof cloud_runtime_strategies_daytona_DaytonaConnectionStrategy;
   codebaseStructure: typeof codebaseStructure;
   "codesandbox/create": typeof codesandbox_create;
