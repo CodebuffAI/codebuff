@@ -28,6 +28,7 @@ import { getFreebuffStreakLine } from '../utils/freebuff-streak-line'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
+import { INVERTED_CTA_FG } from '../utils/ui-constants'
 import {
   FREEBUFF_ENABLE_STREAK_IN_UI,
   FREEBUFF_LIMITED_SESSION_LIMIT,
@@ -255,7 +256,9 @@ const TakeoverPrompt: React.FC = () => {
         >
           <text
             style={{
-              fg: isTakeoverFocused ? theme.background : theme.foreground,
+              // theme.background is 'transparent' and can't serve as inverted
+              // text — on the green fill it renders the label invisible.
+              fg: isTakeoverFocused ? INVERTED_CTA_FG : theme.foreground,
               bg: isTakeoverFocused ? theme.primary : undefined,
             }}
             attributes={TextAttributes.BOLD}
@@ -417,6 +420,12 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // The component itself renders blank space when streak === 0.
   const reserveStreakSlot =
     FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued) && !compact
+  // On the landing screen the streak rides on the heading row, right-aligned.
+  // Below ~50 cols the heading + dots get squashed together, so drop the streak
+  // to its own line under the heading instead.
+  const STREAK_INLINE_MIN_WIDTH = 50
+  const streakOnHeadingRow =
+    reserveStreakSlot && isLanding && contentMaxWidth >= STREAK_INLINE_MIN_WIDTH
   // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
   // the user wanders away and comes back. On the landing picker we tick once a
   // minute so the session reset countdown stays fresh.
@@ -494,8 +503,17 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // Status lines render below the picker, each with marginTop 1: the session
   // counter (landing only), then the limited-mode notice, then the streak.
   // They still eat into the picker's height budget regardless of being above
-  // or below it.
-  const streakRows = reserveStreakSlot ? 1 + 1 : 0
+  // or below it. Placement varies: on a wide landing screen the streak shares
+  // the heading row (0 extra rows, already counted in landingTextRows); on a
+  // narrow landing screen it drops to its own line under the heading (1 row,
+  // no top margin); queued keeps it below the picker (marginTop + line = 2).
+  const streakRows = !reserveStreakSlot
+    ? 0
+    : streakOnHeadingRow
+      ? 0
+      : isQueued
+        ? 1 + 1
+        : 1
   const noticeRows = limitedModeNotice
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
@@ -650,16 +668,27 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 gap: 0,
               }}
             >
-              <text
+              <box
                 style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  alignSelf: 'stretch',
                   marginBottom: textMarginBottom,
-                  wrapMode: 'word',
                 }}
               >
-                <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-                  {LANDING_HEADING}
-                </span>
-              </text>
+                <text style={{ wrapMode: 'word' }}>
+                  <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+                    {LANDING_HEADING}
+                  </span>
+                </text>
+                {streakOnHeadingRow && (
+                  <StreakInlineLine streak={streak} marginTop={0} />
+                )}
+              </box>
+              {reserveStreakSlot && !streakOnHeadingRow && (
+                <StreakInlineLine streak={streak} marginTop={0} />
+              )}
               <FreebuffModelSelector
                 maxHeight={selectorMaxHeight}
                 onExpandedChange={setSelectorExpanded}
@@ -688,9 +717,6 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 >
                   {limitedModeNotice}
                 </text>
-              )}
-              {reserveStreakSlot && (
-                <StreakInlineLine streak={streak} marginTop={1} />
               )}
               <FreebuffReferralBanner />
             </box>

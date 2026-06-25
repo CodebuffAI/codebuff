@@ -22,6 +22,10 @@ import {
   recordFreebuffInstanceOwner,
 } from '../utils/freebuff-instance-owner'
 import { logger } from '../utils/logger'
+import {
+  getCachedReferral,
+  rememberReferral,
+} from '../utils/freebuff-referral-cache'
 import { saveFreebuffModelPreference } from '../utils/settings'
 
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
@@ -229,7 +233,7 @@ function toLandingSession(
       ? current.queueDepthByModel
       : undefined
   const rateLimitsByModel = getRateLimitsByModel(current)
-  const referral = getReferralInfo(current)
+  const referral = getReferralInfo(current) ?? getCachedReferral()
   const countryCode =
     current && 'countryCode' in current ? current.countryCode : undefined
   const countryBlockReason =
@@ -468,6 +472,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     let nextMethod: 'GET' | 'POST' = 'GET'
 
     const apply = (next: FreebuffSessionResponse) => {
+      rememberReferral(next)
       if (next.status === 'queued' || next.status === 'active') {
         useFreebuffModelStore.getState().setSelectedModel(next.model)
         recordFreebuffInstanceOwner(next.instanceId)
