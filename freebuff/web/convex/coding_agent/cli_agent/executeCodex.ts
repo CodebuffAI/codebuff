@@ -968,10 +968,34 @@ export async function executeCodex(
     // the streamed Codex events expose the session ID directly, and we
     // still hydrate from the local state after the run as a fallback.
 
+    // Daytona's PTY input transport occasionally duplicates characters at
+    // chunk boundaries when long commands are typed in (e.g. `resume` ->
+    // `resumee`, `share` -> `//share`, `sk-` -> `ssk-`), which corrupts
+    // shell argv before bash even parses it and made Codex silently exit 1
+    // on /cloud. We sidestep that entirely by uploading the real command
+    // as a script (HTTP fs, no PTY) and only typing a short
+    // `bash <script>` line into the PTY.
+    const CODEX_RUN_SCRIPT_PATH = "/home/daytona/.vly/codex-run.sh";
+    const stageCodexRunScript = async (command: string): Promise<string> => {
+      const scriptBody = `#!/bin/bash\nset -o pipefail\n${command}\n`;
+      const encoded = Buffer.from(scriptBody, "utf8").toString("base64");
+      await codebase.runCommand(
+        `mkdir -p "$(dirname ${CODEX_RUN_SCRIPT_PATH})" && printf '%s' '${encoded}' | base64 -d > ${CODEX_RUN_SCRIPT_PATH} && chmod +x ${CODEX_RUN_SCRIPT_PATH}`,
+        10_000,
+      );
+      return `bash ${CODEX_RUN_SCRIPT_PATH}`;
+    };
+
     const runCodexCommandAndProcessOutput = async (command: string) => {
-      // Run command via PTY following Daytona documentation pattern
-      // Note: Working directory is set to /home/daytona/codebase via codebase.runPtyCommand
-      const ptyPromise = codebase.runPtyCommand(command, processOutputLines);
+      // Stage the real command as a script (uploaded via Daytona's
+      // executeCommand HTTP API, which is not subject to PTY chunk
+      // corruption), and only invoke a short `bash <script>` line in the
+      // PTY itself.
+      const ptyCommand = await stageCodexRunScript(command);
+      const ptyPromise = codebase.runPtyCommand(
+        ptyCommand,
+        processOutputLines,
+      );
 
       // Terminate early once Codex emits final turn usage.
       // This prevents the workflow from waiting on lingering CLI sessions.
