@@ -99,7 +99,7 @@ export async function executeCodex(
   const sanitizeCodexShellCommand = (command: string): string =>
     command
       .replaceAll("$HOME/.local//share", "$HOME/.local/share")
-      .replaceAll("VVLY_CODEX_USE_STORED_CREDENTIALS", "VLY_CODEX_USE_STORED_CREDENTIALS")
+      .replace(/\bVVLY_/g, "VLY_")
       .replaceAll(
         "VLY_CODEX_USE_STORED_CREDENTIALS=1VLY_CODEX_AUTH_SOURCE",
         "VLY_CODEX_USE_STORED_CREDENTIALS=1 VLY_CODEX_AUTH_SOURCE",
@@ -108,7 +108,9 @@ export async function executeCodex(
         'OPENAI_API_KEY=""VLY_CODEX_USE_STORED_CREDENTIALS',
         'OPENAI_API_KEY="" VLY_CODEX_USE_STORED_CREDENTIALS',
       )
+      .replace(/\bunset\s+OPENAI_API__KEY\b/g, "unset OPENAI_API_KEY")
       .replaceAll(".vly-convex/devv.key", ".vly-convex/dev.key")
+      .replace(/\bcodex exec --yoloo+\b/g, "codex exec --yolo")
       .replaceAll(" codex exec --yolo ---color ", " codex exec --yolo --color ")
       .replace(/OPENAI_API_KEY=(['"]?)ssk-/g, "OPENAI_API_KEY=$1sk-");
 
@@ -291,9 +293,34 @@ export async function executeCodex(
   const rawCliOutputLines: string[] = [];
   const stripAnsi = (value: string) =>
     value
-      .replace(/\x1b\[[0-9;]*m/g, "")
+      // OSC (window title, hyperlinks): ESC ] ... BEL or ESC \\
+      .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+      // CSI (colors, bracketed paste mode, cursor movement)
+      .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+      // 2-byte escape sequences
+      .replace(/\x1b[@-Z\\-_]/g, "")
       .replace(/\r/g, "")
+      // Other control chars except tab/newline (line splitting already handled)
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
       .trim();
+
+  const getJsonLineCandidate = (line: string): string | undefined => {
+    if (!line) {
+      return undefined;
+    }
+    if (line.startsWith("{") || line.startsWith("[")) {
+      return line;
+    }
+    const objectIndex = line.indexOf("{");
+    const arrayIndex = line.indexOf("[");
+    if (objectIndex >= 0) {
+      return line.slice(objectIndex).trim();
+    }
+    if (arrayIndex >= 0) {
+      return line.slice(arrayIndex).trim();
+    }
+    return undefined;
+  };
 
   const rememberRawCliLine = (line: string) => {
     const normalized = stripAnsi(line);
@@ -653,7 +680,11 @@ export async function executeCodex(
       }
 
       try {
-        const parsed = JSON.parse(normalizedLine);
+        const jsonCandidate = getJsonLineCandidate(normalizedLine);
+        if (!jsonCandidate) {
+          throw new Error("No JSON payload on line");
+        }
+        const parsed = JSON.parse(jsonCandidate);
 
         // Handle arrays - process each item in the array separately
         if (Array.isArray(parsed)) {
@@ -971,7 +1002,11 @@ export async function executeCodex(
       const finalLine = stripAnsi(lineBuffer);
       if (finalLine) {
         try {
-          const parsed = JSON.parse(finalLine);
+          const jsonCandidate = getJsonLineCandidate(finalLine);
+          if (!jsonCandidate) {
+            throw new Error("No JSON payload on final line");
+          }
+          const parsed = JSON.parse(jsonCandidate);
           if (Array.isArray(parsed)) {
             for (const item of parsed) {
               await processCodexStreamItem(item);

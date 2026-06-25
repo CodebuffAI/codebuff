@@ -16,7 +16,7 @@ const TABS: { id: CloudTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'preview', label: 'Preview', Icon: Globe2 },
   { id: 'code', label: 'Code', Icon: Code2 },
   { id: 'terminal', label: 'Terminal', Icon: TerminalSquare },
-  { id: 'env', label: 'Env', Icon: FileCog },
+  { id: 'env', label: 'API Keys', Icon: FileCog },
   { id: 'git', label: 'Git', Icon: GitBranch },
 ]
 

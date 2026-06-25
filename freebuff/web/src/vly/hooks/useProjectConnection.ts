@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { useCallback, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 export type ProjectRuntimeSurface = "web" | "cloud";
 
@@ -22,13 +23,18 @@ export function useProjectConnection({
   onSuccess,
   runtimeSurface = "web",
 }: UseProjectConnectionParams) {
+  const pathname = usePathname();
   const verifyProjectAccessAndConnectWebAction = useAction(
     api.codesandbox.management.verifyProjectAccessAndConnect,
   );
   const verifyProjectAccessAndConnectCloudAction = useAction(
     (api as any).cloud.connection.verifyProjectAccessAndConnect,
   );
-  const isCloudRoute = runtimeSurface === "cloud";
+  const isCloudRoute =
+    runtimeSurface === "cloud" || pathname?.startsWith("/cloud/") === true;
+  const runtimeSurfaceKey: ProjectRuntimeSurface = isCloudRoute
+    ? "cloud"
+    : "web";
 
   const verifyProjectAccessAndConnectAction = isCloudRoute
     ? verifyProjectAccessAndConnectCloudAction
@@ -70,7 +76,7 @@ export function useProjectConnection({
   // Use useQuery for automatic, declarative data fetching
   // React Query handles deduplication, caching, and prevents duplicate requests
   const query = useQuery({
-    queryKey: ["projectConnection", runtimeSurface, semanticIdentifier],
+    queryKey: ["projectConnection", runtimeSurfaceKey, semanticIdentifier],
     queryFn: async () => {
       if (!semanticIdentifier) {
         throw new Error("No semantic identifier provided");

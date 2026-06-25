@@ -19,14 +19,10 @@ import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
  */
 
 /** Reject path traversal / absolute paths so writes stay inside the repo. */
-function sanitizeRepoRelativePath(filePath: string): string {
+function normalizeSupportedEnvFilePath(filePath: string | undefined): string {
   const trimmed = (filePath || ".env").trim();
-  if (
-    trimmed.startsWith("/") ||
-    trimmed.startsWith("~") ||
-    trimmed.includes("..")
-  ) {
-    throw new Error("Invalid file path. Use a path inside the repository.");
+  if (trimmed !== ".env" && trimmed !== ".env.local") {
+    throw new Error("Only .env and .env.local are supported in Cloud API Keys.");
   }
   return trimmed;
 }
@@ -61,7 +57,7 @@ export const setConnectedRepoEnvVars = action({
       throw new Error("Project not found or access denied");
     }
 
-    const filePath = sanitizeRepoRelativePath(args.filePath ?? ".env");
+    const filePath = normalizeSupportedEnvFilePath(args.filePath);
 
     const codebase = await initializeCodebase(
       project.sandbox_id,
@@ -117,7 +113,9 @@ export const getConnectedRepoEnvFile = action({
       throw new Error("Project not found or access denied");
     }
 
-    const filePath = sanitizeRepoRelativePath(args.filePath ?? ".env");
+    const requestedFilePath = args.filePath
+      ? normalizeSupportedEnvFilePath(args.filePath)
+      : undefined;
 
     const codebase = await initializeCodebase(
       project.sandbox_id,
@@ -128,11 +126,23 @@ export const getConnectedRepoEnvFile = action({
       throw new Error("Connected repos require a Daytona-backed sandbox");
     }
 
-    try {
-      const content = await codebase.readFile(filePath);
-      return { content, exists: true, filePath };
-    } catch {
-      return { content: "", exists: false, filePath };
+    const candidatePaths = requestedFilePath
+      ? [requestedFilePath]
+      : [".env", ".env.local"];
+
+    for (const candidatePath of candidatePaths) {
+      try {
+        const content = await codebase.readFile(candidatePath);
+        return { content, exists: true, filePath: candidatePath };
+      } catch {
+        // Try next candidate.
+      }
     }
+
+    return {
+      content: "",
+      exists: false,
+      filePath: requestedFilePath ?? ".env",
+    };
   },
 });

@@ -28,10 +28,6 @@ export const verifyProjectAccessAndConnect = action({
       throw new Error("Project not found or access denied");
     }
 
-    if (project.project_type !== "connected_repo") {
-      throw new Error("Project is not a connected repo");
-    }
-
     const connectionService = new CloudConnectionRuntimeService(
       ctx,
       new DaytonaConnectionStrategy(),
