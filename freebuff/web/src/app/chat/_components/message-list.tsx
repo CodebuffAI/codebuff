@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { ChatImage, ChatMessage, QueuedMessage } from './types'
 import type { ReactNode } from 'react'
 
+import { CopyButton } from '@/components/copy-button'
 import { cn } from '@/lib/utils'
 import { BlockList } from './agent-blocks'
 import { Markdown } from './markdown'
@@ -139,6 +140,12 @@ export function MessageList(props: {
               key={message.id}
               content={message.content}
               images={message.images}
+              trailing={
+                <CopyButton
+                  value={message.content}
+                  className="mt-1 shrink-0 self-start opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                />
+              }
             />
           ) : (
             <div key={message.id} className="text-[15px] leading-7">
