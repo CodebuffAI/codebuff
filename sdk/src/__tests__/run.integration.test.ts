@@ -9,6 +9,19 @@ import { EventCollector, DEFAULT_TIMEOUT } from '../../e2e/utils'
 import type { AgentOutput } from '@codebuff/common/types/session-state'
 
 const apiKey = process.env.CODEBUFF_API_KEY
+const RUN_LIVE_INTEGRATION = process.env.RUN_CODEBUFF_E2E === 'true'
+
+function getLiveApiKey(): string | null {
+  if (!RUN_LIVE_INTEGRATION || !apiKey) {
+    console.log(
+      'Skipping prompt caching integration test: set RUN_CODEBUFF_E2E=true and CODEBUFF_API_KEY to run.\n' +
+        'Example: RUN_CODEBUFF_E2E=true CODEBUFF_API_KEY=your-key bun test src/__tests__/run.integration.test.ts',
+    )
+    return null
+  }
+
+  return apiKey
+}
 
 function extractOutputText(output: AgentOutput): string {
   if (output.type !== 'lastMessage' && output.type !== 'allMessages') return ''
@@ -37,15 +50,12 @@ describe('Prompt Caching', () => {
   it(
     'should be cheaper on second request',
     async () => {
-      if (!apiKey) {
-        console.log(
-          'Skipping prompt caching integration test: set CODEBUFF_API_KEY to run.\n' +
-            'Example: CODEBUFF_API_KEY=your-key bun test src/__tests__/run.integration.test.ts',
-        )
+      const liveApiKey = getLiveApiKey()
+      if (!liveApiKey) {
         return
       }
 
-      const client = new CodebuffClient({ apiKey })
+      const client = new CodebuffClient({ apiKey: liveApiKey })
 
       const filler =
         `Run UUID: ${crypto.randomUUID()} ` +
@@ -88,10 +98,8 @@ describe('Prompt Caching', () => {
   it(
     'should not invalidate cache when git status changes between requests',
     async () => {
-      if (!apiKey) {
-        console.log(
-          'Skipping prompt caching integration test: set CODEBUFF_API_KEY to run.',
-        )
+      const liveApiKey = getLiveApiKey()
+      if (!liveApiKey) {
         return
       }
 
@@ -109,7 +117,10 @@ describe('Prompt Caching', () => {
       try {
         fs.writeFileSync(tempFile1, `MAGIC_NUMBER=${magic1}`)
 
-        const client = new CodebuffClient({ apiKey, cwd: process.cwd() })
+        const client = new CodebuffClient({
+          apiKey: liveApiKey,
+          cwd: process.cwd(),
+        })
 
         const filler =
           `Run UUID: ${crypto.randomUUID()} ` +

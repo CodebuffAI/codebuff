@@ -140,7 +140,7 @@ jobs:
         run: cd cli && bun run prebuild:agents
 
       - name: Run ${{ matrix.package }} tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 10
           max_attempts: 3
@@ -237,7 +237,7 @@ jobs:
         run: cd cli && bun run prebuild:agents
 
       - name: Run ${{ matrix.package }} integration tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
           max_attempts: 3
@@ -316,7 +316,7 @@ jobs:
         run: echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/testdb" >> $GITHUB_ENV
 
       - name: Setup database schema
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/testdb
         with:
@@ -325,7 +325,7 @@ jobs:
           command: cd packages/internal && bun run db:migrate
 
       - name: Run billing integration tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
           max_attempts: 3
@@ -404,7 +404,7 @@ jobs:
         run: echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/testdb" >> $GITHUB_ENV
 
       - name: Setup database schema
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/testdb
         with:
@@ -413,7 +413,7 @@ jobs:
           command: cd packages/internal && bun run db:migrate
 
       - name: Run internal integration tests
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
           max_attempts: 3
