@@ -2,7 +2,9 @@ import { createHmac } from 'node:crypto'
 
 import {
   FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS,
+  isFreebuffBenignAsType,
   isFreebuffHardBlockedPrivacySignal,
+  isFreebuffHostingAsType,
 } from '@codebuff/common/util/freebuff-privacy'
 
 import { FREE_MODE_ALLOWED_COUNTRIES } from './allowed-countries'
@@ -42,6 +44,9 @@ export type FreeModeIpPrivacy = {
   providerName?: string | null
   lastSeen?: string | null
   percentDaysSeen?: number | null
+  /** ipinfo `as.type`: ISP, Hosting, Education, Government or Business.
+   *  `hosting` is the only abuse-relevant class; see `isFreebuffBenignAsType`. */
+  asType?: string | null
 }
 
 export type FreeModeCountryAccess = {
@@ -143,10 +148,15 @@ const scamalyticsPrivacyCache = new Map<
 const SCAMALYTICS_DEFAULT_USER = 'codebuff'
 export const SCAMALYTICS_LIMITED_RISK_SCORE = 50
 
+// `relay` is intentionally absent: Apple iCloud Private Relay (and similar
+// consumer relays) is a default privacy feature shipped to ordinary users, not
+// an anonymizer abusers reach for. ipinfo additionally tags relay exits with
+// `is_anonymous`/`is_hosting` (they ride on Akamai/Cloudflare), so we also
+// suppress those companion signals in `privacySignalsFromIpinfo` — a relay user
+// should never be dropped into limited mode.
 const FREE_MODE_LIMITED_PRIVACY_SIGNALS = new Set<FreeModeIpPrivacySignal>([
   ...FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS,
   'anonymous',
-  'relay',
   'hosting',
   'service',
 ])
@@ -218,37 +228,98 @@ function hasCorroboratedResidentialProxySignal(
   )
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const SEVEN_DAYS_MS = 7 * DAY_MS
+const THIRTY_DAYS_MS = 30 * DAY_MS
+
+/** Age of an ipinfo `last_seen` date in ms, or null if missing/unparseable. */
+function lastSeenAgeMs(lastSeen: string | null | undefined): number | null {
+  if (!lastSeen) return null
+  const lastSeenMs = Date.parse(lastSeen)
+  if (!Number.isFinite(lastSeenMs)) return null
+  return Date.now() - lastSeenMs
+}
+
+// Standalone residential-proxy risk, on the same 0-100 scale as every other
+// signal. Reference points it slots between: hosting/service=40, anonymous=55,
+// vpn/proxy=70, no-provider-on-hosting=85, corroborated res_proxy/tor=95.
+//
+// `res_proxy` is deliberately NOT binary. Many ordinary users are proxied
+// without knowing it (bundled SDKs, "free VPN" apps), so a hit on its own is
+// real but weak evidence. We start from a low base and add risk for how
+// recently (`last_seen`) and how often (`percent_days_seen` — how widely the IP
+// is shared out) ipinfo has seen this IP acting as an exit: a fresh,
+// frequently-shared IP is an actively-rented proxy and lands just under the
+// corroborated tier (max 90), while a stale, rarely-seen one stays at the base.
+// Cross-provider corroboration escalates separately to 95.
+const RES_PROXY_BASE_RISK = 25
+const RES_PROXY_RECENT_BONUS = 35 // last_seen within 7 days
+const RES_PROXY_MEDIUM_BONUS = 18 // last_seen within 30 days
+const RES_PROXY_MAX_FREQUENCY_BONUS = 30 // at percent_days_seen === 100
+
+function residentialProxyRisk(
+  ipPrivacy: Pick<FreeModeIpPrivacy, 'lastSeen' | 'percentDaysSeen'>,
+): number {
+  let risk = RES_PROXY_BASE_RISK
+  const ageMs = lastSeenAgeMs(ipPrivacy.lastSeen)
+  if (ageMs !== null) {
+    if (ageMs <= SEVEN_DAYS_MS) risk += RES_PROXY_RECENT_BONUS
+    else if (ageMs <= THIRTY_DAYS_MS) risk += RES_PROXY_MEDIUM_BONUS
+  }
+  const percentDaysSeen =
+    typeof ipPrivacy.percentDaysSeen === 'number' &&
+    Number.isFinite(ipPrivacy.percentDaysSeen)
+      ? Math.min(100, Math.max(0, ipPrivacy.percentDaysSeen))
+      : 0
+  risk += (percentDaysSeen / 100) * RES_PROXY_MAX_FREQUENCY_BONUS
+  return risk
+}
+
 function maxPrivacySignalRisk(
   ipPrivacy: FreeModeIpPrivacy | null | undefined,
 ): number {
   let risk = 0
-  const hasHardSignal = ipPrivacy?.signals.some(
-    isFreebuffHardBlockedPrivacySignal,
+  const signals = ipPrivacy?.signals ?? []
+  // Metadata escalators below describe genuine, attributable anonymizers
+  // (vpn/proxy/tor). `res_proxy` carries its own recency/frequency model and
+  // `relay` is benign, so neither participates in these bumps.
+  const hasNonResHardSignal = signals.some(
+    (signal) =>
+      signal !== 'res_proxy' && isFreebuffHardBlockedPrivacySignal(signal),
   )
-  for (const signal of ipPrivacy?.signals ?? []) {
+  for (const signal of signals) {
     if (signal === 'tor') risk = Math.max(risk, 100)
-    else if (isFreebuffHardBlockedPrivacySignal(signal)) {
+    else if (signal === 'res_proxy' && ipPrivacy) {
+      // ipPrivacy is non-null here (signal came from ipPrivacy.signals); the
+      // guard just narrows the type for residentialProxyRisk's metadata access.
+      risk = Math.max(risk, residentialProxyRisk(ipPrivacy))
+    } else if (isFreebuffHardBlockedPrivacySignal(signal)) {
       risk = Math.max(risk, 70)
-    } else if (signal === 'anonymous' || signal === 'relay') {
+    } else if (signal === 'anonymous') {
       risk = Math.max(risk, 55)
     } else if (signal === 'hosting' || signal === 'service') {
       risk = Math.max(risk, 40)
     }
+    // `relay` adds no risk — it's a green flag (see FREE_MODE_LIMITED_...).
   }
-  if (ipPrivacy?.providerName && hasHardSignal) {
-    risk = Math.max(risk, 80)
-  }
-  if (
-    hasHardSignal &&
-    typeof ipPrivacy?.percentDaysSeen === 'number' &&
-    ipPrivacy.percentDaysSeen >= 50
-  ) {
-    risk = Math.max(risk, 85)
-  }
-  if (ipPrivacy?.lastSeen && hasHardSignal) {
-    const lastSeenMs = Date.parse(ipPrivacy.lastSeen)
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
-    if (Number.isFinite(lastSeenMs) && Date.now() - lastSeenMs <= sevenDaysMs) {
+  if (hasNonResHardSignal) {
+    // A named consumer VPN (e.g. "ProtonVPN") is the normal baseline.
+    if (ipPrivacy?.providerName) {
+      risk = Math.max(risk, 80)
+    }
+    // ...but an anonymizer with NO provider attribution running on a hosting
+    // ASN (e.g. a VPN/proxy exit on AWS) is riskier than a normal consumer VPN.
+    if (!ipPrivacy?.providerName && isFreebuffHostingAsType(ipPrivacy?.asType)) {
+      risk = Math.max(risk, 85)
+    }
+    if (
+      typeof ipPrivacy?.percentDaysSeen === 'number' &&
+      ipPrivacy.percentDaysSeen >= 50
+    ) {
+      risk = Math.max(risk, 85)
+    }
+    const ageMs = lastSeenAgeMs(ipPrivacy?.lastSeen)
+    if (ageMs !== null && ageMs <= SEVEN_DAYS_MS) {
       risk = Math.max(risk, 85)
     }
   }
@@ -503,6 +574,16 @@ function setScamalyticsPrivacyCache(
   })
 }
 
+function asTypeFromIpinfo(data: Record<string, unknown>): string | null {
+  const as =
+    data.as && typeof data.as === 'object'
+      ? (data.as as Record<string, unknown>)
+      : {}
+  return typeof as.type === 'string' && as.type.length > 0
+    ? as.type.toLowerCase()
+    : null
+}
+
 function privacySignalsFromIpinfo(
   data: Record<string, unknown>,
 ): FreeModeIpPrivacySignal[] {
@@ -514,9 +595,28 @@ function privacySignalsFromIpinfo(
   if (data.vpn === true || anonymous.is_vpn === true) signals.push('vpn')
   if (data.proxy === true || anonymous.is_proxy === true) signals.push('proxy')
   if (data.tor === true || anonymous.is_tor === true) signals.push('tor')
-  if (data.relay === true || anonymous.is_relay === true) signals.push('relay')
   if (anonymous.is_res_proxy === true) signals.push('res_proxy')
-  if (data.hosting === true || data.is_hosting === true) {
+
+  // Relay (Apple iCloud Private Relay etc.) is a green flag. ipinfo also sets
+  // is_anonymous + is_hosting on relay exits because they ride on Akamai/
+  // Cloudflare hosting, so emit ONLY `relay` and suppress those noisy companion
+  // signals. Any genuine hard signal (vpn/proxy/tor/res_proxy) above still
+  // stands and keeps the IP gated.
+  if (data.relay === true || anonymous.is_relay === true) {
+    signals.push('relay')
+    return signals
+  }
+
+  // Hosting is suspect, but trust ipinfo's `as.type`: ISP/Business/Education/
+  // Government networks are legitimate even if the coarse `is_hosting` flag is
+  // set, so don't gate real users sitting behind them.
+  const asType = asTypeFromIpinfo(data)
+  if (
+    (isFreebuffHostingAsType(asType) ||
+      data.hosting === true ||
+      data.is_hosting === true) &&
+    !isFreebuffBenignAsType(asType)
+  ) {
     signals.push('hosting')
   }
   if (
@@ -533,13 +633,17 @@ function privacySignalsFromIpinfo(
 
 function privacyMetadataFromIpinfo(
   data: Record<string, unknown>,
-): Pick<FreeModeIpPrivacy, 'providerName' | 'lastSeen' | 'percentDaysSeen'> {
+): Pick<
+  FreeModeIpPrivacy,
+  'providerName' | 'lastSeen' | 'percentDaysSeen' | 'asType'
+> {
   const anonymous =
     data.anonymous && typeof data.anonymous === 'object'
       ? (data.anonymous as Record<string, unknown>)
       : {}
 
   return {
+    asType: asTypeFromIpinfo(data),
     providerName:
       typeof anonymous.name === 'string' && anonymous.name.length > 0
         ? anonymous.name

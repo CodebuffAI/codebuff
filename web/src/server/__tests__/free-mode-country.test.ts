@@ -211,7 +211,9 @@ describe('free mode country access', () => {
     expect(access.ipPrivacy?.signals).toEqual(['res_proxy'])
     expect(access.spurIpPrivacy?.signals).toEqual([])
     expect(access.spurStatus).toBe('clean')
-    expect(getFreeModeRiskScore(access)).toBe(70)
+    // res_proxy with no recency/frequency metadata scores at the low base
+    // (stale/unknown exit), not a flat hard-signal 70 — it's no longer binary.
+    expect(getFreeModeRiskScore(access)).toBe(25)
     expect(shouldHardBlockFreeModeAccess(access)).toBe(false)
   })
 
@@ -655,6 +657,7 @@ describe('free mode country access', () => {
     const fetch = async (url: string | URL | Request) => {
       requestedUrl = String(url)
       return Response.json({
+        as: { type: 'hosting' },
         anonymous: {
           name: 'ExampleVPN',
           last_seen: '2026-05-23',
@@ -677,11 +680,111 @@ describe('free mode country access', () => {
     })
 
     expect(requestedUrl).toContain('https://api.ipinfo.io/lookup/')
+    // Relay suppresses the noisy companion soft signals (`hosting`/`anonymous`)
+    // but leaves genuine hard signals (tor/res_proxy) intact.
     expect(privacy).toEqual({
-      signals: ['tor', 'relay', 'res_proxy', 'hosting', 'anonymous'],
+      signals: ['tor', 'res_proxy', 'relay'],
       providerName: 'ExampleVPN',
       lastSeen: '2026-05-23',
       percentDaysSeen: 63,
+      asType: 'hosting',
+    })
+  })
+
+  test('treats Apple iCloud Private Relay as a benign relay-only signal', async () => {
+    // Real ipinfo shape for an Apple Private Relay egress: it rides on Akamai
+    // hosting and is tagged is_anonymous + is_hosting, but it must NOT be
+    // treated as an anonymizer.
+    const fetch = async () =>
+      Response.json({
+        as: { type: 'hosting', name: 'Akamai Technologies, Inc.' },
+        anonymous: {
+          name: 'Apple Private Relay',
+          last_seen: '2026-06-23',
+          is_proxy: false,
+          is_relay: true,
+          is_tor: false,
+          is_vpn: false,
+          is_res_proxy: false,
+        },
+        is_anonymous: true,
+        is_hosting: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.70',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy).toEqual({
+      signals: ['relay'],
+      providerName: 'Apple Private Relay',
+      lastSeen: '2026-06-23',
+      percentDaysSeen: null,
+      asType: 'hosting',
+    })
+  })
+
+  test('does not flag hosting on benign (ISP/business/etc.) AS types', async () => {
+    const fetch = async () =>
+      Response.json({
+        as: { type: 'isp', name: 'Comcast Cable' },
+        anonymous: {
+          is_proxy: false,
+          is_relay: false,
+          is_tor: false,
+          is_vpn: false,
+          is_res_proxy: false,
+        },
+        is_anonymous: false,
+        // ipinfo's coarse is_hosting flag can fire on mixed ISP ranges; as.type
+        // is the authoritative classification, so don't gate the user.
+        is_hosting: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.71',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy).toEqual({
+      signals: [],
+      providerName: null,
+      lastSeen: null,
+      percentDaysSeen: null,
+      asType: 'isp',
+    })
+  })
+
+  test('flags hosting when the AS type is hosting', async () => {
+    const fetch = async () =>
+      Response.json({
+        as: { type: 'hosting', name: 'Amazon.com, Inc.' },
+        anonymous: {
+          is_proxy: false,
+          is_relay: false,
+          is_tor: false,
+          is_vpn: false,
+          is_res_proxy: false,
+        },
+        is_anonymous: false,
+        is_hosting: true,
+      })
+
+    const privacy = await lookupIpinfoPrivacy({
+      ip: '198.51.100.72',
+      token: 'test-token',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+
+    expect(privacy).toEqual({
+      signals: ['hosting'],
+      providerName: null,
+      lastSeen: null,
+      percentDaysSeen: null,
+      asType: 'hosting',
     })
   })
 
@@ -720,6 +823,7 @@ describe('free mode country access', () => {
       providerName: null,
       lastSeen: null,
       percentDaysSeen: null,
+      asType: null,
     })
   })
 
@@ -914,6 +1018,119 @@ describe('free mode country access', () => {
     expect(access.blockReason).toBe('missing_client_ip')
   })
 
+  test('grants full access to relay-only traffic without a second opinion', async () => {
+    const access = await getFreeModeCountryAccess(
+      makeReq({
+        'cf-ipcountry': 'US',
+        'x-forwarded-for': '203.0.113.10',
+      }),
+      {
+        ipinfoToken: 'test-token',
+        spurToken: 'test-spur-token',
+        lookupIpPrivacy: async () => ({ signals: ['relay'] }),
+        lookupSpurIpPrivacy: async () => {
+          throw new Error('should not be called')
+        },
+      },
+    )
+    expect(access.allowed).toBe(true)
+    expect(access.blockReason).toBe(null)
+    expect(access.spurStatus).toBe('not_checked')
+    expect(getFreeModeRiskScore(access)).toBe(0)
+  })
+
+  const baseRiskAccess = {
+    blockReason: null,
+    cfCountry: 'US',
+    spurIpPrivacy: null,
+    spurStatus: 'not_checked' as const,
+    scamalyticsIpPrivacy: null,
+    scamalyticsStatus: 'not_checked' as const,
+    scamalyticsScore: null,
+    riskScore: null,
+  }
+
+  function isoDaysAgo(days: number): string {
+    return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10)
+  }
+
+  test('scales residential-proxy risk by recency and frequency', () => {
+    // Stale, never-frequently-seen exit: weak evidence → base only.
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: { signals: ['res_proxy'], lastSeen: isoDaysAgo(120) },
+      }),
+    ).toBe(25)
+
+    // Fresh and seen every day: an actively-rented exit → just under the
+    // corroborated tier (95) and above a plain VPN (70).
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: {
+          signals: ['res_proxy'],
+          lastSeen: isoDaysAgo(1),
+          percentDaysSeen: 100,
+        },
+      }),
+    ).toBe(90)
+
+    // Fresh but rarely seen: base + recency.
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: { signals: ['res_proxy'], lastSeen: isoDaysAgo(1) },
+      }),
+    ).toBe(60)
+
+    // Seen within the last month and half the days: base + medium recency +
+    // partial frequency (25 + 18 + 15).
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: {
+          signals: ['res_proxy'],
+          lastSeen: isoDaysAgo(20),
+          percentDaysSeen: 50,
+        },
+      }),
+    ).toBe(58)
+  })
+
+  test('escalates anonymizers with no provider on hosting AS types', () => {
+    // VPN with no provider attribution on a hosting ASN (e.g. an exit on AWS)
+    // is riskier than a normal named consumer VPN.
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: { signals: ['vpn'], asType: 'hosting' },
+      }),
+    ).toBe(85)
+
+    // A named consumer VPN is the normal baseline.
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: {
+          signals: ['vpn'],
+          asType: 'hosting',
+          providerName: 'ProtonVPN',
+        },
+      }),
+    ).toBe(80)
+
+    // VPN on a non-hosting (ISP) ASN stays at the base hard-signal score.
+    expect(
+      getFreeModeRiskScore({
+        ...baseRiskAccess,
+        ipPrivacy: { signals: ['vpn'], asType: 'isp' },
+      }),
+    ).toBe(70)
+  })
+
   test('treats is_anonymous as blocking even when service is present', async () => {
     const fetch = async () =>
       Response.json({
@@ -932,6 +1149,7 @@ describe('free mode country access', () => {
       providerName: 'Privacy Provider',
       lastSeen: null,
       percentDaysSeen: null,
+      asType: null,
     })
   })
 })
