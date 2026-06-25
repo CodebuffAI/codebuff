@@ -839,8 +839,19 @@ export function loadProviderConfigSync(
     }
   }
 
+  if (!hasLoggedConfigPaths) {
+    hasLoggedConfigPaths = true
+    if (sourceFilePaths.length > 0) {
+      console.info(
+        `[openbuff] Loaded provider config from:\n  - ${sourceFilePaths.join('\n  - ')}`,
+      )
+    }
+  }
+
   return { config, sourceFilePaths, sourceFiles }
 }
+
+let hasLoggedConfigPaths = false
 
 function getModelMapping(
   providerId: string,
