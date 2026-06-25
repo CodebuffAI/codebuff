@@ -140,7 +140,11 @@ export const ChatAds = memo(function ChatAds({
   return (
     <GravityReactAd
       ad={ad}
-      variant="banner"
+      // `inline` (not `banner`): the library's `banner` variant only renders
+      // favicon + title + CTA and omits `adText`, so the promotional body copy
+      // never showed. `inline` is a horizontal row that includes `adText` and
+      // matches the proven coding-agent ad slot (see GravityAdSlot's compact path).
+      variant="inline"
       className="mb-2 w-full"
       onClick={() => trackRedditGravityAdClick('chat')}
       slotProps={{
