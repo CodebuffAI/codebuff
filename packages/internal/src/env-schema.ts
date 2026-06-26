@@ -14,6 +14,9 @@ export const serverEnvSchema = clientEnvSchema.extend({
   MIMO_API_KEY: z.string().min(1).optional(),
   SILICONFLOW_API_KEY: z.string().min(1).optional(),
   OPENCODE_API_KEY: z.string().min(1).optional(),
+  // Infron (https://infron.ai) OpenRouter-compatible aggregator at
+  // llm.onerouter.pro. Currently serves GLM 5.2.
+  INFRON_API_KEY: z.string().min(1).optional(),
   SERPER_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
   GRAVITY_API_KEY: z.string().min(1),
@@ -127,6 +130,7 @@ export const serverProcessEnv: ServerInput = {
   MIMO_API_KEY: process.env.MIMO_API_KEY,
   SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY,
   OPENCODE_API_KEY: process.env.OPENCODE_API_KEY,
+  INFRON_API_KEY: process.env.INFRON_API_KEY,
   SERPER_API_KEY: process.env.SERPER_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
