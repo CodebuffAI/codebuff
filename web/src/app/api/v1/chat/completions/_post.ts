@@ -93,6 +93,11 @@ import {
   MiniMaxError,
 } from '@/llm-api/minimax'
 import {
+  handleMiniMaxModelNonStream,
+  handleMiniMaxModelStream,
+} from '@/llm-api/minimax-m3-router'
+import { isMiniMaxFallbackModel } from '@/llm-api/minimax-request-body'
+import {
   handleMoonshotNonStream,
   handleMoonshotStream,
   isMoonshotModel,
@@ -124,6 +129,7 @@ import {
 import {
   checkSessionAdmissible,
   endUserSession,
+  pinFreeSessionToMinimax,
 } from '@/server/free-session/public-api'
 import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
 import {
@@ -889,6 +895,29 @@ export async function postChatCompletions(params: {
       ? fireworksRoute !== 'serverless'
       : undefined
 
+    // Reactive MiniMax pin: once Fireworks rate-limited this session, M3
+    // requests stick to the official MiniMax API so the warm prompt cache
+    // isn't cold-started by flapping upstreams (see minimax-m3-router.ts).
+    const pinnedToMinimax = Boolean(
+      freeModeSessionGate?.ok &&
+      'minimaxUpstream' in freeModeSessionGate &&
+      freeModeSessionGate.minimaxUpstream === 'minimax',
+    )
+
+    // On a Fireworks 429 for an M3 request, persist the MiniMax pin so every
+    // later request in this session skips Fireworks. Best-effort: a failed
+    // write must not break the request that is already falling back.
+    const onMinimaxRateLimited = async () => {
+      try {
+        await pinFreeSessionToMinimax(userId)
+      } catch (error) {
+        logger.warn(
+          { error: getErrorObject(error), userId },
+          '[MiniMaxM3] Failed to persist MiniMax upstream pin',
+        )
+      }
+    }
+
     // Rate limit free mode requests (after validation so invalid requests don't consume quota).
     // Premium models additionally enforce FREE_MODE_PREMIUM_RATE_LIMITS, so direct
     // endpoint callers can't exceed the intended premium allowance by skipping the
@@ -1096,30 +1125,37 @@ export async function postChatCompletions(params: {
           useCustomDeployment: fireworksUseCustomDeployment,
         }
         const stream =
-          provider === 'siliconflow'
-            ? await handleSiliconFlowStream(baseArgs)
-            : provider === 'opencodeZen'
-              ? await handleOpenCodeZenStream(baseArgs)
-              : provider === 'moonshot'
-                ? await handleMoonshotStream(baseArgs)
-                : provider === 'canopywave'
-                  ? await handleCanopyWaveStream(baseArgs)
-                  : provider === 'deepseek'
-                    ? await handleDeepSeekStream(baseArgs)
-                    : provider === 'infron'
-                      ? await handleInfronStream(baseArgs)
-                      : provider === 'mimo'
-                        ? await handleMiMoStream(baseArgs)
-                        : provider === 'minimax'
-                          ? await handleMiniMaxStream(baseArgs)
-                          : provider === 'fireworks'
-                            ? await handleFireworksStream(baseArgs)
-                            : provider === 'openai'
-                              ? await handleOpenAIStream(baseArgs)
-                              : await handleOpenRouterStream({
-                                  ...baseArgs,
-                                  openrouterApiKey,
-                                })
+          // M3 defaults to Fireworks serverless but sticks to the official
+          // MiniMax API once a Fireworks rate limit has pinned the session.
+          isMiniMaxFallbackModel(typedBody.model)
+            ? await handleMiniMaxModelStream(baseArgs, {
+                pinnedToMinimax,
+                onRateLimited: onMinimaxRateLimited,
+              })
+            : provider === 'siliconflow'
+              ? await handleSiliconFlowStream(baseArgs)
+              : provider === 'opencodeZen'
+                ? await handleOpenCodeZenStream(baseArgs)
+                : provider === 'moonshot'
+                  ? await handleMoonshotStream(baseArgs)
+                  : provider === 'canopywave'
+                    ? await handleCanopyWaveStream(baseArgs)
+                    : provider === 'deepseek'
+                      ? await handleDeepSeekStream(baseArgs)
+                      : provider === 'infron'
+                        ? await handleInfronStream(baseArgs)
+                        : provider === 'mimo'
+                          ? await handleMiMoStream(baseArgs)
+                          : provider === 'minimax'
+                            ? await handleMiniMaxStream(baseArgs)
+                            : provider === 'fireworks'
+                              ? await handleFireworksStream(baseArgs)
+                              : provider === 'openai'
+                                ? await handleOpenAIStream(baseArgs)
+                                : await handleOpenRouterStream({
+                                    ...baseArgs,
+                                    openrouterApiKey,
+                                  })
 
         trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -1154,30 +1190,36 @@ export async function postChatCompletions(params: {
           useCustomDeployment: fireworksUseCustomDeployment,
         }
         const nonStreamRequest =
-          provider === 'siliconflow'
-            ? handleSiliconFlowNonStream(baseArgs)
-            : provider === 'opencodeZen'
-              ? handleOpenCodeZenNonStream(baseArgs)
-              : provider === 'moonshot'
-                ? handleMoonshotNonStream(baseArgs)
-                : provider === 'canopywave'
-                  ? handleCanopyWaveNonStream(baseArgs)
-                  : provider === 'deepseek'
-                    ? handleDeepSeekNonStream(baseArgs)
-                    : provider === 'infron'
-                      ? handleInfronNonStream(baseArgs)
-                      : provider === 'mimo'
-                        ? handleMiMoNonStream(baseArgs)
-                        : provider === 'minimax'
-                          ? handleMiniMaxNonStream(baseArgs)
-                          : provider === 'fireworks'
-                            ? handleFireworksNonStream(baseArgs)
-                            : provider === 'openai'
-                              ? handleOpenAINonStream(baseArgs)
-                              : handleOpenRouterNonStream({
-                                  ...baseArgs,
-                                  openrouterApiKey,
-                                })
+          // M3: same Fireworks-serverless → sticky MiniMax fallback as streaming.
+          isMiniMaxFallbackModel(typedBody.model)
+            ? handleMiniMaxModelNonStream(baseArgs, {
+                pinnedToMinimax,
+                onRateLimited: onMinimaxRateLimited,
+              })
+            : provider === 'siliconflow'
+              ? handleSiliconFlowNonStream(baseArgs)
+              : provider === 'opencodeZen'
+                ? handleOpenCodeZenNonStream(baseArgs)
+                : provider === 'moonshot'
+                  ? handleMoonshotNonStream(baseArgs)
+                  : provider === 'canopywave'
+                    ? handleCanopyWaveNonStream(baseArgs)
+                    : provider === 'deepseek'
+                      ? handleDeepSeekNonStream(baseArgs)
+                      : provider === 'infron'
+                        ? handleInfronNonStream(baseArgs)
+                        : provider === 'mimo'
+                          ? handleMiMoNonStream(baseArgs)
+                          : provider === 'minimax'
+                            ? handleMiniMaxNonStream(baseArgs)
+                            : provider === 'fireworks'
+                              ? handleFireworksNonStream(baseArgs)
+                              : provider === 'openai'
+                                ? handleOpenAINonStream(baseArgs)
+                                : handleOpenRouterNonStream({
+                                    ...baseArgs,
+                                    openrouterApiKey,
+                                  })
         const result = await nonStreamRequest
 
         trackSuccessEvent({

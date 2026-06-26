@@ -997,6 +997,13 @@ export const freeSession = pgTable(
     fireworks_route: text('fireworks_route').$type<
       'deployment' | 'serverless'
     >(),
+    /** Sticky upstream pin for MiniMax-family models that default to the
+     *  Fireworks serverless API and fall back to the official MiniMax API on
+     *  rate limits. Set to 'minimax' the first time Fireworks rate-limits the
+     *  session, then honored for every later request so the warm prompt cache
+     *  never cold-starts from a mid-session upstream switch. Null → default
+     *  (Fireworks) upstream. See minimax-m3-router.ts. */
+    minimax_upstream: text('minimax_upstream').$type<'fireworks' | 'minimax'>(),
     /** Resolved country/privacy metadata from the latest successful
      *  free-session POST country gate. Raw IP is not stored; `client_ip_hash`
      *  is HMAC-SHA256 with the server auth secret for correlation only. */

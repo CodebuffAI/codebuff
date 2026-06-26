@@ -19,6 +19,7 @@ import {
   checkSessionAdmissible,
   endUserSession,
   getSessionState,
+  pinFreeSessionToMinimax,
   requestSession,
 } from '../public-api'
 import { FreeSessionModelLockedError } from '../store'
@@ -136,6 +137,12 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
         session_units: 1,
       })
       return row
+    },
+    pinMinimaxUpstream: async ({ userId, now }) => {
+      const row = rows.get(userId)
+      if (!row) return
+      row.minimax_upstream = 'minimax'
+      row.updated_at = now
     },
     now: () => currentNow,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
@@ -490,35 +497,10 @@ describe('requestSession', () => {
     expect(ipHashCalls).toEqual(['hash-a'])
   })
 
-  test('admission pins minimax-m3 to the deployment when healthy', async () => {
-    const admitDeps = makeDeps({
-      getFleetHealth: async () => ({
-        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
-      }),
-    })
-    await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-      deps: admitDeps,
-    })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('deployment')
-  })
-
-  test('admission pins minimax-m3 to serverless when degraded', async () => {
-    const admitDeps = makeDeps({
-      getFleetHealth: async () => ({
-        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'degraded',
-      }),
-    })
-    await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-      deps: admitDeps,
-    })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
-  })
-
-  test('admission pins minimax-m3 to serverless when unhealthy', async () => {
+  test('admission no longer pins minimax-m3 to a deployment (deployment retired)', async () => {
+    // The dedicated M3 deployment was retired: M3 now serves from Fireworks
+    // serverless with a reactive MiniMax fallback, so admission never sets a
+    // deployment route pin regardless of (legacy) fleet health.
     const admitDeps = makeDeps({
       getFleetHealth: async () => ({
         [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'unhealthy',
@@ -529,39 +511,7 @@ describe('requestSession', () => {
       model: FREEBUFF_MINIMAX_M3_MODEL_ID,
       deps: admitDeps,
     })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
-  })
-
-  test('admission pins minimax-m3 to serverless when measured TTFT p90 > 4s, even while Prometheus health is healthy', async () => {
-    const admitDeps = makeDeps({
-      getFleetHealth: async () => ({
-        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
-      }),
-      getDeploymentTtftP90Ms: (model) =>
-        model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 5000 : undefined,
-    })
-    await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-      deps: admitDeps,
-    })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
-  })
-
-  test('admission keeps minimax-m3 on the deployment when healthy and TTFT p90 is under 4s', async () => {
-    const admitDeps = makeDeps({
-      getFleetHealth: async () => ({
-        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'healthy',
-      }),
-      getDeploymentTtftP90Ms: (model) =>
-        model === FREEBUFF_MINIMAX_M3_MODEL_ID ? 900 : undefined,
-    })
-    await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-      deps: admitDeps,
-    })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('deployment')
+    expect(admitDeps.rows.get('u1')?.fireworks_route ?? null).toBeNull()
   })
 
   test('models without a serverless backup get no route pin', async () => {
@@ -578,54 +528,58 @@ describe('requestSession', () => {
     expect(admitDeps.rows.get('u1')?.fireworks_route ?? null).toBeNull()
   })
 
-  test('route is sticky: a serverless pin survives a later takeover even after the deployment recovers', async () => {
-    let health: 'healthy' | 'degraded' = 'degraded'
-    const admitDeps = makeDeps({
-      getFleetHealth: async () => ({ [FREEBUFF_MINIMAX_M3_MODEL_ID]: health }),
-    })
-    // Admitted while degraded → pinned to serverless.
-    await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-      deps: admitDeps,
-    })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
-
-    // Deployment recovers, then the same user re-POSTs (CLI restart / takeover).
-    // The session is already active, so it is NOT re-promoted — the original
-    // serverless pin is preserved so the prompt cache never cold-starts.
-    health = 'healthy'
-    await requestSession({
-      userId: 'u1',
-      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
-      deps: admitDeps,
-    })
-    expect(admitDeps.rows.get('u1')?.fireworks_route).toBe('serverless')
-  })
-
-  test('checkSessionAdmissible surfaces the session route pin', async () => {
-    const admitDeps = makeDeps({
-      getFleetHealth: async () => ({
-        [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'unhealthy',
-      }),
-    })
+  test('a fresh M3 session has no minimax pin; the gate omits minimaxUpstream', async () => {
+    const admitDeps = makeDeps()
     const state = await requestSession({
       userId: 'u1',
       model: FREEBUFF_MINIMAX_M3_MODEL_ID,
       deps: admitDeps,
     })
     if (state.status !== 'active') throw new Error('expected active')
+    expect(admitDeps.rows.get('u1')?.minimax_upstream ?? null).toBeNull()
+
     const gate = await checkSessionAdmissible({
       userId: 'u1',
       claimedInstanceId: state.instanceId,
       requestedModel: FREEBUFF_MINIMAX_M3_MODEL_ID,
       deps: admitDeps,
     })
-    expect(gate.ok).toBe(true)
     if (!gate.ok || gate.reason !== 'active') {
       throw new Error('expected ok active gate')
     }
-    expect(gate.fireworksRoute).toBe('serverless')
+    expect(gate.minimaxUpstream).toBeUndefined()
+  })
+
+  test('pinFreeSessionToMinimax sets the sticky pin, surfaced by checkSessionAdmissible', async () => {
+    const admitDeps = makeDeps()
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    if (state.status !== 'active') throw new Error('expected active')
+
+    // A Fireworks rate limit pins the session to the official MiniMax API.
+    await pinFreeSessionToMinimax('u1', admitDeps)
+    expect(admitDeps.rows.get('u1')?.minimax_upstream).toBe('minimax')
+
+    const gate = await checkSessionAdmissible({
+      userId: 'u1',
+      claimedInstanceId: state.instanceId,
+      requestedModel: FREEBUFF_MINIMAX_M3_MODEL_ID,
+      deps: admitDeps,
+    })
+    if (!gate.ok || gate.reason !== 'active') {
+      throw new Error('expected ok active gate')
+    }
+    expect(gate.minimaxUpstream).toBe('minimax')
+  })
+
+  test('pinFreeSessionToMinimax is a no-op when no session row exists', async () => {
+    const admitDeps = makeDeps()
+    // No requestSession → no row. Must not throw, and creates nothing.
+    await pinFreeSessionToMinimax('ghost', admitDeps)
+    expect(admitDeps.rows.get('ghost')).toBeUndefined()
   })
 
   // Per-user premium session limit (5 units per Pacific day) — the wire

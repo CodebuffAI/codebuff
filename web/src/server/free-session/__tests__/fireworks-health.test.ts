@@ -131,29 +131,20 @@ describe('fireworks health classifier', () => {
 })
 
 describe('routeForAdmission', () => {
+  // The dedicated Fireworks deployments were retired, so no model is
+  // backup-capable today (FIREWORKS_SERVERLESS_FALLBACK_MODELS is empty) and
+  // routeForAdmission always returns null. The healthy/degraded/TTFT branches
+  // remain for any future deployment-backed model but are dormant.
   test('models without a serverless backup get no route', () => {
     expect(routeForAdmission('moonshotai/kimi-k2.6', {})).toBeNull()
-    expect(
-      routeForAdmission('moonshotai/kimi-k2.6', {}, 9999),
-    ).toBeNull()
+    expect(routeForAdmission('moonshotai/kimi-k2.6', {}, 9999)).toBeNull()
   })
 
-  test('healthy deployment with no TTFT signal → deployment', () => {
-    expect(routeForAdmission(M3, { [M3]: 'healthy' })).toBe('deployment')
-    expect(routeForAdmission(M3, {})).toBe('deployment')
-  })
-
-  test('degraded/unhealthy deployment → serverless regardless of TTFT', () => {
-    expect(routeForAdmission(M3, { [M3]: 'degraded' }, 100)).toBe('serverless')
-    expect(routeForAdmission(M3, { [M3]: 'unhealthy' })).toBe('serverless')
-  })
-
-  test('healthy deployment but TTFT p90 over 4s → serverless', () => {
-    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 4001)).toBe('serverless')
-  })
-
-  test('healthy deployment with TTFT p90 at/under 4s → deployment', () => {
-    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 4000)).toBe('deployment')
-    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 800)).toBe('deployment')
+  test('minimax-m3 no longer has a deployment backup → no route regardless of health/TTFT', () => {
+    expect(routeForAdmission(M3, { [M3]: 'healthy' })).toBeNull()
+    expect(routeForAdmission(M3, {})).toBeNull()
+    expect(routeForAdmission(M3, { [M3]: 'degraded' }, 100)).toBeNull()
+    expect(routeForAdmission(M3, { [M3]: 'unhealthy' })).toBeNull()
+    expect(routeForAdmission(M3, { [M3]: 'healthy' }, 9999)).toBeNull()
   })
 })
