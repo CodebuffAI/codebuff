@@ -14,6 +14,7 @@ file for entries pointing at files that no longer exist on disk.
 
 | pattern | file | description |
 | --- | --- | --- |
+| audit-codebase | `agents/patterns/audit-codebase.md` | Run a comprehensive multi-domain codebase audit via a shard→scratchpad→synthesize flow |
 | add-a-new-tool | `agents/patterns/add-a-new-tool.md` | Add a new tool to the agent runtime (params + handler + registration) |
 | ship-a-cli-command | `agents/patterns/ship-a-cli-command.md` | Add a new CLI slash command with argument parsing |
 | extend-the-sdk | `agents/patterns/extend-the-sdk.md` | Extend the SDK provider/model layer |
