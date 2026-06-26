@@ -1,6 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
@@ -53,26 +53,6 @@ interface WaitingRoomScreenProps {
  *  picker's height-budget math (wrappedRows), so it lives in one place to keep
  *  the two from drifting. */
 const LANDING_HEADING = 'Start coding for free'
-
-const formatWait = (ms: number): string => {
-  if (!Number.isFinite(ms) || ms <= 0) return 'any moment now'
-  const totalSeconds = Math.round(ms / 1000)
-  if (totalSeconds < 60) return `~${totalSeconds}s`
-  const minutes = Math.round(totalSeconds / 60)
-  if (minutes < 60) return `~${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  const rem = minutes % 60
-  return rem === 0 ? `~${hours}h` : `~${hours}h ${rem}m`
-}
-
-const formatElapsed = (ms: number): string => {
-  if (!Number.isFinite(ms) || ms < 0) return '0s'
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  if (minutes === 0) return `${seconds}s`
-  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`
-}
 
 /** "in ~3h 20m" / "in ~45 min" / "in under a minute". Used on the
  *  rate-limited screen so users know when they can try again. */
@@ -399,42 +379,34 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
   const [exitHover, setExitHover] = useState(false)
 
-  const isQueued = session?.status === 'queued'
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
   // Hidden in compact terminals: the notice is nice-to-have context, and
   // below 22 rows every line competes with the picker itself.
   const limitedModeNotice =
     accessTier === 'limited' && !compact ? getLimitedModeNotice(session) : null
-  // 'none' = user hasn't joined any queue yet. We're in the pre-chat landing
-  // state: show the picker with live N-in-line hints and a prompt. Picking a
-  // model triggers joinFreebuffQueue, which POSTs and transitions us to
-  // 'queued' (waiting room) or straight to 'active' (chat) if no wait.
+  // 'none' = user hasn't started a session yet. We're in the pre-chat landing
+  // state: show the picker with a prompt. Picking a model triggers
+  // joinFreebuffQueue, which POSTs and transitions straight to 'active' (chat).
   const isLanding = session?.status === 'none'
   const streakQuery = useFreebuffStreakQuery({
-    enabled: FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued),
+    enabled: FREEBUFF_ENABLE_STREAK_IN_UI && isLanding,
   })
   const streak = streakQuery.data?.streak ?? 0
   // Reserve the streak row whenever the feature could appear so the picker
   // doesn't jump when the query resolves or the user crosses from 0 → 1.
   // The component itself renders blank space when streak === 0.
   const reserveStreakSlot =
-    FREEBUFF_ENABLE_STREAK_IN_UI && (isLanding || isQueued) && !compact
+    FREEBUFF_ENABLE_STREAK_IN_UI && isLanding && !compact
   // On the landing screen the streak rides on the heading row, right-aligned.
   // Below ~50 cols the heading + dots get squashed together, so drop the streak
   // to its own line under the heading instead.
   const STREAK_INLINE_MIN_WIDTH = 50
   const streakOnHeadingRow =
     reserveStreakSlot && isLanding && contentMaxWidth >= STREAK_INLINE_MIN_WIDTH
-  // Elapsed-in-queue timer. Starts from `queuedAt` so it keeps ticking even if
-  // the user wanders away and comes back. On the landing picker we tick once a
-  // minute so the session reset countdown stays fresh.
-  const queuedAtMs = useMemo(() => {
-    if (session?.status === 'queued') return Date.parse(session.queuedAt)
-    return null
-  }, [session])
-  const now = useNow(isQueued ? 1000 : 60_000, isQueued || isLanding)
-  const elapsedMs = queuedAtMs ? now - queuedAtMs : 0
+  // On the landing picker we tick once a minute so the session reset countdown
+  // stays fresh.
+  const now = useNow(60_000, isLanding)
 
   // Free-session quota counter for the title line. All free models share one
   // pool; the server replicates the same snapshot under each free model
@@ -486,7 +458,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   //   - ad banner: AD_CARD_HEIGHT, only when shown
   //   - main box: its paddingTop (text-logo tier only) + paddingBottom 1
   //   - logo block: lines + marginBottom 1 (always, when shown) + gap (full)
-  //   - the prompt/counter (landing) or the position panel (queued)
+  //   - the prompt/counter (landing)
   // Line wrapping is derived from the actual strings vs contentMaxWidth, so
   // a wrapped counter is accounted for precisely instead of guessed at.
   const wrappedRows = (text: string) =>
@@ -506,14 +478,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // or below it. Placement varies: on a wide landing screen the streak shares
   // the heading row (0 extra rows, already counted in landingTextRows); on a
   // narrow landing screen it drops to its own line under the heading (1 row,
-  // no top margin); queued keeps it below the picker (marginTop + line = 2).
-  const streakRows = !reserveStreakSlot
-    ? 0
-    : streakOnHeadingRow
-      ? 0
-      : isQueued
-        ? 1 + 1
-        : 1
+  // no top margin).
+  const streakRows = !reserveStreakSlot ? 0 : streakOnHeadingRow ? 0 : 1
   const noticeRows = limitedModeNotice
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
@@ -539,20 +505,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     textMarginBottom +
     counterRows +
     belowPickerRows
-  const queuedTitleText =
-    session?.status === 'queued' && session.position === 1
-      ? "You're next in line"
-      : "You're in the waiting room"
-  const queuedTextRows =
-    wrappedRows(queuedTitleText) +
-    1 +
-    4 /* position panel */ +
-    belowPickerRows
   const selectorMaxHeight = Math.max(
     3,
-    terminalHeight -
-    reservedChrome -
-    (isQueued ? queuedTextRows : landingTextRows),
+    terminalHeight - reservedChrome - landingTextRows,
   )
 
   useEffect(() => {
@@ -724,77 +679,9 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
 
           {session?.status === 'takeover_prompt' && <TakeoverPrompt />}
 
-          {isQueued && session && (
-            <box
-              style={{
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: 0,
-              }}
-            >
-              <text
-                style={{
-                  fg: theme.foreground,
-                  marginBottom: 1,
-                }}
-                attributes={TextAttributes.BOLD}
-              >
-                {queuedTitleText}
-              </text>
-              <FreebuffModelSelector
-                maxHeight={selectorMaxHeight}
-                onExpandedChange={setSelectorExpanded}
-              />
-              {limitedModeNotice && (
-                <text
-                  style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
-                >
-                  {limitedModeNotice}
-                </text>
-              )}
-              {reserveStreakSlot && (
-                <StreakInlineLine streak={streak} marginTop={1} />
-              )}
-
-              <box
-                style={{
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  gap: 0,
-                  marginTop: 1,
-                }}
-              >
-                <text style={{ fg: theme.foreground, alignSelf: 'flex-start' }}>
-                  <span fg={theme.muted}>Position </span>
-                  <span fg={theme.primary} attributes={TextAttributes.BOLD}>
-                    {session.position}
-                  </span>
-                  <span fg={theme.muted}> / {session.queueDepth}</span>
-                </text>
-                <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                  <span>Wait </span>
-                  {session.position === 1
-                    ? 'any moment now'
-                    : formatWait(session.estimatedWaitMs)}
-                </text>
-                <text style={{ fg: theme.muted, alignSelf: 'flex-start' }}>
-                  <span>Elapsed </span>
-                  {formatElapsed(elapsedMs)}
-                </text>
-              </box>
-            </box>
-          )}
-
-          {/* Server says the waiting room is disabled — this screen should not
-              normally render in that case, but show a minimal message just in
-              case App.tsx's guard is bypassed. */}
-          {session?.status === 'disabled' && (
-            <text style={{ fg: theme.muted }}>Waiting room disabled.</text>
-          )}
-
           {/* Country outside the free-mode allowlist. Terminal — polling has
-              stopped. Tell the user up front rather than letting them wait in
-              the queue only to be rejected at the chat/completions gate. */}
+              stopped. Tell the user up front rather than letting them send a
+              request that the chat/completions gate would reject. */}
           {session?.status === 'country_blocked' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
@@ -839,8 +726,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
           )}
 
           {/* Account banned. Terminal — polling has stopped. Blocking here
-              stops banned bots from re-entering the queue every few seconds
-              and inflating queueDepth between admission-tick sweeps. */}
+              stops banned bots from re-entering free mode. */}
           {session?.status === 'banned' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
