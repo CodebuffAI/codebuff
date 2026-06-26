@@ -98,6 +98,8 @@ export const CHAT_DOC_ALLOWED_EXTENSIONS = [
   // Rich documents (extracted via dedicated parsers — see extract.ts)
   '.pdf',
   '.docx',
+  '.xlsx',
+  '.xlsm',
   // Plain text & docs
   '.txt',
   '.text',

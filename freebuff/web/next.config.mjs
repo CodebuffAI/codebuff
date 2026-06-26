@@ -49,10 +49,14 @@ const nextConfig = {
     '@codebuff/code-map/parse',
     '@codebuff/code-map/languages',
     // Document extraction for chat uploads: unpdf bundles pdf.js (dynamic
-    // imports/workers) and mammoth uses Node built-ins + dynamic requires —
-    // keep both unbundled so they load from node_modules at runtime.
+    // imports/workers), mammoth uses Node built-ins + dynamic requires, exceljs
+    // bundles a zip/stream stack, and turndown needs its own DOM — keep them
+    // unbundled so they load from node_modules at runtime.
     'unpdf',
     'mammoth',
+    'exceljs',
+    'turndown',
+    'turndown-plugin-gfm',
   ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],

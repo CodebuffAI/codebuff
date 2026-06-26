@@ -5,6 +5,7 @@ import { searchDocs } from '@/server/chat/document-context'
 import {
   EmptyDocumentError,
   extractText,
+  parseDelimited,
   UnsupportedDocumentError,
 } from '@/server/chat/extract'
 
@@ -116,6 +117,78 @@ describe('extractText — PDF & DOCX (Phase 2)', () => {
       .buffer as ArrayBuffer
     await expect(
       extractText({ bytes: buf, mediaType: 'application/pdf', fileName: 'x.pdf' }),
+    ).rejects.toBeInstanceOf(UnsupportedDocumentError)
+  })
+})
+
+describe('parseDelimited', () => {
+  it('parses quoted fields with embedded delimiters, newlines, and "" escapes', () => {
+    const csv = 'a,b,c\n1,"x,y","line1\nline2"\n2,"he said ""hi""",z'
+    expect(parseDelimited(csv, ',')).toEqual([
+      ['a', 'b', 'c'],
+      ['1', 'x,y', 'line1\nline2'],
+      ['2', 'he said "hi"', 'z'],
+    ])
+  })
+  it('handles CRLF and tabs', () => {
+    expect(parseDelimited('a\tb\r\nc\td', '\t')).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ])
+  })
+})
+
+describe('extractText — tables (Phase 3)', () => {
+  async function readFixture(name: string): Promise<ArrayBuffer> {
+    const u8 = await Bun.file(`${import.meta.dir}/fixtures/${name}`).bytes()
+    return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer
+  }
+
+  it('renders a CSV as a Markdown table', async () => {
+    const csv = 'Region,Revenue,Notes\nWest,1200,"a, b"\nEast,980,steady\n'
+    const r = await extractText({
+      bytes: bytesOf(csv),
+      mediaType: 'text/csv',
+      fileName: 'data.csv',
+    })
+    expect(r.text).toContain('| Region | Revenue | Notes |')
+    expect(r.text).toContain('| --- | --- | --- |')
+    // The comma inside the quoted field stays in one cell (not split).
+    expect(r.text).toContain('| East | 980 | steady |')
+    expect(r.text).toContain('a, b')
+  })
+
+  it('extracts an XLSX as a Markdown table', async () => {
+    const r = await extractText({
+      bytes: await readFixture('sample.xlsx'),
+      mediaType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      fileName: 'sample.xlsx',
+    })
+    expect(r.text).toContain('| Region | Revenue | Notes |')
+    expect(r.text).toContain('XLSX_SECRET_42')
+    expect(r.text).toContain('| West | 1200 |')
+  })
+
+  it('preserves a table when extracting a DOCX', async () => {
+    const r = await extractText({
+      bytes: await readFixture('sample-table.docx'),
+      mediaType:
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      fileName: 'sample-table.docx',
+    })
+    expect(r.text).toContain('DOCX_TABLE_77')
+    // GFM table pipes survive (mammoth → HTML → turndown+gfm).
+    expect(r.text).toContain('| Region | Revenue |')
+  })
+
+  it('rejects a corrupt XLSX', async () => {
+    await expect(
+      extractText({
+        bytes: bytesOf('PK not really xlsx'),
+        mediaType: 'application/vnd.ms-excel',
+        fileName: 'bad.xlsx',
+      }),
     ).rejects.toBeInstanceOf(UnsupportedDocumentError)
   })
 })
