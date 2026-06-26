@@ -320,7 +320,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
               rel="noopener noreferrer"
               className={cn(
                 trackedSetupLink
-                  ? 'my-1 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90'
+                  ? 'my-1 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground no-underline shadow-sm transition-colors hover:bg-[hsl(0_0%_88%)] hover:text-primary-foreground'
                   : 'text-primary underline underline-offset-4 hover:text-primary/80',
               )}
             >

@@ -411,6 +411,19 @@
 .chat-markdown a:hover {
   color: hsl(var(--foreground));
 }
+/* Tracked setup-link CTA buttons (e.g. "Get your Neon API key").
+   Scoped here so they override the generic chat-markdown link rules above
+   instead of fighting them — keeps dark, readable text on hover and no
+   underline, with a solid (non-translucent) darken on hover. */
+.chat-markdown a.chat-setup-link,
+.chat-markdown a.chat-setup-link:hover {
+  text-decoration: none;
+  color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--primary));
+}
+.chat-markdown a.chat-setup-link:hover {
+  background-color: hsl(0 0% 88%);
+}
 .chat-markdown table {
   margin: 0.875rem 0;
   width: 100%;
