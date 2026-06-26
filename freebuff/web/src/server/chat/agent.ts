@@ -189,18 +189,21 @@ export async function runChatAgent(params: {
     ? `${params.prompt}\n\n${docContext.promptSuffix}`
     : params.prompt
 
-  const customToolDefinitions: CustomToolDefinition[] = docContext.searchTool
-    ? [docContext.searchTool]
-    : []
+  const customToolDefinitions: CustomToolDefinition[] = docContext.tools
 
   // Per-turn agent overrides: bind the model, and when files are attached,
-  // grant the search tool and append file-handling guidance (base-chat's static
+  // grant the file tools and append file-handling guidance (base-chat's static
   // prompt otherwise says it has no filesystem).
   const agent = {
     ...baseChatAgent,
     model: backendModel,
-    ...(docContext.searchTool
-      ? { toolNames: [...(baseChatAgent.toolNames ?? []), 'search_files'] }
+    ...(customToolDefinitions.length > 0
+      ? {
+          toolNames: [
+            ...(baseChatAgent.toolNames ?? []),
+            ...customToolDefinitions.map((t) => t.toolName),
+          ],
+        }
       : {}),
     ...(docContext.instructions
       ? {

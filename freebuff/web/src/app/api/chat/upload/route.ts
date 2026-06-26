@@ -7,6 +7,7 @@ import {
   CHAT_IMAGE_ALLOWED_TYPES_SET,
   CHAT_IMAGE_MAX_BYTES,
   classifyAttachment,
+  fileExtension,
 } from '@/app/chat/models'
 import { getChatAccessTier } from '@/server/chat/access'
 import { getChatUserId } from '@/server/chat/auth'
@@ -167,6 +168,11 @@ async function handleDocumentUpload(file: File, userId: string) {
     )
   }
 
+  // Metric fields (no filename / content — PII-lean): file kind + size, and on
+  // success the extracted size + truncation. Queryable in Axiom by `metric`.
+  const ext = fileExtension(file.name)
+  const byteSize = file.size
+
   let text: string
   let truncated: boolean
   try {
@@ -178,12 +184,19 @@ async function handleDocumentUpload(file: File, userId: string) {
     text = result.text
     truncated = result.truncated
   } catch (error) {
-    if (
-      error instanceof UnsupportedDocumentError ||
-      error instanceof EmptyDocumentError
-    ) {
+    const reason =
+      error instanceof UnsupportedDocumentError
+        ? 'unsupported'
+        : error instanceof EmptyDocumentError
+          ? 'empty'
+          : 'error'
+    logger.info(
+      { metric: 'chat_doc_extracted', ext, bytes: byteSize, ok: false, reason },
+      'chat document extraction failed',
+    )
+    if (reason !== 'error') {
       return NextResponse.json(
-        { error: 'extract_failed', message: error.message },
+        { error: 'extract_failed', message: (error as Error).message },
         { status: 400 },
       )
     }
@@ -210,6 +223,17 @@ async function handleDocumentUpload(file: File, userId: string) {
         bytes.byteOffset + bytes.byteLength,
       ) as ArrayBuffer,
       'text/plain; charset=utf-8',
+    )
+    logger.info(
+      {
+        metric: 'chat_doc_extracted',
+        ext,
+        bytes: byteSize,
+        chars: text.length,
+        truncated,
+        ok: true,
+      },
+      'chat document extracted',
     )
     return NextResponse.json({
       kind: 'document',

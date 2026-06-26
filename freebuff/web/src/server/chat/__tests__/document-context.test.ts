@@ -83,8 +83,12 @@ function bigDoc(storageId: string, sentinel: string): ChatDocumentRef {
   return doc(storageId, lines.join('\n'))
 }
 
-async function runSearch(tool: any, query: string) {
-  const out = await tool.execute({ query })
+function toolNamed(ctx: { tools: any[] }, name: string): any {
+  return ctx.tools.find((t) => t.toolName === name)
+}
+
+async function runSearch(ctx: { tools: any[] }, query: string) {
+  const out = await toolNamed(ctx, 'search_files').execute({ query })
   return out[0].value as {
     totalMatches: number
     matches?: { file: string; snippet: string }[]
@@ -106,10 +110,10 @@ describe('buildDocumentContext', () => {
   it('returns empty when there are no documents', async () => {
     const ctx = await buildDocumentContext([], [], SIGNAL)
     expect(ctx.promptSuffix).toBe('')
-    expect(ctx.searchTool).toBeUndefined()
+    expect(ctx.tools).toEqual([])
   })
 
-  it('inlines a small current doc in full and registers no search tool', async () => {
+  it('inlines a small current doc in full and registers no tools', async () => {
     const ctx = await buildDocumentContext(
       [doc('small', 'the secret is APPLE_42', 'notes.txt')],
       [],
@@ -117,7 +121,7 @@ describe('buildDocumentContext', () => {
     )
     expect(ctx.promptSuffix).toContain('APPLE_42')
     expect(ctx.promptSuffix).toContain('name="notes.txt"')
-    expect(ctx.searchTool).toBeUndefined()
+    expect(ctx.tools).toEqual([])
   })
 
   it('sanitizes the filename in the inlined tag', async () => {
@@ -138,8 +142,11 @@ describe('buildDocumentContext', () => {
     )
     // The sentinel is past the inline head excerpt.
     expect(ctx.promptSuffix).not.toContain('ZZZ_SENTINEL')
-    expect(ctx.searchTool).toBeDefined()
-    const res = await runSearch(ctx.searchTool, 'ZZZ_SENTINEL')
+    expect(ctx.tools.map((t) => t.toolName)).toEqual([
+      'search_files',
+      'read_file_lines',
+    ])
+    const res = await runSearch(ctx, 'ZZZ_SENTINEL')
     expect(res.totalMatches).toBe(1)
     expect(res.matches![0].snippet).toContain('ZZZ_SENTINEL')
   })
@@ -151,17 +158,57 @@ describe('buildDocumentContext', () => {
       SIGNAL,
     )
     expect(ctx.promptSuffix).toBe('')
-    expect(ctx.searchTool).toBeDefined()
-    const res = await runSearch(ctx.searchTool, 'PRIOR_SENTINEL')
+    expect(toolNamed(ctx, 'search_files')).toBeDefined()
+    const res = await runSearch(ctx, 'PRIOR_SENTINEL')
     expect(res.totalMatches).toBe(1)
   })
 
   it('does not double-count a doc present as both current and prior', async () => {
     const shared = bigDoc('dup', 'DUP_SENTINEL')
     const ctx = await buildDocumentContext([shared], [shared], SIGNAL)
-    const res = await runSearch(ctx.searchTool, 'DUP_SENTINEL')
+    const res = await runSearch(ctx, 'DUP_SENTINEL')
     // One match, not two — the prior copy was filtered out.
     expect(res.totalMatches).toBe(1)
+  })
+
+  it('read_file_lines returns a numbered range and clamps to the file', async () => {
+    const ctx = await buildDocumentContext(
+      [bigDoc('big', 'ZZZ_SENTINEL')],
+      [],
+      SIGNAL,
+    )
+    const read = toolNamed(ctx, 'read_file_lines')
+    // The sentinel is on line 501 (lines[500]); read around it.
+    const out = await read.execute({ file: 'big', startLine: 499, endLine: 503 })
+    const value = out[0].value as {
+      startLine: number
+      endLine: number
+      totalLines: number
+      content: string
+    }
+    expect(value.startLine).toBe(499)
+    expect(value.endLine).toBe(503)
+    expect(value.content).toContain('501: ZZZ_SENTINEL is on this line')
+    // Reading past EOF clamps to the last line.
+    const tail = await read.execute({ file: 'big', startLine: 999999 })
+    expect((tail[0].value as { startLine: number }).startLine).toBe(
+      value.totalLines,
+    )
+  })
+
+  it('read_file_lines reports an unknown file with the available names', async () => {
+    const ctx = await buildDocumentContext(
+      [bigDoc('big', 'ZZZ_SENTINEL')],
+      [],
+      SIGNAL,
+    )
+    const out = await toolNamed(ctx, 'read_file_lines').execute({
+      file: 'nope.txt',
+      startLine: 1,
+    })
+    const value = out[0].value as { error?: string; availableFiles?: string[] }
+    expect(value.error).toContain('not found')
+    expect(value.availableFiles).toContain('big')
   })
 })
 

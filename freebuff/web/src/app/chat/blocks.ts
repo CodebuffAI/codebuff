@@ -139,6 +139,12 @@ export function toolCallDisplay(
       verbs: { running: 'Searching files', done: 'Searched files' },
     }
   }
+  if (toolName === 'read_file_lines') {
+    return {
+      label: asTrimmedString(input.file),
+      verbs: { running: 'Reading file', done: 'Read file' },
+    }
+  }
   if (toolName === 'gravity_index') {
     switch (input.action) {
       case 'search':

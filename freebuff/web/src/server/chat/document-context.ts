@@ -6,6 +6,7 @@ import {
   CHAT_DOC_SEARCH_TOTAL_CHAR_BUDGET,
 } from '@/app/chat/models'
 import { loadBlobs } from '@/server/chat/blob-store'
+import { logger } from '@/util/logger'
 
 import type { ChatDocumentRef } from '@/server/chat/store'
 import type { CustomToolDefinition } from '@codebuff/sdk'
@@ -26,15 +27,16 @@ export interface DocumentContext {
    *  prompt — so a doc placed in content would silently replace the user's
    *  question. Empty when there are no documents. */
   promptSuffix: string
-  /** A search_files tool over the large files, present only when at least one
-   *  file was too long to inline in full. */
-  searchTool?: CustomToolDefinition
+  /** File-reading tools (search_files + read_file_lines) over the searchable
+   *  files, present only when at least one file is too long to inline / is from
+   *  an earlier message. Empty otherwise. */
+  tools: CustomToolDefinition[]
   /** Guidance appended to the agent's instructions for this turn (e.g. telling
-   *  it to use search_files). Empty when there's nothing to add. */
+   *  it to use the file tools). Empty when there's nothing to add. */
   instructions: string
 }
 
-const EMPTY: DocumentContext = { promptSuffix: '', instructions: '' }
+const EMPTY: DocumentContext = { promptSuffix: '', tools: [], instructions: '' }
 
 /**
  * Makes a filename safe to embed in the model prompt. The name is user-supplied
@@ -144,16 +146,77 @@ export async function buildDocumentContext(
   if (largeDocs.length === 0 && lazyPriorDocs.length === 0) {
     return {
       promptSuffix,
+      tools: [],
       instructions:
         'The user attached file(s), included in full in their message. Use their contents directly when answering — do not ask the user to restate what they want.',
     }
   }
 
+  // Both tools read from one lazily-hydrated source, so the prior files are
+  // fetched at most once regardless of which tool the agent calls first.
+  const source = makeDocSource(largeDocs, lazyPriorDocs, signal)
   return {
     promptSuffix,
-    searchTool: makeSearchTool(largeDocs, lazyPriorDocs, signal),
-    instructions: `You can read the full text of file(s) attached in this conversation — including files attached in earlier messages — using the search_files tool, which returns matching line ranges. Only a head excerpt of long files is shown inline. Whenever the user's message is about an attached file, call search_files (with a keyword, identifier, or phrase) to find what you need before answering, rather than relying only on an inline excerpt or asking the user to restate. You may call search_files several times with different queries.`,
+    tools: [makeSearchTool(source), makeReadLinesTool(source)],
+    instructions: `You can read the full text of file(s) attached in this conversation — including files attached in earlier messages — using two tools: search_files (find matching line ranges by keyword/identifier/phrase) and read_file_lines (read a specific numbered line range, e.g. to see more context around a search hit). Only a head excerpt of long files is shown inline. Whenever the user's message is about an attached file, use these tools to find what you need before answering, rather than relying only on an inline excerpt or asking the user to restate. You may call them several times.`,
   }
+}
+
+/** A lazily-hydrated set of searchable documents shared by the file tools.
+ *  Already-loaded files (this turn's large files) are available immediately;
+ *  files from earlier messages are fetched on first access, keeping the
+ *  most-recent ones up to a total-size budget so a thread with many/large files
+ *  can't exhaust memory. */
+interface DocSource {
+  /** Display names of every searchable file (for tool descriptions). */
+  names: string[]
+  /** All hydrated docs; fetches the lazy ones on first call, then caches. */
+  all: () => Promise<LoadedDoc[]>
+}
+
+function makeDocSource(
+  loaded: LoadedDoc[],
+  lazyRefs: ChatDocumentRef[],
+  signal: AbortSignal,
+): DocSource {
+  const docs: LoadedDoc[] = [...loaded]
+  let pending: ChatDocumentRef[] = [...lazyRefs]
+  return {
+    names: [
+      ...loaded.map((d) => d.name),
+      ...lazyRefs.map((r) => sanitizeFileName(r.name)),
+    ],
+    all: async () => {
+      if (pending.length > 0) {
+        const more = await loadDocs(pending, signal)
+        pending = []
+        let total = docs.reduce((n, d) => n + d.text.length, 0)
+        for (const d of more) {
+          if (total + d.text.length > CHAT_DOC_SEARCH_TOTAL_CHAR_BUDGET) continue
+          docs.push(d)
+          total += d.text.length
+        }
+      }
+      return docs
+    },
+  }
+}
+
+/** doc.lines, split once and cached for reuse across tool calls. */
+function docLines(doc: LoadedDoc): string[] {
+  return (doc.lines ??= doc.text.split('\n'))
+}
+
+/** Resolves a model-supplied file name to a loaded doc (exact, then
+ *  case-insensitive, then basename match), or null if not found/ambiguous. */
+function findDoc(docs: LoadedDoc[], name: string): LoadedDoc | null {
+  const exact = docs.find((d) => d.name === name)
+  if (exact) return exact
+  const lower = name.toLowerCase()
+  const ci = docs.filter((d) => d.name.toLowerCase() === lower)
+  if (ci.length === 1) return ci[0]!
+  const base = docs.filter((d) => d.name.toLowerCase().endsWith(`/${lower}`))
+  return base.length === 1 ? base[0]! : null
 }
 
 const MAX_SEARCH_RESULTS = 25
@@ -270,23 +333,18 @@ export function searchDocs(
   return { matches, totalMatches, truncated }
 }
 
+/** Default span and hard caps for read_file_lines. */
+const READ_DEFAULT_LINES = 200
+const MAX_READ_LINES = 400
+const MAX_READ_OUTPUT_CHARS = 12_000
+
 /**
- * Builds the search_files custom tool over both already-loaded documents
- * (`loaded` — this turn's large files) and `lazyRefs` (files from earlier in the
- * thread, whose text is fetched on the first search so unused prior files cost
- * nothing). Names of all searchable files appear in the description.
+ * search_files: greps the searchable files for a query and returns matching
+ * line ranges with surrounding context. The files come from a shared DocSource,
+ * so earlier-message files are fetched at most once across both file tools.
  */
-function makeSearchTool(
-  loaded: LoadedDoc[],
-  lazyRefs: ChatDocumentRef[],
-  signal: AbortSignal,
-): CustomToolDefinition {
-  const docs: LoadedDoc[] = [...loaded]
-  let pending: ChatDocumentRef[] = [...lazyRefs]
-  const fileList = [
-    ...loaded.map((d) => d.name),
-    ...lazyRefs.map((r) => sanitizeFileName(r.name)),
-  ].join(', ')
+function makeSearchTool(source: DocSource): CustomToolDefinition {
+  const fileList = source.names.join(', ')
   return {
     toolName: 'search_files',
     inputSchema: z.object({
@@ -299,27 +357,27 @@ function makeSearchTool(
         .optional()
         .describe('Treat query as a JavaScript regular expression.'),
     }),
-    description: `Search the full text of the attached file(s) (${fileList}) for a query and return matching line ranges with surrounding context. Files attached earlier in this conversation are included. Use this to read parts of a file that aren't in any inline excerpt. Call it multiple times with different queries as needed.`,
+    description: `Search the full text of the attached file(s) (${fileList}) for a query and return matching line ranges with surrounding context. Files attached earlier in this conversation are included. Use this to find parts of a file that aren't in any inline excerpt; pair it with read_file_lines to read more around a hit. Call it multiple times with different queries as needed.`,
     endsAgentStep: true,
     exampleInputs: [{ query: 'function handleUpload' }, { query: 'TODO' }],
     execute: async (input: { query: string; isRegex?: boolean }) => {
-      // Lazily fetch earlier-message files the first time the agent searches,
-      // keeping the most-recent ones up to a total-size budget so a thread with
-      // many/large files can't exhaust memory.
-      if (pending.length > 0) {
-        const more = await loadDocs(pending, signal)
-        pending = []
-        let total = docs.reduce((n, d) => n + d.text.length, 0)
-        for (const d of more) {
-          if (total + d.text.length > CHAT_DOC_SEARCH_TOTAL_CHAR_BUDGET) continue
-          docs.push(d)
-          total += d.text.length
-        }
-      }
+      const docs = await source.all()
       const { matches, totalMatches, truncated } = searchDocs(
         docs,
         input.query,
         input.isRegex ?? false,
+      )
+      logger.info(
+        {
+          metric: 'chat_doc_search',
+          files: docs.length,
+          queryLen: input.query.length,
+          isRegex: input.isRegex ?? false,
+          totalMatches,
+          returned: matches.length,
+          truncated,
+        },
+        'chat document search',
       )
       if (matches.length === 0) {
         return [
@@ -329,7 +387,7 @@ function makeSearchTool(
               query: input.query,
               totalMatches: 0,
               message:
-                'No matches found. Try a shorter or different query, or a regular expression.',
+                'No matches found. Try a shorter or different query, a regular expression, or read_file_lines if you know the region.',
             },
           },
         ]
@@ -347,6 +405,105 @@ function makeSearchTool(
               lines: `${m.startLine}-${m.endLine}`,
               snippet: m.snippet,
             })),
+          },
+        },
+      ]
+    },
+  }
+}
+
+/**
+ * read_file_lines: returns a numbered range of lines from one attached file —
+ * the complement to search_files, letting the agent expand context around a
+ * match or read a known region. The range is clamped to the file and to
+ * MAX_READ_LINES / MAX_READ_OUTPUT_CHARS.
+ */
+function makeReadLinesTool(source: DocSource): CustomToolDefinition {
+  const fileList = source.names.join(', ')
+  return {
+    toolName: 'read_file_lines',
+    inputSchema: z.object({
+      file: z
+        .string()
+        .min(1)
+        .describe('Name of the attached file to read from.'),
+      startLine: z
+        .number()
+        .int()
+        .min(1)
+        .describe('First line to read (1-based, inclusive).'),
+      endLine: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe(
+          `Last line to read (inclusive). Defaults to startLine + ${READ_DEFAULT_LINES - 1}; at most ${MAX_READ_LINES} lines are returned.`,
+        ),
+    }),
+    description: `Read a numbered range of lines from one attached file (${fileList}). Use after search_files to see more context around a match, or to read a specific region of a long file. Returns the lines with their numbers.`,
+    endsAgentStep: true,
+    exampleInputs: [{ file: source.names[0] ?? 'file', startLine: 1, endLine: 40 }],
+    execute: async (input: {
+      file: string
+      startLine: number
+      endLine?: number
+    }) => {
+      const docs = await source.all()
+      const doc = findDoc(docs, input.file)
+      if (!doc) {
+        logger.info(
+          { metric: 'chat_doc_read_lines', found: false },
+          'chat document read_lines',
+        )
+        return [
+          {
+            type: 'json',
+            value: {
+              error: `File "${input.file}" not found.`,
+              availableFiles: source.names,
+            },
+          },
+        ]
+      }
+      const lines = docLines(doc)
+      const totalLines = lines.length
+      const start = Math.min(Math.max(1, input.startLine), totalLines)
+      const requestedEnd = input.endLine ?? start + READ_DEFAULT_LINES - 1
+      let end = Math.min(Math.max(start, requestedEnd), totalLines)
+      // Cap the number of lines, then the output chars (truncating the tail).
+      end = Math.min(end, start + MAX_READ_LINES - 1)
+      let chars = 0
+      const out: string[] = []
+      for (let i = start; i <= end; i++) {
+        const rendered = `${i}: ${lines[i - 1]!}`
+        if (chars + rendered.length > MAX_READ_OUTPUT_CHARS && out.length > 0) {
+          end = i - 1
+          break
+        }
+        out.push(rendered)
+        chars += rendered.length + 1
+      }
+      const clamped = end < requestedEnd || start !== input.startLine
+      logger.info(
+        {
+          metric: 'chat_doc_read_lines',
+          found: true,
+          totalLines,
+          returnedLines: out.length,
+          clamped,
+        },
+        'chat document read_lines',
+      )
+      return [
+        {
+          type: 'json',
+          value: {
+            file: doc.name,
+            startLine: start,
+            endLine: end,
+            totalLines,
+            content: out.join('\n'),
           },
         },
       ]
