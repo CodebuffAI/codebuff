@@ -54,7 +54,7 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
                 rel="noopener noreferrer"
                 className={cn(
                   trackedSetupLink &&
-                    'my-1 inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground no-underline shadow-sm transition-colors hover:bg-primary/90',
+                    'chat-setup-link my-1 inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium shadow-sm transition-colors',
                   className,
                 )}
               >
