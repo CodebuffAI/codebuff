@@ -2,139 +2,109 @@ import { describe, expect, test } from 'bun:test'
 
 import { Store } from './store'
 
-function seedProject(store: Store, now = 1000) {
-  return store.insertProject({
-    id: 'proj-1',
-    repoUrl: 'https://github.com/acme/repo',
-    rootPath: '/tmp/repo',
-    dailyBudget: 1_000_000,
-    concurrencyCap: 5,
-    createdAt: now,
+function seeded(): Store {
+  const store = Store.memory()
+  store.insertProject({
+    id: 'project',
+    repoUrl: 'r',
+    rootPath: '/tmp/r',
+    dailyBudget: 1000,
+    createdAt: 1,
   })
+  return store
 }
 
-describe('Store', () => {
-  test('inserts and reads back a project with defaults', () => {
-    const store = Store.memory()
-    const project = seedProject(store)
-    expect(project.defaultBranch).toBe('main')
-    expect(project.mergeStrategy).toBe('squash')
+describe('Store — threads', () => {
+  test('insert, get, list (open only), update, close', () => {
+    const store = seeded()
+    const a = store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    expect(a.status).toBe('open')
+    expect(a.autorun).toBe(false)
+    store.insertThread({ id: 'th2', projectId: 'project', title: 'Two', createdAt: 2 })
 
-    const read = store.getProject('proj-1')
-    expect(read).not.toBeNull()
-    expect(read!.repoUrl).toBe('https://github.com/acme/repo')
-    expect(read!.runConfig).toEqual({})
-    store.close()
+    expect(store.getThread('th1')!.title).toBe('New thread')
+    expect(store.listThreads('project').length).toBe(2)
+
+    store.updateThread('th1', { title: 'Renamed', autorun: true, branch: 'freebuff/x' }, 5)
+    const t = store.getThread('th1')!
+    expect(t.title).toBe('Renamed')
+    expect(t.autorun).toBe(true)
+    expect(t.branch).toBe('freebuff/x')
+
+    store.updateThread('th2', { status: 'closed' }, 6)
+    expect(store.listThreads('project', { status: 'open' }).map((t) => t.id)).toEqual(['th1'])
   })
 
-  test('inserts a task and defaults to proposed/human with no parents', () => {
-    const store = Store.memory()
-    seedProject(store)
-    const task = store.insertTask({
-      id: 't1',
-      projectId: 'proj-1',
-      title: 'Add dark mode',
-      description: 'spec',
-      origin: 'human',
-      createdAt: 2000,
-    })
-    expect(task.status).toBe('proposed')
-    expect(task.parents).toEqual([])
+  test('messages round-trip with acts', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.appendMessage('th1', { role: 'user', text: 'hi' }, 1)
+    store.appendMessage(
+      'th1',
+      { role: 'assistant', text: 'ok', acts: [{ toolName: 'write_file', input: { path: 'a' } }] },
+      2,
+    )
+    const msgs = store.getMessages('th1')
+    expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant'])
+    expect((msgs[1].acts as any[])[0].toolName).toBe('write_file')
+  })
+})
 
-    const read = store.getTask('t1')
-    expect(read!.title).toBe('Add dark mode')
-    expect(read!.lastCompletedStage).toBeNull()
-    store.close()
+describe('Store — queue items', () => {
+  test('lanes, ordering, nextQueuedItem, maxPosition', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    const mk = (id: string, pos: number, state: any = 'queued') =>
+      store.insertQueueItem({
+        id,
+        threadId: 'th1',
+        prompt: id,
+        state,
+        source: 'user',
+        position: pos,
+        createdAt: 1,
+      })
+    mk('b', 2)
+    mk('a', 1)
+    mk('c', 3)
+    mk('s1', 1, 'suggested')
+
+    expect(store.listQueueItems('th1', 'queued').map((i) => i.id)).toEqual(['a', 'b', 'c'])
+    expect(store.nextQueuedItem('th1')!.id).toBe('a')
+    expect(store.maxPosition('th1', 'queued')).toBe(3)
+    expect(store.maxPosition('th1', 'suggested')).toBe(1)
+
+    // Promote a suggestion to the bottom of the queued lane.
+    store.updateQueueItem('s1', { state: 'queued', position: 4 }, 2)
+    expect(store.listQueueItems('th1', 'queued').map((i) => i.id)).toEqual(['a', 'b', 'c', 's1'])
+
+    store.updateQueueItem('a', { state: 'done' }, 3)
+    expect(store.nextQueuedItem('th1')!.id).toBe('b')
+
+    store.deleteQueueItem('b')
+    expect(store.nextQueuedItem('th1')!.id).toBe('c')
   })
 
-  test('persists parent edges atomically with the task', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.insertTask({
-      id: 'parent',
-      projectId: 'proj-1',
-      title: 'p',
-      description: '',
-      origin: 'human',
-      createdAt: 1,
-    })
-    store.insertTask({
-      id: 'child',
-      projectId: 'proj-1',
-      title: 'c',
-      description: '',
-      origin: 'scout',
-      rationale: 'follows from parent',
-      spawnedFrom: 'parent',
-      parents: ['parent'],
-      createdAt: 2,
-    })
-    expect(store.getTask('child')!.parents).toEqual(['parent'])
-    expect(store.getTask('child')!.spawnedFrom).toBe('parent')
-    expect(store.childrenOf('parent')).toEqual(['child'])
-    store.close()
+  test('fractional position lets an item insert between neighbors', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    const mk = (id: string, pos: number) =>
+      store.insertQueueItem({ id, threadId: 'th1', prompt: id, state: 'queued', source: 'user', position: pos, createdAt: 1 })
+    mk('a', 1)
+    mk('c', 2)
+    mk('b', 1.5)
+    expect(store.listQueueItems('th1', 'queued').map((i) => i.id)).toEqual(['a', 'b', 'c'])
   })
+})
 
-  test('lists tasks in FIFO creation order', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.insertTask({ id: 'b', projectId: 'proj-1', title: 'b', description: '', origin: 'human', createdAt: 200 })
-    store.insertTask({ id: 'a', projectId: 'proj-1', title: 'a', description: '', origin: 'human', createdAt: 100 })
-    store.insertTask({ id: 'c', projectId: 'proj-1', title: 'c', description: '', origin: 'human', createdAt: 300 })
-    expect(store.listTasks('proj-1').map((t) => t.id)).toEqual(['a', 'b', 'c'])
-    store.close()
-  })
-
-  test('updateTask patches only given columns and bumps updatedAt', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.insertTask({ id: 't1', projectId: 'proj-1', title: 't', description: '', origin: 'human', createdAt: 1 })
-    store.updateTask('t1', { status: 'running', stage: 'implement' }, 5000)
-    const t = store.getTask('t1')!
-    expect(t.status).toBe('running')
-    expect(t.stage).toBe('implement')
-    expect(t.updatedAt).toBe(5000)
-    expect(t.title).toBe('t')
-    store.close()
-  })
-
-  test('filters tasks by status', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.insertTask({ id: 't1', projectId: 'proj-1', title: '1', description: '', origin: 'human', createdAt: 1, status: 'ready' })
-    store.insertTask({ id: 't2', projectId: 'proj-1', title: '2', description: '', origin: 'human', createdAt: 2 })
-    expect(store.listTasks('proj-1', 'ready').map((t) => t.id)).toEqual(['t1'])
-    store.close()
-  })
-
-  test('budget ledger upsert + read', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.upsertBudget({ accountId: 'acct', tokensUsed: 500, windowStart: 100 })
-    store.upsertBudget({ accountId: 'acct', tokensUsed: 900, windowStart: 100 })
-    expect(store.getBudget('acct')).toEqual({ accountId: 'acct', tokensUsed: 900, windowStart: 100 })
-    store.close()
-  })
-
-  test('chat messages persist and read back in order', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.appendChatMessage('proj-1', { role: 'user', text: 'build X' }, 1)
-    store.appendChatMessage('proj-1', { role: 'assistant', text: 'done', acts: [{ toolName: 'create_task', input: { title: 'X' } }] }, 2)
-    const hist = store.getChatMessages('proj-1')
-    expect(hist.map((m) => m.role)).toEqual(['user', 'assistant'])
-    expect(hist[1].text).toBe('done')
-    expect((hist[1].acts[0] as any).toolName).toBe('create_task')
-    store.close()
-  })
-
-  test('removeEdge detaches a parent', () => {
-    const store = Store.memory()
-    seedProject(store)
-    store.insertTask({ id: 'p', projectId: 'proj-1', title: 'p', description: '', origin: 'human', createdAt: 1 })
-    store.insertTask({ id: 'c', projectId: 'proj-1', title: 'c', description: '', origin: 'human', createdAt: 2, parents: ['p'] })
-    store.removeEdge({ from: 'p', to: 'c' })
-    expect(store.getTask('c')!.parents).toEqual([])
-    store.close()
+describe('Store — workflows', () => {
+  test('upsert, get, list', () => {
+    const store = seeded()
+    store.upsertWorkflow('project', 'ship', ['review', 'test'])
+    expect(store.getWorkflow('project', 'ship')!.skills).toEqual(['review', 'test'])
+    store.upsertWorkflow('project', 'ship', ['review', 'simplify', 'test', 'reflect'])
+    expect(store.getWorkflow('project', 'ship')!.skills.length).toBe(4)
+    store.upsertWorkflow('project', 'polish', ['simplify'])
+    expect(store.listWorkflows('project').map((w) => w.name)).toEqual(['polish', 'ship'])
   })
 })

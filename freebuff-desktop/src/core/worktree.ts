@@ -15,7 +15,9 @@
 import { join } from 'path'
 
 import { bunRunner, runOrThrow, type CommandRunner } from './exec'
-import type { TaskId } from './types'
+
+/** A worktree is keyed by an opaque id (a thread id in the thread model). */
+type TaskId = string
 
 export const BRANCH_PREFIX = 'freebuff/'
 

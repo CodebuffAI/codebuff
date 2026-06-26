@@ -1,37 +1,28 @@
 /**
  * Freebuff Desktop orchestrator process — HTTP + SSE server (the Bun side of the
- * Electron-shell + Bun-orchestrator split). Serves the self-contained UI and the
- * API the renderer drives. One origin, no build step, so the verification loop is
- * fast.
+ * Electron-shell + Bun-orchestrator split). It serves the built React UI (packaged)
+ * and the thread-model API the renderer drives. In dev the Vite server owns the UI
+ * and proxies /api + /preview here, so this process focuses on the API.
  *
- *   bun freebuff-desktop/src/app/server.ts
- *   PORT=8787 TARGET_REPO=/path/to/repo bun freebuff-desktop/src/app/server.ts
+ *   PORT=8787 bun freebuff-desktop/src/app/server.ts
  *
  * The project directory is not fixed at launch: the user can open any local git
- * repo from the UI (§6.2). On open we tear down the engine, stand up a fresh one
- * pointed at the chosen folder, and remember it for next launch.
+ * repo from the UI. On open we tear down the engine, stand up a fresh one pointed
+ * at the chosen folder, and remember it for next launch.
  */
 
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 
-import { Engine, type EngineEvent } from './engine'
-import {
-  browseDir,
-  readLastProject,
-  validateProjectDir,
-  writeLastProject,
-} from './project-dir'
+import { ThreadEngine, type EngineEvent } from './thread-engine'
+import { browseDir, readLastProject, validateProjectDir, writeLastProject } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 
 const PORT = Number(process.env.PORT ?? 8787)
-// In dev the UI sits next to this source file. In the packaged app the
-// orchestrator is a bundled file, so the shell points FREEBUFF_UI_PATH at the
-// ui/index.html shipped in app resources.
-const UI_PATH = process.env.FREEBUFF_UI_PATH ?? join(import.meta.dir, 'ui', 'index.html')
+// The built React SPA directory (index.html + hashed assets). Set by the shell in
+// the packaged app. In dev this is unset — Vite serves the UI and proxies here.
+const UI_DIR = process.env.FREEBUFF_UI_DIR ?? join(import.meta.dir, '..', '..', 'dist-ui')
 
-// Initial project: explicit env override > last-opened folder > scaffolded demo.
-// Only the demo path gets sample files; a real folder the user opened is left alone.
 function defaultRepo(): string {
   return join(process.env.HOME ?? '/tmp', 'freebuff-desktop-demo')
 }
@@ -50,25 +41,13 @@ let currentRepo = initialRepo
 let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).defaultBranch)
 let engineUnsub = engine.on(broadcast)
 
-function makeEngine(repoRoot: string, defaultBranch?: string): Engine {
-  const e = new Engine({
-    repoRoot,
-    repoUrl: repoRoot,
-    defaultBranch,
-    concurrencyCap: Number(process.env.CONCURRENCY ?? 5),
-    // Scout on by default — proposals are a reviewable backlog (§9), not auto-run,
-    // so it's safe. Set ENABLE_SCOUT=0 to disable.
-    enableScout: process.env.ENABLE_SCOUT !== '0',
-  })
-  // Discovered run-config (§6.4). For the demo repo this is the node test runner;
-  // a real attach would run the setup agent. Kept simple here.
-  e.store.updateProjectRunConfig('project', {
-    test: process.env.TEST_CMD ?? 'node --test',
-  })
+function makeEngine(repoRoot: string, defaultBranch?: string): ThreadEngine {
+  const e = new ThreadEngine({ repoRoot, repoUrl: repoRoot, defaultBranch })
+  e.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
   return e
 }
 
-/** Tear down the current engine and open `dir` as the project (§6.2). */
+/** Tear down the current engine and open `dir` as the project. */
 async function openProject(dir: string): Promise<{ ok: boolean; error?: string }> {
   const info = await validateProjectDir(dir)
   if (!info.ok) return { ok: false, error: info.error }
@@ -81,26 +60,12 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   engineUnsub = engine.on(broadcast)
   writeLastProject(info.path)
 
-  // Push the new project's state to every connected client immediately.
   broadcast({ type: 'state', snapshot: engine.snapshot() })
   return { ok: true }
 }
 
-// Serve the UI with PostHog credentials injected so the renderer's engaged-time
-// heartbeat (ui/index.html) can emit `product_active_minute`. Absent env → the
-// placeholders are blanked and the client-side guard makes tracking a no-op.
-function renderUi(): string {
-  const html = readFileSync(UI_PATH, 'utf8')
-  return html
-    .replace('__POSTHOG_KEY__', process.env.NEXT_PUBLIC_POSTHOG_API_KEY ?? '')
-    .replace('__POSTHOG_HOST__', process.env.NEXT_PUBLIC_POSTHOG_HOST_URL ?? '')
-}
-
 const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
+  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
 
 async function body(req: Request): Promise<any> {
   try {
@@ -110,6 +75,49 @@ async function body(req: Request): Promise<any> {
   }
 }
 
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.woff2': 'font/woff2',
+}
+
+/** Serve a static file from `root` for a preview path, guarding traversal. */
+function servePreview(root: string, rel: string): Response {
+  rel = decodeURIComponent((rel || '/').split('?')[0])
+  if (rel.includes('..')) return new Response('Forbidden', { status: 403 })
+  if (rel.endsWith('/')) rel += 'index.html'
+  const full = join(root, rel)
+  if (!existsSync(full)) return new Response('Not found', { status: 404 })
+  return new Response(Bun.file(full))
+}
+
+/** Serve the built SPA: index.html at `/`, hashed assets by path. */
+function serveUi(pathname: string): Response {
+  const rel = pathname === '/' ? '/index.html' : pathname
+  if (rel.includes('..')) return new Response('Forbidden', { status: 403 })
+  const full = join(UI_DIR, rel)
+  if (existsSync(full) && statSync(full).isFile()) {
+    const ext = full.slice(full.lastIndexOf('.'))
+    return new Response(readFileSync(full), {
+      headers: { 'content-type': CONTENT_TYPES[ext] ?? 'application/octet-stream' },
+    })
+  }
+  // SPA fallback: serve index.html for client-side routes.
+  const index = join(UI_DIR, 'index.html')
+  if (existsSync(index)) {
+    return new Response(readFileSync(index, 'utf8'), {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+  }
+  return new Response('UI not built. Run `bun run ui:build` or use the Vite dev server.', {
+    status: 404,
+  })
+}
+
 const server = Bun.serve({
   port: PORT,
   idleTimeout: 0,
@@ -117,13 +125,7 @@ const server = Bun.serve({
     const url = new URL(req.url)
     const { pathname } = url
 
-    if (pathname === '/' || pathname === '/index.html') {
-      return new Response(renderUi(), {
-        headers: { 'content-type': 'text/html; charset=utf-8' },
-      })
-    }
-
-    // — Server-Sent Events: live engine state + agent activity —
+    // — Server-Sent Events: live engine + thread state + agent activity —
     if (pathname === '/api/events') {
       let send: (e: EngineEvent) => void = () => {}
       const stream = new ReadableStream({
@@ -135,9 +137,12 @@ const server = Bun.serve({
               subscribers.delete(send)
             }
           }
-          // Subscribe at the server level so an open-project engine swap keeps this
-          // connection live and streaming from whichever engine is current.
+          // Initial state + a thread event per open thread so a (re)connecting
+          // client backfills everything it missed.
           send({ type: 'state', snapshot: engine.snapshot() })
+          for (const t of engine.listThreads()) {
+            send({ type: 'thread', threadId: t.id, thread: t, items: engine.store.listQueueItems(t.id) })
+          }
           subscribers.add(send)
         },
         cancel() {
@@ -153,23 +158,22 @@ const server = Bun.serve({
       })
     }
 
-    // Serve the project's own files so the UI can iframe a live preview of web
-    // projects. Local-only tool; guard against path traversal.
+    // Per-thread live preview: serve files from THAT thread's git worktree, so you
+    // can see a thread's in-progress work (web projects) without it touching the
+    // project root. Falls back to the project root if the thread has no worktree yet.
+    const tpMatch = pathname.match(/^\/thread-preview\/([^/]+)(\/.*)?$/)
+    if (tpMatch) {
+      const [, threadId, sub] = tpMatch
+      return servePreview(engine.getThread(threadId)?.worktreePath ?? currentRepo, sub ?? '/')
+    }
+
+    // Live preview of the project's own files (web projects).
     if (pathname === '/preview' || pathname.startsWith('/preview/')) {
-      let rel = pathname === '/preview' ? '/' : pathname.slice('/preview'.length)
-      rel = decodeURIComponent(rel.split('?')[0])
-      if (rel.includes('..')) return new Response('Forbidden', { status: 403 })
-      if (rel.endsWith('/')) rel += 'index.html'
-      const full = join(currentRepo, rel)
-      if (!existsSync(full)) return new Response('Not found', { status: 404 })
-      return new Response(Bun.file(full))
+      return servePreview(currentRepo, pathname === '/preview' ? '/' : pathname.slice('/preview'.length))
     }
 
     if (pathname === '/api/state') return json(engine.snapshot())
 
-    if (pathname === '/api/chat-history') return json(engine.chatHistory())
-
-    // — Project directory: browse the filesystem and open a folder (§6.2) —
     if (pathname === '/api/fs/list') {
       return json(browseDir(url.searchParams.get('path') ?? undefined))
     }
@@ -179,21 +183,6 @@ const server = Bun.serve({
       if (!path) return json({ error: 'path required' }, 400)
       const result = await openProject(String(path))
       return result.ok ? json({ ok: true, path: currentRepo }) : json(result, 400)
-    }
-
-    if (pathname === '/api/chat' && req.method === 'POST') {
-      const { message } = await body(req)
-      if (!message) return json({ error: 'message required' }, 400)
-      // Fire-and-forget: progress streams over SSE.
-      void engine.handleChat(String(message)).catch((err) =>
-        console.error('chat error', err),
-      )
-      return json({ ok: true })
-    }
-
-    if (pathname === '/api/tick' && req.method === 'POST') {
-      void engine.tick()
-      return json({ ok: true })
     }
 
     if (pathname === '/api/run' && req.method === 'POST') {
@@ -206,35 +195,106 @@ const server = Bun.serve({
       }
     }
 
-    const taskMatch = pathname.match(/^\/api\/task\/([^/]+)\/([^/]+)$/)
-    if (taskMatch && req.method === 'POST') {
-      const [, taskId, action] = taskMatch
-      if (action === 'approve') {
-        void engine.approveAndMerge(taskId).catch((e) => console.error(e))
-        return json({ ok: true })
+    // — Threads —
+    if (pathname === '/api/threads') {
+      if (req.method === 'POST') {
+        const b = await body(req)
+        return json(engine.createThread({ title: b.title }))
       }
-      if (action === 'request-changes') {
-        const { comments } = await body(req)
-        engine.requestChanges(taskId, String(comments ?? ''))
-        return json({ ok: true })
-      }
-      if (action === 'abandon') {
-        void engine.abandon(taskId)
-        return json({ ok: true })
-      }
-      if (action === 'accept') {
-        engine.acceptTask(taskId)
-        return json({ ok: true })
-      }
-      if (action === 'dismiss') {
-        engine.dismissTask(taskId)
-        return json({ ok: true })
+      return json(engine.listThreads())
+    }
+
+    const threadActionMatch = pathname.match(/^\/api\/thread\/([^/]+)\/(.+)$/)
+    if (threadActionMatch && req.method === 'POST') {
+      const [, threadId, action] = threadActionMatch
+      const b = await body(req)
+      switch (action) {
+        case 'message':
+          if (!b.text) return json({ error: 'text required' }, 400)
+          engine.postMessage(threadId, String(b.text))
+          return json({ ok: true })
+        case 'close':
+          engine.closeThread(threadId)
+          return json({ ok: true })
+        case 'reopen':
+          engine.reopenThread(threadId)
+          return json({ ok: true })
+        case 'delete':
+          void engine.deleteThread(threadId)
+          return json({ ok: true })
+        case 'autorun':
+          engine.setAutorun(threadId, !!b.on)
+          return json({ ok: true })
+        case 'open-pr':
+          try {
+            return json(await engine.openPr(threadId))
+          } catch (err) {
+            return json({ error: (err as Error).message }, 500)
+          }
+        case 'run-next':
+          engine.runNext(threadId)
+          return json({ ok: true })
+        case 'reorder':
+          engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
+          return json({ ok: true })
+        case 'queue':
+          if (!b.prompt) return json({ error: 'prompt required' }, 400)
+          return json(engine.enqueuePrompt(threadId, String(b.prompt), { label: b.label }))
+        case 'queue/skill':
+          return json(engine.enqueueSkill(threadId, String(b.skill)) ?? { error: 'unknown skill' })
+        case 'queue/workflow':
+          return json(engine.enqueueWorkflow(threadId, String(b.workflow)))
+        default:
+          return json({ error: `unknown action ${action}` }, 400)
       }
     }
 
-    const artMatch = pathname.match(/^\/api\/task\/([^/]+)\/artifacts$/)
-    if (artMatch) return json(engine.artifacts(artMatch[1]))
+    const threadMatch = pathname.match(/^\/api\/thread\/([^/]+)$/)
+    if (threadMatch && req.method === 'GET') {
+      const data = engine.threadData(threadMatch[1])
+      return data ? json(data) : json({ error: 'not found' }, 404)
+    }
 
+    // — Queue item actions —
+    const queueMatch = pathname.match(/^\/api\/queue\/([^/]+)\/([^/]+)$/)
+    if (queueMatch && req.method === 'POST') {
+      const [, itemId, action] = queueMatch
+      const b = await body(req)
+      switch (action) {
+        case 'edit':
+          engine.editItem(itemId, String(b.prompt ?? ''))
+          return json({ ok: true })
+        case 'delete':
+          engine.deleteItem(itemId)
+          return json({ ok: true })
+        case 'promote':
+          engine.promoteSuggestion(itemId)
+          return json({ ok: true })
+        case 'demote':
+          engine.moveToSuggestions(itemId)
+          return json({ ok: true })
+        default:
+          return json({ error: `unknown action ${action}` }, 400)
+      }
+    }
+
+    // — Skills & workflows —
+    if (pathname === '/api/skills') return json(engine.listSkills())
+    const skillMatch = pathname.match(/^\/api\/skill\/([^/]+)$/)
+    if (skillMatch && req.method === 'POST') {
+      const b = await body(req)
+      engine.writeSkill(skillMatch[1], String(b.prompt ?? ''))
+      return json({ ok: true })
+    }
+    if (pathname === '/api/workflows') return json(engine.listWorkflows())
+    const workflowMatch = pathname.match(/^\/api\/workflow\/([^/]+)$/)
+    if (workflowMatch && req.method === 'POST') {
+      const b = await body(req)
+      engine.saveWorkflow(workflowMatch[1], Array.isArray(b.skills) ? b.skills.map(String) : [])
+      return json({ ok: true })
+    }
+
+    // — Governing docs —
     const docMatch = pathname.match(/^\/api\/doc\/([^/]+)$/)
     if (docMatch && req.method === 'POST') {
       const { content } = await body(req)
@@ -246,13 +306,15 @@ const server = Bun.serve({
       }
     }
     if (docMatch) {
-      const cap = engine.docs.capFor(docMatch[1] as any)
       return json({
         name: docMatch[1],
         content: engine.docs.read(docMatch[1] as any),
-        cap,
+        cap: engine.docs.capFor(docMatch[1] as any),
       })
     }
+
+    // — Built SPA (packaged). In dev, Vite serves the UI instead. —
+    if (!pathname.startsWith('/api/')) return serveUi(pathname)
 
     return new Response('Not found', { status: 404 })
   },

@@ -47,7 +47,7 @@ function resolveOrchestrator() {
       // cwd is the orchestrator dir so the bundled `import 'playwright'` resolves
       // from the node_modules shipped beside it.
       cwd: orchDir,
-      uiPath: path.join(orchDir, 'ui', 'index.html'),
+      uiDir: path.join(orchDir, 'ui'),
       packaged: true,
     }
   }
@@ -55,7 +55,9 @@ function resolveOrchestrator() {
     bun: process.env.FREEBUFF_BUN_PATH || 'bun',
     args: [path.join(PKG_DIR, 'src', 'app', 'server.ts')],
     cwd: PKG_DIR,
-    uiPath: undefined,
+    // In dev the built dist-ui/ may exist (after `ui:build`); the server falls
+    // back to it. When FREEBUFF_DEV_UI is set, the Vite dev server serves the UI.
+    uiDir: undefined,
     packaged: false,
   }
 }
@@ -100,7 +102,7 @@ function waitForServer(port, timeoutMs = 30000) {
 
 function startOrchestrator(port) {
   return new Promise((resolve, reject) => {
-    const { bun, args, cwd, uiPath, packaged } = resolveOrchestrator()
+    const { bun, args, cwd, uiDir, packaged } = resolveOrchestrator()
 
     // extraResources can lose the executable bit when unpacked; restore it.
     if (packaged && process.platform !== 'win32') {
@@ -112,7 +114,7 @@ function startOrchestrator(port) {
     }
 
     const env = { ...process.env, PORT: String(port) }
-    if (uiPath) env.FREEBUFF_UI_PATH = uiPath
+    if (uiDir) env.FREEBUFF_UI_DIR = uiDir
     if (process.env.FREEBUFF_TARGET_REPO) {
       env.TARGET_REPO = process.env.FREEBUFF_TARGET_REPO
     }
@@ -226,20 +228,38 @@ function createWindow() {
   return mainWindow
 }
 
+// Forward a tab command to the renderer, which owns tab state. The renderer also
+// handles these via keydown; in Electron the menu accelerator consumes the keys so
+// only this IPC path fires (no double-action).
+function sendMenuCommand(name) {
+  mainWindow?.webContents.send('menu-cmd', name)
+}
+
 function buildMenu(reloadApp) {
   const isMac = process.platform === 'darwin'
+  // Custom File/Window menus (no default Cmd+W "Close Window" binding) so Cmd+W
+  // closes the active TAB, not the window.
   const template = [
     ...(isMac ? [{ role: 'appMenu' }] : []),
-    { role: 'fileMenu' },
+    {
+      label: 'File',
+      submenu: [
+        { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: () => sendMenuCommand('new-tab') },
+        {
+          label: 'Reopen Closed Tab',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => sendMenuCommand('reopen-tab'),
+        },
+        { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => sendMenuCommand('close-tab') },
+        { type: 'separator' },
+        isMac ? { role: 'close', label: 'Close Window', accelerator: 'CmdOrCtrl+Shift+W' } : { role: 'quit' },
+      ],
+    },
     { role: 'editMenu' },
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Reload App',
-          accelerator: 'CmdOrCtrl+R',
-          click: () => reloadApp(),
-        },
+        { label: 'Reload App', accelerator: 'CmdOrCtrl+R', click: () => reloadApp() },
         { role: 'toggleDevTools' },
         { type: 'separator' },
         { role: 'resetZoom' },
@@ -249,7 +269,7 @@ function buildMenu(reloadApp) {
         { role: 'togglefullscreen' },
       ],
     },
-    { role: 'windowMenu' },
+    { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
@@ -258,9 +278,12 @@ async function boot() {
   const win = createWindow()
   let appUrl
   try {
-    const port = await findFreePort()
+    // Dev-UI mode: Vite serves the renderer on 5174 and proxies /api to the Bun
+    // orchestrator pinned to 8787. Otherwise the Bun server serves the built SPA.
+    const devUi = !!process.env.FREEBUFF_DEV_UI
+    const port = devUi ? 8787 : await findFreePort()
     await startOrchestrator(port)
-    appUrl = `http://127.0.0.1:${port}/`
+    appUrl = devUi ? 'http://127.0.0.1:5174/' : `http://127.0.0.1:${port}/`
     await win.loadURL(appUrl)
   } catch (err) {
     dialog.showErrorBox('Freebuff Desktop failed to start', String(err?.message ?? err))
