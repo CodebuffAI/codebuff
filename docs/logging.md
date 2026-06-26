@@ -43,9 +43,13 @@ bun scripts/logs/logs-volume.ts --since 24h
    Axiom dataset `freebuff`
 ```
 
-- **Server logs** (`web`, `agent-runtime`): the existing Pino `logger` is wired
-  to *also* `enqueueLogRow()` in prod. No call-site changes — every existing
-  `logger.*` call already flows to Axiom. See `web/src/util/logger.ts`.
+- **Server logs** (`web`, `agent-runtime`, `freebuff-web`): the existing Pino
+  `logger` is wired to *also* `enqueueLogRow()` in prod. No call-site changes —
+  every existing `logger.*` call flows to Axiom. See `web/src/util/logger.ts`
+  and `freebuff/web/src/util/logger.ts`. (The freebuff-web *server* logger was
+  stdout-only until 2026-06; before that only its browser PostHog mirror reached
+  Axiom, so server-side flows there — referral redemption/qualification — were
+  invisible.)
 - **CLI logs/events**: mirrored via `POST /api/logs` (still also sent to
   PostHog). Both `logger.*` calls *and* `trackEvent(...)` analytics are mirrored
   (`cli/src/utils/log-shipper.ts` + the mirror in `analytics.ts`). The shipper
