@@ -10,6 +10,17 @@ export enum AnalyticsEvent {
   // combined DAU (no filter). The `surface` property is one of: cli, web, chat.
   MESSAGE_SENT = 'message_sent',
 
+  // Cross-surface — engaged time
+  // Emitted once per minute of *active engagement* on each surface (cli / web /
+  // chat / cloud / desktop) while the user is present (visible+focused for
+  // browser surfaces, recently-active for the CLI) and not idle. Never sampled.
+  // `distinct_id` is the canonical user id where available (anonymous/device id
+  // otherwise). Because interval = 1 minute, a raw event COUNT equals minutes
+  // spent: sum per product = Total count broken down by `surface`; average per
+  // user = "Average count per user" broken down by `surface`. See
+  // common/src/util/engagement-tracker.ts.
+  PRODUCT_ACTIVE_MINUTE = 'product_active_minute',
+
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
   FINGERPRINT_GENERATED = 'cli.fingerprint_generated',

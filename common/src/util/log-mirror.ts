@@ -19,6 +19,10 @@ export const AXIOM_MIRROR_DENYLIST: ReadonlySet<string> = new Set([
   '$$heatmap',
   '$web_vitals',
   '$pageleave',
+  // Engaged-time heartbeat: one event per user per minute across every surface.
+  // High volume, low debug value, and PostHog is the system of record for the
+  // metric — keep it out of the Axiom mirror to control ingest cost.
+  'product_active_minute',
 ])
 
 /** True if this analytics event should be copied into the Axiom logs dataset. */
