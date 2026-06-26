@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Menu, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Menu, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -84,6 +84,8 @@ export function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // Free-text filter over the sidebar thread list (title substring match).
+  const [threadQuery, setThreadQuery] = useState('')
   // Last message the user sent; each send restarts the ad rotation cycle.
   // seq distinguishes repeat sends of identical text.
   const [adSeed, setAdSeed] = useState<{
@@ -189,6 +191,22 @@ export function ChatApp() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [sidebarOpen])
+
+  // Reflect the open thread's title in the browser tab so multiple chat tabs
+  // are distinguishable and history/bookmarks are meaningful. Falls back to the
+  // generic title on the new-chat screen (and on unmount).
+  useEffect(() => {
+    const DEFAULT_TITLE = 'Chat | Freebuff'
+    const openThreadTitle = viewThreadId
+      ? threads.find((t) => t.id === viewThreadId)?.title
+      : null
+    document.title = openThreadTitle
+      ? `${openThreadTitle} | Freebuff`
+      : DEFAULT_TITLE
+    return () => {
+      document.title = DEFAULT_TITLE
+    }
+  }, [viewThreadId, threads])
 
   const send = useCallback(
     async (
@@ -482,6 +500,13 @@ export function ChatApp() {
     />
   )
 
+  const normalizedThreadQuery = threadQuery.trim().toLowerCase()
+  const visibleThreads = normalizedThreadQuery
+    ? threads.filter((t) =>
+        t.title.toLowerCase().includes(normalizedThreadQuery),
+      )
+    : threads
+
   const sidebar = (
     <div className="flex h-full w-64 flex-col bg-white/[0.025]">
       <div className="px-2.5 pt-4">
@@ -494,14 +519,36 @@ export function ChatApp() {
           New chat
         </button>
       </div>
+      {/* Search appears once there's enough history to be worth filtering.
+          Also stays visible while a query is active, so deleting threads down
+          to the threshold can't strand a filter with no way to clear it. */}
+      {(threads.length > 5 || threadQuery !== '') && (
+        <div className="px-2.5 pt-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+            <input
+              type="text"
+              value={threadQuery}
+              onChange={(e) => setThreadQuery(e.target.value)}
+              placeholder="Search chats"
+              aria-label="Search chats"
+              className="w-full rounded-lg bg-white/5 py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
+          </div>
+        </div>
+      )}
       <nav className="mt-4 flex-1 overflow-y-auto px-2.5 pb-4">
-        {threads.length === 0 && (
+        {threads.length === 0 ? (
           <p className="px-3 pt-2 text-xs text-muted-foreground/60">
             Your chats will appear here.
           </p>
-        )}
+        ) : visibleThreads.length === 0 ? (
+          <p className="px-3 pt-2 text-xs text-muted-foreground/60">
+            No chats match “{threadQuery.trim()}”.
+          </p>
+        ) : null}
         <ul className="space-y-0.5">
-          {threads.map((thread) => (
+          {visibleThreads.map((thread) => (
             <li key={thread.id} className="group relative">
               {renamingId === thread.id ? (
                 <input

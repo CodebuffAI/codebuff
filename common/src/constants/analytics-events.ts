@@ -189,6 +189,13 @@ export enum AnalyticsEvent {
   FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
   FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
 
+  // Freebuff - Chat
+  // Emitted once per new-thread title generation attempt (server-side). The
+  // `outcome` property is one of: generated | empty | unknown_model | error |
+  // aborted. Carries `latencyMs`, `model`, and `titleLength` so the failure/
+  // fallback rate and added latency are queryable.
+  FREEBUFF_CHAT_TITLE_GENERATED = 'freebuff.chat_title_generated',
+
   // Freebuff - Home Page
   FREEBUFF_HOME_INSTALL_COMMAND_COPIED = 'freebuff.home_install_command_copied',
   FREEBUFF_HOME_GITHUB_CLICKED = 'freebuff.home_github_clicked',

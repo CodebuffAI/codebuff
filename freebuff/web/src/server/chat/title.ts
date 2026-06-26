@@ -1,3 +1,6 @@
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
 import { getChatApiKey, loadSdk } from './agent'
 import { chatBackendModelId, truncateThreadTitle } from '@/app/chat/models'
 import { logger } from '@/util/logger'
@@ -34,9 +37,10 @@ function buildTitleAgent(backendModel: string): AgentDefinition {
 
 Rules:
 - Plain text only: no surrounding quotes, no trailing punctuation, no preamble or explanation.
-- Capitalize it like a headline.
+- Write the title in the same language as the user's message.
+- Capitalize it like a headline (when the language uses capitalization).
 - Describe what the message is *about*, in general terms. Never copy sensitive personal data into the title — names, emails, phone numbers, addresses, API keys, passwords, or other secrets. Summarize the topic, not the private details.
-- If the message is just a greeting or too vague to summarize, output "New conversation".
+- If the message is just a greeting or too vague to summarize, output a short generic title like "New conversation" (in the message's language).
 
 Output only the title.`,
   }
@@ -70,8 +74,29 @@ export async function generateThreadTitle(params: {
   threadId: string
   signal: AbortSignal
 }): Promise<string | null> {
+  const start = Date.now()
+  // One event per attempt, so the failure/fallback rate and added latency are
+  // queryable in PostHog (see AnalyticsEvent.FREEBUFF_CHAT_TITLE_GENERATED).
+  const track = (
+    outcome: 'generated' | 'empty' | 'unknown_model' | 'error' | 'aborted',
+    titleLength?: number,
+  ) => {
+    trackEvent({
+      event: AnalyticsEvent.FREEBUFF_CHAT_TITLE_GENERATED,
+      userId: params.userId,
+      properties: {
+        surface: 'chat',
+        model: params.model,
+        outcome,
+        latencyMs: Date.now() - start,
+        ...(titleLength !== undefined ? { titleLength } : {}),
+      },
+      logger,
+    })
+  }
+
   const input = params.prompt.trim()
-  // Image-only / empty turns have nothing to summarize.
+  // Image-only / empty turns have nothing to summarize (no event — no attempt).
   if (!input) return null
 
   const backendModel = chatBackendModelId(params.model)
@@ -80,6 +105,7 @@ export async function generateThreadTitle(params: {
       { model: params.model, userId: params.userId, threadId: params.threadId },
       'Chat thread title: unknown model, skipping title generation',
     )
+    track('unknown_model')
     return null
   }
 
@@ -107,7 +133,9 @@ export async function generateThreadTitle(params: {
         if (typeof chunk === 'string') text += chunk
       },
     })
-    return sanitizeTitle(text)
+    const title = sanitizeTitle(text)
+    track(title ? 'generated' : 'empty', title?.length)
+    return title
   } catch (error) {
     if (!params.signal.aborted) {
       logger.warn(
@@ -115,6 +143,7 @@ export async function generateThreadTitle(params: {
         'Chat thread title generation failed',
       )
     }
+    track(params.signal.aborted ? 'aborted' : 'error')
     return null
   }
 }
