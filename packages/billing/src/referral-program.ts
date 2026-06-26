@@ -355,8 +355,9 @@ export async function evaluateReferralForReferredUser(params: {
   logger: Logger
   now?: Date
   fetchFn?: typeof fetch
+  cacheOnly?: boolean
 }): Promise<ReferralEvaluation> {
-  const { userId, logger, now = new Date(), fetchFn } = params
+  const { userId, logger, now = new Date(), fetchFn, cacheOnly } = params
 
   const [pending] = await db
     .select({
@@ -383,6 +384,7 @@ export async function evaluateReferralForReferredUser(params: {
     logger,
     now,
     fetchFn,
+    cacheOnly,
   })
   if (!qualification.qualified || !qualification.githubUserId) {
     return {
@@ -449,6 +451,7 @@ async function evaluateAccountAgeReferral(params: {
   }) => Promise<boolean>
   now?: Date
   fetchFn?: typeof fetch
+  cacheOnly?: boolean
 }): Promise<ReferralEvaluation> {
   const {
     userId,
@@ -458,6 +461,7 @@ async function evaluateAccountAgeReferral(params: {
     consumeBonus,
     now = new Date(),
     fetchFn,
+    cacheOnly,
   } = params
 
   const [pending] = await db
@@ -479,6 +483,7 @@ async function evaluateAccountAgeReferral(params: {
     logger,
     now,
     fetchFn,
+    cacheOnly,
   })
   if (!qualification.githubUserId) {
     return {
@@ -541,6 +546,7 @@ export function evaluateWebReferralForReferredUser(params: {
   logger: Logger
   now?: Date
   fetchFn?: typeof fetch
+  cacheOnly?: boolean
 }): Promise<ReferralEvaluation> {
   return evaluateAccountAgeReferral({
     ...params,
@@ -568,6 +574,7 @@ export function evaluateGlmReferralForReferredUser(params: {
   logger: Logger
   now?: Date
   fetchFn?: typeof fetch
+  cacheOnly?: boolean
 }): Promise<ReferralEvaluation> {
   return evaluateAccountAgeReferral({
     ...params,
@@ -601,6 +608,7 @@ export type ReferralEvaluator = (params: {
   logger: Logger
   now?: Date
   fetchFn?: typeof fetch
+  cacheOnly?: boolean
 }) => Promise<ReferralEvaluation>
 
 /**
@@ -683,6 +691,14 @@ export async function evaluatePendingReferrals(params: {
   limit?: number
   now?: Date
   fetchFn?: typeof fetch
+  /**
+   * Pure-cache mode: evaluators re-derive qualification from cached GitHub
+   * facts only, never calling GitHub. Deterministic aging-in still completes;
+   * this is what the periodic sweep uses so it can re-check the whole pending
+   * population in one fast, network-free pass instead of timing out on hundreds
+   * of GitHub round-trips.
+   */
+  cacheOnly?: boolean
   fetchPending?: (
     program: ReferralProgram,
     limit: number,
@@ -695,6 +711,7 @@ export async function evaluatePendingReferrals(params: {
     limit = 100,
     now = new Date(),
     fetchFn,
+    cacheOnly,
     fetchPending = fetchPendingReferredIds,
     evaluators = REFERRAL_PROGRAM_EVALUATORS,
   } = params
@@ -719,6 +736,7 @@ export async function evaluatePendingReferrals(params: {
           logger,
           now,
           fetchFn,
+          cacheOnly,
         })
         const key = outcomeKey(evaluation)
         outcomes[key] = (outcomes[key] ?? 0) + 1

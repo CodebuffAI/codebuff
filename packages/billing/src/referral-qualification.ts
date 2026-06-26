@@ -418,8 +418,17 @@ export async function getReferralQualification(params: {
   logger: Logger
   now?: Date
   fetchFn?: FetchFn
+  /**
+   * Pure-cache mode for the periodic sweep: never call GitHub. Aging-in
+   * (too_new → qualified) is deterministic from the cached account_created_at,
+   * so the bulk backstop can re-derive everything it needs from cache; a
+   * first-time/expired-token fetch is left to the user's own live session
+   * (which holds a fresh token). This is what keeps the sweep from doing
+   * hundreds of network round-trips and timing out.
+   */
+  cacheOnly?: boolean
 }): Promise<ReferralQualification> {
-  const { userId, logger, now = new Date(), fetchFn } = params
+  const { userId, logger, now = new Date(), fetchFn, cacheOnly = false } = params
 
   const unqualified = (
     reason: ReferralDisqualifyReason,
@@ -469,6 +478,21 @@ export async function getReferralQualification(params: {
       })
     }
     return decision.qualification
+  }
+
+  // Pure-cache caller (the sweep): never hit GitHub. Re-derive from whatever
+  // facts we already have (deterministic aging-in still completes); if we have
+  // no cached facts, report unknown without fetching or writing anything.
+  if (cacheOnly) {
+    if (cached?.accountCreatedAt) {
+      const derived = meetsReferralBrightLine({
+        accountCreatedAt: cached.accountCreatedAt,
+        oldestPublicRepoCreatedAt: cached.oldestPublicRepoCreatedAt,
+        now,
+      })
+      return cachedToQualification(cached, derived.qualified, derived.reason)
+    }
+    return unqualified('github_api_error', cached?.githubUserId ?? githubUserId)
   }
 
   // Cache miss or stale: re-check against GitHub.
