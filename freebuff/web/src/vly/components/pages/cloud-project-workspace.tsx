@@ -16,6 +16,8 @@ import { CloudTopBar } from '../project-2/cloud/CloudTopBar'
 import { CloudIframeArea } from '../project-2/cloud/CloudIframeArea'
 import type { CloudTab } from '../project-2/cloud/CloudWorkspaceTabs'
 import { SandboxTierNotice } from '../project-2/SandboxTierNotice'
+import { AmbientBackdrop } from '../app-shell/AmbientBackdrop'
+import { CloudBetaBanner } from '../cloud/CloudBetaBanner'
 
 /**
  * Cloud-only project workspace shell. Forked from the shared web `Project2`
@@ -141,7 +143,13 @@ function CloudProjectWorkspaceInner({
 
   return (
     <>
-      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-background">
+      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-black">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-80"
+        >
+          <AmbientBackdrop />
+        </div>
         {(!isMobile || mobileView === 'chat') && (
           <div className="relative z-50 flex-shrink-0">
             <CloudTopBar project={project} />
@@ -149,17 +157,20 @@ function CloudProjectWorkspaceInner({
         )}
 
         {(!isMobile || mobileView === 'chat') && (
-          <SandboxTierNotice runtimeSurface="cloud" />
+          <div className="relative z-30 flex-shrink-0">
+            <CloudBetaBanner compact />
+            <SandboxTierNotice runtimeSurface="cloud" />
+          </div>
         )}
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="relative z-10 flex min-h-0 flex-1 overflow-hidden">
           {/* ── Chat ─────────────────────────────────────────────────── */}
           <motion.aside
             ref={chatAsideRef}
             initial={false}
             animate={isMobile ? undefined : { width: chatWidth }}
             transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] as const }}
-            className={`relative flex h-full min-h-0 flex-col overflow-hidden bg-background ${
+            className={`relative flex h-full min-h-0 flex-col overflow-hidden border-r border-white/10 bg-background/95 backdrop-blur-sm ${
               isMobile
                 ? `w-full ${mobileView === 'chat' ? 'flex' : 'hidden'}`
                 : `max-w-[820px] ${isSideTabActive ? 'min-w-[300px]' : 'min-w-[400px]'}`

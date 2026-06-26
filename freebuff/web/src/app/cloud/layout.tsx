@@ -8,12 +8,9 @@ import ConvexClientProvider from '@/vly/components/ConvexClientProvider'
 import { Toaster } from '@/vly/components/ui/sonner'
 import { TooltipProvider } from '@/vly/components/ui/tooltip'
 
-import { CloudPasswordGate } from './CloudPasswordGate'
-
-// Isolated testing area — never index or follow, and keep it out of sitemaps.
 export const metadata: Metadata = {
-  title: 'Freebuff Cloud (internal)',
-  robots: { index: false, follow: false, nocache: true },
+  title: 'Freebuff Cloud Beta',
+  description: 'Connect a GitHub repo and build in a Freebuff Cloud sandbox.',
 }
 
 export default function CloudLayout({
@@ -33,7 +30,7 @@ export default function CloudLayout({
               enableSystem={false}
               disableTransitionOnChange
             >
-              <CloudPasswordGate>{children}</CloudPasswordGate>
+              {children}
               <Toaster position="top-right" richColors />
             </ThemeProvider>
           </TooltipProvider>

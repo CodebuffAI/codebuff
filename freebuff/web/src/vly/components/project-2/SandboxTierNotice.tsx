@@ -3,6 +3,7 @@
 import { api } from '@/convex/_generated/api'
 import { useQuery } from 'convex/react'
 import { Globe, ArrowUpRight } from 'lucide-react'
+import { sandboxSpecsBySize } from '@/vly/lib/sandbox-specs'
 
 export function SandboxTierNotice({
   runtimeSurface,
@@ -15,6 +16,11 @@ export function SandboxTierNotice({
     return null
   }
 
+  // Keep the displayed specs in sync with the actual provisioned tiers
+  // (sandbox-specs.ts) so this notice never contradicts the resources panel.
+  const small = sandboxSpecsBySize.small
+  const large = sandboxSpecsBySize.large
+
   return (
     <div className="mx-2 mt-2 rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 lg:mx-3">
       <div className="flex items-start gap-2">
@@ -22,9 +28,9 @@ export function SandboxTierNotice({
         <div className="flex flex-1 flex-wrap items-start gap-x-3 gap-y-1">
           <p className="flex-1">
             <span className="font-medium">Limited region</span> — your sandbox
-            runs on 1 vCPU / 2 GB RAM.{' '}
+            runs on {small.vcpu} vCPU / {small.ram_gb} GB RAM.{' '}
             {runtimeSurface === 'cloud'
-              ? 'Upgrade for 2 vCPU / 4 GB and priority capacity.'
+              ? `Upgrade for ${large.vcpu} vCPU / ${large.ram_gb} GB and priority capacity.`
               : 'Disable VPN/proxy or connect from a full-access region for a standard sandbox.'}
           </p>
           {runtimeSurface === 'cloud' && (

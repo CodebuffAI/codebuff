@@ -11,6 +11,7 @@ import {
   SignedOut,
   SignInButton,
 } from '@/vly/components/auth/AuthComponents'
+import { Cloud } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/vly/components/ui/avatar'
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ export interface HeaderLink {
   requiresAuth?: boolean
   external?: boolean
   badge?: React.ReactNode
+  icon?: React.ReactNode
 }
 
 export interface HeaderProps {
@@ -97,6 +99,16 @@ export const Header: React.FC<HeaderProps> = ({
       requiresAuth: true,
     },
     {
+      label: 'Cloud',
+      href: '/cloud',
+      icon: <Cloud className="mr-1.5 h-4 w-4 md:hidden" />,
+      badge: (
+        <span className="ml-1.5 rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90">
+          beta
+        </span>
+      ),
+    },
+    {
       label: 'Community',
       href: '/web/community',
     },
@@ -121,6 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
       return (
         <button key={index} onClick={item.onClick} className={baseClass}>
           <span className="inline-flex items-center">
+            {item.icon}
             {item.label}
             {item.badge}
           </span>
@@ -134,6 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
           <SignedIn>
             <Link href={item.href || '#'} className={baseClass}>
               <span className="inline-flex items-center">
+                {item.icon}
                 {item.label}
                 {item.badge}
               </span>
@@ -143,6 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
             <SignInButton mode="modal" asChild>
               <button className={baseClass}>
                 <span className="inline-flex items-center">
+                  {item.icon}
                   {item.label}
                   {item.badge}
                 </span>
@@ -156,6 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
     return (
       <Link key={index} href={item.href || '#'} className={baseClass}>
         <span className="inline-flex items-center">
+          {item.icon}
           {item.label}
           {item.badge}
         </span>
@@ -380,6 +396,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className={baseClass}
                     >
                       <span className="inline-flex items-center">
+                        {item.icon}
                         {item.label}
                         {item.badge}
                       </span>
@@ -399,6 +416,7 @@ export const Header: React.FC<HeaderProps> = ({
                           className={baseClass}
                         >
                           <span className="inline-flex items-center">
+                            {item.icon}
                             {item.label}
                             {item.badge}
                           </span>
@@ -408,6 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <SignInButton mode="modal" asChild>
                           <button className={baseClass}>
                             <span className="inline-flex items-center">
+                              {item.icon}
                               {item.label}
                               {item.badge}
                             </span>
@@ -428,6 +447,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className={baseClass}
                   >
                     <span className="inline-flex items-center">
+                      {item.icon}
                       {item.label}
                       {item.badge}
                     </span>

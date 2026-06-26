@@ -7,6 +7,7 @@ import React, {
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
+import { Cloud } from "lucide-react";
 import UserAuthButton from "./UserAuthButton";
 import NavItem from "./NavItem";
 import MobileMenu from "./MobileMenu";
@@ -35,6 +36,7 @@ type NavItem = {
   requiresAuth?: boolean;
   showWhenSignedOut?: boolean;
   badge?: React.ReactNode;
+  icon?: React.ReactNode;
 };
 
 export default function Navigation({
@@ -78,6 +80,17 @@ export default function Navigation({
       label: "Community",
       href: "/web/community",
       onClick: () => handleNavigate("/web/community"),
+    },
+    {
+      label: "Cloud",
+      href: "/cloud",
+      onClick: () => handleNavigate("/cloud"),
+      icon: <Cloud className="mr-1.5 h-4 w-4 lg:hidden" />,
+      badge: (
+        <span className="ml-1.5 rounded-full border border-[#7CFF3F]/30 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-[#7CFF3F]">
+          beta
+        </span>
+      ),
     },
     {
       label: "My Projects",

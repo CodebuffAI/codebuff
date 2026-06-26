@@ -3,6 +3,11 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { allProjects, projectsByDay } from "../aggregates/admin_aggregates";
+import {
+  checkUserRateLimit,
+  peekFreebuffDailyQuota,
+} from "../coding_agent/rateLimiter";
+import { getAuthUser, getQualifiedReferralCount } from "../users";
 import { getUniqueProjectIdentifier } from "../codesandbox/projectCrud";
 
 const runtimeConfigValidator = v.object({
@@ -35,6 +40,9 @@ export const createConnectedRepoProject = internalMutation({
     github_url: v.string(),
     template_id: v.optional(v.string()),
     preview_url: v.optional(v.string()),
+    sandbox_size: v.optional(
+      v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
+    ),
     packageManager: v.optional(v.union(v.literal("pnpm"), v.literal("bun"))),
     organization_id: v.optional(v.string()),
   },
@@ -53,7 +61,7 @@ export const createConnectedRepoProject = internalMutation({
       preview_url: args.preview_url,
       github_url: args.github_url,
       template_id: args.template_id,
-      sandbox_size: "small",
+      sandbox_size: args.sandbox_size ?? "small",
       packageManager: args.packageManager ?? "bun",
       last_dist_build_at: 0,
       project_type: "connected_repo",
@@ -85,6 +93,82 @@ export const createConnectedRepoProject = internalMutation({
     }
 
     return { projectId, semanticIdentifier };
+  },
+});
+
+export const consumeConnectRepoQuota = internalMutation({
+  args: {
+    freebuffModel: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({
+      success: v.literal(false),
+      error: v.object({
+        kind: v.string(),
+        retryAfter: v.number(),
+        message: v.string(),
+      }),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      return {
+        success: false as const,
+        error: {
+          kind: "AUTH_ERROR",
+          retryAfter: 0,
+          message: "User not found",
+        },
+      };
+    }
+
+    // God-role users bypass all usage limits (mirrors runTriggerGates).
+    if (user.role === "god") {
+      return { success: true as const };
+    }
+
+    // Key the buckets the same way the message path does
+    // (getRateLimitKeyForUser) so Cloud shares one allowance with web chat /
+    // project creation instead of accumulating in a separate bucket.
+    const identity = await ctx.auth.getUserIdentity();
+    const rateLimitKey =
+      user.freebuff_user_id ?? user.clerk_id ?? user._id;
+    const qualifiedReferralCount = getQualifiedReferralCount(identity, user);
+
+    // Daily maximum: refuse to boot a sandbox when the user has no daily
+    // Freebuff allowance left. This is a non-consuming peek — the seed message
+    // consumes the actual token later via runTriggerGates, so there's no
+    // double charge for a successful connect.
+    const daily = await peekFreebuffDailyQuota(
+      ctx,
+      rateLimitKey,
+      args.freebuffModel,
+      qualifiedReferralCount,
+    );
+    if (!daily.success) return daily;
+
+    // Burst protection: shared userMessages token bucket (20/hr, capacity 10).
+    return await checkUserRateLimit(ctx, rateLimitKey);
+  },
+});
+
+/**
+ * Internal: soft-delete a connected-repo project. Used to roll back a connect
+ * when the first agent run can't start, so a half-created project never lingers
+ * in the user's Cloud dashboard. Sandbox teardown is handled separately in the
+ * action (Daytona delete) since it requires the node runtime.
+ */
+export const softDeleteConnectedRepoProject = internalMutation({
+  args: { projectId: v.id("project") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (project && !project.deleted) {
+      await ctx.db.patch(args.projectId, { deleted: true });
+    }
+    return null;
   },
 });
 

@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Cloud } from 'lucide-react'
 import type { ReactNode, RefObject } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -20,6 +21,13 @@ import { TooltipProvider } from '@/vly/components/ui/tooltip'
 const PRODUCT_LINKS = [
   { label: 'CLI', href: '/cli' },
   { label: 'Web', href: '/web' },
+  {
+    label: 'Cloud',
+    href: '/cloud',
+    icon: <Cloud className="h-4 w-4" />,
+    badge: 'beta',
+    mobileIconOnly: true,
+  },
   { label: 'Chat', href: '/chat' },
 ]
 
@@ -173,13 +181,26 @@ function ProductLinks({
           href={link.href}
           aria-current={isActive(link.href) ? 'page' : undefined}
           className={cn(
-            'rounded-md px-2 py-2 text-[13px] transition-colors sm:px-3 sm:text-sm',
+            'inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-[13px] transition-colors sm:px-3 sm:text-sm',
             isActive(link.href)
               ? 'text-white'
               : 'text-white/55 hover:text-white',
           )}
+          aria-label={link.mobileIconOnly ? `${link.label} beta` : undefined}
         >
-          {link.label}
+          {link.icon && (
+            <span className={link.mobileIconOnly ? 'sm:hidden' : ''}>
+              {link.icon}
+            </span>
+          )}
+          <span className={link.mobileIconOnly ? 'hidden sm:inline' : ''}>
+            {link.label}
+          </span>
+          {link.badge && (
+            <span className="hidden rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90 sm:inline-flex">
+              {link.badge}
+            </span>
+          )}
         </Link>
       ))}
       {trailing}

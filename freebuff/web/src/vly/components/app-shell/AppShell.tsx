@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Cloud, Menu, X } from 'lucide-react'
 import { cn } from '@/vly/lib/utils'
 // NB: `@/components/*` is aliased to `src/vly/components/*`, so the shared
 // landing nav is imported relatively.
@@ -16,10 +16,22 @@ export interface AppShellNavItem {
   href: string
   /** Match exactly instead of prefix (used for the "/web" home item). */
   exact?: boolean
+  badge?: React.ReactNode
+  mobileIcon?: React.ReactNode
 }
 
 const NAV_ITEMS: AppShellNavItem[] = [
   { label: 'Projects', href: '/web', exact: true },
+  {
+    label: 'Cloud',
+    href: '/cloud',
+    badge: (
+      <span className="ml-1.5 rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90">
+        beta
+      </span>
+    ),
+    mobileIcon: <Cloud className="h-4 w-4" />,
+  },
   { label: 'Community', href: '/web/community' },
   { label: 'Referrals', href: '/web/referrals' },
   { label: 'Settings', href: '/web/settings' },
@@ -62,6 +74,9 @@ export function AppShell({
   ambient,
   /** Optional footer rendered at the end of the scrollable content area. */
   footer,
+  brandName = 'Freebuff Web',
+  brandHref = '/',
+  brandBadge,
 }: {
   title?: React.ReactNode
   subtitle?: React.ReactNode
@@ -72,6 +87,9 @@ export function AppShell({
   contentClassName?: string
   ambient?: React.ReactNode
   footer?: React.ReactNode
+  brandName?: string
+  brandHref?: string
+  brandBadge?: React.ReactNode
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isActive = useIsActive()
@@ -91,7 +109,10 @@ export function AppShell({
             )}
             aria-current={active ? 'page' : undefined}
           >
-            {item.label}
+            <span className="inline-flex items-center">
+              {item.label}
+              {item.badge}
+            </span>
           </Link>
         )
       })}
@@ -100,15 +121,15 @@ export function AppShell({
 
   const brand = (
     <Link
-      href="/"
+      href={brandHref}
       className="flex flex-shrink-0 items-center gap-2"
-      aria-label="Freebuff home"
+      aria-label={`${brandName} home`}
     >
       <FreebuffLogo size={28} />
       <span className="hidden font-['Geist'] text-sm font-semibold tracking-tight text-white sm:inline">
-        Freebuff Web
+        {brandName}
       </span>
-      <BetaBadge />
+      {brandBadge ?? <BetaBadge />}
     </Link>
   )
 
@@ -173,7 +194,11 @@ export function AppShell({
                 )}
                 aria-current={active ? 'page' : undefined}
               >
-                {item.label}
+                <span className="inline-flex items-center gap-2">
+                  {item.mobileIcon}
+                  <span>{item.label}</span>
+                  {item.badge}
+                </span>
               </Link>
             )
           })}
@@ -181,6 +206,7 @@ export function AppShell({
           {[
             { label: 'CLI', href: '/cli' },
             { label: 'Web', href: '/web' },
+            { label: 'Cloud', href: '/cloud' },
             { label: 'Chat', href: '/chat' },
           ].map((l) => (
             <Link

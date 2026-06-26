@@ -2,7 +2,10 @@
 
 import { v } from "convex/values";
 import { getInstallationToken } from "../../codebase-utils/github";
-import { createDaytonaSandbox } from "../../codebase-utils/instanceManager";
+import {
+  createDaytonaSandbox,
+  deleteDaytonaSandbox,
+} from "../../codebase-utils/instanceManager";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
 import { DaytonaConnectionStrategy } from "./runtime/strategies/daytona/DaytonaConnectionStrategy";
@@ -184,8 +187,30 @@ export const connectRepo = action({
     // which requires a query/mutation ctx not available in actions).
     const identity = await ctx.auth.getUserIdentity();
     const rawTier = (identity as Record<string, unknown> | null)?.access_tier;
-    const isLimited =
-      user.role !== "god" && (rawTier === "limited" || rawTier === "blocked");
+    if (user.role !== "god" && rawTier === "blocked") {
+      return {
+        success: false,
+        error: {
+          kind: "ACCESS_BLOCKED",
+          message: "Freebuff Cloud is not available in your region yet.",
+        },
+      };
+    }
+    const connectQuota = await ctx.runMutation(
+      internal.cloud.connectRepoMutations.consumeConnectRepoQuota,
+      { freebuffModel: args.freebuffModel },
+    );
+    if (!connectQuota.success) {
+      return {
+        success: false,
+        error: {
+          kind: connectQuota.error.kind,
+          message: connectQuota.error.message,
+        },
+      };
+    }
+
+    const isLimited = user.role !== "god" && rawTier === "limited";
     const sizeClass = isLimited ? "small" : "standard";
     const [standardPrimary, smallPrimary] = await Promise.all([
       ctx.runQuery(internal.admin.snapshot_mutations.getPrimarySnapshot, {
@@ -248,6 +273,7 @@ export const connectRepo = action({
           github_installation_id: effectiveInstallationId,
           github_url: `https://github.com/${args.repoFullName}`,
           template_id: snapshotId,
+          sandbox_size: sizeClass === "small" ? "small" : "large",
         },
       );
 
@@ -264,16 +290,39 @@ export const connectRepo = action({
       const seedMessage =
         args.initialMessage?.trim() ||
         `I just connected the GitHub repo ${args.repoFullName}. Inspect the project to understand what it is, then configure (but do NOT start) the install, dev/preview, and build commands using the freebuff-preview tooling so I can start the preview myself from the UI. Finally, summarize what the project does and what env vars or setup it needs.`;
-      await ctx.runMutation(
+      const workflowResult:
+        | { success: true }
+        | {
+            success: false;
+            error: { kind: string; retryAfter?: number; message?: string };
+          } = await ctx.runMutation(
         api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
         {
           projectSemanticIdentifier: semanticIdentifier,
           message: seedMessage,
           agentType: "Freebuff" as const,
           ...(args.freebuffModel ? { freebuffModel: args.freebuffModel } : {}),
-          _skipRateLimitCheck: true,
         },
       );
+      if (!workflowResult.success) {
+        // The seed run was rejected (e.g. a rate-limit gate raced the
+        // pre-check). Don't leave an orphaned sandbox + project burning
+        // resources: tear them both down so the connect is fully rolled back.
+        await deleteDaytonaSandbox(sandboxId, "new");
+        await ctx.runMutation(
+          internal.cloud.connectRepoMutations.softDeleteConnectedRepoProject,
+          { projectId },
+        );
+        return {
+          success: false,
+          error: {
+            kind: workflowResult.error.kind,
+            message:
+              workflowResult.error.message ||
+              "Couldn't start the first agent run, so the connection was rolled back. Please try again in a bit.",
+          },
+        };
+      }
 
       return { success: true, semanticIdentifier };
     } catch (error) {

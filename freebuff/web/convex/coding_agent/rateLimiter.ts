@@ -3,6 +3,7 @@ import {
   getReferralTier,
   type FreebuffReferralTier,
 } from "@codebuff/common/constants/freebuff-referral-tiers";
+import { isFreebuffPremiumModelId } from "@codebuff/common/constants/freebuff-models";
 import { components } from "../_generated/api";
 import { query } from "../_generated/server";
 import { getAuthUser, getQualifiedReferralCount } from "../users";
@@ -273,6 +274,48 @@ export async function checkStandardModelRateLimit(
         kind: "StandardRateLimited",
         retryAfter: status.retryAfter,
         message: `You've used all ${tier.standardModelDailyLimit} standard Freebuff messages for today. Get qualified referrals to raise your daily limit.`,
+      },
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Peek (without consuming) the daily Freebuff model quota for a user. Used by
+ * the Cloud connect-repo flow to refuse booting a sandbox when the user has
+ * already exhausted their daily allowance, so the actual quota is still
+ * consumed once by the seed message via runTriggerGates (no double charge).
+ * Mirrors the bucket/tier selection of the consuming checks above.
+ */
+export async function peekFreebuffDailyQuota(
+  ctx: MutationCtx,
+  userId: string,
+  freebuffModel: string | undefined,
+  qualifiedReferralCount?: number | null,
+): Promise<RateLimitResult> {
+  const tier = getReferralTier(qualifiedReferralCount);
+  const isPremium = isFreebuffPremiumModelId(freebuffModel);
+  const status = await rateLimiter.check(
+    ctx,
+    isPremium ? PREMIUM_MODEL_BUCKET : STANDARD_MODEL_BUCKET,
+    {
+      key: userId,
+      config: isPremium
+        ? premiumModelConfig(tier)
+        : standardModelConfig(tier),
+    },
+  );
+
+  if (!status.ok) {
+    return {
+      success: false,
+      error: {
+        kind: isPremium ? "PremiumRateLimited" : "StandardRateLimited",
+        retryAfter: status.retryAfter ?? 0,
+        message: isPremium
+          ? `You've used all ${tier.premiumModelDailyLimit} premium Freebuff messages for today. Switch to a standard model, or get qualified referrals to raise your daily limit.`
+          : `You've used all ${tier.standardModelDailyLimit} standard Freebuff messages for today. Get qualified referrals to raise your daily limit.`,
       },
     };
   }

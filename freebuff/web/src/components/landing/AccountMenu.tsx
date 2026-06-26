@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { LogOut, Settings } from 'lucide-react'
+import { Cloud, LogOut, Settings } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -21,6 +21,7 @@ import {
 const PRODUCT_LINKS = [
   { label: 'CLI', href: '/cli' },
   { label: 'Web', href: '/web' },
+  { label: 'Cloud', href: '/cloud', beta: true },
   { label: 'Chat', href: '/chat' },
   { label: 'Live', href: '/live' },
 ]
@@ -85,7 +86,13 @@ export function AccountMenu({
             className={ITEM_CLASS}
             onClick={() => router.push(l.href)}
           >
+            {l.beta && <Cloud className="mr-2.5 h-4 w-4 text-white/45" />}
             {l.label}
+            {l.beta && (
+              <span className="ml-auto rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90">
+                beta
+              </span>
+            )}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator className="bg-white/10" />

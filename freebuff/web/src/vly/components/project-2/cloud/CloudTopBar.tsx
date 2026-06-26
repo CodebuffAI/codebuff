@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import {
   ChevronDown,
   Eye,
-  Share2,
+  Users,
   Settings,
   Home,
   LogOut,
@@ -37,6 +37,7 @@ import { useAction } from 'convex/react'
 import { signOut } from 'next-auth/react'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
 import { CloudBranchSwitcher } from './CloudBranchSwitcher'
+import { LimitedSandboxBadge } from '@/vly/components/cloud/LimitedSandboxBadge'
 
 /**
  * Cloud-only top bar. Forked from the shared web TopBar so Freebuff Cloud can
@@ -201,6 +202,7 @@ export function CloudTopBar({
 
         {/* ── Right: icon actions ──────────────────────────────────────── */}
         <div className="flex flex-shrink-0 items-center gap-1">
+          <LimitedSandboxBadge />
           <IconButton
             label="Open preview in new tab"
             onClick={openPreviewInNewTab}
@@ -219,10 +221,10 @@ export function CloudTopBar({
                   <button
                     type="button"
                     className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground sm:px-2.5"
-                    aria-label="Share project"
+                    aria-label="Project members"
                   >
-                    <Share2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Share</span>
+                    <Users className="h-4 w-4" />
+                    <span className="hidden sm:inline">Members</span>
                   </button>
                 </InviteDialog>
               </span>
@@ -232,7 +234,7 @@ export function CloudTopBar({
               sideOffset={6}
               className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
             >
-              Share with collaborators
+              Project members
             </TooltipContent>
           </Tooltip>
 

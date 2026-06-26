@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import {
   ChevronDown,
   Eye,
-  Share2,
+  Users,
   Settings,
   Activity,
   Gift,
@@ -48,13 +48,13 @@ import type { ProjectRuntimeSurface } from '@/vly/hooks/useProjectConnection'
  * Compact, Lovable-style top bar for the project page.
  *
  *  ┌──────────────────────────────────────────────────────────────────────┐
- *  │ [⌨ logo  Project name ▾]                  [👁] [⤴Share] [🚀 Publish] │
+ *  │ [⌨ logo  Project name ▾]                [👁] [Members] [🚀 Publish] │
  *  └──────────────────────────────────────────────────────────────────────┘
  *
  *  - Left: dropdown menu trigger containing the Freebuff terminal logo + the
  *    editable project name. The dropdown holds project actions, navigation,
  *    and sign out.
- *  - Right: ghost icon buttons (Preview, Share) + a primary Publish button.
+ *  - Right: ghost icon buttons (Preview, Members) + a primary Publish button.
  *    No more Pricing / Earn Credits / sidebar hamburger.
  */
 export function TopBar({
@@ -315,7 +315,7 @@ export function TopBar({
             <LinkIcon className="h-4 w-4" />
           </IconButton>
 
-          {/* Share - opens invite dialog */}
+          {/* Members - opens invite dialog */}
           <Tooltip>
             <TooltipTrigger asChild>
               <span>
@@ -323,10 +323,10 @@ export function TopBar({
                   <button
                     type="button"
                     className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground sm:px-2.5"
-                    aria-label="Share project"
+                    aria-label="Project members"
                   >
-                    <Share2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Share</span>
+                    <Users className="h-4 w-4" />
+                    <span className="hidden sm:inline">Members</span>
                   </button>
                 </InviteDialog>
               </span>
@@ -336,7 +336,7 @@ export function TopBar({
               sideOffset={6}
               className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
             >
-              Share with collaborators
+              Project members
             </TooltipContent>
           </Tooltip>
 

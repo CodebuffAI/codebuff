@@ -13,6 +13,7 @@ interface NavItem {
   requiresAuth?: boolean
   showWhenSignedOut?: boolean
   badge?: React.ReactNode
+  icon?: React.ReactNode
 }
 
 interface MobileMenuProps {
@@ -69,6 +70,7 @@ export default function MobileMenu({
                   role="menuitem"
                 >
                   <span className="inline-flex items-center">
+                    {item.icon}
                     {item.label}
                     {item.badge}
                   </span>
@@ -83,6 +85,7 @@ export default function MobileMenu({
                       role="menuitem"
                     >
                       <span className="inline-flex items-center">
+                        {item.icon}
                         {item.label}
                         {item.badge}
                       </span>
@@ -102,6 +105,7 @@ export default function MobileMenu({
             role="menuitem"
           >
             <span className="inline-flex items-center">
+              {item.icon}
               {item.label}
               {item.badge}
             </span>

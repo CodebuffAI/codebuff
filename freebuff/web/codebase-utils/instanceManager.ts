@@ -253,6 +253,34 @@ export async function createDaytonaSandbox(
   }
 }
 
+/**
+ * Best-effort delete of a freshly-created Daytona sandbox. Used to clean up an
+ * orphaned sandbox when a connect-repo flow fails after booting (e.g. the seed
+ * agent run is rejected by a rate-limit gate) so we never leak compute. Accepts
+ * the id with or without the "daytona:" prefix. Never throws.
+ */
+export async function deleteDaytonaSandbox(
+  sandboxId: string,
+  daytonaServer: DaytonaServer = "new",
+) {
+  const daytonaSandboxId = sandboxId.replace("daytona:", "");
+  try {
+    const sdk = DaytonaSdkManager.getDaytonaSDK(daytonaServer);
+    const sandbox = await sdk.get(daytonaSandboxId);
+    if (sandbox.state !== "stopped" && sandbox.state !== "archived") {
+      await sandbox.stop(60);
+      await sandbox.waitUntilStopped(60);
+    }
+    await sandbox.delete(60);
+    console.log(`[deleteDaytonaSandbox] deleted ${daytonaSandboxId}`);
+  } catch (error) {
+    console.error(
+      `[deleteDaytonaSandbox] failed to delete ${daytonaSandboxId}:`,
+      error,
+    );
+  }
+}
+
 export async function shutdownInstance(id: string) {
   console.log("Starting shutdownInstance:", id);
   try {

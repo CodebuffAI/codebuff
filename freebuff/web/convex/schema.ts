@@ -1317,6 +1317,22 @@ export default defineSchema(
       .index('by_submitted_at', ['submittedAt'])
       .index('by_user_and_form_type', ['userId', 'formType']),
 
+    cloud_beta_feedback: defineTable({
+      userId: v.id('users'),
+      recordedName: v.string(),
+      recordedEmail: v.string(),
+      productDirection: v.union(
+        v.literal('combined'),
+        v.literal('separate'),
+        v.literal('unsure'),
+      ),
+      improvement: v.string(),
+      submittedAt: v.number(),
+    })
+      .index('by_user', ['userId'])
+      .index('by_submitted_at', ['submittedAt'])
+      .index('by_product_direction', ['productDirection']),
+
     // ============================================
     // VLY SOCIAL MEDIA TABLES
     // ============================================
