@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
 import {
   ALL_REFERRAL_PROGRAMS,
   evaluatePendingReferrals,
@@ -23,6 +25,21 @@ const noopLogger = {
   warn: () => {},
   error: () => {},
 } as unknown as Logger
+
+/** A logger that records every (data, msg) pair passed to the given level. */
+function recordingLogger(): {
+  logger: Logger
+  infos: Array<{ data: any; msg?: string }>
+} {
+  const infos: Array<{ data: any; msg?: string }> = []
+  const logger = {
+    debug: () => {},
+    info: (data: any, msg?: string) => infos.push({ data, msg }),
+    warn: () => {},
+    error: () => {},
+  } as unknown as Logger
+  return { logger, infos }
+}
 
 describe('hasUsageOnFullAccessDay', () => {
   // usage_date keys are America/Los_Angeles dates (getFreebuffUsageDateKey).
@@ -220,5 +237,57 @@ describe('evaluatePendingReferrals (sweep orchestration)', () => {
     expect(calls.every((c) => c.program === 'glm')).toBe(true)
     expect(result.byProgram).toEqual({ glm: { evaluated: 1, completed: 1 } })
     expect(result.evaluated).toBe(1)
+  })
+
+  it('aggregates outcomes per program (the pending-reason breakdown) into the result + sweep event', async () => {
+    const { logger, infos } = recordingLogger()
+    // glm rows: 2 too-new, 1 no-github, 1 completed.
+    const outcomesByUser: Record<string, ReferralEvaluation> = {
+      a: { outcome: 'not_qualified', reason: 'account_too_new' },
+      b: { outcome: 'not_qualified', reason: 'account_too_new' },
+      c: { outcome: 'not_qualified', reason: 'no_github_account' },
+      d: { outcome: 'completed', referrerId: 'r1' },
+    }
+    const result = await evaluatePendingReferrals({
+      logger,
+      programs: ['glm'],
+      fetchPending: async () => ['a', 'b', 'c', 'd'],
+      evaluators: {
+        cli: async () => notQualified(),
+        web: async () => notQualified(),
+        glm: async ({ userId }) => outcomesByUser[userId],
+      },
+    })
+
+    expect(result.outcomes.glm).toEqual({
+      'not_qualified:account_too_new': 2,
+      'not_qualified:no_github_account': 1,
+      completed: 1,
+    })
+    // The breakdown rides on the single sweep summary event (no per-row events).
+    const sweepEvent = infos.find(
+      (i) => i.data?.eventId === AnalyticsEvent.FREEBUFF_REFERRAL_SWEEP,
+    )
+    expect(sweepEvent?.data.outcomes.glm['not_qualified:account_too_new']).toBe(2)
+  })
+
+  it('warns when a program fills its per-run limit (backlog exceeds one sweep)', async () => {
+    let warned = 0
+    const logger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {
+        warned++
+      },
+      error: () => {},
+    } as unknown as Logger
+    await evaluatePendingReferrals({
+      logger,
+      programs: ['glm'],
+      limit: 2,
+      fetchPending: async () => ['g1', 'g2'], // exactly the limit → backlog warn
+      evaluators: makeEvaluators({ glm: notQualified }, []),
+    })
+    expect(warned).toBe(1)
   })
 })

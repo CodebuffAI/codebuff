@@ -27,6 +27,12 @@ import type { NextRequest } from 'next/server'
 export async function POST(req: NextRequest) {
   const secret = env.REFERRAL_SWEEP_SECRET
   if (!secret) {
+    // Warn (not silent): the cron is wired but the secret was never set, so the
+    // referral backstop is effectively off and rewards can silently stick.
+    logger.warn(
+      {},
+      'referral-sweep invoked but REFERRAL_SWEEP_SECRET is not configured; backstop is disabled',
+    )
     return NextResponse.json(
       { error: 'referral-sweep not configured (REFERRAL_SWEEP_SECRET missing)' },
       { status: 503 },

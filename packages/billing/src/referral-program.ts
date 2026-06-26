@@ -8,6 +8,7 @@ import {
   FREEBUFF_GLM_V52_REFERRAL_CAP,
   FREEBUFF_GLM_V52_REFERRAL_ENABLED,
 } from '@codebuff/common/constants/freebuff-models'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getFreebuffUsageDateKey } from '@codebuff/common/util/freebuff-streak'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -232,8 +233,10 @@ export async function redeemReferralCode(params: {
 
   // credits=0: v2 never mints credits (grant-credits throws on type='referral').
   // onConflictDoNothing guards the (referrer_id, referred_id, program) PK
-  // against racing double-submits.
-  await db
+  // against racing double-submits. `returning` tells us whether THIS call
+  // actually created the row, so the redeemed event fires once per real
+  // redemption (the cookie re-runs redeem on every web token refresh).
+  const inserted = await db
     .insert(schema.referral)
     .values({
       referrer_id: referrer.id,
@@ -245,11 +248,19 @@ export async function redeemReferralCode(params: {
       created_at: now,
     })
     .onConflictDoNothing()
+    .returning({ referredId: schema.referral.referred_id })
 
-  logger.info(
-    { userId, referrerId: referrer.id, program },
-    'Referral code redeemed; referral pending qualification',
-  )
+  if (inserted.length > 0) {
+    logger.info(
+      {
+        eventId: AnalyticsEvent.FREEBUFF_REFERRAL_REDEEMED,
+        userId,
+        referrerId: referrer.id,
+        program,
+      },
+      'Referral code redeemed; referral pending qualification',
+    )
+  }
   return { ok: true, referrerId: referrer.id }
 }
 
@@ -332,6 +343,12 @@ export type ReferralEvaluation =
  * no_pending_referral, the GitHub qualification is cached, and the activation
  * check is two indexed reads. Intended to be fired after freebuff usage is
  * recorded (the moment activation can flip) and/or from a periodic sweep.
+ *
+ * Only the `completed` transition emits a lifecycle event (low volume). The
+ * "why still pending" breakdown is NOT emitted per-evaluation — that would fire
+ * on every live trigger (web token refresh, ≤10 min) and dominate ingest;
+ * instead the sweep aggregates outcomes across the whole pending population once
+ * per run (see evaluatePendingReferrals).
  */
 export async function evaluateReferralForReferredUser(params: {
   userId: string
@@ -400,7 +417,12 @@ export async function evaluateReferralForReferredUser(params: {
     )
 
   logger.info(
-    { userId, referrerId: pending.referrerId },
+    {
+      eventId: AnalyticsEvent.FREEBUFF_REFERRAL_COMPLETED,
+      program: 'cli',
+      userId,
+      referrerId: pending.referrerId,
+    },
     'Referral completed: referred user passed qualification + activation',
   )
   return { outcome: 'completed', referrerId: pending.referrerId }
@@ -499,7 +521,12 @@ async function evaluateAccountAgeReferral(params: {
     )
 
   logger.info(
-    { userId, program, referrerId: pending.referrerId },
+    {
+      eventId: AnalyticsEvent.FREEBUFF_REFERRAL_COMPLETED,
+      program,
+      userId,
+      referrerId: pending.referrerId,
+    },
     'Referral completed: referred GitHub account met the age requirement',
   )
   return { outcome: 'completed', referrerId: pending.referrerId }
@@ -601,6 +628,22 @@ export interface ReferralSweepResult {
   completed: number
   /** Per-program tallies, so a cron run can be read at a glance. */
   byProgram: Record<string, { evaluated: number; completed: number }>
+  /**
+   * Per-program outcome histogram for THIS run, keyed by outcome
+   * (`not_qualified` is split by reason, e.g. `not_qualified:account_too_new`).
+   * This is the "why is everything pending" breakdown: because the sweep visits
+   * the whole pending population every run, one aggregate snapshot replaces a
+   * per-evaluation event (which would fire on every live trigger and dominate
+   * ingest). Emitted on the sweep summary event.
+   */
+  outcomes: Record<string, Record<string, number>>
+}
+
+/** Histogram key for an evaluation outcome; not_qualified keeps its reason. */
+function outcomeKey(evaluation: ReferralEvaluation): string {
+  return evaluation.outcome === 'not_qualified'
+    ? `not_qualified:${evaluation.reason}`
+    : evaluation.outcome
 }
 
 /** The referred-user ids with a pending row in `program`, oldest first. */
@@ -660,12 +703,14 @@ export async function evaluatePendingReferrals(params: {
     evaluated: 0,
     completed: 0,
     byProgram: {},
+    outcomes: {},
   }
 
   for (const program of programs) {
     const evaluate = evaluators[program]
     const referredIds = await fetchPending(program, limit)
     let completed = 0
+    const outcomes: Record<string, number> = {}
 
     for (const referredId of referredIds) {
       try {
@@ -675,6 +720,8 @@ export async function evaluatePendingReferrals(params: {
           now,
           fetchFn,
         })
+        const key = outcomeKey(evaluation)
+        outcomes[key] = (outcomes[key] ?? 0) + 1
         if (evaluation.outcome === 'completed') completed++
       } catch (error) {
         logger.error(
@@ -685,12 +732,31 @@ export async function evaluatePendingReferrals(params: {
     }
 
     result.byProgram[program] = { evaluated: referredIds.length, completed }
+    result.outcomes[program] = outcomes
     result.evaluated += referredIds.length
     result.completed += completed
+
+    // A full page means the backlog for this program exceeds one run's limit —
+    // the sweep isn't keeping up. Surface it so the limit/cadence can be tuned.
+    if (referredIds.length >= limit) {
+      logger.warn(
+        { program, evaluated: referredIds.length, limit },
+        'Referral sweep hit its per-program limit; pending backlog may exceed one run',
+      )
+    }
   }
 
+  // One aggregate event per run carries the full pending-reason breakdown for
+  // the whole population — far cheaper than a per-evaluation event, and more
+  // complete (covers inactive users a live trigger would never re-evaluate).
   logger.info(
-    { evaluated: result.evaluated, completed: result.completed, byProgram: result.byProgram },
+    {
+      eventId: AnalyticsEvent.FREEBUFF_REFERRAL_SWEEP,
+      evaluated: result.evaluated,
+      completed: result.completed,
+      byProgram: result.byProgram,
+      outcomes: result.outcomes,
+    },
     'Pending-referral sweep complete',
   )
   return result

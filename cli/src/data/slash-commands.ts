@@ -134,6 +134,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'copy',
+    label: 'copy',
+    description: 'Copy the full conversation (messages + tool results) to the clipboard',
+    aliases: ['copy-chat', 'export'],
+  },
+  {
     id: 'agent:gpt-5',
     label: 'agent:gpt-5',
     description: 'Spawn the GPT-5 agent to help solve complex problems',

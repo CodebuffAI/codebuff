@@ -2,6 +2,7 @@ import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
+import { handleCopyConversationCommand } from './copy-conversation'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
@@ -206,6 +207,13 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.setMessages((prev) => postUserMessage(prev))
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'copy',
+    aliases: ['copy-chat', 'export'],
+    handler: async (params) => {
+      await handleCopyConversationCommand(params)
     },
   }),
   defineCommandWithArgs({

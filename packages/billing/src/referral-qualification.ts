@@ -138,15 +138,20 @@ export async function fetchGitHubQualificationData(params: {
   accessToken: string
   fetchFn?: FetchFn
   logger?: Logger
+  /** Identifiers for the failure logs, so a spike of GitHub errors is traceable
+   *  to specific users/identities (e.g. a wave of revoked tokens) instead of an
+   *  anonymous count. */
+  userId?: string
+  githubUserId?: string
 }): Promise<GitHubQualificationData | null> {
-  const { accessToken, fetchFn = fetch, logger } = params
+  const { accessToken, fetchFn = fetch, logger, userId, githubUserId } = params
   const headers = { Authorization: `Bearer ${accessToken}`, ...GITHUB_HEADERS }
 
   // 1) Account profile -> id, login, created_at.
   const profileRes = await fetchFn(`${GITHUB_API_BASE}/user`, { headers })
   if (!profileRes.ok) {
     logger?.warn(
-      { status: profileRes.status },
+      { status: profileRes.status, userId, githubUserId },
       'GitHub /user lookup failed during referral qualification',
     )
     return null
@@ -164,6 +169,10 @@ export async function fetchGitHubQualificationData(params: {
     two_factor_authentication?: boolean
   }
   if (!profile.id || !profile.login || !profile.created_at) {
+    logger?.warn(
+      { userId, githubUserId },
+      'GitHub /user returned an incomplete profile during referral qualification',
+    )
     return null
   }
 
@@ -186,7 +195,7 @@ export async function fetchGitHubQualificationData(params: {
     }
   } else {
     logger?.warn(
-      { status: reposRes.status },
+      { status: reposRes.status, userId, githubUserId },
       'GitHub repos lookup failed during referral qualification',
     )
   }
@@ -475,6 +484,8 @@ export async function getReferralQualification(params: {
     accessToken: githubAccount.accessToken,
     fetchFn,
     logger,
+    userId,
+    githubUserId,
   })
   if (!data) {
     return unqualified('github_api_error', githubUserId)
