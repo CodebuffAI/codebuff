@@ -1,7 +1,5 @@
 import path from 'path'
 
-import { sendBasicEmail } from '@codebuff/internal/loops'
-
 import { runBuffBench } from './run-buffbench'
 
 import type { MetaAnalysisResult } from './meta-analyzer'
@@ -15,7 +13,7 @@ async function main() {
   console.log()
 
   const results = await runBuffBench({
-    evalDataPaths: [ path.join(__dirname, 'eval-codebuff.json')],
+    evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
     agents: ['base2-free'],
     taskConcurrency: 5,
     saveTraces,
@@ -23,41 +21,25 @@ async function main() {
 
   console.log('\nNightly buffbench evaluation completed successfully!')
 
-  // Send email with results
-  const recipientEmail = process.env.EVAL_RESULTS_EMAIL || 'team@codebuff.com'
-  console.log(`\n📧 Sending buffbench results email to ${recipientEmail}...`)
-
+  // Print results summary to stdout (email delivery was removed with the hosted
+  // backend's loops integration; review the logs or wire a local notifier if
+  // automated reporting is needed).
   const { metadata, metaAnalysis, ...agentResults } = results
-  const emailContent = formatBuffBenchEmailContent(
+  const summary = formatBuffBenchSummary(
     agentResults,
     metadata,
     metaAnalysis,
   )
-
-  try {
-    const emailResult = await sendBasicEmail({
-      email: recipientEmail,
-      data: emailContent,
-      logger: console,
-    })
-
-    if (emailResult.success) {
-      console.log('✅ BuffBench results email sent successfully!')
-    } else {
-      console.log('⚠️ Email sending was skipped (likely missing configuration)')
-    }
-  } catch (emailError) {
-    console.error('❌ Failed to send buffbench results email:', emailError)
-  }
+  console.log('\n' + summary)
 
   process.exit(0)
 }
 
-function formatBuffBenchEmailContent(
+function formatBuffBenchSummary(
   results: Record<string, AgentEvalResults>,
   metadata: any,
   metaAnalysis?: MetaAnalysisResult,
-) {
+): string {
   const agents = Object.keys(results)
   const date = new Date().toLocaleDateString()
 
@@ -65,7 +47,7 @@ function formatBuffBenchEmailContent(
     .map((agentId) => `${agentId}: ${results[agentId].averageScore.toFixed(1)}`)
     .join(' | ')
 
-  const subject = `Nightly BuffBench Results - ${date} - ${agentScores}`
+  const header = `Nightly BuffBench Results - ${date} - ${agentScores}`
 
   const agentComparison = agents
     .map(
@@ -92,12 +74,7 @@ Generated on: ${metadata.timestamp}
 Repositories: ${metadata.evalFiles.map((f: { repoUrl: string }) => f.repoUrl).join(', ')}`
 
   if (metaAnalysis) {
-    message += `
-
-🔍 META-ANALYSIS
-
-Overall Comparison:
-${metaAnalysis.overallComparison}`
+    message += `\n\n${header}\n\n🔍 META-ANALYSIS\n\nOverall Comparison:\n${metaAnalysis.overallComparison}`
 
     if (metaAnalysis.agentInsights.length > 0) {
       message += `\n\nAgent-Specific Insights:`
@@ -126,7 +103,7 @@ ${metaAnalysis.overallComparison}`
     }
   }
 
-  return { subject, message }
+  return message
 }
 
 if (import.meta.main) {

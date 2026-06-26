@@ -3,6 +3,17 @@ const DEBUG_LOG_MAX_STRING_LENGTH = 8_000
 const DEBUG_LOG_MAX_ARRAY_LENGTH = 120
 const DEBUG_LOG_MAX_OBJECT_KEYS = 160
 
+// Keys whose string values are credentials (OAuth tokens, API keys, bearer
+// auth headers). When sanitizing an object, any value under a matching key is
+// replaced with '[REDACTED]' so tokens never reach the debug log
+// (debug/cli.jsonl) or persisted chat state. Matching is case-insensitive and
+// catches common casing variants (accessToken, access_token, ACCESS_TOKEN).
+const SENSITIVE_KEY_PATTERN =
+  /^(.*(?:token|access_token|refresh_token|id_token|authorization|api[_-]?key|apikey|secret|bearer|password|passwd|credential).*)$/i
+
+const isSensitiveKey = (key: string): boolean =>
+  SENSITIVE_KEY_PATTERN.test(key)
+
 type SanitizeOptions = {
   maxStringLength: number
   maxArrayLength?: number
@@ -110,10 +121,36 @@ const sanitizeObject = (
       sanitized.__openbuff_omitted_keys = entries.length - maxObjectKeys
       break
     }
-    sanitized[key] = sanitizeValue(child, options, seen)
+    // Redact credential values by key name so OAuth tokens, API keys, and
+    // bearer/authorization headers never reach the debug log or persisted
+    // chat state. Objects under a sensitive key are still recursed into so
+    // the *shape* (and any nested sensitive keys) is preserved, but their
+    // string/URL values are replaced wholesale.
+    if (isSensitiveKey(key)) {
+      sanitized[key] = redactSensitiveValue(child, options, seen)
+    } else {
+      sanitized[key] = sanitizeValue(child, options, seen)
+    }
   }
 
   return sanitized
+}
+
+const redactSensitiveValue = (
+  value: unknown,
+  options: SanitizeOptions,
+  seen: WeakSet<object>,
+): unknown => {
+  if (typeof value === 'string') {
+    return '[REDACTED]'
+  }
+  if (value instanceof URL) {
+    return '[REDACTED]'
+  }
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+    return '[REDACTED]'
+  }
+  return sanitizeValue(value, options, seen)
 }
 
 const sanitizeArray = (

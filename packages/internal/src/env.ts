@@ -25,14 +25,6 @@ if (isCI) {
   ensureEnvDefault('GRAVITY_API_KEY', 'test')
   ensureEnvDefault('IPINFO_TOKEN', 'test')
   ensureEnvDefault('PORT', '4242')
-  ensureEnvDefault('DATABASE_URL', 'postgres://localhost:5432/db')
-  ensureEnvDefault('CODEBUFF_GITHUB_ID', 'test-id')
-  ensureEnvDefault('CODEBUFF_GITHUB_SECRET', 'test-secret')
-  ensureEnvDefault('NEXTAUTH_SECRET', 'test-secret')
-  ensureEnvDefault('LOOPS_API_KEY', 'test')
-  ensureEnvDefault('DISCORD_PUBLIC_KEY', 'test')
-  ensureEnvDefault('DISCORD_BOT_TOKEN', 'test')
-  ensureEnvDefault('DISCORD_APPLICATION_ID', 'test')
 }
 
 // Only log environment in non-production

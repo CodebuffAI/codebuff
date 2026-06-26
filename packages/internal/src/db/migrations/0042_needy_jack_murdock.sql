@@ -1,1 +1,0 @@
-ALTER TABLE "message" ADD COLUMN "ttft_ms" integer;

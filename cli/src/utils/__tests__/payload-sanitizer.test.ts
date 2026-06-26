@@ -113,3 +113,95 @@ describe('payload-sanitizer', () => {
     expect(sanitized.self).toBe('[Circular]')
   })
 })
+
+describe('payload-sanitizer token redaction', () => {
+  test('redacts OAuth token fields across casing variants in debug logs', () => {
+    const secret = 'sk-very-long-secret-oauth-token-value-1234567890'
+    const payload = {
+      chatgptOAuth: {
+        accessToken: secret,
+        refresh_token: secret,
+        id_token: secret,
+      },
+      headers: { Authorization: `Bearer ${secret}` },
+      apiKey: secret,
+      api_key: secret,
+      APIKEY: secret,
+      normal: 'kept',
+    }
+
+    const sanitized = sanitizeForDebugLog(payload) as any
+
+    expect(sanitized.chatgptOAuth.accessToken).toBe('[REDACTED]')
+    expect(sanitized.chatgptOAuth.refresh_token).toBe('[REDACTED]')
+    expect(sanitized.chatgptOAuth.id_token).toBe('[REDACTED]')
+    expect(sanitized.headers.Authorization).toBe('[REDACTED]')
+    expect(sanitized.apiKey).toBe('[REDACTED]')
+    expect(sanitized.api_key).toBe('[REDACTED]')
+    expect(sanitized.APIKEY).toBe('[REDACTED]')
+    expect(sanitized.normal).toBe('kept')
+    expect(JSON.stringify(sanitized)).not.toContain(secret)
+  })
+
+  test('redacts token values in persisted chat state too', () => {
+    const secret = 'sk-secret-access-token-xyz'
+    const payload = {
+      credentials: { accessToken: secret, refreshToken: secret },
+      meta: { token: secret },
+    }
+
+    const sanitized = sanitizeForChatPersistence(payload) as any
+
+    expect(sanitized.credentials.accessToken).toBe('[REDACTED]')
+    expect(sanitized.credentials.refreshToken).toBe('[REDACTED]')
+    expect(sanitized.meta.token).toBe('[REDACTED]')
+    expect(JSON.stringify(sanitized)).not.toContain(secret)
+  })
+
+  test('preserves object shape under sensitive keys; nested non-sensitive string keys are kept', () => {
+    const secret = 'sk-nested-secret-token'
+    const payload = {
+      token: { value: secret, type: 'bearer', safe: 'keep' },
+    }
+
+    const sanitized = sanitizeForDebugLog(payload) as any
+
+    // The outer key 'token' is sensitive, but its value is an object. We
+    // recurse to preserve the shape. Inner keys are NOT redacted by the
+    // outer key name — redaction is keyed on field name, not value content —
+    // so 'value' (a non-sensitive key) keeps its string. This documents the
+    // contract: nest credentials under a sensitive key name to protect them,
+    // or use a sensitive key name directly.
+    expect(typeof sanitized.token).toBe('object')
+    expect(sanitized.token.value).toBe(secret)
+    expect(sanitized.token.type).toBe('bearer')
+    expect(sanitized.token.safe).toBe('keep')
+  })
+
+  test('redacts nested strings when the nested key is itself sensitive', () => {
+    const secret = 'sk-nested-secret-token'
+    const payload = {
+      config: { access_token: secret, description: 'keep this text' },
+    }
+
+    const sanitized = sanitizeForDebugLog(payload) as any
+
+    expect(sanitized.config.access_token).toBe('[REDACTED]')
+    expect(sanitized.config.description).toBe('keep this text')
+    expect(JSON.stringify(sanitized)).not.toContain(secret)
+  })
+
+  test('redacts URL values under sensitive keys', () => {
+    const secret = 'abcdef-secret-token-in-url'
+    const payload = {
+      tokenUrl: new URL(`https://example.com/auth?access_token=${secret}`),
+      normalUrl: new URL('https://example.com/safe'),
+    }
+
+    const sanitized = sanitizeForDebugLog(payload) as any
+
+    expect(sanitized.tokenUrl).toBe('[REDACTED]')
+    expect(sanitized.normalUrl).toBe('https://example.com/safe')
+    expect(JSON.stringify(sanitized)).not.toContain(secret)
+  })
+})

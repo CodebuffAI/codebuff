@@ -17,30 +17,6 @@ export const serverEnvSchema = clientEnvSchema.extend({
   GRAVITY_API_KEY: z.string().min(1),
   IPINFO_TOKEN: z.string().min(1),
   PORT: z.coerce.number().min(1000),
-
-  // Database and retained integration variables
-  DATABASE_URL: z.string().min(1),
-  CODEBUFF_GITHUB_ID: z.string().min(1),
-  CODEBUFF_GITHUB_SECRET: z.string().min(1),
-  NEXTAUTH_URL: z.url().optional(),
-  NEXTAUTH_SECRET: z.string().min(1),
-  LOOPS_API_KEY: z.string().min(1),
-  DISCORD_PUBLIC_KEY: z.string().min(1),
-  DISCORD_BOT_TOKEN: z.string().min(1),
-  DISCORD_APPLICATION_ID: z.string().min(1),
-
-  // Shared secret for the hourly bot-sweep GitHub Action. Callers must send
-  // `Authorization: Bearer $BOT_SWEEP_SECRET` to /api/admin/bot-sweep.
-  // Optional so dev environments can start without it; the endpoint returns
-  // 503 if the secret isn't configured.
-  BOT_SWEEP_SECRET: z.string().min(16).optional(),
-
-  // Optional GitHub PAT used by the bot-sweep to look up each suspect's
-  // GitHub account age. Without it we fall back to unauthenticated API
-  // calls (60 req/hr from the server IP) which is enough for a normal
-  // sweep but risks rate-limiting.
-  BOT_SWEEP_GITHUB_TOKEN: z.string().min(1).optional(),
-
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -72,18 +48,4 @@ export const serverProcessEnv: ServerInput = {
   GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
   IPINFO_TOKEN: process.env.IPINFO_TOKEN,
   PORT: process.env.PORT,
-
-  // Database and retained integration variables
-  DATABASE_URL: process.env.DATABASE_URL,
-  CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID,
-  CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  LOOPS_API_KEY: process.env.LOOPS_API_KEY,
-  DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
-  DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
-  DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
-  BOT_SWEEP_SECRET: process.env.BOT_SWEEP_SECRET,
-  BOT_SWEEP_GITHUB_TOKEN: process.env.BOT_SWEEP_GITHUB_TOKEN,
-
 }
