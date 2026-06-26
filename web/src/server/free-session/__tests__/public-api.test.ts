@@ -269,14 +269,55 @@ describe('requestSession', () => {
     expect(state.status).toBe('active')
   })
 
-  test('promote no-op with no active row throws (never returns queued)', async () => {
-    // Promotion returns null and the row stays queued (pathological). With no
-    // admission tick to advance it, returning `queued` would wedge the client,
-    // so requestSession must throw and let the client retry POST.
+  test('concurrent model-switch race: loser recovers and admits the switched model', async () => {
+    // Real race: our model-scoped promote matches nothing because a concurrent
+    // request switched the queued row to another model. The recovery re-reads
+    // and promotes whatever queued row now exists — no throw, ends active.
+    const SWITCHED = 'minimax/minimax-m3'
+    let calls = 0
+    deps.promoteQueuedUser = async ({
+      userId,
+      model,
+      now,
+      sessionLengthMs,
+    }) => {
+      calls++
+      const row = deps.rows.get(userId)!
+      if (calls === 1) {
+        // a concurrent switch flipped the queued row to a different model
+        row.model = SWITCHED
+        return null
+      }
+      if (row.status === 'queued' && row.model === model) {
+        row.status = 'active'
+        row.admitted_at = now
+        row.expires_at = new Date(now.getTime() + sessionLengthMs)
+        return row
+      }
+      return null
+    }
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    expect(state.model).toBe(SWITCHED)
+    expect(calls).toBe(2)
+  })
+
+  test('promote that never succeeds returns queued without throwing (GET self-heals)', async () => {
+    // Pathological: promotion can never flip the row (cannot happen against the
+    // real DB, where a fresh queued row always matches). requestSession must NOT
+    // 500 — it returns the transient queued view, which a GET poll self-heals.
     deps.promoteQueuedUser = async () => null
-    await expect(
-      requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps }),
-    ).rejects.toThrow(/could not be admitted/)
+    const state = await requestSession({
+      userId: 'u1',
+      model: DEFAULT_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('queued')
   })
 
   test('removed GLM 5.1 request falls back to the default model', async () => {

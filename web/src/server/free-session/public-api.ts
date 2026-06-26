@@ -484,6 +484,61 @@ export type RequestSessionResult =
     }
 
 /**
+ * Promote the caller's freshly-joined queued row to active, pinning the
+ * Fireworks upstream from current deployment health. Returns the active row, or
+ * null if the model-scoped `promoteQueuedUser` matched nothing (a concurrent
+ * same-account request changed the row first — see the recovery in
+ * `requestSession`). Only backup-capable models (e.g. minimax/minimax-m3) need
+ * the health probe; it's cached (~25s) so this is a cheap map read on the hot
+ * path. The pin is decided once here and frozen for the session — see
+ * `routeForAdmission`.
+ */
+async function admitQueuedRow(
+  params: { userId: string; countryAccess?: FreeSessionCountryAccessMetadata },
+  model: string,
+  now: Date,
+  deps: SessionDeps,
+): Promise<InternalSessionRow | null> {
+  let fireworksRoute: FireworksRoute | null = null
+  let pinnedHealth: FireworksHealth | undefined
+  let pinnedTtftP90Ms: number | undefined
+  if (hasFireworksServerlessBackup(model)) {
+    const fleet = await deps.getFleetHealth()
+    pinnedHealth = fleet[model] ?? 'healthy'
+    pinnedTtftP90Ms = deps.getDeploymentTtftP90Ms(model)
+    fireworksRoute = routeForAdmission(model, fleet, pinnedTtftP90Ms)
+  }
+  const promoted = await deps.promoteQueuedUser({
+    userId: params.userId,
+    model,
+    sessionLengthMs: deps.sessionLengthMs,
+    now,
+    fireworksRoute,
+  })
+  if (!promoted) return null
+  // One log per fresh admission of a backup-capable model (M3) — not on
+  // takeover/reclaim, which keeps the existing pin. The metric tag makes the
+  // deployment-vs-serverless split chartable in the freebuff Axiom dataset, and
+  // `health` shows what drove it. Gated to backup-capable models so it stays
+  // low-volume.
+  if (fireworksRoute) {
+    logger.info(
+      {
+        metric: 'freebuff_fireworks_route',
+        userId: params.userId,
+        model,
+        route: fireworksRoute,
+        health: pinnedHealth,
+        ttftP90Ms: pinnedTtftP90Ms,
+      },
+      '[FreeSession] pinned fireworks upstream at admission',
+    )
+  }
+  await logIpSessionConcurrency(params, model, deps)
+  return promoted
+}
+
+/**
  * Client calls this on CLI startup with the model they want to use. Every
  * caller is admitted immediately — there is no waiting room, FIFO queue, or
  * capacity cap; a freshly created row is `queued` only transiently within this
@@ -605,64 +660,24 @@ export async function requestSession(params: {
   // active right here. (Takeover/reclaim of an already-active row stays active
   // and skips this block, preserving its existing upstream pin.)
   if (row.status === 'queued') {
-    // Pin the new session to its upstream from current deployment health.
-    // Only backup-capable models (e.g. minimax/minimax-m3) need a probe;
-    // everything else routes through default deployment behavior (null).
-    // The probe is cached (~25s) so this is a cheap map read in the hot
-    // path. Decided once here and frozen — see `routeForAdmission`.
-    let fireworksRoute: FireworksRoute | null = null
-    let pinnedHealth: FireworksHealth | undefined
-    let pinnedTtftP90Ms: number | undefined
-    if (hasFireworksServerlessBackup(model)) {
-      const fleet = await deps.getFleetHealth()
-      pinnedHealth = fleet[model] ?? 'healthy'
-      pinnedTtftP90Ms = deps.getDeploymentTtftP90Ms(model)
-      fireworksRoute = routeForAdmission(model, fleet, pinnedTtftP90Ms)
-    }
-    const promoted = await deps.promoteQueuedUser({
-      userId: params.userId,
-      model,
-      sessionLengthMs: deps.sessionLengthMs,
-      now,
-      fireworksRoute,
-    })
-    if (promoted) {
-      row = promoted
-      // One log per fresh admission of a backup-capable model (M3) — not on
-      // takeover/reclaim, which keeps the existing pin. The metric tag makes
-      // the deployment-vs-serverless split chartable in the freebuff Axiom
-      // dataset, and `health` shows what drove it. Gated to backup-capable
-      // models so it stays low-volume.
-      if (fireworksRoute) {
-        logger.info(
-          {
-            metric: 'freebuff_fireworks_route',
-            userId: params.userId,
-            model,
-            route: fireworksRoute,
-            health: pinnedHealth,
-            ttftP90Ms: pinnedTtftP90Ms,
-          },
-          '[FreeSession] pinned fireworks upstream at admission',
-        )
-      }
-      await logIpSessionConcurrency(params, model, deps)
-    } else {
-      // Promotion no-op'd: the `UPDATE ... WHERE status='queued'` matched
-      // nothing because a concurrent request for this same account already
-      // flipped the row to active between `joinOrTakeOver` and here. Re-read and
-      // use that active row. If it's somehow not active, fail loudly so the
-      // client retries POST — we must never return a `queued` view now that
-      // there is no admission tick to advance it.
+    let admitted = await admitQueuedRow(params, model, now, deps)
+    if (!admitted) {
+      // Our model-scoped `promoteQueuedUser` matched nothing: a concurrent
+      // request for this same account changed the row between `joinOrTakeOver`
+      // and the promote — e.g. a near-simultaneous model switch flipped the
+      // queued row to the other model (and likely admitted it). Recover without
+      // failing: if a concurrent request already made the row active, use it;
+      // otherwise promote whatever queued row now exists. We never throw — every
+      // queued row is promoted by some request, and a GET poll self-heals any
+      // residual transient `queued`, so a 500 here would be strictly worse.
       const current = await deps.getSessionRow(params.userId)
-      if (current && current.status === 'active') {
-        row = current
-      } else {
-        throw new Error(
-          `free session could not be admitted (user=${params.userId}, model=${model})`,
-        )
+      if (current?.status === 'active') {
+        admitted = current
+      } else if (current?.status === 'queued') {
+        admitted = await admitQueuedRow(params, current.model, now, deps)
       }
     }
+    if (admitted) row = admitted
   }
 
   const view = await viewForRow(params.userId, deps, row)
