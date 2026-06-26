@@ -4,6 +4,7 @@ import {
   normalizeAgentIdForLookup,
   parseAgentId,
 } from '@codebuff/common/util/agent-id-parsing'
+import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
@@ -271,6 +272,37 @@ export function buildSpawnParamsWithHandoff(params: {
 }
 
 /**
+ * Required labeled sections in an editor agent's implementation brief, each
+ * with lenient case-insensitive alias substrings used to detect the field's
+ * presence. A field is considered present if ANY of its aliases appears as a
+ * substring of the lowercased prompt.
+ */
+const REQUIRED_EDITOR_BRIEF_FIELDS: { label: string; aliases: string[] }[] = [
+  { label: 'Requirements', aliases: ['Requirements', 'implementation task'] },
+  { label: 'Target files', aliases: ['Target files'] },
+  {
+    label: 'Constraints/non-goals',
+    aliases: ['Constraints/non-goals', 'Constraints', 'non-goals'],
+  },
+  { label: 'Patterns', aliases: ['Patterns', 'relevant patterns'] },
+  { label: 'Risks', aliases: ['Risks', 'code-level risks'] },
+]
+
+/**
+ * Returns the labels of required editor brief fields whose NO alias is present
+ * in the (lowercased) prompt. A field is considered present if any of its
+ * aliases appears as a case-insensitive substring. Returns ALL labels for an
+ * empty/whitespace prompt.
+ */
+function findMissingEditorBriefFields(prompt: string): string[] {
+  const lower = prompt.toLowerCase()
+  return REQUIRED_EDITOR_BRIEF_FIELDS.filter(
+    (field) =>
+      !field.aliases.some((alias) => lower.includes(alias.toLowerCase())),
+  ).map((field) => field.label)
+}
+
+/**
  * Validates prompt and params against agent schema
  */
 export function validateAgentInput(
@@ -291,19 +323,37 @@ export function validateAgentInput(
     }
   }
 
-  if (agentType === 'editor' && !(prompt ?? '').trim()) {
-    throw new Error(
-      [
-        'Editor agent requires a concrete implementation brief in the prompt.',
-        'Missing brief fields/sections:',
-        '- implementation task',
-        '- target files',
-        '- constraints/non-goals',
-        '- relevant patterns',
-        '- code-level risks',
-        'Do not rely on parent conversation history.',
-      ].join('\n'),
-    )
+  if (agentType === 'editor') {
+    const trimmedPrompt = (prompt ?? '').trim()
+    const missingFields = findMissingEditorBriefFields(trimmedPrompt)
+    const header =
+      'Editor agent requires a concrete implementation brief in the prompt.'
+    if (!trimmedPrompt) {
+      // Empty prompt: list ALL required fields so the caller knows the full
+      // expected shape.
+      throw new Error(
+        [
+          header,
+          'Missing brief fields/sections:',
+          ...REQUIRED_EDITOR_BRIEF_FIELDS.map(
+            (field) => `- ${field.label}`,
+          ),
+          'Do not rely on parent conversation history.',
+        ].join('\n'),
+      )
+    }
+    if (missingFields.length > 0) {
+      // Non-empty but incomplete: list ONLY the actually-missing fields so
+      // the error is actionable rather than a generic “include everything”.
+      throw new Error(
+        [
+          header,
+          'Missing brief fields/sections:',
+          ...missingFields.map((label) => `- ${label}`),
+          'Re-spawn the editor with a prompt that includes all of the above as labeled sections. Do not rely on parent conversation history.',
+        ].join('\n'),
+      )
+    }
   }
 
   // Validate params if schema exists
@@ -405,6 +455,14 @@ export function logAgentSpawn(params: {
 }
 
 /**
+ * Default wall-clock bound for a single subagent execution. A stuck subagent
+ * would otherwise burn up to {@link MAX_AGENT_STEPS_DEFAULT} steps; this
+ * unblocks the parent after a generous 10-minute window. The underlying
+ * {@link loopAgentSteps} is NOT cancelled by the timeout (see comment below).
+ */
+const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60 * 1000
+
+/**
  * Executes a subagent using loopAgentSteps
  */
 export async function executeSubagent(
@@ -416,6 +474,7 @@ export async function executeSubagent(
       onResponseChunk: (chunk: string | PrintModeEvent) => void
       isOnlyChild?: boolean
       ancestorRunIds: string[]
+      subagentTimeoutMs?: number
     } & ParamsExcluding<typeof loopAgentSteps, 'agentType' | 'ancestorRunIds'>,
     'isOnlyChild' | 'clearUserPromptMessagesAfterResponse'
   >,
@@ -433,6 +492,7 @@ export async function executeSubagent(
     ancestorRunIds,
     prompt,
     spawnParams,
+    subagentTimeoutMs,
   } = withDefaults
 
   const startEvent = {
@@ -447,27 +507,60 @@ export async function executeSubagent(
   }
   onResponseChunk(startEvent)
 
-  const result = await loopAgentSteps({
-    ...withDefaults,
-    onResponseChunk,
-    // Don't propagate parent's image content to subagents.
-    // If subagents need to see images, they get them through includeMessageHistory,
-    // not by creating new image-containing messages for their prompts.
-    content: undefined,
-    ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
-    agentType: agentTemplate.id,
-  })
+  // NOTE: withTimeout races against loopAgentSteps but does NOT cancel the
+  // underlying loop — the stuck LLM stream may continue briefly in the
+  // background. The parent is unblocked after the timeout, and the rejection
+  // flows through Promise.allSettled in spawn-agents.ts into a normal per-agent
+  // errorMessage report, so no other wiring is needed.
+  let result
+  let timedOut = false
+  try {
+    result = await withTimeout(
+      loopAgentSteps({
+        ...withDefaults,
+        onResponseChunk,
+        // Don't propagate parent's image content to subagents.
+        // If subagents need to see images, they get them through includeMessageHistory,
+        // not by creating new image-containing messages for their prompts.
+        content: undefined,
+        ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
+        agentType: agentTemplate.id,
+      }),
+      subagentTimeoutMs ?? DEFAULT_SUBAGENT_TIMEOUT_MS,
+      `Subagent ${agentTemplate.id} exceeded wall-clock timeout of ${subagentTimeoutMs ?? DEFAULT_SUBAGENT_TIMEOUT_MS}ms`,
+    )
+  } catch (error) {
+    // withTimeout rejects on deadline, leaving loopAgentSteps running in the
+    // background (not cancelled). Emit a finish event so the UI doesn't show
+    // a subagent that started but never finished, then re-throw so the parent
+    // sees the error via Promise.allSettled.
+    timedOut = true
+    onResponseChunk({
+      type: 'subagent_finish',
+      agentId: withDefaults.agentState.agentId,
+      agentType: agentTemplate.id,
+      displayName: agentTemplate.displayName,
+      onlyChild: isOnlyChild,
+      parentAgentId: parentAgentState.agentId,
+      prompt,
+      params: spawnParams,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    throw error
+  }
 
-  onResponseChunk({
-    type: 'subagent_finish',
-    agentId: result.agentState.agentId,
-    agentType: agentTemplate.id,
-    displayName: agentTemplate.displayName,
-    onlyChild: isOnlyChild,
-    parentAgentId: parentAgentState.agentId,
-    prompt,
-    params: spawnParams,
-  })
+  if (!timedOut) {
+    onResponseChunk({
+      type: 'subagent_finish',
+      agentId: result.agentState.agentId,
+      agentType: agentTemplate.id,
+      displayName: agentTemplate.displayName,
+      onlyChild: isOnlyChild,
+      parentAgentId: parentAgentState.agentId,
+      prompt,
+      params: spawnParams,
+    })
+  }
 
   if (result.agentState.runId) {
     parentAgentState.childRunIds.push(result.agentState.runId)

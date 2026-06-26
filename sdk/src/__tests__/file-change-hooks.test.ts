@@ -12,9 +12,11 @@ function fakeRunner(
   exitByCommand: Record<string, { exitCode: number; stdout?: string; stderr?: string }>,
 ) {
   const calls: string[] = []
-  const run = (async (params: { command: string }) => {
-    calls.push(params.command)
-    const r = exitByCommand[params.command] ?? { exitCode: 0 }
+  const paramsList: Array<Record<string, unknown>> = []
+  const run = (async (params: Record<string, unknown>) => {
+    calls.push(params.command as string)
+    paramsList.push(params)
+    const r = exitByCommand[params.command as string] ?? { exitCode: 0 }
     return [
       {
         type: 'json' as const,
@@ -22,7 +24,7 @@ function fakeRunner(
       },
     ] as CodebuffToolOutput<'run_terminal_command'>
   }) as any
-  return { run, calls }
+  return { run, calls, paramsList }
 }
 
 const hooks: FileChangeHook[] = [
@@ -131,5 +133,62 @@ describe('runFileChangeHooks', () => {
         changedFiles: ['README.md'],
       },
     ])
+  })
+
+  test('runs matching hooks in parallel and preserves result order', async () => {
+    // The first matching hook (typecheck) is intentionally slower so it
+    // completes after the second (test-ts). This exercises out-of-order
+    // completion while asserting results stay in `matching` order.
+    const completionOrder: string[] = []
+    const run = (async (params: { command: string }) => {
+      if (params.command === 'tsc --noEmit') {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        completionOrder.push('typecheck')
+      } else {
+        completionOrder.push('test-ts')
+      }
+      return [
+        {
+          type: 'json' as const,
+          value: { exitCode: 0, stdout: '', stderr: '' },
+        },
+      ] as CodebuffToolOutput<'run_terminal_command'>
+    }) as any
+    const out = await runFileChangeHooks({
+      files: ['src/a.ts'],
+      cwd: '/repo',
+      hooks,
+      runCommand: run,
+    })
+    const results = jsonValue(out)
+    expect(results).toBeDefined()
+    expect(results).toHaveLength(2)
+    // Completion happened out of order: test-ts finished before typecheck.
+    expect(completionOrder).toEqual(['test-ts', 'typecheck'])
+    // ...but results are in `matching` order regardless of completion order.
+    expect(results![0]).toMatchObject({ hookName: 'typecheck', exitCode: 0 })
+    expect(results![1]).toMatchObject({ hookName: 'test-ts', exitCode: 0 })
+  })
+
+  test('forwards per-hook timeoutSeconds to runCommand', async () => {
+    const { run, paramsList } = fakeRunner({
+      tsc: { exitCode: 0 },
+    })
+    const out = await runFileChangeHooks({
+      files: ['src/a.ts'],
+      cwd: '/repo',
+      hooks: [{ name: 'slow', command: 'tsc', timeoutSeconds: 30 }],
+      runCommand: run,
+    })
+    const results = jsonValue(out)
+    expect(results).toBeDefined()
+    expect(results).toHaveLength(1)
+    expect(results![0]).toMatchObject({ hookName: 'slow', exitCode: 0 })
+    // The configured timeout (30s) is forwarded, not the 180s default.
+    expect(paramsList).toHaveLength(1)
+    expect(paramsList[0]).toMatchObject({
+      command: 'tsc',
+      timeout_seconds: 30,
+    })
   })
 })

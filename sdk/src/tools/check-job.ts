@@ -1,4 +1,8 @@
-import { getBackgroundJob, readNewJobOutput } from './background-jobs'
+import {
+  getBackgroundJob,
+  killBackgroundJob,
+  readNewJobOutput,
+} from './background-jobs'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -27,9 +31,13 @@ export async function checkJob(params: {
   jobId: string
   wait_for?: string
   timeout_seconds?: number
+  kill_on_timeout?: boolean
 }): Promise<CodebuffToolOutput<'check_job'>> {
   const { jobId, wait_for: waitFor } = params
   const timeoutMs = Math.max(0, (params.timeout_seconds ?? 0) * 1000)
+  // Default to killing the job when the follow-timeout fires. Poll mode
+  // (timeoutMs === 0) never kills — only the follow-timeout branch below can.
+  const killOnTimeout = params.kill_on_timeout ?? true
 
   const job = getBackgroundJob(jobId)
   if (!job) {
@@ -51,6 +59,52 @@ export async function checkJob(params: {
     const matched = waitFor ? collected.includes(waitFor) : true
     const finished = job.status !== 'running'
     if (matched || finished || Date.now() >= deadline) {
+      // The follow-timeout fired (deadline reached, pattern NOT matched, job
+      // NOT finished, and still running) and only in follow mode (timeoutMs > 0).
+      // Poll mode (timeoutMs === 0) must never kill even though its deadline
+      // is immediately reached, because `matched`/`finished` would also be true
+      // there — but guard with timeoutMs > 0 to be explicit and safe.
+      const timedOut =
+        timeoutMs > 0 && !matched && !finished && Date.now() >= deadline
+      if (timedOut && job.status === 'running' && killOnTimeout) {
+        const killResult = killBackgroundJob(jobId, 'SIGTERM')
+        if ('killed' in killResult) {
+          // killBackgroundJob updates the in-memory job status; prefer the
+          // fresh kill-result status/exitCode over the stale local `job` ref.
+          return [
+            {
+              type: 'json',
+              value: {
+                jobId,
+                status: killResult.status,
+                newOutput: truncateEnd(collected, CHECK_JOB_OUTPUT_LIMIT),
+                ...(killResult.exitCode !== undefined &&
+                killResult.exitCode !== null
+                  ? { exitCode: killResult.exitCode }
+                  : {}),
+                ...(waitFor ? { matched } : {}),
+                killed: true,
+              },
+            },
+          ]
+        }
+        // Kill itself reported an error (e.g. no pid): surface it while still
+        // marking the attempt so the caller knows a kill was attempted.
+        return [
+          {
+            type: 'json',
+            value: {
+              jobId,
+              status: job.status,
+              newOutput: truncateEnd(collected, CHECK_JOB_OUTPUT_LIMIT),
+              ...(job.exitCode !== null ? { exitCode: job.exitCode } : {}),
+              ...(waitFor ? { matched } : {}),
+              killed: true,
+              errorMessage: killResult.errorMessage,
+            },
+          },
+        ]
+      }
       return [
         {
           type: 'json',

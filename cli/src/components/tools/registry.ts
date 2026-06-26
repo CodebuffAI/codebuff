@@ -8,8 +8,10 @@ import { ReadDocsComponent } from './read-docs'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
 import { RenderUIComponent } from './render-ui'
+import { RunFileChangeHooksComponent } from './run-file-change-hooks'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { SkillComponent } from './skill'
+import { SpawnAgentsComponent } from './spawn-agents'
 import { StrReplaceComponent } from './str-replace'
 import { SuggestFollowupsComponent } from './suggest-followups'
 import { TaskCompleteComponent } from './task-completed'
@@ -35,6 +37,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [GlobComponent.toolName, GlobComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [QueryIndexComponent.toolName, QueryIndexComponent],
+  [RunFileChangeHooksComponent.toolName, RunFileChangeHooksComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
   [ReadDocsComponent.toolName, ReadDocsComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
@@ -52,6 +55,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   ['propose_write_file', WriteFileComponent],
   ['propose_edit_transaction', EditTransactionComponent],
   [SkillComponent.toolName, SkillComponent],
+  [SpawnAgentsComponent.toolName, SpawnAgentsComponent],
 ])
 
 /**

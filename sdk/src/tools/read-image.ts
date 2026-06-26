@@ -48,26 +48,54 @@ export async function readImages(params: {
     rootRealPath = path.resolve(cwd)
   }
 
-  for (const imagePath of paths) {
+  type ProcessedImage =
+    | {
+        kind: 'error'
+        entry: {
+          path: string
+          status: 'error'
+          mediaType?: string
+          sizeBytes?: number
+          message: string
+        }
+      }
+    | {
+        kind: 'attach'
+        entry: {
+          path: string
+          status: 'attached'
+          mediaType: string
+          sizeBytes: number
+          message: string
+        }
+        buffer: Buffer
+        mediaType: string
+      }
+
+  const processOne = async (imagePath: string): Promise<ProcessedImage> => {
     const resolvedPath = resolveFilePathWithinProject(cwd, imagePath)
     if (!resolvedPath) {
-      images.push({
-        path: imagePath,
-        status: 'error',
-        message: FILE_READ_STATUS.OUTSIDE_PROJECT,
-      })
-      continue
+      return {
+        kind: 'error',
+        entry: {
+          path: imagePath,
+          status: 'error',
+          message: FILE_READ_STATUS.OUTSIDE_PROJECT,
+        },
+      }
     }
 
     const { relativePath, fullPath } = resolvedPath
     const ext = path.extname(relativePath).toLowerCase()
     if (!isSupportedImageExtension(ext)) {
-      images.push({
-        path: relativePath,
-        status: 'error',
-        message: `Unsupported image format "${ext || '(none)'}". Supported: ${Array.from(SUPPORTED_IMAGE_EXTENSIONS).join(', ')}`,
-      })
-      continue
+      return {
+        kind: 'error',
+        entry: {
+          path: relativePath,
+          status: 'error',
+          message: `Unsupported image format "${ext || '(none)'}". Supported: ${Array.from(SUPPORTED_IMAGE_EXTENSIONS).join(', ')}`,
+        },
+      }
     }
 
     const ignored = await isFileIgnored({
@@ -76,12 +104,14 @@ export async function readImages(params: {
       fs,
     })
     if (ignored) {
-      images.push({
-        path: relativePath,
-        status: 'error',
-        message: FILE_READ_STATUS.IGNORED,
-      })
-      continue
+      return {
+        kind: 'error',
+        entry: {
+          path: relativePath,
+          status: 'error',
+          message: FILE_READ_STATUS.IGNORED,
+        },
+      }
     }
 
     // Realpath-based containment: if the resolved path (or any symlink it
@@ -94,72 +124,67 @@ export async function readImages(params: {
       // the normal DOES_NOT_EXIST error.
     }
     if (realResolved && !isInsideRoot(rootRealPath, realResolved)) {
-      images.push({
-        path: relativePath,
-        status: 'error',
-        message: FILE_READ_STATUS.OUTSIDE_PROJECT,
-      })
-      continue
+      return {
+        kind: 'error',
+        entry: {
+          path: relativePath,
+          status: 'error',
+          message: FILE_READ_STATUS.OUTSIDE_PROJECT,
+        },
+      }
     }
     const safePath = realResolved ?? fullPath
 
     try {
       const stats = await fs.stat(safePath)
       if (!stats.isFile()) {
-        images.push({
-          path: relativePath,
-          status: 'error',
-          message: `Path is not a file: ${relativePath}`,
-        })
-        continue
+        return {
+          kind: 'error',
+          entry: {
+            path: relativePath,
+            status: 'error',
+            message: `Path is not a file: ${relativePath}`,
+          },
+        }
       }
       if (stats.size > MAX_IMAGE_FILE_SIZE) {
-        images.push({
-          path: relativePath,
-          status: 'error',
-          sizeBytes: stats.size,
-          message: `Image is too large: ${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds ${(MAX_IMAGE_FILE_SIZE / (1024 * 1024)).toFixed(1)}MB limit.`,
-        })
-        continue
+        return {
+          kind: 'error',
+          entry: {
+            path: relativePath,
+            status: 'error',
+            sizeBytes: stats.size,
+            message: `Image is too large: ${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds ${(MAX_IMAGE_FILE_SIZE / (1024 * 1024)).toFixed(1)}MB limit.`,
+          },
+        }
       }
 
       const mediaType = getImageMimeType(ext)
       if (!mediaType) {
-        images.push({
-          path: relativePath,
-          status: 'error',
-          message: `Could not determine image media type: ${relativePath}`,
-        })
-        continue
+        return {
+          kind: 'error',
+          entry: {
+            path: relativePath,
+            status: 'error',
+            message: `Could not determine image media type: ${relativePath}`,
+          },
+        }
       }
 
       const data = await fs.readFile(safePath)
       const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
-
-      if (totalAttachedBytes + buffer.length > READ_IMAGE_MAX_TOTAL_BYTES) {
-        images.push({
+      return {
+        kind: 'attach',
+        entry: {
           path: relativePath,
-          status: 'error',
+          status: 'attached',
           mediaType,
           sizeBytes: buffer.length,
-          message: `Total attached image size would exceed ${(READ_IMAGE_MAX_TOTAL_BYTES / (1024 * 1024)).toFixed(1)}MB. Attach fewer or smaller images.`,
-        })
-        continue
+          message: 'Image attached as original media.',
+        },
+        buffer,
+        mediaType,
       }
-
-      totalAttachedBytes += buffer.length
-      images.push({
-        path: relativePath,
-        status: 'attached',
-        mediaType,
-        sizeBytes: buffer.length,
-        message: 'Image attached as original media.',
-      })
-      mediaResults.push({
-        type: 'media',
-        data: buffer.toString('base64'),
-        mediaType,
-      })
     } catch (error) {
       const message =
         error &&
@@ -168,12 +193,42 @@ export async function readImages(params: {
         error.code === 'ENOENT'
           ? FILE_READ_STATUS.DOES_NOT_EXIST
           : FILE_READ_STATUS.ERROR
-      images.push({
-        path: relativePath,
-        status: 'error',
-        message,
-      })
+      return {
+        kind: 'error',
+        entry: { path: relativePath, status: 'error', message },
+      }
     }
+  }
+
+  // Run all per-image I/O concurrently. Results are index-aligned with
+  // `paths`, so the total-bytes cap below is applied in input order —
+  // preserving the existing semantics where an earlier image can exhaust
+  // the budget for a later one. Error entries are emitted unchanged.
+  const processed = await Promise.all(paths.map(processOne))
+
+  for (const item of processed) {
+    if (item.kind === 'error') {
+      images.push(item.entry)
+      continue
+    }
+    if (totalAttachedBytes + item.buffer.length > READ_IMAGE_MAX_TOTAL_BYTES) {
+      images.push({
+        path: item.entry.path,
+        status: 'error',
+        mediaType: item.mediaType,
+        sizeBytes: item.buffer.length,
+        message: `Total attached image size would exceed ${(READ_IMAGE_MAX_TOTAL_BYTES / (1024 * 1024)).toFixed(1)}MB. Attach fewer or smaller images.`,
+      })
+      continue
+    }
+
+    totalAttachedBytes += item.buffer.length
+    images.push(item.entry)
+    mediaResults.push({
+      type: 'media',
+      data: item.buffer.toString('base64'),
+      mediaType: item.mediaType,
+    })
   }
 
   return [

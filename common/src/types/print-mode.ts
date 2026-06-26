@@ -82,6 +82,10 @@ export const printModeSubagentFinishSchema = z.object({
   parentAgentId: z.string().optional(),
   params: z.record(z.string(), z.any()).optional(),
   prompt: z.string().optional(),
+  // Present when the subagent finished due to an error (e.g. wall-clock
+  // timeout) rather than completing normally. Lets the UI distinguish a
+  // failed finish from a successful one.
+  error: z.string().optional(),
 })
 export type PrintModeSubagentFinish = z.infer<
   typeof printModeSubagentFinishSchema

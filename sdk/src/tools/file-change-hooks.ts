@@ -10,6 +10,8 @@ export type FileChangeHook = {
   command: string
   /** Optional glob; the hook runs only when a changed file matches it. */
   filePattern?: string
+  /** Optional per-hook override of the default 180s hook timeout, in seconds. */
+  timeoutSeconds?: number
 }
 
 const HOOK_TIMEOUT_SECONDS = 180
@@ -81,37 +83,55 @@ export async function runFileChangeHooks(params: {
   }
 
   const run = params.runCommand ?? runTerminalCommand
-  const results: Array<Record<string, unknown>> = []
-  for (const hook of matching) {
-    const hookName = hook.name ?? hook.command
-    try {
-      const out = await run({
+
+  // Run matching hooks concurrently. `Promise.allSettled` guarantees every
+  // hook runs regardless of others' rejections; results are mapped back into
+  // `matching` order so callers see deterministic ordering.
+  const settled = await Promise.allSettled(
+    matching.map((hook) => {
+      const hookName = hook.name ?? hook.command
+      return run({
         command: hook.command,
         process_type: 'SYNC',
         cwd,
-        timeout_seconds: HOOK_TIMEOUT_SECONDS,
+        timeout_seconds: hook.timeoutSeconds ?? HOOK_TIMEOUT_SECONDS,
         env,
       })
-      const first = Array.isArray(out) ? out[0] : undefined
-      if (first && first.type === 'json' && first.value && typeof first.value === 'object') {
-        const value = first.value as Record<string, unknown>
-        results.push({
-          ...value,
-          stdout: truncate(value.stdout),
-          stderr: truncate(value.stderr),
-          hookName,
+        .then((out) => {
+          const first = Array.isArray(out) ? out[0] : undefined
+          if (
+            first &&
+            first.type === 'json' &&
+            first.value &&
+            typeof first.value === 'object'
+          ) {
+            const value = first.value as Record<string, unknown>
+            return {
+              ...value,
+              stdout: truncate(value.stdout),
+              stderr: truncate(value.stderr),
+              hookName,
+            }
+          }
+          return { errorMessage: `Hook "${hookName}" produced no output.` }
         })
-      } else {
-        results.push({ errorMessage: `Hook "${hookName}" produced no output.` })
-      }
-    } catch (err) {
-      results.push({
-        errorMessage: `Hook "${hookName}" failed to run: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      })
-    }
-  }
+        .catch((err: unknown) => ({
+          errorMessage: `Hook "${hookName}" failed to run: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        }))
+    }),
+  )
+
+  const results: Array<Record<string, unknown>> = settled.map((s) =>
+    s.status === 'fulfilled'
+      ? (s.value as Record<string, unknown>)
+      : {
+          errorMessage: `Hook failed to run: ${
+            s.reason instanceof Error ? s.reason.message : String(s.reason)
+          }`,
+        },
+  )
 
   return [{ type: 'json', value: results }] as CodebuffToolOutput<'run_file_change_hooks'>
 }

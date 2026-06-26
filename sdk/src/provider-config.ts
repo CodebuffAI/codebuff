@@ -380,6 +380,8 @@ export const providerConfigFileSchema = z
           name: z.string().min(1).optional(),
           command: z.string().min(1),
           filePattern: z.string().min(1).optional(),
+          /** Per-hook override of the default 180s hook timeout, in seconds. */
+          timeoutSeconds: z.number().int().positive().max(3600).optional(),
         }),
       )
       .default([]),

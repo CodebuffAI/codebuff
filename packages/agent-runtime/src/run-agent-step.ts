@@ -1268,8 +1268,9 @@ const STEP_WARNING_MESSAGE = [
  * How many steps before the cap the one-time near-cap checkpoint nudge fires.
  * Compared with `===` against the per-step-decrementing stepsRemaining, so it
  * triggers at most once and only for runs whose budget exceeds this threshold.
+ * At 30 remaining steps this is ~15% of the default 200-step budget.
  */
-const NEAR_STEP_CAP_WARNING_THRESHOLD = 15
+const NEAR_STEP_CAP_WARNING_THRESHOLD = 30
 
 const NEAR_STEP_CAP_WARNING_MESSAGE = [
   'Heads up: this turn is approaching its maximum number of agent steps.',

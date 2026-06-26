@@ -187,9 +187,20 @@ export async function getFiles(params: {
   const readOne = (filePath: string) =>
     readOneFile({ filePath, cwd, fs, fileFilter })
 
-  // Loop 1: plain whole-file reads (unchanged behavior).
-  for (const filePath of filePaths) {
-    const read = await readOne(filePath)
+  // Concurrently read all requested whole files and ranges. File I/O is
+  // independent across paths, so we run them in parallel via Promise.all and
+  // reassemble results in input order (index-aligned) to preserve the
+  // existing output contract. Each result is rendered into `result` in input
+  // order so ranged reads that share a path with a whole-file read still
+  // concatenate deterministically.
+  const rangeList = ranges ?? []
+  const [wholeResults, rangeResults] = await Promise.all([
+    Promise.all(filePaths.map((filePath) => readOne(filePath))),
+    Promise.all(rangeList.map((range) => readOne(range.path))),
+  ])
+
+  // Render whole-file reads in input order (unchanged behavior).
+  for (const read of wholeResults) {
     if (!read) {
       continue
     }
@@ -221,12 +232,13 @@ export async function getFiles(params: {
         : content
     }
   }
-  // Loop 2: ranged reads. Additive; if a path appears in both, the ranged
-  // value wins (it's the more specific request). Multiple ranges for the same
-  // file are concatenated instead of overwriting each other so every requested
-  // range header/hash remains visible to the caller.
-  for (const range of ranges ?? []) {
-    const read = await readOne(range.path)
+  // Render ranged reads in input order. Additive; if a path appears in both,
+  // the ranged value wins (it's the more specific request). Multiple ranges
+  // for the same file are concatenated instead of overwriting each other so
+  // every requested range header/hash remains visible to the caller.
+  for (let i = 0; i < rangeList.length; i++) {
+    const range = rangeList[i]
+    const read = rangeResults[i]
     if (!read) {
       continue
     }
