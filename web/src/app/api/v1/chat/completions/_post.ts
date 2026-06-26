@@ -75,6 +75,12 @@ import {
   isDeepSeekModel,
 } from '@/llm-api/deepseek'
 import {
+  handleInfronNonStream,
+  handleInfronStream,
+  InfronError,
+  isInfronModel,
+} from '@/llm-api/infron'
+import {
   handleMiMoNonStream,
   handleMiMoStream,
   isMiMoModel,
@@ -203,6 +209,7 @@ type ChatCompletionsProvider =
   | 'moonshot'
   | 'canopywave'
   | 'deepseek'
+  | 'infron'
   | 'mimo'
   | 'minimax'
   | 'fireworks'
@@ -217,6 +224,8 @@ function getChatCompletionsProvider(model: string): ChatCompletionsProvider {
   if (isOpenCodeZenModel(model)) return 'opencodeZen'
   if (isMoonshotModel(model)) return 'moonshot'
   if (isDeepSeekModel(model)) return 'deepseek'
+  // Infron is checked before Fireworks so GLM 5.2 routes here instead.
+  if (isInfronModel(model)) return 'infron'
   if (isMiMoModel(model)) return 'mimo'
   if (isMiniMaxModel(model)) return 'minimax'
   if (isFireworksModel(model)) return 'fireworks'
@@ -1097,18 +1106,20 @@ export async function postChatCompletions(params: {
                   ? await handleCanopyWaveStream(baseArgs)
                   : provider === 'deepseek'
                     ? await handleDeepSeekStream(baseArgs)
-                    : provider === 'mimo'
-                      ? await handleMiMoStream(baseArgs)
-                      : provider === 'minimax'
-                        ? await handleMiniMaxStream(baseArgs)
-                        : provider === 'fireworks'
-                          ? await handleFireworksStream(baseArgs)
-                          : provider === 'openai'
-                            ? await handleOpenAIStream(baseArgs)
-                            : await handleOpenRouterStream({
-                                ...baseArgs,
-                                openrouterApiKey,
-                              })
+                    : provider === 'infron'
+                      ? await handleInfronStream(baseArgs)
+                      : provider === 'mimo'
+                        ? await handleMiMoStream(baseArgs)
+                        : provider === 'minimax'
+                          ? await handleMiniMaxStream(baseArgs)
+                          : provider === 'fireworks'
+                            ? await handleFireworksStream(baseArgs)
+                            : provider === 'openai'
+                              ? await handleOpenAIStream(baseArgs)
+                              : await handleOpenRouterStream({
+                                  ...baseArgs,
+                                  openrouterApiKey,
+                                })
 
         trackSuccessEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_STREAM_STARTED,
@@ -1153,18 +1164,20 @@ export async function postChatCompletions(params: {
                   ? handleCanopyWaveNonStream(baseArgs)
                   : provider === 'deepseek'
                     ? handleDeepSeekNonStream(baseArgs)
-                    : provider === 'mimo'
-                      ? handleMiMoNonStream(baseArgs)
-                      : provider === 'minimax'
-                        ? handleMiniMaxNonStream(baseArgs)
-                        : provider === 'fireworks'
-                          ? handleFireworksNonStream(baseArgs)
-                          : provider === 'openai'
-                            ? handleOpenAINonStream(baseArgs)
-                            : handleOpenRouterNonStream({
-                                ...baseArgs,
-                                openrouterApiKey,
-                              })
+                    : provider === 'infron'
+                      ? handleInfronNonStream(baseArgs)
+                      : provider === 'mimo'
+                        ? handleMiMoNonStream(baseArgs)
+                        : provider === 'minimax'
+                          ? handleMiniMaxNonStream(baseArgs)
+                          : provider === 'fireworks'
+                            ? handleFireworksNonStream(baseArgs)
+                            : provider === 'openai'
+                              ? handleOpenAINonStream(baseArgs)
+                              : handleOpenRouterNonStream({
+                                  ...baseArgs,
+                                  openrouterApiKey,
+                                })
         const result = await nonStreamRequest
 
         trackSuccessEvent({
@@ -1198,6 +1211,10 @@ export async function postChatCompletions(params: {
       let deepseekError: DeepSeekError | undefined
       if (error instanceof DeepSeekError) {
         deepseekError = error
+      }
+      let infronError: InfronError | undefined
+      if (error instanceof InfronError) {
+        infronError = error
       }
       let mimoError: MiMoError | undefined
       if (error instanceof MiMoError) {
@@ -1237,15 +1254,17 @@ export async function postChatCompletions(params: {
               ? 'CanopyWave'
               : deepseekError
                 ? 'DeepSeek'
-                : mimoError
-                  ? 'MiMo'
-                  : minimaxError
-                    ? 'MiniMax'
-                    : fireworksError
-                      ? 'Fireworks'
-                      : openaiError
-                        ? 'OpenAI'
-                        : 'OpenRouter'
+                : infronError
+                  ? 'Infron'
+                  : mimoError
+                    ? 'MiMo'
+                    : minimaxError
+                      ? 'MiniMax'
+                      : fireworksError
+                        ? 'Fireworks'
+                        : openaiError
+                          ? 'OpenAI'
+                          : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -1275,6 +1294,7 @@ export async function postChatCompletions(params: {
             moonshotError ??
             canopywaveError ??
             deepseekError ??
+            infronError ??
             mimoError ??
             minimaxError ??
             siliconflowError ??
@@ -1287,6 +1307,7 @@ export async function postChatCompletions(params: {
             moonshotError ??
             canopywaveError ??
             deepseekError ??
+            infronError ??
             mimoError ??
             minimaxError ??
             siliconflowError ??
@@ -1327,6 +1348,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof DeepSeekError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof InfronError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof MiMoError) {
