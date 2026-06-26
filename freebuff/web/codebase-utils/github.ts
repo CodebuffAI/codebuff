@@ -48,6 +48,50 @@ export async function deleteRepository(
   });
 }
 
+/**
+ * Open a pull request from `head` into `base` on a connected repo. If a PR for
+ * the same head->base already exists, returns that one instead of erroring, so
+ * the "Create PR" button is idempotent. `repoFullName` is "owner/name".
+ */
+export async function createPullRequest(params: {
+  installationId: number;
+  repoFullName: string;
+  head: string;
+  base: string;
+  title: string;
+  body?: string;
+}): Promise<{ url: string; number: number; existing: boolean }> {
+  const [owner, repo] = params.repoFullName.split("/");
+  if (!owner || !repo) {
+    throw new Error(`Invalid repo "${params.repoFullName}"`);
+  }
+  const octokit = await getInstallationOctokit(params.installationId);
+
+  // An existing open PR for this head->base makes pulls.create 422; check first
+  // so we return the existing PR rather than failing.
+  const existing = await octokit.rest.pulls.list({
+    owner,
+    repo,
+    head: `${owner}:${params.head}`,
+    base: params.base,
+    state: "open",
+  });
+  if (existing.data.length > 0) {
+    const pr = existing.data[0];
+    return { url: pr.html_url, number: pr.number, existing: true };
+  }
+
+  const created = await octokit.rest.pulls.create({
+    owner,
+    repo,
+    head: params.head,
+    base: params.base,
+    title: params.title,
+    body: params.body,
+  });
+  return { url: created.data.html_url, number: created.data.number, existing: false };
+}
+
 // Invite user to repository
 export async function inviteToRepository(
   repositoryId: string,

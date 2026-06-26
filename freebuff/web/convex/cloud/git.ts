@@ -8,6 +8,7 @@ import { getAuthUser } from "../users";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
 import { escapeShellArg } from "../coding_agent/cli_agent/shellEscape";
+import { createPullRequest as createGithubPullRequest } from "../../codebase-utils/github";
 
 /**
  * Git integration for Freebuff Cloud (connected-repo) projects: branch status,
@@ -49,6 +50,186 @@ async function getCurrentBranch(codebase: DaytonaCodebase): Promise<string> {
   return branchResult.output.trim() || "main";
 }
 
+export type CloudGitStatus = {
+  currentBranch: string;
+  defaultBranch: string | null;
+  branches: string[];
+  isDirty: boolean;
+  changedFiles: number;
+  insertions: number;
+  deletions: number;
+  ahead: number;
+  behind: number;
+  hasUpstream: boolean;
+  behindDefault: number;
+  repoFullName: string | null;
+};
+
+/** Validator for the cached git status object (shared by schema + actions). */
+const gitStatusValidator = {
+  currentBranch: v.string(),
+  defaultBranch: v.union(v.string(), v.null()),
+  branches: v.array(v.string()),
+  isDirty: v.boolean(),
+  changedFiles: v.number(),
+  insertions: v.number(),
+  deletions: v.number(),
+  ahead: v.number(),
+  behind: v.number(),
+  hasUpstream: v.boolean(),
+  behindDefault: v.number(),
+  repoFullName: v.union(v.string(), v.null()),
+};
+
+/** Split the labeled, single-exec status output into named sections. */
+function splitSections(output: string): Record<string, string> {
+  const sections: Record<string, string[]> = {};
+  let current: string | null = null;
+  for (const line of (output || "").split(/\r?\n/)) {
+    const marker = /^##([A-Z]+)##$/.exec(line.trim());
+    if (marker) {
+      current = marker[1];
+      sections[current] = [];
+      continue;
+    }
+    if (current) sections[current].push(line);
+  }
+  const joined: Record<string, string> = {};
+  for (const key of Object.keys(sections)) {
+    joined[key] = sections[key].join("\n").trim();
+  }
+  return joined;
+}
+
+function parseShortstat(line: string): {
+  insertions: number;
+  deletions: number;
+} {
+  const ins = /(\d+)\s+insertion/.exec(line || "");
+  const del = /(\d+)\s+deletion/.exec(line || "");
+  return {
+    insertions: ins ? parseInt(ins[1], 10) : 0,
+    deletions: del ? parseInt(del[1], 10) : 0,
+  };
+}
+
+/** Parse `git rev-list --left-right --count A...B` => { left, right }. */
+function parseLeftRight(
+  line: string,
+): { left: number; right: number } | null {
+  const m = /(\d+)\s+(\d+)/.exec((line || "").trim());
+  if (!m) return null;
+  return { left: parseInt(m[1], 10), right: parseInt(m[2], 10) };
+}
+
+/**
+ * Compute the full git status in a SINGLE sandbox exec. Batching every read
+ * into one labeled script (instead of 5-6 separate runCommand round-trips)
+ * keeps the per-refresh sandbox cost minimal. Ahead/behind are relative to the
+ * last-known remote refs (no network fetch here) so status stays cheap; the
+ * Sync action is what actually fetches.
+ */
+async function computeGitStatus(
+  codebase: DaytonaCodebase,
+  defaultBranch: string | null,
+  repoFullName: string | null,
+  fallbackBranch: string | null,
+): Promise<CloudGitStatus> {
+  const def = defaultBranch ?? "main";
+  const command = [
+    "printf '##BRANCH##\\n'",
+    "git rev-parse --abbrev-ref HEAD 2>/dev/null",
+    "printf '##REFS##\\n'",
+    "git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null",
+    "printf '##PORC##\\n'",
+    "git status --porcelain 2>/dev/null",
+    "printf '##UNSTAGED##\\n'",
+    "git diff --shortstat 2>/dev/null",
+    "printf '##STAGED##\\n'",
+    "git diff --cached --shortstat 2>/dev/null",
+    "printf '##UP##\\n'",
+    "git rev-list --left-right --count @{upstream}...HEAD 2>/dev/null",
+    "printf '##DEF##\\n'",
+    `git rev-list --left-right --count origin/${escapeShellArg(def)}...HEAD 2>/dev/null`,
+    "printf '##END##\\n'",
+  ].join("; ");
+
+  const result = await codebase.runCommand(command, 20_000);
+  const s = splitSections(result.output);
+
+  const currentBranch = (s.BRANCH || "").trim() || fallbackBranch || "main";
+
+  const branches = Array.from(
+    new Set(
+      (s.REFS || "")
+        .split(/\r?\n/)
+        .map((b) => b.trim().replace(/^origin\//, ""))
+        .filter((b) => b && b !== "HEAD" && !b.includes("->")),
+    ),
+  ).sort();
+
+  const changedFiles = (s.PORC || "")
+    .split(/\r?\n/)
+    .filter((l) => l.trim().length > 0).length;
+
+  const unstaged = parseShortstat(s.UNSTAGED || "");
+  const staged = parseShortstat(s.STAGED || "");
+
+  const upstream = parseLeftRight(s.UP || "");
+  const fromDefault = parseLeftRight(s.DEF || "");
+
+  return {
+    currentBranch,
+    defaultBranch: defaultBranch ?? null,
+    branches: branches.length > 0 ? branches : [currentBranch],
+    isDirty: changedFiles > 0,
+    changedFiles,
+    insertions: unstaged.insertions + staged.insertions,
+    deletions: unstaged.deletions + staged.deletions,
+    ahead: upstream?.right ?? 0,
+    behind: upstream?.left ?? 0,
+    hasUpstream: upstream != null,
+    behindDefault: fromDefault?.left ?? 0,
+    repoFullName,
+  };
+}
+
+/** Persist the freshly computed status so the reactive query can serve it
+ *  without ever waking the sandbox. */
+async function cacheGitStatus(
+  ctx: ActionCtx,
+  projectId: string,
+  status: CloudGitStatus,
+): Promise<void> {
+  await ctx.runMutation(internal.cloud.connectRepoMutations.setGitStatusCache, {
+    projectId: projectId as never,
+    status,
+  });
+}
+
+/** Recompute + cache status from an already-resolved project/codebase. Used by
+ *  the mutating actions so a single sandbox session both performs the op and
+ *  refreshes the cache (the reactive query then updates with no extra call). */
+async function refreshStatus(
+  ctx: ActionCtx,
+  project: {
+    _id: string;
+    repo_default_branch?: string | null;
+    repo_full_name?: string | null;
+    current_branch?: string | null;
+  },
+  codebase: DaytonaCodebase,
+): Promise<CloudGitStatus> {
+  const status = await computeGitStatus(
+    codebase,
+    project.repo_default_branch ?? null,
+    project.repo_full_name ?? null,
+    project.current_branch ?? null,
+  );
+  await cacheGitStatus(ctx, project._id, status);
+  return status;
+}
+
 async function getMemberProjectCodebase(
   ctx: ActionCtx,
   semanticIdentifier: string,
@@ -78,74 +259,31 @@ async function getMemberProjectCodebase(
 
 export const getGitStatus = action({
   args: { semanticIdentifier: v.string() },
-  returns: v.object({
-    currentBranch: v.string(),
-    defaultBranch: v.union(v.string(), v.null()),
-    branches: v.array(v.string()),
-    isDirty: v.boolean(),
-    changedFiles: v.number(),
-    repoFullName: v.union(v.string(), v.null()),
-  }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    currentBranch: string;
-    defaultBranch: string | null;
-    branches: string[];
-    isDirty: boolean;
-    changedFiles: number;
-    repoFullName: string | null;
-  }> => {
+  returns: v.object(gitStatusValidator),
+  handler: async (ctx, args): Promise<CloudGitStatus> => {
     const { project, codebase } = await getMemberProjectCodebase(
       ctx,
       args.semanticIdentifier,
     );
 
-    const branchResult = await codebase.runCommand(
-      "git rev-parse --abbrev-ref HEAD",
-      10_000,
+    const status = await computeGitStatus(
+      codebase,
+      project.repo_default_branch ?? null,
+      project.repo_full_name ?? null,
+      project.current_branch ?? null,
     );
-    const currentBranch =
-      branchResult.output.trim() || project.current_branch || "main";
-
-    const branchListResult = await codebase.runCommand(
-      "git for-each-ref --format='%(refname:short)' refs/heads refs/remotes",
-      10_000,
-    );
-    const branches = Array.from(
-      new Set(
-        branchListResult.output
-          .split(/\r?\n/)
-          .map((b) => b.trim().replace(/^origin\//, ""))
-          .filter((b) => b && b !== "HEAD" && !b.includes("->")),
-      ),
-    ).sort();
-
-    const statusResult = await codebase.runCommand(
-      "git status --porcelain",
-      10_000,
-    );
-    const changedFiles = statusResult.output
-      .split(/\r?\n/)
-      .filter((l) => l.trim().length > 0).length;
 
     // Keep the persisted current branch in sync with reality.
-    if (currentBranch && currentBranch !== project.current_branch) {
+    if (status.currentBranch && status.currentBranch !== project.current_branch) {
       await ctx.runMutation(
         internal.cloud.connectRepoMutations.setCurrentBranch,
-        { projectId: project._id, branch: currentBranch },
+        { projectId: project._id, branch: status.currentBranch },
       );
     }
 
-    return {
-      currentBranch,
-      defaultBranch: project.repo_default_branch ?? null,
-      branches: branches.length > 0 ? branches : [currentBranch],
-      isDirty: changedFiles > 0,
-      changedFiles,
-      repoFullName: project.repo_full_name ?? null,
-    };
+    await cacheGitStatus(ctx, project._id, status);
+
+    return status;
   },
 });
 
@@ -186,6 +324,7 @@ export const switchBranch = action({
       internal.cloud.connectRepoMutations.setCurrentBranch,
       { projectId: project._id, branch },
     );
+    await refreshStatus(ctx, { ...project, current_branch: branch }, codebase);
 
     return { success: true, currentBranch: branch, message: `Switched to ${branch}` };
   },
@@ -220,6 +359,7 @@ export const createBranch = action({
       internal.cloud.connectRepoMutations.setCurrentBranch,
       { projectId: project._id, branch },
     );
+    await refreshStatus(ctx, { ...project, current_branch: branch }, codebase);
 
     return { success: true, currentBranch: branch, message: `Created and switched to ${branch}` };
   },
@@ -264,14 +404,11 @@ export const commitChanges = action({
     const currentBranch = await getCurrentBranch(codebase);
 
     if (stagedFiles.length === 0) {
-      const statusResult = await codebase.runCommand("git status --porcelain", 10_000);
-      const changedFiles = statusResult.output
-        .split(/\r?\n/)
-        .filter((line) => line.trim().length > 0).length;
+      const status = await refreshStatus(ctx, project, codebase);
       return {
         success: true,
-        currentBranch,
-        changedFiles,
+        currentBranch: status.currentBranch,
+        changedFiles: status.changedFiles,
         message: "No changes to commit.",
       };
     }
@@ -295,11 +432,12 @@ export const commitChanges = action({
       projectId: project._id,
       branch: currentBranch,
     });
+    const status = await refreshStatus(ctx, project, codebase);
 
     return {
       success: true,
-      currentBranch,
-      changedFiles: 0,
+      currentBranch: status.currentBranch,
+      changedFiles: status.changedFiles,
       message: summarizeOutput(commitResult.output) || "Committed changes.",
     };
   },
@@ -328,21 +466,18 @@ export const pushCurrentBranch = action({
     );
 
     const currentBranch = await getCurrentBranch(codebase);
+    // -u sets the upstream so subsequent ahead/behind status is accurate.
     const pushResult = await codebase.runCommand(
-      `git push origin ${escapeShellArg(currentBranch)}`,
+      `git push -u origin ${escapeShellArg(currentBranch)}`,
       120_000,
     );
 
-    const statusResult = await codebase.runCommand("git status --porcelain", 10_000);
-    const changedFiles = statusResult.output
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0).length;
-
     if (pushResult.exitCode && pushResult.exitCode !== 0) {
+      const status = await refreshStatus(ctx, project, codebase);
       return {
         success: false,
         currentBranch,
-        changedFiles,
+        changedFiles: status.changedFiles,
         message: summarizeOutput(pushResult.output) || `Failed to push ${currentBranch}.`,
       };
     }
@@ -351,11 +486,12 @@ export const pushCurrentBranch = action({
       projectId: project._id,
       branch: currentBranch,
     });
+    const status = await refreshStatus(ctx, project, codebase);
 
     return {
       success: true,
       currentBranch,
-      changedFiles,
+      changedFiles: status.changedFiles,
       message: summarizeOutput(pushResult.output) || `Pushed ${currentBranch}.`,
     };
   },
@@ -384,21 +520,18 @@ export const syncFromRemote = action({
     );
 
     const currentBranch = await getCurrentBranch(codebase);
+    // Fetch all so ahead/behind vs the default branch is fresh after sync.
     const syncResult = await codebase.runCommand(
-      `git pull --rebase origin ${escapeShellArg(currentBranch)}`,
+      `git fetch origin && git pull --rebase origin ${escapeShellArg(currentBranch)}`,
       120_000,
     );
 
-    const statusResult = await codebase.runCommand("git status --porcelain", 10_000);
-    const changedFiles = statusResult.output
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0).length;
-
     if (syncResult.exitCode && syncResult.exitCode !== 0) {
+      const status = await refreshStatus(ctx, project, codebase);
       return {
         success: false,
         currentBranch,
-        changedFiles,
+        changedFiles: status.changedFiles,
         message:
           summarizeOutput(syncResult.output) ||
           `Failed to sync ${currentBranch} from remote.`,
@@ -409,12 +542,121 @@ export const syncFromRemote = action({
       projectId: project._id,
       branch: currentBranch,
     });
+    const status = await refreshStatus(ctx, project, codebase);
 
     return {
       success: true,
       currentBranch,
-      changedFiles,
+      changedFiles: status.changedFiles,
       message: summarizeOutput(syncResult.output) || `Synced ${currentBranch} from remote.`,
     };
+  },
+});
+
+/**
+ * Push the current branch and open (or reuse) a pull request into the repo's
+ * default branch. Idempotent: re-running returns the existing open PR. The
+ * branch must differ from the default branch.
+ */
+export const createPullRequest = action({
+  args: {
+    semanticIdentifier: v.string(),
+    title: v.optional(v.string()),
+    body: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    url: v.union(v.string(), v.null()),
+    currentBranch: v.string(),
+    message: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    url: string | null;
+    currentBranch: string;
+    message: string;
+  }> => {
+    const { project, codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    const currentBranch = await getCurrentBranch(codebase);
+    const base = project.repo_default_branch ?? "main";
+
+    if (!project.repo_full_name || !project.github_installation_id) {
+      return {
+        success: false,
+        url: null,
+        currentBranch,
+        message: "This project isn't linked to a GitHub repo.",
+      };
+    }
+
+    if (currentBranch === base) {
+      return {
+        success: false,
+        url: null,
+        currentBranch,
+        message: `You're on ${base}. Create a branch before opening a pull request.`,
+      };
+    }
+
+    // Push the branch so the PR head exists on the remote.
+    const pushResult = await codebase.runCommand(
+      `git push -u origin ${escapeShellArg(currentBranch)}`,
+      120_000,
+    );
+    if (pushResult.exitCode && pushResult.exitCode !== 0) {
+      await refreshStatus(ctx, project, codebase);
+      return {
+        success: false,
+        url: null,
+        currentBranch,
+        message:
+          summarizeOutput(pushResult.output) ||
+          `Couldn't push ${currentBranch} to open a pull request.`,
+      };
+    }
+
+    const subjectResult = await codebase.runCommand(
+      "git log -1 --pretty=%s 2>/dev/null",
+      10_000,
+    );
+    const title =
+      args.title?.trim() || subjectResult.output.trim() || currentBranch;
+
+    try {
+      const pr = await createGithubPullRequest({
+        installationId: project.github_installation_id,
+        repoFullName: project.repo_full_name,
+        head: currentBranch,
+        base,
+        title,
+        body: args.body,
+      });
+      await refreshStatus(ctx, project, codebase);
+      return {
+        success: true,
+        url: pr.url,
+        currentBranch,
+        message: pr.existing
+          ? `A pull request for ${currentBranch} is already open.`
+          : `Opened pull request for ${currentBranch}.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        url: null,
+        currentBranch,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to open a pull request for ${currentBranch}.`,
+      };
+    }
   },
 });

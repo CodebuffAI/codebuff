@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { gravityContext, hashPii } from '@gravity-ai/api'
 import { GravityAd as GravityReactAd, useAdTracking } from '@gravity-ai/react'
+import { X } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 
 import type { RefObject } from 'react'
@@ -20,6 +21,25 @@ const AD_COOLDOWN_MS = 60_000
 const AD_DEBOUNCE_MS = 2_000
 /** How long the above-iframe nav ad stays pinned before we allow a refresh. */
 const NAV_AD_TTL_MS = 30 * 60 * 1000
+const NAV_AD_DISMISSED_KEY = 'freebuff:preview-nav-ad-dismissed'
+
+function readNavAdDismissed(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(NAV_AD_DISMISSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeNavAdDismissed() {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(NAV_AD_DISMISSED_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
 
 export type GravityAdMessage = { role: string; content: string }
 
@@ -255,7 +275,15 @@ type GravityAdSlotProps = {
  * layout while reusing the library's `useAdTracking` hook to keep impression
  * and click reporting intact.
  */
-function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
+function NavAd({
+  ad,
+  className,
+  onDismiss,
+}: {
+  ad: GravityAd
+  className?: string
+  onDismiss: () => void
+}) {
   const { containerRef, handleClick } = useAdTracking({ ad })
   // adText is the promotional body copy; title is often a short headline that
   // duplicates brandName. Prefer adText so the toolbar shows as much description
@@ -268,60 +296,43 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
       : rawDescription
   const href = ad.clickUrl || ad.url || undefined
 
+  if (!description) return null
+
   return (
-    <a
-      ref={containerRef as unknown as RefObject<HTMLAnchorElement>}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer sponsored"
-      onClick={(e) => {
-        handleClick()
-        trackRedditGravityAdClick('web')
-        if (!href) e.preventDefault()
-      }}
-      data-gravity-ad
+    <div
       className={cn(
-        // Fill the toolbar's flex-1 slot; truncate reacts to whatever width
-        // is left after nav controls + status buttons.
-        'group flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-0.5 text-foreground/80 no-underline transition hover:bg-muted/50',
+        'flex w-full min-w-0 items-center gap-1 rounded-md px-2 py-0.5',
         className,
       )}
     >
-      {ad.favicon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={ad.favicon}
-          alt=""
-          loading="lazy"
-          className="h-4 w-4 shrink-0 rounded-sm object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-        />
-      ) : null}
-      {brand ? (
-        <span className="shrink-0 text-[11px] font-semibold text-foreground">
-          {brand}
-        </span>
-      ) : null}
-      {description ? (
-        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
-          {description}
-        </span>
-      ) : (
-        // Reserve flex space so the CTA stays right-aligned when there's no
-        // body copy (keeps brand + label + CTA layout stable).
-        <span className="min-w-0 flex-1" aria-hidden />
-      )}
-      <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground/40">
-        Ad
-      </span>
-      {ad.cta ? (
-        <span className="shrink-0 rounded-md bg-foreground/[0.08] px-2 py-1 text-[10px] font-medium text-foreground/90 transition group-hover:bg-foreground/[0.14]">
-          {ad.cta}
-        </span>
-      ) : null}
-    </a>
+      <a
+        ref={containerRef as unknown as RefObject<HTMLAnchorElement>}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer sponsored"
+        onClick={(e) => {
+          handleClick()
+          trackRedditGravityAdClick('web')
+          if (!href) e.preventDefault()
+        }}
+        data-gravity-ad
+        className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground no-underline transition hover:text-foreground/80"
+      >
+        {description}
+      </a>
+      <button
+        type="button"
+        aria-label="Dismiss ad"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onDismiss()
+        }}
+        className="shrink-0 rounded p-0.5 text-muted-foreground/50 transition hover:bg-muted/50 hover:text-muted-foreground"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
   )
 }
 
@@ -344,7 +355,22 @@ export function GravityAdSlot({
 
   const [ad, setAd] = useState<GravityAd | null>(null)
   const [hasFetched, setHasFetched] = useState(false)
+  // Start hidden for nav slots until we read localStorage (avoids a flash when dismissed).
+  const [navAdDismissed, setNavAdDismissed] = useState(() => isStickyNav)
   const { data: session } = useSession()
+
+  useEffect(() => {
+    if (!isStickyNav) {
+      setNavAdDismissed(false)
+      return
+    }
+    setNavAdDismissed(readNavAdDismissed())
+  }, [isStickyNav])
+
+  const dismissNavAd = useCallback(() => {
+    writeNavAdDismissed()
+    setNavAdDismissed(true)
+  }, [])
 
   const lastFetchRef = useRef<number>(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -448,7 +474,7 @@ export function GravityAdSlot({
   // NAV_AD_TTL_MS. Ignores message edits, tab visibility, and the 60s chat
   // cooldown so the toolbar ad doesn't rotate every minute.
   useEffect(() => {
-    if (!isStickyNav || !navCacheKey) return
+    if (!isStickyNav || !navCacheKey || navAdDismissed) return
 
     const cached = readNavAdCache(navCacheKey)
     if (cached) {
@@ -487,7 +513,7 @@ export function GravityAdSlot({
     }
     // Only re-pin when the project slot changes — not on message/tab churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStickyNav, navCacheKey, sessionId, placement])
+  }, [isStickyNav, navCacheKey, sessionId, placement, navAdDismissed])
 
   useEffect(() => {
     if (isStickyNav) return
@@ -504,10 +530,10 @@ export function GravityAdSlot({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, placement, slotKey, stableMessagesKey, isTabVisible, isStickyNav])
 
-  if (!hasFetched || !ad) return null
+  if (navAdDismissed || !hasFetched || !ad) return null
 
   if (variant === 'nav') {
-    return <NavAd ad={ad} className={className} />
+    return <NavAd ad={ad} className={className} onDismiss={dismissNavAd} />
   }
 
   const isCompact = variant === 'compact'

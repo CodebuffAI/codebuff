@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 import { allProjects, projectsByDay } from "../aggregates/admin_aggregates";
 import {
   checkUserRateLimit,
@@ -9,6 +9,22 @@ import {
 } from "../coding_agent/rateLimiter";
 import { getAuthUser, getQualifiedReferralCount } from "../users";
 import { getUniqueProjectIdentifier } from "../codesandbox/projectCrud";
+
+/** Shape of the cached git status (mirrors CloudGitStatus in cloud/git.ts). */
+const gitStatusFields = {
+  currentBranch: v.string(),
+  defaultBranch: v.union(v.string(), v.null()),
+  branches: v.array(v.string()),
+  isDirty: v.boolean(),
+  changedFiles: v.number(),
+  insertions: v.number(),
+  deletions: v.number(),
+  ahead: v.number(),
+  behind: v.number(),
+  hasUpstream: v.boolean(),
+  behindDefault: v.number(),
+  repoFullName: v.union(v.string(), v.null()),
+};
 
 const runtimeConfigValidator = v.object({
   install_command: v.optional(v.string()),
@@ -273,6 +289,58 @@ export const setConnectedRepoPreviewUrl = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.projectId, { preview_url: args.preview_url });
     return null;
+  },
+});
+
+/** Internal: persist the freshly computed git status for a connected repo so
+ *  the top-bar controls can read it from a cheap reactive query (no sandbox). */
+export const setGitStatusCache = internalMutation({
+  args: {
+    projectId: v.id("project"),
+    status: v.object(gitStatusFields),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.projectId, {
+      git_status_cache: { ...args.status, updatedAt: Date.now() },
+    });
+    return null;
+  },
+});
+
+/**
+ * Public: read the cached git status for a connected-repo project (member
+ * only). This is a plain DB read — it never touches the sandbox, so the UI can
+ * render git details continuously and reactively for ~free. The action
+ * `cloud.git.getGitStatus` is what refreshes this cache on demand.
+ */
+export const getCachedGitStatus = query({
+  args: { semanticIdentifier: v.string() },
+  returns: v.union(
+    v.object({ ...gitStatusFields, updatedAt: v.number() }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) return null;
+
+    const project = await ctx.db
+      .query("project")
+      .withIndex("by_semantic_identifier", (q) =>
+        q.eq("semantic_identifier", args.semanticIdentifier),
+      )
+      .first();
+    if (!project || project.project_type !== "connected_repo") return null;
+
+    const membership = await ctx.db
+      .query("project_member")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("project", project._id).eq("user", user._id),
+      )
+      .first();
+    if (!membership) return null;
+
+    return project.git_status_cache ?? null;
   },
 });
 

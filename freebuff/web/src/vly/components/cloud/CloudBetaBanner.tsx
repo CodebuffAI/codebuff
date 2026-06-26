@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Cloud, MessageCircle } from 'lucide-react'
+import { CloudFeedbackDialog } from './CloudFeedbackDialog'
 
 export function CloudBetaBanner({ compact = false }: { compact?: boolean }) {
   return (
@@ -33,7 +34,8 @@ export function CloudBetaBanner({ compact = false }: { compact?: boolean }) {
               Discord
               <MessageCircle className="h-3.5 w-3.5" />
             </Link>
-            .
+            , or{' '}
+            <CloudFeedbackDialog />.
           </div>
         </div>
       </div>

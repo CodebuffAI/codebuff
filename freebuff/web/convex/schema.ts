@@ -207,6 +207,27 @@ export default defineSchema(
       // never show it again for this project (persisted server-side so it sticks
       // across devices/sessions, not just one browser's localStorage).
       cloud_onboarding_dismissed: v.optional(v.boolean()),
+      // Freebuff Cloud: last-computed git status for the connected-repo sandbox.
+      // Served to the top-bar git controls by a cheap reactive query so the UI
+      // never wakes the sandbox just to render. Refreshed (in the same sandbox
+      // session) whenever a git action runs or the user explicitly refreshes.
+      git_status_cache: v.optional(
+        v.object({
+          currentBranch: v.string(),
+          defaultBranch: v.union(v.string(), v.null()),
+          branches: v.array(v.string()),
+          isDirty: v.boolean(),
+          changedFiles: v.number(),
+          insertions: v.number(),
+          deletions: v.number(),
+          ahead: v.number(), // unpushed commits vs origin/<branch>
+          behind: v.number(), // commits on origin/<branch> not local
+          hasUpstream: v.boolean(),
+          behindDefault: v.number(), // commits on default branch not in this one
+          repoFullName: v.union(v.string(), v.null()),
+          updatedAt: v.number(),
+        }),
+      ),
     })
       .index('by_semantic_identifier', ['semantic_identifier'])
       .index('by_sandbox_id', ['sandbox_id'])

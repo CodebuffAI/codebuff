@@ -36,7 +36,7 @@ import { useRouter } from 'next/navigation'
 import { useAction } from 'convex/react'
 import { signOut } from 'next-auth/react'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
-import { CloudBranchSwitcher } from './CloudBranchSwitcher'
+import { CloudGitControls } from './CloudGitControls'
 import { LimitedSandboxBadge } from '@/vly/components/cloud/LimitedSandboxBadge'
 
 /**
@@ -191,11 +191,11 @@ export function CloudTopBar({
           </DropdownMenu>
 
           {project.semantic_identifier && (
-            <CloudBranchSwitcher
+            <CloudGitControls
               semanticIdentifier={project.semantic_identifier}
               fallbackBranch={project.current_branch}
               defaultBranch={project.repo_default_branch}
-              compact
+              repoFullName={project.repo_full_name}
             />
           )}
         </div>
