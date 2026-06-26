@@ -7,10 +7,12 @@ import {
 } from '@codebuff/internal/db/schema'
 import {
   and,
+  asc,
   count,
   desc,
   eq,
   gt,
+  inArray,
   isNotNull,
   isNull,
   lt,
@@ -324,4 +326,55 @@ export async function listThreadDocumentRefs(
     )
     .orderBy(desc(chatMessage.created_at), desc(chatMessage.id))
   return collectDocumentRefs(rows, limit)
+}
+
+/** One expired message's document blobs, for the attachment-sweep. */
+export interface ExpiredAttachmentBatchRow {
+  id: string
+  storageIds: string[]
+}
+
+/**
+ * Finds messages whose document attachments are older than `cutoff` (oldest
+ * first), returning each message id with its blob storageIds. Used by the
+ * chat-attachment-sweep to reclaim storage past the retention window. Capped at
+ * `limit` messages per call so the sweep runs in bounded batches.
+ */
+export async function listExpiredAttachmentMessages(
+  cutoff: Date,
+  limit: number,
+): Promise<ExpiredAttachmentBatchRow[]> {
+  const rows = await db
+    .select({ id: chatMessage.id, attachments: chatMessage.attachments })
+    .from(chatMessage)
+    .where(
+      and(
+        isNotNull(chatMessage.attachments),
+        lt(chatMessage.created_at, cutoff),
+      ),
+    )
+    .orderBy(asc(chatMessage.created_at), asc(chatMessage.id))
+    .limit(limit)
+  return rows.map((row) => ({
+    id: row.id,
+    storageIds: Array.isArray(row.attachments)
+      ? (row.attachments as ChatDocumentRef[])
+          .map((doc) => doc.storageId)
+          .filter((id): id is string => typeof id === 'string')
+      : [],
+  }))
+}
+
+/** Clears the `attachments` column for the given messages — called after their
+ *  blobs are deleted, so the sweep is idempotent (they're no longer found) and
+ *  no dangling refs remain. Conversation content is untouched; only the now-dead
+ *  blob references are removed. */
+export async function clearMessageAttachments(
+  messageIds: string[],
+): Promise<void> {
+  if (messageIds.length === 0) return
+  await db
+    .update(chatMessage)
+    .set({ attachments: null })
+    .where(inArray(chatMessage.id, messageIds))
 }

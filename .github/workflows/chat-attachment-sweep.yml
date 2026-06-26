@@ -1,0 +1,46 @@
+name: Freebuff Chat Attachment Sweep
+
+# Reclaims storage by deleting the extracted-text blobs of chat document
+# attachments older than the retention window (CHAT_DOC_RETENTION_DAYS), then
+# clearing those messages' attachment refs. Calls the
+# /api/admin/chat-attachment-sweep endpoint on the freebuff web deployment
+# (which owns the chat Convex blob store). Idempotent and bounded per run, so a
+# daily schedule comfortably drains the backlog.
+#
+# Requires:
+#   - secret CHAT_ATTACHMENT_SWEEP_SECRET (also set on the freebuff web service)
+#   - optional var CHAT_ATTACHMENT_SWEEP_URL to override the endpoint URL
+
+on:
+  schedule:
+    # Daily at 04:17 UTC — off-peak, retention is measured in days so frequency
+    # doesn't need to be high.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger chat-attachment-sweep
+        env:
+          CHAT_ATTACHMENT_SWEEP_SECRET: ${{ secrets.CHAT_ATTACHMENT_SWEEP_SECRET }}
+          CHAT_ATTACHMENT_SWEEP_URL: ${{ vars.CHAT_ATTACHMENT_SWEEP_URL || 'https://freebuff.com/api/admin/chat-attachment-sweep' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CHAT_ATTACHMENT_SWEEP_SECRET" ]; then
+            echo "CHAT_ATTACHMENT_SWEEP_SECRET is not set — skipping."
+            exit 0
+          fi
+          status=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+            -X POST "$CHAT_ATTACHMENT_SWEEP_URL" \
+            -H "Authorization: Bearer $CHAT_ATTACHMENT_SWEEP_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 120)
+          echo "HTTP $status"
+          cat /tmp/resp.json
+          echo
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi

@@ -205,6 +205,13 @@ export const CHAT_DOC_THREAD_SEARCH_MAX_FILES = 50
  *  large prior files (the chat instance has a ~512MB ceiling); the most-recent
  *  files are kept up to this budget. ~16M chars ≈ 16 MB. */
 export const CHAT_DOC_SEARCH_TOTAL_CHAR_BUDGET = 16_000_000
+/** How long an uploaded document's extracted-text blob is retained before the
+ *  chat-attachment-sweep deletes it. Comfortably exceeds the "keep for a few
+ *  days" continuation window while bounding storage growth. After this, the
+ *  blob is gone and the agent can no longer search the file (small inlined docs
+ *  still live on in the conversation history); the loaders skip missing blobs
+ *  gracefully. */
+export const CHAT_DOC_RETENTION_DAYS = 30
 
 /** Lowercased file extension including the dot (e.g. ".ts"), or "" if none. */
 export function fileExtension(name: string): string {
