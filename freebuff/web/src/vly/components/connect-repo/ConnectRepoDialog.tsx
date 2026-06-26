@@ -1,7 +1,7 @@
 'use client'
 
 import { api } from '@/convex/_generated/api'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useConvexAuth, useQuery } from 'convex/react'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/vly/components/ui/button'
@@ -62,15 +62,16 @@ export function ConnectRepoDialog({
   returnUrl?: string
 }) {
   const router = useRouter()
+  const { isLoading: isConvexAuthLoading, isAuthenticated } = useConvexAuth()
 
   const status = useQuery(
     api.github.auth.connections.getGitHubConnectionStatus,
-    open ? {} : 'skip',
+    open && isAuthenticated ? {} : 'skip',
   )
   // Instant DB-backed cache; the dialog renders from this immediately.
   const cache = useQuery(
     api.github.repoCacheStore.getCachedConnectableRepositories,
-    open ? {} : 'skip',
+    open && isAuthenticated ? {} : 'skip',
   )
   const initiateGitHubAuth = useAction(api.github.auth.oauth.initiateGitHubAuth)
   const refreshRepos = useAction(
@@ -122,6 +123,10 @@ export function ConnectRepoDialog({
 
   const handleAuthorize = async () => {
     setError(null)
+    if (!isAuthenticated) {
+      setError('Sign in before connecting GitHub.')
+      return
+    }
     try {
       // initiateGitHubAuth runs OAuth then forwards to the GitHub App install
       // screen. From `user_identified` GitHub auto-approves OAuth and lands the
@@ -135,6 +140,10 @@ export function ConnectRepoDialog({
 
   const handleManageAccess = async () => {
     setError(null)
+    if (!isAuthenticated) {
+      setError('Sign in before managing GitHub access.')
+      return
+    }
     try {
       // Pass returnUrl so GitHub's post-install callback comes back to /cloud
       // (or wherever the dialog lives) instead of the default /web.
@@ -212,9 +221,22 @@ export function ConnectRepoDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {status === undefined ? (
+        {isConvexAuthLoading || (open && isAuthenticated && status === undefined) ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>Sign in to connect GitHub.</p>
+            <Button
+              onClick={() =>
+                router.push(
+                  `/login?callbackUrl=${encodeURIComponent(returnUrl)}`,
+                )
+              }
+            >
+              Sign in
+            </Button>
           </div>
         ) : connectionStatus === 'not_connected' ? (
           <div className="space-y-4 py-2">

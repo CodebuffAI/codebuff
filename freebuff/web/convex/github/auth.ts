@@ -34,16 +34,6 @@ export const handleGitHubOAuthCallback = action({
     message: string;
     redirectUrl?: string;
   }> => {
-    // Get the current user
-    const user = await getAuthUser(ctx);
-    if (!user) {
-      console.error(
-        `[OAuth Callback Failed] reason=unauthorized, state_prefix=${args.state.substring(0, 8)}`,
-      );
-      throw new Error("Unauthorized");
-    }
-
-    // Verify state and get user
     const stateInfo: {
       user_id: any;
       state_id: any;
@@ -52,7 +42,6 @@ export const handleGitHubOAuthCallback = action({
       internal.github.auth.verifyOAuthStateInternal,
       {
         state: args.state,
-        userId: user._id,
       },
     );
 
@@ -60,9 +49,19 @@ export const handleGitHubOAuthCallback = action({
       // Detailed logging already done in verifyOAuthStateInternal
       // This is likely a user-caused error (refresh, back button, expired state)
       console.warn(
-        `[OAuth Callback Failed] reason=invalid_state, user_email=${user.email}, state_prefix=${args.state.substring(0, 8)}, note=see_state_validation_logs_above`,
+        `[OAuth Callback Failed] reason=invalid_state, state_prefix=${args.state.substring(0, 8)}, note=see_state_validation_logs_above`,
       );
       throw new Error("Invalid OAuth state");
+    }
+
+    const user = await ctx.runQuery(internal.users.get, {
+      userId: stateInfo.user_id,
+    });
+    if (!user) {
+      console.error(
+        `[OAuth Callback Failed] reason=state_user_not_found, user_id=${stateInfo.user_id}, state_prefix=${args.state.substring(0, 8)}`,
+      );
+      throw new Error("OAuth state user not found");
     }
 
     console.log(
@@ -408,13 +407,6 @@ export const verifyOAuthStateInternal = internalQuery({
     const stateAgeMinutes = Math.floor(
       (Date.now() - stateRecord.created_at) / 60000,
     );
-
-    if (!args.userId && !args.isInstallationCallback) {
-      console.warn(
-        `[OAuth State Validation Failed] reason=missing_user_context, callback_type=${callbackType}, state_prefix=${statePrefix}, state_age_minutes=${stateAgeMinutes}`,
-      );
-      return null;
-    }
 
     const effectiveUserId = args.userId ?? stateRecord.user_id;
 
