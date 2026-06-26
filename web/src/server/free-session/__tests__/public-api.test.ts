@@ -307,17 +307,20 @@ describe('requestSession', () => {
     expect(calls).toBe(2)
   })
 
-  test('promote that never succeeds returns queued without throwing (GET self-heals)', async () => {
+  test('promote that never succeeds throws (transient queued maps to no view)', async () => {
     // Pathological: promotion can never flip the row (cannot happen against the
-    // real DB, where a fresh queued row always matches). requestSession must NOT
-    // 500 — it returns the transient queued view, which a GET poll self-heals.
+    // real DB, where a fresh queued row always matches). A queued row is never
+    // surfaced to the wire — it maps to no view — so requestSession throws
+    // rather than returning a `queued` response. A GET poll then self-heals to
+    // `none`.
     deps.promoteQueuedUser = async () => null
-    const state = await requestSession({
-      userId: 'u1',
-      model: DEFAULT_MODEL,
-      deps,
-    })
-    expect(state.status).toBe('queued')
+    await expect(
+      requestSession({
+        userId: 'u1',
+        model: DEFAULT_MODEL,
+        deps,
+      }),
+    ).rejects.toThrow(/maps to no view/)
   })
 
   test('removed GLM 5.1 request falls back to the default model', async () => {
@@ -1224,7 +1227,7 @@ describe('getSessionState', () => {
     expect(state).toEqual({ status: 'superseded' })
   })
 
-  test('getSessionState surfaces rateLimit on queued/active polls', async () => {
+  test('getSessionState surfaces rateLimit on active polls', async () => {
     // Regression: the POST response attached rateLimit, but GET polls did
     // not — so the "Sessions N/M used" line flashed once then disappeared on
     // the next 5s poll. GET must attach the same quota snapshot. Rate

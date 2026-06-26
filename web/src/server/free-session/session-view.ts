@@ -14,20 +14,17 @@ function limitedModeReasonFromRow(row: InternalSessionRow) {
  * the public response shape. Never reads the clock — caller supplies `now` so
  * behavior is deterministic under test.
  *
- * Returns null only when the row is past the grace window — the caller
- * should treat that as "no session" and either re-queue or surface
+ * Returns null when the row is past the grace window, or when it is still
+ * transiently `queued` (never surfaced to the wire — every session is admitted
+ * immediately). The caller should treat null as "no session" and surface
  * `{ status: 'none' }` to the client.
  */
 export function toSessionStateResponse(params: {
   row: InternalSessionRow | null
-  position: number
-  /** Snapshot of every model's queue depth at response time. Only consumed
-   *  by the `queued` variant — active/ended don't need the selector. */
-  queueDepthByModel: Record<string, number>
   graceMs: number
   now: Date
 }): SessionStateResponse | null {
-  const { row, position, queueDepthByModel, graceMs, now } = params
+  const { row, graceMs, now } = params
   if (!row) return null
 
   if (row.status === 'active' && row.expires_at) {
@@ -60,33 +57,7 @@ export function toSessionStateResponse(params: {
     }
   }
 
-  if (row.status === 'queued') {
-    return {
-      status: 'queued',
-      accessTier: row.access_tier ?? 'full',
-      instanceId: row.active_instance_id,
-      model: row.model,
-      position,
-      queueDepth: queueDepthByModel[row.model] ?? 0,
-      queueDepthByModel,
-      estimatedWaitMs: estimateWaitMs({ position }),
-      queuedAt: row.queued_at.toISOString(),
-      ...limitedModeReasonFromRow(row),
-    }
-  }
-
-  // active row past the grace window — callers should treat as "no session" and re-queue
+  // Transient `queued` row, or an active row past the grace window — callers
+  // should treat null as "no session".
   return null
-}
-
-const WAIT_MS_PER_SPOT_AHEAD = 24_000
-
-/**
- * Rough wait-time estimate shown to queued users: 24 seconds per spot ahead.
- * Position 1 → 0ms (next tick picks you up).
- */
-export function estimateWaitMs(params: { position: number }): number {
-  const { position } = params
-  if (position <= 1) return 0
-  return (position - 1) * WAIT_MS_PER_SPOT_AHEAD
 }

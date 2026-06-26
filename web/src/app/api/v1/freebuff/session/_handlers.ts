@@ -137,7 +137,7 @@ async function endSessionForHardBlock(
 /** Header the CLI uses to identify which instance is polling. Used by GET to
  *  detect when another CLI on the same account has rotated the id. */
 export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
-/** Header the CLI sends on POST to pick which model's queue to join. */
+/** Header the CLI sends on POST to pick which model to use. */
 export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
 
 export interface FreebuffSessionDeps {
@@ -219,7 +219,8 @@ function serverError(
   )
 }
 
-/** POST /api/v1/freebuff/session — join queue / take over as this instance. */
+/** POST /api/v1/freebuff/session — start a session / take over as this
+ *  instance. */
 export async function postFreebuffSession(
   req: NextRequest,
   deps: FreebuffSessionDeps,
@@ -248,7 +249,7 @@ export async function postFreebuffSession(
       deps: deps.sessionDeps,
     })
     // model_locked / model_unavailable are 409 so they're distinguishable
-    // from normal queued/active responses on the client. banned is a 403
+    // from normal active responses on the client. banned is a 403
     // (terminal, mirrors country_blocked) so older CLIs that don't know the
     // status fall into their `!resp.ok` error path and back off instead of
     // tight-polling on the unrecognized 200 body. rate_limited uses 429 for

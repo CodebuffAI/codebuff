@@ -9,8 +9,8 @@ import type { FreebuffAccessTier } from '../constants/freebuff-models'
  */
 
 /**
- * Usage counter surfaced to the CLI so the waiting-room UI can render
- * "N of M sessions used" alongside queue/active state. Present when the
+ * Usage counter surfaced to the CLI so the UI can render
+ * "N of M sessions used" alongside active state. Present when the
  * joined model consumes Freebuff sessions. `recentCount` is the
  * rounded session units since the last midnight Pacific reset at the time
  * the response was produced — see also the standalone `rate_limited` status
@@ -73,7 +73,7 @@ export const getReferralInfo = (
     : undefined
 
 /** Pull the per-model shared session-quota snapshot off whichever statuses
- *  carry it (queued, active, ended, none). Returns undefined for terminal /
+ *  carry it (active, ended, none). Returns undefined for terminal /
  *  pre-join states that have no quota field. The parameter is intentionally
  *  loose so the CLI can pass its `FreebuffSessionResponse` (which adds the
  *  client-only `takeover_prompt` variant) without a discriminated-union
@@ -148,50 +148,19 @@ export interface FreebuffLimitedModeReason {
 }
 
 export type FreebuffSessionServerResponse =
-  | {
-      /** Waiting room is globally off; free-mode requests flow through
-       *  unchanged. Client should treat this as "admitted forever". */
-      status: 'disabled'
-    }
   | ({
-      /** User has no session row. CLI must POST to (re-)queue. Also returned
-       *  when `getSessionState` notices the user has been swept past the
-       *  grace window. */
+      /** User has no session row. CLI must POST to start a session. Also
+       *  returned when `getSessionState` notices the user has been swept past
+       *  the grace window. */
       status: 'none'
       accessTier?: FreebuffAccessTier
       message?: string
-      /** Snapshot of every model's queue depth at GET time. The picker no
-       *  longer renders this (queues effectively never form at current
-       *  traffic), but it's still surfaced for diagnostics and future use.
-       *  Present on GET responses; not returned from POST (POST never
-       *  produces `none`). */
-      queueDepthByModel?: Record<string, number>
       /** Current quota snapshots for free models, keyed by model id. Lets
        *  the picker show today's session usage before the user commits
-       *  to a queue. */
+       *  to a model. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Referral status for the "unlock GLM 5.2" banner. Full-tier only. */
       referral?: FreebuffReferralInfo
-    } & FreebuffLimitedModeReason)
-  | ({
-      status: 'queued'
-      accessTier: FreebuffAccessTier
-      instanceId: string
-      /** Model the user is queued for. Each model has its own queue. */
-      model: string
-      /** 1-indexed position in the queue for `model`. */
-      position: number
-      queueDepth: number
-      /** Current depth of every model's queue. Retained for diagnostics —
-       *  the CLI no longer renders per-row queue hints. Models with no
-       *  queued rows at snapshot time may be absent; treat a missing entry
-       *  as 0. */
-      queueDepthByModel: Record<string, number>
-      estimatedWaitMs: number
-      queuedAt: string
-      /** Shared free-session quota for this model. */
-      rateLimit?: FreebuffSessionRateLimit
-      rateLimitsByModel?: FreebuffSessionRateLimitByModel
     } & FreebuffLimitedModeReason)
   | ({
       status: 'active'
@@ -239,8 +208,8 @@ export type FreebuffSessionServerResponse =
   | {
       /** Request originated outside the free-mode allowlist, or from an
        *  unknown/anonymized location that cannot be trusted for free mode.
-       *  Returned before queue admission so users don't wait through the
-       *  room only to be rejected on their first chat request. Terminal —
+       *  Returned before a session is started so users aren't rejected on
+       *  their first chat request. Terminal —
        *  CLI stops polling and shows a "not available in your country"
        *  screen. `countryCode` is the resolved country, or UNKNOWN. */
       status: 'country_blocked'
@@ -269,15 +238,14 @@ export type FreebuffSessionServerResponse =
     }
   | {
       /** Account is banned. Returned from every endpoint so banned bots can't
-       *  join the queue at all (otherwise they inflate `queueDepth` until the
-       *  15s admission tick's `evictBanned` sweeps them). Terminal — CLI
-       *  stops polling and shows a banned message. */
+       *  start a session at all. Terminal — CLI stops polling and shows a
+       *  banned message. */
       status: 'banned'
     }
   | {
       /** User has used up their shared free-session quota for the current
-       *  Pacific day. Returned from POST /session before the user is placed in
-       *  the queue. `retryAfterMs` is the time until the next midnight Pacific
+       *  Pacific day. Returned from POST /session before a session is started.
+       *  `retryAfterMs` is the time until the next midnight Pacific
        *  reset. Terminal for the CLI's current poll session; the user can exit
        *  and come back later. */
       status: 'rate_limited'

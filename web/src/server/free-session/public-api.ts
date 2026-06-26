@@ -444,8 +444,6 @@ async function viewForRow(
   // `queued` between requests — no queue position or depth to compute.
   return toSessionStateResponse({
     row,
-    position: 0,
-    queueDepthByModel: {},
     graceMs: deps.graceMs,
     now: nowOf(deps),
   })
@@ -689,7 +687,7 @@ export async function requestSession(params: {
   return attachRateLimit(params.userId, view, deps)
 }
 
-/** Thread the current quota snapshot onto queued/active/ended views so the
+/** Thread the current quota snapshot onto active/ended views so the
  *  CLI can render "N of M sessions used" — both during the session and on
  *  the post-session banner. Other statuses pass through unchanged. Called on
  *  both POST and GET so the line stays live across polls. */
@@ -698,11 +696,7 @@ async function attachRateLimit(
   view: SessionStateResponse,
   deps: SessionDeps,
 ): Promise<SessionStateResponse> {
-  if (
-    view.status !== 'queued' &&
-    view.status !== 'active' &&
-    view.status !== 'ended'
-  ) {
+  if (view.status !== 'active' && view.status !== 'ended') {
     return view
   }
   const accessTier = view.accessTier ?? 'full'
@@ -713,9 +707,8 @@ async function attachRateLimit(
   )
   // The ended view doesn't carry a model id, so it gets the full snapshot
   // unfiltered — the banner reads any entry's recentCount (they all share the
-  // same daily premium pool). Queued/active filter out unused models so the
-  // landing screen and waiting-room title don't list every premium model with
-  // a "0 used today" hint.
+  // same daily premium pool). Active filters out unused models so the
+  // status bar doesn't list every premium model with a "0 used today" hint.
   if (view.status === 'ended') {
     return { ...view, rateLimitsByModel: allRateLimitsByModel }
   }
@@ -748,12 +741,11 @@ async function attachRateLimit(
  * active capacity after the CLI receives `none`.
  *
  * Returns:
- *   - `disabled` when the waiting room is off
  *   - `none` when the user has no row at all (or the row was swept past
- *     the grace window)
+ *     the grace window, or is still transiently queued)
  *   - `superseded` when the caller's id no longer matches the stored one
- *     (active sessions only — a queued row's id always wins)
- *   - `queued` / `active` / `ended` otherwise (see `toSessionStateResponse`)
+ *     (active sessions only)
+ *   - `active` / `ended` otherwise (see `toSessionStateResponse`)
  */
 export async function getSessionState(params: {
   userId: string

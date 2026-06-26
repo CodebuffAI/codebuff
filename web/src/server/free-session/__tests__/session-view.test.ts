@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { estimateWaitMs, toSessionStateResponse } from '../session-view'
+import { toSessionStateResponse } from '../session-view'
 
 import type { InternalSessionRow } from '../types'
 
-const WAIT_PER_SPOT_MS = 24_000
 const GRACE_MS = 30 * 60_000
 
 const TEST_MODEL = 'deepseek/deepseek-v4-pro'
@@ -25,79 +24,28 @@ function row(overrides: Partial<InternalSessionRow> = {}): InternalSessionRow {
   }
 }
 
-describe('estimateWaitMs', () => {
-  test('position 1 → 0 wait (next tick picks you up)', () => {
-    expect(estimateWaitMs({ position: 1 })).toBe(0)
-  })
-
-  test('position N → (N-1) minutes ahead', () => {
-    expect(estimateWaitMs({ position: 2 })).toBe(WAIT_PER_SPOT_MS)
-    expect(estimateWaitMs({ position: 10 })).toBe(9 * WAIT_PER_SPOT_MS)
-  })
-
-  test('degenerate inputs return 0', () => {
-    expect(estimateWaitMs({ position: 0 })).toBe(0)
-  })
-})
-
 describe('toSessionStateResponse', () => {
   const now = new Date('2026-04-17T12:00:00Z')
   const baseArgs = {
     graceMs: GRACE_MS,
-    queueDepthByModel: {},
   }
 
   test('returns null when row is null', () => {
     const view = toSessionStateResponse({
       row: null,
-      position: 0,
       ...baseArgs,
       now,
     })
     expect(view).toBeNull()
   })
 
-  test('queued row maps to queued response with position + wait estimate', () => {
+  test('transient queued row maps to null (never surfaced to the wire)', () => {
     const view = toSessionStateResponse({
       row: row({ status: 'queued' }),
-      position: 3,
-      ...baseArgs,
-      queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
-      now,
-    })
-    expect(view).toEqual({
-      status: 'queued',
-      accessTier: 'full',
-      instanceId: 'inst-1',
-      model: TEST_MODEL,
-      position: 3,
-      queueDepth: 10,
-      queueDepthByModel: { [TEST_MODEL]: 10, 'minimax/minimax-m2.7': 4 },
-      estimatedWaitMs: 2 * WAIT_PER_SPOT_MS,
-      queuedAt: now.toISOString(),
-    })
-  })
-
-  test('limited queued row includes limited-mode reason metadata', () => {
-    const view = toSessionStateResponse({
-      row: row({
-        status: 'queued',
-        access_tier: 'limited',
-        country_code: 'US',
-        country_block_reason: 'anonymous_network',
-        ip_privacy_signals: ['vpn'],
-      }),
-      position: 1,
       ...baseArgs,
       now,
     })
-    expect(view).toMatchObject({
-      status: 'queued',
-      accessTier: 'limited',
-      countryCode: 'US',
-      countryBlockReason: 'anonymous_network',
-      ipPrivacySignals: ['vpn'],
-    })
+    expect(view).toBeNull()
   })
 
   test('active unexpired row maps to active response with remaining ms', () => {
@@ -109,7 +57,6 @@ describe('toSessionStateResponse', () => {
         admitted_at: admittedAt,
         expires_at: expiresAt,
       }),
-      position: 0,
       ...baseArgs,
       now,
     })
@@ -133,7 +80,6 @@ describe('toSessionStateResponse', () => {
         admitted_at: admittedAt,
         expires_at: expiresAt,
       }),
-      position: 0,
       ...baseArgs,
       now,
     })
@@ -155,7 +101,6 @@ describe('toSessionStateResponse', () => {
         admitted_at: now,
         expires_at: new Date(now.getTime() - GRACE_MS - 1),
       }),
-      position: 0,
       ...baseArgs,
       now,
     })

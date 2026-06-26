@@ -80,14 +80,10 @@ const FOCUS_CUE = 'Press Enter ↵'
 const CUE_GAP = 2 // min gap between a row's details and the focused-row cue
 
 /**
- * Dual-purpose model picker:
- *   - Pre-chat landing (session 'none'): user hasn't joined any queue. Picking
- *     a model is their explicit commitment to enter — this triggers the POST.
- *     Opens collapsed to the recommended hero; Enter starts immediately.
- *   - In-queue switcher (session 'queued'): picking a *different* model moves
- *     the user to the back of that queue (lose place in original). Picking the
- *     model they're already in is a no-op. Opens expanded so every queue is
- *     visible.
+ * Pre-chat model picker (session 'none'): user hasn't started a session yet.
+ * Picking a model is their explicit commitment to enter — this triggers the
+ * POST, which admits them straight to an active session. Opens collapsed to
+ * the recommended hero; Enter starts immediately.
  *
  * Keyboard navigation: Tab / arrow keys move the green highlight; Enter (or
  * Space) commits the focused row — or, on the toggle, expands/collapses the
@@ -273,7 +269,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     }
   }, [renderedModelIds, now, selectedModel, session, setSelectedModel])
 
-  const committedModelId = session?.status === 'queued' ? session.model : null
+  // No queued state any more: there's never a model the user is "already in"
+  // the queue for, so re-picking is always meaningful.
+  const committedModelId: string | null = null
   const rateLimitsByModel = getRateLimitsByModel(session)
 
   // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used

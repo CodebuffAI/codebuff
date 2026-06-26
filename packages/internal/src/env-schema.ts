@@ -21,7 +21,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   SPUR_TOKEN: z.string().min(1),
   SCAMALYTICS_API_KEY: z.string().min(1),
   COMPOSIO_API_KEY: z.string().min(1).optional(),
-  // BuySellAds (Carbon) zone key used for the Freebuff waiting-room ad.
+  // BuySellAds (Carbon) zone key used for the Freebuff Carbon ad.
   // Optional: when unset the Carbon provider returns no ad and callers fall
   // back to their cached ads / fallback content. `CVADC53U` is the public
   // test key from BSA docs and is safe to use in dev.

@@ -263,7 +263,7 @@ export const App = ({
   // Render project picker FIRST when at home directory or outside a project.
   // This deliberately precedes the login/auth and waiting-room gates so the
   // user always gets to pick a working directory before anything else — auth
-  // failures or a banned/queued freebuff session would otherwise replace the
+  // failures or a banned freebuff session would otherwise replace the
   // picker mid-flash and look like being kicked out of the app.
   if (showProjectPicker) {
     return (
@@ -369,7 +369,7 @@ const AuthedSurface = ({
 
   // Terminal state: a 409 from the gate means another CLI rotated our
   // instance id. Show a dedicated screen and stop polling — don't fall back
-  // into the waiting room, which would look like normal queued progress.
+  // into the pre-chat screen, which would look like normal startup progress.
   if (IS_FREEBUFF && session?.status === 'superseded') {
     return <FreebuffSupersededScreen />
   }
@@ -377,7 +377,6 @@ const AuthedSurface = ({
   // Route every non-admitted state through the pre-chat screen:
   //   null     → initial GET in flight (brief)
   //   'none'   → no seat yet; show model-picker landing
-  //   'queued' → waiting our turn
   //   'country_blocked' → terminal region-gate message
   //   'banned' → terminal account-banned message
   //   'rate_limited' → hit shared session quota; terminal for this run
@@ -389,7 +388,6 @@ const AuthedSurface = ({
   if (
     IS_FREEBUFF &&
     (session === null ||
-      session.status === 'queued' ||
       session.status === 'none' ||
       session.status === 'country_blocked' ||
       session.status === 'banned' ||
