@@ -6,6 +6,11 @@ import { CloudWorkspaceTabs, type CloudTab } from './CloudWorkspaceTabs'
 import { CloudOnboardingChecklist } from './CloudOnboardingChecklist'
 import { CloudGitPanel } from './CloudGitPanel'
 import { CloudCenterContent, type CloudViewMode } from './CloudCenterContent'
+import { CloudGodModePanel } from './CloudGodModePanel'
+import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
+import dynamic from 'next/dynamic'
+
+const IntegrationsView = dynamic(() => import('../IntegrationsView'), { ssr: false })
 
 interface CloudIframeAreaProps {
   project: NonNullable<FunctionReturnType<typeof api.project.getProjectData>>
@@ -37,6 +42,10 @@ export function CloudIframeArea({
   hideTabs,
   onSendLogsToChat,
 }: CloudIframeAreaProps) {
+  const { isPlatformAdmin } = useIsPlatformAdmin()
+  const isSpecialTab =
+    cloudTab === 'git' || cloudTab === 'integrations' || cloudTab === 'god'
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {!hideTabs && (
@@ -51,6 +60,7 @@ export function CloudIframeArea({
           activeTab={cloudTab}
           onChange={onCloudTabChange}
           semanticIdentifier={semanticIdentifier}
+          isGodMode={isPlatformAdmin}
         />
       )}
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -60,7 +70,11 @@ export function CloudIframeArea({
             repoFullName={project.repo_full_name}
             fallbackBranch={project.current_branch}
           />
-        ) : (
+        ) : cloudTab === 'integrations' ? (
+          <IntegrationsView semanticIdentifier={semanticIdentifier} />
+        ) : cloudTab === 'god' && isPlatformAdmin ? (
+          <CloudGodModePanel project={project} />
+        ) : !isSpecialTab ? (
           <CloudCenterContent
             project={project}
             semanticIdentifier={semanticIdentifier}
@@ -72,7 +86,7 @@ export function CloudIframeArea({
             refreshTrigger={refreshTrigger}
             onSendLogsToChat={onSendLogsToChat}
           />
-        )}
+        ) : null}
       </div>
     </div>
   )

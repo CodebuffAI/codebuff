@@ -5,6 +5,7 @@ import { getInstallationToken } from "../../codebase-utils/github";
 import { createDaytonaSandbox } from "../../codebase-utils/instanceManager";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
+import { DaytonaConnectionStrategy } from "./runtime/strategies/daytona/DaytonaConnectionStrategy";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
@@ -14,8 +15,8 @@ import { getAuthUser } from "../users";
  * Connect an existing GitHub repository as a Freebuff Cloud project.
  *
  * Flow: verify GitHub App install -> boot a sandbox from the primary golden
- * snapshot -> clone the repo with an installation token -> create a
- * connected_repo project -> kick off the first agent run (free model by default).
+ * snapshot -> clone the repo with an installation token -> start VS Code +
+ * terminal -> create a connected_repo project -> kick off the first agent run
  */
 export const connectRepo = action({
   args: {
@@ -228,6 +229,11 @@ export const connectRepo = action({
       if (cloneResult.exitCode && cloneResult.exitCode !== 0) {
         throw new Error(`git clone failed: ${cloneResult.output.slice(-500)}`);
       }
+
+      // Start VS Code (43867) and ttyd (7681) immediately so Code/Terminal
+      // proxy URLs work as soon as the project is created — don't wait for the
+      // user to open the project page (warmConnection).
+      await new DaytonaConnectionStrategy().ensureSandboxServices(codebase);
 
       const { projectId, semanticIdentifier }: {
         projectId: Id<"project">;

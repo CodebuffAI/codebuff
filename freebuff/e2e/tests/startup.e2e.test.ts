@@ -20,15 +20,8 @@ describe('Freebuff: Startup', () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
 
-      // The 3rd row of the FREEBUFF ASCII logo: the crossbars of F and R
-      // adjacent. Picked because the logo renders for *every* valid boot
-      // state — model picker, waiting room, country-blocked (which is what
-      // CI runners hit, since GitHub Actions egress is flagged as anonymized
-      // network) — but never appears if module init crashes before React
-      // mounts (the post-OpenTUI-upgrade tree-sitter wasm regression). This
-      // gives us a positive "boot succeeded" signal that's robust against
-      // novel error modes, not just the ones we listed below.
-      const output = await session.waitForText('█████╗  ██████╔╝')
+      // CI can land on multiple post-init screens; accept any known boot marker.
+      const output = await session.waitForBootSignal()
 
       // Belt-and-braces: known fatal markers should never coexist with a
       // rendered logo, but if some race ever surfaces one we still want to

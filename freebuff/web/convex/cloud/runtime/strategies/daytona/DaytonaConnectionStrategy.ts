@@ -5,9 +5,23 @@ import { DaytonaCodebase } from "../../../../../codebase-utils/codebase/DaytonaC
 import type { ConnectionStrategy } from "../ConnectionStrategy";
 
 const CLOUD_OPENVSCODE_PORT = 43867;
+const CLOUD_TTYD_PORT = 7681;
 const DAYTONA_REPO_PATH = "/home/daytona/codebase";
 
 export class DaytonaConnectionStrategy implements ConnectionStrategy {
+  /**
+   * Ensure VS Code (43867) and ttyd (7681) are listening. Safe to call right
+   * after sandbox boot / repo clone so Code and Terminal work before the user
+   * opens the project page.
+   */
+  async ensureSandboxServices(codebase: DaytonaCodebase): Promise<void> {
+    await this.removeLegacyCodexShim(codebase);
+    await Promise.all([
+      this.ensureHostedEditorOnCloudPort(codebase),
+      this.ensureTtyd(codebase),
+    ]);
+  }
+
   async warmConnection(
     _project: Doc<"project">,
     codebase: DaytonaCodebase,
@@ -16,8 +30,7 @@ export class DaytonaConnectionStrategy implements ConnectionStrategy {
     // lifecycle is now user-controlled (start/stop from the Cloud UI) so we
     // don't burn resources running a dev server the user didn't ask for.
     await codebase.runCommand("pwd", 5_000);
-    await this.removeLegacyCodexShim(codebase);
-    await this.ensureHostedEditorOnCloudPort(codebase);
+    await this.ensureSandboxServices(codebase);
   }
 
   /**
@@ -53,12 +66,53 @@ export class DaytonaConnectionStrategy implements ConnectionStrategy {
     );
   }
 
+  /**
+   * Ensure ttyd (web terminal) is listening on CLOUD_TTYD_PORT.
+   * The golden image starts it on boot but it can die on long-running sandboxes.
+   */
+  private async ensureTtyd(codebase: DaytonaCodebase): Promise<void> {
+    await codebase.runCommand(
+      [
+        `if command -v ttyd >/dev/null 2>&1; then`,
+        `  if ! lsof -iTCP:${CLOUD_TTYD_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then`,
+        `    (cd "${DAYTONA_REPO_PATH}" 2>/dev/null || cd /home/daytona;`,
+        `      nohup ttyd -p ${CLOUD_TTYD_PORT} -W bash >/var/log/ttyd.log 2>&1 < /dev/null &);`,
+        `    for i in $(seq 1 20); do`,
+        `      if lsof -iTCP:${CLOUD_TTYD_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then break; fi;`,
+        `      sleep 1;`,
+        `    done;`,
+        `  fi;`,
+        `fi`,
+      ].join(" "),
+      30_000,
+    );
+  }
+
   private async ensureHostedEditorOnCloudPort(
     codebase: DaytonaCodebase,
   ): Promise<void> {
+    // The golden image now starts VS Code on CLOUD_OPENVSCODE_PORT (43867) so
+    // port 8080 stays free for the user's dev server. On older sandboxes (image
+    // built with port 8080) we kill and restart. Fixes to the original approach:
+    //   • sleep 2 after pkill so the process fully exits before restart
+    //   • rm lock files so VS Code doesn't crash on a stale lock
+    //   • poll loop (up to 30 s) so we don't return before VS Code is ready
     await codebase.runCommand(
-      `if [ -x /opt/openvscode-server/bin/openvscode-server ]; then if ! lsof -iTCP:${CLOUD_OPENVSCODE_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then pkill -f "/opt/openvscode-server/bin/openvscode-server" >/dev/null 2>&1 || true; nohup /opt/openvscode-server/bin/openvscode-server --host 0.0.0.0 --port ${CLOUD_OPENVSCODE_PORT} --without-connection-token --default-folder "${DAYTONA_REPO_PATH}" >/var/log/openvscode.log 2>&1 < /dev/null & fi; fi`,
-      10_000,
+      [
+        `if [ -x /opt/openvscode-server/bin/openvscode-server ]; then`,
+        `  if ! lsof -iTCP:${CLOUD_OPENVSCODE_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then`,
+        `    pkill -f "openvscode-server" >/dev/null 2>&1 || true;`,
+        `    sleep 2;`,
+        `    rm -f /root/.openvscode-server/data/locks/*.lock /home/daytona/.openvscode-server/data/locks/*.lock 2>/dev/null || true;`,
+        `    nohup /opt/openvscode-server/bin/openvscode-server --host 0.0.0.0 --port ${CLOUD_OPENVSCODE_PORT} --without-connection-token --default-folder "${DAYTONA_REPO_PATH}" >/var/log/openvscode.log 2>&1 < /dev/null &`,
+        `    for i in $(seq 1 30); do`,
+        `      if lsof -iTCP:${CLOUD_OPENVSCODE_PORT} -sTCP:LISTEN -t >/dev/null 2>&1; then break; fi;`,
+        `      sleep 1;`,
+        `    done;`,
+        `  fi;`,
+        `fi`,
+      ].join(" "),
+      45_000,
     );
   }
 }

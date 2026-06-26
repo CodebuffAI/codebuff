@@ -20,7 +20,7 @@ describe('Freebuff: Agent startup smoke', () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
 
-      const output = await session.waitForText('█████╗  ██████╔╝')
+      const output = await session.waitForBootSignal()
 
       expect(output.trim().length).toBeGreaterThan(0)
       expect(output).not.toContain('Fatal error during startup')

@@ -70,6 +70,26 @@ export function useIframeNavigationSync({
     lastNavSource: "parent",
   });
 
+  // When initialUrl becomes available AFTER mount (e.g. a connected-repo dev
+  // server saves preview_url to the DB after starting up), update iframeSrc if
+  // it's still empty. This is needed because useState only reads the initial
+  // value once — if preview_url was null at mount time the iframe would never
+  // get a src even after the URL is persisted and the project query updates.
+  useEffect(() => {
+    if (!initialUrl) return;
+    setNavState((prev) => {
+      if (prev.iframeSrc) return prev; // already set, don't override
+      return {
+        stack: [initialPath || "/"],
+        index: 0,
+        iframeSrc: initialUrl,
+        iframeKey: prev.iframeKey + 1,
+        lastNavSource: "parent",
+      };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUrl]);
+
   // On parent navigation (entry point change), reset stack, iframe src, and iframeKey
   // Uses stable id comparison to avoid remounting when only object reference changes (e.g. re-fetch)
   const [prevEntryPointId, setPrevEntryPointId] = useState(

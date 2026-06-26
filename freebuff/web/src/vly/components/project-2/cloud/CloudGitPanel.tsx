@@ -11,7 +11,6 @@ import {
   Loader2,
   AlertTriangle,
   FileDiff,
-  Download,
   Upload,
 } from 'lucide-react'
 import { CloudBranchSwitcher } from './CloudBranchSwitcher'
@@ -35,7 +34,6 @@ export function CloudGitPanel({
   const getGitStatus = useAction(api.cloud.git.getGitStatus)
   const commitChanges = useAction(api.cloud.git.commitChanges)
   const pushCurrentBranch = useAction(api.cloud.git.pushCurrentBranch)
-  const syncFromRemote = useAction(api.cloud.git.syncFromRemote)
 
   const [currentBranch, setCurrentBranch] = useState(fallbackBranch ?? 'main')
   const [defaultBranch, setDefaultBranch] = useState<string | null>(null)
@@ -171,17 +169,6 @@ export function CloudGitPanel({
             className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
-        <GitActionButton
-          icon={<Download className="h-4 w-4" />}
-          title="Sync from GitHub"
-          description="Pull and rebase the current branch from origin."
-          loading={sending === 'sync from github'}
-          onClick={() =>
-            void runAction('sync from github', () =>
-              syncFromRemote({ semanticIdentifier }),
-            )
-          }
-        />
         <GitActionButton
           icon={<GitCommitHorizontal className="h-4 w-4" />}
           title="Commit"

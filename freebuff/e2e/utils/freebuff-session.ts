@@ -4,6 +4,20 @@ import path from 'path'
 
 import { tmuxCapture, tmuxSend, tmuxSendKey, tmuxStart, tmuxStop } from './tmux-helpers'
 
+/** Static strings that prove the CLI reached a post-init boot screen. */
+export const FREEBUFF_BOOT_SIGNALS = [
+  '█████╗  ██████╔╝', // ASCII logo (full or small variant)
+  'Start coding for free',
+  'Enter a coding task',
+  'Pick a model to start',
+  "You're in the waiting room",
+  "You're next in line",
+  "Free mode isn't available",
+  'Press ENTER to login',
+  'Open this URL',
+  'will run commands on your behalf',
+] as const
+
 export class FreebuffSession {
   public readonly name: string
   public readonly workDir: string
@@ -154,6 +168,29 @@ export class FreebuffSession {
   /** Capture and auto-save to the session logs directory with a label. */
   async captureLabeled(label: string, waitSeconds?: number): Promise<string> {
     return tmuxCapture(this.name, { waitSeconds, label })
+  }
+
+  /**
+   * Poll until the terminal shows any known boot-screen marker.
+   * More reliable than waiting for a single ASCII logo line — CI runners
+   * often land on the model picker wordmark ("Start coding for free") instead
+   * of the full ASCII art.
+   */
+  async waitForBootSignal(timeoutMs = 30_000): Promise<string> {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      const output = await this.capture()
+      if (FREEBUFF_BOOT_SIGNALS.some((signal) => output.includes(signal))) {
+        return output
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    const finalOutput = await this.capture()
+    throw new Error(
+      `Timed out after ${timeoutMs}ms waiting for a boot signal ` +
+        `(checked ${FREEBUFF_BOOT_SIGNALS.length} patterns).\n` +
+        `Last output:\n${finalOutput}`,
+    )
   }
 
   /**

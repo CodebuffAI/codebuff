@@ -243,7 +243,35 @@ export const getPreviewState = action({
     );
 
     const running = await codebase.isPreviewProcessRunning();
-    const port = project.preview_port ?? null;
+    let port = project.preview_port ?? null;
+
+    // Fetch logs early — needed for port detection below.
+    const logs = await codebase.getPreviewLogs();
+
+    // Extract the port the dev server actually bound to from its log output.
+    // Vite:    "Local:   http://localhost:PORT/"
+    // Next.js: "started server on ... PORT"
+    // CRA:     "Local:  http://localhost:PORT"
+    // This is the source of truth — ignore whatever stale port is in the DB.
+    const logPortMatch = running && logs
+      ? logs.match(/localhost:(\d{3,5})/i)
+      : null;
+    const logPort = logPortMatch ? parseInt(logPortMatch[1], 10) : null;
+
+    // Prefer the log-detected port; fall back to whatever is stored.
+    // If the log port differs from the stored port, save the new one so the
+    // next poll doesn't need to re-parse.
+    if (logPort && logPort !== port) {
+      port = logPort;
+      ctx
+        .runMutation(
+          internal.cloud.connectRepoMutations.updateRuntimeConfig,
+          { projectId: project._id, config: { preview_port: logPort } },
+        )
+        .catch(() => {});
+    } else if (logPort) {
+      port = logPort;
+    }
 
     let listening = false;
     let statusCode: string | null = null;
@@ -264,7 +292,27 @@ export const getPreviewState = action({
       }
     }
 
-    const logs = await codebase.getPreviewLogs(8000);
+    // When the dev server is listening, persist the Daytona-proxied preview
+    // URL. Update it whenever the port changed from what's stored (stale run).
+    if (listening && port) {
+      const storedPortMatch = project.preview_url?.match(/^https?:\/\/(\d+)-/);
+      const storedPort = storedPortMatch
+        ? parseInt(storedPortMatch[1], 10)
+        : null;
+      if (!project.preview_url || storedPort !== port) {
+        try {
+          const previewUrl = await codebase.getPreviewLinkForPort(port);
+          ctx
+            .runMutation(
+              internal.cloud.connectRepoMutations.setConnectedRepoPreviewUrl,
+              { projectId: project._id, preview_url: previewUrl },
+            )
+            .catch(() => {});
+        } catch {
+          // Non-fatal — UI falls back to getDaytonaPreviewUrl.
+        }
+      }
+    }
 
     return {
       running,

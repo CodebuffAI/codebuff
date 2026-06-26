@@ -30,14 +30,14 @@ export function getDaytonaPreviewUrl(
 export function getDirectPreviewUrl(
   project: ProjectPreviewLike | null | undefined,
 ) {
-  // Connected repos run the dev server on an agent-detected port; honor the
-  // stored preview_url first, then derive from the configured preview_port.
+  // Connected repos run the dev server on an agent-detected port. Never fall
+  // back to the 5173 default — that would show a wrong Daytona proxy URL in
+  // the iframe before the real port is detected from the process logs.
   if (project?.project_type === "connected_repo") {
     const port = project?.runtime_config?.preview_port ?? undefined;
     return (
       project?.preview_url ??
       (port ? getDaytonaPreviewUrl(project, port) : null) ??
-      project?.pretty_preview_url ??
       null
     );
   }

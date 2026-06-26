@@ -9,18 +9,31 @@ import {
   GitBranch,
   PanelRight,
   SlidersHorizontal,
+  Plug,
+  ShieldAlert,
 } from 'lucide-react'
 
-export type CloudTab = 'preview' | 'code' | 'terminal' | 'env' | 'links' | 'git'
+export type CloudTab =
+  | 'preview'
+  | 'code'
+  | 'terminal'
+  | 'env'
+  | 'links'
+  | 'git'
+  | 'integrations'
+  | 'god'
 
-const TABS: { id: CloudTab; label: string; Icon: typeof Globe2 }[] = [
+const BASE_TABS: { id: CloudTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'preview', label: 'Preview', Icon: Globe2 },
   { id: 'code', label: 'Code', Icon: Code2 },
   { id: 'terminal', label: 'Terminal', Icon: TerminalSquare },
   { id: 'env', label: 'API Keys', Icon: FileCog },
   { id: 'links', label: 'Links', Icon: PanelRight },
+  { id: 'integrations', label: 'Integrations', Icon: Plug },
   { id: 'git', label: 'Git', Icon: GitBranch },
 ]
+
+const GOD_TAB = { id: 'god' as CloudTab, label: 'God', Icon: ShieldAlert }
 
 /** Maps a workspace tab to the settings section it deep-links to. */
 const TAB_SETTINGS_SECTION: Record<CloudTab, string> = {
@@ -29,7 +42,9 @@ const TAB_SETTINGS_SECTION: Record<CloudTab, string> = {
   terminal: 'preview',
   env: 'env',
   links: 'preview',
+  integrations: 'preview',
   git: 'git',
+  god: 'preview',
 }
 
 /**
@@ -42,18 +57,22 @@ export function CloudWorkspaceTabs({
   activeTab,
   onChange,
   semanticIdentifier,
+  isGodMode = false,
 }: {
   activeTab: CloudTab
   onChange: (tab: CloudTab) => void
   semanticIdentifier: string
+  isGodMode?: boolean
 }) {
   const router = useRouter()
+  const TABS = isGodMode ? [...BASE_TABS, GOD_TAB] : BASE_TABS
 
   return (
     <div className="flex w-full flex-shrink-0 items-center gap-2 px-2 py-1.5 lg:px-3">
       <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
         {TABS.map(({ id, label, Icon }) => {
           const isActive = activeTab === id
+          const isGodTab = id === 'god'
           return (
             <button
               key={id}
@@ -61,9 +80,13 @@ export function CloudWorkspaceTabs({
               onClick={() => onChange(id)}
               aria-pressed={isActive}
               className={`flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${
-                isActive
-                  ? 'bg-muted text-foreground'
-                  : 'text-foreground/55 hover:bg-muted/50 hover:text-foreground'
+                isGodTab
+                  ? isActive
+                    ? 'bg-amber-500/20 text-amber-300'
+                    : 'text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-300'
+                  : isActive
+                    ? 'bg-muted text-foreground'
+                    : 'text-foreground/55 hover:bg-muted/50 hover:text-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />

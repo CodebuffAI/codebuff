@@ -663,12 +663,11 @@ export function CloudCenterContent({
               <iframe
                 key={navState.iframeKey}
                 ref={iframeRef}
-                className={`${styles.scaledIframe} absolute inset-0 border-0`}
+                className="absolute inset-0 h-full w-full border-0"
                 src={navState.iframeSrc}
                 title={`${activeEntryPointByPath?.page?.page_title ?? 'Preview'}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                referrerPolicy="no-referrer"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                allow="accelerometer; autoplay; clipboard-read; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads allow-modals"
                 suppressHydrationWarning
                 onLoad={() => setHasIframeLoaded(true)}
               />

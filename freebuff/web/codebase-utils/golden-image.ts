@@ -19,7 +19,7 @@ import type { Resources } from "@daytonaio/sdk";
 export const DAYTONA_REPO_PATH = "/home/daytona/codebase";
 
 /** Port the hosted OpenVSCode Server listens on inside the sandbox. */
-export const OPENVSCODE_PORT = 8080;
+export const OPENVSCODE_PORT = 43867;
 
 /** Port the ttyd web terminal listens on inside the sandbox. */
 export const TTYD_PORT = 7681;
