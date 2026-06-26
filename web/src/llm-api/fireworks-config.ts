@@ -15,10 +15,10 @@ export const FIREWORKS_ACCOUNT_ID = 'james-65d217'
 export type FireworksRoute = 'deployment' | 'serverless'
 
 export const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
-  // MiniMax M3: serve from the dedicated deployment first, with the Fireworks
-  // serverless API as an automatic backup (see
-  // FIREWORKS_SERVERLESS_FALLBACK_MODELS below).
-  'minimax/minimax-m3': 'accounts/james-65d217/deployments/aesxbzio',
+  // MiniMax M3: the dedicated deployment was retired — M3 now serves from the
+  // Fireworks serverless API only, with the official MiniMax API as a
+  // rate-limit fallback handled outside this map (see minimax-m3-router.ts).
+  // 'minimax/minimax-m3': 'accounts/james-65d217/deployments/aesxbzio',
   // 'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/lnfid5h9',
   // Disabled: route Kimi K2.6 through the Fireworks serverless API (24/7)
   // instead of the dedicated deployment.
@@ -41,7 +41,8 @@ export const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
  * dependencies fireworks.ts drags along.
  */
 export const FIREWORKS_SERVERLESS_FALLBACK_MODELS = new Set<string>([
-  'minimax/minimax-m3',
+  // (empty) MiniMax M3 used to fall deployment → serverless here; it is now a
+  // pure-serverless model, so it has no dedicated deployment to fall back from.
 ])
 
 /** True when `model` has a Fireworks serverless backup, i.e. a session can be

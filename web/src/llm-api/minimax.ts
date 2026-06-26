@@ -13,6 +13,7 @@ import {
 } from './helpers'
 import {
   buildMiniMaxRequestBody,
+  isMiniMaxFallbackModel,
   MINIMAX_M3_API_MODEL_ID,
   MINIMAX_MODEL_IDS,
 } from './minimax-request-body'
@@ -71,7 +72,10 @@ const MINIMAX_MODELS: Record<
 const MINIMAX_ROUTED_MODELS = new Set<string>(Object.keys(MINIMAX_MODELS))
 
 export function isMiniMaxModel(model: string): boolean {
-  return MINIMAX_ROUTED_MODELS.has(model)
+  // Fallback-only models (e.g. minimax/minimax-m3) are handled by the MiniMax
+  // handler but default to another upstream, so they must not be picked up by
+  // getChatCompletionsProvider's default routing.
+  return MINIMAX_ROUTED_MODELS.has(model) && !isMiniMaxFallbackModel(model)
 }
 
 function getMiniMaxPricing(model: string): MiniMaxPricing {

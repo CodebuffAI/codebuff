@@ -43,6 +43,7 @@ import {
   getSessionRow,
   joinOrTakeOver,
   listRecentFreeSessionAdmits,
+  pinMinimaxUpstreamToMinimax,
   promoteQueuedUser,
 } from './store'
 import { maybeSweepExpired } from './admission'
@@ -50,6 +51,7 @@ import { getFleetHealth, routeForAdmission } from './fireworks-health'
 import { toSessionStateResponse } from './session-view'
 
 import { hasFireworksServerlessBackup } from '@/llm-api/fireworks-config'
+import type { MiniMaxUpstream } from '@/llm-api/minimax-request-body'
 import { deploymentTtftP90Ms } from '@/llm-api/fireworks-ttft'
 import { logger } from '@/util/logger'
 
@@ -303,6 +305,10 @@ export interface SessionDeps {
     now: Date
     fireworksRoute?: FireworksRoute | null
   }) => Promise<InternalSessionRow | null>
+  /** Reactively pin a session to the official MiniMax API after Fireworks
+   *  rate-limited it. Sticky for the session's life so the prompt cache stays
+   *  warm. No-op when the session row is absent (waiting room off). */
+  pinMinimaxUpstream: (params: { userId: string; now: Date }) => Promise<void>
   /** Cached Fireworks fleet-health snapshot, used at admission time to pin
    *  a backup-capable session to 'deployment' (healthy) or 'serverless'
    *  (degraded/unhealthy) for its whole life. */
@@ -337,6 +343,7 @@ const defaultDeps: SessionDeps = {
   getGlmReferralEntitlement: (userId: string) =>
     getGlmReferralEntitlement({ userId }),
   promoteQueuedUser,
+  pinMinimaxUpstream: pinMinimaxUpstreamToMinimax,
   getFleetHealth,
   getDeploymentTtftP90Ms: deploymentTtftP90Ms,
   get graceMs() {
@@ -816,6 +823,21 @@ export async function endUserSession(params: {
   })
 }
 
+/**
+ * Reactively pin a user's free session to the official MiniMax API after the
+ * Fireworks serverless API rate-limited it. Called from the chat hot path when
+ * a MiniMax-family fallback model (e.g. M3) gets a 429 from Fireworks. The pin
+ * is sticky for the session's life so we never re-pay the prompt-cache miss of
+ * switching upstreams. Best-effort and idempotent; a no-op when no session row
+ * exists (waiting room off).
+ */
+export async function pinFreeSessionToMinimax(
+  userId: string,
+  deps: SessionDeps = defaultDeps,
+): Promise<void> {
+  await deps.pinMinimaxUpstream({ userId, now: nowOf(deps) })
+}
+
 export type SessionGateResult =
   // `disabled` is no longer produced by `checkSessionAdmissible` (free-session
   // enforcement is always on), but kept as an "allowed, nothing to pin" result
@@ -830,6 +852,10 @@ export type SessionGateResult =
        *  goes to the same Fireworks upstream the session was admitted on.
        *  Undefined for sessions with no pin (older rows, no serverless backup). */
       fireworksRoute?: FireworksRoute
+      /** Sticky MiniMax upstream pin: 'minimax' once Fireworks rate-limited this
+       *  session, so M3 requests go to the official MiniMax API (warm cache).
+       *  Undefined → default (Fireworks serverless). See minimax-m3-router.ts. */
+      minimaxUpstream?: MiniMaxUpstream
     }
   | {
       ok: true
@@ -838,6 +864,8 @@ export type SessionGateResult =
       gracePeriodRemainingMs: number
       /** See the `active` variant — same sticky upstream pin. */
       fireworksRoute?: FireworksRoute
+      /** See the `active` variant — same sticky MiniMax upstream pin. */
+      minimaxUpstream?: MiniMaxUpstream
     }
   | { ok: false; code: 'waiting_room_required'; message: string }
   | { ok: false; code: 'waiting_room_queued'; message: string }
@@ -987,9 +1015,12 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
-  // Forward the session's sticky upstream pin so the chat hot path keeps every
-  // request on the upstream the session was admitted on (warm prompt cache).
+  // Forward the session's sticky upstream pins so the chat hot path keeps every
+  // request on the upstream the session was admitted on / diverted to (warm
+  // prompt cache). `fireworksRoute` is the admission-time deployment pin;
+  // `minimaxUpstream` is the reactive MiniMax pin set on a Fireworks rate limit.
   const fireworksRoute = row.fireworks_route ?? undefined
+  const minimaxUpstream = row.minimax_upstream ?? undefined
 
   if (expiresAtMs > nowMs) {
     return {
@@ -997,6 +1028,7 @@ export async function checkSessionAdmissible(params: {
       reason: 'active',
       remainingMs: expiresAtMs - nowMs,
       fireworksRoute,
+      minimaxUpstream,
     }
   }
 
@@ -1007,5 +1039,6 @@ export async function checkSessionAdmissible(params: {
     reason: 'draining',
     gracePeriodRemainingMs: expiresAtMs + graceMs - nowMs,
     fireworksRoute,
+    minimaxUpstream,
   }
 }

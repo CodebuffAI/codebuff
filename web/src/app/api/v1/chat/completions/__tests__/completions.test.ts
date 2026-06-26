@@ -16,7 +16,7 @@ import {
 } from '@codebuff/common/constants/model-config'
 import { postChatCompletions } from '../_post'
 import { resetFreeModeRateLimits } from '../free-mode-rate-limiter'
-import { FIREWORKS_DEPLOYMENT_MAP } from '@/llm-api/fireworks-config'
+import { FIREWORKS_MODEL_MAP } from '@/llm-api/fireworks'
 import { getFreeModeCountryAccess } from '@/server/free-mode-country'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -1515,10 +1515,11 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         const fireworksHeaders = fetchedHeaders[0] as Record<string, string>
         expect(fireworksHeaders.Authorization).toMatch(/^Bearer\s+\S+$/)
         expect(fireworksHeaders['Content-Type']).toBe('application/json')
-        // M3 serves from its custom deployment first (the mock returns 200, so
-        // no serverless fallback), so the upstream model is the deployment id.
+        // M3's dedicated deployment was retired — it serves from the Fireworks
+        // serverless API (the mock returns 200, so no MiniMax fallback), so the
+        // upstream model is the serverless model id.
         expect(fetchedBodies[0].model).toBe(
-          FIREWORKS_DEPLOYMENT_MAP[MINIMAX_M3_MODEL_ID],
+          FIREWORKS_MODEL_MAP[MINIMAX_M3_MODEL_ID],
         )
         expect(body.model).toBe(MINIMAX_M3_MODEL_ID)
         expect(body.provider).toBe('Fireworks')

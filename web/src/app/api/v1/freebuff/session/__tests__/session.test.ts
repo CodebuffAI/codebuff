@@ -144,6 +144,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       row.updated_at = now
       return row
     },
+    pinMinimaxUpstream: async () => {},
     // No admits in handler tests — the rate-limit check reads empty so every
     // request is admitted.
     listRecentFreeSessionAdmits: async () => [],

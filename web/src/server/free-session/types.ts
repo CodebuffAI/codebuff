@@ -5,6 +5,7 @@ import type {
 } from '@codebuff/common/types/freebuff-session'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type { FireworksRoute } from '@/llm-api/fireworks-config'
+import type { MiniMaxUpstream } from '@/llm-api/minimax-request-body'
 
 export type FreeSessionStatus = 'queued' | 'active'
 
@@ -27,6 +28,12 @@ export interface InternalSessionRow {
   /** Sticky Fireworks upstream pin set at admission (see `routeForAdmission`).
    *  Null/absent for queued rows and for models without a serverless backup. */
   fireworks_route?: FireworksRoute | null
+  /** Sticky upstream pin for MiniMax-family models that default to the Fireworks
+   *  serverless API and fall back to the official MiniMax API on rate limits.
+   *  Set reactively to 'minimax' the first time Fireworks rate-limits the
+   *  session, then honored for every later request so we never re-pay the
+   *  prompt-cache miss. Null/absent → use the default (Fireworks) upstream. */
+  minimax_upstream?: MiniMaxUpstream | null
   country_code?: string | null
   cf_country?: string | null
   geoip_country?: string | null

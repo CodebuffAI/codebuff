@@ -329,6 +329,24 @@ export async function promoteQueuedUser(params: {
   })
 }
 
+/**
+ * Reactively pin this user's session to the official MiniMax API after the
+ * Fireworks serverless API rate-limited it. Sticky for the rest of the session
+ * so we never re-pay the prompt-cache miss of switching upstreams. Idempotent:
+ * re-pinning an already-pinned session is a harmless no-op. When no session row
+ * exists (waiting room off), this updates zero rows and the hot path falls back
+ * per-request instead.
+ */
+export async function pinMinimaxUpstreamToMinimax(params: {
+  userId: string
+  now: Date
+}): Promise<void> {
+  await db
+    .update(schema.freeSession)
+    .set({ minimax_upstream: 'minimax', updated_at: params.now })
+    .where(eq(schema.freeSession.user_id, params.userId))
+}
+
 export interface RecentSessionAdmit {
   admittedAt: Date
   model: string
