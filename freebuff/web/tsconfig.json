@@ -25,6 +25,7 @@
     "paths": {
       "!/*": ["./convex/*"],
       "@/convex/*": ["./convex/*"],
+      "@/lib/EngagementTracker": ["./src/lib/EngagementTracker.tsx"],
       "@/lib/PostHogProvider": ["./src/lib/PostHogProvider.tsx"],
       "@/lib/SessionProvider": ["./src/lib/SessionProvider.tsx"],
       "@/lib/cli-auth-code-shape": ["./src/lib/cli-auth-code-shape.ts"],

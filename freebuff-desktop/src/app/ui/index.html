@@ -1246,5 +1246,106 @@
       renderMain()
       setPane('main') // sync the narrow-mode switcher with the visible pane on load
     </script>
+
+    <!--
+      Engaged-time analytics. Loads posthog-js and emits one `product_active_minute`
+      per active minute (surface=desktop) while this window is visible AND focused
+      and the user isn't idle — the same model as the other surfaces. The Bun
+      server injects the key/host at serve time (see server.ts); when unset (dev),
+      the guard below makes this a no-op. distinct_id is posthog-js's per-install
+      anonymous device id — desktop has no auth yet, so "per user" == "per install".
+
+      NOTE: this mirrors common/src/util/engagement-tracker.ts. Static HTML can't
+      import workspace modules, so the constants/semantics are duplicated here —
+      keep them in sync (interval = 1 min, idle cutoff = 5 min).
+    -->
+    <script>
+      window.__FREEBUFF_POSTHOG_KEY__ = '__POSTHOG_KEY__'
+      window.__FREEBUFF_POSTHOG_HOST__ = '__POSTHOG_HOST__'
+    </script>
+    <script>
+      ;(function () {
+        var KEY = window.__FREEBUFF_POSTHOG_KEY__
+        var HOST = window.__FREEBUFF_POSTHOG_HOST__
+        // Unconfigured (placeholder left untouched / empty) → do nothing.
+        if (!KEY || KEY.slice(0, 2) === '__') return
+
+        !(function (t, e) {
+          var o, n, p, r
+          e.__SV ||
+            ((window.posthog = e),
+            (e._i = []),
+            (e.init = function (i, s, a) {
+              function g(t, e) {
+                var o = e.split('.')
+                2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                  (t[e] = function () {
+                    t.push([e].concat(Array.prototype.slice.call(arguments, 0)))
+                  })
+              }
+              ;(p = t.createElement('script')).type = 'text/javascript'
+              p.async = !0
+              p.src = s.api_host.replace('.i.posthog.com', '-assets.i.posthog.com') + '/static/array.js'
+              ;(r = t.getElementsByTagName('script')[0]).parentNode.insertBefore(p, r)
+              var u = e
+              for (
+                void 0 !== a ? (u = e[a] = []) : (a = 'posthog'),
+                  u.people = u.people || [],
+                  u.toString = function (t) {
+                    var e = 'posthog'
+                    return 'posthog' !== a && (e += '.' + a), t || (e += ' (stub)'), e
+                  },
+                  u.people.toString = function () {
+                    return u.toString(1) + '.people (stub)'
+                  },
+                  o = 'capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep'.split(
+                    ' ',
+                  ),
+                  n = 0;
+                n < o.length;
+                n++
+              )
+                g(u, o[n])
+              e._i.push([i, s, a])
+            }),
+            (e.__SV = 1))
+        })(document, window.posthog || [])
+
+        posthog.init(KEY, {
+          api_host: HOST,
+          capture_pageview: false,
+          autocapture: false,
+          disable_session_recording: true,
+        })
+
+        var INTERVAL_MS = 60000
+        var IDLE_MS = 5 * 60000
+        var sessionId =
+          (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+          String(Date.now()) + '-' + Math.random()
+        var lastActivity = Date.now()
+
+        function present() {
+          return document.visibilityState === 'visible' && document.hasFocus()
+        }
+        function activity() {
+          lastActivity = Date.now()
+        }
+        ;['pointermove', 'pointerdown', 'keydown', 'scroll', 'wheel', 'touchstart'].forEach(
+          function (ev) {
+            window.addEventListener(ev, activity, { passive: true })
+          },
+        )
+
+        setInterval(function () {
+          if (!present()) return
+          if (Date.now() - lastActivity >= IDLE_MS) return
+          posthog.capture('product_active_minute', {
+            surface: 'desktop',
+            engagement_session_id: sessionId,
+          })
+        }, INTERVAL_MS)
+      })()
+    </script>
   </body>
 </html>

@@ -86,6 +86,16 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   return { ok: true }
 }
 
+// Serve the UI with PostHog credentials injected so the renderer's engaged-time
+// heartbeat (ui/index.html) can emit `product_active_minute`. Absent env → the
+// placeholders are blanked and the client-side guard makes tracking a no-op.
+function renderUi(): string {
+  const html = readFileSync(UI_PATH, 'utf8')
+  return html
+    .replace('__POSTHOG_KEY__', process.env.NEXT_PUBLIC_POSTHOG_API_KEY ?? '')
+    .replace('__POSTHOG_HOST__', process.env.NEXT_PUBLIC_POSTHOG_HOST_URL ?? '')
+}
+
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -108,7 +118,7 @@ const server = Bun.serve({
     const { pathname } = url
 
     if (pathname === '/' || pathname === '/index.html') {
-      return new Response(readFileSync(UI_PATH, 'utf8'), {
+      return new Response(renderUi(), {
         headers: { 'content-type': 'text/html; charset=utf-8' },
       })
     }

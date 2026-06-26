@@ -39,6 +39,7 @@ import { trimOversizedChatLogs } from './utils/chat-history'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
+import { startEngagementTracking } from './utils/engagement'
 import { installProcessCleanupHandlers, TERMINAL_RESET_SEQUENCES } from './utils/renderer-cleanup'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
@@ -378,6 +379,15 @@ async function main(): Promise<void> {
   process.removeListener('uncaughtException', earlyFatalHandler)
   process.removeListener('unhandledRejection', earlyFatalHandler)
   installProcessCleanupHandlers(renderer)
+
+  // Start the engaged-time heartbeat only once the interactive TUI is actually
+  // live — reaching renderer creation means this is a real session (the
+  // login/publish/smoke-test commands all exit earlier). Freebuff-only, matching
+  // the MESSAGE_SENT DAU signal. Stopped in exitFreebuffCleanly().
+  if (IS_FREEBUFF) {
+    startEngagementTracking()
+  }
+
   createRoot(renderer).render(
     <QueryClientProvider client={queryClient}>
       <AppWithAsyncAuth />
