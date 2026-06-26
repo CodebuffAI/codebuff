@@ -535,8 +535,14 @@ function isPathInside(candidate: string, root: string): boolean {
   return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
-function parseSafeRipgrepFlags(
+export function parseSafeRipgrepFlags(
   flags: string,
+  options?: {
+    /** Additional flags that take a value (e.g. -A/-B/-C context flags for code_search). */
+    extraSwitchesWithValue?: string[]
+    /** Additional standalone switches that take no value. */
+    extraSwitchesWithoutValue?: string[]
+  },
 ): { flags: string[] } | { errorMessage: string } {
   const tokens = splitFlagTokens(flags)
   if (!tokens.ok) return { errorMessage: tokens.errorMessage }
@@ -556,6 +562,7 @@ function parseSafeRipgrepFlags(
     '-U',
     '--multiline',
     '--multiline-dotall',
+    ...(options?.extraSwitchesWithoutValue ?? []),
   ])
   const switchesWithValue = new Set([
     '-g',
@@ -564,6 +571,7 @@ function parseSafeRipgrepFlags(
     '--type',
     '-T',
     '--type-not',
+    ...(options?.extraSwitchesWithValue ?? []),
   ])
 
   for (let i = 0; i < tokens.tokens.length; i++) {

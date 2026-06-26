@@ -113,21 +113,13 @@ export const useSendMessage = ({
   sendMessage: SendMessageFn
   clearMessages: () => void
 } => {
-  // Pull setters directly from store - these are stable references that don't need
-  // to trigger re-renders, so using getState() outside of callbacks is intentional.
-  const {
-    setMessages,
-    setFocusedAgentId,
-    setInputFocused,
-    setStreamingAgents,
-    setActiveSubagents,
-    setActiveAgentTypes,
-    setIsChainInProgress,
-    setHasReceivedPlanResponse,
-    setLastMessageMode,
-    setRunState,
-    setIsRetrying,
-  } = useChatStore.getState()
+  // Read store setters fresh on each callback invocation via useChatStore.getState()
+  // rather than capturing them once at component scope. If the zustand store is ever
+  // recreated (test isolation, HMR, store swap), a captured setter would be stale,
+  // bound to a dead store. Calling getState() inside each callback guarantees the
+  // setter always references the live store. These setters have stable identity within
+  // a given store instance and don't need to trigger re-renders, so they are excluded
+  // from useCallback/useEffect dependency arrays.
   const previousRunStateRef = useRef<RunState | null>(
     useChatStore.getState().runState,
   )
@@ -144,6 +136,7 @@ export const useSendMessage = ({
     if (continueChat && !previousRunStateRef.current) {
       const loadedState = loadMostRecentChatState(continueChatId ?? undefined)
       if (loadedState) {
+        const { setRunState, setMessages } = useChatStore.getState()
         previousRunStateRef.current = loadedState.runState
         setRunState(loadedState.runState)
         setMessages(loadedState.messages)
@@ -152,57 +145,57 @@ export const useSendMessage = ({
         }
       }
     }
-  }, [continueChat, continueChatId, setMessages, setRunState])
+  }, [continueChat, continueChatId])
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
       isChainInProgressRef.current = value
-      setIsChainInProgress(value)
+      useChatStore.getState().setIsChainInProgress(value)
     },
-    [setIsChainInProgress, isChainInProgressRef],
+    [isChainInProgressRef],
   )
 
   const updateActiveSubagents = useCallback(
     (mutate: (next: Set<string>) => void) => {
-      setActiveSubagents((prev) => {
+      useChatStore.getState().setActiveSubagents((prev) => {
         const next = new Set(prev)
         mutate(next)
         activeSubagentsRef.current = next
         return next
       })
     },
-    [setActiveSubagents, activeSubagentsRef],
+    [activeSubagentsRef],
   )
 
   const addActiveSubagent = useCallback(
     (subagentId: string, agentType?: string) => {
       updateActiveSubagents((next) => next.add(subagentId))
       if (agentType) {
-        setActiveAgentTypes((prev) => {
+        useChatStore.getState().setActiveAgentTypes((prev) => {
           const next = new Map(prev)
           next.set(subagentId, agentType)
           return next
         })
       }
     },
-    [updateActiveSubagents, setActiveAgentTypes],
+    [updateActiveSubagents],
   )
 
   const removeActiveSubagent = useCallback(
     (subagentId: string) => {
       updateActiveSubagents((next) => next.delete(subagentId))
-      setActiveAgentTypes((prev) => {
+      useChatStore.getState().setActiveAgentTypes((prev) => {
         const next = new Map(prev)
         next.delete(subagentId)
         return next
       })
     },
-    [updateActiveSubagents, setActiveAgentTypes],
+    [updateActiveSubagents],
   )
 
   function clearMessages() {
     previousRunStateRef.current = null
-    setRunState(null)
+    useChatStore.getState().setRunState(null)
   }
 
   const prepareUserMessage = useCallback(
@@ -212,8 +205,13 @@ export const useSendMessage = ({
       postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
       attachments?: PendingAttachment[]
     }) => {
-      // Access lastMessageMode fresh each call to get current value
-      const { lastMessageMode } = useChatStore.getState()
+      // Access store fresh each call so setters bind to the live store instance.
+      const {
+        lastMessageMode,
+        setMessages,
+        setLastMessageMode,
+        setHasReceivedPlanResponse,
+      } = useChatStore.getState()
       return prepareUserMessageHelper({
         ...params,
         deps: {
@@ -225,16 +223,22 @@ export const useSendMessage = ({
         },
       })
     },
-    [
-      setMessages,
-      setLastMessageMode,
-      scrollToLatest,
-      setHasReceivedPlanResponse,
-    ],
+    [scrollToLatest],
   )
 
   const sendMessage = useCallback<SendMessageFn>(
     async ({ content, agentMode, postUserMessage, attachments }) => {
+      // Read setters fresh from the live store on each invocation so they always
+      // bind to the current store instance (see note above about store recreation).
+      const {
+        setMessages,
+        setFocusedAgentId,
+        setInputFocused,
+        setStreamingAgents,
+        setHasReceivedPlanResponse,
+        setRunState,
+        setIsRetrying,
+      } = useChatStore.getState()
       // CRITICAL: Set chain in progress immediately (synchronously) before any async work.
       // This ensures the router can detect that we're busy and queue subsequent messages.
       // Set the ref directly first to guarantee immediate visibility to other code paths,
@@ -567,14 +571,7 @@ export const useSendMessage = ({
       resumeQueue,
       scrollToLatest,
       setCanProcessQueue,
-      setFocusedAgentId,
-      setHasReceivedPlanResponse,
-      setInputFocused,
-      setIsRetrying,
-      setMessages,
-      setRunState,
       setStreamStatus,
-      setStreamingAgents,
       streamRefs,
       updateChainInProgress,
     ],

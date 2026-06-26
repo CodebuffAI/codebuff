@@ -70,8 +70,18 @@ export type FileProcessingState = {
   readAuthorizationsByPath?: Record<string, true>
 }
 
-export function normalizeToolPath(path: string): string {
-  return path.replace(/^(?:\.\/)+/, '')
+export function normalizeToolPath(filePath: string): string {
+  let normalized = filePath.replace(/^(?:\.\/)+/, '')
+  // Reject path traversal: an edit target must stay inside the project. Any
+  // `..` segment (posix or windows, since backslashes are normalized to forward
+  // slashes here) is rejected before normalization so it cannot be used to
+  // point write_file/str_replace/edit_transaction at files outside the project.
+  // Mirrors the `normalizeGateFilePath` defense in agents/base2/gate-paths.ts.
+  normalized = normalized.replace(/\\/g, '/')
+  if (normalized.split('/').includes('..')) {
+    return ''
+  }
+  return normalized
 }
 
 export function getFileProcessingValues(
@@ -304,19 +314,26 @@ export async function postStreamProcessing<T extends PostStreamProcessingTools>(
     }
     fileProcessingState.firstFileProcessed = true
   } else {
-    // Update the arrays with new results for subsequent tool calls
+    // Update the arrays with only the NEW results since the last partition,
+    // then merge with the existing arrays. Re-partitioning the entire
+    // allFileProcessingResults on every subsequent tool call is O(n²) in the
+    // number of tool calls.
+    const processedCount =
+      fileProcessingState.fileChangeErrors.length +
+      fileProcessingState.fileChanges.length
+    const newResults = allFileProcessingResults.slice(processedCount)
     const [newErrors, newChanges] = partition(
-      allFileProcessingResults,
+      newResults,
       (result) => 'error' in result,
     )
-    fileProcessingState.fileChangeErrors = newErrors as Extract<
-      FileProcessing,
-      { error: string }
-    >[]
-    fileProcessingState.fileChanges = newChanges as Exclude<
-      FileProcessing,
-      { error: string }
-    >[]
+    fileProcessingState.fileChangeErrors = [
+      ...fileProcessingState.fileChangeErrors,
+      ...(newErrors as Extract<FileProcessing, { error: string }>[]),
+    ]
+    fileProcessingState.fileChanges = [
+      ...fileProcessingState.fileChanges,
+      ...(newChanges as Exclude<FileProcessing, { error: string }>[]),
+    ]
   }
 
   // Note: toolCallResults was previously assigned but unused - errors are returned directly now

@@ -210,8 +210,11 @@ export function setProjectRootResolver(fn: () => string): void {
 }
 
 /** Read STATE.json for a session. Returns null if not present. */
-export function readPlanState(slug: string): PlanSessionState | null {
-  const sessionDir = resolveSessionDir(slug)
+export function readPlanState(
+  slug: string,
+  projectRoot?: string,
+): PlanSessionState | null {
+  const sessionDir = resolveSessionDir(slug, projectRoot)
   if (!sessionDir) return null
   const statePath = path.join(sessionDir, STATE_FILENAME)
   if (!fs.existsSync(statePath)) return null
@@ -219,22 +222,35 @@ export function readPlanState(slug: string): PlanSessionState | null {
     const raw = fs.readFileSync(statePath, 'utf8')
     const parsed = JSON.parse(raw) as Partial<PlanSessionState>
     return normalizePlanState(parsed, slug)
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[plan-artifacts] readPlanState failed for ${slug}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return null
   }
 }
 
-/** Persist STATE.json for a session. Creates the session dir if needed. */
+/**
+ * Persist STATE.json for a session. Creates the session dir if needed.
+ *
+ * `projectRoot` (optional) lets callers that already hold the project root
+ * pass it explicitly instead of relying on the module-level resolver. This
+ * avoids the concurrent-run race where `setProjectRootResolver` mutates a
+ * shared global. When omitted, the resolver is used (fail-loud if unset).
+ */
 export function writePlanState(
   slug: string,
   patch: Partial<Omit<PlanSessionState, 'schemaVersion' | 'slug' | 'createdAt'>>,
+  projectRoot?: string,
 ): PlanSessionState | null {
-  const sessionDir = resolveSessionDir(slug)
+  const sessionDir = resolveSessionDir(slug, projectRoot)
   if (!sessionDir) return null
   if (!isValidPlanSlug(slug)) return null
 
   const now = new Date().toISOString()
-  const existing = readPlanState(slug)
+  const existing = readPlanState(slug, projectRoot)
   const next: PlanSessionState = {
     schemaVersion: 1,
     slug,
@@ -308,7 +324,12 @@ export function readActiveSessionPointer(): string | null {
     // Only single-line slugs are accepted; reject anything with newlines.
     if (/[\r\n]/.test(raw)) return null
     return isValidPlanSlug(raw) ? raw : null
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[plan-artifacts] readActiveSessionPointer failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return null
   }
 }
@@ -449,8 +470,9 @@ export type ReadPlanEventsOptions = {
 export function appendPlanEvent(
   slug: string,
   event: Omit<PlanEvent, 'ts'> & { ts?: string },
+  projectRoot?: string,
 ): PlanEvent | null {
-  const sessionDir = resolveSessionDir(slug)
+  const sessionDir = resolveSessionDir(slug, projectRoot)
   if (!sessionDir) return null
 
   const ts = event.ts ?? new Date().toISOString()
@@ -489,7 +511,12 @@ export function readPlanEvents(
   let raw: string
   try {
     raw = fs.readFileSync(eventsPath, 'utf8')
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[plan-artifacts] readPlanEvents failed for ${slug}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return []
   }
 
@@ -501,8 +528,13 @@ export function readPlanEvents(
     let parsed: unknown
     try {
       parsed = JSON.parse(trimmed)
-    } catch {
+    } catch (err) {
       // Skip malformed lines — never throw from a reader.
+      console.debug(
+        `[plan-artifacts] readPlanEvents skipping malformed line for ${slug}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
       continue
     }
     const event = normalizePlanEvent(parsed)
@@ -576,14 +608,19 @@ export function isValidPlanSlug(slug: string): boolean {
 function safeProjectRoot(): string | null {
   try {
     return projectRootResolver()
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[plan-artifacts] projectRootResolver threw: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return null
   }
 }
 
-function resolveSessionDir(slug: string): string | null {
+function resolveSessionDir(slug: string, projectRoot?: string): string | null {
   if (!isValidPlanSlug(slug)) return null
-  const root = safeProjectRoot()
+  const root = projectRoot ?? safeProjectRoot()
   if (!root) return null
   return path.join(root, '.agents', 'sessions', slug)
 }

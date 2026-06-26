@@ -13,7 +13,6 @@ import {
 } from '@codebuff/common/project-file-tree'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getErrorObject } from '@codebuff/common/util/error'
-import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
 import { loadLocalAgents } from './agents/load-agents'
@@ -655,7 +654,7 @@ export function withAdditionalMessage({
   runState: RunState
   message: Message
 }): RunState {
-  const newRunState = cloneDeep(runState)
+  const newRunState = structuredClone(runState)
 
   if (newRunState.sessionState) {
     newRunState.sessionState.mainAgentState.messageHistory.push(message)

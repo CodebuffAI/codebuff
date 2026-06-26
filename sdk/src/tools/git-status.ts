@@ -1,5 +1,7 @@
 import { spawn } from 'child_process'
 
+import { resolveFilePathWithinProject } from './path-utils'
+
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const DEFAULT_MAX_CHARS = 40_000
@@ -40,7 +42,20 @@ export async function gitStatus(params: {
     Math.max(500, params.max_chars ?? DEFAULT_MAX_CHARS),
   )
   const statusArgs = ['status', '--short', '--branch']
-  if (params.path) statusArgs.push('--', params.path)
+  if (params.path) {
+    const resolvedPath = resolveFilePathWithinProject(params.cwd, params.path)
+    if (!resolvedPath) {
+      return [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `git_status path traversal blocked: "${params.path}" resolves outside the project root.`,
+          },
+        },
+      ]
+    }
+    statusArgs.push('--', resolvedPath.relativePath)
+  }
 
   const status = await runGit(statusArgs, params.cwd)
   if (status.exitCode !== 0) {
@@ -66,7 +81,20 @@ export async function gitStatus(params: {
   if (params.include_diff) {
     const diffArgs = ['diff', '--no-color']
     if (params.staged) diffArgs.splice(1, 0, '--staged')
-    if (params.path) diffArgs.push('--', params.path)
+    if (params.path) {
+      const resolvedDiffPath = resolveFilePathWithinProject(params.cwd, params.path)
+      if (!resolvedDiffPath) {
+        return [
+          {
+            type: 'json',
+            value: {
+              errorMessage: `git_status path traversal blocked: "${params.path}" resolves outside the project root.`,
+            },
+          },
+        ]
+      }
+      diffArgs.push('--', resolvedDiffPath.relativePath)
+    }
     const diffResult = await runGit(diffArgs, params.cwd)
     if (diffResult.exitCode !== 0 && diffResult.exitCode !== 1) {
       return [

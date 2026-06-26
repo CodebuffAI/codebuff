@@ -16,6 +16,12 @@ interface UseExitHandlerOptions {
 }
 
 let exitHandlerRegistered = false
+// Guards against a double-exit race: if handleCtrlC triggers exitCli() (which
+// awaits an analytics flush with a 1s timeout) and a second SIGINT arrives
+// before process.exit(0) fires, the SIGINT handler would call exitCli() again,
+// starting a second concurrent flush+exit cycle. This flag makes exitCli()
+// idempotent.
+let exiting = false
 
 function setupExitMessageHandler() {
   if (exitHandlerRegistered) return
@@ -39,6 +45,10 @@ function setupExitMessageHandler() {
 }
 
 function exitCli(): void {
+  if (exiting) {
+    return
+  }
+  exiting = true
   withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
     () => {
       process.exit(0)

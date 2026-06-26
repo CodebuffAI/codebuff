@@ -289,7 +289,7 @@ export interface AgentState {
   /** The tool definitions for this agent. */
   toolDefinitions: Record<
     string,
-    { description: string | undefined; inputSchema: {} }
+    { description: string | undefined; inputSchema: Record<string, unknown> }
   >
 
   /**

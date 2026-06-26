@@ -98,7 +98,12 @@ function parseRequestBody(body: unknown): unknown {
 
   try {
     return JSON.parse(body)
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[cache-debug] JSON.parse fallback for non-JSON body: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return body
   }
 }
@@ -129,7 +134,12 @@ export function parseCacheDebugCorrelation(
         snapshotId: parsed.snapshotId,
       }
     }
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[cache-debug] parseCacheDebugCorrelation non-JSON value: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return undefined
   }
 

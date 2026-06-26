@@ -150,7 +150,7 @@ export type PromptAiSdkStructuredFn = <T>(
 ) => PromptAiSdkStructuredOutput<T>
 
 export type HandleOpenRouterStreamFn = (params: {
-  body: any
+  body: Record<string, unknown>
   userId: string
   agentId: string
 }) => Promise<ReadableStream>

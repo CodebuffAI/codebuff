@@ -5,7 +5,7 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from './prompts'
-import { countTokens, countTokensJson } from '../util/token-counter'
+import { countTokens } from '../util/token-counter'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -22,8 +22,7 @@ export function getSearchSystemPrompt(params: {
     userId: string | undefined
   }
 }): string {
-  const { fileContext, messagesTokens, logger, options: _options } = params
-  const _startTime = Date.now()
+  const { fileContext, messagesTokens, logger } = params
 
   const maxTokens = 500_000 // costMode === 'lite' ? 64_000 :
   const maxFilesTokens = 100_000
@@ -48,42 +47,13 @@ export function getSearchSystemPrompt(params: {
     logger,
   })
 
-  const _t = Date.now()
-  const truncationBudgets = [5_000, 20_000, 40_000, 100_000, 500_000]
-  const _truncatedTrees = truncationBudgets.reduce(
-    (acc, budget) => {
-      acc[budget] = getProjectFileTreePrompt({
-        fileContext,
-        fileTreeTokenBudget: budget,
-        mode: 'search',
-        logger,
-      })
-      return acc
-    },
-    {} as Record<number, string>,
-  )
-  const _fileTreeTokens = countTokensJson(projectFileTreePrompt)
-
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
-  const _systemInfoTokens = countTokens(systemInfoPrompt)
 
   const systemPrompt = buildArray([
     projectFileTreePrompt,
     systemInfoPrompt,
     gitChangesPrompt,
   ]).join('\n\n')
-
-  // logger.debug(
-  //   {
-  //     fileTreeTokens,
-  //     fileTreeTokenBudget,
-  //     systemInfoTokens,
-  //     systemPromptTokens: countTokensJson(systemPrompt),
-  //     messagesTokens,
-  //     duration: Date.now() - startTime,
-  //   },
-  //   'search system prompt tokens',
-  // )
 
   return systemPrompt
 }

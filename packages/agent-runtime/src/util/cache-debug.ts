@@ -215,7 +215,14 @@ export function createCacheDebugSnapshot(params: {
 
   const snapshotId = randomUUID()
   const index = String(cacheDebugCounter++).padStart(3, '0')
-  const filename = `${index}-${agentType}-${snapshotId}.json`
+  // Sanitize agentType before interpolating into a filename: path separators
+  // or `..` could escape the cache-debug directory via path.join. Replace any
+  // character outside [A-Za-z0-9._-] with `_` and bound the length.
+  const safeAgentType =
+    typeof agentType === 'string'
+      ? agentType.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 64) || 'agent'
+      : 'agent'
+  const filename = `${index}-${safeAgentType}-${snapshotId}.json`
   const filePath = snapshotPath({ projectRoot, filename })
 
   const snapshot: CacheDebugSnapshot = {

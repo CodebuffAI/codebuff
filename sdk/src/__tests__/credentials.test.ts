@@ -266,4 +266,151 @@ describe('credentials', () => {
       }
     })
   })
+
+  describe('credentials file permissions (0600) and redaction', () => {
+    test('saveChatGptOAuthCredentials writes credentials.json with mode 0600', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-save-'))
+      const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
+      const originalHomedir = os.homedir
+      ;(os as any).homedir = () => tmpDir
+
+      try {
+        const creds: ChatGptOAuthCredentials = {
+          accessToken: 'access-secret',
+          refreshToken: 'refresh-secret',
+          expiresAt: Date.now() + 3_600_000,
+          connectedAt: Date.now(),
+        }
+        saveChatGptOAuthCredentials(creds, env)
+
+        const credPath = getCredentialsPath(env)
+        const stat = fs.statSync(credPath)
+        // Owner read/write only (0600). Mask off file type bits.
+        const mode = stat.mode & 0o777
+        expect(mode).toBe(0o600)
+      } finally {
+        ;(os as any).homedir = originalHomedir
+        fs.rmSync(tmpDir, { recursive: true })
+      }
+    })
+
+    test('saveChatGptOAuthCredentials creates config dir with mode 0700', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-dir-'))
+      const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
+      const originalHomedir = os.homedir
+      ;(os as any).homedir = () => tmpDir
+
+      try {
+        const creds: ChatGptOAuthCredentials = {
+          accessToken: 'access-secret',
+          refreshToken: 'refresh-secret',
+          expiresAt: Date.now() + 3_600_000,
+          connectedAt: Date.now(),
+        }
+        saveChatGptOAuthCredentials(creds, env)
+
+        const dirStat = fs.statSync(getConfigDir(env))
+        expect(dirStat.mode & 0o777).toBe(0o700)
+      } finally {
+        ;(os as any).homedir = originalHomedir
+        fs.rmSync(tmpDir, { recursive: true })
+      }
+    })
+
+    test('saveChatGptOAuthCredentials tightens an existing 0777 dir down to 0700', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-tighten-'))
+      const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
+      const originalHomedir = os.homedir
+      ;(os as any).homedir = () => tmpDir
+
+      try {
+        const configDir = getConfigDir(env)
+        fs.mkdirSync(configDir, { recursive: true, mode: 0o777 })
+        // Re-chmod to 0777 after umask masking (mkdir mode is masked by umask).
+        fs.chmodSync(configDir, 0o777)
+        expect(fs.statSync(configDir).mode & 0o777).toBe(0o777)
+
+        const creds: ChatGptOAuthCredentials = {
+          accessToken: 'access-secret',
+          refreshToken: 'refresh-secret',
+          expiresAt: Date.now() + 3_600_000,
+          connectedAt: Date.now(),
+        }
+        saveChatGptOAuthCredentials(creds, env)
+
+        expect(fs.statSync(configDir).mode & 0o777).toBe(0o700)
+      } finally {
+        ;(os as any).homedir = originalHomedir
+        fs.rmSync(tmpDir, { recursive: true })
+      }
+    })
+
+    test('clearChatGptOAuthCredentials preserves 0600 mode on rewrite', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-perms-clear-'))
+      const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
+      const originalHomedir = os.homedir
+      ;(os as any).homedir = () => tmpDir
+
+      try {
+        const creds: ChatGptOAuthCredentials = {
+          accessToken: 'access-secret',
+          refreshToken: 'refresh-secret',
+          expiresAt: Date.now() + 3_600_000,
+          connectedAt: Date.now(),
+        }
+        saveChatGptOAuthCredentials(creds, env)
+
+        const credPath = getCredentialsPath(env)
+        expect(fs.statSync(credPath).mode & 0o777).toBe(0o600)
+
+        clearChatGptOAuthCredentials(env)
+
+        // File still exists (default user preserved) and remains 0600.
+        expect(fs.existsSync(credPath)).toBe(true)
+        expect(fs.statSync(credPath).mode & 0o777).toBe(0o600)
+      } finally {
+        ;(os as any).homedir = originalHomedir
+        fs.rmSync(tmpDir, { recursive: true })
+      }
+    })
+
+    test('getUserCredentials logs a redacted message when readFileSync throws', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-redact-'))
+      const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
+      const originalHomedir = os.homedir
+      ;(os as any).homedir = () => tmpDir
+
+      // Capture console.error to assert the redacted catch block fires.
+      const originalConsoleError = console.error
+      const logged: string[] = []
+      console.error = (...args: unknown[]) => {
+        logged.push(args.map((a) => String(a)).join(' '))
+      }
+
+      try {
+        const configDir = getConfigDir(env)
+        fs.mkdirSync(configDir, { recursive: true })
+        // Make credentials.json a directory so fs.readFileSync throws EISDIR.
+        // This is the reachable path into getUserCredentials' catch block:
+        // userFromJson swallows JSON parse errors internally, so malformed JSON
+        // never reaches this catch — only readFileSync failures do.
+        fs.mkdirSync(path.join(configDir, 'credentials.json'))
+
+        const user = getUserCredentials(env)
+        expect(user).toBeNull()
+
+        // The catch block fired exactly once with the redacted prefix.
+        expect(logged.length).toBe(1)
+        const loggedLine = logged[0]
+        expect(loggedLine).toContain('Error reading credentials file:')
+        // The raw error object must not be appended wholesale; only a
+        // truncated `name: message` string is logged.
+        expect(loggedLine).not.toMatch(/\{[\s\S]*stack[\s\S]*\}/)
+      } finally {
+        console.error = originalConsoleError
+        ;(os as any).homedir = originalHomedir
+        fs.rmSync(tmpDir, { recursive: true })
+      }
+    })
+  })
 })

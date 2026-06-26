@@ -63,34 +63,50 @@ export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'paused',
 ])
 
-export const user = pgTable('user', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text('name'),
-  email: text('email').unique().notNull(),
-  password: text('password'),
-  emailVerified: timestamp('emailVerified', { mode: 'date' }),
-  image: text('image'),
-  stripe_customer_id: text('stripe_customer_id').unique(),
-  next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
-    sql<Date>`now() + INTERVAL '1 month'`,
-  ),
-  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-  referral_code: text('referral_code')
-    .unique()
-    .default(sql`'ref-' || gen_random_uuid()`),
-  referral_limit: integer('referral_limit').notNull().default(5),
-  discord_id: text('discord_id').unique(),
-  handle: text('handle').unique(),
-  auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
-  auto_topup_threshold: integer('auto_topup_threshold'),
-  auto_topup_amount: integer('auto_topup_amount'),
-  banned: boolean('banned').notNull().default(false),
-  fallback_to_a_la_carte: boolean('fallback_to_a_la_carte')
-    .notNull()
-    .default(false),
-})
+export const user = pgTable(
+  'user',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text('name'),
+    email: text('email').unique().notNull(),
+    // SECURITY INVARIANT: this column must only ever hold a password *hash*
+    // (bcrypt ≈ 60 chars, argon2 ≥ 95 chars), never plaintext. The check
+    // constraint below enforces this at the DB level. App-layer auth code must
+    // hash (bcrypt/argon2) before inserting/updating. Nullable because OAuth
+    // users have no password.
+    password: text('password'),
+    emailVerified: timestamp('emailVerified', { mode: 'date' }),
+    image: text('image'),
+    stripe_customer_id: text('stripe_customer_id').unique(),
+    next_quota_reset: timestamp('next_quota_reset', { mode: 'date' }).default(
+      sql<Date>`now() + INTERVAL '1 month'`,
+    ),
+    created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    referral_code: text('referral_code')
+      .unique()
+      .default(sql`'ref-' || gen_random_uuid()`),
+    referral_limit: integer('referral_limit').notNull().default(5),
+    discord_id: text('discord_id').unique(),
+    handle: text('handle').unique(),
+    auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
+    auto_topup_threshold: integer('auto_topup_threshold'),
+    auto_topup_amount: integer('auto_topup_amount'),
+    banned: boolean('banned').notNull().default(false),
+    fallback_to_a_la_carte: boolean('fallback_to_a_la_carte')
+      .notNull()
+      .default(false),
+  },
+  (table) => [
+    // Reject plaintext passwords: NULL (OAuth users) or a hash ≥ 60 chars
+    // (bcrypt = 60, argon2 ≥ 95) are accepted. Plaintext < 32 chars is rejected.
+    check(
+      'user_password_must_be_hash_or_null',
+      sql`${table.password} IS NULL OR length(${table.password}) >= 60`,
+    ),
+  ],
+)
 
 export const account = pgTable(
   'account',
@@ -101,6 +117,13 @@ export const account = pgTable(
     type: text('type').$type<AdapterAccount['type']>().notNull(),
     provider: text('provider').notNull(),
     providerAccountId: text('providerAccountId').notNull(),
+    // SECURITY DEFECT (deferred): these OAuth token columns are stored as
+    // plaintext. A DB dump exposes all connected accounts. Full fix requires
+    // AES-GCM encryption at rest + a KMS/app-level key + a migration to
+    // encrypt existing rows + a NextAuth adapter wrapper to encrypt/decrypt on
+    // every read/write. This is blocked on infra coordination (see LESSONS.md
+    // C0.5). Do not add new providers or token columns without first landing
+    // the encryption layer.
     refresh_token: text('refresh_token'),
     access_token: text('access_token'),
     expires_at: integer('expires_at'),

@@ -452,34 +452,7 @@
           }
         }
       }
-    },
-    "kimchi": {
-      "type": "openai-compatible",
-      "baseURL": "https://llm.kimchi.dev/openai/v1",
-      "apiKeyEnv": "KIMCHI_API_KEY",
-      "models": [
-        "minimax-m3"
-      ],
-      "supportsStructuredOutputs": false,
-      "compatibility": {
-        "stripCacheControl": true,
-        "stringifyTextContent": true,
-        "supportsTools": true,
-        "supportsRequiredToolChoice": true,
-        "supportsStopSequences": false,
-        "stripProviderMetadata": true
-      },
-      "modelCapabilities": {
-        "minimax-m3": {
-          "input": {
-            "image": false
-          },
-          "context": {
-            "windowTokens": 1000000
-          }
-        }
-      }
-
     }
+ 
   }
 }

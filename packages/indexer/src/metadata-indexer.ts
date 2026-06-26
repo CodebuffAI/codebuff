@@ -43,9 +43,28 @@ const parsedCacheByRoot = new Map<string, Record<string, ParsedFileTokens>>()
 /** Cache of resolved tsconfig path aliases per project root. */
 const tsAliasCacheByRoot = new Map<string, TsAliasMap>()
 
+/**
+ * Upper bound on the number of distinct project roots whose parse/alias
+ * caches we retain in-process. Eviction is FIFO (Map insertion order). A
+ * long-lived process that indexes many distinct roots can't grow these
+ * without bound; the oldest root's cache is dropped on overflow.
+ */
+const MAX_INDEXED_PROJECT_ROOTS = 8
+
+function evictOldestRootCacheIfNeeded(): void {
+  if (parsedCacheByRoot.size >= MAX_INDEXED_PROJECT_ROOTS) {
+    const oldestRoot = parsedCacheByRoot.keys().next().value
+    if (oldestRoot !== undefined) {
+      parsedCacheByRoot.delete(oldestRoot)
+      tsAliasCacheByRoot.delete(oldestRoot)
+    }
+  }
+}
+
 function getParsedCache(projectRoot: string): Record<string, ParsedFileTokens> {
   let cache = parsedCacheByRoot.get(projectRoot)
   if (!cache) {
+    evictOldestRootCacheIfNeeded()
     cache = {}
     parsedCacheByRoot.set(projectRoot, cache)
   }
@@ -607,6 +626,9 @@ function loadTsAliases(projectRoot: string): TsAliasMap {
     // No aliases on parse/read failure.
   }
 
+  if (!tsAliasCacheByRoot.has(projectRoot)) {
+    evictOldestRootCacheIfNeeded()
+  }
   tsAliasCacheByRoot.set(projectRoot, aliases)
   return aliases
 }

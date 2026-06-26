@@ -56,10 +56,23 @@ export function hasEditArtifact(record: Record<string, unknown>): boolean {
     return false
   }
   if (typeof record.message !== 'string') return false
+  // Prefer explicit success/error fields. Only trust the success-verb regex
+  // when the message does not itself contain a failure indicator — otherwise
+  // messages like "No edits were applied" or "Error: nothing was applied"
+  // would false-positive on "applied".
+  if (FAILURE_INDICATOR_RE.test(record.message)) return false
   return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
     record.message,
   )
 }
+
+/**
+ * Words that indicate a tool-result message is describing a failure or no-op
+ * even when it mentions a success verb. Used to gate the success-verb regex
+ * fallback in `hasEditArtifact`.
+ */
+const FAILURE_INDICATOR_RE =
+  /\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i
 
 /**
  * Walks a tool-call `input` payload and adds every file path it finds to

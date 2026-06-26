@@ -34,7 +34,6 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
 
-  const isSonnet = false
   const model = modelOverride ?? 'anthropic/claude-opus-4.7'
 
   return {
@@ -220,8 +219,6 @@ ${buildArray(
   isDefault &&
     '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
   '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
-  isSonnet &&
-    `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
   '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
 ).join('\n')}
 
@@ -262,7 +259,7 @@ ${
 }
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
- </reponse>
+ </response>
 
 </example>
 
@@ -293,7 +290,6 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       ? buildPlanOnlyInstructionsPrompt({})
       : executePlan
         ? buildExecutePlanInstructionsPrompt({
-            isSonnet,
             isFast,
             isDefault,
 
@@ -301,7 +297,6 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             noAskUser,
           })
         : buildImplementationInstructionsPrompt({
-            isSonnet,
             isFast,
             isDefault,
 
@@ -315,7 +310,6 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         : buildImplementationStepPrompt({
             isDefault,
             isFast,
-            isSonnet,
           }),
 
     handleSteps: function* ({ agentState, prompt, params }) {
@@ -1040,6 +1034,14 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       function normalizeGateFilePath(file: string): string {
         let normalized = file.trim().replace(/\\/g, '/')
         if (!normalized) return ''
+        // Reject path traversal: a gate file path must stay inside the project.
+        // Any `..` segment (posix or windows, since backslashes were
+        // normalized to forward slashes above) is rejected before
+        // normalization so it can't be used to point the gate at files outside
+        // the cwd.
+        if (normalized.split('/').includes('..')) {
+          return ''
+        }
         if (normalized.startsWith('file://')) {
           normalized = normalized.slice('file://'.length)
         }
@@ -1480,6 +1482,12 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         }
         if (record.success === true) return true
         if (typeof record.message === 'string') {
+          // Only trust the success-verb regex when the message does not itself
+          // contain a failure indicator, otherwise messages like "No updates
+          // were saved" would false-positive on "saved".
+          if (/\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(record.message)) {
+            return false
+          }
           return /\b(success|successful|updated|wrote|written|saved)\b/i.test(
             record.message,
           )
@@ -1609,6 +1617,12 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           return false
         }
         if (typeof record.message !== 'string') return false
+        // Only trust the success-verb regex when the message does not itself
+        // contain a failure indicator, otherwise messages like "No edits were
+        // applied" would false-positive on "applied".
+        if (/\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(record.message)) {
+          return false
+        }
         return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
           record.message,
         )
@@ -1738,9 +1752,29 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         try {
           const stat = fs.statSync(absolutePath)
           if (!stat.isFile()) return 'unreadable:not-a-file'
+          // Cache the content marker by (path, mtime, size): if the file hasn't
+          // changed since the last gate evaluation, skip the read+hash. The
+          // cache lives on the function object so it persists across calls
+          // within a single generator instance (handleSteps is serialized
+          // via .toString() and rebuilt with new Function, so module-level
+          // caches would not survive reconstruction).
+          const cacheKey = `${absolutePath}\t${stat.mtimeMs}\t${stat.size}`
+          const markerCache =
+            (readGateFileContentMarker as unknown as {
+              cache?: Map<string, string>
+            }).cache
+          if (markerCache && markerCache.has(cacheKey)) {
+            return markerCache.get(cacheKey)!
+          }
           const data = fs.readFileSync(absolutePath)
           const hash = crypto.createHash('sha256').update(data).digest('hex')
-          return `sha256:${hash}:${data.length}`
+          const marker = `sha256:${hash}:${data.length}`
+          const cacheSlot = readGateFileContentMarker as unknown as {
+            cache?: Map<string, string>
+          }
+          if (!cacheSlot.cache) cacheSlot.cache = new Map<string, string>()
+          cacheSlot.cache.set(cacheKey, marker)
+          return marker
         } catch (err) {
           const code =
             err && typeof err === 'object' && 'code' in err
@@ -1990,13 +2024,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 const EXPLORE_PROMPT = `- Iteratively gather codebase context as needed. For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates. Use mode: 'explain' when you need ranking rationale, mode: 'neighbors' to expand around a known file, mode: 'path' to connect two known files, and mode: 'commands' to find package scripts, CI workflows, task runners, and validation docs. Then verify the best candidates, matchedSnippets, and relatedFiles with read_files/read_subtree and/or spawn file pickers, code searchers, bashers, and web/docs researchers as needed. Use query_index, list_directory, and glob directly for searching and exploring the codebase; do not substitute basher for git status or file discovery when dedicated tools are available. The file-picker and code-searcher agents are very useful for cross-checking and finding additional relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers + 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. For a large file, call read_outline first to see its structure (functions/classes/methods with line ranges, works across languages), then read_files with a symbols selector to pull just the specific symbols you need instead of the whole file. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
-  isSonnet,
   isFast,
   isDefault,
   hasNoValidation,
   noAskUser,
 }: {
-  isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   hasNoValidation: boolean
@@ -2030,13 +2062,12 @@ ${buildArray(
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !hasNoValidation &&
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. If you can, only test the area of the project that you are editing, rather than the entire project. You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
-  `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
+  `- Inform the user that you have completed the task in one sentence or a few short bullet points.`,
   '- After successfully completing an implementation, if the suggest_followups tool is available, use it to suggest ~3 next steps the user might want to take. Do not call suggest_followups until after you have written a user-visible completion summary and, for edited code, after the automated validation/reviewer gate has passed. If suggest_followups is unavailable, still provide the final summary/end normally.',
 ).join('\n')}`
 }
 
 function buildExecutePlanInstructionsPrompt(params: {
-  isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   hasNoValidation: boolean
@@ -2056,17 +2087,15 @@ function buildExecutePlanInstructionsPrompt(params: {
 function buildImplementationStepPrompt({
   isDefault,
   isFast,
-  isSonnet,
 }: {
   isDefault: boolean
   isFast: boolean
-  isSonnet: boolean
 }) {
   return buildArray(
     'Consider loading relevant skills with the skill tool if they might help with the current task. Do not reload skills that were already loaded earlier in this conversation.',
     isDefault &&
       `For non-trivial edits, spawn the editor with a compact implementation-only prompt containing all of these envelope fields: Requirements, Target files, Constraints/non-goals, Patterns, Risks. Use those exact field labels in the prompt so the editor can scan them as a checklist. The editor does not inherit parent conversation history, so the prompt must contain the implementation context it needs. If you cannot state the concrete implementation task, target files, and constraints yet, gather more context instead of spawning the editor. Do not put validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, todos, or other parent-only orchestration tasks in the editor handoff. After the editor returns, the default runtime will independently detect changed files, run configured validation hooks, and spawn code-reviewer before finalization.`, 
-    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}${isSonnet ? ". Don't create any summary markdown files or example documentation files, unless asked by the user." : '.'}`,
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.`,
     isDefault &&
       'Do not manually spawn code-reviewer for the same edited file set that the automated runtime gate will review. Manual review is only for user-requested extra review or pre-edit/advisory review.',
     isDefault &&

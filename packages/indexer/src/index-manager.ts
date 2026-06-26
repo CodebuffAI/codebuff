@@ -6,7 +6,12 @@ import type { EmbedFn, FileVector, SemanticHit } from './semantic'
 import type { IndexingConfig, MetadataIndex, QueryIndexMode, QueryIndexResult } from './types'
 
 export class IndexManager {
+  // Bounded LRU-ish (FIFO) cache of per-project-root singletons. Prevents
+  // unbounded growth when many distinct project roots are indexed in one
+  // long-lived process. Insertion order = recency; oldest entry evicted on
+  // overflow.
   private static instances = new Map<string, IndexManager>()
+  private static readonly MAX_INSTANCE_ROOTS = 8
 
   private index: MetadataIndex | null = null
   private buildPromise: Promise<void> | null = null
@@ -29,6 +34,15 @@ export class IndexManager {
     const key = IndexManager.getInstanceKey(projectRoot, config)
     let instance = IndexManager.instances.get(key)
     if (!instance) {
+      // Evict the oldest entry when the per-root singleton cache is full so a
+      // long-lived process indexing many distinct project roots can't grow it
+      // without bound. Map keys iterate in insertion order.
+      if (IndexManager.instances.size >= IndexManager.MAX_INSTANCE_ROOTS) {
+        const oldestKey = IndexManager.instances.keys().next().value
+        if (oldestKey !== undefined) {
+          IndexManager.instances.delete(oldestKey)
+        }
+      }
       instance = new IndexManager(projectRoot, config)
       IndexManager.instances.set(key, instance)
     }

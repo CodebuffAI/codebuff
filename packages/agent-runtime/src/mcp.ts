@@ -4,6 +4,7 @@ import { MCP_TOOL_SEPARATOR } from './mcp-constants'
 
 import type { AgentTemplate } from './templates/types'
 import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type {
   CustomToolDefinitions,
@@ -17,12 +18,14 @@ export async function getMCPToolData(
       mcpServers: AgentTemplate['mcpServers']
       writeTo: ProjectFileContext['customToolDefinitions']
       requestMcpToolData: RequestMcpToolDataFn
+      logger?: Logger
     },
     'writeTo'
   >,
 ): Promise<CustomToolDefinitions> {
   const withDefaults = { writeTo: {}, ...params }
-  const { toolNames, mcpServers, writeTo, requestMcpToolData } = withDefaults
+  const { toolNames, mcpServers, writeTo, requestMcpToolData, logger } =
+    withDefaults
 
   // User-facing toolNames use '/' as separator (e.g., 'supabase/list_tables')
   // but internally we use MCP_TOOL_SEPARATOR ('__') for LLM API compatibility
@@ -40,26 +43,41 @@ export async function getMCPToolData(
     requestedToolsByMcp[mcpName].push(toolName)
   }
 
-  const promises: Promise<any>[] = []
-  for (const [mcpName, mcpConfig] of Object.entries(mcpServers)) {
-    promises.push(
-      (async () => {
-        const mcpData = await requestMcpToolData({
-          mcpConfig,
-          toolNames: requestedToolsByMcp[mcpName] ?? null,
-        })
+  // Load each MCP server's tools concurrently. Use allSettled so that a single
+  // failing/unreachable server does not reject the whole batch and strip tools
+  // from every healthy server — one bad server should only lose its own tools.
+  const entries = Object.entries(mcpServers)
+  const results = await Promise.allSettled(
+    entries.map(async ([mcpName, mcpConfig]) => {
+      const mcpData = await requestMcpToolData({
+        mcpConfig,
+        toolNames: requestedToolsByMcp[mcpName] ?? null,
+      })
 
-        for (const { name, description, inputSchema } of mcpData) {
-          writeTo[mcpName + MCP_TOOL_SEPARATOR + name] = {
-            inputSchema: convertJsonSchemaToZod(inputSchema as any) as any,
-            endsAgentStep: true,
-            description,
-          }
+      for (const { name, description, inputSchema } of mcpData) {
+        writeTo[mcpName + MCP_TOOL_SEPARATOR + name] = {
+          inputSchema: convertJsonSchemaToZod(inputSchema as any) as any,
+          endsAgentStep: true,
+          description,
         }
-      })(),
-    )
+      }
+    }),
+  )
+
+  for (let i = 0; i < entries.length; i++) {
+    const [mcpName] = entries[i]
+    const outcome = results[i]
+    if (outcome.status === 'rejected') {
+      const reason =
+        outcome.reason instanceof Error
+          ? outcome.reason.message
+          : String(outcome.reason)
+      logger?.warn(
+        { mcpName, reason },
+        `MCP server "${mcpName}" failed to load; its tools will be unavailable. Other MCP servers remain active.`,
+      )
+    }
   }
-  await Promise.all(promises)
 
   return writeTo
 }

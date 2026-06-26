@@ -4,7 +4,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
-import { cloneDeep, isEqual } from 'lodash'
+import { isEqual } from 'lodash'
 
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
@@ -286,7 +286,7 @@ export function trimMessagesToFitTokenLimit(params: {
         continue
       }
 
-      const terminalResultMessage = cloneDeep(
+      const terminalResultMessage = structuredClone(
         m,
       ) as CodebuffToolMessage<'run_terminal_command'>
 
@@ -336,8 +336,16 @@ export function trimMessagesToFitTokenLimit(params: {
     m === placeholder ? replacementMessage : m,
   )
 
-  if (countTokensJson(trimmedMessages) > maxMessageTokens) {
-    trimmedMessages = cloneDeep(trimmedMessages)
+  // Compute the running token total once (O(n)), then maintain it with
+  // per-message deltas inside the simplification loop. Previously the loop
+  // re-counted the entire array on every iteration, making the simplification
+  // pass O(n²) in the number of messages.
+  let runningTokens = countTokensJson(trimmedMessages)
+  if (runningTokens > maxMessageTokens) {
+    trimmedMessages = structuredClone(trimmedMessages)
+    // Re-count after the deep clone since cloneDeep may preserve or strip
+    // non-token-relevant fields; the clone is what we now mutate.
+    runningTokens = countTokensJson(trimmedMessages)
 
     for (let i = trimmedMessages.length - 1; i >= 0; i--) {
       const message = trimmedMessages[i]
@@ -347,6 +355,7 @@ export function trimMessagesToFitTokenLimit(params: {
 
       const terminalMessage =
         message as CodebuffToolMessage<'run_terminal_command'>
+      const beforeTokens = countTokensJson(message)
       const simplified = simplifyTerminalCommandResults({
         messageContent: terminalMessage.content,
         logger,
@@ -356,8 +365,10 @@ export function trimMessagesToFitTokenLimit(params: {
       }
 
       terminalMessage.content = simplified
+      const afterTokens = countTokensJson(message)
+      runningTokens += afterTokens - beforeTokens
 
-      if (countTokensJson(trimmedMessages) <= maxMessageTokens) {
+      if (runningTokens <= maxMessageTokens) {
         break
       }
     }
@@ -391,27 +402,33 @@ export function getMessagesSubset(params: {
     logger,
   })
 
+  // trimMessagesToFitTokenLimit may return the original `messages` array
+  // unchanged (early-return when already under the token limit), so mutating
+  // message objects in place here would corrupt the caller's shared history.
+  // Deep-clone before mutating providerOptions.
+  const messagesSubsetClone = structuredClone(messagesSubset)
+
   // Remove cache_control from all messages
-  for (const message of messagesSubset) {
+  for (const message of messagesSubsetClone) {
     for (const provider of ['anthropic', 'openrouter', 'codebuff'] as const) {
       delete message.providerOptions?.[provider]?.cacheControl
     }
   }
 
   // Cache up to the last message!
-  const lastMessage = messagesSubset[messagesSubset.length - 1]
+  const lastMessage = messagesSubsetClone[messagesSubsetClone.length - 1]
   if (!lastMessage) {
     logger.debug(
       {
         messages,
-        messagesSubset,
+        messagesSubset: messagesSubsetClone,
         otherTokens,
       },
       'No last message found in messagesSubset!',
     )
   }
 
-  return messagesSubset
+  return messagesSubsetClone
 }
 
 export function expireMessages(

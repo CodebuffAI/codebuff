@@ -97,9 +97,41 @@ When you are done, call set_output with your answer, all relevant file paths (ab
       return
     }
 
+    // SECURITY: repoUrl is interpolated into a shell command string passed to
+    // run_terminal_command (which executes via a shell). Validate it against a
+    // strict GitHub URL allowlist BEFORE building the command so an attacker
+    // can't inject shell metacharacters (e.g. a repoUrl containing `'` would
+    // break out of the single-quote wrapping in the old code and run arbitrary
+    // shell). The regex accepts http(s)://github.com/<owner>/<repo> with an
+    // optional .git suffix and optional trailing slash, where owner and repo
+    // are limited to the GitHub-safe charset [A-Za-z0-9._-]. Anything else is
+    // rejected with a clear error instead of being executed.
+    const GITHUB_URL_RE =
+      /^https?:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+(?:\.git)?\/?$/
+    if (
+      typeof repoUrl !== 'string' ||
+      !GITHUB_URL_RE.test(repoUrl)
+    ) {
+      yield {
+        toolName: 'set_output',
+        input: {
+          message:
+            'Error: repoUrl must be a GitHub URL of the form https://github.com/<owner>/<repo>. Refusing to clone an untrusted URL.',
+        },
+      }
+      return
+    }
+
+    // POSIX single-quote escape: wrap in single quotes and escape any literal
+    // single quotes inside. Belt-and-suspenders defense: the regex above
+    // already rejects single quotes, but shellQuoting here means the command is
+    // safe even if the validation regex is ever loosened or a path-derived
+    // value (cloneDir) contains surprising characters.
+    const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
+
     const timestamp = Date.now()
     const repoName =
-      String(repoUrl).split('/').pop()?.replace(/\.git$/, '') || 'repo'
+      repoUrl.split('/').pop()?.replace(/\.git$/, '') || 'repo'
     const cloneDir = '/tmp/librarian-' + repoName + '-' + timestamp
 
     logger.info('Cloning ' + repoUrl + ' into ' + cloneDir)
@@ -108,7 +140,10 @@ When you are done, call set_output with your answer, all relevant file paths (ab
       toolName: 'run_terminal_command',
       input: {
         command:
-          "git clone --depth 1 '" + repoUrl + "' '" + cloneDir + "'",
+          'git clone --depth 1 ' +
+          shellQuote(repoUrl) +
+          ' ' +
+          shellQuote(cloneDir),
         timeout_seconds: 180,
       },
     }

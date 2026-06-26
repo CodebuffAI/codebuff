@@ -1,7 +1,7 @@
-import { createHash } from 'crypto'
-
 import { createPatch } from 'diff'
 
+import { getContentHash as computeContentHash } from '@codebuff/common/util/content-hash'
+import { normalizeLineEndings } from '@codebuff/common/util/content-hash'
 import { resolveFilePathWithinProject } from './path-utils'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
@@ -15,12 +15,10 @@ type ReplaceRangeParams = {
   newContent: string
 }
 
-function normalizeLineEndings(content: string): string {
-  return content.replace(/\r\n/g, '\n')
-}
-
+// normalizeLineEndings + content-hash now imported from @codebuff/common/util/content-hash.
+// Thin re-export preserves the public name expected by callers/tests.
 export function getRangeContentHash(content: string): string {
-  return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
+  return computeContentHash(content)
 }
 
 function parseReplaceRangeParams(parameters: unknown): ReplaceRangeParams | null {

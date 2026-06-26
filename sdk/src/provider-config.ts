@@ -15,6 +15,12 @@ const PROVIDER_CONFIG_FILE_NAME = 'openbuff.json'
 const LEGACY_PROVIDER_CONFIG_FILE_NAME = 'codebuff.json'
 const GLOBAL_PROVIDER_CONFIG_FILE_NAME = 'provider-config.json'
 
+// Maximum number of ancestor directories to scan for provider config files.
+// A monorepo workspace root is typically 3-5 levels above a subpackage; this
+// ceiling comfortably covers that while guaranteeing the walk never reaches
+// the filesystem root. See C1.3 (ancestor config injection).
+const MAX_ANCESTOR_SCAN_DEPTH = 10
+
 const configFragmentPathsSchema = z
   .union([z.string().min(1), z.array(z.string().min(1))])
   .optional()
@@ -788,13 +794,32 @@ function getDefaultProviderConfigPaths(): string[] {
   ]
 }
 
-function getAncestorProviderConfigPaths(startDir: string): string[] {
+export function getAncestorProviderConfigPaths(startDir: string): string[] {
   const paths: string[] = []
   let currentDir = path.resolve(startDir)
 
-  while (true) {
+  // Security bound: never walk above the user's home directory. A config file
+  // placed in a non-project ancestor (e.g. `/tmp/openbuff.json`, `/etc/...`)
+  // can route API requests to attacker-controlled endpoints and leak secrets
+  // sourced from apiKeyEnv. Legitimate monorepo configs live at the workspace
+  // root, which is always below home, so this bound preserves real use cases
+  // while closing the unbounded-to-filesystem-root walk.
+  const home = os.homedir()
+  const trustAncestorConfig =
+    (getSystemProcessEnv().OPENBUFF_TRUST_ANCESTOR_CONFIG ?? '') === '1'
+  const depthCeiling = trustAncestorConfig
+    ? Number.MAX_SAFE_INTEGER
+    : MAX_ANCESTOR_SCAN_DEPTH
+
+  for (let depth = 0; depth < depthCeiling; depth++) {
     paths.push(path.join(currentDir, PROVIDER_CONFIG_FILE_NAME))
     paths.push(path.join(currentDir, LEGACY_PROVIDER_CONFIG_FILE_NAME))
+
+    // Stop at the home directory boundary unless the user has opted into the
+    // old unbounded behavior.
+    if (!trustAncestorConfig && currentDir === home) {
+      return paths
+    }
 
     const parentDir = path.dirname(currentDir)
     if (parentDir === currentDir) {
@@ -802,6 +827,105 @@ function getAncestorProviderConfigPaths(startDir: string): string[] {
     }
     currentDir = parentDir
   }
+
+  return paths
+}
+
+/**
+ * Warn when a provider that sources its API key from an env var was loaded
+ * from a config file outside the project root. An ancestor `openbuff.json`
+ * with an `apiKeyEnv` provider can route requests to attacker-controlled
+ * endpoints and exfiltrate the env-var secret. The bounded ancestor walk in
+ * getAncestorProviderConfigPaths prevents loading from far ancestors; this
+ * warning surfaces the remaining case where a config above the project (but
+ * within the home boundary) carries an apiKeyEnv provider.
+ */
+function warnIfAncestorConfigHasApiKeyEnv(
+  config: ProviderConfigFile,
+  sourceFilePaths: string[],
+  cwd: string,
+): void {
+  const projectRoot = path.resolve(cwd)
+  const ancestorPaths = sourceFilePaths.filter((p) => {
+    const resolved = path.resolve(p)
+    return (
+      resolved !== projectRoot &&
+      !resolved.startsWith(projectRoot + path.sep)
+    )
+  })
+  if (ancestorPaths.length === 0) {
+    return
+  }
+
+  for (const provider of Object.values(config.providers ?? {})) {
+    if (
+      provider &&
+      typeof provider === 'object' &&
+      'apiKeyEnv' in provider &&
+      provider.apiKeyEnv
+    ) {
+      console.warn(
+        `[openbuff] A provider config loaded from a non-project ancestor ` +
+          `(${ancestorPaths.join(', ')}) declares an apiKeyEnv provider. ` +
+          `An ancestor config can route API requests to untrusted endpoints ` +
+          `and leak secrets sourced from env vars. ` +
+          `Set OPENBUFF_TRUST_ANCESTOR_CONFIG=1 to acknowledge and suppress this warning.`,
+      )
+      return
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Module-scope cache for loadProviderConfigSync (C2.2).
+//
+// loadProviderConfigSync() is on the hot path — called on every LLM request
+// via getModelForRequest, plus by file-change-hooks, model-discovery, and the
+// CLI. Each call re-reads and re-parses every provider config file from disk.
+// This cache memoizes the parsed result keyed on the resolved config file
+// paths AND their mtimes, so live edits to openbuff.json (e.g. via
+// writeProviderConfigFile, which uses writeFileSync and bumps mtime) cleanly
+// invalidate the cache without a manual bust. The explicit env-var override
+// is part of the key so toggling OPENBUFF_PROVIDER_CONFIG forces a re-read.
+// ----------------------------------------------------------------------------
+interface ProviderConfigCacheEntry {
+  key: string
+  config: LoadedProviderConfig
+}
+
+let providerConfigCache: ProviderConfigCacheEntry | null = null
+
+/**
+ * Build a cache key that changes whenever the set of resolved config paths,
+ * any of their mtimes, or the explicit env-var override changes. Missing files
+ * contribute a sentinel so that a newly-created config file (path goes from
+ * non-existent → exists) invalidates the cache.
+ */
+function buildProviderConfigCacheKey(
+  configPaths: string[],
+  explicitConfigPath: string | undefined,
+): string {
+  const parts: string[] = explicitConfigPath ? [`env=${explicitConfigPath}`] : []
+  for (const configPath of configPaths) {
+    let mtime: string
+    try {
+      const stat = fs.statSync(configPath)
+      mtime = `${stat.mtimeMs}:${stat.size}`
+    } catch {
+      mtime = 'missing'
+    }
+    parts.push(`${configPath}:${mtime}`)
+  }
+  return parts.join('|')
+}
+
+/**
+ * Clear the module-scope provider config cache. Intended for tests that swap
+ * HOME/cwd or manipulate config files in ways not visible to mtime (rare).
+ * Production callers never need this — mtime invalidation handles live edits.
+ */
+export function clearProviderConfigCacheForTest(): void {
+  providerConfigCache = null
 }
 
 export function loadProviderConfigSync(
@@ -813,6 +937,12 @@ export function loadProviderConfigSync(
   const configPaths = explicitConfigPath
     ? [explicitConfigPath]
     : getDefaultProviderConfigPaths()
+
+  // Fast path: return the memoized config if no underlying file changed.
+  const cacheKey = buildProviderConfigCacheKey(configPaths, explicitConfigPath)
+  if (providerConfigCache && providerConfigCache.key === cacheKey) {
+    return providerConfigCache.config
+  }
 
   let config = emptyProviderConfig()
   const sourceFilePaths: string[] = []
@@ -841,6 +971,8 @@ export function loadProviderConfigSync(
     }
   }
 
+  warnIfAncestorConfigHasApiKeyEnv(config, sourceFilePaths, process.cwd())
+
   if (!hasLoggedConfigPaths) {
     hasLoggedConfigPaths = true
     if (sourceFilePaths.length > 0) {
@@ -850,7 +982,9 @@ export function loadProviderConfigSync(
     }
   }
 
-  return { config, sourceFilePaths, sourceFiles }
+  const result: LoadedProviderConfig = { config, sourceFilePaths, sourceFiles }
+  providerConfigCache = { key: cacheKey, config: result }
+  return result
 }
 
 let hasLoggedConfigPaths = false

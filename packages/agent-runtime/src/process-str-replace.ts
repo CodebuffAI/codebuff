@@ -1,23 +1,19 @@
-import { createHash } from 'crypto'
-
 import { createPatch, diffLines } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
+import { getContentHash, normalizeLineEndings } from '@codebuff/common/util/content-hash'
+
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+// Re-export so existing importers (structural-read, propose-* handlers, tests)
+// keep working from a single source of truth.
+export { getContentHash } from '@codebuff/common/util/content-hash'
 
 export type ReplacementReadCapability = {
   startLine: number
   endLine: number
   hash: string
-}
-
-function normalizeLineEndings(params: { str: string }): string {
-  return params.str.replace(/\r\n/g, '\n')
-}
-
-export function getContentHash(content: string): string {
-  return `sha256:${createHash('sha256').update(normalizeLineEndings({ str: content })).digest('hex')}`
 }
 
 const READ_CAPABILITY_TOKEN_PREFIX = 'cap.'
@@ -189,9 +185,7 @@ export async function processStrReplace(params: {
   // small files can opt in with atomic: true for logically grouped edits.
   const failures: string[] = []
   const defaultLineEnding = getDominantLineEnding(currentContent)
-  const initialContentLineCount = normalizeLineEndings({
-    str: initialContent,
-  }).split('\n').length
+  const initialContentLineCount = normalizeLineEndings(initialContent).split('\n').length
   const isLargeFile =
     initialContent.length > LARGE_FILE_CHAR_THRESHOLD ||
     initialContentLineCount > LARGE_FILE_LINE_THRESHOLD
@@ -203,7 +197,7 @@ export async function processStrReplace(params: {
   // basedOnRead is accidentally included on a file that does not require it (the
   // historical small-file failure loop).
   const enforceReadCapability = isLargeFile
-  const normalizedInitialContent = normalizeLineEndings({ str: initialContent })
+  const normalizedInitialContent = normalizeLineEndings(initialContent)
   const validatedReadRanges = new Map<string, ValidatedReadRange>()
   const readCapabilityWarnings: string[] = []
   const preflightErrors: string[] = []
@@ -258,9 +252,7 @@ export async function processStrReplace(params: {
     )
     if (!bogus) continue
 
-    const normalizedOldStr = normalizeLineEndings({
-      str: replacements[i].oldString ?? '',
-    })
+    const normalizedOldStr = normalizeLineEndings(replacements[i].oldString ?? '')
     const uniquelyMatchable =
       normalizedOldStr.length > 0 &&
       normalizedInitialContent.split(normalizedOldStr).length - 1 === 1
@@ -331,11 +323,9 @@ export async function processStrReplace(params: {
     basedOnRead,
     skipIfMissing,
   } of normalizedReplacements) {
-    const normalizedCurrentContent = normalizeLineEndings({
-      str: currentContent,
-    })
-    const normalizedOldStr = normalizeLineEndings({ str: oldStr })
-    const normalizedNewStr = normalizeLineEndings({ str: newStr })
+    const normalizedCurrentContent = normalizeLineEndings(currentContent)
+    const normalizedOldStr = normalizeLineEndings(oldStr)
+    const normalizedNewStr = normalizeLineEndings(newStr)
 
     // Regular case: require oldStr for replacements
     if (!oldStr) {
@@ -661,7 +651,7 @@ export async function processStrReplace(params: {
   // re-read. Computed from the NEW-side hunk ranges of the final patch (the
   // single source of truth for what changed) over the LF-normalized post-edit
   // content, matching how read_files mints tokens.
-  const normalizedFinalContent = normalizeLineEndings({ str: currentContent })
+  const normalizedFinalContent = normalizeLineEndings(currentContent)
   const hunkRanges = parseNewSideHunkRanges(finalPatch)
   const anchors = hunkRanges.map((range) =>
     mintAnchorForRange({ content: normalizedFinalContent, ...range }),
@@ -1311,7 +1301,7 @@ function mintAnchorForRange(params: {
   readCapability: string
   rangeHash: string
 } {
-  const lines = normalizeLineEndings({ str: params.content }).split('\n')
+  const lines = normalizeLineEndings(params.content).split('\n')
   const startLine = Math.max(1, params.startLine)
   const endLine = Math.min(lines.length, Math.max(startLine, params.endLine))
   const slice = lines.slice(startLine - 1, endLine).join('\n')

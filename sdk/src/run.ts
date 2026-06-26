@@ -131,6 +131,14 @@ export type CodebuffClientOptions = {
   fsSource?: Source<CodebuffFileSystem>
   spawnSource?: Source<CodebuffSpawn>
   logger?: Logger
+
+  /** Overall wall-clock timeout for a single run, in milliseconds. When set,
+   *  the returned promise settles with an error RunState if the run has not
+   *  completed within this duration, so a silent network drop can no longer
+   *  hang the caller forever. Default: disabled (undefined). The timer is
+   *  unref'd so it won't keep a host process alive on its own; it still fires
+   *  while the event loop is busy with the active run. */
+  runTimeoutMs?: number
 }
 
 export type ImageContent = {
@@ -208,6 +216,7 @@ async function runOnce({
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
+  runTimeoutMs,
 
   handleEvent,
   handleStreamChunk,
@@ -281,10 +290,27 @@ async function runOnce({
     })
   }
 
+  // `settled` + timeoutHandle ensure the promise can no longer hang forever:
+  // the original promise captured a _reject that was never invoked, and
+  // resolution only happened via prompt-response/prompt-error actions or the
+  // callMainPrompt .catch — neither of which fires on a silent network drop.
+  // The runTimeoutMs timer (armed below, before callMainPrompt) settles via
+  // resolve() with an error RunState, following the codebase convention.
+  // The `settled` guard prevents double-settle.
+  let settled = false
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
   let resolve: (value: RunReturnType) => any = () => {}
+  // _reject is retained for the Promise constructor signature but never
+  // invoked: this codebase resolves with an error RunState rather than
+  // rejecting, so callers always receive a settled value.
   let _reject: (error: any) => any = () => {}
   const promise = new Promise<RunReturnType>((res, rej) => {
-    resolve = res
+    resolve = (value) => {
+      if (settled) return
+      settled = true
+      if (timeoutHandle) clearTimeout(timeoutHandle)
+      res(value)
+    }
     _reject = rej
   })
 
@@ -311,7 +337,7 @@ async function runOnce({
     const runtimeMadeProgress =
       sessionState.mainAgentState.messageHistory !== initialMessageHistory
 
-    const state = cloneDeep(sessionState)
+    const state = structuredClone(sessionState)
 
     // Only add the user's message if the runtime didn't get a chance to add it.
     if (!runtimeMadeProgress && (prompt || preparedContent)) {
@@ -532,6 +558,31 @@ async function runOnce({
 
   if (signal?.aborted) {
     return getCancelledRunState('Run cancelled by user.')
+  }
+
+  // Arm the overall run timeout so the runOnce promise can no longer hang
+  // forever on a silent network drop. The promise normally resolves via the
+  // prompt-response/prompt-error actions or the callMainPrompt .catch, but
+  // neither fires if the network silently drops mid-stream, leaving the
+  // promise pending. This timeout settles it with an error RunState. Abort is
+  // handled by the runtime itself (the signal is forwarded to callMainPrompt
+  // below) which emits the proper interruption-message RunState, so we do NOT
+  // add a competing abort listener here. The `settled` guard on the resolve
+  // wrapper (see the Promise constructor) prevents double-settle.
+  if (typeof runTimeoutMs === 'number' && runTimeoutMs > 0) {
+    timeoutHandle = setTimeout(
+      () =>
+        resolve({
+          sessionState: getCancelledSessionState(
+            `Run timed out after ${runTimeoutMs}ms`,
+          ),
+          output: { type: 'error', message: `Run timed out after ${runTimeoutMs}ms` },
+        }),
+      runTimeoutMs,
+    )
+    // Don't let a pending timeout keep a host process alive on its own; it
+    // still fires while the event loop is busy with the active run.
+    timeoutHandle.unref?.()
   }
 
   callMainPrompt({

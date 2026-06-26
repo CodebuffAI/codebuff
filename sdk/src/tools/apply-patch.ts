@@ -1,7 +1,8 @@
-import { createHash } from 'crypto'
 import path from 'path'
 
 import { applyPatchParams } from '@codebuff/common/tools/params/tool/apply-patch'
+import { getContentHash as computeContentHash, normalizeLineEndings } from '@codebuff/common/util/content-hash'
+import { resolveFilePathWithinProject } from './path-utils'
 
 import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
@@ -59,17 +60,10 @@ const SECTION_TERMINATORS = [
   '*** Add File:',
 ]
 
-function hasTraversal(targetPath: string): boolean {
-  const normalized = path.normalize(targetPath)
-  return path.isAbsolute(normalized) || normalized.startsWith('..')
-}
-
-function normalizeLineEndings(input: string): string {
-  return input.replace(/\r\n/g, '\n')
-}
-
+// normalizeLineEndings + content-hash now imported from @codebuff/common/util/content-hash.
+// Thin re-export preserves the public name expected by callers/tests.
 export function getPatchRangeContentHash(content: string): string {
-  return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
+  return computeContentHash(content)
 }
 
 const LARGE_FILE_LINE_THRESHOLD = 1_000
@@ -725,11 +719,11 @@ export async function applyPatchTool(params: {
   const { operation } = parsedOperation
 
   try {
-    if (hasTraversal(operation.path)) {
+    const resolved = resolveFilePathWithinProject(cwd, operation.path)
+    if (!resolved) {
       throw new Error(`Invalid path: ${operation.path}`)
     }
-
-    const fullPath = path.join(cwd, operation.path)
+    const fullPath = resolved.fullPath
 
     if (operation.type === 'create_file') {
       const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)

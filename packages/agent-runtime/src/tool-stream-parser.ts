@@ -125,7 +125,13 @@ export async function* processStreamWithTools(params: {
     if (typeof input === 'string') {
       try {
         input = JSON.parse(input)
-      } catch {}
+      } catch (err) {
+        console.debug(
+          `[tool-stream-parser] non-JSON tool input for ${toolName}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        )
+      }
     }
 
     const processor = processors[toolName] ?? defaultProcessor(toolName)

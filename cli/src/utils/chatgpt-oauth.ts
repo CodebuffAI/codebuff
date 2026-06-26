@@ -140,7 +140,10 @@ function callbackPageHtml(success: boolean, errorMessage?: string): string {
 </div></body></html>`
 }
 
-function startCallbackServer(codeVerifier: string): Promise<ChatGptOAuthCredentials> {
+function startCallbackServer(
+  codeVerifier: string,
+  expectedState: string,
+): Promise<ChatGptOAuthCredentials> {
   const redirectUrl = new URL(CHATGPT_OAUTH_REDIRECT_URI)
   const port = parseInt(redirectUrl.port, 10)
   const callbackPath = redirectUrl.pathname
@@ -170,8 +173,11 @@ function startCallbackServer(codeVerifier: string): Promise<ChatGptOAuthCredenti
         return
       }
 
+      // Compare against the flow-local expectedState, not the mutable module
+      // global. This closes the PKCE race where a second connectChatGptOAuth()
+      // call overwrites pendingState before the first flow's callback arrives.
       const state = reqUrl.searchParams.get('state')
-      if (pendingState && (!state || state !== pendingState)) {
+      if (!state || state !== expectedState) {
         res.writeHead(400, { 'Content-Type': 'text/html' })
         res.end(callbackPageHtml(false, 'OAuth state mismatch. Please try again.'))
         clearTimeout(timeout)
@@ -220,7 +226,10 @@ export function connectChatGptOAuth(): {
   stopChatGptOAuthServer()
 
   const { codeVerifier, authUrl } = startChatGptOAuthFlow()
-  const credentials = startCallbackServer(codeVerifier)
+  // Pass the flow-local state into the callback server so the state check
+  // is not vulnerable to a concurrent connectChatGptOAuth() overwriting the
+  // pendingState global before the first flow's callback arrives.
+  const credentials = startCallbackServer(codeVerifier, codeVerifier)
 
   void safeOpen(authUrl)
 

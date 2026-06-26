@@ -81,8 +81,14 @@ export const handleWriteTodos = (async (params: {
     if (!fs.existsSync(stateDir)) {
       fs.mkdirSync(stateDir, { recursive: true })
     }
-  } catch (e) {
-    // Ignore folder creation errors
+  } catch (err) {
+    // Folder creation may fail on read-only mounts / permissions; the read/write
+    // paths below handle a missing dir, so don't abort — but surface it.
+    console.debug(
+      `[write-todos] mkdir failed for ${stateDir}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
   }
 
   // Load existing master list
@@ -91,8 +97,13 @@ export const handleWriteTodos = (async (params: {
       const content = fs.readFileSync(stateFilePath, 'utf8')
       masterTodos = JSON.parse(content) as TodoItem[]
     }
-  } catch (e) {
-    // If invalid JSON or read error, start fresh
+  } catch (err) {
+    // If invalid JSON or read error, start fresh rather than blocking the user.
+    console.debug(
+      `[write-todos] failed to read ${stateFilePath}, starting fresh: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     masterTodos = []
   }
 
@@ -130,8 +141,14 @@ export const handleWriteTodos = (async (params: {
   // Save the new merged master list
   try {
     fs.writeFileSync(stateFilePath, JSON.stringify(mergedTodos, null, 2), 'utf8')
-  } catch (e) {
-    // Ignore write errors
+  } catch (err) {
+    // Persisting is best-effort; the in-memory list is returned to the model
+    // regardless, but surface the failure so silent state loss is debuggable.
+    console.debug(
+      `[write-todos] failed to write ${stateFilePath}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
   }
 
   const todoSummary = getTodoSummary(incomingTodos)

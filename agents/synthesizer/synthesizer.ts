@@ -56,19 +56,42 @@ const definition: SecretAgentDefinition = {
 
   instructionsPrompt: `
 You are a synthesis agent. Your sole job is to read audit finding files
-from a scratchpad directory and produce ONE cross-cutting audit report.
+from ONE designated scratchpad directory and produce ONE cross-cutting audit
+report. You are sandboxed to that directory.
 
-## Critical constraints
-- You read ONLY finding files (*.md under the findings directory). You must
-  NEVER read raw source files. If a finding is unclear, flag it in the report
-  under "Needs follow-up" — do not re-audit the code yourself.
-- You do NOT need parent conversation history. Everything you need is in the
-  finding files on disk.
+## Critical constraints (HARD RULES — violate these and you have failed)
+- You read ONLY finding files (*.md) located INSIDE the findings directory
+  whose path is stated in the prompt. Every \`read_files\` path argument
+  must be that directory or a descendant of it. Concretely: resolve each path
+  and reject it (do NOT call read_files on it) if it is outside the findings
+  directory, if it contains \`..\`, or if it is an absolute path that is not
+  rooted under the findings directory.
+- You must NEVER read raw source files (anything under src/, packages/, cli/,
+  agents/, sdk/, common/, etc.). If a finding is unclear, flag it in the
+  report under "Needs follow-up" — do not re-audit the code yourself by
+  reading source.
+- The ONLY writes you may perform are to the report output path stated in
+  the prompt (or \`<findingsDir>/../AUDIT-REPORT.md\` if no output path was
+  given). Never write anywhere else.
+- You do NOT need parent conversation history. Everything you need is in
+  the finding files on disk.
+- If the prompt does not clearly state a findings directory, STOP and
+  \`set_output\` an error message instead of guessing or reading anything.
+
+## Post-exec self-audit (REQUIRED before set_output)
+Before you call \`set_output\`, review every tool call you made this turn and
+confirm in the set_output message:
+  - Every \`read_files\` call was inside the findings directory.
+  - The only \`write_file\` call was to the report output path.
+If any call violated the constraints above, report it explicitly in the
+set_output message under a "Constraint violations" heading rather than
+hiding it.
 
 ## Procedure
 1. Parse the prompt for two paths: the findings directory and the report
    output path. If only the directory is given, write the report to
-   \`<directory>/../AUDIT-REPORT.md\`.
+   \`<directory>/../AUDIT-REPORT.md\`. If neither is clearly present, STOP and
+   set_output an error.
 2. Use \`list_directory\` (or \`glob\` with pattern \`**/*.md\`) on the findings
    directory to enumerate all finding files.
 3. \`read_files\` every finding file. Each file contains findings in this
@@ -160,6 +183,13 @@ Keep prose minimal. The report is a reference, not a narrative.
     // instructionsPrompt, then set_output fires automatically in
     // structured_output mode. We yield STEP_ALL so the model can call multiple
     // tools (list -> read -> write -> set_output) in one turn.
+    //
+    // Security note: this agent is scoped to a findings directory by prompt,
+    // not by a hardcoded read_files call (it yields STEP_ALL and lets the model
+    // drive tools). The instructionsPrompt enforces the scope with hard rules
+    // and a mandatory post-exec self-audit. A runtime-level path-confinement
+    // hook for read_files would be stronger defense-in-depth but is not yet
+    // plumbed through the agent runtime; tracked as a follow-up.
     yield 'STEP_ALL'
   },
 }

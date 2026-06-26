@@ -4,6 +4,7 @@ import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
+import { parseSafeRipgrepFlags } from './find-files-matching-content'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import { Logger } from '@codebuff/common/types/contracts/logger'
@@ -75,14 +76,31 @@ export function codeSearch({
       ])
     }
 
-    // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
-    // Deduplicating would break up these pairs and cause errors
-    // Strip surrounding quotes from each token since spawn() passes args directly
-    // without shell interpretation (e.g. "'foo.md'" → "foo.md")
-    const flagsArray = (flags || '')
-      .split(' ')
-      .filter(Boolean)
-      .map((token) => token.replace(/^['"]|['"]$/g, ''))
+    // Parse flags through an allow-list so callers can't inject dangerous
+    // ripgrep flags (e.g. --exec runs a command per match, -r/--replace mutates
+    // files, -z/--null changes output framing). code_search additionally allows
+    // the -A/-B/-C context flags (value-taking) since the JSON parser already
+    // handles match + context events. Unsupported flags return an error result
+    // instead of being silently dropped or passed through.
+    const parsedFlags = parseSafeRipgrepFlags(flags || '', {
+      extraSwitchesWithValue: [
+        '-A',
+        '-B',
+        '-C',
+        '--after-context',
+        '--before-context',
+        '--context',
+      ],
+    })
+    if ('errorMessage' in parsedFlags) {
+      return resolve([
+        {
+          type: 'json',
+          value: { errorMessage: parsedFlags.errorMessage },
+        },
+      ])
+    }
+    const flagsArray = parsedFlags.flags
 
     // Use JSON output for robust parsing and early stopping
     // --no-config prevents user/system .ripgreprc from interfering

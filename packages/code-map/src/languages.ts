@@ -131,6 +131,20 @@ export function getWasmDir(): string | undefined {
   return customWasmDir
 }
 
+/**
+ * Validate a user-supplied WASM directory. Rejects relative paths (which could
+ * escape the intended sandbox depending on CWD) and paths containing `..`
+ * segments (path traversal). Returns the resolved absolute path or `null` if
+ * invalid.
+ */
+function validateWasmDir(dir: string): string | null {
+  if (!dir || dir.includes('..')) {
+    return null
+  }
+  const resolved = path.isAbsolute(dir) ? path.resolve(dir) : null
+  return resolved
+}
+
 /* ------------------------------------------------------------------ */
 /* 6. WASM path resolver                                             */
 /* ------------------------------------------------------------------ */
@@ -145,10 +159,15 @@ function resolveWasmPath(wasmFileName: string): string {
     return path.join(customWasmDirPath, wasmFileName)
   }
 
-  // Try environment variable override
+  // Try environment variable override (validated to prevent path traversal)
   const envWasmDir = process.env.CODEBUFF_WASM_DIR
   if (envWasmDir) {
-    return path.join(envWasmDir, wasmFileName)
+    const validated = validateWasmDir(envWasmDir)
+    if (validated) {
+      return path.join(validated, wasmFileName)
+    }
+    // Invalid env value: fall through to default resolution rather than loading
+    // an arbitrary attacker-controlled path.
   }
 
   // Get the directory of this module
@@ -162,29 +181,11 @@ function resolveWasmPath(wasmFileName: string): string {
     return process.cwd()
   })()
 
-  // For bundled SDK: WASM files are in a shared wasm directory
-  const possiblePaths = [
-    // Shared WASM directory (new approach to avoid duplication)
-    path.join(moduleDir, '..', 'wasm', wasmFileName),
-    // WASM files in the same directory as this module (for bundled builds)
-    path.join(moduleDir, 'wasm', wasmFileName),
-    // Development scenario - shared wasm directory in SDK dist
-    path.join(process.cwd(), 'dist', 'wasm', wasmFileName),
-  ]
-
-  // Try each path and return the first one that exists (we'll fallback to package resolution if none work)
-  for (const wasmPath of possiblePaths) {
-    try {
-      // Don't actually check file existence here, let the Language.load() call handle it
-      // and fall back to package resolution if it fails
-      return wasmPath
-    } catch {
-      continue
-    }
-  }
-
-  // Default fallback
-  return possiblePaths[0]
+  // For bundled SDK: WASM files are in a shared wasm directory. We don't check
+  // file existence here; Language.load() handles it and falls back to package
+  // resolution if the path is missing. The first candidate is the shared wasm
+  // directory (new approach to avoid duplication).
+  return path.join(moduleDir, '..', 'wasm', wasmFileName)
 }
 
 /**
@@ -215,7 +216,16 @@ class UnifiedLanguageLoader implements RuntimeLanguageLoader {
   }
 
   async initParser(): Promise<void> {
-    await this.parserReady
+    try {
+      await this.parserReady
+    } catch (err) {
+      // The cached init promise rejected (e.g. transient wasm load failure).
+      // Retry so a one-time failure doesn't permanently break every
+      // subsequent parse — a permanently-rejected promise would re-throw the
+      // same cached error forever and the loader would never recover.
+      this.parserReady = initTreeSitterForNode()
+      await this.parserReady
+    }
   }
 
   async loadLanguage(wasmFile: string): Promise<Language> {

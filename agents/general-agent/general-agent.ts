@@ -88,7 +88,10 @@ export const createGeneralAgent = (options: {
       }
 
       while (true) {
-        // Run context-pruner before each step
+        // Run context-pruner before each step.
+        // `spawn_agent_inline` is a secret-only tool (AllToolNames) not in the
+        // public ToolName union that ToolCall<T> is keyed by, so a cast is
+        // required here. See agents/base2/base2.ts for the same convention.
         yield {
           toolName: 'spawn_agent_inline',
           input: {
@@ -96,6 +99,7 @@ export const createGeneralAgent = (options: {
             params: params ?? {},
           },
           includeToolCall: false,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- secret-only tool; see comment above
         } as any
 
         const { stepsComplete } = yield 'STEP'

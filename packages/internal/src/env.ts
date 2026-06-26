@@ -25,7 +25,7 @@ if (isCI) {
   ensureEnvDefault('GRAVITY_API_KEY', 'test')
   ensureEnvDefault('IPINFO_TOKEN', 'test')
   ensureEnvDefault('PORT', '4242')
-  ensureEnvDefault('DATABASE_URL', 'postgres://user:pass@localhost:5432/db')
+  ensureEnvDefault('DATABASE_URL', 'postgres://localhost:5432/db')
   ensureEnvDefault('CODEBUFF_GITHUB_ID', 'test-id')
   ensureEnvDefault('CODEBUFF_GITHUB_SECRET', 'test-secret')
   ensureEnvDefault('NEXTAUTH_SECRET', 'test-secret')

@@ -302,6 +302,16 @@ export async function isFileIgnored(params: {
     projectRoot,
     path.join(projectRoot, filePath),
   )
+
+  // Hard-block paths that escape the project root before walking ancestors.
+  // Full symlink containment is enforced by resolveFilePathWithinProject in
+  // the calling tool; this is a lexical backstop that also closes the weak
+  // `startsWith(projectRoot)` string-prefix check in the dir walk below (a
+  // path like /project-evil/... would otherwise pass that prefix check).
+  if (relativeFilePath.startsWith('..') || path.isAbsolute(relativeFilePath)) {
+    return true
+  }
+
   const dirPath = path.dirname(path.join(projectRoot, filePath))
 
   // Get ignore patterns from the directory containing the file and all parent directories

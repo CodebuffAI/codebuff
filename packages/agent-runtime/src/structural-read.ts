@@ -22,7 +22,15 @@ export async function getFileStructure(
   try {
     const { parseFileStructure } = await import('@codebuff/code-map')
     return await parseFileStructure(content, filePath)
-  } catch {
+  } catch (err) {
+    // Degrade gracefully to null (caller falls back to regex heuristic), but
+    // surface the failure so a broken code-map install doesn't silently drop
+    // structural reads for the whole session.
+    console.debug(
+      `[structural-read] getFileStructure failed for ${filePath}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return null
   }
 }

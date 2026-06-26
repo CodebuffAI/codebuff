@@ -116,18 +116,18 @@ class AnotherSymbol {
     expect(result.path).toBe('test.ts')
     expect(result.slices).toHaveLength(2)
 
-    const getTargetSlice = result.slices.find((s: any) => s.symbol === 'getTarget')
+    const getTargetSlice = result.slices.find((s) => s.symbol === 'getTarget')
     expect(getTargetSlice).toBeDefined()
-    expect(getTargetSlice.content).toContain('function getTarget(a: number)')
-    expect(getTargetSlice.content).toContain('return b')
-    expect(getTargetSlice.startLine).toBe(4)
-    expect(getTargetSlice.endLine).toBe(7)
+    expect(getTargetSlice!.content).toContain('function getTarget(a: number)')
+    expect(getTargetSlice!.content).toContain('return b')
+    expect(getTargetSlice!.startLine).toBe(4)
+    expect(getTargetSlice!.endLine).toBe(7)
 
-    const anotherSymbolSlice = result.slices.find((s: any) => s.symbol === 'AnotherSymbol')
+    const anotherSymbolSlice = result.slices.find((s) => s.symbol === 'AnotherSymbol')
     expect(anotherSymbolSlice).toBeDefined()
-    expect(anotherSymbolSlice.content).toContain('class AnotherSymbol')
-    expect(anotherSymbolSlice.startLine).toBe(9)
-    expect(anotherSymbolSlice.endLine).toBe(13)
+    expect(anotherSymbolSlice!.content).toContain('class AnotherSymbol')
+    expect(anotherSymbolSlice!.startLine).toBe(9)
+    expect(anotherSymbolSlice!.endLine).toBe(13)
   })
 
   it('returns empty slices if file does not exist', async () => {

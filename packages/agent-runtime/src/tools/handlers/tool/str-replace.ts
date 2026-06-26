@@ -51,6 +51,20 @@ export const handleStrReplace = (async (
   const path = normalizeToolPath(toolCall.input.path)
   const { replacements, atomic } = toolCall.input
 
+  if (!path) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: toolCall.input.path,
+            errorMessage: `str_replace path traversal blocked: "${toolCall.input.path}" resolves outside the project root.`,
+          },
+        },
+      ],
+    }
+  }
+
   await previousToolCallFinished
 
   const hasReadCapability = replacements.some((replacement) =>

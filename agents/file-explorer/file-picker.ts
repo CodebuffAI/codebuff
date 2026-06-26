@@ -245,6 +245,30 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
     }
     return { paths: [], hasResults: false, errorText, debugMessage }
   }
+  // C1.9: Lexical project-root containment for paths returned by spawned
+  // file-lister agents. Rejects path traversal (..) and absolute paths outside
+  // the project root before handing paths to read_files. Defense in depth on
+  // top of the SDK's read_files backend validation. Uses process.cwd() since
+  // handleSteps is serialized and cannot import helpers.
+  const isSafeProjectPath = (rawPath: string): boolean => {
+    if (typeof rawPath !== 'string' || rawPath.length === 0) return false
+    const trimmed = rawPath.trim()
+    if (trimmed.length === 0) return false
+    // Reject any path containing parent-directory traversal.
+    if (trimmed.includes('..')) return false
+    // Reject Windows-style traversal too.
+    if (trimmed.includes('\\..') || trimmed.includes('..\\')) return false
+    // Absolute paths are only allowed if they're inside the project root.
+    if (trimmed.startsWith('/') || /^[A-Za-z]:[\\/]/.test(trimmed)) {
+      const cwd =
+        typeof process.cwd === 'function' ? process.cwd() : ''
+      if (!cwd) return false
+      const normalized = trimmed.replace(/\\/g, '/')
+      const projectRoot = cwd.replace(/\\/g, '/').replace(/\/+$/, '')
+      return normalized === projectRoot || normalized.startsWith(projectRoot + '/')
+    }
+    return true
+  }
   const { toolResult: fileListerResults } = yield {
     toolName: 'spawn_agents',
     input: {
@@ -259,8 +283,14 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
   } satisfies ToolCall
 
   const spawnResults = extractSpawnResults(fileListerResults)
-  const { paths, hasResults, errorText, debugMessage } =
+  const { paths: rawPaths, hasResults, errorText, debugMessage } =
     processSpawnResults(spawnResults)
+  // Filter out unsafe paths before read_files (C1.9).
+  const paths = rawPaths.filter(isSafeProjectPath)
+  const droppedCount = rawPaths.length - paths.length
+  if (droppedCount > 0) {
+    logger?.debug?.(`file-picker: dropped ${droppedCount} path(s) outside project root or containing traversal`)
+  }
 
   if (!hasResults) {
     if (debugMessage) {

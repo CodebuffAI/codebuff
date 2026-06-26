@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState, useTransition } from 'react'
 
 
+import { logger } from '../utils/logger'
 import { useConnectionStatus } from './use-connection-status'
 import { useElapsedTime } from './use-elapsed-time'
 import { useExitHandler } from './use-exit-handler'
@@ -143,12 +144,28 @@ export function useChatStreaming({
     isQueuePausedRef,
     isProcessingQueueRef,
   } = useMessageQueue(
-    (message: QueuedMessage) =>
-      sendMessageRef.current?.({
+    (message: QueuedMessage) => {
+      const send = sendMessageRef.current
+      if (!send) {
+        // The send handler ref is not yet wired up (e.g. before the chat
+        // provider finishes initializing). Previously this silently resolved as
+        // an empty promise, dropping the queued message with no user feedback.
+        // Log and reject so the queue layer surfaces the failure instead of
+        // pretending the send succeeded.
+        logger.warn(
+          { content: message.content },
+          '[chat-streaming] sendMessageRef.current is undefined; message dropped.',
+        )
+        return Promise.reject(
+          new Error('Send handler is not initialized yet. Please retry shortly.'),
+        )
+      }
+      return send({
         content: message.content,
         agentMode,
         attachments: message.attachments,
-      }) ?? Promise.resolve(),
+      })
+    },
     isChainInProgressRef,
     activeAgentStreamsRef,
   )

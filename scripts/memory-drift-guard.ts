@@ -104,7 +104,12 @@ function loadPackageJson(root: string, subdir: string): any {
   }
   try {
     return JSON.parse(readFileSync(pkgPath, 'utf8'))
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[memory-drift-guard] loadPackageJson failed for ${pkgPath}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return undefined
   }
 }
@@ -161,8 +166,12 @@ function dependencyExists(root: string, pkgName: string): boolean {
           if (wsPkg.name === pkgName) {
             return true
           }
-        } catch {
-          // ignore
+        } catch (err) {
+          console.debug(
+            `[memory-drift-guard] workspace pkg parse failed for ${wsPath}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          )
         }
       }
     }
@@ -314,8 +323,13 @@ export function checkStaleness(root: string): Finding[] {
           message: `knowledge.md is older than sibling src/ (stale)`,
         })
       }
-    } catch {
+    } catch (err) {
       // ignore stat failures
+      console.debug(
+        `[memory-drift-guard] checkStaleness stat failed for ${filePath}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
     }
   }
   return findings
@@ -474,7 +488,12 @@ function listTopLevelScripts(root: string): string[] {
   let entries: Dirent[] = []
   try {
     entries = readdirSync(scriptsDir, { withFileTypes: true })
-  } catch {
+  } catch (err) {
+    console.debug(
+      `[memory-drift-guard] listTopLevelScripts readdir failed for ${scriptsDir}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
     return []
   }
   return entries
@@ -516,8 +535,12 @@ export function checkScriptCoverage(root: string): Finding[] {
   for (const filePath of markdownFiles(root)) {
     try {
       allMdContent.push(readFileSync(filePath, 'utf8'))
-    } catch {
-      // ignore
+    } catch (err) {
+      console.debug(
+        `[memory-drift-guard] checkScriptCoverage read failed for ${filePath}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
     }
   }
 

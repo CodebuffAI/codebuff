@@ -4,6 +4,8 @@ import {
 } from '@codebuff/common/project-file-tree'
 import micromatch from 'micromatch'
 
+import { resolveFilePathWithinProject } from './path-utils'
+
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
@@ -23,7 +25,19 @@ export async function glob(params: {
       .map((node) => node.filePath)
 
     let matchingFiles: string[]
-    const normalizedCwd = normalizeCwd(cwd)
+    let normalizedCwd = normalizeCwd(cwd)
+    if (normalizedCwd) {
+      // Resolve the caller-supplied cwd against the project root so a
+      // traversal payload (e.g. "../../outside") cannot scope the glob to
+      // files outside the project. If the cwd does not resolve inside the
+      // project, drop it and match against the whole project tree instead.
+      const resolvedCwd = resolveFilePathWithinProject(projectPath, normalizedCwd)
+      if (!resolvedCwd) {
+        normalizedCwd = ''
+      } else {
+        normalizedCwd = resolvedCwd.relativePath
+      }
+    }
     if (normalizedCwd) {
       // Scope to files under `cwd`, but match the pattern against paths
       // RELATIVE to `cwd` so that patterns like "*.ts" or "**/*.test.ts"

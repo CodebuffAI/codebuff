@@ -31,9 +31,25 @@ const credentialsFileSchema = z.object({
   chatgptOAuth: chatGptOAuthSchema.optional(),
 })
 
+/**
+ * Ensure the config directory exists with owner-only permissions (0700).
+ * The credentials file holds OAuth tokens and the default API key, so the
+ * containing directory must not be group/world readable. Existing dirs are
+ * chmod'd down to 0700 if they were created more permissively.
+ */
 const ensureDirectoryExistsSync = (dir: string) => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+    // mkdir mode is masked by umask; explicitly enforce the intended mode.
+    fs.chmodSync(dir, 0o700)
+  } else {
+    // Tighten an already-existing dir if it was created more permissively.
+    try {
+      fs.chmodSync(dir, 0o700)
+    } catch {
+      // chmod can fail on exotic filesystems (e.g. network mounts) — not fatal;
+      // the file-level 0600 below is the primary control.
+    }
   }
 }
 
@@ -77,7 +93,14 @@ export const getUserCredentials = (clientEnv: ClientEnv = env): User | null => {
     const user = userFromJson(credentialsFile)
     return user || null
   } catch (error) {
-    console.error('Error reading credentials', error)
+    // Redact the raw error object: it may embed the credentials file contents
+    // (e.g. a JSON SyntaxError message includes the offending text). Only log
+    // a sanitized message + the error name so tokens never reach the logs.
+    const detail =
+      error instanceof Error
+        ? `${error.name}: ${error.message.slice(0, 120)}${error.message.length > 120 ? '…' : ''}`
+        : 'unknown error'
+    console.error('Error reading credentials file:', detail)
     return null
   }
 }
@@ -150,7 +173,18 @@ export const saveChatGptOAuthCredentials = (
     chatgptOAuth: credentials,
   }
 
-  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2))
+  // Write with owner-only permissions (0600). The credentials file contains
+  // OAuth access/refresh tokens and the default API key; it must not be
+  // group/world readable. writeFile mode is masked by umask, so chmodSync
+  // enforces the intended mode regardless of the process umask.
+  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2), {
+    mode: 0o600,
+  })
+  try {
+    fs.chmodSync(credentialsPath, 0o600)
+  } catch {
+    // Best-effort enforcement; ignore on filesystems that don't support chmod.
+  }
 }
 
 export const clearChatGptOAuthCredentials = (
@@ -164,7 +198,15 @@ export const clearChatGptOAuthCredentials = (
   try {
     const existingData = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
     delete existingData.chatgptOAuth
-    fs.writeFileSync(credentialsPath, JSON.stringify(existingData, null, 2))
+    // Preserve the 0600 mode established by saveChatGptOAuthCredentials.
+    fs.writeFileSync(credentialsPath, JSON.stringify(existingData, null, 2), {
+      mode: 0o600,
+    })
+    try {
+      fs.chmodSync(credentialsPath, 0o600)
+    } catch {
+      // Best-effort enforcement; ignore on filesystems that don't support chmod.
+    }
   } catch {
     // Ignore errors
   }

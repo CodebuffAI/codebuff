@@ -103,10 +103,12 @@ Do not use any tools! Only report the output of the command.`,
     const max_failure_lines = params?.max_failure_lines as number | undefined
     const failureLineLimit = Math.max(1, Math.floor(max_failure_lines ?? 120))
     const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`
+    // Use crypto.randomUUID() (Node global, no import needed) for the temp
+    // log path. crypto.randomUUID is cryptographically random, unlike
+    // Math.random(), so the filename is unpredictable and resists symlink /
+    // collision attacks on /tmp. Kept inline because handleSteps is serialized.
     const fullLogPath = shouldSaveFullLog
-      ? `/tmp/openbuff-basher-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}.log`
+      ? `/tmp/openbuff-basher-${crypto.randomUUID()}.log`
       : undefined
     const commandToRun =
       shouldSaveFullLog

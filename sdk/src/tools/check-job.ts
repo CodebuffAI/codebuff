@@ -54,8 +54,27 @@ export async function checkJob(params: {
 
   const deadline = Date.now() + timeoutMs
   let collected = ''
+  // Cap accumulation during polling so a long-running chatty job can't OOM
+  // the agent runtime before the follow timeout fires. Keep head + tail with
+  // a marker; the final return still applies CHECK_JOB_OUTPUT_LIMIT on top.
+  const COLLECTED_CAP = CHECK_JOB_OUTPUT_LIMIT * 2
+  const COLLECTED_TAIL_KEEP = Math.floor(CHECK_JOB_OUTPUT_LIMIT / 4)
   while (true) {
-    collected += readNewJobOutput(job)
+    const chunk = readNewJobOutput(job)
+    if (collected.length + chunk.length > COLLECTED_CAP) {
+      const head = collected.slice(0, COLLECTED_CAP - COLLECTED_TAIL_KEEP)
+      const overflow =
+        collected.length + chunk.length - COLLECTED_CAP
+      const tail = (collected + chunk).slice(
+        (collected + chunk).length - COLLECTED_TAIL_KEEP,
+      )
+      collected =
+        head +
+        `\n…[poll truncated ${overflow} chars mid-stream]\n` +
+        tail
+    } else {
+      collected += chunk
+    }
     const matched = waitFor ? collected.includes(waitFor) : true
     const finished = job.status !== 'running'
     if (matched || finished || Date.now() >= deadline) {

@@ -39,27 +39,80 @@ import type {
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
-// Maintains generator state for all agents. Generator state can't be serialized, so we store it in memory.
-const runIdToGenerator: Record<string, StepGenerator | undefined> = {}
-export const runIdToStepAll: Set<string> = new Set()
-// Tracks which agent instance (agentState.agentId) created the generator cached
-// for a given runId. Used to detect a runId collision between two distinct
-// agent runs (which would otherwise silently resume each other's generator).
-const runIdToOwnerAgentId = new Map<string, string>()
+// Maintains generator state for all agents. Generator state can't be
+// serialized, so we store it in memory. The three pieces of per-run state
+// (the cached generator, the STEP_ALL latch, and the owner-agent-id used for
+// collision detection) are encapsulated in a single managed registry so the
+// module-level state has one explicit lifecycle and one place to audit.
+// See C2.4 (per-run context encapsulation).
+class AgentRunContextRegistry {
+  private readonly runIdToGenerator: Record<string, StepGenerator | undefined> = {}
+  private readonly runIdToStepAll: Set<string> = new Set()
+  // Tracks which agent instance (agentState.agentId) created the generator
+  // cached for a given runId. Used to detect a runId collision between two
+  // distinct agent runs (which would otherwise silently resume each other's
+  // generator).
+  private readonly runIdToOwnerAgentId = new Map<string, string>()
+
+  getGenerator(runId: string): StepGenerator | undefined {
+    return this.runIdToGenerator[runId]
+  }
+
+  setGenerator(runId: string, generator: StepGenerator, ownerAgentId: string): void {
+    this.runIdToGenerator[runId] = generator
+    this.runIdToOwnerAgentId.set(runId, ownerAgentId)
+  }
+
+  deleteGenerator(runId: string): void {
+    delete this.runIdToGenerator[runId]
+  }
+
+  getOwnerAgentId(runId: string): string | undefined {
+    return this.runIdToOwnerAgentId.get(runId)
+  }
+
+  hasStepAll(runId: string): boolean {
+    return this.runIdToStepAll.has(runId)
+  }
+
+  addStepAll(runId: string): void {
+    this.runIdToStepAll.add(runId)
+  }
+
+  deleteStepAll(runId: string): void {
+    this.runIdToStepAll.delete(runId)
+  }
+
+  /** Per-run teardown: drop the generator, STEP_ALL latch, and owner mapping. */
+  clearRun(runId: string): void {
+    delete this.runIdToGenerator[runId]
+    this.runIdToStepAll.delete(runId)
+    this.runIdToOwnerAgentId.delete(runId)
+  }
+
+  /** Process-wide teardown: drop every run's state. */
+  clearAll(): void {
+    for (const key in this.runIdToGenerator) {
+      delete this.runIdToGenerator[key]
+    }
+    this.runIdToStepAll.clear()
+    this.runIdToOwnerAgentId.clear()
+  }
+}
+
+const agentRunContextRegistry = new AgentRunContextRegistry()
 
 // Function to clear the generator cache for testing purposes
 export function clearAgentGeneratorCache(params: { logger: Logger }) {
-  for (const key in runIdToGenerator) {
-    clearProposedContentForRun(key)
-    clearProposalLedgerForRun(key)
-    delete runIdToGenerator[key]
-  }
-  // Standalone runProgrammaticStep tests do not execute loopAgentSteps' outer
-  // finally, which owns proposal-ledger teardown after snapshotting. Clear all
-  // ledgers here so those direct tests cannot leak run-scoped proposal state.
+  // Drop every run's generator/latch/owner state. Proposed-content and
+  // proposal-ledger stores are self-clearing (they expose clearAllProposalLedgers
+  // and track their own run keys), so we do not need to iterate the registry's
+  // private keys here. Standalone runProgrammaticStep tests do not execute
+  // loopAgentSteps' outer finally, which owns proposal-ledger teardown after
+  // snapshotting; clearAllProposalLedgers here ensures those direct tests
+  // cannot leak run-scoped proposal state.
   clearAllProposalLedgers()
-  runIdToStepAll.clear()
-  runIdToOwnerAgentId.clear()
+  agentRunContextRegistry.clearAll()
 }
 
 /**
@@ -76,9 +129,7 @@ export function clearAgentGeneratorCache(params: { logger: Logger }) {
  * guarantee per-run cleanup on every exit path. All operations are idempotent.
  */
 export function clearAgentGeneratorForRun(runId: string): void {
-  delete runIdToGenerator[runId]
-  runIdToStepAll.delete(runId)
-  runIdToOwnerAgentId.delete(runId)
+  agentRunContextRegistry.clearRun(runId)
   clearProposedContentForRun(runId)
   clearProposalLedgerForRun(runId)
 }
@@ -178,7 +229,7 @@ export async function runProgrammaticStep(
   }
 
   // Run with either a generator or a sandbox.
-  let generator = runIdToGenerator[agentState.runId]
+  let generator = agentRunContextRegistry.getGenerator(agentState.runId)
 
   // Detect a runId collision: a cached generator for this runId that was
   // created by a *different* agent instance means two overlapping runs share a
@@ -186,7 +237,7 @@ export async function runProgrammaticStep(
   // happen if startAgentRun returns globally-unique runIds; warn loudly if it
   // does so the underlying id-generation bug can be found.
   if (generator) {
-    const ownerAgentId = runIdToOwnerAgentId.get(agentState.runId)
+    const ownerAgentId = agentRunContextRegistry.getOwnerAgentId(agentState.runId)
     if (ownerAgentId !== undefined && ownerAgentId !== agentState.agentId) {
       logger.warn(
         {
@@ -222,27 +273,45 @@ export async function runProgrammaticStep(
       error: createLogMethod('error'),
     }
 
+    // Materialize a stringified handleSteps generator into a callable
+    // function. We deliberately use `new Function` instead of direct `eval`:
+    //   - `new Function` evaluates in the global scope, so the materialized
+    //     generator cannot capture (or mutate) this function's local closure,
+    //     which includes `agentState`, `params`, `toolCallParams`, `template`,
+    //     and the module-level `agentRunContextRegistry` registry.
+    //   - Direct `eval` runs in the enclosing lexical scope and could read or
+    //     rewrite those bindings, which is an RCE vector if a template string
+    //     is ever loaded from an untrusted source (DB, upload, remote agent
+    //     store).
+    // This mirrors the serialization convention used by the agent test suite
+    // (agents/__tests__/context-pruner.test.ts, base2.test.ts), so the same
+    // stringification contract exercised by tests is what runs in prod.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const generatorFn =
       typeof template.handleSteps === 'string'
-        ? eval(`(${template.handleSteps})`)
+        ? new Function(`return (${template.handleSteps})`)()
         : template.handleSteps
 
     // Initialize native generator
-    generator = generatorFn({
+    const initializedGenerator = generatorFn({
       agentState,
       prompt,
       params: toolCallParams,
       logger: streamingLogger,
     })
-    runIdToGenerator[agentState.runId] = generator
-    runIdToOwnerAgentId.set(agentState.runId, agentState.agentId)
+    generator = initializedGenerator
+    agentRunContextRegistry.setGenerator(
+      agentState.runId,
+      initializedGenerator,
+      agentState.agentId,
+    )
   }
 
   // Check if we're in STEP_ALL mode
-  if (runIdToStepAll.has(agentState.runId)) {
+  if (agentRunContextRegistry.hasStepAll(agentState.runId)) {
     if (stepsComplete) {
       // Clear the STEP_ALL mode. Stepping can continue if handleSteps doesn't return.
-      runIdToStepAll.delete(agentState.runId)
+      agentRunContextRegistry.deleteStepAll(agentState.runId)
     } else {
       return { agentState, endTurn: false, stepNumber }
     }
@@ -338,7 +407,7 @@ export async function runProgrammaticStep(
         break
       }
       if (result.value === 'STEP_ALL') {
-        runIdToStepAll.add(agentState.runId)
+        agentRunContextRegistry.addStepAll(agentState.runId)
         flushProgrammaticToolResultContext()
         break
       }
@@ -493,8 +562,7 @@ export async function runProgrammaticStep(
     }
 
     if (endTurn) {
-      delete runIdToGenerator[agentState.runId]
-      runIdToStepAll.delete(agentState.runId)
+      agentRunContextRegistry.clearRun(agentState.runId)
       clearProposedContentForRun(agentState.runId)
       // NOTE: Do NOT clear the proposal ledger here. This inner finally runs on
       // the endTurn step *during* loopAgentSteps' loop, i.e. before that outer

@@ -335,7 +335,7 @@ export function transformJsonInString<T = unknown>(
 
 /**
  * Generates a compact unique identifier by combining timestamp bits with random bits.
- * Uses 40 bits of timestamp (enough for ~34 years) and 24 random bits for exactly 64 total bits.
+ * Uses 32 bits of timestamp (enough for ~136 years) and 32 random bits for exactly 64 total bits.
  * Encodes in base64url for compact, URL-safe strings (~11 chars).
  * @param prefix Optional prefix to add to the ID
  * @returns A unique string ID

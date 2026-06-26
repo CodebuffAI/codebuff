@@ -654,7 +654,7 @@ export interface RunTerminalCommandParams {
  * Set the conversation history to the provided messages.
  */
 export interface SetMessagesParams {
-  messages: any
+  messages: unknown[]
 }
 
 /**

@@ -16,10 +16,13 @@
  *
  * Usage:
  *   bun run scripts/build-structural-map.ts [--out <path>] [--root <path>]
+ *                                           [--check-stale [--max-age-minutes <N>]]
  *
  * Defaults:
- *   --root  process.cwd()
- *   --out   .agents/sessions/structural-map.md  (or ./MAP.md if no .agents)
+ *   --root              process.cwd()
+ *   --out               .agents/sessions/structural-map.md  (or ./MAP.md if no .agents)
+ *   --check-stale       false (omit flag to rebuild; pass it for a read-only pre-flight)
+ *   --max-age-minutes   30 (only meaningful with --check-stale; 0 = always stale)
  *
  * The script reads the indexer's MetadataIndex (building it if stale) and
  * renders the map. It does NOT modify the index.
@@ -33,12 +36,18 @@ import type { IndexedFile, MetadataIndex } from '@codebuff/indexer'
 interface CliArgs {
   root: string
   out: string
+  checkStale: boolean
+  maxAgeMinutes: number
 }
+
+const DEFAULT_MAX_AGE_MINUTES = 30
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     root: process.cwd(),
     out: '',
+    checkStale: false,
+    maxAgeMinutes: DEFAULT_MAX_AGE_MINUTES,
   }
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i]
@@ -46,16 +55,32 @@ function parseArgs(argv: string[]): CliArgs {
       args.root = path.resolve(argv[++i])
     } else if (a === '--out' && argv[i + 1]) {
       args.out = path.resolve(argv[++i])
+    } else if (a === '--check-stale') {
+      args.checkStale = true
+    } else if (a === '--max-age-minutes' && argv[i + 1]) {
+      const n = Number(argv[++i])
+      if (!Number.isFinite(n) || n < 0) {
+        process.stderr.write(`Invalid --max-age-minutes value: ${argv[i]}\n`)
+        process.exit(2)
+      }
+      args.maxAgeMinutes = n
     } else if (a === '-h' || a === '--help') {
       process.stdout.write(
         [
           'Usage: bun run scripts/build-structural-map.ts [--out <path>] [--root <path>]',
+          '                                            [--check-stale [--max-age-minutes <N>]]',
           '',
           'Builds a Markdown structural map of the codebase for audit/overview use.',
           '',
           'Options:',
-          '  --root <path>   Project root to index (default: cwd)',
-          '  --out <path>    Output MAP.md path (default: .agents/sessions/structural-map.md or ./MAP.md)',
+          '  --root <path>            Project root to index (default: cwd)',
+          '  --out <path>             Output MAP.md path (default: .agents/sessions/structural-map.md',
+          '                            or ./MAP.md)',
+          '  --check-stale            Do NOT rebuild. Instead, parse the existing map at --out and',
+          '                           exit 0 if fresh, exit 1 if stale/missing. Non-destructive.',
+          '  --max-age-minutes <N>    Staleness threshold for --check-stale (default 30). A map older',
+          '                            than N minutes is considered stale. Use a smaller value for',
+          '                            fast-moving sessions, larger for read-only audits.',
           '',
         ].join('\n') + '\n',
       )
@@ -71,6 +96,57 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
   return args
+}
+
+/**
+ * Non-destructive staleness pre-flight. Parses the `Built at:` ISO timestamp
+ * from the existing MAP.md at `out` and compares it to the wall clock.
+ *
+ * Exit codes (when invoked with --check-stale):
+ *   0  map is fresh (you can pin it as-is)
+ *   1  map is stale or missing — caller should rebuild (re-run without --check-stale)
+ *   2  map exists but is unparseable (corrupted/missing `Built at:` line) — rebuild
+ */
+function runStalenessCheck(out: string, maxAgeMinutes: number): number {
+  if (!fs.existsSync(out)) {
+    process.stderr.write(`stale: map not found at ${out}\n`)
+    return 1
+  }
+  let content: string
+  try {
+    content = fs.readFileSync(out, 'utf8')
+  } catch (err) {
+    process.stderr.write(`stale: could not read map at ${out}: ${err}\n`)
+    return 1
+  }
+  const match = content.match(/^\- \*\*Built at:\*\* (?<iso>[^\n]+)$/m)
+  if (!match?.groups?.iso) {
+    process.stderr.write(
+      `stale: map at ${out} has no parseable \`Built at:\` line — rebuild\n`,
+    )
+    return 2
+  }
+  const builtAt = Date.parse(match.groups.iso)
+  if (!Number.isFinite(builtAt)) {
+    process.stderr.write(
+      `stale: map at ${out} has an unparseable timestamp \`${match.groups.iso}\`\n`,
+    )
+    return 2
+  }
+  const ageMinutes = (Date.now() - builtAt) / 60_000
+  // `>=` (not `>`) so that --max-age-minutes 0 means "always stale" (force
+  // rebuild), matching the flag's documented contract. A map built in the same
+  // second still has ageMinutes >= 0, so threshold 0 forces stale as intended.
+  if (ageMinutes >= maxAgeMinutes) {
+    process.stderr.write(
+      `stale: map age ${ageMinutes.toFixed(1)}m exceeds threshold ${maxAgeMinutes}m\n`,
+    )
+    return 1
+  }
+  process.stderr.write(
+    `fresh: map age ${ageMinutes.toFixed(1)}m within threshold ${maxAgeMinutes}m\n`,
+  )
+  return 0
 }
 
 function formatBytes(bytes: number): string {
@@ -299,7 +375,14 @@ function renderMap(index: MetadataIndex, root: string): string {
 }
 
 async function main(): Promise<void> {
-  const { root, out } = parseArgs(process.argv)
+  const { root, out, checkStale, maxAgeMinutes } = parseArgs(process.argv)
+
+  // Non-destructive pre-flight: never rebuild when the caller only asked for a
+  // staleness check. The audit-codebase pattern uses this to decide whether to
+  // reuse the existing MAP.md or rebuild before pinning it.
+  if (checkStale) {
+    process.exit(runStalenessCheck(out, maxAgeMinutes))
+  }
 
   const manager = IndexManager.getInstance(root, {})
   process.stderr.write('Building/loading codebase index...\n')

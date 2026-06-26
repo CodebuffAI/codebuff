@@ -14,6 +14,32 @@ import type {
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 /**
+ * Allow-list for skill directory names. Rejects path separators, `..`, and
+ * any other character that could escape the skills directory via path.join.
+ * Skill names are frontmatter `name` values / directory names, which are
+ * short identifiers — no legitimate name needs characters outside this set.
+ */
+const SAFE_SKILL_NAME_RE = /^[A-Za-z0-9_.-]+$/
+
+/**
+ * Returns true if `skillName` is a safe single path component (no traversal).
+ * Guards path.join(skillsDir, skillName) against `..` and absolute/separated input.
+ */
+function isSafeSkillName(skillName: string): boolean {
+  return (
+    typeof skillName === 'string' &&
+    skillName.length > 0 &&
+    skillName.length <= 64 &&
+    skillName !== '.' &&
+    skillName !== '..' &&
+    !skillName.includes('/') &&
+    !skillName.includes('\\') &&
+    !path.isAbsolute(skillName) &&
+    SAFE_SKILL_NAME_RE.test(skillName)
+  )
+}
+
+/**
  * Dynamically load a single skill from disk.
  * Used when a skill is not found in the pre-loaded cache but may have been created during the session.
  */
@@ -21,6 +47,10 @@ async function loadSkillFromDisk(
   projectRoot: string,
   skillName: string,
 ): Promise<SkillDefinition | null> {
+  // Reject unsafe skill names before path.join to prevent directory traversal.
+  if (!isSafeSkillName(skillName)) {
+    return null
+  }
   const home = os.homedir()
   const skillsDirs = [
     // Global directories first
@@ -71,8 +101,15 @@ async function loadSkillFromDisk(
         filePath: skillFilePath,
         metadata: frontmatter.metadata,
       }
-    } catch {
-      // Skill doesn't exist in this directory, try the next one
+    } catch (err) {
+      // Skill doesn't exist / isn't readable in this directory, try the next
+      // one. Surface the reason so a permissions or parse error doesn't look
+      // identical to a missing directory.
+      console.debug(
+        `[skill] loadSkillFromDisk skipped ${skillName} in ${skillsDir}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
       continue
     }
   }

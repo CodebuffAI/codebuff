@@ -8,7 +8,7 @@ import { createInterface } from 'readline'
 import { z } from 'zod/v4'
 
 // Validation schemas
-const WorktreeArgsSchema = z.object({
+export const WorktreeArgsSchema = z.object({
   name: z
     .string()
     .min(1, 'Worktree name cannot be empty')
@@ -21,7 +21,7 @@ const WorktreeArgsSchema = z.object({
 
 type WorktreeArgs = z.infer<typeof WorktreeArgsSchema>
 
-interface WorktreePorts {
+export interface WorktreePorts {
   backendPort?: number
 }
 
@@ -35,7 +35,7 @@ class WorktreeError extends Error {
   }
 }
 
-const WORKTREES_DIR = '../codebuff-worktrees'
+export const WORKTREES_DIR = '../codebuff-worktrees'
 
 // Utility functions
 function parseArgs(): WorktreeArgs | null {
@@ -49,7 +49,7 @@ function parseArgs(): WorktreeArgs | null {
   return { name }
 }
 
-function validateArgs(args: WorktreeArgs): string[] {
+export function validateArgs(args: WorktreeArgs): string[] {
   const result = WorktreeArgsSchema.safeParse(args)
 
   if (!result.success) {
@@ -111,7 +111,7 @@ async function promptUser(question: string): Promise<boolean> {
   })
 }
 
-function getWorktreePorts(worktreePath: string): WorktreePorts {
+export function getWorktreePorts(worktreePath: string): WorktreePorts {
   const ports: WorktreePorts = {}
   const envFiles = [
     '.env.development.local',

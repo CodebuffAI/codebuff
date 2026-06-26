@@ -10,6 +10,7 @@ import type { AgentMode } from './constants'
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
   adsEnabled: true,
+  autoCopySelection: true,
 }
 
 // Note: The old FREE/LITE/MAX modes have been removed; migrate them to DEFAULT on load.
@@ -20,6 +21,12 @@ const DEFAULT_SETTINGS: Settings = {
 export interface Settings {
   mode?: AgentMode
   adsEnabled?: boolean
+  /**
+   * Whether selected text in the CLI is automatically copied to the system
+   * clipboard via OSC 52 after a short debounce. Defaults to true. Set to false
+   * to require an explicit copy command (privacy opt-out).
+   */
+  autoCopySelection?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
@@ -94,6 +101,11 @@ const validateSettings = (parsed: unknown): Settings => {
   // Validate adsEnabled
   if (typeof obj.adsEnabled === 'boolean') {
     settings.adsEnabled = obj.adsEnabled
+  }
+
+  // Validate autoCopySelection
+  if (typeof obj.autoCopySelection === 'boolean') {
+    settings.autoCopySelection = obj.autoCopySelection
   }
 
   // Validate alwaysUseALaCarte (legacy)

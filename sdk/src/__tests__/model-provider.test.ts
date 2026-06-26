@@ -18,6 +18,7 @@ import {
   OPENBUFF_PROVIDER_PRESETS,
   createProviderPresetConfig,
   formatModelCapabilitiesSummary,
+  getAncestorProviderConfigPaths,
   loadProviderConfigSync,
   providerConfigFileSchema,
   resolveConfiguredAgentModel,
@@ -1949,5 +1950,59 @@ describe('model-provider', () => {
       expect(result.models).toHaveLength(1)
       expect(result.models[0].id).toBe('test-model')
     })
+  })
+})
+
+describe('getAncestorProviderConfigPaths — bounded ancestor walk (C1.3)', () => {
+  const originalHome = process.env.HOME
+
+  afterEach(() => {
+    if (originalHome === undefined) {
+      delete process.env.HOME
+    } else {
+      process.env.HOME = originalHome
+    }
+    delete process.env.OPENBUFF_TRUST_ANCESTOR_CONFIG
+  })
+
+  test('stops at the home directory boundary by default', () => {
+    // Simulate a run from a project under home. The walk must not produce any
+    // config paths at or above the home directory's parent.
+    const home = os.homedir()
+    const start = path.join(home, 'Code', 'project', 'subdir')
+    const paths = getAncestorProviderConfigPaths(start)
+    expect(paths.length).toBeGreaterThan(0)
+    for (const p of paths) {
+      const dir = path.dirname(p)
+      // Every config dir must be at or below home.
+      expect(dir === home || dir.startsWith(home + path.sep)).toBe(true)
+    }
+  })
+
+  test('caps at MAX_ANCESTOR_SCAN_DEPTH when home is far above start', () => {
+    // Set HOME to a high temp dir so the home boundary is never reached; the
+    // depth ceiling is the only bound. 10 levels * 2 files per dir = 20 max.
+    process.env.HOME = path.join(os.tmpdir(), 'far-away-home-that-wont-be-hit')
+    const deep = path.join(
+      os.tmpdir(),
+      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+    )
+    const paths = getAncestorProviderConfigPaths(deep)
+    // 10 dirs * 2 files = 20. The walk must stop at the ceiling, not reach /.
+    expect(paths.length).toBeLessThanOrEqual(20)
+    expect(paths.length).toBeGreaterThan(0)
+  })
+
+  test('walks past the home boundary when OPENBUFF_TRUST_ANCESTOR_CONFIG=1', () => {
+    process.env.OPENBUFF_TRUST_ANCESTOR_CONFIG = '1'
+    // Even with trust set, the filesystem root terminates the walk. Start
+    // shallow enough to reach root within a few levels but confirm we go past
+    // where the home boundary would normally stop us.
+    const home = os.homedir()
+    const start = path.join(home, 'subdir')
+    const paths = getAncestorProviderConfigPaths(start)
+    // The last config dir's parent should be the filesystem root (dirname === itself).
+    const lastDir = path.dirname(paths[paths.length - 1])
+    expect(path.dirname(lastDir)).toBe(lastDir)
   })
 })

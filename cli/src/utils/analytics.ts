@@ -120,8 +120,13 @@ export function resetAnalyticsState(deps?: AnalyticsDeps) {
   identified = false
 }
 
-export let identified: boolean = false
+let identified: boolean = false
 let analyticsErrorLogger: AnalyticsErrorLogger | undefined
+
+/** Whether a real user ID has been identified (vs anonymous). Read-only accessor. */
+export function isUserIdentified(): boolean {
+  return identified
+}
 
 export function setAnalyticsErrorLogger(loggerFn: AnalyticsErrorLogger) {
   analyticsErrorLogger = loggerFn

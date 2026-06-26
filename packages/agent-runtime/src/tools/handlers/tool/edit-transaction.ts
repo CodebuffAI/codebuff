@@ -56,6 +56,33 @@ export const handleEditTransaction = (async (
     path: normalizeToolPath(edit.path),
   }))
 
+  // Reject path-traversal payloads up front: normalizeToolPath returns '' for
+  // any edit target containing a `..` segment (mirrors gate-paths defense).
+  // Block the whole transaction rather than letting downstream logic operate
+  // on an empty path. Report the original (pre-normalization) input path so the
+  // agent can see exactly which edit was rejected.
+  const traversalBlockedIndex = edits.findIndex((edit) => !edit.path)
+  if (traversalBlockedIndex !== -1) {
+    const originalPath = toolCall.input.edits[traversalBlockedIndex].path
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            errorMessage: `edit_transaction path traversal blocked: "${originalPath}" resolves outside the project root.`,
+            failures: [
+              {
+                editIndex: traversalBlockedIndex,
+                path: originalPath,
+                errorMessage: `Path "${originalPath}" resolves outside the project root.`,
+              },
+            ],
+          },
+        },
+      ],
+    }
+  }
+
   await previousToolCallFinished
 
   if (fileProcessingState.strictReadBeforeEdit) {
@@ -150,9 +177,14 @@ export const handleEditTransaction = (async (
   }
 
   // --- VIRTUAL COMPILE TRANSACTIONS: Preflight Syntax Validation ---
+  // Bun.Transpiler is only available in the Bun runtime. In Node.js it is
+  // undefined, so `new Bun.Transpiler(...)` would throw a ReferenceError and
+  // reject every JS/TS edit transaction. Guard so the preflight is skipped in
+  // Node (the client-side apply still catches real syntax errors).
+  const bunTranspilerAvailable = typeof Bun !== 'undefined' && Bun?.Transpiler
   for (const file of transactionResult.files) {
     const loader = getBunTranspilerLoader(file.path)
-    if (loader) {
+    if (loader && bunTranspilerAvailable) {
       try {
         const transpiler = new Bun.Transpiler({ loader })
         transpiler.transformSync(file.content)

@@ -49,32 +49,57 @@ import type { LanguageModel } from 'ai'
 // ChatGPT OAuth Rate Limit Cache
 // ============================================================================
 
-/** Timestamp (ms) when ChatGPT OAuth rate limit expires, or null if not rate-limited */
-let chatGptOAuthRateLimitedUntil: number | null = null
+/**
+ * ChatGPT OAuth rate-limit cache.
+ *
+ * Encapsulated in a closure factory so the timestamp is only mutable through
+ * the three exported accessors, not via a module-level `let`. This removes the
+ * concurrent-run race where a stray import could read or overwrite the raw
+ * `let` binding.
+ */
+function createChatGptOAuthRateLimitCache(): {
+  mark: (resetAt?: Date) => void
+  isLimited: () => boolean
+  reset: () => void
+} {
+  /** Timestamp (ms) when rate limit expires, or null if not rate-limited */
+  let rateLimitedUntil: number | null = null
+  return {
+    mark(resetAt?: Date): void {
+      const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
+      rateLimitedUntil = resetAt ? resetAt.getTime() : fiveMinutesFromNow
+    },
+    isLimited(): boolean {
+      if (rateLimitedUntil === null) {
+        return false
+      }
+      if (Date.now() >= rateLimitedUntil) {
+        rateLimitedUntil = null
+        return false
+      }
+      return true
+    },
+    reset(): void {
+      rateLimitedUntil = null
+    },
+  }
+}
+
+const chatGptOAuthRateLimit = createChatGptOAuthRateLimitCache()
 
 /**
  * Mark ChatGPT OAuth as rate-limited. Subsequent requests will skip direct ChatGPT OAuth
  * until the reset time.
  */
 export function markChatGptOAuthRateLimited(resetAt?: Date): void {
-  const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
-  chatGptOAuthRateLimitedUntil = resetAt
-    ? resetAt.getTime()
-    : fiveMinutesFromNow
+  chatGptOAuthRateLimit.mark(resetAt)
 }
 
 /**
  * Check if ChatGPT OAuth is currently rate-limited.
  */
 export function isChatGptOAuthRateLimited(): boolean {
-  if (chatGptOAuthRateLimitedUntil === null) {
-    return false
-  }
-  if (Date.now() >= chatGptOAuthRateLimitedUntil) {
-    chatGptOAuthRateLimitedUntil = null
-    return false
-  }
-  return true
+  return chatGptOAuthRateLimit.isLimited()
 }
 
 /**
@@ -82,7 +107,7 @@ export function isChatGptOAuthRateLimited(): boolean {
  * Call this when user reconnects their ChatGPT subscription.
  */
 export function resetChatGptOAuthRateLimit(): void {
-  chatGptOAuthRateLimitedUntil = null
+  chatGptOAuthRateLimit.reset()
 }
 
 /**

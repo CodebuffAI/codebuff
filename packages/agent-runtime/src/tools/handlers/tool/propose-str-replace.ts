@@ -1,3 +1,4 @@
+import { normalizeToolPath } from './write-file'
 import {
   appendProposalArtifact,
   getOrCaptureOriginalBaseContent,
@@ -42,7 +43,21 @@ export const handleProposeStrReplace = (async (
 
     requestOptionalFile,
   } = params
-  const { path, replacements } = toolCall.input
+  const { replacements } = toolCall.input
+  const path = normalizeToolPath(toolCall.input.path)
+  if (!path) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: toolCall.input.path,
+            errorMessage: `propose_str_replace path traversal blocked: "${toolCall.input.path}" resolves outside the project root.`,
+          },
+        },
+      ],
+    }
+  }
 
   const diskContentPromise = getOrCaptureOriginalBaseContent(runId, path, () =>
     requestOptionalFile({ ...params, filePath: path }),

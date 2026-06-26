@@ -7,6 +7,7 @@ import {
 } from '@codebuff/common/project-file-tree'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 
+import { LRUCache } from '@codebuff/common/util/lru-cache'
 
 import { getProjectRoot } from '../project-files'
 import { range } from '../utils/arrays'
@@ -592,15 +593,19 @@ export const useSuggestionEngine = ({
   disableAgentSuggestions = false,
   currentAgentMode,
 }: SuggestionEngineOptions): SuggestionEngineResult => {
+  // Bound the suggestion caches to prevent unbounded growth across a long
+  // session. 64 entries is ample for slash/agent/file autocomplete queries while
+  // guaranteeing O(1) eviction.
+  const SUGGESTION_CACHE_MAX_SIZE = 64
   const deferredInput = useDeferredValue(inputValue)
-  const slashCacheRef = useRef<Map<string, MatchedSlashCommand[]>>(
-    new Map<string, SlashCommand[]>(),
+  const slashCacheRef = useRef<LRUCache<string, MatchedSlashCommand[]>>(
+    new LRUCache<string, MatchedSlashCommand[]>(SUGGESTION_CACHE_MAX_SIZE),
   )
-  const agentCacheRef = useRef<Map<string, MatchedAgentInfo[]>>(
-    new Map<string, MatchedAgentInfo[]>(),
+  const agentCacheRef = useRef<LRUCache<string, MatchedAgentInfo[]>>(
+    new LRUCache<string, MatchedAgentInfo[]>(SUGGESTION_CACHE_MAX_SIZE),
   )
-  const fileCacheRef = useRef<Map<string, MatchedFileInfo[]>>(
-    new Map<string, MatchedFileInfo[]>(),
+  const fileCacheRef = useRef<LRUCache<string, MatchedFileInfo[]>>(
+    new LRUCache<string, MatchedFileInfo[]>(SUGGESTION_CACHE_MAX_SIZE),
   )
   const fileRefreshIdRef = useRef(0)
   const [filePaths, setFilePaths] = useState<PathInfo[]>(() =>

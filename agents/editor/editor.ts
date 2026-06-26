@@ -273,6 +273,11 @@ Write out your complete implementation now, formatting all changes as tool calls
           return false
         }
         if (typeof record.message !== 'string') return false
+        // Prefer explicit success/error fields. Only trust the success-verb
+        // regex when the message does not itself contain a failure indicator.
+        if (/\b(failed|failure|unable|could not|cannot|did not|was not|were not|skipped|no[- ]op|no changes|error)\b/i.test(record.message)) {
+          return false
+        }
         return /\b(success|successful|applied|wrote|written|edited|replaced)\b/i.test(
           record.message,
         )

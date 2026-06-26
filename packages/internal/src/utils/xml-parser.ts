@@ -1,6 +1,10 @@
 // Re-exported from @codebuff/common to keep it browser-safe and avoid duplication.
 export { parseToolCallXml } from '@codebuff/common/util/xml-parser'
 
+// Imported for local use within this module; re-exported at the bottom of the
+// file for external callers that need the canonical generateCompactId.
+import { generateCompactId } from '@codebuff/common/util/string'
+
 /**
  * Tool result part interface
  */
@@ -74,9 +78,6 @@ export function isToolResult(messageContent: string): boolean {
   return messageContent.includes('<tool_result')
 }
 
-/**
- * Generate a compact ID (simplified version)
- */
-function generateCompactId(): string {
-  return Math.random().toString(36).substring(2, 9)
-}
+// Re-exported from @codebuff/common/util/string for callers that need the
+// canonical generateCompactId (timestamp + random, base64url, ~11 chars).
+export { generateCompactId } from '@codebuff/common/util/string'

@@ -9,7 +9,6 @@ import {
   TRI_STATE_CHECKBOX_LINE_RE,
   readCurrentTaskAnnotation,
   setCurrentTaskAnnotationLines,
-  setProjectRootResolver,
   validatePlanStatusPath as sharedValidatePlanStatusPath,
   writePlanState,
   type PlanSessionStatus,
@@ -240,11 +239,9 @@ export const handleUpdatePlanStatus = (async (params: {
     const patch: { status?: PlanSessionStatus; currentTask?: string | null } = {}
     if (sessionStatus !== undefined) patch.status = sessionStatus
     if (currentTaskApplied !== undefined) patch.currentTask = currentTaskApplied
-    // Ensure the shared plan-artifact module can locate the project root when
-    // persisting STATE.json. The handler is the entrypoint for runtime writes,
-    // so it owns the resolver setup.
-    setProjectRootResolver(() => projectRoot)
-    const written = writePlanState(slug, patch)
+    // Pass the project root explicitly to avoid mutating the module-level
+    // resolver (concurrent-run race). The handler already holds `projectRoot`.
+    const written = writePlanState(slug, patch, projectRoot)
     if (written) {
       sessionStateApplied = patch
     } else {
@@ -281,39 +278,54 @@ export const handleUpdatePlanStatus = (async (params: {
   // the log only records mutations that actually landed on disk.
   const eventSessionDir = path.dirname(writePath)
   const eventSlug = path.basename(eventSessionDir)
-  setProjectRootResolver(() => projectRoot)
   if (matchedTasks.length > 0) {
-    appendPlanEvent(eventSlug, {
-      kind: 'task_update',
-      summary: `Updated ${matchedTasks.length} task line(s): ${matchedTasks.join(', ')}`,
-      payload: {
-        matched: matchedTasks,
-        unmatched: unmatchedTasks.length > 0 ? unmatchedTasks : undefined,
+    appendPlanEvent(
+      eventSlug,
+      {
+        kind: 'task_update',
+        summary: `Updated ${matchedTasks.length} task line(s): ${matchedTasks.join(', ')}`,
+        payload: {
+          matched: matchedTasks,
+          unmatched: unmatchedTasks.length > 0 ? unmatchedTasks : undefined,
+        },
       },
-    })
+      projectRoot,
+    )
   }
   if (appendedHeading) {
-    appendPlanEvent(eventSlug, {
-      kind: 'append_lesson',
-      summary: `Appended entry "${appendedHeading}" to ${path.basename(writePath)}`,
-      payload: { heading: appendedHeading, artifact: path.basename(writePath) },
-    })
+    appendPlanEvent(
+      eventSlug,
+      {
+        kind: 'append_lesson',
+        summary: `Appended entry "${appendedHeading}" to ${path.basename(writePath)}`,
+        payload: { heading: appendedHeading, artifact: path.basename(writePath) },
+      },
+      projectRoot,
+    )
   }
   if (sessionStateApplied?.status) {
-    appendPlanEvent(eventSlug, {
-      kind: 'session_status',
-      summary: `Session status -> ${sessionStateApplied.status}`,
-      payload: { status: sessionStateApplied.status },
-    })
+    appendPlanEvent(
+      eventSlug,
+      {
+        kind: 'session_status',
+        summary: `Session status -> ${sessionStateApplied.status}`,
+        payload: { status: sessionStateApplied.status },
+      },
+      projectRoot,
+    )
   }
   if (currentTaskApplied !== undefined) {
-    appendPlanEvent(eventSlug, {
-      kind: 'current_task',
-      summary: currentTaskApplied
-        ? `Current task -> "${currentTaskApplied}"`
-        : 'Current task pointer cleared',
-      payload: { currentTask: currentTaskApplied },
-    })
+    appendPlanEvent(
+      eventSlug,
+      {
+        kind: 'current_task',
+        summary: currentTaskApplied
+          ? `Current task -> "${currentTaskApplied}"`
+          : 'Current task pointer cleared',
+        payload: { currentTask: currentTaskApplied },
+      },
+      projectRoot,
+    )
   }
 
   const messageParts: string[] = []

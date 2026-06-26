@@ -8,6 +8,7 @@ import {
   subscribeClipboardMessages,
   unregisterClipboardRenderer,
 } from '../utils/clipboard'
+import { loadSettings } from '../utils/settings'
 
 function formatDefaultClipboardMessage(text: string): string | null {
   const preview = text.replace(/\s+/g, ' ').trim()
@@ -27,6 +28,14 @@ export const useClipboard = () => {
   )
   const pendingSelectionRef = useRef<string | null>(null)
   const lastCopiedRef = useRef<string | null>(null)
+  // Read the privacy setting once on mount rather than on every selection
+  // event (which fires frequently during text dragging). loadSettings() does
+  // synchronous fs I/O + JSON.parse, so we cache the value in a ref.
+  const autoCopyEnabledRef = useRef(true)
+
+  useEffect(() => {
+    autoCopyEnabledRef.current = loadSettings().autoCopySelection ?? true
+  }, [])
 
   useEffect(() => {
     return subscribeClipboardMessages(setStatusMessage)
@@ -54,7 +63,8 @@ export const useClipboard = () => {
           : null
 
       // Filter out cursor character from selected text
-      const cleanedText = rawText?.replace(new RegExp(CURSOR_CHAR, 'g'), '') ?? null
+      const cleanedText =
+        rawText?.replaceAll(CURSOR_CHAR, '') ?? null
 
       if (!cleanedText || cleanedText.trim().length === 0) {
         pendingSelectionRef.current = null
@@ -74,6 +84,13 @@ export const useClipboard = () => {
       setHasSelection(true)
 
       pendingSelectionRef.current = cleanedText
+
+      // Privacy opt-out: if `autoCopySelection` is disabled in settings, track
+      // the selection for visual feedback but do NOT auto-copy to the system
+      // clipboard. The user must invoke an explicit copy command instead.
+      if (!autoCopyEnabledRef.current) {
+        return
+      }
 
       if (pendingCopyTimeoutRef.current) {
         clearTimeout(pendingCopyTimeoutRef.current)

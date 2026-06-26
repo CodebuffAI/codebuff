@@ -1,8 +1,7 @@
-import { createHash } from 'crypto'
-
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 
+import { getContentHash, normalizeLineEndings } from '@codebuff/common/util/content-hash'
 import { resolveFilePathWithinProject } from './path-utils'
 
 import type { FileLineRange } from '@codebuff/common/types/contracts/client'
@@ -16,13 +15,8 @@ export type FileFilter = (filePath: string) => FileFilterResult
 
 export type { FileLineRange }
 
-function normalizeLineEndings(content: string): string {
-  return content.replace(/\r\n/g, '\n')
-}
-
-function getContentHash(content: string): string {
-  return `sha256:${createHash('sha256').update(normalizeLineEndings(content)).digest('hex')}`
-}
+// normalizeLineEndings + getContentHash are now imported from
+// @codebuff/common/util/content-hash (canonical shared implementation).
 
 // Mints a single opaque capability token that self-encodes the range and its
 // hash. str_replace decodes and re-validates this statelessly, so the model

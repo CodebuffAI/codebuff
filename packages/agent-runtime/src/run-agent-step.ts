@@ -309,10 +309,14 @@ export const runAgentStep = async (
 
   let stepCreditsUsed = 0
 
+  // Accumulate step cost into a local. We deliberately do NOT mutate
+  // `agentState.creditsUsed`/`directCreditsUsed` here: `agentState` is a `let`
+  // that is reassigned by spread below (line ~595), and an in-place mutation
+  // via this closure would hit the stale pre-spread object for any late
+  // async cost callback. The accumulated `stepCreditsUsed` is applied once in
+  // the final spread reassignment so callers always see the full total.
   const onCostCalculated = async (providerCostCents: number) => {
     stepCreditsUsed += providerCostCents
-    agentState.creditsUsed += providerCostCents
-    agentState.directCreditsUsed += providerCostCents
   }
 
   const iterationNum = agentState.messageHistory.length
@@ -419,7 +423,13 @@ export const runAgentStep = async (
 
     if (result.aborted) {
       return {
-        agentState,
+        agentState: {
+          ...agentState,
+          // Apply any cost accrued before the abort (C2.3: avoid stale-closure
+          // mutation; apply on the returned post-spread object).
+          creditsUsed: agentState.creditsUsed + stepCreditsUsed,
+          directCreditsUsed: agentState.directCreditsUsed + stepCreditsUsed,
+        },
         fullResponse: '',
         shouldEndTurn: true,
         messageId: null,
@@ -450,7 +460,13 @@ export const runAgentStep = async (
     }
 
     return {
-      agentState,
+      agentState: {
+        ...agentState,
+        // Apply the step's accumulated cost on the returned post-spread
+        // object, not via in-place closure mutation (C2.3).
+        creditsUsed: agentState.creditsUsed + stepCreditsUsed,
+        directCreditsUsed: agentState.directCreditsUsed + stepCreditsUsed,
+      },
       fullResponse: responsesString,
       shouldEndTurn: false,
       messageId: null,
@@ -594,6 +610,11 @@ export const runAgentStep = async (
     ...agentState,
     stepsRemaining: agentState.stepsRemaining - 1,
     agentContext,
+    // Apply the step's accumulated cost once, here, on the post-spread object.
+    // This avoids the stale-closure mutation bug where late async cost callbacks
+    // would mutate the pre-spread object (C2.3).
+    creditsUsed: agentState.creditsUsed + stepCreditsUsed,
+    directCreditsUsed: agentState.directCreditsUsed + stepCreditsUsed,
   }
 
   logger.debug(

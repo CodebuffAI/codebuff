@@ -6,6 +6,10 @@ import {
 } from '../../../structural-read'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 
 type ToolName = 'read_outline'
@@ -13,10 +17,10 @@ type ToolName = 'read_outline'
 export const handleReadOutline = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: any
+    toolCall: CodebuffToolCall<ToolName>
     requestOptionalFile: RequestOptionalFileFn
   },
-): Promise<{ output: any }> => {
+): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, requestOptionalFile } = params
   const { path } = toolCall.input
 
@@ -62,7 +66,7 @@ export const handleReadOutline = (async (
       outline: regexOutline(rawContent),
     }),
   }
-}) satisfies CodebuffToolHandlerFunction<any>
+}) satisfies CodebuffToolHandlerFunction<ToolName>
 
 function isMarkdownPath(path: string): boolean {
   return /\.(md|mdx|markdown)$/i.test(path)

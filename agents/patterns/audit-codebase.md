@@ -2,8 +2,8 @@
 
 ## When to use
 The user asks to "audit", "review", or "find issues across" an entire codebase
-(or a large subtree too big to hold in one context). This pattern sharding +
-durable scratchpad so findings survive context pruning and shards stay
+(or a large subtree too big to hold in one context). This pattern uses sharding +
+a durable scratchpad so findings survive context pruning and shards stay
 independent. Do NOT use this for a single-file review or a narrow bug hunt —
 use `code-reviewer` directly for those.
 
@@ -64,7 +64,17 @@ bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md
 ```
 Then `read_files` the resulting `MAP.md` and **pin it in your context** — every
 shard navigates from it. Do NOT re-discover structure per shard; that's the
-bottleneck this kills. If the map already exists for this session, reuse it.
+bottleneck this kills.
+
+**Don't blindly rebuild if the map already exists.** The script has a
+non-destructive pre-flight that parses the existing map's `Built at:` timestamp
+and exits 0 (fresh) or 1 (stale/missing) without touching it:
+```bash
+bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md --check-stale
+```
+Use this before pinning. Exit 0 → reuse as-is. Exit 1 → rebuild (re-run
+without `--check-stale`). See the **Structural map lifecycle** section below
+for the full decision tree.
 
 ### Step 2 — Shard by top-level directory
 From `MAP.md`, partition the codebase into N shards (one per top-level dir, or
@@ -117,6 +127,37 @@ source. This is what keeps the parent context from being the bottleneck.
 ### Step 5 — Report to the user
 `read_files` the final `AUDIT-REPORT.md` and present the Top 10 + a pointer to
 the full report. Offer to fix specific findings as a follow-up.
+
+## Structural map lifecycle (auto-rebuild)
+
+The map is a timestamped snapshot, not a live view. The script embeds a
+`Built at: <ISO>` line at the top so staleness is machine-readable. The
+`--check-stale` pre-flight parses that line so you don't have to.
+
+**Before pinning the map, run this exact sequence once at session start and
+again at the top of any later work block:**
+```bash
+bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md --check-stale
+```
+Then:
+- **Exit 0 (fresh)** → `read_files` the map and pin it. Skip the rebuild.
+- **Exit 1 (stale/missing)** → rebuild, then `read_files`:
+  ```bash
+  bun run scripts/build-structural-map.ts --out .agents/sessions/<slug>/MAP.md
+  ```
+- **Exit 2 (unparseable)** → the map is corrupted/edited by hand. Rebuild.
+
+**Default staleness threshold is 30 minutes.** Tune it per session:
+- Read-only audit of a static tree → `--max-age-minutes 120` (a stale map is
+  fine; avoid blocking the indexer).
+- Active-editing session where you're fixing findings as you find them →
+  `--max-age-minutes 10` (re-orient against the real layout before each
+  synthesis wave).
+- Long session (>2h) → re-run the pre-flight at the top of each new work
+  block, not just once at start. A 2h-old map can mislead.
+
+**Do not** rebuild on every shard — that defeats the point (one render, many
+  reads). Only the parent orchestrator rebuilds; shards read the pinned map.
 
 ## Conventions
 - The session slug goes under `.agents/sessions/<slug>/`. Use a date-stamped

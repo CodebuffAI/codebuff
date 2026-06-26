@@ -226,14 +226,32 @@ export function runTerminalCommand({
       }, timeout_seconds * 1000)
     }
 
-    // Collect stdout
+    // Collect stdout. Cap accumulation during streaming so a chatty process
+    // can't OOM the agent runtime; final truncation at close still applies.
+    // Once we exceed the cap we keep the head and tail with a truncation marker.
+    const STREAM_ACCUMULATION_CAP = COMMAND_OUTPUT_LIMIT * 2
+    const STREAM_TAIL_KEEP = Math.floor(COMMAND_OUTPUT_LIMIT / 4)
+    const appendCapped = (current: string, chunk: string): string => {
+      const next = current + chunk
+      if (next.length <= STREAM_ACCUMULATION_CAP) {
+        return next
+      }
+      // Keep head + tail to preserve both startup context and recent output.
+      const head = next.slice(0, STREAM_ACCUMULATION_CAP - STREAM_TAIL_KEEP)
+      const tail = next.slice(next.length - STREAM_TAIL_KEEP)
+      return (
+        head +
+        `\n…[stream truncated ${next.length - STREAM_ACCUMULATION_CAP} chars mid-stream]\n` +
+        tail
+      )
+    }
     childProcess.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString()
+      stdout = appendCapped(stdout, data.toString())
     })
 
-    // Collect stderr
+    // Collect stderr (same cap)
     childProcess.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString()
+      stderr = appendCapped(stderr, data.toString())
     })
 
     // Handle process completion

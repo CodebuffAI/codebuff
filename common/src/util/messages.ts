@@ -1,5 +1,5 @@
 import { modelMessageSchema } from 'ai'
-import { cloneDeep, has, isEqual } from 'lodash'
+import { has, isEqual } from 'lodash'
 
 import type { Logger } from '../types/contracts/logger'
 import type { JSONValue } from '../types/json'
@@ -35,7 +35,7 @@ export function toContentString(msg: ModelMessage): string {
 export function withCacheControl<
   T extends { providerOptions?: ProviderMetadata },
 >(obj: T): T {
-  const wrapper = cloneDeep(obj)
+  const wrapper = structuredClone(obj)
   if (!wrapper.providerOptions) {
     wrapper.providerOptions = {}
   }
@@ -61,7 +61,7 @@ export function withCacheControl<
 export function withoutCacheControl<
   T extends { providerOptions?: ProviderMetadata },
 >(obj: T): T {
-  const wrapper = cloneDeep(obj)
+  const wrapper = structuredClone(obj)
 
   for (const provider of [
     'anthropic',
@@ -106,7 +106,7 @@ function assistantToCodebuffMessage(
   },
 ): AssistantMessage {
   // if (message.content.type === 'tool-call') {
-  //   return cloneDeep({
+  //   return structuredClone({
   //     ...message,
   //     content: [
   //       {
@@ -120,7 +120,7 @@ function assistantToCodebuffMessage(
   //     ],
   //   })
   // }
-  return cloneDeep({ ...message, content: [message.content] })
+  return structuredClone({ ...message, content: [message.content] })
 }
 
 function convertToolResultMessage(
@@ -128,7 +128,7 @@ function convertToolResultMessage(
 ): ModelMessageWithAuxiliaryData[] {
   if (message.content.length === 0) {
     return [
-      cloneDeep<ToolModelMessage>({
+      structuredClone<ToolModelMessage>({
         ...message,
         role: 'tool',
         content: [
@@ -143,14 +143,14 @@ function convertToolResultMessage(
   }
   return message.content.map((c) => {
     if (c.type === 'json') {
-      return cloneDeep<ToolModelMessage>({
+      return structuredClone<ToolModelMessage>({
         ...message,
         role: 'tool',
         content: [{ ...message, output: c, type: 'tool-result' }],
       })
     }
     if (c.type === 'media') {
-      return cloneDeep<UserMessage>({
+      return structuredClone<UserMessage>({
         ...message,
         role: 'user',
         content: [{ type: 'file', data: c.data, mediaType: c.mediaType }],
@@ -173,12 +173,12 @@ function convertToolMessage(message: Message): ModelMessageWithAuxiliaryData[] {
     ]
   }
   if (message.role === 'user') {
-    return [cloneDeep(message)]
+    return [structuredClone(message)]
   }
   if (message.role === 'assistant') {
     if (typeof message.content === 'string') {
       return [
-        cloneDeep({
+        structuredClone({
           ...message,
           content: [{ type: 'text' as const, text: message.content }],
         }),

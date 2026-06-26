@@ -8,7 +8,7 @@ import { createInterface } from 'readline'
 import { z } from 'zod/v4'
 
 // Validation schemas
-const WorktreeArgsSchema = z.object({
+export const WorktreeArgsSchema = z.object({
   name: z
     .string()
     .min(1, 'Worktree name cannot be empty')
@@ -67,7 +67,7 @@ function parseArgs(): WorktreeArgs {
   return { name, backendPort }
 }
 
-function validateArgs(args: WorktreeArgs): ValidationError[] {
+export function validateArgs(args: WorktreeArgs): ValidationError[] {
   const result = WorktreeArgsSchema.safeParse(args)
 
   if (!result.success) {
@@ -77,9 +77,7 @@ function validateArgs(args: WorktreeArgs): ValidationError[] {
     }))
   }
 
-  const errors: ValidationError[] = []
-
-  return errors
+  return []
 }
 
 async function checkPortInUse(port: number): Promise<boolean> {

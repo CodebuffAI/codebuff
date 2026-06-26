@@ -35,13 +35,16 @@ describe('error-handling', () => {
       expect(result.content).toContain('Unknown error occurred')
     })
 
-    test('includes stack trace when available', () => {
+    test('does not leak stack trace to user-facing message (C1.7)', () => {
       const error = new Error('Error with stack')
       const result = createErrorMessage(error, 'msg-stack')
 
       expect(result.content).toContain('Error with stack')
-      // Stack trace should be included
-      expect(result.content).toContain('at')
+      // Stack trace must NOT be included in the user-facing message — it is
+      // logged internally only. Assert the message is exactly the sanitized form.
+      expect(result.content).not.toContain('at ')
+      expect(result.content).not.toContain(error.stack ?? 'STACK_SENTINEL')
+      expect(result.content).toBe('**Error:** Error with stack')
     })
 
     test('handles error without message property', () => {

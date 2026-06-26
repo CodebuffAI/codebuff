@@ -12,6 +12,13 @@
 export function normalizeGateFilePath(file: string): string {
   let normalized = file.trim().replace(/\\/g, '/')
   if (!normalized) return ''
+  // Reject path traversal: a gate file path must stay inside the project.
+  // Any `..` segment (posix or windows, since backslashes were normalized to
+  // forward slashes above) is rejected before normalization so it can't be
+  // used to point the gate at files outside the cwd.
+  if (normalized.split('/').includes('..')) {
+    return ''
+  }
   if (normalized.startsWith('file://')) {
     normalized = normalized.slice('file://'.length)
   }

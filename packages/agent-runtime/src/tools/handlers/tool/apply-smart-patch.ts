@@ -382,6 +382,9 @@ function validateJavaScriptLikeSyntax(
   path: string,
   content: string,
 ): SyntaxValidationResult {
+  if (typeof Bun === 'undefined') {
+    return { valid: true, message: 'JavaScript/TypeScript syntax validation skipped (Bun.Transpiler unavailable in Node).' }
+  }
   try {
     const transpiler = new Bun.Transpiler({
       loader: path.endsWith('.tsx') || path.endsWith('.jsx') ? 'jsx' : 'ts',

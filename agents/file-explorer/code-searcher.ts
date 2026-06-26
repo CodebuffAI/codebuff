@@ -24,7 +24,7 @@ const paramsSchema = {
           },
           flags: {
             type: 'string' as const,
-            description: `Optional ripgrep flags to customize the search (e.g., "-i" for case-insensitive, "-g *.ts -g *.js" for TypeScript and JavaScript files only, "-g !*.test.ts" to exclude Typescript test files,  "-A 3" for 3 lines after match, "-B 2" for 2 lines before match).`,
+            description: `Optional safe ripgrep flags. Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not, -A/--after-context, -B/--before-context, -C/--context (with a numeric value). Examples: "-i", "-g *.ts -g *.tsx", "-g !*.test.ts", "-A 3". Dangerous flags (e.g. --exec, -r/--replace, -z/--null) are rejected.`,
           },
           cwd: {
             type: 'string' as const,
@@ -144,9 +144,58 @@ const codeSearcher: SecretAgentDefinition = {
       return
     }
 
+    // Allow-list of safe ripgrep flags. Mirrors parseSafeRipgrepFlags in the
+    // SDK (find-files-matching-content.ts). code_search already enforces this
+    // server-side, but we reject obviously unsafe queries up front so the agent
+    // gets a clear "unsupported flag" message rather than a silently dropped
+    // search. Helpers stay inline because handleSteps is serialized via
+    // .toString() and cannot close over module-level imports.
+    const SAFE_SWITCHES_NO_VALUE = new Set([
+      '-i', '--ignore-case', '-S', '--smart-case', '-s', '--case-sensitive',
+      '-w', '--word-regexp', '-F', '--fixed-strings', '-U', '--multiline',
+      '--multiline-dotall',
+      '-n', '--line-number',
+    ])
+    const SAFE_SWITCHES_WITH_VALUE = new Set([
+      '-g', '--glob', '-t', '--type', '-T', '--type-not',
+      '-A', '--after-context', '-B', '--before-context', '-C', '--context',
+    ])
+    function isSafeFlagsString(flags: string | undefined): { ok: true } | { ok: false; reason: string } {
+      if (!flags) return { ok: true }
+      const tokens = flags.match(/\S+/g) ?? []
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i]
+        const eqIndex = token.indexOf('=')
+        const name = eqIndex > 0 ? token.slice(0, eqIndex) : token
+        if (eqIndex > 0) {
+          if (!SAFE_SWITCHES_WITH_VALUE.has(name)) {
+            return { ok: false, reason: `Unsupported ripgrep flag '${token}'.` }
+          }
+          continue
+        }
+        if (SAFE_SWITCHES_NO_VALUE.has(token)) continue
+        if (SAFE_SWITCHES_WITH_VALUE.has(token)) {
+          if (i + 1 >= tokens.length) {
+            return { ok: false, reason: `Invalid ripgrep flag '${token}': missing value.` }
+          }
+          i++
+          continue
+        }
+        return { ok: false, reason: `Unsupported ripgrep flag '${token}'.` }
+      }
+      return { ok: true }
+    }
+
     const toolResults: JSONValue[] = []
     let matchedQueryCount = 0
     for (const query of validQueries) {
+      const flagsCheck = isSafeFlagsString(query.flags)
+      if (!flagsCheck.ok) {
+        toolResults.push({
+          errorMessage: `Skipping query for pattern "${query.pattern}": ${flagsCheck.reason} Allowed: -i/--ignore-case, -S/--smart-case, -s/--case-sensitive, -w/--word-regexp, -F/--fixed-strings, -U/--multiline, --multiline-dotall, -g/--glob, -t/--type, -T/--type-not, -A/-B/-C (with value).`,
+        })
+        continue
+      }
       const { toolResult } = yield {
         toolName: 'code_search',
         input: {
