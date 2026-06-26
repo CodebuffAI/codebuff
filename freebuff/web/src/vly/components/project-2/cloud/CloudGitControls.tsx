@@ -5,7 +5,6 @@ import { useAction, useQuery } from 'convex/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   GitBranch,
-  GitCommitHorizontal,
   GitPullRequest,
   Check,
   Plus,
@@ -77,8 +76,7 @@ export function CloudGitControls({
   const getGitStatus = useAction(api.cloud.git.getGitStatus)
   const switchBranch = useAction(api.cloud.git.switchBranch)
   const createBranch = useAction(api.cloud.git.createBranch)
-  const commitChanges = useAction(api.cloud.git.commitChanges)
-  const pushCurrentBranch = useAction(api.cloud.git.pushCurrentBranch)
+  const commitAndPush = useAction(api.cloud.git.commitAndPush)
   const syncFromRemote = useAction(api.cloud.git.syncFromRemote)
   const createPullRequest = useAction(api.cloud.git.createPullRequest)
 
@@ -169,18 +167,20 @@ export function CloudGitControls({
     )
   }
 
-  const handleCommit = async () => {
+  const handleCommitPush = async () => {
     const message = commitMessage.trim()
-    if (!message) return
+    // A message is required only when there are uncommitted changes; with a
+    // clean tree this just pushes any unpushed commits.
+    if (isDirty && !message) return
     setCommitMessage('')
     setCommitOpen(false)
-    await runAction('commit', () =>
-      commitChanges({ semanticIdentifier, message }),
+    await runAction('commit & push', () =>
+      commitAndPush({
+        semanticIdentifier,
+        message: message || undefined,
+      }),
     )
   }
-
-  const handlePush = () =>
-    runAction('push', () => pushCurrentBranch({ semanticIdentifier }))
 
   const handleSync = () =>
     runAction('sync', () => syncFromRemote({ semanticIdentifier }))
@@ -331,67 +331,122 @@ export function CloudGitControls({
       {/* Status cluster: detailed on md+, dirty/ahead/behind kept terse */}
       <div className="hidden items-center gap-1.5 md:flex">
         {isDirty ? (
-          <span
-            className="flex items-center gap-1 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
-            title={`${changedFiles} uncommitted ${changedFiles === 1 ? 'file' : 'files'}`}
-          >
-            <span className="font-medium text-foreground/80">{changedFiles}</span>
-            {(insertions > 0 || deletions > 0) && (
-              <span className="font-mono">
-                <span className="text-emerald-400">+{insertions}</span>{' '}
-                <span className="text-rose-400">-{deletions}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex cursor-default items-center gap-1 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground/80">
+                  {changedFiles}
+                </span>
+                {(insertions > 0 || deletions > 0) && (
+                  <span className="font-mono">
+                    <span className="text-emerald-400">+{insertions}</span>{' '}
+                    <span className="text-rose-400">-{deletions}</span>
+                  </span>
+                )}
               </span>
-            )}
-          </span>
+            </TooltipTrigger>
+            <StatusTooltip>
+              <span className="font-medium">
+                {changedFiles} uncommitted{' '}
+                {changedFiles === 1 ? 'file' : 'files'}
+              </span>
+              {(insertions > 0 || deletions > 0) && (
+                <span className="text-muted-foreground">
+                  {' '}
+                  · <span className="text-emerald-400">+{insertions}</span> added,{' '}
+                  <span className="text-rose-400">-{deletions}</span> removed
+                </span>
+              )}
+            </StatusTooltip>
+          </Tooltip>
         ) : (
           cached != null && (
-            <span
-              className="flex items-center gap-1 rounded-md px-1 text-[11px] text-muted-foreground/70"
-              title="Working tree clean"
-            >
-              <Check className="h-3 w-3" />
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex cursor-default items-center gap-1 rounded-md px-1 text-[11px] text-muted-foreground/70">
+                  <Check className="h-3 w-3" />
+                </span>
+              </TooltipTrigger>
+              <StatusTooltip>No uncommitted changes</StatusTooltip>
+            </Tooltip>
           )
         )}
 
         {(ahead > 0 || behind > 0) && (
-          <span className="flex items-center gap-1 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-            {ahead > 0 && (
-              <span className="flex items-center" title={`${ahead} to push`}>
-                <ArrowUp className="h-3 w-3" />
-                {ahead}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex cursor-default items-center gap-1 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                {ahead > 0 && (
+                  <span className="flex items-center">
+                    <ArrowUp className="h-3 w-3" />
+                    {ahead}
+                  </span>
+                )}
+                {behind > 0 && (
+                  <span className="flex items-center">
+                    <ArrowDown className="h-3 w-3" />
+                    {behind}
+                  </span>
+                )}
               </span>
-            )}
-            {behind > 0 && (
-              <span className="flex items-center" title={`${behind} to pull`}>
-                <ArrowDown className="h-3 w-3" />
-                {behind}
-              </span>
-            )}
-          </span>
+            </TooltipTrigger>
+            <StatusTooltip>
+              {ahead > 0 && (
+                <span>
+                  {ahead} commit{ahead === 1 ? '' : 's'} to push
+                </span>
+              )}
+              {ahead > 0 && behind > 0 && (
+                <span className="text-muted-foreground"> · </span>
+              )}
+              {behind > 0 && (
+                <span>
+                  {behind} commit{behind === 1 ? '' : 's'} to pull
+                </span>
+              )}
+            </StatusTooltip>
+          </Tooltip>
         )}
 
         {!onMain && behindDefault > 0 && (
-          <span
-            className="rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[11px] text-amber-200"
-            title={`${behindDefault} commits behind ${defaultBranch}`}
-          >
-            {behindDefault} behind {defaultBranch}
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-default rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[11px] text-amber-200">
+                {behindDefault} behind {defaultBranch}
+              </span>
+            </TooltipTrigger>
+            <StatusTooltip>
+              {behindDefault} commit{behindDefault === 1 ? '' : 's'} behind{' '}
+              {defaultBranch} — sync to catch up
+            </StatusTooltip>
+          </Tooltip>
         )}
       </div>
 
       {/* Action icon buttons */}
       <div className="flex items-center">
-        {/* Commit (popover with message) */}
+        {/* Commit + push (single combined action) */}
         <DropdownMenu open={commitOpen} onOpenChange={setCommitOpen}>
           <DropdownMenuTrigger asChild>
             <GitIconButton
-              label="Commit changes"
-              disabled={!isDirty || anyBusy}
-              loading={busy === 'commit'}
+              label={
+                isDirty
+                  ? `Commit & push ${changedFiles} ${changedFiles === 1 ? 'change' : 'changes'}`
+                  : ahead > 0
+                    ? `Push ${ahead} commit${ahead === 1 ? '' : 's'}`
+                    : 'Commit & push'
+              }
+              disabled={(!isDirty && ahead === 0) || anyBusy}
+              loading={busy === 'commit & push'}
             >
-              <GitCommitHorizontal className="h-4 w-4" />
+              <span className="relative">
+                <Upload className="h-4 w-4" />
+                {(isDirty || ahead > 0) && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
+                    {isDirty ? changedFiles : ahead}
+                  </span>
+                )}
+              </span>
             </GitIconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -399,47 +454,53 @@ export function CloudGitControls({
             sideOffset={6}
             className="w-72 rounded-xl border border-border bg-popover p-2 shadow-2xl shadow-black/40"
           >
-            <p className="px-1 pb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-              Commit {changedFiles} {changedFiles === 1 ? 'file' : 'files'}
-            </p>
-            <input
-              autoFocus
-              value={commitMessage}
-              onChange={(e) => setCommitMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleCommit()
-              }}
-              placeholder="Commit message"
-              className="mb-2 h-8 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => void handleCommit()}
-              disabled={!commitMessage.trim()}
-              className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              <GitCommitHorizontal className="h-3.5 w-3.5" />
-              Commit
-            </button>
+            {isDirty ? (
+              <>
+                <p className="px-1 pb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Commit &amp; push {changedFiles}{' '}
+                  {changedFiles === 1 ? 'file' : 'files'}
+                </p>
+                <input
+                  autoFocus
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleCommitPush()
+                  }}
+                  placeholder="Commit message"
+                  className="mb-2 h-8 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleCommitPush()}
+                  disabled={!commitMessage.trim()}
+                  className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Commit &amp; push
+                </button>
+                <p className="px-1 pt-1.5 text-[10px] leading-tight text-muted-foreground">
+                  Commits all changes and pushes to{' '}
+                  <span className="font-mono">{currentBranch}</span>.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="px-1 pb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {ahead} unpushed commit{ahead === 1 ? '' : 's'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleCommitPush()}
+                  className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Push {ahead} commit{ahead === 1 ? '' : 's'}
+                </button>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Push */}
-        <GitIconButton
-          label={ahead > 0 ? `Push ${ahead} commit${ahead === 1 ? '' : 's'}` : 'Push'}
-          onClick={() => void handlePush()}
-          disabled={anyBusy}
-          loading={busy === 'push'}
-        >
-          <span className="relative">
-            <Upload className="h-4 w-4" />
-            {ahead > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
-                {ahead}
-              </span>
-            )}
-          </span>
-        </GitIconButton>
 
         {/* Sync (pull) */}
         <GitIconButton
@@ -469,6 +530,19 @@ export function CloudGitControls({
         </GitIconButton>
       </div>
     </div>
+  )
+}
+
+/** Shared styled tooltip body for the status chips. */
+function StatusTooltip({ children }: { children: React.ReactNode }) {
+  return (
+    <TooltipContent
+      side="bottom"
+      sideOffset={6}
+      className="rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground"
+    >
+      {children}
+    </TooltipContent>
   )
 }
 

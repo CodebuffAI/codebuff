@@ -71,7 +71,9 @@ export function CloudIframeArea({
             fallbackBranch={project.current_branch}
           />
         ) : cloudTab === 'integrations' ? (
-          <IntegrationsView semanticIdentifier={semanticIdentifier} />
+          <div className="h-full w-full overflow-hidden bg-background px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
+            <IntegrationsView semanticIdentifier={semanticIdentifier} />
+          </div>
         ) : cloudTab === 'god' && isPlatformAdmin ? (
           <CloudGodModePanel project={project} />
         ) : !isSpecialTab ? (

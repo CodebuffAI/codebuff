@@ -497,6 +497,120 @@ export const pushCurrentBranch = action({
   },
 });
 
+/**
+ * Stage + commit (only when there are changes) and push the current branch in
+ * a SINGLE sandbox session. Combines what used to be two round-trips (commit
+ * then push) so the "Commit & push" button performs one efficient operation.
+ * When the tree is clean it just pushes any unpushed commits.
+ */
+export const commitAndPush = action({
+  args: {
+    semanticIdentifier: v.string(),
+    message: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    currentBranch: v.string(),
+    changedFiles: v.number(),
+    committed: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    currentBranch: string;
+    changedFiles: number;
+    committed: boolean;
+    message: string;
+  }> => {
+    const { project, codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    const currentBranch = await getCurrentBranch(codebase);
+
+    await codebase.runCommand("git add -A", 30_000);
+    const stagedResult = await codebase.runCommand(
+      "git diff --cached --name-only",
+      10_000,
+    );
+    const stagedFiles = stagedResult.output
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+
+    let committed = false;
+    if (stagedFiles.length > 0) {
+      const commitMessage = (args.message ?? "").trim();
+      if (!commitMessage) {
+        const status = await refreshStatus(ctx, project, codebase);
+        return {
+          success: false,
+          currentBranch,
+          changedFiles: status.changedFiles,
+          committed: false,
+          message: "Commit message is required.",
+        };
+      }
+      const commitResult = await codebase.runCommand(
+        `git commit -m ${escapeShellArg(commitMessage)}`,
+        60_000,
+      );
+      if (commitResult.exitCode && commitResult.exitCode !== 0) {
+        const status = await refreshStatus(ctx, project, codebase);
+        return {
+          success: false,
+          currentBranch,
+          changedFiles: status.changedFiles,
+          committed: false,
+          message:
+            summarizeOutput(commitResult.output) ||
+            "Commit failed. Please verify git user name/email and try again.",
+        };
+      }
+      committed = true;
+    }
+
+    // -u sets the upstream so subsequent ahead/behind status is accurate.
+    const pushResult = await codebase.runCommand(
+      `git push -u origin ${escapeShellArg(currentBranch)}`,
+      120_000,
+    );
+
+    await ctx.runMutation(internal.cloud.connectRepoMutations.setCurrentBranch, {
+      projectId: project._id,
+      branch: currentBranch,
+    });
+    const status = await refreshStatus(ctx, project, codebase);
+
+    if (pushResult.exitCode && pushResult.exitCode !== 0) {
+      return {
+        success: false,
+        currentBranch,
+        changedFiles: status.changedFiles,
+        committed,
+        message:
+          summarizeOutput(pushResult.output) ||
+          (committed
+            ? `Committed ${stagedFiles.length} file(s), but failed to push ${currentBranch}.`
+            : `Failed to push ${currentBranch}.`),
+      };
+    }
+
+    return {
+      success: true,
+      currentBranch,
+      changedFiles: status.changedFiles,
+      committed,
+      message: committed
+        ? `Committed ${stagedFiles.length} file(s) and pushed ${currentBranch}.`
+        : `Pushed ${currentBranch}.`,
+    };
+  },
+});
+
 export const syncFromRemote = action({
   args: { semanticIdentifier: v.string() },
   returns: v.object({

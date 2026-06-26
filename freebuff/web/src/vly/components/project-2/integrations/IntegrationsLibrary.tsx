@@ -179,6 +179,28 @@ function avatarAccent(seed: string): string {
   return palette[hash % palette.length];
 }
 
+/**
+ * Best-effort logo URL for a service. Gravity frequently omits `logo_url`, so
+ * we derive a logo from the service's website domain (Clearbit serves a clean,
+ * square, transparent logo for most well-known SaaS brands). Falls back to a
+ * letter avatar via the <img> onError handler below.
+ */
+function logoCandidate(service: GravityService): string | null {
+  if (service.logo_url) return service.logo_url;
+  const site = service.website_url;
+  if (site) {
+    try {
+      const host = new URL(
+        /^https?:\/\//.test(site) ? site : `https://${site}`,
+      ).hostname.replace(/^www\./, "");
+      if (host) return `https://logo.clearbit.com/${host}`;
+    } catch {
+      // ignore malformed urls
+    }
+  }
+  return null;
+}
+
 function ServiceLogo({
   service,
   size = "md",
@@ -190,13 +212,25 @@ function ServiceLogo({
     size === "lg" ? "h-10 w-10" : size === "sm" ? "h-7 w-7" : "h-9 w-9";
   const label = (service.name ?? service.slug ?? "?").trim();
   const initial = label.charAt(0).toUpperCase() || "?";
-  if (service.logo_url) {
+  const [errored, setErrored] = useState(false);
+  const src = logoCandidate(service);
+
+  if (src && !errored) {
     return (
-      <img
-        src={service.logo_url}
-        alt=""
-        className={cn(dim, "shrink-0 rounded-md object-contain")}
-      />
+      <div
+        className={cn(
+          dim,
+          "flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/60 bg-white p-1",
+        )}
+      >
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onError={() => setErrored(true)}
+          className="h-full w-full object-contain"
+        />
+      </div>
     );
   }
   return (
