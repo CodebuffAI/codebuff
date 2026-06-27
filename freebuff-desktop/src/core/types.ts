@@ -9,6 +9,8 @@
  * expands into one queued prompt per skill.
  */
 
+import type { Part } from './parts'
+
 export type ThreadId = string
 export type ProjectId = string
 
@@ -79,6 +81,12 @@ export interface Message {
   text: string
   /** Tool calls the assistant made this turn, for the UI's activity fold. */
   acts: { toolName: string; input: unknown }[]
+  /**
+   * The turn's reasoning/text/tool calls in the exact order they streamed in, so
+   * the transcript renders chronologically (see `parts.ts`). Source of truth for
+   * the render; `text` + `acts` are kept as derived columns for backward-compat.
+   */
+  parts?: Part[]
 }
 
 /**

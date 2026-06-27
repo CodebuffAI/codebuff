@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { foldAgentEvent, partsFromPersisted, type ReasoningCollapse } from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
 import type { Message, QueueItem, ServerEvent, Skill, Thread } from '../lib/types'
@@ -42,6 +43,9 @@ interface StoreState {
   cycleTab: (delta: number) => void
   jumpTab: (index: number) => void
   ensureLoaded: (id: string) => Promise<void>
+
+  /** Toggle a reasoning part between its preview/expanded view (preserves user intent). */
+  toggleReasoning: (threadId: string, messageId: string, partId: string) => void
 
   // messaging + queue
   send: (id: string, text: string) => void
@@ -222,8 +226,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const messages: Message[] = data.messages.map((m) => ({
       id: nextId(),
       role: m.role,
-      text: m.text,
-      tools: (m.acts ?? []).map((a) => ({ id: nextId(), toolName: a.toolName, input: a.input })),
+      parts: partsFromPersisted(m, nextId),
       done: true,
     }))
     set((s) => {
@@ -234,6 +237,28 @@ export const useStore = create<StoreState>((set, get) => ({
           [id]: { thread: data.thread, messages, items: data.items, loaded: true },
         },
       }
+    })
+  },
+
+  toggleReasoning(threadId, messageId, partId) {
+    set((s) => {
+      const slice = s.threads[threadId]
+      if (!slice) return {}
+      const messages = slice.messages.map((m) => {
+        if (m.id !== messageId) return m
+        return {
+          ...m,
+          parts: m.parts.map((p) => {
+            if (p.kind !== 'reasoning' || p.id !== partId) return p
+            const expanded = p.collapse === 'expanded'
+            // Expanded → back to preview; anything else → expanded. `userOpened`
+            // marks deliberate expansion so auto-collapse leaves it open.
+            const collapse: ReasoningCollapse = expanded ? 'preview' : 'expanded'
+            return { ...p, collapse, userOpened: !expanded }
+          }),
+        }
+      })
+      return { threads: { ...s.threads, [threadId]: { ...slice, messages } } }
     })
   },
 
@@ -324,7 +349,7 @@ function optimisticItems(
   })
 }
 
-/** Append a message to a thread's transcript (no-op if the thread isn't loaded). */
+/** Append a user message to a thread's transcript (no-op if the thread isn't loaded). */
 function appendMessage(
   set: (fn: (s: StoreState) => Partial<StoreState>) => void,
   id: string,
@@ -334,8 +359,27 @@ function appendMessage(
   set((s) => {
     const slice = s.threads[id]
     if (!slice) return {}
-    const msg: Message = { id: nextId(), role, text, tools: [], done: true }
-    return { threads: { ...s.threads, [id]: { ...slice, messages: [...slice.messages, msg] } } }
+    const msg: Message = { id: nextId(), role, parts: text ? [{ kind: 'text', text }] : [], done: true }
+    // A new user message auto-collapses the thinking of finished assistant turns
+    // (mirrors the CLI), keeping the latest exchange uncluttered.
+    const prior = role === 'user' ? autoCollapseReasoning(slice.messages) : slice.messages
+    return { threads: { ...s.threads, [id]: { ...slice, messages: [...prior, msg] } } }
+  })
+}
+
+/** Hide the thinking of every finished assistant turn the user didn't manually open. */
+function autoCollapseReasoning(messages: Message[]): Message[] {
+  return messages.map((m) => {
+    if (m.role !== 'assistant' || !m.done) return m
+    let changed = false
+    const parts = m.parts.map((p) => {
+      if (p.kind === 'reasoning' && !p.userOpened && p.collapse !== 'hidden') {
+        changed = true
+        return { ...p, collapse: 'hidden' as const }
+      }
+      return p
+    })
+    return changed ? { ...m, parts } : m
   })
 }
 
@@ -353,27 +397,30 @@ function reorderLocal(items: QueueItem[], itemId: string, afterItemId: string | 
   return items.map((i) => (i.id === itemId ? { ...i, position: pos } : i))
 }
 
-/** Fold a streaming agent event into the thread's message list. */
+/**
+ * Fold a streaming agent event into the thread's message list, appending it to
+ * the live assistant turn's ordered `parts` (same fold the server persists with,
+ * so a reloaded transcript matches the live one — see core/parts.ts).
+ */
 function streamAgentEvent(messages: Message[], event: { type: string; [k: string]: any }): Message[] {
   const last = messages[messages.length - 1]
   const live = last && last.role === 'assistant' && !last.done ? last : null
 
-  if (event.type === 'text') {
-    if (live) {
-      return replaceLast(messages, { ...live, text: live.text + (event.text ?? '') })
-    }
-    return [...messages, { id: nextId(), role: 'assistant', text: event.text ?? '', tools: [], done: false }]
-  }
-  if (event.type === 'tool_call') {
-    const tool = { id: event.toolCallId ?? nextId(), toolName: event.toolName, input: event.input }
-    if (live) return replaceLast(messages, { ...live, tools: [...live.tools, tool] })
-    return [...messages, { id: nextId(), role: 'assistant', text: '', tools: [tool], done: false }]
-  }
   if (event.type === 'finish') {
-    if (live) return replaceLast(messages, { ...live, done: true })
+    if (!live) return messages
+    return replaceLast(messages, { ...live, parts: foldAgentEvent(live.parts, event, nextId), done: true })
+  }
+
+  // Only stream the part-producing events; ignore the rest (tool_result, etc.).
+  if (event.type !== 'text' && event.type !== 'reasoning_delta' && event.type !== 'tool_call') {
     return messages
   }
-  return messages
+
+  const base: Message = live ?? { id: nextId(), role: 'assistant', parts: [], done: false }
+  const parts = foldAgentEvent(base.parts, event, nextId)
+  if (parts === base.parts) return messages // no-op (e.g. empty delta)
+  const updated: Message = { ...base, parts }
+  return live ? replaceLast(messages, updated) : [...messages, updated]
 }
 
 function replaceLast(messages: Message[], msg: Message): Message[] {

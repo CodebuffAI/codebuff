@@ -75,7 +75,7 @@ export function ThreadView({ threadId }: { threadId: string }) {
             </div>
           )}
           {slice.messages.map((m) => (
-            <Message key={m.id} msg={m} />
+            <Message key={m.id} msg={m} threadId={threadId} />
           ))}
         </div>
       )}

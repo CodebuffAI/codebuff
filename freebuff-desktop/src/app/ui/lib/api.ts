@@ -1,11 +1,16 @@
 /** Thin REST client for the orchestrator API. Same-origin in both dev (via the
  * Vite proxy) and packaged (served by the Bun server). */
 
-import type { QueueItem, Skill, Thread } from './types'
+import type { Part, QueueItem, Skill, Thread } from './types'
 
 export interface ThreadData {
   thread: Thread
-  messages: { role: 'user' | 'assistant'; text: string; acts: { toolName: string; input: unknown }[] }[]
+  messages: {
+    role: 'user' | 'assistant'
+    text: string
+    acts: { toolName: string; input: unknown }[]
+    parts?: Part[]
+  }[]
   items: QueueItem[]
 }
 

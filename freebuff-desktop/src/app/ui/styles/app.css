@@ -323,6 +323,64 @@ select {
   white-space: nowrap;
 }
 
+/* — Thinking (reasoning) — interleaved in the assistant turn, CLI-style. */
+.reasoning {
+  margin: 2px 0 4px;
+}
+.reasoning-head {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.reasoning-head:hover {
+  color: var(--text);
+}
+.reasoning-dot {
+  color: var(--accent-dim);
+  font-size: 11px;
+  width: 11px;
+  text-align: center;
+}
+.reasoning-dot.pulse {
+  animation: reasoning-pulse 1.1s ease-in-out infinite;
+}
+@keyframes reasoning-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.reasoning-label {
+  font-weight: 500;
+}
+.reasoning-preview {
+  margin: 3px 0 2px 17px;
+  /* A tail window of the latest reasoning (~5 lines), pinned to the bottom. */
+  max-height: 7.6em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 26px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 26px);
+}
+.reasoning-expanded {
+  margin: 3px 0 2px 17px;
+}
+.reasoning-text {
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
 /* — Composer — */
 .composer {
   display: flex;

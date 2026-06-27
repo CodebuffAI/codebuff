@@ -11,6 +11,7 @@
 
 import { Database } from 'bun:sqlite'
 
+import type { Part } from './parts'
 import type {
   BudgetLedger,
   MergeStrategy,
@@ -28,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 6
+const SCHEMA_VERSION = 7
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -217,6 +218,7 @@ export class Store {
         role       TEXT NOT NULL,
         text       TEXT NOT NULL DEFAULT '',
         acts_json  TEXT NOT NULL DEFAULT '[]',
+        parts_json TEXT NOT NULL DEFAULT '[]',
         ts         INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id, seq);
@@ -266,6 +268,16 @@ export class Store {
     ).map((c) => c.name)
     if (threadCols.includes('autorun') && !threadCols.includes('auto_queue_suggestions')) {
       this.db.exec('ALTER TABLE threads RENAME COLUMN autorun TO auto_queue_suggestions')
+    }
+
+    // v7: ordered `parts` (reasoning/text/tool) for chronological rendering. Add
+    // the column to existing dbs without dropping transcript history; old rows
+    // keep `parts_json='[]'` and fall back to text+acts on read.
+    const msgCols = (
+      this.db.query('PRAGMA table_info(messages)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (!msgCols.includes('parts_json')) {
+      this.db.exec("ALTER TABLE messages ADD COLUMN parts_json TEXT NOT NULL DEFAULT '[]'")
     }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -389,33 +401,40 @@ export class Store {
 
   appendMessage(
     threadId: ThreadId,
-    msg: { role: string; text: string; acts?: unknown[] },
+    msg: { role: string; text: string; acts?: unknown[]; parts?: Part[] },
     ts: number,
   ): void {
     this.db
       .query(
-        `INSERT INTO messages (thread_id, role, text, acts_json, ts)
-         VALUES ($t, $role, $text, $acts, $ts)`,
+        `INSERT INTO messages (thread_id, role, text, acts_json, parts_json, ts)
+         VALUES ($t, $role, $text, $acts, $parts, $ts)`,
       )
       .run({
         $t: threadId,
         $role: msg.role,
         $text: msg.text,
         $acts: JSON.stringify(msg.acts ?? []),
+        $parts: JSON.stringify(msg.parts ?? []),
         $ts: ts,
       })
   }
 
-  getMessages(threadId: ThreadId): { role: string; text: string; acts: unknown[] }[] {
+  getMessages(threadId: ThreadId): { role: string; text: string; acts: unknown[]; parts: Part[] }[] {
     const rows = this.db
       .query(
-        `SELECT role, text, acts_json FROM messages WHERE thread_id = $t ORDER BY seq ASC`,
+        `SELECT role, text, acts_json, parts_json FROM messages WHERE thread_id = $t ORDER BY seq ASC`,
       )
-      .all({ $t: threadId }) as { role: string; text: string; acts_json: string }[]
+      .all({ $t: threadId }) as {
+      role: string
+      text: string
+      acts_json: string
+      parts_json: string
+    }[]
     return rows.map((r) => ({
       role: r.role,
       text: r.text,
       acts: JSON.parse(r.acts_json) as unknown[],
+      parts: JSON.parse(r.parts_json) as Part[],
     }))
   }
 

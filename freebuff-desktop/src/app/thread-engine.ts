@@ -20,6 +20,7 @@ import { recordUsage } from '../core/budget'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
+import { foldAgentEvent, type AgentEventLike, type Part } from '../core/parts'
 import { positionAfter } from '../core/queue-order'
 import { SkillStore, DEFAULT_WORKFLOWS } from '../core/skills'
 import { Store } from '../core/store'
@@ -363,6 +364,16 @@ export class ThreadEngine {
       let assistantText = ''
       let streamedText = false
       const acts: { toolName: string; input: unknown }[] = []
+      // Build the ordered parts array as events arrive so the persisted turn
+      // matches what the client streamed live (same fold — see core/parts.ts).
+      let parts: Part[] = []
+      let partSeq = 0
+      const partId = () => `p${++partSeq}`
+      // Emit an agent event to the UI and fold it into `parts` in lockstep.
+      const emitAgent = (event: AgentEventLike) => {
+        parts = foldAgentEvent(parts, event, partId)
+        this.emit({ type: 'agent', threadId, event: event as unknown as PrintModeEvent })
+      }
       const run = await this.client.run({
         agent: threadAgentDefinition(toolNames),
         prompt,
@@ -372,14 +383,25 @@ export class ThreadEngine {
         // Steering: main-chat messages typed while this turn runs are appended as
         // user prompts at the next step boundary instead of waiting for the turn.
         drainSteeringMessages: () => this.drainSteering(threadId),
-        // Per-token text deltas → stream to the UI as they arrive. (handleEvent's
+        // Per-token deltas → stream to the UI as they arrive. (handleEvent's
         // `text` events are consolidated whole-segment blocks that only land at the
         // end of a segment, so streaming must come from here.)
         handleStreamChunk: (chunk) => {
-          if (typeof chunk !== 'string' || !chunk) return
-          streamedText = true
-          assistantText += chunk
-          this.emit({ type: 'agent', threadId, event: { type: 'text', text: chunk } })
+          if (typeof chunk === 'string') {
+            if (!chunk) return
+            streamedText = true
+            assistantText += chunk
+            emitAgent({ type: 'text', text: chunk })
+            return
+          }
+          // Reasoning arrives as a structured chunk (the SDK rewrites the SSE
+          // `reasoning_delta` into `{ type: 'reasoning_chunk', chunk }`). Stream it
+          // as its own ordered part so thinking interleaves with text/tools.
+          // (subagent_chunk is the other non-string case; ignored — only the root
+          //  turn's reasoning is rendered. TODO: subagent attribution via agentId.)
+          if (chunk.type === 'reasoning_chunk' && chunk.chunk) {
+            emitAgent({ type: 'reasoning_delta', text: chunk.chunk })
+          }
         },
         handleEvent: (event) => {
           if (event.type === 'text') {
@@ -388,17 +410,17 @@ export class ThreadEngine {
             // only if no stream chunks arrived (keeps the transcript correct).
             if (!streamedText) {
               assistantText += event.text
-              this.emit({ type: 'agent', threadId, event })
+              emitAgent(event)
             }
             return
           }
-          this.emit({ type: 'agent', threadId, event })
+          emitAgent(event)
           if (event.type === 'tool_call') acts.push({ toolName: event.toolName, input: event.input })
           if (event.type === 'finish') this.recordSpend(event.totalCost)
         },
       })
       this.previousRun.set(threadId, run)
-      this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts }, this.now())
+      this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
     } catch (err) {
       this.store.appendMessage(
         threadId,
