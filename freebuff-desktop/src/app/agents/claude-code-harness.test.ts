@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { foldAgentEvent, type AgentEventLike, type Part } from '../../core/parts'
 import {
   buildFreebuffMcpTools,
+  claudeCodeEnv,
   consumeClaudeStream,
   FREEBUFF_MCP_TOOL_NAMES,
 } from './claude-code-harness'
@@ -131,6 +132,33 @@ describe('consumeClaudeStream', () => {
     const tool = rec.parts.find((p) => p.kind === 'tool') as Extract<Part, { kind: 'tool' }>
     expect(tool.toolName).toBe('Bash')
     expect(tool.input).toEqual({ _raw: '{ not json' })
+  })
+})
+
+describe('claudeCodeEnv', () => {
+  // The harness reuses the user's local subscription/OAuth auth, which the CLI only
+  // honors when no API key is present. The desktop process inherits a dummy
+  // ANTHROPIC_API_KEY from .env, so the env handed to the CLI must drop it.
+  test('strips ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN but keeps the rest', () => {
+    const saved = {
+      key: process.env.ANTHROPIC_API_KEY,
+      token: process.env.ANTHROPIC_AUTH_TOKEN,
+      path: process.env.PATH,
+    }
+    try {
+      process.env.ANTHROPIC_API_KEY = 'dummy_anthropic_key'
+      process.env.ANTHROPIC_AUTH_TOKEN = 'dummy_token'
+
+      const env = claudeCodeEnv()
+      expect('ANTHROPIC_API_KEY' in env).toBe(false)
+      expect('ANTHROPIC_AUTH_TOKEN' in env).toBe(false)
+      // Inherited vars the CLI needs (PATH/HOME/etc.) are preserved.
+      expect(env.PATH).toBe(process.env.PATH)
+    } finally {
+      process.env.ANTHROPIC_API_KEY = saved.key
+      process.env.ANTHROPIC_AUTH_TOKEN = saved.token
+      process.env.PATH = saved.path
+    }
   })
 })
 

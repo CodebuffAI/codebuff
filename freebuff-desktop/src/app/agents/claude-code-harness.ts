@@ -73,6 +73,24 @@ const jsonResult = (value: unknown) => ({
 })
 
 /**
+ * Env handed to the spawned Claude Code CLI. The whole point of this harness is to
+ * reuse the user's local subscription/OAuth creds — but those are only used when no
+ * `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` is present, since an API key OVERRIDES
+ * subscription auth. The desktop process inherits a `.env` (Bun auto-loads it) that
+ * sets `ANTHROPIC_API_KEY=dummy_anthropic_key` for the Codebuff/server paths; left in
+ * place it leaks into the CLI and yields "Invalid API key · Fix external API key".
+ *
+ * The SDK REPLACES (does not merge) the subprocess env when `env` is set, so we spread
+ * `process.env` and delete only the auth-override keys — keeping PATH/HOME/etc. intact.
+ */
+export function claudeCodeEnv(): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = { ...process.env }
+  delete env.ANTHROPIC_API_KEY
+  delete env.ANTHROPIC_AUTH_TOKEN
+  return env
+}
+
+/**
  * Build the Freebuff custom tools as in-process MCP tools backed by the engine
  * callbacks (`turn.toolDeps`). These mirror buildThreadTools() in thread-agent.ts
  * so Claude Code behaves like the Codebuff harness. The SDK's `tool()` takes a Zod
@@ -218,6 +236,7 @@ export class ClaudeCodeHarness implements AgentHarness {
       options: {
         model: CLAUDE_CODE_MODEL,
         cwd: turn.cwd,
+        env: claudeCodeEnv(),
         abortController: turn.abort,
         ...(sessionId ? { resume: sessionId } : {}),
         permissionMode: 'bypassPermissions',
