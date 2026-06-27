@@ -112,7 +112,6 @@ resolves.
   a packaged build with `CODEBUFF_API_KEY` in the environment.
 - **Code signing / notarization.** `mac.identity` is `null` (unsigned). Shipping to
   users needs an Apple Developer cert + notarization (and equivalents on Win/Linux).
-- **App icon.** Uses the default Electron icon; add `build/icon.icns` etc.
 - **Cross-platform Bun.** `fetch-bun.ts --target <platform-arch>` downloads the
   right Bun, but cross-building the Electron app itself still needs the matching
   host or CI runner.

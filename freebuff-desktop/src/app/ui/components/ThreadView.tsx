@@ -4,6 +4,7 @@ import { MAX_ATTACHMENTS } from '../../../core/attachments'
 import { useStore } from '../store/store'
 import type { PendingAttachment } from '../lib/types'
 import { baseName, kindFor } from '../lib/file-drop'
+import freebuffLogo from './freebuff-logo.svg'
 import { Composer } from './Composer'
 import { Icon } from './Icon'
 import { Message } from './Message'
@@ -199,10 +200,7 @@ export function ThreadView({ threadId }: { threadId: string }) {
             )}
             {slice.messages.length === 0 && (
               <div className="welcome">
-                <div className="welcome-title">{slice.thread.title || 'New thread'}</div>
-                <div className="welcome-sub">
-                  Describe what to build. Queue follow-up prompts and skills on the right, and let it run.
-                </div>
+                <img className="welcome-logo" src={freebuffLogo} alt="" />
               </div>
             )}
             {slice.messages.map((m) => (

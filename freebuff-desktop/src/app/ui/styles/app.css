@@ -519,6 +519,16 @@ body.col-resizing {
   text-align: center;
   color: var(--muted);
 }
+/* The new-thread placeholder is just the freebuff wordmark — sized so the
+   optical footprint matches the previous 18px title without crowding the
+   composer below it. */
+.welcome-logo {
+  display: block;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+  opacity: 0.92;
+}
 .welcome-title {
   font-size: 18px;
   color: var(--text);
