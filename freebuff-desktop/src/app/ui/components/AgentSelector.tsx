@@ -1,19 +1,43 @@
 /**
- * App-wide agent picker (lives in the title bar). Switches which harness runs
- * thread turns: the free hosted Codebuff agent, or the user's local, authenticated
- * Claude Code (Opus 4.8). The choice is global and persists across restarts (see
- * the server's /api/settings/agent + project-dir state).
+ * Per-tab agent picker. Each tab carries its own harness pick (Codebuff vs.
+ * Claude Code), so different tabs can run on different agents in parallel.
+ * Persists with the thread (see /api/thread/{id}/harness); a null pick
+ * inherits the project-wide default (`store.agentHarness`) so a freshly-open
+ * tab doesn't start empty.
+ *
+ * Two visual flavors:
+ *  - default — full pill (used standalone in the UI when we want a wide trigger).
+ *  - `compact` — a small pill that lives inside a tab; shows just the agent
+ *    name + chevron so the tab's title still fits.
  */
 
 import { useEffect, useRef, useState } from 'react'
 
-import { useStore } from '../store/store'
+import type { AgentOption, HarnessId } from '../lib/types'
 import { Icon } from './Icon'
 
-export function AgentSelector() {
-  const harnessId = useStore((s) => s.agentHarness)
-  const options = useStore((s) => s.agentOptions)
-  const setAgentHarness = useStore((s) => s.setAgentHarness)
+export interface AgentPickerProps {
+  /** Which harness is currently active for this tab (null = using the default).
+   *  When `null`, the picker shows the project default so the trigger is never
+   *  empty. The popover's `active.id` reflects this resolved value. */
+  harnessId: HarnessId | null
+  /** The full option catalog. Tab-level defaulting can read this to resolve
+   *  `null` into a real id without an extra store call. */
+  options: readonly AgentOption[]
+  /** Fallback when no project default is known (server hasn't sent the snapshot
+   *  yet, or no threads are open). First option is used. */
+  fallbackId?: HarnessId
+  onChange: (harnessId: HarnessId) => void
+  compact?: boolean
+}
+
+export function AgentPicker({
+  harnessId,
+  options,
+  fallbackId,
+  onChange,
+  compact,
+}: AgentPickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -33,30 +57,47 @@ export function AgentSelector() {
   }, [open])
 
   if (!options.length) return null
-  const active = options.find((o) => o.id === harnessId) ?? options[0]
+  const resolvedId: HarnessId = harnessId ?? fallbackId ?? options[0].id
+  const active = options.find((o) => o.id === resolvedId) ?? options[0]
 
   return (
-    <div className="agent-selector" ref={ref}>
+    <div
+      className={`agent-selector ${compact ? 'compact' : ''}`}
+      ref={ref}
+      // `compact` pills live inside tab pills that already have an outer
+      // click handler; stop propagation so a click on the picker doesn't
+      // bubble up and (for instance) re-focus the tab.
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         className="agent-trigger"
         onClick={() => setOpen((v) => !v)}
-        title="Switch the coding agent"
+        title="Switch this tab's coding agent"
       >
         <span className={`agent-dot agent-dot-${active.id}`} />
-        <span className="agent-name">{active.label}</span>
-        <span className="agent-model">{active.modelLabel}</span>
-        <Icon name="chevron-down" />
+        {compact ? (
+          <>
+            <span className="agent-compact-name">{active.label}</span>
+            <Icon name="chevron-down" />
+          </>
+        ) : (
+          <>
+            <span className="agent-name">{active.label}</span>
+            <span className="agent-model">{active.modelLabel}</span>
+            <Icon name="chevron-down" />
+          </>
+        )}
       </button>
       {open && (
         <div className="agent-menu" role="listbox">
           {options.map((o) => (
             <button
               key={o.id}
-              className={`agent-option ${o.id === active.id ? 'active' : ''}`}
+              className={`agent-option ${o.id === resolvedId ? 'active' : ''}`}
               role="option"
-              aria-selected={o.id === active.id}
+              aria-selected={o.id === resolvedId}
               onClick={() => {
-                setAgentHarness(o.id)
+                onChange(o.id)
                 setOpen(false)
               }}
             >
@@ -67,7 +108,7 @@ export function AgentSelector() {
                 </span>
                 <span className="agent-option-desc">{o.description}</span>
               </span>
-              {o.id === active.id && <Icon name="check" />}
+              {o.id === resolvedId && <Icon name="check" />}
             </button>
           ))}
         </div>

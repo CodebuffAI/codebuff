@@ -71,6 +71,8 @@ interface StoreState {
   settingsPath: string | null
   settingsLoadError: string | null
   setAgentHarness: (id: HarnessId) => void
+  /** Set the agent on a single tab; persists server-side and re-broadcasts. */
+  setThreadHarness: (id: string, harnessId: HarnessId) => void
   /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
@@ -150,6 +152,28 @@ export const useStore = create<StoreState>((set, get) => ({
     // Optimistic: the server echoes the change back via a `state` event too.
     set({ agentHarness: id })
     api.setAgentHarness(id)
+  },
+
+  setThreadHarness(id, harnessId) {
+    // Optimistic: flip the local slice immediately so the tab's pill updates
+    // without waiting for the SSE round-trip; the server's `thread` event
+    // confirms it a frame later. We don't drop thread state here (the backend
+    // does that on its own when the per-thread harness changes).
+    set((s) => {
+      const slice = s.threads[id]
+      if (!slice) return {}
+      // Match the backend's "null means default" rule: if the user picks the
+      // active default, persist as the default rather than pinning.
+      const value: HarnessId | null =
+        harnessId === s.agentHarness ? null : harnessId
+      return {
+        threads: {
+          ...s.threads,
+          [id]: { ...slice, thread: { ...slice.thread, harnessId: value } },
+        },
+      }
+    })
+    api.setThreadHarness(id, harnessId)
   },
 
   setPickerOpen(open) {

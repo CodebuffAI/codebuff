@@ -204,8 +204,9 @@ const server = Bun.serve({
       return result.ok ? json({ ok: true, path: currentRepo }) : json(result, 400)
     }
 
-    // Switch the agent harness (app-wide). Applies to the live engine immediately
-    // and persists for the next launch / project swap.
+    // Switch the agent harness (the project-wide DEFAULT for new threads).
+    // Existing threads keep whatever they were pinned to via
+    // /api/thread/{id}/harness — that endpoint sets one specific tab.
     if (pathname === '/api/settings/agent' && req.method === 'POST') {
       const { harnessId } = await body(req)
       if (!isHarnessId(harnessId)) return json({ error: 'invalid harnessId' }, 400)
@@ -289,6 +290,14 @@ const server = Bun.serve({
         case 'auto-queue-suggestions':
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
+        case 'harness': {
+          // Per-thread agent pick — flips which harness runs that tab's turns.
+          // /api/settings/agent (above) keeps doing the project-wide default.
+          const id = b.harnessId
+          if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
+          engine.setThreadHarness(threadId, id)
+          return json({ ok: true })
+        }
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
           return json({ ok: true })

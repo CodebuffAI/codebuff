@@ -21,6 +21,8 @@ export interface Thread {
   projectId: string
   title: string
   status: ThreadStatus
+  /** Per-tab agent pick. Null = inherit the project's default (see Snapshot.agent). */
+  harnessId: HarnessId | null
   autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null

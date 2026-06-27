@@ -13,6 +13,7 @@ import type { Part } from './parts'
 
 export type ThreadId = string
 export type ProjectId = string
+export type HarnessId = 'codebuff' | 'claude-code'
 
 /** Governing-doc identities (§10.1). Files live under `.freebuff/docs/`. The
  * `reflect` skill appends durable learnings to `learning`. */
@@ -60,6 +61,10 @@ export interface Thread {
   projectId: ProjectId
   title: string
   status: ThreadStatus
+  /** Which agent (Codebuff / Claude Code) runs this thread's turns. Per-thread so
+   *  different tabs can run on different agents at the same time. Null while the
+   *  thread is using the engine's default (newly-created threads inherit it). */
+  harnessId: HarnessId | null
   /** When on, assistant-suggested prompts are dropped straight into the queue
    *  (which always auto-drains) instead of parking in the suggested lane. */
   autoQueueSuggestions: boolean

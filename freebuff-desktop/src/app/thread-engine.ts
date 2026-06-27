@@ -62,7 +62,12 @@ export type EngineEvent =
 export interface Snapshot {
   project: Project
   threads: Thread[]
-  /** Which agent harness runs turns, plus the options the UI offers. */
+  /**
+   * The default agent for NEW threads plus the catalog of pickable options.
+   * Existing threads carry their own `harnessId` on the thread row — see
+   * `Thread.harnessId`. The default flows from `/api/settings/agent` and is
+   * what's shown in the tab pill until the user picks something per-tab.
+   */
   agent: { harnessId: HarnessId; options: readonly AgentOption[] }
   /**
    * Whether the project has a previewable entry — derived from settings
@@ -125,8 +130,12 @@ export class ThreadEngine {
    * the stale state ignored, so each harness starts that thread fresh.
    */
   private threadState = new Map<string, { harnessId: HarnessId; state: unknown }>()
-  /** Active harness id; switchable at runtime via {@link setHarness}. */
-  private harnessId: HarnessId
+  /**
+   * Default agent for threads that don't carry their own `harnessId`. New
+   * threads inherit this; existing threads that don't have one explicitly set
+   * still resolve to it at run-time. Changed via `/api/settings/agent`.
+   */
+  private defaultHarness: HarnessId
   /** Lazily-built harness instances, one per id. */
   private harnesses = new Map<HarnessId, AgentHarness>()
   /** Reentrancy guard: a thread whose pump loop is currently draining. */
@@ -159,7 +168,7 @@ export class ThreadEngine {
     mkdirSync(fbDir, { recursive: true })
 
     this.projectId = opts.projectId ?? 'project'
-    this.harnessId = opts.harnessId ?? DEFAULT_HARNESS
+    this.defaultHarness = opts.harnessId ?? DEFAULT_HARNESS
     this.repoRoot = opts.repoRoot
     this.store = new Store(join(fbDir, 'desktop.db'))
     this.docs = new DocStore({ docsDir: join(fbDir, 'docs') })
@@ -209,6 +218,60 @@ export class ThreadEngine {
     }
   }
 
+  /** The harness that runs a given thread's turns — its persisted choice if set,
+   *  otherwise the engine's default. Null rows post-migration resolve here so
+   *  upgrading transparently inherits whatever was previously global. */
+  harnessForThread(threadId: string): HarnessId {
+    const t = this.store.getThread(threadId)
+    return t?.harnessId ?? this.defaultHarness
+  }
+
+  /**
+   * The harness instance for a given thread, built lazily and cached per id. The
+   * per-thread harness is resolved via {@link harnessForThread} so different
+   * tabs can be on different agents at once while sharing one engine.
+   */
+  private harnessInstanceFor(threadId: string): AgentHarness {
+    const id = this.harnessForThread(threadId)
+    let h = this.harnesses.get(id)
+    if (!h) {
+      h =
+        id === 'claude-code'
+          ? new ClaudeCodeHarness()
+          : new CodebuffHarness(this.client)
+      this.harnesses.set(id, h)
+    }
+    return h
+  }
+
+  /** Set the agent for a specific thread; subsequent turns use it. Persists to
+   *  SQLite (so the choice survives restarts) and re-broadcasts the thread. */
+  setThreadHarness(threadId: string, id: HarnessId): void {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return
+    // Treat setting to the default as "clear the per-thread override" so the
+    // pill genuinely inherits later default changes — otherwise a tab that was
+    // once picked to the default would still pin to that exact value forever.
+    const value: HarnessId | null = id === this.defaultHarness ? null : id
+    this.store.updateThread(threadId, { harnessId: value }, this.now())
+    // Drop any cached harness state for this thread — switching agents makes
+    // the prior state from the previous harness invalid (see `runTurn`).
+    this.threadState.delete(threadId)
+    this.emitThread(threadId)
+  }
+
+  /**
+   * Set the default agent for NEW threads. Existing threads keep whatever
+   * they've been pinned to via {@link setThreadHarness}; null rows (including
+   * any thread still on the previous default) start following the new default
+   * the next time they run a turn.
+   */
+  setHarness(id: HarnessId): void {
+    if (id === this.defaultHarness) return
+    this.defaultHarness = id
+    this.emitState()
+  }
+
   private now() {
     return Date.now()
   }
@@ -233,7 +296,7 @@ export class ThreadEngine {
     return {
       project,
       threads,
-      agent: { harnessId: this.harnessId, options: AGENT_OPTIONS },
+      agent: { harnessId: this.defaultHarness, options: AGENT_OPTIONS },
       previewReady: this.detectPreviewReady(settings),
       settings,
     }
@@ -258,26 +321,6 @@ export class ThreadEngine {
     return false
   }
 
-  /** The active harness, built lazily and cached per id. */
-  private activeHarness(): AgentHarness {
-    let h = this.harnesses.get(this.harnessId)
-    if (!h) {
-      h =
-        this.harnessId === 'claude-code'
-          ? new ClaudeCodeHarness()
-          : new CodebuffHarness(this.client)
-      this.harnesses.set(this.harnessId, h)
-    }
-    return h
-  }
-
-  /** Switch which agent runs turns. Takes effect on the next turn. */
-  setHarness(id: HarnessId): void {
-    if (id === this.harnessId) return
-    this.harnessId = id
-    this.emitState()
-  }
-
   emitState() {
     this.emit({ type: 'state', snapshot: this.snapshot() })
   }
@@ -297,10 +340,14 @@ export class ThreadEngine {
 
   createThread(opts: { title?: string } = {}): Thread {
     const id = `th${++this.threadSeq}`
+    // New threads start explicitly pinned to the default (rather than null) so
+    // the UI shows a non-empty pill right away, and any later change to the
+    // default does NOT silently migrate already-open threads.
     const thread = this.store.insertThread({
       id,
       projectId: this.projectId,
       title: opts.title ?? 'New thread',
+      harnessId: this.defaultHarness,
       createdAt: this.now(),
     })
     this.emitState()
@@ -452,8 +499,9 @@ export class ThreadEngine {
     if (!thread) return
     // Only the Codebuff harness (MiniMax M3) sees inline image content; Claude Code
     // reads images from the path, so we don't inline base64 for it.
+    const harnessId = this.harnessForThread(threadId)
     const att = attachmentPaths.length
-      ? buildAttachmentBlock(attachmentPaths, { inlineImages: this.harnessId === 'codebuff' })
+      ? buildAttachmentBlock(attachmentPaths, { inlineImages: harnessId === 'codebuff' })
       : null
     // The agent sees the inlined prompt block; the transcript shows the compact
     // summary. `appendBlock` is shared with the renderer so the two never drift.
@@ -601,7 +649,7 @@ export class ThreadEngine {
     this.emitThread(threadId)
     this.emitState()
 
-    const harness = this.activeHarness()
+    const harness = this.harnessInstanceFor(threadId)
     // Hoisted above the try so the catch/finally can finalize partial output when
     // a Stop aborts the run or it throws.
     let assistantText = ''

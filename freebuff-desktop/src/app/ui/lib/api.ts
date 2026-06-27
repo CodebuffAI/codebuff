@@ -83,8 +83,14 @@ export const api = {
     get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
 
   // Settings
+  // Project-wide default harness for NEW threads. /api/thread/{id}/harness
+  // overrides per-tab — see setThreadHarness below.
   setAgentHarness: (harnessId: HarnessId) =>
     post<{ ok: boolean; error?: string }>('/api/settings/agent', { harnessId }),
+  /** Set the agent for a single tab; persists with the thread and takes effect
+   *  on its next turn. */
+  setThreadHarness: (threadId: string, harnessId: HarnessId) =>
+    post<{ ok: boolean; error?: string }>(`/api/thread/${threadId}/harness`, { harnessId }),
   getSettings: () =>
     get<{
       path: string
