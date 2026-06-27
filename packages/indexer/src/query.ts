@@ -1,6 +1,7 @@
 import type {
   IndexedFile,
   IndexEdge,
+  LexicalWeights,
   MetadataIndex,
   QueryIndexMode,
   QueryIndexResult,
@@ -13,6 +14,39 @@ export interface QueryOptions {
   mode?: QueryIndexMode
   from?: string
   to?: string
+  /**
+   * Lexical field weights for this query. When omitted (or a field is unset),
+   * historical defaults apply. The {@link IndexManager} resolves these from
+   * `indexing.weights.lexical` in `openbuff.json` so tuning is global per
+   * project; tests / direct callers may override per-query.
+   */
+  lexicalWeights?: LexicalWeights
+}
+
+/** Historical hardcoded lexical scoring constants — the ranking baseline. */
+export const DEFAULT_LEXICAL_WEIGHTS: Required<LexicalWeights> = {
+  fileName: 5,
+  path: 2,
+  symbol: 3,
+  heading: 2.5,
+  concept: 1.5,
+  import: 1,
+}
+
+/** Merge partial user weights over the historical defaults (undefined-safe). */
+export function resolveLexicalWeights(
+  weights?: LexicalWeights,
+): Required<LexicalWeights> {
+  const resolved: Required<LexicalWeights> = { ...DEFAULT_LEXICAL_WEIGHTS }
+  if (weights) {
+    for (const key of Object.keys(DEFAULT_LEXICAL_WEIGHTS) as (keyof LexicalWeights)[]) {
+      const value = weights[key]
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        resolved[key] = value
+      }
+    }
+  }
+  return resolved
 }
 
 type GraphAdjacency = Map<string, IndexEdge[]>
@@ -102,6 +136,7 @@ export function queryIndex(
   const tokens = tokenizeQuery(query)
   const adjacency = buildAdjacency(index.graph?.edges ?? [])
   const commandIntent = mode === 'commands' || isCommandDiscoveryQuery(query, tokens)
+  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
 
   if (mode === 'neighbors') {
     return queryNeighbors(index, adjacency, tokens, options).slice(0, limit)
@@ -109,10 +144,13 @@ export function queryIndex(
   if (mode === 'path') {
     return queryPath(index, adjacency, tokens, options).slice(0, limit)
   }
-  if (mode === 'explain') {
-    return querySearch(index, adjacency, tokens, fileTypes, limit, true, commandIntent)
+  if (mode === 'references') {
+    return queryReferences(index, adjacency, tokens, options).slice(0, limit)
   }
-  return querySearch(index, adjacency, tokens, fileTypes, limit, mode === 'commands', commandIntent)
+  if (mode === 'explain') {
+    return querySearch(index, adjacency, tokens, fileTypes, limit, true, commandIntent, lexicalWeights)
+  }
+  return querySearch(index, adjacency, tokens, fileTypes, limit, mode === 'commands', commandIntent, lexicalWeights)
 }
 
 function querySearch(
@@ -123,6 +161,7 @@ function querySearch(
   limit: number,
   explain: boolean,
   commandIntent: boolean,
+  lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
 ): QueryIndexResult[] {
   if (tokens.length === 0) {
     const results = Object.values(index.files)
@@ -143,7 +182,7 @@ function querySearch(
   for (const file of Object.values(index.files)) {
     if (!matchesFileType(file, fileTypes)) continue
 
-    const result = scoreFile(file, tokens, idf, commandIntent)
+    const result = scoreFile(file, tokens, idf, commandIntent, lexicalWeights)
     if (result.score > 0) {
       directResults.set(file.path, result)
     }
@@ -189,7 +228,8 @@ function queryNeighbors(
   tokens: string[],
   options: QueryOptions,
 ): QueryIndexResult[] {
-  const seedPaths = findSeedPaths(index, tokens, options.from, options.fileTypes)
+  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
+  const seedPaths = findSeedPaths(index, tokens, options.from, options.fileTypes, lexicalWeights)
   const related = new Map<string, QueryIndexResult>()
   for (const seedPath of seedPaths) {
     for (const item of getRelatedFiles(index, adjacency, seedPath, 2)) {
@@ -227,8 +267,9 @@ function queryPath(
   tokens: string[],
   options: QueryOptions,
 ): QueryIndexResult[] {
-  const from = options.from ?? findSeedPaths(index, tokens, undefined, options.fileTypes)[0]
-  const to = options.to ?? findSeedPaths(index, tokens, undefined, options.fileTypes).find((path) => path !== from)
+  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
+  const from = options.from ?? findSeedPaths(index, tokens, undefined, options.fileTypes, lexicalWeights)[0]
+  const to = options.to ?? findSeedPaths(index, tokens, undefined, options.fileTypes, lexicalWeights).find((path) => path !== from)
   if (!from || !to) return []
 
   const path = shortestFilePath(index, adjacency, from, to)
@@ -258,6 +299,7 @@ function scoreFile(
   tokens: string[],
   idf?: Map<string, number>,
   commandIntent = false,
+  lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
 ): QueryIndexResult {
   let score = 0
   const matchedOn = new Set<QueryIndexResult['matchedOn'][number]>()
@@ -273,10 +315,10 @@ function scoreFile(
     const weight = idf?.get(token) ?? 1
 
     if (fileName.includes(token)) {
-      score += 5 * weight
+      score += lexicalWeights.fileName * weight
       matchedOn.add('path')
     } else if (normalizedPath.includes(token)) {
-      score += 2 * weight
+      score += lexicalWeights.path * weight
       matchedOn.add('path')
     }
 
@@ -286,7 +328,7 @@ function scoreFile(
       // The reverse (symbol inside the token) is only allowed for substantial
       // symbols — otherwise a 1-2 char symbol matches almost every token.
       if (symLower.includes(token) || (symLower.length >= 4 && token.includes(symLower))) {
-        score += 3 * weight
+        score += lexicalWeights.symbol * weight
         matchedOn.add('symbol')
         break
       }
@@ -294,7 +336,7 @@ function scoreFile(
 
     for (const h of file.headings) {
       if (h.toLowerCase().includes(token)) {
-        score += 2.5 * weight
+        score += lexicalWeights.heading * weight
         matchedOn.add('heading')
         break
       }
@@ -302,7 +344,7 @@ function scoreFile(
 
     for (const concept of file.concepts) {
       if (concept.includes(token)) {
-        score += 1.5 * weight
+        score += lexicalWeights.concept * weight
         matchedOn.add('concept')
         break
       }
@@ -310,7 +352,7 @@ function scoreFile(
 
     for (const imp of file.imports) {
       if (imp.toLowerCase().includes(token)) {
-        score += 1 * weight
+        score += lexicalWeights.import * weight
         matchedOn.add('import')
         break
       }
@@ -517,16 +559,88 @@ function findSeedPaths(
   tokens: string[],
   explicitPath?: string,
   fileTypes?: string[],
+  lexicalWeights: Required<LexicalWeights> = DEFAULT_LEXICAL_WEIGHTS,
 ): string[] {
   if (explicitPath && index.files[explicitPath]) return [explicitPath]
   const idf = computeIdfForTokens(index, tokens)
   return Object.values(index.files)
     .filter((file) => matchesFileType(file, fileTypes))
-    .map((file) => scoreFile(file, tokens, idf))
+    .map((file) => scoreFile(file, tokens, idf, false, lexicalWeights))
     .filter((result) => result.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map((result) => result.path)
+}
+
+/**
+ * Find files that reference (import or call into) a seed file. P1-1 feature:
+ * surfaces the blast radius of editing an exported symbol before the edit is
+ * applied.
+ *
+ * Two edge types are consulted, with distinct reliability profiles:
+ * - `references` edges are import-aware and reliable: they connect a file that
+ *   imports a module to the resolved target file. These are the primary signal.
+ * - `calls` edges are name-based (highest-score ownership) and therefore
+ *   ambiguous for common-named symbols. They are included as a secondary,
+ *   explicitly-labelled signal so the caller knows to verify them.
+ *
+ * The seed file path is taken from `options.from`. If omitted, `findSeedPaths`
+ * resolves it from `query` tokens (same path-seed resolution as `neighbors`).
+ * Results are directional — only files that reference the seed are returned,
+ * not files the seed references.
+ */
+function queryReferences(
+  index: MetadataIndex,
+  adjacency: GraphAdjacency,
+  tokens: string[],
+  options: QueryOptions,
+): QueryIndexResult[] {
+  const lexicalWeights = resolveLexicalWeights(options.lexicalWeights)
+  const seedPaths = findSeedPaths(index, tokens, options.from, options.fileTypes, lexicalWeights)
+  const results = new Map<string, QueryIndexResult>()
+
+  for (const seedPath of seedPaths) {
+    const seedId = fileNodeId(seedPath)
+    for (const edge of adjacency.get(seedId) ?? []) {
+      // Only inbound edges point TO the seed from a referencing file.
+      if (edge.to !== seedId) continue
+      if (edge.type !== 'references' && edge.type !== 'calls') continue
+
+      const importerNode = index.graph.nodes[edge.from]
+      if (importerNode?.type !== 'file' || !importerNode.path) continue
+      if (importerNode.path === seedPath) continue
+      if (isNoisyFilePath(importerNode.path)) continue
+      if (!matchesFileType(index.files[importerNode.path], options.fileTypes)) continue
+
+      const isReliable = edge.type === 'references'
+      const file = index.files[importerNode.path]
+      const existing = results.get(importerNode.path)
+      const reason = isReliable
+        ? `imports this file${edge.label ? ` (${edge.label})` : ''}`
+        : `calls a symbol defined here${edge.label ? ` (${edge.label})` : ''} — name-based, verify before relying on it`
+      if (existing) {
+        existing.score += edge.weight
+        existing.matchedOn = addMatchedOn(existing.matchedOn, 'graph')
+        if (existing.relatedFiles) {
+          existing.relatedFiles = mergeRelatedFiles(existing.relatedFiles, [{ path: seedPath, score: edge.weight, reason, via: edge.label }])
+        }
+      } else {
+        results.set(importerNode.path, {
+          path: importerNode.path,
+          score: edge.weight,
+          matchedOn: ['graph'],
+          symbols: file?.symbols.slice(0, 10),
+          headings: file?.headings.slice(0, 5),
+          relatedFiles: [{ path: seedPath, score: edge.weight, reason, via: edge.label }],
+          explanation: `${importerNode.path} ${reason}`,
+        })
+      }
+    }
+  }
+
+  return Array.from(results.values())
+    .map((result) => ({ ...result, score: roundScore(result.score) }))
+    .sort((a, b) => b.score - a.score)
 }
 
 function buildAdjacency(edges: IndexEdge[]): GraphAdjacency {

@@ -7,6 +7,7 @@ import { getFileTokenScores } from '@codebuff/code-map'
 import { walkProject } from './file-walker'
 import { sanitizeIndexCacheDir } from './index-store'
 import type {
+  GraphWeights,
   IndexedFile,
   IndexEdge,
   IndexGraph,
@@ -23,6 +24,32 @@ const CODE_EXTENSIONS = new Set([
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.rst'])
 const CONFIG_EXTENSIONS = new Set(['.json', '.jsonc', '.yaml', '.yml', '.toml'])
+
+/** Historical hardcoded graph edge weights — the ranking baseline. */
+export const DEFAULT_GRAPH_WEIGHTS: Required<GraphWeights> = {
+  defines: 1,
+  imports: 0.7,
+  references: 0.9,
+  containsHeading: 0.8,
+  mentions: 0.6,
+  calls: 1.1,
+}
+
+/** Merge partial user graph weights over the historical defaults (undefined-safe). */
+export function resolveGraphWeights(
+  weights?: GraphWeights,
+): Required<GraphWeights> {
+  const resolved: Required<GraphWeights> = { ...DEFAULT_GRAPH_WEIGHTS }
+  if (weights) {
+    for (const key of Object.keys(DEFAULT_GRAPH_WEIGHTS) as (keyof GraphWeights)[]) {
+      const value = weights[key]
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        resolved[key] = value
+      }
+    }
+  }
+  return resolved
+}
 
 // Captures the module specifier from: `import … from 'x'`, `export … from 'x'`
 // (re-exports), `require('x')` / `import('x')` (dynamic), and `import 'x'`
@@ -108,7 +135,7 @@ export async function buildMetadataIndex(
     if (indexed) indexedFiles[file.relativePath] = indexed
   }
 
-  return createMetadataIndex(projectRoot, indexedFiles, tokenCallers)
+  return createMetadataIndex(projectRoot, indexedFiles, tokenCallers, config.weights?.graph)
 }
 
 export async function updateMetadataIndex(
@@ -157,6 +184,7 @@ export async function updateMetadataIndex(
         metadataOnlyChange ? updatedFiles : existing.files,
         extractTokenCallers(existing.graph),
         loadTsAliases(projectRoot),
+        resolveGraphWeights(config.weights?.graph),
       ),
     }
   }
@@ -223,7 +251,7 @@ export async function updateMetadataIndex(
     }
   }
 
-  return createMetadataIndex(projectRoot, updatedFiles, tokenCallers)
+  return createMetadataIndex(projectRoot, updatedFiles, tokenCallers, config.weights?.graph)
 }
 
 async function indexWalkedFile(params: {
@@ -272,6 +300,7 @@ function createMetadataIndex(
   projectRoot: string,
   files: Record<string, IndexedFile>,
   tokenCallers: Record<string, Record<string, string[]>>,
+  graphWeights?: GraphWeights,
 ): MetadataIndex {
   const aliases = loadTsAliases(projectRoot)
   return {
@@ -280,14 +309,15 @@ function createMetadataIndex(
     builtAt: Date.now(),
     fileCount: Object.keys(files).length,
     files,
-    graph: buildGraph(files, tokenCallers, aliases),
+    graph: buildGraph(files, tokenCallers, aliases, resolveGraphWeights(graphWeights)),
   }
 }
 
 function buildGraph(
   files: Record<string, IndexedFile>,
   tokenCallers: Record<string, Record<string, string[]>>,
-  aliases?: TsAliasMap,
+  aliases: TsAliasMap | undefined,
+  weights: Required<GraphWeights>,
 ): IndexGraph {
   const nodes: Record<string, IndexNode> = {}
   const edges: IndexEdge[] = []
@@ -299,20 +329,20 @@ function buildGraph(
     for (const symbol of file.symbols.slice(0, 30)) {
       const symbolId = symbolNodeId(symbol)
       nodes[symbolId] ??= { id: symbolId, type: 'symbol', label: symbol }
-      edges.push({ from: fileId, to: symbolId, type: 'defines', weight: 1, label: symbol })
+      edges.push({ from: fileId, to: symbolId, type: 'defines', weight: weights.defines, label: symbol })
     }
 
     for (const importPath of file.imports.slice(0, 50)) {
       const importId = importNodeId(importPath)
       nodes[importId] ??= { id: importId, type: 'import', label: importPath }
-      edges.push({ from: fileId, to: importId, type: 'imports', weight: 0.7, label: importPath })
+      edges.push({ from: fileId, to: importId, type: 'imports', weight: weights.imports, label: importPath })
       const resolved = resolveImportToFile(file.path, importPath, files, aliases)
       if (resolved) {
         edges.push({
           from: fileId,
           to: fileNodeId(resolved),
           type: 'references',
-          weight: 0.9,
+          weight: weights.references,
           label: importPath,
         })
       }
@@ -321,13 +351,13 @@ function buildGraph(
     for (const heading of file.headings.slice(0, 40)) {
       const headingId = headingNodeId(file.path, heading)
       nodes[headingId] = { id: headingId, type: 'heading', label: heading, path: file.path }
-      edges.push({ from: fileId, to: headingId, type: 'contains_heading', weight: 0.8, label: heading })
+      edges.push({ from: fileId, to: headingId, type: 'contains_heading', weight: weights.containsHeading, label: heading })
     }
 
     for (const concept of file.concepts.slice(0, 80)) {
       const conceptId = conceptNodeId(concept)
       nodes[conceptId] ??= { id: conceptId, type: 'concept', label: concept }
-      edges.push({ from: fileId, to: conceptId, type: 'mentions', weight: 0.6, label: concept })
+      edges.push({ from: fileId, to: conceptId, type: 'mentions', weight: weights.mentions, label: concept })
     }
   }
 
@@ -340,7 +370,7 @@ function buildGraph(
           from: fileNodeId(callerFile),
           to: fileNodeId(definingFile),
           type: 'calls',
-          weight: 1.1,
+          weight: weights.calls,
           label: token,
         })
       }

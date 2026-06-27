@@ -4,7 +4,12 @@ import * as path from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
 
-import { buildMetadataIndex, updateMetadataIndex } from './metadata-indexer'
+import {
+  buildMetadataIndex,
+  DEFAULT_GRAPH_WEIGHTS,
+  resolveGraphWeights,
+  updateMetadataIndex,
+} from './metadata-indexer'
 
 describe('metadata indexer', () => {
   test('builds graph nodes and content hashes', async () => {
@@ -76,6 +81,59 @@ describe('metadata indexer', () => {
     expect(index.files['gulpfile.js']?.concepts).toEqual(
       expect.arrayContaining(['command configuration', 'task runner', 'build']),
     )
+  })
+
+  test('resolveGraphWeights returns historical defaults with no arg', () => {
+    expect(resolveGraphWeights()).toEqual(DEFAULT_GRAPH_WEIGHTS)
+    expect(resolveGraphWeights()).toEqual({
+      defines: 1,
+      imports: 0.7,
+      references: 0.9,
+      containsHeading: 0.8,
+      mentions: 0.6,
+      calls: 1.1,
+    })
+  })
+
+  test('resolveGraphWeights overrides only the specified field', () => {
+    const resolved = resolveGraphWeights({ calls: 5 })
+    expect(resolved.calls).toBe(5)
+    expect(resolved.defines).toBe(DEFAULT_GRAPH_WEIGHTS.defines)
+    expect(resolved.imports).toBe(DEFAULT_GRAPH_WEIGHTS.imports)
+    expect(resolved.references).toBe(DEFAULT_GRAPH_WEIGHTS.references)
+    expect(resolved.containsHeading).toBe(DEFAULT_GRAPH_WEIGHTS.containsHeading)
+    expect(resolved.mentions).toBe(DEFAULT_GRAPH_WEIGHTS.mentions)
+  })
+
+  test('buildMetadataIndex bakes custom graph edge weights into the graph', async () => {
+    const root = await makeTempProject({
+      'src/a.ts': 'import { b } from "./b"\nexport function a() { return b() }\n',
+      'src/b.ts': 'export function b() { return 1 }\n',
+    })
+
+    const index = await buildMetadataIndex(root, {
+      weights: { graph: { defines: 5 } },
+    })
+
+    // Overridden edge type picks up the custom weight.
+    const definesEdges = index.graph.edges.filter((edge) => edge.type === 'defines')
+    expect(definesEdges.length).toBeGreaterThan(0)
+    for (const edge of definesEdges) {
+      expect(edge.weight).toBe(5)
+    }
+
+    // Non-overridden edge types keep their historical defaults.
+    const importsEdges = index.graph.edges.filter((edge) => edge.type === 'imports')
+    expect(importsEdges.length).toBeGreaterThan(0)
+    for (const edge of importsEdges) {
+      expect(edge.weight).toBe(DEFAULT_GRAPH_WEIGHTS.imports)
+    }
+
+    const referencesEdges = index.graph.edges.filter((edge) => edge.type === 'references')
+    expect(referencesEdges.length).toBeGreaterThan(0)
+    for (const edge of referencesEdges) {
+      expect(edge.weight).toBe(DEFAULT_GRAPH_WEIGHTS.references)
+    }
   })
 })
 

@@ -85,4 +85,42 @@ describe('semantic engine', () => {
     expect(await semanticSearch('x', [], fakeEmbed)).toEqual([])
     expect(await semanticSearch('', [{ path: 'a', vector: [1] }], fakeEmbed)).toEqual([])
   })
+
+  test('blendSemanticScores with weight 0 nullifies semantic contribution', () => {
+    const lexical = [
+      { path: 'a.ts', score: 10 },
+      { path: 'b.ts', score: 8 },
+    ]
+    const semantic = [
+      { path: 'b.ts', score: 0.9 },
+      { path: 'c.ts', score: 0.8 },
+    ]
+    const blended = blendSemanticScores(lexical, semantic, 0)
+    const byPath = Object.fromEntries(blended.map((r) => [r.path, r.score]))
+
+    // The semantic-only entry contributes nothing at weight 0 (still present)…
+    expect(byPath['c.ts']).toBe(0)
+    // …and a blended entry keeps exactly its lexical score.
+    expect(byPath['b.ts']).toBe(8)
+  })
+
+  test('blendSemanticScores scales semantic contribution by the weight', () => {
+    const lexical = [
+      { path: 'a.ts', score: 10 },
+      { path: 'b.ts', score: 8 },
+    ]
+    const semantic = [
+      { path: 'b.ts', score: 0.9 },
+      { path: 'c.ts', score: 0.8 },
+    ]
+    const weight1 = blendSemanticScores(lexical, semantic, 1)
+    const weight2 = blendSemanticScores(lexical, semantic, 2)
+
+    const c1 = weight1.find((r) => r.path === 'c.ts')?.score ?? 0
+    const c2 = weight2.find((r) => r.path === 'c.ts')?.score ?? 0
+
+    // Doubling the weight doubles the semantic-only score (same maxLexical base
+    // so the ratio is exact).
+    expect(c2).toBeCloseTo(c1 * 2)
+  })
 })

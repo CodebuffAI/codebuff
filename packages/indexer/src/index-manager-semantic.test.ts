@@ -81,4 +81,67 @@ describe('IndexManager semantic integration', () => {
     const blended = await mgr.queryBlended('auth', { limit: 5 })
     expect(blended.ready).toBe(true)
   })
+
+  test('queryBlended threads config.weights.semanticBlend into ranking', async () => {
+    // 'auth' is a lexical hit on auth.ts; 'repayment' embeds the 'payment' vocab
+    // bit (payment.ts is a semantic hit) but does not lexically match any file
+    // metadata — making payment.ts a purely-semantic result. semanticBlend=0
+    // must nullify that semantic contribution.
+    const rootZero = makeProject()
+    const mgrZero = IndexManager.getInstance(
+      rootZero,
+      { semantic: { enabled: true }, weights: { semanticBlend: 0 } },
+      fakeEmbed,
+    )
+    await mgrZero.waitUntilReady(10_000)
+    expect(mgrZero.isSemanticReady()).toBe(true)
+
+    const blendedZero = await mgrZero.queryBlended('auth repayment', { limit: 5 })
+    expect(blendedZero.ready).toBe(true)
+    const paymentZero = blendedZero.results.find((r) => r.path.includes('payment'))
+    expect(paymentZero).toBeDefined()
+    expect(paymentZero?.score).toBe(0)
+
+    // With the default blend weight (1), the same purely-semantic hit surfaces
+    // with a nonzero score — proving the weight is actually threaded through.
+    const rootDefault = makeProject()
+    const mgrDefault = IndexManager.getInstance(
+      rootDefault,
+      { semantic: { enabled: true } },
+      fakeEmbed,
+    )
+    await mgrDefault.waitUntilReady(10_000)
+
+    const blendedDefault = await mgrDefault.queryBlended('auth repayment', { limit: 5 })
+    const paymentDefault = blendedDefault.results.find((r) => r.path.includes('payment'))
+    expect(paymentDefault).toBeDefined()
+    expect(paymentDefault?.score).toBeGreaterThan(0)
+  })
+
+  test('config.weights.lexical is threaded into queries', async () => {
+    // 'loginUser' matches auth.ts primarily via its defined symbol, so zeroing
+    // the symbol weight removes the only signal ranking it.
+    const rootZero = makeProject()
+    const mgrZero = IndexManager.getInstance(
+      rootZero,
+      { weights: { lexical: { symbol: 0 } } },
+      fakeEmbed,
+    )
+    await mgrZero.waitUntilReady(10_000)
+
+    const rootDefault = makeProject()
+    const mgrDefault = IndexManager.getInstance(rootDefault, {}, fakeEmbed)
+    await mgrDefault.waitUntilReady(10_000)
+
+    const zeroResults = mgrZero.query('loginUser', { limit: 5 })
+    const defaultResults = mgrDefault.query('loginUser', { limit: 5 })
+
+    const defaultAuthScore =
+      defaultResults.results.find((r) => r.path.includes('auth'))?.score ?? 0
+    const zeroAuthScore =
+      zeroResults.results.find((r) => r.path.includes('auth'))?.score ?? 0
+
+    expect(defaultAuthScore).toBeGreaterThan(0)
+    expect(zeroAuthScore).toBeLessThan(defaultAuthScore)
+  })
 })

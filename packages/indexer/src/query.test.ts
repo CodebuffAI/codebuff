@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import { evaluateQueryIndexQuality, queryIndex } from './query'
+import {
+  DEFAULT_LEXICAL_WEIGHTS,
+  evaluateQueryIndexQuality,
+  queryIndex,
+  resolveLexicalWeights,
+} from './query'
 
 import type { MetadataIndex } from './types'
 
@@ -189,6 +194,161 @@ describe('queryIndex', () => {
     expect(results.findIndex((result) => result.path === 'package.json')).toBeGreaterThan(
       results.findIndex((result) => result.path === 'src/command-registry.ts'),
     )
+  })
+
+  test('resolveLexicalWeights returns historical defaults with no arg', () => {
+    expect(resolveLexicalWeights()).toEqual(DEFAULT_LEXICAL_WEIGHTS)
+    expect(resolveLexicalWeights()).toEqual({
+      fileName: 5,
+      path: 2,
+      symbol: 3,
+      heading: 2.5,
+      concept: 1.5,
+      import: 1,
+    })
+  })
+
+  test('resolveLexicalWeights overrides only the specified field', () => {
+    const resolved = resolveLexicalWeights({ symbol: 100 })
+    expect(resolved.symbol).toBe(100)
+    expect(resolved.fileName).toBe(DEFAULT_LEXICAL_WEIGHTS.fileName)
+    expect(resolved.path).toBe(DEFAULT_LEXICAL_WEIGHTS.path)
+    expect(resolved.heading).toBe(DEFAULT_LEXICAL_WEIGHTS.heading)
+    expect(resolved.concept).toBe(DEFAULT_LEXICAL_WEIGHTS.concept)
+    expect(resolved.import).toBe(DEFAULT_LEXICAL_WEIGHTS.import)
+  })
+
+  test('resolveLexicalWeights ignores non-finite values', () => {
+    const resolved = resolveLexicalWeights({
+      symbol: Number.NaN,
+      path: Number.POSITIVE_INFINITY,
+    })
+    expect(resolved.symbol).toBe(DEFAULT_LEXICAL_WEIGHTS.symbol)
+    expect(resolved.path).toBe(DEFAULT_LEXICAL_WEIGHTS.path)
+  })
+
+  test('zeroing the lexical symbol weight down-ranks a symbol-heavy match', () => {
+    const defaultResults = queryIndex(index, 'AuthProvider', { limit: 5 })
+    const zeroedResults = queryIndex(index, 'AuthProvider', {
+      lexicalWeights: { symbol: 0 },
+      limit: 5,
+    })
+
+    const defaultAuthScore =
+      defaultResults.find((result) => result.path === 'src/auth.ts')?.score ?? 0
+    const zeroedAuthScore =
+      zeroedResults.find((result) => result.path === 'src/auth.ts')?.score ?? 0
+
+    // 'AuthProvider' -> ['auth','provider']; auth.ts matches 'provider' via its
+    // symbol, so zeroing the symbol weight removes that contribution.
+    expect(defaultAuthScore).toBeGreaterThan(0)
+    expect(zeroedAuthScore).toBeLessThan(defaultAuthScore)
+  })
+
+  test('references mode returns files that import the seed file', () => {
+    // src/auth.ts imports ./db, so querying references for src/db.ts should
+    // surface src/auth.ts as the importer.
+    const results = queryIndex(index, 'db', {
+      mode: 'references',
+      from: 'src/db.ts',
+      limit: 10,
+    })
+
+    expect(results.length).toBe(1)
+    expect(results[0]?.path).toBe('src/auth.ts')
+    expect(results[0]?.matchedOn).toContain('graph')
+    expect(results[0]?.explanation).toContain('imports this file')
+    expect(results[0]?.explanation).toContain('./db')
+    expect(results[0]?.relatedFiles?.[0]?.path).toBe('src/db.ts')
+    expect(results[0]?.relatedFiles?.[0]?.reason).toContain('imports this file')
+  })
+
+  test('references mode is directional — does not return files the seed imports', () => {
+    // src/auth.ts imports ./db. Querying references for src/auth.ts should NOT
+    // return src/db.ts, because db.ts is the import target, not an importer of
+    // auth.ts.
+    const results = queryIndex(index, 'auth', {
+      mode: 'references',
+      from: 'src/auth.ts',
+      limit: 10,
+    })
+
+    expect(results.length).toBe(0)
+  })
+
+  test('references mode returns empty for a file with no inbound reference edges', () => {
+    // src/payments.ts has no graph node, so it has no inbound edges.
+    const results = queryIndex(index, 'payments', {
+      mode: 'references',
+      from: 'src/payments.ts',
+      limit: 10,
+    })
+
+    expect(results).toEqual([])
+  })
+
+  test('references mode resolves the seed from query tokens when from is omitted', () => {
+    // Without `from`, findSeedPaths resolves the seed from the query tokens.
+    // Querying 'db' should resolve to src/db.ts, then return its importers.
+    const results = queryIndex(index, 'db', {
+      mode: 'references',
+      limit: 10,
+    })
+
+    expect(results.length).toBe(1)
+    expect(results[0]?.path).toBe('src/auth.ts')
+  })
+
+  test('references mode labels calls edges as name-based and unreliable', () => {
+    // A calls edge is name-based (highest-score ownership) and therefore
+    // ambiguous for common-named symbols. The result should carry an explicit
+    // reliability warning so the caller knows to verify.
+    const callsIndex: MetadataIndex = {
+      ...index,
+      graph: {
+        nodes: index.graph.nodes,
+        edges: [
+          ...index.graph.edges,
+          {
+            from: 'file:src/payments.ts',
+            to: 'file:src/auth.ts',
+            type: 'calls',
+            weight: 0.5,
+            label: 'loginUser',
+          },
+        ],
+      },
+      files: {
+        ...index.files,
+        'src/payments.ts': {
+          ...index.files['src/payments.ts'],
+          symbols: ['processPayment', 'loginUser'],
+        },
+      },
+    }
+    // Add the missing graph node for payments so the edge is reachable.
+    callsIndex.graph.nodes = {
+      ...callsIndex.graph.nodes,
+      'file:src/payments.ts': {
+        id: 'file:src/payments.ts',
+        type: 'file',
+        label: 'src/payments.ts',
+        path: 'src/payments.ts',
+      },
+    }
+
+    const results = queryIndex(callsIndex, 'auth', {
+      mode: 'references',
+      from: 'src/auth.ts',
+      limit: 10,
+    })
+
+    const paymentsResult = results.find((r) => r.path === 'src/payments.ts')
+    expect(paymentsResult).toBeDefined()
+    expect(paymentsResult?.explanation).toContain('calls a symbol defined here')
+    expect(paymentsResult?.explanation).toContain('loginUser')
+    expect(paymentsResult?.explanation).toContain('name-based')
+    expect(paymentsResult?.explanation).toContain('verify')
   })
 })
 

@@ -1,9 +1,9 @@
 import { buildMetadataIndex, updateMetadataIndex } from './metadata-indexer'
 import { isIndexReady, isIndexStale, loadIndex, saveIndex } from './index-store'
-import { queryIndex } from './query'
+import { queryIndex, type QueryOptions } from './query'
 import { buildFileVectors, semanticSearch, blendSemanticScores } from './semantic'
 import type { EmbedFn, FileVector, SemanticHit } from './semantic'
-import type { IndexingConfig, MetadataIndex, QueryIndexMode, QueryIndexResult } from './types'
+import type { IndexingConfig, LexicalWeights, MetadataIndex, QueryIndexMode, QueryIndexResult } from './types'
 
 export class IndexManager {
   // Bounded LRU-ish (FIFO) cache of per-project-root singletons. Prevents
@@ -66,6 +66,11 @@ export class IndexManager {
         enabled: config.semantic?.enabled ?? false,
         model: config.semantic?.model,
       },
+      // Graph weights are baked into the persisted index at build time, so a
+      // different graph-weights config needs a distinct singleton (and rebuild).
+      // Lexical/semanticBlend only affect query time and are threaded through
+      // QueryOptions per call, so they do not need to fork the singleton.
+      graphWeights: config.weights?.graph ?? null,
     })
   }
 
@@ -125,10 +130,13 @@ export class IndexManager {
 
   /**
    * Query the index. Returns empty results if index is not yet ready.
+   *
+   * Lexical field weights from `indexing.weights.lexical` in `openbuff.json`
+   * are merged in (callers can still override per-query via `options.lexicalWeights`).
    */
   query(
     query: string,
-    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string } = {},
+    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string; lexicalWeights?: LexicalWeights } = {},
   ): { results: QueryIndexResult[]; ready: boolean; totalIndexed: number; indexAge: number } {
     if (this.config.enabled === false) {
       return { results: [], ready: false, totalIndexed: 0, indexAge: 0 }
@@ -137,7 +145,7 @@ export class IndexManager {
       this.ensureBuilt()
       return { results: [], ready: false, totalIndexed: 0, indexAge: 0 }
     }
-    const results = queryIndex(this.index, query, options)
+    const results = queryIndex(this.index, query, withConfigLexicalWeights(options, this.config))
     return {
       results,
       ready: true,
@@ -150,10 +158,14 @@ export class IndexManager {
    * Like {@link query} but blends semantic-similarity hits into the lexical
    * ranking when semantic indexing is ready. Async because it embeds the query.
    * Falls back to pure lexical results when semantic is unavailable.
+   *
+   * The semantic blend weight from `indexing.weights.semanticBlend` in
+   * `openbuff.json` controls how strongly semantic hits influence the combined
+   * ranking (historical default: 1).
    */
   async queryBlended(
     query: string,
-    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string } = {},
+    options: { limit?: number; fileTypes?: string[]; mode?: QueryIndexMode; from?: string; to?: string; lexicalWeights?: LexicalWeights } = {},
   ): Promise<{ results: QueryIndexResult[]; ready: boolean; totalIndexed: number; indexAge: number }> {
     const lexical = this.query(query, options)
     if (!lexical.ready || !this.index || !this.isSemanticReady()) {
@@ -172,6 +184,7 @@ export class IndexManager {
     const blended = blendSemanticScores(
       lexical.results.map((r) => ({ path: r.path, score: r.score })),
       semantic,
+      this.config.weights?.semanticBlend,
     ).slice(0, limit)
 
     const results: QueryIndexResult[] = blended.map(({ path, score }) => {
@@ -251,4 +264,22 @@ export class IndexManager {
       return []
     }
   }
+}
+
+/**
+ * Merge the project-level lexical weights from `indexing.weights.lexical` into a
+ * query options object. Per-query `lexicalWeights` (if provided by the caller)
+ * take precedence over the config defaults — the caller's explicit override
+ * wins. Returns the options object with `lexicalWeights` populated when the
+ * config defines any lexical weights and the caller did not supply its own.
+ */
+function withConfigLexicalWeights(
+  options: QueryOptions,
+  config: IndexingConfig,
+): QueryOptions {
+  const configLexical = config.weights?.lexical
+  if (!configLexical) return options
+  // Caller-supplied per-query weights take precedence over config defaults.
+  if (options.lexicalWeights) return options
+  return { ...options, lexicalWeights: configLexical }
 }
