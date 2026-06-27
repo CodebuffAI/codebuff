@@ -235,14 +235,22 @@ export function Composer({
             }
           }}
         />
+        {/* The send button is gone — Enter is the only way to send. The icon
+            here is a non-interactive affordance so the affordance is still
+            visible at the end of the input. It brightens when there's
+            something to send, mirroring the old send button's enabled state. */}
         {running && !canSend ? (
           <button className="stop" onClick={() => stopTurn(threadId)} title="Stop the running turn">
             <Icon name="stop" />
           </button>
         ) : (
-          <button className="send" onClick={submit} disabled={!canSend} title="Send">
-            <Icon name="send" />
-          </button>
+          <span
+            className={`enter-hint${canSend ? ' ready' : ''}`}
+            title="Press Enter to send"
+            aria-label="Press Enter to send"
+          >
+            <Icon name="enter" />
+          </span>
         )}
       </div>
     </div>

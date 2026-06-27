@@ -3,7 +3,9 @@
 const PATHS: Record<string, string> = {
   plus: 'M7.5 2.5v10M2.5 7.5h10',
   x: 'M3.5 3.5l8 8M11.5 3.5l-8 8',
-  send: 'M7.5 12.5v-9M3.5 7.5l4-4 4 4',
+  // Keyboard Return key: hook opens down-then-left with an arrow head at
+  // the left end pointing left, signaling "send with Enter".
+  enter: 'M12 3v5H3M3 8L1 5.5M3 8L1 10.5',
   play: 'M4 3l8 4.5L4 12z',
   trash: 'M3 4.5h9M5.5 4.5V3h4v1.5M4.5 4.5l.5 8h5l.5-8',
   drag: 'M5.5 4.5h.01M9.5 4.5h.01M5.5 7.5h.01M9.5 7.5h.01M5.5 10.5h.01M9.5 10.5h.01',

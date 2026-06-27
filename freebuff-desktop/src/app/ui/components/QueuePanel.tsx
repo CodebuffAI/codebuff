@@ -118,9 +118,16 @@ export function QueuePanel({ threadId }: { threadId: string }) {
             }
           }}
         />
-        <button className="btn add" onClick={addDraft} disabled={!draft.trim()}>
-          <Icon name="plus" />
-        </button>
+        {/* The add button is gone — Enter is the only way to enqueue. The
+            icon here is a non-interactive affordance mirroring the composer's
+            send affordance, brightening once there's text to add. */}
+        <span
+          className={`enter-hint queue${draft.trim() ? ' ready' : ''}`}
+          title="Press Enter to add to queue"
+          aria-label="Press Enter to add to queue"
+        >
+          <Icon name="enter" />
+        </span>
       </div>
 
       <SkillsPanel threadId={threadId} searching={searching} setSearching={setSearching} />

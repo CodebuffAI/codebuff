@@ -1018,19 +1018,6 @@ body.col-resizing {
 .composer textarea:focus {
   border-color: var(--accent-dim);
 }
-.send {
-  display: flex;
-  background: var(--accent);
-  color: #08140a;
-  border: none;
-  border-radius: 8px;
-  padding: 9px;
-}
-.send:disabled {
-  background: var(--raised);
-  color: var(--faint);
-  cursor: default;
-}
 .stop {
   display: flex;
   background: var(--danger);
@@ -1041,6 +1028,30 @@ body.col-resizing {
 }
 .stop:hover {
   filter: brightness(1.1);
+}
+
+/* Non-interactive visual affordance: the Enter key sends. Shown at the end
+   of both the composer input and the queue input, replacing what used to be
+   a clickable send/add button. */
+.enter-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px;
+  border-radius: 8px;
+  color: var(--faint);
+  /* Keep it out of the accessibility tab order — it's purely decorative. */
+  pointer-events: none;
+}
+.enter-hint.ready {
+  color: var(--accent);
+}
+.enter-hint.queue {
+  padding: 6px 9px;
+  border-radius: 7px;
+}
+.enter-hint.queue.ready {
+  color: var(--accent-dim);
 }
 
 /* Per-message actions (copy), revealed on hover. */
@@ -1397,9 +1408,6 @@ body.col-resizing {
 }
 .queue-compose textarea:focus {
   border-color: var(--accent-dim);
-}
-.btn.add {
-  padding: 6px 9px;
 }
 .suggestions {
   border-top: 1px solid var(--border);
