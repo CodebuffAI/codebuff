@@ -1,52 +1,33 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { MAX_ATTACHMENTS } from '../../../core/attachments'
 import { buildCommands, filterCommands, type Command } from '../lib/commands'
-import type { AttachmentKind, PendingAttachment } from '../lib/types'
+import { baseName, kindFor } from '../lib/file-drop'
+import type { PendingAttachment } from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 import { SlashMenu } from './SlashMenu'
-
-// Drives the chip icon only; the server re-derives the authoritative kind. Keep in
-// sync with IMAGE_EXTS in app/attachments.ts.
-const IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i
 
 /** The Electron preload bridge (absent in a plain browser). */
 function bridge(): any {
   return (window as any).freebuffDesktop
 }
 
-const baseName = (p: string) => p.split(/[\\/]/).pop() || p
-
-function kindFor(name: string, isDirectory: boolean, mime?: string): AttachmentKind {
-  if (isDirectory) return 'directory'
-  if (mime?.startsWith('image/') || IMAGE_RE.test(name)) return 'image'
-  return 'file'
-}
-
-/** Merge new attachments into the staged list, de-duping by absolute path. */
-function merge(prev: PendingAttachment[], next: PendingAttachment[]): PendingAttachment[] {
-  const seen = new Set(prev.map((a) => a.path))
-  const out = [...prev]
-  for (const a of next) {
-    if (!a.path || seen.has(a.path)) continue
-    seen.add(a.path)
-    out.push(a)
-  }
-  return out
-}
-
-const iconFor = (kind: AttachmentKind) =>
+const iconFor = (kind: PendingAttachment['kind']) =>
   kind === 'directory' ? 'folder' : kind === 'image' ? 'image' : 'file'
 
-export function Composer({ threadId }: { threadId: string }) {
+export function Composer({
+  threadId,
+  atts,
+  setAtts,
+  addAttachments,
+}: {
+  threadId: string
+  atts: PendingAttachment[]
+  setAtts: React.Dispatch<React.SetStateAction<PendingAttachment[]>>
+  addAttachments: (metas: PendingAttachment[]) => void
+}) {
   const [text, setText] = useState('')
   const [sel, setSel] = useState(0)
-  const [atts, setAtts] = useState<PendingAttachment[]>([])
-  const [dragging, setDragging] = useState(false)
-  // Drag enter/leave fire per child element; a depth counter keeps the highlight
-  // stable until the cursor truly leaves the composer.
-  const dragDepth = useRef(0)
   // Set when the user dismisses the menu with Esc; reset on the next edit so a
   // fresh `/` reopens it.
   const [dismissed, setDismissed] = useState(false)
@@ -56,6 +37,14 @@ export function Composer({ threadId }: { threadId: string }) {
   const running = useStore((s) => s.threads[threadId]?.thread.turnState === 'running')
   const skills = useStore((s) => s.skills)
   const ref = useRef<HTMLTextAreaElement>(null)
+
+  // When staging adds an attachment, refocus the input so the user can keep
+  // typing. Only on growth so the chip's x button doesn't lose focus.
+  const prevLength = useRef(atts.length)
+  useEffect(() => {
+    if (atts.length > prevLength.current) ref.current?.focus({ preventScroll: true })
+    prevLength.current = atts.length
+  }, [atts.length])
 
   const commands = useMemo(() => buildCommands(skills), [skills])
   // The slash menu is active only when the input is a bare command token: a
@@ -77,16 +66,6 @@ export function Composer({ threadId }: { threadId: string }) {
 
   const removeAtt = (path: string) => setAtts((prev) => prev.filter((a) => a.path !== path))
 
-  // Stage new attachments: de-dupe against what's there and cap the total, toasting
-  // if the cap drops any. Single entry point for the picker, drag-drop, and paste.
-  const addAttachments = (metas: PendingAttachment[]) => {
-    const merged = merge(atts, metas)
-    if (merged.length > MAX_ATTACHMENTS) {
-      pushToast(`You can attach up to ${MAX_ATTACHMENTS} files`, 'error')
-    }
-    setAtts(merged.slice(0, MAX_ATTACHMENTS))
-  }
-
   // Paperclip → native open dialog (files AND folders, multi-select). The main
   // process stats each pick so we know which are directories.
   const pickAttachments = async () => {
@@ -104,36 +83,6 @@ export function Composer({ threadId }: { threadId: string }) {
         kind: kindFor(p.name || p.path, p.isDirectory),
       })),
     )
-  }
-
-  // Drag-drop of files / photos / folders from Finder. Electron 32+ removed
-  // File.path, so the absolute path comes from webUtils.getPathForFile (exposed by
-  // the preload as getPathForFile). webkitGetAsEntry tells us files vs. folders.
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    dragDepth.current = 0
-    setDragging(false)
-    const fb = bridge()
-    const items = Array.from(e.dataTransfer.items || [])
-    const metas: PendingAttachment[] = []
-    for (const it of items) {
-      if (it.kind !== 'file') continue
-      const file = it.getAsFile()
-      if (!file) continue
-      const path: string | undefined = fb?.getPathForFile?.(file)
-      if (!path) continue
-      const isDir = !!it.webkitGetAsEntry?.()?.isDirectory
-      metas.push({
-        path,
-        name: file.name || baseName(path),
-        kind: kindFor(file.name || path, isDir, file.type),
-      })
-    }
-    if (!metas.length) {
-      if (!fb?.getPathForFile) pushToast('Drag-and-drop needs the desktop app', 'error')
-      return
-    }
-    addAttachments(metas)
   }
 
   // Paste image(s) (e.g. a screenshot) or file(s) copied in Finder. A real file
@@ -167,16 +116,6 @@ export function Composer({ threadId }: { threadId: string }) {
     else if (!fb?.getPathForFile) pushToast('Pasting files needs the desktop app', 'error')
   }
 
-  const onDragEnter = (e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes('Files')) return
-    dragDepth.current += 1
-    setDragging(true)
-  }
-  const onDragLeave = () => {
-    dragDepth.current = Math.max(0, dragDepth.current - 1)
-    if (dragDepth.current === 0) setDragging(false)
-  }
-
   const submit = () => {
     if (!canSend) return
     send(threadId, text.trim(), atts)
@@ -207,20 +146,7 @@ export function Composer({ threadId }: { threadId: string }) {
   }
 
   return (
-    <div
-      className={`composer${dragging ? ' dragover' : ''}`}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={(e) => {
-        // Required for onDrop to fire; also signals a copy cursor.
-        if (Array.from(e.dataTransfer.types).includes('Files')) {
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'copy'
-        }
-      }}
-      onDrop={onDrop}
-    >
-      {dragging && <div className="composer-drop">Drop files, photos, or folders to attach</div>}
+    <div className="composer">
       {menuOpen && (
         <SlashMenu commands={matches} selected={selected} onSelect={runCommand} onHover={setSel} />
       )}
