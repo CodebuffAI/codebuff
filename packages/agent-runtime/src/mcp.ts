@@ -1,9 +1,11 @@
+import { getErrorObject } from '@codebuff/common/util/error'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { MCP_TOOL_SEPARATOR } from './mcp-constants'
 
 import type { AgentTemplate } from './templates/types'
 import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type {
   CustomToolDefinitions,
@@ -17,12 +19,14 @@ export async function getMCPToolData(
       mcpServers: AgentTemplate['mcpServers']
       writeTo: ProjectFileContext['customToolDefinitions']
       requestMcpToolData: RequestMcpToolDataFn
+      logger?: Logger
     },
     'writeTo'
   >,
 ): Promise<CustomToolDefinitions> {
   const withDefaults = { writeTo: {}, ...params }
-  const { toolNames, mcpServers, writeTo, requestMcpToolData } = withDefaults
+  const { toolNames, mcpServers, writeTo, requestMcpToolData, logger } =
+    withDefaults
 
   // User-facing toolNames use '/' as separator (e.g., 'supabase/list_tables')
   // but internally we use MCP_TOOL_SEPARATOR ('__') for LLM API compatibility
@@ -44,17 +48,28 @@ export async function getMCPToolData(
   for (const [mcpName, mcpConfig] of Object.entries(mcpServers)) {
     promises.push(
       (async () => {
-        const mcpData = await requestMcpToolData({
-          mcpConfig,
-          toolNames: requestedToolsByMcp[mcpName] ?? null,
-        })
+        try {
+          const mcpData = await requestMcpToolData({
+            mcpConfig,
+            toolNames: requestedToolsByMcp[mcpName] ?? null,
+          })
 
-        for (const { name, description, inputSchema } of mcpData) {
-          writeTo[mcpName + MCP_TOOL_SEPARATOR + name] = {
-            inputSchema: convertJsonSchemaToZod(inputSchema as any) as any,
-            endsAgentStep: true,
-            description,
+          for (const { name, description, inputSchema } of mcpData) {
+            writeTo[mcpName + MCP_TOOL_SEPARATOR + name] = {
+              inputSchema: convertJsonSchemaToZod(inputSchema as any) as any,
+              endsAgentStep: true,
+              description,
+            }
           }
+        } catch (error) {
+          // A failed MCP server (e.g. a stdio server that can't be spawned)
+          // should disable just its own tools, not abort the whole turn. The
+          // error from the client carries the actionable detail (command +
+          // captured stderr).
+          logger?.warn(
+            { error: getErrorObject(error), mcpServer: mcpName },
+            `Failed to load tools from MCP server "${mcpName}"; its tools will be unavailable for this step.`,
+          )
         }
       })(),
     )
