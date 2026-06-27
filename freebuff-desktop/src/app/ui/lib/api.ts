@@ -1,7 +1,7 @@
 /** Thin REST client for the orchestrator API. Same-origin in both dev (via the
  * Vite proxy) and packaged (served by the Bun server). */
 
-import type { Part, QueueItem, Skill, Thread } from './types'
+import type { Part, QueueItem, Skill, SkillSearchResult, Thread } from './types'
 
 export interface ThreadData {
   thread: Thread
@@ -56,6 +56,14 @@ export const api = {
 
   // Skills
   listSkills: () => get<Skill[]>('/api/skills'),
+  searchSkills: (q: string) =>
+    get<{ skills: SkillSearchResult[] }>(`/api/skills/search?q=${encodeURIComponent(q)}`),
+  installSkill: (source: string, slug: string, name: string) =>
+    post<{ skill?: Skill; skills?: Skill[]; error?: string }>('/api/skills/install', {
+      source,
+      slug,
+      name,
+    }),
 
   // Project
   openProject: (path: string) => post<{ ok: boolean; error?: string }>('/api/project/open', { path }),

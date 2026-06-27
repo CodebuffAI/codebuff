@@ -11,6 +11,7 @@
  */
 
 import { mkdirSync } from 'fs'
+import { homedir } from 'os'
 import { join } from 'path'
 
 import { CodebuffClient } from '@codebuff/sdk'
@@ -22,10 +23,20 @@ import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
 import { foldAgentEvent, type AgentEventLike, type Part } from '../core/parts'
 import { positionAfter } from '../core/queue-order'
-import { SkillStore, DEFAULT_WORKFLOWS } from '../core/skills'
+import { searchRegistry, downloadSkill } from '../core/skill-registry'
+import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
 import { Store } from '../core/store'
 import { DOC_NAMES, type DocName } from '../core/types'
-import type { Message, Project, QueueItem, QueueItemSource, QueueItemState, Thread } from '../core/types'
+import type {
+  Message,
+  Project,
+  QueueItem,
+  QueueItemSource,
+  QueueItemState,
+  SkillSearchResult,
+  Skill,
+  Thread,
+} from '../core/types'
 import { slugify, WorktreeManager } from '../core/worktree'
 import { buildThreadTools, threadAgentDefinition, THREAD_AGENT_TOOLS } from './agents/thread-agent'
 
@@ -62,6 +73,8 @@ export interface EngineOptions {
   previewBaseUrl?: string
   /** Inject the headless-browser runner (tests). Defaults to real playwright. */
   runBrowserCheck?: (url: string) => Promise<BrowserCheckResult>
+  /** User-home skills dir for acquired skills. Defaults to `~/.freebuff/skills`. */
+  globalSkillsDir?: string
 }
 
 export class ThreadEngine {
@@ -97,7 +110,10 @@ export class ThreadEngine {
     this.repoRoot = opts.repoRoot
     this.store = new Store(join(fbDir, 'desktop.db'))
     this.docs = new DocStore({ docsDir: join(fbDir, 'docs') })
-    this.skills = new SkillStore({ skillsDir: join(fbDir, 'skills') })
+    this.skills = new SkillStore({
+      skillsDir: join(fbDir, 'skills'),
+      globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
+    })
     this.skills.seedDefaults()
     this.client = opts.client ?? new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
@@ -660,6 +676,23 @@ export class ThreadEngine {
   writeSkill(name: string, prompt: string): void {
     this.skills.write(name, prompt)
     this.emitState()
+  }
+
+  /** Search the skills.sh registry for acquirable skills (proxied so the renderer
+   *  avoids CORS and the registry URL stays server-side). */
+  searchSkills(query: string): Promise<SkillSearchResult[]> {
+    return searchRegistry(query)
+  }
+
+  /** Download a registry skill's markdown and save it to the user-home skills dir,
+   *  so it's available as `/<name>` in every project. Returns the saved skill. */
+  async installSkill(source: string, slug: string, name?: string): Promise<Skill | null> {
+    const body = await downloadSkill(source, slug)
+    if (body == null) return null
+    const safe = sanitizeSkillName(name || slug)
+    this.skills.writeGlobal(safe, body)
+    this.emitState()
+    return this.skills.read(safe)
   }
 
   listWorkflows() {

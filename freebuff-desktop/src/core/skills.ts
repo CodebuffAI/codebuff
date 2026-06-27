@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'path'
 
 import type { Skill } from './types'
+import { slugify } from './worktree'
 
 /**
  * Built-in skill bodies. Each is a single-turn instruction the full coding agent
@@ -79,6 +80,12 @@ export const BUILTIN_SKILLS: Record<string, string> = {
 /** Built-in skill names, in a stable order for listing. */
 export const BUILTIN_SKILL_NAMES = Object.keys(BUILTIN_SKILLS)
 
+/** Make a registry skill name safe to use as a `<name>.md` filename and a queue
+ *  command (`/<name>`): the same slug rules as branch names, just a longer cap. */
+export function sanitizeSkillName(name: string): string {
+  return slugify(name, { maxLen: 64, fallback: 'skill' })
+}
+
 /** Default workflows seeded into a fresh project. */
 export const DEFAULT_WORKFLOWS: Record<string, string[]> = {
   ship: ['review', 'simplify', 'test', 'reflect'],
@@ -86,20 +93,28 @@ export const DEFAULT_WORKFLOWS: Record<string, string[]> = {
 
 export class SkillStore {
   private readonly skillsDir: string
+  /** User-home skills, shared across every project — where acquired skills land
+   *  so they show up regardless of which repo is open. */
+  private readonly globalSkillsDir?: string
 
-  constructor(opts: { skillsDir: string }) {
+  constructor(opts: { skillsDir: string; globalSkillsDir?: string }) {
     this.skillsDir = opts.skillsDir
+    this.globalSkillsDir = opts.globalSkillsDir
   }
 
   path(name: string): string {
     return join(this.skillsDir, `${name}.md`)
   }
 
-  /** Read a skill: disk first (user override), then builtin fallback. */
+  /** Read a skill: project file (user override) → global file → builtin fallback. */
   read(name: string): Skill | null {
     const p = this.path(name)
     if (existsSync(p)) {
       return { name, prompt: readFileSync(p, 'utf8'), builtin: !!BUILTIN_SKILLS[name] }
+    }
+    if (this.globalSkillsDir) {
+      const g = join(this.globalSkillsDir, `${name}.md`)
+      if (existsSync(g)) return { name, prompt: readFileSync(g, 'utf8'), builtin: false }
     }
     if (BUILTIN_SKILLS[name]) {
       return { name, prompt: BUILTIN_SKILLS[name], builtin: true }
@@ -107,21 +122,31 @@ export class SkillStore {
     return null
   }
 
-  /** All skills: builtins ∪ on-disk files (deduped by name). */
+  /** All skills: builtins ∪ project files ∪ global files (deduped by name). */
   list(): Skill[] {
     const names = new Set<string>(BUILTIN_SKILL_NAMES)
-    if (existsSync(this.skillsDir)) {
-      for (const f of readdirSync(this.skillsDir)) {
-        if (f.endsWith('.md')) names.add(f.slice(0, -3))
+    for (const dir of [this.skillsDir, this.globalSkillsDir]) {
+      if (dir && existsSync(dir)) {
+        for (const f of readdirSync(dir)) {
+          if (f.endsWith('.md')) names.add(f.slice(0, -3))
+        }
       }
     }
     return [...names].sort().map((n) => this.read(n)!).filter(Boolean)
   }
 
-  /** Write a user-defined skill or override a builtin. */
+  /** Write a user-defined skill or override a builtin (project-scoped). */
   write(name: string, prompt: string): void {
     mkdirSync(this.skillsDir, { recursive: true })
     writeFileSync(this.path(name), prompt)
+  }
+
+  /** Save an acquired skill to the user-home dir so it appears for any project.
+   *  Falls back to the project dir if no global dir is configured. */
+  writeGlobal(name: string, prompt: string): void {
+    if (!this.globalSkillsDir) return this.write(name, prompt)
+    mkdirSync(this.globalSkillsDir, { recursive: true })
+    writeFileSync(join(this.globalSkillsDir, `${name}.md`), prompt)
   }
 
   /** Seed any missing builtin skill files on first open, so they're editable. */

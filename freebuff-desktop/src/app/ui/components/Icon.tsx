@@ -13,6 +13,8 @@ const PATHS: Record<string, string> = {
   edit: 'M10.5 2.5l2 2-7 7-2.5.5.5-2.5z',
   folder: 'M2 4.5h4l1.2 1.5H13v6.5H2z',
   dot: 'M7.5 7.5h.01',
+  search: 'M6.75 11a4.25 4.25 0 100-8.5 4.25 4.25 0 000 8.5zM10 10l2.5 2.5',
+  download: 'M7.5 2.5v6.5M4.5 6.5l3 3 3-3M3 12.5h9',
 }
 
 export function Icon({ name, className }: { name: string; className?: string }) {

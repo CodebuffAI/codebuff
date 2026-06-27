@@ -745,6 +745,143 @@ body.col-resizing {
   color: var(--accent);
   border-color: var(--accent-dim);
 }
+
+/* — Skills panel (scrollable usage-sorted list + registry search) — */
+.skills-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 14px 8px;
+}
+/* In search mode the panel grows to fill the column; the queue below is hidden. */
+.skills-panel.searching {
+  flex: 1;
+}
+.skills-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0 6px;
+}
+.skills-find {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--faint);
+  padding: 2px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.skills-find:hover {
+  color: var(--accent);
+  background: var(--raised);
+}
+.skills-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--accent-dim);
+  border-radius: 7px;
+  padding: 4px 8px;
+  color: var(--faint);
+}
+.skills-search input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.skills-x {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--faint);
+  padding: 1px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.skills-x:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+/* The skill list: a vertical, scrollable column of full-width rows. New
+   (never-used) acquired skills sort to the bottom — scroll down to find them. */
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+.skills-list .btn.chip {
+  justify-content: flex-start;
+  width: 100%;
+  text-align: left;
+}
+.skills-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.skills-hint {
+  color: var(--faint);
+  font-size: 12px;
+  padding: 8px 2px;
+}
+.skill-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+}
+.skill-result-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.skill-result-name {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-result-meta {
+  font-size: 11px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn.save {
+  flex-shrink: 0;
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.btn.save:hover:not(:disabled) {
+  background: var(--raised);
+}
+.btn.save:disabled {
+  cursor: default;
+}
+.btn.save.added {
+  color: var(--muted);
+  border-color: var(--border);
+}
 .lane {
   flex: 1;
   overflow-y: auto;

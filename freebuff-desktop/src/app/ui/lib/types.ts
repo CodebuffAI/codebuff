@@ -64,6 +64,15 @@ export interface Skill {
   builtin: boolean
 }
 
+/** A skill from the skills.sh registry — a candidate to acquire. */
+export interface SkillSearchResult {
+  id: string
+  name: string
+  slug: string
+  source: string
+  installs: number
+}
+
 export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]

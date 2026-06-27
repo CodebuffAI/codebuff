@@ -32,6 +32,16 @@
       ],
       "port": 8787,
       "autoPort": false
+    },
+    {
+      "name": "freebuff-desktop-web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd freebuff-desktop && exec bun run dev:web"
+      ],
+      "port": 5174,
+      "autoPort": false
     }
   ]
 }

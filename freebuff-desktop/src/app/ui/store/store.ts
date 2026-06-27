@@ -52,6 +52,8 @@ interface StoreState {
   runSkill: (id: string, skill: string) => void
   enqueuePrompt: (id: string, prompt: string) => void
   enqueueSkill: (id: string, skill: string) => void
+  /** Acquire a registry skill into the user-home skills dir; resolves to its name. */
+  installSkill: (source: string, slug: string, name: string) => Promise<string | null>
   editItem: (id: string, itemId: string, prompt: string) => void
   deleteItem: (id: string, itemId: string) => void
   promoteItem: (id: string, itemId: string) => void
@@ -283,6 +285,13 @@ export const useStore = create<StoreState>((set, get) => ({
   enqueueSkill(id, skill) {
     bumpSkillTally(set, skill)
     api.enqueueSkill(id, skill)
+  },
+  async installSkill(source, slug, name) {
+    const res = await api
+      .installSkill(source, slug, name)
+      .catch(() => ({}) as { skill?: Skill; skills?: Skill[] })
+    if (res.skills) set({ skills: res.skills })
+    return res.skill?.name ?? null
   },
 
   editItem(id, itemId, prompt) {

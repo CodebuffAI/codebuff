@@ -27,7 +27,14 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
   writeFileSync(join(root, 'base.txt'), 'base\n')
   await bunRunner.run('git', ['-C', root, 'add', '-A'], { cwd: root })
   await bunRunner.run('git', ['-C', root, 'commit', '-m', 'init'], { cwd: root })
-  const engine = new ThreadEngine({ repoRoot: root, client: client as any, ...extra })
+  // Isolate the user-home skills dir so a developer's real `~/.freebuff/skills`
+  // (acquired skills) can't leak into skill-count assertions.
+  const engine = new ThreadEngine({
+    repoRoot: root,
+    client: client as any,
+    globalSkillsDir: join(root, '.global-skills'),
+    ...extra,
+  })
   return { engine, client, root, cleanup: () => rmSync(root, { recursive: true, force: true }) }
 }
 

@@ -130,6 +130,20 @@ export interface Skill {
   builtin: boolean
 }
 
+/** A skill listed by the skills.sh registry (a candidate to acquire). */
+export interface SkillSearchResult {
+  /** Fully-qualified id, e.g. `owner/repo/skill-slug`. */
+  id: string
+  /** Display name of the skill, e.g. `vercel-react-best-practices`. */
+  name: string
+  /** Skill slug within its repo, used to download it. */
+  slug: string
+  /** Source repo, e.g. `vercel-labs/agent-skills`. */
+  source: string
+  /** Cumulative install count (popularity), if known. */
+  installs: number
+}
+
 /** A named ordered list of skill names. */
 export interface Workflow {
   name: string

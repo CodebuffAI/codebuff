@@ -280,6 +280,20 @@ const server = Bun.serve({
     }
 
     // — Skills & workflows —
+    if (pathname === '/api/skills/search') {
+      return json({ skills: await engine.searchSkills(url.searchParams.get('q') ?? '') })
+    }
+    if (pathname === '/api/skills/install' && req.method === 'POST') {
+      const b = await body(req)
+      const skill = await engine.installSkill(
+        String(b.source ?? ''),
+        String(b.slug ?? ''),
+        b.name ? String(b.name) : undefined,
+      )
+      return skill
+        ? json({ skill, skills: engine.listSkills() })
+        : json({ error: 'install failed' }, 400)
+    }
     if (pathname === '/api/skills') return json(engine.listSkills())
     const skillMatch = pathname.match(/^\/api\/skill\/([^/]+)$/)
     if (skillMatch && req.method === 'POST') {

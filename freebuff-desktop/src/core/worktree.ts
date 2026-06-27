@@ -21,14 +21,16 @@ type TaskId = string
 
 export const BRANCH_PREFIX = 'freebuff/'
 
-/** Turn a task title into a stable, filesystem/branch-safe slug. */
-export function slugify(input: string): string {
+/** Turn a string into a stable, filesystem/branch-safe slug. Defaults suit task
+ *  titles (≤50 chars, `task` fallback); callers like skill names override them. */
+export function slugify(input: string, opts: { maxLen?: number; fallback?: string } = {}): string {
+  const { maxLen = 50, fallback = 'task' } = opts
   const base = input
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 50)
-  return base || 'task'
+    .slice(0, maxLen)
+  return base || fallback
 }
 
 export interface RebaseResult {
