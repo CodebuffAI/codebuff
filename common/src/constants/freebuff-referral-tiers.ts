@@ -20,6 +20,21 @@ export const MIN_GITHUB_ACCOUNT_AGE_MONTHS = 4
  *  old) since the reward — paid GLM serverless time — costs more to abuse. */
 export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM = 12
 
+/**
+ * Unified referral system (docs/referrals.md): a single 12-month GitHub
+ * account-age bar for ALL products (no public-repo requirement). Replaces the
+ * per-program bars (cli/glm = 12mo, web = 4mo) as the programs consolidate.
+ */
+export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 12
+
+/**
+ * Freebuff CLI limited-tier perk: each qualified referral whose referred user
+ * activated at the *limited* access tier grants +1 daily free-mode session,
+ * capped here (e.g. 5 base + 3 = 8/day). Full-access referrals instead grant
+ * GLM sessions (see FREEBUFF_GLM_V52_REFERRAL_CAP).
+ */
+export const REFERRAL_CLI_DAILY_SESSION_BONUS_CAP = 3
+
 export interface FreebuffReferralTier {
   /** Tier index (0-based, in ascending order of referralsRequired). */
   tier: number

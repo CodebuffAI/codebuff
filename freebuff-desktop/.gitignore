@@ -2,3 +2,5 @@
 staging/
 # electron-builder output
 dist/
+# Vite build output (the React SPA, rebuilt by `bun run ui:build`)
+dist-ui/

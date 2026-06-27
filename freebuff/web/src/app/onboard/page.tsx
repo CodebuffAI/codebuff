@@ -31,6 +31,7 @@ import {
   CardContent,
 } from '@/components/ui/card'
 import { OnboardConversionTracker } from '@/components/onboard-conversion-tracker'
+import { syncWebReferralState } from '@/server/web-referrals'
 import { logger } from '@/util/logger'
 
 function normalizeReferrer(raw: string | undefined): string | null {
@@ -98,7 +99,28 @@ const Onboard = async ({ searchParams }: PageProps) => {
     return redirect(query ? `${dest}?${query}` : dest)
   }
 
+  // Redeem any pending referral attribution now that we have an authenticated
+  // user in a browser context where the `vly_referral_code` cookie is present.
+  // This is the only referral-redemption hop a CLI-only user ever makes: the
+  // web/cloud apps redeem via the convex-token route, but a friend who clicks
+  // an invite link and then only ever uses the CLI never loads those apps.
+  // Without this, their GLM/web referral is captured (cookie) but the pending
+  // row is never created, so neither they nor the referrer earn the reward.
+  //
+  // Deliberately invoked AFTER the CLI session is created (below) on the login
+  // path, so a cold qualification fetch (GitHub API) never delays the session
+  // the CLI is polling for. Best-effort: a failure must never block onboarding.
+  const redeemPendingReferral = () =>
+    syncWebReferralState({ userId: user.id }).catch((error) => {
+      logger.warn(
+        { error, userId: user.id },
+        'Failed to sync referral state during CLI onboard',
+      )
+    })
+
   if (!authCode) {
+    // No CLI session to create here, so redeem inline before the welcome card.
+    await redeemPendingReferral()
     return (
       <StatusCard
         title={
@@ -238,6 +260,10 @@ const Onboard = async ({ searchParams }: PageProps) => {
 
   const isReplay = await hasCliSessionForAuthHash(fingerprintHash, user.id)
   if (isReplay) {
+    // Already logged in via CLI before, but the referral cookie may have been
+    // set since (e.g. they clicked an invite after their first login), so still
+    // give redemption a chance.
+    await redeemPendingReferral()
     return (
       <>
         <StatusCard
@@ -273,6 +299,10 @@ const Onboard = async ({ searchParams }: PageProps) => {
   )
 
   if (success) {
+    // CLI session is committed and the poller can now succeed; redeem the
+    // referral cookie afterwards so a cold GitHub qualification fetch never
+    // delays login completion.
+    await redeemPendingReferral()
     return (
       <>
         <StatusCard

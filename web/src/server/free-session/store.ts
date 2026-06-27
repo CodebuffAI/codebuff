@@ -1,6 +1,9 @@
+import { recordReferralV2Activation } from '@codebuff/billing'
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
+
+import { logger } from '@/util/logger'
 
 import type { FireworksRoute } from './fireworks-health'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
@@ -300,7 +303,7 @@ export async function promoteQueuedUser(params: {
 }): Promise<InternalSessionRow | null> {
   const { userId, model, sessionLengthMs, now, fireworksRoute } = params
   const expiresAt = new Date(now.getTime() + sessionLengthMs)
-  return db.transaction(async (tx) => {
+  const session = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(schema.freeSession)
       .set({
@@ -327,6 +330,20 @@ export async function promoteQueuedUser(params: {
     })
     return row as InternalSessionRow
   })
+
+  if (session) {
+    // Mark the referred user's unified referral as activated at this admit's
+    // tier (docs/referrals.md). Best-effort and idempotent — a no-op for users
+    // with no referral row; never blocks or fails the admission.
+    await recordReferralV2Activation({
+      referredId: userId,
+      accessTier: session.access_tier ?? 'full',
+      now,
+    }).catch((error) => {
+      logger.warn({ error, userId }, 'Failed to record referral_v2 activation')
+    })
+  }
+  return session
 }
 
 /**

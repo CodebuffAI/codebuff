@@ -5,7 +5,7 @@
  * surface for environment/version display and keep contextIsolation on.
  */
 
-const { contextBridge } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('freebuffDesktop', {
   platform: process.platform,
@@ -13,5 +13,11 @@ contextBridge.exposeInMainWorld('freebuffDesktop', {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,
+  },
+  // Menu → renderer tab commands ('new-tab' | 'reopen-tab' | 'close-tab').
+  onMenuCommand: (handler) => {
+    const listener = (_event, name) => handler(name)
+    ipcRenderer.on('menu-cmd', listener)
+    return () => ipcRenderer.removeListener('menu-cmd', listener)
   },
 })

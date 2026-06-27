@@ -194,6 +194,40 @@ describe('evaluatePendingReferrals (sweep orchestration)', () => {
     })
   })
 
+  it('threads cacheOnly through to every dispatched evaluator', async () => {
+    // The periodic sweep runs cacheOnly so it never calls GitHub; assert the
+    // flag actually reaches the evaluators (where it short-circuits the fetch).
+    const seen: Array<boolean | undefined> = []
+    const evaluator: ReferralEvaluator = async ({ cacheOnly }) => {
+      seen.push(cacheOnly)
+      return notQualified()
+    }
+    await evaluatePendingReferrals({
+      logger: noopLogger,
+      cacheOnly: true,
+      fetchPending: async () => ['u1', 'u2'],
+      evaluators: { cli: evaluator, web: evaluator, glm: evaluator },
+    })
+
+    expect(seen.length).toBe(6) // 2 rows × 3 programs
+    expect(seen.every((c) => c === true)).toBe(true)
+  })
+
+  it('leaves cacheOnly undefined by default (live callers may fetch GitHub)', async () => {
+    let observed: boolean | undefined = true
+    const evaluator: ReferralEvaluator = async ({ cacheOnly }) => {
+      observed = cacheOnly
+      return notQualified()
+    }
+    await evaluatePendingReferrals({
+      logger: noopLogger,
+      programs: ['glm'],
+      fetchPending: async () => ['u1'],
+      evaluators: { cli: evaluator, web: evaluator, glm: evaluator },
+    })
+    expect(observed).toBeUndefined()
+  })
+
   it('skips a row whose evaluator throws without aborting the rest of the run', async () => {
     const seen: string[] = []
     const evaluators: Record<ReferralProgram, ReferralEvaluator> = {

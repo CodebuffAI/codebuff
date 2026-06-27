@@ -48,7 +48,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await evaluatePendingReferrals({ logger, limit: 500 })
+    // cacheOnly: the sweep must never call GitHub. Aging-in (too_new →
+    // qualified) is deterministic from the cached account_created_at, so the
+    // whole pending population can be re-checked in one fast, network-free
+    // pass. First-time/expired-token fetches are left to the user's own live
+    // session. Without this the endpoint did hundreds of GitHub round-trips
+    // (incl. slow 401s) and timed out past the cron's 120s budget.
+    const result = await evaluatePendingReferrals({
+      logger,
+      limit: 500,
+      cacheOnly: true,
+    })
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
     logger.error({ error }, 'referral-sweep failed')

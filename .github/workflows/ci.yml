@@ -88,6 +88,7 @@ jobs:
             .agents,
             cli,
             common,
+            freebuff-desktop,
             freebuff/web,
             packages/agent-runtime,
             packages/billing,

@@ -9,6 +9,7 @@ import { AttributionCapture } from '@/components/attribution-capture'
 import { ReferralCodeCapture } from '@/components/referral-code-capture'
 import { ReferrerTracker } from '@/components/referrer-tracker'
 import { ThemeProvider } from '@/components/theme-provider'
+import { EngagementTracker } from '@/lib/EngagementTracker'
 import { blogConfig } from '@/lib/blog/config'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
@@ -140,6 +141,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class">
           <SessionProvider>
             <PostHogProvider>
+              <EngagementTracker />
               <ReferrerTracker />
               <AttributionCapture />
               <ReferralCodeCapture />

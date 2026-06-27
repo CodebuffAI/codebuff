@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { syncWebReferralState } from '@/server/web-referrals'
 import { logger } from '@/util/logger'
 
 export const runtime = 'nodejs'
@@ -46,6 +47,20 @@ export async function GET() {
       minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
     } satisfies ReferralEligibilityData)
   }
+
+  // Redeem the referral attribution cookie now that the invited friend is
+  // signed in on /get-started — the earliest authed hop in the CLI referral
+  // funnel. This credits the referral (Postgres only; no web app / Convex)
+  // the moment they sign in via the CLI invite link, before they even install
+  // the CLI. Unlike the /onboard Server Component, this is a Route Handler, so
+  // clearing the cookie after redemption works normally. Best-effort: a
+  // referral hiccup must never break the eligibility check the page renders.
+  await syncWebReferralState({ userId }).catch((error) => {
+    logger.warn(
+      { userId, error },
+      'referral redemption on /get-started eligibility check failed',
+    )
+  })
 
   try {
     const qualification = await getReferralQualification({ userId, logger })

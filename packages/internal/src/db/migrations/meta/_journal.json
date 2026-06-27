@@ -505,6 +505,13 @@
       "when": 1782456621470,
       "tag": "0071_yellow_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1782520550370,
+      "tag": "0072_ordinary_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

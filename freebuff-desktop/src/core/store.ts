@@ -1,9 +1,10 @@
 /**
- * Local-first persistence for a single project (§14).
+ * Local-first persistence for a single project (thread model).
  *
  * One SQLite database per project, living under `<project>/.freebuff/desktop.db`,
  * so a project is portable with its repo. Governing docs are NOT rows — they are
- * markdown files under `.freebuff/docs/` (§14) and handled by the doc store.
+ * markdown files under `.freebuff/docs/`; skills are markdown files under
+ * `.freebuff/skills/`. Both are handled by their own file-backed stores.
  *
  * Uses `bun:sqlite` (built into the Bun runtime the orchestrator process runs on).
  */
@@ -12,49 +13,48 @@ import { Database } from 'bun:sqlite'
 
 import type {
   BudgetLedger,
-  DependencyEdge,
   MergeStrategy,
   Project,
+  ProjectId,
+  QueueItem,
+  QueueItemSource,
+  QueueItemState,
   RunConfig,
-  Task,
-  TaskId,
-  TaskOrigin,
-  TaskStatus,
-  PipelineStage,
+  Thread,
+  ThreadId,
+  ThreadStatus,
+  TurnState,
+  Workflow,
 } from './types'
 
-/** Bump when the schema changes; `migrate()` applies steps past the current version. */
-const SCHEMA_VERSION = 4
+/** Bump when the schema changes; `migrate()` recreates dropped tables. */
+const SCHEMA_VERSION = 6
 
-/** camelCase task field → snake_case column, for the dynamic `updateTask` patch. */
-const TASK_UPDATE_COLUMNS: Record<string, string> = {
-  title: 'title',
-  description: 'description',
-  status: 'status',
-  branch: 'branch',
-  baseRef: 'base_ref',
-  worktreePath: 'worktree_path',
-  prUrl: 'pr_url',
-  lastCompletedStage: 'last_completed_stage',
-  stage: 'stage',
-  rationale: 'rationale',
-  reviewRetries: 'review_retries',
-  changesRequestedRounds: 'changes_requested_rounds',
-}
+const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
-export interface NewTaskInput {
-  id: TaskId
-  projectId: string
-  title: string
-  description: string
-  parents?: TaskId[]
-  origin: TaskOrigin
-  /** Provenance: the task whose completion spawned this one (Scout, §9). */
-  spawnedFrom?: TaskId | null
-  rationale?: string | null
-  /** Defaults to `proposed`; human-seeded tasks may enter as `ready`. */
-  status?: TaskStatus
-  createdAt: number
+/**
+ * Build an `UPDATE … SET col = $col, …, updated_at = $updated WHERE id = $id`
+ * from a typed patch, mapping camelCase keys to snake_case columns. `boolKeys`
+ * are coerced to 0/1. Returns null when the patch is empty.
+ */
+function buildUpdate(
+  table: string,
+  id: string,
+  patch: Record<string, unknown>,
+  now: number,
+  boolKeys: readonly string[] = [],
+): { sql: string; params: Record<string, string | number | null> } | null {
+  const sets: string[] = []
+  const params: Record<string, string | number | null> = { $id: id, $updated: now }
+  for (const [key, value] of Object.entries(patch)) {
+    sets.push(`${toSnake(key)} = $${key}`)
+    params[`$${key}`] = boolKeys.includes(key) ? (value ? 1 : 0) : (value as string | number | null)
+  }
+  if (sets.length === 0) return null
+  return {
+    sql: `UPDATE ${table} SET ${sets.join(', ')}, updated_at = $updated WHERE id = $id`,
+    params,
+  }
 }
 
 export interface NewProjectInput {
@@ -65,30 +65,45 @@ export interface NewProjectInput {
   runConfig?: RunConfig
   mergeStrategy?: MergeStrategy
   dailyBudget: number
-  concurrencyCap: number
   createdAt: number
 }
 
-type TaskRow = {
-  id: string
-  project_id: string
-  created_at: number
-  title: string
-  description: string
-  status: TaskStatus
-  branch: string | null
-  base_ref: string | null
-  worktree_path: string | null
-  pr_url: string | null
-  last_completed_stage: PipelineStage | null
-  stage: PipelineStage | null
-  origin: TaskOrigin
-  spawned_from: string | null
-  rationale: string | null
-  review_retries: number
-  changes_requested_rounds: number
-  updated_at: number
+export interface NewThreadInput {
+  id: ThreadId
+  projectId: string
+  title?: string
+  status?: ThreadStatus
+  autoQueueSuggestions?: boolean
+  createdAt: number
 }
+
+export interface NewQueueItemInput {
+  id: string
+  threadId: ThreadId
+  prompt: string
+  label?: string | null
+  state: QueueItemState
+  source: QueueItemSource
+  skillName?: string | null
+  workflowRunId?: string | null
+  workflowName?: string | null
+  position: number
+  createdAt: number
+}
+
+export type ThreadPatch = Partial<
+  Pick<
+    Thread,
+    'title' | 'status' | 'autoQueueSuggestions' | 'branch' | 'worktreePath' | 'baseRef' | 'prUrl' | 'turnState'
+  >
+>
+
+export type QueueItemPatch = Partial<
+  Pick<
+    QueueItem,
+    'prompt' | 'label' | 'state' | 'source' | 'skillName' | 'workflowRunId' | 'workflowName' | 'position'
+  >
+>
 
 type ProjectRow = {
   id: string
@@ -98,8 +113,37 @@ type ProjectRow = {
   run_config: string
   merge_strategy: MergeStrategy
   daily_budget: number
-  concurrency_cap: number
   created_at: number
+}
+
+type ThreadRow = {
+  id: string
+  project_id: string
+  title: string
+  status: ThreadStatus
+  auto_queue_suggestions: number
+  branch: string | null
+  worktree_path: string | null
+  base_ref: string | null
+  pr_url: string | null
+  turn_state: TurnState
+  created_at: number
+  updated_at: number
+}
+
+type QueueRow = {
+  id: string
+  thread_id: string
+  prompt: string
+  label: string | null
+  state: QueueItemState
+  source: QueueItemSource
+  skill_name: string | null
+  workflow_run_id: string | null
+  workflow_name: string | null
+  position: number
+  created_at: number
+  updated_at: number
 }
 
 export class Store {
@@ -127,6 +171,16 @@ export class Store {
     ).user_version
     if (current >= SCHEMA_VERSION) return
 
+    // The task-graph era tables are gone in the thread model. The DB is local,
+    // in-repo, and gitignored, so a clean re-create is acceptable. `projects`
+    // and `budget_ledger` are preserved (created with IF NOT EXISTS below).
+    this.db.exec(`
+      DROP TABLE IF EXISTS task_artifacts;
+      DROP TABLE IF EXISTS dependency_edges;
+      DROP TABLE IF EXISTS chat_messages;
+      DROP TABLE IF EXISTS tasks;
+    `)
+
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS projects (
         id               TEXT PRIMARY KEY,
@@ -136,96 +190,85 @@ export class Store {
         run_config       TEXT NOT NULL DEFAULT '{}',
         merge_strategy   TEXT NOT NULL DEFAULT 'squash',
         daily_budget     INTEGER NOT NULL,
-        concurrency_cap  INTEGER NOT NULL,
         created_at       INTEGER NOT NULL
       );
 
-      CREATE TABLE IF NOT EXISTS tasks (
-        id                       TEXT PRIMARY KEY,
-        project_id               TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        created_at               INTEGER NOT NULL,
-        title                    TEXT NOT NULL,
-        description              TEXT NOT NULL,
-        status                   TEXT NOT NULL DEFAULT 'proposed',
-        branch                   TEXT,
-        base_ref                 TEXT,
-        worktree_path            TEXT,
-        pr_url                   TEXT,
-        last_completed_stage     TEXT,
-        stage                    TEXT,
-        origin                   TEXT NOT NULL,
-        spawned_from             TEXT,
-        rationale                TEXT,
-        review_retries           INTEGER NOT NULL DEFAULT 0,
-        changes_requested_rounds INTEGER NOT NULL DEFAULT 0,
-        updated_at               INTEGER NOT NULL
+      -- One conversation = one tab = one worktree/branch.
+      CREATE TABLE IF NOT EXISTS threads (
+        id            TEXT PRIMARY KEY,
+        project_id    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        title         TEXT NOT NULL DEFAULT 'New thread',
+        status        TEXT NOT NULL DEFAULT 'open',
+        auto_queue_suggestions INTEGER NOT NULL DEFAULT 0,
+        branch        TEXT,
+        worktree_path TEXT,
+        base_ref      TEXT,
+        pr_url        TEXT,
+        turn_state    TEXT NOT NULL DEFAULT 'idle',
+        created_at    INTEGER NOT NULL,
+        updated_at    INTEGER NOT NULL
       );
-      -- FIFO scheduling (§17) reads tasks in creation order.
-      CREATE INDEX IF NOT EXISTS idx_tasks_project_created
-        ON tasks(project_id, created_at);
-      CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+      CREATE INDEX IF NOT EXISTS idx_threads_project ON threads(project_id, created_at);
 
-      -- Dependency edges (§8). "to depends on from": to waits for from to merge.
-      CREATE TABLE IF NOT EXISTS dependency_edges (
-        from_task  TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        to_task    TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        PRIMARY KEY (from_task, to_task)
-      );
-      CREATE INDEX IF NOT EXISTS idx_edges_to ON dependency_edges(to_task);
-      CREATE INDEX IF NOT EXISTS idx_edges_from ON dependency_edges(from_task);
-
-      -- Rolling-24h token budget per Freebuff account (§13).
-      CREATE TABLE IF NOT EXISTS budget_ledger (
-        account_id   TEXT PRIMARY KEY,
-        tokens_used  INTEGER NOT NULL DEFAULT 0,
-        window_start INTEGER NOT NULL
-      );
-
-      -- Orchestrator chat transcript, persisted per project so it survives reloads
-      -- and app restarts (the conversation is real work, not throwaway).
-      CREATE TABLE IF NOT EXISTS chat_messages (
+      -- Chat transcript, thread-scoped.
+      CREATE TABLE IF NOT EXISTS messages (
         seq        INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id TEXT NOT NULL,
+        thread_id  TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
         role       TEXT NOT NULL,
         text       TEXT NOT NULL DEFAULT '',
         acts_json  TEXT NOT NULL DEFAULT '[]',
         ts         INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id, seq);
+      CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id, seq);
 
-      -- Per-task pipeline artifacts surfaced on the PR (§7): diff, test evidence,
-      -- review notes, transcript. Keyed blobs rather than columns so stages can
-      -- attach freely.
-      CREATE TABLE IF NOT EXISTS task_artifacts (
-        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        key     TEXT NOT NULL,
-        value   TEXT NOT NULL,
-        PRIMARY KEY (task_id, key)
+      -- Unified queue + suggestions. Lane is the state column.
+      CREATE TABLE IF NOT EXISTS queue_items (
+        id              TEXT PRIMARY KEY,
+        thread_id       TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+        prompt          TEXT NOT NULL,
+        label           TEXT,
+        state           TEXT NOT NULL,
+        source          TEXT NOT NULL,
+        skill_name      TEXT,
+        workflow_run_id TEXT,
+        workflow_name   TEXT,
+        position        REAL NOT NULL,
+        created_at      INTEGER NOT NULL,
+        updated_at      INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_queue_thread_state
+        ON queue_items(thread_id, state, position);
+
+      -- Named ordered list of skill names. Project-scoped.
+      CREATE TABLE IF NOT EXISTS workflows (
+        project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        skills_json TEXT NOT NULL,
+        PRIMARY KEY (project_id, name)
+      );
+
+      -- Rolling-24h spend per Freebuff account (informational).
+      CREATE TABLE IF NOT EXISTS budget_ledger (
+        account_id   TEXT PRIMARY KEY,
+        tokens_used  INTEGER NOT NULL DEFAULT 0,
+        window_start INTEGER NOT NULL
       );
     `)
 
-    // v2→v3: dependents may start before their parents merge, branching off an
-    // integration base instead of `main` (§8). `base_ref` records that base so the
-    // child can be restacked onto `main` once its parents merge. `CREATE TABLE IF
-    // NOT EXISTS` above won't add the column to a pre-existing table, so add it
-    // explicitly; existing rows get NULL, correct for independent/merged tasks.
-    this.addColumnIfMissing('tasks', 'base_ref', 'TEXT')
-
-    // v3→v4: the Scout stamps each proposal with the task that spawned it so the
-    // UI can group proposals under the work that motivated them (§9). Existing
-    // rows get NULL (correct for human tasks and pre-v4 scout proposals).
-    this.addColumnIfMissing('tasks', 'spawned_from', 'TEXT')
+    // v6: the per-thread `autorun` flag is gone (the queue always auto-drains).
+    // Repurpose the column as `auto_queue_suggestions` on existing dbs without
+    // dropping thread history. (Fresh dbs already create the new column above.)
+    // Prior values carry over verbatim: `autorun=0` (the overwhelming default)
+    // becomes `auto_queue_suggestions=false`, the safe default; the rare user who
+    // had autorun on will now auto-queue suggestions instead — acceptable.
+    const threadCols = (
+      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (threadCols.includes('autorun') && !threadCols.includes('auto_queue_suggestions')) {
+      this.db.exec('ALTER TABLE threads RENAME COLUMN autorun TO auto_queue_suggestions')
+    }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
-  }
-
-  /** Idempotent `ALTER TABLE … ADD COLUMN` for in-place schema upgrades. */
-  private addColumnIfMissing(table: string, column: string, type: string): void {
-    const cols = this.db.query(`PRAGMA table_info(${table})`).all() as {
-      name: string
-    }[]
-    if (cols.some((c) => c.name === column)) return
-    this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
   }
 
   // — Projects —
@@ -239,15 +282,14 @@ export class Store {
       runConfig: input.runConfig ?? {},
       mergeStrategy: input.mergeStrategy ?? 'squash',
       dailyBudget: input.dailyBudget,
-      concurrencyCap: input.concurrencyCap,
       createdAt: input.createdAt,
     }
     this.db
       .query(
         `INSERT INTO projects
           (id, repo_url, root_path, default_branch, run_config, merge_strategy,
-           daily_budget, concurrency_cap, created_at)
-         VALUES ($id, $repo, $root, $branch, $runConfig, $merge, $budget, $cap, $created)`,
+           daily_budget, created_at)
+         VALUES ($id, $repo, $root, $branch, $runConfig, $merge, $budget, $created)`,
       )
       .run({
         $id: project.id,
@@ -257,7 +299,6 @@ export class Store {
         $runConfig: JSON.stringify(project.runConfig),
         $merge: project.mergeStrategy,
         $budget: project.dailyBudget,
-        $cap: project.concurrencyCap,
         $created: project.createdAt,
       })
     return project
@@ -276,194 +317,88 @@ export class Store {
       .run({ $id: id, $rc: JSON.stringify(runConfig) })
   }
 
-  // — Tasks —
+  // — Threads —
 
-  insertTask(input: NewTaskInput): Task {
-    const parents = input.parents ?? []
-    const task: Task = {
+  insertThread(input: NewThreadInput): Thread {
+    const thread: Thread = {
       id: input.id,
       projectId: input.projectId,
-      createdAt: input.createdAt,
-      title: input.title,
-      description: input.description,
-      status: input.status ?? 'proposed',
-      parents,
+      title: input.title ?? 'New thread',
+      status: input.status ?? 'open',
+      autoQueueSuggestions: input.autoQueueSuggestions ?? false,
       branch: null,
-      baseRef: null,
       worktreePath: null,
+      baseRef: null,
       prUrl: null,
-      lastCompletedStage: null,
-      stage: null,
-      origin: input.origin,
-      spawnedFrom: input.spawnedFrom ?? null,
-      rationale: input.rationale ?? null,
-      reviewRetries: 0,
-      changesRequestedRounds: 0,
+      turnState: 'idle',
+      createdAt: input.createdAt,
       updatedAt: input.createdAt,
     }
-
-    this.db.transaction(() => {
-      this.db
-        .query(
-          `INSERT INTO tasks
-            (id, project_id, created_at, title, description, status, origin,
-             spawned_from, rationale, updated_at)
-           VALUES ($id, $project, $created, $title, $desc, $status, $origin,
-             $spawnedFrom, $rationale, $updated)`,
-        )
-        .run({
-          $id: task.id,
-          $project: task.projectId,
-          $created: task.createdAt,
-          $title: task.title,
-          $desc: task.description,
-          $status: task.status,
-          $origin: task.origin,
-          $spawnedFrom: task.spawnedFrom,
-          $rationale: task.rationale,
-          $updated: task.updatedAt,
-        })
-      for (const parent of parents) {
-        this.insertEdge({ from: parent, to: task.id })
-      }
-    })()
-
-    return task
+    this.db
+      .query(
+        `INSERT INTO threads
+          (id, project_id, title, status, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $title, $status, $autoQueue, 'idle', $created, $updated)`,
+      )
+      .run({
+        $id: thread.id,
+        $project: thread.projectId,
+        $title: thread.title,
+        $status: thread.status,
+        $autoQueue: thread.autoQueueSuggestions ? 1 : 0,
+        $created: thread.createdAt,
+        $updated: thread.updatedAt,
+      })
+    return thread
   }
 
-  getTask(id: TaskId): Task | null {
+  getThread(id: ThreadId): Thread | null {
     const row = this.db
-      .query('SELECT * FROM tasks WHERE id = $id')
-      .get({ $id: id }) as TaskRow | null
-    if (!row) return null
-    return rowToTask(row, this.parentsOf(id))
+      .query('SELECT * FROM threads WHERE id = $id')
+      .get({ $id: id }) as ThreadRow | null
+    return row ? rowToThread(row) : null
   }
 
-  /** All tasks for a project in FIFO (creation) order (§17). */
-  listTasks(projectId: string, status?: TaskStatus): Task[] {
+  /** Threads for a project in creation order. */
+  listThreads(projectId: string, opts?: { status?: ThreadStatus }): Thread[] {
     const rows = (
-      status
+      opts?.status
         ? this.db
             .query(
-              `SELECT * FROM tasks WHERE project_id = $p AND status = $s
+              `SELECT * FROM threads WHERE project_id = $p AND status = $s
                ORDER BY created_at ASC`,
             )
-            .all({ $p: projectId, $s: status })
+            .all({ $p: projectId, $s: opts.status })
         : this.db
-            .query(
-              `SELECT * FROM tasks WHERE project_id = $p ORDER BY created_at ASC`,
-            )
+            .query(`SELECT * FROM threads WHERE project_id = $p ORDER BY created_at ASC`)
             .all({ $p: projectId })
-    ) as TaskRow[]
-    // Batch all parent edges in one query (avoid an N+1 parentsOf() per row).
-    const parentsByTask = new Map<TaskId, TaskId[]>()
-    for (const e of this.allEdges(projectId)) {
-      const list = parentsByTask.get(e.to)
-      if (list) list.push(e.from)
-      else parentsByTask.set(e.to, [e.from])
-    }
-    return rows.map((r) => rowToTask(r, parentsByTask.get(r.id) ?? []))
+    ) as ThreadRow[]
+    return rows.map(rowToThread)
   }
 
-  /** Patch a subset of task columns. `parents` is managed via edges, not here. */
-  updateTask(
-    id: TaskId,
-    patch: Partial<
-      Pick<
-        Task,
-        | 'title'
-        | 'description'
-        | 'status'
-        | 'branch'
-        | 'baseRef'
-        | 'worktreePath'
-        | 'prUrl'
-        | 'lastCompletedStage'
-        | 'stage'
-        | 'rationale'
-        | 'reviewRetries'
-        | 'changesRequestedRounds'
-      >
-    >,
-    now: number,
-  ): void {
-    const sets: string[] = []
-    const params: Record<string, string | number | null> = {
-      $id: id,
-      $updated: now,
-    }
-    for (const [key, value] of Object.entries(patch)) {
-      sets.push(`${TASK_UPDATE_COLUMNS[key]} = $${key}`)
-      params[`$${key}`] = value as string | number | null
-    }
-    if (sets.length === 0) return
-    this.db
-      .query(
-        `UPDATE tasks SET ${sets.join(', ')}, updated_at = $updated WHERE id = $id`,
-      )
-      .run(params)
+  updateThread(id: ThreadId, patch: ThreadPatch, now: number): void {
+    const upd = buildUpdate('threads', id, patch, now, ['autoQueueSuggestions'])
+    if (upd) this.db.query(upd.sql).run(upd.params)
   }
 
-  // — Dependency edges —
-
-  insertEdge(edge: DependencyEdge): void {
-    this.db
-      .query(
-        `INSERT OR IGNORE INTO dependency_edges (from_task, to_task)
-         VALUES ($from, $to)`,
-      )
-      .run({ $from: edge.from, $to: edge.to })
+  deleteThread(id: ThreadId): void {
+    this.db.query('DELETE FROM threads WHERE id = $id').run({ $id: id })
   }
 
-  removeEdge(edge: DependencyEdge): void {
-    this.db
-      .query(
-        `DELETE FROM dependency_edges WHERE from_task = $from AND to_task = $to`,
-      )
-      .run({ $from: edge.from, $to: edge.to })
-  }
+  // — Messages —
 
-  /** Parents of a task (the `from` side of edges pointing at it). */
-  parentsOf(taskId: TaskId): TaskId[] {
-    const rows = this.db
-      .query('SELECT from_task FROM dependency_edges WHERE to_task = $id')
-      .all({ $id: taskId }) as { from_task: string }[]
-    return rows.map((r) => r.from_task)
-  }
-
-  /** Children that depend on a task (the `to` side of edges from it). */
-  childrenOf(taskId: TaskId): TaskId[] {
-    const rows = this.db
-      .query('SELECT to_task FROM dependency_edges WHERE from_task = $id')
-      .all({ $id: taskId }) as { to_task: string }[]
-    return rows.map((r) => r.to_task)
-  }
-
-  allEdges(projectId: string): DependencyEdge[] {
-    const rows = this.db
-      .query(
-        `SELECT e.from_task, e.to_task FROM dependency_edges e
-         JOIN tasks t ON t.id = e.to_task
-         WHERE t.project_id = $p`,
-      )
-      .all({ $p: projectId }) as { from_task: string; to_task: string }[]
-    return rows.map((r) => ({ from: r.from_task, to: r.to_task }))
-  }
-
-  // — Chat transcript —
-
-  appendChatMessage(
-    projectId: string,
+  appendMessage(
+    threadId: ThreadId,
     msg: { role: string; text: string; acts?: unknown[] },
     ts: number,
   ): void {
     this.db
       .query(
-        `INSERT INTO chat_messages (project_id, role, text, acts_json, ts)
-         VALUES ($p, $role, $text, $acts, $ts)`,
+        `INSERT INTO messages (thread_id, role, text, acts_json, ts)
+         VALUES ($t, $role, $text, $acts, $ts)`,
       )
       .run({
-        $p: projectId,
+        $t: threadId,
         $role: msg.role,
         $text: msg.text,
         $acts: JSON.stringify(msg.acts ?? []),
@@ -471,15 +406,12 @@ export class Store {
       })
   }
 
-  getChatMessages(
-    projectId: string,
-  ): { role: string; text: string; acts: unknown[] }[] {
+  getMessages(threadId: ThreadId): { role: string; text: string; acts: unknown[] }[] {
     const rows = this.db
       .query(
-        `SELECT role, text, acts_json FROM chat_messages
-         WHERE project_id = $p ORDER BY seq ASC`,
+        `SELECT role, text, acts_json FROM messages WHERE thread_id = $t ORDER BY seq ASC`,
       )
-      .all({ $p: projectId }) as { role: string; text: string; acts_json: string }[]
+      .all({ $t: threadId }) as { role: string; text: string; acts_json: string }[]
     return rows.map((r) => ({
       role: r.role,
       text: r.text,
@@ -487,22 +419,125 @@ export class Store {
     }))
   }
 
-  // — Task artifacts —
+  // — Queue items (unified queue + suggestions) —
 
-  setArtifact(taskId: TaskId, key: string, value: string): void {
+  insertQueueItem(input: NewQueueItemInput): QueueItem {
+    const item: QueueItem = {
+      id: input.id,
+      threadId: input.threadId,
+      prompt: input.prompt,
+      label: input.label ?? null,
+      state: input.state,
+      source: input.source,
+      skillName: input.skillName ?? null,
+      workflowRunId: input.workflowRunId ?? null,
+      workflowName: input.workflowName ?? null,
+      position: input.position,
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+    }
     this.db
       .query(
-        `INSERT INTO task_artifacts (task_id, key, value) VALUES ($t, $k, $v)
-         ON CONFLICT(task_id, key) DO UPDATE SET value = excluded.value`,
+        `INSERT INTO queue_items
+          (id, thread_id, prompt, label, state, source, skill_name,
+           workflow_run_id, workflow_name, position, created_at, updated_at)
+         VALUES ($id, $thread, $prompt, $label, $state, $source, $skill,
+           $wfRun, $wfName, $pos, $created, $updated)`,
       )
-      .run({ $t: taskId, $k: key, $v: value })
+      .run({
+        $id: item.id,
+        $thread: item.threadId,
+        $prompt: item.prompt,
+        $label: item.label,
+        $state: item.state,
+        $source: item.source,
+        $skill: item.skillName,
+        $wfRun: item.workflowRunId,
+        $wfName: item.workflowName,
+        $pos: item.position,
+        $created: item.createdAt,
+        $updated: item.updatedAt,
+      })
+    return item
   }
 
-  getArtifacts(taskId: TaskId): Record<string, string> {
+  getQueueItem(id: string): QueueItem | null {
+    const row = this.db
+      .query('SELECT * FROM queue_items WHERE id = $id')
+      .get({ $id: id }) as QueueRow | null
+    return row ? rowToQueueItem(row) : null
+  }
+
+  /** Items for a thread, ordered by position. Optionally filtered to one lane. */
+  listQueueItems(threadId: ThreadId, state?: QueueItemState): QueueItem[] {
+    const rows = (
+      state
+        ? this.db
+            .query(
+              `SELECT * FROM queue_items WHERE thread_id = $t AND state = $s
+               ORDER BY position ASC`,
+            )
+            .all({ $t: threadId, $s: state })
+        : this.db
+            .query(`SELECT * FROM queue_items WHERE thread_id = $t ORDER BY position ASC`)
+            .all({ $t: threadId })
+    ) as QueueRow[]
+    return rows.map(rowToQueueItem)
+  }
+
+  updateQueueItem(id: string, patch: QueueItemPatch, now: number): void {
+    const upd = buildUpdate('queue_items', id, patch, now)
+    if (upd) this.db.query(upd.sql).run(upd.params)
+  }
+
+  deleteQueueItem(id: string): void {
+    this.db.query('DELETE FROM queue_items WHERE id = $id').run({ $id: id })
+  }
+
+  /** The next item to run: lowest-position `queued` item for the thread. */
+  nextQueuedItem(threadId: ThreadId): QueueItem | null {
+    const row = this.db
+      .query(
+        `SELECT * FROM queue_items WHERE thread_id = $t AND state = 'queued'
+         ORDER BY position ASC LIMIT 1`,
+      )
+      .get({ $t: threadId }) as QueueRow | null
+    return row ? rowToQueueItem(row) : null
+  }
+
+  /** Highest position in a lane (for appending). Returns 0 when the lane is empty. */
+  maxPosition(threadId: ThreadId, state: QueueItemState): number {
+    const row = this.db
+      .query(
+        `SELECT MAX(position) AS m FROM queue_items WHERE thread_id = $t AND state = $s`,
+      )
+      .get({ $t: threadId, $s: state }) as { m: number | null }
+    return row.m ?? 0
+  }
+
+  // — Workflows —
+
+  upsertWorkflow(projectId: string, name: string, skills: string[]): void {
+    this.db
+      .query(
+        `INSERT INTO workflows (project_id, name, skills_json) VALUES ($p, $n, $s)
+         ON CONFLICT(project_id, name) DO UPDATE SET skills_json = excluded.skills_json`,
+      )
+      .run({ $p: projectId, $n: name, $s: JSON.stringify(skills) })
+  }
+
+  getWorkflow(projectId: string, name: string): Workflow | null {
+    const row = this.db
+      .query('SELECT name, skills_json FROM workflows WHERE project_id = $p AND name = $n')
+      .get({ $p: projectId, $n: name }) as { name: string; skills_json: string } | null
+    return row ? { name: row.name, skills: JSON.parse(row.skills_json) as string[] } : null
+  }
+
+  listWorkflows(projectId: string): Workflow[] {
     const rows = this.db
-      .query('SELECT key, value FROM task_artifacts WHERE task_id = $t')
-      .all({ $t: taskId }) as { key: string; value: string }[]
-    return Object.fromEntries(rows.map((r) => [r.key, r.value]))
+      .query('SELECT name, skills_json FROM workflows WHERE project_id = $p ORDER BY name ASC')
+      .all({ $p: projectId }) as { name: string; skills_json: string }[]
+    return rows.map((r) => ({ name: r.name, skills: JSON.parse(r.skills_json) as string[] }))
   }
 
   // — Budget ledger —
@@ -514,11 +549,7 @@ export class Store {
       | { account_id: string; tokens_used: number; window_start: number }
       | null
     return row
-      ? {
-          accountId: row.account_id,
-          tokensUsed: row.tokens_used,
-          windowStart: row.window_start,
-        }
+      ? { accountId: row.account_id, tokensUsed: row.tokens_used, windowStart: row.window_start }
       : null
   }
 
@@ -531,11 +562,7 @@ export class Store {
            tokens_used = excluded.tokens_used,
            window_start = excluded.window_start`,
       )
-      .run({
-        $id: ledger.accountId,
-        $used: ledger.tokensUsed,
-        $start: ledger.windowStart,
-      })
+      .run({ $id: ledger.accountId, $used: ledger.tokensUsed, $start: ledger.windowStart })
   }
 }
 
@@ -548,31 +575,40 @@ function rowToProject(row: ProjectRow): Project {
     runConfig: JSON.parse(row.run_config) as RunConfig,
     mergeStrategy: row.merge_strategy,
     dailyBudget: row.daily_budget,
-    concurrencyCap: row.concurrency_cap,
     createdAt: row.created_at,
   }
 }
 
-function rowToTask(row: TaskRow, parents: TaskId[]): Task {
+function rowToThread(row: ThreadRow): Thread {
   return {
     id: row.id,
     projectId: row.project_id,
-    createdAt: row.created_at,
     title: row.title,
-    description: row.description,
     status: row.status,
-    parents,
+    autoQueueSuggestions: row.auto_queue_suggestions === 1,
     branch: row.branch,
-    baseRef: row.base_ref,
     worktreePath: row.worktree_path,
+    baseRef: row.base_ref,
     prUrl: row.pr_url,
-    lastCompletedStage: row.last_completed_stage,
-    stage: row.stage,
-    origin: row.origin,
-    spawnedFrom: row.spawned_from,
-    rationale: row.rationale,
-    reviewRetries: row.review_retries,
-    changesRequestedRounds: row.changes_requested_rounds,
+    turnState: row.turn_state,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function rowToQueueItem(row: QueueRow): QueueItem {
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    prompt: row.prompt,
+    label: row.label,
+    state: row.state,
+    source: row.source,
+    skillName: row.skill_name,
+    workflowRunId: row.workflow_run_id,
+    workflowName: row.workflow_name,
+    position: row.position,
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }

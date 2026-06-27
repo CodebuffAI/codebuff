@@ -62,9 +62,15 @@ if (!result.success) {
 }
 console.log(`Bundled orchestrator → ${join(OUT_DIR, 'orchestrator.js')}`)
 
-// Ship the UI next to the bundle (the shell sets FREEBUFF_UI_PATH to it).
-mkdirSync(join(OUT_DIR, 'ui'), { recursive: true })
-cpSync(join(PKG_DIR, 'src', 'app', 'ui', 'index.html'), join(OUT_DIR, 'ui', 'index.html'))
+// Ship the built React SPA next to the bundle (the shell sets FREEBUFF_UI_DIR to
+// this dir; the server serves index.html + hashed assets from it). `prepackage`
+// runs `vite build` first, producing dist-ui/.
+const distUi = join(PKG_DIR, 'dist-ui')
+if (!existsSync(join(distUi, 'index.html'))) {
+  console.error('Refusing to bundle: dist-ui/ is missing. Run `bun run ui:build` first.')
+  process.exit(1)
+}
+cpSync(distUi, join(OUT_DIR, 'ui'), { recursive: true })
 
 // Ship the externalized deps as a real node_modules beside the bundle so the
 // bundled `import 'playwright'` resolves at runtime. dereference: follow the

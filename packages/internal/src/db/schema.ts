@@ -48,6 +48,15 @@ export type GrantType = (typeof grantTypeEnum.enumValues)[number]
 
 export const sessionTypeEnum = pgEnum('session_type', ['web', 'pat', 'cli'])
 
+// Free-mode access tier. Defined here, above every table that references it
+// (`referral`, `freeSession`, `freeSessionAdmit`), because pgTable() evaluates
+// at module load — a forward reference to an enum declared further down would
+// hit its temporal dead zone.
+export const freebuffAccessTierEnum = pgEnum('freebuff_access_tier', [
+  'full',
+  'limited',
+])
+
 export const agentRunStatus = pgEnum('agent_run_status', [
   'running',
   'completed',
@@ -233,6 +242,52 @@ export const referral = pgTable(
       table.referred_id,
       table.qualified_at,
     ),
+  ],
+)
+
+/**
+ * Unified referral model (docs/referrals.md). One row per *referred* user — the
+ * `referred_id` PK means a user is referred at most once, ever, across every
+ * product. Supersedes `referral` + its `program` dimension (the old table is
+ * dropped once products cut over).
+ *
+ * Qualification is deliberately NOT stored here: a referral "counts" when the
+ * referred user's GitHub account is ≥ 12 months old, which is DERIVED at read
+ * time from the immutable `github_account_created_at` in `referral_qualification`
+ * (joined via `referred_github_user_id`). Because the account age only ever
+ * increases, this ages in automatically — no `qualified_at` flag to flip and no
+ * sweep to flip it. The only writes are attribution (at signup) and activation
+ * (on first product use).
+ */
+export const referralV2 = pgTable(
+  'referral_v2',
+  {
+    // The referred user. PK: referred at most once, ever.
+    referred_id: text('referred_id')
+      .primaryKey()
+      .references(() => user.id),
+    referrer_id: text('referrer_id')
+      .notNull()
+      .references(() => user.id),
+    // Immutable GitHub numeric id of the referred user, and the anti-sybil
+    // burn-once key: UNIQUE means one GitHub identity is the referred party in
+    // at most one referral, ever. Nullable for Google-only signups (Postgres
+    // allows multiple NULLs under a UNIQUE constraint). Also the join key to
+    // `referral_qualification` for the derived age check.
+    referred_github_user_id: text('referred_github_user_id').unique(),
+    // Attribution time — written at signup.
+    created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    // First product use. A referral only COUNTS once this is set.
+    activated_at: timestamp('activated_at', { mode: 'date' }),
+    // Best access tier the referred user has activated at ('full' > 'limited').
+    // Drives the benefit: 'full' → GLM/Opus, 'limited' → CLI daily-session bonus.
+    activation_access_tier: freebuffAccessTierEnum('activation_access_tier'),
+    // Clawback: a revoked referral is excluded from every count.
+    revoked_at: timestamp('revoked_at', { mode: 'date' }),
+  },
+  (table) => [
+    // Stats reads filter by referrer.
+    index('idx_referral_v2_referrer').on(table.referrer_id),
   ],
 )
 
@@ -953,11 +1008,6 @@ export const freeSessionStatusEnum = pgEnum('free_session_status', [
   'queued',
   'active',
 ])
-export const freebuffAccessTierEnum = pgEnum('freebuff_access_tier', [
-  'full',
-  'limited',
-])
-
 /**
  * Free-user session / waiting-room state. One row per user is enforced by the
  * PK on user_id so a single account cannot occupy multiple active sessions.
