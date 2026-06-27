@@ -31,7 +31,7 @@ import { useRepositoryValidation } from "@/vly/hooks/use-repository-validation";
 import { useToast } from "@/vly/hooks/use-toast";
 import { useSignedInUser } from "@/vly/hooks/use-user";
 import { getFormattedPriceWithPeriod } from "@/vly/autumn/helpers";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle,
@@ -64,6 +64,7 @@ interface GitHubSyncViewProps {
 }
 
 export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
+  const { isAuthenticated } = useConvexAuth();
   const [repositoryName, setRepositoryName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -288,6 +289,14 @@ export default function GitHubSyncView({ projectId }: GitHubSyncViewProps) {
   };
 
   const handleConnectGitHub = async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in before connecting GitHub.",
+        variant: "destructive",
+      });
+      return;
+    }
     console.log("handleConnectGitHub called");
     setIsConnecting(true);
     try {

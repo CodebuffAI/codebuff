@@ -448,7 +448,10 @@ export const sweepTimedOutFreebuffRuns = internalMutation({
           workflow_id: undefined,
           last_edited_timestamp: now,
         })
-        await ctx.db.patch(thread.project_id, { state: 'active' })
+        const project = await ctx.db.get(thread.project_id)
+        if (project) {
+          await ctx.db.patch(thread.project_id, { state: 'active' })
+        }
       }
 
       timedOut += 1

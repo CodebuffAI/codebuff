@@ -27,7 +27,7 @@ async function getMemberProjectCodebase(
 
   const project = await ctx.runQuery(
     internal.cloud.connectRepoMutations.getConnectedRepoForMember,
-    { semanticIdentifier, userId: user._id },
+    { semanticIdentifier },
   );
   if (!project || !project.sandbox_id) {
     throw new Error("Project not found or access denied");
@@ -159,9 +159,14 @@ export const setRuntimeConfig = action({
 
     const project = await ctx.runQuery(
       internal.cloud.connectRepoMutations.getConnectedRepoForMember,
-      { semanticIdentifier: args.semanticIdentifier, userId: user._id },
+      { semanticIdentifier: args.semanticIdentifier },
     );
-    if (!project) throw new Error("Project not found or access denied");
+    if (!project) {
+      throw new Error(
+        "Project not found, is not a connected-repo project, or you do not have access. " +
+        "Check Convex logs for [getConnectedRepoForMember] to see which condition failed.",
+      );
+    }
 
     await ctx.runMutation(
       internal.cloud.connectRepoMutations.updateRuntimeConfig,

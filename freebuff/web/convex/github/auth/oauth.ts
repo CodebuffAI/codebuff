@@ -45,8 +45,14 @@ export const initiateGitHubAuth = action({
   },
   returns: v.string(), // authorization URL
   handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Your session has expired. Please sign in again to connect GitHub.");
+    }
     const user = await getAuthUser(ctx);
-    if (!user) throw new Error("Unauthorized");
+    if (!user) {
+      throw new Error("User account not found. Please sign out and sign in again.");
+    }
 
     // Feature access is enforced client-side via useFeatureAccess hook.
     // Server-side autumn.check() was incorrectly blocking paying users

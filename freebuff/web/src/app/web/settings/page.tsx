@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type React from "react";
 import Link from "next/link";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/vly/components/app-shell/AppShell";
 import { AmbientBackdrop } from "@/vly/components/app-shell/AmbientBackdrop";
@@ -39,6 +39,7 @@ const SETTINGS_TABS = [
 ];
 
 export default function GeneralSettingsPage() {
+  const { isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.viewer);
   const currentUserId = useQuery(api.community.getCurrentUserId);
   const profile = useQuery(
@@ -174,6 +175,10 @@ export default function GeneralSettingsPage() {
   );
 
   const handleConnectGithub = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in before connecting GitHub.");
+      return;
+    }
     setIsConnectingGithub(true);
     try {
       const authUrl = await initiateGithubAuth({

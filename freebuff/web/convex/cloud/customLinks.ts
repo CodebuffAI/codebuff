@@ -139,7 +139,7 @@ export const getCustomLinks = action({
 
     const project = await ctx.runQuery(
       internal.cloud.connectRepoMutations.getConnectedRepoForMember,
-      { semanticIdentifier: args.semanticIdentifier, userId: user._id },
+      { semanticIdentifier: args.semanticIdentifier },
     );
     if (!project || !project.sandbox_id) {
       throw new Error("Project not found or access denied");

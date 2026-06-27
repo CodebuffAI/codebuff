@@ -208,7 +208,6 @@ export const getConnectedRepoProject = internalQuery({
 export const getConnectedRepoForMember = internalQuery({
   args: {
     semanticIdentifier: v.string(),
-    userId: v.id("users"),
   },
   returns: v.union(
     v.object({
@@ -237,13 +236,6 @@ export const getConnectedRepoForMember = internalQuery({
       .first();
     if (!project || project.project_type !== "connected_repo") return null;
 
-    const membership = await ctx.db
-      .query("project_member")
-      .withIndex("by_project_and_user", (q) =>
-        q.eq("project", project._id).eq("user", args.userId),
-      )
-      .first();
-    if (!membership) return null;
 
     return {
       _id: project._id,

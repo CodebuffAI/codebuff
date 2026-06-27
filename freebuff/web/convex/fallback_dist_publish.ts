@@ -1,6 +1,6 @@
 "use node";
 
-import type { VercelDeploymentFile } from "../codebase-utils/codebase/Codebase";
+import type { Codebase, VercelDeploymentFile } from "../codebase-utils/codebase/Codebase";
 import {
   hasPackageManager,
   isVercelDeployable,
@@ -9,6 +9,25 @@ import { initializeCodebase } from "../codebase-utils/codebase/initializeCodebas
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
+
+type FrameworkType = "vite" | "nextjs" | "unsupported";
+
+async function detectFramework(codebase: Codebase): Promise<FrameworkType> {
+  try {
+    const raw = await codebase.readFile("package.json");
+    const pkg = JSON.parse(raw) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if ("next" in allDeps) return "nextjs";
+    if ("vite" in allDeps) return "vite";
+    return "unsupported";
+  } catch {
+    // No package.json → Python, Ruby, or other non-JS project
+    return "unsupported";
+  }
+}
 
 const DIST_REFRESH_WINDOW_MS = 10 * 60 * 1000;
 const DIST_BUILD_ROOT_PREFIX = "distBuild";
@@ -219,15 +238,36 @@ export const publishFallbackDist = internalAction({
 
     const packageManager = codebase.getPackageManager();
 
+    const framework = await detectFramework(codebase);
+    if (framework === "nextjs") {
+      throw new Error(
+        "Fallback dist publishing is not supported for Next.js projects yet.",
+      );
+    }
+    if (framework === "unsupported") {
+      throw new Error(
+        "Fallback dist publishing is not supported for this project type yet. Only Vite projects are currently supported.",
+      );
+    }
+
     console.log("[FallbackDist] Starting dist build", {
       projectId: project._id,
       semanticIdentifier: project.semantic_identifier,
       lastDistBuildAt,
       force,
+      framework,
     });
 
+    const tscResult = await codebase.runCommand(
+      packageManager.run("tsc -b"),
+      60_000,
+    );
+    if (tscResult.exitCode !== 0) {
+      console.warn("[FallbackDist] TypeScript errors in project (build continues):", tscResult.output);
+    }
+
     await codebase.runCommandThrow(
-      `${packageManager.run("tsc -b")} && ${packageManager.run("vite build")}`,
+      packageManager.run("vite build"),
       120_000,
     );
 

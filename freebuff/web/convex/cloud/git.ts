@@ -239,7 +239,7 @@ async function getMemberProjectCodebase(
 
   const project = await ctx.runQuery(
     internal.cloud.connectRepoMutations.getConnectedRepoForMember,
-    { semanticIdentifier, userId: user._id },
+    { semanticIdentifier },
   );
   if (!project || !project.sandbox_id) {
     throw new Error("Project not found or access denied");
