@@ -621,6 +621,11 @@ export async function loopAgentSteps(
     parentTools?: ToolSet
     prompt: string | undefined
     signal: AbortSignal
+    /** Optional steering hook. Drained at each step boundary (after a step's LLM
+     * call + tools complete, before the next one). Any returned texts are appended
+     * to the message history as user prompts and keep the turn going, letting a
+     * host "steer" a running agent without aborting or losing the current step. */
+    drainSteeringMessages?: () => string[]
     spawnParams: Record<string, any> | undefined
     startAgentRun: StartAgentRunFn
     userId: string | undefined
@@ -1079,6 +1084,25 @@ export async function loopAgentSteps(
 
       currentPrompt = undefined
       currentParams = undefined
+
+      // Steering: if the host fed user messages while this step ran, append them
+      // now (the step's LLM call + tools have completed, so history is in a clean
+      // state) and keep the turn going so the agent responds to them next step,
+      // rather than waiting for the whole turn to finish.
+      const steered = params.drainSteeringMessages?.()
+      if (steered?.length) {
+        currentAgentState.messageHistory = [
+          ...currentAgentState.messageHistory,
+          ...steered.map((text) =>
+            userMessage({
+              content: buildUserMessageContent(text, undefined, undefined),
+              tags: ['USER_PROMPT'],
+              keepDuringTruncation: true,
+            }),
+          ),
+        ]
+        shouldEndTurn = false
+      }
     }
 
     if (clearUserPromptMessagesAfterResponse) {
