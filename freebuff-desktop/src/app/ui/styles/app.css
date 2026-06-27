@@ -1124,15 +1124,15 @@ body.col-resizing {
    (never-used) acquired skills sort to the bottom — scroll down to find them. */
 .skills-list {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 5px;
   max-height: 168px;
   overflow-y: auto;
 }
 .skills-list .btn.chip {
-  justify-content: flex-start;
-  width: 100%;
-  text-align: left;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 10px;
 }
 .skills-results {
   flex: 1;
@@ -1146,6 +1146,12 @@ body.col-resizing {
   color: var(--faint);
   font-size: 12px;
   padding: 8px 2px;
+}
+/* Pairs with .queue-title for the uppercase/letter-spacing/color; only the
+   smaller size and tighter padding differ. */
+.skills-browse-label {
+  font-size: 10.5px;
+  padding: 2px 2px 0;
 }
 .skill-result {
   display: flex;

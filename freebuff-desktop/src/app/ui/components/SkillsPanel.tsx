@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../lib/api'
+import { CURATED_POPULAR } from '../lib/curated-skills'
 import { useStore } from '../store/store'
 import type { SkillSearchResult } from '../lib/types'
 import { Icon } from './Icon'
@@ -68,12 +69,15 @@ export function SkillsPanel({
   }, [skills])
   const installedNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
 
-  // Live search: re-query on every keystroke, debounced. The cleanup cancels both
-  // the pending timer and any in-flight response, so only the latest query lands.
+  // Live search: re-query on every keystroke, debounced. An empty query browses a
+  // hand-picked popular set (instant, no network) so people can discover before
+  // typing. The cleanup cancels both the pending timer and any in-flight response,
+  // so only the latest query lands.
   useEffect(() => {
+    if (!searching) return
     const q = query.trim()
     if (q.length < 2) {
-      setResults([])
+      setResults(CURATED_POPULAR)
       setLoading(false)
       return
     }
@@ -89,7 +93,7 @@ export function SkillsPanel({
       cancelled = true
       clearTimeout(t)
     }
-  }, [query])
+  }, [query, searching])
 
   // Once the list view is back and a skill was just acquired, reveal it (bottom row).
   useEffect(() => {
@@ -126,15 +130,18 @@ export function SkillsPanel({
     }
   }
 
-  // One message stands in for the whole results area until there's something to show.
+  const trimmedQuery = query.trim()
+  // Whether we're showing popular skills to browse (empty query) vs. live results.
+  const browsing = trimmedQuery.length < 2
+  // One message stands in for the results area, but only when there's nothing to
+  // show — while a new query is in flight we keep the previous results visible so
+  // the list doesn't strobe to "Searching…" on every keystroke.
   const hint =
-    query.trim().length < 2
-      ? 'Type at least 2 characters to search the registry.'
+    results.length > 0
+      ? null
       : loading
         ? 'Searching…'
-        : results.length === 0
-          ? `No skills found for “${query.trim()}”.`
-          : null
+        : `No skills found for “${trimmedQuery}”.`
 
   return (
     <div className={`skills-panel${searching ? ' searching' : ''}`}>
@@ -158,8 +165,8 @@ export function SkillsPanel({
         ) : (
           <>
             <span className="queue-title">Skills</span>
-            <button className="skills-find" onClick={openSearch} title="Find &amp; add new skills">
-              <Icon name="search" />
+            <button className="skills-find" onClick={openSearch} title="Add new skills">
+              <Icon name="plus" />
             </button>
           </>
         )}
@@ -170,30 +177,35 @@ export function SkillsPanel({
           {hint ? (
             <div className="skills-hint">{hint}</div>
           ) : (
-            results.map((r) => {
-              const added = savedIds.has(r.id) || installedNames.has(r.name)
-              const busy = installing === r.id
-              return (
-                <div key={r.id} className="skill-result">
-                  <div className="skill-result-info">
-                    <span className="skill-result-name">{r.name}</span>
-                    <span className="skill-result-meta">
-                      {r.source}
-                      {r.installs ? ` · ${formatInstalls(r.installs)}` : ''}
-                    </span>
+            <>
+              {browsing && (
+                <div className="queue-title skills-browse-label">Popular skills</div>
+              )}
+              {results.map((r) => {
+                const added = savedIds.has(r.id) || installedNames.has(r.name)
+                const busy = installing === r.id
+                return (
+                  <div key={r.id} className="skill-result">
+                    <div className="skill-result-info">
+                      <span className="skill-result-name">{r.name}</span>
+                      <span className="skill-result-meta">
+                        {r.source}
+                        {r.installs ? ` · ${formatInstalls(r.installs)}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      className={`btn save${added ? ' added' : ''}`}
+                      disabled={added || busy}
+                      onClick={() => onSave(r)}
+                      title={added ? 'Already added' : `Save ${r.name} to your skills`}
+                    >
+                      <Icon name={added ? 'check' : 'download'} />
+                      <span>{added ? 'Added' : busy ? 'Saving…' : 'Save'}</span>
+                    </button>
                   </div>
-                  <button
-                    className={`btn save${added ? ' added' : ''}`}
-                    disabled={added || busy}
-                    onClick={() => onSave(r)}
-                    title={added ? 'Already added' : `Save ${r.name} to your skills`}
-                  >
-                    <Icon name={added ? 'check' : 'download'} />
-                    <span>{added ? 'Added' : busy ? 'Saving…' : 'Save'}</span>
-                  </button>
-                </div>
-              )
-            })
+                )
+              })}
+            </>
           )}
         </div>
       ) : (
