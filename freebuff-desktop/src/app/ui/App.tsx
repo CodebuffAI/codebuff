@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { ProjectPicker } from './components/ProjectPicker'
 import { TabBar } from './components/TabBar'
 import { Workspace } from './components/Workspace'
 import { useKeyboard } from './hooks/useKeyboard'
@@ -11,6 +12,8 @@ export function App() {
   const activeId = useStore((s) => s.activeId)
   const toasts = useStore((s) => s.toasts)
   const dismissToast = useStore((s) => s.dismissToast)
+  const pickerOpen = useStore((s) => s.pickerOpen)
+  const setPickerOpen = useStore((s) => s.setPickerOpen)
   useSSE()
   useKeyboard()
 
@@ -43,6 +46,7 @@ export function App() {
           </div>
         </div>
       )}
+      {pickerOpen && <ProjectPicker onClose={() => setPickerOpen(false)} />}
       <div className="toasts">
         {toasts.map((t) => (
           <div key={t.id} className={`toast ${t.kind}`} onClick={() => dismissToast(t.id)}>

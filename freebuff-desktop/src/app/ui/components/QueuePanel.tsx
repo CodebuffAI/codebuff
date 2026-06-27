@@ -45,13 +45,14 @@ export function QueuePanel({ threadId }: { threadId: string }) {
     return {
       running: all.filter((i) => i.state === 'running'),
       queued: all.filter((i) => i.state === 'queued').sort(byPos),
-      done: all.filter((i) => i.state === 'done'),
+      // Completed items aren't shown here — they already appear in the chat
+      // transcript as the prompts that were sent.
       suggested: all.filter((i) => i.state === 'suggested').sort(byPos),
     }
   }, [items])
 
   if (!items) return null
-  const { running, queued, done, suggested } = lanes
+  const { running, queued, suggested } = lanes
 
   const onDragEnd = (lane: QueueItem[]) => (e: DragEndEvent) => {
     const { active, over } = e
@@ -101,17 +102,6 @@ export function QueuePanel({ threadId }: { threadId: string }) {
 
             {queued.length === 0 && running.length === 0 && (
               <div className="lane-empty">Nothing queued. Add a prompt or a skill.</div>
-            )}
-
-            {done.length > 0 && (
-              <div className="done-list">
-                {done.map((i) => (
-                  <div key={i.id} className="qitem done">
-                    <Icon name="check" />
-                    <QueueLabel item={i} />
-                  </div>
-                ))}
-              </div>
             )}
           </div>
 

@@ -8,6 +8,7 @@ import { Message } from './Message'
 export function ThreadView({ threadId }: { threadId: string }) {
   const slice = useStore((s) => s.threads[threadId])
   const projectPath = useStore((s) => s.projectPath)
+  const setPickerOpen = useStore((s) => s.setPickerOpen)
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
@@ -26,11 +27,14 @@ export function ThreadView({ threadId }: { threadId: string }) {
   return (
     <div className="threadview">
       <div className="thread-head">
-        {projectName && (
-          <span className="thread-head-project" title={projectPath}>
-            <Icon name="folder" /> {projectName}
-          </span>
-        )}
+        <button
+          className="thread-head-project"
+          onClick={() => setPickerOpen(true)}
+          title={projectPath ? `${projectPath} — click to open another project` : 'Open a project'}
+        >
+          <Icon name="folder" /> {projectName || 'Open project'}
+          <Icon name="down" className="caret" />
+        </button>
         <span className="thread-head-title" title={slice.thread.title}>
           {slice.thread.title || 'New thread'}
         </span>

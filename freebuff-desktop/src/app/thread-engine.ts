@@ -99,6 +99,11 @@ export class ThreadEngine {
    * running, later arrivals are drained at the agent's step boundaries to steer
    * the in-flight turn instead of waiting for it to finish. */
   private userInbox = new Map<string, string[]>()
+  /** Abort handle for a thread's in-flight turn, so the UI can stop it. */
+  private aborters = new Map<string, AbortController>()
+  /** Threads whose user pressed Stop: the pump halts after the current turn
+   * instead of draining the next queued item. Cleared once honored. */
+  private interrupted = new Set<string>()
   private threadSeq = 0
   private costSpent = 0
 
@@ -321,12 +326,29 @@ export class ThreadEngine {
    * instead of the full prompt body; by default they're the same typed message.
    */
   private startUserTurn(threadId: string, steeringText: string, displayText: string = steeringText): void {
+    // Sending a message (typed or a /skill) re-engages the thread: lift any prior
+    // Stop hold so normal pumping (this message, then the queue) resumes.
+    this.interrupted.delete(threadId)
     this.store.appendMessage(threadId, { role: 'user', text: displayText }, this.now())
     const list = this.userInbox.get(threadId) ?? []
     list.push(steeringText)
     this.userInbox.set(threadId, list)
     this.emitThread(threadId)
     void this.pump(threadId)
+  }
+
+  /**
+   * Stop a thread's running turn: abort the in-flight agent run and halt the pump
+   * so it doesn't immediately roll on to the next queued item. Queued items are
+   * left in place — the user can resume by sending a message or queueing more.
+   * Pre-stop steering messages are dropped here (synchronously, so a message the
+   * user sends *after* Stop isn't caught by the pump's halt), since they were meant
+   * for the turn being stopped.
+   */
+  stopTurn(threadId: string): void {
+    this.interrupted.add(threadId)
+    this.userInbox.delete(threadId)
+    this.aborters.get(threadId)?.abort()
   }
 
   /**
@@ -362,6 +384,11 @@ export class ThreadEngine {
           continue
         }
 
+        // Honor a Stop: with no user messages waiting, halt instead of draining the
+        // next queued item. (Pre-stop steering was already cleared in stopTurn, and
+        // a post-stop message is handled by the branch above.)
+        if (this.interrupted.delete(threadId)) break
+
         const next = this.store.nextQueuedItem(threadId)
         if (!next) break
         await this.runTurn(threadId, next.prompt, { queueItemId: next.id })
@@ -396,6 +423,31 @@ export class ThreadEngine {
     this.emitThread(threadId)
     this.emitState()
 
+    // Hoisted above the try so the catch/finally can finalize partial output when
+    // a Stop aborts the run or it throws.
+    let assistantText = ''
+    let streamedText = false
+    const acts: { toolName: string; input: unknown }[] = []
+    // Build the ordered parts array as events arrive so the persisted turn matches
+    // what the client streamed live (same fold — see core/parts.ts).
+    let parts: Part[] = []
+    let partSeq = 0
+    const partId = () => `p${++partSeq}`
+    // Emit an agent event to the UI and fold it into `parts` in lockstep.
+    const emitAgent = (event: AgentEventLike) => {
+      parts = foldAgentEvent(parts, event, partId)
+      this.emit({ type: 'agent', threadId, event: event as unknown as PrintModeEvent })
+    }
+    // End a turn with a terminal marker (Stopped / failed): stream it + fold it into
+    // `parts`, then emit a finish so the message leaves the working state (the SDK
+    // emits none on abort/error). Used for both endings so they stay symmetric.
+    const finalize = (marker: string) => {
+      emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
+      emitAgent({ type: 'finish', totalCost: 0 })
+    }
+    const aborter = new AbortController()
+    this.aborters.set(threadId, aborter)
+
     try {
       thread = await this.ensureWorktree(thread)
       const cwd = thread.worktreePath!
@@ -406,23 +458,11 @@ export class ThreadEngine {
       })
       const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
 
-      let assistantText = ''
-      let streamedText = false
-      const acts: { toolName: string; input: unknown }[] = []
-      // Build the ordered parts array as events arrive so the persisted turn
-      // matches what the client streamed live (same fold — see core/parts.ts).
-      let parts: Part[] = []
-      let partSeq = 0
-      const partId = () => `p${++partSeq}`
-      // Emit an agent event to the UI and fold it into `parts` in lockstep.
-      const emitAgent = (event: AgentEventLike) => {
-        parts = foldAgentEvent(parts, event, partId)
-        this.emit({ type: 'agent', threadId, event: event as unknown as PrintModeEvent })
-      }
       const run = await this.client.run({
         agent: threadAgentDefinition(toolNames),
         prompt,
         cwd,
+        signal: aborter.signal,
         previousRun: this.previousRun.get(threadId),
         customToolDefinitions: tools,
         // Steering: main-chat messages typed while this turn runs are appended as
@@ -465,15 +505,21 @@ export class ThreadEngine {
         },
       })
       this.previousRun.set(threadId, run)
-      this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
+      // A Stop arrives as an abort; mark it but keep any partial output.
+      if (aborter.signal.aborted) finalize('⏹ Stopped.')
     } catch (err) {
-      this.store.appendMessage(
-        threadId,
-        { role: 'assistant', text: `⚠️ Turn failed: ${(err as Error).message}` },
-        this.now(),
-      )
-      this.emit({ type: 'log', message: `Thread ${threadId} turn error: ${(err as Error).message}` })
+      // Stop (abort) and failure both end the turn with a live marker so the
+      // message doesn't hang and the user sees the outcome without a reload.
+      if (aborter.signal.aborted) {
+        finalize('⏹ Stopped.')
+      } else {
+        const msg = (err as Error).message
+        finalize(`⚠️ Turn failed: ${msg}`)
+        this.emit({ type: 'log', message: `Thread ${threadId} turn error: ${msg}` })
+      }
     } finally {
+      this.aborters.delete(threadId)
+      this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
       if (meta.queueItemId) this.store.updateQueueItem(meta.queueItemId, { state: 'done' }, this.now())
       this.store.updateThread(threadId, { turnState: 'idle' }, this.now())
       this.emitThread(threadId)

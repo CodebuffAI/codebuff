@@ -27,6 +27,9 @@ interface StoreState {
   skillTally: Record<string, number>
   usage: { costSpent: number; running: number }
   projectPath: string
+  /** Whether the project-picker modal is open. */
+  pickerOpen: boolean
+  setPickerOpen: (open: boolean) => void
   toasts: { id: number; text: string; kind: 'info' | 'error' }[]
   pushToast: (text: string, kind?: 'info' | 'error') => void
   dismissToast: (id: number) => void
@@ -49,6 +52,8 @@ interface StoreState {
 
   // messaging + queue
   send: (id: string, text: string) => void
+  stopTurn: (id: string) => void
+  openProject: (path: string) => Promise<{ ok: boolean; error?: string }>
   runSkill: (id: string, skill: string) => void
   enqueuePrompt: (id: string, prompt: string) => void
   enqueueSkill: (id: string, skill: string) => void
@@ -76,7 +81,12 @@ export const useStore = create<StoreState>((set, get) => ({
   skillTally: loadSkillTally(),
   usage: { costSpent: 0, running: 0 },
   projectPath: '',
+  pickerOpen: false,
   toasts: [],
+
+  setPickerOpen(open) {
+    set({ pickerOpen: open })
+  },
 
   pushToast(text, kind = 'info') {
     const id = Date.now() + Math.floor(Math.random() * 1000)
@@ -268,6 +278,28 @@ export const useStore = create<StoreState>((set, get) => ({
   send(id, text) {
     appendMessage(set, id, text)
     api.sendMessage(id, text)
+  },
+
+  stopTurn(id) {
+    // Optimistically flip the tab/composer out of the running state; the server's
+    // thread event confirms it a moment later.
+    set((s) => {
+      const slice = s.threads[id]
+      if (!slice) return {}
+      return {
+        threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, turnState: 'idle' } } },
+      }
+    })
+    api.stopTurn(id)
+  },
+
+  async openProject(path) {
+    const res: { ok: boolean; path?: string; error?: string } = await api
+      .openProject(path)
+      .catch((e) => ({ ok: false, error: String(e) }))
+    if (res.ok) get().pushToast(`Opened ${res.path ?? path}`)
+    else get().pushToast(res.error ?? 'Could not open folder', 'error')
+    return res
   },
 
   // Run a skill from the main chat: show its compact `/name` label and steer the

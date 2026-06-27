@@ -1,7 +1,7 @@
 /** Thin REST client for the orchestrator API. Same-origin in both dev (via the
  * Vite proxy) and packaged (served by the Bun server). */
 
-import type { Part, QueueItem, Skill, SkillSearchResult, Thread } from './types'
+import type { BrowseResult, Part, QueueItem, Skill, SkillSearchResult, Thread } from './types'
 
 export interface ThreadData {
   thread: Thread
@@ -37,6 +37,7 @@ export const api = {
   reopenThread: (id: string) => post(`/api/thread/${id}/reopen`),
   deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
   sendMessage: (id: string, text: string) => post(`/api/thread/${id}/message`, { text }),
+  stopTurn: (id: string) => post(`/api/thread/${id}/stop`),
   // Run a skill from the main chat: steers the agent on its next step instead of
   // queueing (see ThreadEngine.runSkill).
   runSkill: (id: string, skill: string) => post(`/api/thread/${id}/skill`, { skill }),
@@ -66,5 +67,8 @@ export const api = {
     }),
 
   // Project
-  openProject: (path: string) => post<{ ok: boolean; error?: string }>('/api/project/open', { path }),
+  openProject: (path: string) =>
+    post<{ ok: boolean; path?: string; error?: string }>('/api/project/open', { path }),
+  browse: (path?: string) =>
+    get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
 }

@@ -148,25 +148,99 @@ select {
   background: var(--surface);
   color: var(--accent);
 }
-.conn {
+/* — Tab overflow menu — */
+.tab-overflow {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+.tab-overflow-btn {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 6px;
+  border-radius: 6px;
+}
+.tab-overflow-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.tab-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  max-width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 40;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.tab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--muted);
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.tab-menu-item:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+.tab-menu-item.active {
+  color: var(--text);
+}
+.tab-menu-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* — Connection status — */
+.conn-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.conn-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  -webkit-app-region: no-drag;
+  flex-shrink: 0;
 }
-.conn-open {
+.conn-open .conn-dot {
   background: var(--green);
 }
-.conn-reconnecting {
+.conn-reconnecting .conn-dot {
   background: #c8a93f;
   animation: pulse 1s infinite;
 }
-.conn-connecting {
+.conn-connecting .conn-dot {
   background: var(--faint);
+  animation: pulse 1.3s infinite;
+}
+.conn-reconnecting,
+.conn-connecting {
+  color: #c8a93f;
 }
 
 /* — Workspace split — */
 .workspace {
+  position: relative;
   display: grid;
   /* --queue-w is set by the Workspace component (default 360px). */
   grid-template-columns: 1fr 6px var(--queue-w, 360px);
@@ -211,6 +285,7 @@ body.col-resizing {
 .threadview {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 .thread-head {
@@ -236,9 +311,17 @@ body.col-resizing {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.thread-head-project:hover {
+  border-color: var(--accent-dim);
+}
 .thread-head-project svg {
   flex-shrink: 0;
   color: var(--muted);
+}
+.thread-head-project .caret {
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 .thread-head-title {
   flex: 1;
@@ -683,13 +766,51 @@ body.col-resizing {
   color: var(--faint);
   cursor: default;
 }
+.stop {
+  display: flex;
+  background: var(--danger);
+  color: #1a0808;
+  border: none;
+  border-radius: 8px;
+  padding: 9px;
+}
+.stop:hover {
+  filter: brightness(1.1);
+}
+
+/* Per-message actions (copy), revealed on hover. */
+.msg-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.msg.assistant:hover .msg-actions {
+  opacity: 1;
+}
+.msg-copy {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--faint);
+  padding: 3px;
+  border-radius: 5px;
+}
+.msg-copy:hover {
+  color: var(--text);
+  background: var(--raised);
+}
 
 /* — Queue panel — */
 .queue {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   background: var(--surface);
+  border-left: 1px solid var(--border);
 }
 .queue-head {
   display: flex;
@@ -1063,6 +1184,119 @@ body.col-resizing {
     transform: translateY(6px);
   }
 }
+/* — Modal / project picker — */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+.picker {
+  width: min(560px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.picker-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.picker-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.picker-cwd {
+  flex: 1;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+.open-here {
+  flex-shrink: 0;
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.picker-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+  padding: 2px 6px;
+}
+.picker-row:hover {
+  background: var(--surface-2);
+}
+.picker-nav {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 6px 2px;
+  overflow: hidden;
+}
+.picker-nav svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.picker-row.repo .picker-nav svg {
+  color: var(--accent-dim);
+}
+.picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.picker-foot code {
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--muted);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

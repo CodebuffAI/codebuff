@@ -1,7 +1,15 @@
+import { useEffect, useRef, useState } from 'react'
+
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 
 const isMac = (window as any).freebuffDesktop?.platform === 'darwin'
+
+const CONN_LABEL: Record<string, string> = {
+  connecting: 'Connecting…',
+  reconnecting: 'Reconnecting…',
+  open: 'Connected',
+}
 
 export function TabBar() {
   const tabOrder = useStore((s) => s.tabOrder)
@@ -11,6 +19,18 @@ export function TabBar() {
   const closeTab = useStore((s) => s.closeTab)
   const newThread = useStore((s) => s.newThread)
   const connection = useStore((s) => s.connection)
+
+  // Overflow menu: jump to any open tab when there are too many to scan.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [menuOpen])
 
   return (
     <div className={`tabbar ${isMac ? 'is-mac' : ''}`}>
@@ -45,7 +65,44 @@ export function TabBar() {
           <Icon name="plus" />
         </button>
       </div>
-      <div className={`conn conn-${connection}`} title={`connection: ${connection}`} />
+
+      {tabOrder.length > 1 && (
+        <div className="tab-overflow" ref={menuRef}>
+          <button
+            className="tab-overflow-btn"
+            onClick={() => setMenuOpen((o) => !o)}
+            title="All tabs"
+          >
+            <Icon name="down" />
+          </button>
+          {menuOpen && (
+            <div className="tab-menu">
+              {tabOrder.map((id) => {
+                const slice = threads[id]
+                if (!slice) return null
+                return (
+                  <button
+                    key={id}
+                    className={`tab-menu-item ${id === activeId ? 'active' : ''}`}
+                    onClick={() => {
+                      setActive(id)
+                      setMenuOpen(false)
+                    }}
+                  >
+                    {slice.thread.turnState === 'running' && <span className="tab-pulse" />}
+                    <span className="tab-menu-title">{slice.thread.title || 'New thread'}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className={`conn-status conn-${connection}`} title={CONN_LABEL[connection]}>
+        <span className="conn-dot" />
+        {connection !== 'open' && <span className="conn-label">{CONN_LABEL[connection]}</span>}
+      </div>
     </div>
   )
 }

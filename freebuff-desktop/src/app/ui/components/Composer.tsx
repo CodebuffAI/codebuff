@@ -12,6 +12,8 @@ export function Composer({ threadId }: { threadId: string }) {
   // fresh `/` reopens it.
   const [dismissed, setDismissed] = useState(false)
   const send = useStore((s) => s.send)
+  const stopTurn = useStore((s) => s.stopTurn)
+  const running = useStore((s) => s.threads[threadId]?.thread.turnState === 'running')
   const skills = useStore((s) => s.skills)
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -70,7 +72,7 @@ export function Composer({ threadId }: { threadId: string }) {
         ref={ref}
         value={text}
         rows={1}
-        placeholder="Type a message, or / for commands"
+        placeholder={running ? 'Send a message to steer the run…' : 'Type a message, or / for commands'}
         onChange={(e) => {
           setText(e.target.value)
           setDismissed(false)
@@ -108,9 +110,15 @@ export function Composer({ threadId }: { threadId: string }) {
           }
         }}
       />
-      <button className="send" onClick={submit} disabled={!text.trim()} title="Send">
-        <Icon name="send" />
-      </button>
+      {running && !text.trim() ? (
+        <button className="stop" onClick={() => stopTurn(threadId)} title="Stop the running turn">
+          <Icon name="stop" />
+        </button>
+      ) : (
+        <button className="send" onClick={submit} disabled={!text.trim()} title="Send">
+          <Icon name="send" />
+        </button>
+      )}
     </div>
   )
 }

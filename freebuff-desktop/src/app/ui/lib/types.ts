@@ -64,6 +64,19 @@ export interface Skill {
   builtin: boolean
 }
 
+/** Folder-picker listing from /api/fs/list (mirrors server BrowseResult). */
+export interface BrowseEntry {
+  name: string
+  path: string
+  isRepo: boolean
+}
+export interface BrowseResult {
+  path: string
+  parent: string | null
+  isRepo: boolean
+  entries: BrowseEntry[]
+}
+
 /** A skill from the skills.sh registry — a candidate to acquire. */
 export interface SkillSearchResult {
   id: string

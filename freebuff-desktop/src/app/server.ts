@@ -219,6 +219,9 @@ const server = Bun.serve({
           if (!b.text) return json({ error: 'text required' }, 400)
           engine.postMessage(threadId, String(b.text))
           return json({ ok: true })
+        case 'stop':
+          engine.stopTurn(threadId)
+          return json({ ok: true })
         case 'close':
           engine.closeThread(threadId)
           return json({ ok: true })
