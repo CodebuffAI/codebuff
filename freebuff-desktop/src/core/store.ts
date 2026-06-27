@@ -28,7 +28,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -73,7 +73,7 @@ export interface NewThreadInput {
   projectId: string
   title?: string
   status?: ThreadStatus
-  autorun?: boolean
+  autoQueueSuggestions?: boolean
   createdAt: number
 }
 
@@ -94,7 +94,7 @@ export interface NewQueueItemInput {
 export type ThreadPatch = Partial<
   Pick<
     Thread,
-    'title' | 'status' | 'autorun' | 'branch' | 'worktreePath' | 'baseRef' | 'prUrl' | 'turnState'
+    'title' | 'status' | 'autoQueueSuggestions' | 'branch' | 'worktreePath' | 'baseRef' | 'prUrl' | 'turnState'
   >
 >
 
@@ -121,7 +121,7 @@ type ThreadRow = {
   project_id: string
   title: string
   status: ThreadStatus
-  autorun: number
+  auto_queue_suggestions: number
   branch: string | null
   worktree_path: string | null
   base_ref: string | null
@@ -199,7 +199,7 @@ export class Store {
         project_id    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
         title         TEXT NOT NULL DEFAULT 'New thread',
         status        TEXT NOT NULL DEFAULT 'open',
-        autorun       INTEGER NOT NULL DEFAULT 0,
+        auto_queue_suggestions INTEGER NOT NULL DEFAULT 0,
         branch        TEXT,
         worktree_path TEXT,
         base_ref      TEXT,
@@ -254,6 +254,19 @@ export class Store {
         window_start INTEGER NOT NULL
       );
     `)
+
+    // v6: the per-thread `autorun` flag is gone (the queue always auto-drains).
+    // Repurpose the column as `auto_queue_suggestions` on existing dbs without
+    // dropping thread history. (Fresh dbs already create the new column above.)
+    // Prior values carry over verbatim: `autorun=0` (the overwhelming default)
+    // becomes `auto_queue_suggestions=false`, the safe default; the rare user who
+    // had autorun on will now auto-queue suggestions instead — acceptable.
+    const threadCols = (
+      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (threadCols.includes('autorun') && !threadCols.includes('auto_queue_suggestions')) {
+      this.db.exec('ALTER TABLE threads RENAME COLUMN autorun TO auto_queue_suggestions')
+    }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
@@ -312,7 +325,7 @@ export class Store {
       projectId: input.projectId,
       title: input.title ?? 'New thread',
       status: input.status ?? 'open',
-      autorun: input.autorun ?? false,
+      autoQueueSuggestions: input.autoQueueSuggestions ?? false,
       branch: null,
       worktreePath: null,
       baseRef: null,
@@ -324,15 +337,15 @@ export class Store {
     this.db
       .query(
         `INSERT INTO threads
-          (id, project_id, title, status, autorun, turn_state, created_at, updated_at)
-         VALUES ($id, $project, $title, $status, $autorun, 'idle', $created, $updated)`,
+          (id, project_id, title, status, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $title, $status, $autoQueue, 'idle', $created, $updated)`,
       )
       .run({
         $id: thread.id,
         $project: thread.projectId,
         $title: thread.title,
         $status: thread.status,
-        $autorun: thread.autorun ? 1 : 0,
+        $autoQueue: thread.autoQueueSuggestions ? 1 : 0,
         $created: thread.createdAt,
         $updated: thread.updatedAt,
       })
@@ -364,7 +377,7 @@ export class Store {
   }
 
   updateThread(id: ThreadId, patch: ThreadPatch, now: number): void {
-    const upd = buildUpdate('threads', id, patch, now, ['autorun'])
+    const upd = buildUpdate('threads', id, patch, now, ['autoQueueSuggestions'])
     if (upd) this.db.query(upd.sql).run(upd.params)
   }
 
@@ -572,7 +585,7 @@ function rowToThread(row: ThreadRow): Thread {
     projectId: row.project_id,
     title: row.title,
     status: row.status,
-    autorun: row.autorun === 1,
+    autoQueueSuggestions: row.auto_queue_suggestions === 1,
     branch: row.branch,
     worktreePath: row.worktree_path,
     baseRef: row.base_ref,

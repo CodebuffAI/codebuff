@@ -228,8 +228,8 @@ const server = Bun.serve({
         case 'delete':
           void engine.deleteThread(threadId)
           return json({ ok: true })
-        case 'autorun':
-          engine.setAutorun(threadId, !!b.on)
+        case 'auto-queue-suggestions':
+          engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
         case 'open-pr':
           try {
@@ -237,9 +237,6 @@ const server = Bun.serve({
           } catch (err) {
             return json({ error: (err as Error).message }, 500)
           }
-        case 'run-next':
-          engine.runNext(threadId)
-          return json({ ok: true })
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
           return json({ ok: true })

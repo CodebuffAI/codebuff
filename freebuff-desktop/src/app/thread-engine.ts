@@ -6,8 +6,8 @@
  * git worktree, fed by a per-thread queue. Per-thread `previousRun` carries prompt
  * caching across turns; a per-thread reentrant `pump` runs turns one at a time so
  * two prompts never race. The assistant's `suggest_prompts` tool parks follow-ups in the queue's
- * suggested lane; a workflow expands into one queued prompt per skill; with autorun
- * on, finishing a turn auto-drains the next queued prompt top-down.
+ * suggested lane; a workflow expands into one queued prompt per skill; the pump
+ * always auto-drains the next queued prompt top-down once a turn finishes.
  */
 
 import { mkdirSync } from 'fs'
@@ -273,18 +273,13 @@ export class ThreadEngine {
     void this.pump(threadId)
   }
 
-  /** Run the next queued item once, regardless of autorun (manual step). */
-  runNext(threadId: string): void {
-    void this.pump(threadId, { once: true })
-  }
-
   /**
-   * The per-thread pump: runs turns one at a time. Typed user messages always
-   * run first (they jump the queue); then queued items run while autorun is on
-   * (or exactly one when `once`). Reentrancy-guarded so concurrent triggers
-   * (enqueue, autorun toggle, turn completion) never double-run an item.
+   * The per-thread pump: runs turns one at a time and always drains the queue.
+   * Typed user messages run first (they jump the queue); then queued items run
+   * top-down until the queue is empty. Reentrancy-guarded so concurrent triggers
+   * (enqueue, turn completion) never double-run an item.
    */
-  private async pump(threadId: string, opts: { once?: boolean } = {}): Promise<void> {
+  private async pump(threadId: string): Promise<void> {
     if (this.pumping.has(threadId)) return
     this.pumping.add(threadId)
     try {
@@ -298,11 +293,9 @@ export class ThreadEngine {
           continue
         }
 
-        if (!thread.autorun && !opts.once) break
         const next = this.store.nextQueuedItem(threadId)
         if (!next) break
         await this.runTurn(threadId, next.prompt, { queueItemId: next.id })
-        if (opts.once) break
       }
     } finally {
       this.pumping.delete(threadId)
@@ -320,7 +313,7 @@ export class ThreadEngine {
     if (meta.queueItemId) {
       const item = this.store.getQueueItem(meta.queueItemId)
       this.store.updateQueueItem(meta.queueItemId, { state: 'running' }, this.now())
-      // Queue-driven turns (autorun/manual step) have no client-side optimistic
+      // Queue-driven turns have no client-side optimistic
       // user message the way typed prompts do, so persist + broadcast the prompt
       // here. Otherwise the queued prompt runs invisibly with no chat record.
       // Skill/workflow prompts are long instruction blocks, so show them as a
@@ -511,20 +504,26 @@ export class ThreadEngine {
     this.emitThread(item.threadId)
   }
 
-  setAutorun(threadId: string, on: boolean): void {
-    this.store.updateThread(threadId, { autorun: on }, this.now())
+  setAutoQueueSuggestions(threadId: string, on: boolean): void {
+    this.store.updateThread(threadId, { autoQueueSuggestions: on }, this.now())
     this.emitThread(threadId)
     this.emitState()
-    if (on) void this.pump(threadId)
   }
 
-  /** Assistant-proposed follow-ups land in the suggested lane. */
+  /**
+   * Assistant-proposed follow-ups. They park in the suggested lane for the user
+   * to review, unless the thread has `autoQueueSuggestions` on — then they drop
+   * straight into the queue (which the pump auto-drains).
+   */
   private addSuggestions(threadId: string, items: { prompt: string; label?: string }[]): void {
+    const autoQueue = this.store.getThread(threadId)?.autoQueueSuggestions ?? false
+    const state: QueueItemState = autoQueue ? 'queued' : 'suggested'
     for (const it of items) {
       if (!it.prompt.trim()) continue
-      this.appendItem({ threadId, prompt: it.prompt, label: it.label ?? null, state: 'suggested', source: 'assistant' })
+      this.appendItem({ threadId, prompt: it.prompt, label: it.label ?? null, state, source: 'assistant' })
     }
     this.emitThread(threadId)
+    if (autoQueue) void this.pump(threadId)
   }
 
   // — Docs (used by the reflect skill + the /api/doc endpoints) —

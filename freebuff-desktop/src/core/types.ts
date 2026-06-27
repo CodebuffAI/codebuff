@@ -60,8 +60,9 @@ export interface Thread {
   projectId: ProjectId
   title: string
   status: ThreadStatus
-  /** When on, finishing a turn auto-dequeues and runs the next queued prompt. */
-  autorun: boolean
+  /** When on, assistant-suggested prompts are dropped straight into the queue
+   *  (which always auto-drains) instead of parking in the suggested lane. */
+  autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null
   /** The commit the branch was cut from. Null until the worktree is created. */

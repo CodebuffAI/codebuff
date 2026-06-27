@@ -19,16 +19,16 @@ describe('Store — threads', () => {
     const store = seeded()
     const a = store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
     expect(a.status).toBe('open')
-    expect(a.autorun).toBe(false)
+    expect(a.autoQueueSuggestions).toBe(false)
     store.insertThread({ id: 'th2', projectId: 'project', title: 'Two', createdAt: 2 })
 
     expect(store.getThread('th1')!.title).toBe('New thread')
     expect(store.listThreads('project').length).toBe(2)
 
-    store.updateThread('th1', { title: 'Renamed', autorun: true, branch: 'freebuff/x' }, 5)
+    store.updateThread('th1', { title: 'Renamed', autoQueueSuggestions: true, branch: 'freebuff/x' }, 5)
     const t = store.getThread('th1')!
     expect(t.title).toBe('Renamed')
-    expect(t.autorun).toBe(true)
+    expect(t.autoQueueSuggestions).toBe(true)
     expect(t.branch).toBe('freebuff/x')
 
     store.updateThread('th2', { status: 'closed' }, 6)

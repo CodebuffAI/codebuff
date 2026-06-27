@@ -32,8 +32,8 @@ export const api = {
   reopenThread: (id: string) => post(`/api/thread/${id}/reopen`),
   deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
   sendMessage: (id: string, text: string) => post(`/api/thread/${id}/message`, { text }),
-  setAutorun: (id: string, on: boolean) => post(`/api/thread/${id}/autorun`, { on }),
-  runNext: (id: string) => post(`/api/thread/${id}/run-next`),
+  setAutoQueueSuggestions: (id: string, on: boolean) =>
+    post(`/api/thread/${id}/auto-queue-suggestions`, { on }),
   openPr: (id: string) => post<{ url?: string; error?: string }>(`/api/thread/${id}/open-pr`),
   reorder: (id: string, itemId: string, afterItemId: string | null) =>
     post(`/api/thread/${id}/reorder`, { itemId, afterItemId }),

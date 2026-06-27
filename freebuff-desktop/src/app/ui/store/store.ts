@@ -52,8 +52,7 @@ interface StoreState {
   promoteItem: (id: string, itemId: string) => void
   demoteItem: (id: string, itemId: string) => void
   reorderItem: (id: string, itemId: string, afterItemId: string | null) => void
-  setAutorun: (id: string, on: boolean) => void
-  runNext: (id: string) => void
+  setAutoQueueSuggestions: (id: string, on: boolean) => void
   openPr: (id: string) => Promise<void>
 }
 
@@ -284,16 +283,15 @@ export const useStore = create<StoreState>((set, get) => ({
     api.reorder(id, itemId, afterItemId)
   },
 
-  setAutorun(id, on) {
+  setAutoQueueSuggestions(id, on) {
     set((s) => {
       const slice = s.threads[id]
       if (!slice) return {}
-      return { threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, autorun: on } } } }
+      return {
+        threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, autoQueueSuggestions: on } } },
+      }
     })
-    api.setAutorun(id, on)
-  },
-  runNext(id) {
-    api.runNext(id)
+    api.setAutoQueueSuggestions(id, on)
   },
   async openPr(id) {
     get().pushToast('Opening PR…')

@@ -377,15 +377,15 @@ select {
   letter-spacing: 0.08em;
   color: var(--faint);
 }
-.autorun {
+.queue-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   cursor: pointer;
 }
-.autorun input {
+.queue-toggle input {
   accent-color: var(--accent);
 }
 .queue-actions {
@@ -553,11 +553,19 @@ select {
 .sugg-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   font-size: 11px;
+  color: var(--faint);
+}
+/* Only the header label is uppercased — scoping it here keeps the nested
+   toggle's own label text normal-case without an override. */
+.sugg-head-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--faint);
 }
 .qitem.suggested {
   background: transparent;

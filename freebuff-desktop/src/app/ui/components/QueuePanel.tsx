@@ -21,17 +21,16 @@ import type { QueueItem } from '../lib/types'
 import { Icon } from './Icon'
 
 export function QueuePanel({ threadId }: { threadId: string }) {
-  // Narrow selectors: the queue only depends on items + autorun, so streaming
-  // tokens (which change `messages`, not `items`) don't re-render this panel.
+  // Narrow selectors: the queue only depends on items + the suggestions toggle,
+  // so streaming tokens (which change `messages`, not `items`) don't re-render.
   const items = useStore((s) => s.threads[threadId]?.items)
-  const autorun = useStore((s) => s.threads[threadId]?.thread.autorun ?? false)
+  const autoQueueSuggestions = useStore((s) => s.threads[threadId]?.thread.autoQueueSuggestions ?? false)
   const workflows = useStore((s) => s.workflows)
   const skills = useStore((s) => s.skills)
   const enqueuePrompt = useStore((s) => s.enqueuePrompt)
   const enqueueWorkflow = useStore((s) => s.enqueueWorkflow)
   const enqueueSkill = useStore((s) => s.enqueueSkill)
-  const setAutorun = useStore((s) => s.setAutorun)
-  const runNext = useStore((s) => s.runNext)
+  const setAutoQueueSuggestions = useStore((s) => s.setAutoQueueSuggestions)
   const openPr = useStore((s) => s.openPr)
   const reorderItem = useStore((s) => s.reorderItem)
 
@@ -72,22 +71,9 @@ export function QueuePanel({ threadId }: { threadId: string }) {
     <div className="queue">
       <div className="queue-head">
         <span className="queue-title">Queue</span>
-        <label className="autorun" title="Run the queue automatically">
-          <input
-            type="checkbox"
-            checked={autorun}
-            onChange={(e) => setAutorun(threadId, e.target.checked)}
-          />
-          <span>Autorun</span>
-        </label>
       </div>
 
       <div className="queue-actions">
-        {!autorun && queued.length > 0 && (
-          <button className="btn" onClick={() => runNext(threadId)}>
-            <Icon name="play" /> Run next
-          </button>
-        )}
         <select
           className="btn select"
           value=""
@@ -177,7 +163,17 @@ export function QueuePanel({ threadId }: { threadId: string }) {
       {/* Suggestions: stack at the bottom; promote upward into the queue */}
       <div className="suggestions">
         <div className="sugg-head">
-          <Icon name="spark" /> Suggestions
+          <span className="sugg-head-title">
+            <Icon name="spark" /> Suggestions
+          </span>
+          <label className="queue-toggle" title="Drop new assistant suggestions straight into the queue">
+            <input
+              type="checkbox"
+              checked={autoQueueSuggestions}
+              onChange={(e) => setAutoQueueSuggestions(threadId, e.target.checked)}
+            />
+            <span>Auto-queue</span>
+          </label>
         </div>
         {suggested.length === 0 && <div className="lane-empty">The assistant's ideas appear here.</div>}
         {suggested.map((i) => (

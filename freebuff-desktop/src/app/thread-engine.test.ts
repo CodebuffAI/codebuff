@@ -62,11 +62,10 @@ describe('ThreadEngine — turns', () => {
     }
   })
 
-  test('autorun drains the queue top-down in order', async () => {
+  test('the queue always drains top-down in order', async () => {
     const { engine, client, cleanup } = await gitEngine()
     try {
       const thread = engine.createThread()
-      engine.setAutorun(thread.id, true)
       engine.enqueuePrompt(thread.id, 'p1')
       engine.enqueuePrompt(thread.id, 'p2')
       engine.enqueuePrompt(thread.id, 'p3')
@@ -85,25 +84,6 @@ describe('ThreadEngine — turns', () => {
     }
   })
 
-  test('autorun off: queued items wait until run-next', async () => {
-    const { engine, client, cleanup } = await gitEngine()
-    try {
-      const thread = engine.createThread()
-      engine.enqueuePrompt(thread.id, 'p1')
-      engine.enqueuePrompt(thread.id, 'p2')
-      // Nothing runs while autorun is off.
-      await new Promise((r) => setTimeout(r, 50))
-      expect(client.prompts).toEqual([])
-
-      engine.runNext(thread.id)
-      await new Promise((r) => setTimeout(r, 50))
-      // run-next runs exactly one item (does not auto-continue).
-      expect(client.prompts).toEqual(['p1'])
-      expect(engine.store.nextQueuedItem(thread.id)!.prompt).toBe('p2')
-    } finally {
-      cleanup()
-    }
-  })
 })
 
 describe('ThreadEngine — workflows & suggestions', () => {
@@ -128,7 +108,6 @@ describe('ThreadEngine — workflows & suggestions', () => {
     const { engine, client, cleanup } = await gitEngine()
     try {
       const thread = engine.createThread()
-      engine.setAutorun(thread.id, true)
       engine.enqueueSkill(thread.id, 'review')
       await settle(engine, thread.id)
 
@@ -163,6 +142,33 @@ describe('ThreadEngine — workflows & suggestions', () => {
       engine.promoteSuggestion(suggested[0].id)
       expect(engine.store.listQueueItems(thread.id, 'suggested').length).toBe(0)
       expect(engine.store.listQueueItems(thread.id, 'queued').map((i) => i.prompt)).toContain('add tests')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('autoQueueSuggestions: proposals skip the suggested lane and run', async () => {
+    const client = new FakeClient()
+    let turn = 0
+    client.onRun = async (opts) => {
+      // Only the first turn (the user prompt) emits a suggestion; otherwise the
+      // queued suggestion would propose another and loop forever.
+      if (turn++ === 0) {
+        const tool = opts.customToolDefinitions.find((t: any) => t.toolName === 'suggest_prompts')
+        await tool.execute({ prompts: [{ prompt: 'add tests', label: 'Test it' }] })
+      }
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.setAutoQueueSuggestions(thread.id, true)
+      engine.postMessage(thread.id, 'build a thing')
+      await settle(engine, thread.id)
+
+      // Nothing parked in the suggested lane…
+      expect(engine.store.listQueueItems(thread.id, 'suggested').length).toBe(0)
+      // …and the suggestion auto-ran (its prompt reached the client).
+      expect(client.prompts).toContain('add tests')
     } finally {
       cleanup()
     }

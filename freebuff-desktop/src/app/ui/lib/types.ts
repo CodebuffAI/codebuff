@@ -8,7 +8,7 @@ export interface Thread {
   projectId: string
   title: string
   status: ThreadStatus
-  autorun: boolean
+  autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null
   baseRef: string | null
