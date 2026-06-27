@@ -222,6 +222,9 @@ export class ClaudeCodeHarness implements AgentHarness {
   async runTurn(turn: HarnessTurn, cb: HarnessCallbacks): Promise<HarnessResult> {
     const prev = (turn.previousState as ClaudeState | undefined) ?? {}
     const sessionId = prev.sessionId
+    // Note: we don't forward `turn.images` here. Claude Code views attached images
+    // via its `Read` tool on the path referenced in the prompt text (attachments.ts),
+    // so it sees them without us constructing a multimodal SDK message.
 
     // Expose the Freebuff custom tools (suggest_prompts / write_doc / browser_check)
     // as an in-process MCP server bound to this turn's engine callbacks.

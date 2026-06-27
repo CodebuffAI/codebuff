@@ -18,6 +18,7 @@
  * engine threads back in on the next turn to carry context/caching.
  */
 
+import type { AttachmentImage } from '../../core/attachments'
 import type { AgentEventLike } from '../../core/parts'
 import { CLAUDE_CODE_MODEL, FREEBUFF_MODEL } from '../models'
 import type { ThreadToolDeps } from './thread-agent'
@@ -49,8 +50,8 @@ export const AGENT_OPTIONS: readonly AgentOption[] = [
     id: 'codebuff',
     label: 'Codebuff',
     model: FREEBUFF_MODEL,
-    modelLabel: 'DeepSeek v4 Flash',
-    description: 'Free hosted agent',
+    modelLabel: 'MiniMax M3',
+    description: 'Free hosted agent (sees images)',
   },
 ]
 
@@ -87,6 +88,10 @@ export interface HarnessTurn {
   previousState?: unknown
   /** Aborts the in-flight turn when the user hits Stop. */
   abort: AbortController
+  /** Base64 images attached to this turn's message. Vision harnesses (Codebuff on
+   *  MiniMax M3) send them as message content; Claude Code ignores them and views
+   *  images via the `Read` tool on the path referenced in the prompt text. */
+  images?: AttachmentImage[]
 }
 
 export interface HarnessResult {

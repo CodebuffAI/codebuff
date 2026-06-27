@@ -4,20 +4,22 @@
  * The desktop agent runs locally with full file tools, so an "attachment" is just
  * an absolute path the user dragged in or picked. Mirroring the CLI's behaviour
  * (cli/src/utils/pending-attachments.ts) we inline small text files and directory
- * listings straight into the prompt so the agent sees them without a tool round-trip,
- * and for images / large / binary files we hand it the path with a nudge to read it
- * (kept harness-neutral — Claude Code reads images via `Read`, the Codebuff agent via
- * `read_files`; both can reach absolute paths).
+ * listings straight into the prompt so the agent sees them without a tool round-trip.
+ *
+ * Images get two treatments: vision-friendly formats (png/jpeg/gif/webp) under a size
+ * cap are read to base64 and returned as `images`, which the Codebuff harness sends as
+ * message content so MiniMax M3 can actually SEE them. Everything else (and Claude
+ * Code, which views images via the `Read` tool) is referenced by path in the prompt.
  *
  * Paths usually live OUTSIDE the thread's git worktree (e.g. ~/Desktop/photo.png);
- * the agent's Read/Bash can reach absolute paths anywhere, so referencing the path is
+ * the agent's file tools can reach absolute paths anywhere, so referencing the path is
  * always valid even when we don't inline the bytes.
  */
 
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { basename, extname } from 'path'
 
-import { attachmentSummary, type AttachmentMeta } from '../core/attachments'
+import { attachmentSummary, MAX_ATTACHMENTS, type AttachmentImage, type AttachmentMeta } from '../core/attachments'
 
 /** Inline at most this many bytes of a text file (bigger → reference by path). */
 const MAX_FILE_READ_SIZE = 1024 * 1024 // 1 MB
@@ -25,11 +27,24 @@ const MAX_FILE_READ_SIZE = 1024 * 1024 // 1 MB
 const MAX_CONTENT_CHARS = 100_000
 /** Cap a directory listing so a huge folder doesn't flood the prompt. */
 const MAX_DIR_ENTRIES = 200
+/** Don't base64-inline an image larger than this; reference it by path instead.
+ *  (No compression yet — see followups. Keeps the request payload sane.) */
+const MAX_IMAGE_INLINE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 // Keep in sync with the renderer's chip-icon regex (Composer.tsx IMAGE_RE).
 const IMAGE_EXTS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.avif', '.heic', '.heif', '.tif', '.tiff',
 ])
+
+/** Formats a multimodal model reliably accepts as inline content → MIME type.
+ *  Other image kinds (heic/tiff/svg/bmp/avif) are referenced by path only. */
+const VISION_MEDIA_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+}
 
 function isBinary(buf: Buffer): boolean {
   const n = Math.min(buf.length, 8000)
@@ -50,6 +65,28 @@ export interface AttachmentBlock {
   manifest: AttachmentMeta[]
   /** The compact `📎 …` line shown in the user's message bubble. */
   summary: string
+  /** Base64 images to send as model message content (vision harnesses only). */
+  images: AttachmentImage[]
+}
+
+export interface BuildOptions {
+  /** Whether the running harness sends images as inline message content (Codebuff on
+   *  MiniMax M3). When true we read vision-friendly images to base64 and tell the
+   *  model the image is attached; when false (Claude Code, which reads images from
+   *  the path via its `Read` tool) we skip the base64 work and reference the path. */
+  inlineImages?: boolean
+}
+
+/** Read a vision-friendly image under the size cap to base64, else null (caller
+ *  falls back to a path reference). */
+function readImageContent(path: string, ext: string, size: number): AttachmentImage | null {
+  const mediaType = VISION_MEDIA_TYPES[ext]
+  if (!mediaType || size > MAX_IMAGE_INLINE_SIZE) return null
+  try {
+    return { image: readFileSync(path).toString('base64'), mediaType }
+  } catch {
+    return null
+  }
 }
 
 function describeDirectory(path: string): string {
@@ -95,11 +132,16 @@ function describeFile(path: string, size: number): string {
  * Unreadable / missing paths are skipped (best-effort) so one bad path doesn't sink
  * the whole message.
  */
-export function buildAttachmentBlock(paths: readonly string[]): AttachmentBlock {
+export function buildAttachmentBlock(
+  paths: readonly string[],
+  opts: BuildOptions = {},
+): AttachmentBlock {
   const sections: string[] = []
   const manifest: AttachmentMeta[] = []
+  const images: AttachmentImage[] = []
 
-  for (const path of paths) {
+  // Defensive cap (the composer also caps): never read more than the limit.
+  for (const path of paths.slice(0, MAX_ATTACHMENTS)) {
     let stat
     try {
       stat = statSync(path)
@@ -114,8 +156,17 @@ export function buildAttachmentBlock(paths: readonly string[]): AttachmentBlock 
       continue
     }
 
-    if (IMAGE_EXTS.has(extname(path).toLowerCase())) {
-      sections.push(`[Image: ${path}]\n(Read this path with your file tools to view the image.)`)
+    const ext = extname(path).toLowerCase()
+    if (IMAGE_EXTS.has(ext)) {
+      // Only inline base64 when the harness actually shows it to the model; otherwise
+      // the "it's attached" claim would be false and we'd waste the read.
+      const content = opts.inlineImages ? readImageContent(path, ext, stat.size) : null
+      if (content) {
+        images.push(content)
+        sections.push(`[Image: ${path}]\n(Attached to this message as an image you can see; the file is also at this path.)`)
+      } else {
+        sections.push(`[Image: ${path}]\n(Read this path with your file tools to view the image.)`)
+      }
       manifest.push({ name, kind: 'image' })
       continue
     }
@@ -129,5 +180,5 @@ export function buildAttachmentBlock(paths: readonly string[]): AttachmentBlock 
       `The paths are absolute and readable with your file tools:\n\n${sections.join('\n\n')}`
     : ''
 
-  return { promptBlock, manifest, summary: attachmentSummary(manifest) }
+  return { promptBlock, manifest, summary: attachmentSummary(manifest), images }
 }

@@ -15,6 +15,21 @@ export interface AttachmentMeta {
   kind: AttachmentKind
 }
 
+/** Max files staged per message — enforced in the composer (UX) and the server
+ *  reader (defensive), so a runaway client can't make us read 1000 files. */
+export const MAX_ATTACHMENTS = 12
+
+/**
+ * An image's bytes ready to hand to a multimodal model as message content (base64 +
+ * MIME). Vision-capable harnesses (the Codebuff agent on MiniMax M3) send these so
+ * the model can actually see the picture; the path is still referenced in the prompt
+ * text so the agent also knows where it lives on disk.
+ */
+export interface AttachmentImage {
+  image: string // base64
+  mediaType: string
+}
+
 /**
  * A compact one-line summary of attached items, e.g. `📎 photo.png · src · notes/`.
  * Directories get a trailing slash so they read as folders. Empty when nothing was

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-import { appendBlock } from '../core/attachments'
+import { appendBlock, MAX_ATTACHMENTS } from '../core/attachments'
 import { buildAttachmentBlock } from './attachments'
 
 function fixture() {
@@ -27,16 +27,48 @@ describe('buildAttachmentBlock', () => {
     }
   })
 
-  test('references an image by path instead of inlining bytes', () => {
+  test('inlineImages: sends a vision-friendly image as base64 content', () => {
+    const { dir, cleanup } = fixture()
+    try {
+      const img = join(dir, 'photo.png')
+      const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3])
+      writeFileSync(img, bytes)
+      const { promptBlock, manifest, summary, images } = buildAttachmentBlock([img], { inlineImages: true })
+      expect(promptBlock).toContain(`[Image: ${img}]`)
+      expect(promptBlock).toContain('Attached to this message')
+      expect(manifest).toEqual([{ name: 'photo.png', kind: 'image' }])
+      expect(summary).toBe('📎 photo.png')
+      // The bytes are handed to the model as base64 image content.
+      expect(images).toEqual([{ image: bytes.toString('base64'), mediaType: 'image/png' }])
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('without inlineImages: references the image by path, no base64', () => {
     const { dir, cleanup } = fixture()
     try {
       const img = join(dir, 'photo.png')
       writeFileSync(img, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]))
-      const { promptBlock, manifest, summary } = buildAttachmentBlock([img])
+      const { promptBlock, images } = buildAttachmentBlock([img])
+      // Claude Code path: no false "it's attached" claim, no wasted base64 read.
+      expect(promptBlock).toContain('view the image')
+      expect(images).toEqual([])
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('a non-vision image format (heic) is never inlined, even with inlineImages', () => {
+    const { dir, cleanup } = fixture()
+    try {
+      const img = join(dir, 'photo.heic')
+      writeFileSync(img, Buffer.from([0, 1, 2, 3]))
+      const { promptBlock, manifest, images } = buildAttachmentBlock([img], { inlineImages: true })
       expect(promptBlock).toContain(`[Image: ${img}]`)
       expect(promptBlock).toContain('view the image')
-      expect(manifest).toEqual([{ name: 'photo.png', kind: 'image' }])
-      expect(summary).toBe('📎 photo.png')
+      expect(manifest).toEqual([{ name: 'photo.heic', kind: 'image' }])
+      expect(images).toEqual([])
     } finally {
       cleanup()
     }
@@ -86,7 +118,22 @@ describe('buildAttachmentBlock', () => {
   })
 
   test('empty input yields no block', () => {
-    expect(buildAttachmentBlock([])).toEqual({ promptBlock: '', manifest: [], summary: '' })
+    expect(buildAttachmentBlock([])).toEqual({ promptBlock: '', manifest: [], summary: '', images: [] })
+  })
+
+  test('caps the number of attachments read', () => {
+    const { dir, cleanup } = fixture()
+    try {
+      const paths = Array.from({ length: MAX_ATTACHMENTS + 5 }, (_, i) => {
+        const p = join(dir, `f${i}.txt`)
+        writeFileSync(p, `file ${i}`)
+        return p
+      })
+      const { manifest } = buildAttachmentBlock(paths)
+      expect(manifest).toHaveLength(MAX_ATTACHMENTS)
+    } finally {
+      cleanup()
+    }
   })
 })
 

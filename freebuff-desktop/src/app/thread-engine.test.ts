@@ -6,12 +6,15 @@ import { join } from 'path'
 import { bunRunner } from '../core/exec'
 import { ThreadEngine } from './thread-engine'
 
-/** A fake SDK client: records prompts, optionally drives custom tools, finishes. */
+/** A fake SDK client: records prompts + multimodal content, optionally drives
+ *  custom tools, finishes. */
 class FakeClient {
   prompts: string[] = []
+  contents: any[] = []
   onRun?: (opts: any) => void | Promise<void>
   async run(opts: any) {
     this.prompts.push(opts.prompt)
+    this.contents.push(opts.content)
     await this.onRun?.(opts)
     opts.handleEvent?.({ type: 'finish', totalCost: 0 })
     return {} as any
@@ -89,6 +92,27 @@ describe('ThreadEngine — turns', () => {
       expect(userText).toContain('look at this')
       expect(userText).toContain('📎 attach-me.txt')
       expect(userText).not.toContain('secret content')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('an attached image is sent to the agent as multimodal content', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const png = join(root, 'shot.png')
+      const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 8, 7])
+      writeFileSync(png, bytes)
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'what is this', [png])
+      await settle(engine, thread.id)
+
+      // The SDK run received the image as base64 content (so MiniMax M3 can see it).
+      expect(client.contents[0]).toEqual([
+        { type: 'image', image: bytes.toString('base64'), mediaType: 'image/png' },
+      ])
+      // The path is still referenced in the prompt text.
+      expect(client.prompts[0]).toContain(`[Image: ${png}]`)
     } finally {
       cleanup()
     }

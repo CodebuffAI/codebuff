@@ -26,9 +26,17 @@ export class CodebuffHarness implements AgentHarness {
     // transcript never double-renders.
     let streamedText = false
 
+    // Attached images go as multimodal message content so the model (MiniMax M3)
+    // can actually see them. The SDK combines `prompt` (text) with these image parts
+    // (see buildUserMessageContent). No images → omit `content` (prompt-only).
+    const content = turn.images?.length
+      ? turn.images.map((im) => ({ type: 'image' as const, image: im.image, mediaType: im.mediaType }))
+      : undefined
+
     const run = await this.client.run({
       agent: threadAgentDefinition(toolNames),
       prompt: turn.prompt,
+      content,
       cwd: turn.cwd,
       signal: turn.abort.signal,
       previousRun: turn.previousState as RunState | undefined,

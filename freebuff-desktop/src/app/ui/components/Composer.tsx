@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 
+import { MAX_ATTACHMENTS } from '../../../core/attachments'
 import { buildCommands, filterCommands, type Command } from '../lib/commands'
 import type { AttachmentKind, PendingAttachment } from '../lib/types'
 import { useStore } from '../store/store'
@@ -76,6 +77,16 @@ export function Composer({ threadId }: { threadId: string }) {
 
   const removeAtt = (path: string) => setAtts((prev) => prev.filter((a) => a.path !== path))
 
+  // Stage new attachments: de-dupe against what's there and cap the total, toasting
+  // if the cap drops any. Single entry point for the picker, drag-drop, and paste.
+  const addAttachments = (metas: PendingAttachment[]) => {
+    const merged = merge(atts, metas)
+    if (merged.length > MAX_ATTACHMENTS) {
+      pushToast(`You can attach up to ${MAX_ATTACHMENTS} files`, 'error')
+    }
+    setAtts(merged.slice(0, MAX_ATTACHMENTS))
+  }
+
   // Paperclip → native open dialog (files AND folders, multi-select). The main
   // process stats each pick so we know which are directories.
   const pickAttachments = async () => {
@@ -86,15 +97,12 @@ export function Composer({ threadId }: { threadId: string }) {
     }
     const picked: { path: string; name: string; isDirectory: boolean }[] = await fb.pickAttachments()
     if (!picked?.length) return
-    setAtts((prev) =>
-      merge(
-        prev,
-        picked.map((p) => ({
-          path: p.path,
-          name: p.name || baseName(p.path),
-          kind: kindFor(p.name || p.path, p.isDirectory),
-        })),
-      ),
+    addAttachments(
+      picked.map((p) => ({
+        path: p.path,
+        name: p.name || baseName(p.path),
+        kind: kindFor(p.name || p.path, p.isDirectory),
+      })),
     )
   }
 
@@ -125,7 +133,38 @@ export function Composer({ threadId }: { threadId: string }) {
       if (!fb?.getPathForFile) pushToast('Drag-and-drop needs the desktop app', 'error')
       return
     }
-    setAtts((prev) => merge(prev, metas))
+    addAttachments(metas)
+  }
+
+  // Paste image(s) (e.g. a screenshot) or file(s) copied in Finder. A real file
+  // copied from disk resolves to a path directly; in-memory image data (a
+  // screenshot) is written to a temp file by the main process so it fits the same
+  // path-based pipeline. Non-file pastes fall through to normal text paste.
+  const onPaste = async (e: React.ClipboardEvent) => {
+    const fileItems = Array.from(e.clipboardData?.items ?? []).filter((it) => it.kind === 'file')
+    if (!fileItems.length) return // plain text — let the textarea handle it
+    e.preventDefault()
+    const fb = bridge()
+    // DataTransferItems are only valid during the event, so capture File + type now;
+    // the File (a Blob) stays usable for the async arrayBuffer reads below.
+    const files = fileItems
+      .map((it) => ({ file: it.getAsFile(), type: it.type }))
+      .filter((f): f is { file: File; type: string } => !!f.file)
+
+    const metas: PendingAttachment[] = []
+    for (const { file, type } of files) {
+      const path: string | undefined = fb?.getPathForFile?.(file)
+      if (path) {
+        metas.push({ path, name: file.name || baseName(path), kind: kindFor(file.name || path, false, file.type) })
+      } else if (type.startsWith('image/') && fb?.saveClipboardImage) {
+        // In-memory image data (screenshot). Materialize it via the main process.
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        const saved: { path: string; name: string } | null = await fb.saveClipboardImage(bytes, type.split('/')[1] || 'png')
+        if (saved?.path) metas.push({ path: saved.path, name: saved.name, kind: 'image' })
+      }
+    }
+    if (metas.length) addAttachments(metas)
+    else if (!fb?.getPathForFile) pushToast('Pasting files needs the desktop app', 'error')
   }
 
   const onDragEnter = (e: React.DragEvent) => {
@@ -224,6 +263,7 @@ export function Composer({ threadId }: { threadId: string }) {
             e.target.style.height = 'auto'
             e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
           }}
+          onPaste={onPaste}
           onKeyDown={(e) => {
             if (menuOpen) {
               const n = matches.length

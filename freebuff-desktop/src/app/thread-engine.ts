@@ -19,7 +19,7 @@ import { join } from 'path'
 import { CodebuffClient } from '@codebuff/sdk'
 import type { PrintModeEvent } from '@codebuff/sdk'
 
-import { appendBlock } from '../core/attachments'
+import { appendBlock, type AttachmentImage } from '../core/attachments'
 import { recordUsage } from '../core/budget'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
@@ -73,6 +73,13 @@ export interface ThreadData {
   items: QueueItem[]
 }
 
+/** A queued main-chat message awaiting a turn: its prompt text plus any base64
+ *  images attached to it. */
+interface InboxItem {
+  text: string
+  images?: AttachmentImage[]
+}
+
 export interface EngineOptions {
   repoRoot: string
   projectId?: string
@@ -121,8 +128,11 @@ export class ThreadEngine {
   /** User messages typed in the main chat. When the thread is idle the pump runs
    * the next one as a fresh turn (jumping ahead of the queue). While a turn is
    * running, later arrivals are drained at the agent's step boundaries to steer
-   * the in-flight turn instead of waiting for it to finish. */
-  private userInbox = new Map<string, string[]>()
+   * the in-flight turn instead of waiting for it to finish. Each item carries its
+   * message text plus any attached images (base64); steering drains text only, so
+   * images attached to a message that steers a running turn are dropped (the common
+   * path — attaching while idle — runs as a fresh turn and keeps them). */
+  private userInbox = new Map<string, InboxItem[]>()
   /** Abort handle for a thread's in-flight turn, so the UI can stop it. */
   private aborters = new Map<string, AbortController>()
   /** Threads whose user pressed Stop: the pump halts after the current turn
@@ -344,7 +354,11 @@ export class ThreadEngine {
   postMessage(threadId: string, text: string, attachmentPaths: readonly string[] = []): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    const att = attachmentPaths.length ? buildAttachmentBlock(attachmentPaths) : null
+    // Only the Codebuff harness (MiniMax M3) sees inline image content; Claude Code
+    // reads images from the path, so we don't inline base64 for it.
+    const att = attachmentPaths.length
+      ? buildAttachmentBlock(attachmentPaths, { inlineImages: this.harnessId === 'codebuff' })
+      : null
     // The agent sees the inlined prompt block; the transcript shows the compact
     // summary. `appendBlock` is shared with the renderer so the two never drift.
     const steeringText = appendBlock(text, att?.promptBlock ?? '')
@@ -355,7 +369,7 @@ export class ThreadEngine {
     if (thread.title === 'New thread' && titleSeed) {
       this.store.updateThread(threadId, { title: titleSeed.slice(0, 60) }, this.now())
     }
-    this.startUserTurn(threadId, steeringText, displayText)
+    this.startUserTurn(threadId, steeringText, displayText, att?.images)
   }
 
   /**
@@ -383,13 +397,18 @@ export class ThreadEngine {
    * The two diverge only when chat should show a compact label (e.g. `/review`)
    * instead of the full prompt body; by default they're the same typed message.
    */
-  private startUserTurn(threadId: string, steeringText: string, displayText: string = steeringText): void {
+  private startUserTurn(
+    threadId: string,
+    steeringText: string,
+    displayText: string = steeringText,
+    images?: AttachmentImage[],
+  ): void {
     // Sending a message (typed or a /skill) re-engages the thread: lift any prior
     // Stop hold so normal pumping (this message, then the queue) resumes.
     this.interrupted.delete(threadId)
     this.store.appendMessage(threadId, { role: 'user', text: displayText }, this.now())
     const list = this.userInbox.get(threadId) ?? []
-    list.push(steeringText)
+    list.push({ text: steeringText, images })
     this.userInbox.set(threadId, list)
     this.emitThread(threadId)
     void this.pump(threadId)
@@ -419,7 +438,11 @@ export class ThreadEngine {
   private drainSteering(threadId: string): string[] {
     const list = this.userInbox.get(threadId)
     if (!list?.length) return []
-    return list.splice(0).filter((t) => t.trim().length > 0)
+    // Steering injects text only; any images on these messages are dropped here.
+    return list
+      .splice(0)
+      .map((i) => i.text)
+      .filter((t) => t.trim().length > 0)
   }
 
   /**
@@ -438,7 +461,8 @@ export class ThreadEngine {
 
         const pending = this.userInbox.get(threadId)
         if (pending && pending.length) {
-          await this.runTurn(threadId, pending.shift()!)
+          const item = pending.shift()!
+          await this.runTurn(threadId, item.text, { images: item.images })
           continue
         }
 
@@ -459,7 +483,7 @@ export class ThreadEngine {
   private async runTurn(
     threadId: string,
     prompt: string,
-    meta: { queueItemId?: string } = {},
+    meta: { queueItemId?: string; images?: AttachmentImage[] } = {},
   ): Promise<void> {
     let thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return
@@ -526,6 +550,7 @@ export class ThreadEngine {
             onBrowserCheck: () => this.browserCheck(threadId),
           },
           previousState,
+          images: meta.images,
         },
         {
           onText: (chunk) => {

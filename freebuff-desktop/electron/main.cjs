@@ -22,6 +22,7 @@
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const net = require('node:net')
 const http = require('node:http')
@@ -255,6 +256,22 @@ ipcMain.handle('dialog:pickAttachments', async () => {
     }
     return { path: p, name: path.basename(p), isDirectory }
   })
+})
+
+// Paste-to-attach: a pasted screenshot has no file path, so the renderer hands us
+// the raw bytes and we write them to a temp file the attachment pipeline can read.
+// `ext` is sanitized to a short alnum token. Returns { path, name } or null.
+ipcMain.handle('clipboard:saveImage', async (_e, { bytes, ext }) => {
+  try {
+    const safeExt = String(ext || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'png'
+    const dir = path.join(os.tmpdir(), 'freebuff-desktop-pastes')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, `paste-${Date.now()}-${process.pid}.${safeExt}`)
+    fs.writeFileSync(file, Buffer.from(bytes))
+    return { path: file, name: path.basename(file) }
+  } catch {
+    return null
+  }
 })
 
 function buildMenu(reloadApp) {
