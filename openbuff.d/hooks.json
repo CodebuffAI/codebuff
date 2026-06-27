@@ -1,0 +1,46 @@
+{
+  "fileChangeHooks": [
+    {
+      "name": "typecheck-common",
+      "command": "cd common && bun run typecheck",
+      "filePattern": "common/src/**/*.ts",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "typecheck-sdk",
+      "command": "cd sdk && bun run typecheck",
+      "filePattern": "sdk/src/**/*.ts",
+      "timeoutSeconds": 240
+    },
+    {
+      "name": "typecheck-cli",
+      "command": "cd cli && bun run typecheck",
+      "filePattern": "cli/src/**/*.{ts,tsx}",
+      "timeoutSeconds": 240
+    },
+    {
+      "name": "typecheck-agents",
+      "command": "cd agents && bun run typecheck",
+      "filePattern": "agents/**/*.ts",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "typecheck-.agents",
+      "command": "cd .agents && bun run typecheck",
+      "filePattern": ".agents/**/*.ts",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "typecheck-agent-runtime",
+      "command": "cd packages/agent-runtime && bun run typecheck",
+      "filePattern": "packages/agent-runtime/src/**/*.ts",
+      "timeoutSeconds": 240
+    },
+    {
+      "name": "typecheck-indexer",
+      "command": "cd packages/indexer && bun run typecheck",
+      "filePattern": "packages/indexer/src/**/*.ts",
+      "timeoutSeconds": 180
+    }
+  ]
+}

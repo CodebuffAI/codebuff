@@ -4,6 +4,7 @@ import path from 'path'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { withTimeout } from '@codebuff/common/util/promise'
 
+import { parseProposals, type Proposal } from './proposals'
 import { truncateTrace } from './trace-utils'
 
 import type { AgentStep } from './agent-runner'
@@ -54,10 +55,64 @@ const lessonsExtractorAgent: AgentDefinition = {
         description:
           'Lessons learned from this task. Each lesson should identify what went wrong and what should have been done instead.',
       },
+      proposals: {
+        type: 'array',
+        description:
+          'Structured, machine-applicable config-change proposals derived from the lessons. Each proposal targets a specific agent and describes one mechanical change. Only emit proposals that are directly supported by the lessons — do not speculate. Use kind "append_system_prompt_guidance" for behavioral guidance, "add_tool"/"remove_tool" for tool access, "set_model" for model changes, "set_budget" for cost/token caps. Leave the array empty if no safe, well-supported proposal exists.',
+        items: {
+          type: 'object',
+          properties: {
+            kind: {
+              type: 'string',
+              enum: [
+                'append_system_prompt_guidance',
+                'add_tool',
+                'remove_tool',
+                'set_model',
+                'set_budget',
+              ],
+              description: 'The proposal kind.',
+            },
+            target: {
+              type: 'object',
+              properties: {
+                agentId: { type: 'string' },
+              },
+              required: ['agentId'],
+              description: 'The agent id to modify (must match an id in the provided agent definitions).',
+            },
+            guidance: {
+              type: 'string',
+              description: 'For append_system_prompt_guidance: the guidance text to append.',
+            },
+            toolName: {
+              type: 'string',
+              description: 'For add_tool/remove_tool: the tool name.',
+            },
+            model: {
+              type: 'string',
+              description: 'For set_model: the new model id.',
+            },
+            maxCostCents: {
+              type: ['integer', 'null'],
+              description: 'For set_budget: per-run cost cap in US cents, or null to leave unchanged.',
+            },
+            maxTokensPerTurn: {
+              type: ['integer', 'null'],
+              description: 'For set_budget: per-turn token cap, or null to leave unchanged.',
+            },
+            rationale: {
+              type: 'string',
+              description: 'Why this proposal is being made (references the lesson it addresses).',
+            },
+          },
+          required: ['kind', 'target', 'rationale'],
+        },
+      },
     },
     required: ['lessons'],
   },
-  systemPrompt: `You are a Lesson Extractor. Your job: analyze agent performance and extract actionable lessons.
+  systemPrompt: `You are a Lesson Extractor. Your job: analyze agent performance and extract actionable lessons AND structured, machine-applicable config-change proposals.
 
 Context you receive:
 - User prompt (what the coding agent was asked)
@@ -69,7 +124,10 @@ Context you receive:
 
 Use tools to gather more context if needed.
 
-You must output an array of lessons. Each lesson has two parts:
+You must output TWO things:
+
+## 1. Lessons (array)
+Each lesson has two parts:
 
 1. **whatWentWrong**: What the agent did incorrectly, misunderstood, or failed to do on this task
    - Be specific about the mistake or gap in understanding
@@ -81,7 +139,24 @@ You must output an array of lessons. Each lesson has two parts:
    - Be specific and prescriptive
    - Make it something the agent could apply in the future
 
-Rules:
+## 2. Proposals (array)
+Structured, machine-applicable config-change proposals derived from the lessons. Each proposal targets a specific agent (by id) and describes ONE mechanical change. Only emit proposals that are DIRECTLY supported by the lessons — do not speculate.
+
+Supported proposal kinds:
+- "append_system_prompt_guidance": append guidance text to the target agent's systemPrompt (target, guidance, rationale)
+- "add_tool": add a tool to the target agent's toolNames (target, toolName, rationale)
+- "remove_tool": remove a tool from the target agent's toolNames (target, toolName, rationale)
+- "set_model": change the target agent's model (target, model, rationale)
+- "set_budget": set maxCostCents and/or maxTokensPerTurn on the target agent (target, maxCostCents, maxTokensPerTurn, rationale — use null for the field you don't want to change)
+
+Proposal rules:
+- The target.agentId MUST match an id in the provided agent definitions.
+- Each proposal must include a rationale referencing the lesson it addresses.
+- Prefer "append_system_prompt_guidance" for behavioral corrections — it is the safest kind.
+- Only propose "set_model" or "set_budget" when there is clear evidence the model/budget was the problem.
+- Leave the proposals array empty if no safe, well-supported proposal exists. Do not pad with low-confidence proposals.
+
+Rules (lessons):
 - Each lesson should be a complete learning unit (problem + solution)
 - Keep lessons terse but precise (aim for ~140 chars per field if possible)
 - Do not include things the agent already did correctly
@@ -93,6 +168,7 @@ export async function extractAgentLessons(
   input: ExtractAgentLessonsInput,
 ): Promise<{
   lessons: Lesson[]
+  proposals: Proposal[]
 }> {
   try {
     const {
@@ -148,7 +224,7 @@ ${truncatedTraceJson}
 ${judgeSummary}
 ${error ? `\n## Agent Error\n${error}\n` : ''}
 
-Task: Analyze what went wrong and what should have been done. For each mistake or gap, provide a lesson with both parts: whatWentWrong and whatShouldHaveBeenDone. Output the lessons array as specified.`
+Task: Analyze what went wrong and what should have been done. For each mistake or gap, provide a lesson with both parts: whatWentWrong and whatShouldHaveBeenDone. Output the lessons array as specified. Additionally, emit structured proposals for any lesson that maps to a safe, mechanical config change (append system-prompt guidance, add/remove tool, set model, set budget). Leave the proposals array empty if no safe proposal exists.`
 
     const agentOutput: string[] = []
     const result = await withTimeout(
@@ -171,18 +247,26 @@ Task: Analyze what went wrong and what should have been done. For each mistake o
         'Lessons extractor did not return structured output:\n',
         JSON.stringify(result.output, null, 2),
       )
-      return { lessons: [] }
+      return { lessons: [], proposals: [] }
     }
 
     console.log('Agent output:', agentOutput.join('\n'))
 
-    const { lessons } = result.output.value as {
+    const { lessons, proposals: rawProposals } = result.output.value as {
       lessons: Lesson[]
+      proposals?: unknown
     }
-    return { lessons }
+    const parsed = parseProposals(rawProposals)
+    if (!parsed.valid) {
+      console.warn(
+        `Lessons extractor emitted ${rawProposals ? 'invalid' : 'no'} proposals; skipping proposals:`,
+        parsed.errors.join('; '),
+      )
+    }
+    return { lessons, proposals: parsed.proposals }
   } catch (error) {
     console.error('Failed to extract agent lessons:', getErrorObject(error))
-    return { lessons: [] }
+    return { lessons: [], proposals: [] }
   }
 }
 

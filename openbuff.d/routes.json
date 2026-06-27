@@ -53,7 +53,10 @@
     "codex-cli": "pioneer/zai-org/GLM-5.2",
     "gemini-cli": "pioneer/zai-org/GLM-5.2",
     "notion-query-agent": "pioneer/zai-org/GLM-5.2",
-    "notion-researcher": "pioneer/zai-org/GLM-5.2"
+    "notion-researcher": "pioneer/zai-org/GLM-5.2",
+    "judge-gpt": "pioneer/gpt-5.4",
+    "judge-gemini": "gemini/gemini-2.5-pro",
+    "judge-claude": "pioneer/claude-sonnet-4-6"
   },
   "agentReasoningEfforts": {
     "editor-implementor": "high",

@@ -5,7 +5,6 @@ import path from 'path'
 
 import {
   CodebuffClient,
-  LOCAL_MODE_API_KEY,
   loadLocalAgents,
 } from '@codebuff/sdk'
 import pLimit from 'p-limit'
@@ -118,6 +117,7 @@ async function runTask(options: {
             )
             .join('\n\n')
         : undefined,
+      finalCheckOutputsStructured: agentResult.finalCheckOutputs,
     })
 
     // Extract and append agent lessons
@@ -409,8 +409,6 @@ export async function runBuffBench(options: {
   const client =
     options.client ??
     new CodebuffClient({
-      apiKey: LOCAL_MODE_API_KEY,
-      localMode: true,
       logger,
     })
 

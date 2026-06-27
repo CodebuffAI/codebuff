@@ -4,18 +4,18 @@
 
 ## Overview
 
-Openbuff is a fork of Codebuff focused on local-first, bring-your-own-key (BYOK) usage. During the transition:
+Openbuff is a fork of Codebuff focused on local-first, bring-your-own-key (BYOK) usage. Current state:
 
-- **Openbuff names** (`OPENBUFF_*`, `openbuff.json`, `openbuff` binary) are the primary names.
-- **Codebuff names** (`CODEBUFF_*`, `codebuff.json`, `codebuff` binary) remain as **fully supported legacy compatibility aliases**.
+- **Openbuff names** (`OPENBUFF_*`, `openbuff.json`, `openbuff` binary) are the primary and, for routing/config paths, the only names.
+- **Codebuff names** (`CODEBUFF_*`, `codebuff.json`, `codebuff` binary) are **selectively retained** as compatibility aliases only where explicitly marked in the tables below. The BYOK legacy purge **removed** the routing/config aliases (`CODEBUFF_LOCAL_MODE`, `CODEBUFF_PROVIDER_CONFIG`, `codebuff.json`, `~/.config/manicode/*`, `~/.config/openbuff-<env>/`) — those no longer work, and there is no migration shim (existing users re-auth).
 - The codebase uses `isLocalMode()` to detect BYOK mode and brand accordingly.
 
 ### Migration Philosophy
 
-- **Add new Openbuff names alongside existing Codebuff ones** — never break backward compatibility.
-- **Prefer Openbuff names in new code** — use `OPENBUFF_*` env vars, `openbuff.json` paths, and `openbuff` branding.
-- **Keep legacy aliases working** — users with existing `codebuff.json` configs or `CODEBUFF_*` env vars must not break.
-- **Branding is dynamic** — Openbuff should be the default user-facing brand; legacy Codebuff names should appear only when documenting compatibility surfaces.
+- **Openbuff names are the source of truth** — use `OPENBUFF_*` env vars, `openbuff.json` paths, and `openbuff` branding.
+- **Retained Codebuff aliases are compatibility-only** — keep them working only where the tables below mark them as `✅ Alias`; do not introduce new ones.
+- **Purged Codebuff/Manicode aliases are gone** — do not reintroduce removed routing/config aliases; surface a clear config error instead (see `docs/configuration.md`).
+- **Branding is dynamic** — Openbuff should be the default user-facing brand; legacy Codebuff names should appear only when documenting retained compatibility surfaces.
 
 ### Branding Checklist
 
@@ -37,14 +37,13 @@ When adding or editing user-facing docs, examples, CLI help text, website copy, 
 | Variable | Status | File |
 |----------|--------|------|
 | `OPENBUFF_LOCAL_MODE` | ✅ Primary | `common/src/constants/local-mode.ts` |
-| `CODEBUFF_LOCAL_MODE` | ✅ Alias (compat) | `common/src/constants/local-mode.ts` |
+| `CODEBUFF_LOCAL_MODE` | ❌ Removed (BYOK purge) | `common/src/constants/local-mode.ts` |
 
-**Detail:** `isLocalModeEnabled()` checks `OPENBUFF_LOCAL_MODE` first, falls back to `CODEBUFF_LOCAL_MODE`, defaults to `true` (local mode on).
+**Detail:** `isLocalModeEnabled()` checks `OPENBUFF_LOCAL_MODE`, defaults to `true` (local mode on). The `CODEBUFF_LOCAL_MODE` fallback was removed in the BYOK legacy purge.
 
 ```
 common/src/constants/local-mode.ts
   - OPENBUFF_LOCAL_MODE_ENV_VAR = 'OPENBUFF_LOCAL_MODE'
-  - CODEBUFF_LOCAL_MODE_ENV_VAR = 'CODEBUFF_LOCAL_MODE'
 ```
 
 ### 1.2 Provider Config Path
@@ -52,7 +51,7 @@ common/src/constants/local-mode.ts
 | Variable | Status | File |
 |----------|--------|------|
 | `OPENBUFF_PROVIDER_CONFIG` | ✅ Primary | `sdk/src/provider-config.ts` |
-| `CODEBUFF_PROVIDER_CONFIG` | ✅ Alias (compat) | `sdk/src/provider-config.ts` |
+| `CODEBUFF_PROVIDER_CONFIG` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
 
 ### 1.3 API Key
 
@@ -110,33 +109,33 @@ common/src/constants/paths.ts
 
 | Path | Status | File |
 |------|--------|------|
-| `openbuff.json` (project dir) | ✅ Primary | `sdk/src/provider-config.ts` |
-| `codebuff.json` (project dir) | ✅ Alias (compat) | `sdk/src/provider-config.ts` |
+| `openbuff.json` (project dir + ancestors) | ✅ Primary | `sdk/src/provider-config.ts` |
+| `codebuff.json` (project dir) | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
 
 ### 2.2 Global Config Directories
 
 | Path | Status | File |
 |------|--------|------|
 | `~/.config/openbuff/` | ✅ Primary | `sdk/src/provider-config.ts` (`getOpenbuffConfigDirs()`) |
-| `~/.config/openbuff-<env>/` | ✅ Primary | `sdk/src/provider-config.ts` |
 | `~/.config/openbuff/provider-config.json` | ✅ Primary | `sdk/src/provider-config.ts` |
 | `~/.config/openbuff/openbuff.json` | ✅ Primary | `sdk/src/provider-config.ts` |
-| `~/.config/openbuff-<env>/provider-config.json` | ✅ Alias (compat) | `sdk/src/provider-config.ts` |
-| `~/.config/openbuff-<env>/openbuff.json` | ✅ Alias (compat) | `sdk/src/provider-config.ts` |
-| `~/.config/manicode/provider-config.json` | ✅ Alias (compat) | `sdk/src/provider-config.ts` |
-| `~/.config/manicode/codebuff.json` | ✅ Alias (compat) | `sdk/src/provider-config.ts` |
+| `~/.config/openbuff-<env>/` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
+| `~/.config/openbuff-<env>/provider-config.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
+| `~/.config/openbuff-<env>/openbuff.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
+| `~/.config/manicode/provider-config.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
+| `~/.config/manicode/codebuff.json` | ❌ Removed (BYOK purge) | `sdk/src/provider-config.ts` |
 
-> 📝 **Note on `manicode` paths:** The `~/.config/manicode/` directory is from the **Manicode** project — a separate, earlier fork that predates Openbuff. These paths are preserved for backward compatibility with Manicode users who migrated to Openbuff, but they are not part of the Codebuff→Openbuff transition itself. They can be removed in a future major version after a deprecation notice.
+> 📝 **Note on `manicode` / env-suffix paths:** The `~/.config/manicode/` directory (from the **Manicode** project — a separate, earlier fork) and the `~/.config/openbuff-<env>/` env-suffix variants were removed in the BYOK legacy purge so that `~/.config/openbuff/` is the single global config dir. There is no migration shim; existing users re-auth via `/setup` or `/provider connect codex`. See [docs/configuration.md](./configuration.md).
 
-**Detail:** The provider config discovery order is defined in `loadProviderConfigSync()`. Both Openbuff (`openbuff.json`) and legacy Codebuff (`codebuff.json`) filenames are searched in the current directory and all ancestor directories.
+**Detail:** The provider config discovery order is defined in `loadProviderConfigSync()`. Only `openbuff.json` is searched in the current directory and ancestor directories.
 
 ```
 sdk/src/provider-config.ts
   - PROVIDER_CONFIG_ENV_VAR = 'OPENBUFF_PROVIDER_CONFIG'
-  - LEGACY_PROVIDER_CONFIG_ENV_VAR = 'CODEBUFF_PROVIDER_CONFIG'
   - PROVIDER_CONFIG_FILE_NAME = 'openbuff.json'
-  - LEGACY_PROVIDER_CONFIG_FILE_NAME = 'codebuff.json'
   - GLOBAL_PROVIDER_CONFIG_FILE_NAME = 'provider-config.json'
+  - getOpenbuffConfigDirs() returns [getConfigDir()]  // ~/.config/openbuff only
+  - getConfigDir() returns ~/.config/openbuff (no env suffix)
 ```
 
 ---
@@ -155,7 +154,7 @@ sdk/src/provider-config.ts
 | Constant | Value | Status | File |
 |----------|-------|--------|------|
 | `OPENBUFF_LOCAL_MODE_ENV_VAR` | `'OPENBUFF_LOCAL_MODE'` | ✅ Primary | `common/src/constants/local-mode.ts` |
-| `CODEBUFF_LOCAL_MODE_ENV_VAR` | `'CODEBUFF_LOCAL_MODE'` | ✅ Alias | `common/src/constants/local-mode.ts` |
+| `CODEBUFF_LOCAL_MODE_ENV_VAR` | `'CODEBUFF_LOCAL_MODE'` | ❌ Removed (BYOK purge) | `common/src/constants/local-mode.ts` |
 | `LOCAL_MODE_API_KEY` | `'openbuff-local-mode'` | ✅ Openbuff | `common/src/constants/local-mode.ts` |
 | `LOCAL_MODE_USER_ID` | `'local-user'` | — Generic | `common/src/constants/local-mode.ts` |
 | `LOCAL_MODE_USER_EMAIL` | `'local@openbuff.local'` | ✅ Openbuff | `common/src/constants/local-mode.ts` |
@@ -328,12 +327,12 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 
 ## 10. Migration Status Summary
 
-### ✅ Complete (Dual Aliases, Openbuff Primary)
+### ✅ Complete (Openbuff Primary, Legacy Codebuff Names Removed by BYOK Purge)
 
-- Local mode env vars (`OPENBUFF_LOCAL_MODE` ↔ `CODEBUFF_LOCAL_MODE`)
-- Provider config env vars (`OPENBUFF_PROVIDER_CONFIG` ↔ `CODEBUFF_PROVIDER_CONFIG`)
-- Config file paths (`openbuff.json` ↔ `codebuff.json`)
-- Global config directories (`~/.config/openbuff/` + legacy paths)
+- Local mode env var — `OPENBUFF_LOCAL_MODE` only (`CODEBUFF_LOCAL_MODE` removed)
+- Provider config env var — `OPENBUFF_PROVIDER_CONFIG` only (`CODEBUFF_PROVIDER_CONFIG` removed)
+- Config file path — `openbuff.json` only (`codebuff.json` removed)
+- Global config directory — `~/.config/openbuff/` only (`manicode/*` and `openbuff-<env>/` variants removed; no migration shim)
 - CLI description text ("Openbuff CLI - local/BYOK AI coding assistant")
 - Dynamic branding for retained Openbuff/Codebuff compatibility surfaces
 - `--local` CLI flag maintained as compatibility

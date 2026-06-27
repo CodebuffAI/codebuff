@@ -4,7 +4,11 @@ import path from 'path'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod/v4'
 
-import type { EvalCommitV2 } from './types'
+import {
+  clampScoresByDeterministicSignals,
+  computeDeterministicSignals,
+} from './deterministic-signals'
+import type { EvalCommitV2, FinalCheckOutput } from './types'
 import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 
 const DEBUG_ERROR = true
@@ -145,6 +149,13 @@ interface JudgeCommitResultInput {
   agentDiff: string
   error?: string
   finalCheckOutputs?: string
+  /**
+   * Structured final-check outputs (per-command exit codes). When provided,
+   * deterministic signals (compile/test/lint pass/fail) are derived and used
+   * to clamp the LLM judge's scores — so a broken build can never score 7/10.
+   * `finalCheckOutputs` (string) is still used for the LLM prompt text.
+   */
+  finalCheckOutputsStructured?: FinalCheckOutput[]
 }
 
 async function runSingleJudge(
@@ -214,7 +225,14 @@ async function runSingleJudge(
 export async function judgeCommitResult(
   input: JudgeCommitResultInput,
 ): Promise<JudgingResult> {
-  const { commit, contextFiles, agentDiff, error, finalCheckOutputs } = input
+  const {
+    commit,
+    contextFiles,
+    agentDiff,
+    error,
+    finalCheckOutputs,
+    finalCheckOutputsStructured,
+  } = input
 
   const { prompt, fileDiffs } = commit
 
@@ -292,7 +310,7 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
   )
 
   // Return median judge's analysis with averaged scores
-  return {
+  const averagedResult: JudgingResult = {
     analysis: medianResult.analysis,
     strengths: medianResult.strengths,
     weaknesses: medianResult.weaknesses,
@@ -300,4 +318,20 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
     codeQualityScore: averageCodeQualityScore,
     overallScore: averageOverallScore,
   }
+
+  // P2-1: Apply deterministic clamping from finalCheckCommands exit codes.
+  // This caps scores when compile/test/lint signals are definitively broken,
+  // reducing LLM judge variance (a compile failure should never yield 7/10).
+  const signals = computeDeterministicSignals(finalCheckOutputsStructured)
+  const clampedResult = clampScoresByDeterministicSignals(
+    averagedResult,
+    signals,
+  )
+  if (clampedResult !== averagedResult && !signals.isEmpty) {
+    console.log(
+      `Deterministic clamp applied: overall ${averageOverallScore.toFixed(1)} → ${clampedResult.overallScore.toFixed(1)} (signals: compiles=${signals.compiles}, testsPass=${signals.testsPass}, lintPass=${signals.lintPass}, fails=${signals.failCount}/${signals.commandCount})`,
+    )
+  }
+
+  return clampedResult
 }

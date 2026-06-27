@@ -112,7 +112,7 @@
       "baseURL": "https://agentrouter.org/v1",
       "apiKeyEnv": "AGENT_ROUTER_TOKEN",
       "models": [
-        "glm-5.1",
+        "glm-5.2",
         "claude-opus-4-6",
         "deepseek-v4-pro",
         "deepseek-v4-flash"
@@ -452,7 +452,23 @@
           }
         }
       }
+    },
+    "gmi": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.gmi-serving.com/v1",
+      "apiKeyEnv": "GMI_API_KEY",
+      "models": [
+        "zai-org/GLM-5.2-FP8"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
     }
- 
   }
 }

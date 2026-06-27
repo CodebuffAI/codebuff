@@ -7,7 +7,7 @@ There is absolutely no backend fallback. Every LLM request must resolve to eithe
 1. an OpenAI-compatible or Anthropic-compatible provider in `openbuff.json`, or
 2. a configured ChatGPT/Codex OAuth provider for supported OpenAI models.
 
-To maintain seamless compatibility, all existing technical compatibility aliases remain fully supported and explained below.
+Legacy `codebuff` / `manicode` config paths and `CODEBUFF_*` env-var aliases were removed in the BYOK legacy purge; `openbuff.json` and `OPENBUFF_*` are now the only supported names. See [docs/configuration.md](./configuration.md) for the full config layering and merge semantics.
 
 ## Start Openbuff
 
@@ -17,24 +17,19 @@ openbuff
 codebuff --local
 ```
 
-`OPENBUFF_LOCAL_MODE=true` is the default. `CODEBUFF_LOCAL_MODE=true` is still
-accepted as a compatibility alias.
+Openbuff is always local/BYOK — there is no cloud-mode toggle.
 
 ## Configure providers
 
-Openbuff looks for provider config in this order:
+Openbuff looks for provider config in this order (see
+[docs/configuration.md](./configuration.md) for full layering details):
 
-1. `OPENBUFF_PROVIDER_CONFIG`
-2. `CODEBUFF_PROVIDER_CONFIG` compatibility alias
-3. `~/.config/openbuff/provider-config.json`
-4. `~/.config/openbuff/openbuff.json`
-5. `~/.config/openbuff-<env>/provider-config.json` compatibility path
-6. `~/.config/openbuff-<env>/openbuff.json` compatibility path
-7. `~/.config/manicode/provider-config.json` compatibility path
-8. `~/.config/manicode/codebuff.json` compatibility path
-9. `openbuff.json` in the current directory or any parent directory
-10. `codebuff.json` compatibility path in the current directory or any parent
-    directory
+1. `OPENBUFF_PROVIDER_CONFIG` — explicit env var; when set, only this path is
+   loaded
+2. `~/.config/openbuff/provider-config.json` — user-global config
+3. `~/.config/openbuff/openbuff.json` — user-global config (alternate name)
+4. `openbuff.json` in the current directory and each ancestor directory up to
+   (and including) the user's home directory — project-local config
 
 The quickest setup path is the built-in preset command:
 
@@ -143,14 +138,17 @@ ChatGPT/Codex subscription:
 
 ## How model routing works
 
-For each agent step:
+Model routing is driven entirely by `openbuff.json` / `routes.json` — there is no
+hardcoded per-agent model fallback. For each agent step:
 
-1. The agent's built-in model is looked up.
-2. `modes.default` or `modes.plan` overrides the built-in root agents (`base2`, `base2-plan`).
-3. `agents[agentId]` overrides subagents and other non-mode agents when present.
-4. `defaultModel` overrides every remaining agent when present.
+1. `modes.default` or `modes.plan` overrides the built-in root agents (`base`, `base2`, `base2-plan`).
+2. `agents[agentId]` overrides subagents and other non-mode agents when present.
+3. `defaultModel` overrides every remaining agent when present.
+4. An explicit `model` passed by the caller is a last-resort fallback.
 5. The resulting requested model is matched against provider `models`.
-6. If nothing matches, Openbuff fails with a clear config error.
+6. If nothing is configured, Openbuff fails with a hard error: `No model
+   configured for agent '<id>'. Run /setup or set defaultModel (or
+   agents['<id>']) in your openbuff.json.`
 
 Agent keys may use the exact ID (`thinker`), a published ID
 (`publisher/agent@1.2.3`), or the unversioned/unpublished short ID.
