@@ -19,7 +19,6 @@ import {
   Save,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
-import { CloudBetaBanner } from "@/vly/components/cloud/CloudBetaBanner";
 import { CloudTopBar } from "@/vly/components/project-2/cloud/CloudTopBar";
 import { ConnectedRepoEnvPanel } from "@/vly/components/project-2/ConnectedRepoEnvPanel";
 import { CliAgentConfigurationPanel } from "@/vly/components/project-2/agent-chat/CliAgentConfigurationPanel";
@@ -102,11 +101,8 @@ export default function CloudProjectSettingsPage() {
       <div className="relative z-50 flex-shrink-0">
         <CloudTopBar project={project} />
       </div>
-      <div className="relative z-30 flex-shrink-0">
-        <CloudBetaBanner compact />
-      </div>
 
-      <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur">
+      <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-[#181818] px-3 py-2">
         <button
           type="button"
           onClick={() => router.push(`/cloud/project/${semanticIdentifier}`)}

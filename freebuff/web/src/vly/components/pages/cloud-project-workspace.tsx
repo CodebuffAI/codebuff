@@ -17,7 +17,6 @@ import { CloudIframeArea } from '../project-2/cloud/CloudIframeArea'
 import type { CloudTab } from '../project-2/cloud/CloudWorkspaceTabs'
 import { SandboxTierNotice } from '../project-2/SandboxTierNotice'
 import { AmbientBackdrop } from '../app-shell/AmbientBackdrop'
-import { CloudBetaBanner } from '../cloud/CloudBetaBanner'
 
 /**
  * Cloud-only project workspace shell. Forked from the shared web `Project2`
@@ -158,7 +157,6 @@ function CloudProjectWorkspaceInner({
 
         {(!isMobile || mobileView === 'chat') && (
           <div className="relative z-30 flex-shrink-0">
-            <CloudBetaBanner compact />
             <SandboxTierNotice runtimeSurface="cloud" />
           </div>
         )}
@@ -260,8 +258,8 @@ function CloudMobileTabBar({
           aria-pressed={view === tab}
           className={`relative flex h-10 flex-1 flex-col items-center justify-center gap-0.5 rounded text-[11px] font-medium capitalize transition-colors ${
             view === tab
-              ? 'bg-[#2a2a2a] text-foreground'
-              : 'text-foreground/60 hover:bg-muted hover:text-foreground'
+              ? 'bg-muted text-foreground'
+              : 'text-foreground/60 hover:bg-white/[0.04] hover:text-foreground'
           }`}
         >
           {tab}

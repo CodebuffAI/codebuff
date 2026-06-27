@@ -85,8 +85,8 @@ export function CloudWorkspaceTabs({
                     ? 'bg-amber-500/15 text-amber-300'
                     : 'text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-300'
                   : isActive
-                    ? 'bg-[#2a2a2a] text-foreground'
-                    : 'text-foreground/55 hover:bg-muted hover:text-foreground'
+                    ? 'bg-[#1e1e1e] text-foreground shadow-[inset_0_-1px_0_0_hsl(var(--primary))]'
+                    : 'text-foreground/55 hover:bg-white/[0.04] hover:text-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />

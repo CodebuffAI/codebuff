@@ -206,13 +206,13 @@ export function CloudGitControls({
   const anyBusy = busy != null
 
   return (
-    <div className="flex min-w-0 items-center gap-1">
+    <div className="flex min-w-0 items-center gap-2">
       {/* Branch switcher */}
       <DropdownMenu open={branchOpen} onOpenChange={setBranchOpen}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className={`flex h-7 max-w-[150px] items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors sm:max-w-[180px] ${
+            className={`flex h-7 max-w-[150px] items-center gap-1.5 rounded border px-2 text-xs font-medium transition-colors sm:max-w-[180px] ${
               onMain
                 ? 'border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
                 : 'border-border bg-muted/40 text-foreground/85 hover:bg-muted hover:text-foreground'
@@ -239,7 +239,7 @@ export function CloudGitControls({
         <DropdownMenuContent
           align="start"
           sideOffset={6}
-          className="w-64 rounded-xl border border-border bg-popover p-1 shadow-2xl shadow-black/40"
+          className="w-64 rounded-md border border-border bg-popover p-1 shadow-2xl shadow-black/40"
         >
           <DropdownMenuLabel className="flex items-center justify-between px-2 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
             Branches
@@ -424,7 +424,7 @@ export function CloudGitControls({
       </div>
 
       {/* Action icon buttons */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-0.5">
         {/* Commit + push (single combined action) */}
         <DropdownMenu open={commitOpen} onOpenChange={setCommitOpen}>
           <DropdownMenuTrigger asChild>
@@ -452,7 +452,7 @@ export function CloudGitControls({
           <DropdownMenuContent
             align="end"
             sideOffset={6}
-            className="w-72 rounded-xl border border-border bg-popover p-2 shadow-2xl shadow-black/40"
+            className="w-72 rounded-md border border-border bg-popover p-2 shadow-2xl shadow-black/40"
           >
             {isDirty ? (
               <>
@@ -567,7 +567,7 @@ function GitIconButton({
           onClick={onClick}
           disabled={disabled}
           aria-label={label}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-7 w-7 items-center justify-center rounded text-foreground/80 transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : children}
         </button>

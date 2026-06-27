@@ -16,7 +16,7 @@ import {
   usersByTier,
   usersByDay,
 } from './aggregates/admin_aggregates'
-import { applyUserAuthMetricDelta } from './admin_platform_metrics'
+import { applyUserAuthMetricDelta, userAuthMetricFlags } from './admin_platform_metrics'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -122,6 +122,17 @@ export const upsertCodexAuthFingerprintInternal = internalMutation({
     const after = await ctx.db.get(args.userId)
     if (before && after) {
       await applyUserAuthMetricDelta(ctx, before, after)
+      // Record a feature-usage event the first time a user transitions into a
+      // connected ChatGPT-OAuth state (not on every token refresh).
+      const wasConnected = userAuthMetricFlags(before).chatgptSubscriptionConnected
+      const nowConnected = userAuthMetricFlags(after).chatgptSubscriptionConnected
+      if (!wasConnected && nowConnected) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.cloud_feature_usage.recordCloudFeatureUsage,
+          { userId: args.userId, feature: 'chatgpt_oauth' },
+        )
+      }
     }
   },
 })

@@ -38,6 +38,19 @@ export const saveByokSecret = action({
       encrypted: encrypted.encryptedPayload,
       version: encrypted.encryptionVersion,
     });
+
+    const byokFeature =
+      args.kind === "openai"
+        ? "openai_byok"
+        : args.kind === "anthropic"
+          ? "anthropic_byok"
+          : "bedrock_byok";
+    await ctx.scheduler.runAfter(
+      0,
+      internal.cloud_feature_usage.recordCloudFeatureUsage,
+      { userId: user._id, feature: byokFeature },
+    );
+
     return { success: true };
   },
 });

@@ -433,14 +433,14 @@ export function CloudCenterContent({
 
   return (
     <div
-      className="flex h-full w-full flex-col px-0 pb-0 pt-0 lg:px-3 lg:pb-3 lg:pt-2"
+      className="flex h-full w-full flex-col"
       suppressHydrationWarning
     >
-      <div className="flex h-full w-full flex-col items-stretch justify-start gap-0 lg:gap-2">
+      <div className="flex h-full w-full flex-col items-stretch justify-start gap-0">
         <TooltipProvider delayDuration={200}>
           <div
-            className="flex w-full min-w-[220px] items-center gap-1 rounded-md border border-border bg-[#202020] px-1.5 py-1"
-            style={{ minHeight: 32 }}
+            className="flex w-full min-w-[220px] items-center gap-1 border-b border-border bg-[#181818] px-2 py-1"
+            style={{ minHeight: 36 }}
           >
             <div className="flex items-center gap-0.5">
               <CloudToolbarTooltip label="Back">
@@ -622,7 +622,7 @@ export function CloudCenterContent({
         <div className="min-h-0 w-full flex-1">
           <div
             ref={iframeContainerRef}
-            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card lg:rounded-md lg:border lg:border-border lg:shadow-sm lg:shadow-black/30 ${isSelectingElement ? styles.selectingFrame : ''}`}
+            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card ${isSelectingElement ? styles.selectingFrame : ''}`}
             suppressHydrationWarning
           >
             {viewMode === 'env' ? (

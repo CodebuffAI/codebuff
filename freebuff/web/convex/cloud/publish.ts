@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { getAuthUser } from "../users";
 import { getVerifiedAccessProject } from "../project";
 import { CloudPublishRuntimeService } from "./runtime/services/CloudPublishRuntimeService";
@@ -37,6 +38,12 @@ export const triggerConnectedRepoPublish = action({
       new ArtifactPublishStrategy(),
     );
     await publishService.publish(project._id);
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.cloud_feature_usage.recordCloudFeatureUsage,
+      { userId: user._id, feature: "publish", projectId: project._id },
+    );
 
     return { queued: true };
   },

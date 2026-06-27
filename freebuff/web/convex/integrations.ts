@@ -384,6 +384,17 @@ export const addIntegrationToProject = mutation({
       integrationId: args.integrationId,
     });
 
+    await ctx.scheduler.runAfter(
+      0,
+      internal.cloud_feature_usage.recordCloudFeatureUsage,
+      {
+        userId: user._id,
+        feature: "integration",
+        projectId: project._id,
+        detail: integration.title ?? undefined,
+      },
+    );
+
     return true;
   },
 });

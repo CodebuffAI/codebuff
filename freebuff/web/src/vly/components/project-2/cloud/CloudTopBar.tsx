@@ -37,6 +37,7 @@ import { signOut } from 'next-auth/react'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
 import { CloudGitControls } from './CloudGitControls'
 import { LimitedSandboxBadge } from '@/vly/components/cloud/LimitedSandboxBadge'
+import { CloudBetaBadge } from '@/vly/components/cloud/CloudBetaBadge'
 
 /**
  * Cloud-only top bar. Forked from the shared web TopBar so Freebuff Cloud can
@@ -104,7 +105,7 @@ export function CloudTopBar({
         style={{ contain: 'layout style paint' }}
       >
         {/* ── Left: project dropdown + branch switcher ─────────────────── */}
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -188,13 +189,18 @@ export function CloudTopBar({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <CloudBetaBadge />
+
           {project.semantic_identifier && (
-            <CloudGitControls
-              semanticIdentifier={project.semantic_identifier}
-              fallbackBranch={project.current_branch}
-              defaultBranch={project.repo_default_branch}
-              repoFullName={project.repo_full_name}
-            />
+            <>
+              <div className="h-5 w-px shrink-0 bg-border" aria-hidden />
+              <CloudGitControls
+                semanticIdentifier={project.semantic_identifier}
+                fallbackBranch={project.current_branch}
+                defaultBranch={project.repo_default_branch}
+                repoFullName={project.repo_full_name}
+              />
+            </>
           )}
         </div>
 

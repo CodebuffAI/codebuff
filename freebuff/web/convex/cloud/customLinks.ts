@@ -168,8 +168,20 @@ export const getCustomLinks = action({
 
     try {
       const parsed = JSON.parse(rawConfig);
+      const links = normalizeCustomLinks(parsed);
+      if (links.length > 0) {
+        // No dedicated save mutation exists for custom links (the agent writes
+        // the config file directly), so we treat "opened the Links view with
+        // configured links" as the usage signal. The daily unique-user counter
+        // collapses repeated opens by the same user on the same day.
+        await ctx.scheduler.runAfter(
+          0,
+          internal.cloud_feature_usage.recordCloudFeatureUsage,
+          { userId: user._id, feature: "custom_link", projectId: project._id },
+        );
+      }
       return {
-        links: normalizeCustomLinks(parsed),
+        links,
         configPath: CUSTOM_LINKS_CONFIG_PATH,
         exists: true,
         parseError: null,

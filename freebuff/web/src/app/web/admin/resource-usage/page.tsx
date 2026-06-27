@@ -47,6 +47,28 @@ const AGENT_WINDOW_DAYS = [
 
 const formatAgentType = (type: string) => type
 
+const CLOUD_FEATURE_LABELS: Record<string, string> = {
+  publish: 'Publish',
+  invite: 'Share with members',
+  integration: 'Integrations',
+  custom_link: 'Custom links',
+  chatgpt_oauth: 'ChatGPT OAuth',
+  openai_byok: 'OpenAI BYOK',
+  anthropic_byok: 'Anthropic BYOK',
+  bedrock_byok: 'Bedrock BYOK',
+}
+
+const CLOUD_FEATURE_ORDER = [
+  'publish',
+  'invite',
+  'integration',
+  'custom_link',
+  'chatgpt_oauth',
+  'openai_byok',
+  'anthropic_byok',
+  'bedrock_byok',
+]
+
 const formatCredits = (value: number) =>
   new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
 
@@ -72,6 +94,10 @@ export default function ResourceUsageAdminPage() {
   )
   const agentStats = useQuery(
     api.admin_agent_stats.getAgentAuthAndSessionStats,
+    isAdmin ? agentStatsTimeRange : 'skip',
+  )
+  const cloudFeatureUsage = useQuery(
+    api.cloud_feature_usage.getCloudFeatureUsage,
     isAdmin ? agentStatsTimeRange : 'skip',
   )
   const selectedFreebuffUsage = useQuery(
@@ -360,6 +386,102 @@ export default function ResourceUsageAdminPage() {
                         </TableRow>
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </section>
+
+          <section>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Cloud feature usage</h2>
+              <p className="text-sm text-muted-foreground">
+                Who uses each Freebuff Cloud feature in the selected window.
+                Counts are incremental from deploy forward (each use bumps a
+                per-day counter); the recent table shows individual actors.
+              </p>
+            </div>
+
+            {!cloudFeatureUsage ? (
+              <Skeleton className="h-48 w-full" />
+            ) : (
+              <>
+                <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {CLOUD_FEATURE_ORDER.map((feature) => {
+                    const stat = cloudFeatureUsage.totalsByFeature[feature] ?? {
+                      count: 0,
+                      uniqueUsers: 0,
+                    }
+                    return (
+                      <div
+                        key={feature}
+                        className="border-y border-border px-1 py-3 sm:rounded-lg sm:border sm:px-4"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
+                          <Zap className="h-4 w-4" />
+                          {CLOUD_FEATURE_LABELS[feature] ?? feature}
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold tabular-nums">
+                          {stat.count.toLocaleString()}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {stat.uniqueUsers.toLocaleString()} user-day
+                          {stat.uniqueUsers === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent feature uses</CardTitle>
+                    <CardDescription>
+                      Most recent {cloudFeatureUsage.recent.length} events (newest
+                      first).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {cloudFeatureUsage.recent.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No feature usage recorded in this window yet.
+                      </p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Feature</TableHead>
+                            <TableHead>Detail</TableHead>
+                            <TableHead className="text-right">When</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {cloudFeatureUsage.recent.map((event) => (
+                            <TableRow key={event.id}>
+                              <TableCell>
+                                <p className="font-medium">{event.userName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {event.userEmail}
+                                </p>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {CLOUD_FEATURE_LABELS[event.feature] ??
+                                    event.feature}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {event.detail ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground">
+                                {new Date(event.createdAt).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
                   </CardContent>
                 </Card>
               </>

@@ -1589,6 +1589,37 @@ export default defineSchema(
       data: v.any(),
       computed_at: v.number(),
     }).index('by_key', ['key']),
+
+    // Per-event audit log of who uses each Freebuff Cloud feature. One row per
+    // user action (publish, invite, integration add, custom link save, AI
+    // credential connect). Powers the admin "Cloud feature usage" table without
+    // scanning feature-specific tables. Written via a scheduled internal
+    // mutation so it can never break the originating action.
+    cloud_feature_usage: defineTable({
+      userId: v.id('users'),
+      feature: v.string(), // publish | invite | integration | custom_link | chatgpt_oauth | openai_byok | anthropic_byok | bedrock_byok
+      projectId: v.optional(v.id('project')),
+      day: v.string(), // UTC YYYY-MM-DD (for cheap windowed reads)
+      detail: v.optional(v.string()), // small free-form context (e.g. integration provider)
+      created_at: v.number(),
+    })
+      .index('by_feature', ['feature'])
+      .index('by_feature_and_day', ['feature', 'day'])
+      .index('by_day', ['day'])
+      .index('by_user', ['userId'])
+      .index('by_user_and_feature', ['userId', 'feature']),
+
+    // Incremental per-(day, feature) counters for the admin headline numbers.
+    // Bumped O(1) alongside each cloud_feature_usage insert; avoids counting
+    // rows for the dashboard summary cards.
+    cloud_feature_usage_daily: defineTable({
+      day: v.string(), // UTC YYYY-MM-DD
+      feature: v.string(),
+      count: v.number(),
+      unique_users: v.number(), // distinct users that used the feature that day
+    })
+      .index('by_day', ['day'])
+      .index('by_day_feature', ['day', 'feature']),
   },
   {
     schemaValidation: false, // TODO: turn back to true

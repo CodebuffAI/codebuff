@@ -43,6 +43,7 @@ import type * as cloud_runtime_strategies_ConnectionStrategy from "../cloud/runt
 import type * as cloud_runtime_strategies_PublishStrategy from "../cloud/runtime/strategies/PublishStrategy.js";
 import type * as cloud_runtime_strategies_daytona_ArtifactPublishStrategy from "../cloud/runtime/strategies/daytona/ArtifactPublishStrategy.js";
 import type * as cloud_runtime_strategies_daytona_DaytonaConnectionStrategy from "../cloud/runtime/strategies/daytona/DaytonaConnectionStrategy.js";
+import type * as cloud_feature_usage from "../cloud_feature_usage.js";
 import type * as codebaseStructure from "../codebaseStructure.js";
 import type * as codesandbox_create from "../codesandbox/create.js";
 import type * as codesandbox_createProject from "../codesandbox/createProject.js";
@@ -289,6 +290,7 @@ declare const fullApi: ApiFromModules<{
   "cloud/runtime/strategies/PublishStrategy": typeof cloud_runtime_strategies_PublishStrategy;
   "cloud/runtime/strategies/daytona/ArtifactPublishStrategy": typeof cloud_runtime_strategies_daytona_ArtifactPublishStrategy;
   "cloud/runtime/strategies/daytona/DaytonaConnectionStrategy": typeof cloud_runtime_strategies_daytona_DaytonaConnectionStrategy;
+  cloud_feature_usage: typeof cloud_feature_usage;
   codebaseStructure: typeof codebaseStructure;
   "codesandbox/create": typeof codesandbox_create;
   "codesandbox/createProject": typeof codesandbox_createProject;

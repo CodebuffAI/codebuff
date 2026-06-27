@@ -106,6 +106,15 @@ export const sendInvite = action({
       `Invitation to collaborate on ${projectName.replace("\n", " ")}`,
       `You've been invited to collaborate on "${projectName}". Click here to accept: ${process.env.PUBLIC_APP_URL}/invite/${token}`,
     );
+
+    const inviter = await getAuthUser(ctx);
+    if (inviter) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.cloud_feature_usage.recordCloudFeatureUsage,
+        { userId: inviter._id, feature: "invite", projectId: args.projectId },
+      );
+    }
   },
 });
 
