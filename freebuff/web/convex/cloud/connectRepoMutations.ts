@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query } from "../_generated/server";
-import { allProjects, projectsByDay } from "../aggregates/admin_aggregates";
+import { allProjects, cloudProjectsByTypeDay, projectsByDay } from "../aggregates/admin_aggregates";
 import {
   checkUserRateLimit,
   peekFreebuffDailyQuota,
@@ -106,6 +106,7 @@ export const createConnectedRepoProject = internalMutation({
     if (newProject) {
       await allProjects.insert(ctx, newProject);
       await projectsByDay.insert(ctx, newProject);
+      await cloudProjectsByTypeDay.insert(ctx, newProject);
     }
 
     return { projectId, semanticIdentifier };

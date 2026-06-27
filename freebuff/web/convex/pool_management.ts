@@ -1,7 +1,7 @@
 import { internal } from "!/_generated/api";
 import { internalAction, internalMutation } from "!/_generated/server";
 import { v } from "convex/values";
-import { allProjects, projectsByDay } from "./aggregates/admin_aggregates";
+import { allProjects, cloudProjectsByTypeDay, projectsByDay } from "./aggregates/admin_aggregates";
 
 const MIN_PROJECT_POOL_SIZE = 10;
 
@@ -142,6 +142,7 @@ export const deleteProjectsByIds = internalMutation({
       if (project) {
         await allProjects.delete(ctx, project);
         await projectsByDay.delete(ctx, project);
+        await cloudProjectsByTypeDay.delete(ctx, project);
       }
     }
   },
@@ -161,6 +162,7 @@ export const deleteUninitializedProjects = internalMutation({
       // Remove from aggregates
       await allProjects.delete(ctx, project);
       await projectsByDay.delete(ctx, project);
+      await cloudProjectsByTypeDay.delete(ctx, project);
     }
   },
 });

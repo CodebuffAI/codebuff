@@ -75,6 +75,14 @@ export const saveMessageAndStartWorkflow = mutation({
         userId: user._id,
       });
 
+      // Freebuff Cloud DAU: record Cloud-specific activity for connected_repo
+      // (Cloud) projects only. O(1), scheduled, can never break the send.
+      if (project.project_type === "connected_repo") {
+        await ctx.scheduler.runAfter(0, internal.activity.recordCloudActivity, {
+          userId: user._id,
+        });
+      }
+
       // Admin metrics: O(1) daily counter per agent type (no message scans).
       await ctx.scheduler.runAfter(
         0,

@@ -1524,6 +1524,17 @@ export default defineSchema(
       .index('by_user_and_day', ['user_id', 'day'])
       .index('by_day', ['day']),
 
+    // One row per (user, UTC day) inserted on the user's first Freebuff Cloud
+    // (connected_repo) message send of that day. Counted via the
+    // cloudActiveUsersByDayAggregate (keyed by day) so Freebuff Cloud
+    // daily-active-user counts are aggregate prefix counts — never a scan.
+    cloud_user_activity_daily: defineTable({
+      user_id: v.id('users'),
+      day: v.string(), // UTC day key YYYY-MM-DD
+    })
+      .index('by_user_and_day', ['user_id', 'day'])
+      .index('by_day', ['day']),
+
     // Limited-tier (non-allowlisted-country) usage sessions for Freebuff Web.
     // One row per started session: the first message starts a 1-hour session,
     // messages within the hour ride free, and at most
@@ -1547,6 +1558,17 @@ export default defineSchema(
       new_projects: v.number(), // projects created that day
       total_users: v.number(), // running total at snapshot time
       total_projects: v.number(), // running total at snapshot time
+      created_at: v.number(),
+    }).index('by_day', ['day']),
+
+    // Freebuff Cloud (connected_repo) daily snapshot, mirroring daily_stats but
+    // scoped to Cloud usage. Written by the same nightly cron. All counts come
+    // from aggregates so there is never a table scan.
+    cloud_daily_stats: defineTable({
+      day: v.string(), // UTC day key YYYY-MM-DD
+      active_users: v.number(), // unique users who sent >= 1 Cloud message that day
+      new_projects: v.number(), // connected_repo projects created that day
+      total_projects: v.number(), // running total connected_repo projects
       created_at: v.number(),
     }).index('by_day', ['day']),
 

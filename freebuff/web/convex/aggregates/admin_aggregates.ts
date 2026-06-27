@@ -90,6 +90,35 @@ export const allProjects = new TableAggregate<{
 });
 
 /**
+ * Aggregate cloud_user_activity_daily rows keyed by day.
+ * One row per (user, day) for Freebuff Cloud (connected_repo) sends, so a
+ * prefix count for a day = unique Cloud-active users that day (Cloud DAU)
+ * without any table scan.
+ */
+export const cloudActiveUsersByDay = new TableAggregate<{
+  Key: [string]; // Day key in format YYYY-MM-DD
+  DataModel: DataModel;
+  TableName: "cloud_user_activity_daily";
+}>(components.cloudActiveUsersByDayAggregate, {
+  sortKey: (doc) => [doc.day],
+});
+
+/**
+ * Aggregate projects keyed by [project_type, creation-day]. Lets us answer
+ * "total connected_repo projects" (prefix ["connected_repo"]) and "new
+ * connected_repo projects on day X" (prefix ["connected_repo", X]) as O(log n)
+ * aggregate counts — no scan, no by_project_type collect. Templates (project
+ * with no project_type) bucket under "template".
+ */
+export const cloudProjectsByTypeDay = new TableAggregate<{
+  Key: [string, string]; // [project_type, day]
+  DataModel: DataModel;
+  TableName: "project";
+}>(components.cloudProjectsByTypeDayAggregate, {
+  sortKey: (doc) => [doc.project_type ?? "template", getDayKey(doc._creationTime)],
+});
+
+/**
  * Aggregate users by role (god, admin, member)
  * This allows us to efficiently count users by their role
  */
@@ -220,6 +249,8 @@ export const clearAllAggregates = internalMutation({
     await pausedUsersByActive.clear(ctx);
     await userActivityByTime.clear(ctx);
     await activeUsersByDay.clear(ctx);
+    await cloudActiveUsersByDay.clear(ctx);
+    await cloudProjectsByTypeDay.clear(ctx);
 
     console.log("✅ All aggregate data structures cleared");
   },

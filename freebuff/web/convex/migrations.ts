@@ -16,6 +16,7 @@ import {
   usersByDay,
   allProjects,
   projectsByDay,
+  cloudProjectsByTypeDay,
   allConvexInstances,
   pausedProjectsByActive,
   pausedUsersByActive,
@@ -490,6 +491,12 @@ export const backfillProjectsAggregate = migrations.define({
 
     try {
       await projectsByDay.insert(ctx, doc);
+    } catch (error: any) {
+      if (!error?.message?.includes("already exists")) throw error;
+    }
+
+    try {
+      await cloudProjectsByTypeDay.insert(ctx, doc);
     } catch (error: any) {
       if (!error?.message?.includes("already exists")) throw error;
     }

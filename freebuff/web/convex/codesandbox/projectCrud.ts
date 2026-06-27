@@ -7,7 +7,7 @@ import {
   internalAction,
   MutationCtx,
 } from "../_generated/server";
-import { allProjects, projectsByDay } from "../aggregates/admin_aggregates";
+import { allProjects, cloudProjectsByTypeDay, projectsByDay } from "../aggregates/admin_aggregates";
 
 /**
  * Creates a new unassigned project, returns the project id
@@ -50,6 +50,7 @@ export const createUnassignedProject = internalMutation({
     if (newProject) {
       await allProjects.insert(ctx, newProject);
       await projectsByDay.insert(ctx, newProject);
+      await cloudProjectsByTypeDay.insert(ctx, newProject);
     }
 
     // Track sandbox usage in Autumn (all new projects start as small)

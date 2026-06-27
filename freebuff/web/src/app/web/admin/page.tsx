@@ -30,6 +30,7 @@ import {
   Ticket,
   BarChart3,
   Search,
+  Cloud,
 } from 'lucide-react'
 import { AdminNavbar } from '@/vly/components/AdminNavbar'
 import { AdminProjectOwnershipManager } from '@/vly/components/admin/AdminProjectOwnershipManager'
@@ -74,6 +75,11 @@ export default function AdminDashboard() {
 
   const engagementStats = useQuery(
     api.activity.getEngagementStats,
+    isAdmin ? { refreshKey: engagementRefreshKey, historyDays: 30 } : 'skip',
+  )
+
+  const cloudStats = useQuery(
+    api.activity.getCloudEngagementStats,
     isAdmin ? { refreshKey: engagementRefreshKey, historyDays: 30 } : 'skip',
   )
 
@@ -681,6 +687,113 @@ export default function AdminDashboard() {
                     <tr>
                       <td colSpan={6} className="py-6 text-center text-gray-500">
                         No saved daily snapshots yet — history is saved nightly
+                        at 00:05 UTC.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Freebuff Cloud Breakdown */}
+        <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <Cloud className="h-5 w-5 text-gray-600" />
+              Freebuff Cloud
+              <Badge className="ml-1 border-emerald-200 bg-emerald-100 text-[10px] text-emerald-700">
+                BETA
+              </Badge>
+              <span className="text-xs font-normal text-gray-500">
+                (connected-repo usage · UTC days)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {/* Headline tiles */}
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Active Today (DAU)
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-black">
+                  {cloudStats ? cloudStats.today.activeUsers : '—'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  New Projects Today
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-black">
+                  {cloudStats ? cloudStats.today.newProjects : '—'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Total Cloud Projects
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-black">
+                  {cloudStats ? cloudStats.totals.projects : '—'}
+                </p>
+              </div>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="py-2 pr-4 font-medium">Day</th>
+                    <th className="py-2 pr-4 font-medium">Active Users</th>
+                    <th className="py-2 pr-4 font-medium">New Projects</th>
+                    <th className="py-2 font-medium">Total Projects</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Today (live from aggregates) */}
+                  {cloudStats && (
+                    <tr className="border-b border-gray-100 bg-emerald-50/40">
+                      <td className="py-2 pr-4 font-medium text-black">
+                        {cloudStats.today.day}
+                        <Badge className="ml-2 border-emerald-200 bg-emerald-100 text-[10px] text-emerald-700">
+                          TODAY
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {cloudStats.today.activeUsers}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {cloudStats.today.newProjects}
+                      </td>
+                      <td className="py-2 text-black">
+                        {cloudStats.totals.projects}
+                      </td>
+                    </tr>
+                  )}
+                  {/* Saved history (excludes today) */}
+                  {cloudStats?.history
+                    .filter((row) => row.day !== cloudStats.today.day)
+                    .map((row) => (
+                      <tr key={row.day} className="border-b border-gray-100">
+                        <td className="py-2 pr-4 font-medium text-black">
+                          {row.day}
+                        </td>
+                        <td className="py-2 pr-4 text-black">
+                          {row.activeUsers}
+                        </td>
+                        <td className="py-2 pr-4 text-black">
+                          {row.newProjects}
+                        </td>
+                        <td className="py-2 text-gray-600">
+                          {row.totalProjects}
+                        </td>
+                      </tr>
+                    ))}
+                  {cloudStats && cloudStats.history.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-gray-500">
+                        No saved Cloud snapshots yet — history is saved nightly
                         at 00:05 UTC.
                       </td>
                     </tr>

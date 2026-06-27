@@ -18,7 +18,7 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { getAuthUser } from "./users";
-import { allProjects, projectsByDay } from "./aggregates/admin_aggregates";
+import { allProjects, cloudProjectsByTypeDay, projectsByDay } from "./aggregates/admin_aggregates";
 
 function serializeThreadMessage(message: Doc<"messages">) {
   return {
@@ -1488,6 +1488,7 @@ export const deleteUninitializedProjects = internalMutation({
       // Remove from aggregates
       await allProjects.delete(ctx, project);
       await projectsByDay.delete(ctx, project);
+      await cloudProjectsByTypeDay.delete(ctx, project);
     }
   },
 });
