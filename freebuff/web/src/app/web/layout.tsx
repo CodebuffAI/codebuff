@@ -59,7 +59,10 @@ export default async function WebLayout({
   }
 
   return (
-    <div className="freebuff-web-shell dark min-h-screen overflow-y-scroll bg-[#0a0a0b] font-sans antialiased text-zinc-100">
+    <div
+      data-cursor-skin="cursor"
+      className="freebuff-web-shell dark min-h-screen overflow-y-scroll bg-[#1e1e1e] font-sans antialiased text-zinc-100"
+    >
       <ConvexClientProvider>
         <ReactQueryProvider>
           <TooltipProvider>

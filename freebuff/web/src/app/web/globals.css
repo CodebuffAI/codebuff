@@ -731,7 +731,7 @@ html {
 
 /* Dashboard-specific styles to avoid hydration errors */
 .dashboard-body {
-  background-color: #0a0a0b !important;
+  background-color: #1e1e1e !important;
   overflow-y: auto !important;
   height: auto !important;
   max-height: none !important;
@@ -739,7 +739,7 @@ html {
 }
 
 .dashboard-html {
-  background-color: #0a0a0b !important;
+  background-color: #1e1e1e !important;
   overflow-y: auto !important;
   height: auto !important;
   max-height: none !important;
@@ -1041,14 +1041,16 @@ html {
 
 /*
  * ─────────────────────────────────────────────────────────────────────────
- * Freebuff Cloud "Cursor" skin
+ * Freebuff "Cursor" skin (Cloud + Web)
  * ─────────────────────────────────────────────────────────────────────────
- * Scoped to the Cloud surface only (the Cloud layout root carries
- * `data-cloud-skin="cursor"`). Re-maps the shared dark tokens to match
- * Cursor's Monaco / VS Code dark theme exactly so we can iterate on Cloud
- * without touching Freebuff Web. Colors taken from Cursor's "Dark Modern"
- * editor + workbench palette.
+ * Re-maps the shared dark tokens to match Cursor's Monaco / VS Code "Dark
+ * Modern" editor + workbench palette: warm near-black surfaces, hairline
+ * borders, near-square corners, and a muted dark-green primary pill. Applied
+ * to any subtree whose root carries `data-cursor-skin="cursor"` (the Cloud and
+ * Web layout roots both do). Cloud-only chrome classes (`.cloud-titlebar`,
+ * `.cloud-sidebar`, `.cloud-tab`) are no-ops on Web.
  */
+[data-cursor-skin='cursor'],
 [data-cloud-skin='cursor'] {
   /* Workbench surfaces */
   --background: 0 0% 12%;          /* #1e1e1e editor / main bg */
@@ -1081,16 +1083,19 @@ html {
 }
 
 /* Title-bar / top chrome is a touch darker than the editor (matches Cursor) */
+[data-cursor-skin='cursor'] .cloud-titlebar,
 [data-cloud-skin='cursor'] .cloud-titlebar {
   background-color: #181818;
 }
 
 /* Sidebar (chat) surface — slightly darker than the editor pane */
+[data-cursor-skin='cursor'] .cloud-sidebar,
 [data-cloud-skin='cursor'] .cloud-sidebar {
   background-color: #181818;
 }
 
 /* Square, flat tab styling shared by the workspace + top bar */
+[data-cursor-skin='cursor'] .cloud-tab,
 [data-cloud-skin='cursor'] .cloud-tab {
   border-radius: 4px;
 }

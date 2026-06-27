@@ -20,7 +20,7 @@ export default function CloudLayout({
 }) {
   return (
     <div
-      data-cloud-skin="cursor"
+      data-cursor-skin="cursor"
       className="freebuff-web-shell dark min-h-screen overflow-y-scroll bg-[#1e1e1e] font-sans antialiased text-zinc-100"
     >
       <ConvexClientProvider>
