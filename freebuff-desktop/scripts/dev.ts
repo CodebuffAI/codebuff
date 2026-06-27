@@ -6,33 +6,7 @@
  *   bun run dev
  */
 
-import { spawn, type Subprocess } from 'bun'
-
-const procs: Subprocess[] = []
-const PKG = import.meta.dir + '/..'
-
-function run(name: string, cmd: string[], env: Record<string, string> = {}) {
-  const p = spawn(cmd, {
-    cwd: PKG,
-    env: { ...process.env, ...env },
-    stdout: 'inherit',
-    stderr: 'inherit',
-    stdin: 'inherit',
-  })
-  procs.push(p)
-  p.exited.then((code) => {
-    console.log(`[${name}] exited (${code})`)
-    shutdown()
-  })
-  return p
-}
-
-function shutdown() {
-  for (const p of procs) p.kill()
-  process.exit(0)
-}
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+import { run } from './_procs'
 
 run('vite', ['bunx', 'vite'])
 

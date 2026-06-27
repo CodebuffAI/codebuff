@@ -3,6 +3,8 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
+import { getErrorObject } from '../util/error'
+
 import type { MCPConfig } from '../types/mcp'
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
@@ -11,6 +13,10 @@ import type {
   CallToolResult,
   TextResourceContents,
 } from '@modelcontextprotocol/sdk/types.js'
+
+// Cap on how much of a failed stdio server's stderr we retain for the error
+// message — enough to show the real failure without unbounded growth.
+const STDERR_BUFFER_CAP = 8192
 
 const runningClients: Record<string, Client> = {}
 const listToolsCache: Record<
@@ -81,13 +87,26 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
   }
 
   let transport: Transport
+  // Buffer the child process's stderr so that a server which crashes during
+  // startup produces an actionable error instead of the opaque MCP SDK message
+  // "MCP error -32000: Connection closed".
+  let stderrBuffer = ''
   if (config.type === 'stdio') {
-    transport = new StdioClientTransport({
+    const stdioTransport = new StdioClientTransport({
       command: config.command,
       args: config.args,
       env: substituteEnvInRecord(config.env),
-      stderr: 'ignore',
+      stderr: 'pipe',
     })
+    // When stderr is 'pipe' the SDK exposes a PassThrough immediately (before
+    // the process is spawned), so attaching here captures even early output
+    // from a child that dies during the connection handshake.
+    stdioTransport.stderr?.on('data', (chunk: Buffer) => {
+      if (stderrBuffer.length < STDERR_BUFFER_CAP) {
+        stderrBuffer += chunk.toString('utf8')
+      }
+    })
+    transport = stdioTransport
   } else {
     const url = new URL(config.url)
     for (const [key, value] of Object.entries(config.params)) {
@@ -117,7 +136,24 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
     version: '1.0.0',
   })
 
-  await client.connect(transport)
+  try {
+    await client.connect(transport)
+  } catch (error) {
+    const baseMessage = getErrorObject(error).message
+    if (config.type === 'stdio') {
+      const commandStr = [config.command, ...(config.args ?? [])].join(' ')
+      const detail = stderrBuffer.trim()
+      throw new Error(
+        `${baseMessage}. Failed to start MCP server via \`${commandStr}\`. ` +
+          `Ensure the command is installed and runnable (e.g. an up-to-date ` +
+          `node/npm/npx, or python/uvx) and that any required env vars are set.` +
+          (detail ? `\nServer stderr:\n${detail}` : ''),
+      )
+    }
+    throw new Error(
+      `${baseMessage}. Failed to connect to MCP server at ${config.url}.`,
+    )
+  }
   runningClients[key] = client
 
   return key

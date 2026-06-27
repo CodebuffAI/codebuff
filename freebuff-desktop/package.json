@@ -22,6 +22,7 @@
     "ui:dev": "vite",
     "ui:build": "vite build",
     "dev": "bun scripts/dev.ts",
+    "dev:web": "bun scripts/dev-web.ts",
     "stage:bun": "bun scripts/fetch-bun.ts",
     "stage:orchestrator": "bun scripts/build-orchestrator.ts",
     "prepackage": "bun run ui:build && bun scripts/fetch-bun.ts && bun scripts/build-orchestrator.ts",
