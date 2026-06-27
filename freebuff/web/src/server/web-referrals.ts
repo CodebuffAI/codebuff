@@ -2,6 +2,7 @@ import {
   evaluateGlmReferralForReferredUser,
   evaluateWebReferralForReferredUser,
   getReferralScore,
+  recordReferralV2Attribution,
   redeemReferralCode,
 } from '@codebuff/billing'
 
@@ -18,6 +19,7 @@ export interface SyncWebReferralDeps {
   getReferralCode: typeof getReferralCode
   clearReferralCode: typeof clearReferralCode
   redeemReferralCode: typeof redeemReferralCode
+  recordReferralV2Attribution: typeof recordReferralV2Attribution
   evaluateWebReferralForReferredUser: typeof evaluateWebReferralForReferredUser
   evaluateGlmReferralForReferredUser: typeof evaluateGlmReferralForReferredUser
   getReferralScore: typeof getReferralScore
@@ -27,6 +29,7 @@ const defaultSyncWebReferralDeps: SyncWebReferralDeps = {
   getReferralCode,
   clearReferralCode,
   redeemReferralCode,
+  recordReferralV2Attribution,
   evaluateWebReferralForReferredUser,
   evaluateGlmReferralForReferredUser,
   getReferralScore,
@@ -88,6 +91,25 @@ export async function syncWebReferralState(params: {
       // committed above, so swallow it — the cookie just lives out its
       // attribution window instead of being cleared early.
       await deps.clearReferralCode().catch(() => {})
+    }
+
+    // Dual-write the unified referral model (docs/referrals.md): one row per
+    // referred user, written the moment we resolve the referrer. Idempotent +
+    // first-referrer-wins, so re-running on every redemption hop is harmless.
+    const referrerId = webResult.ok
+      ? webResult.referrerId
+      : glmResult.ok
+        ? glmResult.referrerId
+        : null
+    if (referrerId) {
+      await deps
+        .recordReferralV2Attribution({ referrerId, referredId: userId })
+        .catch((error) => {
+          logger.warn(
+            { error, userId, referrerId },
+            'Failed to dual-write referral_v2 attribution',
+          )
+        })
     }
   }
 

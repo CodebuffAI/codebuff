@@ -14,12 +14,20 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
   calls: {
     redeem: number
     clear: number
+    attribution: number
     evalWeb: number
     evalGlm: number
     score: number
   }
 } {
-  const calls = { redeem: 0, clear: 0, evalWeb: 0, evalGlm: 0, score: 0 }
+  const calls = {
+    redeem: 0,
+    clear: 0,
+    attribution: 0,
+    evalWeb: 0,
+    evalGlm: 0,
+    score: 0,
+  }
   const deps: SyncWebReferralDeps = {
     getReferralCode: async () => 'ref-abc',
     clearReferralCode: async () => {
@@ -28,6 +36,10 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     redeemReferralCode: async () => {
       calls.redeem++
       return { ok: true as const, referrerId: 'referrer-1' }
+    },
+    recordReferralV2Attribution: async () => {
+      calls.attribution++
+      return true
     },
     evaluateWebReferralForReferredUser: async () => {
       calls.evalWeb++
@@ -54,6 +66,7 @@ describe('syncWebReferralState', () => {
 
     expect(calls.redeem).toBe(2) // web + glm
     expect(calls.clear).toBe(1)
+    expect(calls.attribution).toBe(1) // dual-writes referral_v2 once
     expect(calls.evalWeb).toBe(1)
     expect(calls.evalGlm).toBe(1)
     expect(score).toBe(0)
@@ -90,6 +103,7 @@ describe('syncWebReferralState', () => {
 
     expect(calls.redeem).toBe(0)
     expect(calls.clear).toBe(0)
+    expect(calls.attribution).toBe(0) // nothing to attribute without a cookie
     // Evaluation of the user's own pending referral still runs every time.
     expect(calls.evalWeb).toBe(1)
     expect(calls.evalGlm).toBe(1)

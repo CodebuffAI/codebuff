@@ -28,6 +28,9 @@ export * from './referral-program'
 // Unified referral read model + per-product benefit math (docs/referrals.md)
 export * from './referral-stats'
 
+// Unified referral write side: attribution + activation dual-write (Phase 2)
+export * from './referral-v2'
+
 // Subscription
 export * from './subscription'
 
