@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { MAX_ATTACHMENTS } from '../../../core/attachments'
 import { useStore } from '../store/store'
@@ -64,6 +64,21 @@ export function ThreadView({ threadId }: { threadId: string }) {
   useEffect(() => {
     const el = scrollRef.current
     if (el && pinnedRef.current) el.scrollTop = el.scrollHeight
+  }, [messages])
+
+  // The last user prompt — surfaced as a sticky bar above the chat so it stays
+  // visible while reading a long assistant response. Skip when there's no user
+  // message yet (empty/welcome state) so we don't show a floating empty bar.
+  const lastUserText = useMemo(() => {
+    if (!messages) return null
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role === 'user') {
+        const t = m.parts.map((p) => (p.kind === 'text' ? p.text : '')).join('').trim()
+        if (t) return t
+      }
+    }
+    return null
   }, [messages])
 
   // Drag-drop of files / photos / folders from Finder. Electron 32+ removed
@@ -176,6 +191,12 @@ export function ThreadView({ threadId }: { threadId: string }) {
               pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
             }}
           >
+            {lastUserText && (
+              <div className="msg-pinned" title="Your last prompt">
+                <span className="msg-pinned-label">Your prompt</span>
+                <div className="msg-pinned-bubble">{lastUserText}</div>
+              </div>
+            )}
             {slice.messages.length === 0 && (
               <div className="welcome">
                 <div className="welcome-title">{slice.thread.title || 'New thread'}</div>

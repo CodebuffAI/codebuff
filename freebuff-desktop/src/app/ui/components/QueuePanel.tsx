@@ -79,11 +79,34 @@ export function QueuePanel({ threadId }: { threadId: string }) {
 
   return (
     <div className={`queue${searching ? ' searching' : ''}`}>
+      <SkillsPanel threadId={threadId} searching={searching} setSearching={setSearching} />
+
+      {/* Suggestions (above the queue); promote upward into the queue */}
+      <div className="suggestions">
+        <div className="sugg-head">
+          <span className="sugg-head-title">
+            <Icon name="spark" /> Suggestions
+          </span>
+          <label className="queue-toggle" title="Drop new assistant suggestions straight into the queue">
+            <input
+              type="checkbox"
+              checked={autoQueueSuggestions}
+              onChange={(e) => setAutoQueueSuggestions(threadId, e.target.checked)}
+            />
+            <span>Auto-queue</span>
+          </label>
+        </div>
+        {suggested.length === 0 && <div className="lane-empty">The assistant's ideas appear here.</div>}
+        {suggested.map((i) => (
+          <SuggestionRow key={i.id} item={i} threadId={threadId} />
+        ))}
+      </div>
+
+      {/* Queue (at the bottom); run lane grows, compose bar pinned to the column bottom */}
       <div className="queue-head">
         <span className="queue-title">Queue</span>
       </div>
 
-      {/* Run lane: top→down run order */}
       <div className="lane">
         {running.map((i) => (
           <div key={i.id} className="qitem running">
@@ -128,29 +151,6 @@ export function QueuePanel({ threadId }: { threadId: string }) {
         >
           <Icon name="enter" />
         </span>
-      </div>
-
-      <SkillsPanel threadId={threadId} searching={searching} setSearching={setSearching} />
-
-      {/* Suggestions: stack at the bottom; promote upward into the queue */}
-      <div className="suggestions">
-        <div className="sugg-head">
-          <span className="sugg-head-title">
-            <Icon name="spark" /> Suggestions
-          </span>
-          <label className="queue-toggle" title="Drop new assistant suggestions straight into the queue">
-            <input
-              type="checkbox"
-              checked={autoQueueSuggestions}
-              onChange={(e) => setAutoQueueSuggestions(threadId, e.target.checked)}
-            />
-            <span>Auto-queue</span>
-          </label>
-        </div>
-        {suggested.length === 0 && <div className="lane-empty">The assistant's ideas appear here.</div>}
-        {suggested.map((i) => (
-          <SuggestionRow key={i.id} item={i} threadId={threadId} />
-        ))}
       </div>
     </div>
   )

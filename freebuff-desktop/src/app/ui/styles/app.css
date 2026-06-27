@@ -484,6 +484,47 @@ body.col-resizing {
   max-width: 80%;
   white-space: pre-wrap;
 }
+/* Sticky "Your prompt" reminder at the top of the chat: stays visible while
+   scrolling through long assistant output so the user can still see what they
+   asked. Negative side margins escape .messages's 26px padding to span the full
+   column width; the bottom margin restores the 16px gap before the first msg. */
+.msg-pinned {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -22px -26px 16px;
+  padding: 8px 26px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+.msg-pinned-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  align-self: flex-start;
+}
+.msg-pinned-bubble {
+  background: var(--raised);
+  padding: 7px 11px;
+  border-radius: 11px 11px 3px 11px;
+  max-width: 80%;
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Cap at three lines so a hefty prompt doesn't dominate the viewport. Click
+     the bar (to be wired up if needed) to expand; for now, the title attr shows
+     the full text on hover. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .msg.assistant .prose {
   line-height: 1.62;
 }
