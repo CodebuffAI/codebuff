@@ -273,6 +273,14 @@ export const useStore = create<StoreState>((set, get) => ({
       parts: partsFromPersisted(m, nextId),
       done: true,
     }))
+    // A turn that's still running server-side hasn't persisted its assistant
+    // message yet, so the loaded transcript lacks the dots-slot. Synthesize the
+    // same placeholder `appendMessage` uses — `streamAgentEvent` will fold the
+    // first incoming agent event into it in place.
+    const tail = messages[messages.length - 1]
+    if (data.thread.turnState === 'running' && tail?.role === 'user') {
+      messages.push({ id: nextId(), role: 'assistant', parts: [], done: false })
+    }
     set((s) => {
       const prev = s.threads[id]
       return {
@@ -434,7 +442,14 @@ function optimisticItems(
   })
 }
 
-/** Append a user message to a thread's transcript (no-op if the thread isn't loaded). */
+/** Append a message to a thread's transcript (no-op if the thread isn't loaded).
+ *  For a fresh user message we also append an empty assistant placeholder — the
+ *  gap between "send" and the first SSE event would otherwise have no visual
+ *  feedback at all. `streamAgentEvent` selects the trailing `!done` assistant
+ *  message as `live` and folds the first agent event into the placeholder in
+ *  place, so it morphs into the real assistant turn without growing the
+ *  transcript. Skipped when a turn is already streaming so we don't create a
+ *  second placeholder mid-turn. */
 function appendMessage(
   set: (fn: (s: StoreState) => Partial<StoreState>) => void,
   id: string,
@@ -448,7 +463,12 @@ function appendMessage(
     // A new user message auto-collapses the thinking of finished assistant turns
     // (mirrors the CLI), keeping the latest exchange uncluttered.
     const prior = role === 'user' ? autoCollapseReasoning(slice.messages) : slice.messages
-    return { threads: { ...s.threads, [id]: { ...slice, messages: [...prior, msg] } } }
+    const streamingTurn = prior[prior.length - 1]?.role === 'assistant' && !prior[prior.length - 1]?.done
+    const placeholder: Message[] =
+      role === 'user' && !streamingTurn
+        ? [{ id: nextId(), role: 'assistant', parts: [], done: false }]
+        : []
+    return { threads: { ...s.threads, [id]: { ...slice, messages: [...prior, msg, ...placeholder] } } }
   })
 }
 

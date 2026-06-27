@@ -5,6 +5,7 @@ import { toolArg, toolLabel } from '../lib/formatTool'
 import type { Message as Msg, Part, ToolCall } from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
+import { LoadingDots } from './LoadingDots'
 import { Markdown } from './Markdown'
 import { Thinking } from './Thinking'
 
@@ -210,7 +211,7 @@ export const Message = memo(function Message({ msg, threadId }: { msg: Msg; thre
         }
         return g.text ? <Markdown key={g.key} text={g.text} /> : null
       })}
-      {!msg.done && msg.parts.length === 0 && <div className="thinking">…</div>}
+      {!msg.done && msg.parts.length === 0 && <LoadingDots />}
       {msg.done && proseText && (
         <div className="msg-actions">
           <CopyButton text={proseText} />
