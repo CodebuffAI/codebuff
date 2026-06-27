@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
 
 import { TabBar } from './components/TabBar'
-import { ThreadView } from './components/ThreadView'
-import { QueuePanel } from './components/QueuePanel'
+import { Workspace } from './components/Workspace'
 import { useKeyboard } from './hooks/useKeyboard'
 import { useSSE } from './hooks/useSSE'
 import { useStore } from './store/store'
@@ -35,10 +34,7 @@ export function App() {
     <div className="app">
       <TabBar />
       {activeId ? (
-        <div className="workspace">
-          <ThreadView threadId={activeId} />
-          <QueuePanel threadId={activeId} />
-        </div>
+        <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
           <div className="welcome">

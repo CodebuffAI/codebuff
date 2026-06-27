@@ -76,7 +76,9 @@ select {
   gap: 4px;
   flex: 1;
   overflow-x: auto;
-  -webkit-app-region: no-drag;
+  /* Stay draggable so the empty space after the tabs can move the window;
+     interactive children opt out with no-drag below. */
+  -webkit-app-region: drag;
 }
 .tab {
   display: flex;
@@ -92,6 +94,7 @@ select {
   white-space: nowrap;
   border: 1px solid transparent;
   border-bottom: none;
+  -webkit-app-region: no-drag;
 }
 .tab:hover {
   background: var(--surface);
@@ -122,6 +125,7 @@ select {
   padding: 1px;
   border-radius: 4px;
   opacity: 0;
+  -webkit-app-region: no-drag;
 }
 .tab:hover .tab-close,
 .tab.active .tab-close {
@@ -138,6 +142,7 @@ select {
   color: var(--muted);
   padding: 6px;
   border-radius: 6px;
+  -webkit-app-region: no-drag;
 }
 .tab-new:hover {
   background: var(--surface);
@@ -163,7 +168,8 @@ select {
 /* — Workspace split — */
 .workspace {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  /* --queue-w is set by the Workspace component (default 360px). */
+  grid-template-columns: 1fr 6px var(--queue-w, 360px);
   flex: 1;
   min-height: 0;
 }
@@ -173,12 +179,39 @@ select {
   justify-content: center;
 }
 
+/* — Resizable column divider — */
+.col-divider {
+  position: relative;
+  cursor: col-resize;
+  -webkit-app-region: no-drag;
+  touch-action: none;
+}
+.col-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border);
+  transition: background 0.12s ease, width 0.12s ease;
+}
+.col-divider:hover::after,
+body.col-resizing .col-divider::after {
+  width: 2px;
+  background: var(--accent);
+}
+body.col-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
 /* — Thread view — */
 .threadview {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--border);
 }
 .thread-head {
   display: flex;
