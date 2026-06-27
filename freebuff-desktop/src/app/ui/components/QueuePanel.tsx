@@ -74,77 +74,73 @@ export function QueuePanel({ threadId }: { threadId: string }) {
   }
 
   return (
-    <div className="queue">
+    <div className={`queue${searching ? ' searching' : ''}`}>
       <div className="queue-head">
         <span className="queue-title">Queue</span>
       </div>
 
+      {/* Run lane: top→down run order */}
+      <div className="lane">
+        {running.map((i) => (
+          <div key={i.id} className="qitem running">
+            <span className="qspin" />
+            <QueueLabel item={i} />
+          </div>
+        ))}
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd(queued)}>
+          <SortableContext items={queued.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            {queued.map((i) => (
+              <SortableRow key={i.id} item={i} threadId={threadId} />
+            ))}
+          </SortableContext>
+        </DndContext>
+
+        {queued.length === 0 && running.length === 0 && (
+          <div className="lane-empty">Nothing queued. Add a prompt or a skill.</div>
+        )}
+      </div>
+
+      <div className="queue-compose">
+        <textarea
+          value={draft}
+          rows={1}
+          placeholder="Queue a prompt or /skill…"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              addDraft()
+            }
+          }}
+        />
+        <button className="btn add" onClick={addDraft} disabled={!draft.trim()}>
+          <Icon name="plus" />
+        </button>
+      </div>
+
       <SkillsPanel threadId={threadId} searching={searching} setSearching={setSearching} />
 
-      {searching ? null : (
-        <>
-          {/* Run lane: top→down run order */}
-          <div className="lane">
-            {running.map((i) => (
-              <div key={i.id} className="qitem running">
-                <span className="qspin" />
-                <QueueLabel item={i} />
-              </div>
-            ))}
-
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd(queued)}>
-              <SortableContext items={queued.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                {queued.map((i) => (
-                  <SortableRow key={i.id} item={i} threadId={threadId} />
-                ))}
-              </SortableContext>
-            </DndContext>
-
-            {queued.length === 0 && running.length === 0 && (
-              <div className="lane-empty">Nothing queued. Add a prompt or a skill.</div>
-            )}
-          </div>
-
-          <div className="queue-compose">
-            <textarea
-              value={draft}
-              rows={1}
-              placeholder="Queue a prompt or /skill…"
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  addDraft()
-                }
-              }}
+      {/* Suggestions: stack at the bottom; promote upward into the queue */}
+      <div className="suggestions">
+        <div className="sugg-head">
+          <span className="sugg-head-title">
+            <Icon name="spark" /> Suggestions
+          </span>
+          <label className="queue-toggle" title="Drop new assistant suggestions straight into the queue">
+            <input
+              type="checkbox"
+              checked={autoQueueSuggestions}
+              onChange={(e) => setAutoQueueSuggestions(threadId, e.target.checked)}
             />
-            <button className="btn add" onClick={addDraft} disabled={!draft.trim()}>
-              <Icon name="plus" />
-            </button>
-          </div>
-
-          {/* Suggestions: stack at the bottom; promote upward into the queue */}
-          <div className="suggestions">
-            <div className="sugg-head">
-              <span className="sugg-head-title">
-                <Icon name="spark" /> Suggestions
-              </span>
-              <label className="queue-toggle" title="Drop new assistant suggestions straight into the queue">
-                <input
-                  type="checkbox"
-                  checked={autoQueueSuggestions}
-                  onChange={(e) => setAutoQueueSuggestions(threadId, e.target.checked)}
-                />
-                <span>Auto-queue</span>
-              </label>
-            </div>
-            {suggested.length === 0 && <div className="lane-empty">The assistant's ideas appear here.</div>}
-            {suggested.map((i) => (
-              <SuggestionRow key={i.id} item={i} threadId={threadId} />
-            ))}
-          </div>
-        </>
-      )}
+            <span>Auto-queue</span>
+          </label>
+        </div>
+        {suggested.length === 0 && <div className="lane-empty">The assistant's ideas appear here.</div>}
+        {suggested.map((i) => (
+          <SuggestionRow key={i.id} item={i} threadId={threadId} />
+        ))}
+      </div>
     </div>
   )
 }

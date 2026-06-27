@@ -402,7 +402,13 @@ export async function getGlmWeeklyUsage(
   userId: string,
   deps: SessionDeps = defaultDeps,
 ): Promise<{
+  /** Effective weekly cap: referral entitlement + any streak-bonus GLM session
+   *  earned this week. Drives `remaining` so the banner matches the gate. */
   limit: number
+  /** Pure referral entitlement (capped qualified GLM referrals), excluding the
+   *  streak bonus. This is the user's actual referral count for "(N/cap)" copy —
+   *  keep it separate from `limit` so the streak bonus never inflates it. */
+  referralLimit: number
   used: number
   remaining: number
   resetAt: string
@@ -410,11 +416,12 @@ export async function getGlmWeeklyUsage(
   const config = await glmReferralQuotaConfig(userId, deps)
   const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
   const used = snapshot.info.recentCount
-  // Use the snapshot's effective limit (referral entitlement + any streak-bonus
-  // GLM session earned this week) so the banner matches what the gate admits.
+  // The snapshot's limit already folds in the streak bonus; config.limit is the
+  // bonus-free referral entitlement.
   const limit = snapshot.info.limit
   return {
     limit,
+    referralLimit: config.limit,
     used,
     remaining: Math.max(0, limit - used),
     resetAt: snapshot.resetsAt.toISOString(),

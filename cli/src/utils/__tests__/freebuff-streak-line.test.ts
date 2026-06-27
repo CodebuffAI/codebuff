@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'bun:test'
 
-import { getFreebuffStreakLine } from '../freebuff-streak-line'
+import {
+  getFreebuffStreakBonusNote,
+  getFreebuffStreakLine,
+} from '../freebuff-streak-line'
 
 describe('getFreebuffStreakLine', () => {
   test('hides the row for new / lapsed users (streak <= 0)', () => {
@@ -36,5 +39,29 @@ describe('getFreebuffStreakLine', () => {
       label: '19 day streak',
       dots: '●●●●●●●+',
     })
+  })
+})
+
+describe('getFreebuffStreakBonusNote', () => {
+  test('hidden below the 7-day milestone', () => {
+    expect(getFreebuffStreakBonusNote({ streak: 0, accessTier: 'full' })).toBeNull()
+    expect(getFreebuffStreakBonusNote({ streak: 6, accessTier: 'full' })).toBeNull()
+    expect(
+      getFreebuffStreakBonusNote({ streak: 6, accessTier: 'limited' }),
+    ).toBeNull()
+  })
+
+  test('full access advertises the session + GLM perk at 7+', () => {
+    const note = getFreebuffStreakBonusNote({ streak: 7, accessTier: 'full' })
+    expect(note).toContain('GLM 5.2')
+    expect(note).toContain('bonus session')
+    // Recurring framing, not a one-off "today" claim.
+    expect(note).toContain('each week')
+  })
+
+  test('limited access advertises only the session perk', () => {
+    const note = getFreebuffStreakBonusNote({ streak: 14, accessTier: 'limited' })
+    expect(note).toContain('bonus session')
+    expect(note).not.toContain('GLM')
   })
 })

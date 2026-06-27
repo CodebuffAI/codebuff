@@ -64,8 +64,10 @@ export async function getFreebuffReferralInfo(
     // GitHub-only users with no name set still personalize the invite page.
     referrerName:
       userRow?.name?.trim() || githubAccount?.githubLogin?.trim() || null,
-    // The weekly limit IS the (capped) qualified GLM referral count.
-    qualifiedCount: weekly.limit,
+    // The (capped) qualified GLM referral count — the bonus-free entitlement,
+    // not the effective limit, so a streak-bonus session never inflates the
+    // "(N/cap)" referral copy.
+    qualifiedCount: weekly.referralLimit,
     weeklySessionsRemaining: weekly.remaining,
     resetAt: weekly.resetAt,
     githubLinked: Boolean(githubAccount),

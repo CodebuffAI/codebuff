@@ -18,6 +18,7 @@ import {
 import {
   checkSessionAdmissible,
   endUserSession,
+  getGlmWeeklyUsage,
   getSessionState,
   pinFreeSessionToMinimax,
   requestSession,
@@ -1740,6 +1741,19 @@ describe('GLM 5.2 weekly referral pool', () => {
     if (state.status !== 'rate_limited') throw new Error('unreachable')
     expect(state.limit).toBe(2)
     expect(state.recentCount).toBe(2)
+  })
+
+  test('getGlmWeeklyUsage keeps referral entitlement separate from the streak bonus', async () => {
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 2,
+      getStreakBonusUnits: async ({ pool }) => (pool === 'glm' ? 1 : 0),
+    })
+    const usage = await getGlmWeeklyUsage('u1', deps)
+    // referralLimit is the bonus-free entitlement (drives the "(N/cap)" copy);
+    // limit/remaining fold in the +1 streak bonus (drive launchability).
+    expect(usage.referralLimit).toBe(2)
+    expect(usage.limit).toBe(3)
+    expect(usage.remaining).toBe(3)
   })
 
   test('ignores GLM admits from a prior week', async () => {

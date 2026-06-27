@@ -1077,6 +1077,13 @@ body.col-resizing {
   background: var(--surface);
   border-left: 1px solid var(--border);
 }
+/* Skill-search takeover: hide the lanes/queue input/suggestions so the
+   SkillsPanel (with `flex: 1` when .searching) fills the whole column. */
+.queue.searching .lane,
+.queue.searching .queue-compose,
+.queue.searching .suggestions {
+  display: none;
+}
 .queue-head {
   display: flex;
   align-items: center;

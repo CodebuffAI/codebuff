@@ -1,4 +1,5 @@
 import {
+  FREEBUFF_GLM_V52_REFERRAL_ENABLED,
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_STREAK_GLM_BONUS_ENABLED,
   FREEBUFF_STREAK_REWARD_INTERVAL_DAYS,
@@ -98,6 +99,22 @@ export function isFreebuffStreakMilestone(streak: number): boolean {
 }
 
 /**
+ * Whether the full-access GLM 5.2 streak bonus is currently active. Requires all
+ * three switches: streak rewards on, the GLM streak sub-switch on, AND the GLM
+ * program itself live — GLM is only launchable from the referral banner, which
+ * is hidden when the referral program is wound down, so a GLM bonus granted
+ * while it's off would be unusable. Keeping the grant and the advertised perk
+ * gated on the same predicate avoids that mismatch.
+ */
+export function isFreebuffStreakGlmBonusActive(): boolean {
+  return (
+    FREEBUFF_STREAK_REWARDS_ENABLED &&
+    FREEBUFF_STREAK_GLM_BONUS_ENABLED &&
+    FREEBUFF_GLM_V52_REFERRAL_ENABLED
+  )
+}
+
+/**
  * The streak-reward pools to grant a bonus session in when today's usage just
  * completed a milestone, or `[]` when nothing should be awarded. Full-access
  * users get a premium-pool bonus plus a weekly GLM bonus (when the GLM
@@ -113,6 +130,6 @@ export function streakRewardPoolsForMilestone(params: {
   if (!params.todayUsed || !isFreebuffStreakMilestone(params.streak)) return []
   if (params.accessTier === 'limited') return ['limited']
   const pools: FreebuffStreakRewardPool[] = ['premium']
-  if (FREEBUFF_STREAK_GLM_BONUS_ENABLED) pools.push('glm')
+  if (isFreebuffStreakGlmBonusActive()) pools.push('glm')
   return pools
 }
