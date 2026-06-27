@@ -171,6 +171,13 @@ export const useStore = create<StoreState>((set, get) => ({
       })
       return
     }
+
+    if (ev.type === 'log') {
+      // Server-side log events surface as toasts so failures aren't silently
+      // buried in the transcript; the event's level drives info vs. error.
+      get().pushToast(ev.message, ev.level)
+      return
+    }
   },
 
   setActive(id) {

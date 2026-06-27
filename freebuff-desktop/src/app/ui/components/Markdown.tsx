@@ -3,6 +3,8 @@ import { memo, useState, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+import { copyText } from '../lib/clipboard'
+
 /**
  * Renders assistant output as GitHub-flavored markdown. Custom renderers give us
  * a code block with a copy button, line-coloured `diff` fences, and tables that
@@ -71,37 +73,6 @@ function CodeBlock({ lang, code }: { lang?: string; code: string }) {
       </pre>
     </div>
   )
-}
-
-/**
- * Copy to the clipboard, preferring the async Clipboard API and falling back to
- * the legacy `execCommand` path when it's unavailable (e.g. an unfocused or
- * non-secure context). Resolves to whether the copy actually landed.
- */
-function copyText(text: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    return navigator.clipboard
-      .writeText(text)
-      .then(() => true)
-      .catch(() => fallbackCopy(text))
-  }
-  return Promise.resolve(fallbackCopy(text))
-}
-
-function fallbackCopy(text: string): boolean {
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch {
-    return false
-  }
 }
 
 /** Colour each line of a `diff` fence by its leading marker. */

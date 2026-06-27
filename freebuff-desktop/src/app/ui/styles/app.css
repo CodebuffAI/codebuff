@@ -206,6 +206,12 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.cost {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  -webkit-app-region: no-drag;
+}
 
 /* — Connection status — */
 .conn-status {

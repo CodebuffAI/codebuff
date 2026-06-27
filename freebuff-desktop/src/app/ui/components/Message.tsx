@@ -1,34 +1,12 @@
 import { memo, useMemo, useState } from 'react'
 
+import { copyText } from '../lib/clipboard'
 import { toolArg, toolLabel } from '../lib/formatTool'
 import type { Message as Msg, Part, ToolCall } from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 import { Markdown } from './Markdown'
 import { Thinking } from './Thinking'
-
-/** Copy `text`, preferring the async Clipboard API but falling back to a hidden
- *  textarea + execCommand for webview contexts where the async API is blocked. */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    try {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(ta)
-      return ok
-    } catch {
-      return false
-    }
-  }
-}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -115,8 +93,7 @@ export const Message = memo(function Message({ msg, threadId }: { msg: Msg; thre
 
   // The assistant's prose (text parts only) — what the copy button copies.
   const proseText = msg.parts
-    .filter((p) => p.kind === 'text')
-    .map((p) => (p as Extract<Part, { kind: 'text' }>).text)
+    .flatMap((p) => (p.kind === 'text' ? [p.text] : []))
     .join('')
     .trim()
 

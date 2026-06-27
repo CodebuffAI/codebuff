@@ -45,7 +45,7 @@ export type EngineEvent =
   | { type: 'thread'; threadId: string; thread: Thread; items: QueueItem[] }
   | { type: 'agent'; threadId: string; event: PrintModeEvent }
   | { type: 'prompt'; threadId: string; text: string }
-  | { type: 'log'; message: string }
+  | { type: 'log'; level: 'info' | 'error'; message: string }
 
 export interface Snapshot {
   project: Project
@@ -515,7 +515,7 @@ export class ThreadEngine {
       } else {
         const msg = (err as Error).message
         finalize(`⚠️ Turn failed: ${msg}`)
-        this.emit({ type: 'log', message: `Thread ${threadId} turn error: ${msg}` })
+        this.emit({ type: 'log', level: 'error', message: `Thread ${threadId} turn error: ${msg}` })
       }
     } finally {
       this.aborters.delete(threadId)

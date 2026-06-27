@@ -98,7 +98,7 @@ export type ServerEvent =
   | { type: 'thread'; threadId: string; thread: Thread; items: QueueItem[] }
   | { type: 'agent'; threadId: string; event: AgentEvent }
   | { type: 'prompt'; threadId: string; text: string }
-  | { type: 'log'; message: string }
+  | { type: 'log'; level: 'info' | 'error'; message: string }
 
 /** A subset of the SDK PrintModeEvent we render. */
 export type AgentEvent =
