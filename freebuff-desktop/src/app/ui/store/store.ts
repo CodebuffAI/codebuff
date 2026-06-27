@@ -27,6 +27,19 @@ export interface ThreadSlice {
   loaded: boolean
 }
 
+/** Per-tab pending-input state. Hoisted into the store so each tab keeps its
+ *  own typed composer message and queue draft — switching tabs no longer leaks
+ *  one tab's draft into another's composer/queue. Attachments stay per-thread
+ *  in the parent (ThreadView): enough to fix the user's reported bleed without
+ *  re-choreographing the parent-prop ownership introduced in compose-less. */
+export interface ThreadDrafts {
+  composerText: string
+  queueDraft: string
+}
+
+/** Stable fallback so `useStore` keeps returning the same `''` until a real edit lands. */
+const EMPTY_DRAFT: ThreadDrafts = Object.freeze({ composerText: '', queueDraft: '' }) as ThreadDrafts
+
 interface StoreState {
   threads: Record<string, ThreadSlice>
   tabOrder: string[]
@@ -34,6 +47,10 @@ interface StoreState {
   recentlyClosed: string[]
   connection: 'connecting' | 'open' | 'reconnecting'
   skills: Skill[]
+  drafts: Record<string, ThreadDrafts>
+
+
+
   /** Local per-skill usage counts (persisted) — drives the quick-skill buttons. */
   skillTally: Record<string, number>
   projectPath: string
@@ -46,7 +63,8 @@ interface StoreState {
   settings: ProjectSettings
   settingsPath: string | null
   settingsLoadError: string | null
-  setAgentHarness: (id: HarnessId) => void  /** Whether the project-picker modal is open. */
+  setAgentHarness: (id: HarnessId) => void
+  /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
   /** Whether the project-settings modal is open. */
@@ -71,6 +89,10 @@ interface StoreState {
 
   /** Toggle a reasoning part between its preview/expanded view (preserves user intent). */
   toggleReasoning: (threadId: string, messageId: string, partId: string) => void
+
+  // per-tab pending input (see ThreadDrafts)
+  setComposerText: (id: string, text: string) => void
+  setQueueDraft: (id: string, text: string) => void
 
   // messaging + queue
   send: (id: string, text: string, attachments?: PendingAttachment[]) => void
@@ -104,6 +126,7 @@ export const useStore = create<StoreState>((set, get) => ({
   recentlyClosed: [],
   connection: 'connecting',
   skills: [],
+  drafts: {},
   skillTally: loadSkillTally(),
   projectPath: '',
   agentHarness: null,
@@ -338,12 +361,25 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
 
+  // Per-tab pending-input helpers (see ThreadDrafts). Coalesced into a single
+  // `set` per edit so the global `drafts` map identity stays stable for threads
+  // we didn't touch — Zustand's Object.is selectors don't re-render siblings.
+  setComposerText(id, text) {
+    set((s) => draftPatch(s, id, { composerText: text }))
+  },
+  setQueueDraft(id, text) {
+    set((s) => draftPatch(s, id, { queueDraft: text }))
+  },
+
   send(id, text, attachments = []) {
     // The transcript shows the typed text plus a compact `📎 …` line; the agent gets
     // the attachments' contents server-side (see ThreadEngine.postMessage). `appendBlock`
     // is shared with the server so this optimistic message matches the persisted one.
     appendMessage(set, id, appendBlock(text, attachmentSummary(attachments)))
     api.sendMessage(id, text, attachments.map((a) => a.path))
+    // Clear the per-tab composer draft so a later return to this tab doesn't
+    // resurrect the message we just sent.
+    set((s) => draftPatch(s, id, { composerText: '' }))
   },
 
   stopTurn(id) {
@@ -379,10 +415,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
   enqueuePrompt(id, prompt) {
     api.enqueuePrompt(id, prompt)
+    set((s) => draftPatch(s, id, { queueDraft: '' }))
   },
   enqueueSkill(id, skill) {
     bumpSkillTally(set, skill)
     api.enqueueSkill(id, skill)
+    set((s) => draftPatch(s, id, { queueDraft: '' }))
   },
   async installSkill(source, slug, name) {
     const res = await api
@@ -456,6 +494,25 @@ export const useStore = create<StoreState>((set, get) => ({
 }))
 
 const SKILL_TALLY_KEY = 'freebuff:skillTally'
+
+/** Compute a `{ drafts: ... }` patch (or no-op) for one tab's pending input.
+ *  Returns `{}` when nothing actually changed so Zustand skips the notification
+ *  — siblings with their own Object.is selectors stay quiet. */
+function draftPatch(
+  state: Pick<StoreState, 'drafts'>,
+  id: string,
+  patch: Partial<ThreadDrafts>,
+): Partial<StoreState> {
+  const prev = state.drafts[id] ?? EMPTY_DRAFT
+  // Coalesce into one entry so a composer edit materializes an entry the queue
+  // panel can also read (otherwise the queue draft disappears after the user
+  // types into the composer).
+  const next: ThreadDrafts = { ...prev, ...patch }
+  if (prev.composerText === next.composerText && prev.queueDraft === next.queueDraft) {
+    return {}
+  }
+  return { drafts: { ...state.drafts, [id]: next } }
+}
 
 /** Hydrate the persisted per-skill usage counts (best-effort). */
 function loadSkillTally(): Record<string, number> {

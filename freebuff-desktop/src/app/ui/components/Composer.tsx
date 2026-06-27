@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { buildCommands, filterCommands, type Command } from '../lib/commands'
 import { baseName, kindFor } from '../lib/file-drop'
@@ -26,16 +26,22 @@ export function Composer({
   setAtts: React.Dispatch<React.SetStateAction<PendingAttachment[]>>
   addAttachments: (metas: PendingAttachment[]) => void
 }) {
-  const [text, setText] = useState('')
-  const [sel, setSel] = useState(0)
-  // Set when the user dismisses the menu with Esc; reset on the next edit so a
-  // fresh `/` reopens it.
-  const [dismissed, setDismissed] = useState(false)
+  // Per-tab pending text lives in the store keyed by threadId so each tab keeps
+  // its own in-progress message when switching tabs. The parent owns the
+  // attachments array (see ThreadView); switching tabs also remounts the parent
+  // logic so attachments don't need the same hoist.
+  const text = useStore((s) => s.drafts[threadId]?.composerText ?? '')
+  const setText = useStore((s) => s.setComposerText)
   const send = useStore((s) => s.send)
   const stopTurn = useStore((s) => s.stopTurn)
   const pushToast = useStore((s) => s.pushToast)
   const running = useStore((s) => s.threads[threadId]?.thread.turnState === 'running')
   const skills = useStore((s) => s.skills)
+
+  const [sel, setSel] = useState(0)
+  // Set when the user dismisses the menu with Esc; reset on the next edit so a
+  // fresh `/` reopens it.
+  const [dismissed, setDismissed] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
 
   // When staging adds an attachment, refocus the input so the user can keep
@@ -45,6 +51,16 @@ export function Composer({
     if (atts.length > prevLength.current) ref.current?.focus({ preventScroll: true })
     prevLength.current = atts.length
   }, [atts.length])
+
+  // Grow the textarea to fit when the draft changes, including on tab switch
+  // (the new thread's draft can be much longer than the previous tab's; without
+  // this the reused DOM node stays at the old height).
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }, [text, threadId])
 
   const commands = useMemo(() => buildCommands(skills), [skills])
   // The slash menu is active only when the input is a bare command token: a
@@ -118,8 +134,9 @@ export function Composer({
 
   const submit = () => {
     if (!canSend) return
+    // `send` clears the per-thread composer draft via the store, so a later
+    // switch back to this tab doesn't resurrect the message we just sent.
     send(threadId, text.trim(), atts)
-    setText('')
     setAtts([])
     resetHeight()
   }
@@ -140,7 +157,7 @@ export function Composer({
         s.runSkill(threadId, c.action.name)
         break
     }
-    setText('')
+    setText(threadId, '')
     setDismissed(false)
     resetHeight()
   }
@@ -183,11 +200,9 @@ export function Composer({
           rows={1}
           placeholder={running ? 'Send a message to steer the run…' : 'Type a message, or / for commands'}
           onChange={(e) => {
-            setText(e.target.value)
+            setText(threadId, e.target.value)
             setDismissed(false)
             setSel(0)
-            e.target.style.height = 'auto'
-            e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
           }}
           onPaste={onPaste}
           onKeyDown={(e) => {

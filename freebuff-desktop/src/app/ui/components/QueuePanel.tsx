@@ -26,13 +26,17 @@ export function QueuePanel({ threadId }: { threadId: string }) {
   // so streaming tokens (which change `messages`, not `items`) don't re-render.
   const items = useStore((s) => s.threads[threadId]?.items)
   const autoQueueSuggestions = useStore((s) => s.threads[threadId]?.thread.autoQueueSuggestions ?? false)
+  // The pending queue input lives in the store per tab, so each tab keeps its
+  // own in-progress draft. Without this, a draft typed in tab A would bleed
+  // into tab B on switch (the QueuePanel instance is reused).
+  const draft = useStore((s) => s.drafts[threadId]?.queueDraft ?? '')
   const skills = useStore((s) => s.skills)
   const enqueuePrompt = useStore((s) => s.enqueuePrompt)
   const enqueueSkill = useStore((s) => s.enqueueSkill)
+  const setQueueDraft = useStore((s) => s.setQueueDraft)
   const setAutoQueueSuggestions = useStore((s) => s.setAutoQueueSuggestions)
   const reorderItem = useStore((s) => s.reorderItem)
 
-  const [draft, setDraft] = useState('')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
   // Search mode lives here (not in SkillsPanel) because it also hides the queue
@@ -66,11 +70,11 @@ export function QueuePanel({ threadId }: { threadId: string }) {
   const addDraft = () => {
     const t = draft.trim()
     if (!t) return
-    // `/skill-name` queues that skill; anything else is a plain prompt.
+    // `/skill-name` queues that skill; anything else is a plain prompt. Both
+    // actions clear the per-tab draft via the store.
     const m = t.match(/^\/(\S+)$/)
     if (m && skills.some((s) => s.name === m[1])) enqueueSkill(threadId, m[1])
     else enqueuePrompt(threadId, t)
-    setDraft('')
   }
 
   return (
@@ -106,7 +110,7 @@ export function QueuePanel({ threadId }: { threadId: string }) {
           value={draft}
           rows={1}
           placeholder="Queue a prompt or /skill…"
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => setQueueDraft(threadId, e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
