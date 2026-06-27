@@ -1137,4 +1137,47 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       }
     })
   })
+
+  describe('steering (drainSteeringMessages)', () => {
+    it('appends a steering message at the step boundary and continues the turn', async () => {
+      // The mock LLM ends the turn after one step. A steering message that arrives
+      // during that step should be appended to history and keep the turn going, so
+      // the agent runs a second step that can see (and act on) the new message.
+      const steerText = 'Also rename the variable to fooBar'
+      let drainCalls = 0
+      const drainSteeringMessages = () => {
+        drainCalls++
+        return drainCalls === 1 ? [steerText] : []
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        drainSteeringMessages,
+      })
+
+      // Step 1 wanted to end the turn, but the steer kept it going → a 2nd step ran.
+      expect(llmCallCount).toBe(2)
+
+      // The steered text landed in history as a user message.
+      const steered = result.agentState.messageHistory.find(
+        (m) =>
+          m.role === 'user' && JSON.stringify(m.content).includes(steerText),
+      )
+      expect(steered).toBeDefined()
+      expect((steered as { tags?: string[] }).tags).toContain('USER_PROMPT')
+    })
+
+    it('does not extend the turn when no steering messages arrive', async () => {
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        drainSteeringMessages: () => [],
+      })
+
+      // No steer → the agent ends the turn after its single step, as usual.
+      expect(llmCallCount).toBe(1)
+      expect(result.agentState).toBeDefined()
+    })
+  })
 })
