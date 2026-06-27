@@ -47,6 +47,56 @@ export interface ThreadDrafts {
 /** Stable fallback so `useStore` keeps returning the same `''` until a real edit lands. */
 const EMPTY_DRAFT: ThreadDrafts = Object.freeze({ composerText: '', queueDraft: '' }) as ThreadDrafts
 
+/** localStorage key under which we keep per-tab composer + queue drafts across
+ *  reloads / app restarts. Best-effort only — corrupted JSON falls back to an
+ *  empty record so a single bad payload can't wipe every draft. */
+const DRAFTS_KEY = 'freebuff:drafts'
+
+/** Read the persisted drafts blob (best-effort). Always returns a fresh object
+ *  so callers can mutate without worrying about the underlying localStorage
+ *  values. */
+function loadDrafts(): Record<string, ThreadDrafts> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(DRAFTS_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+    const out: Record<string, ThreadDrafts> = {}
+    for (const [id, v] of Object.entries(parsed)) {
+      // Skip bogus keys — empty strings or non-thread-shaped ids can sneak in
+      // from manual localStorage edits and would otherwise park an entry in
+      // the in-memory map that no composer ever indexes by.
+      if (typeof id !== 'string' || !id) continue
+      if (!v || typeof v !== 'object') continue
+      const composerText = typeof (v as any).composerText === 'string' ? (v as any).composerText : ''
+      const queueDraft = typeof (v as any).queueDraft === 'string' ? (v as any).queueDraft : ''
+      out[id] = { composerText, queueDraft }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** Persist the current drafts blob to localStorage. Swallows quota / disabled
+ *  storage errors so an in-memory edit never throws — graceful degradation
+ *  matches the existing skillTally pattern. */
+function persistDrafts(drafts: Record<string, ThreadDrafts>): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    // Drop empty drafts before writing so the file doesn't accumulate dead
+    // entries for every tab the user has ever opened.
+    const cleaned: Record<string, ThreadDrafts> = {}
+    for (const [id, d] of Object.entries(drafts)) {
+      if (d.composerText || d.queueDraft) cleaned[id] = d
+    }
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(cleaned))
+  } catch {
+    /* storage unavailable / over quota — keep the in-memory drafts anyway */
+  }
+}
+
 interface StoreState {
   threads: Record<string, ThreadSlice>
   tabOrder: string[]
@@ -79,7 +129,13 @@ interface StoreState {
   /** Whether the project-settings modal is open. */
   settingsOpen: boolean
   setSettingsOpen: (open: boolean) => void
-  toasts: { id: number; text: string; kind: 'info' | 'error' }[] 
+  /** MRU list of recently-opened projects (most recent first). Loaded on init
+   *  and refreshed after every successful open so the picker stays in sync. */
+  recentProjects: string[]
+  /** Re-fetch the recent-projects list from the server. Called on init and
+   *  after a successful openProject so the picker reflects the new MRU. */
+  refreshRecents: () => Promise<void>
+  toasts: { id: number; text: string; kind: 'info' | 'error' }[]
   pushToast: (text: string, kind?: 'info' | 'error') => void
   dismissToast: (id: number) => void
 
@@ -146,6 +202,7 @@ export const useStore = create<StoreState>((set, get) => ({
   settingsLoadError: null,
   pickerOpen: false,
   settingsOpen: false,
+  recentProjects: [],
   toasts: [],
 
   setAgentHarness(id) {
@@ -185,6 +242,20 @@ export const useStore = create<StoreState>((set, get) => ({
     if (open) void get().loadSettings()
   },
 
+  async refreshRecents() {
+    try {
+      const res = await api.listRecents()
+      // The picker calls `.filter()` on this directly, so a malformed payload
+      // (missing `recents`, null, non-array) would crash the picker. Coerce to
+      // a string array before storing — bad data is dropped, not propagated.
+      const list = Array.isArray(res?.recents) ? res.recents.filter((v): v is string => typeof v === 'string') : []
+      set({ recentProjects: list })
+    } catch {
+      // Leave the existing list alone on failure; the picker falls back to it
+      // and the next open will refresh again.
+    }
+  },
+
   pushToast(text, kind = 'info') {
     const id = Date.now() + Math.floor(Math.random() * 1000)
     set((s) => ({ toasts: [...s.toasts, { id, text, kind }] }))
@@ -198,7 +269,27 @@ export const useStore = create<StoreState>((set, get) => ({
     if (initStarted) return
     initStarted = true
     try {
-      const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills(), get().loadSettings()])
+      const [threads, skills] = await Promise.all([
+        api.listThreads(),
+        api.listSkills(),
+        get().loadSettings(),
+        // Recents are a small MRU list — fetch in parallel so the picker has
+        // it ready the first time the user opens it, without a visible gap.
+        get().refreshRecents(),
+      ])
+      // Hydrate persisted drafts before any thread loaders run so a reload
+      // never races a getThread into the store ahead of its restored draft.
+      // Garbage-collect entries whose threads are gone (deleted/cleaned up
+      // server-side) so the picker doesn't surface phantom drafts.
+      const persistedDrafts = loadDrafts()
+      const liveIds = new Set(threads.map((t) => t.id))
+      const drafts: Record<string, ThreadDrafts> = {}
+      for (const [id, d] of Object.entries(persistedDrafts)) {
+        if (liveIds.has(id)) drafts[id] = d
+      }
+      // Re-persist so dropped entries don't linger on disk across restarts.
+      persistDrafts(drafts)
+      set({ drafts })
       const slices: Record<string, ThreadSlice> = {}
       for (const t of threads) slices[t.id] = emptySlice(t)
       set({
@@ -307,14 +398,24 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   closeTab(id) {
-    const { tabOrder, activeId } = get()
+    const { tabOrder, activeId, drafts } = get()
     const idx = tabOrder.indexOf(id)
     const nextOrder = tabOrder.filter((t) => t !== id)
     let nextActive = activeId
     if (activeId === id) nextActive = nextOrder[Math.min(idx, nextOrder.length - 1)] ?? null
+    // Drop the tab's draft from both in-memory state and the persisted blob.
+    // The user explicitly closed the tab — keeping a half-typed prompt
+    // dangling under a never-coming-back thread id is just clutter.
+    let nextDrafts = drafts
+    if (drafts[id]) {
+      nextDrafts = { ...drafts }
+      delete nextDrafts[id]
+      persistDrafts(nextDrafts)
+    }
     set((s) => ({
       tabOrder: nextOrder,
       activeId: nextActive,
+      drafts: nextDrafts,
       recentlyClosed: [...s.recentlyClosed, id],
     }))
     api.closeThread(id)
@@ -437,8 +538,12 @@ export const useStore = create<StoreState>((set, get) => ({
     const res: { ok: boolean; path?: string; error?: string } = await api
       .openProject(path)
       .catch((e) => ({ ok: false, error: String(e) }))
-    if (res.ok) get().pushToast(`Opened ${res.path ?? path}`)
-    else get().pushToast(res.error ?? 'Could not open folder', 'error')
+    if (res.ok) {
+      get().pushToast(`Opened ${res.path ?? path}`)
+      // Server-side `openProject` already pushed to the MRU; refresh local
+      // state so the picker's "Recents" list reflects the new top entry.
+      void get().refreshRecents()
+    } else get().pushToast(res.error ?? 'Could not open folder', 'error')
     return res
   },
 
@@ -549,7 +654,12 @@ function draftPatch(
   if (prev.composerText === next.composerText && prev.queueDraft === next.queueDraft) {
     return {}
   }
-  return { drafts: { ...state.drafts, [id]: next } }
+  const drafts = { ...state.drafts, [id]: next }
+  // Mirror to localStorage so a reload / app restart doesn't drop a half-typed
+  // prompt. Read from the in-memory map rather than the snapshot so we never
+  // race a concurrent write from another tab.
+  persistDrafts(drafts)
+  return { drafts }
 }
 
 /** Hydrate the persisted per-skill usage counts (best-effort). */

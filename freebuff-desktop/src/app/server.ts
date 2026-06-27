@@ -19,12 +19,12 @@ import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
   browseDir,
   readAgentHarness,
-  readLastProject,
+  readRecentProjects,
   validateProjectDir,
   writeAgentHarness,
-  writeLastProject,
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
+import { pushRecentProject } from './project-dir'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -34,7 +34,7 @@ const UI_DIR = process.env.FREEBUFF_UI_DIR ?? join(import.meta.dir, '..', '..', 
 function defaultRepo(): string {
   return join(process.env.HOME ?? '/tmp', 'freebuff-desktop-demo')
 }
-const initialRepo = process.env.TARGET_REPO ?? readLastProject() ?? defaultRepo()
+const initialRepo = process.env.TARGET_REPO ?? readRecentProjects()[0] ?? defaultRepo()
 if (initialRepo === defaultRepo()) await ensureSampleRepo(initialRepo)
 
 // — Engine lifecycle —
@@ -77,7 +77,7 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   currentRepo = info.path
   engine = makeEngine(info.path, info.defaultBranch)
   engineUnsub = engine.on(broadcast)
-  writeLastProject(info.path)
+  pushRecentProject(info.path)
 
   broadcast({ type: 'state', snapshot: engine.snapshot() })
   return { ok: true }
@@ -195,6 +195,17 @@ const server = Bun.serve({
 
     if (pathname === '/api/fs/list') {
       return json(browseDir(url.searchParams.get('path') ?? undefined))
+    }
+
+    // List the MRU of recently-opened projects so the picker can offer
+    // one-click return to a previous workspace. The list is also implied by
+    // the current repo, which always sits at index 0 after a successful open.
+    if (pathname === '/api/project/recents') {
+      const recents = readRecentProjects()
+      // The current repo pins to the top of the picker list even if a stale
+      // entry is missing — keeps "return to current" discoverable.
+      const merged = currentRepo && !recents.includes(currentRepo) ? [currentRepo, ...recents] : recents
+      return json({ recents: merged })
     }
 
     if (pathname === '/api/project/open' && req.method === 'POST') {

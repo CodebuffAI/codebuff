@@ -1596,6 +1596,92 @@ body.col-resizing {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
+/* Recents strip: surfaces the MRU list above the folder tree so returning
+   users can re-open a previous project with one click. Hidden until the
+   list has at least one entry (the fetch may take a tick on a cold start). */
+.picker-recents {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.recents-head {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint);
+  margin-bottom: 6px;
+}
+.recents-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 12px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.recent-row:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+}
+.recent-row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.recent-row > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.recent-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 50%;
+}
+/* The full path is shown muted on the right for context without taking the
+   primary label slot — ellipsizes when a path is too long. */
+.recent-path {
+  flex: 1;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+.recent-spin {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--raised);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+.recents-error {
+  font-size: 11.5px;
+  color: var(--danger);
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .picker-title {
   font-size: 13px;
   font-weight: 600;

@@ -81,6 +81,7 @@ export const api = {
     post<{ ok: boolean; path?: string; error?: string }>('/api/project/open', { path }),
   browse: (path?: string) =>
     get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  listRecents: () => get<{ recents: string[] }>('/api/project/recents'),
 
   // Settings
   // Project-wide default harness for NEW threads. /api/thread/{id}/harness
