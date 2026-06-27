@@ -12,6 +12,7 @@
  * through an injectable `CommandRunner` so this is testable against a real temp repo.
  */
 
+import { rmSync } from 'fs'
 import { join } from 'path'
 
 import { bunRunner, runOrThrow, type CommandRunner } from './exec'
@@ -105,12 +106,39 @@ export class WorktreeManager {
     const branch = this.branchName(slug)
     const path = this.worktreePath(taskId)
     const anchor = opts.startPoint ?? this.defaultBranch
-    await runOrThrow(
-      this.runner,
-      'git',
-      ['-C', this.repoRoot, 'worktree', 'add', '-b', branch, path, anchor],
-    )
+    const add = () =>
+      runOrThrow(this.runner, 'git', ['-C', this.repoRoot, 'worktree', 'add', '-b', branch, path, anchor])
+    try {
+      await add()
+    } catch {
+      // A prior run force-quit before `closeOut`/`remove` can leave this thread's
+      // worktree dir + branch behind (thread ids are reused across launches), so
+      // `add` fails with "already exists". Drop the stale remnants and retry once
+      // — the thread's prior work is preserved out-of-band (snapshot tag +
+      // `startPoint`/`lastSeenHead`), so a forced re-create is safe.
+      await this.dropWorktree(path, branch)
+      await add()
+    }
     return { branch, worktreePath: path, baseSha: await this.revParse(path, 'HEAD') }
+  }
+
+  /**
+   * Best-effort teardown of a worktree's on-disk dir and (optionally) its branch
+   * ref. Idempotent — a missing worktree/branch/dir is a no-op, never an error —
+   * so it's safe as both routine GC (`remove`/`closeOut`) and stale-remnant
+   * recovery (`create`). Covers all three forms a leftover can take: a registered
+   * worktree (`worktree remove`), an unregistered dir already gone from git's
+   * metadata (`rmSync` + `prune`), and a dangling branch ref (`branch -D`).
+   */
+  private async dropWorktree(worktreePath: string, branch?: string): Promise<void> {
+    await this.runner
+      .run('git', ['-C', this.repoRoot, 'worktree', 'remove', '--force', worktreePath])
+      .catch(() => {})
+    // `worktree remove` only handles dirs git still tracks; one already pruned
+    // from git's metadata stays on disk and would still collide with `add`.
+    rmSync(worktreePath, { recursive: true, force: true })
+    await this.runner.run('git', ['-C', this.repoRoot, 'worktree', 'prune']).catch(() => {})
+    if (branch) await this.runner.run('git', ['-C', this.repoRoot, 'branch', '-D', branch]).catch(() => {})
   }
 
   /**
@@ -317,9 +345,7 @@ export class WorktreeManager {
 
   /** GC the worktree on merge/abandon (§6.1). Best-effort; prunes stale refs. */
   async remove(taskId: TaskId): Promise<void> {
-    const path = this.worktreePath(taskId)
-    await this.runner.run('git', ['-C', this.repoRoot, 'worktree', 'remove', '--force', path])
-    await this.runner.run('git', ['-C', this.repoRoot, 'worktree', 'prune'])
+    await this.dropWorktree(this.worktreePath(taskId))
   }
 
   /**
@@ -376,18 +402,8 @@ export class WorktreeManager {
         .catch(() => undefined)
     }
 
-    // 4. Drop the worktree and the branch ref. Both best-effort: if either
-    //    is already gone (idempotency / races) the next op is a no-op rather
-    //    than a thrown error.
-    await this.runner
-      .run('git', ['-C', this.repoRoot, 'worktree', 'remove', '--force', worktreePath])
-      .catch(() => undefined)
-    await this.runner
-      .run('git', ['-C', this.repoRoot, 'worktree', 'prune'])
-      .catch(() => undefined)
-    await this.runner
-      .run('git', ['-C', this.repoRoot, 'branch', '-D', branch])
-      .catch(() => undefined)
+    // 4. Drop the worktree dir and the branch ref (idempotent / best-effort).
+    await this.dropWorktree(worktreePath, branch)
 
     return sha
   }

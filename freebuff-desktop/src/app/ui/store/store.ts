@@ -19,6 +19,13 @@ import type {
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
 
+// `init()` runs from App's mount effect, which React StrictMode invokes twice in
+// dev (and any future remount could repeat). Two concurrent inits both see an
+// empty thread list and each call `newThread()` → two tabs open on startup. This
+// module-level latch lets only the first run through; it survives remounts since
+// the module outlives the component. Reset on failure so a retry can proceed.
+let initStarted = false
+
 export interface ThreadSlice {
   thread: Thread
   messages: Message[]
@@ -164,17 +171,24 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async init() {
-    const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills(), get().loadSettings()])
-    const slices: Record<string, ThreadSlice> = {}
-    for (const t of threads) slices[t.id] = emptySlice(t)
-    set({
-      threads: slices,
-      tabOrder: threads.map((t) => t.id),
-      skills,
-      activeId: threads[0]?.id ?? null,
-    })
-    if (threads[0]) get().ensureLoaded(threads[0].id)
-    if (threads.length === 0) get().newThread()
+    if (initStarted) return
+    initStarted = true
+    try {
+      const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills(), get().loadSettings()])
+      const slices: Record<string, ThreadSlice> = {}
+      for (const t of threads) slices[t.id] = emptySlice(t)
+      set({
+        threads: slices,
+        tabOrder: threads.map((t) => t.id),
+        skills,
+        activeId: threads[0]?.id ?? null,
+      })
+      if (threads[0]) get().ensureLoaded(threads[0].id)
+      if (threads.length === 0) get().newThread()
+    } catch (e) {
+      initStarted = false
+      throw e
+    }
   },
 
   setConnection(c) {
