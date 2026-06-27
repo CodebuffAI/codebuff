@@ -9,10 +9,10 @@ import { CHATGPT_OAUTH_OPENAI_MODEL_ALLOWLIST } from '@codebuff/common/constants
 import { getConfigDir } from './credentials'
 import { getSystemProcessEnv } from './env'
 
+import type { FileChangeHook } from './tools/file-change-hooks'
+
 export const PROVIDER_CONFIG_ENV_VAR = 'OPENBUFF_PROVIDER_CONFIG'
-export const LEGACY_PROVIDER_CONFIG_ENV_VAR = 'CODEBUFF_PROVIDER_CONFIG'
 const PROVIDER_CONFIG_FILE_NAME = 'openbuff.json'
-const LEGACY_PROVIDER_CONFIG_FILE_NAME = 'codebuff.json'
 const GLOBAL_PROVIDER_CONFIG_FILE_NAME = 'provider-config.json'
 
 // Maximum number of ancestor directories to scan for provider config files.
@@ -358,6 +358,16 @@ export const providerConfigFileSchema = z
     visionModel: routableModelValueSchema.optional(),
     /** Optional reasoning effort for the vision fallback model. */
     visionReasoningEffort: reasoningEffortSchema.optional(),
+    /**
+     * Ordered list of model IDs to attempt as backup providers when the primary
+     * model fails with an auth error (401/403) or a persistent 5xx after the
+     * inner retry loop exhausts its retries. Model IDs (not provider IDs) — the
+     * routing layer maps each to its configured provider. Failover only fires
+     * when NO content has been yielded yet, so partial output is never
+     * duplicated. 429/408 are retry-only (not failover-eligible) to avoid
+     * cascading load across providers.
+     */
+    failoverModels: z.array(z.string().min(1)).optional(),
     /** Mode-level aliases for the built-in root agents. */
     modes: modeModelSchema,
     /** Optional reasoning efforts for built-in root modes. */
@@ -458,6 +468,9 @@ export const providerConfigFileSchema = z
       defaultReasoningEffort,
       ...(visionModel !== undefined && { visionModel }),
       ...(visionReasoningEffort !== undefined && { visionReasoningEffort }),
+      ...(config.failoverModels !== undefined && {
+        failoverModels: config.failoverModels,
+      }),
       modes,
       modeReasoningEfforts,
       agents,
@@ -538,6 +551,7 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
     },
   },
   fileChangeHooks: [],
+  failoverModels: undefined,
   maxAgentSteps: undefined,
 })
 
@@ -734,6 +748,47 @@ function readProviderConfigFile(
   return result
 }
 
+export function mergeFileChangeHooks(
+  base: FileChangeHook[] | undefined,
+  override: FileChangeHook[] | undefined,
+): FileChangeHook[] {
+  const baseHooks = base ?? []
+  const overrideHooks = override ?? []
+  if (baseHooks.length === 0 && overrideHooks.length === 0) return []
+
+  // Identity: command + filePattern + name. Override entries win on conflict.
+  // Ordering: base entries that are not overridden come first, in their
+  // original order, followed by override-only entries in override order. An
+  // override entry that collides with a base entry replaces the base entry but
+  // retains the base entry's position (so a project can tune a global hook
+  // without reordering the hook set).
+  const hookKey = (hook: FileChangeHook): string =>
+    `${hook.command}\u0000${hook.filePattern ?? ''}\u0000${hook.name ?? ''}`
+
+  const overrideByKey = new Map<string, FileChangeHook>()
+  for (const hook of overrideHooks) {
+    overrideByKey.set(hookKey(hook), hook)
+  }
+
+  const seenKeys = new Set<string>()
+  const merged: FileChangeHook[] = []
+  for (const hook of baseHooks) {
+    const key = hookKey(hook)
+    if (seenKeys.has(key)) continue // dedup within base
+    seenKeys.add(key)
+    // Override wins on conflict but keeps the base entry's slot.
+    merged.push(overrideByKey.get(key) ?? hook)
+  }
+  // Append override-only entries (those not matching any base entry).
+  for (const [key, hook] of overrideByKey) {
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      merged.push(hook)
+    }
+  }
+  return merged
+}
+
 function mergeProviderConfigs(
   base: ProviderConfigFile,
   override: ProviderConfigFile,
@@ -766,20 +821,17 @@ function mergeProviderConfigs(
       ...(override.agentReasoningEfforts ?? {}),
     },
     indexing: override.indexing ?? base.indexing,
-    fileChangeHooks: override.fileChangeHooks?.length
-      ? override.fileChangeHooks
-      : base.fileChangeHooks,
+    fileChangeHooks: mergeFileChangeHooks(
+      base.fileChangeHooks,
+      override.fileChangeHooks,
+    ),
+    failoverModels: override.failoverModels ?? base.failoverModels,
     maxAgentSteps: override.maxAgentSteps ?? base.maxAgentSteps,
   }
 }
 
 function getOpenbuffConfigDirs(): string[] {
-  const legacyDir = getConfigDir()
-  const suffixMatch = legacyDir.match(/manicode(.*)$/)
-  const envSuffix = suffixMatch?.[1] ?? ''
-  const baseDir = path.join(os.homedir(), '.config', 'openbuff')
-  const envDir = path.join(os.homedir(), '.config', `openbuff${envSuffix}`)
-  return Array.from(new Set([baseDir, envDir]))
+  return [getConfigDir()]
 }
 
 function getDefaultProviderConfigPaths(): string[] {
@@ -788,8 +840,6 @@ function getDefaultProviderConfigPaths(): string[] {
       path.join(configDir, GLOBAL_PROVIDER_CONFIG_FILE_NAME),
       path.join(configDir, PROVIDER_CONFIG_FILE_NAME),
     ]),
-    path.join(getConfigDir(), GLOBAL_PROVIDER_CONFIG_FILE_NAME),
-    path.join(getConfigDir(), LEGACY_PROVIDER_CONFIG_FILE_NAME),
     ...getAncestorProviderConfigPaths(process.cwd()),
   ]
 }
@@ -813,7 +863,6 @@ export function getAncestorProviderConfigPaths(startDir: string): string[] {
 
   for (let depth = 0; depth < depthCeiling; depth++) {
     paths.push(path.join(currentDir, PROVIDER_CONFIG_FILE_NAME))
-    paths.push(path.join(currentDir, LEGACY_PROVIDER_CONFIG_FILE_NAME))
 
     // Stop at the home directory boundary unless the user has opted into the
     // old unbounded behavior.
@@ -932,8 +981,7 @@ export function loadProviderConfigSync(
   params: { env?: NodeJS.ProcessEnv } = {},
 ): LoadedProviderConfig {
   const env = params.env ?? getSystemProcessEnv()
-  const explicitConfigPath =
-    env[PROVIDER_CONFIG_ENV_VAR] ?? env[LEGACY_PROVIDER_CONFIG_ENV_VAR]
+  const explicitConfigPath = env[PROVIDER_CONFIG_ENV_VAR]
   const configPaths = explicitConfigPath
     ? [explicitConfigPath]
     : getDefaultProviderConfigPaths()
@@ -1094,50 +1142,6 @@ function capabilityModelKeyCandidates(params: {
   )
 }
 
-function getFirstModelValue<T>(
-  values: Record<string, T> | undefined,
-  candidates: string[],
-): T | undefined {
-  if (!values) return undefined
-  for (const candidate of candidates) {
-    if (candidate in values) {
-      return values[candidate]
-    }
-  }
-  return undefined
-}
-
-function getLegacyModelCapabilities(params: {
-  provider: ProviderConfig
-  candidates: string[]
-}): ModelCapabilities {
-  const { provider, candidates } = params
-  const compatibility = {
-    ...DEFAULT_PROVIDER_COMPATIBILITY,
-    ...(provider.compatibility ?? {}),
-  }
-  const modelContextWindowTokens = getFirstModelValue(
-    provider.modelContextWindowTokens,
-    candidates,
-  )
-  const windowTokens = modelContextWindowTokens ?? provider.contextWindowTokens
-
-  return compactCapability({
-    context: windowTokens ? { windowTokens } : undefined,
-    tools: {
-      supported: compatibility.supportsTools,
-      requiredToolChoice: compatibility.supportsRequiredToolChoice,
-      structuredOutputs:
-        provider.type === 'openai-compatible'
-          ? provider.supportsStructuredOutputs
-          : undefined,
-    },
-    promptCaching: {
-      supported: compatibility.stripCacheControl === false,
-    },
-  })
-}
-
 export function resolveModelCapabilities(params: {
   providerId: string
   model: string
@@ -1160,9 +1164,13 @@ export function resolveModelCapabilities(params: {
       Boolean(capabilities),
     )
 
+  // Capability resolution uses only explicit metadata: the provider-level
+  // defaultCapabilities followed by per-model modelCapabilities overrides.
+  // Legacy inference from contextWindowTokens / compatibility.* was removed so
+  // that routes.json is the single source of truth — configs must declare
+  // capabilities explicitly via defaultCapabilities / modelCapabilities.
   return compactCapability(
     mergeModelCapabilities(
-      getLegacyModelCapabilities({ provider, candidates }),
       provider.defaultCapabilities,
       ...modelCapabilityOverrides,
     ),
@@ -1313,6 +1321,10 @@ export function resolveConfiguredAgentModelConfig(params: {
   model?: string
   loadedConfig?: LoadedProviderConfig
 }): ResolvedAgentModelConfig {
+  // Mode/agent/defaultModel routing in openbuff.json takes precedence. The
+  // `model` param is used as a last-resort fallback so callers that pass an
+  // explicit routable model id (e.g. getModelForRequest with no agent config)
+  // still resolve successfully.
   const { agentId, model, loadedConfig = loadProviderConfigSync() } = params
   const agentModels = loadedConfig.config.agents ?? {}
   const agentReasoningEfforts = loadedConfig.config.agentReasoningEfforts ?? {}
@@ -1335,18 +1347,21 @@ export function resolveConfiguredAgentModelConfig(params: {
     }
   }
 
-  const resolvedModel = loadedConfig.config.defaultModel ?? model
-  if (!resolvedModel) {
-    throw new Error(
-      `No model configured for agent '${agentId ?? 'unknown'}'. ` +
-        `Please set a defaultModel or agents['${agentId ?? 'unknown'}'] in your openbuff.json.`,
-    )
+  if (loadedConfig.config.defaultModel) {
+    return {
+      model: loadedConfig.config.defaultModel,
+      reasoningEffort: loadedConfig.config.defaultReasoningEffort,
+    }
   }
 
-  return {
-    model: resolvedModel,
-    reasoningEffort: loadedConfig.config.defaultReasoningEffort,
+  if (model) {
+    return { model }
   }
+
+  throw new Error(
+    `No model configured for agent '${agentId ?? 'unknown'}'. ` +
+      `Run /setup or set defaultModel (or agents['${agentId ?? 'unknown'}']) in your openbuff.json.`,
+  )
 }
 
 export function resolveConfiguredAgentModel(params: {

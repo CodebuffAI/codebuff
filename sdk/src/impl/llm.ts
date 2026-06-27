@@ -21,8 +21,13 @@ import {
   getModelForRequest,
   markChatGptOAuthRateLimited,
 } from './model-provider'
+import { resolveModelsToTry, isFailoverEligibleError } from './failover'
+import { loadProviderConfigSync } from '../provider-config'
 import { refreshChatGptOAuthToken } from '../credentials'
-import { getErrorStatusCode } from '../error-utils'
+import {
+  getErrorStatusCode,
+  isRetryableStatusCode,
+} from '../error-utils'
 
 import type { ModelRequestParams } from './model-provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
@@ -570,6 +575,12 @@ export async function* promptAiSdkStream(
   let anyContentYielded = false
   let lastError: unknown
 
+  const loadedConfig = loadProviderConfigSync()
+  const modelsToTry = resolveModelsToTry(params.model, loadedConfig)
+
+  for (let failoverIndex = 0; failoverIndex < modelsToTry.length; failoverIndex++) {
+    const failoverModel = modelsToTry[failoverIndex]
+    try {
   for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
     // Track if we've yielded content in THIS attempt (for ChatGPT OAuth fallback)
     let hasYieldedContent = false
@@ -581,11 +592,10 @@ export async function* promptAiSdkStream(
     try {
       const modelParams: ModelRequestParams = {
         apiKey: params.apiKey,
-        model: params.model,
+        model: failoverModel,
         agentId: params.agentId,
         skipChatGptOAuth: params.skipChatGptOAuth,
         costMode: params.costMode,
-        localMode: params.localMode,
         requiresVision: valueContainsImageInput(params.messages),
       }
       const modelResult = await getModelForRequest(modelParams)
@@ -594,7 +604,7 @@ export async function* promptAiSdkStream(
       compatibility = modelResult.compatibility
       const { reasoningEffort, effectiveModel, contextWindowTokens } = modelResult
 
-      if (isChatGptOAuth && attempt === 0) {
+      if (isChatGptOAuth && failoverIndex === 0 && attempt === 0) {
         trackEvent({
           event: AnalyticsEvent.CHATGPT_OAUTH_REQUEST,
           userId: userId ?? '',
@@ -1060,13 +1070,23 @@ export async function* promptAiSdkStream(
         throw error
       }
 
-      if (!isTransientNetworkError(error)) {
+      // Retry on transient network errors OR retryable HTTP status codes
+      // (408/429/500/502/503/504). The AI SDK surfaces provider 5xx responses
+      // as APICallError with a `statusCode`/`status` property; without this
+      // check, a provider 500 would be thrown immediately rather than retried.
+      const statusCode = getErrorStatusCode(error)
+      const isRetryableStatus = isRetryableStatusCode(statusCode)
+      if (!isTransientNetworkError(error) && !isRetryableStatus) {
         throw error
       }
 
       if (attempt >= MAX_STREAM_RETRIES) {
         logger.error(
-          { error: getErrorObject(error), attempts: attempt + 1 },
+          {
+            error: getErrorObject(error),
+            attempts: attempt + 1,
+            statusCode,
+          },
           'Stream failed after all retry attempts',
         )
         throw error
@@ -1080,10 +1100,48 @@ export async function* promptAiSdkStream(
           attempt: attempt + 1,
           maxRetries: MAX_STREAM_RETRIES,
           delayMs,
+          statusCode,
         },
-        'Transient network error during stream, retrying with delay',
+        isRetryableStatus
+          ? `Retryable HTTP ${statusCode} during stream, retrying with delay`
+          : 'Transient network error during stream, retrying with delay',
       )
       await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+    } catch (error) {
+      lastError = error
+
+      const canFailover =
+        !anyContentYielded &&
+        failoverIndex < modelsToTry.length - 1 &&
+        isFailoverEligibleError(error)
+
+      if (!canFailover) {
+        throw error
+      }
+
+      const statusCode = getErrorStatusCode(error)
+      trackEvent({
+        event: AnalyticsEvent.PROVIDER_FAILOVER,
+        userId: userId ?? '',
+        properties: {
+          fromModel: failoverModel,
+          toModel: modelsToTry[failoverIndex + 1],
+          statusCode,
+          userInputId,
+        },
+        logger,
+      })
+      logger.warn(
+        {
+          fromModel: failoverModel,
+          toModel: modelsToTry[failoverIndex + 1],
+          statusCode,
+          failoverIndex,
+        },
+        'Provider failover: primary model failed, trying next configured model',
+      )
     }
   }
 
@@ -1113,7 +1171,6 @@ export async function promptAiSdk(
     model: params.model,
     agentId: params.agentId,
     skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
-    localMode: params.localMode,
     requiresVision: valueContainsImageInput(params.messages),
   }
   const {
@@ -1212,7 +1269,6 @@ export async function promptAiSdkStructured<T>(
     model: params.model,
     agentId: params.agentId,
     skipChatGptOAuth: true, // Non-streaming skips ChatGPT OAuth; local/provider config may still route BYOK.
-    localMode: params.localMode,
     requiresVision: valueContainsImageInput(params.messages),
   }
   const {
