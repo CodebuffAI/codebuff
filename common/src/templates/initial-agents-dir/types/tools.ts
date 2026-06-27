@@ -6,6 +6,7 @@ export type ToolName =
   | 'apply_smart_patch'
   | 'add_message'
   | 'ask_user'
+  | 'check_background_agent'
   | 'check_job'
   | 'code_search'
   | 'end_turn'
@@ -55,6 +56,7 @@ export interface ToolParamsMap {
   apply_smart_patch: ApplySmartPatchParams
   add_message: AddMessageParams
   ask_user: AskUserParams
+  check_background_agent: CheckBackgroundAgentParams
   check_job: CheckJobParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
@@ -114,9 +116,9 @@ export interface ApplyPatchParams {
         diff: string
         /** Required for large-file update patches. Provide one capability per touched hunk, copied from fresh read_files.ranges headers so the runtime can reject stale or out-of-range patch hunks before editing. */
         basedOnRead?: {
-          /** 1-indexed inclusive start line from the read_files.ranges result this patch hunk is based on. */
+          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
           startLine: number
-          /** 1-indexed inclusive end line from the read_files.ranges result this patch hunk is based on. */
+          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
           endLine: number
           /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
           hash: string
@@ -188,6 +190,18 @@ export interface AskUserParams {
 }
 
 /**
+ * Poll or follow a background agent turn started by spawn_agents({ background: true }): returns the streamed chunks produced since the last check plus the job status. Use it to observe a long-running background agent without blocking the turn.
+ */
+export interface CheckBackgroundAgentParams {
+  /** The jobId returned by spawn_agents({ background: true }) for the background agent turn. */
+  jobId: string
+  /** Optional substring to wait for in the new streamed chunks before returning (follow mode). Returns early as soon as it appears in any chunk payload. Useful for waiting until a background agent emits a specific milestone (e.g. a tool_result or a text marker). */
+  wait_for?: string
+  /** Max seconds to wait for new chunks / the wait_for pattern. 0 (default) returns immediately with whatever new chunks exist (poll mode); >0 blocks up to this long (follow mode). */
+  timeout_seconds?: number
+}
+
+/**
  * Poll or follow a background job started by run_terminal_command: returns the output produced since the last check plus the job status and exit code. Use it to observe a long-running process without blocking the turn. To watch an arbitrary log file, start a `tail -f <file>` BACKGROUND job and check_job it with a wait_for pattern.
  */
 export interface CheckJobParams {
@@ -197,6 +211,8 @@ export interface CheckJobParams {
   wait_for?: string
   /** Max seconds to wait for new output / the wait_for pattern. 0 (default) returns immediately with whatever new output exists (poll mode); >0 blocks up to this long (follow mode). */
   timeout_seconds?: number
+  /** Follow mode only: when the follow-timeout fires (deadline reached, wait_for not yet matched, job still running) send SIGTERM to the background job and reflect the post-kill status/exitCode plus `killed: true` in the result. Defaults to true. Set to false to keep the job alive (e.g. so you can poll it again later). Poll mode (timeout_seconds 0/omitted) never kills regardless of this flag. */
+  kill_on_timeout?: boolean
 }
 
 /**
@@ -239,14 +255,21 @@ export interface EditTransactionParams {
           newString: string
           /** Whether to allow multiple replacements of oldString. */
           allowMultiple?: boolean
-          /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, transaction preflight falls back to deterministic full-file oldString matching when it can identify exactly one safe target. */
+          /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
+          occurrenceIndex?: number
+          /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
           basedOnRead?:
             | string
             | {
+                /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
                 startLine: number
+                /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
                 endLine: number
+                /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
                 hash: string
               }
+          /** For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits. */
+          skipIfMissing?: boolean
         }[]
       }
     | {
@@ -384,14 +407,21 @@ export interface ProposeEditTransactionParams {
           newString: string
           /** Whether to allow multiple replacements of oldString. */
           allowMultiple?: boolean
-          /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, transaction preflight falls back to deterministic full-file oldString matching when it can identify exactly one safe target. */
+          /** Optional 1-indexed exact occurrence to replace when oldString appears multiple times. Matches str_replace occurrenceIndex semantics and may be combined with basedOnRead to count only within an anchored range. */
+          occurrenceIndex?: number
+          /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
           basedOnRead?:
             | string
             | {
+                /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
                 startLine: number
+                /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
                 endLine: number
+                /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
                 hash: string
               }
+          /** For deletion replacements only (newString is empty): treat a missing oldString as an already-applied no-op. Use only for explicit idempotent cleanup retries, never for ordinary edits. */
+          skipIfMissing?: boolean
         }[]
       }
     | {
@@ -446,12 +476,15 @@ export interface ProposeStrReplaceParams {
     newString: string
     /** Whether to allow multiple replacements of oldString. */
     allowMultiple?: boolean
-    /** Required when proposing edits to large files. Either the readCapability token from a fresh read_files range header (preferred), or { startLine, endLine, hash } from that header. Carried through to the real str_replace when the proposal is applied. */
+    /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
     basedOnRead?:
       | string
       | {
+          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
           startLine: number
+          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
           endLine: number
+          /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
           hash: string
         }
   }[]
@@ -479,9 +512,9 @@ export interface QueryIndexParams {
   limit?: number
   /** Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only. */
   fileTypes?: string[]
-  /** Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, and commands prioritizes package scripts, CI workflows, task runners, and validation docs. */
-  mode?: 'search' | 'neighbors' | 'path' | 'explain' | 'commands'
-  /** Optional source file path for neighbors/path mode. */
+  /** Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, commands prioritizes package scripts, CI workflows, task runners, and validation docs, and references returns files that import or call into a seed file (blast-radius analysis before editing an exported symbol). */
+  mode?: 'search' | 'neighbors' | 'path' | 'explain' | 'commands' | 'references'
+  /** Optional source file path for neighbors, path, and references modes. */
   from?: string
   /** Optional target file path for path mode. */
   to?: string
@@ -682,6 +715,25 @@ export interface SpawnAgentsParams {
     agent_type: string
     /** Prompt to send to the agent */
     prompt?: string
+    /** If true, launch the agent detached from this turn. spawn_agents returns immediately with a jobId; the agent runs as an in-process coroutine. Poll its progress with check_background_agent. Use for long-running, non-blocking work (e.g. indexing, eval runs, multi-step research) where you do not need the result before ending your turn. The background agent shares the same process so it cannot outlive this CLI session. Defaults to false (blocking). */
+    background?: boolean
+    /** Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before. */
+    handoff?: {
+      /** Short, plain-language summary of what the parent has already done and what it expects the child to do next. */
+      summary?: string
+      /** Paths to durable artifacts the child should treat as authoritative (e.g. .agents/sessions/<slug>/PLAN.md). */
+      artifacts?: string[]
+      /** Bulleted acceptance criteria for the spawned child agent. */
+      successCriteria?: string[]
+      /** Explicit non-goals that the child must not attempt. */
+      nonGoals?: string[]
+      /** Hard constraints (e.g. allowed paths, safety/scope rails). Children should reject work that violates these. */
+      constraints?: string[]
+      /** Free-form structured context. Opaque to spawn_agents; the child agent may interpret as needed. */
+      context?: Record<string, any>
+    }
+    /** Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template's defaultTimeoutMs, or 20 minutes if unset. */
+    timeout_seconds?: number
     /** Parameters object for the agent */
     params?: {
       /** Terminal command to run (basher, tmux-cli) */
@@ -690,6 +742,12 @@ export interface SpawnAgentsParams {
       what_to_summarize?: string
       /** Timeout for command. Set to -1 for no timeout. Default 30 (basher) */
       timeout_seconds?: number
+      /** Save full command output to a /tmp log and extract failure lines for long SYNC command output (basher) */
+      save_full_log?: boolean
+      /** grep -E failure extraction pattern used with save_full_log (basher) */
+      failure_pattern?: string
+      /** Maximum extracted failure lines to return with save_full_log (basher) */
+      max_failure_lines?: number
       /** Array of code search queries (code-searcher) */
       searchQueries?: {
         /** The pattern to search for */
@@ -732,13 +790,13 @@ export interface StrReplaceParams {
     allowMultiple?: boolean
     /** When oldString appears multiple times, target exactly the Nth (1-indexed) occurrence. Lets you disambiguate repeated text without a re-read or a longer oldString. Requires an exact literal match (no near-match correction) and fails cleanly if fewer than N occurrences exist. If a fresh basedOnRead range is also given, occurrences are counted within that range. */
     occurrenceIndex?: number
-    /** Optional range anchor from read_files.ranges. If fresh, it constrains matching to that range; if missing or stale on a large file, the runtime falls back to full-file deterministic oldString matching when it can identify exactly one safe target. */
+    /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
     basedOnRead?:
       | string
       | {
-          /** 1-indexed inclusive start line from the read_files.ranges result this replacement is based on. */
+          /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
           startLine: number
-          /** 1-indexed inclusive end line from the read_files.ranges result this replacement is based on. */
+          /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
           endLine: number
           /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
           hash: string
@@ -778,6 +836,36 @@ export interface ThinkDeeplyParams {
 }
 
 /**
+ * Parameters for update_plan_status tool
+ */
+export interface UpdatePlanStatusParams {
+  /** Artifact path. Must be `.agents/sessions/<slug>/PLAN.md`, `.agents/sessions/<slug>/STATUS.md`, or `.agents/sessions/<slug>/LESSONS.md`. Absolute paths and `..` traversal are rejected. Editing PLAN.md is permitted only for tri-state task toggles (not full overwrites). */
+  path: string
+  /** Targeted updates applied in order. Each entry rewrites at most one matching checklist line; unmatched updates fall through to `append`. */
+  updates?: {
+    /** Substring of the existing task/checklist line to match (case-insensitive). The first matching `- [ ]`/`-[x]`/`-[~]`/`-[/]`/`-[!]` line in the artifact will be updated in place. */
+    task: string
+    /** When provided, sets the checkbox state of the matched line (true -> `[x]`, false -> `[ ]`). Ignored when `status` is also provided. */
+    completed?: boolean
+    /** Explicit tri-state task status. When provided, overrides `completed`. Transitions a task to `in_progress` (`[~]`), `done` (`[x]`), `cancelled` (`[/]`), `blocked` (`[!]`), or back to `pending` (`[ ]`). */
+    status?: 'pending' | 'in_progress' | 'done' | 'cancelled' | 'blocked'
+    /** Optional short note to append to the matched line in parentheses. Preserves any existing trailing text on the line. */
+    note?: string
+  }[]
+  /** Optional delimited entry appended at the end of the artifact (used when there is no matching task line for the change being recorded). */
+  append?: {
+    /** Short heading for an appended entry. Used to form a clearly delimited block (`## <heading> — <timestamp>`). */
+    heading: string
+    /** Markdown body for the appended entry. Written verbatim under the heading. */
+    body: string
+  }
+  /** Optional session-level status transition. When provided, `.agents/sessions/<slug>/STATE.json` is created or updated to reflect the new lifecycle status. */
+  sessionStatus?: 'active' | 'paused' | 'completed' | 'archived'
+  /** Optional current-task pointer written as a `<!-- current-task: <task> -->` annotation in PLAN.md. Pass an empty string or omit to clear the pointer. Only takes effect when path targets PLAN.md. */
+  currentTask?: string
+}
+
+/**
  * Search the web for current information, or fetch the content of a specific URL.
  */
 export interface WebSearchParams {
@@ -794,30 +882,6 @@ export interface WebSearchParams {
 }
 
 /**
- * Update durable plan session STATUS.md or LESSONS.md without rewriting the whole artifact.
- */
-export interface UpdatePlanStatusParams {
-  /** Artifact path. Must be `.agents/sessions/<slug>/STATUS.md` or `.agents/sessions/<slug>/LESSONS.md`. */
-  path: string
-  /** Targeted checklist-line updates applied in order. */
-  updates?: {
-    /** Substring of the existing checklist task line to match case-insensitively. */
-    task: string
-    /** Sets the checkbox state when provided. */
-    completed?: boolean
-    /** Optional short note to append to the matched line in parentheses. */
-    note?: string
-  }[]
-  /** Optional delimited entry appended at the end of the artifact. */
-  append?: {
-    /** Short heading for the appended entry. */
-    heading: string
-    /** Markdown body for the appended entry. */
-    body: string
-  }
-}
-
-/**
  * Create or overwrite a file with the given content.
  */
 export interface WriteFileParams {
@@ -827,6 +891,17 @@ export interface WriteFileParams {
   instructions: string
   /** Complete file content to write to the file. */
   content: string
+  /** Optional range anchor from a fresh read_files call. Presence bypasses strict read-before-edit for the target path without requiring a prior read_files call in the same turn. Accepts either the readCapability token copied verbatim from a fresh read_files range header (preferred; one value to copy instead of three), or the explicit { startLine, endLine, hash } object from that header. The runtime does NOT verify the supplied hash against current disk content; the upstream read_files call is the trust anchor. */
+  basedOnRead?:
+    | string
+    | {
+        /** 1-indexed inclusive start line from the read_files.ranges result this anchor covers. */
+        startLine: number
+        /** 1-indexed inclusive end line from the read_files.ranges result this anchor covers. */
+        endLine: number
+        /** The sha256 rangeHash returned by read_files.ranges for this exact range. */
+        hash: string
+      }
 }
 
 /**

@@ -306,6 +306,12 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
   previousToolCallFinished: Promise<void>
+  // True when this is a named-path write waiting behind a prior same-path write
+  // that is still in flight. Threaded through so the emitted `tool_call` event
+  // can carry `queued`, and so a `tool_start` transition can fire once the
+  // barrier resolves. Omitted (undefined) for read-only tools and custom/
+  // unknown-path writes.
+  queued?: boolean
   prompt: string | undefined
   providerOptions?: ProviderMetadata
   repoId: string | undefined
@@ -350,6 +356,7 @@ export async function executeToolCall<T extends ToolName>(
     onCostCalculated,
     onResponseChunk,
     requestToolCall,
+    queued,
   } = params
   const toolCallId = params.toolCallId ?? generateCompactId()
 
@@ -531,7 +538,20 @@ export async function executeToolCall<T extends ToolName>(
     agentId: agentState.agentId,
     parentAgentId: agentState.parentId,
     includeToolCall: !excludeToolFromMessageHistory,
+    ...(queued !== undefined && { queued }),
   })
+
+  // When this write is queued behind a prior same-path write, emit a
+  // `tool_start` transition once the barrier resolves so the CLI can flip the
+  // block from "queued" to "pending". This is non-blocking: we do NOT await
+  // `previousToolCallFinished` here (the handler still awaits it internally;
+  // double-resolution is harmless). Attach the `.then` immediately after the
+  // `tool_call` emit so ordering vs `tool_result` is guaranteed.
+  if (queued === true) {
+    previousToolCallFinished.then(() => {
+      onResponseChunk({ type: 'tool_start', toolCallId })
+    })
+  }
 
   // Cast to any to avoid type errors
   const handler = codebuffToolHandlers[
@@ -703,6 +723,7 @@ export async function executeCustomToolCall(
     toolResults,
     toolResultsToAddToMessageHistory,
     userInputId,
+    queued,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
@@ -763,7 +784,23 @@ export async function executeCustomToolCall(
     parentAgentId: agentState.parentId,
     // Include includeToolCall flag if explicitly set to false
     ...(excludeToolFromMessageHistory && { includeToolCall: false }),
+    ...(queued !== undefined && { queued }),
   })
+
+  // When this write is queued behind a prior same-path write, emit a
+  // `tool_start` transition once the barrier resolves so the CLI can flip the
+  // block from "queued" to "pending". Non-blocking: do NOT await
+  // `previousToolCallFinished` here (the handler still awaits it internally).
+  // For custom/unknown-path writes `queued` is typically undefined, so this
+  // is a no-op in practice — guarded for consistency with native writes.
+  if (queued === true) {
+    previousToolCallFinished.then(() => {
+      onResponseChunk({
+        type: 'tool_start',
+        toolCallId: toolCall.toolCallId,
+      })
+    })
+  }
 
   toolCalls.push(toolCall)
   if (!excludeToolFromMessageHistory) {

@@ -128,6 +128,8 @@ describe('Cost Aggregation System', () => {
         stepsRemaining: 10,
         creditsUsed: 50, // Parent starts with some cost
         directCreditsUsed: 50,
+        cacheInputTokens: 0,
+        cacheTotalInputTokens: 0,
         systemPrompt: 'Test system prompt',
         toolDefinitions: {},
         contextTokenCount: 0,

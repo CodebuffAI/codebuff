@@ -1,6 +1,7 @@
 export type Base2ActiveWorkPhase =
   | 'idle'
   | 'awaiting_validation'
+  | 'repair_loop'
   | 'awaiting_review'
   | 'blocked'
   | 'final_response_allowed'
@@ -45,4 +46,12 @@ export type Base2ActiveWorkState = Base2GateState & {
   nextRequiredAction: string
   lastPinnedStateMessage: string
   workflowTodoProgress?: Base2WorkflowTodoProgress
+  /**
+   * Number of automated repair-editor rounds that have run for the current
+   * batch of pending gate files. Reset to 0 whenever the gate passes or a
+   * fresh set of edits is recorded. Bounded by MAX_REPAIR_ROUNDS in base2.ts
+   * (default 3). Backward-compatible: older serialized state without this
+   * field is treated as 0.
+   */
+  repairRoundCount?: number
 }

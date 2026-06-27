@@ -40,6 +40,14 @@ export interface AgentDefinition {
   model?: ModelName
 
   /**
+   * Per-agent wall-clock timeout for subagent runs, in milliseconds. When set on an agent
+   * template, this overrides the shared 20-minute default for spawns of this agent. Set to -1
+   * to disable the wall-clock timeout entirely (for genuinely long-running agents). Callers can
+   * still override per-spawn via the spawn_agents `timeout_seconds` input field.
+   */
+  defaultTimeoutMs?: number
+
+  /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.

@@ -35,6 +35,15 @@ export interface AgentDefinition {
   model: ModelName
 
   /**
+   * Optional wall-clock timeout in milliseconds for a single execution of this
+   * agent as a subagent. When set, executeSubagent uses this as the deadline
+   * (overridable per-spawn via spawn_agents' timeout_seconds). Undefined falls
+   * back to DEFAULT_SUBAGENT_TIMEOUT_MS (20 minutes). Set to -1 to disable the
+   * timeout for genuinely long-running agents.
+   */
+  defaultTimeoutMs?: number
+
+  /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.

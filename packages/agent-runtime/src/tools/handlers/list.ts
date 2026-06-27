@@ -4,6 +4,7 @@ import { handleApplyPatch } from './tool/apply-patch'
 import { handleApplySmartPatch } from './tool/apply-smart-patch'
 import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
+import { handleCheckBackgroundAgent } from './tool/check-background-agent'
 import { handleCheckJob } from './tool/check-job'
 import { handleCodeSearch } from './tool/code-search'
 import { handleCreatePlan } from './tool/create-plan'
@@ -67,6 +68,7 @@ export const codebuffToolHandlers = {
   apply_smart_patch: handleApplySmartPatch,
   ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
+  check_background_agent: handleCheckBackgroundAgent,
   check_job: handleCheckJob,
   code_search: handleCodeSearch,
   create_plan: handleCreatePlan,

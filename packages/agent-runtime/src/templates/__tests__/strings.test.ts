@@ -53,6 +53,8 @@ const createMockAgentState = (agentType: string): AgentState => ({
   stepsRemaining: 10,
   creditsUsed: 0,
   directCreditsUsed: 0,
+  cacheInputTokens: 0,
+  cacheTotalInputTokens: 0,
   childRunIds: [],
   ancestorRunIds: [],
   contextTokenCount: 0,

@@ -411,6 +411,8 @@ export function createAgentState(
     stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
     creditsUsed: 0,
     directCreditsUsed: 0,
+    cacheInputTokens: 0,
+    cacheTotalInputTokens: 0,
     output: undefined,
     parentId: parentAgentState.agentId,
     systemPrompt: '',
@@ -457,10 +459,31 @@ export function logAgentSpawn(params: {
 /**
  * Default wall-clock bound for a single subagent execution. A stuck subagent
  * would otherwise burn up to {@link MAX_AGENT_STEPS_DEFAULT} steps; this
- * unblocks the parent after a generous 10-minute window. The underlying
- * {@link loopAgentSteps} is NOT cancelled by the timeout (see comment below).
+ * unblocks the parent after a generous 20-minute window. The timeout now aborts
+ * the AbortController threaded into loopAgentSteps (via AbortSignal.any with
+ * the parent signal), so the stuck LLM stream is actually cancelled rather than
+ * orphaned.
  */
-const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60 * 1000
+const DEFAULT_SUBAGENT_TIMEOUT_MS = 20 * 60 * 1000
+
+/**
+ * Resolves the wall-clock timeout (ms) for a subagent execution, in precedence
+ * order: explicit per-spawn override > agent template default > shared
+ * DEFAULT_SUBAGENT_TIMEOUT_MS. A non-positive value (-1, 0) disables the
+ * timeout entirely (used by genuinely long-running agents).
+ */
+export function resolveSubagentTimeoutMs(
+  agentTemplate: AgentTemplate,
+  subagentTimeoutMs?: number,
+): number {
+  if (subagentTimeoutMs !== undefined) {
+    return subagentTimeoutMs
+  }
+  if (agentTemplate.defaultTimeoutMs !== undefined) {
+    return agentTemplate.defaultTimeoutMs
+  }
+  return DEFAULT_SUBAGENT_TIMEOUT_MS
+}
 
 /**
  * Executes a subagent using loopAgentSteps
@@ -507,17 +530,33 @@ export async function executeSubagent(
   }
   onResponseChunk(startEvent)
 
-  // NOTE: withTimeout races against loopAgentSteps but does NOT cancel the
-  // underlying loop — the stuck LLM stream may continue briefly in the
-  // background. The parent is unblocked after the timeout, and the rejection
-  // flows through Promise.allSettled in spawn-agents.ts into a normal per-agent
-  // errorMessage report, so no other wiring is needed.
+  // Thread an AbortController through withTimeout so the deadline actually
+  // cancels the underlying loopAgentSteps stream. The subagent's signal is the
+  // combination of the parent's signal (so a user/parent-level abort still
+  // propagates) and the timeout controller (so the deadline cancels this
+  // subagent without affecting its siblings). AbortSignal.any is available in
+  // Node 20+ and Bun. If unavailable at runtime, fall back to a manual
+  // EventTarget bridge so this stays safe on older runtimes.
+  const resolvedTimeoutMs = resolveSubagentTimeoutMs(agentTemplate, subagentTimeoutMs)
+  const timeoutController =
+    resolvedTimeoutMs > 0 ? new AbortController() : undefined
+  const parentSignal = withDefaults.signal
+  const subagentSignal =
+    timeoutController && parentSignal
+      ? (AbortSignal as any).any
+        ? (AbortSignal as any).any([parentSignal, timeoutController.signal])
+        : createCombinedAbortSignal(parentSignal, timeoutController.signal)
+      : timeoutController
+        ? timeoutController.signal
+        : parentSignal
+
   let result
   let timedOut = false
   try {
     result = await withTimeout(
       loopAgentSteps({
         ...withDefaults,
+        signal: subagentSignal as AbortSignal,
         onResponseChunk,
         // Don't propagate parent's image content to subagents.
         // If subagents need to see images, they get them through includeMessageHistory,
@@ -526,14 +565,16 @@ export async function executeSubagent(
         ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
         agentType: agentTemplate.id,
       }),
-      subagentTimeoutMs ?? DEFAULT_SUBAGENT_TIMEOUT_MS,
-      `Subagent ${agentTemplate.id} exceeded wall-clock timeout of ${subagentTimeoutMs ?? DEFAULT_SUBAGENT_TIMEOUT_MS}ms`,
+      resolvedTimeoutMs,
+      `Subagent ${agentTemplate.id} exceeded wall-clock timeout of ${resolvedTimeoutMs}ms`,
+      timeoutController ? { controller: timeoutController } : {},
     )
   } catch (error) {
-    // withTimeout rejects on deadline, leaving loopAgentSteps running in the
-    // background (not cancelled). Emit a finish event so the UI doesn't show
-    // a subagent that started but never finished, then re-throw so the parent
-    // sees the error via Promise.allSettled.
+    // withTimeout rejects on deadline and has already aborted timeoutController,
+    // which cancels loopAgentSteps via the combined signal (loopAgentSteps checks
+    // signal.aborted at lines 889/1104/1369). Emit a finish event so the UI
+    // doesn't show a subagent that started but never finished, then re-throw so
+    // the parent sees the error via Promise.allSettled.
     timedOut = true
     onResponseChunk({
       type: 'subagent_finish',
@@ -567,5 +608,38 @@ export async function executeSubagent(
   }
 
   return result
+}
+
+/**
+ * Fallback combiner for runtimes without AbortSignal.any (Node < 20, very old
+ * Bun). Returns an AbortSignal that fires as soon as EITHER input signal fires.
+ * Aborts with the reason from whichever signal fired first. Used only when
+ * AbortSignal.any is unavailable at runtime.
+ */
+export function createCombinedAbortSignal(
+  a: AbortSignal,
+  b: AbortSignal,
+): AbortSignal {
+  const controller = new AbortController()
+  const abort = (reason?: any) => {
+    if (!controller.signal.aborted) {
+      try {
+        controller.abort(reason)
+      } catch {
+        // ignore — never let the bridge throw
+      }
+    }
+  }
+  if (a.aborted) {
+    abort(a.reason)
+  } else {
+    a.addEventListener('abort', () => abort(a.reason), { once: true })
+  }
+  if (b.aborted) {
+    abort(b.reason)
+  } else {
+    b.addEventListener('abort', () => abort(b.reason), { once: true })
+  }
+  return controller.signal
 }
 

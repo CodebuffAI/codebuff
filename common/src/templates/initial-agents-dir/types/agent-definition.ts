@@ -40,6 +40,15 @@ export interface AgentDefinition {
   model?: ModelName
 
   /**
+   * Optional wall-clock timeout in milliseconds for a single execution of this
+   * agent as a subagent. When set, executeSubagent uses this as the deadline
+   * (overridable per-spawn via spawn_agents' timeout_seconds). Undefined falls
+   * back to the shared DEFAULT_SUBAGENT_TIMEOUT_MS (20 minutes). Set to -1 to
+   * disable the timeout for genuinely long-running agents.
+   */
+  defaultTimeoutMs?: number
+
+  /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
@@ -116,6 +125,21 @@ export interface AgentDefinition {
     }
   }
 
+  /**
+   * Optional per-run cost cap in US cents. When set, the agent runtime
+   * enforces this as a hard spend ceiling — the turn ends if cumulative
+   * creditsUsed exceeds it. Useful for BYOK configurations to guard
+   * against runaway spend. Undefined = no cap.
+   */
+  maxCostCents?: number
+
+  /**
+   * Optional per-step input token cap. When set, the agent runtime ends
+   * the turn if a single step's total input tokens exceed this threshold.
+   * Undefined = no cap.
+   */
+  maxTokensPerTurn?: number
+
   // ============================================================================
   // Tools and Subagents
   // ============================================================================
@@ -133,9 +157,9 @@ export interface AgentDefinition {
    */
   toolNames?: (ToolName | (string & {}))[]
 
-  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+  /** Other agents this agent can spawn, like 'openbuff/file-picker@0.0.1'.
    *
-   * Use the fully qualified agent id from the agent store, including publisher and version. The built-in Openbuff agents currently use the legacy 'codebuff' publisher namespace, for example: 'codebuff/file-picker@0.0.1'
+   * Use the fully qualified agent id from the agent store, including publisher and version, for example: 'openbuff/file-picker@0.0.1'
    * (publisher and version are required!)
    *
    * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.

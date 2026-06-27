@@ -1,6 +1,12 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import {
+  allocateBackgroundAgentJob,
+  appendBackgroundAgentChunk,
+  attachBackgroundAgentPromise,
+} from '../../../util/background-agent-jobs'
+
+import {
   validateAndGetAgentTemplate,
   validateAgentInput,
   createAgentState,
@@ -88,13 +94,123 @@ export const handleSpawnAgents = (async (
 
   await previousToolCallFinished
 
+  // Background agents are launched detached: their executeSubagent promise is
+  // not awaited, the coroutine runs as a fire-and-forget same-process job, and
+  // spawn_agents returns immediately with a per-agent jobId report. The parent
+  // polls progress via check_background_agent. Only foreground (blocking)
+  // agents go through the Promise.allSettled aggregation path.
+  const backgroundReports: SpawnAgentReport[] = []
+  for (const {
+    agent_type: agentTypeStr,
+    prompt,
+    params: spawnParams,
+    handoff,
+    background,
+    timeout_seconds,
+  } of agents) {
+    if (!background) continue
+
+    const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
+      ...params,
+      agentTypeStr,
+      parentAgentTemplate,
+    })
+
+    validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+    const runtimeSpawnParams = buildSpawnParamsWithHandoff({
+      agentType,
+      handoff,
+      spawnParams,
+    })
+
+    const subAgentState = createAgentState(
+      agentType,
+      agentTemplate,
+      parentAgentState,
+      {},
+    )
+
+    const contextParams = extractSubagentContextParams(params)
+
+    // Pre-allocate the jobId so executeSubagent's synchronous
+    // onResponseChunk(startEvent) callback has a valid jobId to buffer into.
+    // executeSubagent fires the start event before it even returns the
+    // coroutine promise, so we cannot register-after-allocate here.
+    const job = allocateBackgroundAgentJob({
+      agentType,
+      agentName: agentTemplate.displayName,
+    })
+
+    // Detached coroutine: do NOT await. The registry tracks lifecycle and
+    // buffers streamed chunks for check_background_agent to poll.
+    const detachedPromise = executeSubagent({
+      ...contextParams,
+      ancestorRunIds: parentAgentState.ancestorRunIds,
+      userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
+      prompt: prompt || '',
+      spawnParams: runtimeSpawnParams,
+      agentTemplate,
+      parentAgentState,
+      agentState: subAgentState,
+      fingerprintId,
+      // Per-spawn wall-clock override (seconds → ms; -1 → no timeout).
+      subagentTimeoutMs:
+        timeout_seconds === undefined ? undefined : timeout_seconds * 1000,
+      // Background agents are detached; the parent never waits for them, so
+      // the "only child" step-count semantics (tuned for blocking spawns the
+      // parent blocks on) never apply. Force false regardless of how many
+      // agents are in the batch.
+      isOnlyChild: false,
+      excludeToolFromMessageHistory: false,
+      fromHandleSteps: false,
+      parentSystemPrompt,
+      parentTools: agentTemplate.inheritParentSystemPrompt
+        ? parentTools
+        : undefined,
+      onResponseChunk: (chunk: string | PrintModeEvent) => {
+        // Buffer the chunk for polling. We do NOT forward background agent
+        // chunks to writeToClient/sendSubagentChunk because the parent has
+        // already moved past this tool call — surfacing interleaved output
+        // would confuse the active turn.
+        if (typeof chunk === 'string') {
+          appendBackgroundAgentChunk(job.jobId, {
+            type: 'text',
+            payload: chunk,
+            timestamp: Date.now(),
+          })
+          return
+        }
+        appendBackgroundAgentChunk(job.jobId, {
+          type: chunk.type,
+          payload: chunk,
+          timestamp: Date.now(),
+        })
+      },
+    })
+
+    attachBackgroundAgentPromise(job, detachedPromise as Promise<unknown>)
+
+    backgroundReports.push({
+      agentId: subAgentState.agentId,
+      agentName: agentTemplate.displayName,
+      agentType,
+      value: {
+        background: true,
+        jobId: job.jobId,
+        message: `Agent launched in background. Poll progress with check_background_agent({ jobId: "${job.jobId}" }).`,
+      } as JSONValue,
+    })
+  }
+
+  const foregroundAgents = agents.filter((entry) => !entry.background)
   const results = await Promise.allSettled(
-    agents.map(
+    foregroundAgents.map(
       async ({
         agent_type: agentTypeStr,
         prompt,
         params: spawnParams,
         handoff,
+        timeout_seconds,
       }) => {
         const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
           ...params,
@@ -131,7 +247,10 @@ export const handleSpawnAgents = (async (
           parentAgentState,
           agentState: subAgentState,
           fingerprintId,
-          isOnlyChild: agents.length === 1,
+          isOnlyChild: foregroundAgents.length === 1,
+          // Per-spawn wall-clock override (seconds → ms; -1 → no timeout).
+          subagentTimeoutMs:
+            timeout_seconds === undefined ? undefined : timeout_seconds * 1000,
           excludeToolFromMessageHistory: false,
           fromHandleSteps: false,
           parentSystemPrompt,
@@ -203,30 +322,34 @@ export const handleSpawnAgents = (async (
     ),
   )
 
-  const reports: SpawnAgentReport[] = await Promise.all(
-    results.map(async (result, index): Promise<SpawnAgentReport> => {
-      if (result.status === 'fulfilled') {
-        const { output, agentType, agentName, agentState } = result.value
-        return {
-          agentId: agentState.agentId,
-          agentName,
-          agentType,
-          value: normalizeSpawnedAgentOutput(output) as JSONValue,
+  const reports: SpawnAgentReport[] = [
+    ...backgroundReports,
+    ...(await Promise.all(
+      results.map(async (result, index): Promise<SpawnAgentReport> => {
+        if (result.status === 'fulfilled') {
+          const { output, agentType, agentName, agentState } = result.value
+          return {
+            agentId: agentState.agentId,
+            agentName,
+            agentType,
+            value: normalizeSpawnedAgentOutput(output) as JSONValue,
+          }
+        } else {
+          const agentTypeStr = foregroundAgents[index].agent_type
+          return {
+            agentType: agentTypeStr,
+            agentName: agentTypeStr,
+            value: { errorMessage: `Error spawning agent: ${result.reason}` },
+          }
         }
-      } else {
-        const agentTypeStr = agents[index].agent_type
-        return {
-          agentType: agentTypeStr,
-          agentName: agentTypeStr,
-          value: { errorMessage: `Error spawning agent: ${result.reason}` },
-        }
-      }
-    }),
-  )
+      }),
+    )),
+  ]
 
-  // Aggregate costs from subagents
+  // Aggregate costs from subagents (foreground only; background agent costs
+  // are accumulated into their own AgentState and surfaced on poll).
   results.forEach((result, index) => {
-    const agentInfo = agents[index]
+    const agentInfo = foregroundAgents[index]
     let subAgentCredits = 0
 
     if (result.status === 'fulfilled') {

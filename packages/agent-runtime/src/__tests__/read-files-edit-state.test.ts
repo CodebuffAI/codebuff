@@ -859,7 +859,12 @@ describe('read_files edit-state recovery', () => {
       expect(value.errorMessage).toContain('Do NOT resubmit the same edit_transaction')
       expect(value.errorMessage).toContain('insert_import/remove_import')
     }
-    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+    // A preflight syntax failure is semantically distinct from a stale-anchor
+    // failure: the edits applied structurally and the disk content is unchanged,
+    // so the agent does NOT need to re-read the file before retrying — it only
+    // needs to fix the syntax. failedEditRequiresReadByPath must stay unset so
+    // the strict read-before-edit gate does not spuriously block the retry.
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBeUndefined()
   })
 
   it('marks all transaction paths as requiring re-read when client apply throws', async () => {

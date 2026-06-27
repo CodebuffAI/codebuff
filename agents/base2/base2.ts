@@ -323,6 +323,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       const runValidationGate = agentId !== 'base2-fast' && agentId !== 'base2-fast-no-validation'
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
+      const MAX_REPAIR_ROUNDS = 3
       const existingActiveWorkState = mutableAgentState.base2ActiveWork
       const hadPendingGateFiles =
         !!existingActiveWorkState &&
@@ -660,6 +661,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           activeWorkState.nextRequiredAction = ''
           activeWorkState.currentPhase = 'final_response_allowed'
           activeWorkState.lastReviewerGateSkipReason = ''
+          activeWorkState.repairRoundCount = 0
           activeWorkState.lastValidationSummary = durableValidationSummary
           pendingGateFiles.clear()
           editsHappened = false
@@ -713,48 +715,163 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           const failures = collectHookFailures(
             (verify as any) && (verify as any).toolResult,
           )
-          if (failures.length > 0) {
-            activeWorkState.nextRequiredAction =
-              'Fix the blocking validation hook failures before doing anything else.'
-            activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
-            activeWorkState.currentPhase = 'blocked'
-            activeWorkState.latestWorkSummary = `Validation failed for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`
+          if (failures.length === 0) {
+            validationSummary = summarizeHookResults(
+              (verify as any) && (verify as any).toolResult,
+            )
+            activeWorkState.lastValidationSummary = validationSummary
+            activeWorkState.currentPhase = 'awaiting_review'
             markActiveWorkStateChanged()
-            emitGateTelemetry({
-              currentPhase: 'blocked',
-              pendingFileCount: pendingGateFiles.size,
-              pendingFiles: Array.from(pendingGateFiles),
-              validationStatus: 'failed',
-              skipReason: 'validation-hook-failures',
-              blockerCount: failures.length,
-            })
-            yield {
-              toolName: 'add_message',
-              input: {
-                role: 'user',
-                content: [
-                  'Verification gate: configured file-change hooks failed. These are blocking — fix them before ending your turn:',
-                  '',
-                  ...failures,
-                  '',
-                  'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
-                  formatGateStateBlock(
-                    'validation',
-                    'failed',
-                    `validation-hook-failures: ${failures.length} hook failure(s) for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
-                  ),
-                ].join('\n'),
-              },
-              includeToolCall: false,
-            } as any
-            continue
+          } else {
+            const repairRound = activeWorkState.repairRoundCount ?? 0
+            const parsed = parseValidationFailures(failures)
+            const hasParseableFailures = parsed.some(
+              (p) => p.file.length > 0,
+            )
+            const canRepair =
+              repairRound < MAX_REPAIR_ROUNDS && hasParseableFailures
+            if (canRepair) {
+              activeWorkState.currentPhase = 'repair_loop'
+              activeWorkState.repairRoundCount = repairRound + 1
+              activeWorkState.latestWorkSummary = `Repair round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}: parsing ${failures.length} validation failure(s) and spawning targeted editor fix.`
+              activeWorkState.nextRequiredAction = ''
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'repair_loop',
+                pendingFileCount: pendingGateFiles.size,
+                pendingFiles: Array.from(pendingGateFiles),
+                validationStatus: 'failed',
+                repairRound: repairRound + 1,
+                blockerCount: failures.length,
+              })
+              const repair = yield {
+                toolName: 'spawn_agents',
+                input: {
+                  agents: [
+                    {
+                      agent_type: 'editor',
+                      prompt: buildRepairEditorPrompt(
+                        parsed,
+                        Array.from(pendingGateFiles),
+                      ),
+                    },
+                  ],
+                },
+              } as any
+              const repairGitStatus = yield {
+                toolName: 'git_status',
+                input: {},
+              } as any
+              const repairChangedFiles = extractGitStatusFiles(
+                (repairGitStatus as any)?.toolResult,
+              ).filter(
+                (file: string) =>
+                  !initialGitStatusFiles.includes(file) &&
+                  !gatePassedFiles.has(file),
+              )
+              if (repairChangedFiles.length > 0) {
+                recordChangedFiles(repairChangedFiles, { fromRepair: true })
+                activeWorkState.latestWorkSummary = `Repair editor (round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}) fixed: ${repairChangedFiles.join(', ')}`
+                markActiveWorkStateChanged()
+              }
+              const reVerify = yield {
+                toolName: 'run_file_change_hooks',
+                input: { files: Array.from(pendingGateFiles) },
+              } as any
+              const reFailures = collectHookFailures(
+                (reVerify as any) && (reVerify as any).toolResult,
+              )
+              if (reFailures.length === 0) {
+                validationSummary = summarizeHookResults(
+                  (reVerify as any) && (reVerify as any).toolResult,
+                )
+                activeWorkState.lastValidationSummary = validationSummary
+                activeWorkState.currentPhase = 'awaiting_review'
+                activeWorkState.nextRequiredAction = ''
+                markActiveWorkStateChanged()
+                emitGateTelemetry({
+                  currentPhase: 'awaiting_review',
+                  pendingFileCount: pendingGateFiles.size,
+                  pendingFiles: Array.from(pendingGateFiles),
+                  validationStatus: 'passed',
+                  repairRound: repairRound + 1,
+                  reuseReason: 'repair-succeeded',
+                })
+              } else {
+                activeWorkState.nextRequiredAction =
+                  'Fix the remaining validation hook failures before doing anything else.'
+                activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
+                activeWorkState.currentPhase = 'blocked'
+                activeWorkState.latestWorkSummary = `Repair editor (round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}) ran but ${reFailures.length} failure(s) remain.`
+                markActiveWorkStateChanged()
+                emitGateTelemetry({
+                  currentPhase: 'blocked',
+                  pendingFileCount: pendingGateFiles.size,
+                  pendingFiles: Array.from(pendingGateFiles),
+                  validationStatus: 'failed',
+                  repairRound: repairRound + 1,
+                  blockerCount: reFailures.length,
+                  skipReason: 'repair-incomplete',
+                })
+                yield {
+                  toolName: 'add_message',
+                  input: {
+                    role: 'user',
+                    content: [
+                      `Automated repair editor ran (round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}) but ${reFailures.length} validation failure(s) remain. Fix these before ending your turn:`,
+                      '',
+                      ...reFailures,
+                      '',
+                      'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
+                      formatGateStateBlock(
+                        'validation',
+                        'failed',
+                        `repair-incomplete: round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}; ${reFailures.length} failure(s) remain for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                      ),
+                    ].join('\n'),
+                  },
+                  includeToolCall: false,
+                } as any
+                continue
+              }
+            } else {
+              activeWorkState.nextRequiredAction =
+                'Fix the blocking validation hook failures before doing anything else.'
+              activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
+              activeWorkState.currentPhase = 'blocked'
+              activeWorkState.latestWorkSummary = `Validation failed for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'blocked',
+                pendingFileCount: pendingGateFiles.size,
+                pendingFiles: Array.from(pendingGateFiles),
+                validationStatus: 'failed',
+                skipReason: hasParseableFailures ? 'repair-budget-exhausted' : 'unparseable-failures',
+                blockerCount: failures.length,
+                repairRound,
+              })
+              yield {
+                toolName: 'add_message',
+                input: {
+                  role: 'user',
+                  content: [
+                    'Verification gate: configured file-change hooks failed. These are blocking — fix them before ending your turn:',
+                    '',
+                    ...failures,
+                    '',
+                    'Read the exact failing locations, make minimal targeted fixes, then finish (the hooks will re-run).',
+                    formatGateStateBlock(
+                      'validation',
+                      'failed',
+                      `validation-hook-failures: ${failures.length} hook failure(s) for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                    ),
+                  ].join('\n'),
+                },
+                includeToolCall: false,
+              } as any
+              continue
+            }
           }
-          validationSummary = summarizeHookResults(
-            (verify as any) && (verify as any).toolResult,
-          )
-          activeWorkState.lastValidationSummary = validationSummary
-          activeWorkState.currentPhase = 'awaiting_review'
-          markActiveWorkStateChanged()
         }
 
         let reviewerFinalizationVerdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | '' = ''
@@ -854,6 +971,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
               validationSummary,
             )
             activeWorkState.lastReviewerGateSkipReason = ''
+            activeWorkState.repairRoundCount = 0
             activeWorkStateChanged = true
           }
           if (activeWorkState.nextRequiredAction) {
@@ -997,7 +1115,10 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         return 'idle'
       }
 
-      function recordChangedFiles(files: string[]): void {
+      function recordChangedFiles(
+        files: string[],
+        opts?: { fromRepair?: boolean },
+      ): void {
         const normalizedFiles = normalizeGateFileList(files)
         for (const file of normalizedFiles) {
           changedFiles.add(file)
@@ -1025,6 +1146,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         if (normalizedFiles.length > 0) {
           activeWorkState.lastReviewerGateSkipReason = ''
           activeWorkState.currentPhase = 'awaiting_validation'
+          if (!opts?.fromRepair) {
+            activeWorkState.repairRoundCount = 0
+          }
         }
       }
 
@@ -2010,6 +2134,166 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         return hooks
       }
 
+      // Mirrors of `agents/base2/gate-repair.ts`. Kept inline because
+      // `handleSteps` is serialized via `toString()` + `new Function(...)`
+      // and cannot reference module-scope imports at reconstruction time.
+      // `agents/__tests__/gate-repair-parity.test.ts` enforces parity.
+      function parseValidationFailures(
+        failures: string[],
+      ): {
+        file: string
+        line?: number
+        column?: number
+        message: string
+        source: string
+      }[] {
+        const out: {
+          file: string
+          line?: number
+          column?: number
+          message: string
+          source: string
+        }[] = []
+        const seen = new Set<string>()
+        for (const raw of failures) {
+          if (typeof raw !== 'string' || !raw.trim()) continue
+          let source = 'unknown'
+          let body = raw
+          const prefixMatch = raw.match(/^\-\s+(\S+)\s+failed\s+\(exit\s+\d+\):\s*\n?/)
+          if (prefixMatch) {
+            source = prefixMatch[1]
+            body = raw.slice(prefixMatch[0].length)
+          }
+          const parsed: {
+            file: string
+            line?: number
+            column?: number
+            message: string
+            source: string
+          }[] = []
+          // tsc: "file.ts(line,col): error TSxxxx: message"
+          const tscRe = /^([^(]+)\((\d+),(\d+)\):\s*(error|warning)\s+(.+)$/gm
+          let m: RegExpExecArray | null
+          while ((m = tscRe.exec(body)) !== null) {
+            parsed.push({
+              file: m[1].trim(),
+              line: parseInt(m[2], 10),
+              column: parseInt(m[3], 10),
+              message: `${m[4]}: ${m[5]}`.trim(),
+              source,
+            })
+          }
+          if (parsed.length === 0) {
+            // eslint / gcc / rust: "file:line:col: message"
+            const unixRe = /^(\S+?):(\d+):(\d+):\s*(.+)$/gm
+            while ((m = unixRe.exec(body)) !== null) {
+              parsed.push({
+                file: m[1].trim(),
+                line: parseInt(m[2], 10),
+                column: parseInt(m[3], 10),
+                message: m[4].trim(),
+                source,
+              })
+            }
+          }
+          if (parsed.length === 0) {
+            // generic: "file:line: message" (no column)
+            const genericRe = /^(\S+?):(\d+):\s+(.+)$/gm
+            while ((m = genericRe.exec(body)) !== null) {
+              parsed.push({
+                file: m[1].trim(),
+                line: parseInt(m[2], 10),
+                message: m[3].trim(),
+                source,
+              })
+            }
+          }
+          if (parsed.length > 0) {
+            for (const p of parsed) {
+              const key = `${p.file}:${p.line ?? 0}:${p.column ?? 0}`
+              if (seen.has(key)) continue
+              seen.add(key)
+              out.push(p)
+            }
+          } else {
+            const key = `::${source}:${body.slice(0, 80)}`
+            if (!seen.has(key)) {
+              seen.add(key)
+              out.push({
+                file: '',
+                message: body.trim().slice(0, 500),
+                source,
+              })
+            }
+          }
+        }
+        return out
+      }
+
+      function buildRepairEditorPrompt(
+        parsed: {
+          file: string
+          line?: number
+          column?: number
+          message: string
+          source: string
+        }[],
+        pendingFiles: string[],
+      ): string {
+        const fileFailures = parsed.filter((p) => p.file.length > 0)
+        const lines: string[] = [
+          'Validation hooks failed after your edits. A deterministic failure parser extracted the specific failing locations below.',
+          '',
+          'For each failure, read the exact file and line, make the minimal targeted fix, then finish. Do not refactor or make unrelated changes. The gate will re-run validation automatically after your edits.',
+          '',
+        ]
+        if (fileFailures.length > 0) {
+          lines.push('Failing locations (file:line:column — message):')
+          const byFile = new Map<
+            string,
+            {
+              file: string
+              line?: number
+              column?: number
+              message: string
+              source: string
+            }[]
+          >()
+          for (const f of fileFailures) {
+            const list = byFile.get(f.file) ?? []
+            list.push(f)
+            byFile.set(f.file, list)
+          }
+          for (const [file, fails] of byFile) {
+            lines.push(`  ${file}:`)
+            for (const f of fails) {
+              const loc =
+                f.line != null
+                  ? `${f.line}${f.column != null ? `:${f.column}` : ''}`
+                  : '?'
+              lines.push(`    ${loc} — [${f.source}] ${f.message}`)
+            }
+          }
+        } else {
+          lines.push(
+            'No specific file:line locations could be parsed from the failure output. Read the raw failures below and the pending files, then fix.',
+          )
+        }
+        const unparsed = parsed.filter((p) => p.file.length === 0)
+        if (unparsed.length > 0) {
+          lines.push('')
+          lines.push('Raw unparsed failures:')
+          for (const u of unparsed) {
+            lines.push(`  [${u.source}] ${u.message}`)
+          }
+        }
+        if (pendingFiles.length > 0) {
+          lines.push('')
+          lines.push(`Pending changed files: ${pendingFiles.join(', ')}`)
+        }
+        return lines.join('\n')
+      }
+
       function shouldProactivelyQueryIndex(value: unknown): value is string {
         if (typeof value !== 'string') return false
         const text = value.trim()
@@ -2035,6 +2319,16 @@ function buildImplementationInstructionsPrompt({
   noAskUser: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
+
+## Broad audit / exploration requests — scope first, then shard
+
+For broad, open-ended, or audit-style requests (for example: "check this codebase for any feature improvements", "audit the codebase for security/correctness/perf issues", "find all the places X is handled", "what can be improved in the agents/sdk/cli", or anything where the relevant surface is not already obvious), do NOT default to a single surface-level codesearch or one or two file reads. Instead, run a deliberate scope-then-shard flow:
+
+1. **Assess scope first.** Use query_index (mode: 'search' and 'commands'), list_directory on the top-level dirs, and a glob or two to estimate the breadth of the request. Identify the distinct subsystems / packages / concerns the request spans (for example: agents/, packages/agent-runtime, packages/sdk, cli/, common/, evals/, docs/). Decide how many parallel subagents the breadth warrants — the wider the surface, the more shards. Default to at least 3–6 parallel subagents for audit-style requests; use more (8–12) for whole-codebase audits.
+2. **Shard parallel subagents accordingly.** Spawn multiple file-pickers and code-searchers in parallel, each pointed at a different subsystem or angle, so the coverage is comprehensive rather than duplicated. For a whole-codebase audit, also spawn one researcher-docs per major external library involved. Cast a wide net in this phase — do not gate the breadth on a single agent's output.
+3. **Read and synthesize.** Read the file-picker / code-searcher results, then read_files the most promising candidates (use read_outline before reading large files, and symbols selectors to pull just what you need). Only after synthesizing across the shards should you proceed to implementation or the answer.
+
+Never make the user ask explicitly for "use multiple agents" — the scope assessment above is your job, and the default for audit-style requests is parallel sharding, not a single codesearch.
 
 ## Example response
 
@@ -2116,6 +2410,16 @@ function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
 You are in plan mode. Preserve short-answer behavior: if the user is asking a question, requesting an explanation, or asking for a small clarification, answer directly and do not create a plan packet.
+
+## Broad audit / exploration requests — scope first, then shard
+
+For broad, open-ended, or audit-style requests (for example: "check this codebase for any feature improvements", "audit the codebase for security/correctness/perf issues", "find all the places X is handled", "what can be improved in the agents/sdk/cli", or anything where the relevant surface is not already obvious), do NOT default to a single surface-level codesearch or one or two file reads. Instead, run a deliberate scope-then-shard flow:
+
+1. **Assess scope first.** Use query_index (mode: 'search' and 'commands'), list_directory on the top-level dirs, and a glob or two to estimate the breadth of the request. Identify the distinct subsystems / packages / concerns the request spans (for example: agents/, packages/agent-runtime, packages/sdk, cli/, common/, evals/, docs/). Decide how many parallel subagents the breadth warrants — the wider the surface, the more shards. Default to at least 3–6 parallel subagents for audit-style requests; use more (8–12) for whole-codebase audits.
+2. **Shard parallel subagents accordingly.** Spawn multiple file-pickers and code-searchers in parallel, each pointed at a different subsystem or angle, so the coverage is comprehensive rather than duplicated. For a whole-codebase audit, also spawn one researcher-docs per major external library involved. Cast a wide net in this phase — do not gate the breadth on a single agent's output.
+3. **Read and synthesize.** Read the file-picker / code-searcher results, then read_files the most promising candidates (use read_outline before reading large files, and symbols selectors to pull just what you need). Only after synthesizing across the shards should you translate the findings into the durable plan packet below.
+
+Never make the user ask explicitly for "use multiple agents" — the scope assessment above is your job, and the default for audit-style requests is parallel sharding, not a single codesearch.
 
 For larger implementation, migration, debugging, or multi-step work, gather enough context to create a comprehensive, resumable plan packet. For non-trivial plans, create all four durable artifacts by default (SPEC.md, PLAN.md, STATUS.md, LESSONS.md); these are not optional or only "as needed". Normal users should not need to explicitly ask for STATUS or LESSONS artifacts. You may ask targeted clarifying questions with ask_user when the answer materially changes the plan. Avoid obvious questions and questions about details that can be adjusted later.
 

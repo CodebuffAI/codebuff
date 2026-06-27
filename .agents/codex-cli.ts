@@ -95,6 +95,8 @@ const baseDefinition = createCliAgent({
 // Constants must be inside handleSteps since it gets serialized via .toString()
 const definition: AgentDefinition = {
   ...baseDefinition,
+  // External CLI driving real implementation/review work via tmux can run genuinely long.
+  defaultTimeoutMs: 30 * 60 * 1000,
   handleSteps: function* ({ prompt, params, logger }) {
     const START_COMMAND = 'codex -a never -s danger-full-access'
     const CLI_NAME = 'Codex'

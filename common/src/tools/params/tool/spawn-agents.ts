@@ -75,10 +75,22 @@ const inputSchema = z
         .object({
           agent_type: z.string().describe('Agent to spawn'),
           prompt: z.string().optional().describe('Prompt to send to the agent'),
+          background: z
+            .boolean()
+            .optional()
+            .describe(
+              'If true, launch the agent detached from this turn. spawn_agents returns immediately with a jobId; the agent runs as an in-process coroutine. Poll its progress with check_background_agent. Use for long-running, non-blocking work (e.g. indexing, eval runs, multi-step research) where you do not need the result before ending your turn. The background agent shares the same process so it cannot outlive this CLI session. Defaults to false (blocking).',
+            ),
           handoff: agentHandoffSchema
             .optional()
             .describe(
               'Optional structured handoff payload. Purely additive — children that do not consume `handoff` continue to receive `prompt` and `params` as before.',
+            ),
+          timeout_seconds: z
+            .number()
+            .optional()
+            .describe(
+              'Per-spawn wall-clock timeout override for this subagent, in seconds. Set to -1 to disable the timeout entirely (genuinely long-running agents). Defaults to the agent template\'s defaultTimeoutMs, or 20 minutes if unset.',
             ),
           params: z
             .preprocess(

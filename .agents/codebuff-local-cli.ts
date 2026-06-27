@@ -39,6 +39,8 @@ const baseDefinition = createCliAgent({
 // Constants must be inside handleSteps since it gets serialized via .toString()
 const definition: AgentDefinition = {
   ...baseDefinition,
+  // Local Openbuff CLI E2E visual testing via tmux involves multi-step capture/interaction flows.
+  defaultTimeoutMs: 30 * 60 * 1000,
   handleSteps: function* ({ prompt, params, logger }) {
     const START_COMMAND = 'bun --cwd=cli run dev'
     const CLI_NAME = 'Openbuff'

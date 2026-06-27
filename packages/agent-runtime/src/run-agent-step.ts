@@ -30,6 +30,10 @@ import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
 import {
+  initBudgetFromTemplate,
+  checkBudgetExceeded,
+} from './util/budget-enforcement'
+import {
   createCacheDebugSnapshot,
   enrichCacheDebugSnapshotWithProviderRequest,
   enrichCacheDebugSnapshotWithUsage,
@@ -278,6 +282,45 @@ export const runAgentStep = async (
     }
   }
 
+  // P1-5: Lazy-init per-run budget caps from the agent template on the first
+  // step. This avoids threading config through run-state.ts/initialSessionState
+  // and naturally handles subagents (each spawned agent runs runAgentStep with
+  // its own template). Storing on agentState makes the cap visible to the
+  // accumulation/enforcement checks below and survives across steps.
+  // The init logic lives in util/budget-enforcement.ts (single source of truth,
+  // unit-tested there).
+  agentState = initBudgetFromTemplate(agentState, agentTemplate)
+
+  // P1-5j: Pre-LLM-call budget check. Catches a cost budget already exceeded
+  // by a prior step (e.g. an n-param path that accumulates cost onto agentState
+  // without checking the budget) BEFORE making this step's LLM call. Without
+  // this, a cap blown on step N's n-param path wouldn't be caught until step
+  // N+1's post-accumulation check — one extra LLM call past the cap.
+  // stepTotalInputTokens=0 here (no step has run yet), so only the cumulative
+  // cost cap can trigger; the per-step token cap never fires with 0 tokens.
+  const preStepBudgetCheck = checkBudgetExceeded(agentState, 0)
+  if (preStepBudgetCheck.exceeded) {
+    logger.warn(
+      { agentId: agentState.agentId, reason: preStepBudgetCheck.reason, creditsUsed: agentState.creditsUsed },
+      'Agent step skipped LLM call due to budget cap already exceeded',
+    )
+    agentState = {
+      ...agentState,
+      messageHistory: [
+        ...agentState.messageHistory,
+        userMessage(withSystemTags(preStepBudgetCheck.message)),
+      ],
+    }
+    onResponseChunk(`${preStepBudgetCheck.message}\n\n`)
+    return {
+      agentState,
+      fullResponse: preStepBudgetCheck.message,
+      shouldEndTurn: true,
+      messageId: null,
+      nResponses: undefined,
+    }
+  }
+
   const stepPrompt = await getAgentPrompt({
     ...params,
     agentTemplate,
@@ -308,6 +351,12 @@ export const runAgentStep = async (
   const { model } = agentTemplate
 
   let stepCreditsUsed = 0
+  // Step-local cache token accumulators. Mirrors the stepCreditsUsed pattern:
+  // accumulate into locals, apply once on the post-spread agentState. This
+  // avoids the stale-closure mutation bug (C2.3) where late async usage
+  // callbacks would mutate the pre-spread object.
+  let stepCacheInputTokens = 0
+  let stepCacheTotalInputTokens = 0
 
   // Accumulate step cost into a local. We deliberately do NOT mutate
   // `agentState.creditsUsed`/`directCreditsUsed` here: `agentState` is a `let`
@@ -374,15 +423,21 @@ export const runAgentStep = async (
       }
     : undefined
 
-  const onCacheDebugUsageReceived = cacheDebugCorrelation
-    ? (usage: CacheDebugUsageData) => {
-        enrichCacheDebugSnapshotWithUsage({
-          correlation: cacheDebugCorrelation,
-          usage,
-          logger,
-        })
-      }
-    : undefined
+  // The usage callback is UNCONDITIONAL: we always accumulate cache token
+  // counts into step locals for the runtime aggregate hit-rate metric
+  // (P0-3). The cache-debug snapshot enrichment (for CACHE_DEBUG_FULL_LOGGING)
+  // is an additional side-effect layered on top, gated by correlation.
+  const onCacheDebugUsageReceived = (usage: CacheDebugUsageData) => {
+    stepCacheInputTokens += usage.cachedInputTokens ?? 0
+    stepCacheTotalInputTokens += usage.inputTokens ?? 0
+    if (cacheDebugCorrelation) {
+      enrichCacheDebugSnapshotWithUsage({
+        correlation: cacheDebugCorrelation,
+        usage,
+        logger,
+      })
+    }
+  }
 
   logger.debug(
     {
@@ -429,6 +484,9 @@ export const runAgentStep = async (
           // mutation; apply on the returned post-spread object).
           creditsUsed: agentState.creditsUsed + stepCreditsUsed,
           directCreditsUsed: agentState.directCreditsUsed + stepCreditsUsed,
+          cacheInputTokens: agentState.cacheInputTokens + stepCacheInputTokens,
+          cacheTotalInputTokens:
+            agentState.cacheTotalInputTokens + stepCacheTotalInputTokens,
         },
         fullResponse: '',
         shouldEndTurn: true,
@@ -466,6 +524,9 @@ export const runAgentStep = async (
         // object, not via in-place closure mutation (C2.3).
         creditsUsed: agentState.creditsUsed + stepCreditsUsed,
         directCreditsUsed: agentState.directCreditsUsed + stepCreditsUsed,
+        cacheInputTokens: agentState.cacheInputTokens + stepCacheInputTokens,
+        cacheTotalInputTokens:
+          agentState.cacheTotalInputTokens + stepCacheTotalInputTokens,
       },
       fullResponse: responsesString,
       shouldEndTurn: false,
@@ -615,6 +676,43 @@ export const runAgentStep = async (
     // would mutate the pre-spread object (C2.3).
     creditsUsed: agentState.creditsUsed + stepCreditsUsed,
     directCreditsUsed: agentState.directCreditsUsed + stepCreditsUsed,
+    // Apply the step's accumulated cache token counts (P0-3). Same stale-closure
+    // avoidance as cost: accumulate in step locals, apply once on the
+    // post-spread object so callers always see the full total.
+    cacheInputTokens: agentState.cacheInputTokens + stepCacheInputTokens,
+    cacheTotalInputTokens:
+      agentState.cacheTotalInputTokens + stepCacheTotalInputTokens,
+  }
+
+  // P1-5: Enforce per-run budgets after accumulation. If either cap is
+  // exceeded, end the turn with a budget-exceeded system message so the user
+  // sees why the run stopped. Only checked here at the main step-completion
+  // return path — the n-param paths above are candidate-generation (returns
+  // shouldEndTurn: false) or abort (already ending for a different reason),
+  // so budget enforcement there would be redundant or noise.
+  // The check + message formatting lives in util/budget-enforcement.ts
+  // (single source of truth, unit-tested there).
+  const budgetCheck = checkBudgetExceeded(agentState, stepCacheTotalInputTokens)
+  if (budgetCheck.exceeded) {
+    logger.warn(
+      { agentId: agentState.agentId, reason: budgetCheck.reason, creditsUsed: agentState.creditsUsed, stepCacheTotalInputTokens },
+      'Agent step ended due to budget cap',
+    )
+    agentState = {
+      ...agentState,
+      messageHistory: [
+        ...agentState.messageHistory,
+        userMessage(withSystemTags(budgetCheck.message)),
+      ],
+    }
+    onResponseChunk(`${budgetCheck.message}\n\n`)
+    return {
+      agentState,
+      fullResponse: budgetCheck.message,
+      shouldEndTurn: true,
+      messageId: null,
+      nResponses: undefined,
+    }
   }
 
   logger.debug(
@@ -634,6 +732,8 @@ export const runAgentStep = async (
       agentContext,
       fullResponseChunks,
       stepCreditsUsed,
+      stepCacheInputTokens,
+      stepCacheTotalInputTokens,
     },
     `End agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
@@ -680,6 +780,18 @@ export async function loopAgentSteps(
     userId: string | undefined
     userInputId: string
     agentTemplate?: AgentTemplate
+    // P2-3: Mid-turn checkpoint. When provided, the loop invokes this callback
+    // with a snapshot of the main agent's state after each step boundary,
+    // time-throttled (default 30s) so a crashed/killed session can resume
+    // mid-turn from the last checkpoint rather than losing all in-flight work.
+    // Only fired for the main agent loop (callers only pass this for the top-
+    // level run); subagent loops leave this undefined.
+    onCheckpoint?: (agentState: AgentState) => void
+    // P2-3: When true, the user prompt is already present in
+    // `initialAgentState.messageHistory` (restored from a checkpoint), so the
+    // loop must NOT re-append a USER_PROMPT message — doing so would duplicate
+    // the prompt and corrupt the resumed context.
+    resumeInterruptedTurn?: boolean
   } & ParamsExcluding<typeof additionalToolDefinitions, 'agentTemplate'> &
     ParamsExcluding<
       typeof runProgrammaticStep,
@@ -757,7 +869,8 @@ export async function loopAgentSteps(
     userInputId,
     clientEnv,
     ciEnv,
-    localMode,
+    onCheckpoint,
+    resumeInterruptedTurn,
   } = params
 
   let agentTemplate = params.agentTemplate
@@ -872,7 +985,10 @@ export async function loopAgentSteps(
         skills: fileContext.skills ?? {},
       })
 
-  const hasUserMessage = Boolean(
+  // P2-3: On resume from a checkpoint, the user prompt is already in
+  // messageHistory — do not re-add it. Duplicating it would double the prompt
+  // and break the resumed context.
+  const hasUserMessage = !resumeInterruptedTurn && Boolean(
     prompt ||
     (spawnParams && Object.keys(spawnParams).length > 0) ||
     (content && content.length > 0),
@@ -955,6 +1071,31 @@ export async function loopAgentSteps(
   let currentParams = spawnParams
   let totalSteps = 0
   let nResponses: string[] | undefined = undefined
+
+  // P2-3: Mid-turn checkpoint throttle. Fire at most every 30s so lost work on
+  // crash is bounded to ~30s regardless of step duration. The first step always
+  // checkpoints (lastCheckpointTime starts at 0) so an early crash still has a
+  // resume point. Only active when onCheckpoint is provided (main agent only).
+  let lastCheckpointTime = 0
+  const CHECKPOINT_INTERVAL_MS = 30_000
+  const maybeCheckpoint = (state: AgentState) => {
+    if (!onCheckpoint) {
+      return
+    }
+    const now = Date.now()
+    if (now - lastCheckpointTime >= CHECKPOINT_INTERVAL_MS) {
+      lastCheckpointTime = now
+      try {
+        onCheckpoint(state)
+      } catch (err) {
+        // Checkpoint failures must never kill the run — log and continue.
+        logger.warn(
+          { error: err, runId },
+          'Mid-turn checkpoint write failed (non-fatal)',
+        )
+      }
+    }
+  }
 
   try {
     while (true) {
@@ -1116,6 +1257,13 @@ export async function loopAgentSteps(
       Object.assign(initialAgentState, newAgentState)
       currentAgentState = initialAgentState
       shouldEndTurn = llmShouldEndTurn
+
+      // P2-3: Mid-turn checkpoint at the main-agent step boundary (post-
+      // Object.assign, after in-flight state is committed to the shared
+      // reference). Time-throttled inside maybeCheckpoint (30s). Only fires
+      // when onCheckpoint is provided (main agent loop only; subagent loops
+      // never pass it).
+      maybeCheckpoint(currentAgentState)
       nResponses = generatedResponses
 
       currentPrompt = undefined

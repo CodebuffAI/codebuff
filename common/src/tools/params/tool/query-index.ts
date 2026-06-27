@@ -30,16 +30,18 @@ const inputSchema = z
         `Optional list of file extensions to filter results (without dot). E.g. ["ts", "tsx"] for TypeScript only.`,
       ),
     mode: z
-      .enum(['search', 'neighbors', 'path', 'explain', 'commands'])
+      .enum(['search', 'neighbors', 'path', 'explain', 'commands', 'references'])
       .optional()
       .default('search')
       .describe(
-        'Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, and commands prioritizes package scripts, CI workflows, task runners, and validation docs.',
+        'Query mode. search returns ranked files, explain includes ranking rationale, neighbors returns adjacent graph files, path returns a graph path between files, commands prioritizes package scripts, CI workflows, task runners, and validation docs, and references returns files that import or call into a seed file (blast-radius analysis before editing an exported symbol).',
       ),
     from: z
       .string()
       .optional()
-      .describe('Optional source file path for neighbors/path mode.'),
+      .describe(
+        'Optional source file path for neighbors, path, and references modes.',
+      ),
     to: z
       .string()
       .optional()
@@ -66,6 +68,13 @@ const inputSchema = z
         code: 'custom',
         path: ['query'],
         message: 'query or both from/to paths are required for path mode',
+      })
+    }
+    if (mode === 'references' && !input.from && input.query.trim().length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['from'],
+        message: 'from or query is required for references mode',
       })
     }
   })
@@ -118,6 +127,12 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: { query: 'broader validation suite', mode: 'commands' },
+  endsAgentStep,
+})}
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: { mode: 'references', from: 'src/auth.ts', limit: 15 },
   endsAgentStep,
 })}
 `.trim()
