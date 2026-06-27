@@ -449,6 +449,7 @@ export const migrateLegacyProjectToNewDaytona = action({
         snapshot: process.env.DAYTONA_SNAPSHOT_ID,
         public: true,
         autoStopInterval: 10,
+        autoArchiveInterval: 60,
       });
       targetSandboxId = targetSandbox.id;
       console.log(

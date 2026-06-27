@@ -242,6 +242,7 @@ export async function createDaytonaSandbox(
           snapshot: effectiveSnapshotId,
           public: true,
           autoStopInterval: 10,
+          autoArchiveInterval: 60,
         }),
       "createDaytonaSandbox",
     );

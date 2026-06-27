@@ -96,7 +96,7 @@ export class DaytonaCodebase
   private getCheckRegistry(
     enableStatsMonitoring: boolean,
   ): IntegrityCheckRegistry {
-    const sandboxConfigurationVersion = "autostop:10|autoarchive:4320";
+    const sandboxConfigurationVersion = "autostop:10|autoarchive:60";
     const registry: IntegrityCheckRegistry = {
       ensureSandboxConfiguration: {
         frequency: "when",
@@ -344,9 +344,9 @@ export class DaytonaCodebase
         await this.sandbox.setAutostopInterval(desiredAutostopInterval);
       }
 
-      // Configure auto-archive interval (3 days)
-      // This prevents sandboxes from being archived too quickly
-      const desiredAutoArchiveInterval = 3 * 24 * 60; // 3 days in minutes
+      // Configure auto-archive interval (1 hour)
+      // Sandboxes are archived after being continuously stopped for 1 hour.
+      const desiredAutoArchiveInterval = 60; // 1 hour in minutes
       if (this.sandbox.autoArchiveInterval !== desiredAutoArchiveInterval) {
         await this.sandbox.setAutoArchiveInterval(desiredAutoArchiveInterval);
       }
