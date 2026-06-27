@@ -12,7 +12,6 @@ import {
   getChatGptOAuthStatus,
   stopChatGptOAuthServer,
 } from '../utils/chatgpt-oauth'
-import { isLocalMode } from '../utils/constants'
 import { setupOpenbuffProviderFromArgs } from '../utils/openbuff-provider'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -40,7 +39,6 @@ export const ChatGptConnectBanner = () => {
   const [autoConfigError, setAutoConfigError] = useState<string | null>(null)
 
   function maybePromptAutoConfig(): void {
-    if (!isLocalMode()) return
     try {
       const loadedConfig = loadProviderConfigSync()
       const hasCodexProvider = loadedConfig.config.providers?.codex != null
@@ -275,7 +273,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
     return {
       success: true,
       message:
-        `Successfully connected your ChatGPT subscription! ${isLocalMode() ? 'If needed, run /setup codex to route requests through Codex, or click Use Codex preset if the banner is still open.' : 'It will be used for supported OpenAI streaming requests.'}`,
+        `Successfully connected your ChatGPT subscription! If needed, run /setup codex to route requests through Codex, or click Use Codex preset if the banner is still open.`,
     }
   } catch (err) {
     return {

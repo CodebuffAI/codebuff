@@ -1,26 +1,5 @@
 import type { ToolName } from '@codebuff/sdk'
 
-import {
-  CODEBUFF_LOCAL_MODE_ENV_VAR,
-  OPENBUFF_LOCAL_MODE_ENV_VAR,
-  isLocalModeEnabled,
-} from '@codebuff/common/constants/local-mode'
-
-import { getCliEnv } from './env'
-
-export const isLocalMode = (): boolean => {
-  const env = getCliEnv()
-  return (
-    !process.argv.includes('--cloud') &&
-    isLocalModeEnabled({
-      env: {
-        [OPENBUFF_LOCAL_MODE_ENV_VAR]: env.OPENBUFF_LOCAL_MODE,
-        [CODEBUFF_LOCAL_MODE_ENV_VAR]: env.CODEBUFF_LOCAL_MODE,
-      },
-    })
-  )
-}
-
 // Agent IDs that should not be rendered in the CLI UI
 export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
 

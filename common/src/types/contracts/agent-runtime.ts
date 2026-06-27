@@ -55,7 +55,6 @@ export type AgentRuntimeDeps = {
   // Other
   logger: Logger
   fetch: typeof globalThis.fetch
-  localMode?: boolean
 }
 
 /** Per-run dependencies */

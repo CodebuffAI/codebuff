@@ -30,8 +30,7 @@ import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
 import { resetCodebuffClient } from './utils/codebuff-client'
-import { isLocalMode } from './utils/constants'
-import { getCliEnv, getSystemProcessEnv } from './utils/env'
+import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
@@ -99,7 +98,6 @@ type ParsedArgs = {
   continueId?: string | null
   cwd?: string
   initialMode?: AgentMode
-  localMode: boolean
 }
 
 function parseArgs(): ParsedArgs {
@@ -133,10 +131,6 @@ function parseArgs(): ParsedArgs {
 
   const options = program.opts()
   const args = program.args
-  const localMode = true
-  const systemEnv = getSystemProcessEnv()
-  systemEnv.OPENBUFF_LOCAL_MODE = 'true'
-  if (options.local) systemEnv.CODEBUFF_LOCAL_MODE = 'true'
 
   const continueFlag = options.continue
 
@@ -155,7 +149,6 @@ function parseArgs(): ParsedArgs {
         : null,
     cwd: options.cwd,
     initialMode,
-    localMode,
   }
 }
 
@@ -258,7 +251,6 @@ async function main(): Promise<void> {
     continueId,
     cwd,
     initialMode,
-    localMode,
   } = parseArgs()
 
   const isPublishCommand = process.argv[2] === 'publish'
@@ -281,7 +273,6 @@ async function main(): Promise<void> {
     hasAgentOverride: hasAgentOverride,
     continueChat,
     initialMode: initialMode ?? 'DEFAULT',
-    localMode,
   })
 
   // Initialize agent registry (loads user agents via SDK).

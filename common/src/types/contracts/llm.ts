@@ -62,8 +62,6 @@ export type PromptAiSdkStreamFn = (
     localAgentTemplates?: Record<string, AgentTemplate>
     /** Optional provider cost/accounting mode forwarded to provider adapters. */
     costMode?: string
-    /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
-    localMode?: boolean
     /** Extra key/values merged into the request's provider metadata field.
      *  Used to forward client-scoped identifiers or provider-routing metadata
      *  that downstream adapters read from the chat-completions body. */
@@ -100,8 +98,6 @@ export type PromptAiSdkFn = (
     maxRetries?: number
     /** Optional provider cost/accounting mode forwarded to provider adapters. */
     costMode?: string
-    /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
-    localMode?: boolean
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
@@ -137,8 +133,6 @@ export type PromptAiSdkStructuredInput<T> = {
   cacheDebugCorrelation?: string
   agentProviderOptions?: OpenRouterProviderRoutingOptions
   maxRetries?: number
-  /** Openbuff local/BYOK mode; hosted Codebuff inference is not used. */
-  localMode?: boolean
   sendAction: SendActionFn
   logger: Logger
   trackEvent: TrackEventFn

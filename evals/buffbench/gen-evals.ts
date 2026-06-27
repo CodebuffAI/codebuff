@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { CodebuffClient, LOCAL_MODE_API_KEY } from '@codebuff/sdk'
+import { CodebuffClient } from '@codebuff/sdk'
 import { mapLimit } from 'async'
 import { createTwoFilesPatch } from 'diff'
 
@@ -141,8 +141,6 @@ export async function generateEvalFileV2({
   const actualRepoName = extractRepoNameFromUrl(repoUrl)
 
   const client = new CodebuffClient({
-    apiKey: LOCAL_MODE_API_KEY,
-    localMode: true,
   })
 
   const finalOutputPath =

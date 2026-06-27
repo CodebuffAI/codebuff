@@ -3,7 +3,6 @@ import os from 'os'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
 import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { $ } from 'bun'
@@ -50,7 +49,7 @@ describe('Base Deep Agent Integration', () => {
     }
   }
 
-  const getApiKeyOrSkip = (): string => LOCAL_MODE_API_KEY
+  const getApiKeyOrSkip = (): string => ''
 
   const isAuthenticationError = (error: unknown) => {
     if (!(error instanceof Error)) return false
@@ -198,12 +197,10 @@ describe('Base Deep Agent Integration', () => {
     'spawns thinker when requested',
     async () => {
       const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
 
       const events: PrintModeEvent[] = []
       const client = new CodebuffClient({
         apiKey,
-        localMode: true,
         cwd: '/tmp/base-deep-thinker-test',
         projectFiles: {
           'README.md': '# Base2 Thinker Test\n',
@@ -249,7 +246,6 @@ describe('Base Deep Agent Integration', () => {
     'can edit a file with the base-deep agent',
     async () => {
       const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
 
       const tmpDir = await fs.promises.mkdtemp(
         path.join(os.tmpdir(), 'base-deep-edit-'),
@@ -307,7 +303,6 @@ describe('Base Deep Agent Integration', () => {
     'handles a deeper multi-file integration on a realistic TypeScript project',
     async () => {
       const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
 
       const tmpDir = await fs.promises.mkdtemp(
         path.join(os.tmpdir(), 'base-deep-real-project-'),
@@ -489,7 +484,6 @@ describe('Base Deep Agent Integration', () => {
     'works on a shallow-cloned codebuff repo for a commit-inspired focused task',
     async () => {
       const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
 
       const cloneDir = await createShallowClone()
       const events: PrintModeEvent[] = []
@@ -547,7 +541,6 @@ describe('Base Deep Agent Integration', () => {
     'handles a complex shallow-clone repo task with 200+ changed lines',
     async () => {
       const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
 
       const cloneDir = await createShallowClone()
       const events: PrintModeEvent[] = []

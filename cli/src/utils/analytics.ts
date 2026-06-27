@@ -4,7 +4,6 @@ import {
   type AnalyticsClientWithIdentify,
   type PostHogClientOptions,
 } from '@codebuff/common/analytics-core'
-import { isLocalModeEnabled } from '@codebuff/common/constants/local-mode'
 import {
   env as defaultEnv,
   IS_PROD as defaultIsProd,
@@ -13,8 +12,6 @@ import {
 import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-
-import { getCliEnv } from './env'
 
 // Re-export types from core for backwards compatibility
 export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics-core'
@@ -140,170 +137,27 @@ function logAnalyticsError(error: unknown, context: AnalyticsErrorContext) {
   }
 }
 
-function isLocalModeAnalyticsDisabled(): boolean {
-  return isLocalModeEnabled({ env: getCliEnv() })
-}
-
 export function initAnalytics() {
-  if (isLocalModeAnalyticsDisabled()) {
-    return
-  }
-
-  const { env, isProd, createClient, generateAnonymousId } = resolveDeps()
-
-  if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
-    const error = new Error(
-      'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set',
-    )
-    logAnalyticsError(error, {
-      stage: AnalyticsErrorStage.Init,
-      missingEnv: true,
-    })
-    throw error
-  }
-
-  // Generate anonymous ID for pre-login tracking
-  // PostHog will merge this with the real user ID via alias() when user logs in
-  anonymousId = generateAnonymousId()
-  identified = false
-
-  try {
-    client = createClient(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-      host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-      enableExceptionAutocapture: isProd,
-    })
-  } catch (error) {
-    logAnalyticsError(error, { stage: AnalyticsErrorStage.Init })
-    throw error
-  }
+  // No-op: analytics scaffold removed (local-only mode). Kept as a stub so
+  // existing call sites in init-app and tests continue to compile.
 }
 
 export async function flushAnalytics() {
-  if (!client) {
-    return
-  }
-  try {
-    await client.flush()
-  } catch (error) {
-    // Silently handle PostHog network errors - don't log to console or logger
-    // This prevents PostHog errors from cluttering the user's console
-    logAnalyticsError(error, { stage: AnalyticsErrorStage.Flush })
-  }
+  // No-op: analytics scaffold removed (local-only mode).
 }
 
 export function trackEvent(
-  event: AnalyticsEvent,
-  properties?: Record<string, any>,
+  _event: AnalyticsEvent,
+  _properties?: Record<string, any>,
 ) {
-  if (isLocalModeAnalyticsDisabled()) {
-    return
-  }
-
-  const { isProd } = resolveDeps()
-  const distinctId = getDistinctId()
-
-  if (!client) {
-    if (isProd) {
-      const error = new Error('Analytics client not initialized')
-      logAnalyticsError(error, {
-        stage: AnalyticsErrorStage.Track,
-        event,
-        properties,
-      })
-      throw error
-    }
-    return
-  }
-
-  if (!distinctId) {
-    // This shouldn't happen if initAnalytics was called, but handle gracefully
-    return
-  }
-
-  if (!isProd) {
-    if (DEBUG_ANALYTICS) {
-      logAnalyticsDebug(`[analytics] ${event}`, {
-        event,
-        properties,
-        distinctId,
-      })
-    }
-    return
-  }
-
-  if (!shouldTrackAnalyticsEvent({ event, distinctId, properties })) {
-    return
-  }
-
-  try {
-    client.capture({
-      distinctId,
-      event,
-      properties,
-    })
-  } catch (error) {
-    logAnalyticsError(error, {
-      stage: AnalyticsErrorStage.Track,
-      event,
-      properties,
-    })
-  }
+  // No-op: analytics scaffold removed (local-only mode).
 }
 
-export function identifyUser(userId: string, properties?: Record<string, any>) {
-  if (isLocalModeAnalyticsDisabled()) {
-    return
-  }
-
-  if (!client) {
-    const error = new Error('Analytics client not initialized')
-    logAnalyticsError(error, {
-      stage: AnalyticsErrorStage.Identify,
-      properties,
-    })
-    throw error
-  }
-
-  const { isProd } = resolveDeps()
-  const previousAnonymousId = anonymousId
-
-  // Store the real user ID for future events
-  currentUserId = userId
-  identified = true
-
-  if (!isProd) {
-    if (DEBUG_ANALYTICS) {
-      logAnalyticsDebug('[analytics] user identified', {
-        userId,
-        previousAnonymousId,
-        properties,
-      })
-    }
-    return
-  }
-
-  try {
-    // If we had an anonymous ID, alias it FIRST to the real user ID
-    // This must be called BEFORE identify to properly merge the event histories
-    // See: https://posthog.com/docs/libraries/node
-    if (previousAnonymousId) {
-      client.alias({
-        distinctId: userId,
-        alias: previousAnonymousId,
-      })
-    }
-
-    // Then identify the user with their properties
-    client.identify({
-      distinctId: userId,
-      properties,
-    })
-  } catch (error) {
-    logAnalyticsError(error, {
-      stage: AnalyticsErrorStage.Identify,
-      properties,
-    })
-  }
+export function identifyUser(
+  _userId: string,
+  _properties?: Record<string, any>,
+) {
+  // No-op: analytics scaffold removed (local-only mode).
 }
 
 export function logError(

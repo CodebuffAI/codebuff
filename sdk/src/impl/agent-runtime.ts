@@ -1,20 +1,11 @@
-import { trackEvent as trackCommonEvent } from '@codebuff/common/analytics'
 import {
   LOCAL_MODE_USER_EMAIL,
   LOCAL_MODE_USER_ID,
 } from '@codebuff/common/constants/local-mode'
 import { env as clientEnvDefault } from '@codebuff/common/env'
 import { getCiEnv } from '@codebuff/common/env-ci'
-import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
 import { success } from '@codebuff/common/util/error'
 
-import {
-  addAgentStep,
-  fetchAgentFromDatabase,
-  finishAgentRun,
-  getUserInfoFromApiKey,
-  startAgentRun,
-} from './database'
 import { promptAiSdk, promptAiSdkStream, promptAiSdkStructured } from './llm'
 
 import type {
@@ -42,7 +33,6 @@ export function getAgentRuntimeImpl(
     logger?: Logger
     apiKey: string
     clientEnv?: ClientEnv
-    localMode?: boolean
   } & Pick<
     AgentRuntimeScopedDeps,
     | 'handleStepsLogChunk'
@@ -58,7 +48,6 @@ export function getAgentRuntimeImpl(
     logger,
     apiKey,
     clientEnv = clientEnvDefault,
-    localMode = false,
     handleStepsLogChunk,
     requestToolCall,
     requestMcpToolData,
@@ -68,23 +57,8 @@ export function getAgentRuntimeImpl(
     sendSubagentChunk,
   } = params
 
-  const trackSdkRuntimeEvent: TrackEventFn = (eventParams) => {
-    if (localMode) {
-      return
-    }
-
-    if (
-      clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod' &&
-      !shouldTrackAnalyticsEvent({
-        event: eventParams.event,
-        distinctId: eventParams.userId,
-        properties: eventParams.properties,
-      })
-    ) {
-      return
-    }
-
-    trackCommonEvent(eventParams)
+  const trackSdkRuntimeEvent: TrackEventFn = () => {
+    return
   }
 
   return {
@@ -93,15 +67,11 @@ export function getAgentRuntimeImpl(
     ciEnv: getCiEnv(),
 
     // Database
-    getUserInfoFromApiKey: localMode
-      ? localGetUserInfoFromApiKey
-      : getUserInfoFromApiKey,
-    fetchAgentFromDatabase: localMode
-      ? localFetchAgentFromDatabase
-      : fetchAgentFromDatabase,
-    startAgentRun: localMode ? localStartAgentRun : startAgentRun,
-    finishAgentRun: localMode ? localFinishAgentRun : finishAgentRun,
-    addAgentStep: localMode ? localAddAgentStep : addAgentStep,
+    getUserInfoFromApiKey: localGetUserInfoFromApiKey,
+    fetchAgentFromDatabase: localFetchAgentFromDatabase,
+    startAgentRun: localStartAgentRun,
+    finishAgentRun: localFinishAgentRun,
+    addAgentStep: localAddAgentStep,
 
     // Billing
     consumeCreditsWithFallback: async () =>
@@ -134,7 +104,6 @@ export function getAgentRuntimeImpl(
     sendSubagentChunk,
 
     apiKey,
-    localMode,
   }
 }
 

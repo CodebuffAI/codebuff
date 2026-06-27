@@ -194,8 +194,7 @@ async function main() {
   console.log(`Output dir: ${outputDir}`)
 
   // BYOK/local mode — uses openbuff.json for provider routing
-  const client = new CodebuffClient({ logger, localMode: true, cwd })
-  console.log(`Local mode: ${client.options.localMode}`)
+  const client = new CodebuffClient({ logger, cwd })
 
   // Load local agent definitions
   const agentsPath = resolve(__dirname, '../../agents')

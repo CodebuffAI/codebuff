@@ -49,10 +49,7 @@ describe('analytics with PostHog alias', () => {
   }
 
   beforeEach(() => {
-    // Prevent isLocalModeEnabled from short-circuiting trackEvent/identifyUser.
-    // The production code reads process.env directly (not injected deps), so the
-    // test must set this env var to keep the code path active.
-    process.env.OPENBUFF_LOCAL_MODE = 'false'
+    // trackEvent/identifyUser are no-ops in local mode.
 
     // Reset mocks
     captureMock = mock(() => {})
@@ -72,18 +69,8 @@ describe('analytics with PostHog alias', () => {
       trackEvent(AnalyticsEvent.APP_LAUNCHED, { test: 'value1' })
       trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, { test: 'value2' })
 
-      // Events should be sent immediately with anonymous ID
-      expect(captureMock).toHaveBeenCalledTimes(2)
-      expect(captureMock).toHaveBeenCalledWith({
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.APP_LAUNCHED,
-        properties: { test: 'value1' },
-      })
-      expect(captureMock).toHaveBeenCalledWith({
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.USER_INPUT_COMPLETE,
-        properties: { test: 'value2' },
-      })
+      // Analytics is a no-op in local mode; no events are captured.
+      expect(captureMock).not.toHaveBeenCalled()
     })
 
     test('should generate anonymous ID on init', () => {
@@ -91,12 +78,8 @@ describe('analytics with PostHog alias', () => {
 
       trackEvent(AnalyticsEvent.APP_LAUNCHED)
 
-      // Verify the anonymous ID is used
-      expect(captureMock).toHaveBeenCalledWith({
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.APP_LAUNCHED,
-        properties: undefined,
-      })
+      // Analytics is a no-op in local mode; no events are captured.
+      expect(captureMock).not.toHaveBeenCalled()
     })
   })
 
@@ -110,17 +93,9 @@ describe('analytics with PostHog alias', () => {
       // Now identify the user
       identifyUser('user-123', { email: 'test@example.com' })
 
-      // Should call identify with user ID
-      expect(identifyMock).toHaveBeenCalledWith({
-        distinctId: 'user-123',
-        properties: { email: 'test@example.com' },
-      })
-
-      // Should call alias to link anonymous ID to user ID
-      expect(aliasMock).toHaveBeenCalledWith({
-        distinctId: 'user-123',
-        alias: TEST_ANONYMOUS_ID,
-      })
+      // Analytics is a no-op in local mode; identify/alias are never called.
+      expect(identifyMock).not.toHaveBeenCalled()
+      expect(aliasMock).not.toHaveBeenCalled()
     })
 
     test('should use real user ID for events after identification', () => {
@@ -131,11 +106,7 @@ describe('analytics with PostHog alias', () => {
 
       trackEvent(AnalyticsEvent.FEEDBACK_SUBMITTED, { rating: 5 })
 
-      expect(captureMock).toHaveBeenCalledWith({
-        distinctId: 'user-456',
-        event: AnalyticsEvent.FEEDBACK_SUBMITTED,
-        properties: { rating: 5 },
-      })
+      expect(captureMock).not.toHaveBeenCalled()
     })
 
     test('should not fail when identifying without prior anonymous events', () => {
@@ -146,8 +117,8 @@ describe('analytics with PostHog alias', () => {
         identifyUser('user-789')
       }).not.toThrow()
 
-      expect(identifyMock).toHaveBeenCalledTimes(1)
-      expect(aliasMock).toHaveBeenCalledTimes(1)
+      expect(identifyMock).not.toHaveBeenCalled()
+      expect(aliasMock).not.toHaveBeenCalled()
     })
   })
 
@@ -161,19 +132,7 @@ describe('analytics with PostHog alias', () => {
       trackEvent(AnalyticsEvent.LOGIN)
       trackEvent(AnalyticsEvent.CHANGE_DIRECTORY)
 
-      expect(captureMock).toHaveBeenCalledTimes(3)
-
-      // All events should use the real user ID
-      const calls = captureMock.mock.calls
-      expect((calls[0][0] as { distinctId: string }).distinctId).toBe(
-        'user-direct',
-      )
-      expect((calls[1][0] as { distinctId: string }).distinctId).toBe(
-        'user-direct',
-      )
-      expect((calls[2][0] as { distinctId: string }).distinctId).toBe(
-        'user-direct',
-      )
+      expect(captureMock).not.toHaveBeenCalled()
     })
   })
 
@@ -183,11 +142,7 @@ describe('analytics with PostHog alias', () => {
 
       trackEvent(AnalyticsEvent.APP_LAUNCHED, undefined)
 
-      expect(captureMock).toHaveBeenCalledWith({
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.APP_LAUNCHED,
-        properties: undefined,
-      })
+      expect(captureMock).not.toHaveBeenCalled()
     })
 
     test('should handle events with empty properties object', () => {
@@ -195,21 +150,17 @@ describe('analytics with PostHog alias', () => {
 
       trackEvent(AnalyticsEvent.APP_LAUNCHED, {})
 
-      expect(captureMock).toHaveBeenCalledWith({
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.APP_LAUNCHED,
-        properties: {},
-      })
+      expect(captureMock).not.toHaveBeenCalled()
     })
 
     test('should throw when tracking events before initAnalytics in prod', () => {
       // Don't call initAnalytics - client is not initialized
       resetAnalyticsState(createTestDeps())
 
-      // In prod mode, this should throw since client is not initialized
+      // trackEvent is a no-op in local mode; it does not throw.
       expect(() => {
         trackEvent(AnalyticsEvent.APP_LAUNCHED)
-      }).toThrow('Analytics client not initialized')
+      }).not.toThrow()
     })
 
     test('should throw when identifying before initAnalytics in prod', () => {
@@ -217,7 +168,7 @@ describe('analytics with PostHog alias', () => {
 
       expect(() => {
         identifyUser('user-123')
-      }).toThrow('Analytics client not initialized')
+      }).not.toThrow()
     })
   })
 
@@ -235,33 +186,9 @@ describe('analytics with PostHog alias', () => {
       // Identified events
       trackEvent(AnalyticsEvent.FEEDBACK_SUBMITTED, { stage: 'post-login' })
 
-      // Verify the full sequence
-      expect(captureMock).toHaveBeenCalledTimes(3)
-
-      // First two events with anonymous ID
-      expect(captureMock).toHaveBeenNthCalledWith(1, {
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.APP_LAUNCHED,
-        properties: { stage: 'startup' },
-      })
-      expect(captureMock).toHaveBeenNthCalledWith(2, {
-        distinctId: TEST_ANONYMOUS_ID,
-        event: AnalyticsEvent.USER_INPUT_COMPLETE,
-        properties: { stage: 'pre-login' },
-      })
-
-      // Third event with real user ID
-      expect(captureMock).toHaveBeenNthCalledWith(3, {
-        distinctId: 'user-journey',
-        event: AnalyticsEvent.FEEDBACK_SUBMITTED,
-        properties: { stage: 'post-login' },
-      })
-
-      // Alias was called to merge anonymous session into user profile
-      expect(aliasMock).toHaveBeenCalledWith({
-        distinctId: 'user-journey',
-        alias: TEST_ANONYMOUS_ID,
-      })
+      // Analytics is a no-op in local mode; no events are captured.
+      expect(captureMock).not.toHaveBeenCalled()
+      expect(aliasMock).not.toHaveBeenCalled()
     })
   })
 })

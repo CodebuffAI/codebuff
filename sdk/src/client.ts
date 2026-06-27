@@ -1,6 +1,3 @@
-import { LOCAL_MODE_API_KEY, isLocalModeEnabled } from '@codebuff/common/constants/local-mode'
-import { WEBSITE_URL } from './constants'
-import { getSdkEnv } from './env'
 import { run } from './run'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
@@ -10,21 +7,9 @@ export class CodebuffClient {
   public options: CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
-    localMode: boolean
   }
 
   constructor(options: CodebuffClientOptions) {
-    const localMode = isLocalModeEnabled({
-      localMode: options.localMode,
-      env: getSdkEnv(),
-    })
-    const foundApiKey = options.apiKey
-    if (!foundApiKey && !localMode) {
-      throw new Error(
-        'Openbuff runs in local/BYOK mode. Configure an OpenAI-compatible or Anthropic-compatible provider in openbuff.json.',
-      )
-    }
-
     this.options = {
       handleEvent: (event) => {
         if (event.type === 'error') {
@@ -35,8 +20,7 @@ export class CodebuffClient {
       },
       fingerprintId: `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`,
       ...options,
-      apiKey: foundApiKey ?? LOCAL_MODE_API_KEY,
-      localMode,
+      apiKey: options.apiKey ?? '',
     }
   }
 
@@ -64,33 +48,4 @@ export class CodebuffClient {
     return run({ ...this.options, ...options })
   }
 
-  /**
-   * Openbuff does not require a hosted backend connection in local/BYOK mode.
-   *
-   * @returns Promise that resolves to true when local mode is active.
-   */
-  public async checkConnection(): Promise<boolean> {
-    if (this.options.localMode) {
-      return true
-    }
-
-    try {
-      const response = await fetch(`${WEBSITE_URL}/api/healthz`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000), // 5 second timeout
-      })
-
-      if (!response.ok) return false
-
-      const result = await response.json()
-      return (
-        typeof result === 'object' &&
-        result !== null &&
-        'status' in result &&
-        (result as { status?: unknown }).status === 'ok'
-      )
-    } catch {
-      return false
-    }
-  }
 }

@@ -23,16 +23,13 @@ describe('CodebuffClient', () => {
   test('defaults to Openbuff local mode without a Codebuff API key', async () => {
     delete process.env.CODEBUFF_API_KEY
     delete process.env.OPENBUFF_LOCAL_MODE
-    delete process.env.CODEBUFF_LOCAL_MODE
 
     const mockFetch = mock(() => Promise.reject(new Error('should not fetch')))
     setFetchMock(mockFetch)
 
     const client = new CodebuffClient({})
 
-    expect(client.options.apiKey).toBe('openbuff-local-mode')
-    expect(client.options.localMode).toBe(true)
-    expect(await client.checkConnection()).toBe(true)
+    expect(client.options.apiKey).toBe('')
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -42,11 +39,9 @@ describe('CodebuffClient', () => {
     const mockFetch = mock(() => Promise.reject(new Error('should not fetch')))
     setFetchMock(mockFetch)
 
-    const client = new CodebuffClient({ localMode: true })
+    const client = new CodebuffClient({})
 
-    expect(client.options.apiKey).toBe('openbuff-local-mode')
-    expect(client.options.localMode).toBe(true)
-    expect(await client.checkConnection()).toBe(true)
+    expect(client.options.apiKey).toBe('')
     expect(mockFetch).not.toHaveBeenCalled()
   })
 })

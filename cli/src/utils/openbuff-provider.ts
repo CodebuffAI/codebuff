@@ -26,7 +26,7 @@ import {
   disconnectChatGptOAuth,
   getChatGptOAuthStatus,
 } from './chatgpt-oauth'
-import { AGENT_MODE_TO_ID, isLocalMode } from './constants'
+import { AGENT_MODE_TO_ID } from './constants'
 
 import type {
   AgentDefinition,
@@ -1089,10 +1089,6 @@ export function getOpenbuffProviderReadiness(params: {
   agent: AgentDefinition | string
   agentMode: AgentMode
 }): { ok: true } | { ok: false; message: string } {
-  if (!isLocalMode()) {
-    return { ok: true }
-  }
-
   const loadedConfig = loadProviderConfigSync()
   if (
     loadedConfig.sourceFilePaths.length === 0 &&

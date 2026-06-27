@@ -11,11 +11,10 @@
 
 import { closeSync, constants, openSync, writeSync } from 'fs'
 
-import { isLocalMode } from './constants'
 import { getCliEnv } from './env'
 
 const MAX_TITLE_LENGTH = 60
-const TITLE_PREFIX = isLocalMode() ? 'Openbuff: ' : 'Codebuff: '
+const TITLE_PREFIX = 'Openbuff: '
 const OSC_TERMINATOR = '\x07' // BEL
 
 function isInTmux(env: ReturnType<typeof getCliEnv>): boolean {

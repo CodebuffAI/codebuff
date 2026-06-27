@@ -15,7 +15,6 @@ const timeout = setTimeout(() => abortController.abort(), timeoutMs)
 
 try {
   const client = new CodebuffClient({
-    localMode: true,
     cwd: process.cwd(),
     agentDefinitions: loadAgentDefinitions(),
   })

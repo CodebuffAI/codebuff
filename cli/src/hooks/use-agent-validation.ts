@@ -2,7 +2,6 @@ import { validateAgents } from '@codebuff/sdk'
 import { useCallback, useState } from 'react'
 
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
-import { isLocalMode } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { filterNetworkErrors } from '../utils/validation-error-helpers'
 
@@ -41,7 +40,7 @@ export const useAgentValidation = (): UseAgentValidationResult => {
       const agentDefinitions = loadAgentDefinitions()
 
       const validationResult = await validateAgents(agentDefinitions, {
-        remote: !isLocalMode(),
+        remote: false,
       })
 
       if (validationResult.success) {

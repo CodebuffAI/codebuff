@@ -13,7 +13,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
 import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
 
 import type { AgentDefinition } from '@codebuff/sdk'
@@ -170,8 +169,6 @@ async function main() {
   console.log(`Loaded browser-use agent (model: ${browserAgent.model})`)
 
   const client = new CodebuffClient({
-    apiKey: LOCAL_MODE_API_KEY,
-    localMode: true,
     cwd: process.cwd(),
   })
 

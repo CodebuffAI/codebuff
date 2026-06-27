@@ -22,7 +22,6 @@
  * Both count as successful pruning for our purposes.
  */
 
-import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
 import {
   CodebuffClient,
   initialSessionState,
@@ -310,15 +309,11 @@ describe('Context Pruning Threshold E2E', () => {
   it(
     'should NOT prune when token count is well below the limit',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Build message history targeting ~30k tokens of message content
       // With maxContextLength=100k, this should be well below the pruning threshold
       const messages = buildMessageHistory(30_000)
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         agentDefinitions: [
           testAgent,
           contextPruner as unknown as AgentDefinition,
@@ -384,15 +379,11 @@ describe('Context Pruning Threshold E2E', () => {
   pruningIt(
     'should prune when token count exceeds the limit',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Build message history targeting ~80k tokens of message content
       // With maxContextLength=50k, this should exceed the pruning threshold
       const messages = buildMessageHistory(80_000)
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         agentDefinitions: [
           testAgent,
           contextPruner as unknown as AgentDefinition,
@@ -459,8 +450,6 @@ describe('Context Pruning Threshold E2E', () => {
   pruningIt(
     'should verify token counting accuracy: no premature 30% buffer for Anthropic models',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // This test verifies that the token counting API returns accurate counts
       // for Anthropic models without a 30% buffer or local fallback overcounting.
       //
@@ -483,7 +472,6 @@ describe('Context Pruning Threshold E2E', () => {
       const messages = buildMessageHistory(TARGET_ESTIMATED_TOKENS)
 
       const client = new CodebuffClient({
-        apiKey,
         agentDefinitions: [
           testAgent,
           contextPruner as unknown as AgentDefinition,

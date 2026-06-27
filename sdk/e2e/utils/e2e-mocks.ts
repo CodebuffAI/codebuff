@@ -510,5 +510,7 @@ export function setupE2eMocks(): void {
     promptAiSdkStructuredMock as typeof llmModule.promptAiSdkStructured,
   )
 
-  spyOn(CodebuffClient.prototype, 'checkConnection').mockResolvedValue(true)
+  // CodebuffClient.checkConnection() was removed when the hosted-backend
+  // connection-poll path was pruned (local/BYOK mode is always connected).
+  // No replacement spy is needed.
 }

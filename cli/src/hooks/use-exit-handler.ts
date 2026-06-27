@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
-import { isLocalMode } from '../utils/constants'
 import { withTimeout } from '../utils/terminal-color-detection'
 
 import type { InputValue } from '../types/store'
@@ -33,7 +32,7 @@ function setupExitMessageHandler() {
       if (chatId) {
         // This runs synchronously during the exit phase
         // OpenTUI has already cleaned up by this point
-        const cliName = isLocalMode() ? 'openbuff' : 'codebuff'
+        const cliName = 'openbuff'
         process.stdout.write(
           `\nTo continue this session later, run:\n${cliName} --continue ${chatId}\n`,
         )

@@ -1,15 +1,13 @@
-import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
-
 import { setupE2eMocks } from './e2e-mocks'
 
 /**
- * Utility to provide the SDK's local/BYOK sentinel key for e2e tests.
- * Openbuff has no hosted Codebuff/Openbuff API key; tests run against local
- * mocked providers unless they explicitly configure a BYOK provider.
+ * Openbuff has no hosted API key; tests run in local/BYOK mode against mocked
+ * providers unless they explicitly configure a BYOK provider. This helper is
+ * retained for e2e test call-sites that still pass an `apiKey` field.
  */
 export function getApiKey(): string {
   setupE2eMocks()
-  return LOCAL_MODE_API_KEY
+  return ''
 }
 
 /**
@@ -19,8 +17,8 @@ export function skipIfNoApiKey(): boolean {
   return false
 }
 
-export function getByokTestClientOptions(): { apiKey: string; localMode: true } {
-  return { apiKey: getApiKey(), localMode: true }
+export function getByokTestClientOptions(): { apiKey: string } {
+  return { apiKey: getApiKey() }
 }
 
 /**

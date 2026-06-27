@@ -125,8 +125,6 @@ export interface ModelRequestParams {
   /** Routing cost mode ('lite' | 'normal' | 'max' | …). Accepted for caller
    *  compatibility; does not affect BYOK provider resolution. */
   costMode?: string
-  /** Deprecated; Openbuff always avoids hosted Codebuff inference. */
-  localMode?: boolean
   /** True when the prompt/message history contains image input parts. */
   requiresVision?: boolean
 }
@@ -365,41 +363,41 @@ function findProviderVisionFallback(params: {
   loadedConfig: LoadedProviderConfig
 }): string | undefined {
   const { configuredProviderModel, loadedConfig } = params
-  const providerModels = getProviderRoutableModels(
+  // Search the currently-configured provider first (intra-provider fallback)
+  // so we prefer same-provider models before crossing providers.
+  const candidateProviderIds = [
     configuredProviderModel.providerId,
-    configuredProviderModel.provider,
-  )
+    ...Object.keys(loadedConfig.config.providers).filter(
+      (id) => id !== configuredProviderModel.providerId,
+    ),
+  ]
 
-  return providerModels
-    .map((candidate) => {
+  const candidates: { model: string; support: VisionSupport }[] = []
+  for (const providerId of candidateProviderIds) {
+    const provider = loadedConfig.config.providers[providerId]
+    if (!provider) continue
+    const providerModels = getProviderRoutableModels(providerId, provider)
+    for (const candidate of providerModels) {
       const candidateProviderModel = resolveConfiguredProviderModel({
         model: candidate,
         loadedConfig,
       })
-      if (!candidateProviderModel) {
-        return undefined
+      if (!candidateProviderModel) continue
+      const support = getModelVisionSupport({
+        configuredProviderModel: candidateProviderModel,
+        effectiveModel: candidate,
+        loadedConfig,
+      })
+      if (support === 'yes') {
+        candidates.push({ model: candidate, support })
       }
-      return {
-        model: candidate,
-        support: getModelVisionSupport({
-          configuredProviderModel: candidateProviderModel,
-          effectiveModel: candidate,
-          loadedConfig,
-        }),
-      }
-    })
-    .filter(
-      (
-        candidate,
-      ): candidate is {
-        model: string
-        support: VisionSupport
-      } => candidate?.support === 'yes',
-    )
-    .sort(
-      (left, right) =>
-        getVisionFallbackRank(left.model) - getVisionFallbackRank(right.model),
-    )[0]?.model
+    }
+  }
+
+  return candidates.sort(
+    (left, right) =>
+      getVisionFallbackRank(left.model) - getVisionFallbackRank(right.model),
+  )[0]?.model
 }
 
 function resolveVisionModelIfNeeded(params: {

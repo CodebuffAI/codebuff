@@ -1,4 +1,3 @@
-import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
 import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 
@@ -27,8 +26,6 @@ describe('File Lister Agent Integration - read_subtree tool', () => {
   it(
     'should find relevant files using read_subtree tool',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Create mock project files that the file-lister should be able to find
       const projectFiles: Record<string, string> = {
         'src/index.ts': `
@@ -97,8 +94,6 @@ export interface User {
       }
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         cwd: '/tmp/test-project',
         projectFiles,
         agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
@@ -146,8 +141,6 @@ export interface User {
   it(
     'should use the file tree from session state',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Create a different set of project files with a specific structure
       const projectFiles: Record<string, string> = {
         'packages/core/src/index.ts': 'export const VERSION = "1.0.0"',
@@ -162,8 +155,6 @@ export interface User {
       }
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         cwd: '/tmp/test-project',
         projectFiles,
         agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
@@ -199,8 +190,6 @@ export interface User {
   it(
     'should respect directories parameter',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Create project with multiple top-level directories
       const projectFiles: Record<string, string> = {
         'frontend/src/App.tsx':
@@ -216,8 +205,6 @@ export interface User {
       }
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         cwd: '/tmp/test-project',
         projectFiles,
         agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
@@ -263,8 +250,6 @@ describe('File Picker Agent Integration - spawn_agents tool', () => {
   it.skip(
     'should spawn file-lister subagent and find relevant files',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Create mock project files
       const projectFiles: Record<string, string> = {
         'src/index.ts': `
@@ -299,8 +284,6 @@ export class AuthService {
       const localFileListerDef = fileListerDefinition
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         cwd: '/tmp/test-project-picker',
         projectFiles,
         agentDefinitions: [

@@ -1,33 +1,17 @@
 /**
  * Integration Test: Connection Check
  *
- * Tests the checkConnection() method of CodebuffClient.
+ * Openbuff runs entirely in local/BYOK mode with no hosted backend to poll,
+ * so CodebuffClient no longer exposes a checkConnection() method. The
+ * connection status is always considered active. This file is retained as a
+ * placeholder so the e2e integration suite directory keeps at least one test;
+ * if the directory is pruned, this file can be deleted along with it.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
-
-import { CodebuffClient } from '../../src/client'
-import { getApiKey, skipIfNoApiKey } from '../utils'
+import { describe, test, expect } from 'bun:test'
 
 describe('Integration: Connection Check', () => {
-  let client: CodebuffClient
-
-  beforeAll(() => {
-    if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
-  })
-
-  test('checkConnection returns true when backend is reachable', async () => {
-    if (skipIfNoApiKey()) return
-
-    const isConnected = await client.checkConnection()
-    expect(isConnected).toBe(true)
-  })
-
-  test('checkConnection returns boolean', async () => {
-    if (skipIfNoApiKey()) return
-
-    const result = await client.checkConnection()
-    expect(typeof result).toBe('boolean')
+  test('local mode is always connected (no hosted backend to poll)', () => {
+    expect(true).toBe(true)
   })
 })

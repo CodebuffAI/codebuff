@@ -87,8 +87,6 @@ type ClientToolOverrides = Partial<Record<PublishedClientToolName, ClientToolOve
 
 export type CodebuffClientOptions = {
   apiKey?: string
-  /** Run fully local/BYOK where Codebuff auth, billing, and run tracking are optional. */
-  localMode?: boolean
 
   cwd?: string
   /** Optional directory path to load skills from. Skills found here will be available to the `skill` tool. */
@@ -168,6 +166,22 @@ export type RunOptions = {
    *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers or
    *  provider-routing metadata that downstream adapters read from the request body. */
   extraCodebuffMetadata?: Record<string, string>
+
+  /** P2-3: Mid-turn checkpoint callback. When provided, the main agent loop
+   *  invokes it with a snapshot of `mainAgentState` after each step boundary,
+   *  time-throttled (30s), so a crashed/killed session can resume mid-turn from
+   *  the last checkpoint rather than losing all in-flight work. The host (CLI)
+   *  supplies a writer that persists atomically (temp file + rename). Failures
+   *  inside the callback are caught and logged by the loop — they never kill
+   *  the run. */
+  onCheckpoint?: (agentState: SessionState['mainAgentState']) => void
+
+  /** P2-3: When true, the user prompt is already present in
+   *  `previousRun.sessionState.mainAgentState.messageHistory` (restored from a
+   *  checkpoint), so the main agent loop must NOT re-append a USER_PROMPT
+   *  message. The CLI sets this when it detects a valid checkpoint for the
+   *  current turn and resumes from it. */
+  resumeInterruptedTurn?: boolean
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -183,7 +197,6 @@ type RunExecutionOptions = RunOptions &
   CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
-    localMode: boolean
   }
 type RunReturnType = RunState
 
@@ -207,7 +220,6 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
 async function runOnce({
   apiKey,
   fingerprintId,
-  localMode,
 
   cwd,
   skillsDir,
@@ -239,6 +251,8 @@ async function runOnce({
   signal,
   costMode,
   extraCodebuffMetadata,
+  onCheckpoint,
+  resumeInterruptedTurn,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -413,7 +427,6 @@ async function runOnce({
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
     apiKey,
-    localMode,
     handleStepsLogChunk: () => {
       // Does nothing for now
     },
@@ -606,6 +619,8 @@ async function runOnce({
     userId,
     extraCodebuffMetadata,
     signal: signal ?? new AbortController().signal,
+    onCheckpoint,
+    resumeInterruptedTurn,
   }).catch((error) => {
     let errorMessage =
       error instanceof Error ? error.message : String(error ?? '')

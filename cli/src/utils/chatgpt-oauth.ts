@@ -20,7 +20,6 @@ import {
   saveChatGptOAuthCredentials,
 } from '@codebuff/sdk'
 import { safeOpen } from './open-url'
-import { isLocalMode } from './constants'
 
 import type { ChatGptOAuthCredentials } from '@codebuff/sdk'
 
@@ -124,7 +123,7 @@ function escapeHtml(s: string): string {
 function callbackPageHtml(success: boolean, errorMessage?: string): string {
   const brandLabel = 'CLI'
   const returnTarget = 'the CLI'
-  const retryCommand = isLocalMode() ? '/provider connect codex' : '/connect:chatgpt'
+  const retryCommand = '/provider connect codex'
   const title = success ? `Connected — ${brandLabel}` : `Connection Failed — ${brandLabel}`
   const heading = success ? '✓ Connected to ChatGPT' : 'Connection Failed'
   const headingColor = success ? '#4ade80' : '#f87171'

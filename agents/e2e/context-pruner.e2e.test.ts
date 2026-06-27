@@ -1,4 +1,3 @@
-import { LOCAL_MODE_API_KEY } from '@codebuff/common/constants/local-mode'
 import {
   CodebuffClient,
   initialSessionState,
@@ -86,8 +85,6 @@ describe('Context Pruner Agent Integration', () => {
   it(
     'should prune large message history and maintain tool-call/tool-result pairs',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Create a test agent that spawns context-pruner and then does one more step
       const testAgent: AgentDefinition = {
         id: 'context-pruner-test-agent',
@@ -144,8 +141,6 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       ]
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         agentDefinitions: [testAgent],
       })
 
@@ -222,8 +217,6 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
   it(
     'should prune context with small token limit and preserve tool pairs',
     async () => {
-      const apiKey = LOCAL_MODE_API_KEY
-
       // Create a test agent that spawns context-pruner with very aggressive pruning
       const testAgent: AgentDefinition = {
         id: 'aggressive-prune-test-agent',
@@ -272,8 +265,6 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       ]
 
       const client = new CodebuffClient({
-        apiKey,
-        localMode: true,
         agentDefinitions: [testAgent],
       })
 
