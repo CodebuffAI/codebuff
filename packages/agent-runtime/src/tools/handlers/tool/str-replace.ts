@@ -1,8 +1,12 @@
 import { normalizeToolPath, postStreamProcessing } from './write-file'
 import { processStrReplace } from '../../../process-str-replace'
+import {
+  preflightValidateSyntax,
+  formatPreflightErrorMessage,
+} from '../../../util/preflight-syntax-validation'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { FileProcessingState } from './write-file'
+import type { FileProcessing, FileProcessingState } from './write-file'
 import type {
   ClientToolCall,
   CodebuffToolCall,
@@ -162,7 +166,7 @@ export const handleStrReplace = (async (
         )
       : requestOptionalFile({ ...params, filePath: path })
 
-  const newPromise = processStrReplace({
+  const newPromise: Promise<FileProcessing<'str_replace'>> = processStrReplace({
     path,
     replacements,
     atomic,
@@ -175,22 +179,52 @@ export const handleStrReplace = (async (
         tool: 'str_replace' as const,
         path,
         error: 'Unknown error: Failed to process the str_replace block.',
+        preflightSyntaxError: false,
       }
     })
-    .then((fileProcessingResult) => ({
-      ...fileProcessingResult,
-      toolCallId: toolCall.toolCallId,
-    }))
+    .then((fileProcessingResult) => {
+      const result = {
+        ...fileProcessingResult,
+        toolCallId: toolCall.toolCallId,
+      }
+      if (!('error' in fileProcessingResult)) {
+        const syntaxValidation = preflightValidateSyntax(
+          path,
+          fileProcessingResult.content,
+        )
+        if (!syntaxValidation.valid) {
+          return {
+            tool: 'str_replace' as const,
+            path,
+            toolCallId: toolCall.toolCallId,
+            error: formatPreflightErrorMessage(
+              'str_replace',
+              path,
+              syntaxValidation.message,
+            ),
+            preflightSyntaxError: true,
+          }
+        }
+      }
+      return result
+    })
 
   fileProcessingState.promisesByPath[path].push(newPromise)
   fileProcessingState.allPromises.push(newPromise)
 
   const strReplaceResult = await newPromise
   if ('error' in strReplaceResult) {
-    fileProcessingState.failedEditRequiresReadByPath[path] = true
-    // Fix C: a hard error counts as a consecutive failure.
-    fileProcessingState.consecutiveStrReplaceFailuresByPath[path] =
-      (fileProcessingState.consecutiveStrReplaceFailuresByPath[path] ?? 0) + 1
+    // A preflight syntax failure is semantically different from a stale-anchor
+    // failure: the agent's oldString was fine, the new content just had a
+    // syntax error. Don't penalize the circuit breaker or force a re-read —
+    // the agent only needs to fix the syntax, not re-read the file or switch
+    // tools. (Fix C circuit breaker only counts real processing failures.)
+    if (!strReplaceResult.preflightSyntaxError) {
+      fileProcessingState.failedEditRequiresReadByPath[path] = true
+      // Fix C: a hard error counts as a consecutive failure.
+      fileProcessingState.consecutiveStrReplaceFailuresByPath[path] =
+        (fileProcessingState.consecutiveStrReplaceFailuresByPath[path] ?? 0) + 1
+    }
   } else {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
     // Fix C: an auto-corrected near-match is a weak/suspect outcome and also

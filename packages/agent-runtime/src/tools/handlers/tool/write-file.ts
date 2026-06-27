@@ -2,6 +2,10 @@ import { AbortError } from '@codebuff/common/util/error'
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
+import {
+  preflightValidateSyntax,
+  formatPreflightErrorMessage,
+} from '../../../util/preflight-syntax-validation'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -25,6 +29,14 @@ export type FileProcessing<
   tool: T
   path: string
   toolCallId: string
+  // Set when the error is a preflight syntax validation failure (not a
+  // stale-anchor or processing failure). Hoisted to the base type so handlers
+  // can check it on any result variant (the .catch() error branch produces a
+  // different error shape without it). Handlers use this to avoid penalizing
+  // the circuit breaker and forcing a re-read: the agent's anchor was valid
+  // and the file content on disk is unchanged, so the agent only needs to fix
+  // the syntax, not re-read the file.
+  preflightSyntaxError?: boolean
 } & (
   | {
       content: string
@@ -173,7 +185,10 @@ export const handleWriteFile = (async (
 
   logger.debug({ path, content }, `write_file ${path}`)
 
-  const newPromise = (async () => {
+  // Finding #3: annotate the promise type explicitly so future drift in the
+  // .then() return shape is caught at compile time (mirrors str_replace's
+  // `Promise<FileProcessing<'str_replace'>>` annotation for consistency).
+  const newPromise: Promise<FileProcessing<'write_file'>> = (async () => {
     let initialContent: string | null
     if (previousEdit) {
       const previousResult = await previousEdit
@@ -232,18 +247,46 @@ export const handleWriteFile = (async (
         tool: 'write_file' as const,
         path,
         error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.message}`,
+        preflightSyntaxError: false,
       }
     })
-    .then(async (fileProcessingResult) => ({
-      ...fileProcessingResult,
-      toolCallId: toolCall.toolCallId,
-    }))
+    .then(async (fileProcessingResult) => {
+      const result = {
+        ...fileProcessingResult,
+        toolCallId: toolCall.toolCallId,
+      }
+      if (!('error' in fileProcessingResult)) {
+        const syntaxValidation = preflightValidateSyntax(
+          path,
+          fileProcessingResult.content,
+        )
+        if (!syntaxValidation.valid) {
+          return {
+            tool: 'write_file' as const,
+            path,
+            toolCallId: toolCall.toolCallId,
+            error: formatPreflightErrorMessage(
+              'write_file',
+              path,
+              syntaxValidation.message,
+            ),
+            preflightSyntaxError: true,
+          }
+        }
+      }
+      return result
+    })
   fileProcessingPromisesByPath[path].push(newPromise)
   fileProcessingPromises.push(newPromise)
 
-  const writeFileResult = await newPromise
+  const writeFileResult: FileProcessing<'write_file'> = await newPromise
   if ('error' in writeFileResult) {
-    fileProcessingState.failedEditRequiresReadByPath[path] = true
+    // A preflight syntax failure is NOT a stale-anchor failure: the agent's
+    // read was valid and the file content on disk is unchanged. Don't force a
+    // re-read — the agent only needs to fix the syntax, not re-read the file.
+    if (!writeFileResult.preflightSyntaxError) {
+      fileProcessingState.failedEditRequiresReadByPath[path] = true
+    }
   } else {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
     // Strict read-before-edit: a successful write_file (whether creating a new
@@ -274,7 +317,14 @@ export const handleWriteFile = (async (
     firstOutput?.type === 'json' &&
     firstOutput.value &&
     typeof firstOutput.value === 'object' &&
-    'errorMessage' in firstOutput.value
+    'errorMessage' in firstOutput.value &&
+    // Finding #1: a preflight syntax error is reported through
+    // postStreamProcessing as `{ file, errorMessage }`, but it is NOT a
+    // stale-anchor failure — the in-memory guard above already skipped
+    // setting failedEditRequiresReadByPath. Mirror that guard here so the
+    // downstream error check does not undo the isolation and force a
+    // redundant re-read the agent does not need.
+    !writeFileResult.preflightSyntaxError
   ) {
     fileProcessingState.failedEditRequiresReadByPath[path] = true
   }

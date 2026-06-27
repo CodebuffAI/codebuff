@@ -1,5 +1,9 @@
 import { normalizeToolPath } from './write-file'
 import { processEditTransaction } from '../../../process-edit-transaction'
+import {
+  preflightValidateSyntax,
+  formatPreflightErrorMessage,
+} from '../../../util/preflight-syntax-validation'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { FileProcessingState } from './write-file'
@@ -12,22 +16,6 @@ import type { FileChange } from '@codebuff/common/actions'
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-
-declare const Bun: {
-  Transpiler: new (options: { loader: BunTranspilerLoader }) => {
-    transformSync: (content: string) => string
-  }
-}
-
-type BunTranspilerLoader = 'js' | 'jsx' | 'ts' | 'tsx'
-
-function getBunTranspilerLoader(path: string): BunTranspilerLoader | null {
-  if (path.endsWith('.tsx')) return 'tsx'
-  if (path.endsWith('.jsx')) return 'jsx'
-  if (path.endsWith('.ts')) return 'ts'
-  if (path.endsWith('.js')) return 'js'
-  return null
-}
 
 export const handleEditTransaction = (async (
   params: {
@@ -177,42 +165,43 @@ export const handleEditTransaction = (async (
   }
 
   // --- VIRTUAL COMPILE TRANSACTIONS: Preflight Syntax Validation ---
-  // Bun.Transpiler is only available in the Bun runtime. In Node.js it is
-  // undefined, so `new Bun.Transpiler(...)` would throw a ReferenceError and
-  // reject every JS/TS edit transaction. Guard so the preflight is skipped in
-  // Node (the client-side apply still catches real syntax errors).
-  const bunTranspilerAvailable = typeof Bun !== 'undefined' && Bun?.Transpiler
+  // Uses the shared preflightValidateSyntax utility which handles JS/TS
+  // (Bun.Transpiler), Python (structural validation), and Go (structural
+  // validation). In Node.js, JS/TS validation is gracefully skipped.
   for (const file of transactionResult.files) {
-    const loader = getBunTranspilerLoader(file.path)
-    if (loader && bunTranspilerAvailable) {
-      try {
-        const transpiler = new Bun.Transpiler({ loader })
-        transpiler.transformSync(file.content)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-        markAllTransactionPathsAsRequiringRead()
-        return {
-          output: [
-            {
-              type: 'json',
-              value: {
-                errorMessage: [
-                  `Preflight Syntax Validation Failed: Atomically rejected transaction due to syntax error in ${file.path}: ${errorMessage}`,
-                  'NO files were changed. Do NOT resubmit the same edit_transaction; it will fail the same way.',
-                  'Recovery: re-read the exact current lines of the broken file, then fix the specific syntax error with a small targeted edit.',
-                  'For import changes specifically, prefer structured insert_import/remove_import operations instead of rewriting an entire import block — generated multi-import rewrites are the most common cause of this error (e.g. an `import { ... }` left without a valid `from "..."`).',
-                ].join('\n'),
-                failures: [
-                  {
-                    editIndex: -1,
-                    path: file.path,
-                    errorMessage,
-                  },
-                ],
-              },
+    const syntaxValidation = preflightValidateSyntax(
+      file.path,
+      file.content,
+    )
+    if (!syntaxValidation.valid) {
+      // A preflight syntax failure is NOT a stale-anchor failure: the edits
+      // were structurally applied but the resulting content has a syntax
+      // error. Don't force a re-read (markAllTransactionPathsAsRequiringRead)
+      // — the agent only needs to fix the syntax, not re-read all files.
+      // Report the first edit index that targeted this path so the agent can
+      // identify which edit produced the broken content (multiple edits can
+      // target the same path; the first is the most actionable starting point).
+      const editIndex = edits.findIndex((edit) => edit.path === file.path)
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              errorMessage: formatPreflightErrorMessage(
+                'edit_transaction',
+                file.path,
+                syntaxValidation.message,
+              ),
+              failures: [
+                {
+                  editIndex,
+                  path: file.path,
+                  errorMessage: syntaxValidation.message,
+                },
+              ],
             },
-          ],
-        }
+          },
+        ],
       }
     }
   }
