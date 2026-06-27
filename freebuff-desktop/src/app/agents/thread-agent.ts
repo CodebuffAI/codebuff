@@ -5,12 +5,15 @@
  * commands, and ships changes. It runs once per turn with `previousRun` threaded
  * through so prompt caching carries across the conversation.
  *
- * Three custom tools wire it back to the engine:
+ * Custom tools wire it back to the engine:
  *  - suggest_prompts — propose follow-up prompts that park in the queue's
  *    suggested lane (replaces the old Scout).
  *  - write_doc       — append durable learnings to a governing doc (used by the
  *    `reflect` skill); surfaces the length-cap error so the agent condenses.
- *  - open_pr         — commit, push, and open a PR (used by the `open-pr` skill).
+ *  - browser_check   — load the thread's work in a real headless browser.
+ *
+ * Shipping (commit/push/open-PR/merge) is done by the agent itself via
+ * `run_terminal_command` (see the `open-pr` / `merge` skills), not a tool.
  */
 
 import { getCustomToolDefinition } from '@codebuff/sdk'
@@ -52,7 +55,7 @@ How to work:
   accept or ignore. Don't propose busywork, and don't propose anything if the work
   feels complete.
 
-Do not commit or open a PR unless a tool (open_pr) or the user asks you to.`
+Do not commit or open a PR unless the user (or the open-pr / merge skill) asks you to.`
 
 export function threadAgentDefinition(toolNames: string[]) {
   return {
@@ -76,8 +79,6 @@ export interface ThreadToolDeps {
     content: string,
     mode: 'append' | 'replace',
   ) => { ok: boolean; error?: string }
-  /** Commit + push + open a PR for the thread. */
-  onOpenPr: () => Promise<{ url: string }>
   /** Load the thread's work in a real headless browser and report what it saw. */
   onBrowserCheck: () => Promise<BrowserCheckResult>
 }
@@ -140,24 +141,6 @@ export function buildThreadTools(deps: ThreadToolDeps): CustomToolDefinition<str
           input.mode ?? 'append',
         )
         return [{ type: 'json', value: r.ok ? { ok: true } : { error: 'cap', message: r.error } }]
-      },
-    }),
-
-    getCustomToolDefinition({
-      toolName: 'open_pr',
-      description:
-        'Commit all changes in this thread, push the branch, and open a pull request. ' +
-        'Returns the PR URL (or a local:// reference if the repo has no remote).',
-      inputSchema: z.object({}),
-      endsAgentStep: false,
-      exampleInputs: [{}],
-      execute: async (): Promise<ToolResult[]> => {
-        try {
-          const { url } = await deps.onOpenPr()
-          return [{ type: 'json', value: { ok: true, url } }]
-        } catch (err) {
-          return [{ type: 'json', value: { error: 'open_pr_failed', message: (err as Error).message } }]
-        }
       },
     }),
 

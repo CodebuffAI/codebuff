@@ -408,8 +408,16 @@ select {
 .btn:hover {
   border-color: var(--accent-dim);
 }
-.btn.select {
-  padding: 5px 6px;
+/* Quick-skill buttons: compact, monospace skill name, accent on hover. */
+.btn.chip {
+  padding: 4px 9px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.btn.chip:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
 }
 .lane {
   flex: 1;
@@ -440,16 +448,6 @@ select {
 .qitem.done {
   opacity: 0.5;
   color: var(--muted);
-}
-.qitem.in-wf {
-  margin-left: 12px;
-}
-.wf-header {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--accent-dim);
-  margin-top: 4px;
 }
 .qlabel {
   flex: 1;

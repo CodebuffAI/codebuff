@@ -80,8 +80,11 @@ export class ThreadEngine {
   private previousRun = new Map<string, RunState>()
   /** Reentrancy guard: a thread whose pump loop is currently draining. */
   private pumping = new Set<string>()
-  /** Typed user messages waiting to run (they jump ahead of the queue). */
-  private userPending = new Map<string, string[]>()
+  /** User messages typed in the main chat. When the thread is idle the pump runs
+   * the next one as a fresh turn (jumping ahead of the queue). While a turn is
+   * running, later arrivals are drained at the agent's step boundaries to steer
+   * the in-flight turn instead of waiting for it to finish. */
+  private userInbox = new Map<string, string[]>()
   private threadSeq = 0
   private costSpent = 0
 
@@ -257,7 +260,14 @@ export class ThreadEngine {
 
   // — Messaging + turns —
 
-  /** User typed a message: persist it and run a turn (jumps ahead of the queue). */
+  /**
+   * User typed a message in the main chat. Persist + show it immediately, then
+   * route it: if the thread is idle it runs as the next turn (jumping the queue);
+   * if a turn is already running it steers that turn — the in-flight agent appends
+   * it as a user prompt at its next step boundary (see `drainSteering`). Either way
+   * it lands via the shared inbox; the pump and the running turn's drain callback
+   * pull from the same array so a message is never run twice.
+   */
   postMessage(threadId: string, text: string): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
@@ -266,11 +276,24 @@ export class ThreadEngine {
     if (thread.title === 'New thread' && text.trim()) {
       this.store.updateThread(threadId, { title: text.trim().slice(0, 60) }, this.now())
     }
-    const list = this.userPending.get(threadId) ?? []
+    const list = this.userInbox.get(threadId) ?? []
     list.push(text)
-    this.userPending.set(threadId, list)
+    this.userInbox.set(threadId, list)
     this.emitThread(threadId)
     void this.pump(threadId)
+  }
+
+  /**
+   * Steering drain: returns and clears any main-chat messages typed while a turn
+   * is running. The SDK calls this at each agent step boundary; returned texts are
+   * appended to the conversation as user prompts and keep the turn going. Messages
+   * that arrive after the agent's final step aren't drained here — they stay in the
+   * inbox and the pump runs them as a fresh turn once the current one ends.
+   */
+  private drainSteering(threadId: string): string[] {
+    const list = this.userInbox.get(threadId)
+    if (!list?.length) return []
+    return list.splice(0).filter((t) => t.trim().length > 0)
   }
 
   /**
@@ -287,7 +310,7 @@ export class ThreadEngine {
         const thread = this.store.getThread(threadId)
         if (!thread || thread.status === 'closed') break
 
-        const pending = this.userPending.get(threadId)
+        const pending = this.userInbox.get(threadId)
         if (pending && pending.length) {
           await this.runTurn(threadId, pending.shift()!)
           continue
@@ -333,7 +356,6 @@ export class ThreadEngine {
       const tools = buildThreadTools({
         onSuggest: (items) => this.addSuggestions(threadId, items),
         onWriteDoc: (name, content, mode) => this.writeDocSafe(name, content, mode),
-        onOpenPr: () => this.openPr(threadId),
         onBrowserCheck: () => this.browserCheck(threadId),
       })
       const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
@@ -347,6 +369,9 @@ export class ThreadEngine {
         cwd,
         previousRun: this.previousRun.get(threadId),
         customToolDefinitions: tools,
+        // Steering: main-chat messages typed while this turn runs are appended as
+        // user prompts at the next step boundary instead of waiting for the turn.
+        drainSteeringMessages: () => this.drainSteering(threadId),
         // Per-token text deltas → stream to the UI as they arrive. (handleEvent's
         // `text` events are consolidated whole-segment blocks that only land at the
         // end of a segment, so streaming must come from here.)
@@ -552,26 +577,6 @@ export class ThreadEngine {
 
   docPresence(): { name: string; present: boolean }[] {
     return DOC_NAMES.map((name) => ({ name, present: this.docs.exists(name) }))
-  }
-
-  // — PR (used by the open-pr skill) —
-
-  async openPr(threadId: string): Promise<{ url: string }> {
-    let thread = this.store.getThread(threadId)
-    if (!thread) throw new Error('thread not found')
-    thread = await this.ensureWorktree(thread)
-    await this.worktrees.commitAll(threadId, thread.title)
-    const branch = thread.branch ?? this.worktrees.branchName(slugify(thread.title))
-    const url = (await this.worktrees.hasRemote())
-      ? await this.worktrees.pushAndOpenPr(threadId, branch, {
-          title: thread.title,
-          body: '— Opened by Freebuff Desktop.',
-        })
-      : `local://${branch}`
-    this.store.updateThread(threadId, { prUrl: url }, this.now())
-    this.emitThread(threadId)
-    this.emitState()
-    return { url }
   }
 
   // — Browser-in-the-loop (used by the browser_check tool / test+review skills) —

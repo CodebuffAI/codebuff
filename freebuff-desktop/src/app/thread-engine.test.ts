@@ -84,6 +84,35 @@ describe('ThreadEngine — turns', () => {
     }
   })
 
+  test('a main-chat message during a running turn steers it instead of starting a new turn', async () => {
+    const { engine, client, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      let steeredAtBoundary: string[] = []
+      // While the turn is in flight, mimic the user typing in the main chat, then
+      // the agent reaching a step boundary where the SDK drains pending steering.
+      client.onRun = async (opts) => {
+        engine.postMessage(thread.id, 'steer-msg')
+        steeredAtBoundary = opts.drainSteeringMessages?.() ?? []
+      }
+      engine.postMessage(thread.id, 'first')
+      await settle(engine, thread.id)
+
+      // The steer reached the in-flight turn via the drain hook…
+      expect(steeredAtBoundary).toEqual(['steer-msg'])
+      // …and did NOT spawn a second turn (only the original prompt ever ran).
+      expect(client.prompts).toEqual(['first'])
+      // Both messages are persisted in the transcript, in order.
+      const userTexts = engine
+        .threadData(thread.id)!
+        .messages.filter((m) => m.role === 'user')
+        .map((m) => m.text)
+      expect(userTexts).toEqual(['first', 'steer-msg'])
+    } finally {
+      cleanup()
+    }
+  })
+
 })
 
 describe('ThreadEngine — workflows & suggestions', () => {
@@ -99,6 +128,17 @@ describe('ThreadEngine — workflows & suggestions', () => {
       expect(items.every((i) => i.workflowName === 'ship')).toBe(true)
       // Each item's prompt is the skill body, not the literal skill name.
       expect(items[0].prompt.length).toBeGreaterThan(10)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('open-pr and merge ship as built-in skills', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const names = engine.listSkills().map((s) => s.name)
+      expect(names).toContain('open-pr')
+      expect(names).toContain('merge')
     } finally {
       cleanup()
     }
@@ -232,18 +272,6 @@ describe('ThreadEngine — queue editing & PR', () => {
 
       engine.moveToSuggestions(b.id)
       expect(engine.store.getQueueItem(b.id)!.state).toBe('suggested')
-    } finally {
-      cleanup()
-    }
-  })
-
-  test('openPr stores a local:// url when there is no remote', async () => {
-    const { engine, cleanup } = await gitEngine()
-    try {
-      const thread = engine.createThread()
-      const { url } = await engine.openPr(thread.id)
-      expect(url.startsWith('local://')).toBe(true)
-      expect(engine.getThread(thread.id)!.prUrl).toBe(url)
     } finally {
       cleanup()
     }

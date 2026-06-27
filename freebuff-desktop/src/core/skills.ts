@@ -15,8 +15,8 @@ import type { Skill } from './types'
 
 /**
  * Built-in skill bodies. Each is a single-turn instruction the full coding agent
- * runs against the current worktree. `reflect` and `open-pr` lean on the engine's
- * `write_doc` / `open_pr` custom tools.
+ * runs against the current worktree. `reflect` leans on the engine's `write_doc`
+ * tool; `open-pr` and `merge` drive `git`/`gh` directly via the shell.
  */
 export const BUILTIN_SKILLS: Record<string, string> = {
   review:
@@ -57,9 +57,23 @@ export const BUILTIN_SKILLS: Record<string, string> = {
     'obvious. If there is nothing worth recording, say so and do nothing.',
 
   'open-pr':
-    'Open a pull request for the work in this thread. Make sure everything is in a good ' +
-    'state, then call the `open_pr` tool to commit, push, and open the PR. Report the ' +
-    'resulting PR link.',
+    'Open a pull request for the work in this thread yourself, using the shell — there is ' +
+    'no dedicated PR tool. First make sure the work is in a good state (build/tests pass). ' +
+    'Then, from this worktree, run the git/gh commands with `run_terminal_command`:\n' +
+    '1. `git add -A` and commit with a clear, descriptive message.\n' +
+    '2. `git push -u origin HEAD` to push the current branch.\n' +
+    '3. `gh pr create --fill` (add `--base <default-branch>` if it is not `main`).\n' +
+    'If the repo has no remote or `gh` is unavailable, commit locally and say so instead. ' +
+    'Report the resulting PR URL.',
+
+  merge:
+    'Merge the open pull request for the work in this thread — but only if it is genuinely ' +
+    'ready. Using `run_terminal_command`: run `gh pr checks` to confirm CI is passing and ' +
+    '`gh pr view` to sanity-check the title, description, and that the diff matches the ' +
+    "intent. If every check passes and the change looks correct, merge it with " +
+    '`gh pr merge --squash` (use `--auto` if checks are still running so it lands once they ' +
+    'go green). If any check is failing, the PR is a draft, or the change looks wrong, do ' +
+    'NOT merge — report exactly what is blocking and stop.',
 }
 
 /** Built-in skill names, in a stable order for listing. */

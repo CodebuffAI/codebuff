@@ -231,12 +231,6 @@ const server = Bun.serve({
         case 'auto-queue-suggestions':
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
-        case 'open-pr':
-          try {
-            return json(await engine.openPr(threadId))
-          } catch (err) {
-            return json({ error: (err as Error).message }, 500)
-          }
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
           return json({ ok: true })

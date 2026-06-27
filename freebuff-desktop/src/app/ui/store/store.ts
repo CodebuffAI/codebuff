@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
-import type { Message, QueueItem, ServerEvent, Skill, Thread, Workflow } from '../lib/types'
+import type { Message, QueueItem, ServerEvent, Skill, Thread } from '../lib/types'
 
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
@@ -22,7 +22,8 @@ interface StoreState {
   recentlyClosed: string[]
   connection: 'connecting' | 'open' | 'reconnecting'
   skills: Skill[]
-  workflows: Workflow[]
+  /** Local per-skill usage counts (persisted) — drives the quick-skill buttons. */
+  skillTally: Record<string, number>
   usage: { costSpent: number; running: number }
   projectPath: string
   toasts: { id: number; text: string; kind: 'info' | 'error' }[]
@@ -45,7 +46,6 @@ interface StoreState {
   // messaging + queue
   send: (id: string, text: string) => void
   enqueuePrompt: (id: string, prompt: string) => void
-  enqueueWorkflow: (id: string, workflow: string) => void
   enqueueSkill: (id: string, skill: string) => void
   editItem: (id: string, itemId: string, prompt: string) => void
   deleteItem: (id: string, itemId: string) => void
@@ -53,7 +53,6 @@ interface StoreState {
   demoteItem: (id: string, itemId: string) => void
   reorderItem: (id: string, itemId: string, afterItemId: string | null) => void
   setAutoQueueSuggestions: (id: string, on: boolean) => void
-  openPr: (id: string) => Promise<void>
 }
 
 function emptySlice(thread: Thread): ThreadSlice {
@@ -67,7 +66,7 @@ export const useStore = create<StoreState>((set, get) => ({
   recentlyClosed: [],
   connection: 'connecting',
   skills: [],
-  workflows: [],
+  skillTally: loadSkillTally(),
   usage: { costSpent: 0, running: 0 },
   projectPath: '',
   toasts: [],
@@ -82,18 +81,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async init() {
-    const [threads, skills, workflows] = await Promise.all([
-      api.listThreads(),
-      api.listSkills(),
-      api.listWorkflows(),
-    ])
+    const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills()])
     const slices: Record<string, ThreadSlice> = {}
     for (const t of threads) slices[t.id] = emptySlice(t)
     set({
       threads: slices,
       tabOrder: threads.map((t) => t.id),
       skills,
-      workflows,
       activeId: threads[0]?.id ?? null,
     })
     if (threads[0]) get().ensureLoaded(threads[0].id)
@@ -251,10 +245,8 @@ export const useStore = create<StoreState>((set, get) => ({
   enqueuePrompt(id, prompt) {
     api.enqueuePrompt(id, prompt)
   },
-  enqueueWorkflow(id, workflow) {
-    api.enqueueWorkflow(id, workflow)
-  },
   enqueueSkill(id, skill) {
+    bumpSkillTally(set, skill)
     api.enqueueSkill(id, skill)
   },
 
@@ -293,13 +285,32 @@ export const useStore = create<StoreState>((set, get) => ({
     })
     api.setAutoQueueSuggestions(id, on)
   },
-  async openPr(id) {
-    get().pushToast('Opening PR…')
-    const r = await api.openPr(id)
-    if (r?.error) get().pushToast(`PR failed: ${r.error}`, 'error')
-    else if (r?.url) get().pushToast(`PR ready: ${r.url}`)
-  },
 }))
+
+const SKILL_TALLY_KEY = 'freebuff:skillTally'
+
+/** Hydrate the persisted per-skill usage counts (best-effort). */
+function loadSkillTally(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(SKILL_TALLY_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Increment a skill's usage count and persist it (drives the quick-skill buttons). */
+function bumpSkillTally(set: (fn: (s: StoreState) => Partial<StoreState>) => void, skill: string) {
+  set((s) => {
+    const skillTally = { ...s.skillTally, [skill]: (s.skillTally[skill] ?? 0) + 1 }
+    try {
+      localStorage.setItem(SKILL_TALLY_KEY, JSON.stringify(skillTally))
+    } catch {
+      /* storage unavailable / over quota — keep the in-memory tally anyway */
+    }
+    return { skillTally }
+  })
+}
 
 function optimisticItems(
   set: (fn: (s: StoreState) => Partial<StoreState>) => void,

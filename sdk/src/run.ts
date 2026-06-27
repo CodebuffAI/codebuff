@@ -163,6 +163,12 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
+  /** Optional steering hook. Drained at each agent step boundary during the run;
+   * any returned texts are appended to the conversation as user prompts (and keep
+   * the turn going) before the next LLM call. Lets a host inject messages into a
+   * running agent without aborting — i.e. "steer" it, as opposed to queuing a new
+   * prompt for after the turn finishes. */
+  drainSteeringMessages?: () => string[]
   costMode?: string
   /** Extra key/values merged into each LLM request's `codebuff_metadata`.
    *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers like
@@ -236,6 +242,7 @@ async function runOnce({
   previousRun,
   extraToolResults,
   signal,
+  drainSteeringMessages,
   costMode,
   extraCodebuffMetadata,
 }: RunExecutionOptions): Promise<RunState> {
@@ -558,6 +565,7 @@ async function runOnce({
       toolResults: extraToolResults ?? [],
       agentId,
     },
+    drainSteeringMessages,
     repoUrl: undefined,
     repoId: undefined,
     clientSessionId: promptId,

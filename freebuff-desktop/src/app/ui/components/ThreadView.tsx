@@ -70,7 +70,7 @@ export function ThreadView({ threadId }: { threadId: string }) {
             <div className="welcome">
               <div className="welcome-title">{slice.thread.title || 'New thread'}</div>
               <div className="welcome-sub">
-                Describe what to build. Queue follow-ups and workflows on the right, and let it run.
+                Describe what to build. Queue follow-up prompts and skills on the right, and let it run.
               </div>
             </div>
           )}

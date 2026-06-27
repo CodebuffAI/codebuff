@@ -13,7 +13,6 @@ const NAMES: Record<string, string> = {
   set_output: 'Output',
   suggest_prompts: 'Suggest',
   write_doc: 'Write doc',
-  open_pr: 'Open PR',
 }
 
 export function toolLabel(toolName: string): string {
