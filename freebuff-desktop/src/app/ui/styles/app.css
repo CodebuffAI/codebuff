@@ -725,6 +725,38 @@ body.col-resizing {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Standalone tool row used both inline during streaming and inside the
+   finished-fold. The fold's acts-list controls its own spacing, so the
+   margin only kicks in for the standalone (streaming) case — keeps the two
+   states visually identical when the toggle is open. */
+.tool-row {
+  margin: 2px 0;
+}
+.acts-list .tool-row {
+  margin: 0;
+}
+/* Reasoning nested inside the finished-fold: a small italic block under a
+   quiet "Thinking" label so opening the fold reveals both the model's
+   reasoning and the tools it ran in stream order. */
+.fold-reasoning {
+  margin: 2px 0;
+}
+.acts-list .fold-reasoning {
+  margin: 0;
+}
+.fold-reasoning-label {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.fold-reasoning-text {
+  color: var(--faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* — Thinking (reasoning) — interleaved in the assistant turn, CLI-style. */
 .reasoning {
@@ -767,11 +799,10 @@ body.col-resizing {
 }
 .reasoning-preview {
   margin: 3px 0 2px 17px;
-  /* A tail window of the latest reasoning (~5 lines), pinned to the bottom. */
+  /* A tail window of the latest reasoning (~5 lines). No top fade — the
+     newest tokens stay fully readable mid-stream instead of fading out. */
   max-height: 7.6em;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 26px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 26px);
 }
 .reasoning-expanded {
   margin: 3px 0 2px 17px;
