@@ -8,7 +8,6 @@ function seeded(): Store {
     id: 'project',
     repoUrl: 'r',
     rootPath: '/tmp/r',
-    dailyBudget: 1000,
     createdAt: 1,
   })
   return store

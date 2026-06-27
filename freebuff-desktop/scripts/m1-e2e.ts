@@ -28,7 +28,7 @@ await git(['add', '-A'])
 await git(['commit', '-m', 'init'])
 
 const store = new Store(':memory:')
-store.insertProject({ id: 'p', repoUrl: repo, rootPath: repo, dailyBudget: 1e9, concurrencyCap: 1, createdAt: 1 })
+store.insertProject({ id: 'p', repoUrl: repo, rootPath: repo, createdAt: 1 })
 const worktrees = new WorktreeManager({ repoRoot: repo, defaultBranch: 'main' })
 const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
 const ex = buildStageExecutors({ client, worktrees, store })

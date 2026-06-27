@@ -52,15 +52,14 @@ const toolInput = (partial_json: string) => ({
   event: { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json } },
 })
 const blockStop = () => ({ type: 'stream_event', event: { type: 'content_block_stop' } })
-const result = (subtype: string, total_cost_usd: number, session_id: string) => ({
+const result = (subtype: string, session_id: string) => ({
   type: 'result',
   subtype,
-  total_cost_usd,
   session_id,
 })
 
 describe('consumeClaudeStream', () => {
-  test('maps text, thinking, and a tool call in stream order; returns session + cost', async () => {
+  test('maps text, thinking, and a tool call in stream order; returns session id', async () => {
     const rec = recorder()
     const state = await consumeClaudeStream(
       gen([
@@ -73,7 +72,7 @@ describe('consumeClaudeStream', () => {
         toolInput('"old_string":"x"}'),
         blockStop(),
         textDelta('done'),
-        result('success', 0.0123, 'sess-1'),
+        result('success', 'sess-1'),
       ]),
       rec.cb,
     )
@@ -95,16 +94,15 @@ describe('consumeClaudeStream', () => {
     const lastText = rec.parts[3] as Extract<Part, { kind: 'text' }>
     expect(lastText.text).toBe('done')
 
-    // A finish event carrying the cost is always emitted last.
+    // A finish event is always emitted last so the message leaves the working state.
     const finish = rec.events.at(-1)!
     expect(finish.type).toBe('finish')
-    expect(finish.totalCost).toBe(0.0123)
   })
 
   test('resume: keeps the prior session id when no init arrives', async () => {
     const rec = recorder()
     const state = await consumeClaudeStream(
-      gen([textDelta('hi'), result('success', 0, 'sess-2')]),
+      gen([textDelta('hi'), result('success', 'sess-2')]),
       rec.cb,
       'sess-2',
     )
@@ -113,7 +111,7 @@ describe('consumeClaudeStream', () => {
 
   test('non-success result surfaces a visible note', async () => {
     const rec = recorder()
-    await consumeClaudeStream(gen([result('error_max_turns', 0, 's')]), rec.cb)
+    await consumeClaudeStream(gen([result('error_max_turns', 's')]), rec.cb)
     const text = rec.parts.find((p) => p.kind === 'text') as Extract<Part, { kind: 'text' }>
     expect(text.text).toContain('error_max_turns')
   })
@@ -125,7 +123,7 @@ describe('consumeClaudeStream', () => {
         toolStart('t9', 'Bash'),
         toolInput('{ not json'),
         blockStop(),
-        result('success', 0, 's'),
+        result('success', 's'),
       ]),
       rec.cb,
     )
@@ -224,7 +222,7 @@ describe('freebuff in-process MCP tools', () => {
         toolInput('{"prompts":[{"prompt":"Add tests","label":"Test"}'),
         toolInput(',{"prompt":"   "}]}'),
         blockStop(),
-        result('success', 0, 's'),
+        result('success', 's'),
       ]),
       cb,
     )

@@ -48,8 +48,6 @@ export interface Project {
   defaultBranch: string
   runConfig: RunConfig
   mergeStrategy: MergeStrategy
-  /** Tokens/cost per rolling-24h window — informational in the thread model. */
-  dailyBudget: number
   createdAt: number
 }
 
@@ -148,12 +146,4 @@ export interface SkillSearchResult {
 export interface Workflow {
   name: string
   skills: string[]
-}
-
-/** Rolling-24h spend bookkeeping per Freebuff account (informational). */
-export interface BudgetLedger {
-  accountId: string
-  tokensUsed: number
-  /** Epoch ms when the current rolling window started. */
-  windowStart: number
 }

@@ -36,7 +36,6 @@ interface StoreState {
   skills: Skill[]
   /** Local per-skill usage counts (persisted) — drives the quick-skill buttons. */
   skillTally: Record<string, number>
-  usage: { costSpent: number; running: number }
   projectPath: string
   /** Which agent harness runs turns + the options the picker offers. */
   agentHarness: HarnessId | null
@@ -106,7 +105,6 @@ export const useStore = create<StoreState>((set, get) => ({
   connection: 'connecting',
   skills: [],
   skillTally: loadSkillTally(),
-  usage: { costSpent: 0, running: 0 },
   projectPath: '',
   agentHarness: null,
   agentOptions: [],
@@ -181,7 +179,6 @@ export const useStore = create<StoreState>((set, get) => ({
           threads,
           tabOrder,
           activeId,
-          usage: snapshot.usage,
           projectPath: snapshot.project?.rootPath ?? s.projectPath,
           agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
           agentOptions: snapshot.agent?.options ?? s.agentOptions,

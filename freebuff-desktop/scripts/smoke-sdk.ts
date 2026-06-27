@@ -54,7 +54,7 @@ const result = await client.run({
     } else if (event.type === 'error') {
       console.error(`\n[error] ${event.message}`)
     } else if (event.type === 'finish') {
-      console.log(`\n[finish] cost=${event.totalCost}`)
+      console.log('\n[finish]')
     }
   },
 })

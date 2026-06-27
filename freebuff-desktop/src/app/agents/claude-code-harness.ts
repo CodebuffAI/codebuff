@@ -14,7 +14,7 @@
  *   - thinking_delta  → onReasoning
  *   - tool_use blocks → accumulate input_json_delta, emit one `tool_call` on stop
  * The terminal `result` carries the session id (threaded back in as `resume` for the
- * next turn, so context/caching persist) and cost.
+ * next turn, so context/caching persist).
  *
  * Autonomy: permissionMode `bypassPermissions` (+ allowDangerouslySkipPermissions)
  * lets it read/write/edit and run bash in the thread's git worktree without prompts,
@@ -163,7 +163,6 @@ export async function consumeClaudeStream(
   startSessionId?: string,
 ): Promise<ClaudeState> {
   let sessionId = startSessionId
-  let cost = 0
   let resultSubtype = 'success'
   // Tool-use block currently streaming its JSON input (one at a time per turn).
   let curTool: { id: string; name: string; buf: string } | null = null
@@ -201,7 +200,6 @@ export async function consumeClaudeStream(
       case 'result':
         if (msg.session_id) sessionId = msg.session_id
         resultSubtype = msg.subtype ?? 'success'
-        cost = typeof msg.total_cost_usd === 'number' ? msg.total_cost_usd : 0
         break
     }
   }
@@ -212,7 +210,7 @@ export async function consumeClaudeStream(
     cb.onText(`\n\n⚠️ Claude Code ended: ${resultSubtype}`)
   }
 
-  cb.onEvent({ type: 'finish', totalCost: cost })
+  cb.onEvent({ type: 'finish' })
   return { sessionId }
 }
 

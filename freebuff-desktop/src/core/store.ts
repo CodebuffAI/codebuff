@@ -13,7 +13,6 @@ import { Database } from 'bun:sqlite'
 
 import type { Part } from './parts'
 import type {
-  BudgetLedger,
   MergeStrategy,
   Project,
   ProjectId,
@@ -29,7 +28,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 7
+const SCHEMA_VERSION = 8
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -65,7 +64,6 @@ export interface NewProjectInput {
   defaultBranch?: string
   runConfig?: RunConfig
   mergeStrategy?: MergeStrategy
-  dailyBudget: number
   createdAt: number
 }
 
@@ -113,7 +111,6 @@ type ProjectRow = {
   default_branch: string
   run_config: string
   merge_strategy: MergeStrategy
-  daily_budget: number
   created_at: number
 }
 
@@ -174,7 +171,8 @@ export class Store {
 
     // The task-graph era tables are gone in the thread model. The DB is local,
     // in-repo, and gitignored, so a clean re-create is acceptable. `projects`
-    // and `budget_ledger` are preserved (created with IF NOT EXISTS below).
+    // is preserved here; `budget_ledger` is dropped below since Freebuff has
+    // no spend/budget concept to track.
     this.db.exec(`
       DROP TABLE IF EXISTS task_artifacts;
       DROP TABLE IF EXISTS dependency_edges;
@@ -190,7 +188,6 @@ export class Store {
         default_branch   TEXT NOT NULL DEFAULT 'main',
         run_config       TEXT NOT NULL DEFAULT '{}',
         merge_strategy   TEXT NOT NULL DEFAULT 'squash',
-        daily_budget     INTEGER NOT NULL,
         created_at       INTEGER NOT NULL
       );
 
@@ -248,14 +245,37 @@ export class Store {
         skills_json TEXT NOT NULL,
         PRIMARY KEY (project_id, name)
       );
-
-      -- Rolling-24h spend per Freebuff account (informational).
-      CREATE TABLE IF NOT EXISTS budget_ledger (
-        account_id   TEXT PRIMARY KEY,
-        tokens_used  INTEGER NOT NULL DEFAULT 0,
-        window_start INTEGER NOT NULL
-      );
     `)
+
+    // v8: drop the budget_ledger table (no spend tracking) and the daily_budget
+    // column on projects. Column drops need a table rebuild in SQLite; do that
+    // once for any pre-v8 DB so we leave a clean shape behind.
+    this.db.exec('DROP TABLE IF EXISTS budget_ledger')
+    const projectCols = (
+      this.db.query('PRAGMA table_info(projects)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (projectCols.includes('daily_budget')) {
+      // Recreate `projects` without `daily_budget`. The data we care about
+      // (id/repo_url/root_path/default_branch/run_config/merge_strategy/created_at)
+      // is preserved; the column is just gone.
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS projects__v8 (
+          id               TEXT PRIMARY KEY,
+          repo_url         TEXT NOT NULL,
+          root_path        TEXT NOT NULL,
+          default_branch   TEXT NOT NULL DEFAULT 'main',
+          run_config       TEXT NOT NULL DEFAULT '{}',
+          merge_strategy   TEXT NOT NULL DEFAULT 'squash',
+          created_at       INTEGER NOT NULL
+        );
+        INSERT INTO projects__v8 (id, repo_url, root_path, default_branch,
+          run_config, merge_strategy, created_at)
+          SELECT id, repo_url, root_path, default_branch, run_config,
+            merge_strategy, created_at FROM projects;
+        DROP TABLE projects;
+        ALTER TABLE projects__v8 RENAME TO projects;
+      `)
+    }
 
     // v6: the per-thread `autorun` flag is gone (the queue always auto-drains).
     // Repurpose the column as `auto_queue_suggestions` on existing dbs without
@@ -293,15 +313,14 @@ export class Store {
       defaultBranch: input.defaultBranch ?? 'main',
       runConfig: input.runConfig ?? {},
       mergeStrategy: input.mergeStrategy ?? 'squash',
-      dailyBudget: input.dailyBudget,
       createdAt: input.createdAt,
     }
     this.db
       .query(
         `INSERT INTO projects
           (id, repo_url, root_path, default_branch, run_config, merge_strategy,
-           daily_budget, created_at)
-         VALUES ($id, $repo, $root, $branch, $runConfig, $merge, $budget, $created)`,
+           created_at)
+         VALUES ($id, $repo, $root, $branch, $runConfig, $merge, $created)`,
       )
       .run({
         $id: project.id,
@@ -310,7 +329,6 @@ export class Store {
         $branch: project.defaultBranch,
         $runConfig: JSON.stringify(project.runConfig),
         $merge: project.mergeStrategy,
-        $budget: project.dailyBudget,
         $created: project.createdAt,
       })
     return project
@@ -558,31 +576,6 @@ export class Store {
       .all({ $p: projectId }) as { name: string; skills_json: string }[]
     return rows.map((r) => ({ name: r.name, skills: JSON.parse(r.skills_json) as string[] }))
   }
-
-  // — Budget ledger —
-
-  getBudget(accountId: string): BudgetLedger | null {
-    const row = this.db
-      .query('SELECT * FROM budget_ledger WHERE account_id = $id')
-      .get({ $id: accountId }) as
-      | { account_id: string; tokens_used: number; window_start: number }
-      | null
-    return row
-      ? { accountId: row.account_id, tokensUsed: row.tokens_used, windowStart: row.window_start }
-      : null
-  }
-
-  upsertBudget(ledger: BudgetLedger): void {
-    this.db
-      .query(
-        `INSERT INTO budget_ledger (account_id, tokens_used, window_start)
-         VALUES ($id, $used, $start)
-         ON CONFLICT(account_id) DO UPDATE SET
-           tokens_used = excluded.tokens_used,
-           window_start = excluded.window_start`,
-      )
-      .run({ $id: ledger.accountId, $used: ledger.tokensUsed, $start: ledger.windowStart })
-  }
 }
 
 function rowToProject(row: ProjectRow): Project {
@@ -593,7 +586,6 @@ function rowToProject(row: ProjectRow): Project {
     defaultBranch: row.default_branch,
     runConfig: JSON.parse(row.run_config) as RunConfig,
     mergeStrategy: row.merge_strategy,
-    dailyBudget: row.daily_budget,
     createdAt: row.created_at,
   }
 }

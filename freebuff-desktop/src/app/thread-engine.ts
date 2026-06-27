@@ -20,7 +20,6 @@ import { CodebuffClient } from '@codebuff/sdk'
 import type { PrintModeEvent } from '@codebuff/sdk'
 
 import { appendBlock, type AttachmentImage } from '../core/attachments'
-import { recordUsage } from '../core/budget'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
@@ -63,7 +62,6 @@ export type EngineEvent =
 export interface Snapshot {
   project: Project
   threads: Thread[]
-  usage: { costSpent: number; running: number }
   /** Which agent harness runs turns, plus the options the UI offers. */
   agent: { harnessId: HarnessId; options: readonly AgentOption[] }
   /**
@@ -95,7 +93,6 @@ export interface EngineOptions {
   repoUrl?: string
   client?: CodebuffClient
   defaultBranch?: string
-  dailyBudget?: number
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
   /** Base URL the server listens on, used to point `browser_check` at a thread's
@@ -118,7 +115,6 @@ export class ThreadEngine {
   private readonly client: CodebuffClient
   private readonly projectId: string
   private readonly repoRoot: string
-  private readonly accountId = 'local'
   private readonly previewBaseUrl: string
   private readonly browserCheckFn: (url: string) => Promise<BrowserCheckResult>
 
@@ -136,20 +132,19 @@ export class ThreadEngine {
   /** Reentrancy guard: a thread whose pump loop is currently draining. */
   private pumping = new Set<string>()
   /** User messages typed in the main chat. When the thread is idle the pump runs
-   * the next one as a fresh turn (jumping ahead of the queue). While a turn is
-   * running, later arrivals are drained at the agent's step boundaries to steer
-   * the in-flight turn instead of waiting for it to finish. Each item carries its
-   * message text plus any attached images (base64); steering drains text only, so
-   * images attached to a message that steers a running turn are dropped (the common
-   * path — attaching while idle — runs as a fresh turn and keeps them). */
+   *  the next one as a fresh turn (jumping ahead of the queue). While a turn is
+   *  running, later arrivals are drained at the agent's step boundaries to steer
+   *  the in-flight turn instead of waiting for it to finish. Each item carries its
+   *  message text plus any attached images (base64); steering drains text only, so
+   *  images attached to a message that steers a running turn are dropped (the common
+   *  path — attaching while idle — runs as a fresh turn and keeps them). */
   private userInbox = new Map<string, InboxItem[]>()
   /** Abort handle for a thread's in-flight turn, so the UI can stop it. */
   private aborters = new Map<string, AbortController>()
   /** Threads whose user pressed Stop: the pump halts after the current turn
-   * instead of draining the next queued item. Cleared once honored. */
+   *  instead of draining the next queued item. Cleared once honored. */
   private interrupted = new Set<string>()
   private threadSeq = 0
-  private costSpent = 0
 
   constructor(opts: EngineOptions) {
     const fbDir = join(opts.repoRoot, '.freebuff')
@@ -176,7 +171,6 @@ export class ThreadEngine {
         repoUrl: opts.repoUrl ?? opts.repoRoot,
         rootPath: opts.repoRoot,
         defaultBranch: opts.defaultBranch ?? 'main',
-        dailyBudget: opts.dailyBudget ?? 1_000_000,
         createdAt: this.now(),
       })
     }
@@ -231,10 +225,6 @@ export class ThreadEngine {
     return {
       project,
       threads,
-      usage: {
-        costSpent: this.costSpent,
-        running: threads.filter((t) => t.turnState === 'running').length,
-      },
       agent: { harnessId: this.harnessId, options: AGENT_OPTIONS },
       previewReady: this.detectPreviewReady(settings),
       settings,
@@ -293,14 +283,6 @@ export class ThreadEngine {
   close() {
     this.listeners.clear()
     this.store.close()
-  }
-
-  /** Fold spend into the rolling-24h ledger (informational) and the display total. */
-  private recordSpend(amount: number) {
-    if (!amount) return
-    const ledger = recordUsage(this.store.getBudget(this.accountId), this.accountId, amount, this.now())
-    this.store.upsertBudget(ledger)
-    this.costSpent += amount
   }
 
   // — Thread lifecycle —
@@ -560,7 +542,7 @@ export class ThreadEngine {
     // harness emits none on abort/error). Used for both endings so they stay symmetric.
     const finalize = (marker: string) => {
       emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
-      emitAgent({ type: 'finish', totalCost: 0 })
+      emitAgent({ type: 'finish' })
     }
     const aborter = new AbortController()
     this.aborters.set(threadId, aborter)
@@ -597,7 +579,6 @@ export class ThreadEngine {
             emitAgent(event)
             if (event.type === 'tool_call')
               acts.push({ toolName: event.toolName as string, input: event.input })
-            if (event.type === 'finish') this.recordSpend((event.totalCost as number) ?? 0)
           },
           drainSteering: () => this.drainSteering(threadId),
         },

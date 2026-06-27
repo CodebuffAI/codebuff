@@ -12,7 +12,7 @@ import { Orchestrator } from '../src/core/orchestrator'
 import { Store } from '../src/core/store'
 
 const store = Store.memory()
-store.insertProject({ id: 'p', repoUrl: 'r', rootPath: mkdtempSync(join(tmpdir(), 'scout-')), dailyBudget: 1e9, concurrencyCap: 1, createdAt: 1 })
+store.insertProject({ id: 'p', repoUrl: 'r', rootPath: mkdtempSync(join(tmpdir(), 'scout-')), createdAt: 1 })
 let seq = 0
 const orch = new Orchestrator({ store, projectId: 'p', docs: new DocStore({ docsDir: join(tmpdir(), 'scout-docs') }), idGen: () => `t${++seq}`, clock: () => 1 })
 orch.createTask({ title: 'Add a visitor counter', description: 'localStorage page-load counter' }, { origin: 'human' })

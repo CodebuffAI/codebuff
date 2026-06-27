@@ -115,7 +115,6 @@ export interface ProjectSettings {
 export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]
-  usage: { costSpent: number; running: number }
   agent?: { harnessId: HarnessId; options: AgentOption[] }
   /** True when the project has a previewable entry (resolved against settings). */
   previewReady?: boolean
@@ -137,5 +136,5 @@ export type AgentEvent =
   | { type: 'reasoning_delta'; text: string }
   | { type: 'tool_call'; toolName: string; input: unknown; toolCallId?: string }
   | { type: 'tool_result'; toolName?: string; toolCallId?: string }
-  | { type: 'finish'; totalCost?: number }
+  | { type: 'finish' }
   | { type: string; [k: string]: unknown }

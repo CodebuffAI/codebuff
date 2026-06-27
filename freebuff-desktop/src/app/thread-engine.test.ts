@@ -16,7 +16,7 @@ class FakeClient {
     this.prompts.push(opts.prompt)
     this.contents.push(opts.content)
     await this.onRun?.(opts)
-    opts.handleEvent?.({ type: 'finish', totalCost: 0 })
+    opts.handleEvent?.({ type: 'finish' })
     return {} as any
   }
 }

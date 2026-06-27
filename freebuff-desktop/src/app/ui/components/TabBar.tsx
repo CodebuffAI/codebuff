@@ -20,7 +20,6 @@ export function TabBar() {
   const closeTab = useStore((s) => s.closeTab)
   const newThread = useStore((s) => s.newThread)
   const connection = useStore((s) => s.connection)
-  const costSpent = useStore((s) => s.usage.costSpent)
 
   // Overflow menu: jump to any open tab when there are too many to scan.
   const [menuOpen, setMenuOpen] = useState(false)
@@ -102,23 +101,10 @@ export function TabBar() {
         </div>
       )}
 
-      {costSpent > 0 && (
-        <span className="cost" title="Session spend across all threads">
-          {formatCost(costSpent)}
-        </span>
-      )}
-
       <div className={`conn-status conn-${connection}`} title={CONN_LABEL[connection]}>
         <span className="conn-dot" />
         {connection !== 'open' && <span className="conn-label">{CONN_LABEL[connection]}</span>}
       </div>
     </div>
   )
-}
-
-/** Compact session-spend label: sub-cent shows more digits so it never reads $0.00. */
-function formatCost(cost: number): string {
-  if (cost >= 1) return `$${cost.toFixed(2)}`
-  if (cost >= 0.01) return `$${cost.toFixed(3)}`
-  return `$${cost.toFixed(4)}`
 }

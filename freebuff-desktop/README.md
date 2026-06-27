@@ -11,10 +11,9 @@ on top of:
 
 ```
 src/core/
-  types.ts        — domain model (§14): Project, Task, DependencyEdge, BudgetLedger
+  types.ts        — domain model: Project, Thread, QueueItem, Skill, Workflow
   store.ts        — local SQLite persistence under .freebuff/ (bun:sqlite)
   graph.ts        — task-graph queries: unblocked tasks, cycle detection
-  scheduler.ts    — FIFO admission under concurrency cap + rolling-24h daily budget
   worktree.ts     — git worktree lifecycle + gh PR helpers (branches from main, §8)
   orchestrator.ts — the §19 tool surface (create_task, add_dependency, ...)
   pipeline.ts     — fixed per-task stage runner (implement→simplify→review→test→pr)
