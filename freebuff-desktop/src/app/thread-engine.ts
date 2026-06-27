@@ -333,7 +333,6 @@ export class ThreadEngine {
       const tools = buildThreadTools({
         onSuggest: (items) => this.addSuggestions(threadId, items),
         onWriteDoc: (name, content, mode) => this.writeDocSafe(name, content, mode),
-        onOpenPr: () => this.openPr(threadId),
         onBrowserCheck: () => this.browserCheck(threadId),
       })
       const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
@@ -552,26 +551,6 @@ export class ThreadEngine {
 
   docPresence(): { name: string; present: boolean }[] {
     return DOC_NAMES.map((name) => ({ name, present: this.docs.exists(name) }))
-  }
-
-  // — PR (used by the open-pr skill) —
-
-  async openPr(threadId: string): Promise<{ url: string }> {
-    let thread = this.store.getThread(threadId)
-    if (!thread) throw new Error('thread not found')
-    thread = await this.ensureWorktree(thread)
-    await this.worktrees.commitAll(threadId, thread.title)
-    const branch = thread.branch ?? this.worktrees.branchName(slugify(thread.title))
-    const url = (await this.worktrees.hasRemote())
-      ? await this.worktrees.pushAndOpenPr(threadId, branch, {
-          title: thread.title,
-          body: '— Opened by Freebuff Desktop.',
-        })
-      : `local://${branch}`
-    this.store.updateThread(threadId, { prUrl: url }, this.now())
-    this.emitThread(threadId)
-    this.emitState()
-    return { url }
   }
 
   // — Browser-in-the-loop (used by the browser_check tool / test+review skills) —

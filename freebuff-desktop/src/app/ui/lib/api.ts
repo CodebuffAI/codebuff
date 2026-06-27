@@ -1,7 +1,7 @@
 /** Thin REST client for the orchestrator API. Same-origin in both dev (via the
  * Vite proxy) and packaged (served by the Bun server). */
 
-import type { QueueItem, Skill, Thread, Workflow } from './types'
+import type { QueueItem, Skill, Thread } from './types'
 
 export interface ThreadData {
   thread: Thread
@@ -34,7 +34,6 @@ export const api = {
   sendMessage: (id: string, text: string) => post(`/api/thread/${id}/message`, { text }),
   setAutoQueueSuggestions: (id: string, on: boolean) =>
     post(`/api/thread/${id}/auto-queue-suggestions`, { on }),
-  openPr: (id: string) => post<{ url?: string; error?: string }>(`/api/thread/${id}/open-pr`),
   reorder: (id: string, itemId: string, afterItemId: string | null) =>
     post(`/api/thread/${id}/reorder`, { itemId, afterItemId }),
 
@@ -42,16 +41,13 @@ export const api = {
   enqueuePrompt: (id: string, prompt: string, label?: string) =>
     post(`/api/thread/${id}/queue`, { prompt, label }),
   enqueueSkill: (id: string, skill: string) => post(`/api/thread/${id}/queue/skill`, { skill }),
-  enqueueWorkflow: (id: string, workflow: string) =>
-    post(`/api/thread/${id}/queue/workflow`, { workflow }),
   editItem: (itemId: string, prompt: string) => post(`/api/queue/${itemId}/edit`, { prompt }),
   deleteItem: (itemId: string) => post(`/api/queue/${itemId}/delete`),
   promoteItem: (itemId: string) => post(`/api/queue/${itemId}/promote`),
   demoteItem: (itemId: string) => post(`/api/queue/${itemId}/demote`),
 
-  // Skills & workflows
+  // Skills
   listSkills: () => get<Skill[]>('/api/skills'),
-  listWorkflows: () => get<Workflow[]>('/api/workflows'),
 
   // Project
   openProject: (path: string) => post<{ ok: boolean; error?: string }>('/api/project/open', { path }),

@@ -104,6 +104,17 @@ describe('ThreadEngine — workflows & suggestions', () => {
     }
   })
 
+  test('open-pr and merge ship as built-in skills', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const names = engine.listSkills().map((s) => s.name)
+      expect(names).toContain('open-pr')
+      expect(names).toContain('merge')
+    } finally {
+      cleanup()
+    }
+  })
+
   test('skill/workflow turns show a compact /label in chat, not the full prompt body', async () => {
     const { engine, client, cleanup } = await gitEngine()
     try {
@@ -232,18 +243,6 @@ describe('ThreadEngine — queue editing & PR', () => {
 
       engine.moveToSuggestions(b.id)
       expect(engine.store.getQueueItem(b.id)!.state).toBe('suggested')
-    } finally {
-      cleanup()
-    }
-  })
-
-  test('openPr stores a local:// url when there is no remote', async () => {
-    const { engine, cleanup } = await gitEngine()
-    try {
-      const thread = engine.createThread()
-      const { url } = await engine.openPr(thread.id)
-      expect(url.startsWith('local://')).toBe(true)
-      expect(engine.getThread(thread.id)!.prUrl).toBe(url)
     } finally {
       cleanup()
     }

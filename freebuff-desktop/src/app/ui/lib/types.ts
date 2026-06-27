@@ -57,11 +57,6 @@ export interface Skill {
   builtin: boolean
 }
 
-export interface Workflow {
-  name: string
-  skills: string[]
-}
-
 export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]
