@@ -244,6 +244,107 @@ select {
   color: #c8a93f;
 }
 
+/* — Agent selector (title bar) — */
+.agent-selector {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+.agent-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.agent-trigger:hover {
+  background: var(--surface-2);
+}
+.agent-name {
+  font-weight: 600;
+}
+.agent-model {
+  color: var(--muted);
+}
+.agent-trigger svg {
+  color: var(--faint);
+}
+.agent-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.agent-dot-claude-code {
+  background: #d97757;
+}
+.agent-dot-codebuff {
+  background: var(--accent);
+}
+.agent-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: 320px;
+  padding: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--text);
+}
+.agent-option:hover {
+  background: var(--raised);
+}
+.agent-option.active {
+  background: var(--raised);
+}
+.agent-option .agent-dot {
+  margin-top: 5px;
+}
+.agent-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.agent-option-title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.agent-option-model {
+  color: var(--muted);
+  font-weight: 500;
+}
+.agent-option-desc {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.agent-option svg {
+  color: var(--accent);
+  margin-top: 4px;
+}
+
 /* — Workspace split — */
 .workspace {
   position: relative;

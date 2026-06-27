@@ -129,20 +129,41 @@ export function browseDir(dir?: string): BrowseResult {
 
 const STATE_PATH = join(homedir(), '.config', 'freebuff-desktop', 'state.json')
 
-export function readLastProject(): string | undefined {
+/** Read the whole settings blob (last project + agent harness, …). */
+function readState(): Record<string, unknown> {
   try {
     const data = JSON.parse(readFileSync(STATE_PATH, 'utf8'))
-    return typeof data.lastProject === 'string' ? data.lastProject : undefined
+    return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
   } catch {
-    return undefined
+    return {}
   }
 }
 
-export function writeLastProject(path: string): void {
+/** Merge a patch into the settings blob (preserves the other keys). */
+function writeState(patch: Record<string, unknown>): void {
   try {
     mkdirSync(dirname(STATE_PATH), { recursive: true })
-    writeFileSync(STATE_PATH, JSON.stringify({ lastProject: path }, null, 2))
+    writeFileSync(STATE_PATH, JSON.stringify({ ...readState(), ...patch }, null, 2))
   } catch {
-    // Best-effort; a missing state file just means we fall back to the default repo.
+    // Best-effort; a missing state file just means we fall back to defaults.
   }
+}
+
+export function readLastProject(): string | undefined {
+  const v = readState().lastProject
+  return typeof v === 'string' ? v : undefined
+}
+
+export function writeLastProject(path: string): void {
+  writeState({ lastProject: path })
+}
+
+/** The persisted agent-harness choice (id string; validated by the caller). */
+export function readAgentHarness(): string | undefined {
+  const v = readState().agentHarness
+  return typeof v === 'string' ? v : undefined
+}
+
+export function writeAgentHarness(id: string): void {
+  writeState({ agentHarness: id })
 }

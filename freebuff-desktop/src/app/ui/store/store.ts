@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { foldAgentEvent, partsFromPersisted, type ReasoningCollapse } from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
-import type { Message, QueueItem, ServerEvent, Skill, Thread } from '../lib/types'
+import type { AgentOption, HarnessId, Message, QueueItem, ServerEvent, Skill, Thread } from '../lib/types'
 
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
@@ -27,6 +27,10 @@ interface StoreState {
   skillTally: Record<string, number>
   usage: { costSpent: number; running: number }
   projectPath: string
+  /** Which agent harness runs turns + the options the picker offers. */
+  agentHarness: HarnessId | null
+  agentOptions: AgentOption[]
+  setAgentHarness: (id: HarnessId) => void
   /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
@@ -81,8 +85,16 @@ export const useStore = create<StoreState>((set, get) => ({
   skillTally: loadSkillTally(),
   usage: { costSpent: 0, running: 0 },
   projectPath: '',
+  agentHarness: null,
+  agentOptions: [],
   pickerOpen: false,
   toasts: [],
+
+  setAgentHarness(id) {
+    // Optimistic: the server echoes the change back via a `state` event too.
+    set({ agentHarness: id })
+    api.setAgentHarness(id)
+  },
 
   setPickerOpen(open) {
     set({ pickerOpen: open })
@@ -138,6 +150,8 @@ export const useStore = create<StoreState>((set, get) => ({
           activeId,
           usage: snapshot.usage,
           projectPath: snapshot.project?.rootPath ?? s.projectPath,
+          agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
+          agentOptions: snapshot.agent?.options ?? s.agentOptions,
         }
       })
       // Load the active thread's messages if needed.

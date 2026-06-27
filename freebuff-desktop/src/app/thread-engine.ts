@@ -3,8 +3,10 @@
  *
  * It owns the store, worktree manager, governing docs, skills, and the SDK client,
  * and drives each thread: one full coding agent, turn by turn, in the thread's own
- * git worktree, fed by a per-thread queue. Per-thread `previousRun` carries prompt
- * caching across turns; a per-thread reentrant `pump` runs turns one at a time so
+ * git worktree, fed by a per-thread queue. The agent itself is a pluggable harness
+ * (Codebuff or local Claude Code — see agents/harness.ts), switchable at runtime;
+ * per-thread harness state carries context/caching across turns. A per-thread
+ * reentrant `pump` runs turns one at a time so
  * two prompts never race. The assistant's `suggest_prompts` tool parks follow-ups in the queue's
  * suggested lane; a workflow expands into one queued prompt per skill; the pump
  * always auto-drains the next queued prompt top-down once a turn finishes.
@@ -15,7 +17,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 
 import { CodebuffClient } from '@codebuff/sdk'
-import type { PrintModeEvent, RunState } from '@codebuff/sdk'
+import type { PrintModeEvent } from '@codebuff/sdk'
 
 import { recordUsage } from '../core/budget'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
@@ -38,7 +40,15 @@ import type {
   Thread,
 } from '../core/types'
 import { slugify, WorktreeManager } from '../core/worktree'
-import { buildThreadTools, threadAgentDefinition, THREAD_AGENT_TOOLS } from './agents/thread-agent'
+import { ClaudeCodeHarness } from './agents/claude-code-harness'
+import { CodebuffHarness } from './agents/codebuff-harness'
+import {
+  AGENT_OPTIONS,
+  DEFAULT_HARNESS,
+  type AgentHarness,
+  type AgentOption,
+  type HarnessId,
+} from './agents/harness'
 
 export type EngineEvent =
   | { type: 'state'; snapshot: Snapshot }
@@ -51,6 +61,8 @@ export interface Snapshot {
   project: Project
   threads: Thread[]
   usage: { costSpent: number; running: number }
+  /** Which agent harness runs turns, plus the options the UI offers. */
+  agent: { harnessId: HarnessId; options: readonly AgentOption[] }
 }
 
 export interface ThreadData {
@@ -73,6 +85,8 @@ export interface EngineOptions {
   previewBaseUrl?: string
   /** Inject the headless-browser runner (tests). Defaults to real playwright. */
   runBrowserCheck?: (url: string) => Promise<BrowserCheckResult>
+  /** Which agent harness runs turns. Defaults to {@link DEFAULT_HARNESS}. */
+  harnessId?: HarnessId
   /** User-home skills dir for acquired skills. Defaults to `~/.freebuff/skills`. */
   globalSkillsDir?: string
 }
@@ -90,8 +104,16 @@ export class ThreadEngine {
   private readonly browserCheckFn: (url: string) => Promise<BrowserCheckResult>
 
   private listeners = new Set<(e: EngineEvent) => void>()
-  /** Per-thread prompt-cache state for the SDK (in-memory only). */
-  private previousRun = new Map<string, RunState>()
+  /**
+   * Per-thread harness state for context/caching across turns (in-memory only).
+   * Tagged with the harness that produced it: switching agents mid-thread makes
+   * the stale state ignored, so each harness starts that thread fresh.
+   */
+  private threadState = new Map<string, { harnessId: HarnessId; state: unknown }>()
+  /** Active harness id; switchable at runtime via {@link setHarness}. */
+  private harnessId: HarnessId
+  /** Lazily-built harness instances, one per id. */
+  private harnesses = new Map<HarnessId, AgentHarness>()
   /** Reentrancy guard: a thread whose pump loop is currently draining. */
   private pumping = new Set<string>()
   /** User messages typed in the main chat. When the thread is idle the pump runs
@@ -112,6 +134,7 @@ export class ThreadEngine {
     mkdirSync(fbDir, { recursive: true })
 
     this.projectId = opts.projectId ?? 'project'
+    this.harnessId = opts.harnessId ?? DEFAULT_HARNESS
     this.repoRoot = opts.repoRoot
     this.store = new Store(join(fbDir, 'desktop.db'))
     this.docs = new DocStore({ docsDir: join(fbDir, 'docs') })
@@ -186,7 +209,28 @@ export class ThreadEngine {
         costSpent: this.costSpent,
         running: threads.filter((t) => t.turnState === 'running').length,
       },
+      agent: { harnessId: this.harnessId, options: AGENT_OPTIONS },
     }
+  }
+
+  /** The active harness, built lazily and cached per id. */
+  private activeHarness(): AgentHarness {
+    let h = this.harnesses.get(this.harnessId)
+    if (!h) {
+      h =
+        this.harnessId === 'claude-code'
+          ? new ClaudeCodeHarness()
+          : new CodebuffHarness(this.client)
+      this.harnesses.set(this.harnessId, h)
+    }
+    return h
+  }
+
+  /** Switch which agent runs turns. Takes effect on the next turn. */
+  setHarness(id: HarnessId): void {
+    if (id === this.harnessId) return
+    this.harnessId = id
+    this.emitState()
   }
 
   emitState() {
@@ -250,7 +294,7 @@ export class ThreadEngine {
   closeThread(id: string): void {
     if (!this.store.getThread(id)) return
     this.store.updateThread(id, { status: 'closed' }, this.now())
-    this.previousRun.delete(id)
+    this.threadState.delete(id)
     this.emitState()
   }
 
@@ -267,7 +311,7 @@ export class ThreadEngine {
     if (!thread) return
     if (thread.branch) await this.worktrees.remove(id).catch(() => {})
     this.store.deleteThread(id)
-    this.previousRun.delete(id)
+    this.threadState.delete(id)
     this.emitState()
   }
 
@@ -423,10 +467,10 @@ export class ThreadEngine {
     this.emitThread(threadId)
     this.emitState()
 
+    const harness = this.activeHarness()
     // Hoisted above the try so the catch/finally can finalize partial output when
     // a Stop aborts the run or it throws.
     let assistantText = ''
-    let streamedText = false
     const acts: { toolName: string; input: unknown }[] = []
     // Build the ordered parts array as events arrive so the persisted turn matches
     // what the client streamed live (same fold — see core/parts.ts).
@@ -439,8 +483,8 @@ export class ThreadEngine {
       this.emit({ type: 'agent', threadId, event: event as unknown as PrintModeEvent })
     }
     // End a turn with a terminal marker (Stopped / failed): stream it + fold it into
-    // `parts`, then emit a finish so the message leaves the working state (the SDK
-    // emits none on abort/error). Used for both endings so they stay symmetric.
+    // `parts`, then emit a finish so the message leaves the working state (the
+    // harness emits none on abort/error). Used for both endings so they stay symmetric.
     const finalize = (marker: string) => {
       emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
       emitAgent({ type: 'finish', totalCost: 0 })
@@ -451,60 +495,40 @@ export class ThreadEngine {
     try {
       thread = await this.ensureWorktree(thread)
       const cwd = thread.worktreePath!
-      const tools = buildThreadTools({
-        onSuggest: (items) => this.addSuggestions(threadId, items),
-        onWriteDoc: (name, content, mode) => this.writeDocSafe(name, content, mode),
-        onBrowserCheck: () => this.browserCheck(threadId),
-      })
-      const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
 
-      const run = await this.client.run({
-        agent: threadAgentDefinition(toolNames),
-        prompt,
-        cwd,
-        signal: aborter.signal,
-        previousRun: this.previousRun.get(threadId),
-        customToolDefinitions: tools,
-        // Steering: main-chat messages typed while this turn runs are appended as
-        // user prompts at the next step boundary instead of waiting for the turn.
-        drainSteeringMessages: () => this.drainSteering(threadId),
-        // Per-token deltas → stream to the UI as they arrive. (handleEvent's
-        // `text` events are consolidated whole-segment blocks that only land at the
-        // end of a segment, so streaming must come from here.)
-        handleStreamChunk: (chunk) => {
-          if (typeof chunk === 'string') {
-            if (!chunk) return
-            streamedText = true
+      // Only reuse prior state if the SAME harness produced it (switching agents
+      // mid-thread starts that thread fresh for the new harness).
+      const saved = this.threadState.get(threadId)
+      const previousState = saved?.harnessId === harness.id ? saved.state : undefined
+
+      const result = await harness.runTurn(
+        {
+          prompt,
+          cwd,
+          abort: aborter,
+          toolDeps: {
+            onSuggest: (items) => this.addSuggestions(threadId, items),
+            onWriteDoc: (name, content, mode) => this.writeDocSafe(name, content, mode),
+            onBrowserCheck: () => this.browserCheck(threadId),
+          },
+          previousState,
+        },
+        {
+          onText: (chunk) => {
             assistantText += chunk
             emitAgent({ type: 'text', text: chunk })
-            return
-          }
-          // Reasoning arrives as a structured chunk (the SDK rewrites the SSE
-          // `reasoning_delta` into `{ type: 'reasoning_chunk', chunk }`). Stream it
-          // as its own ordered part so thinking interleaves with text/tools.
-          // (subagent_chunk is the other non-string case; ignored — only the root
-          //  turn's reasoning is rendered. TODO: subagent attribution via agentId.)
-          if (chunk.type === 'reasoning_chunk' && chunk.chunk) {
-            emitAgent({ type: 'reasoning_delta', text: chunk.chunk })
-          }
+          },
+          onReasoning: (chunk) => emitAgent({ type: 'reasoning_delta', text: chunk }),
+          onEvent: (event) => {
+            emitAgent(event)
+            if (event.type === 'tool_call')
+              acts.push({ toolName: event.toolName as string, input: event.input })
+            if (event.type === 'finish') this.recordSpend((event.totalCost as number) ?? 0)
+          },
+          drainSteering: () => this.drainSteering(threadId),
         },
-        handleEvent: (event) => {
-          if (event.type === 'text') {
-            // Already streamed token-by-token via handleStreamChunk; skip the
-            // consolidated copy to avoid rendering the text twice. Fall back to it
-            // only if no stream chunks arrived (keeps the transcript correct).
-            if (!streamedText) {
-              assistantText += event.text
-              emitAgent(event)
-            }
-            return
-          }
-          emitAgent(event)
-          if (event.type === 'tool_call') acts.push({ toolName: event.toolName, input: event.input })
-          if (event.type === 'finish') this.recordSpend(event.totalCost)
-        },
-      })
-      this.previousRun.set(threadId, run)
+      )
+      this.threadState.set(threadId, { harnessId: harness.id, state: result.state })
       // A Stop arrives as an abort; mark it but keep any partial output.
       if (aborter.signal.aborted) finalize('⏹ Stopped.')
     } catch (err) {

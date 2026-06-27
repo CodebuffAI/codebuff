@@ -14,8 +14,16 @@
 import { existsSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 
+import { isHarnessId, type HarnessId } from './agents/harness'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
-import { browseDir, readLastProject, validateProjectDir, writeLastProject } from './project-dir'
+import {
+  browseDir,
+  readAgentHarness,
+  readLastProject,
+  validateProjectDir,
+  writeAgentHarness,
+  writeLastProject,
+} from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -38,6 +46,10 @@ const broadcast = (e: EngineEvent) => {
 }
 
 let currentRepo = initialRepo
+// The agent harness is an app-wide choice; persist it so it survives project swaps
+// and restarts, and apply it to every engine we stand up.
+const persistedHarness = readAgentHarness()
+let currentHarness: HarnessId | undefined = isHarnessId(persistedHarness) ? persistedHarness : undefined
 let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).defaultBranch)
 let engineUnsub = engine.on(broadcast)
 
@@ -46,6 +58,7 @@ function makeEngine(repoRoot: string, defaultBranch?: string): ThreadEngine {
     repoRoot,
     repoUrl: repoRoot,
     defaultBranch,
+    harnessId: currentHarness,
     // browser_check loads a thread's preview from this same server.
     previewBaseUrl: `http://127.0.0.1:${PORT}`,
   })
@@ -189,6 +202,17 @@ const server = Bun.serve({
       if (!path) return json({ error: 'path required' }, 400)
       const result = await openProject(String(path))
       return result.ok ? json({ ok: true, path: currentRepo }) : json(result, 400)
+    }
+
+    // Switch the agent harness (app-wide). Applies to the live engine immediately
+    // and persists for the next launch / project swap.
+    if (pathname === '/api/settings/agent' && req.method === 'POST') {
+      const { harnessId } = await body(req)
+      if (!isHarnessId(harnessId)) return json({ error: 'invalid harnessId' }, 400)
+      currentHarness = harnessId
+      engine.setHarness(harnessId)
+      writeAgentHarness(harnessId)
+      return json({ ok: true, harnessId })
     }
 
     if (pathname === '/api/run' && req.method === 'POST') {

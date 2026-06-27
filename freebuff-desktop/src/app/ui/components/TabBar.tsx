@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useStore } from '../store/store'
+import { AgentSelector } from './AgentSelector'
 import { Icon } from './Icon'
 
 const isMac = (window as any).freebuffDesktop?.platform === 'darwin'
@@ -66,6 +67,7 @@ export function TabBar() {
           <Icon name="plus" />
         </button>
       </div>
+      <AgentSelector />
 
       {tabOrder.length > 1 && (
         <div className="tab-overflow" ref={menuRef}>

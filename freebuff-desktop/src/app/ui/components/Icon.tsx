@@ -10,6 +10,7 @@ const PATHS: Record<string, string> = {
   spark: 'M7.5 2l1.2 3.3L12 6.5 8.7 7.7 7.5 11 6.3 7.7 3 6.5l3.3-1.2z',
   check: 'M3 8l3 3 6-7',
   up: 'M7.5 11.5v-8M4 7l3.5-3.5L11 7',
+  'chevron-down': 'M4 6l3.5 3.5L11 6',
   edit: 'M10.5 2.5l2 2-7 7-2.5.5.5-2.5z',
   folder: 'M2 4.5h4l1.2 1.5H13v6.5H2z',
   dot: 'M7.5 7.5h.01',

@@ -64,6 +64,16 @@ export interface Skill {
   builtin: boolean
 }
 
+export type HarnessId = 'codebuff' | 'claude-code'
+
+export interface AgentOption {
+  id: HarnessId
+  label: string
+  model: string
+  modelLabel: string
+  description: string
+}
+
 /** Folder-picker listing from /api/fs/list (mirrors server BrowseResult). */
 export interface BrowseEntry {
   name: string
@@ -90,6 +100,7 @@ export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]
   usage: { costSpent: number; running: number }
+  agent?: { harnessId: HarnessId; options: AgentOption[] }
 }
 
 /** SSE event shapes emitted by the server (see EngineEvent). */

@@ -1,7 +1,15 @@
 /** Thin REST client for the orchestrator API. Same-origin in both dev (via the
  * Vite proxy) and packaged (served by the Bun server). */
 
-import type { BrowseResult, Part, QueueItem, Skill, SkillSearchResult, Thread } from './types'
+import type {
+  BrowseResult,
+  HarnessId,
+  Part,
+  QueueItem,
+  Skill,
+  SkillSearchResult,
+  Thread,
+} from './types'
 
 export interface ThreadData {
   thread: Thread
@@ -71,4 +79,8 @@ export const api = {
     post<{ ok: boolean; path?: string; error?: string }>('/api/project/open', { path }),
   browse: (path?: string) =>
     get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+
+  // Settings
+  setAgentHarness: (harnessId: HarnessId) =>
+    post<{ ok: boolean; error?: string }>('/api/settings/agent', { harnessId }),
 }
