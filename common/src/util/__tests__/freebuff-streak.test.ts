@@ -4,6 +4,8 @@ import {
   addDaysToDateKey,
   calculateFreebuffStreak,
   getFreebuffUsageDateKey,
+  isFreebuffStreakMilestone,
+  streakRewardPoolsForMilestone,
 } from '../freebuff-streak'
 
 describe('freebuff streak helpers', () => {
@@ -59,5 +61,55 @@ describe('freebuff streak helpers', () => {
       todayUsed: false,
       lastUsageDate: '2026-05-25',
     })
+  })
+})
+
+describe('freebuff streak rewards', () => {
+  test('recognizes 7-day multiples as milestones', () => {
+    expect(isFreebuffStreakMilestone(7)).toBe(true)
+    expect(isFreebuffStreakMilestone(14)).toBe(true)
+    expect(isFreebuffStreakMilestone(21)).toBe(true)
+    expect(isFreebuffStreakMilestone(0)).toBe(false)
+    expect(isFreebuffStreakMilestone(6)).toBe(false)
+    expect(isFreebuffStreakMilestone(8)).toBe(false)
+  })
+
+  test('full access milestone grants a premium bonus plus a weekly GLM bonus', () => {
+    expect(
+      streakRewardPoolsForMilestone({
+        streak: 7,
+        todayUsed: true,
+        accessTier: 'full',
+      }),
+    ).toEqual(['premium', 'glm'])
+  })
+
+  test('limited access milestone grants only a limited bonus', () => {
+    expect(
+      streakRewardPoolsForMilestone({
+        streak: 14,
+        todayUsed: true,
+        accessTier: 'limited',
+      }),
+    ).toEqual(['limited'])
+  })
+
+  test('no reward off a milestone or before today is used', () => {
+    expect(
+      streakRewardPoolsForMilestone({
+        streak: 6,
+        todayUsed: true,
+        accessTier: 'full',
+      }),
+    ).toEqual([])
+    // Streak is a multiple of 7 only because yesterday anchored it; the user
+    // hasn't used Freebuff today, so the milestone isn't earned yet.
+    expect(
+      streakRewardPoolsForMilestone({
+        streak: 7,
+        todayUsed: false,
+        accessTier: 'full',
+      }),
+    ).toEqual([])
   })
 })

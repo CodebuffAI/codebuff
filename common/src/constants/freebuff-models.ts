@@ -101,6 +101,37 @@ export const FREEBUFF_GLM_V52_SESSION_LENGTH_MS = 60 * 60 * 1000
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
+
+/**
+ * Streak rewards. Maintaining a daily Freebuff streak across a full week earns a
+ * bonus session: when the user's streak crosses a multiple of
+ * `FREEBUFF_STREAK_REWARD_INTERVAL_DAYS` (7, 14, 21, …) they are granted one
+ * extra session in their primary pool (premium for full-access users, limited
+ * for limited-access users), and — for full-access users — one extra GLM 5.2
+ * weekly session on top of any referral entitlement.
+ *
+ * The bonus is implemented by raising the relevant pool's effective session
+ * limit for the period the milestone was reached in (so the daily premium /
+ * limited bonus is usable the day it's earned, and the weekly GLM bonus for the
+ * rest of that Pacific week). Because milestones recur every 7 days, a sustained
+ * streak yields roughly one bonus per week — matching the "+1 GLM session per
+ * week" promise.
+ */
+export const FREEBUFF_STREAK_REWARD_INTERVAL_DAYS = 7
+/** Master kill-switch for streak rewards. When false, milestones grant nothing
+ *  and effective limits fall back to the base pool limits. */
+export const FREEBUFF_STREAK_REWARDS_ENABLED = true
+/** Sub-switch for the full-access GLM 5.2 portion of the streak reward. Lets the
+ *  GLM perk be wound down independently of the premium/limited bonus (and of the
+ *  separate referral-driven GLM program). */
+export const FREEBUFF_STREAK_GLM_BONUS_ENABLED = true
+/** Session-units granted per milestone, per pool. One whole session. */
+export const FREEBUFF_STREAK_BONUS_SESSION_UNITS = 1
+
+/** Which session pool a streak bonus credit applies to. `premium` and `limited`
+ *  are the daily pools (full vs limited access); `glm` is the weekly GLM 5.2
+ *  pool (full access only). */
+export type FreebuffStreakRewardPool = 'premium' | 'limited' | 'glm'
 /** Deprecated wire compatibility field. Session usage now resets at midnight
  *  Pacific time rather than using a rolling hourly window. */
 export const FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS = 24

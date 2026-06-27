@@ -1,4 +1,14 @@
-import { FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE } from '../constants/freebuff-models'
+import {
+  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+  FREEBUFF_STREAK_GLM_BONUS_ENABLED,
+  FREEBUFF_STREAK_REWARD_INTERVAL_DAYS,
+  FREEBUFF_STREAK_REWARDS_ENABLED,
+} from '../constants/freebuff-models'
+
+import type {
+  FreebuffAccessTier,
+  FreebuffStreakRewardPool,
+} from '../constants/freebuff-models'
 
 export const FREEBUFF_STREAK_TIME_ZONE = FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 
@@ -79,4 +89,30 @@ export function calculateFreebuffStreak(params: {
   }
 
   return { streak, todayUsed, lastUsageDate }
+}
+
+/** True when `streak` lands exactly on a streak-reward milestone (a positive
+ *  multiple of the 7-day interval). */
+export function isFreebuffStreakMilestone(streak: number): boolean {
+  return streak > 0 && streak % FREEBUFF_STREAK_REWARD_INTERVAL_DAYS === 0
+}
+
+/**
+ * The streak-reward pools to grant a bonus session in when today's usage just
+ * completed a milestone, or `[]` when nothing should be awarded. Full-access
+ * users get a premium-pool bonus plus a weekly GLM bonus (when the GLM
+ * sub-switch is on); limited-access users get a limited-pool bonus. Returns `[]`
+ * unless the streak is a milestone reached today and rewards are enabled.
+ */
+export function streakRewardPoolsForMilestone(params: {
+  streak: number
+  todayUsed: boolean
+  accessTier: FreebuffAccessTier
+}): FreebuffStreakRewardPool[] {
+  if (!FREEBUFF_STREAK_REWARDS_ENABLED) return []
+  if (!params.todayUsed || !isFreebuffStreakMilestone(params.streak)) return []
+  if (params.accessTier === 'limited') return ['limited']
+  const pools: FreebuffStreakRewardPool[] = ['premium']
+  if (FREEBUFF_STREAK_GLM_BONUS_ENABLED) pools.push('glm')
+  return pools
 }
