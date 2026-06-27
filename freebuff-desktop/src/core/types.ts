@@ -65,6 +65,13 @@ export interface Thread {
   autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null
+  /**
+   * The branch's tip SHA at the moment the thread was closed. Persisted so a
+   * closed thread's full file tree can be rehydrated from git's object store
+   * on reopen (no separate snapshot DB needed). Null while the thread is open
+   * (the branch's tip IS the snapshot; git has it).
+   */
+  lastSeenHead: string | null
   /** The commit the branch was cut from. Null until the worktree is created. */
   baseRef: string | null
   /** Set by the `open-pr` skill / openPr(). `local://<branch>` when no remote. */

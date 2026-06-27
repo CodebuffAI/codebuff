@@ -144,6 +144,14 @@ export class ThreadEngine {
   /** Threads whose user pressed Stop: the pump halts after the current turn
    *  instead of draining the next queued item. Cleared once honored. */
   private interrupted = new Set<string>()
+  /** Threads that have a closeOut in flight. Rehydrate refuses these so a
+   *  fast Cmd+Shift+T fired while close's git work is mid-flight can't race
+   *  close's eventual SQLite update (status='closed') over its own
+   *  status='open' flip. In-memory only — a hard crash mid-close is bounded
+   *  by the next engine restart, at which point the SQLite row already carries
+   *  status='closed' from close's final write (which runs even on partial
+   *  git-op failure). */
+  private closingIds = new Set<string>()
   private threadSeq = 0
 
   constructor(opts: EngineOptions) {
@@ -320,16 +328,72 @@ export class ThreadEngine {
   }
 
   /** Close a thread (keeps its worktree + history so reopen restores it). */
-  closeThread(id: string): void {
-    if (!this.store.getThread(id)) return
-    this.store.updateThread(id, { status: 'closed' }, this.now())
-    this.threadState.delete(id)
-    this.emitState()
+  /**
+   * Close a thread: WIP-commit any dirty working tree, capture the branch tip
+   * as `lastSeenHead`, GC the worktree + branch ref so the disk doesn't fill
+   * with parked sessions, and stamp an insurance tag for `git gc`. The full
+   * file tree remains recoverable via rehydrateThread().
+   *
+   * No-op for threads with no branch (never started); a rehydrate of such a
+   * thread produces a fresh branch off `base_ref` exactly like a new thread.
+   */
+  async closeThread(id: string): Promise<void> {
+    const thread = this.store.getThread(id)
+    if (!thread) return
+    // Idempotent: a second close while one is in flight just no-ops.
+    if (this.closingIds.has(id)) return
+    this.closingIds.add(id)
+    try {
+      if (thread.branch && thread.worktreePath) {
+        const sha = await this.worktrees.closeOut(thread.id, {
+          branch: thread.branch,
+          worktreePath: thread.worktreePath,
+          wipTitle: thread.title,
+        })
+        this.store.updateThread(
+          id,
+          {
+            status: 'closed',
+            branch: null,
+            worktreePath: null,
+            lastSeenHead: sha ?? thread.lastSeenHead ?? null,
+            turnState: 'idle',
+          },
+          this.now(),
+        )
+      } else {
+        this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
+      }
+      this.threadState.delete(id)
+      this.emitState()
+    } finally {
+      this.closingIds.delete(id)
+    }
   }
 
-  reopenThread(id: string): void {
-    if (!this.store.getThread(id)) return
+  /**
+   * Re-open a closed thread: flip status, then ensure a fresh worktree.
+   *
+   * If `lastSeenHead` is set (the common case after this change shipped),
+   * `ensureWorktree` recreates the branch pointing at that SHA so git
+   * materializes the exact file tree that was live when the tab was closed.
+   *
+   * If null (a thread that was closed before the schema bump, or one that
+   * never had a branch), the user gets a fresh branch off `baseRef` — they
+   * lose state, matching today's "it was nothing to begin with" contract.
+   *
+   * Refuses while a close is still mid-flight on this thread, otherwise a
+   * fast Cmd+Shift+T would lose the race to close's eventual status='closed'
+   * SQLite write and end up with the thread closed again.
+   */
+  rehydrateThread(id: string): void {
+    const thread = this.store.getThread(id)
+    if (!thread) return
+    if (thread.status === 'open') return
+    if (this.closingIds.has(id)) return
     this.store.updateThread(id, { status: 'open' }, this.now())
+    // `ensureWorktree` is lazy; the worktree is materialized on first turn/PR.
+    // We just need the status flip for the UI to show the tab again now.
     this.emitState()
     this.emitThread(id)
   }
@@ -344,12 +408,27 @@ export class ThreadEngine {
     this.emitState()
   }
 
-  /** Lazily create the thread's worktree + branch on first turn / first PR. */
+  /**
+   * Lazily create the thread's worktree + branch on first turn / first PR.
+   *
+   * On a freshly opened thread without a branch yet, recreates the branch at
+   * `lastSeenHead` (rehydrate) when one is persisted — else off the default
+   * branch (clean new thread). In both cases the worktree's HEAD becomes
+   * `baseRef` for subsequent restack/merge logic.
+   */
   private async ensureWorktree(thread: Thread): Promise<Thread> {
     if (thread.branch) return thread
     const slug = `${slugify(thread.title)}-${thread.id}`
-    const { branch, worktreePath, baseSha } = await this.worktrees.create(thread.id, slug)
-    this.store.updateThread(thread.id, { branch, worktreePath, baseRef: baseSha }, this.now())
+    const { branch, worktreePath, baseSha } = await this.worktrees.create(thread.id, slug, {
+      startPoint: thread.lastSeenHead ?? undefined,
+    })
+    // Once the branch is recreated, lastSeenHead has done its job; clear it so
+    // a future close captures the new tip cleanly.
+    this.store.updateThread(
+      thread.id,
+      { branch, worktreePath, baseRef: baseSha, lastSeenHead: null },
+      this.now(),
+    )
     return this.store.getThread(thread.id)!
   }
 

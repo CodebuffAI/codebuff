@@ -64,7 +64,7 @@ interface StoreState {
   setActive: (id: string) => void
   newThread: () => Promise<void>
   closeTab: (id: string) => void
-  reopenLast: () => void
+  rehydrateLast: () => void
   cycleTab: (delta: number) => void
   jumpTab: (index: number) => void
   ensureLoaded: (id: string) => Promise<void>
@@ -259,12 +259,12 @@ export const useStore = create<StoreState>((set, get) => ({
     api.closeThread(id)
   },
 
-  reopenLast() {
+  rehydrateLast() {
     const { recentlyClosed } = get()
     const id = recentlyClosed[recentlyClosed.length - 1]
     if (!id) return
     set((s) => ({ recentlyClosed: s.recentlyClosed.slice(0, -1) }))
-    api.reopenThread(id).then(() => {
+    api.rehydrateThread(id).then(() => {
       set((s) => ({
         tabOrder: appendTab(s.tabOrder, id),
         activeId: id,

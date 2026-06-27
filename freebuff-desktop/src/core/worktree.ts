@@ -91,17 +91,24 @@ export class WorktreeManager {
    * name, worktree path, and the base commit it was created from (`baseSha`) — the
    * latter persisted on the task as `baseRef` so a dependent can later be restacked
    * (a dependent then merges its parents' branches in via `mergeParentBranches`).
+   *
+   * `startPoint` rehydrates: pass a saved commit SHA to recreate the branch
+   * pointing exactly where the thread left off (see ThreadEngine.rehydrateThread).
+   * The thread's `baseRef` is recorded as the resolved SHA of the worktree's
+   * initial HEAD, so dependent restack still works after rehydrate.
    */
   async create(
     taskId: TaskId,
     slug: string,
+    opts: { startPoint?: string } = {},
   ): Promise<{ branch: string; worktreePath: string; baseSha: string }> {
     const branch = this.branchName(slug)
     const path = this.worktreePath(taskId)
+    const anchor = opts.startPoint ?? this.defaultBranch
     await runOrThrow(
       this.runner,
       'git',
-      ['-C', this.repoRoot, 'worktree', 'add', '-b', branch, path, this.defaultBranch],
+      ['-C', this.repoRoot, 'worktree', 'add', '-b', branch, path, anchor],
     )
     return { branch, worktreePath: path, baseSha: await this.revParse(path, 'HEAD') }
   }
@@ -313,5 +320,75 @@ export class WorktreeManager {
     const path = this.worktreePath(taskId)
     await this.runner.run('git', ['-C', this.repoRoot, 'worktree', 'remove', '--force', path])
     await this.runner.run('git', ['-C', this.repoRoot, 'worktree', 'prune'])
+  }
+
+  /**
+   * Close a thread: snapshot its dirty worktree as a single commit so drafts
+   * aren't lost, capture the resulting branch tip as `lastSeenHead`, drop the
+   * worktree dir, delete the branch ref, and stamp an insurance tag so an
+   * aggressive `git gc --prune=now` between close and rehydrate can't sweep
+   * the relevant commits out of object storage.
+   *
+   * Cleanup is fully best-effort: every git op is wrapped so a missing worktree,
+   * a missing branch, or a transient git error never leaks refs into the user's
+   * repo. Returns the captured SHA, or null when nothing was on disk to snapshot.
+   */
+  async closeOut(taskId: TaskId, opts: {
+    branch: string
+    worktreePath: string
+    /** Slug used as fallback for the WIP commit message; passed by the engine. */
+    wipTitle: string
+  }): Promise<string | null> {
+    const { branch, worktreePath, wipTitle } = opts
+    // 1. Auto-commit any dirty working tree so drafts aren't lost on close.
+    //    Best-effort: if the commit fails (no user.name/email, hook fails, …)
+    //    we proceed to capture the SHA anyway — the user already had whatever
+    //    state was committed before this turn.
+    await this.runner
+      .run('git', ['-C', worktreePath, 'add', '-A'], { cwd: worktreePath })
+      .catch(() => undefined)
+    await this.runner
+      .run(
+        'git',
+        ['-C', worktreePath, 'commit', '--allow-empty', '-m', `WIP: ${wipTitle}`],
+        { cwd: worktreePath },
+      )
+      .catch(() => undefined)
+
+    // 2. Capture the branch tip. This is what we'll rehydrate to. If the
+    //    branch is already gone (a prior close raced and won), we still
+    //    need to make sure no worktree/branch refs are left dangling.
+    let sha: string | null = null
+    try {
+      sha = (await runOrThrow(this.runner, 'git', ['-C', this.repoRoot, 'rev-parse', branch])).trim()
+    } catch {
+      sha = null
+    }
+
+    // 3. Insurance tag — protected by default gc, so the rehydrate target
+    //    survives a `git gc --prune=now` between close and reopen. Use `-f`
+    //    so a re-close (different SHA from the same thread id) overwrites
+    //    the previous snapshot rather than erroring; the DB is authoritative
+    //    so a stale tag is harmless, but a missing tag would be worse.
+    if (sha) {
+      await this.runner
+        .run('git', ['-C', this.repoRoot, 'tag', '-f', `freebuff-snapshot/${taskId}`, sha])
+        .catch(() => undefined)
+    }
+
+    // 4. Drop the worktree and the branch ref. Both best-effort: if either
+    //    is already gone (idempotency / races) the next op is a no-op rather
+    //    than a thrown error.
+    await this.runner
+      .run('git', ['-C', this.repoRoot, 'worktree', 'remove', '--force', worktreePath])
+      .catch(() => undefined)
+    await this.runner
+      .run('git', ['-C', this.repoRoot, 'worktree', 'prune'])
+      .catch(() => undefined)
+    await this.runner
+      .run('git', ['-C', this.repoRoot, 'branch', '-D', branch])
+      .catch(() => undefined)
+
+    return sha
   }
 }

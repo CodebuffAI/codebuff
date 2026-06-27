@@ -93,7 +93,15 @@ export interface NewQueueItemInput {
 export type ThreadPatch = Partial<
   Pick<
     Thread,
-    'title' | 'status' | 'autoQueueSuggestions' | 'branch' | 'worktreePath' | 'baseRef' | 'prUrl' | 'turnState'
+    | 'title'
+    | 'status'
+    | 'autoQueueSuggestions'
+    | 'branch'
+    | 'worktreePath'
+    | 'baseRef'
+    | 'lastSeenHead'
+    | 'prUrl'
+    | 'turnState'
   >
 >
 
@@ -123,6 +131,7 @@ type ThreadRow = {
   branch: string | null
   worktree_path: string | null
   base_ref: string | null
+  last_seen_head: string | null
   pr_url: string | null
   turn_state: TurnState
   created_at: number
@@ -201,6 +210,7 @@ export class Store {
         branch        TEXT,
         worktree_path TEXT,
         base_ref      TEXT,
+        last_seen_head TEXT,
         pr_url        TEXT,
         turn_state    TEXT NOT NULL DEFAULT 'idle',
         created_at    INTEGER NOT NULL,
@@ -300,6 +310,18 @@ export class Store {
       this.db.exec("ALTER TABLE messages ADD COLUMN parts_json TEXT NOT NULL DEFAULT '[]'")
     }
 
+    // v8: closing a thread now GCs its worktree + branch ref but the file tree
+    // is recoverable from a stored commit SHA on rehydrate. Add the column
+    // (nullable; null on open threads since the branch tip itself is the
+    // snapshot while live, and null on threads that were already closed before
+    // this version shipped — they rehydrate as fresh branches off `base_ref`).
+    const threadCols7 = (
+      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (!threadCols7.includes('last_seen_head')) {
+      this.db.exec("ALTER TABLE threads ADD COLUMN last_seen_head TEXT")
+    }
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
 
@@ -359,6 +381,7 @@ export class Store {
       branch: null,
       worktreePath: null,
       baseRef: null,
+      lastSeenHead: null,
       prUrl: null,
       turnState: 'idle',
       createdAt: input.createdAt,
@@ -600,6 +623,7 @@ function rowToThread(row: ThreadRow): Thread {
     branch: row.branch,
     worktreePath: row.worktree_path,
     baseRef: row.base_ref,
+    lastSeenHead: row.last_seen_head,
     prUrl: row.pr_url,
     turnState: row.turn_state,
     createdAt: row.created_at,

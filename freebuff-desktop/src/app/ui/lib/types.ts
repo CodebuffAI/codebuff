@@ -25,6 +25,10 @@ export interface Thread {
   branch: string | null
   worktreePath: string | null
   baseRef: string | null
+  /** Branch tip at the time this thread was last closed (engine keeps it so a
+   *  rehydrated tab materializes the user's exact file tree). The UI doesn't
+   *  read this — mirror only so the wire shape round-trips. */
+  lastSeenHead?: string | null
   prUrl: string | null
   turnState: TurnState
   createdAt: number

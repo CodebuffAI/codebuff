@@ -134,7 +134,7 @@ export function Composer({
         s.closeTab(threadId)
         break
       case 'reopen-thread':
-        s.reopenLast()
+        s.rehydrateLast()
         break
       case 'skill':
         s.runSkill(threadId, c.action.name)

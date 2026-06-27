@@ -278,10 +278,10 @@ const server = Bun.serve({
           engine.stopTurn(threadId)
           return json({ ok: true })
         case 'close':
-          engine.closeThread(threadId)
+          void engine.closeThread(threadId)
           return json({ ok: true })
-        case 'reopen':
-          engine.reopenThread(threadId)
+        case 'rehydrate':
+          engine.rehydrateThread(threadId)
           return json({ ok: true })
         case 'delete':
           void engine.deleteThread(threadId)

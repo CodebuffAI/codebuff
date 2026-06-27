@@ -47,7 +47,7 @@ export function App() {
     return fb.onMenuCommand((name: string) => {
       const s = useStore.getState()
       if (name === 'new-tab') void s.newThread()
-      else if (name === 'reopen-tab') s.reopenLast()
+      else if (name === 'reopen-tab') s.rehydrateLast()
       else if (name === 'close-tab' && s.activeId) s.closeTab(s.activeId)
     })
   }, [])

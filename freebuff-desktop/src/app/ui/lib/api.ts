@@ -43,7 +43,7 @@ export const api = {
   createThread: (title?: string) => post<Thread>('/api/threads', { title }),
   getThread: (id: string) => get<ThreadData>(`/api/thread/${id}`),
   closeThread: (id: string) => post(`/api/thread/${id}/close`),
-  reopenThread: (id: string) => post(`/api/thread/${id}/reopen`),
+  rehydrateThread: (id: string) => post(`/api/thread/${id}/rehydrate`),
   deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
   sendMessage: (id: string, text: string, attachments?: string[]) =>
     post(`/api/thread/${id}/message`, { text, attachments }),
