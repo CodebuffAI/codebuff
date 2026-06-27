@@ -7,9 +7,14 @@ import { sanitizeForChatPersistence } from './payload-sanitizer'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { RunState } from '@codebuff/sdk'
+import type {
+  AgentState,
+  SessionState,
+} from '@codebuff/common/types/session-state'
 
 const RUN_STATE_FILENAME = 'run-state.json'
 const CHAT_MESSAGES_FILENAME = 'chat-messages.json'
+const CHECKPOINT_FILENAME = 'turn-checkpoint.json'
 
 type SavedChatState = {
   runState: RunState
@@ -66,6 +71,18 @@ export function getChatMessagesPath(): string {
   const chatDir = getCurrentChatDir()
   return path.join(chatDir, CHAT_MESSAGES_FILENAME)
 }
+
+/**
+ * P2-3: Get the path to the mid-turn checkpoint file for the current chat.
+ * The checkpoint stores a serialized mainAgentState snapshot taken every
+ * ~30s during the main agent loop, so a crashed/killed session can resume
+ * mid-turn from the last checkpoint rather than losing all in-flight work.
+ */
+export function getCheckpointPath(): string {
+  const chatDir = getCurrentChatDir()
+  return path.join(chatDir, CHECKPOINT_FILENAME)
+}
+
 
 /**
  * Save both the RunState and ChatMessage[] to disk
@@ -158,6 +175,133 @@ export function loadMostRecentChatState(chatId?: string): SavedChatState | null 
       'Failed to load chat state',
     )
     return null
+  }
+}
+
+/**
+ * P2-3: Wrapper for a mid-turn checkpoint. Contains the serialized
+ * mainAgentState snapshot plus the `checkpointTurnId` (the userInputId/promptId
+ * of the interrupted turn) so the CLI can self-validate on resume that the
+ * checkpoint belongs to the turn it's about to resume — a stale checkpoint from
+ * a *previous* turn is discarded rather than corrupting the new turn.
+ */
+export type TurnCheckpoint = {
+  /** The promptId/userInputId of the turn this checkpoint was written for.
+   * On resume, the CLI compares this against the turn it's about to resume;
+   * mismatch = discard the checkpoint and start fresh. */
+  checkpointTurnId: string
+  /** Unix ms of the last checkpoint write, for staleness diagnostics. */
+  checkpointTime: number
+  /** The main agent's state snapshot at the last step boundary. */
+  mainAgentState: SessionState['mainAgentState']
+}
+
+/**
+ * P2-3: Save a mid-turn checkpoint atomically (temp file + rename). Called by
+ * the SDK's onCheckpoint callback (throttled to 30s inside loopAgentSteps).
+ * Failures are swallowed and logged — checkpoint persistence must never kill
+ * the run (loopAgentSteps also catches, but we double-guard here since this
+ * runs on the CLI's filesystem).
+ */
+export function saveCheckpoint(
+  checkpointTurnId: string,
+  mainAgentState: AgentState,
+): void {
+  try {
+    const checkpointPath = getCheckpointPath()
+    const checkpoint: TurnCheckpoint = {
+      checkpointTurnId,
+      checkpointTime: Date.now(),
+      mainAgentState: sanitizeForChatPersistence(mainAgentState),
+    }
+    const serialized = JSON.stringify(checkpoint, null, 2)
+    // Atomic write: temp file in the same directory, then rename. Same-dir
+    // rename is atomic on POSIX and prevents a partial-write checkpoint from
+    // corrupting the resume path on a crash mid-write.
+    const dir = path.dirname(checkpointPath)
+    const tempPath = `${checkpointPath}.tmp.${process.pid}`
+    // Sweep stale temp files from prior crashed writes (a previous pid that
+    // died between writeFileSync and renameSync). Bounded to the checkpoint's
+    // own directory and the `.tmp.` prefix so we never touch unrelated files.
+    try {
+      for (const entry of fs.readdirSync(dir)) {
+        if (
+          entry.startsWith(`${CHECKPOINT_FILENAME}.tmp.`) &&
+          entry !== path.basename(tempPath)
+        ) {
+          fs.unlinkSync(path.join(dir, entry))
+        }
+      }
+    } catch {
+      // Best-effort cleanup; a missing dir or race here must not block the
+      // checkpoint write below.
+    }
+    fs.writeFileSync(tempPath, serialized)
+    fs.renameSync(tempPath, checkpointPath)
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to save mid-turn checkpoint (non-fatal)',
+    )
+  }
+}
+
+/**
+ * P2-3: Load the mid-turn checkpoint for validation. Returns null if no
+ * checkpoint exists or it can't be parsed. The caller validates that
+ * `checkpointTurnId` matches the turn it's about to resume before using the
+ * snapshot; a mismatch means the checkpoint is stale (from a previous turn)
+ * and must be discarded.
+ */
+export function loadCheckpoint(): TurnCheckpoint | null {
+  try {
+    const checkpointPath = getCheckpointPath()
+    if (!fs.existsSync(checkpointPath)) {
+      return null
+    }
+    const content = fs.readFileSync(checkpointPath, 'utf8')
+    const checkpoint = sanitizeForChatPersistence(
+      JSON.parse(content) as TurnCheckpoint,
+    )
+    if (
+      !checkpoint ||
+      typeof checkpoint.checkpointTurnId !== 'string' ||
+      typeof checkpoint.checkpointTime !== 'number' ||
+      !checkpoint.mainAgentState
+    ) {
+      logger.warn(
+        { checkpointPath },
+        'Mid-turn checkpoint is malformed, discarding',
+      )
+      return null
+    }
+    return checkpoint
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to load mid-turn checkpoint (non-fatal)',
+    )
+    return null
+  }
+}
+
+/**
+ * P2-3: Clear the mid-turn checkpoint. Called after a turn completes
+ * successfully (so a stale checkpoint can't interfere with the next turn) and
+ * when a checkpoint is rejected as stale on resume.
+ */
+export function clearCheckpoint(): void {
+  try {
+    const checkpointPath = getCheckpointPath()
+    if (fs.existsSync(checkpointPath)) {
+      fs.unlinkSync(checkpointPath)
+      logger.debug({ checkpointPath }, 'Cleared mid-turn checkpoint')
+    }
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to clear mid-turn checkpoint (non-fatal)',
+    )
   }
 }
 

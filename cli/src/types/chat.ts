@@ -45,6 +45,11 @@ export type ToolContentBlock = {
   includeToolCall?: boolean
   isCollapsed?: boolean
   userOpened?: boolean
+  // True when this write tool call is waiting on a prior same-path write that
+  // is still in flight (queued behind a per-path write barrier). Flipped to
+  // false by a `tool_start` event once the barrier resolves. Omitted/undefined
+  // for read-only tools and older persisted blocks (treated as not-queued).
+  queued?: boolean
 }
 export type AgentContentBlock = {
   type: 'agent'
@@ -206,6 +211,13 @@ export type ChatMessage = {
   agent?: AgentMessage
   isCompletion?: boolean
   credits?: number
+  /**
+   * Cache hit rate (0-1) for the run, computed from
+   * cacheInputTokens/cacheTotalInputTokens on the main agent state at run
+   * completion. Surfaced live in the message footer as "cache N%". Undefined
+   * when no cache usage data was collected (e.g. provider doesn't report it).
+   */
+  cacheHitRate?: number
   completionTime?: string
   isComplete?: boolean
   metadata?: ChatMessageMetadata

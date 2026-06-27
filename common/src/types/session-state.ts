@@ -37,6 +37,36 @@ export type AgentState = {
   stepsRemaining: number
   creditsUsed: number
   directCreditsUsed: number
+  /**
+   * Cumulative count of input tokens served from the provider's prompt cache
+   * (cache hits) across all steps in this run. Accumulated from per-call usage
+   * metadata via the onCacheDebugUsageReceived callback (made unconditional
+   * for runtime aggregation, not just CACHE_DEBUG_FULL_LOGGING). Used together
+   * with cacheTotalInputTokens to compute a live cache-hit rate.
+   */
+  cacheInputTokens: number
+  /**
+   * Cumulative count of total input tokens processed by the provider across
+   * all steps in this run. This is the denominator for the cache-hit rate
+   * (cacheInputTokens / cacheTotalInputTokens). Accumulated alongside
+   * cacheInputTokens.
+   */
+  cacheTotalInputTokens: number
+  /**
+   * Optional per-run cost cap in US cents. Lazy-initialized from the agent
+   * template's maxCostCents on the first step, then enforced after each step's
+   * cost accumulation: if creditsUsed exceeds this cap, the turn ends with a
+   * budget-exceeded system message. Gives BYOK users a hard spend guardrail.
+   * Undefined = no cap (default, preserves existing behavior).
+   */
+  maxCostCents?: number
+  /**
+   * Optional per-turn input token cap. Lazy-initialized from the agent
+   * template's maxTokensPerTurn on the first step, then enforced after each
+   * step's token accumulation: if the step's total input tokens exceed this
+   * cap, the turn ends. Undefined = no cap.
+   */
+  maxTokensPerTurn?: number
   output?: Record<string, any>
   parentId?: string
   systemPrompt: string
@@ -152,6 +182,8 @@ export function getInitialAgentState(): AgentState {
     stepsRemaining: MAX_AGENT_STEPS_DEFAULT,
     creditsUsed: 0,
     directCreditsUsed: 0,
+    cacheInputTokens: 0,
+    cacheTotalInputTokens: 0,
     output: undefined,
     parentId: undefined,
     systemPrompt: '',

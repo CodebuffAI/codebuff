@@ -32,8 +32,21 @@ export const printModeToolCallSchema = z.object({
   agentId: z.string().optional(),
   parentAgentId: z.string().optional(),
   includeToolCall: z.boolean().optional(),
+  // True when this write tool call is waiting on a prior same-path write that is
+  // still in flight (queued behind a per-path write barrier). Omitted for
+  // read-only tools and for writes whose target path cannot be statically
+  // determined (custom/MCP tools, multi-path edit_transaction). Lets the CLI
+  // distinguish a "queued" write from one that is actively running but has no
+  // result yet ("pending").
+  queued: z.boolean().optional(),
 })
 export type PrintModeToolCall = z.infer<typeof printModeToolCallSchema>
+
+export const printModeToolStartSchema = z.object({
+  type: z.literal('tool_start'),
+  toolCallId: z.string(),
+})
+export type PrintModeToolStart = z.infer<typeof printModeToolStartSchema>
 
 export const printModeToolResultSchema = z.object({
   type: z.literal('tool_result'),
@@ -127,6 +140,7 @@ export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeTextSchema,
   printModeToolCallSchema,
   printModeToolResultSchema,
+  printModeToolStartSchema,
 
   printModeReasoningDeltaSchema,
 ])

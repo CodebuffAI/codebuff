@@ -1,3 +1,4 @@
+import { isEqual } from 'lodash'
 import { match } from 'ts-pattern'
 
 import {
@@ -57,6 +58,7 @@ import type {
   PrintModeSubagentStart,
   PrintModeToolCall,
   PrintModeToolResult,
+  PrintModeToolStart,
 } from '@codebuff/common/types/print-mode'
 import type { ToolName } from '@codebuff/sdk'
 import type { MutableRefObject } from 'react'
@@ -328,6 +330,10 @@ const handleRegularToolCall = (
     ...(event.includeToolCall !== undefined && {
       includeToolCall: event.includeToolCall,
     }),
+    // Carry the `queued` signal so the UI can distinguish a write that is
+    // waiting on a prior same-path write (queued) from one that is actively
+    // running but has no result yet (pending). Omitted when not queued.
+    ...(event.queued !== undefined && { queued: event.queued }),
   }
 
   if (event.parentAgentId && event.agentId) {
@@ -368,6 +374,33 @@ const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
 
   handleRegularToolCall(state, event)
   updateStreamingAgents(state, { add: event.toolCallId })
+}
+
+/**
+ * Flips a queued tool block back to not-queued (pending) once its per-path
+ * write barrier has resolved. The runtime emits a `tool_start` event via a
+ * non-blocking `.then` on the barrier promise once the prior same-path write
+ * settles, so this always precedes the matching `tool_result`. Uses the same
+ * recursive block-lookup style as `updateToolBlockWithOutput` so nested agent
+ * tool blocks (when `parentAgentId` is set) are handled.
+ */
+const handleToolStart = (state: EventHandlerState, event: PrintModeToolStart) => {
+  const flipQueued = (blocks: ContentBlock[]): ContentBlock[] =>
+    blocks.map((block) => {
+      if (block.type === 'tool' && block.toolCallId === event.toolCallId) {
+        return { ...block, queued: false }
+      } else if (block.type === 'agent' && block.blocks) {
+        const updatedBlocks = flipQueued(block.blocks)
+        // Avoid creating a new agent block ref when nothing changed.
+        if (isEqual(block.blocks, updatedBlocks)) {
+          return block
+        }
+        return { ...block, blocks: updatedBlocks }
+      }
+      return block
+    })
+
+  state.message.updater.updateAiMessageBlocks((blocks) => flipQueued(blocks))
 }
 
 /**
@@ -625,6 +658,7 @@ export const createEventHandler =
       .with({ type: 'subagent_start' }, (e) => handleSubagentStart(state, e))
       .with({ type: 'subagent_finish' }, (e) => handleSubagentFinish(state, e))
       .with({ type: 'tool_call' }, (e) => handleToolCall(state, e))
+      .with({ type: 'tool_start' }, (e) => handleToolStart(state, e))
       .with({ type: 'tool_result' }, (e) => handleToolResult(state, e))
       .with({ type: 'finish' }, (e) => handleFinish(state, e))
       .with({ type: 'phase' }, (e) => handlePhase(state, e))

@@ -11,6 +11,17 @@ type TransactionFile = {
   diff: string | null
 }
 
+// Mirrors the `queued` distinction in str-replace.tsx: a write tool call that
+// is waiting on a prior same-path write (or the custom-tool barrier for
+// multi-path transactions) shows "queued" instead of "pending" until its
+// per-path barrier resolves and a `tool_start` event flips `queued` to false.
+function isQueued(toolBlock: ToolBlock): boolean {
+  const hasOutput =
+    toolBlock.outputRaw !== undefined ||
+    (typeof toolBlock.output === 'string' && toolBlock.output.trim().length > 0)
+  return !hasOutput && toolBlock.queued === true
+}
+
 function getTransactionValue(toolBlock: ToolBlock): Record<string, unknown> | null {
   const outputRaw = toolBlock.outputRaw
   if (Array.isArray(outputRaw) && outputRaw[0]?.value) {
@@ -55,7 +66,13 @@ function getTransactionError(toolBlock: ToolBlock): string | null {
   return null
 }
 
-const TransactionHeader = ({ name }: { name: string }) => {
+const TransactionHeader = ({
+  name,
+  queued,
+}: {
+  name: string
+  queued: boolean
+}) => {
   const theme = useTheme()
   return (
     <text style={{ wrapMode: 'word' }}>
@@ -63,6 +80,9 @@ const TransactionHeader = ({ name }: { name: string }) => {
       <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
         {name}
       </span>
+      {queued ? (
+        <span fg={theme.muted}>{' queued'}</span>
+      ) : null}
     </text>
   )
 }
@@ -73,19 +93,22 @@ export const EditTransactionComponent = defineToolComponent({
   render(toolBlock, _theme, options): ToolRenderConfig {
     const files = getTransactionFiles(toolBlock)
     const error = getTransactionError(toolBlock)
+    const queued = isQueued(toolBlock)
     const isProposed = String(toolBlock.toolName).startsWith('propose_')
     const title = isProposed ? 'Propose transaction' : 'Edit transaction'
     const collapsedPreview = error
       ? error.split('\n')[0]
       : files.length > 0
         ? `${title} • ${files.length} file${files.length === 1 ? '' : 's'}`
-        : `${title} pending...`
+        : queued
+          ? `${title} queued...`
+          : `${title} pending...`
 
     return {
       collapsedPreview,
       content: (
         <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-          <TransactionHeader name={title} />
+          <TransactionHeader name={title} queued={queued} />
           {error ? (
             <box style={{ paddingLeft: 2, width: '100%' }}>
               <text style={{ wrapMode: 'word' }}>{error}</text>

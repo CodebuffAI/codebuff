@@ -112,9 +112,38 @@ export type AgentTemplate<
 > = {
   id: AgentTemplateType
   displayName: string
+  /**
+   * Documentation-only default model for this agent. NOT read at runtime —
+   * model resolution is driven entirely by openbuff.json / routes.json
+   * (defaultModel, modes, agents[]). Retained on the type so definitions can
+   * declare their intended model, but it is never used as a fallback when a
+   * route is missing (a missing route is a hard error in this BYOK CLI).
+   */
   model?: Model
   reasoningOptions?: OpenRouterReasoningOptions
   providerOptions?: OpenRouterProviderRoutingOptions
+
+  /**
+   * Optional per-run cost cap in US cents. When set, runAgentStep lazy-inits
+   * this onto agentState on the first step, then enforces after each step's
+   * cost accumulation: if creditsUsed exceeds this cap, the turn ends.
+   * Undefined = no cap. Mirrors DynamicAgentDefinitionSchema.maxCostCents.
+   */
+  maxCostCents?: number
+  /**
+   * Optional per-turn input token cap. When set, runAgentStep ends the turn
+   * if a single step's total input tokens exceed this threshold.
+   * Undefined = no cap.
+   */
+  maxTokensPerTurn?: number
+  /**
+   * Optional wall-clock timeout in milliseconds for a single execution of this
+   * agent as a subagent. When set, executeSubagent uses this as the deadline
+   * (overridable per-spawn via spawn_agents' timeout_seconds). Undefined falls
+   * back to DEFAULT_SUBAGENT_TIMEOUT_MS (20 minutes). Set to -1 to disable the
+   * timeout for genuinely long-running agents.
+   */
+  defaultTimeoutMs?: number
 
   mcpServers: Record<string, MCPConfig>
   toolNames: (ToolName | (string & {}))[]

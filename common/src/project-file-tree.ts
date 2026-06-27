@@ -200,8 +200,7 @@ export async function parseGitignore(params: {
   const relativeDirPath = path.relative(projectRoot, fullDirPath)
   const ignoreFiles = [
     path.join(fullDirPath, '.gitignore'),
-    path.join(fullDirPath, '.codebuffignore'),
-    path.join(fullDirPath, '.manicodeignore'), // Legacy support
+    path.join(fullDirPath, '.openbuffignore'),
   ]
 
   for (const ignoreFilePath of ignoreFiles) {

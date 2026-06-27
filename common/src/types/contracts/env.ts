@@ -74,7 +74,6 @@ export type BaseEnv = {
   NODE_PATH?: string
   PATH?: string
   OPENBUFF_LOCAL_MODE?: string
-  CODEBUFF_LOCAL_MODE?: string
 }
 
 // =============================================================================

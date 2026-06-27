@@ -33,7 +33,6 @@ export const getBaseEnv = (): BaseEnv => ({
   NODE_PATH: process.env.NODE_PATH,
   PATH: process.env.PATH,
   OPENBUFF_LOCAL_MODE: process.env.OPENBUFF_LOCAL_MODE,
-  CODEBUFF_LOCAL_MODE: process.env.CODEBUFF_LOCAL_MODE,
 })
 
 /**

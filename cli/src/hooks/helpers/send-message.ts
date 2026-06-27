@@ -400,9 +400,16 @@ export const handleRunCompletion = (params: {
     completionTime = formatElapsedTime(elapsedSeconds)
   }
 
+  const cacheStats = runState.sessionState?.mainAgentState
+  const cacheHitRate =
+    cacheStats && cacheStats.cacheTotalInputTokens > 0
+      ? cacheStats.cacheInputTokens / cacheStats.cacheTotalInputTokens
+      : undefined
+
   updater.markComplete({
     ...(completionTime && { completionTime }),
     ...(actualCredits !== undefined && { credits: actualCredits }),
+    ...(cacheHitRate !== undefined && { cacheHitRate }),
     metadata: {
       runState,
     },

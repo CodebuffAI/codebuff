@@ -143,6 +143,7 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_REQUEST = 'sdk.chatgpt_oauth_request',
   CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
+  PROVIDER_FAILOVER = 'sdk.provider_failover',
 
 
   // Common

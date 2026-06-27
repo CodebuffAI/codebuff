@@ -1,6 +1,6 @@
 import { IndexManager } from '@codebuff/indexer'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
-import { CodebuffClient, LOCAL_MODE_API_KEY, loadProviderConfigSync, createConfiguredEmbedder } from '@codebuff/sdk'
+import { CodebuffClient, loadProviderConfigSync, createConfiguredEmbedder } from '@codebuff/sdk'
 
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
@@ -12,8 +12,6 @@ import type { JSONObject } from '@codebuff/common/types/json'
 
 // Singleton instance of the SDK's CodebuffClient for reuse within the CLI
 let clientInstance: CodebuffClient | null = null
-
-let lastApiKey: string | null = null
 
 /**
  * Recursively removes undefined values from an object to ensure clean JSON serialization.
@@ -44,15 +42,12 @@ function removeUndefinedValues<T>(obj: T): T {
  */
 export function resetCodebuffClient(): void {
   clientInstance = null
-  lastApiKey = null
 }
 
 export async function getCodebuffClient(): Promise<CodebuffClient> {
-  const apiKey = LOCAL_MODE_API_KEY
-
-  // Reuse singleton when key hasn't changed
+  // Reuse singleton
   if (clientInstance) {
-    if (apiKey === lastApiKey) return clientInstance
+    return clientInstance
   }
 
   // Set up ripgrep path for SDK to use
@@ -68,8 +63,6 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
   }
 
   clientInstance = new CodebuffClient({
-    apiKey,
-    localMode: true,
     cwd: getProjectRoot(),
     logger,
     overrideTools: {
@@ -168,7 +161,6 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
       },
     },
   })
-  lastApiKey = apiKey
 
   return clientInstance
 }

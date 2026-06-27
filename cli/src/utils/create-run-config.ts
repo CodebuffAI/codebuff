@@ -12,6 +12,7 @@ import {
 
 import type { EventHandlerState } from './sdk-event-handlers'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type {
   AgentDefinition,
   FileFilter,
@@ -30,6 +31,13 @@ export type CreateRunConfigParams = {
   signal: AbortSignal
   costMode?: 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
   extraCodebuffMetadata?: Record<string, string>
+  // P2-3: Mid-turn checkpoint. When provided, the SDK invokes this callback
+  // with the main agent's state snapshot every ~30s during the step loop.
+  // The CLI host persists it so a crashed session can resume mid-turn.
+  onCheckpoint?: (agentState: AgentState) => void
+  // P2-3: When true, the user prompt is already present in the restored
+  // messageHistory (from a checkpoint), so loopAgentSteps must NOT re-append it.
+  resumeInterruptedTurn?: boolean
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -123,6 +131,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     eventHandlerState,
     costMode,
     extraCodebuffMetadata,
+    onCheckpoint,
+    resumeInterruptedTurn,
   } = params
 
   return {
@@ -138,6 +148,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     signal: params.signal,
     costMode,
     extraCodebuffMetadata,
+    onCheckpoint,
+    resumeInterruptedTurn,
     // Keep the codebase index fresh: after the agent edits files, force the
     // next query_index to incrementally refresh instead of serving stale results.
     onFilesChanged: () => {

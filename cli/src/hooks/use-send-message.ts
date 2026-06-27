@@ -11,8 +11,12 @@ import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { getOpenbuffProviderReadiness } from '../utils/openbuff-provider'
 import {
+  clearCheckpoint,
+  loadCheckpoint,
   loadMostRecentChatState,
   saveChatState,
+  saveCheckpoint,
+  type TurnCheckpoint,
 } from '../utils/run-state-storage'
 import {
   autoCollapsePreviousMessages,
@@ -123,6 +127,11 @@ export const useSendMessage = ({
   const previousRunStateRef = useRef<RunState | null>(
     useChatStore.getState().runState,
   )
+  // P2-3: If a mid-turn checkpoint was loaded on chat restore (interrupted
+  // turn), it's stored here. On the next sendMessage, we check whether the
+  // prompt matches the checkpoint's last user message — if so, we resume the
+  // interrupted turn from the checkpointed state; otherwise we discard it.
+  const resumableCheckpointRef = useRef<TurnCheckpoint | null>(null)
   // Memoize stream controller to maintain referential stability across renders
   const streamRefsRef = useRef<ReturnType<
     typeof createStreamController
@@ -142,6 +151,28 @@ export const useSendMessage = ({
         setMessages(loadedState.messages)
         if (loadedState.chatId) {
           setCurrentChatId(loadedState.chatId)
+        }
+        // P2-3: Check for a mid-turn checkpoint from an interrupted (crashed)
+        // turn. Validate that checkpointTurnId matches a message id in the
+        // restored messages — if not, the checkpoint is stale and discarded.
+        const checkpoint = loadCheckpoint()
+        if (checkpoint) {
+          const matchesMessage = loadedState.messages.some(
+            (msg) => msg.id === checkpoint.checkpointTurnId,
+          )
+          if (matchesMessage) {
+            resumableCheckpointRef.current = checkpoint
+            logger.info(
+              { checkpointTurnId: checkpoint.checkpointTurnId },
+              '[send-message] Loaded mid-turn checkpoint for interrupted turn',
+            )
+          } else {
+            logger.debug(
+              { checkpointTurnId: checkpoint.checkpointTurnId },
+              '[send-message] Mid-turn checkpoint is stale (no matching message), discarding',
+            )
+            clearCheckpoint()
+          }
         }
       }
     }
@@ -450,6 +481,42 @@ export const useSendMessage = ({
           messageContent,
         )
 
+        // P2-3: Determine whether we're resuming an interrupted turn from a
+        // checkpoint. We resume only if the checkpoint's last user message
+        // matches the effective prompt — otherwise the user typed a new
+        // (different) message and we start fresh, discarding the stale
+        // checkpoint state.
+        const checkpoint = resumableCheckpointRef.current
+        let resumeInterruptedTurn = false
+        let previousRunState = previousRunStateRef.current
+        if (checkpoint && previousRunState?.sessionState) {
+          const lastUserMessage = [...checkpoint.mainAgentState.messageHistory]
+            .reverse()
+            .find((msg) => msg.role === 'user')
+          const lastUserText =
+            lastUserMessage && typeof lastUserMessage.content === 'string'
+              ? lastUserMessage.content
+              : null
+          if (lastUserText === effectivePrompt) {
+            previousRunState = {
+              ...previousRunState,
+              sessionState: {
+                ...previousRunState.sessionState,
+                mainAgentState: checkpoint.mainAgentState,
+              },
+            }
+            resumeInterruptedTurn = true
+            logger.info(
+              '[send-message] Resuming interrupted turn from mid-turn checkpoint',
+            )
+          } else {
+            // Prompt doesn't match — user typed a new message. Discard the
+            // stale checkpoint so it can't interfere with future turns.
+            resumableCheckpointRef.current = null
+            clearCheckpoint()
+          }
+        }
+
         const eventHandlerState = createEventHandlerState({
           streamRefs,
           setStreamingAgents,
@@ -473,11 +540,14 @@ export const useSendMessage = ({
           agent: resolvedAgent,
           prompt: effectivePrompt,
           content: messageContent,
-          previousRunState: previousRunStateRef.current,
+          previousRunState,
           agentDefinitions,
           eventHandlerState,
           signal: abortController.signal,
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
+          onCheckpoint: (agentState) =>
+            saveCheckpoint(userMessageId, agentState),
+          resumeInterruptedTurn,
         })
 
         logger.info(
@@ -495,6 +565,10 @@ export const useSendMessage = ({
           saveChatState(runState, currentMessages)
           return currentMessages
         })
+        // P2-3: The turn completed successfully — clear any mid-turn
+        // checkpoint so it can't interfere with the next turn.
+        clearCheckpoint()
+        resumableCheckpointRef.current = null
         handleRunCompletion({
           runState,
           actualCredits,

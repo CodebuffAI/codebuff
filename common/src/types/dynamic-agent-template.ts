@@ -170,6 +170,19 @@ export const DynamicAgentDefinitionSchema = z.object({
     })
     .optional(),
 
+  // Optional per-run cost cap in US cents. When set, the agent runtime
+  // enforces this as a hard spend ceiling — the turn ends if cumulative
+  // creditsUsed exceeds it. Useful for BYOK configurations to guard against
+  // runaway spend. Undefined = no cap.
+  maxCostCents: z.number().positive().optional(),
+  // Optional per-step input token cap. When set, the agent runtime ends the
+  // turn if a single step's total input tokens exceed this threshold.
+  maxTokensPerTurn: z.number().int().positive().optional(),
+
+  // Optional wall-clock timeout (ms) for a single subagent execution. -1
+  // disables the timeout. Undefined falls back to DEFAULT_SUBAGENT_TIMEOUT_MS.
+  defaultTimeoutMs: z.number().optional(),
+
   // Tools and spawnable agents
   mcpServers: z.record(z.string(), mcpConfigSchema).default(() => ({})),
   toolNames: z

@@ -7,6 +7,7 @@ import { applyPatchParams } from './params/tool/apply-patch'
 import { applySmartPatchParams } from './params/tool/apply-smart-patch'
 import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
+import { checkBackgroundAgentParams } from './params/tool/check-background-agent'
 import { checkJobParams } from './params/tool/check-job'
 import { codeSearchParams } from './params/tool/code-search'
 import { gitStatusParams } from './params/tool/git-status'
@@ -62,6 +63,7 @@ export const toolParams = {
   apply_smart_patch: applySmartPatchParams,
   ask_user: askUserParams,
   browser_logs: browserLogsParams,
+  check_background_agent: checkBackgroundAgentParams,
   check_job: checkJobParams,
   code_search: codeSearchParams,
   git_status: gitStatusParams,

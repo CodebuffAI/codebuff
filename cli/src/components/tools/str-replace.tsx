@@ -19,7 +19,7 @@ interface EditHeaderProps {
   stats: DiffStats
 }
 
-type EditStatus = 'pending' | 'applied' | 'failed'
+type EditStatus = 'queued' | 'pending' | 'applied' | 'failed'
 
 type DiffStats = {
   added: number
@@ -27,6 +27,7 @@ type DiffStats = {
 }
 
 const statusLabel: Record<EditStatus, string> = {
+  queued: 'queued',
   pending: 'pending',
   applied: 'applied',
   failed: 'failed',
@@ -40,7 +41,9 @@ const EditHeader = ({ name, filePath, status, stats }: EditHeaderProps) => {
       ? theme.error
       : status === 'applied'
         ? theme.success
-        : theme.warning
+        : status === 'queued'
+          ? theme.muted
+          : theme.warning
   const statsText =
     stats.added > 0 || stats.removed > 0
       ? ` +${stats.added}/-${stats.removed}`
@@ -159,6 +162,14 @@ function getEditStatus(toolBlock: Parameters<typeof extractDiff>[0]): {
   const message = firstLine(getStringField(outputValue, 'message'))
   const hasOutput =
     toolBlock.outputRaw !== undefined || output.trim().length > 0
+  // A queued write is waiting on a prior same-path write that is still in
+  // flight. It has no output yet, so check this before the generic pending
+  // branch so the UI shows "queued" rather than "pending". Once a `tool_start`
+  // event arrives the block's `queued` flag is flipped to false, falling
+  // through to the pending branch below.
+  if (!hasOutput && toolBlock.queued === true) {
+    return { status: 'queued', message: null }
+  }
   if (!hasOutput) return { status: 'pending', message: null }
   return { status: 'applied', message }
 }

@@ -22,6 +22,7 @@ interface MessageFooterProps {
   isComplete?: boolean
   completionTime?: string
   credits?: number
+  cacheHitRate?: number
   timerStartTime: number | null
   onFeedback?: (messageId: string) => void
   onCloseFeedback?: () => void
@@ -35,6 +36,7 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   isComplete,
   completionTime,
   credits,
+  cacheHitRate,
   timerStartTime,
   onFeedback,
   onCloseFeedback,
@@ -159,6 +161,12 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
       node: <CostIndicator cost={credits} />,
     })
   }
+  if (typeof cacheHitRate === 'number' && cacheHitRate > 0) {
+    footerItems.push({
+      key: 'cache',
+      node: <CacheHitRateIndicator rate={cacheHitRate} />,
+    })
+  }
   if (shouldRenderFeedbackButton) {
     footerItems.push({
       key: 'feedback',
@@ -219,6 +227,20 @@ const CostIndicator: React.FC<{ cost: number }> = ({ cost }) => {
       style={{ wrapMode: 'none', fg: theme.secondary, marginTop: 0, marginBottom: 0 }}
     >
       {`cost ${cost}`}
+    </text>
+  )
+}
+
+const CacheHitRateIndicator: React.FC<{ rate: number }> = ({ rate }) => {
+  const theme = useTheme()
+  const pct = Math.round(rate * 100)
+
+  return (
+    <text
+      attributes={TextAttributes.DIM}
+      style={{ wrapMode: 'none', fg: theme.secondary, marginTop: 0, marginBottom: 0 }}
+    >
+      {`cache ${pct}%`}
     </text>
   )
 }
