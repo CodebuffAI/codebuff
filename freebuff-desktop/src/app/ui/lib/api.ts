@@ -44,7 +44,8 @@ export const api = {
   closeThread: (id: string) => post(`/api/thread/${id}/close`),
   reopenThread: (id: string) => post(`/api/thread/${id}/reopen`),
   deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
-  sendMessage: (id: string, text: string) => post(`/api/thread/${id}/message`, { text }),
+  sendMessage: (id: string, text: string, attachments?: string[]) =>
+    post(`/api/thread/${id}/message`, { text, attachments }),
   stopTurn: (id: string) => post(`/api/thread/${id}/stop`),
   // Run a skill from the main chat: steers the agent on its next step instead of
   // queueing (see ThreadEngine.runSkill).

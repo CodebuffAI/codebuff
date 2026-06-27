@@ -21,6 +21,10 @@ const PATHS: Record<string, string> = {
   left: 'M9.5 3.5l-4 4 4 4',
   search: 'M6.75 11a4.25 4.25 0 100-8.5 4.25 4.25 0 000 8.5zM10 10l2.5 2.5',
   download: 'M7.5 2.5v6.5M4.5 6.5l3 3 3-3M3 12.5h9',
+  paperclip:
+    'M11.5 6.5l-5 5a2.5 2.5 0 01-3.5-3.5l5.5-5.5a1.6 1.6 0 012.3 2.3l-5.2 5.2a0.7 0.7 0 01-1-1l4.7-4.7',
+  image: 'M2.5 3.5h10v8h-10zM5.6 6.3a0.9 0.9 0 100-1.8 0.9 0.9 0 000 1.8M3 11l2.7-2.7 2 2 2-2 2.3 2.3',
+  file: 'M4 2.5h4l3 3v7H4zM8 2.5v3h3',
 }
 
 export function Icon({ name, className }: { name: string; className?: string }) {

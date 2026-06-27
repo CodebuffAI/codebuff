@@ -19,6 +19,7 @@ import { join } from 'path'
 import { CodebuffClient } from '@codebuff/sdk'
 import type { PrintModeEvent } from '@codebuff/sdk'
 
+import { appendBlock } from '../core/attachments'
 import { recordUsage } from '../core/budget'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
@@ -40,6 +41,7 @@ import type {
   Thread,
 } from '../core/types'
 import { slugify, WorktreeManager } from '../core/worktree'
+import { buildAttachmentBlock } from './attachments'
 import { ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
@@ -333,15 +335,27 @@ export class ThreadEngine {
    * it as a user prompt at its next step boundary (see `drainSteering`). Either way
    * it lands via the shared inbox; the pump and the running turn's drain callback
    * pull from the same array so a message is never run twice.
+   *
+   * Attachments are absolute paths the user dragged in or picked (files/photos/
+   * folders). We read them into a prompt block the agent sees (see attachments.ts)
+   * while the transcript shows a compact `📎 …` line instead of the inlined bytes —
+   * the same split `startUserTurn` already does for steering vs. display text.
    */
-  postMessage(threadId: string, text: string): void {
+  postMessage(threadId: string, text: string, attachmentPaths: readonly string[] = []): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    // Auto-title a fresh thread from its first message.
-    if (thread.title === 'New thread' && text.trim()) {
-      this.store.updateThread(threadId, { title: text.trim().slice(0, 60) }, this.now())
+    const att = attachmentPaths.length ? buildAttachmentBlock(attachmentPaths) : null
+    // The agent sees the inlined prompt block; the transcript shows the compact
+    // summary. `appendBlock` is shared with the renderer so the two never drift.
+    const steeringText = appendBlock(text, att?.promptBlock ?? '')
+    const displayText = appendBlock(text, att?.summary ?? '')
+    // Auto-title a fresh thread from its first message (fall back to an attachment
+    // name when the message is attachment-only).
+    const titleSeed = text.trim() || att?.manifest[0]?.name
+    if (thread.title === 'New thread' && titleSeed) {
+      this.store.updateThread(threadId, { title: titleSeed.slice(0, 60) }, this.now())
     }
-    this.startUserTurn(threadId, text)
+    this.startUserTurn(threadId, steeringText, displayText)
   }
 
   /**

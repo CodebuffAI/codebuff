@@ -69,6 +69,49 @@ describe('ThreadEngine — turns', () => {
     }
   })
 
+  test('attachments reach the agent prompt; the transcript shows a 📎 summary', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const file = join(root, 'attach-me.txt')
+      writeFileSync(file, 'secret content')
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'look at this', [file])
+      await settle(engine, thread.id)
+
+      // The agent sees the typed text plus the inlined file content.
+      expect(client.prompts[0]).toContain('look at this')
+      expect(client.prompts[0]).toContain(`[File: ${file}]`)
+      expect(client.prompts[0]).toContain('secret content')
+
+      // The transcript shows the compact summary, NOT the inlined bytes.
+      const data = engine.threadData(thread.id)!
+      const userText = data.messages[0].text
+      expect(userText).toContain('look at this')
+      expect(userText).toContain('📎 attach-me.txt')
+      expect(userText).not.toContain('secret content')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('an attachment-only message (no text) still runs and titles the thread', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const file = join(root, 'readme.md')
+      writeFileSync(file, '# hi')
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, '', [file])
+      await settle(engine, thread.id)
+
+      expect(client.prompts[0]).toContain(`[File: ${file}]`)
+      const data = engine.threadData(thread.id)!
+      expect(data.thread.title).toBe('readme.md')
+      expect(data.messages[0].text).toBe('📎 readme.md')
+    } finally {
+      cleanup()
+    }
+  })
+
   test('the queue always drains top-down in order', async () => {
     const { engine, client, cleanup } = await gitEngine()
     try {

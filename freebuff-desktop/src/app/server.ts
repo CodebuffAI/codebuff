@@ -239,10 +239,15 @@ const server = Bun.serve({
       const [, threadId, action] = threadActionMatch
       const b = await body(req)
       switch (action) {
-        case 'message':
-          if (!b.text) return json({ error: 'text required' }, 400)
-          engine.postMessage(threadId, String(b.text))
+        case 'message': {
+          const text = b.text == null ? '' : String(b.text)
+          const attachments = Array.isArray(b.attachments) ? b.attachments.map(String) : []
+          if (!text.trim() && attachments.length === 0) {
+            return json({ error: 'text or attachments required' }, 400)
+          }
+          engine.postMessage(threadId, text, attachments)
           return json({ ok: true })
+        }
         case 'stop':
           engine.stopTurn(threadId)
           return json({ ok: true })

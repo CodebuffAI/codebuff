@@ -21,6 +21,22 @@ export function App() {
     void init()
   }, [init])
 
+  // Swallow file drags that miss the composer. Without this, dropping a file
+  // anywhere else on the window makes Electron navigate the whole app to
+  // `file:///…`, blowing away the session. The composer's own onDrop still runs
+  // (it fires first, on a descendant) — this only kills the default navigation.
+  useEffect(() => {
+    const prevent = (e: DragEvent) => {
+      if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) e.preventDefault()
+    }
+    window.addEventListener('dragover', prevent)
+    window.addEventListener('drop', prevent)
+    return () => {
+      window.removeEventListener('dragover', prevent)
+      window.removeEventListener('drop', prevent)
+    }
+  }, [])
+
   // Electron menu → tab commands (Cmd+T / Cmd+Shift+T / Cmd+W).
   useEffect(() => {
     const fb = (window as any).freebuffDesktop

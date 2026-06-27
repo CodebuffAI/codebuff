@@ -5,7 +5,7 @@
  * surface for environment/version display and keep contextIsolation on.
  */
 
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('freebuffDesktop', {
   platform: process.platform,
@@ -20,4 +20,16 @@ contextBridge.exposeInMainWorld('freebuffDesktop', {
     ipcRenderer.on('menu-cmd', listener)
     return () => ipcRenderer.removeListener('menu-cmd', listener)
   },
+  // Resolve a dropped File to its absolute path. Electron 32+ removed File.path,
+  // so the composer's drag-and-drop relies on this. Returns '' for non-file blobs.
+  getPathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return ''
+    }
+  },
+  // Native open dialog for the paperclip button — files AND folders, multi-select.
+  // Resolves to [{ path, name, isDirectory }] (the main process stats each pick).
+  pickAttachments: () => ipcRenderer.invoke('dialog:pickAttachments'),
 })

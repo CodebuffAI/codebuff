@@ -1,8 +1,17 @@
 /** Client-side mirror of the backend thread-model types (see src/core/types.ts). */
 
+import type { AttachmentKind } from '../../../core/attachments'
 import type { Part } from '../../../core/parts'
 
 export type { Part, ReasoningCollapse } from '../../../core/parts'
+export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
+
+/** A file/photo/folder staged in the composer before send (absolute path + label). */
+export interface PendingAttachment {
+  path: string
+  name: string
+  kind: AttachmentKind
+}
 
 export type ThreadStatus = 'open' | 'closed'
 export type TurnState = 'idle' | 'running'

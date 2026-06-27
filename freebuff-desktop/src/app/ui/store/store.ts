@@ -1,9 +1,19 @@
 import { create } from 'zustand'
 
+import { appendBlock, attachmentSummary } from '../../../core/attachments'
 import { foldAgentEvent, partsFromPersisted, type ReasoningCollapse } from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
-import type { AgentOption, HarnessId, Message, QueueItem, ServerEvent, Skill, Thread } from '../lib/types'
+import type {
+  AgentOption,
+  HarnessId,
+  Message,
+  PendingAttachment,
+  QueueItem,
+  ServerEvent,
+  Skill,
+  Thread,
+} from '../lib/types'
 
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
@@ -55,7 +65,7 @@ interface StoreState {
   toggleReasoning: (threadId: string, messageId: string, partId: string) => void
 
   // messaging + queue
-  send: (id: string, text: string) => void
+  send: (id: string, text: string, attachments?: PendingAttachment[]) => void
   stopTurn: (id: string) => void
   openProject: (path: string) => Promise<{ ok: boolean; error?: string }>
   runSkill: (id: string, skill: string) => void
@@ -296,9 +306,12 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
 
-  send(id, text) {
-    appendMessage(set, id, text)
-    api.sendMessage(id, text)
+  send(id, text, attachments = []) {
+    // The transcript shows the typed text plus a compact `📎 …` line; the agent gets
+    // the attachments' contents server-side (see ThreadEngine.postMessage). `appendBlock`
+    // is shared with the server so this optimistic message matches the persisted one.
+    appendMessage(set, id, appendBlock(text, attachmentSummary(attachments)))
+    api.sendMessage(id, text, attachments.map((a) => a.path))
   },
 
   stopTurn(id) {

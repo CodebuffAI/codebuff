@@ -19,7 +19,7 @@
  *   FREEBUFF_TARGET_REPO=/path/to/repo bun --cwd freebuff-desktop run app
  */
 
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron')
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -234,6 +234,28 @@ function createWindow() {
 function sendMenuCommand(name) {
   mainWindow?.webContents.send('menu-cmd', name)
 }
+
+// Paperclip → native open dialog. Allows files AND folders (multi-select), and
+// stats each pick so the renderer can label folders vs. files. Returns [] when the
+// user cancels.
+ipcMain.handle('dialog:pickAttachments', async () => {
+  if (!mainWindow) return []
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Attach files or folders',
+    buttonLabel: 'Attach',
+    properties: ['openFile', 'openDirectory', 'multiSelections', 'treatPackageAsDirectory'],
+  })
+  if (res.canceled) return []
+  return res.filePaths.map((p) => {
+    let isDirectory = false
+    try {
+      isDirectory = fs.statSync(p).isDirectory()
+    } catch {
+      /* unreadable — treat as a file */
+    }
+    return { path: p, name: path.basename(p), isDirectory }
+  })
+})
 
 function buildMenu(reloadApp) {
   const isMac = process.platform === 'darwin'
