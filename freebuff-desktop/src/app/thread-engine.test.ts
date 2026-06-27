@@ -128,6 +128,9 @@ describe('ThreadEngine — workflows & suggestions', () => {
       expect(items.every((i) => i.workflowName === 'ship')).toBe(true)
       // Each item's prompt is the skill body, not the literal skill name.
       expect(items[0].prompt.length).toBeGreaterThan(10)
+      // Drain the queued turns the expansion kicked off so they don't outlive
+      // teardown and write to a deleted DB (surfaces as a stray SQLite error).
+      await settle(engine, thread.id)
     } finally {
       cleanup()
     }
@@ -178,10 +181,12 @@ describe('ThreadEngine — workflows & suggestions', () => {
       expect(suggested[0].prompt).toBe('add tests')
       expect(suggested[0].source).toBe('assistant')
 
-      // Promote moves it into the queued lane.
+      // Promote pulls it out of the suggested lane and into the always-on queue,
+      // which auto-drains top-down — so the promoted prompt actually runs.
       engine.promoteSuggestion(suggested[0].id)
       expect(engine.store.listQueueItems(thread.id, 'suggested').length).toBe(0)
-      expect(engine.store.listQueueItems(thread.id, 'queued').map((i) => i.prompt)).toContain('add tests')
+      await settle(engine, thread.id)
+      expect(client.prompts).toContain('add tests')
     } finally {
       cleanup()
     }
