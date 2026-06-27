@@ -19,7 +19,10 @@ export default function CloudLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="freebuff-web-shell dark min-h-screen overflow-y-scroll bg-[#0a0a0b] font-sans antialiased text-zinc-100">
+    <div
+      data-cloud-skin="cursor"
+      className="freebuff-web-shell dark min-h-screen overflow-y-scroll bg-[#1e1e1e] font-sans antialiased text-zinc-100"
+    >
       <ConvexClientProvider>
         <ReactQueryProvider>
           <TooltipProvider>

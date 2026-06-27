@@ -439,7 +439,7 @@ export function CloudCenterContent({
       <div className="flex h-full w-full flex-col items-stretch justify-start gap-0 lg:gap-2">
         <TooltipProvider delayDuration={200}>
           <div
-            className="flex w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1"
+            className="flex w-full min-w-[220px] items-center gap-1 rounded-md border border-border bg-[#202020] px-1.5 py-1"
             style={{ minHeight: 32 }}
           >
             <div className="flex items-center gap-0.5">
@@ -622,7 +622,7 @@ export function CloudCenterContent({
         <div className="min-h-0 w-full flex-1">
           <div
             ref={iframeContainerRef}
-            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card lg:rounded-lg lg:border lg:border-border lg:shadow-xl lg:shadow-black/40 ${isSelectingElement ? styles.selectingFrame : ''}`}
+            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card lg:rounded-md lg:border lg:border-border lg:shadow-sm lg:shadow-black/30 ${isSelectingElement ? styles.selectingFrame : ''}`}
             suppressHydrationWarning
           >
             {viewMode === 'env' ? (
@@ -763,9 +763,9 @@ export function CloudCenterContent({
                     transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }}
                     style={{ willChange: 'opacity' }}
                   >
-                    <div className="flex items-center gap-2 rounded-xl bg-card/95 p-1.5 shadow-xl shadow-black/40 backdrop-blur">
+                    <div className="flex items-center gap-2 rounded-md border border-border bg-[#202020]/95 p-1.5 shadow-lg shadow-black/40 backdrop-blur">
                       <div
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-foreground"
+                        className="flex items-center gap-2 rounded px-3 py-2 text-foreground"
                         aria-label="Click to test"
                       >
                         <MousePointer className="h-4 w-4 text-primary" />
@@ -776,7 +776,7 @@ export function CloudCenterContent({
                           e.stopPropagation()
                           handleOpenInNewTab()
                         }}
-                        className="flex items-center gap-2 rounded-lg bg-primary/15 px-3 py-2 text-primary transition-colors hover:bg-primary/25"
+                        className="flex items-center gap-2 rounded bg-primary/15 px-3 py-2 text-primary transition-colors hover:bg-primary/25"
                         aria-label="Open preview in new tab"
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -831,7 +831,7 @@ function PreviewControlPanel({
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-background p-6 text-center">
       {phase === 'idle' && (
         <>
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card">
+          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border bg-[#202020]">
             <Play className="h-6 w-6 text-primary" />
           </div>
           <div className="max-w-sm">
@@ -858,7 +858,7 @@ function PreviewControlPanel({
               type="button"
               onClick={onStart}
               disabled={isStarting}
-              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {isStarting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -888,7 +888,7 @@ function PreviewControlPanel({
             </>
           ) : (
             <>
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/30 bg-red-500/10">
+              <div className="flex h-14 w-14 items-center justify-center rounded-md border border-red-400/30 bg-red-500/10">
                 <AlertTriangle className="h-6 w-6 text-red-400" />
               </div>
               <div className="max-w-md">
@@ -920,7 +920,7 @@ function PreviewControlPanel({
               <button
                 type="button"
                 onClick={onSendLogsToChat}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition hover:bg-primary/90"
               >
                 <MessageSquare className="h-4 w-4" />
                 Send logs to chat
@@ -931,7 +931,7 @@ function PreviewControlPanel({
                 type="button"
                 onClick={onStart}
                 disabled={isStarting}
-                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+                className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
               >
                 {isStarting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -945,7 +945,7 @@ function PreviewControlPanel({
                 type="button"
                 onClick={onStop}
                 disabled={isStopping}
-                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+                className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
               >
                 {isStopping ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

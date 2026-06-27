@@ -68,7 +68,7 @@ export function CloudWorkspaceTabs({
   const TABS = isGodMode ? [...BASE_TABS, GOD_TAB] : BASE_TABS
 
   return (
-    <div className="flex w-full flex-shrink-0 items-center gap-2 px-2 py-1.5 lg:px-3">
+    <div className="flex w-full flex-shrink-0 items-center gap-2 border-b border-border bg-[#181818] px-1.5 py-1 lg:px-2">
       <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
         {TABS.map(({ id, label, Icon }) => {
           const isActive = activeTab === id
@@ -79,14 +79,14 @@ export function CloudWorkspaceTabs({
               type="button"
               onClick={() => onChange(id)}
               aria-pressed={isActive}
-              className={`flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${
+              className={`cloud-tab flex h-7 flex-shrink-0 items-center gap-1.5 px-2.5 text-xs font-medium transition-colors ${
                 isGodTab
                   ? isActive
-                    ? 'bg-amber-500/20 text-amber-300'
+                    ? 'bg-amber-500/15 text-amber-300'
                     : 'text-amber-400/70 hover:bg-amber-500/10 hover:text-amber-300'
                   : isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-foreground/55 hover:bg-muted/50 hover:text-foreground'
+                    ? 'bg-[#2a2a2a] text-foreground'
+                    : 'text-foreground/55 hover:bg-muted hover:text-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -103,7 +103,7 @@ export function CloudWorkspaceTabs({
             `/cloud/project/${semanticIdentifier}/settings?section=${TAB_SETTINGS_SECTION[activeTab]}`,
           )
         }
-        className="flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="cloud-tab flex h-7 flex-shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label="Open settings for this tab"
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />

@@ -143,7 +143,7 @@ function CloudProjectWorkspaceInner({
 
   return (
     <>
-      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-black">
+      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#1e1e1e]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-80"
@@ -170,7 +170,7 @@ function CloudProjectWorkspaceInner({
             initial={false}
             animate={isMobile ? undefined : { width: chatWidth }}
             transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] as const }}
-            className={`relative flex h-full min-h-0 flex-col overflow-hidden border-r border-white/10 bg-background/95 backdrop-blur-sm ${
+            className={`cloud-sidebar relative flex h-full min-h-0 flex-col overflow-hidden border-r border-border ${
               isMobile
                 ? `w-full ${mobileView === 'chat' ? 'flex' : 'hidden'}`
                 : `max-w-[820px] ${isSideTabActive ? 'min-w-[300px]' : 'min-w-[400px]'}`
@@ -249,7 +249,7 @@ function CloudMobileTabBar({
 }) {
   return (
     <nav
-      className="relative z-40 flex flex-shrink-0 items-stretch justify-around gap-1 bg-background/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1.5 backdrop-blur-xl"
+      className="cloud-titlebar relative z-40 flex flex-shrink-0 items-stretch justify-around gap-1 border-t border-border px-2 pb-[max(env(safe-area-inset-bottom),0.4rem)] pt-1.5"
       aria-label="Project navigation"
     >
       {(['chat', 'preview'] as const).map((tab) => (
@@ -258,10 +258,10 @@ function CloudMobileTabBar({
           type="button"
           onClick={() => onChange(tab)}
           aria-pressed={view === tab}
-          className={`relative flex h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium capitalize transition-colors ${
+          className={`relative flex h-10 flex-1 flex-col items-center justify-center gap-0.5 rounded text-[11px] font-medium capitalize transition-colors ${
             view === tab
-              ? 'bg-muted/70 text-foreground'
-              : 'text-foreground/65 hover:bg-muted/40 hover:text-foreground'
+              ? 'bg-[#2a2a2a] text-foreground'
+              : 'text-foreground/60 hover:bg-muted hover:text-foreground'
           }`}
         >
           {tab}

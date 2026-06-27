@@ -1038,3 +1038,60 @@ html {
     transform: rotate(45deg) rotateX(-385deg) rotateY(385deg);
   }
 }
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * Freebuff Cloud "Cursor" skin
+ * ─────────────────────────────────────────────────────────────────────────
+ * Scoped to the Cloud surface only (the Cloud layout root carries
+ * `data-cloud-skin="cursor"`). Re-maps the shared dark tokens to match
+ * Cursor's Monaco / VS Code dark theme exactly so we can iterate on Cloud
+ * without touching Freebuff Web. Colors taken from Cursor's "Dark Modern"
+ * editor + workbench palette.
+ */
+[data-cloud-skin='cursor'] {
+  /* Workbench surfaces */
+  --background: 0 0% 12%;          /* #1e1e1e editor / main bg */
+  --foreground: 0 0% 80%;          /* #cccccc default VS Code text */
+  --card: 0 0% 13%;                /* #212121 elevated panel */
+  --card-foreground: 0 0% 80%;
+  --popover: 0 0% 15%;             /* #262626 menus / popovers */
+  --popover-foreground: 0 0% 83%;
+
+  /* Primary stays Freebuff green but we keep it muted & compact in UI */
+  --primary: 135 60% 42%;          /* dark green pill */
+  --primary-foreground: 0 0% 98%;
+
+  --secondary: 0 0% 16%;           /* #292929 ghost button */
+  --secondary-foreground: 0 0% 80%;
+  --muted: 0 0% 16%;               /* #292929 hover scrim */
+  --muted-foreground: 0 0% 56%;    /* #8f8f8f secondary text */
+  --accent: 0 0% 18%;              /* #2e2e2e */
+  --accent-foreground: 0 0% 88%;
+  --destructive: 0 63% 50%;
+  --destructive-foreground: 0 0% 98%;
+
+  /* Hairline borders (VS Code uses extremely low-contrast separators) */
+  --border: 0 0% 18%;              /* #2e2e2e */
+  --input: 0 0% 12%;               /* #1e1e1e input fill */
+  --ring: 135 60% 42%;
+
+  /* Cursor uses tight, near-square corners on tabs/cards */
+  --radius: 0.375rem;
+}
+
+/* Title-bar / top chrome is a touch darker than the editor (matches Cursor) */
+[data-cloud-skin='cursor'] .cloud-titlebar {
+  background-color: #181818;
+}
+
+/* Sidebar (chat) surface — slightly darker than the editor pane */
+[data-cloud-skin='cursor'] .cloud-sidebar {
+  background-color: #181818;
+}
+
+/* Square, flat tab styling shared by the workspace + top bar */
+[data-cloud-skin='cursor'] .cloud-tab {
+  border-radius: 4px;
+}
+

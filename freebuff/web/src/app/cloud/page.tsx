@@ -59,7 +59,7 @@ export default function CloudHome() {
             <h1 className="lp-serif text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               Freebuff Cloud
             </h1>
-            <span className="rounded-full border border-forest-bright/30 bg-forest/15 px-2 py-0.5 text-[11px] font-medium text-forest-bright">
+            <span className="rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
               beta
             </span>
           </div>
@@ -71,13 +71,13 @@ export default function CloudHome() {
 
         {/* Main content */}
         {!isAuthed ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center shadow-xl shadow-black/40 sm:p-16">
+          <div className="rounded-md border border-border bg-[#202020] p-12 text-center sm:p-16">
             <p className="mb-5 text-sm text-white/60">
               Sign in to connect a repository.
             </p>
             <Link
               href="/login?callbackUrl=/cloud"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               Sign in
             </Link>
@@ -90,10 +90,10 @@ export default function CloudHome() {
           <button
             type="button"
             onClick={() => setIsConnectOpen(true)}
-            className="group flex w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card p-12 text-center shadow-xl shadow-black/30 transition-colors hover:border-forest-bright/40 hover:bg-muted/40 sm:p-20"
+            className="group flex w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-[#202020] p-12 text-center transition-colors hover:border-primary/40 hover:bg-muted sm:p-20"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-muted/50">
-              <Github className="h-7 w-7 text-white/50 transition-colors group-hover:text-forest-bright" />
+            <span className="flex h-14 w-14 items-center justify-center rounded-md border border-border bg-muted">
+              <Github className="h-7 w-7 text-white/50 transition-colors group-hover:text-primary" />
             </span>
             <span className="mt-1 text-base font-medium text-white/85">
               Connect your first repository
@@ -112,7 +112,7 @@ export default function CloudHome() {
               <button
                 type="button"
                 onClick={() => setIsConnectOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 active:scale-[0.98]"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[13px] font-medium text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
               >
                 <Plus className="h-4 w-4" />
                 Connect repo
@@ -127,7 +127,7 @@ export default function CloudHome() {
                   onClick={() =>
                     router.push(`/cloud/project/${project.semantic_identifier}`)
                   }
-                  className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-lg shadow-black/30 transition-all hover:-translate-y-0.5 hover:border-forest-bright/30 hover:bg-muted/40"
+                  className="group flex flex-col items-start gap-2 rounded-md border border-border bg-[#202020] p-4 text-left transition-all hover:border-primary/30 hover:bg-muted"
                 >
                   <div className="flex w-full items-center gap-2">
                     <Github className="h-4 w-4 shrink-0 text-white/55" />
@@ -136,9 +136,9 @@ export default function CloudHome() {
                         project.name ||
                         project.semantic_identifier}
                     </span>
-                    <ArrowUpRight className="h-4 w-4 shrink-0 text-white/30 transition-colors group-hover:text-forest-bright" />
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-white/30 transition-colors group-hover:text-primary" />
                   </div>
-                  <span className="flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] text-white/50">
+                  <span className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-white/50">
                     <GitBranch className="h-3 w-3" />
                     {(project as any).current_branch ?? 'main'}
                   </span>
@@ -149,7 +149,7 @@ export default function CloudHome() {
         )}
 
         {/* Feedback survey prompt */}
-        <div className="mt-20 flex items-center justify-between gap-4 rounded-xl border border-white/[0.07] bg-white/[0.03] px-5 py-4 sm:mt-28">
+        <div className="mt-20 flex flex-col gap-3 rounded-md border border-border bg-[#202020] px-5 py-4 sm:mt-28 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-white/80">
               Shape the future of Freebuff Cloud
@@ -169,7 +169,7 @@ export default function CloudHome() {
               Discord
             </Link>
             <CloudFeedbackDialog
-              triggerClassName="inline-flex items-center gap-1.5 rounded-full bg-forest px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-forest/20 transition-colors hover:bg-forest-bright/90"
+              triggerClassName="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             />
           </div>
         </div>
