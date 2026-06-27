@@ -31,3 +31,6 @@ docs/bot-detection.md
 
 # Infisical config (user-specific)
 .infisical.json
+
+# Local audit/scratch material (per audit-checkpoint precedent 00b76276a)
+.kimchi/
