@@ -24,7 +24,11 @@ import {
   formatFreebuffPremiumResetCountdown,
   getFreebuffPremiumResetAt,
 } from '../utils/freebuff-premium-reset'
-import { getFreebuffStreakLine } from '../utils/freebuff-streak-line'
+import {
+  FREEBUFF_STREAK_WEEK,
+  getFreebuffStreakBonusNote,
+  getFreebuffStreakLine,
+} from '../utils/freebuff-streak-line'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
@@ -398,6 +402,15 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // The component itself renders blank space when streak === 0.
   const reserveStreakSlot =
     FREEBUFF_ENABLE_STREAK_IN_UI && isLanding && !compact
+  // Once a full week is earned, explain the recurring perk under the picker so
+  // the streak reads as worth keeping. Accuracy lives in getFreebuffStreakBonusNote
+  // (recurring "each week" framing, GLM only for full access).
+  const streakBonusNote = reserveStreakSlot
+    ? getFreebuffStreakBonusNote({
+        streak,
+        accessTier: accessTier === 'limited' ? 'limited' : 'full',
+      })
+    : null
   // On the landing screen the streak rides on the heading row, right-aligned.
   // Below ~50 cols the heading + dots get squashed together, so drop the streak
   // to its own line under the heading instead.
@@ -483,6 +496,10 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const noticeRows = limitedModeNotice
     ? 1 /* marginTop */ + wrappedRows(limitedModeNotice)
     : 0
+  // Streak perk note (landing, streak >= 7): one marginTop row + wrap.
+  const streakBonusRows = streakBonusNote
+    ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
+    : 0
   // GLM referral banner (landing, full tier). Reserve the rows it occupies so
   // the scrollbox shrinks to make room. Locked = one quiet line (marginTop +
   // 1); unlocked = the accent card (marginTop + border 2 + status + action +
@@ -495,7 +512,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       : // Locked: marginTop + the invite line, which can wrap to two rows now
         // that it carries the full "most powerful open-source model" pitch.
         1 + 2
-  const belowPickerRows = streakRows + noticeRows + referralBannerRows
+  const belowPickerRows =
+    streakRows + noticeRows + streakBonusRows + referralBannerRows
   const counterRows = showBelowPickerCounter
     ? 1 /* marginTop */ + wrappedRows(counterText)
     : 0
@@ -671,6 +689,13 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}
                 >
                   {limitedModeNotice}
+                </text>
+              )}
+              {streakBonusNote && (
+                <text
+                  style={{ fg: theme.primary, wrapMode: 'word', marginTop: 1 }}
+                >
+                  {streakBonusNote}
                 </text>
               )}
               <FreebuffReferralBanner />
