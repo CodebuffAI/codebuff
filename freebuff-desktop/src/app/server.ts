@@ -239,6 +239,10 @@ const server = Bun.serve({
           return json(engine.enqueuePrompt(threadId, String(b.prompt), { label: b.label }))
         case 'queue/skill':
           return json(engine.enqueueSkill(threadId, String(b.skill)) ?? { error: 'unknown skill' })
+        case 'skill':
+          return engine.runSkill(threadId, String(b.skill))
+            ? json({ ok: true })
+            : json({ error: 'unknown skill' }, 400)
         case 'queue/workflow':
           return json(engine.enqueueWorkflow(threadId, String(b.workflow)))
         default:

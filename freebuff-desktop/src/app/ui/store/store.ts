@@ -49,6 +49,7 @@ interface StoreState {
 
   // messaging + queue
   send: (id: string, text: string) => void
+  runSkill: (id: string, skill: string) => void
   enqueuePrompt: (id: string, prompt: string) => void
   enqueueSkill: (id: string, skill: string) => void
   editItem: (id: string, itemId: string, prompt: string) => void
@@ -265,6 +266,15 @@ export const useStore = create<StoreState>((set, get) => ({
   send(id, text) {
     appendMessage(set, id, text)
     api.sendMessage(id, text)
+  },
+
+  // Run a skill from the main chat: show its compact `/name` label and steer the
+  // agent (the server pushes the full skill body into the steering inbox). Mirrors
+  // the optimistic append that `send` does for a typed message.
+  runSkill(id, skill) {
+    bumpSkillTally(set, skill)
+    appendMessage(set, id, `/${skill}`)
+    api.runSkill(id, skill)
   },
 
   enqueuePrompt(id, prompt) {

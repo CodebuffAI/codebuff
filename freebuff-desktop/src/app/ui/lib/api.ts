@@ -37,6 +37,9 @@ export const api = {
   reopenThread: (id: string) => post(`/api/thread/${id}/reopen`),
   deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
   sendMessage: (id: string, text: string) => post(`/api/thread/${id}/message`, { text }),
+  // Run a skill from the main chat: steers the agent on its next step instead of
+  // queueing (see ThreadEngine.runSkill).
+  runSkill: (id: string, skill: string) => post(`/api/thread/${id}/skill`, { skill }),
   setAutoQueueSuggestions: (id: string, on: boolean) =>
     post(`/api/thread/${id}/auto-queue-suggestions`, { on }),
   reorder: (id: string, itemId: string, afterItemId: string | null) =>

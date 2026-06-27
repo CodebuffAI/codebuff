@@ -3,6 +3,7 @@ import { memo, useMemo, useState } from 'react'
 import { toolArg, toolLabel } from '../lib/formatTool'
 import type { Message as Msg, Part, ToolCall } from '../lib/types'
 import { useStore } from '../store/store'
+import { Markdown } from './Markdown'
 import { Thinking } from './Thinking'
 
 function ToolActivity({ tools, streaming }: { tools: ToolCall[]; streaming: boolean }) {
@@ -76,11 +77,7 @@ export const Message = memo(function Message({ msg, threadId }: { msg: Msg; thre
           return <ToolActivity key={`g${i}`} tools={g.tools} streaming={!msg.done && isLast} />
         }
         if (g.kind === 'text') {
-          return g.text ? (
-            <div key={g.key} className="prose">
-              {g.text}
-            </div>
-          ) : null
+          return g.text ? <Markdown key={g.key} text={g.text} /> : null
         }
         return (
           <Thinking

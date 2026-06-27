@@ -307,10 +307,190 @@ body.col-resizing {
   white-space: pre-wrap;
 }
 .msg.assistant .prose {
-  white-space: pre-wrap;
   line-height: 1.62;
 }
 .thinking {
+  color: var(--faint);
+}
+
+/* — Markdown prose — */
+.prose > *:first-child {
+  margin-top: 0;
+}
+.prose > *:last-child {
+  margin-bottom: 0;
+}
+.prose p {
+  margin: 0 0 10px;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  margin: 18px 0 8px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+.prose h1 {
+  font-size: 1.4em;
+}
+.prose h2 {
+  font-size: 1.22em;
+}
+.prose h3 {
+  font-size: 1.08em;
+}
+.prose h4 {
+  font-size: 1em;
+  color: var(--muted);
+}
+.prose ul,
+.prose ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.prose li {
+  margin: 3px 0;
+}
+.prose li::marker {
+  color: var(--faint);
+}
+.prose a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.prose a:hover {
+  text-decoration: underline;
+}
+.prose blockquote {
+  margin: 0 0 10px;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+.prose img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+.md-inline {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.5px 5px;
+  /* Long inline tokens (paths, identifiers) wrap rather than overflow the
+     message width — `.messages` has no horizontal scroll. */
+  overflow-wrap: anywhere;
+}
+
+/* — Tables — */
+/* Wrap, don't scroll: the table fills the column width and `auto` layout lets the
+   browser balance columns, while `overflow-wrap: anywhere` lets text-heavy cells
+   wrap (and shrink their column's min-width) instead of one cell blowing the table
+   out. The wrap still keeps `overflow-x` as a fallback for genuinely wide tables. */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 12px;
+}
+.prose table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+/* Data cells may shrink and break long tokens so no single cell dominates the
+   width. Headers only break when truly unavoidable, so a short label like
+   "Step" keeps its column from being squeezed to one character per line. */
+.prose td {
+  overflow-wrap: anywhere;
+}
+.prose th {
+  background: var(--surface-2);
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.prose tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* — Code blocks — */
+.md-code {
+  margin: 0 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a0a0b;
+}
+.md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 4px 11px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.md-code-lang {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  color: var(--faint);
+  text-transform: lowercase;
+}
+.md-copy {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.md-copy:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.md-pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+.md-pre code {
+  font: inherit;
+}
+.md-pre.diff code {
+  display: block;
+}
+.d-line {
+  display: block;
+  white-space: pre;
+}
+.d-add {
+  background: rgba(124, 255, 63, 0.1);
+  color: #b6f59a;
+}
+.d-del {
+  background: rgba(213, 106, 106, 0.13);
+  color: #e7a3a3;
+}
+.d-hunk {
+  color: var(--accent-dim);
+}
+.d-meta {
   color: var(--faint);
 }
 .acts {
@@ -416,11 +596,66 @@ body.col-resizing {
 
 /* — Composer — */
 .composer {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
+}
+
+/* — Slash command menu — */
+.slash-menu {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(100% - 6px);
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+}
+.slash-item {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+.slash-item.sel {
+  background: var(--raised);
+}
+.slash-name {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.slash-hint {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slash-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  background: var(--raised);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
 }
 .composer textarea {
   flex: 1;

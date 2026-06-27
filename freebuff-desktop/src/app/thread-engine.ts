@@ -272,13 +272,42 @@ export class ThreadEngine {
   postMessage(threadId: string, text: string): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    this.store.appendMessage(threadId, { role: 'user', text }, this.now())
     // Auto-title a fresh thread from its first message.
     if (thread.title === 'New thread' && text.trim()) {
       this.store.updateThread(threadId, { title: text.trim().slice(0, 60) }, this.now())
     }
+    this.startUserTurn(threadId, text)
+  }
+
+  /**
+   * Run a skill from the main chat. Unlike `enqueueSkill` (which parks it in the
+   * queue), this steers the agent the way a typed message does: the skill's full
+   * prompt body goes into the same inbox, so it's appended at the running turn's
+   * next step boundary, or runs as the next turn when the thread is idle. The
+   * transcript shows a compact `/skill` label rather than the long instruction
+   * block (the client appends the same label optimistically, so we don't also
+   * broadcast it).
+   */
+  runSkill(threadId: string, skillName: string): boolean {
+    const skill = this.skills.read(skillName)
+    if (!skill) return false
+    const thread = this.store.getThread(threadId)
+    if (!thread || thread.status === 'closed') return false
+    this.startUserTurn(threadId, skill.prompt, `/${skillName}`)
+    return true
+  }
+
+  /**
+   * Schedule a main-chat user turn: record `displayText` in the transcript and feed
+   * `steeringText` into the shared inbox, so it steers a running turn at the next
+   * step boundary or runs as the next turn when idle (see `drainSteering` / `pump`).
+   * The two diverge only when chat should show a compact label (e.g. `/review`)
+   * instead of the full prompt body; by default they're the same typed message.
+   */
+  private startUserTurn(threadId: string, steeringText: string, displayText: string = steeringText): void {
+    this.store.appendMessage(threadId, { role: 'user', text: displayText }, this.now())
     const list = this.userInbox.get(threadId) ?? []
-    list.push(text)
+    list.push(steeringText)
     this.userInbox.set(threadId, list)
     this.emitThread(threadId)
     void this.pump(threadId)

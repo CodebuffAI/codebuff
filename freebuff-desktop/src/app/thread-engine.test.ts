@@ -84,6 +84,63 @@ describe('ThreadEngine — turns', () => {
     }
   })
 
+  test('runSkill steers the agent with the skill body but does not enqueue', async () => {
+    const { engine, client, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.runSkill(thread.id, 'review')
+      await settle(engine, thread.id)
+
+      // The full skill body ran as a turn (like a typed message, not the queue)…
+      expect(client.prompts).toHaveLength(1)
+      expect(client.prompts[0].length).toBeGreaterThan(10)
+      expect(client.prompts[0]).toBe(engine.skills.read('review')!.prompt)
+      // …no queue item was created…
+      expect(engine.store.listQueueItems(thread.id)).toHaveLength(0)
+      // …and the transcript shows the compact label, not the instruction block.
+      const userMsgs = engine.threadData(thread.id)!.messages.filter((m) => m.role === 'user')
+      expect(userMsgs.map((m) => m.text)).toEqual(['/review'])
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('runSkill steers an already-running turn at its next step boundary', async () => {
+    const { engine, client, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      let steeredAtBoundary: string[] = []
+      client.onRun = async (opts) => {
+        // First turn is in flight: pick a skill from the main chat.
+        if (opts.prompt === 'first') {
+          engine.runSkill(thread.id, 'review')
+          steeredAtBoundary = opts.drainSteeringMessages?.() ?? []
+        }
+      }
+      engine.postMessage(thread.id, 'first')
+      await settle(engine, thread.id)
+
+      // The skill body reached the running turn via the steering drain…
+      expect(steeredAtBoundary).toEqual([engine.skills.read('review')!.prompt])
+      // …without spawning a second turn or enqueuing anything.
+      expect(client.prompts).toEqual(['first'])
+      expect(engine.store.listQueueItems(thread.id)).toHaveLength(0)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('runSkill on an unknown skill is a no-op', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      expect(engine.runSkill(thread.id, 'no-such-skill')).toBe(false)
+      expect(engine.threadData(thread.id)!.messages).toHaveLength(0)
+    } finally {
+      cleanup()
+    }
+  })
+
   test('a main-chat message during a running turn steers it instead of starting a new turn', async () => {
     const { engine, client, cleanup } = await gitEngine()
     try {
