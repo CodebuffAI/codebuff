@@ -7,6 +7,8 @@ import { Message } from './Message'
 
 export function ThreadView({ threadId }: { threadId: string }) {
   const slice = useStore((s) => s.threads[threadId])
+  const projectPath = useStore((s) => s.projectPath)
+  const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
   const [preview, setPreview] = useState(false)
@@ -24,6 +26,11 @@ export function ThreadView({ threadId }: { threadId: string }) {
   return (
     <div className="threadview">
       <div className="thread-head">
+        {projectName && (
+          <span className="thread-head-project" title={projectPath}>
+            <Icon name="folder" /> {projectName}
+          </span>
+        )}
         <span className="thread-head-title" title={slice.thread.title}>
           {slice.thread.title || 'New thread'}
         </span>

@@ -22,7 +22,7 @@ export function Composer({ threadId }: { threadId: string }) {
         ref={ref}
         value={text}
         rows={1}
-        placeholder="Message Freebuff…  (Enter to send, Shift+Enter for newline)"
+        placeholder="Type / for commands"
         onChange={(e) => {
           setText(e.target.value)
           e.target.style.height = 'auto'

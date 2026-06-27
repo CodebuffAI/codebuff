@@ -32,6 +32,7 @@ export type EngineEvent =
   | { type: 'state'; snapshot: Snapshot }
   | { type: 'thread'; threadId: string; thread: Thread; items: QueueItem[] }
   | { type: 'agent'; threadId: string; event: PrintModeEvent }
+  | { type: 'prompt'; threadId: string; text: string }
   | { type: 'log'; message: string }
 
 export interface Snapshot {
@@ -316,7 +317,19 @@ export class ThreadEngine {
     let thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return
 
-    if (meta.queueItemId) this.store.updateQueueItem(meta.queueItemId, { state: 'running' }, this.now())
+    if (meta.queueItemId) {
+      const item = this.store.getQueueItem(meta.queueItemId)
+      this.store.updateQueueItem(meta.queueItemId, { state: 'running' }, this.now())
+      // Queue-driven turns (autorun/manual step) have no client-side optimistic
+      // user message the way typed prompts do, so persist + broadcast the prompt
+      // here. Otherwise the queued prompt runs invisibly with no chat record.
+      // Skill/workflow prompts are long instruction blocks, so show them as a
+      // compact command label (e.g. `/review`) rather than the whole body.
+      const isCommand = item?.source === 'skill' || item?.source === 'workflow'
+      const chatText = isCommand ? `/${item!.label ?? item!.skillName ?? 'skill'}` : prompt
+      this.store.appendMessage(threadId, { role: 'user', text: chatText }, this.now())
+      this.emit({ type: 'prompt', threadId, text: chatText })
+    }
     this.store.updateThread(threadId, { turnState: 'running' }, this.now())
     this.emitThread(threadId)
     this.emitState()
@@ -333,6 +346,7 @@ export class ThreadEngine {
       const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
 
       let assistantText = ''
+      let streamedText = false
       const acts: { toolName: string; input: unknown }[] = []
       const run = await this.client.run({
         agent: threadAgentDefinition(toolNames),
@@ -340,9 +354,27 @@ export class ThreadEngine {
         cwd,
         previousRun: this.previousRun.get(threadId),
         customToolDefinitions: tools,
+        // Per-token text deltas → stream to the UI as they arrive. (handleEvent's
+        // `text` events are consolidated whole-segment blocks that only land at the
+        // end of a segment, so streaming must come from here.)
+        handleStreamChunk: (chunk) => {
+          if (typeof chunk !== 'string' || !chunk) return
+          streamedText = true
+          assistantText += chunk
+          this.emit({ type: 'agent', threadId, event: { type: 'text', text: chunk } })
+        },
         handleEvent: (event) => {
+          if (event.type === 'text') {
+            // Already streamed token-by-token via handleStreamChunk; skip the
+            // consolidated copy to avoid rendering the text twice. Fall back to it
+            // only if no stream chunks arrived (keeps the transcript correct).
+            if (!streamedText) {
+              assistantText += event.text
+              this.emit({ type: 'agent', threadId, event })
+            }
+            return
+          }
           this.emit({ type: 'agent', threadId, event })
-          if (event.type === 'text') assistantText += event.text
           if (event.type === 'tool_call') acts.push({ toolName: event.toolName, input: event.input })
           if (event.type === 'finish') this.recordSpend(event.totalCost)
         },

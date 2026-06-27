@@ -187,6 +187,26 @@ select {
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
 }
+.thread-head-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  max-width: 240px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thread-head-project svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
 .thread-head-title {
   flex: 1;
   font-size: 12.5px;

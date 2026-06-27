@@ -73,6 +73,7 @@ export type ServerEvent =
   | { type: 'state'; snapshot: Snapshot }
   | { type: 'thread'; threadId: string; thread: Thread; items: QueueItem[] }
   | { type: 'agent'; threadId: string; event: AgentEvent }
+  | { type: 'prompt'; threadId: string; text: string }
   | { type: 'log'; message: string }
 
 /** A subset of the SDK PrintModeEvent we render. */

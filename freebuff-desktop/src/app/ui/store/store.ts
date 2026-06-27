@@ -118,8 +118,8 @@ export const useStore = create<StoreState>((set, get) => ({
             : emptySlice(t)
         }
         // A thread no longer open (closed elsewhere) drops out of the tab bar.
-        const tabOrder = s.tabOrder.filter((id) => live.has(id))
-        for (const t of snapshot.threads) if (!tabOrder.includes(t.id)) tabOrder.push(t.id)
+        let tabOrder = s.tabOrder.filter((id) => live.has(id))
+        for (const t of snapshot.threads) tabOrder = appendTab(tabOrder, t.id)
         let activeId = s.activeId
         if (activeId && !live.has(activeId)) activeId = tabOrder[tabOrder.length - 1] ?? null
         return {
@@ -147,6 +147,11 @@ export const useStore = create<StoreState>((set, get) => ({
       return
     }
 
+    if (ev.type === 'prompt') {
+      appendMessage(set, ev.threadId, ev.text)
+      return
+    }
+
     if (ev.type === 'agent') {
       set((s) => {
         const slice = s.threads[ev.threadId]
@@ -167,7 +172,10 @@ export const useStore = create<StoreState>((set, get) => ({
     const t = await api.createThread()
     set((s) => ({
       threads: { ...s.threads, [t.id]: { ...emptySlice(t), loaded: true } },
-      tabOrder: [...s.tabOrder, t.id],
+      // The server's `createThread` emits a `state` event (over the already-open
+      // SSE connection) before this HTTP call resolves, so the tab may already be
+      // in `tabOrder` — `appendTab` keeps it from being added a second time.
+      tabOrder: appendTab(s.tabOrder, t.id),
       activeId: t.id,
     }))
   },
@@ -193,7 +201,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => ({ recentlyClosed: s.recentlyClosed.slice(0, -1) }))
     api.reopenThread(id).then(() => {
       set((s) => ({
-        tabOrder: s.tabOrder.includes(id) ? s.tabOrder : [...s.tabOrder, id],
+        tabOrder: appendTab(s.tabOrder, id),
         activeId: id,
       }))
       get().ensureLoaded(id)
@@ -237,12 +245,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   send(id, text) {
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      const msg: Message = { id: nextId(), role: 'user', text, tools: [], done: true }
-      return { threads: { ...s.threads, [id]: { ...slice, messages: [...slice.messages, msg] } } }
-    })
+    appendMessage(set, id, text)
     api.sendMessage(id, text)
   },
 
@@ -310,6 +313,26 @@ function optimisticItems(
     if (!slice) return {}
     return { threads: { ...s.threads, [id]: { ...slice, items: fn(slice.items) } } }
   })
+}
+
+/** Append a message to a thread's transcript (no-op if the thread isn't loaded). */
+function appendMessage(
+  set: (fn: (s: StoreState) => Partial<StoreState>) => void,
+  id: string,
+  text: string,
+  role: Message['role'] = 'user',
+) {
+  set((s) => {
+    const slice = s.threads[id]
+    if (!slice) return {}
+    const msg: Message = { id: nextId(), role, text, tools: [], done: true }
+    return { threads: { ...s.threads, [id]: { ...slice, messages: [...slice.messages, msg] } } }
+  })
+}
+
+/** Append a tab id idempotently — racing async sources (SSE `state`, create, reopen) can both add it. */
+function appendTab(order: string[], id: string): string[] {
+  return order.includes(id) ? order : [...order, id]
 }
 
 /** Reorder `itemId` to just after `afterItemId` (null = top of its lane). */

@@ -76,6 +76,10 @@ describe('ThreadEngine — turns', () => {
       // All ran and are marked done.
       const items = engine.store.listQueueItems(thread.id)
       expect(items.every((i) => i.state === 'done')).toBe(true)
+      // Each queued prompt is recorded as a user message so it shows in chat.
+      const msgs = engine.threadData(thread.id)!.messages
+      expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user', 'assistant'])
+      expect(msgs.filter((m) => m.role === 'user').map((m) => m.text)).toEqual(['p1', 'p2', 'p3'])
     } finally {
       cleanup()
     }
@@ -115,6 +119,24 @@ describe('ThreadEngine — workflows & suggestions', () => {
       expect(items.every((i) => i.workflowName === 'ship')).toBe(true)
       // Each item's prompt is the skill body, not the literal skill name.
       expect(items[0].prompt.length).toBeGreaterThan(10)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('skill/workflow turns show a compact /label in chat, not the full prompt body', async () => {
+    const { engine, client, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.setAutorun(thread.id, true)
+      engine.enqueueSkill(thread.id, 'review')
+      await settle(engine, thread.id)
+
+      // The agent still runs the full skill body…
+      expect(client.prompts[0].length).toBeGreaterThan(10)
+      // …but the chat records only the compact command label.
+      const userMsgs = engine.threadData(thread.id)!.messages.filter((m) => m.role === 'user')
+      expect(userMsgs.map((m) => m.text)).toEqual(['/review'])
     } finally {
       cleanup()
     }
