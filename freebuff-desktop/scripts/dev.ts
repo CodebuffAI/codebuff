@@ -35,6 +35,22 @@ process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
 run('vite', ['bunx', 'vite'])
-// Give Vite a moment to bind 5174 before Electron loads it.
-await Bun.sleep(1200)
+
+// Wait until Vite is actually serving on 5174 before launching Electron. A fixed
+// sleep races on cold starts (bunx resolve + first compile) → Electron loads
+// before the port is bound and dies with ERR_CONNECTION_REFUSED.
+async function waitForVite(url: string, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      await fetch(url, { signal: AbortSignal.timeout(1000) })
+      return
+    } catch {
+      await Bun.sleep(150)
+    }
+  }
+  throw new Error(`Vite did not come up at ${url} within ${timeoutMs}ms`)
+}
+
+await waitForVite('http://127.0.0.1:5174/')
 run('electron', ['bunx', 'electron', '.'], { FREEBUFF_DEV_UI: '1' })
