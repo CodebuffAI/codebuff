@@ -18,7 +18,7 @@ class FakeClient {
   }
 }
 
-async function gitEngine(client = new FakeClient()) {
+async function gitEngine(client = new FakeClient(), extra: Record<string, unknown> = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fbd-thread-'))
   await bunRunner.run('git', ['init', '-b', 'main', root])
   await bunRunner.run('git', ['-C', root, 'config', 'user.email', 't@e.com'], { cwd: root })
@@ -27,7 +27,7 @@ async function gitEngine(client = new FakeClient()) {
   writeFileSync(join(root, 'base.txt'), 'base\n')
   await bunRunner.run('git', ['-C', root, 'add', '-A'], { cwd: root })
   await bunRunner.run('git', ['-C', root, 'commit', '-m', 'init'], { cwd: root })
-  const engine = new ThreadEngine({ repoRoot: root, client: client as any })
+  const engine = new ThreadEngine({ repoRoot: root, client: client as any, ...extra })
   return { engine, client, root, cleanup: () => rmSync(root, { recursive: true, force: true }) }
 }
 
@@ -141,6 +141,42 @@ describe('ThreadEngine — workflows & suggestions', () => {
       engine.promoteSuggestion(suggested[0].id)
       expect(engine.store.listQueueItems(thread.id, 'suggested').length).toBe(0)
       expect(engine.store.listQueueItems(thread.id, 'queued').map((i) => i.prompt)).toContain('add tests')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('browser_check tool runs the headless check against the thread preview URL', async () => {
+    let calledUrl = ''
+    const stubBrowser = async (url: string) => {
+      calledUrl = url
+      return {
+        loaded: true,
+        rendered: true,
+        title: 'Game',
+        renderDetail: 'canvas present',
+        consoleErrors: [],
+        pageErrors: [],
+      }
+    }
+    const client = new FakeClient()
+    let toolResult: any
+    client.onRun = async (opts) => {
+      const tool = opts.customToolDefinitions.find((t: any) => t.toolName === 'browser_check')
+      toolResult = await tool.execute({})
+    }
+    const { engine, cleanup } = await gitEngine(client, {
+      runBrowserCheck: stubBrowser,
+      previewBaseUrl: 'http://127.0.0.1:9999',
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'build a page')
+      await settle(engine, thread.id)
+
+      expect(calledUrl).toBe(`http://127.0.0.1:9999/thread-preview/${thread.id}/`)
+      expect(toolResult[0].value.rendered).toBe(true)
+      expect(toolResult[0].value.title).toBe('Game')
     } finally {
       cleanup()
     }

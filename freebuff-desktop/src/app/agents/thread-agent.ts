@@ -17,6 +17,7 @@ import { getCustomToolDefinition } from '@codebuff/sdk'
 import type { CustomToolDefinition } from '@codebuff/sdk'
 import { z } from 'zod/v4'
 
+import type { BrowserCheckResult } from '../../core/browser-check'
 import { DOC_NAMES, type DocName } from '../../core/types'
 import { FREEBUFF_MODEL } from '../models'
 
@@ -77,6 +78,8 @@ export interface ThreadToolDeps {
   ) => { ok: boolean; error?: string }
   /** Commit + push + open a PR for the thread. */
   onOpenPr: () => Promise<{ url: string }>
+  /** Load the thread's work in a real headless browser and report what it saw. */
+  onBrowserCheck: () => Promise<BrowserCheckResult>
 }
 
 /**
@@ -155,6 +158,23 @@ export function buildThreadTools(deps: ThreadToolDeps): CustomToolDefinition<str
         } catch (err) {
           return [{ type: 'json', value: { error: 'open_pr_failed', message: (err as Error).message } }]
         }
+      },
+    }),
+
+    getCustomToolDefinition({
+      toolName: 'browser_check',
+      description:
+        "Load this thread's current work in a REAL headless browser and report whether it " +
+        'renders without console/page errors. Use this for ANY web UI, page, or game change — ' +
+        'it returns the facts you cannot get by reading code (did it load, did it render, what ' +
+        'errors appeared). Rendering is not correctness, but errors or a blank render mean it is ' +
+        'broken no matter how good the code looks.',
+      inputSchema: z.object({}),
+      endsAgentStep: false,
+      exampleInputs: [{}],
+      execute: async (): Promise<ToolResult[]> => {
+        const r = await deps.onBrowserCheck()
+        return [{ type: 'json', value: r }]
       },
     }),
   ]

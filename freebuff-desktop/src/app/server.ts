@@ -42,7 +42,13 @@ let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).def
 let engineUnsub = engine.on(broadcast)
 
 function makeEngine(repoRoot: string, defaultBranch?: string): ThreadEngine {
-  const e = new ThreadEngine({ repoRoot, repoUrl: repoRoot, defaultBranch })
+  const e = new ThreadEngine({
+    repoRoot,
+    repoUrl: repoRoot,
+    defaultBranch,
+    // browser_check loads a thread's preview from this same server.
+    previewBaseUrl: `http://127.0.0.1:${PORT}`,
+  })
   e.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
   return e
 }

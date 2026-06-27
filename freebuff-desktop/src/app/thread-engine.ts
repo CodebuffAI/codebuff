@@ -17,6 +17,7 @@ import { CodebuffClient } from '@codebuff/sdk'
 import type { PrintModeEvent, RunState } from '@codebuff/sdk'
 
 import { recordUsage } from '../core/budget'
+import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
 import { positionAfter } from '../core/queue-order'
@@ -54,6 +55,11 @@ export interface EngineOptions {
   dailyBudget?: number
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
+  /** Base URL the server listens on, used to point `browser_check` at a thread's
+   * preview. Defaults to the local server port. */
+  previewBaseUrl?: string
+  /** Inject the headless-browser runner (tests). Defaults to real playwright. */
+  runBrowserCheck?: (url: string) => Promise<BrowserCheckResult>
 }
 
 export class ThreadEngine {
@@ -65,6 +71,8 @@ export class ThreadEngine {
   private readonly projectId: string
   private readonly repoRoot: string
   private readonly accountId = 'local'
+  private readonly previewBaseUrl: string
+  private readonly browserCheckFn: (url: string) => Promise<BrowserCheckResult>
 
   private listeners = new Set<(e: EngineEvent) => void>()
   /** Per-thread prompt-cache state for the SDK (in-memory only). */
@@ -87,6 +95,8 @@ export class ThreadEngine {
     this.skills = new SkillStore({ skillsDir: join(fbDir, 'skills') })
     this.skills.seedDefaults()
     this.client = opts.client ?? new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+    this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
+    this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
 
     if (!this.store.getProject(this.projectId)) {
       this.store.insertProject({
@@ -318,6 +328,7 @@ export class ThreadEngine {
         onSuggest: (items) => this.addSuggestions(threadId, items),
         onWriteDoc: (name, content, mode) => this.writeDocSafe(name, content, mode),
         onOpenPr: () => this.openPr(threadId),
+        onBrowserCheck: () => this.browserCheck(threadId),
       })
       const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
 
@@ -530,6 +541,17 @@ export class ThreadEngine {
     this.emitThread(threadId)
     this.emitState()
     return { url }
+  }
+
+  // — Browser-in-the-loop (used by the browser_check tool / test+review skills) —
+
+  /** Load the thread's preview in a real headless browser and report what it saw. */
+  async browserCheck(threadId: string): Promise<BrowserCheckResult> {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return { loaded: false, rendered: false, title: '', renderDetail: '', consoleErrors: [], pageErrors: [], harnessError: 'thread not found' }
+    // Make sure there's a worktree to serve (lazily created on first turn).
+    await this.ensureWorktree(thread)
+    return this.browserCheckFn(`${this.previewBaseUrl}/thread-preview/${threadId}/`)
   }
 
   // — Run panel —

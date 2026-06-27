@@ -24,10 +24,12 @@ export const BUILTIN_SKILLS: Record<string, string> = {
     'the actual code paths and look for the way it breaks: off-by-one and boundary ' +
     'errors, null/undefined and empty-input handling, async/order-of-initialization ' +
     'bugs, state that gets out of sync, resource leaks, and cases the work clearly ' +
-    'intends but the code misses. Read the surrounding code, not just your diff. Fix ' +
-    'any genuine correctness or security defect you find by editing files directly. ' +
-    'Do NOT churn on style, naming, or speculative hardening. Briefly report what you ' +
-    'checked and what you fixed.',
+    'intends but the code misses. Read the surrounding code, not just your diff. For a ' +
+    'web UI/page/game, call the `browser_check` tool to confirm it actually renders ' +
+    'without console/page errors — a blank render or an error is a defect no matter how ' +
+    'clean the code reads. Fix any genuine correctness or security defect you find by ' +
+    'editing files directly. Do NOT churn on style, naming, or speculative hardening. ' +
+    'Briefly report what you checked and what you fixed.',
 
   simplify:
     'Make the change you have made smaller and cleaner WITHOUT altering its behavior: ' +
@@ -38,13 +40,14 @@ export const BUILTIN_SKILLS: Record<string, string> = {
   test:
     'Verify the change you made actually BEHAVES correctly — not just that it renders or ' +
     'compiles. Decide what is worth checking, then run the project\'s build/test commands ' +
-    'and exercise the real surface. You cannot see the screen, so do NOT conclude "it works" ' +
-    'by reading the code: for any real logic or stateful behavior (a game loop, a simulation, ' +
-    'pathfinding, an economy, a parser, validation), write and RUN a short headless script ' +
-    '(e.g. `node -e "..."` or a temp file) that drives the actual code and ASSERTS the expected ' +
-    'state transitions and outputs — trace the full lifecycle, including the steps that are easy ' +
-    'to get wrong (e.g. does a guest actually board, pay, and leave; does money actually change). ' +
-    'Fix anything that fails. Report exactly what you ran and what you observed.',
+    'and exercise the real surface. You cannot see the screen by reading code, so use your ' +
+    'tools: for a web UI/page/game, call `browser_check` to load it in a real browser and ' +
+    'confirm it renders with no console/page errors; for any real logic or stateful behavior ' +
+    '(a game loop, a simulation, pathfinding, an economy, a parser, validation), write and RUN ' +
+    'a short headless script (e.g. `node -e "..."` or a temp file) that drives the actual code ' +
+    'and ASSERTS the expected state transitions and outputs — trace the full lifecycle, including ' +
+    'the steps that are easy to get wrong (e.g. does a guest actually board, pay, and leave; does ' +
+    'money actually change). Fix anything that fails. Report exactly what you ran and what you observed.',
 
   reflect:
     'Reflect on the work in this thread and capture durable learnings for the project. ' +
