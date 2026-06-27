@@ -25,6 +25,9 @@ export * from './referral-qualification'
 // Referral program v2 (redeem, activation gate, completion, score)
 export * from './referral-program'
 
+// Unified referral read model + per-product benefit math (docs/referrals.md)
+export * from './referral-stats'
+
 // Subscription
 export * from './subscription'
 
