@@ -12,7 +12,7 @@
  * always auto-drains the next queued prompt top-down once a turn finishes.
  */
 
-import { mkdirSync } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
@@ -28,6 +28,7 @@ import { foldAgentEvent, type AgentEventLike, type Part } from '../core/parts'
 import { positionAfter } from '../core/queue-order'
 import { searchRegistry, downloadSkill } from '../core/skill-registry'
 import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
+import { SettingsStore, type ProjectSettings } from '../core/settings'
 import { Store } from '../core/store'
 import { DOC_NAMES, type DocName } from '../core/types'
 import type {
@@ -65,6 +66,14 @@ export interface Snapshot {
   usage: { costSpent: number; running: number }
   /** Which agent harness runs turns, plus the options the UI offers. */
   agent: { harnessId: HarnessId; options: readonly AgentOption[] }
+  /**
+   * Whether the project has a previewable entry — derived from settings
+   * (`preview.entry` resolved against the repo/worktree), falling back to a
+   * missing-file check. Drives whether the UI surfaces the Preview button.
+   */
+  previewReady: boolean
+  /** Project settings (read fresh per snapshot — file-backed, optional). */
+  settings: ProjectSettings
 }
 
 export interface ThreadData {
@@ -105,6 +114,7 @@ export class ThreadEngine {
   readonly worktrees: WorktreeManager
   readonly docs: DocStore
   readonly skills: SkillStore
+  readonly settings: SettingsStore
   private readonly client: CodebuffClient
   private readonly projectId: string
   private readonly repoRoot: string
@@ -150,6 +160,7 @@ export class ThreadEngine {
     this.repoRoot = opts.repoRoot
     this.store = new Store(join(fbDir, 'desktop.db'))
     this.docs = new DocStore({ docsDir: join(fbDir, 'docs') })
+    this.settings = new SettingsStore({ repoRoot: opts.repoRoot })
     this.skills = new SkillStore({
       skillsDir: join(fbDir, 'skills'),
       globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
@@ -214,6 +225,9 @@ export class ThreadEngine {
   snapshot(): Snapshot {
     const project = this.store.getProject(this.projectId)!
     const threads = this.store.listThreads(this.projectId, { status: 'open' })
+    // Re-read each snapshot so an external edit to .freebuff/settings.json shows up
+    // on the next state event (the file is small; this is free).
+    const { settings } = this.settings.read()
     return {
       project,
       threads,
@@ -222,7 +236,28 @@ export class ThreadEngine {
         running: threads.filter((t) => t.turnState === 'running').length,
       },
       agent: { harnessId: this.harnessId, options: AGENT_OPTIONS },
+      previewReady: this.detectPreviewReady(settings),
+      settings,
     }
+  }
+
+  /**
+   * The Preview iframe (see server.ts `servePreview`) serves files from the
+   * repo root, falling back to a thread's worktree once it exists. "Ready"
+   * means the configured entry file exists in at least one of those roots —
+   * without it, hitting `/thread-preview/<id>/` returns 404. Settings is
+   * supplied by the caller so a single snapshot re-read stays consistent.
+   */
+  private detectPreviewReady(settings: ProjectSettings): boolean {
+    const entry = settings.preview.entry ?? 'index.html'
+    if (existsSync(join(this.repoRoot, entry))) return true
+    // Fall back to any first-thread worktree (covers the case where the agent
+    // already started writing in a worktree). When no worktrees exist yet, the
+    // repo-root check above already answered.
+    for (const t of this.store.listThreads(this.projectId, { status: 'open' })) {
+      if (t.worktreePath && existsSync(join(t.worktreePath, entry))) return true
+    }
+    return false
   }
 
   /** The active harness, built lazily and cached per id. */

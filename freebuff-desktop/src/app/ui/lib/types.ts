@@ -105,11 +105,22 @@ export interface SkillSearchResult {
   installs: number
 }
 
+/** Mirror of the engine's ProjectSettings (see core/settings.ts). v1 is
+ *  deliberately narrow — `preview.entry` is the only knob. */
+export interface ProjectSettings {
+  version: number
+  preview: { entry?: string }
+}
+
 export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]
   usage: { costSpent: number; running: number }
   agent?: { harnessId: HarnessId; options: AgentOption[] }
+  /** True when the project has a previewable entry (resolved against settings). */
+  previewReady?: boolean
+  /** Project settings as the engine currently sees them. */
+  settings?: ProjectSettings
 }
 
 /** SSE event shapes emitted by the server (see EngineEvent). */

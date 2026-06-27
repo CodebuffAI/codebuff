@@ -9,6 +9,7 @@ import type {
   HarnessId,
   Message,
   PendingAttachment,
+  ProjectSettings,
   QueueItem,
   ServerEvent,
   Skill,
@@ -40,11 +41,19 @@ interface StoreState {
   /** Which agent harness runs turns + the options the picker offers. */
   agentHarness: HarnessId | null
   agentOptions: AgentOption[]
-  setAgentHarness: (id: HarnessId) => void
-  /** Whether the project-picker modal is open. */
+  /** Whether the project has a previewable entry. Drives the Preview button. */
+  previewReady: boolean
+  /** Project settings (preview.entry, plus validation errors on read). */
+  settings: ProjectSettings
+  settingsPath: string | null
+  settingsLoadError: string | null
+  setAgentHarness: (id: HarnessId) => void  /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
-  toasts: { id: number; text: string; kind: 'info' | 'error' }[]
+  /** Whether the project-settings modal is open. */
+  settingsOpen: boolean
+  setSettingsOpen: (open: boolean) => void
+  toasts: { id: number; text: string; kind: 'info' | 'error' }[] 
   pushToast: (text: string, kind?: 'info' | 'error') => void
   dismissToast: (id: number) => void
 
@@ -79,6 +88,10 @@ interface StoreState {
   demoteItem: (id: string, itemId: string) => void
   reorderItem: (id: string, itemId: string, afterItemId: string | null) => void
   setAutoQueueSuggestions: (id: string, on: boolean) => void
+
+  // settings
+  loadSettings: () => Promise<void>
+  saveSettings: (settings: ProjectSettings) => Promise<void>
 }
 
 function emptySlice(thread: Thread): ThreadSlice {
@@ -97,7 +110,12 @@ export const useStore = create<StoreState>((set, get) => ({
   projectPath: '',
   agentHarness: null,
   agentOptions: [],
+  previewReady: false,
+  settings: { version: 1, preview: { entry: 'index.html' } },
+  settingsPath: null,
+  settingsLoadError: null,
   pickerOpen: false,
+  settingsOpen: false,
   toasts: [],
 
   setAgentHarness(id) {
@@ -110,6 +128,11 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ pickerOpen: open })
   },
 
+  setSettingsOpen(open) {
+    set({ settingsOpen: open })
+    if (open) void get().loadSettings()
+  },
+
   pushToast(text, kind = 'info') {
     const id = Date.now() + Math.floor(Math.random() * 1000)
     set((s) => ({ toasts: [...s.toasts, { id, text, kind }] }))
@@ -120,7 +143,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async init() {
-    const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills()])
+    const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills(), get().loadSettings()])
     const slices: Record<string, ThreadSlice> = {}
     for (const t of threads) slices[t.id] = emptySlice(t)
     set({
@@ -162,6 +185,10 @@ export const useStore = create<StoreState>((set, get) => ({
           projectPath: snapshot.project?.rootPath ?? s.projectPath,
           agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
           agentOptions: snapshot.agent?.options ?? s.agentOptions,
+          // The server sends `previewReady` based on whether the project has a
+          // static preview entry — start false until the first state event.
+          previewReady: snapshot.previewReady ?? false,
+          settings: snapshot.settings ?? s.settings,
         }
       })
       // Load the active thread's messages if needed.
@@ -402,6 +429,32 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     })
     api.setAutoQueueSuggestions(id, on)
+  },
+
+  async loadSettings() {
+    try {
+      const res = await api.getSettings()
+      set({
+        settings: res.settings,
+        settingsPath: res.path,
+        // First error is enough to surface in a toast; the full list shows in the modal.
+        settingsLoadError: res.errors[0]?.message ?? null,
+      })
+    } catch (e) {
+      set({ settingsLoadError: (e as Error).message })
+    }
+  },
+
+  async saveSettings(settings) {
+    try {
+      await api.saveSettings(settings)
+      set({ settings, settingsLoadError: null })
+      // The server emits a fresh state event on save, so updatePreviewReady /
+      // thread view rerender off the SSE path — no extra plumbing needed here.
+    } catch (e) {
+      set({ settingsLoadError: (e as Error).message })
+      get().pushToast(`Settings not saved: ${(e as Error).message}`, 'error')
+    }
   },
 }))
 

@@ -25,6 +25,9 @@ const PATHS: Record<string, string> = {
     'M11.5 6.5l-5 5a2.5 2.5 0 01-3.5-3.5l5.5-5.5a1.6 1.6 0 012.3 2.3l-5.2 5.2a0.7 0.7 0 01-1-1l4.7-4.7',
   image: 'M2.5 3.5h10v8h-10zM5.6 6.3a0.9 0.9 0 100-1.8 0.9 0.9 0 000 1.8M3 11l2.7-2.7 2 2 2-2 2.3 2.3',
   file: 'M4 2.5h4l3 3v7H4zM8 2.5v3h3',
+  // 8-toothed gear, slightly stylized. ~15x15 viewBox.
+  settings:
+    'M7.5 2v1.8M7.5 11.2V13M2 7.5h1.8M11.2 7.5H13M3.7 3.7l1.3 1.3M9.9 9.9l1.3 1.3M3.7 11.3l1.3-1.3M9.9 5.1l1.3-1.3M7.5 5.5a2 2 0 100 4 2 2 0 000-4z',
 }
 
 export function Icon({ name, className }: { name: string; className?: string }) {

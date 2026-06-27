@@ -215,6 +215,32 @@ const server = Bun.serve({
       return json({ ok: true, harnessId })
     }
 
+    // — Project settings (.freebuff/settings.json) —
+    if (pathname === '/api/settings' && req.method === 'GET') {
+      const r = engine.settings.read()
+      return json({
+        path: engine.settings.filePath(),
+        exists: engine.settings.exists(),
+        settings: r.settings,
+        errors: r.errors,
+      })
+    }
+    if (pathname === '/api/settings' && req.method === 'POST') {
+      const { settings } = await body(req)
+      if (!settings || typeof settings !== 'object') {
+        return json({ error: 'settings object required' }, 400)
+      }
+      try {
+        engine.settings.write(settings)
+      } catch (err) {
+        return json({ error: (err as Error).message }, 400)
+      }
+      // Broadcast so any open UI re-renders (and the next /api/state carries the
+      // updated snapshot + previewReady).
+      engine.emitState()
+      return json({ ok: true })
+    }
+
     if (pathname === '/api/run' && req.method === 'POST') {
       const { command } = await body(req)
       if (!command) return json({ error: 'command required' }, 400)

@@ -30,6 +30,12 @@ export function ThreadView({ threadId }: { threadId: string }) {
   const projectPath = useStore((s) => s.projectPath)
   const setPickerOpen = useStore((s) => s.setPickerOpen)
   const pushToast = useStore((s) => s.pushToast)
+  // The server reports `previewReady` based on whether the project has a
+  // previewable entry (resolved against settings.preview.entry and the
+  // repo/worktree). Until then, hide the Preview button so users don't click
+  // into a 404. Default false so we never show it before the first state event.
+  const previewReady = useStore((s) => s.previewReady)
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
@@ -112,24 +118,33 @@ export function ThreadView({ threadId }: { threadId: string }) {
           <Icon name="folder" /> {projectName || 'Open project'}
           <Icon name="down" className="caret" />
         </button>
-        <span className="thread-head-title" title={slice.thread.title}>
-          {slice.thread.title || 'New thread'}
-        </span>
-        {preview && (
+        {/* The thread title already lives in the tab above; no need to repeat it
+            next to the folder name. */}
+        {previewReady && preview && (
           <button className="head-btn" onClick={() => setNonce((n) => n + 1)} title="Reload preview">
             <Icon name="dot" /> Reload
           </button>
         )}
-        <button
-          className={`head-btn ${preview ? 'on' : ''}`}
-          onClick={() => {
-            setPreview((p) => !p)
-            setNonce((n) => n + 1)
-          }}
-          title="Preview this thread's work in a browser"
-        >
-          <Icon name="play" /> {preview ? 'Hide preview' : 'Preview'}
-        </button>
+        {previewReady ? (
+          <button
+            className={`head-btn ${preview ? 'on' : ''}`}
+            onClick={() => {
+              setPreview((p) => !p)
+              setNonce((n) => n + 1)
+            }}
+            title="Preview this thread's work in a browser"
+          >
+            <Icon name="play" /> {preview ? 'Hide preview' : 'Preview'}
+          </button>
+        ) : (
+          <button
+            className="head-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="Set up the preview entry to enable Preview"
+          >
+            <Icon name="settings" /> Set up preview
+          </button>
+        )}
       </div>
 
       <div

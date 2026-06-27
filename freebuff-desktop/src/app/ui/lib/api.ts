@@ -5,6 +5,7 @@ import type {
   BrowseResult,
   HarnessId,
   Part,
+  ProjectSettings,
   QueueItem,
   Skill,
   SkillSearchResult,
@@ -84,4 +85,13 @@ export const api = {
   // Settings
   setAgentHarness: (harnessId: HarnessId) =>
     post<{ ok: boolean; error?: string }>('/api/settings/agent', { harnessId }),
+  getSettings: () =>
+    get<{
+      path: string
+      exists: boolean
+      settings: ProjectSettings
+      errors: { field: string; message: string }[]
+    }>('/api/settings'),
+  saveSettings: (settings: ProjectSettings) =>
+    post<{ ok: boolean; error?: string }>('/api/settings', { settings }),
 }
