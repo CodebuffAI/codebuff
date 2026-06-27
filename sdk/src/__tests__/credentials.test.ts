@@ -26,24 +26,25 @@ describe('credentials', () => {
   } as const
 
   describe('getConfigDir', () => {
-    test('returns path with environment suffix for non-prod environments', () => {
+    test('returns fixed openbuff config path regardless of environment', () => {
       const dir = getConfigDir(testEnv as any)
-      expect(dir).toContain('manicode-test')
+      expect(dir).toContain('openbuff')
       expect(dir).toContain('.config')
+      expect(dir).not.toContain('manicode')
     })
 
-    test('returns path without suffix for prod environment', () => {
+    test('returns same fixed path for prod environment', () => {
       const prodEnv = { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' }
       const dir = getConfigDir(prodEnv as any)
-      expect(dir).toContain('manicode')
-      expect(dir).not.toContain('manicode-prod')
+      expect(dir).toContain('openbuff')
+      expect(dir).not.toContain('manicode')
     })
 
-    test('returns path without suffix when environment is undefined', () => {
+    test('returns same fixed path when environment is undefined', () => {
       const emptyEnv = {}
       const dir = getConfigDir(emptyEnv as any)
-      expect(dir).toContain('manicode')
-      expect(dir).not.toContain('manicode-')
+      expect(dir).toContain('openbuff')
+      expect(dir).not.toContain('manicode')
     })
   })
 
@@ -51,7 +52,8 @@ describe('credentials', () => {
     test('returns path within config directory', () => {
       const credPath = getCredentialsPath(testEnv as any)
       expect(credPath).toContain('credentials.json')
-      expect(credPath).toContain('manicode-test')
+      expect(credPath).toContain('openbuff')
+      expect(credPath).not.toContain('manicode')
     })
   })
 

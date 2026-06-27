@@ -13,7 +13,6 @@ import {
   normalizeAnthropicBaseURL,
 } from '../impl/model-provider'
 import {
-  LEGACY_PROVIDER_CONFIG_ENV_VAR,
   PROVIDER_CONFIG_ENV_VAR,
   OPENBUFF_PROVIDER_PRESETS,
   createProviderPresetConfig,
@@ -55,7 +54,6 @@ describe('model-provider', () => {
   beforeEach(() => {
     resetEnv()
     delete process.env[PROVIDER_CONFIG_ENV_VAR]
-    delete process.env[LEGACY_PROVIDER_CONFIG_ENV_VAR]
   })
 
   afterEach(() => {
@@ -134,7 +132,11 @@ describe('model-provider', () => {
       }
     })
 
-    test('normalizes legacy context and compatibility fields into capabilities', () => {
+    test('ignores legacy context and compatibility fields when no explicit capabilities are configured', () => {
+      // R1: capability resolution uses only explicit defaultCapabilities /
+      // modelCapabilities. Legacy inference from contextWindowTokens /
+      // compatibility.* was removed so routes.json is the single source of
+      // truth. This config sets only legacy fields, so no capabilities resolve.
       const config = providerConfigFileSchema.parse({
         providers: {
           custom: {
@@ -163,15 +165,7 @@ describe('model-provider', () => {
           model: 'custom/public-name',
           loadedConfig: { sourceFilePaths: [], config },
         }),
-      ).toEqual({
-        context: { windowTokens: 64_000 },
-        tools: {
-          supported: false,
-          requiredToolChoice: false,
-          structuredOutputs: true,
-        },
-        promptCaching: { supported: true },
-      })
+      ).toEqual({})
     })
 
     test('merges provider default capabilities before model overrides', () => {
@@ -209,6 +203,9 @@ describe('model-provider', () => {
         },
       })
 
+      // R1: only explicit defaultCapabilities + modelCapabilities contribute.
+      // Legacy-inferred tools.supported/requiredToolChoice and promptCaching
+      // (from compatibility.*) are no longer present.
       expect(
         resolveModelCapabilities({
           providerId: 'custom',
@@ -217,12 +214,7 @@ describe('model-provider', () => {
         }),
       ).toEqual({
         context: { windowTokens: 96_000, outputTokens: 4_096 },
-        tools: {
-          supported: true,
-          requiredToolChoice: true,
-          structuredOutputs: true,
-        },
-        promptCaching: { supported: false },
+        tools: { structuredOutputs: true },
         pricing: {
           inputPerMillionTokens: 0.5,
           outputPerMillionTokens: 2,
@@ -1055,9 +1047,11 @@ describe('model-provider', () => {
                 'public-small': 'provider-small',
                 'public-large': 'provider-large',
               },
-              contextWindowTokens: 32_000,
-              modelContextWindowTokens: {
-                'provider-large': 1_000_000,
+              // R1: context windows are declared explicitly via capabilities,
+              // not inferred from the legacy contextWindowTokens field.
+              defaultCapabilities: { context: { windowTokens: 32_000 } },
+              modelCapabilities: {
+                'provider-large': { context: { windowTokens: 1_000_000 } },
               },
             },
           },
@@ -1426,7 +1420,6 @@ describe('model-provider', () => {
     beforeEach(() => {
       resetEnv()
       delete process.env[PROVIDER_CONFIG_ENV_VAR]
-      delete process.env[LEGACY_PROVIDER_CONFIG_ENV_VAR]
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-discovery-'))
       process.env[PROVIDER_CONFIG_ENV_VAR] = path.join(
         tempDir,

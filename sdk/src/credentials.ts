@@ -66,13 +66,8 @@ export const userFromJson = (json: string): User | null => {
  * Get the config directory path based on the environment.
  * Uses the clientEnv to determine the environment suffix.
  */
-export const getConfigDir = (clientEnv: ClientEnv = env): string => {
-  const envSuffix =
-    clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT &&
-    clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
-      ? `-${clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT}`
-      : ''
-  return path.join(os.homedir(), '.config', `manicode${envSuffix}`)
+export const getConfigDir = (_clientEnv: ClientEnv = env): string => {
+  return path.join(os.homedir(), '.config', 'openbuff')
 }
 
 /**

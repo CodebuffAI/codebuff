@@ -5,6 +5,7 @@ import {
   selectMatchingHooks,
   type FileChangeHook,
 } from '../tools/file-change-hooks'
+import { mergeFileChangeHooks } from '../provider-config'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 
@@ -190,5 +191,67 @@ describe('runFileChangeHooks', () => {
       command: 'tsc',
       timeout_seconds: 30,
     })
+  })
+})
+
+describe('mergeFileChangeHooks — concat-with-dedup (R3c)', () => {
+  test('returns [] when both base and override are empty', () => {
+    expect(mergeFileChangeHooks([], [])).toEqual([])
+    expect(mergeFileChangeHooks(undefined, undefined)).toEqual([])
+  })
+
+  test('appends override-only entries after base entries (base-first ordering)', () => {
+    const base: FileChangeHook[] = [
+      { name: 'typecheck', command: 'tsc --noEmit' },
+    ]
+    const override: FileChangeHook[] = [
+      { name: 'lint', command: 'eslint .', filePattern: 'src/**' },
+    ]
+    const merged = mergeFileChangeHooks(base, override)
+    expect(merged.map((h) => h.name)).toEqual(['typecheck', 'lint'])
+  })
+
+  test('override entry wins on conflict and keeps the base entry position', () => {
+    const base: FileChangeHook[] = [
+      {
+        name: 'typecheck',
+        command: 'tsc --noEmit',
+        filePattern: 'src/**/*.ts',
+      },
+    ]
+    const override: FileChangeHook[] = [
+      {
+        name: 'typecheck',
+        command: 'tsc --noEmit',
+        filePattern: 'src/**/*.ts',
+        timeoutSeconds: 60,
+      },
+    ]
+    const merged = mergeFileChangeHooks(base, override)
+    expect(merged).toHaveLength(1)
+    // Override wins: the per-hook timeout from the override entry is preserved
+    // in the base entry's slot (project tunes a global hook without reordering).
+    expect(merged[0]).toEqual({
+      name: 'typecheck',
+      command: 'tsc --noEmit',
+      filePattern: 'src/**/*.ts',
+      timeoutSeconds: 60,
+    })
+  })
+
+  test('dedups by command + filePattern + name across base and override', () => {
+    const base: FileChangeHook[] = [
+      { name: 'typecheck', command: 'tsc --noEmit' },
+      { name: 'typecheck', command: 'tsc --noEmit' }, // exact dup within base
+      { name: 'lint', command: 'eslint .' },
+    ]
+    const override: FileChangeHook[] = [
+      { name: 'typecheck', command: 'tsc --noEmit', timeoutSeconds: 90 },
+      { name: 'test', command: 'bun test' },
+    ]
+    const merged = mergeFileChangeHooks(base, override)
+    // base typecheck (first slot, overridden → override entry), base lint, override test
+    expect(merged.map((h) => h.name)).toEqual(['typecheck', 'lint', 'test'])
+    expect(merged[0]).toMatchObject({ timeoutSeconds: 90 })
   })
 })

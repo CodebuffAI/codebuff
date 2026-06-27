@@ -19,7 +19,6 @@ export const getAgentStreamFromTemplate = (params: {
   fingerprintId: string
   includeCacheControl?: boolean
   localAgentTemplates: Record<string, AgentTemplate>
-  localMode?: boolean
   logger: Logger
   messages: Message[]
   runId: string
@@ -50,7 +49,6 @@ export const getAgentStreamFromTemplate = (params: {
     fingerprintId,
     includeCacheControl,
     localAgentTemplates,
-    localMode,
     logger,
     messages,
     runId,
@@ -85,7 +83,6 @@ export const getAgentStreamFromTemplate = (params: {
     includeCacheControl,
     logger,
     localAgentTemplates,
-    localMode,
     maxRetries: 3,
     messages,
     model,

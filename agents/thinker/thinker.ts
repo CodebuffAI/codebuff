@@ -6,6 +6,11 @@ const definition: SecretAgentDefinition = {
   id: 'thinker',
   publisher,
   model: 'anthropic/claude-opus-4.7',
+  // Thinker does deep, extended-reasoning single-step work. Raise the
+  // wall-clock bound above the 20-min shared default so genuinely long
+  // reasoning isn't cut off, but keep it bounded to avoid unbounded hangs
+  // on a stuck LLM stream.
+  defaultTimeoutMs: 30 * 60 * 1000,
   displayName: 'Theo the Theorizer',
   spawnerPrompt:
     'Does deep thinking given the current conversation history and a specific prompt to focus on. Use this to help you solve a specific problem. You must gather any relevant context before spawning this agent because the thinker agent has no access to tools. You can keep the prompt very short, because the thinker agent can see the entire conversation history for context.',

@@ -36,9 +36,6 @@ describe('Initial Session State', () => {
         if (path.includes('.codebuffignore')) {
           return ''
         }
-        if (path.includes('.manicodeignore')) {
-          return ''
-        }
         throw new Error(`File not found: ${path}`)
       },
       readdir: async (path: string) => {
@@ -74,7 +71,6 @@ describe('Initial Session State', () => {
       exists: async (path: string) => {
         if (path.includes('.gitignore')) return true
         if (path.includes('.codebuffignore')) return true
-        if (path.includes('.manicodeignore')) return true
         if (path.includes('src')) return true
         if (path.includes('.git')) return true
         if (path.includes('knowledge.md')) return true
