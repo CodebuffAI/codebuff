@@ -149,6 +149,7 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     // request is admitted.
     listRecentFreeSessionAdmits: async () => [],
     getGlmReferralEntitlement: async () => 0,
+    getStreakBonusUnits: async () => 0,
     now: () => now,
     getSessionRow: async (userId) => rows.get(userId) ?? null,
     endSession: async ({ userId }) => {

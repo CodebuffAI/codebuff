@@ -64,8 +64,6 @@ export type ChatKeyboardAction =
   // Menu navigation
   | { type: 'slash-menu-down' }
   | { type: 'slash-menu-up' }
-  | { type: 'slash-menu-tab' }
-  | { type: 'slash-menu-shift-tab' }
   | { type: 'slash-menu-select' }
   | { type: 'slash-menu-complete' }
   | { type: 'mention-menu-down' }
@@ -224,15 +222,11 @@ export function resolveChatKeyboardAction(
         return { type: 'none' } // At top, don't navigate
       }
     }
-    if (isShiftTab) {
-      return { type: 'slash-menu-shift-tab' }
-    }
-    if (isTab) {
-      // Multiple matches: cycle through options
-      // Single match: complete the word without executing
-      if (state.slashMatchesLength > 1) {
-        return { type: 'slash-menu-tab' }
-      }
+    if (isTab || isShiftTab) {
+      // Tab accepts the highlighted command into the input without executing
+      // it, leaving the cursor after it so the user can keep typing (e.g. extra
+      // params for a skill). Tab no longer navigates between items — use the
+      // arrow keys for that. Enter (below) selects and submits immediately.
       return { type: 'slash-menu-complete' }
     }
     if (isEnter) {

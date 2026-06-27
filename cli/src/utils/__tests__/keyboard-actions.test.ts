@@ -225,9 +225,9 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('tab with multiple matches cycles', () => {
+    test('tab completes without executing (does not navigate)', () => {
       expect(resolveChatKeyboardAction(tabKey, slashMenuState)).toEqual({
-        type: 'slash-menu-tab',
+        type: 'slash-menu-complete',
       })
     })
 
@@ -244,9 +244,9 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('shift-tab cycles backwards', () => {
+    test('shift-tab completes without executing (does not navigate)', () => {
       expect(resolveChatKeyboardAction(shiftTabKey, slashMenuState)).toEqual({
-        type: 'slash-menu-shift-tab',
+        type: 'slash-menu-complete',
       })
     })
 
@@ -318,14 +318,14 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('shift-tab in slash menu cycles menu not agent mode', () => {
+    test('shift-tab in slash menu completes, not agent mode toggle', () => {
       const state: ChatKeyboardState = {
         ...defaultState,
         slashMenuActive: true,
         slashMatchesLength: 3,
       }
       expect(resolveChatKeyboardAction(shiftTabKey, state)).toEqual({
-        type: 'slash-menu-shift-tab',
+        type: 'slash-menu-complete',
       })
     })
   })

@@ -1228,6 +1228,71 @@ export const freeSessionAdmit = pgTable(
   ],
 )
 
+export const freebuffStreakRewardPoolEnum = pgEnum(
+  'freebuff_streak_reward_pool',
+  ['premium', 'limited', 'glm'],
+)
+
+/**
+ * Streak milestone rewards. One row per (user, pool, milestone-day): when a
+ * user's daily Freebuff streak crosses a 7-day multiple they earn a bonus
+ * session in their primary daily pool (`premium`/`limited`) plus — for
+ * full-access users — a weekly GLM 5.2 bonus (`glm`).
+ *
+ * The reward is consumed by *raising the effective session limit* for the
+ * matching pool over the period the milestone was reached in: the session-quota
+ * gate sums `session_units` for rows whose `awarded_at` falls inside the current
+ * Pacific day (premium/limited) or week (glm) and adds them to the base limit.
+ * `reward_key` is the Pacific usage-date the milestone completed on; a user can
+ * complete at most one milestone per day, so (user_id, pool, reward_key) makes
+ * the award idempotent across retries and concurrent requests.
+ */
+export const freebuffStreakReward = pgTable(
+  'freebuff_streak_reward',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    pool: freebuffStreakRewardPoolEnum('pool').notNull(),
+    /** The Pacific usage-date (YYYY-MM-DD) whose usage completed the milestone. */
+    reward_key: text('reward_key').notNull(),
+    session_units: numeric('session_units', {
+      precision: 3,
+      scale: 1,
+    })
+      .notNull()
+      .default('1.0'),
+    awarded_at: timestamp('awarded_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    created_at: timestamp('created_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('unique_freebuff_streak_reward_user_pool_key').on(
+      table.user_id,
+      table.pool,
+      table.reward_key,
+    ),
+    // Bonus-sum lookup: WHERE user_id=$1 AND pool=$2 AND awarded_at >= $since
+    index('idx_freebuff_streak_reward_user_pool_time').on(
+      table.user_id,
+      table.pool,
+      table.awarded_at,
+    ),
+  ],
+)
+
 export const chatMessageRoleEnum = pgEnum('chat_message_role', [
   'user',
   'assistant',

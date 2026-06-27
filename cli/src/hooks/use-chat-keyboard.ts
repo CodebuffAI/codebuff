@@ -39,8 +39,6 @@ export type ChatKeyboardHandlers = {
   // Slash menu handlers
   onSlashMenuDown: () => void
   onSlashMenuUp: () => void
-  onSlashMenuTab: () => void
-  onSlashMenuShiftTab: () => void
   onSlashMenuSelect: () => Promise<void> | void
   onSlashMenuComplete: () => void
 
@@ -138,12 +136,6 @@ function dispatchAction(
       return true
     case 'slash-menu-up':
       handlers.onSlashMenuUp()
-      return true
-    case 'slash-menu-tab':
-      handlers.onSlashMenuTab()
-      return true
-    case 'slash-menu-shift-tab':
-      handlers.onSlashMenuShiftTab()
       return true
     case 'slash-menu-select':
       handlers.onSlashMenuSelect()
