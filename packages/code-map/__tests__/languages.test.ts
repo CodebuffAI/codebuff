@@ -21,7 +21,7 @@ describe('languages module', () => {
     it('should contain all expected language configurations', () => {
       expect(languageTable).toBeDefined()
       expect(Array.isArray(languageTable)).toBe(true)
-      expect(languageTable.length).toBe(10) // Current number of supported languages
+      expect(languageTable.length).toBe(13) // Current number of supported languages
     })
 
     it('should have proper structure for each language config', () => {

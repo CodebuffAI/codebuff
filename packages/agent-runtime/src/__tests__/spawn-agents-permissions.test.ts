@@ -92,8 +92,8 @@ describe('Spawn Agents Permissions', () => {
 
   it('matches underscored agent names to hyphenated spawnable agents', () => {
     expect(getMatchingSpawn(['file-picker'], 'file_picker')).toBe('file-picker')
-    expect(getMatchingSpawn(['codebuff/file-picker@1.0.0'], 'file_picker')).toBe(
-      'codebuff/file-picker@1.0.0',
+    expect(getMatchingSpawn(['openbuff/file-picker@1.0.0'], 'file_picker')).toBe(
+      'openbuff/file-picker@1.0.0',
     )
   })
 

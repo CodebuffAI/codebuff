@@ -21,6 +21,9 @@ import pythonQuery from './tree-sitter-queries/tree-sitter-python-tags.scm'
 import rubyQuery from './tree-sitter-queries/tree-sitter-ruby-tags.scm'
 import rustQuery from './tree-sitter-queries/tree-sitter-rust-tags.scm'
 import typescriptQuery from './tree-sitter-queries/tree-sitter-typescript-tags.scm'
+import kotlinQuery from './tree-sitter-queries/tree-sitter-kotlin-tags.scm'
+import phpQuery from './tree-sitter-queries/tree-sitter-php-tags.scm'
+import swiftQuery from './tree-sitter-queries/tree-sitter-swift-tags.scm'
 import { getDirnameDynamically } from './utils'
 
 /* ------------------------------------------------------------------ */
@@ -56,6 +59,9 @@ export const WASM_FILES = {
   'tree-sitter-rust.wasm': 'tree-sitter-rust.wasm',
   'tree-sitter-tsx.wasm': 'tree-sitter-tsx.wasm',
   'tree-sitter-typescript.wasm': 'tree-sitter-typescript.wasm',
+  'tree-sitter-kotlin.wasm': 'tree-sitter-kotlin.wasm',
+  'tree-sitter-php.wasm': 'tree-sitter-php.wasm',
+  'tree-sitter-swift.wasm': 'tree-sitter-swift.wasm',
 } as const
 
 /* ------------------------------------------------------------------ */
@@ -111,6 +117,21 @@ export const languageTable: LanguageConfig[] = [
     extensions: ['.go'],
     wasmFile: WASM_FILES['tree-sitter-go.wasm'],
     queryPathOrContent: goQuery,
+  },
+  {
+    extensions: ['.php'],
+    wasmFile: WASM_FILES['tree-sitter-php.wasm'],
+    queryPathOrContent: phpQuery,
+  },
+  {
+    extensions: ['.swift'],
+    wasmFile: WASM_FILES['tree-sitter-swift.wasm'],
+    queryPathOrContent: swiftQuery,
+  },
+  {
+    extensions: ['.kt', '.kts'],
+    wasmFile: WASM_FILES['tree-sitter-kotlin.wasm'],
+    queryPathOrContent: kotlinQuery,
   },
 ]
 

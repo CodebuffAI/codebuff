@@ -5,7 +5,7 @@ import type { MetadataIndex } from './types'
 
 const INDEX_FILE = 'metadata.json'
 const INDEX_VERSION = '2'
-const MAX_INDEX_AGE_MS = 5 * 60 * 1000 // 5 minutes
+export const MAX_INDEX_AGE_MS = 5 * 60 * 1000 // 5 minutes
 const DEFAULT_CACHE_DIR = '.codebuff-index'
 
 export function sanitizeIndexCacheDir(cacheDir = DEFAULT_CACHE_DIR): string {

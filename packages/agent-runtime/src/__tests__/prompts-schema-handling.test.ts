@@ -128,7 +128,7 @@ describe('Schema handling error recovery', () => {
       const transformed = tryTransformAgentToolCall({
         toolName: 'file_picker',
         input: { prompt: 'Find relevant files' },
-        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+        spawnableAgents: ['openbuff/file-picker@1.0.0'],
       })
 
       expect(transformed).toEqual({
@@ -136,7 +136,7 @@ describe('Schema handling error recovery', () => {
         input: {
           agents: [
             {
-              agent_type: 'codebuff/file-picker@1.0.0',
+              agent_type: 'openbuff/file-picker@1.0.0',
               prompt: 'Find relevant files',
             },
           ],
@@ -155,7 +155,7 @@ describe('Schema handling error recovery', () => {
             successCriteria: ['Return the most relevant files'],
           },
         },
-        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+        spawnableAgents: ['openbuff/file-picker@1.0.0'],
       })
 
       expect(transformed).toEqual({
@@ -163,7 +163,7 @@ describe('Schema handling error recovery', () => {
         input: {
           agents: [
             {
-              agent_type: 'codebuff/file-picker@1.0.0',
+              agent_type: 'openbuff/file-picker@1.0.0',
               prompt: 'Find relevant files',
               params: { directories: ['src'] },
               handoff: {
@@ -183,7 +183,7 @@ describe('Schema handling error recovery', () => {
           prompt: 'Find relevant files',
           handoff: 'not structured',
         },
-        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+        spawnableAgents: ['openbuff/file-picker@1.0.0'],
       })
 
       expect(transformed).toEqual({
@@ -191,7 +191,7 @@ describe('Schema handling error recovery', () => {
         input: {
           agents: [
             {
-              agent_type: 'codebuff/file-picker@1.0.0',
+              agent_type: 'openbuff/file-picker@1.0.0',
               prompt: 'Find relevant files',
               handoff: 'not structured',
             },

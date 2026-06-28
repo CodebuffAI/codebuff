@@ -497,6 +497,332 @@ describe('trimMessagesToFitTokenLimit', () => {
     expect(JSON.stringify(result)).not.toContain('pass\npass\n')
   })
 
+  it('summarizes code_search results when over token limit', () => {
+    const messages: Message[] = [
+      userMessage('Search the codebase for authenticate'),
+      {
+        role: 'tool',
+        toolName: 'code_search',
+        toolCallId: 'code-search-large',
+        content: jsonToolResult({
+          stdout: 'src/auth/login.ts:42:export function authenticate\n'.repeat(
+            200,
+          ),
+          stderr: '',
+          exitCode: 0,
+          message: 'Found 200 matches',
+        }),
+        keepDuringTruncation: true,
+      },
+      assistantMessage({
+        content: 'Done searching',
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    const result = trimMessagesToFitTokenLimit({
+      messages,
+      systemTokens: 0,
+      maxTotalTokens: 3000,
+      logger,
+    })
+
+    const searchResult = result.find(
+      (message): message is CodebuffToolMessage<'code_search'> =>
+        message.role === 'tool' && message.toolName === 'code_search',
+    )
+
+    expect(searchResult?.content[0].value).toMatchObject({
+      message: 'Found 200 matches',
+      status: 'passed',
+      stdoutOmittedForLength: true,
+      exitCode: 0,
+    })
+    expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(3000)
+  })
+
+  it('summarizes read_subtree results when over token limit', () => {
+    const messages: Message[] = [
+      userMessage('Explore the src directory structure'),
+      {
+        role: 'tool',
+        toolName: 'read_subtree',
+        toolCallId: 'read-subtree-large',
+        content: jsonToolResult([
+          {
+            path: 'src',
+            type: 'directory',
+            printedTree: 'src/\n  auth/\n    login.ts\n    logout.ts\n'.repeat(
+              200,
+            ),
+            tokenCount: 5000,
+            truncationLevel: 'none',
+          },
+          {
+            path: 'src/auth/login.ts',
+            type: 'file',
+            variables: ['authenticate', 'login', 'validateCredentials'],
+          },
+        ]),
+        keepDuringTruncation: true,
+      },
+      assistantMessage({
+        content: 'Done exploring',
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    const result = trimMessagesToFitTokenLimit({
+      messages,
+      systemTokens: 0,
+      maxTotalTokens: 1500,
+      logger,
+    })
+
+    const subtreeResult = result.find(
+      (message): message is CodebuffToolMessage<'read_subtree'> =>
+        message.role === 'tool' && message.toolName === 'read_subtree',
+    )
+
+    expect(subtreeResult).toBeDefined()
+    const subtreeEntries = subtreeResult!.content[0].value
+    expect(subtreeEntries).toHaveLength(2)
+    expect(subtreeEntries[0]).toMatchObject({
+      path: 'src',
+      type: 'directory',
+      tokenCount: 5000,
+      truncationLevel: 'none',
+      printedTreeOmittedForLength: true,
+    })
+    expect(subtreeEntries[1]).toMatchObject({
+      path: 'src/auth/login.ts',
+      type: 'file',
+      variablesOmittedForLength: true,
+    })
+    expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(1500)
+    expect(JSON.stringify(result)).not.toContain('login.ts\n    logout.ts')
+  })
+
+  it('summarizes query_index results when over token limit', () => {
+    const messages: Message[] = [
+      userMessage('Find authentication-related files'),
+      {
+        role: 'tool',
+        toolName: 'query_index',
+        toolCallId: 'query-index-large',
+        content: jsonToolResult({
+          results: [
+            {
+              path: 'src/auth.ts',
+              score: 95.5,
+              matchedOn: ['symbol', 'path'],
+              symbols: ['authenticate', 'login'],
+              matchedSnippets: [
+                'export function authenticate(user: string): boolean\n'.repeat(
+                  200,
+                ),
+              ],
+              relatedFiles: [
+                { path: 'src/utils.ts', score: 10, reason: 'imports' },
+              ],
+            },
+          ],
+          totalIndexed: 1510,
+          indexAge: 672771,
+          message: 'Found 1 result',
+        }),
+        keepDuringTruncation: true,
+      },
+      assistantMessage({
+        content: 'Done querying',
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    const result = trimMessagesToFitTokenLimit({
+      messages,
+      systemTokens: 0,
+      maxTotalTokens: 1500,
+      logger,
+    })
+
+    const queryResult = result.find(
+      (message): message is CodebuffToolMessage<'query_index'> =>
+        message.role === 'tool' && message.toolName === 'query_index',
+    )
+
+    expect(queryResult).toBeDefined()
+    const queryValue = queryResult!.content[0].value
+    expect(queryValue.results[0]).toMatchObject({
+      path: 'src/auth.ts',
+      score: 95.5,
+      matchedOn: ['symbol', 'path'],
+      symbols: ['authenticate', 'login'],
+      matchedSnippetsOmittedForLength: true,
+      relatedFilesOmittedForLength: true,
+    })
+    expect(queryValue.results[0]).not.toHaveProperty('matchedSnippets')
+    expect(queryValue.results[0]).not.toHaveProperty('relatedFiles')
+    expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(1500)
+    expect(JSON.stringify(result)).not.toContain('export function authenticate')
+  })
+
+  it('summarizes web_search results when over token limit', () => {
+    const messages: Message[] = [
+      userMessage('Search the web for Next.js 15 features'),
+      {
+        role: 'tool',
+        toolName: 'web_search',
+        toolCallId: 'web-search-large',
+        content: jsonToolResult({
+          result: 'Next.js 15 introduces React Server Components improvements. '.repeat(
+            200,
+          ),
+          links: Array.from({ length: 6 }, (_, i) => ({
+            href: `https://example.com/${i + 1}`,
+            text: `Link ${i + 1}`,
+          })),
+        }),
+        keepDuringTruncation: true,
+      },
+      assistantMessage({
+        content: 'Done searching',
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    const result = trimMessagesToFitTokenLimit({
+      messages,
+      systemTokens: 0,
+      maxTotalTokens: 3000,
+      logger,
+    })
+
+    const webResult = result.find(
+      (message): message is CodebuffToolMessage<'web_search'> =>
+        message.role === 'tool' && message.toolName === 'web_search',
+    )
+
+    expect(webResult).toBeDefined()
+    const webValue = webResult!.content[0].value
+    expect(webValue).toMatchObject({
+      resultOmittedForLength: true,
+    })
+    expect(webValue).not.toHaveProperty('result')
+    expect(
+      (webValue as { links?: Array<unknown> }).links,
+    ).toHaveLength(5)
+    expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(3000)
+  })
+
+  it('summarizes mixed summarizable tool result types in a single history', () => {
+    const messages: Message[] = [
+      userMessage('Research the codebase and web'),
+      {
+        role: 'tool',
+        toolName: 'code_search',
+        toolCallId: 'mixed-code-search',
+        content: jsonToolResult({
+          stdout: 'mixed-code-search-payload'.repeat(200),
+          stderr: '',
+          exitCode: 0,
+          message: 'Found results',
+        }),
+        keepDuringTruncation: true,
+      },
+      {
+        role: 'tool',
+        toolName: 'read_subtree',
+        toolCallId: 'mixed-read-subtree',
+        content: jsonToolResult([
+          {
+            path: 'src',
+            type: 'directory',
+            printedTree: 'mixed-read-subtree-payload'.repeat(200),
+            tokenCount: 5000,
+            truncationLevel: 'none',
+          },
+        ]),
+        keepDuringTruncation: true,
+      },
+      {
+        role: 'tool',
+        toolName: 'query_index',
+        toolCallId: 'mixed-query-index',
+        content: jsonToolResult({
+          results: [
+            {
+              path: 'src/auth.ts',
+              score: 95,
+              matchedOn: ['symbol'],
+              matchedSnippets: ['mixed-query-index-payload'.repeat(200)],
+            },
+          ],
+          totalIndexed: 1510,
+          indexAge: 672771,
+          message: 'Found 1 result',
+        }),
+        keepDuringTruncation: true,
+      },
+      {
+        role: 'tool',
+        toolName: 'web_search',
+        toolCallId: 'mixed-web-search',
+        content: jsonToolResult({
+          result: 'mixed-web-search-payload'.repeat(200),
+        }),
+        keepDuringTruncation: true,
+      },
+      assistantMessage({
+        content: 'Done',
+        keepDuringTruncation: true,
+      }),
+    ]
+
+    const result = trimMessagesToFitTokenLimit({
+      messages,
+      systemTokens: 0,
+      maxTotalTokens: 6000,
+      logger,
+    })
+
+    // Each tool type should be summarized, not dropped
+    const codeSearchResult = result.find(
+      (m): m is CodebuffToolMessage<'code_search'> =>
+        m.role === 'tool' && m.toolName === 'code_search',
+    )
+    expect(codeSearchResult?.content[0].value).toMatchObject({
+      stdoutOmittedForLength: true,
+      status: 'passed',
+    })
+
+    const subtreeResult = result.find(
+      (m): m is CodebuffToolMessage<'read_subtree'> =>
+        m.role === 'tool' && m.toolName === 'read_subtree',
+    )
+    expect(subtreeResult?.content[0].value?.[0]).toMatchObject({
+      printedTreeOmittedForLength: true,
+    })
+
+    const queryResult = result.find(
+      (m): m is CodebuffToolMessage<'query_index'> =>
+        m.role === 'tool' && m.toolName === 'query_index',
+    )
+    expect(queryResult?.content[0].value).toMatchObject({
+      results: [{ matchedSnippetsOmittedForLength: true }],
+    })
+
+    const webResult = result.find(
+      (m): m is CodebuffToolMessage<'web_search'> =>
+        m.role === 'tool' && m.toolName === 'web_search',
+    )
+    expect(webResult?.content[0].value).toMatchObject({
+      resultOmittedForLength: true,
+    })
+
+    expect(tokenCounter.countTokensJson(result)).toBeLessThanOrEqual(6000)
+  })
+
   it('handles empty messages array', () => {
     const maxTotalTokens = 200
     const systemTokens = 100

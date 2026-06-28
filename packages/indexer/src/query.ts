@@ -8,6 +8,8 @@ import type {
   RelatedFile,
 } from './types'
 
+import { MAX_INDEX_AGE_MS } from './index-store'
+
 export interface QueryOptions {
   limit?: number
   fileTypes?: string[]
@@ -210,13 +212,16 @@ function querySearch(
     }
   }
 
+  const indexAgeMs = Date.now() - index.builtAt
+  const stale = indexAgeMs > MAX_INDEX_AGE_MS
+
   return Array.from(directResults.values())
     .map((result) => ({
       ...result,
       score: roundScore(result.score),
       relatedFiles: result.relatedFiles?.slice(0, MAX_RELATED_FILES_PER_RESULT),
       matchedSnippets: result.matchedSnippets?.slice(0, 5),
-      explanation: explain ? explainResult(result) : undefined,
+      explanation: explain ? explainResult(result, { ageMs: indexAgeMs, stale }) : undefined,
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -707,7 +712,10 @@ function addMatchedOn(
   return matchedOn.includes(value) ? matchedOn : [...matchedOn, value]
 }
 
-function explainResult(result: QueryIndexResult): string {
+function explainResult(
+  result: QueryIndexResult,
+  staleness?: { ageMs: number; stale: boolean },
+): string {
   const direct = result.matchedOn.join(', ') || 'no direct metadata match'
   const snippets = result.matchedSnippets?.length
     ? ` Snippets: ${result.matchedSnippets.join('; ')}.`
@@ -715,7 +723,13 @@ function explainResult(result: QueryIndexResult): string {
   const related = result.relatedFiles?.length
     ? ` Related files: ${result.relatedFiles.map((item) => `${item.path} (${item.reason}${item.via ? ` via ${item.via}` : ''})`).join('; ')}.`
     : ''
-  return `Matched on ${direct}.${snippets}${related}`
+  // Staleness note (M7.2): surfaced only in `mode: 'explain'` so the CLI can
+  // report when an index is older than the freshness window (MAX_INDEX_AGE_MS).
+  // Appended — never replaces — so existing explain rendering is preserved.
+  const age = staleness
+    ? ` Index age: ${Math.max(0, Math.round(staleness.ageMs / 1000))}s (${staleness.stale ? 'stale' : 'fresh'}).`
+    : ''
+  return `Matched on ${direct}.${snippets}${related}${age}`
 }
 
 function commandDiscoveryBoost(file: IndexedFile, tokens: string[]): number {

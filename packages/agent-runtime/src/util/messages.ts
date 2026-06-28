@@ -6,7 +6,10 @@ import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 import { isEqual } from 'lodash'
 
-import { simplifyTerminalCommandResults } from './simplify-tool-results'
+import {
+  simplifyToolResultContent,
+  SUMMARIZABLE_TOOL_NAMES,
+} from './simplify-tool-results'
 import { countTokensJson } from './token-counter'
 
 import type { System } from '../llm-api/claude'
@@ -134,24 +137,26 @@ export function castAssistantMessage(message: Message): Message | null {
     : null
 }
 
-// Number of terminal command outputs to keep in full form before simplifying.
-// Keep only the newest command verbatim; older successful commands are summarized
-// so long validation/test loops do not dominate the main agent context.
-const numTerminalCommandsToKeep = 1
+// Number of summarizable tool results to keep in full form before simplifying.
+// Keep only the newest result verbatim; older results are summarized so long
+// validation/test/search loops do not dominate the main agent context.
+const numToolResultsToKeep = 1
 
-function simplifyTerminalHelper(params: {
-  toolResult: CodebuffToolOutput<'run_terminal_command'>
+function simplifyToolResultHelper(params: {
+  toolName: string
+  toolResult: CodebuffToolOutput
   numKept: number
   logger: Logger
-}): { result: CodebuffToolOutput<'run_terminal_command'>; numKept: number } {
-  const { toolResult, numKept, logger } = params
-  const simplified = simplifyTerminalCommandResults({
-    messageContent: toolResult,
+}): { result: CodebuffToolOutput; numKept: number } {
+  const { toolName, toolResult, numKept, logger } = params
+  const simplified = simplifyToolResultContent({
+    toolName,
+    content: toolResult,
     logger,
   })
 
-  // Keep the full output for the N most recent commands
-  if (numKept < numTerminalCommandsToKeep && !isEqual(simplified, toolResult)) {
+  // Keep the full output for the N most recent summarizable results
+  if (numKept < numToolResultsToKeep && !isEqual(simplified, toolResult)) {
     return { result: toolResult, numKept: numKept + 1 }
   }
 
@@ -242,11 +247,11 @@ export function getContextCategoryTelemetry(
 
 /**
  * Trims messages from the beginning to fit within token limits while preserving
- * important content. Also simplifies terminal command outputs to save tokens.
+ * important content. Also simplifies large tool results to save tokens.
  *
  * The function:
  * 1. Processes messages from newest to oldest
- * 2. Simplifies terminal command outputs after keeping N most recent ones
+ * 2. Simplifies summarizable tool results after keeping N most recent ones
  * 3. Stops adding messages when approaching token limit
  *
  * @param messages - Array of messages to trim
@@ -281,24 +286,23 @@ export function trimMessagesToFitTokenLimit(params: {
     if (m.role === 'system' || m.role === 'user' || m.role === 'assistant') {
       shortenedMessages.push(m)
     } else if (m.role === 'tool') {
-      if (m.toolName !== 'run_terminal_command') {
+      if (!SUMMARIZABLE_TOOL_NAMES.has(m.toolName)) {
         shortenedMessages.push(m)
         continue
       }
 
-      const terminalResultMessage = structuredClone(
-        m,
-      ) as CodebuffToolMessage<'run_terminal_command'>
+      const toolResultMessage = structuredClone(m) as CodebuffToolMessage
 
-      const result = simplifyTerminalHelper({
-        toolResult: terminalResultMessage.content,
+      const result = simplifyToolResultHelper({
+        toolName: toolResultMessage.toolName,
+        toolResult: toolResultMessage.content,
         numKept,
         logger,
       })
-      terminalResultMessage.content = result.result
+      toolResultMessage.content = result.result
       numKept = result.numKept
 
-      shortenedMessages.push(terminalResultMessage)
+      shortenedMessages.push(toolResultMessage)
     } else {
       m satisfies never
       throw new AssertionError({
@@ -349,22 +353,25 @@ export function trimMessagesToFitTokenLimit(params: {
 
     for (let i = trimmedMessages.length - 1; i >= 0; i--) {
       const message = trimmedMessages[i]
-      if (message.role !== 'tool' || message.toolName !== 'run_terminal_command') {
+      if (
+        message.role !== 'tool' ||
+        !SUMMARIZABLE_TOOL_NAMES.has(message.toolName)
+      ) {
         continue
       }
 
-      const terminalMessage =
-        message as CodebuffToolMessage<'run_terminal_command'>
+      const toolMessage = message as CodebuffToolMessage
       const beforeTokens = countTokensJson(message)
-      const simplified = simplifyTerminalCommandResults({
-        messageContent: terminalMessage.content,
+      const simplified = simplifyToolResultContent({
+        toolName: toolMessage.toolName,
+        content: toolMessage.content,
         logger,
       })
-      if (isEqual(simplified, terminalMessage.content)) {
+      if (isEqual(simplified, toolMessage.content)) {
         continue
       }
 
-      terminalMessage.content = simplified
+      toolMessage.content = simplified
       const afterTokens = countTokensJson(message)
       runningTokens += afterTokens - beforeTokens
 

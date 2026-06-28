@@ -1,4 +1,7 @@
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import {
+  MAX_AGENT_STEPS_DEFAULT,
+  MAX_SPAWN_DEPTH_DEFAULT,
+} from '@codebuff/common/constants/agents'
 import { toolNames } from '@codebuff/common/tools/constants'
 import {
   normalizeAgentIdForLookup,
@@ -517,6 +520,21 @@ export async function executeSubagent(
     spawnParams,
     subagentTimeoutMs,
   } = withDefaults
+
+  // Enforce a max spawn depth to prevent unbounded subagent recursion
+  // (e.g. file-picker -> file-picker -> ...). The root orchestrator runs at
+  // depth 0; each spawn increments depth by 1. ancestorRunIds accumulates one
+  // entry per ancestor, so its length equals the current parent's depth.
+  const currentDepth = parentAgentState.ancestorRunIds.length
+  const maxSpawnDepth =
+    (agentTemplate.maxSpawnDepth ?? MAX_SPAWN_DEPTH_DEFAULT) as number
+  if (currentDepth + 1 > maxSpawnDepth) {
+    throw new Error(
+      `Maximum spawn depth (${maxSpawnDepth}) reached: cannot spawn agent "${agentTemplate.id}" at depth ${currentDepth + 1}. ` +
+        `Re-evaluate whether this subagent is necessary, or perform the work directly in the current agent. ` +
+        `Configure "maxSpawnDepth" on the agent template (or MAX_SPAWN_DEPTH_DEFAULT in common/src/constants/agents.ts) to raise the limit.`,
+    )
+  }
 
   const startEvent = {
     type: 'subagent_start' as const,

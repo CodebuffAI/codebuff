@@ -45,6 +45,10 @@ import {
   expireMessages,
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
+import {
+  DEFAULT_MAX_CONTEXT_TOKENS,
+  maybePruneContext,
+} from './util/context-pruning'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -792,6 +796,10 @@ export async function loopAgentSteps(
     // loop must NOT re-append a USER_PROMPT message — doing so would duplicate
     // the prompt and corrupt the resumed context.
     resumeInterruptedTurn?: boolean
+    // M4.1: Maximum context tokens before auto-pruning triggers. When
+    // contextTokenCount exceeds this threshold, the loop proactively trims
+    // message history via trimMessagesToFitTokenLimit. Defaults to 190k.
+    maxContextLength?: number
   } & ParamsExcluding<typeof additionalToolDefinitions, 'agentTemplate'> &
     ParamsExcluding<
       typeof runProgrammaticStep,
@@ -870,7 +878,9 @@ export async function loopAgentSteps(
     clientEnv,
     ciEnv,
     onCheckpoint,
+    onResponseChunk,
     resumeInterruptedTurn,
+    maxContextLength,
   } = params
 
   let agentTemplate = params.agentTemplate
@@ -1116,7 +1126,7 @@ export async function loopAgentSteps(
         logger,
         additionalToolDefinitions: additionalToolDefinitionsWithCache,
       })
-      const messagesWithStepPrompt = buildArray(
+      let messagesWithStepPrompt = buildArray(
         ...currentAgentState.messageHistory,
         stepPrompt &&
           userMessage({
@@ -1124,12 +1134,48 @@ export async function loopAgentSteps(
           }),
       )
 
+      // Cache system + tools token count once — these don't change between
+      // the initial compute and the post-prune recompute (only messages do).
+      const systemAndToolsTokens =
+        countTokensJson(system) + countTokensJson(toolsForTokenCount)
+
       const estimateContextTokensLocally = () =>
-        countTokensJson(messagesWithStepPrompt) +
-        countTokensJson(system) +
-        countTokensJson(toolsForTokenCount)
+        countTokensJson(messagesWithStepPrompt) + systemAndToolsTokens
 
       currentAgentState.contextTokenCount = estimateContextTokensLocally()
+
+      // M4.1: Auto-prune context when token count exceeds the model threshold.
+      // This is a proactive safety net — orchestrators' handleSteps may still
+      // spawn the LLM-based context-pruner agent for smarter summarization.
+      const pruningResult = maybePruneContext({
+        messages: currentAgentState.messageHistory,
+        systemTokens: systemAndToolsTokens,
+        contextTokenCount: currentAgentState.contextTokenCount,
+        maxTotalTokens: maxContextLength,
+        logger,
+      })
+      if (pruningResult.pruned) {
+        currentAgentState.messageHistory = pruningResult.messages
+        // Rebuild messagesWithStepPrompt from pruned history so the token
+        // recompute reflects the trimmed context.
+        messagesWithStepPrompt = buildArray(
+          ...pruningResult.messages,
+          stepPrompt &&
+            userMessage({
+              content: stepPrompt,
+            }),
+        )
+        currentAgentState.contextTokenCount = estimateContextTokensLocally()
+      }
+
+      // M4.3: Emit context-window usage so the CLI status bar can display
+      // how full the context is. Emitted after pruning (if any) so the
+      // post-prune value is reflected.
+      onResponseChunk({
+        type: 'context_window',
+        used: currentAgentState.contextTokenCount,
+        max: maxContextLength ?? DEFAULT_MAX_CONTEXT_TOKENS,
+      })
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined
