@@ -592,14 +592,17 @@ body.col-resizing {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 5px;
+  /* It's a <button> so clicking jumps to the original prompt — strip the native
+     chrome and let it span the full column. */
+  width: calc(100% + 52px);
+  border-radius: 0;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  appearance: none;
 }
-.msg-pinned-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--faint);
-  align-self: flex-start;
+.msg-pinned:hover .msg-pinned-bubble {
+  background: var(--surface-hover, var(--border));
 }
 .msg-pinned-bubble {
   background: var(--raised);
@@ -617,6 +620,43 @@ body.col-resizing {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+/* Floating "scroll to latest" pill. Sticky to the bottom of the scroll viewport
+   (just above the composer) so it's reachable while reading scrolled-up content.
+   Centered; only rendered while the user is scrolled away from the tail. When new
+   content has streamed in, it widens to read "New messages ↓". */
+.scroll-bottom-btn {
+  position: sticky;
+  bottom: 14px;
+  align-self: center;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 12px;
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.32);
+  transition: background 0.12s ease;
+}
+.scroll-bottom-btn:hover {
+  background: var(--surface);
+}
+.scroll-bottom-btn.has-new {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.scroll-bottom-btn.has-new:hover {
+  filter: brightness(1.08);
+}
+.scroll-bottom-label {
+  font-weight: 500;
 }
 .msg.assistant .prose {
   line-height: 1.62;

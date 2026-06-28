@@ -48,6 +48,16 @@ export function ThreadView({ threadId }: { threadId: string }) {
   const pinnedRef = useRef(true)
   const [preview, setPreview] = useState(false)
   const [nonce, setNonce] = useState(0)
+  // Whether the last user message has scrolled up out of view — only then do we
+  // surface the sticky reminder of what was asked. While the prompt itself is
+  // still visible, the bar would be redundant.
+  const [showPinned, setShowPinned] = useState(false)
+  // Whether the transcript is scrolled to (near) the tail. Drives the floating
+  // "scroll to bottom" button — shown only when the user has scrolled up.
+  const [atBottom, setAtBottom] = useState(true)
+  // Set when new content streams in while the user is scrolled up, so the
+  // floating button can read "New messages ↓" instead of a bare arrow.
+  const [hasNew, setHasNew] = useState(false)
 
   // Staged attachments live one level up from the composer so the entire chat
   // body — not just the input strip — can accept drops and feed the same list.
@@ -67,10 +77,58 @@ export function ThreadView({ threadId }: { threadId: string }) {
   }
 
   const messages = slice?.messages
+  // Show the sticky reminder only once the last user message's bottom has
+  // scrolled above the top of the scroll viewport.
+  const updatePinned = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const users = el.querySelectorAll('.msg.user')
+    const last = users[users.length - 1] as HTMLElement | undefined
+    if (!last) {
+      setShowPinned(false)
+      return
+    }
+    const containerTop = el.getBoundingClientRect().top
+    const lastBottom = last.getBoundingClientRect().bottom
+    setShowPinned(lastBottom < containerTop)
+  }
+  // Smoothly jump to the tail and re-pin so auto-scroll resumes.
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    pinnedRef.current = true
+    setHasNew(false)
+  }
+  // Scroll the most recent user prompt back into view (clicking the sticky bar).
+  const scrollToLastPrompt = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const users = el.querySelectorAll('.msg.user')
+    const last = users[users.length - 1] as HTMLElement | undefined
+    last?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  // This ThreadView instance is reused across thread switches (not keyed by
+  // threadId), so the scroll DOM node and all scroll-tracking state would
+  // otherwise bleed from the previous thread. Reset to the tail when the thread
+  // changes: re-pin, clear the new-message/pinned indicators, and snap to bottom.
+  useEffect(() => {
+    pinnedRef.current = true
+    setAtBottom(true)
+    setHasNew(false)
+    setShowPinned(false)
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [threadId])
   // Auto-scroll to the tail while the user is already pinned to the bottom.
+  // Otherwise, content streaming in while scrolled up flags "new messages".
   useEffect(() => {
     const el = scrollRef.current
-    if (el && pinnedRef.current) el.scrollTop = el.scrollHeight
+    if (el) {
+      if (pinnedRef.current) el.scrollTop = el.scrollHeight
+      else setHasNew(true)
+    }
+    updatePinned()
   }, [messages])
 
   // The last user prompt — surfaced as a sticky bar above the chat so it stays
@@ -203,14 +261,22 @@ export function ThreadView({ threadId }: { threadId: string }) {
             ref={scrollRef}
             onScroll={(e) => {
               const el = e.currentTarget
-              pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+              const near = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+              pinnedRef.current = near
+              setAtBottom(near)
+              if (near) setHasNew(false)
+              updatePinned()
             }}
           >
-            {lastUserText && (
-              <div className="msg-pinned" title="Your last prompt">
-                <span className="msg-pinned-label">Your prompt</span>
+            {showPinned && lastUserText && (
+              <button
+                type="button"
+                className="msg-pinned"
+                title="Jump to your last prompt"
+                onClick={scrollToLastPrompt}
+              >
                 <div className="msg-pinned-bubble">{lastUserText}</div>
-              </div>
+              </button>
             )}
             {slice.messages.length === 0 && (
               <div className="welcome">
@@ -220,6 +286,17 @@ export function ThreadView({ threadId }: { threadId: string }) {
             {slice.messages.map((m) => (
               <Message key={m.id} msg={m} threadId={threadId} />
             ))}
+            {!atBottom && (
+              <button
+                type="button"
+                className={`scroll-bottom-btn${hasNew ? ' has-new' : ''}`}
+                onClick={scrollToBottom}
+                title="Scroll to latest"
+              >
+                {hasNew && <span className="scroll-bottom-label">New messages</span>}
+                <Icon name="down" />
+              </button>
+            )}
           </div>
         )}
         <Composer threadId={threadId} atts={atts} setAtts={setAtts} addAttachments={addAttachments} />
