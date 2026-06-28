@@ -19,7 +19,10 @@ import type { GetUserPreferencesFn, RecordFreebuffUsageDayFn } from './_post'
 import type { NextRequest } from 'next/server'
 
 import { getAgentRunFromId } from '@/db/agent-run'
-import { recordFreebuffUsageDay } from '@/db/freebuff-streak'
+import {
+  awardFreebuffStreakRewards,
+  recordFreebuffUsageDay,
+} from '@/db/freebuff-streak'
 import { getUserInfoFromApiKey } from '@/db/user'
 import { logger, loggerWithContext } from '@/util/logger'
 
@@ -34,8 +37,20 @@ import { logger, loggerWithContext } from '@/util/logger'
 const recordUsageAndEvaluateReferral: RecordFreebuffUsageDayFn = async (
   params,
 ) => {
-  const newUsageDay = await recordFreebuffUsageDay(params)
+  const newUsageDay = await recordFreebuffUsageDay({ userId: params.userId })
   if (newUsageDay) {
+    // Grant a bonus session if today's usage just completed a 7-day streak
+    // milestone (premium/limited per access tier, plus a weekly GLM session for
+    // full-access users). Fire-and-forget — never blocks the completion.
+    void awardFreebuffStreakRewards({
+      userId: params.userId,
+      accessTier: params.accessTier,
+    }).catch((error: unknown) => {
+      logger.error(
+        { error, userId: params.userId },
+        'Post-usage streak reward grant failed',
+      )
+    })
     void evaluateReferralForReferredUser({
       userId: params.userId,
       logger,

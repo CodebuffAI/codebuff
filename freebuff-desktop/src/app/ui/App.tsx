@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 
+import freebuffLogo from './components/freebuff-logo.svg'
 import { ProjectPicker } from './components/ProjectPicker'
+import { SettingsModal } from './components/SettingsModal'
 import { TabBar } from './components/TabBar'
 import { Workspace } from './components/Workspace'
 import { useKeyboard } from './hooks/useKeyboard'
@@ -14,12 +16,30 @@ export function App() {
   const dismissToast = useStore((s) => s.dismissToast)
   const pickerOpen = useStore((s) => s.pickerOpen)
   const setPickerOpen = useStore((s) => s.setPickerOpen)
+  const settingsOpen = useStore((s) => s.settingsOpen)
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   useSSE()
   useKeyboard()
 
   useEffect(() => {
     void init()
   }, [init])
+
+  // Swallow file drags that miss the composer. Without this, dropping a file
+  // anywhere else on the window makes Electron navigate the whole app to
+  // `file:///…`, blowing away the session. The composer's own onDrop still runs
+  // (it fires first, on a descendant) — this only kills the default navigation.
+  useEffect(() => {
+    const prevent = (e: DragEvent) => {
+      if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) e.preventDefault()
+    }
+    window.addEventListener('dragover', prevent)
+    window.addEventListener('drop', prevent)
+    return () => {
+      window.removeEventListener('dragover', prevent)
+      window.removeEventListener('drop', prevent)
+    }
+  }, [])
 
   // Electron menu → tab commands (Cmd+T / Cmd+Shift+T / Cmd+W).
   useEffect(() => {
@@ -28,7 +48,7 @@ export function App() {
     return fb.onMenuCommand((name: string) => {
       const s = useStore.getState()
       if (name === 'new-tab') void s.newThread()
-      else if (name === 'reopen-tab') s.reopenLast()
+      else if (name === 'reopen-tab') s.rehydrateLast()
       else if (name === 'close-tab' && s.activeId) s.closeTab(s.activeId)
     })
   }, [])
@@ -40,13 +60,16 @@ export function App() {
         <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
+          {/* Empty-state mirrors ThreadView's in-thread placeholder: just the
+              wordmark. The ⌘T hint is the App-level keyboard overlay, which
+              already handles this affordance globally. */}
           <div className="welcome">
-            <div className="welcome-title">No threads open</div>
-            <div className="welcome-sub">Press ⌘T to start a new thread.</div>
+            <img className="welcome-logo" src={freebuffLogo} alt="" />
           </div>
         </div>
       )}
       {pickerOpen && <ProjectPicker onClose={() => setPickerOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <div className="toasts">
         {toasts.map((t) => (
           <div key={t.id} className={`toast ${t.kind}`} onClick={() => dismissToast(t.id)}>

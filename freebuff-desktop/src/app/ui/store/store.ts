@@ -1,12 +1,30 @@
 import { create } from 'zustand'
 
+import { appendBlock, attachmentSummary } from '../../../core/attachments'
 import { foldAgentEvent, partsFromPersisted, type ReasoningCollapse } from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
-import type { AgentOption, HarnessId, Message, QueueItem, ServerEvent, Skill, Thread } from '../lib/types'
+import type {
+  AgentOption,
+  HarnessId,
+  Message,
+  PendingAttachment,
+  ProjectSettings,
+  QueueItem,
+  ServerEvent,
+  Skill,
+  Thread,
+} from '../lib/types'
 
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
+
+// `init()` runs from App's mount effect, which React StrictMode invokes twice in
+// dev (and any future remount could repeat). Two concurrent inits both see an
+// empty thread list and each call `newThread()` → two tabs open on startup. This
+// module-level latch lets only the first run through; it survives remounts since
+// the module outlives the component. Reset on failure so a retry can proceed.
+let initStarted = false
 
 export interface ThreadSlice {
   thread: Thread
@@ -16,6 +34,69 @@ export interface ThreadSlice {
   loaded: boolean
 }
 
+/** Per-tab pending-input state. Hoisted into the store so each tab keeps its
+ *  own typed composer message and queue draft — switching tabs no longer leaks
+ *  one tab's draft into another's composer/queue. Attachments stay per-thread
+ *  in the parent (ThreadView): enough to fix the user's reported bleed without
+ *  re-choreographing the parent-prop ownership introduced in compose-less. */
+export interface ThreadDrafts {
+  composerText: string
+  queueDraft: string
+}
+
+/** Stable fallback so `useStore` keeps returning the same `''` until a real edit lands. */
+const EMPTY_DRAFT: ThreadDrafts = Object.freeze({ composerText: '', queueDraft: '' }) as ThreadDrafts
+
+/** localStorage key under which we keep per-tab composer + queue drafts across
+ *  reloads / app restarts. Best-effort only — corrupted JSON falls back to an
+ *  empty record so a single bad payload can't wipe every draft. */
+const DRAFTS_KEY = 'freebuff:drafts'
+
+/** Read the persisted drafts blob (best-effort). Always returns a fresh object
+ *  so callers can mutate without worrying about the underlying localStorage
+ *  values. */
+function loadDrafts(): Record<string, ThreadDrafts> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(DRAFTS_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+    const out: Record<string, ThreadDrafts> = {}
+    for (const [id, v] of Object.entries(parsed)) {
+      // Skip bogus keys — empty strings or non-thread-shaped ids can sneak in
+      // from manual localStorage edits and would otherwise park an entry in
+      // the in-memory map that no composer ever indexes by.
+      if (typeof id !== 'string' || !id) continue
+      if (!v || typeof v !== 'object') continue
+      const composerText = typeof (v as any).composerText === 'string' ? (v as any).composerText : ''
+      const queueDraft = typeof (v as any).queueDraft === 'string' ? (v as any).queueDraft : ''
+      out[id] = { composerText, queueDraft }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** Persist the current drafts blob to localStorage. Swallows quota / disabled
+ *  storage errors so an in-memory edit never throws — graceful degradation
+ *  matches the existing skillTally pattern. */
+function persistDrafts(drafts: Record<string, ThreadDrafts>): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    // Drop empty drafts before writing so the file doesn't accumulate dead
+    // entries for every tab the user has ever opened.
+    const cleaned: Record<string, ThreadDrafts> = {}
+    for (const [id, d] of Object.entries(drafts)) {
+      if (d.composerText || d.queueDraft) cleaned[id] = d
+    }
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(cleaned))
+  } catch {
+    /* storage unavailable / over quota — keep the in-memory drafts anyway */
+  }
+}
+
 interface StoreState {
   threads: Record<string, ThreadSlice>
   tabOrder: string[]
@@ -23,17 +104,37 @@ interface StoreState {
   recentlyClosed: string[]
   connection: 'connecting' | 'open' | 'reconnecting'
   skills: Skill[]
+  drafts: Record<string, ThreadDrafts>
+
+
+
   /** Local per-skill usage counts (persisted) — drives the quick-skill buttons. */
   skillTally: Record<string, number>
-  usage: { costSpent: number; running: number }
   projectPath: string
   /** Which agent harness runs turns + the options the picker offers. */
   agentHarness: HarnessId | null
   agentOptions: AgentOption[]
+  /** Whether the project has a previewable entry. Drives the Preview button. */
+  previewReady: boolean
+  /** Project settings (preview.entry, plus validation errors on read). */
+  settings: ProjectSettings
+  settingsPath: string | null
+  settingsLoadError: string | null
   setAgentHarness: (id: HarnessId) => void
+  /** Set the agent on a single tab; persists server-side and re-broadcasts. */
+  setThreadHarness: (id: string, harnessId: HarnessId) => void
   /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
+  /** Whether the project-settings modal is open. */
+  settingsOpen: boolean
+  setSettingsOpen: (open: boolean) => void
+  /** MRU list of recently-opened projects (most recent first). Loaded on init
+   *  and refreshed after every successful open so the picker stays in sync. */
+  recentProjects: string[]
+  /** Re-fetch the recent-projects list from the server. Called on init and
+   *  after a successful openProject so the picker reflects the new MRU. */
+  refreshRecents: () => Promise<void>
   toasts: { id: number; text: string; kind: 'info' | 'error' }[]
   pushToast: (text: string, kind?: 'info' | 'error') => void
   dismissToast: (id: number) => void
@@ -46,7 +147,7 @@ interface StoreState {
   setActive: (id: string) => void
   newThread: () => Promise<void>
   closeTab: (id: string) => void
-  reopenLast: () => void
+  rehydrateLast: () => void
   cycleTab: (delta: number) => void
   jumpTab: (index: number) => void
   ensureLoaded: (id: string) => Promise<void>
@@ -54,8 +155,12 @@ interface StoreState {
   /** Toggle a reasoning part between its preview/expanded view (preserves user intent). */
   toggleReasoning: (threadId: string, messageId: string, partId: string) => void
 
+  // per-tab pending input (see ThreadDrafts)
+  setComposerText: (id: string, text: string) => void
+  setQueueDraft: (id: string, text: string) => void
+
   // messaging + queue
-  send: (id: string, text: string) => void
+  send: (id: string, text: string, attachments?: PendingAttachment[]) => void
   stopTurn: (id: string) => void
   openProject: (path: string) => Promise<{ ok: boolean; error?: string }>
   runSkill: (id: string, skill: string) => void
@@ -69,6 +174,10 @@ interface StoreState {
   demoteItem: (id: string, itemId: string) => void
   reorderItem: (id: string, itemId: string, afterItemId: string | null) => void
   setAutoQueueSuggestions: (id: string, on: boolean) => void
+
+  // settings
+  loadSettings: () => Promise<void>
+  saveSettings: (settings: ProjectSettings) => Promise<void>
 }
 
 function emptySlice(thread: Thread): ThreadSlice {
@@ -82,12 +191,18 @@ export const useStore = create<StoreState>((set, get) => ({
   recentlyClosed: [],
   connection: 'connecting',
   skills: [],
+  drafts: {},
   skillTally: loadSkillTally(),
-  usage: { costSpent: 0, running: 0 },
   projectPath: '',
   agentHarness: null,
   agentOptions: [],
+  previewReady: false,
+  settings: { version: 1, preview: { entry: 'index.html' } },
+  settingsPath: null,
+  settingsLoadError: null,
   pickerOpen: false,
+  settingsOpen: false,
+  recentProjects: [],
   toasts: [],
 
   setAgentHarness(id) {
@@ -96,8 +211,49 @@ export const useStore = create<StoreState>((set, get) => ({
     api.setAgentHarness(id)
   },
 
+  setThreadHarness(id, harnessId) {
+    // Optimistic: flip the local slice immediately so the tab's pill updates
+    // without waiting for the SSE round-trip; the server's `thread` event
+    // confirms it a frame later. We don't drop thread state here (the backend
+    // does that on its own when the per-thread harness changes).
+    set((s) => {
+      const slice = s.threads[id]
+      if (!slice) return {}
+      // Match the backend's "null means default" rule: if the user picks the
+      // active default, persist as the default rather than pinning.
+      const value: HarnessId | null =
+        harnessId === s.agentHarness ? null : harnessId
+      return {
+        threads: {
+          ...s.threads,
+          [id]: { ...slice, thread: { ...slice.thread, harnessId: value } },
+        },
+      }
+    })
+    api.setThreadHarness(id, harnessId)
+  },
+
   setPickerOpen(open) {
     set({ pickerOpen: open })
+  },
+
+  setSettingsOpen(open) {
+    set({ settingsOpen: open })
+    if (open) void get().loadSettings()
+  },
+
+  async refreshRecents() {
+    try {
+      const res = await api.listRecents()
+      // The picker calls `.filter()` on this directly, so a malformed payload
+      // (missing `recents`, null, non-array) would crash the picker. Coerce to
+      // a string array before storing — bad data is dropped, not propagated.
+      const list = Array.isArray(res?.recents) ? res.recents.filter((v): v is string => typeof v === 'string') : []
+      set({ recentProjects: list })
+    } catch {
+      // Leave the existing list alone on failure; the picker falls back to it
+      // and the next open will refresh again.
+    }
   },
 
   pushToast(text, kind = 'info') {
@@ -110,17 +266,44 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async init() {
-    const [threads, skills] = await Promise.all([api.listThreads(), api.listSkills()])
-    const slices: Record<string, ThreadSlice> = {}
-    for (const t of threads) slices[t.id] = emptySlice(t)
-    set({
-      threads: slices,
-      tabOrder: threads.map((t) => t.id),
-      skills,
-      activeId: threads[0]?.id ?? null,
-    })
-    if (threads[0]) get().ensureLoaded(threads[0].id)
-    if (threads.length === 0) get().newThread()
+    if (initStarted) return
+    initStarted = true
+    try {
+      const [threads, skills] = await Promise.all([
+        api.listThreads(),
+        api.listSkills(),
+        get().loadSettings(),
+        // Recents are a small MRU list — fetch in parallel so the picker has
+        // it ready the first time the user opens it, without a visible gap.
+        get().refreshRecents(),
+      ])
+      // Hydrate persisted drafts before any thread loaders run so a reload
+      // never races a getThread into the store ahead of its restored draft.
+      // Garbage-collect entries whose threads are gone (deleted/cleaned up
+      // server-side) so the picker doesn't surface phantom drafts.
+      const persistedDrafts = loadDrafts()
+      const liveIds = new Set(threads.map((t) => t.id))
+      const drafts: Record<string, ThreadDrafts> = {}
+      for (const [id, d] of Object.entries(persistedDrafts)) {
+        if (liveIds.has(id)) drafts[id] = d
+      }
+      // Re-persist so dropped entries don't linger on disk across restarts.
+      persistDrafts(drafts)
+      set({ drafts })
+      const slices: Record<string, ThreadSlice> = {}
+      for (const t of threads) slices[t.id] = emptySlice(t)
+      set({
+        threads: slices,
+        tabOrder: threads.map((t) => t.id),
+        skills,
+        activeId: threads[0]?.id ?? null,
+      })
+      if (threads[0]) get().ensureLoaded(threads[0].id)
+      if (threads.length === 0) get().newThread()
+    } catch (e) {
+      initStarted = false
+      throw e
+    }
   },
 
   setConnection(c) {
@@ -148,10 +331,13 @@ export const useStore = create<StoreState>((set, get) => ({
           threads,
           tabOrder,
           activeId,
-          usage: snapshot.usage,
           projectPath: snapshot.project?.rootPath ?? s.projectPath,
           agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
           agentOptions: snapshot.agent?.options ?? s.agentOptions,
+          // The server sends `previewReady` based on whether the project has a
+          // static preview entry — start false until the first state event.
+          previewReady: snapshot.previewReady ?? false,
+          settings: snapshot.settings ?? s.settings,
         }
       })
       // Load the active thread's messages if needed.
@@ -212,25 +398,35 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   closeTab(id) {
-    const { tabOrder, activeId } = get()
+    const { tabOrder, activeId, drafts } = get()
     const idx = tabOrder.indexOf(id)
     const nextOrder = tabOrder.filter((t) => t !== id)
     let nextActive = activeId
     if (activeId === id) nextActive = nextOrder[Math.min(idx, nextOrder.length - 1)] ?? null
+    // Drop the tab's draft from both in-memory state and the persisted blob.
+    // The user explicitly closed the tab — keeping a half-typed prompt
+    // dangling under a never-coming-back thread id is just clutter.
+    let nextDrafts = drafts
+    if (drafts[id]) {
+      nextDrafts = { ...drafts }
+      delete nextDrafts[id]
+      persistDrafts(nextDrafts)
+    }
     set((s) => ({
       tabOrder: nextOrder,
       activeId: nextActive,
+      drafts: nextDrafts,
       recentlyClosed: [...s.recentlyClosed, id],
     }))
     api.closeThread(id)
   },
 
-  reopenLast() {
+  rehydrateLast() {
     const { recentlyClosed } = get()
     const id = recentlyClosed[recentlyClosed.length - 1]
     if (!id) return
     set((s) => ({ recentlyClosed: s.recentlyClosed.slice(0, -1) }))
-    api.reopenThread(id).then(() => {
+    api.rehydrateThread(id).then(() => {
       set((s) => ({
         tabOrder: appendTab(s.tabOrder, id),
         activeId: id,
@@ -263,6 +459,14 @@ export const useStore = create<StoreState>((set, get) => ({
       parts: partsFromPersisted(m, nextId),
       done: true,
     }))
+    // A turn that's still running server-side hasn't persisted its assistant
+    // message yet, so the loaded transcript lacks the dots-slot. Synthesize the
+    // same placeholder `appendMessage` uses — `streamAgentEvent` will fold the
+    // first incoming agent event into it in place.
+    const tail = messages[messages.length - 1]
+    if (data.thread.turnState === 'running' && tail?.role === 'user') {
+      messages.push({ id: nextId(), role: 'assistant', parts: [], done: false })
+    }
     set((s) => {
       const prev = s.threads[id]
       return {
@@ -296,9 +500,25 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
 
-  send(id, text) {
-    appendMessage(set, id, text)
-    api.sendMessage(id, text)
+  // Per-tab pending-input helpers (see ThreadDrafts). Coalesced into a single
+  // `set` per edit so the global `drafts` map identity stays stable for threads
+  // we didn't touch — Zustand's Object.is selectors don't re-render siblings.
+  setComposerText(id, text) {
+    set((s) => draftPatch(s, id, { composerText: text }))
+  },
+  setQueueDraft(id, text) {
+    set((s) => draftPatch(s, id, { queueDraft: text }))
+  },
+
+  send(id, text, attachments = []) {
+    // The transcript shows the typed text plus a compact `📎 …` line; the agent gets
+    // the attachments' contents server-side (see ThreadEngine.postMessage). `appendBlock`
+    // is shared with the server so this optimistic message matches the persisted one.
+    appendMessage(set, id, appendBlock(text, attachmentSummary(attachments)))
+    api.sendMessage(id, text, attachments.map((a) => a.path))
+    // Clear the per-tab composer draft so a later return to this tab doesn't
+    // resurrect the message we just sent.
+    set((s) => draftPatch(s, id, { composerText: '' }))
   },
 
   stopTurn(id) {
@@ -318,8 +538,12 @@ export const useStore = create<StoreState>((set, get) => ({
     const res: { ok: boolean; path?: string; error?: string } = await api
       .openProject(path)
       .catch((e) => ({ ok: false, error: String(e) }))
-    if (res.ok) get().pushToast(`Opened ${res.path ?? path}`)
-    else get().pushToast(res.error ?? 'Could not open folder', 'error')
+    if (res.ok) {
+      get().pushToast(`Opened ${res.path ?? path}`)
+      // Server-side `openProject` already pushed to the MRU; refresh local
+      // state so the picker's "Recents" list reflects the new top entry.
+      void get().refreshRecents()
+    } else get().pushToast(res.error ?? 'Could not open folder', 'error')
     return res
   },
 
@@ -334,10 +558,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
   enqueuePrompt(id, prompt) {
     api.enqueuePrompt(id, prompt)
+    set((s) => draftPatch(s, id, { queueDraft: '' }))
   },
   enqueueSkill(id, skill) {
     bumpSkillTally(set, skill)
     api.enqueueSkill(id, skill)
+    set((s) => draftPatch(s, id, { queueDraft: '' }))
   },
   async installSkill(source, slug, name) {
     const res = await api
@@ -382,9 +608,59 @@ export const useStore = create<StoreState>((set, get) => ({
     })
     api.setAutoQueueSuggestions(id, on)
   },
+
+  async loadSettings() {
+    try {
+      const res = await api.getSettings()
+      set({
+        settings: res.settings,
+        settingsPath: res.path,
+        // First error is enough to surface in a toast; the full list shows in the modal.
+        settingsLoadError: res.errors[0]?.message ?? null,
+      })
+    } catch (e) {
+      set({ settingsLoadError: (e as Error).message })
+    }
+  },
+
+  async saveSettings(settings) {
+    try {
+      await api.saveSettings(settings)
+      set({ settings, settingsLoadError: null })
+      // The server emits a fresh state event on save, so updatePreviewReady /
+      // thread view rerender off the SSE path — no extra plumbing needed here.
+    } catch (e) {
+      set({ settingsLoadError: (e as Error).message })
+      get().pushToast(`Settings not saved: ${(e as Error).message}`, 'error')
+    }
+  },
 }))
 
 const SKILL_TALLY_KEY = 'freebuff:skillTally'
+
+/** Compute a `{ drafts: ... }` patch (or no-op) for one tab's pending input.
+ *  Returns `{}` when nothing actually changed so Zustand skips the notification
+ *  — siblings with their own Object.is selectors stay quiet. */
+function draftPatch(
+  state: Pick<StoreState, 'drafts'>,
+  id: string,
+  patch: Partial<ThreadDrafts>,
+): Partial<StoreState> {
+  const prev = state.drafts[id] ?? EMPTY_DRAFT
+  // Coalesce into one entry so a composer edit materializes an entry the queue
+  // panel can also read (otherwise the queue draft disappears after the user
+  // types into the composer).
+  const next: ThreadDrafts = { ...prev, ...patch }
+  if (prev.composerText === next.composerText && prev.queueDraft === next.queueDraft) {
+    return {}
+  }
+  const drafts = { ...state.drafts, [id]: next }
+  // Mirror to localStorage so a reload / app restart doesn't drop a half-typed
+  // prompt. Read from the in-memory map rather than the snapshot so we never
+  // race a concurrent write from another tab.
+  persistDrafts(drafts)
+  return { drafts }
+}
 
 /** Hydrate the persisted per-skill usage counts (best-effort). */
 function loadSkillTally(): Record<string, number> {
@@ -421,7 +697,14 @@ function optimisticItems(
   })
 }
 
-/** Append a user message to a thread's transcript (no-op if the thread isn't loaded). */
+/** Append a message to a thread's transcript (no-op if the thread isn't loaded).
+ *  For a fresh user message we also append an empty assistant placeholder — the
+ *  gap between "send" and the first SSE event would otherwise have no visual
+ *  feedback at all. `streamAgentEvent` selects the trailing `!done` assistant
+ *  message as `live` and folds the first agent event into the placeholder in
+ *  place, so it morphs into the real assistant turn without growing the
+ *  transcript. Skipped when a turn is already streaming so we don't create a
+ *  second placeholder mid-turn. */
 function appendMessage(
   set: (fn: (s: StoreState) => Partial<StoreState>) => void,
   id: string,
@@ -435,7 +718,12 @@ function appendMessage(
     // A new user message auto-collapses the thinking of finished assistant turns
     // (mirrors the CLI), keeping the latest exchange uncluttered.
     const prior = role === 'user' ? autoCollapseReasoning(slice.messages) : slice.messages
-    return { threads: { ...s.threads, [id]: { ...slice, messages: [...prior, msg] } } }
+    const streamingTurn = prior[prior.length - 1]?.role === 'assistant' && !prior[prior.length - 1]?.done
+    const placeholder: Message[] =
+      role === 'user' && !streamingTurn
+        ? [{ id: nextId(), role: 'assistant', parts: [], done: false }]
+        : []
+    return { threads: { ...s.threads, [id]: { ...slice, messages: [...prior, msg, ...placeholder] } } }
   })
 }
 

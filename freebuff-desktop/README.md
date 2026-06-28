@@ -11,10 +11,9 @@ on top of:
 
 ```
 src/core/
-  types.ts        — domain model (§14): Project, Task, DependencyEdge, BudgetLedger
+  types.ts        — domain model: Project, Thread, QueueItem, Skill, Workflow
   store.ts        — local SQLite persistence under .freebuff/ (bun:sqlite)
   graph.ts        — task-graph queries: unblocked tasks, cycle detection
-  scheduler.ts    — FIFO admission under concurrency cap + rolling-24h daily budget
   worktree.ts     — git worktree lifecycle + gh PR helpers (branches from main, §8)
   orchestrator.ts — the §19 tool surface (create_task, add_dependency, ...)
   pipeline.ts     — fixed per-task stage runner (implement→simplify→review→test→pr)
@@ -113,7 +112,6 @@ resolves.
   a packaged build with `CODEBUFF_API_KEY` in the environment.
 - **Code signing / notarization.** `mac.identity` is `null` (unsigned). Shipping to
   users needs an Apple Developer cert + notarization (and equivalents on Win/Linux).
-- **App icon.** Uses the default Electron icon; add `build/icon.icns` etc.
 - **Cross-platform Bun.** `fetch-bun.ts --target <platform-arch>` downloads the
   right Bun, but cross-building the Electron app itself still needs the matching
   host or CI runner.

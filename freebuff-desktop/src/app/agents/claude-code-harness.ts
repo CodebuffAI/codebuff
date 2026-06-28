@@ -14,7 +14,7 @@
  *   - thinking_delta  → onReasoning
  *   - tool_use blocks → accumulate input_json_delta, emit one `tool_call` on stop
  * The terminal `result` carries the session id (threaded back in as `resume` for the
- * next turn, so context/caching persist) and cost.
+ * next turn, so context/caching persist).
  *
  * Autonomy: permissionMode `bypassPermissions` (+ allowDangerouslySkipPermissions)
  * lets it read/write/edit and run bash in the thread's git worktree without prompts,
@@ -71,6 +71,24 @@ export const FREEBUFF_MCP_TOOL_NAMES = [
 const jsonResult = (value: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(value) }],
 })
+
+/**
+ * Env handed to the spawned Claude Code CLI. The whole point of this harness is to
+ * reuse the user's local subscription/OAuth creds — but those are only used when no
+ * `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` is present, since an API key OVERRIDES
+ * subscription auth. The desktop process inherits a `.env` (Bun auto-loads it) that
+ * sets `ANTHROPIC_API_KEY=dummy_anthropic_key` for the Codebuff/server paths; left in
+ * place it leaks into the CLI and yields "Invalid API key · Fix external API key".
+ *
+ * The SDK REPLACES (does not merge) the subprocess env when `env` is set, so we spread
+ * `process.env` and delete only the auth-override keys — keeping PATH/HOME/etc. intact.
+ */
+export function claudeCodeEnv(): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = { ...process.env }
+  delete env.ANTHROPIC_API_KEY
+  delete env.ANTHROPIC_AUTH_TOKEN
+  return env
+}
 
 /**
  * Build the Freebuff custom tools as in-process MCP tools backed by the engine
@@ -145,7 +163,6 @@ export async function consumeClaudeStream(
   startSessionId?: string,
 ): Promise<ClaudeState> {
   let sessionId = startSessionId
-  let cost = 0
   let resultSubtype = 'success'
   // Tool-use block currently streaming its JSON input (one at a time per turn).
   let curTool: { id: string; name: string; buf: string } | null = null
@@ -183,7 +200,6 @@ export async function consumeClaudeStream(
       case 'result':
         if (msg.session_id) sessionId = msg.session_id
         resultSubtype = msg.subtype ?? 'success'
-        cost = typeof msg.total_cost_usd === 'number' ? msg.total_cost_usd : 0
         break
     }
   }
@@ -194,7 +210,7 @@ export async function consumeClaudeStream(
     cb.onText(`\n\n⚠️ Claude Code ended: ${resultSubtype}`)
   }
 
-  cb.onEvent({ type: 'finish', totalCost: cost })
+  cb.onEvent({ type: 'finish' })
   return { sessionId }
 }
 
@@ -204,6 +220,9 @@ export class ClaudeCodeHarness implements AgentHarness {
   async runTurn(turn: HarnessTurn, cb: HarnessCallbacks): Promise<HarnessResult> {
     const prev = (turn.previousState as ClaudeState | undefined) ?? {}
     const sessionId = prev.sessionId
+    // Note: we don't forward `turn.images` here. Claude Code views attached images
+    // via its `Read` tool on the path referenced in the prompt text (attachments.ts),
+    // so it sees them without us constructing a multimodal SDK message.
 
     // Expose the Freebuff custom tools (suggest_prompts / write_doc / browser_check)
     // as an in-process MCP server bound to this turn's engine callbacks.
@@ -218,6 +237,7 @@ export class ClaudeCodeHarness implements AgentHarness {
       options: {
         model: CLAUDE_CODE_MODEL,
         cwd: turn.cwd,
+        env: claudeCodeEnv(),
         abortController: turn.abort,
         ...(sessionId ? { resume: sessionId } : {}),
         permissionMode: 'bypassPermissions',

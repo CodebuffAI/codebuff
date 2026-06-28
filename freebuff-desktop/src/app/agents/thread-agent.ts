@@ -49,11 +49,14 @@ How to work:
 - Verify your work by running the project's commands when it matters (build, tests,
   or exercising the actual surface). Rendering is not correctness.
 - Be concise in your prose. The user is watching a live transcript.
-- When it's genuinely useful, call suggest_prompts to propose follow-up prompts the
-  user might want to run next (a natural next feature, polish, or a cleanup the work
-  created). These are suggestions only — they park in the queue for the user to
-  accept or ignore. Don't propose busywork, and don't propose anything if the work
-  feels complete.
+- When you finish a task, call suggest_prompts to propose 1–3 high-confidence
+  follow-ups the user is likely to want next (a natural next feature, polish, a
+  test, or a cleanup the work created). These park in the queue, where the user
+  can accept, edit, or ignore them — they do NOT run automatically. Aim to end a
+  finished task with a suggest_prompts call, so the user always has a useful
+  handoff ready. Only propose things you'd genuinely expect the user to accept;
+  if nothing obvious comes to mind, skip the call. Zero good follow-ups beats
+  noisy, speculative, or busywork ones.
 
 Do not commit or open a PR unless the user (or the open-pr / merge skill) asks you to.`
 

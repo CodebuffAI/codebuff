@@ -22,8 +22,8 @@ store.insertProject({
   id: 'project',
   repoUrl: 'github.com/acme/desktop-demo',
   rootPath: root,
-  dailyBudget: 1_000_000,
-  concurrencyCap: 2,
+  
+
   createdAt: 1,
 })
 

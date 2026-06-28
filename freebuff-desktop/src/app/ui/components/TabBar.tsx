@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import freebuffLogo from './freebuff-logo.svg'
 import { useStore } from '../store/store'
-import { AgentSelector } from './AgentSelector'
 import { Icon } from './Icon'
 
 const isMac = (window as any).freebuffDesktop?.platform === 'darwin'
@@ -20,7 +20,6 @@ export function TabBar() {
   const closeTab = useStore((s) => s.closeTab)
   const newThread = useStore((s) => s.newThread)
   const connection = useStore((s) => s.connection)
-  const costSpent = useStore((s) => s.usage.costSpent)
 
   // Overflow menu: jump to any open tab when there are too many to scan.
   const [menuOpen, setMenuOpen] = useState(false)
@@ -40,16 +39,29 @@ export function TabBar() {
         {tabOrder.map((id) => {
           const slice = threads[id]
           if (!slice) return null
-          const running = slice.thread.turnState === 'running'
+          const status = describeTab(slice.thread)
+          const untitled = !slice.thread.title
           return (
             <div
               key={id}
               className={`tab ${id === activeId ? 'active' : ''}`}
               onClick={() => setActive(id)}
-              title={slice.thread.title}
+              title={
+                status.tooltip
+                  ? `${untitled ? 'New thread' : slice.thread.title} — ${status.tooltip}`
+                  : untitled
+                    ? 'New thread'
+                    : slice.thread.title
+              }
             >
-              {running && <span className="tab-pulse" />}
-              <span className="tab-title">{slice.thread.title || 'New thread'}</span>
+              <TabStatusIcon status={status} />
+              <span className={`tab-title ${untitled ? 'untitled' : ''}`}>
+                {untitled ? (
+                  <img className="tab-glyph" src={freebuffLogo} alt="New thread" />
+                ) : (
+                  slice.thread.title
+                )}
+              </span>
               <button
                 className="tab-close"
                 onClick={(e) => {
@@ -67,7 +79,6 @@ export function TabBar() {
           <Icon name="plus" />
         </button>
       </div>
-      <AgentSelector />
 
       {tabOrder.length > 1 && (
         <div className="tab-overflow" ref={menuRef}>
@@ -83,6 +94,8 @@ export function TabBar() {
               {tabOrder.map((id) => {
                 const slice = threads[id]
                 if (!slice) return null
+                const status = describeTab(slice.thread)
+                const untitled = !slice.thread.title
                 return (
                   <button
                     key={id}
@@ -91,21 +104,29 @@ export function TabBar() {
                       setActive(id)
                       setMenuOpen(false)
                     }}
+                    title={
+                      status.tooltip
+                        ? `${untitled ? 'New thread' : slice.thread.title} — ${status.tooltip}`
+                        : untitled
+                          ? 'New thread'
+                          : slice.thread.title
+                    }
                   >
-                    {slice.thread.turnState === 'running' && <span className="tab-pulse" />}
-                    <span className="tab-menu-title">{slice.thread.title || 'New thread'}</span>
+                    <TabStatusIcon status={status} />
+                    <span className={`tab-menu-title ${untitled ? 'untitled' : ''}`}>
+                      {untitled ? (
+                        <img className="tab-glyph" src={freebuffLogo} alt="New thread" />
+                      ) : (
+                        slice.thread.title
+                      )}
+                    </span>
+                    {status.label && <span className="tab-menu-status">{status.label}</span>}
                   </button>
                 )
               })}
             </div>
           )}
         </div>
-      )}
-
-      {costSpent > 0 && (
-        <span className="cost" title="Session spend across all threads">
-          {formatCost(costSpent)}
-        </span>
       )}
 
       <div className={`conn-status conn-${connection}`} title={CONN_LABEL[connection]}>
@@ -116,9 +137,78 @@ export function TabBar() {
   )
 }
 
-/** Compact session-spend label: sub-cent shows more digits so it never reads $0.00. */
-function formatCost(cost: number): string {
-  if (cost >= 1) return `$${cost.toFixed(2)}`
-  if (cost >= 0.01) return `$${cost.toFixed(3)}`
-  return `$${cost.toFixed(4)}`
+/**
+ * Pick a single status for a thread to drive the tab icon. Order matters — the
+ * running pulse wins over any PR/turn-outcome state, since "the agent is still
+ * working" is the most time-sensitive read. PR state then overlays onto the
+ * idle state because a merged PR is durable information the user wants to
+ * keep seeing. Finally the last-turn outcome paints the most recent terminator
+ * (stopped / error) on top so a fresh user message clears it on the next turn.
+ */
+type TabStatus =
+  | { kind: 'running' }
+  | { kind: 'pr-merged' }
+  | { kind: 'pr-open' }
+  | { kind: 'pr-closed' }
+  | { kind: 'stopped' }
+  | { kind: 'error' }
+  | { kind: 'idle' }
+
+/** Short status line used in the overflow menu. */
+type TabStatusWithMeta = TabStatus & {
+  label: string
+  tooltip: string
+}
+
+function describeTab(thread: { turnState: string; prState: string; lastTurnOutcome: string | null }): TabStatusWithMeta {
+  if (thread.turnState === 'running') {
+    return { kind: 'running', label: 'Running', tooltip: 'Agent is running' }
+  }
+  if (thread.prState === 'merged') {
+    return { kind: 'pr-merged', label: 'Merged', tooltip: 'PR merged' }
+  }
+  if (thread.prState === 'open') {
+    return { kind: 'pr-open', label: 'PR open', tooltip: 'Pull request open' }
+  }
+  if (thread.prState === 'closed') {
+    return { kind: 'pr-closed', label: 'PR closed', tooltip: 'PR closed without merge' }
+  }
+  if (thread.lastTurnOutcome === 'stopped') {
+    return { kind: 'stopped', label: 'Stopped', tooltip: 'Last turn was stopped' }
+  }
+  if (thread.lastTurnOutcome === 'error') {
+    return { kind: 'error', label: 'Error', tooltip: 'Last turn errored' }
+  }
+  return { kind: 'idle', label: '', tooltip: '' }
+}
+
+/**
+ * The little shape at the start of each tab. Render shape (dot vs icon) plus a
+ * class for color. Keeps the per-state branching in one place so the tab row
+ * stays readable. `idle` renders nothing — a clean tab.
+ */
+function TabStatusIcon({ status }: { status: TabStatus }) {
+  if (status.kind === 'running') {
+    // The pulsing green dot is the one element every user already knows; keeping
+    // the bare `.tab-pulse` class (no `.tab-icon-*` wrapper) keeps the existing
+    // animation intact while still rendering consistently next to the other
+    // tab icons — it's the same vertical slot the icon wrapper occupies.
+    return <span className="tab-pulse" />
+  }
+  if (status.kind === 'idle') return null
+  const iconName =
+    status.kind === 'pr-merged'
+      ? 'pr-merged'
+      : status.kind === 'pr-open'
+        ? 'pr-open'
+        : status.kind === 'pr-closed'
+          ? 'x'
+          : status.kind === 'stopped'
+            ? 'stop'
+            : 'alert'
+  return (
+    <span className={`tab-icon tab-icon-${status.kind}`}>
+      <Icon name={iconName} />
+    </span>
+  )
 }

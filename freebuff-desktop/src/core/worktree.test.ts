@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -43,6 +43,33 @@ describe('WorktreeManager (real git)', () => {
     const { branch, worktreePath } = await mgr.create('t1', 'add-thing')
     expect(branch).toBe('freebuff/add-thing')
     expect(worktreePath).toBe(join(repoRoot, '.freebuff', 'worktrees', 't1'))
+    expect(existsSync(join(worktreePath, 'file.txt'))).toBe(true)
+  })
+
+  test('create() recovers when a registered worktree + branch are left behind', async () => {
+    // Simulates a previous session that created t1's worktree then force-quit
+    // before cleanup. The thread id (and so the path) is reused next launch.
+    const mgr = new WorktreeManager({ repoRoot, runner: bunRunner })
+    await mgr.create('t1', 'old-title')
+    // Same id, new title (new branch) — used to fail with "<path> already exists".
+    const { branch, worktreePath } = await mgr.create('t1', 'new-title')
+    expect(branch).toBe('freebuff/new-title')
+    expect(existsSync(join(worktreePath, 'file.txt'))).toBe(true)
+    const head = await git(['rev-parse', '--abbrev-ref', 'HEAD'], worktreePath)
+    expect(head.trim()).toBe('freebuff/new-title')
+  })
+
+  test('create() recovers when only an unregistered leftover dir remains', async () => {
+    // A leftover already pruned from git's metadata still occupies the path on
+    // disk; `worktree add` would error "already exists" without the dir cleanup.
+    const mgr = new WorktreeManager({ repoRoot, runner: bunRunner })
+    const path = mgr.worktreePath('t1')
+    mkdirSync(path, { recursive: true })
+    writeFileSync(join(path, 'stale.txt'), 'orphan\n')
+
+    const { worktreePath } = await mgr.create('t1', 'fresh')
+    // Fresh checkout: the orphan file is gone, the tracked file is present.
+    expect(existsSync(join(worktreePath, 'stale.txt'))).toBe(false)
     expect(existsSync(join(worktreePath, 'file.txt'))).toBe(true)
   })
 

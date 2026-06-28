@@ -33,7 +33,7 @@ export function useKeyboard() {
         case 't':
         case 'T':
           e.preventDefault()
-          if (e.shiftKey) s.reopenLast()
+          if (e.shiftKey) s.rehydrateLast()
           else s.newThread()
           return
         case 'w':

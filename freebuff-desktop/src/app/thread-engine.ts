@@ -12,14 +12,14 @@
  * always auto-drains the next queued prompt top-down once a turn finishes.
  */
 
-import { mkdirSync } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
 import { CodebuffClient } from '@codebuff/sdk'
 import type { PrintModeEvent } from '@codebuff/sdk'
 
-import { recordUsage } from '../core/budget'
+import { appendBlock, type AttachmentImage } from '../core/attachments'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
@@ -27,6 +27,7 @@ import { foldAgentEvent, type AgentEventLike, type Part } from '../core/parts'
 import { positionAfter } from '../core/queue-order'
 import { searchRegistry, downloadSkill } from '../core/skill-registry'
 import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
+import { SettingsStore, type ProjectSettings } from '../core/settings'
 import { Store } from '../core/store'
 import { DOC_NAMES, type DocName } from '../core/types'
 import type {
@@ -40,6 +41,7 @@ import type {
   Thread,
 } from '../core/types'
 import { slugify, WorktreeManager } from '../core/worktree'
+import { buildAttachmentBlock } from './attachments'
 import { ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
@@ -60,9 +62,21 @@ export type EngineEvent =
 export interface Snapshot {
   project: Project
   threads: Thread[]
-  usage: { costSpent: number; running: number }
-  /** Which agent harness runs turns, plus the options the UI offers. */
+  /**
+   * The default agent for NEW threads plus the catalog of pickable options.
+   * Existing threads carry their own `harnessId` on the thread row — see
+   * `Thread.harnessId`. The default flows from `/api/settings/agent` and is
+   * what's shown in the tab pill until the user picks something per-tab.
+   */
   agent: { harnessId: HarnessId; options: readonly AgentOption[] }
+  /**
+   * Whether the project has a previewable entry — derived from settings
+   * (`preview.entry` resolved against the repo/worktree), falling back to a
+   * missing-file check. Drives whether the UI surfaces the Preview button.
+   */
+  previewReady: boolean
+  /** Project settings (read fresh per snapshot — file-backed, optional). */
+  settings: ProjectSettings
 }
 
 export interface ThreadData {
@@ -71,13 +85,19 @@ export interface ThreadData {
   items: QueueItem[]
 }
 
+/** A queued main-chat message awaiting a turn: its prompt text plus any base64
+ *  images attached to it. */
+interface InboxItem {
+  text: string
+  images?: AttachmentImage[]
+}
+
 export interface EngineOptions {
   repoRoot: string
   projectId?: string
   repoUrl?: string
   client?: CodebuffClient
   defaultBranch?: string
-  dailyBudget?: number
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
   /** Base URL the server listens on, used to point `browser_check` at a thread's
@@ -96,10 +116,10 @@ export class ThreadEngine {
   readonly worktrees: WorktreeManager
   readonly docs: DocStore
   readonly skills: SkillStore
+  readonly settings: SettingsStore
   private readonly client: CodebuffClient
   private readonly projectId: string
   private readonly repoRoot: string
-  private readonly accountId = 'local'
   private readonly previewBaseUrl: string
   private readonly browserCheckFn: (url: string) => Promise<BrowserCheckResult>
 
@@ -110,34 +130,58 @@ export class ThreadEngine {
    * the stale state ignored, so each harness starts that thread fresh.
    */
   private threadState = new Map<string, { harnessId: HarnessId; state: unknown }>()
-  /** Active harness id; switchable at runtime via {@link setHarness}. */
-  private harnessId: HarnessId
+  /**
+   * Default agent for threads that don't carry their own `harnessId`. New
+   * threads inherit this; existing threads that don't have one explicitly set
+   * still resolve to it at run-time. Changed via `/api/settings/agent`.
+   */
+  private defaultHarness: HarnessId
   /** Lazily-built harness instances, one per id. */
   private harnesses = new Map<HarnessId, AgentHarness>()
   /** Reentrancy guard: a thread whose pump loop is currently draining. */
   private pumping = new Set<string>()
   /** User messages typed in the main chat. When the thread is idle the pump runs
-   * the next one as a fresh turn (jumping ahead of the queue). While a turn is
-   * running, later arrivals are drained at the agent's step boundaries to steer
-   * the in-flight turn instead of waiting for it to finish. */
-  private userInbox = new Map<string, string[]>()
+   *  the next one as a fresh turn (jumping ahead of the queue). While a turn is
+   *  running, later arrivals are drained at the agent's step boundaries to steer
+   *  the in-flight turn instead of waiting for it to finish. Each item carries its
+   *  message text plus any attached images (base64); steering drains text only, so
+   *  images attached to a message that steers a running turn are dropped (the common
+   *  path — attaching while idle — runs as a fresh turn and keeps them). */
+  private userInbox = new Map<string, InboxItem[]>()
   /** Abort handle for a thread's in-flight turn, so the UI can stop it. */
   private aborters = new Map<string, AbortController>()
   /** Threads whose user pressed Stop: the pump halts after the current turn
-   * instead of draining the next queued item. Cleared once honored. */
+   *  instead of draining the next queued item. Cleared once honored. */
   private interrupted = new Set<string>()
+  /** Threads that have a closeOut in flight. Rehydrate refuses these so a
+   *  fast Cmd+Shift+T fired while close's git work is mid-flight can't race
+   *  close's eventual SQLite update (status='closed') over its own
+   *  status='open' flip. In-memory only — a hard crash mid-close is bounded
+   *  by the next engine restart, at which point the SQLite row already carries
+   *  status='closed' from close's final write (which runs even on partial
+   *  git-op failure). */
+  private closingIds = new Set<string>()
+  /**
+   * Per-thread turn outcome (last-terminator), in memory only. We don't persist
+   * this: on engine restart every tab is "completed" by definition (no turn is
+   * mid-flight to have been stopped), so a stopped/error banner would be a
+   * lie. While the engine is alive, however, knowing that the most recent turn
+   * stopped vs errored is exactly the kind of "what happened here" read the
+   * tab bar wants — and it should reset to null the moment a new turn starts.
+   */
+  private lastTurnOutcome = new Map<string, Thread['lastTurnOutcome']>()
   private threadSeq = 0
-  private costSpent = 0
 
   constructor(opts: EngineOptions) {
     const fbDir = join(opts.repoRoot, '.freebuff')
     mkdirSync(fbDir, { recursive: true })
 
     this.projectId = opts.projectId ?? 'project'
-    this.harnessId = opts.harnessId ?? DEFAULT_HARNESS
+    this.defaultHarness = opts.harnessId ?? DEFAULT_HARNESS
     this.repoRoot = opts.repoRoot
     this.store = new Store(join(fbDir, 'desktop.db'))
     this.docs = new DocStore({ docsDir: join(fbDir, 'docs') })
+    this.settings = new SettingsStore({ repoRoot: opts.repoRoot })
     this.skills = new SkillStore({
       skillsDir: join(fbDir, 'skills'),
       globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
@@ -153,7 +197,6 @@ export class ThreadEngine {
         repoUrl: opts.repoUrl ?? opts.repoRoot,
         rootPath: opts.repoRoot,
         defaultBranch: opts.defaultBranch ?? 'main',
-        dailyBudget: opts.dailyBudget ?? 1_000_000,
         createdAt: this.now(),
       })
     }
@@ -184,6 +227,60 @@ export class ThreadEngine {
     }
   }
 
+  /** The harness that runs a given thread's turns — its persisted choice if set,
+   *  otherwise the engine's default. Null rows post-migration resolve here so
+   *  upgrading transparently inherits whatever was previously global. */
+  harnessForThread(threadId: string): HarnessId {
+    const t = this.store.getThread(threadId)
+    return t?.harnessId ?? this.defaultHarness
+  }
+
+  /**
+   * The harness instance for a given thread, built lazily and cached per id. The
+   * per-thread harness is resolved via {@link harnessForThread} so different
+   * tabs can be on different agents at once while sharing one engine.
+   */
+  private harnessInstanceFor(threadId: string): AgentHarness {
+    const id = this.harnessForThread(threadId)
+    let h = this.harnesses.get(id)
+    if (!h) {
+      h =
+        id === 'claude-code'
+          ? new ClaudeCodeHarness()
+          : new CodebuffHarness(this.client)
+      this.harnesses.set(id, h)
+    }
+    return h
+  }
+
+  /** Set the agent for a specific thread; subsequent turns use it. Persists to
+   *  SQLite (so the choice survives restarts) and re-broadcasts the thread. */
+  setThreadHarness(threadId: string, id: HarnessId): void {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return
+    // Treat setting to the default as "clear the per-thread override" so the
+    // pill genuinely inherits later default changes — otherwise a tab that was
+    // once picked to the default would still pin to that exact value forever.
+    const value: HarnessId | null = id === this.defaultHarness ? null : id
+    this.store.updateThread(threadId, { harnessId: value }, this.now())
+    // Drop any cached harness state for this thread — switching agents makes
+    // the prior state from the previous harness invalid (see `runTurn`).
+    this.threadState.delete(threadId)
+    this.emitThread(threadId)
+  }
+
+  /**
+   * Set the default agent for NEW threads. Existing threads keep whatever
+   * they've been pinned to via {@link setThreadHarness}; null rows (including
+   * any thread still on the previous default) start following the new default
+   * the next time they run a turn.
+   */
+  setHarness(id: HarnessId): void {
+    if (id === this.defaultHarness) return
+    this.defaultHarness = id
+    this.emitState()
+  }
+
   private now() {
     return Date.now()
   }
@@ -202,35 +299,35 @@ export class ThreadEngine {
   snapshot(): Snapshot {
     const project = this.store.getProject(this.projectId)!
     const threads = this.store.listThreads(this.projectId, { status: 'open' })
+    // Re-read each snapshot so an external edit to .freebuff/settings.json shows up
+    // on the next state event (the file is small; this is free).
+    const { settings } = this.settings.read()
     return {
       project,
       threads,
-      usage: {
-        costSpent: this.costSpent,
-        running: threads.filter((t) => t.turnState === 'running').length,
-      },
-      agent: { harnessId: this.harnessId, options: AGENT_OPTIONS },
+      agent: { harnessId: this.defaultHarness, options: AGENT_OPTIONS },
+      previewReady: this.detectPreviewReady(settings),
+      settings,
     }
   }
 
-  /** The active harness, built lazily and cached per id. */
-  private activeHarness(): AgentHarness {
-    let h = this.harnesses.get(this.harnessId)
-    if (!h) {
-      h =
-        this.harnessId === 'claude-code'
-          ? new ClaudeCodeHarness()
-          : new CodebuffHarness(this.client)
-      this.harnesses.set(this.harnessId, h)
+  /**
+   * The Preview iframe (see server.ts `servePreview`) serves files from the
+   * repo root, falling back to a thread's worktree once it exists. "Ready"
+   * means the configured entry file exists in at least one of those roots —
+   * without it, hitting `/thread-preview/<id>/` returns 404. Settings is
+   * supplied by the caller so a single snapshot re-read stays consistent.
+   */
+  private detectPreviewReady(settings: ProjectSettings): boolean {
+    const entry = settings.preview.entry ?? 'index.html'
+    if (existsSync(join(this.repoRoot, entry))) return true
+    // Fall back to any first-thread worktree (covers the case where the agent
+    // already started writing in a worktree). When no worktrees exist yet, the
+    // repo-root check above already answered.
+    for (const t of this.store.listThreads(this.projectId, { status: 'open' })) {
+      if (t.worktreePath && existsSync(join(t.worktreePath, entry))) return true
     }
-    return h
-  }
-
-  /** Switch which agent runs turns. Takes effect on the next turn. */
-  setHarness(id: HarnessId): void {
-    if (id === this.harnessId) return
-    this.harnessId = id
-    this.emitState()
+    return false
   }
 
   emitState() {
@@ -240,7 +337,15 @@ export class ThreadEngine {
   private emitThread(threadId: string) {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    this.emit({ type: 'thread', threadId, thread, items: this.store.listQueueItems(threadId) })
+    // Augment with the in-memory lastTurnOutcome so the renderer can paint a
+    // stopped / errored flag without the DB carrying a column that wouldn't
+    // survive a restart anyway.
+    this.emit({
+      type: 'thread',
+      threadId,
+      thread: { ...thread, lastTurnOutcome: this.lastTurnOutcome.get(threadId) ?? null },
+      items: this.store.listQueueItems(threadId),
+    })
   }
 
   close() {
@@ -248,22 +353,18 @@ export class ThreadEngine {
     this.store.close()
   }
 
-  /** Fold spend into the rolling-24h ledger (informational) and the display total. */
-  private recordSpend(amount: number) {
-    if (!amount) return
-    const ledger = recordUsage(this.store.getBudget(this.accountId), this.accountId, amount, this.now())
-    this.store.upsertBudget(ledger)
-    this.costSpent += amount
-  }
-
   // — Thread lifecycle —
 
   createThread(opts: { title?: string } = {}): Thread {
     const id = `th${++this.threadSeq}`
+    // New threads start explicitly pinned to the default (rather than null) so
+    // the UI shows a non-empty pill right away, and any later change to the
+    // default does NOT silently migrate already-open threads.
     const thread = this.store.insertThread({
       id,
       projectId: this.projectId,
       title: opts.title ?? 'New thread',
+      harnessId: this.defaultHarness,
       createdAt: this.now(),
     })
     this.emitState()
@@ -291,16 +392,72 @@ export class ThreadEngine {
   }
 
   /** Close a thread (keeps its worktree + history so reopen restores it). */
-  closeThread(id: string): void {
-    if (!this.store.getThread(id)) return
-    this.store.updateThread(id, { status: 'closed' }, this.now())
-    this.threadState.delete(id)
-    this.emitState()
+  /**
+   * Close a thread: WIP-commit any dirty working tree, capture the branch tip
+   * as `lastSeenHead`, GC the worktree + branch ref so the disk doesn't fill
+   * with parked sessions, and stamp an insurance tag for `git gc`. The full
+   * file tree remains recoverable via rehydrateThread().
+   *
+   * No-op for threads with no branch (never started); a rehydrate of such a
+   * thread produces a fresh branch off `base_ref` exactly like a new thread.
+   */
+  async closeThread(id: string): Promise<void> {
+    const thread = this.store.getThread(id)
+    if (!thread) return
+    // Idempotent: a second close while one is in flight just no-ops.
+    if (this.closingIds.has(id)) return
+    this.closingIds.add(id)
+    try {
+      if (thread.branch && thread.worktreePath) {
+        const sha = await this.worktrees.closeOut(thread.id, {
+          branch: thread.branch,
+          worktreePath: thread.worktreePath,
+          wipTitle: thread.title,
+        })
+        this.store.updateThread(
+          id,
+          {
+            status: 'closed',
+            branch: null,
+            worktreePath: null,
+            lastSeenHead: sha ?? thread.lastSeenHead ?? null,
+            turnState: 'idle',
+          },
+          this.now(),
+        )
+      } else {
+        this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
+      }
+      this.threadState.delete(id)
+      this.emitState()
+    } finally {
+      this.closingIds.delete(id)
+    }
   }
 
-  reopenThread(id: string): void {
-    if (!this.store.getThread(id)) return
+  /**
+   * Re-open a closed thread: flip status, then ensure a fresh worktree.
+   *
+   * If `lastSeenHead` is set (the common case after this change shipped),
+   * `ensureWorktree` recreates the branch pointing at that SHA so git
+   * materializes the exact file tree that was live when the tab was closed.
+   *
+   * If null (a thread that was closed before the schema bump, or one that
+   * never had a branch), the user gets a fresh branch off `baseRef` — they
+   * lose state, matching today's "it was nothing to begin with" contract.
+   *
+   * Refuses while a close is still mid-flight on this thread, otherwise a
+   * fast Cmd+Shift+T would lose the race to close's eventual status='closed'
+   * SQLite write and end up with the thread closed again.
+   */
+  rehydrateThread(id: string): void {
+    const thread = this.store.getThread(id)
+    if (!thread) return
+    if (thread.status === 'open') return
+    if (this.closingIds.has(id)) return
     this.store.updateThread(id, { status: 'open' }, this.now())
+    // `ensureWorktree` is lazy; the worktree is materialized on first turn/PR.
+    // We just need the status flip for the UI to show the tab again now.
     this.emitState()
     this.emitThread(id)
   }
@@ -315,12 +472,27 @@ export class ThreadEngine {
     this.emitState()
   }
 
-  /** Lazily create the thread's worktree + branch on first turn / first PR. */
+  /**
+   * Lazily create the thread's worktree + branch on first turn / first PR.
+   *
+   * On a freshly opened thread without a branch yet, recreates the branch at
+   * `lastSeenHead` (rehydrate) when one is persisted — else off the default
+   * branch (clean new thread). In both cases the worktree's HEAD becomes
+   * `baseRef` for subsequent restack/merge logic.
+   */
   private async ensureWorktree(thread: Thread): Promise<Thread> {
     if (thread.branch) return thread
     const slug = `${slugify(thread.title)}-${thread.id}`
-    const { branch, worktreePath, baseSha } = await this.worktrees.create(thread.id, slug)
-    this.store.updateThread(thread.id, { branch, worktreePath, baseRef: baseSha }, this.now())
+    const { branch, worktreePath, baseSha } = await this.worktrees.create(thread.id, slug, {
+      startPoint: thread.lastSeenHead ?? undefined,
+    })
+    // Once the branch is recreated, lastSeenHead has done its job; clear it so
+    // a future close captures the new tip cleanly.
+    this.store.updateThread(
+      thread.id,
+      { branch, worktreePath, baseRef: baseSha, lastSeenHead: null },
+      this.now(),
+    )
     return this.store.getThread(thread.id)!
   }
 
@@ -333,15 +505,32 @@ export class ThreadEngine {
    * it as a user prompt at its next step boundary (see `drainSteering`). Either way
    * it lands via the shared inbox; the pump and the running turn's drain callback
    * pull from the same array so a message is never run twice.
+   *
+   * Attachments are absolute paths the user dragged in or picked (files/photos/
+   * folders). We read them into a prompt block the agent sees (see attachments.ts)
+   * while the transcript shows a compact `📎 …` line instead of the inlined bytes —
+   * the same split `startUserTurn` already does for steering vs. display text.
    */
-  postMessage(threadId: string, text: string): void {
+  postMessage(threadId: string, text: string, attachmentPaths: readonly string[] = []): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    // Auto-title a fresh thread from its first message.
-    if (thread.title === 'New thread' && text.trim()) {
-      this.store.updateThread(threadId, { title: text.trim().slice(0, 60) }, this.now())
+    // Only the Codebuff harness (MiniMax M3) sees inline image content; Claude Code
+    // reads images from the path, so we don't inline base64 for it.
+    const harnessId = this.harnessForThread(threadId)
+    const att = attachmentPaths.length
+      ? buildAttachmentBlock(attachmentPaths, { inlineImages: harnessId === 'codebuff' })
+      : null
+    // The agent sees the inlined prompt block; the transcript shows the compact
+    // summary. `appendBlock` is shared with the renderer so the two never drift.
+    const steeringText = appendBlock(text, att?.promptBlock ?? '')
+    const displayText = appendBlock(text, att?.summary ?? '')
+    // Auto-title a fresh thread from its first message (fall back to an attachment
+    // name when the message is attachment-only).
+    const titleSeed = text.trim() || att?.manifest[0]?.name
+    if (thread.title === 'New thread' && titleSeed) {
+      this.store.updateThread(threadId, { title: titleSeed.slice(0, 60) }, this.now())
     }
-    this.startUserTurn(threadId, text)
+    this.startUserTurn(threadId, steeringText, displayText, att?.images)
   }
 
   /**
@@ -369,13 +558,18 @@ export class ThreadEngine {
    * The two diverge only when chat should show a compact label (e.g. `/review`)
    * instead of the full prompt body; by default they're the same typed message.
    */
-  private startUserTurn(threadId: string, steeringText: string, displayText: string = steeringText): void {
+  private startUserTurn(
+    threadId: string,
+    steeringText: string,
+    displayText: string = steeringText,
+    images?: AttachmentImage[],
+  ): void {
     // Sending a message (typed or a /skill) re-engages the thread: lift any prior
     // Stop hold so normal pumping (this message, then the queue) resumes.
     this.interrupted.delete(threadId)
     this.store.appendMessage(threadId, { role: 'user', text: displayText }, this.now())
     const list = this.userInbox.get(threadId) ?? []
-    list.push(steeringText)
+    list.push({ text: steeringText, images })
     this.userInbox.set(threadId, list)
     this.emitThread(threadId)
     void this.pump(threadId)
@@ -405,7 +599,11 @@ export class ThreadEngine {
   private drainSteering(threadId: string): string[] {
     const list = this.userInbox.get(threadId)
     if (!list?.length) return []
-    return list.splice(0).filter((t) => t.trim().length > 0)
+    // Steering injects text only; any images on these messages are dropped here.
+    return list
+      .splice(0)
+      .map((i) => i.text)
+      .filter((t) => t.trim().length > 0)
   }
 
   /**
@@ -424,7 +622,8 @@ export class ThreadEngine {
 
         const pending = this.userInbox.get(threadId)
         if (pending && pending.length) {
-          await this.runTurn(threadId, pending.shift()!)
+          const item = pending.shift()!
+          await this.runTurn(threadId, item.text, { images: item.images })
           continue
         }
 
@@ -445,7 +644,7 @@ export class ThreadEngine {
   private async runTurn(
     threadId: string,
     prompt: string,
-    meta: { queueItemId?: string } = {},
+    meta: { queueItemId?: string; images?: AttachmentImage[] } = {},
   ): Promise<void> {
     let thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return
@@ -463,11 +662,15 @@ export class ThreadEngine {
       this.store.appendMessage(threadId, { role: 'user', text: chatText }, this.now())
       this.emit({ type: 'prompt', threadId, text: chatText })
     }
+    // Reset the in-memory turn outcome — the running pulse already conveys
+    // "in flight", and the prior terminator only matters when the thread goes
+    // idle again. Marked without a DB write so a fast turn doesn't churn SQLite.
+    this.lastTurnOutcome.set(threadId, null)
     this.store.updateThread(threadId, { turnState: 'running' }, this.now())
     this.emitThread(threadId)
     this.emitState()
 
-    const harness = this.activeHarness()
+    const harness = this.harnessInstanceFor(threadId)
     // Hoisted above the try so the catch/finally can finalize partial output when
     // a Stop aborts the run or it throws.
     let assistantText = ''
@@ -487,8 +690,12 @@ export class ThreadEngine {
     // harness emits none on abort/error). Used for both endings so they stay symmetric.
     const finalize = (marker: string) => {
       emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
-      emitAgent({ type: 'finish', totalCost: 0 })
+      emitAgent({ type: 'finish' })
     }
+    // `turnOutcome` is finalized in the finally block — the UI uses it to mark
+    // idle tabs distinctly (stopped / error). `null` means the turn completed
+    // normally (the successor state to "running").
+    let turnOutcome: Thread['lastTurnOutcome'] = 'completed'
     const aborter = new AbortController()
     this.aborters.set(threadId, aborter)
 
@@ -512,6 +719,7 @@ export class ThreadEngine {
             onBrowserCheck: () => this.browserCheck(threadId),
           },
           previousState,
+          images: meta.images,
         },
         {
           onText: (chunk) => {
@@ -521,22 +729,28 @@ export class ThreadEngine {
           onReasoning: (chunk) => emitAgent({ type: 'reasoning_delta', text: chunk }),
           onEvent: (event) => {
             emitAgent(event)
-            if (event.type === 'tool_call')
+            if (event.type === 'tool_call') {
               acts.push({ toolName: event.toolName as string, input: event.input })
-            if (event.type === 'finish') this.recordSpend((event.totalCost as number) ?? 0)
+              this.observePrIntent(threadId, event.toolName, event.input)
+            }
           },
           drainSteering: () => this.drainSteering(threadId),
         },
       )
       this.threadState.set(threadId, { harnessId: harness.id, state: result.state })
       // A Stop arrives as an abort; mark it but keep any partial output.
-      if (aborter.signal.aborted) finalize('⏹ Stopped.')
+      if (aborter.signal.aborted) {
+        turnOutcome = 'stopped'
+        finalize('⏹ Stopped.')
+      }
     } catch (err) {
       // Stop (abort) and failure both end the turn with a live marker so the
       // message doesn't hang and the user sees the outcome without a reload.
       if (aborter.signal.aborted) {
+        turnOutcome = 'stopped'
         finalize('⏹ Stopped.')
       } else {
+        turnOutcome = 'error'
         const msg = (err as Error).message
         finalize(`⚠️ Turn failed: ${msg}`)
         this.emit({ type: 'log', level: 'error', message: `Thread ${threadId} turn error: ${msg}` })
@@ -545,10 +759,35 @@ export class ThreadEngine {
       this.aborters.delete(threadId)
       this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
       if (meta.queueItemId) this.store.updateQueueItem(meta.queueItemId, { state: 'done' }, this.now())
+      // Finalize the in-memory turn outcome (drives the tab's stopped/error icon);
+      // the DB only learns about the idle transition.
+      this.lastTurnOutcome.set(threadId, turnOutcome)
       this.store.updateThread(threadId, { turnState: 'idle' }, this.now())
       this.emitThread(threadId)
       this.emitState()
     }
+  }
+
+  /**
+   * Update the inferred PR state from a single `tool_call` event. We only peek at
+   * `run_terminal_command` for the obvious PR commands (`gh pr create|merge|
+   * close|view`). Anything more specific (exit-code aware, output parsing) is
+   * intentionally avoided — the agent's prose confirms results back to the user,
+   * and an over-eager flip would be worse than a slightly delayed one. The
+   * transition is monotonic: `gh pr merge` upgrades `open` → `merged`, but never
+   * re-opens a closed or merged PR.
+   */
+  private observePrIntent(threadId: string, toolName: string | undefined, input: unknown): void {
+    if (toolName !== 'run_terminal_command') return
+    const cmd = extractCommand(input)
+    if (!cmd) return
+    const thread = this.store.getThread(threadId)
+    if (!thread) return
+    const next = inferPrStateChange(thread.prState, cmd)
+    if (!next) return
+    this.store.updateThread(threadId, { prState: next }, this.now())
+    // `emitThread` is deferred to the finally-block in `runTurn` (next state event),
+    // so no extra broadcast here — the SSE carries the updated row to the renderer.
   }
 
   // — Queue CRUD —
@@ -773,4 +1012,47 @@ export class ThreadEngine {
     this.store.upsertWorkflow(this.projectId, name, skills)
     this.emitState()
   }
+}
+
+/**
+ * Pull a shell command string out of a `run_terminal_command` tool input. The
+ * SDK accepts both `{ command: string }` (the common shape) and a few
+ * historical variants — fall back to known envelopes so the PR detector keeps
+ * working across agent prompt versioning.
+ */
+function extractCommand(input: unknown): string | null {
+  if (!input || typeof input !== 'object') return null
+  const obj = input as Record<string, unknown>
+  for (const key of ['command', 'cmd', 'bash_command', 'shell_command']) {
+    const v = obj[key]
+    if (typeof v === 'string' && v.trim()) return v
+  }
+  return null
+}
+
+/**
+ * Given the current inferred `prState` and an observed shell command, decide
+ * what to transition to. Returns `null` when the command is uninteresting.
+ *
+ * Shapewise: the most recent lifecycle command wins, since the agent's most
+ * recent verb best describes what just happened on the branch. So `gh pr
+ * merge` upgrades `none`/`open`/`closed` → `merged`; a later `gh pr create`
+ * legitimately puts the state back to `open` (the agent cut a fresh PR on the
+ * same branch — common if a previous PR was merged or closed). `gh pr close`
+ * only overrides `open` — there's nothing to close on `none`, and once merged
+ * a close wouldn't undo that. `gh pr view` is a no-op.
+ */
+function inferPrStateChange(
+  current: Thread['prState'],
+  command: string,
+): Thread['prState'] | null {
+  // `gh pr create ...` (incl. `--fill`, `--draft`). Mis-typed commands like
+  // `gh prcreated` don't match — the regex requires a whitespace boundary.
+  if (/\bgh\s+pr\s+create\b/.test(command)) return 'open'
+  // `gh pr merge ...` — squashing, rebasing, or auto-merging all collapse to merged.
+  if (/\bgh\s+pr\s+merge\b/.test(command)) return 'merged'
+  // `gh pr close ...` (no merge). Only overrides `open`; once merged a later
+  // close on a different branch shouldn't undo that.
+  if (/\bgh\s+pr\s+close\b/.test(command) && current === 'open') return 'closed'
+  return null
 }

@@ -18,6 +18,7 @@ import {
 import {
   checkSessionAdmissible,
   endUserSession,
+  getGlmWeeklyUsage,
   getSessionState,
   pinFreeSessionToMinimax,
   requestSession,
@@ -115,6 +116,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
         }))
     },
     getGlmReferralEntitlement: async () => 0,
+    getStreakBonusUnits: async () => 0,
     promoteQueuedUser: async ({
       userId,
       model,
@@ -615,6 +617,31 @@ describe('requestSession', () => {
     expect(state.recentCount).toBe(PREMIUM_LIMIT)
     expect(state.retryAfterMs).toBe(15 * 60 * 60 * 1000)
     expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('streak bonus raises the premium cap so a 6th session is admitted', async () => {
+    deps._tick(PREMIUM_OPEN_TIME)
+    const now = deps._now()
+    // Five premium admits today would normally exhaust the daily pool...
+    for (let i = 0; i < PREMIUM_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: PREMIUM_MODEL,
+        admitted_at: new Date(now.getTime() - i * 60 * 60 * 1000),
+      })
+    }
+    // ...but a 7-day streak milestone today granted one bonus premium session.
+    deps.getStreakBonusUnits = async ({ pool }) => (pool === 'premium' ? 1 : 0)
+
+    const state = await requestSession({
+      userId: 'u1',
+      model: PREMIUM_MODEL,
+      deps,
+    })
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    expect(state.rateLimit?.limit).toBe(PREMIUM_LIMIT + 1)
+    expect(state.rateLimit?.recentCount).toBe(PREMIUM_LIMIT + 1)
   })
 
   test('rate_limited: reset follows Pacific midnight across DST changes', async () => {
@@ -1659,6 +1686,24 @@ describe('GLM 5.2 weekly referral pool', () => {
     expect(state.period).toBe('pacific_week')
   })
 
+  test('a 7-day streak grants a weekly GLM session with no referrals', async () => {
+    // Full-access user with zero GLM referrals would normally be rejected, but a
+    // streak-milestone GLM bonus (one weekly session) raises the limit to 1.
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 0,
+      getStreakBonusUnits: async ({ pool }) => (pool === 'glm' ? 1 : 0),
+    })
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_GLM_V52_MODEL_ID,
+      deps,
+    })
+    expect(state.status).toBe('active')
+    if (state.status !== 'active') throw new Error('unreachable')
+    expect(state.rateLimit?.limit).toBe(1)
+    expect(state.rateLimit?.period).toBe('pacific_week')
+  })
+
   test('admits a GLM session when the user has referral entitlement', async () => {
     const deps = makeDeps({
       getGlmReferralEntitlement: async () => 2,
@@ -1696,6 +1741,19 @@ describe('GLM 5.2 weekly referral pool', () => {
     if (state.status !== 'rate_limited') throw new Error('unreachable')
     expect(state.limit).toBe(2)
     expect(state.recentCount).toBe(2)
+  })
+
+  test('getGlmWeeklyUsage keeps referral entitlement separate from the streak bonus', async () => {
+    const deps = makeDeps({
+      getGlmReferralEntitlement: async () => 2,
+      getStreakBonusUnits: async ({ pool }) => (pool === 'glm' ? 1 : 0),
+    })
+    const usage = await getGlmWeeklyUsage('u1', deps)
+    // referralLimit is the bonus-free entitlement (drives the "(N/cap)" copy);
+    // limit/remaining fold in the +1 streak bonus (drive launchability).
+    expect(usage.referralLimit).toBe(2)
+    expect(usage.limit).toBe(3)
+    expect(usage.remaining).toBe(3)
   })
 
   test('ignores GLM admits from a prior week', async () => {

@@ -1,8 +1,17 @@
 /** Client-side mirror of the backend thread-model types (see src/core/types.ts). */
 
+import type { AttachmentKind } from '../../../core/attachments'
 import type { Part } from '../../../core/parts'
 
 export type { Part, ReasoningCollapse } from '../../../core/parts'
+export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
+
+/** A file/photo/folder staged in the composer before send (absolute path + label). */
+export interface PendingAttachment {
+  path: string
+  name: string
+  kind: AttachmentKind
+}
 
 export type ThreadStatus = 'open' | 'closed'
 export type TurnState = 'idle' | 'running'
@@ -12,12 +21,26 @@ export interface Thread {
   projectId: string
   title: string
   status: ThreadStatus
+  /** Per-tab agent pick. Null = inherit the project's default (see Snapshot.agent). */
+  harnessId: HarnessId | null
   autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null
   baseRef: string | null
+  /** Branch tip at the time this thread was last closed (engine keeps it so a
+   *  rehydrated tab materializes the user's exact file tree). The UI doesn't
+   *  read this — mirror only so the wire shape round-trips. */
+  lastSeenHead?: string | null
   prUrl: string | null
+  /** Inferred PR lifecycle (see core/types for source). Drives the tab icon. */
+  prState: 'none' | 'open' | 'merged' | 'closed'
   turnState: TurnState
+  /**
+   * Outcome of the most recent turn — null while running, then completed /
+   * stopped / error. The tab icon uses this when the thread is idle to mark a
+   * stopped or errored turn distinctly from one that completed cleanly.
+   */
+  lastTurnOutcome: 'completed' | 'stopped' | 'error' | null
   createdAt: number
   updatedAt: number
 }
@@ -96,11 +119,21 @@ export interface SkillSearchResult {
   installs: number
 }
 
+/** Mirror of the engine's ProjectSettings (see core/settings.ts). v1 is
+ *  deliberately narrow — `preview.entry` is the only knob. */
+export interface ProjectSettings {
+  version: number
+  preview: { entry?: string }
+}
+
 export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]
-  usage: { costSpent: number; running: number }
   agent?: { harnessId: HarnessId; options: AgentOption[] }
+  /** True when the project has a previewable entry (resolved against settings). */
+  previewReady?: boolean
+  /** Project settings as the engine currently sees them. */
+  settings?: ProjectSettings
 }
 
 /** SSE event shapes emitted by the server (see EngineEvent). */
@@ -117,5 +150,5 @@ export type AgentEvent =
   | { type: 'reasoning_delta'; text: string }
   | { type: 'tool_call'; toolName: string; input: unknown; toolCallId?: string }
   | { type: 'tool_result'; toolName?: string; toolCallId?: string }
-  | { type: 'finish'; totalCost?: number }
+  | { type: 'finish' }
   | { type: string; [k: string]: unknown }

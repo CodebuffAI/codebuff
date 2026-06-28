@@ -5,6 +5,7 @@ import type {
   BrowseResult,
   HarnessId,
   Part,
+  ProjectSettings,
   QueueItem,
   Skill,
   SkillSearchResult,
@@ -42,9 +43,10 @@ export const api = {
   createThread: (title?: string) => post<Thread>('/api/threads', { title }),
   getThread: (id: string) => get<ThreadData>(`/api/thread/${id}`),
   closeThread: (id: string) => post(`/api/thread/${id}/close`),
-  reopenThread: (id: string) => post(`/api/thread/${id}/reopen`),
+  rehydrateThread: (id: string) => post(`/api/thread/${id}/rehydrate`),
   deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
-  sendMessage: (id: string, text: string) => post(`/api/thread/${id}/message`, { text }),
+  sendMessage: (id: string, text: string, attachments?: string[]) =>
+    post(`/api/thread/${id}/message`, { text, attachments }),
   stopTurn: (id: string) => post(`/api/thread/${id}/stop`),
   // Run a skill from the main chat: steers the agent on its next step instead of
   // queueing (see ThreadEngine.runSkill).
@@ -79,8 +81,24 @@ export const api = {
     post<{ ok: boolean; path?: string; error?: string }>('/api/project/open', { path }),
   browse: (path?: string) =>
     get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  listRecents: () => get<{ recents: string[] }>('/api/project/recents'),
 
   // Settings
+  // Project-wide default harness for NEW threads. /api/thread/{id}/harness
+  // overrides per-tab — see setThreadHarness below.
   setAgentHarness: (harnessId: HarnessId) =>
     post<{ ok: boolean; error?: string }>('/api/settings/agent', { harnessId }),
+  /** Set the agent for a single tab; persists with the thread and takes effect
+   *  on its next turn. */
+  setThreadHarness: (threadId: string, harnessId: HarnessId) =>
+    post<{ ok: boolean; error?: string }>(`/api/thread/${threadId}/harness`, { harnessId }),
+  getSettings: () =>
+    get<{
+      path: string
+      exists: boolean
+      settings: ProjectSettings
+      errors: { field: string; message: string }[]
+    }>('/api/settings'),
+  saveSettings: (settings: ProjectSettings) =>
+    post<{ ok: boolean; error?: string }>('/api/settings', { settings }),
 }

@@ -48,7 +48,7 @@ const result = await harness.runTurn(
         tools.push(ev.toolName as string)
         console.log(`\n  [tool] ${ev.toolName} ${JSON.stringify(ev.input).slice(0, 120)}`)
       }
-      if (ev.type === 'finish') console.log(`\n  [finish] cost=$${ev.totalCost}`)
+      if (ev.type === 'finish') console.log('\n  [finish]')
     },
     drainSteering: () => [],
   },

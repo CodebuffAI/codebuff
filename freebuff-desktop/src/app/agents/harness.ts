@@ -18,6 +18,7 @@
  * engine threads back in on the next turn to carry context/caching.
  */
 
+import type { AttachmentImage } from '../../core/attachments'
 import type { AgentEventLike } from '../../core/parts'
 import { CLAUDE_CODE_MODEL, FREEBUFF_MODEL } from '../models'
 import type { ThreadToolDeps } from './thread-agent'
@@ -49,8 +50,8 @@ export const AGENT_OPTIONS: readonly AgentOption[] = [
     id: 'codebuff',
     label: 'Codebuff',
     model: FREEBUFF_MODEL,
-    modelLabel: 'DeepSeek v4 Flash',
-    description: 'Free hosted agent',
+    modelLabel: 'MiniMax M3',
+    description: 'Free hosted agent (sees images)',
   },
 ]
 
@@ -62,11 +63,11 @@ export function isHarnessId(v: unknown): v is HarnessId {
 
 /**
  * Normalized turn callbacks. A harness streams through these; the engine folds
- * them into ordered parts and records spend (see ThreadEngine.runTurn).
+ * them into ordered parts (see ThreadEngine.runTurn).
  *  - onText      — a prose text delta (accumulated into the assistant message).
  *  - onReasoning — a thinking/reasoning delta (its own ordered part).
  *  - onEvent     — a non-text agent event: `tool_call` (toolName/input/toolCallId)
- *                  and a terminal `finish` (totalCost).
+ *                  and a terminal `finish` (closes any open reasoning).
  *  - drainSteering — pull any main-chat messages typed mid-turn so the harness can
  *                  append them as user prompts at a step boundary (Codebuff only;
  *                  Claude Code leaves them for the next turn).
@@ -87,6 +88,10 @@ export interface HarnessTurn {
   previousState?: unknown
   /** Aborts the in-flight turn when the user hits Stop. */
   abort: AbortController
+  /** Base64 images attached to this turn's message. Vision harnesses (Codebuff on
+   *  MiniMax M3) send them as message content; Claude Code ignores them and views
+   *  images via the `Read` tool on the path referenced in the prompt text. */
+  images?: AttachmentImage[]
 }
 
 export interface HarnessResult {

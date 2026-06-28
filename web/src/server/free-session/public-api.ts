@@ -50,6 +50,7 @@ import { maybeSweepExpired } from './admission'
 import { getFleetHealth, routeForAdmission } from './fireworks-health'
 import { toSessionStateResponse } from './session-view'
 
+import { sumStreakBonusUnits } from '@/db/freebuff-streak'
 import { hasFireworksServerlessBackup } from '@/llm-api/fireworks-config'
 import type { MiniMaxUpstream } from '@/llm-api/minimax-request-body'
 import { deploymentTtftP90Ms } from '@/llm-api/fireworks-ttft'
@@ -60,7 +61,10 @@ import type {
   FireworksRoute,
   FleetHealth,
 } from './fireworks-health'
-import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
+import type {
+  FreebuffAccessTier,
+  FreebuffStreakRewardPool,
+} from '@codebuff/common/constants/freebuff-models'
 import type {
   FreebuffSessionRateLimit,
   FreebuffSessionServerResponse,
@@ -93,6 +97,9 @@ interface SessionQuotaConfig {
   resetTimeZone: string
   windowHours: number
   accessTier?: FreebuffAccessTier
+  /** Streak-reward pool this quota draws bonus credits from. The gate adds any
+   *  streak bonus units awarded in the current period to `limit`. */
+  pool: FreebuffStreakRewardPool
 }
 
 /** GLM 5.2's per-user weekly session pool. Unlike the daily pools the limit is
@@ -110,6 +117,7 @@ async function glmReferralQuotaConfig(
     period: FREEBUFF_WEEKLY_SESSION_PERIOD,
     resetTimeZone: FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE,
     windowHours: FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS,
+    pool: 'glm',
   }
 }
 
@@ -141,6 +149,7 @@ function quotaConfigForAccessTier(
       resetTimeZone: FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE,
       windowHours: FREEBUFF_LIMITED_SESSION_WINDOW_HOURS,
       accessTier,
+      pool: 'limited',
     }
   }
   return {
@@ -150,6 +159,7 @@ function quotaConfigForAccessTier(
     resetTimeZone: FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
     windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
     accessTier,
+    pool: 'premium',
   }
 }
 
@@ -172,9 +182,18 @@ async function fetchSessionQuotaSnapshot(
   const recentCount = roundSessionUnits(
     admits.reduce((sum, admit) => sum + admit.sessionUnits, 0),
   )
+  // Fold in any streak-milestone bonus earned in this same period: a 7-day
+  // streak raises today's premium/limited cap (or this week's GLM cap) by one
+  // session. The CLI's "N of M used" line then shows the boosted M for free.
+  const bonusUnits = await deps.getStreakBonusUnits({
+    userId,
+    pool: config.pool,
+    since: bounds.startsAt,
+  })
+  const limit = roundSessionUnits(config.limit + bonusUnits)
   return {
     info: {
-      limit: config.limit,
+      limit,
       period: config.period,
       resetTimeZone: config.resetTimeZone,
       resetAt: bounds.resetsAt.toISOString(),
@@ -295,6 +314,15 @@ export interface SessionDeps {
    *  Indirected through deps so the session tests can set it without seeding
    *  referral rows. */
   getGlmReferralEntitlement: (userId: string) => Promise<number>
+  /** Streak-reward bonus session units for `userId` in `pool` awarded since the
+   *  current period start. Added to the pool's base limit so a 7-day streak
+   *  milestone grants an extra session. Indirected through deps so session tests
+   *  can set it without seeding reward rows. Defaults to 0. */
+  getStreakBonusUnits: (params: {
+    userId: string
+    pool: FreebuffStreakRewardPool
+    since: Date
+  }) => Promise<number>
   /** Admission: flips a freshly-joined queued row to active in the same
    *  request (every free session is admitted immediately — there is no queue).
    *  Returns the updated row or null if the row wasn't in a queued state. */
@@ -342,6 +370,7 @@ const defaultDeps: SessionDeps = {
   listRecentFreeSessionAdmits,
   getGlmReferralEntitlement: (userId: string) =>
     getGlmReferralEntitlement({ userId }),
+  getStreakBonusUnits: (params) => sumStreakBonusUnits(params),
   promoteQueuedUser,
   pinMinimaxUpstream: pinMinimaxUpstreamToMinimax,
   getFleetHealth,
@@ -373,7 +402,13 @@ export async function getGlmWeeklyUsage(
   userId: string,
   deps: SessionDeps = defaultDeps,
 ): Promise<{
+  /** Effective weekly cap: referral entitlement + any streak-bonus GLM session
+   *  earned this week. Drives `remaining` so the banner matches the gate. */
   limit: number
+  /** Pure referral entitlement (capped qualified GLM referrals), excluding the
+   *  streak bonus. This is the user's actual referral count for "(N/cap)" copy —
+   *  keep it separate from `limit` so the streak bonus never inflates it. */
+  referralLimit: number
   used: number
   remaining: number
   resetAt: string
@@ -381,10 +416,14 @@ export async function getGlmWeeklyUsage(
   const config = await glmReferralQuotaConfig(userId, deps)
   const snapshot = await fetchSessionQuotaSnapshot(userId, config, deps)
   const used = snapshot.info.recentCount
+  // The snapshot's limit already folds in the streak bonus; config.limit is the
+  // bonus-free referral entitlement.
+  const limit = snapshot.info.limit
   return {
-    limit: config.limit,
+    limit,
+    referralLimit: config.limit,
     used,
-    remaining: Math.max(0, config.limit - used),
+    remaining: Math.max(0, limit - used),
     resetAt: snapshot.resetsAt.toISOString(),
   }
 }

@@ -36,7 +36,7 @@ describe('foldAgentEvent', () => {
       { type: 'text', text: 'Fixed it.' },
       { type: 'reasoning_delta', text: 'verifying' },
       { type: 'tool_call', toolName: 'run_terminal_command', input: { command: 'test' }, toolCallId: 'c3' },
-      { type: 'finish', totalCost: 0.01 },
+      { type: 'finish' },
     ])
     expect(parts.map((p) => p.kind)).toEqual([
       'reasoning', // planning

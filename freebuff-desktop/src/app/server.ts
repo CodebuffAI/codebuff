@@ -19,12 +19,12 @@ import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
   browseDir,
   readAgentHarness,
-  readLastProject,
+  readRecentProjects,
   validateProjectDir,
   writeAgentHarness,
-  writeLastProject,
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
+import { pushRecentProject } from './project-dir'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -34,7 +34,7 @@ const UI_DIR = process.env.FREEBUFF_UI_DIR ?? join(import.meta.dir, '..', '..', 
 function defaultRepo(): string {
   return join(process.env.HOME ?? '/tmp', 'freebuff-desktop-demo')
 }
-const initialRepo = process.env.TARGET_REPO ?? readLastProject() ?? defaultRepo()
+const initialRepo = process.env.TARGET_REPO ?? readRecentProjects()[0] ?? defaultRepo()
 if (initialRepo === defaultRepo()) await ensureSampleRepo(initialRepo)
 
 // — Engine lifecycle —
@@ -77,7 +77,7 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   currentRepo = info.path
   engine = makeEngine(info.path, info.defaultBranch)
   engineUnsub = engine.on(broadcast)
-  writeLastProject(info.path)
+  pushRecentProject(info.path)
 
   broadcast({ type: 'state', snapshot: engine.snapshot() })
   return { ok: true }
@@ -197,6 +197,17 @@ const server = Bun.serve({
       return json(browseDir(url.searchParams.get('path') ?? undefined))
     }
 
+    // List the MRU of recently-opened projects so the picker can offer
+    // one-click return to a previous workspace. The list is also implied by
+    // the current repo, which always sits at index 0 after a successful open.
+    if (pathname === '/api/project/recents') {
+      const recents = readRecentProjects()
+      // The current repo pins to the top of the picker list even if a stale
+      // entry is missing — keeps "return to current" discoverable.
+      const merged = currentRepo && !recents.includes(currentRepo) ? [currentRepo, ...recents] : recents
+      return json({ recents: merged })
+    }
+
     if (pathname === '/api/project/open' && req.method === 'POST') {
       const { path } = await body(req)
       if (!path) return json({ error: 'path required' }, 400)
@@ -204,8 +215,9 @@ const server = Bun.serve({
       return result.ok ? json({ ok: true, path: currentRepo }) : json(result, 400)
     }
 
-    // Switch the agent harness (app-wide). Applies to the live engine immediately
-    // and persists for the next launch / project swap.
+    // Switch the agent harness (the project-wide DEFAULT for new threads).
+    // Existing threads keep whatever they were pinned to via
+    // /api/thread/{id}/harness — that endpoint sets one specific tab.
     if (pathname === '/api/settings/agent' && req.method === 'POST') {
       const { harnessId } = await body(req)
       if (!isHarnessId(harnessId)) return json({ error: 'invalid harnessId' }, 400)
@@ -213,6 +225,32 @@ const server = Bun.serve({
       engine.setHarness(harnessId)
       writeAgentHarness(harnessId)
       return json({ ok: true, harnessId })
+    }
+
+    // — Project settings (.freebuff/settings.json) —
+    if (pathname === '/api/settings' && req.method === 'GET') {
+      const r = engine.settings.read()
+      return json({
+        path: engine.settings.filePath(),
+        exists: engine.settings.exists(),
+        settings: r.settings,
+        errors: r.errors,
+      })
+    }
+    if (pathname === '/api/settings' && req.method === 'POST') {
+      const { settings } = await body(req)
+      if (!settings || typeof settings !== 'object') {
+        return json({ error: 'settings object required' }, 400)
+      }
+      try {
+        engine.settings.write(settings)
+      } catch (err) {
+        return json({ error: (err as Error).message }, 400)
+      }
+      // Broadcast so any open UI re-renders (and the next /api/state carries the
+      // updated snapshot + previewReady).
+      engine.emitState()
+      return json({ ok: true })
     }
 
     if (pathname === '/api/run' && req.method === 'POST') {
@@ -239,18 +277,23 @@ const server = Bun.serve({
       const [, threadId, action] = threadActionMatch
       const b = await body(req)
       switch (action) {
-        case 'message':
-          if (!b.text) return json({ error: 'text required' }, 400)
-          engine.postMessage(threadId, String(b.text))
+        case 'message': {
+          const text = b.text == null ? '' : String(b.text)
+          const attachments = Array.isArray(b.attachments) ? b.attachments.map(String) : []
+          if (!text.trim() && attachments.length === 0) {
+            return json({ error: 'text or attachments required' }, 400)
+          }
+          engine.postMessage(threadId, text, attachments)
           return json({ ok: true })
+        }
         case 'stop':
           engine.stopTurn(threadId)
           return json({ ok: true })
         case 'close':
-          engine.closeThread(threadId)
+          void engine.closeThread(threadId)
           return json({ ok: true })
-        case 'reopen':
-          engine.reopenThread(threadId)
+        case 'rehydrate':
+          engine.rehydrateThread(threadId)
           return json({ ok: true })
         case 'delete':
           void engine.deleteThread(threadId)
@@ -258,6 +301,14 @@ const server = Bun.serve({
         case 'auto-queue-suggestions':
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
+        case 'harness': {
+          // Per-thread agent pick — flips which harness runs that tab's turns.
+          // /api/settings/agent (above) keeps doing the project-wide default.
+          const id = b.harnessId
+          if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
+          engine.setThreadHarness(threadId, id)
+          return json({ ok: true })
+        }
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
           return json({ ok: true })

@@ -13,6 +13,7 @@ import type { Part } from './parts'
 
 export type ThreadId = string
 export type ProjectId = string
+export type HarnessId = 'codebuff' | 'claude-code'
 
 /** Governing-doc identities (§10.1). Files live under `.freebuff/docs/`. The
  * `reflect` skill appends durable learnings to `learning`. */
@@ -48,8 +49,6 @@ export interface Project {
   defaultBranch: string
   runConfig: RunConfig
   mergeStrategy: MergeStrategy
-  /** Tokens/cost per rolling-24h window — informational in the thread model. */
-  dailyBudget: number
   createdAt: number
 }
 
@@ -62,16 +61,40 @@ export interface Thread {
   projectId: ProjectId
   title: string
   status: ThreadStatus
+  /** Which agent (Codebuff / Claude Code) runs this thread's turns. Per-thread so
+   *  different tabs can run on different agents at the same time. Null while the
+   *  thread is using the engine's default (newly-created threads inherit it). */
+  harnessId: HarnessId | null
   /** When on, assistant-suggested prompts are dropped straight into the queue
    *  (which always auto-drains) instead of parking in the suggested lane. */
   autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null
+  /**
+   * The branch's tip SHA at the moment the thread was closed. Persisted so a
+   * closed thread's full file tree can be rehydrated from git's object store
+   * on reopen (no separate snapshot DB needed). Null while the thread is open
+   * (the branch's tip IS the snapshot; git has it).
+   */
+  lastSeenHead: string | null
   /** The commit the branch was cut from. Null until the worktree is created. */
   baseRef: string | null
   /** Set by the `open-pr` skill / openPr(). `local://<branch>` when no remote. */
   prUrl: string | null
+  /**
+   * Inferred PR lifecycle, derived from observed tool calls (e.g. `gh pr create`,
+   * `gh pr merge`). Drives the tab icon's PR shape so users can tell at a glance
+   * whether a thread has an open PR, has merged, or was closed without a merge.
+   * Persisted so the indicator survives reload and rehydrate.
+   */
+  prState: 'none' | 'open' | 'merged' | 'closed'
   turnState: TurnState
+  /**
+   * Outcome of the most recent turn, so the tab can mark a stopped or errored
+   * turn distinctly from one that completed cleanly. Reset to `null` while a
+   * turn is running (the running pulse already conveys "in flight").
+   */
+  lastTurnOutcome: 'completed' | 'stopped' | 'error' | null
   createdAt: number
   updatedAt: number
 }
@@ -148,12 +171,4 @@ export interface SkillSearchResult {
 export interface Workflow {
   name: string
   skills: string[]
-}
-
-/** Rolling-24h spend bookkeeping per Freebuff account (informational). */
-export interface BudgetLedger {
-  accountId: string
-  tokensUsed: number
-  /** Epoch ms when the current rolling window started. */
-  windowStart: number
 }

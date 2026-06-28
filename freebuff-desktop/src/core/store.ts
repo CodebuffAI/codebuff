@@ -13,7 +13,7 @@ import { Database } from 'bun:sqlite'
 
 import type { Part } from './parts'
 import type {
-  BudgetLedger,
+  HarnessId,
   MergeStrategy,
   Project,
   ProjectId,
@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 7
+const SCHEMA_VERSION = 9
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -65,7 +65,6 @@ export interface NewProjectInput {
   defaultBranch?: string
   runConfig?: RunConfig
   mergeStrategy?: MergeStrategy
-  dailyBudget: number
   createdAt: number
 }
 
@@ -74,6 +73,8 @@ export interface NewThreadInput {
   projectId: string
   title?: string
   status?: ThreadStatus
+  /** Per-thread agent selection. Null means "use the engine's default". */
+  harnessId?: HarnessId | null
   autoQueueSuggestions?: boolean
   createdAt: number
 }
@@ -92,10 +93,26 @@ export interface NewQueueItemInput {
   createdAt: number
 }
 
+/**
+ * Fields the engine can update on a thread. `lastTurnOutcome` is intentionally
+ * NOT in this list — it's a transient UI flag (in-memory only) so the tab icon
+ * can mark a stop/error distinctly, but it should reset on restart since
+ * "this turn was stopped" only makes sense while the user's session is alive.
+ */
 export type ThreadPatch = Partial<
   Pick<
     Thread,
-    'title' | 'status' | 'autoQueueSuggestions' | 'branch' | 'worktreePath' | 'baseRef' | 'prUrl' | 'turnState'
+    | 'title'
+    | 'status'
+    | 'harnessId'
+    | 'autoQueueSuggestions'
+    | 'branch'
+    | 'worktreePath'
+    | 'baseRef'
+    | 'lastSeenHead'
+    | 'prUrl'
+    | 'prState'
+    | 'turnState'
   >
 >
 
@@ -113,7 +130,6 @@ type ProjectRow = {
   default_branch: string
   run_config: string
   merge_strategy: MergeStrategy
-  daily_budget: number
   created_at: number
 }
 
@@ -122,11 +138,16 @@ type ThreadRow = {
   project_id: string
   title: string
   status: ThreadStatus
+  /** Per-thread agent (Codebuff/Claude Code). Mirrors Thread.harnessId. Null
+   *  means the engine's default applies. */
+  harness_id: HarnessId | null
   auto_queue_suggestions: number
   branch: string | null
   worktree_path: string | null
   base_ref: string | null
+  last_seen_head: string | null
   pr_url: string | null
+  pr_state: Thread['prState']
   turn_state: TurnState
   created_at: number
   updated_at: number
@@ -174,7 +195,8 @@ export class Store {
 
     // The task-graph era tables are gone in the thread model. The DB is local,
     // in-repo, and gitignored, so a clean re-create is acceptable. `projects`
-    // and `budget_ledger` are preserved (created with IF NOT EXISTS below).
+    // is preserved here; `budget_ledger` is dropped below since Freebuff has
+    // no spend/budget concept to track.
     this.db.exec(`
       DROP TABLE IF EXISTS task_artifacts;
       DROP TABLE IF EXISTS dependency_edges;
@@ -190,7 +212,6 @@ export class Store {
         default_branch   TEXT NOT NULL DEFAULT 'main',
         run_config       TEXT NOT NULL DEFAULT '{}',
         merge_strategy   TEXT NOT NULL DEFAULT 'squash',
-        daily_budget     INTEGER NOT NULL,
         created_at       INTEGER NOT NULL
       );
 
@@ -200,11 +221,14 @@ export class Store {
         project_id    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
         title         TEXT NOT NULL DEFAULT 'New thread',
         status        TEXT NOT NULL DEFAULT 'open',
+        harness_id    TEXT,
         auto_queue_suggestions INTEGER NOT NULL DEFAULT 0,
         branch        TEXT,
         worktree_path TEXT,
         base_ref      TEXT,
+        last_seen_head TEXT,
         pr_url        TEXT,
+        pr_state      TEXT NOT NULL DEFAULT 'none',
         turn_state    TEXT NOT NULL DEFAULT 'idle',
         created_at    INTEGER NOT NULL,
         updated_at    INTEGER NOT NULL
@@ -248,14 +272,37 @@ export class Store {
         skills_json TEXT NOT NULL,
         PRIMARY KEY (project_id, name)
       );
-
-      -- Rolling-24h spend per Freebuff account (informational).
-      CREATE TABLE IF NOT EXISTS budget_ledger (
-        account_id   TEXT PRIMARY KEY,
-        tokens_used  INTEGER NOT NULL DEFAULT 0,
-        window_start INTEGER NOT NULL
-      );
     `)
+
+    // v8: drop the budget_ledger table (no spend tracking) and the daily_budget
+    // column on projects. Column drops need a table rebuild in SQLite; do that
+    // once for any pre-v8 DB so we leave a clean shape behind.
+    this.db.exec('DROP TABLE IF EXISTS budget_ledger')
+    const projectCols = (
+      this.db.query('PRAGMA table_info(projects)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (projectCols.includes('daily_budget')) {
+      // Recreate `projects` without `daily_budget`. The data we care about
+      // (id/repo_url/root_path/default_branch/run_config/merge_strategy/created_at)
+      // is preserved; the column is just gone.
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS projects__v8 (
+          id               TEXT PRIMARY KEY,
+          repo_url         TEXT NOT NULL,
+          root_path        TEXT NOT NULL,
+          default_branch   TEXT NOT NULL DEFAULT 'main',
+          run_config       TEXT NOT NULL DEFAULT '{}',
+          merge_strategy   TEXT NOT NULL DEFAULT 'squash',
+          created_at       INTEGER NOT NULL
+        );
+        INSERT INTO projects__v8 (id, repo_url, root_path, default_branch,
+          run_config, merge_strategy, created_at)
+          SELECT id, repo_url, root_path, default_branch, run_config,
+            merge_strategy, created_at FROM projects;
+        DROP TABLE projects;
+        ALTER TABLE projects__v8 RENAME TO projects;
+      `)
+    }
 
     // v6: the per-thread `autorun` flag is gone (the queue always auto-drains).
     // Repurpose the column as `auto_queue_suggestions` on existing dbs without
@@ -280,6 +327,33 @@ export class Store {
       this.db.exec("ALTER TABLE messages ADD COLUMN parts_json TEXT NOT NULL DEFAULT '[]'")
     }
 
+    // v8: closing a thread now GCs its worktree + branch ref but the file tree
+    // is recoverable from a stored commit SHA on rehydrate. Add the column
+    // (nullable; null on open threads since the branch tip itself is the
+    // snapshot while live, and null on threads that were already closed before
+    // this version shipped — they rehydrate as fresh branches off `base_ref`).
+    const threadCols7 = (
+      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (!threadCols7.includes('last_seen_head')) {
+      this.db.exec("ALTER TABLE threads ADD COLUMN last_seen_head TEXT")
+    }
+
+    // v9: per-thread agent harness + tab-icon PR state. Both columns are
+    // additive (no shape change for existing rows): `harness_id` is nullable
+    // so legacy threads fall back to the engine's default picker; `pr_state`
+    // is a 4-state enum with a safe `'none'` default so the tab row can render
+    // unambiguously. Fresh DBs already have both from CREATE TABLE above.
+    const threadCols9 = (
+      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
+    ).map((c) => c.name)
+    if (!threadCols9.includes('harness_id')) {
+      this.db.exec("ALTER TABLE threads ADD COLUMN harness_id TEXT")
+    }
+    if (!threadCols9.includes('pr_state')) {
+      this.db.exec("ALTER TABLE threads ADD COLUMN pr_state TEXT NOT NULL DEFAULT 'none'")
+    }
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
 
@@ -293,15 +367,14 @@ export class Store {
       defaultBranch: input.defaultBranch ?? 'main',
       runConfig: input.runConfig ?? {},
       mergeStrategy: input.mergeStrategy ?? 'squash',
-      dailyBudget: input.dailyBudget,
       createdAt: input.createdAt,
     }
     this.db
       .query(
         `INSERT INTO projects
           (id, repo_url, root_path, default_branch, run_config, merge_strategy,
-           daily_budget, created_at)
-         VALUES ($id, $repo, $root, $branch, $runConfig, $merge, $budget, $created)`,
+           created_at)
+         VALUES ($id, $repo, $root, $branch, $runConfig, $merge, $created)`,
       )
       .run({
         $id: project.id,
@@ -310,7 +383,6 @@ export class Store {
         $branch: project.defaultBranch,
         $runConfig: JSON.stringify(project.runConfig),
         $merge: project.mergeStrategy,
-        $budget: project.dailyBudget,
         $created: project.createdAt,
       })
     return project
@@ -337,26 +409,31 @@ export class Store {
       projectId: input.projectId,
       title: input.title ?? 'New thread',
       status: input.status ?? 'open',
+      harnessId: input.harnessId ?? null,
       autoQueueSuggestions: input.autoQueueSuggestions ?? false,
       branch: null,
       worktreePath: null,
       baseRef: null,
+      lastSeenHead: null,
       prUrl: null,
+      prState: 'none',
       turnState: 'idle',
+      lastTurnOutcome: null,
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
     }
     this.db
       .query(
         `INSERT INTO threads
-          (id, project_id, title, status, auto_queue_suggestions, turn_state, created_at, updated_at)
-         VALUES ($id, $project, $title, $status, $autoQueue, 'idle', $created, $updated)`,
+          (id, project_id, title, status, harness_id, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $title, $status, $harness, $autoQueue, 'idle', $created, $updated)`,
       )
       .run({
         $id: thread.id,
         $project: thread.projectId,
         $title: thread.title,
         $status: thread.status,
+        $harness: thread.harnessId,
         $autoQueue: thread.autoQueueSuggestions ? 1 : 0,
         $created: thread.createdAt,
         $updated: thread.updatedAt,
@@ -558,31 +635,6 @@ export class Store {
       .all({ $p: projectId }) as { name: string; skills_json: string }[]
     return rows.map((r) => ({ name: r.name, skills: JSON.parse(r.skills_json) as string[] }))
   }
-
-  // — Budget ledger —
-
-  getBudget(accountId: string): BudgetLedger | null {
-    const row = this.db
-      .query('SELECT * FROM budget_ledger WHERE account_id = $id')
-      .get({ $id: accountId }) as
-      | { account_id: string; tokens_used: number; window_start: number }
-      | null
-    return row
-      ? { accountId: row.account_id, tokensUsed: row.tokens_used, windowStart: row.window_start }
-      : null
-  }
-
-  upsertBudget(ledger: BudgetLedger): void {
-    this.db
-      .query(
-        `INSERT INTO budget_ledger (account_id, tokens_used, window_start)
-         VALUES ($id, $used, $start)
-         ON CONFLICT(account_id) DO UPDATE SET
-           tokens_used = excluded.tokens_used,
-           window_start = excluded.window_start`,
-      )
-      .run({ $id: ledger.accountId, $used: ledger.tokensUsed, $start: ledger.windowStart })
-  }
 }
 
 function rowToProject(row: ProjectRow): Project {
@@ -593,7 +645,6 @@ function rowToProject(row: ProjectRow): Project {
     defaultBranch: row.default_branch,
     runConfig: JSON.parse(row.run_config) as RunConfig,
     mergeStrategy: row.merge_strategy,
-    dailyBudget: row.daily_budget,
     createdAt: row.created_at,
   }
 }
@@ -604,12 +655,16 @@ function rowToThread(row: ThreadRow): Thread {
     projectId: row.project_id,
     title: row.title,
     status: row.status,
+    harnessId: row.harness_id,
     autoQueueSuggestions: row.auto_queue_suggestions === 1,
     branch: row.branch,
     worktreePath: row.worktree_path,
     baseRef: row.base_ref,
+    lastSeenHead: row.last_seen_head,
     prUrl: row.pr_url,
+    prState: row.pr_state ?? 'none',
     turnState: row.turn_state,
+    lastTurnOutcome: null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

@@ -203,6 +203,7 @@ export type ResolveFreeModeCountryAccessFn = (
 ) => Promise<FreeModeCountryAccess>
 export type RecordFreebuffUsageDayFn = (params: {
   userId: string
+  accessTier: FreebuffAccessTier
 }) => Promise<void>
 export type IsFreebuffWebServiceUserFn = (userId: string) => boolean
 
@@ -1072,7 +1073,7 @@ export async function postChatCompletions(params: {
 
     if (isFreeModeRequest && recordFreebuffUsageDay) {
       try {
-        await recordFreebuffUsageDay({ userId })
+        await recordFreebuffUsageDay({ userId, accessTier: freebuffAccessTier })
       } catch (error) {
         logger.error(
           { error: getErrorObject(error), userId },

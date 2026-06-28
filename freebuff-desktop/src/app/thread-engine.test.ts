@@ -6,14 +6,17 @@ import { join } from 'path'
 import { bunRunner } from '../core/exec'
 import { ThreadEngine } from './thread-engine'
 
-/** A fake SDK client: records prompts, optionally drives custom tools, finishes. */
+/** A fake SDK client: records prompts + multimodal content, optionally drives
+ *  custom tools, finishes. */
 class FakeClient {
   prompts: string[] = []
+  contents: any[] = []
   onRun?: (opts: any) => void | Promise<void>
   async run(opts: any) {
     this.prompts.push(opts.prompt)
+    this.contents.push(opts.content)
     await this.onRun?.(opts)
-    opts.handleEvent?.({ type: 'finish', totalCost: 0 })
+    opts.handleEvent?.({ type: 'finish' })
     return {} as any
   }
 }
@@ -35,7 +38,23 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
     globalSkillsDir: join(root, '.global-skills'),
     ...extra,
   })
-  return { engine, client, root, cleanup: () => rmSync(root, { recursive: true, force: true }) }
+  return {
+    engine,
+    client,
+    root,
+    cleanup: async () => {
+      // Several tests kick off async pumps via enqueuePrompt / postMessage
+      // without awaiting them — if we just rmSync the dir, the next test's
+      // engine can race with a still-in-flight appendMessage against the now-
+      // deleted SQLite db and crash with disk-I/O / closed-database errors.
+      // Halt every open thread's pump, then yield a tick so the aborts and
+      // finally-block writes settle before we delete the directory.
+      const openIds = engine.store.listThreads('project', { status: 'open' }).map((t) => t.id)
+      for (const id of openIds) engine.stopTurn(id)
+      await new Promise((r) => setTimeout(r, 50))
+      rmSync(root, { recursive: true, force: true })
+    },
+  }
 }
 
 /** Poll until the thread is idle and no queued item remains. */
@@ -64,6 +83,70 @@ describe('ThreadEngine — turns', () => {
       expect(existsSync(data.thread.worktreePath!)).toBe(true)
       // First message auto-titles the thread.
       expect(data.thread.title).toBe('hello')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('attachments reach the agent prompt; the transcript shows a 📎 summary', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const file = join(root, 'attach-me.txt')
+      writeFileSync(file, 'secret content')
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'look at this', [file])
+      await settle(engine, thread.id)
+
+      // The agent sees the typed text plus the inlined file content.
+      expect(client.prompts[0]).toContain('look at this')
+      expect(client.prompts[0]).toContain(`[File: ${file}]`)
+      expect(client.prompts[0]).toContain('secret content')
+
+      // The transcript shows the compact summary, NOT the inlined bytes.
+      const data = engine.threadData(thread.id)!
+      const userText = data.messages[0].text
+      expect(userText).toContain('look at this')
+      expect(userText).toContain('📎 attach-me.txt')
+      expect(userText).not.toContain('secret content')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('an attached image is sent to the agent as multimodal content', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const png = join(root, 'shot.png')
+      const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 9, 8, 7])
+      writeFileSync(png, bytes)
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'what is this', [png])
+      await settle(engine, thread.id)
+
+      // The SDK run received the image as base64 content (so MiniMax M3 can see it).
+      expect(client.contents[0]).toEqual([
+        { type: 'image', image: bytes.toString('base64'), mediaType: 'image/png' },
+      ])
+      // The path is still referenced in the prompt text.
+      expect(client.prompts[0]).toContain(`[Image: ${png}]`)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('an attachment-only message (no text) still runs and titles the thread', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const file = join(root, 'readme.md')
+      writeFileSync(file, '# hi')
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, '', [file])
+      await settle(engine, thread.id)
+
+      expect(client.prompts[0]).toContain(`[File: ${file}]`)
+      const data = engine.threadData(thread.id)!
+      expect(data.thread.title).toBe('readme.md')
+      expect(data.messages[0].text).toBe('📎 readme.md')
     } finally {
       cleanup()
     }
@@ -341,6 +424,330 @@ describe('ThreadEngine — queue editing & PR', () => {
 
       engine.moveToSuggestions(b.id)
       expect(engine.store.getQueueItem(b.id)!.state).toBe('suggested')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('inferring PR state from `gh pr create` and `gh pr merge` tool calls', async () => {
+    // Drive the agent with handcrafted tool_call events so we can exercise the
+    // detector without actually shelling out to `gh`. The harness folds each
+    // event into parts and the engine observes each one as it streams through.
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      const tools = opts.customToolDefinitions
+      const runCmd = tools.find((t: any) => t.toolName === 'run_terminal_command')
+      const fire = (cmd: string) =>
+        opts.handleEvent({ type: 'tool_call', toolName: 'run_terminal_command', input: { command: cmd } })
+      fire('git add -A && git commit -m "wip"')
+      fire('git push -u origin HEAD')
+      fire('gh pr create --fill --base main') // → open
+      fire('gh pr checks')
+      fire('gh pr merge --squash') // → merged
+      // A second `gh pr create` legitimately flips back to `open` — the agent
+      // cut a fresh PR on the same branch after the merge. The most recent
+      // lifecycle verb wins (no monotonic guard).
+      fire('gh pr create --fill') // → open
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'ship it')
+      await settle(engine, thread.id)
+
+      const t = engine.store.getThread(thread.id)!
+      expect(t.prState).toBe('open')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('`gh pr close` only overrides an open PR (not none/merged)', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      const fire = (cmd: string) =>
+        opts.handleEvent({ type: 'tool_call', toolName: 'run_terminal_command', input: { command: cmd } })
+      fire('gh pr close')
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'just checking')
+      await settle(engine, thread.id)
+
+      // Starting from `none`, `gh pr close` should NOT flip to `closed`
+      // (no PR existed to close). The state stays `none`.
+      expect(engine.store.getThread(thread.id)!.prState).toBe('none')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('ignores tool calls that aren\'t `run_terminal_command`', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      // A read_files tool happens to receive text containing "gh pr create" —
+      // the detector must NOT fire on this. The tab icon is for actual PR
+      // commands the agent ran, not for the agent merely reading about them.
+      opts.handleEvent({ type: 'tool_call', toolName: 'read_files', input: { paths: ['./gh pr create'] } })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'look')
+      await settle(engine, thread.id)
+      expect(engine.store.getThread(thread.id)!.prState).toBe('none')
+    } finally {
+      cleanup()
+    }
+  })
+})
+
+describe('ThreadEngine — last turn outcome', () => {
+  test('completed: a normal turn surfaces `lastTurnOutcome = "completed"`', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      // Listen for the thread broadcast that follows the turn finishing.
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'again')
+      await settle(engine, thread.id)
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('completed')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('stopped: stopping mid-turn surfaces `lastTurnOutcome = "stopped"`', async () => {
+    // Drive a turn that runs forever until we abort it; the FakeClient's
+    // onRun completes the abort by resolving only after stopTurn fires.
+    const client = new FakeClient()
+    let stopApplied = false
+    client.onRun = async (opts) => {
+      const aborter = opts.signal as AbortSignal
+      if (!aborter) return
+      await new Promise<void>((resolve) => {
+        const onAbort = () => {
+          stopApplied = true
+          resolve()
+        }
+        if (aborter.aborted) onAbort()
+        else aborter.addEventListener('abort', onAbort, { once: true })
+      })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'will be stopped')
+      // Wait until the turn is actually running, then stop it.
+      for (let i = 0; i < 100; i++) {
+        await new Promise((r) => setTimeout(r, 5))
+        if (engine.store.getThread(thread.id)!.turnState === 'running') break
+      }
+      engine.stopTurn(thread.id)
+      await settle(engine, thread.id)
+      expect(stopApplied).toBe(true)
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('stopped')
+    } finally {
+      cleanup()
+    }
+  })
+})
+
+describe('ThreadEngine — close + rehydrate', () => {
+  test('closeThread GCs the worktree + branch and snapshots lastSeenHead', async () => {
+    const { engine, cleanup, root } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'go')
+      await settle(engine, thread.id)
+      // Make the worktree dirty so the auto-commit-on-close path is exercised
+      // (covered in detail by the next test). The on-disk worktree gets WIP-
+      // committed and saved as lastSeenHead so rehydrate restores these bytes.
+      const wt = engine.store.getThread(thread.id)!.worktreePath!
+      writeFileSync(join(wt, 'gc-evidence.txt'), 'present\n')
+      const branch = engine.store.getThread(thread.id)!.branch!
+
+      await engine.closeThread(thread.id)
+
+      const after = engine.store.getThread(thread.id)!
+      expect(after.status).toBe('closed')
+      expect(after.branch).toBeNull()
+      expect(after.worktreePath).toBeNull()
+      expect(after.lastSeenHead).toBeTruthy()
+      expect(existsSync(wt)).toBe(false)
+      // Branch ref was deleted.
+      const r = await bunRunner.run(
+        'git',
+        ['-C', root, 'show-ref', '--verify', `refs/heads/${branch}`],
+        { cwd: root },
+      )
+      expect(r.exitCode).not.toBe(0)
+      // ...but the insurance tag survives, holding the rehydrate target reachable.
+      const tag = await bunRunner.run(
+        'git',
+        ['-C', root, 'show-ref', '--tags', '--verify', `refs/tags/freebuff-snapshot/${thread.id}`],
+        { cwd: root },
+      )
+      expect(tag.exitCode).toBe(0)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('closeThread auto-commits dirty working tree so drafts survive', async () => {
+    const { engine, cleanup, root } = await gitEngine()
+    try {
+      const thread = engine.createThread({ title: 'draft' })
+      engine.postMessage(thread.id, 'go')
+      await settle(engine, thread.id)
+      // Write an untracked file into the worktree before closing.
+      const wt = engine.store.getThread(thread.id)!.worktreePath!
+      writeFileSync(join(wt, 'uncommitted.txt'), 'i forgot to commit me\n')
+      // Also modify a tracked file with no commit.
+      writeFileSync(join(wt, 'base.txt'), 'mutated\n')
+
+      await engine.closeThread(thread.id)
+      const sha = engine.store.getThread(thread.id)!.lastSeenHead!
+
+      // Re-create the worktree from the snapshot SHA into a temp checkout, and
+      // confirm the dirty file is present at the rehydrate target.
+      const probe = mkdtempSync(join(tmpdir(), 'fbd-probe-'))
+      const co = await bunRunner.run(
+        'git',
+        ['-C', root, 'worktree', 'add', '--detach', probe, sha],
+        { cwd: root },
+      )
+      expect(co.exitCode).toBe(0)
+      const uncommitted = require('fs').readFileSync(join(probe, 'uncommitted.txt'), 'utf8') as string
+      const base = require('fs').readFileSync(join(probe, 'base.txt'), 'utf8') as string
+      expect(uncommitted).toBe('i forgot to commit me\n')
+      expect(base).toBe('mutated\n')
+      // The WIP commit message should be in the snapshot's log.
+      const log = await bunRunner.run('git', ['-C', root, 'log', '-1', '--format=%s', sha], { cwd: root })
+      expect(log.stdout).toMatch(/^WIP: draft/)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('rehydrateThread restores the file tree from lastSeenHead', async () => {
+    const { engine, cleanup, root } = await gitEngine()
+    try {
+      const thread = engine.createThread({ title: 'rehydrate-me' })
+      engine.postMessage(thread.id, 'go')
+      await settle(engine, thread.id)
+      const wt = engine.store.getThread(thread.id)!.worktreePath!
+      writeFileSync(join(wt, 'artifact.txt'), 'precious\n')
+      await bunRunner.run('git', ['-C', wt, 'add', 'artifact.txt'], { cwd: wt })
+      await bunRunner.run('git', ['-C', wt, 'commit', '-m', 'add artifact'], { cwd: wt })
+
+      await engine.closeThread(thread.id)
+      // The worktree is gone from disk.
+      expect(existsSync(wt)).toBe(false)
+
+      engine.rehydrateThread(thread.id)
+      // Worktree isn't materialized until the next turn/PR (lazy), but the
+      // thread status is open again and lastSeenHead is still set so the next
+      // ensureWorktree() call will recreate the branch at that SHA.
+      expect(engine.store.getThread(thread.id)!.status).toBe('open')
+      expect(engine.store.getThread(thread.id)!.lastSeenHead).toBeTruthy()
+
+      // Trigger lazy materialization by running a turn.
+      engine.postMessage(thread.id, 'again')
+      await settle(engine, thread.id)
+
+      const reopened = engine.store.getThread(thread.id)!
+      const reopenedWt = reopened.worktreePath!
+      expect(existsSync(reopenedWt)).toBe(true)
+      // The file we wrote before closing is back, byte-for-byte.
+      const restored = require('fs').readFileSync(join(reopenedWt, 'artifact.txt'), 'utf8') as string
+      expect(restored).toBe('precious\n')
+      // lastSeenHead is cleared now that the branch has been recreated.
+      expect(engine.store.getThread(thread.id)!.lastSeenHead).toBeNull()
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('rehydrateThread on a never-started thread falls back to a fresh branch', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread({ title: 'never-used' })
+      // Force a status flip by closing without ever posting a message.
+      await engine.closeThread(thread.id)
+      // No worktree ever existed, so lastSeenHead should be null.
+      expect(engine.store.getThread(thread.id)!.lastSeenHead).toBeNull()
+
+      engine.rehydrateThread(thread.id)
+      engine.postMessage(thread.id, 'go')
+      await settle(engine, thread.id)
+      const reopened = engine.store.getThread(thread.id)!
+      // A new worktree was created off the default branch with the base file.
+      expect(reopened.branch).toBeTruthy()
+      expect(reopened.worktreePath).toBeTruthy()
+      expect(existsSync(join(reopened.worktreePath!, 'base.txt'))).toBe(true)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('closeThread on a never-started thread is a no-op for git', async () => {
+    const { engine, cleanup, root } = await gitEngine()
+    try {
+      const thread = engine.createThread({ title: 'untouched' })
+      // Brand new thread: no branch, no worktree.
+      expect(engine.store.getThread(thread.id)!.branch).toBeNull()
+      await engine.closeThread(thread.id)
+      expect(engine.store.getThread(thread.id)!.status).toBe('closed')
+      // Nothing in git's refs changed.
+      const refs = await bunRunner.run('git', ['-C', root, 'show-ref', '--tags'], { cwd: root })
+      expect(refs.stdout).not.toContain(`freebuff-snapshot/${thread.id}`)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('rehydrateThread refuses while closeThread is mid-flight (race fix)', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread({ title: 'race' })
+      engine.postMessage(thread.id, 'go')
+      await settle(engine, thread.id)
+
+      // Kick off close but don't await — exercise the closingIds guard. While
+      // close is mid-flight the SQLite row is still 'open' (close's
+      // status='closed' write only happens AFTER its git work), so the proof
+      // of "rehydrate refused" is that rehydrate doesn't race ahead and flip
+      // anything observable to 'open' after close completes — the end-of-test
+      // status should reflect whichever side won.
+      const closePromise = engine.closeThread(thread.id)
+      // A second rehydrate-while-closing must be a no-op; record the row's
+      // SHA-bearing lastSeenHead BEFORE so we can assert it didn't change.
+      const beforeLsh = engine.store.getThread(thread.id)!.lastSeenHead
+      engine.rehydrateThread(thread.id)
+      const duringLsh = engine.store.getThread(thread.id)!.lastSeenHead
+      expect(duringLsh).toBe(beforeLsh)
+
+      await closePromise
+
+      // Once close has settled, the row carries status='closed' and lastSeenHead
+      // is set; rehydrate flips it back.
+      const afterClose = engine.store.getThread(thread.id)!
+      expect(afterClose.status).toBe('closed')
+      expect(afterClose.lastSeenHead).toBeTruthy()
+      engine.rehydrateThread(thread.id)
+      expect(engine.store.getThread(thread.id)!.status).toBe('open')
     } finally {
       cleanup()
     }

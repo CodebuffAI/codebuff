@@ -512,6 +512,13 @@
       "when": 1782520550370,
       "tag": "0072_ordinary_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1782592542924,
+      "tag": "0073_cool_mephistopheles",
+      "breakpoints": true
     }
   ]
 }

@@ -1025,15 +1025,6 @@ export const Chat = ({
       },
       onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
       onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
-      onSlashMenuTab: () => {
-        // Do nothing if there's only one match - user needs to press Enter to select
-        if (slashMatches.length <= 1) return
-        setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
-      },
-      onSlashMenuShiftTab: () =>
-        setSlashSelectedIndex(
-          (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
-        ),
       onSlashMenuSelect: async () => {
         const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
         if (!selected) return
