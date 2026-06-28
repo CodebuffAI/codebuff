@@ -2,8 +2,18 @@
 
 How to find, judge, and action accounts abusing free mode. Companion to
 [`freebuff-waiting-room.md`](./freebuff-waiting-room.md) (sessions, admission,
-quotas) — this doc is the **operational playbook** for the recurring problem of
-people scripting the free endpoint instead of coding through the CLI.
+quotas) — this doc is the **operational playbook** for free-mode abuse. It covers
+four abuse classes:
+
+1. **Endpoint/proxy scripting** — calling the raw chat-completions endpoint
+   instead of coding through the CLI (the original problem; most of this doc).
+2. **Idle-session farms** — admit-and-hold accounts that inflate the live counter
+   without sending a message ([fingerprints](#three-fingerprints),
+   [mitigation gap](#mitigation-gap-idle-session-farms-evade-every-current-cap)).
+3. **Referral-program farming** — aged dormant GitHub accounts gaming the GLM
+   referral reward ([section](#a-second-abuse-class-referral-program-farming)).
+4. **Signup/compute-abuse rings** — mass auto-generated accounts from a throwaway
+   domain ([section](#signup-review--email-domain-blocklist)).
 
 ## The core abuse: scripting the raw endpoint
 
@@ -304,6 +314,110 @@ off). Banning clears `free_session`, so you can't see the shared IP afterward �
 but the message tables are enough, and sessions rebuild on the user's next CLI
 run (no action needed from them beyond restarting freebuff). The pattern is not
 region-specific: an April ban also had qq.com false positives.
+
+## A second abuse class: referral-program farming
+
+Distinct from endpoint/proxy abuse above. The **GLM 5.2 referral reward**
+(`program='glm'` in `referral`; 1 weekly 1-hour GLM session per qualified
+referral, capped at `FREEBUFF_GLM_V52_REFERRAL_CAP` = 10) qualifies a referred
+friend on a **single bright-line: their GitHub account is ≥12 months old**
+(`MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM`). It does **not** require the friend to run
+the agent. That makes it trivially farmable with **aged dormant GitHub accounts**
+— bulk-registered or purchased, 0 public repos, 0 followers, never used the
+product. As of the 2026-06-28 sweep, **122 of 550 (22%) qualified GLM referrals
+were backed by such accounts.**
+
+### Farm fingerprints (referral)
+
+- **Dormant referred account** — the referred user's GitHub account passes the
+  12-month bar but has **0 public repos AND 0 followers AND 0 `agent_run` rows**
+  (`oldest_public_repo_created_at` null). The single strongest tell: these are
+  aged-but-unused accounts that exist only to be referred.
+- **Bulk-created identity batch** — many of a referrer's referred GitHub accounts
+  share an **identical `github_account_created_at` date** (e.g. 8 accounts all
+  created on one day, ~6–18 months prior), with **email mirroring the GitHub
+  login** (`FooBar123` ↔ `foo.bar.123@…`). A real person's friends do not.
+- **Burst velocity** — many qualified referrals all landing within **minutes**
+  (e.g. 18 qualified in 9 min). No human onboards a dozen friends who each sign
+  up *and* connect GitHub that fast.
+- **Noisy signal, do NOT ban on it alone:** a `username-randomword` GitHub-login
+  suffix. GitHub auto-suggests suffixed names, so real users have them too. Only
+  reliable in combination with dormant + idle + referred.
+
+### Two farm styles → two actions
+
+1. **Ironclad dormant-account farm** (≥~80% of qualified referreds are dormant
+   socks): ban the **operator + the sock referreds**, and **clawback**. Socks are
+   unambiguously fake.
+2. **Bursty operator with real-looking referred accounts** (implausible velocity,
+   but referreds have real repos/followers): ban the **operator only** and
+   clawback — **spare the referred accounts**, because you can't distinguish socks
+   from genuine friends and banning a real human is the costlier error.
+
+### Clawback ≠ ban (the referral-specific lever)
+
+Banning (`user.banned`) stops a farmer's *own* access; it does **not** remove the
+referral reward they already earned. To strip the inflated entitlement:
+
+- **`referral.qualified_at = NULL`** (+ `status='pending'`, `completed_at=NULL`)
+  for all of the operator's rows. `getReferralScore`
+  (`packages/billing/src/referral-program.ts`) counts only
+  `qualified_at IS NOT NULL`, so this instantly drops their score/entitlement.
+- **`referral_v2.revoked_at = now()`** for the unified model
+  (`getReferralStats` excludes `revoked_at IS NOT NULL`).
+- **Leave the burn-once ledger consumed** — do *not* reset
+  `referral_qualification.glm_bonus_consumed_at`. Keeping it set means those
+  GitHub identities can never re-farm the bonus.
+
+### Referral scripts (read-only unless noted; dry-run-first for the actioning ones)
+
+| Script | Purpose |
+|---|---|
+| `glm-referral-investigate.ts` | Who refers, qualified vs pending, did referrers use the benefit (`z-ai/glm-5.2` admits in `free_session_admit`), concentration. **Start here.** |
+| `glm-referral-farms.ts` | Per-referrer farm score (burst velocity, dead/dormant referreds, inactive referrer). |
+| `glm-referral-clawback.ts` | Ironclad dormant-account farms: ban operator + socks, clawback, revoke v2. `--commit` to apply. |
+| `glm-referral-burst-ban.ts` | Bursty operators: ban **operator only** (referreds spared) + clawback. `--commit` to apply. |
+| `glm-referral-stuck.ts` / `referral-health.ts` | Pipeline diagnostics (why pending, counts by program/status). |
+
+**Open follow-up (root cause):** tighten the GLM gate so a referred friend must
+actually **run the agent** (or have a non-dormant GitHub profile) before the
+referral qualifies — closes both farm styles rather than playing whack-a-mole.
+
+## Signup review & email-domain blocklist
+
+`scripts/signups-last-24h.ts` triages a window of new signups: volume by hour,
+auth provider, referred-vs-organic, geography, email domains, agent-run activity,
+and legitimacy signals (referred-by-a-banned-referrer, dormant-GitHub share,
+shared-IP clusters, composite suspects). Run it (`--hours N`) when you want a
+read on where new users are coming from and whether a ring is registering.
+
+It surfaced the **`gkmaill.com` ring** (2026-06-28): a **typo-squat of gmail**,
+~55 auto-generated Google accounts from **2 IPs** burning ~4k `agent_run`s/day —
+pure free-compute abuse, **not** referral-related (a different shape from the
+idle-session farm: these accounts *do* run the agent). The 12-account shared-IP
+cluster was just a subset of it.
+
+**Prevention lever — refuse abuse-ring domains at sign-in.**
+`BLOCKED_EMAIL_DOMAINS` in `packages/auth/src/constants.ts` is checked by the
+`signIn` callback (`packages/auth/src/create-auth-options.ts`, via pure
+`isBlockedEmailDomain` in `link-guard.ts`). It runs **before** the adapter's
+`createUser`, so a blocked domain never creates a user row — and it covers both
+Google and GitHub. It's an **exact registrable-domain** match, so it won't catch
+the operator's next typo-squat; adding one is a one-line edit to the constant.
+Banning existing accounts is still reactive — this stops the re-registration.
+
+## Appeals: referral-fraud cases
+
+When a banned referral farmer appeals (they will — the milestone framed as proof
+of good faith), **re-review fresh** and separate their *own* product usage
+(`agent_run` cadence) from the abuse (the accounts they referred). A user can be
+a genuine heavy coder **and** a referral farmer at once. The 2026-06-28 precedent:
+a real daily user (2k+ runs) whose 10 referrals were a same-day fabricated batch
+was **reinstated with a final warning** — personal account unbanned, but the
+clawback stood and all sock referreds stayed banned. **Never disclose the
+detection method** (same-day creation, dormancy thresholds) in the reply, or the
+farmer engineers around it next time. Reinstate via `unban-freebuff-users.ts`
+(takes an email file; it does not restore referral entitlement).
 
 ## Operational hygiene
 

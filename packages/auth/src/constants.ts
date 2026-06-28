@@ -17,3 +17,13 @@ export const LINK_INTENT_COOKIE = 'link_intent'
  * provider's verified email). The connections UIs map this to a message.
  */
 export const LINK_NO_MATCH_ERROR = 'link_no_match'
+
+/**
+ * Email domains refused at sign-in (before any user row is created). Used to
+ * shut down abuse rings that register en masse from a throwaway / typo-squat
+ * domain. Entries must be the bare lowercased registrable domain (no `@`).
+ *
+ * - `gkmaill.com`: typo-squat of gmail; a single operator stood up ~55
+ *   auto-generated Google accounts from 2 IPs to farm free agent runs (2026-06).
+ */
+export const BLOCKED_EMAIL_DOMAINS: readonly string[] = ['gkmaill.com']
