@@ -72,7 +72,7 @@ async function loadAgentDefinition(filePath: string): Promise<AgentDefinition | 
     const module = await import(filePath)
     const definition = module.default
 
-    if (!definition || !definition.id || !definition.model) {
+    if (!definition || !definition.id) {
       return null
     }
 
