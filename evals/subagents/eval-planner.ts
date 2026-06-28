@@ -2,17 +2,17 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import {
-  CodebuffClient,
+  OpenbuffClient,
   loadLocalAgents,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import { createTwoFilesPatch } from 'diff'
 
 import { withTestRepo } from './test-repo-utils'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 export const evalPlannerAgent = async (params: {
-  client: CodebuffClient
+  client: OpenbuffClient
   agentId: string
   agentDefinitions: Array<AgentDefinition>
   spec: string
@@ -230,7 +230,7 @@ async function main() {
 
   const { repoUrl, initCommand, evalCommits } = evalData
 
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
   })
 
   const agentsPath = path.join(__dirname, '../../.agents')

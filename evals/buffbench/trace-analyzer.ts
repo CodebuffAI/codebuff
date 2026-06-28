@@ -6,7 +6,7 @@ import { truncateTrace } from './trace-utils'
 import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
 import type { FinalCheckOutput } from './types'
-import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
+import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
 
 
 
@@ -113,7 +113,7 @@ export async function analyzeAgentTraces({
   codingAgentPrompt,
   analyzerContext,
 }: {
-  client: CodebuffClient
+  client: OpenbuffClient
   traces: AgentTraceData[]
   codingAgentPrompt: string
   analyzerContext: {

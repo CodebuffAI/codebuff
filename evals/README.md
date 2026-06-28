@@ -244,7 +244,7 @@ interface EvalRunJudged {
 
 ### Openbuff/Codebuff Integration
 
-- Uses the SDK (`@codebuff/sdk`) for local integration
+- Uses the SDK (`@openbuff/sdk`) for local integration
 - Supports custom agent types (base, base2, base-lite, etc.)
 
 ### Claude Code Integration

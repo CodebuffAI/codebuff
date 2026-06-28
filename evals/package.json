@@ -35,7 +35,7 @@
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
-    "@codebuff/sdk": "workspace:*",
+    "@openbuff/sdk": "workspace:*",
     "@oclif/core": "^4.4.0",
     "@oclif/parser": "^3.8.17",
     "async": "^3.2.6",

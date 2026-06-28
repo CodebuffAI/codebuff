@@ -6,7 +6,9 @@
     "skipLibCheck": true,
     "paths": {
       "@codebuff/sdk": ["../sdk/src/index.ts"],
-      "@codebuff/sdk/*": ["../sdk/src/*"]
+      "@codebuff/sdk/*": ["../sdk/src/*"],
+      "@openbuff/sdk": ["../sdk/src/index.ts"],
+      "@openbuff/sdk/*": ["../sdk/src/*"]
     }
   },
   "include": ["**/*.ts"],

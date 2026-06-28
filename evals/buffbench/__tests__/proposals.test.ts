@@ -1,6 +1,6 @@
 import { expect, describe, test } from 'bun:test'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 import { applyProposals, parseProposals } from '../proposals'
 

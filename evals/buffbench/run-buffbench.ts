@@ -4,9 +4,9 @@ import os from 'os'
 import path from 'path'
 
 import {
-  CodebuffClient,
+  OpenbuffClient,
   loadLocalAgents,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
@@ -40,7 +40,7 @@ function parseAgentId(agent: string): {
 }
 
 async function runTask(options: {
-  client: CodebuffClient
+  client: OpenbuffClient
   commit: EvalDataV2['evalCommits'][0]
   agents: string[]
   repoUrl: string
@@ -319,7 +319,7 @@ export async function runBuffBench(options: {
   evalDataPaths: string[]
   agents: string[]
   taskConcurrency?: number
-  client?: CodebuffClient
+  client?: OpenbuffClient
   taskIds?: string[]
   extractLessons?: boolean
   disableAnalysis?: boolean
@@ -408,7 +408,7 @@ export async function runBuffBench(options: {
 
   const client =
     options.client ??
-    new CodebuffClient({
+    new OpenbuffClient({
       logger,
     })
 

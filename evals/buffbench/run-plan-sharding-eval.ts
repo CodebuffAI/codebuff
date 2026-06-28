@@ -19,17 +19,20 @@
  * debug/plan-sharding-eval by default.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readdirSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
+import { OpenbuffClient, loadLocalAgents } from '@openbuff/sdk'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 import { logger } from '../logger'
 import {
+  buildCoverageMatrix,
+  classifyBreadth,
   computePlanShardingSignals,
   evaluateShardingVerdict,
+  evaluateSubsystemEnumeration,
 } from './plan-sharding-signals'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -53,7 +56,7 @@ async function main() {
   console.log(`Output dir: ${outputDir}`)
 
   // BYOK/local mode — uses openbuff.json for provider routing.
-  const client = new CodebuffClient({ logger, cwd })
+  const client = new OpenbuffClient({ logger, cwd })
 
   // Load local agent definitions so `base2-plan` resolves to the working tree.
   const agentsPath = resolve(__dirname, '../../agents')
@@ -97,7 +100,24 @@ async function main() {
   const durationMs = Date.now() - startTime
 
   const signals = computePlanShardingSignals({ events, prompt })
-  const evaluation = evaluateShardingVerdict(signals)
+  // Pass `prompt` so the M10.2 minimum-shard gate (layered inside
+  // evaluateShardingVerdict) fires for broad-audit prompts in the live eval.
+  const evaluation = evaluateShardingVerdict(signals, prompt)
+
+  // M10.3 coverage matrix + M10.4 subsystem-enumeration guard: diagnostic
+  // visibility into which enumerated domains got a shard and which top-level
+  // repo dirs were audited vs. left unenumerated. Non-downgrading (M10.2 is
+  // the hard gate); these surface coverage gaps for the eval report.
+  const breadth = classifyBreadth(prompt)
+  const coverageMatrix = buildCoverageMatrix({ breadth, signals })
+  const topLevelDirs = readdirSync(cwd, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+    .map((d) => d.name)
+    .sort()
+  const subsystemEnumeration = evaluateSubsystemEnumeration({
+    breadth,
+    topLevelDirs,
+  })
 
   console.log('\n========== PLAN-SHARDING EVAL RESULTS ==========')
   console.log(`Verdict: ${evaluation.verdict.toUpperCase()}`)
@@ -117,6 +137,32 @@ async function main() {
   for (const reason of evaluation.reasons) {
     console.log(`  - ${reason}`)
   }
+
+  // M10.3 coverage matrix summary.
+  if (coverageMatrix.entries.length > 0) {
+    console.log('\nCoverage matrix:')
+    for (const entry of coverageMatrix.entries) {
+      const status = entry.covered ? 'covered' : 'uncovered'
+      console.log(
+        '  - ' + entry.domain + ': ' + entry.assignedPairs + ' pair(s) [' + status + ']',
+      )
+    }
+    if (!coverageMatrix.allCovered) {
+      console.log(
+        '  Uncovered domains: ' + coverageMatrix.uncoveredDomains.join(', '),
+      )
+    }
+  }
+
+  // M10.4 subsystem-enumeration summary.
+  console.log(
+    'Subsystem enumeration: ' +
+      subsystemEnumeration.auditedDirs.length +
+      '/' +
+      subsystemEnumeration.topLevelDirs.length +
+      ' top-level dirs audited; unenumerated: ' +
+      (subsystemEnumeration.unenumeratedDirs.join(', ') || '(none)'),
+  )
   if (runError) {
     console.log(`\nRun error: ${runError}`)
   }
@@ -142,6 +188,21 @@ async function main() {
       shardedParallely: signals.shardedParallely,
       singleCodesearchOnly: signals.singleCodesearchOnly,
       topLevelDirectToolCount: signals.topLevelDirectToolCount,
+      // M10.2 minimum-shard diagnostic counts.
+      filePickerCount: signals.filePickerCount,
+      codeSearcherCount: signals.codeSearcherCount,
+    },
+    // M10.3 coverage matrix (SPEC R10.3): per-domain shard assignment.
+    coverageMatrix: {
+      entries: coverageMatrix.entries,
+      uncoveredDomains: coverageMatrix.uncoveredDomains,
+    },
+    // M10.4 subsystem-enumeration guard (SPEC R10.4): audit/scope disposition.
+    subsystemEnumeration: {
+      topLevelDirs: subsystemEnumeration.topLevelDirs,
+      auditedDirs: subsystemEnumeration.auditedDirs,
+      unenumeratedDirs: subsystemEnumeration.unenumeratedDirs,
+      satisfies: subsystemEnumeration.satisfies,
     },
     cost,
     durationMs,

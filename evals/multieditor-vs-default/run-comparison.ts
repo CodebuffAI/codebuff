@@ -21,7 +21,7 @@ import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
 
-import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
+import { OpenbuffClient, loadLocalAgents } from '@openbuff/sdk'
 import { logger } from '../logger'
 
 import { editorRunResultSchema, type EditorRunResult } from './types'
@@ -61,7 +61,7 @@ interface RunOutput {
 type EditorRunKind = 'default' | 'multieditor' | 'second-pass'
 
 async function runEditor(
-  client: CodebuffClient,
+  client: OpenbuffClient,
   agentId: string,
   localAgentDefinitions: any[],
   prompt: string,
@@ -194,7 +194,7 @@ async function main() {
   console.log(`Output dir: ${outputDir}`)
 
   // BYOK/local mode — uses openbuff.json for provider routing
-  const client = new CodebuffClient({ logger, cwd })
+  const client = new OpenbuffClient({ logger, cwd })
 
   // Load local agent definitions
   const agentsPath = resolve(__dirname, '../../agents')

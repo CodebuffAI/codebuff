@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 /**
  * Structured config-change proposals emitted by the lessons extractor.

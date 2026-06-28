@@ -6,7 +6,7 @@ import path from 'path'
 
 import { models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
-import { promptAiSdkStructured } from '@codebuff/sdk'
+import { promptAiSdkStructured } from '@openbuff/sdk'
 import { mapLimit } from 'async'
 import { z } from 'zod/v4'
 

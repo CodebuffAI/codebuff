@@ -13,7 +13,7 @@ import { OpenCodeRunner } from './runners/opencode'
 
 import type { Runner, AgentStep } from './runners/runner'
 import type { EvalCommitV2, FinalCheckOutput } from './types'
-import type { CodebuffClient } from '@codebuff/sdk'
+import type { OpenbuffClient } from '@openbuff/sdk'
 
 export type { AgentStep }
 
@@ -31,7 +31,7 @@ export async function runAgentOnCommit({
   finalCheckCommands,
   externalAgentType,
 }: {
-  client: CodebuffClient
+  client: OpenbuffClient
   agentId: string
   commit: EvalCommitV2
   repoUrl: string

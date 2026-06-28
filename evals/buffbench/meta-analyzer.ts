@@ -4,7 +4,7 @@ import path from 'path'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { withTimeout } from '@codebuff/common/util/promise'
 
-import type { CodebuffClient, AgentDefinition } from '@codebuff/sdk'
+import type { OpenbuffClient, AgentDefinition } from '@openbuff/sdk'
 
 export interface TaskAnalysisData {
   commitSha: string
@@ -144,7 +144,7 @@ Focus on actionable patterns that can inform agent improvements, not individual 
 }
 
 export async function analyzeAllTasks(params: {
-  client: CodebuffClient
+  client: OpenbuffClient
   logsDir: string
   agents: string[]
   analyzerContext: {

@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { CodebuffClient } from '@codebuff/sdk'
+import { OpenbuffClient } from '@openbuff/sdk'
 import { mapLimit } from 'async'
 import { createTwoFilesPatch } from 'diff'
 
@@ -140,7 +140,7 @@ export async function generateEvalFileV2({
 }): Promise<void> {
   const actualRepoName = extractRepoNameFromUrl(repoUrl)
 
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
   })
 
   const finalOutputPath =

@@ -9,7 +9,7 @@ import {
   computeDeterministicSignals,
 } from './deterministic-signals'
 import type { EvalCommitV2, FinalCheckOutput } from './types'
-import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
+import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
 
 const DEBUG_ERROR = true
 
@@ -143,7 +143,7 @@ const judgeAgents: Record<string, AgentDefinition> = {
 }
 
 interface JudgeCommitResultInput {
-  client: CodebuffClient
+  client: OpenbuffClient
   commit: EvalCommitV2
   contextFiles: Record<string, string>
   agentDiff: string

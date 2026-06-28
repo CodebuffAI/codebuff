@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 import type { Runner, RunnerResult, AgentStep } from './runner'
-import type { CodebuffClient } from '@codebuff/sdk'
+import type { OpenbuffClient } from '@openbuff/sdk'
 
 
 const DEBUG_ERROR = true
@@ -11,7 +11,7 @@ const DEBUG_ERROR = true
 export class CodebuffRunner implements Runner {
   private cwd: string
   private env?: Record<string, string>
-  private client: CodebuffClient
+  private client: OpenbuffClient
   private agentId: string
   private localAgentDefinitions: any[]
   private printEvents: boolean
@@ -21,7 +21,7 @@ export class CodebuffRunner implements Runner {
   constructor(options: {
     cwd: string
     env?: Record<string, string>
-    client: CodebuffClient
+    client: OpenbuffClient
     agentId: string
     localAgentDefinitions: any[]
     printEvents: boolean

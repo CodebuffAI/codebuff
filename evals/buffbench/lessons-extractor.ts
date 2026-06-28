@@ -10,7 +10,7 @@ import { truncateTrace } from './trace-utils'
 import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
 import type { FileDiff } from './types'
-import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
+import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
 
 export interface Lesson {
   whatWentWrong: string
@@ -18,7 +18,7 @@ export interface Lesson {
 }
 
 type ExtractAgentLessonsInput = {
-  client: CodebuffClient
+  client: OpenbuffClient
   localAgentDefinitions: any[]
   prompt: string
   groundTruthFileDiffs: FileDiff[]

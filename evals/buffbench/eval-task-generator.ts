@@ -1,5 +1,5 @@
-import type { CodebuffClient} from '@codebuff/sdk';
-import { type AgentDefinition } from '@codebuff/sdk'
+import type { OpenbuffClient} from '@openbuff/sdk';
+import { type AgentDefinition } from '@openbuff/sdk'
 
 import { PLACEHOLDER } from '../../agents/types/secret-agent-definition'
 import fileExplorerDef from '../../agents-graveyard/file-explorer/file-explorer'
@@ -98,7 +98,7 @@ export async function generateEvalTask({
   input,
   agentDefinitions,
 }: {
-  client: CodebuffClient
+  client: OpenbuffClient
   input: {
     commitSha: string
     parentSha: string
