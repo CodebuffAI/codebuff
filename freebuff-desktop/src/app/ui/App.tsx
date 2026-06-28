@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import freebuffLogo from './components/freebuff-logo.svg'
 import { ProjectPicker } from './components/ProjectPicker'
 import { SettingsModal } from './components/SettingsModal'
 import { TabBar } from './components/TabBar'
@@ -59,9 +60,11 @@ export function App() {
         <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
+          {/* Empty-state mirrors ThreadView's in-thread placeholder: just the
+              wordmark. The ⌘T hint is the App-level keyboard overlay, which
+              already handles this affordance globally. */}
           <div className="welcome">
-            <div className="welcome-title">No threads open</div>
-            <div className="welcome-sub">Press ⌘T to start a new thread.</div>
+            <img className="welcome-logo" src={freebuffLogo} alt="" />
           </div>
         </div>
       )}

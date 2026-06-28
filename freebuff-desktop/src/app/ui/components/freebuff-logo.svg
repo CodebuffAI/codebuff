@@ -1,5 +1,21 @@
-<svg viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M84 71.3367L110 91.5L90.5 66L60 27L84 71.3367Z" fill="#FFFFFF"/>
-  <path d="M25 34.5C25 34.5 73.0241 66.7839 100.5 86C104.406 88.732 106.691 90.634 110.5 93.5C114.309 96.366 117.834 99.1793 120.5 104.5C121.801 107.095 122.154 108.618 122.5 111.5C122.686 113.051 125 122 125 122C125 122 118.037 111.646 113 108.5C107.396 105 103.072 101.185 96.5 100.5H85.5L50 86L81 90L25 34.5Z" fill="#FFFFFF"/>
-  <path d="M111.5 99.5C113.889 100.593 114.945 100.883 116.5 103C117.792 104.76 119.5 111 119.5 111C119.5 111 114.744 104.577 113 103C110.233 100.498 104 96.5 104 96.5C104 96.5 110.036 98.8299 111.5 99.5Z" fill="#7CFF3F"/>
+<svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded terminal-window frame: dark fill with cyan stroke (matches the
+       brand mark used in freebuff/web/design/opengraph-image.svg). -->
+  <rect x="6" y="6" width="138" height="138" rx="22" ry="22"
+        fill="#0a0a0b" stroke="#67e8f9" stroke-width="4"/>
+
+  <!-- Traffic-light dots on the title bar. -->
+  <circle cx="28" cy="32" r="5" fill="#3a3e44"/>
+  <circle cx="48" cy="32" r="5" fill="#3a3e44"/>
+  <circle cx="68" cy="32" r="5" fill="#3a3e44"/>
+
+  <!-- The "terminal guy": two eyes + a small smile, all in the brand cyan so
+       the mascot reads as Freebuff, not as a generic smiley. -->
+  <g fill="#67e8f9">
+    <circle cx="60" cy="82" r="7"/>
+    <circle cx="100" cy="82" r="7"/>
+  </g>
+  <path d="M58 104 Q80 122 102 104"
+        fill="none" stroke="#67e8f9" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

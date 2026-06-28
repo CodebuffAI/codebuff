@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import freebuffLogo from './freebuff-logo.svg'
 import { useStore } from '../store/store'
 import { AgentPicker } from './AgentSelector'
 import { Icon } from './Icon'
@@ -43,15 +44,28 @@ export function TabBar() {
           const slice = threads[id]
           if (!slice) return null
           const status = describeTab(slice.thread)
+          const untitled = !slice.thread.title
           return (
             <div
               key={id}
               className={`tab ${id === activeId ? 'active' : ''}`}
               onClick={() => setActive(id)}
-              title={[slice.thread.title, status.tooltip].filter(Boolean).join(' — ')}
+              title={
+                status.tooltip
+                  ? `${untitled ? 'New thread' : slice.thread.title} — ${status.tooltip}`
+                  : untitled
+                    ? 'New thread'
+                    : slice.thread.title
+              }
             >
               <TabStatusIcon status={status} />
-              <span className="tab-title">{slice.thread.title || 'New thread'}</span>
+              <span className={`tab-title ${untitled ? 'untitled' : ''}`}>
+                {untitled ? (
+                  <img className="tab-glyph" src={freebuffLogo} alt="New thread" />
+                ) : (
+                  slice.thread.title
+                )}
+              </span>
               {/* Per-tab model picker — lets each tab run on a different agent.
                   e.stopPropagation on the picker (AgentPicker) keeps its button
                   from also activating this tab. */}
@@ -97,6 +111,7 @@ export function TabBar() {
                 const slice = threads[id]
                 if (!slice) return null
                 const status = describeTab(slice.thread)
+                const untitled = !slice.thread.title
                 return (
                   <button
                     key={id}
@@ -105,10 +120,22 @@ export function TabBar() {
                       setActive(id)
                       setMenuOpen(false)
                     }}
-                    title={status.tooltip}
+                    title={
+                      status.tooltip
+                        ? `${untitled ? 'New thread' : slice.thread.title} — ${status.tooltip}`
+                        : untitled
+                          ? 'New thread'
+                          : slice.thread.title
+                    }
                   >
                     <TabStatusIcon status={status} />
-                    <span className="tab-menu-title">{slice.thread.title || 'New thread'}</span>
+                    <span className={`tab-menu-title ${untitled ? 'untitled' : ''}`}>
+                      {untitled ? (
+                        <img className="tab-glyph" src={freebuffLogo} alt="New thread" />
+                      ) : (
+                        slice.thread.title
+                      )}
+                    </span>
                     {status.label && <span className="tab-menu-status">{status.label}</span>}
                   </button>
                 )

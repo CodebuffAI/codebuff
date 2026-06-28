@@ -122,6 +122,23 @@ select {
   user-select: none;
   -webkit-user-select: none;
 }
+/* An untitled tab has no text to ellipsize — center the wordmark glyph so it
+   reads as a "new thread" placeholder instead of a left-clipped icon. */
+.tab-title.untitled,
+.tab-menu-title.untitled {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+/* Tiny freebuff wordmark used in place of the literal "New thread" label, in the
+   tab and the overflow menu. 13px sits comfortably next to the 12.5px tab
+   title text without crowding the close button. */
+.tab-glyph {
+  display: block;
+  width: 13px;
+  height: 13px;
+  opacity: 0.75;
+}
 .tab-pulse {
   width: 7px;
   height: 7px;
@@ -579,11 +596,6 @@ body.col-resizing {
   height: 96px;
   margin: 0 auto;
   opacity: 0.92;
-}
-.welcome-title {
-  font-size: 18px;
-  color: var(--text);
-  margin-bottom: 6px;
 }
 .welcome-sub {
   font-size: 13px;
