@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import freebuffLogo from './freebuff-logo.svg'
 import { useStore } from '../store/store'
-import { AgentPicker } from './AgentSelector'
 import { Icon } from './Icon'
 
 const isMac = (window as any).freebuffDesktop?.platform === 'darwin'
@@ -21,9 +20,6 @@ export function TabBar() {
   const closeTab = useStore((s) => s.closeTab)
   const newThread = useStore((s) => s.newThread)
   const connection = useStore((s) => s.connection)
-  const agentOptions = useStore((s) => s.agentOptions)
-  const agentHarness = useStore((s) => s.agentHarness)
-  const setThreadHarness = useStore((s) => s.setThreadHarness)
 
   // Overflow menu: jump to any open tab when there are too many to scan.
   const [menuOpen, setMenuOpen] = useState(false)
@@ -66,18 +62,6 @@ export function TabBar() {
                   slice.thread.title
                 )}
               </span>
-              {/* Per-tab model picker — lets each tab run on a different agent.
-                  e.stopPropagation on the picker (AgentPicker) keeps its button
-                  from also activating this tab. */}
-              {agentOptions.length > 0 && (
-                <AgentPicker
-                  compact
-                  harnessId={slice.thread.harnessId}
-                  options={agentOptions}
-                  fallbackId={agentHarness ?? undefined}
-                  onChange={(h) => setThreadHarness(id, h)}
-                />
-              )}
               <button
                 className="tab-close"
                 onClick={(e) => {

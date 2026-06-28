@@ -349,49 +349,6 @@ select {
 .agent-trigger svg {
   color: var(--faint);
 }
-/* Compact pill inside a tab: smaller, no border so it reads as part of the tab
-   until you hover/focus it. Position inheritance from .agent-selector keeps
-   the popover anchored to the pill — DO NOT override to `static` here, or
-   .agent-menu's `position:absolute` will resolve against the viewport and
-   render the popover off-screen below the page. */
-.agent-selector.compact .agent-trigger {
-  height: 22px;
-  padding: 0 6px;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 11.5px;
-}
-.agent-selector.compact .agent-trigger:hover {
-  background: var(--raised);
-  color: var(--text);
-}
-.agent-selector.compact .agent-compact-name {
-  /* Let the pill take its natural width; the tab's own .tab-title has
-     `flex:1`, so it yields space to the pill without forcing a shrink here.
-     `nowrap` is defensive: if the pill IS narrower than its label, it would
-     still truncate cleanly. */
-  white-space: nowrap;
-  letter-spacing: 0.005em;
-}
-.agent-selector.compact .agent-dot {
-  width: 6px;
-  height: 6px;
-}
-.agent-selector.compact svg {
-  width: 12px;
-  height: 12px;
-}
-/* In compact mode the menu opens down/left under the pill (the tab bar is at
-   the very top of the window, so opening up would clip into the title bar,
-   and it's nicer to have the menu grow rightward into the workspace area). */
-.agent-selector.compact .agent-menu {
-  top: calc(100% + 4px);
-  right: auto;
-  left: 0;
-  width: 280px;
-}
 .agent-dot {
   width: 7px;
   height: 7px;
@@ -519,6 +476,13 @@ body.col-resizing {
   gap: 8px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
+}
+/* The agent picker lives at the left of this header, so its popover must open
+   down/left (the default full-pill menu is right-anchored, which would run the
+   320px menu off the left edge of the window here). */
+.thread-head .agent-menu {
+  right: auto;
+  left: 0;
 }
 .thread-head-project {
   display: inline-flex;

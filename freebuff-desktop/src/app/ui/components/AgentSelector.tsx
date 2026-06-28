@@ -1,14 +1,12 @@
 /**
- * Per-tab agent picker. Each tab carries its own harness pick (Codebuff vs.
- * Claude Code), so different tabs can run on different agents in parallel.
+ * Per-thread agent picker. Each thread carries its own harness pick (Codebuff
+ * vs. Claude Code), so different threads can run on different agents in parallel.
  * Persists with the thread (see /api/thread/{id}/harness); a null pick
  * inherits the project-wide default (`store.agentHarness`) so a freshly-open
- * tab doesn't start empty.
+ * thread doesn't start empty.
  *
- * Two visual flavors:
- *  - default — full pill (used standalone in the UI when we want a wide trigger).
- *  - `compact` — a small pill that lives inside a tab; shows just the agent
- *    name + chevron so the tab's title still fits.
+ * Lives in the thread header bar (a full pill showing the agent name + model),
+ * alongside the project and preview controls.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -28,7 +26,6 @@ export interface AgentPickerProps {
    *  yet, or no threads are open). First option is used. */
   fallbackId?: HarnessId
   onChange: (harnessId: HarnessId) => void
-  compact?: boolean
 }
 
 export function AgentPicker({
@@ -36,7 +33,6 @@ export function AgentPicker({
   options,
   fallbackId,
   onChange,
-  compact,
 }: AgentPickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -62,31 +58,21 @@ export function AgentPicker({
 
   return (
     <div
-      className={`agent-selector ${compact ? 'compact' : ''}`}
+      className="agent-selector"
       ref={ref}
-      // `compact` pills live inside tab pills that already have an outer
-      // click handler; stop propagation so a click on the picker doesn't
-      // bubble up and (for instance) re-focus the tab.
+      // Stop propagation so a click on the picker doesn't bubble up to header
+      // controls behind it.
       onClick={(e) => e.stopPropagation()}
     >
       <button
         className="agent-trigger"
         onClick={() => setOpen((v) => !v)}
-        title="Switch this tab's coding agent"
+        title="Switch this thread's coding agent"
       >
         <span className={`agent-dot agent-dot-${active.id}`} />
-        {compact ? (
-          <>
-            <span className="agent-compact-name">{active.label}</span>
-            <Icon name="chevron-down" />
-          </>
-        ) : (
-          <>
-            <span className="agent-name">{active.label}</span>
-            <span className="agent-model">{active.modelLabel}</span>
-            <Icon name="chevron-down" />
-          </>
-        )}
+        <span className="agent-name">{active.label}</span>
+        <span className="agent-model">{active.modelLabel}</span>
+        <Icon name="chevron-down" />
       </button>
       {open && (
         <div className="agent-menu" role="listbox">

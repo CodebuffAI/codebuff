@@ -5,6 +5,7 @@ import { useStore } from '../store/store'
 import type { PendingAttachment } from '../lib/types'
 import { baseName, kindFor } from '../lib/file-drop'
 import freebuffLogo from './freebuff-logo.svg'
+import { AgentPicker } from './AgentSelector'
 import { Composer } from './Composer'
 import { Icon } from './Icon'
 import { Message } from './Message'
@@ -37,6 +38,11 @@ export function ThreadView({ threadId }: { threadId: string }) {
   // into a 404. Default false so we never show it before the first state event.
   const previewReady = useStore((s) => s.previewReady)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+  // Per-thread agent picker — moved out of the tab and into this header bar so it
+  // sits alongside the project + preview controls. It still scopes to this thread.
+  const agentOptions = useStore((s) => s.agentOptions)
+  const agentHarness = useStore((s) => s.agentHarness)
+  const setThreadHarness = useStore((s) => s.setThreadHarness)
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
@@ -134,6 +140,14 @@ export function ThreadView({ threadId }: { threadId: string }) {
           <Icon name="folder" /> {projectName || 'Open project'}
           <Icon name="down" className="caret" />
         </button>
+        {agentOptions.length > 0 && (
+          <AgentPicker
+            harnessId={slice.thread.harnessId}
+            options={agentOptions}
+            fallbackId={agentHarness ?? undefined}
+            onChange={(h) => setThreadHarness(threadId, h)}
+          />
+        )}
         {/* The thread title already lives in the tab above; no need to repeat it
             next to the folder name. */}
         {previewReady && preview && (
