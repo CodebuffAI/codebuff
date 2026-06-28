@@ -22,6 +22,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "codex": {
@@ -50,6 +55,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "local": {
@@ -66,6 +76,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "openrouter": {
@@ -87,6 +102,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "opencode-zen": {
@@ -105,6 +125,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "agentrouter": {
@@ -125,6 +150,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "AGENT_ROUTER": {
@@ -144,6 +174,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "pioneer": {
@@ -171,7 +206,11 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       },
-      "contextWindowTokens": 128000,
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
+      },
       "modelCapabilities": {
         "pioneer/auto": {
           "input": {
@@ -263,6 +302,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "gemini": {
@@ -284,6 +328,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "bedrock": {
@@ -308,6 +357,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "freemodel": {
@@ -328,6 +382,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "tokenrouter": {
@@ -345,6 +404,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "bluesminds": {
@@ -362,6 +426,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "evomap": {
@@ -379,6 +448,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "bai": {
@@ -396,6 +470,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "zyloo": {
@@ -414,6 +493,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       },
       "modelCapabilities": {
         "zyloo/gpt-5.4": {
@@ -442,6 +526,11 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
+      },
       "modelCapabilities": {
         "deepseek-v4-flash": {
           "input": {
@@ -468,6 +557,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     },
     "qwencloud": {
@@ -485,6 +579,11 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
       }
     }
   }

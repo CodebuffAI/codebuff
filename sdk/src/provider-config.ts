@@ -325,6 +325,42 @@ const indexingConfigSchema = z
         path: ['model'],
       })
       .default(DEFAULT_INDEXING_CONFIG.semantic),
+    /**
+     * Optional indexing ranking weights used to tune lexical, graph, and
+     * semantic-blend scoring. Every field is optional; when `weights` is
+     * omitted entirely the indexer falls back to its historical hardcoded
+     * defaults (lexical, graph, and `semanticBlend`), so this stays fully
+     * backwards compatible. The field names mirror `IndexingWeights` in the
+     * indexer package but the schema is defined inline to keep the SDK
+     * self-contained. Values are finite numbers (no positivity constraint —
+     * `0` is valid to disable an edge type, and fractional defaults like 2.5
+     * and 0.6 are supported).
+     */
+    weights: z
+      .object({
+        lexical: z
+          .object({
+            fileName: z.number().finite().optional(),
+            path: z.number().finite().optional(),
+            symbol: z.number().finite().optional(),
+            heading: z.number().finite().optional(),
+            concept: z.number().finite().optional(),
+            import: z.number().finite().optional(),
+          })
+          .optional(),
+        graph: z
+          .object({
+            defines: z.number().finite().optional(),
+            imports: z.number().finite().optional(),
+            references: z.number().finite().optional(),
+            containsHeading: z.number().finite().optional(),
+            mentions: z.number().finite().optional(),
+            calls: z.number().finite().optional(),
+          })
+          .optional(),
+        semanticBlend: z.number().finite().optional(),
+      })
+      .optional(),
   })
   .default(DEFAULT_INDEXING_CONFIG)
 

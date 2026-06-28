@@ -225,6 +225,27 @@ describe('model-provider', () => {
       })
     })
 
+    test('preserves indexing.weights through schema parsing', () => {
+      // The SDK schema must declare `indexing.weights` so Zod does not strip
+      // user-supplied ranking weights before they reach the indexer.
+      const configWithWeights = providerConfigFileSchema.parse({
+        indexing: {
+          weights: { graph: { calls: 5 }, semanticBlend: 2 },
+        },
+      })
+
+      expect(configWithWeights.indexing.weights?.graph?.calls).toBe(5)
+      expect(configWithWeights.indexing.weights?.semanticBlend).toBe(2)
+
+      // Omitting weights stays backwards compatible: undefined, not an empty
+      // object, so the indexer falls back to its historical hardcoded defaults.
+      const configWithoutWeights = providerConfigFileSchema.parse({
+        indexing: { enabled: true },
+      })
+
+      expect(configWithoutWeights.indexing.weights).toBeUndefined()
+    })
+
     test('formats concise model capability summaries', () => {
       expect(
         formatModelCapabilitiesSummary({
