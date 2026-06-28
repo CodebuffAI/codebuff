@@ -32,7 +32,15 @@ export interface Thread {
    *  read this — mirror only so the wire shape round-trips. */
   lastSeenHead?: string | null
   prUrl: string | null
+  /** Inferred PR lifecycle (see core/types for source). Drives the tab icon. */
+  prState: 'none' | 'open' | 'merged' | 'closed'
   turnState: TurnState
+  /**
+   * Outcome of the most recent turn — null while running, then completed /
+   * stopped / error. The tab icon uses this when the thread is idle to mark a
+   * stopped or errored turn distinctly from one that completed cleanly.
+   */
+  lastTurnOutcome: 'completed' | 'stopped' | 'error' | null
   createdAt: number
   updatedAt: number
 }

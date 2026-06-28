@@ -130,6 +130,43 @@ select {
   flex-shrink: 0;
   animation: pulse 1.3s ease-in-out infinite;
 }
+/* Generic icon wrapper — matches the running dot's box so each tab icon sits
+   centered and doesn't shift the layout. Width/height are a hair tighter
+   than the dot so a small SVG doesn't read as visually heavier. */
+.tab-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Tab-status icons render smaller than the standard 15px so they line up with
+   the 7px running dot vertically; bumping the stroke width keeps the line work
+   legible at the scaled-down size. */
+.tab-icon svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.5;
+}
+/* Color tokens per state. The running pulse inherits `--accent`; idle marks
+   are quieter so a row of done tabs doesn't look like a wall of neon. */
+.tab-icon-pr-open {
+  color: #c4a6ff;
+}
+.tab-icon-pr-merged {
+  color: #b08bf2;
+}
+.tab-icon-pr-closed {
+  color: var(--faint);
+}
+.tab-icon-stopped {
+  color: #d8a14a;
+}
+.tab-icon-error {
+  color: var(--danger);
+}
 .tab-close {
   display: flex;
   background: none;
@@ -206,6 +243,20 @@ select {
   padding: 6px 8px;
   border-radius: 6px;
   font-size: 12.5px;
+}
+/* Right-aligned status tag in the overflow menu (e.g. "Merged", "PR open")
+   so a long list of tabs stays scannable when the running dot is the only
+   icon shape the eye recognizes. */
+.tab-menu-status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--faint);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface);
+}
+.tab-menu-item:hover .tab-menu-status {
+  color: var(--muted);
 }
 .tab-menu-item:hover {
   background: var(--raised);

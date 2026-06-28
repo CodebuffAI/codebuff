@@ -19,6 +19,8 @@ describe('Store — threads', () => {
     const a = store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
     expect(a.status).toBe('open')
     expect(a.autoQueueSuggestions).toBe(false)
+    expect(a.prState).toBe('none')
+    expect(a.lastTurnOutcome).toBeNull()
     store.insertThread({ id: 'th2', projectId: 'project', title: 'Two', createdAt: 2 })
 
     expect(store.getThread('th1')!.title).toBe('New thread')
@@ -32,6 +34,23 @@ describe('Store — threads', () => {
 
     store.updateThread('th2', { status: 'closed' }, 6)
     expect(store.listThreads('project', { status: 'open' }).map((t) => t.id)).toEqual(['th1'])
+  })
+
+  test('pr_state round-trips through the store (default "none", accepts updates)', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    // Default is 'none' on insert; passing via update path works for the four
+    // PR lifecycle states the engine infers from tool calls (see
+    // ThreadEngine.observePrIntent).
+    expect(store.getThread('th1')!.prState).toBe('none')
+    store.updateThread('th1', { prState: 'open' }, 2)
+    expect(store.getThread('th1')!.prState).toBe('open')
+    store.updateThread('th1', { prState: 'merged' }, 3)
+    expect(store.getThread('th1')!.prState).toBe('merged')
+    store.updateThread('th1', { prState: 'closed' }, 4)
+    expect(store.getThread('th1')!.prState).toBe('closed')
+    store.updateThread('th1', { prState: 'none' }, 5)
+    expect(store.getThread('th1')!.prState).toBe('none')
   })
 
   test('messages round-trip with acts', () => {

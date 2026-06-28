@@ -93,6 +93,12 @@ export interface NewQueueItemInput {
   createdAt: number
 }
 
+/**
+ * Fields the engine can update on a thread. `lastTurnOutcome` is intentionally
+ * NOT in this list — it's a transient UI flag (in-memory only) so the tab icon
+ * can mark a stop/error distinctly, but it should reset on restart since
+ * "this turn was stopped" only makes sense while the user's session is alive.
+ */
 export type ThreadPatch = Partial<
   Pick<
     Thread,
@@ -105,6 +111,7 @@ export type ThreadPatch = Partial<
     | 'baseRef'
     | 'lastSeenHead'
     | 'prUrl'
+    | 'prState'
     | 'turnState'
   >
 >
@@ -140,6 +147,7 @@ type ThreadRow = {
   base_ref: string | null
   last_seen_head: string | null
   pr_url: string | null
+  pr_state: Thread['prState']
   turn_state: TurnState
   created_at: number
   updated_at: number
@@ -220,6 +228,7 @@ export class Store {
         base_ref      TEXT,
         last_seen_head TEXT,
         pr_url        TEXT,
+        pr_state      TEXT NOT NULL DEFAULT 'none',
         turn_state    TEXT NOT NULL DEFAULT 'idle',
         created_at    INTEGER NOT NULL,
         updated_at    INTEGER NOT NULL
@@ -330,14 +339,19 @@ export class Store {
       this.db.exec("ALTER TABLE threads ADD COLUMN last_seen_head TEXT")
     }
 
-    // v9: per-thread agent harness. New nullable column; existing rows stay
-    // null and resolve to the engine's current default at read time, so an
-    // upgrade is invisible until the user opens the picker for a tab.
+    // v9: per-thread agent harness + tab-icon PR state. Both columns are
+    // additive (no shape change for existing rows): `harness_id` is nullable
+    // so legacy threads fall back to the engine's default picker; `pr_state`
+    // is a 4-state enum with a safe `'none'` default so the tab row can render
+    // unambiguously. Fresh DBs already have both from CREATE TABLE above.
     const threadCols9 = (
       this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
     ).map((c) => c.name)
     if (!threadCols9.includes('harness_id')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN harness_id TEXT")
+    }
+    if (!threadCols9.includes('pr_state')) {
+      this.db.exec("ALTER TABLE threads ADD COLUMN pr_state TEXT NOT NULL DEFAULT 'none'")
     }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -402,7 +416,9 @@ export class Store {
       baseRef: null,
       lastSeenHead: null,
       prUrl: null,
+      prState: 'none',
       turnState: 'idle',
+      lastTurnOutcome: null,
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
     }
@@ -646,7 +662,9 @@ function rowToThread(row: ThreadRow): Thread {
     baseRef: row.base_ref,
     lastSeenHead: row.last_seen_head,
     prUrl: row.pr_url,
+    prState: row.pr_state ?? 'none',
     turnState: row.turn_state,
+    lastTurnOutcome: null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

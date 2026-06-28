@@ -161,6 +161,15 @@ export class ThreadEngine {
    *  status='closed' from close's final write (which runs even on partial
    *  git-op failure). */
   private closingIds = new Set<string>()
+  /**
+   * Per-thread turn outcome (last-terminator), in memory only. We don't persist
+   * this: on engine restart every tab is "completed" by definition (no turn is
+   * mid-flight to have been stopped), so a stopped/error banner would be a
+   * lie. While the engine is alive, however, knowing that the most recent turn
+   * stopped vs errored is exactly the kind of "what happened here" read the
+   * tab bar wants — and it should reset to null the moment a new turn starts.
+   */
+  private lastTurnOutcome = new Map<string, Thread['lastTurnOutcome']>()
   private threadSeq = 0
 
   constructor(opts: EngineOptions) {
@@ -328,7 +337,15 @@ export class ThreadEngine {
   private emitThread(threadId: string) {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    this.emit({ type: 'thread', threadId, thread, items: this.store.listQueueItems(threadId) })
+    // Augment with the in-memory lastTurnOutcome so the renderer can paint a
+    // stopped / errored flag without the DB carrying a column that wouldn't
+    // survive a restart anyway.
+    this.emit({
+      type: 'thread',
+      threadId,
+      thread: { ...thread, lastTurnOutcome: this.lastTurnOutcome.get(threadId) ?? null },
+      items: this.store.listQueueItems(threadId),
+    })
   }
 
   close() {
@@ -645,6 +662,10 @@ export class ThreadEngine {
       this.store.appendMessage(threadId, { role: 'user', text: chatText }, this.now())
       this.emit({ type: 'prompt', threadId, text: chatText })
     }
+    // Reset the in-memory turn outcome — the running pulse already conveys
+    // "in flight", and the prior terminator only matters when the thread goes
+    // idle again. Marked without a DB write so a fast turn doesn't churn SQLite.
+    this.lastTurnOutcome.set(threadId, null)
     this.store.updateThread(threadId, { turnState: 'running' }, this.now())
     this.emitThread(threadId)
     this.emitState()
@@ -671,6 +692,10 @@ export class ThreadEngine {
       emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
       emitAgent({ type: 'finish' })
     }
+    // `turnOutcome` is finalized in the finally block — the UI uses it to mark
+    // idle tabs distinctly (stopped / error). `null` means the turn completed
+    // normally (the successor state to "running").
+    let turnOutcome: Thread['lastTurnOutcome'] = 'completed'
     const aborter = new AbortController()
     this.aborters.set(threadId, aborter)
 
@@ -704,21 +729,28 @@ export class ThreadEngine {
           onReasoning: (chunk) => emitAgent({ type: 'reasoning_delta', text: chunk }),
           onEvent: (event) => {
             emitAgent(event)
-            if (event.type === 'tool_call')
+            if (event.type === 'tool_call') {
               acts.push({ toolName: event.toolName as string, input: event.input })
+              this.observePrIntent(threadId, event.toolName, event.input)
+            }
           },
           drainSteering: () => this.drainSteering(threadId),
         },
       )
       this.threadState.set(threadId, { harnessId: harness.id, state: result.state })
       // A Stop arrives as an abort; mark it but keep any partial output.
-      if (aborter.signal.aborted) finalize('⏹ Stopped.')
+      if (aborter.signal.aborted) {
+        turnOutcome = 'stopped'
+        finalize('⏹ Stopped.')
+      }
     } catch (err) {
       // Stop (abort) and failure both end the turn with a live marker so the
       // message doesn't hang and the user sees the outcome without a reload.
       if (aborter.signal.aborted) {
+        turnOutcome = 'stopped'
         finalize('⏹ Stopped.')
       } else {
+        turnOutcome = 'error'
         const msg = (err as Error).message
         finalize(`⚠️ Turn failed: ${msg}`)
         this.emit({ type: 'log', level: 'error', message: `Thread ${threadId} turn error: ${msg}` })
@@ -727,10 +759,35 @@ export class ThreadEngine {
       this.aborters.delete(threadId)
       this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
       if (meta.queueItemId) this.store.updateQueueItem(meta.queueItemId, { state: 'done' }, this.now())
+      // Finalize the in-memory turn outcome (drives the tab's stopped/error icon);
+      // the DB only learns about the idle transition.
+      this.lastTurnOutcome.set(threadId, turnOutcome)
       this.store.updateThread(threadId, { turnState: 'idle' }, this.now())
       this.emitThread(threadId)
       this.emitState()
     }
+  }
+
+  /**
+   * Update the inferred PR state from a single `tool_call` event. We only peek at
+   * `run_terminal_command` for the obvious PR commands (`gh pr create|merge|
+   * close|view`). Anything more specific (exit-code aware, output parsing) is
+   * intentionally avoided — the agent's prose confirms results back to the user,
+   * and an over-eager flip would be worse than a slightly delayed one. The
+   * transition is monotonic: `gh pr merge` upgrades `open` → `merged`, but never
+   * re-opens a closed or merged PR.
+   */
+  private observePrIntent(threadId: string, toolName: string | undefined, input: unknown): void {
+    if (toolName !== 'run_terminal_command') return
+    const cmd = extractCommand(input)
+    if (!cmd) return
+    const thread = this.store.getThread(threadId)
+    if (!thread) return
+    const next = inferPrStateChange(thread.prState, cmd)
+    if (!next) return
+    this.store.updateThread(threadId, { prState: next }, this.now())
+    // `emitThread` is deferred to the finally-block in `runTurn` (next state event),
+    // so no extra broadcast here — the SSE carries the updated row to the renderer.
   }
 
   // — Queue CRUD —
@@ -955,4 +1012,47 @@ export class ThreadEngine {
     this.store.upsertWorkflow(this.projectId, name, skills)
     this.emitState()
   }
+}
+
+/**
+ * Pull a shell command string out of a `run_terminal_command` tool input. The
+ * SDK accepts both `{ command: string }` (the common shape) and a few
+ * historical variants — fall back to known envelopes so the PR detector keeps
+ * working across agent prompt versioning.
+ */
+function extractCommand(input: unknown): string | null {
+  if (!input || typeof input !== 'object') return null
+  const obj = input as Record<string, unknown>
+  for (const key of ['command', 'cmd', 'bash_command', 'shell_command']) {
+    const v = obj[key]
+    if (typeof v === 'string' && v.trim()) return v
+  }
+  return null
+}
+
+/**
+ * Given the current inferred `prState` and an observed shell command, decide
+ * what to transition to. Returns `null` when the command is uninteresting.
+ *
+ * Shapewise: the most recent lifecycle command wins, since the agent's most
+ * recent verb best describes what just happened on the branch. So `gh pr
+ * merge` upgrades `none`/`open`/`closed` → `merged`; a later `gh pr create`
+ * legitimately puts the state back to `open` (the agent cut a fresh PR on the
+ * same branch — common if a previous PR was merged or closed). `gh pr close`
+ * only overrides `open` — there's nothing to close on `none`, and once merged
+ * a close wouldn't undo that. `gh pr view` is a no-op.
+ */
+function inferPrStateChange(
+  current: Thread['prState'],
+  command: string,
+): Thread['prState'] | null {
+  // `gh pr create ...` (incl. `--fill`, `--draft`). Mis-typed commands like
+  // `gh prcreated` don't match — the regex requires a whitespace boundary.
+  if (/\bgh\s+pr\s+create\b/.test(command)) return 'open'
+  // `gh pr merge ...` — squashing, rebasing, or auto-merging all collapse to merged.
+  if (/\bgh\s+pr\s+merge\b/.test(command)) return 'merged'
+  // `gh pr close ...` (no merge). Only overrides `open`; once merged a later
+  // close on a different branch shouldn't undo that.
+  if (/\bgh\s+pr\s+close\b/.test(command) && current === 'open') return 'closed'
+  return null
 }

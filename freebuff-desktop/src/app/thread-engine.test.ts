@@ -428,6 +428,140 @@ describe('ThreadEngine — queue editing & PR', () => {
       cleanup()
     }
   })
+
+  test('inferring PR state from `gh pr create` and `gh pr merge` tool calls', async () => {
+    // Drive the agent with handcrafted tool_call events so we can exercise the
+    // detector without actually shelling out to `gh`. The harness folds each
+    // event into parts and the engine observes each one as it streams through.
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      const tools = opts.customToolDefinitions
+      const runCmd = tools.find((t: any) => t.toolName === 'run_terminal_command')
+      const fire = (cmd: string) =>
+        opts.handleEvent({ type: 'tool_call', toolName: 'run_terminal_command', input: { command: cmd } })
+      fire('git add -A && git commit -m "wip"')
+      fire('git push -u origin HEAD')
+      fire('gh pr create --fill --base main') // → open
+      fire('gh pr checks')
+      fire('gh pr merge --squash') // → merged
+      // A second `gh pr create` legitimately flips back to `open` — the agent
+      // cut a fresh PR on the same branch after the merge. The most recent
+      // lifecycle verb wins (no monotonic guard).
+      fire('gh pr create --fill') // → open
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'ship it')
+      await settle(engine, thread.id)
+
+      const t = engine.store.getThread(thread.id)!
+      expect(t.prState).toBe('open')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('`gh pr close` only overrides an open PR (not none/merged)', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      const fire = (cmd: string) =>
+        opts.handleEvent({ type: 'tool_call', toolName: 'run_terminal_command', input: { command: cmd } })
+      fire('gh pr close')
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'just checking')
+      await settle(engine, thread.id)
+
+      // Starting from `none`, `gh pr close` should NOT flip to `closed`
+      // (no PR existed to close). The state stays `none`.
+      expect(engine.store.getThread(thread.id)!.prState).toBe('none')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('ignores tool calls that aren\'t `run_terminal_command`', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      // A read_files tool happens to receive text containing "gh pr create" —
+      // the detector must NOT fire on this. The tab icon is for actual PR
+      // commands the agent ran, not for the agent merely reading about them.
+      opts.handleEvent({ type: 'tool_call', toolName: 'read_files', input: { paths: ['./gh pr create'] } })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'look')
+      await settle(engine, thread.id)
+      expect(engine.store.getThread(thread.id)!.prState).toBe('none')
+    } finally {
+      cleanup()
+    }
+  })
+})
+
+describe('ThreadEngine — last turn outcome', () => {
+  test('completed: a normal turn surfaces `lastTurnOutcome = "completed"`', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      // Listen for the thread broadcast that follows the turn finishing.
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'again')
+      await settle(engine, thread.id)
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('completed')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('stopped: stopping mid-turn surfaces `lastTurnOutcome = "stopped"`', async () => {
+    // Drive a turn that runs forever until we abort it; the FakeClient's
+    // onRun completes the abort by resolving only after stopTurn fires.
+    const client = new FakeClient()
+    let stopApplied = false
+    client.onRun = async (opts) => {
+      const aborter = opts.signal as AbortSignal
+      if (!aborter) return
+      await new Promise<void>((resolve) => {
+        const onAbort = () => {
+          stopApplied = true
+          resolve()
+        }
+        if (aborter.aborted) onAbort()
+        else aborter.addEventListener('abort', onAbort, { once: true })
+      })
+    }
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'will be stopped')
+      // Wait until the turn is actually running, then stop it.
+      for (let i = 0; i < 100; i++) {
+        await new Promise((r) => setTimeout(r, 5))
+        if (engine.store.getThread(thread.id)!.turnState === 'running') break
+      }
+      engine.stopTurn(thread.id)
+      await settle(engine, thread.id)
+      expect(stopApplied).toBe(true)
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('stopped')
+    } finally {
+      cleanup()
+    }
+  })
 })
 
 describe('ThreadEngine — close + rehydrate', () => {

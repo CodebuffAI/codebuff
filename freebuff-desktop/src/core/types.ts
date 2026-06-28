@@ -81,7 +81,20 @@ export interface Thread {
   baseRef: string | null
   /** Set by the `open-pr` skill / openPr(). `local://<branch>` when no remote. */
   prUrl: string | null
+  /**
+   * Inferred PR lifecycle, derived from observed tool calls (e.g. `gh pr create`,
+   * `gh pr merge`). Drives the tab icon's PR shape so users can tell at a glance
+   * whether a thread has an open PR, has merged, or was closed without a merge.
+   * Persisted so the indicator survives reload and rehydrate.
+   */
+  prState: 'none' | 'open' | 'merged' | 'closed'
   turnState: TurnState
+  /**
+   * Outcome of the most recent turn, so the tab can mark a stopped or errored
+   * turn distinctly from one that completed cleanly. Reset to `null` while a
+   * turn is running (the running pulse already conveys "in flight").
+   */
+  lastTurnOutcome: 'completed' | 'stopped' | 'error' | null
   createdAt: number
   updatedAt: number
 }

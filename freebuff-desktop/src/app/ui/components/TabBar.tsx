@@ -42,15 +42,15 @@ export function TabBar() {
         {tabOrder.map((id) => {
           const slice = threads[id]
           if (!slice) return null
-          const running = slice.thread.turnState === 'running'
+          const status = describeTab(slice.thread)
           return (
             <div
               key={id}
               className={`tab ${id === activeId ? 'active' : ''}`}
               onClick={() => setActive(id)}
-              title={slice.thread.title}
+              title={[slice.thread.title, status.tooltip].filter(Boolean).join(' — ')}
             >
-              {running && <span className="tab-pulse" />}
+              <TabStatusIcon status={status} />
               <span className="tab-title">{slice.thread.title || 'New thread'}</span>
               {/* Per-tab model picker — lets each tab run on a different agent.
                   e.stopPropagation on the picker (AgentPicker) keeps its button
@@ -96,6 +96,7 @@ export function TabBar() {
               {tabOrder.map((id) => {
                 const slice = threads[id]
                 if (!slice) return null
+                const status = describeTab(slice.thread)
                 return (
                   <button
                     key={id}
@@ -104,9 +105,11 @@ export function TabBar() {
                       setActive(id)
                       setMenuOpen(false)
                     }}
+                    title={status.tooltip}
                   >
-                    {slice.thread.turnState === 'running' && <span className="tab-pulse" />}
+                    <TabStatusIcon status={status} />
                     <span className="tab-menu-title">{slice.thread.title || 'New thread'}</span>
+                    {status.label && <span className="tab-menu-status">{status.label}</span>}
                   </button>
                 )
               })}
@@ -120,5 +123,81 @@ export function TabBar() {
         {connection !== 'open' && <span className="conn-label">{CONN_LABEL[connection]}</span>}
       </div>
     </div>
+  )
+}
+
+/**
+ * Pick a single status for a thread to drive the tab icon. Order matters — the
+ * running pulse wins over any PR/turn-outcome state, since "the agent is still
+ * working" is the most time-sensitive read. PR state then overlays onto the
+ * idle state because a merged PR is durable information the user wants to
+ * keep seeing. Finally the last-turn outcome paints the most recent terminator
+ * (stopped / error) on top so a fresh user message clears it on the next turn.
+ */
+type TabStatus =
+  | { kind: 'running' }
+  | { kind: 'pr-merged' }
+  | { kind: 'pr-open' }
+  | { kind: 'pr-closed' }
+  | { kind: 'stopped' }
+  | { kind: 'error' }
+  | { kind: 'idle' }
+
+/** Short status line used in the overflow menu. */
+type TabStatusWithMeta = TabStatus & {
+  label: string
+  tooltip: string
+}
+
+function describeTab(thread: { turnState: string; prState: string; lastTurnOutcome: string | null }): TabStatusWithMeta {
+  if (thread.turnState === 'running') {
+    return { kind: 'running', label: 'Running', tooltip: 'Agent is running' }
+  }
+  if (thread.prState === 'merged') {
+    return { kind: 'pr-merged', label: 'Merged', tooltip: 'PR merged' }
+  }
+  if (thread.prState === 'open') {
+    return { kind: 'pr-open', label: 'PR open', tooltip: 'Pull request open' }
+  }
+  if (thread.prState === 'closed') {
+    return { kind: 'pr-closed', label: 'PR closed', tooltip: 'PR closed without merge' }
+  }
+  if (thread.lastTurnOutcome === 'stopped') {
+    return { kind: 'stopped', label: 'Stopped', tooltip: 'Last turn was stopped' }
+  }
+  if (thread.lastTurnOutcome === 'error') {
+    return { kind: 'error', label: 'Error', tooltip: 'Last turn errored' }
+  }
+  return { kind: 'idle', label: '', tooltip: '' }
+}
+
+/**
+ * The little shape at the start of each tab. Render shape (dot vs icon) plus a
+ * class for color. Keeps the per-state branching in one place so the tab row
+ * stays readable. `idle` renders nothing — a clean tab.
+ */
+function TabStatusIcon({ status }: { status: TabStatus }) {
+  if (status.kind === 'running') {
+    // The pulsing green dot is the one element every user already knows; keeping
+    // the bare `.tab-pulse` class (no `.tab-icon-*` wrapper) keeps the existing
+    // animation intact while still rendering consistently next to the other
+    // tab icons — it's the same vertical slot the icon wrapper occupies.
+    return <span className="tab-pulse" />
+  }
+  if (status.kind === 'idle') return null
+  const iconName =
+    status.kind === 'pr-merged'
+      ? 'pr-merged'
+      : status.kind === 'pr-open'
+        ? 'pr-open'
+        : status.kind === 'pr-closed'
+          ? 'x'
+          : status.kind === 'stopped'
+            ? 'stop'
+            : 'alert'
+  return (
+    <span className={`tab-icon tab-icon-${status.kind}`}>
+      <Icon name={iconName} />
+    </span>
   )
 }
