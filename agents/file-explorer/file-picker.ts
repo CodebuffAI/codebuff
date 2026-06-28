@@ -10,7 +10,6 @@ export const createFilePicker = (): Omit<SecretAgentDefinition, 'id'> => {
   return {
     displayName: 'Fletcher the File Fetcher',
     publisher,
-    model: 'google/gemini-2.5-flash-lite',
     reasoningOptions: {
       enabled: false,
       effort: 'low',
@@ -305,9 +304,43 @@ const handleSteps: SecretAgentDefinition['handleSteps'] = function* ({
     return
   }
 
+  // M2.2: relevance scoring + ordered top-N. Score each candidate path by how
+  // many prompt keywords appear in it (path-relative relevance), then cap at
+  // MAX_PICKER_FILES (12, matching the spawner prompt's advertised limit).
+  // Deterministic and serialization-safe (no module-level closure deps).
+  const MAX_PICKER_FILES = 12
+  const scorePathsByPromptRelevance = (
+    candidatePaths: string[],
+    query: string | undefined,
+  ): { path: string; score: number }[] => {
+    const keywords =
+      (query ?? '').toLowerCase().match(/[a-z0-9]{3,}/g) ?? []
+    const uniqueKeywords = Array.from(new Set(keywords))
+    const scored = candidatePaths.map((p) => {
+      const lower = p.toLowerCase()
+      let score = 0
+      for (const kw of uniqueKeywords) {
+        if (lower.includes(kw)) score += 1
+      }
+      return { path: p, score }
+    })
+    scored.sort(
+      (a, b) =>
+        b.score - a.score || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0),
+    )
+    return scored
+  }
+  const scoredPaths = scorePathsByPromptRelevance(paths, prompt)
+  const orderedPaths = scoredPaths.slice(0, MAX_PICKER_FILES).map((s) => s.path)
+  if (paths.length > MAX_PICKER_FILES) {
+    logger?.debug?.(
+      `file-picker: capped ${paths.length} candidate(s) to top ${MAX_PICKER_FILES} by prompt relevance`,
+    )
+  }
+
   yield {
     toolName: 'read_files',
-    input: { paths },
+    input: { paths: orderedPaths },
   }
 
   yield 'STEP'

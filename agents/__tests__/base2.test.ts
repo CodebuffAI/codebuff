@@ -12,6 +12,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { createBaseDeep } from '../base2/base-deep'
 import { createBase2 } from '../base2/base2'
+import type { Base2ActiveWorkState } from '../base2/gate-state'
 
 function buildContentMarker(absolutePath: string): string {
   const data = readFileSync(absolutePath)
@@ -21,7 +22,15 @@ function buildContentMarker(absolutePath: string): string {
 
 function parseGateStateBlock(
   text: string,
-): { gate: string; status: string; details: string } | undefined {
+):
+  | {
+      gate: string
+      status: string
+      details: string
+      repairRound?: number
+      maxRepairRounds?: number
+    }
+  | undefined {
   const match = text.match(/<gate-state>([\s\S]*?)<\/gate-state>/)
   if (!match) return undefined
   try {
@@ -30,6 +39,12 @@ function parseGateStateBlock(
       gate: String(parsed.gate ?? ''),
       status: String(parsed.status ?? ''),
       details: String(parsed.details ?? ''),
+      ...(typeof parsed.repairRound === 'number'
+        ? { repairRound: parsed.repairRound }
+        : {}),
+      ...(typeof parsed.maxRepairRounds === 'number'
+        ? { maxRepairRounds: parsed.maxRepairRounds }
+        : {}),
     }
   } catch {
     return undefined
@@ -203,6 +218,75 @@ describe('base-deep prompt naming and tool guidance', () => {
     expect(baseDeep.instructionsPrompt).toContain('user-visible completion summary')
     expect(baseDeep.instructionsPrompt).toContain('before suggesting followups')
     expect(baseDeep.toolNames).toEqual(expect.arrayContaining(['read_outline', 'list_directory', 'glob', 'git_status', 'str_replace', 'edit_transaction']))
+  })
+})
+
+describe('base-deep gate lifecycle parity with base2', () => {
+  test('inherits handleSteps and exposes the gate tools + repair editor', () => {
+    const baseDeep = createBaseDeep()
+
+    // base-deep inherits the full validation/reviewer gate lifecycle by
+    // composing createBase2. handleSteps is a function reference (not
+    // re-serialized), so its gate-state closures are preserved.
+    expect(baseDeep.handleSteps).toBeDefined()
+    expect(typeof baseDeep.handleSteps).toBe('function')
+
+    // Gate tools required for the validation/reviewer lifecycle.
+    expect(baseDeep.toolNames).toEqual(
+      expect.arrayContaining([
+        'run_file_change_hooks',
+        'git_status',
+        'create_plan',
+        'update_plan_status',
+      ]),
+    )
+
+    // editor is required for the gate repair loop (spawned on validation
+    // failure). code-reviewer runs the reviewer half of the gate.
+    expect(baseDeep.spawnableAgents).toEqual(
+      expect.arrayContaining(['editor', 'code-reviewer']),
+    )
+  })
+
+  test('handleSteps runs the same validation gate sequence as base2', () => {
+    const baseDeep = createBaseDeep()
+    // 'base-deep' is not in the fast-skip allowlist (only 'base2-fast' and
+    // 'base2-fast-no-validation' skip), so both validation and reviewer
+    // gates run — same as base2 default.
+    const agentState = { agentId: 'base-deep' }
+    const gen = baseDeep.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    // Pre-step: git_status to detect existing changes.
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    // spawn_agent_inline context-pruner before the first STEP.
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({
+      toolName: 'spawn_agent_inline',
+      input: { agent_type: 'context-pruner' },
+    })
+    expect(gen.next().value).toBe('STEP')
+    // After the step produces a file change: git_status → run_file_change_hooks.
+    const afterStep = gen.next({
+      stepsComplete: true,
+      toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+    } as any)
+    expect(afterStep.value).toMatchObject({ toolName: 'git_status' })
+    const afterGit = gen.next({
+      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+    } as any)
+    expect(afterGit.value).toMatchObject({ toolName: 'run_file_change_hooks' })
+    // Gate-state tracks the pending file for the validation/reviewer gate.
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      changedFiles: ['src/a.ts'],
+      touchedFiles: ['src/a.ts'],
+      pendingGateFiles: ['src/a.ts'],
+    })
   })
 })
 
@@ -2266,6 +2350,409 @@ describe('base2 verification and reviewer gates', () => {
       openReviewerBlockers: [],
       nextRequiredAction: '',
     })
+  })
+})
+
+describe('base2 static-review-only concurrency (M3.1)', () => {
+  test('default path (staticReviewOnly absent) does not spawn the reviewer in the background', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2-custom' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const afterGit = gen.next({
+      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+    } as any)
+    // No background reviewer: validation runs first (foreground), exactly as
+    // the existing sequential behavior.
+    expect(afterGit.value).toMatchObject({ toolName: 'run_file_change_hooks' })
+    expect(
+      (agentState as any).base2ActiveWork.staticReviewerJobId,
+    ).toBeUndefined()
+  })
+
+  test('staticReviewOnly spawns the reviewer in the background before validation and stashes jobId', () => {
+    const base2 = createBase2('default')
+    const agentState = {
+      agentId: 'base2-custom',
+      base2ActiveWork: { staticReviewOnly: true },
+    }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const bgSpawn = gen.next({
+      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+    } as any)
+    // Reviewer spawned in the background BEFORE validation hooks run.
+    expect(bgSpawn.value).toMatchObject({ toolName: 'spawn_agents' })
+    const agents = (bgSpawn.value as any).input.agents as any[]
+    expect(agents[0].agent_type).toBe('code-reviewer')
+    expect(agents[0].background).toBe(true)
+    expect(agents[0].prompt as string).toContain(
+      'Reviewer running concurrently with validation (static-review-only mode).',
+    )
+
+    const afterReport = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: {
+            background: true,
+            jobId: 'bg-reviewer-1',
+            message: 'Reviewer running in the background.',
+          },
+        },
+      ],
+    } as any)
+    expect((afterReport.value as any).toolName).toBe('run_file_change_hooks')
+    expect((agentState as any).base2ActiveWork.staticReviewerJobId).toBe(
+      'bg-reviewer-1',
+    )
+  })
+
+  test('staticReviewOnly: validation failure does not consult the background reviewer', () => {
+    const base2 = createBase2('default')
+    const agentState = {
+      agentId: 'base2-custom',
+      base2ActiveWork: { staticReviewOnly: true },
+    }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const bgSpawn = gen.next({
+      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+    } as any)
+    expect(bgSpawn.value).toMatchObject({ toolName: 'spawn_agents' })
+
+    const afterReport = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: { background: true, jobId: 'bg-reviewer-2', message: 'ok' },
+        },
+      ],
+    } as any)
+    expect((afterReport.value as any).toolName).toBe('run_file_change_hooks')
+    expect((agentState as any).base2ActiveWork.staticReviewerJobId).toBe(
+      'bg-reviewer-2',
+    )
+
+    // Validation fails (unparseable failure -> blocked, no repair loop).
+    const afterHooks = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: [{ hookName: 'typecheck', exitCode: 1, stderr: 'boom' }],
+        },
+      ],
+    } as any)
+    // The gate surfaces the validation failure and reopens the turn; it must
+    // NOT consult the background reviewer (check_background_agent). The join
+    // contract preserves the strict "validation failure blocks finalization"
+    // rule: the orphaned background job self-completes and is ignored.
+    expect((afterHooks.value as any).toolName).toBe('add_message')
+    const text = (afterHooks.value as any).input.content as string
+    expect(text).toContain('Verification gate')
+    expect((agentState as any).base2ActiveWork.staticReviewerJobId).toBe(
+      'bg-reviewer-2',
+    )
+  })
+
+  test('staticReviewOnly: validation pass joins the background reviewer via check_background_agent', () => {
+    const base2 = createBase2('default')
+    const agentState = {
+      agentId: 'base2-custom',
+      base2ActiveWork: { staticReviewOnly: true },
+    }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({
+        stepsComplete: true,
+        toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    const bgSpawn = gen.next({
+      toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+    } as any)
+    expect(bgSpawn.value).toMatchObject({ toolName: 'spawn_agents' })
+    expect((bgSpawn.value as any).input.agents[0].background).toBe(true)
+
+    const afterReport = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: { background: true, jobId: 'bg-reviewer-3', message: 'ok' },
+        },
+      ],
+    } as any)
+    expect((afterReport.value as any).toolName).toBe('run_file_change_hooks')
+    expect((agentState as any).base2ActiveWork.staticReviewerJobId).toBe(
+      'bg-reviewer-3',
+    )
+
+    // Validation passes (hooks skipped).
+    const afterHooks = gen.next({
+      toolResult: [
+        {
+          type: 'json',
+          value: [
+            {
+              validationStatus: 'hooks_skipped',
+              message:
+                'Configured file-change hooks were skipped because none matched the changed files.',
+              configuredHookCount: 1,
+              changedFiles: ['src/a.ts'],
+            },
+          ],
+        },
+      ],
+    } as any)
+    // Join the background reviewer instead of a foreground spawn_agents, using
+    // the stashed jobId.
+    expect(afterHooks.value).toMatchObject({
+      toolName: 'check_background_agent',
+    })
+    expect((afterHooks.value as any).input).toMatchObject({
+      jobId: 'bg-reviewer-3',
+      wait_for: 'LOOKS_GOOD',
+      timeout_seconds: 120,
+    })
+
+    // The reviewer returns LOOKS_GOOD via the background result; feed it through
+    // the existing collectReviewerBlockers / getReviewerFinalizationVerdict
+    // path (unchanged) to reach finalization.
+    const gatePassed = gen.next({
+      toolResult: {
+        result: [{ type: 'json', value: ['LOOKS_GOOD: No issues found.'] }],
+      },
+    } as any)
+    expect(gatePassed.value).toMatchObject({
+      toolName: 'add_message',
+      input: { role: 'user' },
+    })
+    expect((gatePassed.value as any).input.content).toContain(
+      'Reviewer gate passed with LOOKS_GOOD',
+    )
+    expect((agentState as any).base2ActiveWork).toMatchObject({
+      currentPhase: 'final_response_allowed',
+      pendingGateFiles: [],
+      gatePassedReviewerVerdict: 'LOOKS_GOOD',
+      staticReviewerJobId: undefined,
+    })
+  })
+})
+
+describe('base2 static-review-only gate state (M3.1 unit tests)', () => {
+  test('staticReviewOnly defaults to false and is absent from emitted prompts', () => {
+    const base2 = createBase2('default')
+    // With no activeWorkState supplied, the default gate path must not
+    // surface the static-review-only fields in any emitted prompt.
+    expect(base2.systemPrompt).not.toContain('staticReviewOnly')
+    expect(base2.systemPrompt).not.toContain('staticReviewerJobId')
+    expect(base2.instructionsPrompt).not.toContain('staticReviewOnly')
+    expect(base2.instructionsPrompt).not.toContain('staticReviewerJobId')
+    expect(base2.stepPrompt).not.toContain('staticReviewOnly')
+    expect(base2.stepPrompt).not.toContain('staticReviewerJobId')
+  })
+
+  test('staticReviewOnly flag is surfaced on the active work state type', () => {
+    // Conditional types resolve at compile time; the asserts below fail to
+    // typecheck (build error) if the field is absent from the type, while the
+    // runtime assertion confirms the resolved literal is `true`.
+    type IsStaticReviewOnlyPresent =
+      Base2ActiveWorkState extends { staticReviewOnly?: boolean } ? true : false
+    type IsStaticReviewerJobIdPresent =
+      Base2ActiveWorkState extends { staticReviewerJobId?: string } ? true : false
+    const staticReviewOnlyPresent: IsStaticReviewOnlyPresent = true
+    const staticReviewerJobIdPresent: IsStaticReviewerJobIdPresent = true
+    expect(staticReviewOnlyPresent).toBe(true)
+    expect(staticReviewerJobIdPresent).toBe(true)
+  })
+
+  test('gate-state type round-trips staticReviewerJobId through JSON', () => {
+    const state: Base2ActiveWorkState = {
+      pendingGateFiles: ['src/a.ts'],
+      gatePassedFiles: [],
+      gatePassedPendingFiles: [],
+      gatePassedReviewerVerdict: '',
+      gatePassedValidationSummary: '',
+      gatePassedFingerprint: '',
+      lastReviewerGateSkipReason: '',
+      touchedFiles: ['src/a.ts'],
+      changedFiles: ['src/a.ts'],
+      currentPhase: 'awaiting_validation',
+      latestWorkSummary: '',
+      openReviewerBlockers: [],
+      lastValidationSummary: '',
+      nextRequiredAction: '',
+      lastPinnedStateMessage: '',
+      staticReviewOnly: true,
+      staticReviewerJobId: 'job-123',
+    }
+    const roundTripped = JSON.parse(JSON.stringify(state)) as Base2ActiveWorkState
+    expect(roundTripped.staticReviewOnly).toBe(true)
+    expect(roundTripped.staticReviewerJobId).toBe('job-123')
+  })
+})
+
+describe('base2 repair-loop gate-state telemetry (M6.4)', () => {
+  test('repair-incomplete gate-state block surfaces repairRound and maxRepairRounds', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2-custom' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    // Pre-step git_status (no pre-existing changes).
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+
+    // Step completes; the post-step git_status reports a pending change.
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+
+    // Validation fails with a parseable (tsc-shaped) failure -> repair loop.
+    const typecheckFailure = {
+      type: 'json',
+      value: [
+        {
+          hookName: 'typecheck',
+          exitCode: 1,
+          stderr: 'src/a.ts(1,1): error TS1234: type error',
+        },
+      ],
+    }
+    expect(
+      gen.next({ toolResult: [typecheckFailure] } as any).value,
+    ).toMatchObject({ toolName: 'spawn_agents' })
+    // Repair editor ran; git_status after the repair editor.
+    expect(
+      gen.next({ toolResult: [] } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    // Re-verify hooks run after the repair editor.
+    expect(
+      gen.next({
+        toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }],
+      } as any).value,
+    ).toMatchObject({ toolName: 'run_file_change_hooks' })
+
+    // Re-verify still fails -> the repair-incomplete blocked path emits the
+    // gate-state block carrying structured repair-loop progress.
+    const blocked = gen.next({ toolResult: [typecheckFailure] } as any)
+    expect((blocked.value as any).toolName).toBe('add_message')
+    const content = (blocked.value as any).input.content as string
+    const parsed = parseGateStateBlock(content)
+
+    expect(parsed).toBeDefined()
+    expect(parsed!.gate).toBe('validation')
+    expect(parsed!.status).toBe('failed')
+    expect(parsed!.repairRound).toBeGreaterThanOrEqual(1)
+    expect(parsed!.repairRound).toBe(1)
+    expect(parsed!.maxRepairRounds).toBe(3)
+    expect(parsed!.details).toContain('repair-incomplete')
+    expect(parsed!.details).toContain('round 1/3')
+  })
+
+  test('non-repair gate-state blocks omit repairRound/maxRepairRounds for backward compatibility', () => {
+    const base2 = createBase2('default')
+    const agentState = { agentId: 'base2-custom' }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Make the requested change now please',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: '' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    expect(gen.next().value).toBe('STEP')
+    expect(
+      gen.next({ stepsComplete: true, toolResult: [] } as any).value,
+    ).toMatchObject({ toolName: 'git_status' })
+    // No edits: validation hooks are skipped, the reviewer gate does not run,
+    // and the finalization block stays the legacy {gate,status,details} shape.
+    const finalized = gen.next({
+      toolResult: [{ type: 'json', value: { status: '' } }],
+    } as any)
+    expect((finalized.value as any).toolName).toBe('add_message')
+    const content = (finalized.value as any).input.content as string
+    const parsed = parseGateStateBlock(content)
+
+    expect(parsed).toBeDefined()
+    expect(parsed!.gate).toBe('validation/reviewer')
+    expect(parsed!.status).toBe('passed')
+    expect(parsed!.repairRound).toBeUndefined()
+    expect(parsed!.maxRepairRounds).toBeUndefined()
   })
 })
 

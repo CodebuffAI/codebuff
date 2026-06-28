@@ -106,6 +106,14 @@ export const webSearchParams = {
           .describe('Links extracted from the fetched page (only present in fetch mode).'),
       }),
       z.object({
+        resultOmittedForLength: z.literal(true),
+        resultExcerpt: z.string().optional(),
+        links: z
+          .array(z.object({ href: z.string(), text: z.string() }))
+          .max(5)
+          .optional(),
+      }),
+      z.object({
         errorMessage: z.string(),
       }),
     ]),

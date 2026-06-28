@@ -47,6 +47,31 @@ export const AGENT_PERSONAS = {
     purpose: 'Creates new agent templates for the codebuff multi-agent system',
     hidden: false,
   } as const,
+  'test-writer': {
+    displayName: 'Tess the Test Writer',
+    purpose:
+      'Writes and runs unit/integration tests for code changes. Spawn when you need new test coverage for a feature or bugfix, or to validate that existing tests pass after edits.',
+  } as const,
+  'security-reviewer': {
+    displayName: 'Sam the Security Reviewer',
+    purpose:
+      'Adversarial security review of file/path/process/auth/crypto changes. Spawn after security-sensitive edits to catch injection, traversal, secret leakage, and auth bypass risks.',
+  } as const,
+  debugger: {
+    displayName: 'Dee the Debugger',
+    purpose:
+      'Root-causes a failing test, runtime error, or unexpected behavior by reading code + running targeted commands. Spawn when a validation failure needs diagnosis before a fix.',
+  } as const,
+  'doc-writer': {
+    displayName: 'Doc the Doc Writer',
+    purpose:
+      'Writes or updates documentation (README, API docs, guides, code comments). Spawn when a change requires documentation updates.',
+  } as const,
+  'git-committer': {
+    displayName: 'Mitt the Git Committer',
+    purpose:
+      'Commits code changes to git with a well-crafted commit message. Spawn when you need to stage and commit related changes with an appropriate message.',
+  } as const,
 } as const satisfies Partial<
   Record<
     (typeof AgentTemplateTypes)[keyof typeof AgentTemplateTypes],
@@ -93,3 +118,13 @@ export const AGENT_NAME_TO_TYPES = Object.entries(AGENT_NAMES).reduce(
 )
 
 export const MAX_AGENT_STEPS_DEFAULT = 200
+
+/**
+ * Maximum nesting depth for subagent spawning. The root orchestrator runs at
+ * depth 0; each spawn_agents dispatch increments the child's depth by 1.
+ * Default 3 permits: root -> specialist -> leaf tool-runner. Configurable via
+ * openbuff.json (`maxSpawnDepth`). A spawn that would exceed this depth is
+ * rejected with an actionable error before any work begins, preventing
+ * unbounded recursion (e.g. file-picker -> file-picker -> ...).
+ */
+export const MAX_SPAWN_DEPTH_DEFAULT = 3

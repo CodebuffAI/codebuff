@@ -71,9 +71,9 @@ const outputSchema = {
 const definition: AgentDefinition = {
   id: 'tmux-cli',
   displayName: 'Tmux CLI Agent',
-  model: 'minimax/minimax-m2.7',
-  // Provider options are tightly coupled to the model choice above.
-  // If you change the model, update these accordingly.
+  // The model is controlled exclusively by openbuff.d/routes.json routing.
+  // Provider options are deliberately minimal so routing can pick any model
+  // the user has configured without provider-specific mismatches.
   providerOptions: {
     data_collection: 'deny',
   },

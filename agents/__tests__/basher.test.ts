@@ -27,7 +27,7 @@ describe('commander agent', () => {
     })
 
     test('uses flash-lite model', () => {
-      expect(commander.model).toBe('google/gemini-3.1-flash-lite-preview')
+      expect(commander.model).toBeUndefined()
     })
 
     test('has output mode set to structured_output', () => {

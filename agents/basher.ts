@@ -9,7 +9,6 @@ import type {
 const basher: AgentDefinition = {
   id: 'basher',
   publisher,
-  model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Basher',
   spawnerPrompt:
     'Runs a single terminal command and returns a deterministic report of its output. Use what_to_summarize to label the information to extract. Every basher spawn MUST include params: { command: "<shell>" }.',

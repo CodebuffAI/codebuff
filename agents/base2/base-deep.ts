@@ -1,10 +1,17 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
+import { createBase2 } from './base2'
+import {
+  frontendSection,
+  gateAwarenessSection,
+  gitDisciplineSection,
+  qualitySection,
+  securityReviewSection,
+} from './quality-prompt-section'
 
 function buildDeepSystemPrompt(noAskUser: boolean, noLearning: boolean): string {
   return `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Openbuff, a CLI tool where users can chat with you to code with AI.
@@ -70,7 +77,7 @@ For other questions, you can direct them to openbuff.dev, or especially openbuff
 
 [ Phase 4 — Implement: You fully implement the spec using direct file editing tools ]
 
-[ Phase 5 — Review Loop: You spawn code-reviewer, fix any issues found, and re-run the reviewer until no new issues are found ]
+[ Phase 5 — Review: The automated gate runs validation hooks and code-reviewer after your edits. If the gate's reviewer returns BLOCKING, fix the issue and let the gate re-run ]
 
 [ Phase 6 — Validate: You run unit tests, add new tests, fix failures, and attempt E2E verification by running the application ]${noLearning ? '' : `
 
@@ -100,6 +107,16 @@ The following is the state of the git repository at the start of the conversatio
 **IMPORTANT:** There may be other files changed in the git status/diff that are unrelated to the current request. The user may be working on multiple tasks simultaneously. Preserve those changes — do NOT revert, discard, or modify files that are not part of the current task.
 
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
+
+${qualitySection}
+
+${gateAwarenessSection}
+
+${frontendSection}
+
+${gitDisciplineSection}
+
+${securityReviewSection}
 `
 }
 
@@ -121,7 +138,7 @@ These help the user understand what's about to happen before any code is written
 
 **Implementation todos** — Write these AFTER Phase 3 (Plan) is complete, replacing the planning todos:
 - One todo per implementation step from the finalized PLAN.md
-- Phase 5: Review loop
+- Phase 5: Review
 - Phase 6: Validate changes${noLearning ? '' : `
 - Phase 7: Capture lessons & update skills`}
 Update these as you complete each step during implementation.
@@ -189,14 +206,13 @@ Fully implement the spec:
 3. Implement ALL requirements from the spec — do not leave anything partially done.
 4. Narrate what you are doing as you go.
 
-## Phase 5 — Review Loop
+## Phase 5 — Review
 
-Iteratively review until the code is clean:
+The automated runtime gate handles validation and code review after your edits — you do not need to manually spawn code-reviewer for the same edited file set.
 
-1. Spawn code-reviewer to review all changes.
-2. If the reviewer finds ANY issues, fix them.
-3. After fixing, you MUST spawn code-reviewer again to re-review.
-4. Repeat steps 1-3 until the reviewer finds no new issues. Do NOT skip the re-review — every fix must be verified.
+1. **Let the automated gate run:** After your edits, the runtime detects changed files, runs validation hooks (typecheck/test/lint), and spawns code-reviewer before finalization. This happens automatically.
+2. **If the gate's reviewer returns BLOCKING:** Treat that finding as the controlling next action. Fix the issue, then let the gate re-run validation and re-review automatically.
+3. **Optional advisory review:** If you spot a specific concern the gate might miss (security, design, architecture), you MAY spawn code-reviewer for pre-edit/advisory review. This is optional and should not duplicate the gate's post-edit review.
 
 ## Phase 6 — Validate
 
@@ -256,66 +272,23 @@ export function createBaseDeep(options?: {
   noLearning?: boolean
 }): Omit<SecretAgentDefinition, 'id'> {
   const { noAskUser = false, noLearning = false } = options ?? {}
+
+  // Inherit the full validation/reviewer gate lifecycle from base2 by
+  // composing its definition. base-deep is a bundled in-process agent, so
+  // the handleSteps function reference and its closures are preserved (no
+  // toString() serialization). The gate runs automatically after edits:
+  // run_file_change_hooks validates, code-reviewer reviews, and a repair
+  // loop escalates if validation fails.
+  const base2Definition = createBase2('default', { noAskUser })
+
   return {
-    publisher,
-    model: 'openai/gpt-5.4',
+    ...base2Definition,
     reasoningOptions: {
       effort: 'high',
     },
     displayName: 'Buffy the GPT Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
-    inputSchema: {
-      prompt: {
-        type: 'string',
-        description: 'A coding task to complete',
-      },
-      params: {
-        type: 'object',
-        properties: {
-          maxContextLength: {
-            type: 'number',
-          },
-        },
-        required: [],
-      },
-    },
-    outputMode: 'last_message',
-    includeMessageHistory: true,
-    toolNames: buildArray(
-      'spawn_agents',
-      'query_index',
-      'read_files',
-      'read_outline',
-      'read_subtree',
-      'list_directory',
-      'glob',
-      'git_status',
-      !noAskUser && 'suggest_followups',
-      'str_replace',
-      'replace_range',
-      'rewrite_symbol',
-      'edit_transaction',
-      'apply_patch',
-      'write_file',
-      'write_todos',
-      !noAskUser && 'ask_user',
-      'skill',
-      'set_output',
-    ),
-    spawnableAgents: [
-      'file-picker',
-      'code-searcher',
-      'directory-lister',
-      'glob-matcher',
-      'researcher-web',
-      'researcher-docs',
-      'basher',
-      'thinker',
-      'code-reviewer',
-      'general-agent',
-      'context-pruner',
-    ],
     systemPrompt: buildDeepSystemPrompt(noAskUser, noLearning),
     instructionsPrompt: buildDeepInstructionsPrompt(noAskUser, noLearning),
     stepPrompt: `Workflow phases reminder (${noLearning ? 6 : 7} phases):
@@ -327,45 +300,31 @@ export function createBaseDeep(options?: {
 
 **Implementation todos** (write after Plan): one todo per plan step + phases 5-${noLearning ? '6' : '7'}
 4. Implement — fully build the spec using file editing tools
-5. Review Loop — code-reviewer → fix → re-review until clean
-6. Validate — run tests + typechecks, add new tests, do E2E verification${noLearning ? '' : `
-7. Lessons — write LESSONS.md, update/create skills, iterative thinker brainstorm loop`}`,
-    handleSteps: function* ({ prompt, params }) {
-      if (shouldProactivelyQueryIndex(prompt)) {
-        yield {
-          toolName: 'query_index',
-          input: {
-            query: prompt,
-            limit: 20,
-          },
-        }
-      }
-
-      while (true) {
-        // Run context-pruner before each step.
-        yield {
-          toolName: 'spawn_agent_inline',
-          input: {
-            agent_type: 'context-pruner',
-            params: params ?? {
-              maxContextLength: 400_000,
-            },
-          },
-          includeToolCall: false,
-        } as any
-
-        const { stepsComplete } = yield 'STEP'
-        if (stepsComplete) break
-      }
-
-      function shouldProactivelyQueryIndex(value: unknown): value is string {
-        if (typeof value !== 'string') return false
-        const text = value.trim()
-        if (text.length < 12) return false
-        if (/^(hi|hello|hey|thanks|thank you|ok|okay)$/i.test(text)) return false
-        return /\b(code|file|files|repo|repository|project|codebase|workspace|module|package|function|class|component|hook|api|schema|config|test|tests|implement|fix|debug|refactor)\b/i.test(text)
-      }
-    },
+5. Review — defer to automated gate (validation + code-reviewer); fix any BLOCKING findings
+6. Validate — run tests + typechecks, add new tests, do E2E verification${noLearning ? '' : `\n7. Lessons — write LESSONS.md, update/create skills, iterative thinker brainstorm loop`}`,
+    // editor is required for the gate repair loop (spawned on validation
+    // failure to fix the offending files). Keep base-deep's extra explorers
+    // (directory-lister, glob-matcher) that base2 doesn't include.
+    spawnableAgents: buildArray(
+      'file-picker',
+      'code-searcher',
+      'directory-lister',
+      'glob-matcher',
+      'researcher-web',
+      'researcher-docs',
+      'basher',
+      'thinker',
+      'code-reviewer',
+      'security-reviewer',
+      'general-agent',
+      'editor',
+      'git-committer',
+      'debugger',
+      'doc-writer',
+      'test-writer',
+      'librarian',
+      'context-pruner',
+    ),
   }
 }
 

@@ -152,6 +152,7 @@ export const queryIndexParams = {
           symbols: z.array(z.string()).optional(),
           headings: z.array(z.string()).optional(),
           matchedSnippets: z.array(z.string()).optional(),
+          matchedSnippetsOmittedForLength: z.literal(true).optional(),
           relatedFiles: z
             .array(
               z.object({
@@ -162,6 +163,7 @@ export const queryIndexParams = {
               }),
             )
             .optional(),
+          relatedFilesOmittedForLength: z.literal(true).optional(),
           explanation: z.string().optional(),
         }),
       ),

@@ -1,12 +1,12 @@
 import {
-  CodebuffClient,
+  OpenbuffClient,
   initialSessionState,
   withMessageHistory,
   type AgentDefinition,
   type Message,
   type ToolMessage,
   type JSONValue,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
 
@@ -140,7 +140,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
         createMessage('user', 'Now spawn the context-pruner'),
       ]
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         agentDefinitions: [testAgent],
       })
 
@@ -264,7 +264,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
         createMessage('user', 'Now prune the context'),
       ]
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         agentDefinitions: [testAgent],
       })
 

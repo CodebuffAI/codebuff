@@ -95,6 +95,15 @@ describe('code-searcher agent', () => {
     expect(output.input.message).toContain('Ran 1 query')
     expect(output.input.message).toContain('1 returned matches')
     expect(output.input.message).toContain('Skipped 1 invalid query')
+    // M2.1: a heuristic digest is emitted alongside raw results.
+    expect(typeof output.input.digest).toBe('string')
+    expect(output.input.digest).toContain('1 matches across 1 file')
+    expect(output.input.digest).toContain('edit_transaction')
+  })
+
+  test('uses a fast/cheap model (not Sonnet) for deterministic tool execution', () => {
+    expect(codeSearcher.model).not.toBe('anthropic/claude-sonnet-4.5')
+    expect(codeSearcher.model).toBeUndefined()
   })
 
   test('handleSteps can be serialized for sandbox execution', () => {

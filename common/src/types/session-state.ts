@@ -150,6 +150,11 @@ export const AgentTemplateTypeList = [
   'researcher',
   'reviewer',
   'agent_builder',
+  'test_writer',
+  'security_reviewer',
+  'debugger',
+  'doc_writer',
+  'git_committer',
   'example_programmatic',
 ] as const
 type UnderscoreToDash<S extends string> = S extends `${infer L}_${infer R}`

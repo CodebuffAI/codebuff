@@ -3,7 +3,7 @@ import os from 'os'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
+import { OpenbuffClient, type AgentDefinition } from '@openbuff/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { $ } from 'bun'
 
@@ -199,7 +199,7 @@ describe('Base Deep Agent Integration', () => {
       const apiKey = getApiKeyOrSkip()
 
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         apiKey,
         cwd: '/tmp/base-deep-thinker-test',
         projectFiles: {
@@ -253,7 +253,7 @@ describe('Base Deep Agent Integration', () => {
       const notePath = path.join(tmpDir, 'note.txt')
       await fs.promises.writeFile(notePath, 'status: draft\n', 'utf-8')
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         apiKey,
         cwd: tmpDir,
         agentDefinitions: [
@@ -386,7 +386,7 @@ describe('Base Deep Agent Integration', () => {
       }
 
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         apiKey,
         cwd: tmpDir,
         agentDefinitions: [
@@ -487,7 +487,7 @@ describe('Base Deep Agent Integration', () => {
 
       const cloneDir = await createShallowClone()
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         apiKey,
         cwd: cloneDir,
         agentDefinitions: [
@@ -544,7 +544,7 @@ describe('Base Deep Agent Integration', () => {
 
       const cloneDir = await createShallowClone()
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         apiKey,
         cwd: cloneDir,
         agentDefinitions: [

@@ -1,4 +1,4 @@
-import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
+import { OpenbuffClient, type AgentDefinition } from '@openbuff/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 
 import { setupE2eMocks } from '../../sdk/e2e/utils/e2e-mocks'
@@ -93,7 +93,7 @@ export interface User {
           '# Test Project\n\nA simple test project for integration testing.',
       }
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         cwd: '/tmp/test-project',
         projectFiles,
         agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
@@ -154,7 +154,7 @@ export interface User {
         'package.json': JSON.stringify({ name: 'mono-repo', version: '2.0.0' }),
       }
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         cwd: '/tmp/test-project',
         projectFiles,
         agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
@@ -204,7 +204,7 @@ export interface User {
         'package.json': JSON.stringify({ name: 'full-stack-app' }),
       }
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         cwd: '/tmp/test-project',
         projectFiles,
         agentDefinitions: [fileListerDefinition as unknown as AgentDefinition],
@@ -283,7 +283,7 @@ export class AuthService {
       const localFilePickerDef = filePickerDefinition
       const localFileListerDef = fileListerDefinition
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         cwd: '/tmp/test-project-picker',
         projectFiles,
         agentDefinitions: [

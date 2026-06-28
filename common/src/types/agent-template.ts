@@ -145,6 +145,16 @@ export type AgentTemplate<
    */
   defaultTimeoutMs?: number
 
+  /**
+   * Optional maximum nesting depth for this agent when spawned as a subagent.
+   * The root orchestrator runs at depth 0; each spawn increments depth by 1.
+   * When a spawn would exceed this depth, executeSubagent rejects it with an
+   * actionable error before any work begins, preventing unbounded recursion.
+   * Undefined falls back to MAX_SPAWN_DEPTH_DEFAULT (3). Set to a higher value
+   * for agents that legitimately need deeper nesting.
+   */
+  maxSpawnDepth?: number
+
   mcpServers: Record<string, MCPConfig>
   toolNames: (ToolName | (string & {}))[]
   spawnableAgents: AgentTemplateType[]

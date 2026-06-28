@@ -29,7 +29,7 @@ describe('thinker agent', () => {
     })
 
     test('uses opus model', () => {
-      expect(thinker.model).toBe('anthropic/claude-opus-4.7')
+      expect(thinker.model).toBeUndefined()
     })
 
     test('has output mode set to structured_output', () => {
@@ -60,6 +60,27 @@ describe('thinker agent', () => {
 
     test('prompt has description', () => {
       expect(thinker.inputSchema?.prompt?.description).toContain('problem')
+    })
+
+    // M2.3: optional depth + outputSchemaHint hints.
+    test('has optional params with depth and outputSchemaHint', () => {
+      const paramsSchema = thinker.inputSchema?.params
+      expect(paramsSchema && typeof paramsSchema === 'object' && 'type' in paramsSchema && paramsSchema.type).toBe('object')
+      const props = (paramsSchema as { properties?: Record<string, unknown> })?.properties
+      expect(props).toBeTruthy()
+      const depth = props?.depth as { type?: string; enum?: string[] } | undefined
+      expect(depth?.type).toBe('string')
+      expect(depth?.enum).toEqual(['shallow', 'deep'])
+      const hint = props?.outputSchemaHint as { type?: string } | undefined
+      expect(hint?.type).toBe('string')
+      expect((paramsSchema as { required?: unknown[] })?.required).toHaveLength(0)
+    })
+
+    test('instructions prompt surfaces depth and outputSchemaHint guidance', () => {
+      expect(thinker.instructionsPrompt).toContain('params.depth')
+      expect(thinker.instructionsPrompt).toContain('params.outputSchemaHint')
+      expect(thinker.instructionsPrompt).toContain('shallow')
+      expect(thinker.instructionsPrompt).toContain('deep')
     })
   })
 

@@ -18,7 +18,6 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'synthesizer',
   publisher,
-  model: 'anthropic/claude-opus-4.7',
   displayName: 'Sam the Synthesizer',
   spawnerPrompt:
     'Reads audit finding files from a scratchpad directory and produces a single cross-cutting audit report. Use this AFTER all shard auditors have written their findings to disk. Do NOT use this to review code directly — it only reads finding files, never raw source.',

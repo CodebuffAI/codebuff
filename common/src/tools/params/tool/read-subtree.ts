@@ -66,8 +66,25 @@ export const readSubtreeParams = {
         }),
         z.object({
           path: z.string(),
+          type: z.literal('directory'),
+          tokenCount: z.number(),
+          truncationLevel: z.enum([
+            'none',
+            'unimportant-files',
+            'tokens',
+            'depth-based',
+          ]),
+          printedTreeOmittedForLength: z.literal(true),
+        }),
+        z.object({
+          path: z.string(),
           type: z.literal('file'),
           variables: z.array(z.string()),
+        }),
+        z.object({
+          path: z.string(),
+          type: z.literal('file'),
+          variablesOmittedForLength: z.literal(true),
         }),
         z.object({
           path: z.string(),

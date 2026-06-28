@@ -157,6 +157,64 @@ describe('gate-reviewer helpers', () => {
     expect(getReviewerFinalizationVerdict('BLOCKING: fix first')).toBe('')
   })
 
+  // M6.3: coverage-adequacy in the reviewer verdict contract.
+  test('collectReviewerBlockers surfaces missing coverage as BLOCKING', () => {
+    expect(
+      collectReviewerBlockers({
+        type: 'json',
+        value: [
+          { verdict: 'NON_BLOCKING', findings: ['minor nit'], coverage: 'missing' },
+        ],
+      }),
+    ).toEqual([
+      'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
+    ])
+  })
+
+  test('collectReviewerBlockers surfaces both BLOCKING findings and missing coverage', () => {
+    expect(
+      collectReviewerBlockers({
+        type: 'json',
+        value: [
+          { verdict: 'BLOCKING', findings: ['Fix A'], coverage: 'missing' },
+        ],
+      }),
+    ).toEqual([
+      'BLOCKING: Fix A',
+      'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
+    ])
+  })
+
+  test('getReviewerFinalizationVerdict blocks finalization when coverage is missing', () => {
+    expect(
+      getReviewerFinalizationVerdict({
+        type: 'json',
+        value: [{ verdict: 'LOOKS_GOOD', coverage: 'missing' }],
+      }),
+    ).toBe('')
+    expect(
+      getReviewerFinalizationVerdict({
+        type: 'json',
+        value: [{ verdict: 'NON_BLOCKING', coverage: 'missing' }],
+      }),
+    ).toBe('')
+  })
+
+  test('getReviewerFinalizationVerdict finalizes when coverage is covered or n/a', () => {
+    expect(
+      getReviewerFinalizationVerdict({
+        type: 'json',
+        value: [{ verdict: 'LOOKS_GOOD', coverage: 'covered' }],
+      }),
+    ).toBe('LOOKS_GOOD')
+    expect(
+      getReviewerFinalizationVerdict({
+        type: 'json',
+        value: [{ verdict: 'NON_BLOCKING', coverage: 'n/a' }],
+      }),
+    ).toBe('NON_BLOCKING')
+  })
+
   test('exported helpers match inline base2 mirror behavior', () => {
     const inlineHelpers = loadInlineGateReviewerHelpers()
 
@@ -197,6 +255,14 @@ describe('gate-reviewer helpers', () => {
         ],
       },
       [{ type: 'json', value: [{ verdict: 'BLOCKING' }] }],
+      {
+        type: 'json',
+        value: [{ verdict: 'NON_BLOCKING', coverage: 'missing' }],
+      },
+      {
+        type: 'json',
+        value: [{ verdict: 'LOOKS_GOOD', coverage: 'covered' }],
+      },
       null,
     ]
 

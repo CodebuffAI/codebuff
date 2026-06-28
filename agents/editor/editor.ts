@@ -1,6 +1,7 @@
 import { publisher } from '../constants'
 
 import type { AgentDefinition } from '../types/agent-definition'
+import { frontendSection, qualitySection } from '../base2/quality-prompt-section'
 
 type CodeEditorVariant =
   | 'gpt-5'
@@ -9,15 +10,6 @@ type CodeEditorVariant =
   | 'kimi'
   | 'deepseek'
   | 'minimax'
-
-const EDITOR_MODEL_BY_VARIANT: Record<CodeEditorVariant, string> = {
-  'gpt-5': 'openai/gpt-5.5',
-  opus: 'anthropic/claude-opus-4.7',
-  glm: 'z-ai/glm-5.1',
-  kimi: 'moonshotai/kimi-k2.6',
-  deepseek: 'deepseek/deepseek-v4-pro',
-  minimax: 'minimax/minimax-m2.7',
-}
 
 // Only Opus gets <think>-tag scaffolding in its instructions; the other
 // variants either have native reasoning (deepseek) or are non-reasoning
@@ -32,7 +24,6 @@ export const createCodeEditor = (options: {
   const { model } = options
   return {
     publisher,
-    model: EDITOR_MODEL_BY_VARIANT[options.model],
     displayName: 'Code Editor',
     spawnerPrompt:
       "Expert code editor that implements code changes based on the user's request. Spawn this agent with a prompt containing only a compact implementation brief: implementation-scoped requirements, target files, constraints/non-goals, relevant patterns, and code-level risks. Do not rely on inherited conversation history, and do not include validation commands, terminal/shell cleanup, deletion requests, visual smoke tests, code review, git operations, or other parent-only orchestration tasks in the editor handoff. Read any clearly intended files before spawning when possible; the editor can also read exact target files to recover missing or stale edit context. For large line-range edits it can use replace_range with read_files.ranges hashes; for related multi-file edits it can use edit_transaction to preflight and apply changes atomically.",
@@ -196,7 +187,11 @@ More style notes:
 - Optional arguments are code smell and worse than required arguments.
 - New components often should be added to a new file, not added to an existing file.
 
-Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
+Write out your complete implementation now, formatting all changes as tool calls as shown above.
+
+${qualitySection}
+
+${frontendSection}`,
 
     handleSteps: function* ({ agentState: initialAgentState, prompt }) {
       const initialMessageHistoryLength =

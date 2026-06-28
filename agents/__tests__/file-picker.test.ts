@@ -56,7 +56,7 @@ describe('file-picker agent', () => {
   describe('createFilePicker', () => {
     test('uses flash-lite model', () => {
       const picker = createFilePicker()
-      expect(picker.model).toBe('google/gemini-2.5-flash-lite')
+      expect(picker.model).toBeUndefined()
     })
 
     test('spawns single file-lister', () => {
@@ -394,6 +394,114 @@ describe('file-picker agent', () => {
       expect(stepText.type).toBe('STEP_TEXT')
       expect(stepText.text).toContain('Error from file-lister')
       expect(stepText.text).toContain('File lister failed')
+    })
+
+    // M2.2: relevance scoring orders paths by prompt-keyword matches, and caps
+    // to the top 12 (matching the spawner prompt's advertised limit).
+    test('orders paths by prompt-keyword relevance', () => {
+      const defaultPicker = createFilePicker()
+      const mockAgentState = createMockAgentState()
+      const mockLogger = createMockLogger()
+
+      const generator = defaultPicker.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        prompt: 'Find authentication files',
+        params: {},
+      })
+
+      generator.next()
+
+      const mockToolResult = {
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'src/unrelated.ts\nsrc/auth/login.ts\nsrc/auth/session.ts\nsrc/utils/helpers.ts',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: true,
+      }
+
+      const result = generator.next(mockToolResult)
+
+      const toolCall = result.value as ToolCall<'read_files'>
+      expect(toolCall.toolName).toBe('read_files')
+      const paths = toolCall.input.paths
+      // auth-bearing paths score higher than unrelated/utils paths.
+      expect(paths[0]).toBe('src/auth/login.ts')
+      expect(paths[1]).toBe('src/auth/session.ts')
+      // The two non-auth files come after, ordered alphabetically as a tiebreak.
+      expect(paths).toContain('src/unrelated.ts')
+      expect(paths).toContain('src/utils/helpers.ts')
+      expect(paths).toHaveLength(4)
+    })
+
+    test('caps to top 12 paths when more candidates are returned', () => {
+      const defaultPicker = createFilePicker()
+      const mockAgentState = createMockAgentState()
+      const mockLogger = createMockLogger()
+
+      const generator = defaultPicker.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger as any,
+        prompt: 'search',
+        params: {},
+      })
+
+      generator.next()
+
+      // 15 candidate paths — should be capped to 12.
+      const fifteenPaths = Array.from({ length: 15 }, (_, i) => `src/file${i}.ts`).join('\n')
+      const mockToolResult = {
+        agentState: createMockAgentState(),
+        toolResult: [
+          {
+            type: 'json' as const,
+            value: [
+              {
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [{ type: 'text', text: fifteenPaths }],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+        stepsComplete: true,
+      }
+
+      const result = generator.next(mockToolResult)
+
+      const toolCall = result.value as ToolCall<'read_files'>
+      expect(toolCall.toolName).toBe('read_files')
+      expect(toolCall.input.paths).toHaveLength(12)
     })
   })
 

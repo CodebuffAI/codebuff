@@ -22,7 +22,7 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
-    agentId: 'codebuff/researcher@0.0.1',
+    agentId: 'openbuff/researcher@0.0.1',
   },
   endsAgentStep,
 })}

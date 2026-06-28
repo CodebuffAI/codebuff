@@ -12,7 +12,6 @@ export const createGeneralAgent = (options: {
 
   return {
     publisher,
-    model: isGpt5 ? 'openai/gpt-5.4' : 'anthropic/claude-opus-4.7',
     // General-agent does multi-step tool exploration that can run long on
     // large audits. Raise the wall-clock bound above the 20-min shared
     // default to give complex investigations room to complete.

@@ -6,6 +6,14 @@ import type {
   Base2WorkflowTodo,
   Base2WorkflowTodoProgress,
 } from './gate-state'
+import {
+  buildBroadAuditSection,
+  frontendSection,
+  gateAwarenessSection,
+  gitDisciplineSection,
+  qualitySection,
+  securityReviewSection,
+} from './quality-prompt-section'
 import { publisher } from '../constants'
 import {
   PLACEHOLDER,
@@ -38,7 +46,6 @@ export function createBase2(
 
   return {
     publisher,
-    model,
     providerOptions,
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
@@ -100,6 +107,12 @@ export function createBase2(
       'tmux-cli',
       'browser-use',
       'code-reviewer',
+      'security-reviewer',
+      'git-committer',
+      'debugger',
+      'doc-writer',
+      'test-writer',
+      'librarian',
       'context-pruner',
     ),
 
@@ -180,20 +193,16 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- For broad codebase questions or tasks where relevant files are not already obvious, call query_index early yourself to get indexed file candidates, then verify the best candidates with read_files/read_subtree and/or spawn file-picker/code-searcher agents as needed. Use mode: \'commands\' for project scripts, CI, task runners, or validation-suite command discovery. Do not rely on query_index alone for correctness.',
     '- Spawn context-gathering agents (file pickers, code searchers, and web/docs researchers) before making edits. Use query_index, list_directory, and glob directly for searching and exploring the codebase.',
     isDefault &&
-      '- Manual code-reviewer use is for pre-edit/advisory review or when the user explicitly asks for an extra review. Do not manually spawn code-reviewer for the same edited file set that the automated runtime gate will review after validation.',
-    isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     isDefault &&
       '- Spawn the thinker after gathering context to solve complex problems or when the user asks you to think about a problem. Use the semantic agent name rather than model-specific variants.',
     '- Spawn bashers sequentially if the second command depends on the the first.',
     '- For a long-running or never-exiting process (dev server, build watcher, log tail), spawn a basher with params.process_type set to BACKGROUND: it returns a jobId immediately instead of blocking. Then call the check_job tool to poll new output and status, or to follow it (pass wait_for to block until a readiness/error pattern appears, with a timeout_seconds bound). Use kill_job when a background job is no longer needed. To watch an existing log file, start a BACKGROUND `tail -f <file>` and check_job it.',
     '- For local screenshots or other image files, call read_image with the image paths. Do not call read_files on image formats.',
-    isDefault &&
-      '- After the editor returns, the runtime automatically runs configured validation hooks and a code-reviewer gate before finalization; do not manually spawn an extra reviewer for the same change unless the user explicitly asks for an additional review.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
-
+${isDefault ? gateAwarenessSection : ''}
 # Openbuff Meta-information
 
 You are running on the ${model} model.
@@ -284,6 +293,14 @@ ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 The following is the state of the git repository at the start of the conversation. Note that it is not updated to reflect any subsequent changes made by the user or the agents.
 
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
+
+${qualitySection}
+
+${frontendSection}
+
+${gitDisciplineSection}
+
+${securityReviewSection}
 `,
 
     instructionsPrompt: planOnly
@@ -324,6 +341,13 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
       const MAX_REPAIR_ROUNDS = 3
+      // static-review-only concurrency (M3.1): when the reviewer is configured
+      // for static-only review, it can run concurrently with the blocking
+      // validation hooks. Defaults to false so the existing sequential
+      // validation-then-reviewer behavior is preserved.
+      const staticReviewOnlyEnabled = !!(
+        mutableAgentState.base2ActiveWork?.staticReviewOnly ?? false
+      )
       const existingActiveWorkState = mutableAgentState.base2ActiveWork
       const hadPendingGateFiles =
         !!existingActiveWorkState &&
@@ -662,6 +686,8 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           activeWorkState.currentPhase = 'final_response_allowed'
           activeWorkState.lastReviewerGateSkipReason = ''
           activeWorkState.repairRoundCount = 0
+          activeWorkState.repairSessionId = undefined
+          activeWorkState.repairEscalationDone = undefined
           activeWorkState.lastValidationSummary = durableValidationSummary
           pendingGateFiles.clear()
           editsHappened = false
@@ -706,13 +732,52 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         // failures and keep the turn open so the model fixes them. The runtime's
         // max step limit bounds pathological retry loops; the gate itself must
         // not silently skip validation after repeated failures.
+        //
+        // static-review-only concurrency (M3.1): when the reviewer is
+        // static-only (base2ActiveWork.staticReviewOnly), spawn it in the
+        // background BEFORE the blocking validation hooks so static review
+        // runs concurrently. The join contract is preserved: a validation
+        // failure still `continue`s below and ignores this background job; we
+        // only `check_background_agent` for its result if validation passes.
+        const staticReviewConcurrency =
+          runReviewerGate && editsHappened && staticReviewOnlyEnabled
+        if (
+          staticReviewConcurrency &&
+          !activeWorkState.staticReviewerJobId
+        ) {
+          const bgReview = yield {
+            toolName: 'spawn_agents',
+            input: {
+              agents: [
+                {
+                  agent_type: reviewerAgentType,
+                  background: true,
+                  prompt: [
+                    'Review the completed default-flow code changes before finalization.',
+                    '',
+                    `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                    'Validation gate summary: Reviewer running concurrently with validation (static-review-only mode).',
+                    '',
+                    'Review after the validation gate above. The first visible token of your reply must be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD: (text mode). If you prefer, you may also emit a single JSON object such as {"verdict":"BLOCKING"|"NON_BLOCKING"|"LOOKS_GOOD", "findings": ["..."]} — the orchestrator accepts either form.',
+                  ].join('\n'),
+                },
+              ],
+            },
+          } as any
+          const bgJobId = extractBackgroundAgentJobId(
+            (bgReview as any) && (bgReview as any).toolResult,
+          )
+          if (bgJobId) {
+            activeWorkState.staticReviewerJobId = bgJobId
+          }
+        }
         let validationSummary = 'No file changes were detected, so no validation hooks ran.'
         if (editsHappened && runValidationGate) {
           const verify = yield {
             toolName: 'run_file_change_hooks',
             input: { files: Array.from(pendingGateFiles) },
           } as any
-          const failures = collectHookFailures(
+          let failures = collectHookFailures(
             (verify as any) && (verify as any).toolResult,
           )
           if (failures.length === 0) {
@@ -731,6 +796,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             const canRepair =
               repairRound < MAX_REPAIR_ROUNDS && hasParseableFailures
             if (canRepair) {
+              if (!activeWorkState.repairSessionId) {
+                activeWorkState.repairSessionId = `repair-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+              }
               activeWorkState.currentPhase = 'repair_loop'
               activeWorkState.repairRoundCount = repairRound + 1
               activeWorkState.latestWorkSummary = `Repair round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}: parsing ${failures.length} validation failure(s) and spawning targeted editor fix.`
@@ -827,6 +895,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                         'validation',
                         'failed',
                         `repair-incomplete: round ${repairRound + 1}/${MAX_REPAIR_ROUNDS}; ${reFailures.length} failure(s) remain for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                        repairRound + 1,
                       ),
                     ].join('\n'),
                   },
@@ -835,6 +904,81 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                 continue
               }
             } else {
+              const canEscalate =
+                hasParseableFailures && !activeWorkState.repairEscalationDone
+              if (canEscalate) {
+                activeWorkState.currentPhase = 'repair_loop'
+                activeWorkState.repairEscalationDone = true
+                activeWorkState.latestWorkSummary = `Repair budget exhausted (${MAX_REPAIR_ROUNDS}/${MAX_REPAIR_ROUNDS}); spawning one escalation editor with broader root-cause context.`
+                activeWorkState.nextRequiredAction = ''
+                markActiveWorkStateChanged()
+                emitGateTelemetry({
+                  currentPhase: 'repair_loop',
+                  pendingFileCount: pendingGateFiles.size,
+                  pendingFiles: Array.from(pendingGateFiles),
+                  validationStatus: 'failed',
+                  repairRound: MAX_REPAIR_ROUNDS,
+                  blockerCount: failures.length,
+                  reuseReason: 'repair-budget-escalation',
+                })
+                const escalate = yield {
+                  toolName: 'spawn_agents',
+                  input: {
+                    agents: [
+                      {
+                        agent_type: 'editor',
+                        prompt: buildEscalationEditorPrompt(
+                          parsed,
+                          Array.from(pendingGateFiles),
+                          MAX_REPAIR_ROUNDS,
+                        ),
+                      },
+                    ],
+                  },
+                } as any
+                const escalateGitStatus = yield {
+                  toolName: 'git_status',
+                  input: {},
+                } as any
+                const escalateChangedFiles = extractGitStatusFiles(
+                  (escalateGitStatus as any)?.toolResult,
+                ).filter(
+                  (file: string) =>
+                    !initialGitStatusFiles.includes(file) &&
+                    !gatePassedFiles.has(file),
+                )
+                if (escalateChangedFiles.length > 0) {
+                  recordChangedFiles(escalateChangedFiles, { fromRepair: true })
+                  activeWorkState.latestWorkSummary = `Escalation editor fixed: ${escalateChangedFiles.join(', ')}`
+                  markActiveWorkStateChanged()
+                }
+                const escalateVerify = yield {
+                  toolName: 'run_file_change_hooks',
+                  input: { files: Array.from(pendingGateFiles) },
+                } as any
+                const escalateFailures = collectHookFailures(
+                  (escalateVerify as any) && (escalateVerify as any).toolResult,
+                )
+                if (escalateFailures.length === 0) {
+                  validationSummary = summarizeHookResults(
+                    (escalateVerify as any) && (escalateVerify as any).toolResult,
+                  )
+                  activeWorkState.lastValidationSummary = validationSummary
+                  activeWorkState.currentPhase = 'awaiting_review'
+                  activeWorkState.nextRequiredAction = ''
+                  markActiveWorkStateChanged()
+                  emitGateTelemetry({
+                    currentPhase: 'awaiting_review',
+                    pendingFileCount: pendingGateFiles.size,
+                    pendingFiles: Array.from(pendingGateFiles),
+                    validationStatus: 'passed',
+                    repairRound: MAX_REPAIR_ROUNDS,
+                    reuseReason: 'escalation-succeeded',
+                  })
+                  continue
+                }
+                failures = escalateFailures
+              }
               activeWorkState.nextRequiredAction =
                 'Fix the blocking validation hook failures before doing anything else.'
               activeWorkState.lastReviewerGateSkipReason = 'validation-hook-failures'
@@ -846,7 +990,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                 pendingFileCount: pendingGateFiles.size,
                 pendingFiles: Array.from(pendingGateFiles),
                 validationStatus: 'failed',
-                skipReason: hasParseableFailures ? 'repair-budget-exhausted' : 'unparseable-failures',
+                skipReason: hasParseableFailures ? (activeWorkState.repairEscalationDone ? 'escalation-exhausted' : 'repair-budget-exhausted') : 'unparseable-failures',
                 blockerCount: failures.length,
                 repairRound,
               })
@@ -864,6 +1008,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                       'validation',
                       'failed',
                       `validation-hook-failures: ${failures.length} hook failure(s) for pending files: ${Array.from(pendingGateFiles).join(', ') || '(unknown files)'}`,
+                      MAX_REPAIR_ROUNDS,
                     ),
                   ].join('\n'),
                 },
@@ -878,27 +1023,50 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         if (runReviewerGate && editsHappened) {
           activeWorkState.lastReviewerGateSkipReason = ''
           markActiveWorkStateChanged()
-          const review = yield {
-            toolName: 'spawn_agents',
-            input: {
-              agents: [
-                {
-                  agent_type: reviewerAgentType,
-                  prompt: [
-                    'Review the completed default-flow code changes before finalization.',
-                    '',
-                    `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
-                    `Validation gate summary: ${validationSummary}`,
-                    '',
-                    'Review after the validation gate above. The first visible token of your reply must be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD: (text mode). If you prefer, you may also emit a single JSON object such as {"verdict":"BLOCKING"|"NON_BLOCKING"|"LOOKS_GOOD", "findings": ["..."]} — the orchestrator accepts either form.',
-                  ].join('\n'),
-                },
-              ],
-            },
-          } as any
-          const blockers = collectReviewerBlockers(
-            (review as any) && (review as any).toolResult,
-          )
+          let reviewerToolResult: unknown
+          if (
+            staticReviewConcurrency &&
+            activeWorkState.staticReviewerJobId
+          ) {
+            const checkResult = yield {
+              toolName: 'check_background_agent',
+              input: {
+                jobId: activeWorkState.staticReviewerJobId,
+                wait_for: 'LOOKS_GOOD',
+                timeout_seconds: 120,
+              },
+            } as any
+            // check_background_agent returns { result } where `result` is the
+            // subagent's final output (same shape a foreground spawn_agents
+            // toolResult wraps). On error/timeout with no result, fall through
+            // to the existing 'did not return LOOKS_GOOD/NON_BLOCKING' blocked
+            // handling below.
+            reviewerToolResult =
+              (checkResult as any)?.toolResult?.result ??
+              (checkResult as any)?.toolResult
+          } else {
+            const review = yield {
+              toolName: 'spawn_agents',
+              input: {
+                agents: [
+                  {
+                    agent_type: reviewerAgentType,
+                    prompt: [
+                      'Review the completed default-flow code changes before finalization.',
+                      '',
+                      `Pending changed files: ${Array.from(pendingGateFiles).join(', ') || '(unknown)'}`,
+                      `Validation gate summary: ${validationSummary}`,
+                      '',
+                      'Review after the validation gate above. The first visible token of your reply must be exactly BLOCKING:, NON_BLOCKING:, or LOOKS_GOOD: (text mode). If you prefer, you may also emit a single JSON object such as {"verdict":"BLOCKING"|"NON_BLOCKING"|"LOOKS_GOOD", "findings": ["..."]} — the orchestrator accepts either form.',
+                    ].join('\n'),
+                  },
+                ],
+              },
+            } as any
+            reviewerToolResult =
+              (review as any) && (review as any).toolResult
+          }
+          const blockers = collectReviewerBlockers(reviewerToolResult)
           if (blockers.length > 0) {
             activeWorkState.openReviewerBlockers = blockers
             activeWorkState.nextRequiredAction =
@@ -922,9 +1090,8 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             } as any
             continue
           }
-          reviewerFinalizationVerdict = getReviewerFinalizationVerdict(
-            (review as any) && (review as any).toolResult,
-          )
+          reviewerFinalizationVerdict =
+            getReviewerFinalizationVerdict(reviewerToolResult)
           if (!reviewerFinalizationVerdict) {
             activeWorkState.nextRequiredAction =
               'Clarify or resolve the reviewer gate result; reviewer did not return LOOKS_GOOD or NON_BLOCKING.'
@@ -972,6 +1139,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             )
             activeWorkState.lastReviewerGateSkipReason = ''
             activeWorkState.repairRoundCount = 0
+            activeWorkState.repairSessionId = undefined
+            activeWorkState.repairEscalationDone = undefined
+            activeWorkState.staticReviewerJobId = undefined
             activeWorkStateChanged = true
           }
           if (activeWorkState.nextRequiredAction) {
@@ -1072,11 +1242,26 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         gate: 'validation' | 'reviewer' | 'validation/reviewer',
         status: 'passed' | 'failed' | 'skipped',
         details: string,
+        repairRound?: number,
       ): string {
         const normalizedDetails = String(details ?? '')
           .replace(/\s+/g, ' ')
           .trim()
-        const payload = { gate, status, details: normalizedDetails }
+        const payload: {
+          gate: string
+          status: string
+          details: string
+          repairRound?: number
+          maxRepairRounds?: number
+        } = { gate, status, details: normalizedDetails }
+        if (
+          typeof repairRound === 'number' &&
+          Number.isFinite(repairRound) &&
+          repairRound >= 0
+        ) {
+          payload.repairRound = repairRound
+          payload.maxRepairRounds = MAX_REPAIR_ROUNDS
+        }
         return `<gate-state>${JSON.stringify(payload)}</gate-state>`
       }
 
@@ -1146,7 +1331,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         if (normalizedFiles.length > 0) {
           activeWorkState.lastReviewerGateSkipReason = ''
           activeWorkState.currentPhase = 'awaiting_validation'
-          if (!opts?.fromRepair) {
+          if (!opts?.fromRepair && !activeWorkState.repairSessionId) {
             activeWorkState.repairRoundCount = 0
           }
         }
@@ -1243,10 +1428,22 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
       function extractGateStateBlocksFromMessage(
         message: unknown,
-      ): Array<{ gate: string; status: string; details: string }> {
+      ): Array<{
+        gate: string
+        status: string
+        details: string
+        repairRound?: number
+        maxRepairRounds?: number
+      }> {
         const texts: string[] = []
         collectMessageText(message, texts)
-        const states: Array<{ gate: string; status: string; details: string }> = []
+        const states: Array<{
+          gate: string
+          status: string
+          details: string
+          repairRound?: number
+          maxRepairRounds?: number
+        }> = []
         for (const text of texts) {
           const matches = text.matchAll(/<gate-state>([\s\S]*?)<\/gate-state>/g)
           for (const match of matches) {
@@ -1256,6 +1453,12 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                 gate: String(parsed.gate ?? ''),
                 status: String(parsed.status ?? ''),
                 details: String(parsed.details ?? ''),
+                ...(typeof parsed.repairRound === 'number'
+                  ? { repairRound: parsed.repairRound }
+                  : {}),
+                ...(typeof parsed.maxRepairRounds === 'number'
+                  ? { maxRepairRounds: parsed.maxRepairRounds }
+                  : {}),
               })
             } catch {
               // Ignore malformed gate-state blocks; only explicit valid JSON
@@ -1933,6 +2136,38 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         return remaining
       }
 
+      function extractBackgroundAgentJobId(
+        toolResult: unknown,
+      ): string | undefined {
+        // The background spawn_agents report is an array of tool-result parts;
+        // the background entry has value.background === true with a jobId. Also
+        // tolerate a direct object shape (value or the part itself) so this
+        // stays robust to small runtime report-shape variations.
+        const candidates: unknown[] = []
+        if (Array.isArray(toolResult)) {
+          for (const part of toolResult) {
+            const value =
+              part && (part as any).type === 'json'
+                ? (part as any).value
+                : part
+            candidates.push(value)
+          }
+        } else if (toolResult && typeof toolResult === 'object') {
+          candidates.push((toolResult as any).value ?? toolResult)
+        }
+        for (const value of candidates) {
+          if (
+            value &&
+            typeof value === 'object' &&
+            (value as any).background === true &&
+            typeof (value as any).jobId === 'string'
+          ) {
+            return (value as any).jobId
+          }
+        }
+        return undefined
+      }
+
       function collectReviewerBlockers(toolResult: unknown): string[] {
         // First check for structured reviewer outputs (e.g. JSON with a
         // verdict field). When present and BLOCKING, surface findings as the
@@ -1945,6 +2180,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
             for (const finding of findings) {
               structuredBlockers.push(`BLOCKING: ${finding}`)
             }
+          }
+          if (entry.coverage === 'missing') {
+            structuredBlockers.push(
+              'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
+            )
           }
         }
         if (structuredBlockers.length > 0) return structuredBlockers
@@ -1962,6 +2202,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         // Structured reviewer outputs take precedence so text-mode fallbacks
         // do not accidentally override an explicit JSON verdict.
         const structured = collectStructuredReviewerOutputs(toolResult)
+        if (structured.some((entry) => entry.coverage === 'missing')) {
+          return ''
+        }
         for (const entry of structured) {
           if (entry.verdict === 'LOOKS_GOOD') return 'LOOKS_GOOD'
           if (entry.verdict === 'NON_BLOCKING') return 'NON_BLOCKING'
@@ -1985,7 +2228,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
       /**
        * Walk the reviewer tool result for objects that look like a structured
-       * reviewer verdict: `{ verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings?: string | string[] }`.
+       * reviewer verdict: `{ verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings?: string | string[], coverage?: 'covered' | 'missing' | 'n/a' }`.
        * Returns an ordered list of normalized entries. Plain text reviewer
        * outputs return an empty list so the existing text-mode logic stays in
        * charge.
@@ -1995,10 +2238,12 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       ): Array<{
         verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
         findings: string[]
+        coverage?: 'covered' | 'missing' | 'n/a'
       }> {
         const out: Array<{
           verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
           findings: string[]
+          coverage?: 'covered' | 'missing' | 'n/a'
         }> = []
         visitForStructuredVerdict(value, out)
         return out
@@ -2009,6 +2254,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         out: Array<{
           verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
           findings: string[]
+          coverage?: 'covered' | 'missing' | 'n/a'
         }>,
       ): void {
         if (!value) return
@@ -2042,7 +2288,15 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
                 }
               }
             }
-            out.push({ verdict: upper as 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings })
+            let coverage: 'covered' | 'missing' | 'n/a' | undefined
+            const rawCoverage = record.coverage
+            if (typeof rawCoverage === 'string') {
+              const lower = rawCoverage.trim().toLowerCase()
+              if (lower === 'covered' || lower === 'missing' || lower === 'n/a') {
+                coverage = lower
+              }
+            }
+            out.push({ verdict: upper as 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings, coverage })
             return
           }
         }
@@ -2294,6 +2548,73 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         return lines.join('\n')
       }
 
+      function buildEscalationEditorPrompt(
+        parsed: {
+          file: string
+          line?: number
+          column?: number
+          message: string
+          source: string
+        }[],
+        pendingFiles: string[],
+        roundsUsed: number,
+      ): string {
+        const fileFailures = parsed.filter((p) => p.file.length > 0)
+        const lines: string[] = [
+          `Validation hooks have failed after ${roundsUsed} automated repair round(s). The targeted fix attempts did not resolve the failures. This is an escalation round: investigate the ROOT CAUSE rather than patching the reported symptom.`,
+          '',
+          'Before editing, read the failing file(s) in full to understand the surrounding context, imports, and conventions. The prior repair rounds likely addressed a surface symptom without fixing the underlying issue (e.g. a missing import, a renamed symbol, a type mismatch upstream, a stale snapshot, or an incorrect assumption about an API).',
+          '',
+          'Make the minimal change that resolves the root cause. Avoid speculative refactors, formatting churn, or edits to files not implicated by the failures. After your edits the validation hooks will re-run automatically.',
+          '',
+        ]
+        if (fileFailures.length > 0) {
+          lines.push('Failing locations (file:line:column — message):')
+          const byFile = new Map<
+            string,
+            {
+              file: string
+              line?: number
+              column?: number
+              message: string
+              source: string
+            }[]
+          >()
+          for (const f of fileFailures) {
+            const list = byFile.get(f.file) ?? []
+            list.push(f)
+            byFile.set(f.file, list)
+          }
+          for (const [file, fails] of byFile) {
+            lines.push(`  ${file}:`)
+            for (const f of fails) {
+              const loc =
+                f.line != null
+                  ? `${f.line}${f.column != null ? `:${f.column}` : ''}`
+                  : '?'
+              lines.push(`    ${loc} — [${f.source}] ${f.message}`)
+            }
+          }
+        } else {
+          lines.push(
+            'No specific file:line locations could be parsed from the failure output. Read the raw failures below and the pending files, investigate the root cause, then fix.',
+          )
+        }
+        const unparsed = parsed.filter((p) => p.file.length === 0)
+        if (unparsed.length > 0) {
+          lines.push('')
+          lines.push('Raw unparsed failures:')
+          for (const u of unparsed) {
+            lines.push(`  [${u.source}] ${u.message}`)
+          }
+        }
+        if (pendingFiles.length > 0) {
+          lines.push('')
+          lines.push(`Pending changed files: ${pendingFiles.join(', ')}`)
+        }
+        return lines.join('\n')
+      }
+
       function shouldProactivelyQueryIndex(value: unknown): value is string {
         if (typeof value !== 'string') return false
         const text = value.trim()
@@ -2320,15 +2641,7 @@ function buildImplementationInstructionsPrompt({
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
-## Broad audit / exploration requests — scope first, then shard
-
-For broad, open-ended, or audit-style requests (for example: "check this codebase for any feature improvements", "audit the codebase for security/correctness/perf issues", "find all the places X is handled", "what can be improved in the agents/sdk/cli", or anything where the relevant surface is not already obvious), do NOT default to a single surface-level codesearch or one or two file reads. Instead, run a deliberate scope-then-shard flow:
-
-1. **Assess scope first.** Use query_index (mode: 'search' and 'commands'), list_directory on the top-level dirs, and a glob or two to estimate the breadth of the request. Identify the distinct subsystems / packages / concerns the request spans (for example: agents/, packages/agent-runtime, packages/sdk, cli/, common/, evals/, docs/). Decide how many parallel subagents the breadth warrants — the wider the surface, the more shards. Default to at least 3–6 parallel subagents for audit-style requests; use more (8–12) for whole-codebase audits.
-2. **Shard parallel subagents accordingly.** Spawn multiple file-pickers and code-searchers in parallel, each pointed at a different subsystem or angle, so the coverage is comprehensive rather than duplicated. For a whole-codebase audit, also spawn one researcher-docs per major external library involved. Cast a wide net in this phase — do not gate the breadth on a single agent's output.
-3. **Read and synthesize.** Read the file-picker / code-searcher results, then read_files the most promising candidates (use read_outline before reading large files, and symbols selectors to pull just what you need). Only after synthesizing across the shards should you proceed to implementation or the answer.
-
-Never make the user ask explicitly for "use multiple agents" — the scope assessment above is your job, and the default for audit-style requests is parallel sharding, not a single codesearch.
+${buildBroadAuditSection('proceed to implementation or the answer')}
 
 ## Example response
 
@@ -2411,15 +2724,7 @@ function buildPlanOnlyInstructionsPrompt({}: {}) {
 
 You are in plan mode. Preserve short-answer behavior: if the user is asking a question, requesting an explanation, or asking for a small clarification, answer directly and do not create a plan packet.
 
-## Broad audit / exploration requests — scope first, then shard
-
-For broad, open-ended, or audit-style requests (for example: "check this codebase for any feature improvements", "audit the codebase for security/correctness/perf issues", "find all the places X is handled", "what can be improved in the agents/sdk/cli", or anything where the relevant surface is not already obvious), do NOT default to a single surface-level codesearch or one or two file reads. Instead, run a deliberate scope-then-shard flow:
-
-1. **Assess scope first.** Use query_index (mode: 'search' and 'commands'), list_directory on the top-level dirs, and a glob or two to estimate the breadth of the request. Identify the distinct subsystems / packages / concerns the request spans (for example: agents/, packages/agent-runtime, packages/sdk, cli/, common/, evals/, docs/). Decide how many parallel subagents the breadth warrants — the wider the surface, the more shards. Default to at least 3–6 parallel subagents for audit-style requests; use more (8–12) for whole-codebase audits.
-2. **Shard parallel subagents accordingly.** Spawn multiple file-pickers and code-searchers in parallel, each pointed at a different subsystem or angle, so the coverage is comprehensive rather than duplicated. For a whole-codebase audit, also spawn one researcher-docs per major external library involved. Cast a wide net in this phase — do not gate the breadth on a single agent's output.
-3. **Read and synthesize.** Read the file-picker / code-searcher results, then read_files the most promising candidates (use read_outline before reading large files, and symbols selectors to pull just what you need). Only after synthesizing across the shards should you translate the findings into the durable plan packet below.
-
-Never make the user ask explicitly for "use multiple agents" — the scope assessment above is your job, and the default for audit-style requests is parallel sharding, not a single codesearch.
+${buildBroadAuditSection('translate the findings into the durable plan packet below')}
 
 For larger implementation, migration, debugging, or multi-step work, gather enough context to create a comprehensive, resumable plan packet. For non-trivial plans, create all four durable artifacts by default (SPEC.md, PLAN.md, STATUS.md, LESSONS.md); these are not optional or only "as needed". Normal users should not need to explicitly ask for STATUS or LESSONS artifacts. You may ask targeted clarifying questions with ask_user when the answer materially changes the plan. Avoid obvious questions and questions about details that can be adjusted later.
 

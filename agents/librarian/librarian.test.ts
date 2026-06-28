@@ -13,9 +13,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
+import { OpenbuffClient, loadLocalAgents } from '@openbuff/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 const TRACE_DIR = path.join(process.cwd(), 'debug', 'librarian-traces')
 
@@ -53,7 +53,7 @@ interface LibrarianOutput {
 }
 
 async function runTask(
-  client: CodebuffClient,
+  client: OpenbuffClient,
   task: TaskDefinition,
   agentDefinitions: AgentDefinition[],
   taskIndex: number,
@@ -145,6 +145,19 @@ async function runTask(
         }
       }
     }
+  } else if (
+    output?.type === 'structuredOutput' &&
+    output.value === null
+  ) {
+    // The SDK returns `{ type: 'structuredOutput', value: null }` when a
+    // structured-output agent finishes without ever calling `set_output`.
+    // The earlier generic message here ("Expected structuredOutput, got:
+    // structuredOutput") was self-contradictory and hid the real failure mode;
+    // surface it explicitly so the trace is immediately diagnosable.
+    validationErrors.push(
+      'Agent produced no structured output: set_output was never called (output envelope had type=structuredOutput but value=null). ' +
+        'This usually means the model ended its turn before emitting a structured result — check the trace for the final assistant turn.',
+    )
   } else if (output?.type === 'error') {
     validationErrors.push(`Agent returned error: ${output.message}`)
   } else {
@@ -245,7 +258,7 @@ async function main() {
   }
   console.log(`Loaded librarian agent (model: ${librarianAgent.model})`)
 
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
     cwd: process.cwd(),
   })
 

@@ -1,4 +1,4 @@
-import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
+import { OpenbuffClient, type AgentDefinition } from '@openbuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -61,7 +61,7 @@ console.log(subtract(5, 3))
         }),
       }
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         apiKey,
         cwd: '/tmp/test-best-of-n-project',
         projectFiles,

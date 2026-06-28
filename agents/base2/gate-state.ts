@@ -54,4 +54,38 @@ export type Base2ActiveWorkState = Base2GateState & {
    * field is treated as 0.
    */
   repairRoundCount?: number
+  /**
+   * Durable token of the active repair session. Set when the repair loop
+   * begins (first round) and cleared only when the gate passes. While a
+   * session is active, recordChangedFiles does NOT reset repairRoundCount,
+   * preventing reset-on-edit circumvention where a spurious non-repair edit
+   * to a failing file would silently reset the repair budget. Backward-
+   * compatible: older serialized state lacks this field (treated as no
+   * active session).
+   */
+  repairSessionId?: string
+  /**
+   * True after the single post-budget escalation editor round has run. The
+   * escalation round fires once after MAX_REPAIR_ROUNDS is exhausted, with a
+   * broader root-cause prompt, before the gate falls back to blocked. Ensures
+   * escalation is not repeated on every re-entry to the same failing batch.
+   * Backward-compatible.
+   */
+  repairEscalationDone?: boolean
+  /**
+   * When true, the reviewer gate runs as a static-only review concurrently
+   * with the blocking validation hooks (M3.1). The reviewer is spawned in the
+   * background before validation and joined via check_background_agent only if
+   * validation passes; a validation failure still blocks finalization and
+   * ignores the background reviewer. Defaults to false to preserve the existing
+   * sequential validation-then-reviewer behavior. Backward-compatible.
+   */
+  staticReviewOnly?: boolean
+  /**
+   * Stashed jobId of a background-spawned static reviewer, set when the
+   * reviewer is spawned in the background before validation and consumed via
+   * check_background_agent after validation passes. Cleared whenever the gate
+   * passes. Backward-compatible: older serialized state lacks this field.
+   */
+  staticReviewerJobId?: string
 }

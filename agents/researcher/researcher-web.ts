@@ -6,7 +6,6 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'researcher-web',
   publisher,
-  model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Weeb',
   spawnerPrompt: `Browses the web to find relevant information.`,
   inputSchema: {

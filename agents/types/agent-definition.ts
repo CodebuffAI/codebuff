@@ -31,8 +31,14 @@ export interface AgentDefinition {
   /** Human-readable name for the agent */
   displayName: string
 
-  /** AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models */
-  model: ModelName
+  /**
+   * AI model to use for this agent. Can be any model in OpenRouter: https://openrouter.ai/models
+   *
+   * Documentation-only / last-resort fallback. The actual model is controlled
+   * exclusively by openbuff.d/routes.json routing; this field is overridden by
+   * openbuff.json routing and is vestigial for bundled agents.
+   */
+  model?: ModelName
 
   /**
    * Optional wall-clock timeout in milliseconds for a single execution of this
@@ -137,9 +143,9 @@ export interface AgentDefinition {
    */
   toolNames?: (ToolName | (string & {}))[]
 
-  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+  /** Other agents this agent can spawn, like 'openbuff/file-picker@0.0.1'.
    *
-   * Use the fully qualified agent id from the agent store, including publisher and version. The built-in Openbuff agents currently use the legacy 'codebuff' publisher namespace, for example: 'codebuff/file-picker@0.0.1'
+   * Use the fully qualified agent id from the agent store, including publisher and version. The built-in Openbuff agents currently use the 'openbuff' publisher namespace, for example: 'openbuff/file-picker@0.0.1'
    * (publisher and version are required!)
    *
    * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.

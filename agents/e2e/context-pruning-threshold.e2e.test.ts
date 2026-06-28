@@ -23,14 +23,14 @@
  */
 
 import {
-  CodebuffClient,
+  OpenbuffClient,
   initialSessionState,
   withMessageHistory,
   type AgentDefinition,
   type Message,
   type ToolMessage,
   type JSONValue,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
 import contextPruner from '../context-pruner'
@@ -313,7 +313,7 @@ describe('Context Pruning Threshold E2E', () => {
       // With maxContextLength=100k, this should be well below the pruning threshold
       const messages = buildMessageHistory(30_000)
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         agentDefinitions: [
           testAgent,
           contextPruner as unknown as AgentDefinition,
@@ -383,7 +383,7 @@ describe('Context Pruning Threshold E2E', () => {
       // With maxContextLength=50k, this should exceed the pruning threshold
       const messages = buildMessageHistory(80_000)
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         agentDefinitions: [
           testAgent,
           contextPruner as unknown as AgentDefinition,
@@ -471,7 +471,7 @@ describe('Context Pruning Threshold E2E', () => {
       const TARGET_ESTIMATED_TOKENS = 95_000
       const messages = buildMessageHistory(TARGET_ESTIMATED_TOKENS)
 
-      const client = new CodebuffClient({
+      const client = new OpenbuffClient({
         agentDefinitions: [
           testAgent,
           contextPruner as unknown as AgentDefinition,

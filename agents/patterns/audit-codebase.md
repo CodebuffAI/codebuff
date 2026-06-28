@@ -57,6 +57,14 @@ risk, and a suggested fix.
   it for small scopes.
 - If the target is large, proceed.
 
+**Breadth check (M10.1):** Before committing to the full audit flow, classify
+the request's breadth using `classifyBreadth(prompt)` from
+`evals/buffbench/plan-sharding-signals.ts`. A `broad-audit` verdict (>=3
+distinct subsystems OR a breadth marker like "whole codebase", AND no
+single-file target) confirms the full map-reduce flow. A `single-target`
+verdict means skip this pattern and use `code-reviewer` directly on that
+file. `unclear` prompts default to the <30-files / <3k-LOC heuristic above.
+
 ### Step 1 — Build the structural map (P2)
 Run the structural-map builder ONCE for the session:
 ```bash
@@ -80,6 +88,18 @@ for the full decision tree.
 From `MAP.md`, partition the codebase into N shards (one per top-level dir, or
 finer for huge dirs). Target ~5–15 files per shard so each shard fits in one
 subagent context with room to analyze. Group tiny dirs together.
+
+**Minimum-shard rule (M10.2, SPEC R10.2):** For a `broad-audit` request
+(detected by `classifyBreadth` in `evals/buffbench/plan-sharding-signals.ts`),
+you MUST spawn at least `max(domainCount, 5)` shard **pairs** — never fewer
+than 5, even if fewer domains were enumerated. A "pair" = one `file-picker`
+subagent (discovers files) + one `code-searcher` subagent (finds patterns); a
+shard with only one type does not count toward the minimum. This rule is
+machine-checked by the pure function `evaluateMinimumShardRule`, which is wired
+into `evaluateShardingVerdict` as an additional gate: a `broad-audit` trace
+that shards but falls short of the minimum-pair bar fails with a clear reason.
+For non-`broad-audit` breadth (`single-target` / `unclear`) the rule is
+skipped — only apply it when the breadth check returns `broad-audit`.
 
 ### Step 3 — Spawn shard auditors in parallel
 For each shard, spawn a `general-agent` (or `code-reviewer` if the shard is
@@ -105,10 +125,54 @@ Spawn all shards in ONE `spawn_agents` call so they run concurrently. Each
 writes to its own findings file — they never block each other, and the parent
 context never holds the raw file contents.
 
+**Pair composition (M10.2):** Each shard pair MUST include both a
+`file-picker` (discovers the shard's files) and a `code-searcher` (finds
+patterns across them). A shard that runs only a `file-picker` or only a
+`code-searcher` does **not** count toward the minimum-shard floor — the
+minimum is measured in complete pairs (`min(file-picker, code-searcher)`), not
+raw subagent count. So a trace with 10 `file-picker`s and 0 `code-searcher`s
+has 0 pairs and fails the rule.
+
+### Step 3.5 — Emit the coverage matrix (M10.3, SPEC R10.3)
+Before synthesizing, emit a domain -> shard mapping so unsharded subsystems
+are visible (prevents silent under-coverage). Write
+`.agents/sessions/<slug>/COVERAGE-MATRIX.md` with `write_file`. Format:
+
+```
+# Coverage matrix
+
+| Domain | Shard IDs | Covered |
+|--------|-----------|--------|
+| agents | shard-0, shard-1 | yes |
+| sdk    | shard-2    | yes |
+| cli    |            | NO    |
+```
+
+List EVERY enumerated domain. Domains with no shard assigned are marked `NO` —
+these are silent under-coverage gaps. If any domain is uncovered, either
+re-shard to cover it or explicitly mark it out-of-scope in the matrix. This
+prevents the "you didn't look at X" complaint by making gaps visible before
+synthesis.
+
+### Step 3.6 — Subsystem-enumeration guard (M10.4, SPEC R10.4)
+Enumerate the repo's top-level directories (from `MAP.md` or `list_directory`
+of the project root). For EACH top-level dir, confirm one of:
+- **audited** — it was sharded (appears in the coverage matrix with >=1 shard).
+- **out-of-scope** — explicitly marked with a one-line reason (e.g. "docs:
+  out-of-scope (not code)", ".agents: out-of-scope (session artifacts)").
+
+Append a `## Subsystem enumeration` section to `COVERAGE-MATRIX.md` listing
+every top-level dir with its disposition. If any dir is missing BOTH a shard
+AND an out-of-scope mark, the audit is incomplete — the planner must either
+shard it or mark it out-of-scope before synthesizing. This is the direct fix
+for the user's "you didn't look at X" complaint.
+
 ### Step 4 — Synthesize (P1)
 After all shards complete, spawn the `synthesizer` agent with a prompt
 pointing at the findings directory:
 - "Read every file in `.agents/sessions/<slug>/findings/` using `read_files`.
+  Also `read_files` `.agents/sessions/<slug>/COVERAGE-MATRIX.md` so you know
+  the full set of audited subsystems and any out-of-scope marks.
   Produce a single cross-cutting audit report at
   `.agents/sessions/<slug>/AUDIT-REPORT.md` using `write_file`. The report
   must:
@@ -118,8 +182,9 @@ pointing at the findings directory:
      shards (these are usually the highest-impact: they indicate a systemic
      pattern, not a one-off bug).
   4. Add a **Top 10** summary at the top with the highest-leverage fixes.
-  5. End with a **Coverage** section listing which shards/files were audited
-     and which (if any) were skipped, so the user knows the audit's scope."
+  5. End with a **Coverage** section that references `COVERAGE-MATRIX.md`
+     and lists which shards/files were audited and which (if any) were
+     skipped or marked out-of-scope, so the user knows the audit's scope."
 
 The synthesizer reads ONLY the small, focused finding files — never the raw
 source. This is what keeps the parent context from being the bottleneck.

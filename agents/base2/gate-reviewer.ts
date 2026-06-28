@@ -12,9 +12,12 @@
 type ReviewerStructuredVerdict = 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING'
 export type ReviewerFinalizationVerdict = 'LOOKS_GOOD' | 'NON_BLOCKING' | ''
 
+type ReviewerCoverage = 'covered' | 'missing' | 'n/a'
+
 type StructuredReviewerOutput = {
   verdict: ReviewerStructuredVerdict
   findings: string[]
+  coverage?: ReviewerCoverage
 }
 
 export function stripReviewerPreamble(text: string): string {
@@ -42,6 +45,13 @@ export function collectReviewerBlockers(toolResult: unknown): string[] {
         structuredBlockers.push(`BLOCKING: ${finding}`)
       }
     }
+    // Coverage-adequacy contract (M6.3): missing test coverage for a
+    // behavior-changing edit is BLOCKING regardless of the text verdict.
+    if (entry.coverage === 'missing') {
+      structuredBlockers.push(
+        'BLOCKING: test coverage missing for changed behavior (add a case to the relevant *.test.ts)',
+      )
+    }
   }
   if (structuredBlockers.length > 0) return structuredBlockers
 
@@ -58,6 +68,11 @@ export function getReviewerFinalizationVerdict(
   // Structured reviewer outputs take precedence so text-mode fallbacks
   // do not accidentally override an explicit JSON verdict.
   const structured = collectStructuredReviewerOutputs(toolResult)
+  // Coverage-adequacy contract (M6.3): missing coverage blocks finalization
+  // even if the text verdict is LOOKS_GOOD / NON_BLOCKING.
+  if (structured.some((entry) => entry.coverage === 'missing')) {
+    return ''
+  }
   for (const entry of structured) {
     if (entry.verdict === 'LOOKS_GOOD') return 'LOOKS_GOOD'
     if (entry.verdict === 'NON_BLOCKING') return 'NON_BLOCKING'
@@ -81,7 +96,7 @@ export function getReviewerFinalizationVerdict(
 
 /**
  * Walk the reviewer tool result for objects that look like a structured
- * reviewer verdict: `{ verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings?: string | string[] }`.
+ * reviewer verdict: `{ verdict: 'LOOKS_GOOD' | 'NON_BLOCKING' | 'BLOCKING', findings?: string | string[], coverage?: 'covered' | 'missing' | 'n/a' }`.
  * Returns an ordered list of normalized entries. Plain text reviewer
  * outputs return an empty list so the existing text-mode logic stays in
  * charge.
@@ -129,7 +144,15 @@ function visitForStructuredVerdict(
           }
         }
       }
-      out.push({ verdict: upper as ReviewerStructuredVerdict, findings })
+      let coverage: ReviewerCoverage | undefined
+      const rawCoverage = record.coverage
+      if (typeof rawCoverage === 'string') {
+        const lower = rawCoverage.trim().toLowerCase()
+        if (lower === 'covered' || lower === 'missing' || lower === 'n/a') {
+          coverage = lower
+        }
+      }
+      out.push({ verdict: upper as ReviewerStructuredVerdict, findings, coverage })
       return
     }
   }

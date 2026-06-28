@@ -6,6 +6,7 @@
     "types": ["bun", "node"],
     "paths": {
       "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@openbuff/sdk": ["../sdk/src/index.ts"],
       "@codebuff/common/*": ["../common/src/*"],
       "@codebuff/agent-runtime/*": ["../packages/agent-runtime/src/*"]
     }

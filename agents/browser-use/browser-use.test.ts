@@ -13,9 +13,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
+import { OpenbuffClient, loadLocalAgents } from '@openbuff/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 const TRACE_DIR = path.join(process.cwd(), 'debug', 'browser-agent-traces')
 
@@ -53,7 +53,7 @@ interface TraceEvent {
 }
 
 async function runTask(
-  client: CodebuffClient,
+  client: OpenbuffClient,
   task: TaskDefinition,
   agentDefinitions: AgentDefinition[],
   taskIndex: number,
@@ -168,7 +168,7 @@ async function main() {
   }
   console.log(`Loaded browser-use agent (model: ${browserAgent.model})`)
 
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
     cwd: process.cwd(),
   })
 

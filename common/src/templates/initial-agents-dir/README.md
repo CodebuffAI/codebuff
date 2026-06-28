@@ -281,9 +281,9 @@ async *handleSteps() {
 
 **Bring your own providers (BYOK)**: Openbuff's local/custom-provider mode lets you use your own API keys and configure any LLM provider — run models locally, connect to private endpoints, or mix-and-match providers to suit your workflow.
 
-**Fully customizable SDK**: Build on the current SDK package (`@codebuff/sdk`) to integrate coding assistance into your applications. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
+**Fully customizable SDK**: Build on the current SDK package (`@openbuff/sdk`) to integrate coding assistance into your applications. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
 
-Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
+Learn more about the SDK [here](https://www.npmjs.com/package/@openbuff/sdk).
 
 ## Community & Support
 

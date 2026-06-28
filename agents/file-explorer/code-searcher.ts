@@ -50,7 +50,6 @@ const codeSearcher: SecretAgentDefinition = {
   displayName: 'Code Searcher',
   spawnerPrompt:
     `Mechanically runs multiple code search queries (using ripgrep line-oriented search) and returns up to 250 results across all source files, showing each line that matches the search pattern. Excludes git-ignored files. You MUST pass searchQueries in params. Example input: { "params": { "searchQueries": [{ "pattern": "createUser", "flags": "-g *.ts" }, { "pattern": "deleteUser", "flags": "-g *.ts" }, { "pattern": "UserSchema", "maxResults": 5 }] } }`,
-  model: 'anthropic/claude-sonnet-4.5',
   publisher,
   includeMessageHistory: false,
   toolNames: ['code_search', 'set_output'],
@@ -237,10 +236,98 @@ const codeSearcher: SecretAgentDefinition = {
       )
     }
 
+    /**
+     * Heuristic ≤200-token digest of raw ripgrep output so the orchestrator
+     * can scan result themes without re-reading the full stdout. Deterministic
+     * (no LLM call) because this agent is a pure tool-execution agent with no
+     * prompt tool available in its sandboxed handleSteps.
+     *
+     * Format: "<N> matches across <F> files. Top files: ... Symbols: ..."
+     * Bounded: top 5 files, top 8 symbols. Stays well under ~200 tokens.
+     */
+    function buildDigest(results: JSONValue[]): string {
+      type Match = { file: string; content: string }
+      const matches: Match[] = []
+      let currentFile = ''
+      for (const result of results) {
+        if (!result || typeof result !== 'object' || Array.isArray(result)) {
+          continue
+        }
+        const record = result as Record<string, unknown>
+        if (typeof record.errorMessage === 'string') continue
+        const stdout = record.stdout
+        if (typeof stdout !== 'string') continue
+        for (const line of stdout.split('\n')) {
+          // File header lines look like "./path/to/file.ts:" or "file.ts:"
+          // (end with ':', no leading whitespace). The leading "Found N matches"
+          // summary line does not end with ':' so it is not misclassified.
+          if (
+            line.length > 0 &&
+            !line.startsWith(' ') &&
+            line.endsWith(':')
+          ) {
+            currentFile = line.slice(0, -1).replace(/^\.\//, '')
+            continue
+          }
+          // Match lines look like "  Line N: <content>".
+          const m = line.match(/^\s+Line \d+:\s*(.*)$/)
+          if (m && currentFile) {
+            matches.push({ file: currentFile, content: m[1] })
+          }
+        }
+      }
+      if (matches.length === 0) return ''
+      // Top files by match count.
+      const fileCounts = new Map<string, number>()
+      for (const mt of matches) {
+        fileCounts.set(mt.file, (fileCounts.get(mt.file) ?? 0) + 1)
+      }
+      const topFiles = [...fileCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([f, c]) => `${f} (${c})`)
+        .join(', ')
+      // Candidate symbols: camelCase / PascalCase / snake_case identifiers
+      // pulled from matched line content, deduped by frequency.
+      const symbolCounts = new Map<string, number>()
+      const symbolRe = /\b[A-Za-z_][A-Za-z0-9_]{2,}\b/g
+      for (const mt of matches) {
+        let sm: RegExpExecArray | null
+        while ((sm = symbolRe.exec(mt.content)) !== null) {
+          const tok = sm[0]
+          // Skip common noise tokens.
+          if (
+            /^(return|const|let|var|function|import|export|from|type|interface|class|new|if|else|for|while|async|await|true|false|null|undefined|this|self)$/.test(
+              tok,
+            )
+          ) {
+            continue
+          }
+          symbolCounts.set(tok, (symbolCounts.get(tok) ?? 0) + 1)
+        }
+      }
+      const topSymbols = [...symbolCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([s]) => s)
+        .join(', ')
+      const parts = [
+        `${matches.length} matches across ${fileCounts.size} file${
+          fileCounts.size === 1 ? '' : 's'
+        }.`,
+        `Top files: ${topFiles}.`,
+      ]
+      if (topSymbols) parts.push(`Symbols: ${topSymbols}.`)
+      return parts.join(' ')
+    }
+
+    const digest = buildDigest(toolResults)
+
     yield {
       toolName: 'set_output',
       input: {
         message: summaryParts.join(' '),
+        digest,
         results: toolResults,
       },
       includeToolCall: false,

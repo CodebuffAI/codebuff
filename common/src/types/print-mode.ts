@@ -129,6 +129,15 @@ export const printModePhaseSchema = z.object({
 })
 export type PrintModePhase = z.infer<typeof printModePhaseSchema>
 
+export const printModeContextWindowSchema = z.object({
+  type: z.literal('context_window'),
+  used: z.number(),
+  max: z.number(),
+})
+export type PrintModeContextWindow = z.infer<
+  typeof printModeContextWindowSchema
+>
+
 export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeDownloadStatusSchema,
   printModeErrorSchema,
@@ -142,6 +151,7 @@ export const printModeEventSchema = z.discriminatedUnion('type', [
   printModeToolResultSchema,
   printModeToolStartSchema,
 
+  printModeContextWindowSchema,
   printModeReasoningDeltaSchema,
 ])
 

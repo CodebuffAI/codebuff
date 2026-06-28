@@ -30,7 +30,7 @@ export type { PlaceholderValue } from '@codebuff/agent-runtime/templates/types'
 export const AgentTemplateTypeList = [
   // Base agents
   'base',
-  'base_lite',
+  'base_free',
   'base_max',
   'base_experimental',
   'claude4_gemini_thinking',
@@ -41,6 +41,7 @@ export const AgentTemplateTypeList = [
   'ask',
 
   // Planning / Thinking
+  'planner',
   'dry_run',
   'thinker',
 
@@ -50,6 +51,11 @@ export const AgentTemplateTypeList = [
   'researcher',
   'reviewer',
   'agent_builder',
+  'test_writer',
+  'security_reviewer',
+  'debugger',
+  'doc_writer',
+  'git_committer',
   'example_programmatic',
 ] as const
 

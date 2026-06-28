@@ -26,7 +26,7 @@ describe('editor agent', () => {
     })
 
     test('uses opus model by default', () => {
-      expect(editor.model).toBe('anthropic/claude-opus-4.7')
+      expect(editor.model).toBeUndefined()
     })
 
     test('has output mode set to structured_output', () => {
@@ -58,6 +58,7 @@ describe('editor agent', () => {
       expect(editor.instructionsPrompt).toContain('Never use ultra-broad anchors')
       expect(editor.instructionsPrompt).toContain('many occurrences')
       expect(editor.instructionsPrompt).toContain('Do not create scratch')
+      expect(editor.instructionsPrompt).toContain('Code Craftsmanship')
       expect(editor.instructionsPrompt).not.toContain('run configured validation hooks')
       expect(editor.instructionsPrompt).not.toContain('Spawn a code-reviewer')
       expect(editor.instructionsPrompt).not.toContain('git push')
@@ -81,32 +82,32 @@ describe('editor agent', () => {
   describe('createCodeEditor', () => {
     test('creates opus editor by default', () => {
       const opusEditor = createCodeEditor({ model: 'opus' })
-      expect(opusEditor.model).toBe('anthropic/claude-opus-4.7')
+      expect(opusEditor.model).toBeUndefined()
     })
 
     test('creates gpt-5 editor', () => {
       const gpt5Editor = createCodeEditor({ model: 'gpt-5' })
-      expect(gpt5Editor.model).toBe('openai/gpt-5.5')
+      expect(gpt5Editor.model).toBeUndefined()
     })
 
     test('creates glm editor', () => {
       const glmEditor = createCodeEditor({ model: 'glm' })
-      expect(glmEditor.model).toBe('z-ai/glm-5.1')
+      expect(glmEditor.model).toBeUndefined()
     })
 
     test('creates kimi editor', () => {
       const kimiEditor = createCodeEditor({ model: 'kimi' })
-      expect(kimiEditor.model).toBe('moonshotai/kimi-k2.6')
+      expect(kimiEditor.model).toBeUndefined()
     })
 
     test('creates deepseek editor', () => {
       const deepseekEditor = createCodeEditor({ model: 'deepseek' })
-      expect(deepseekEditor.model).toBe('deepseek/deepseek-v4-pro')
+      expect(deepseekEditor.model).toBeUndefined()
     })
 
     test('creates minimax editor', () => {
       const minimaxEditor = createCodeEditor({ model: 'minimax' })
-      expect(minimaxEditor.model).toBe('minimax/minimax-m2.7')
+      expect(minimaxEditor.model).toBeUndefined()
     })
 
     test('non-opus editors do not include think tags in instructions', () => {

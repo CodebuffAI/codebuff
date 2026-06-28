@@ -137,6 +137,14 @@ export const codeSearchParams = {
         message: z.string(),
       }),
       z.object({
+        message: z.string(),
+        status: z.enum(['passed', 'failed', 'unknown']).optional(),
+        stdoutOmittedForLength: z.literal(true),
+        stdoutExcerpt: z.string().optional(),
+        stderrExcerpt: z.string().optional(),
+        exitCode: z.number().optional(),
+      }),
+      z.object({
         errorMessage: z.string(),
       }),
     ]),
