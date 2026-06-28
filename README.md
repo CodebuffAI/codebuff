@@ -6,7 +6,7 @@ English | [简体中文](./README.zh-CN.md)
 
 Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
-> **Compatibility note:** Openbuff keeps selected upstream compatibility aliases so existing projects keep working. Package names like `@codebuff/sdk`, the `CodebuffClient` SDK export, CLI aliases like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` remain supported compatibility surfaces. New docs and examples should use the Openbuff brand and primary `openbuff` / `OPENBUFF_*` / `openbuff.json` names unless they are documenting those compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup.
+> **Compatibility note:** Openbuff keeps selected upstream compatibility aliases so existing projects keep working. The SDK is published as `@openbuff/sdk`. The `CodebuffClient` SDK export remains available as a compatibility alias for `OpenbuffClient`, CLI aliases like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` remain supported compatibility surfaces. New docs and examples should use the Openbuff brand and primary `openbuff` / `OPENBUFF_*` / `openbuff.json` names unless they are documenting those compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup.
 
 ## How it works
 
@@ -95,19 +95,19 @@ export default {
 
 ## SDK: Run agents in production
 
-Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk). The npm package name remains `@codebuff/sdk` for backward compatibility; it is the current Openbuff SDK package.
+Install the [SDK package](https://www.npmjs.com/package/@openbuff/sdk). The npm package name is `@openbuff/sdk`; it is the current Openbuff SDK package.
 
 ```bash
-npm install @codebuff/sdk
+npm install @openbuff/sdk
 ```
 
 Import the client and run agents!
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+import { OpenbuffClient } from '@openbuff/sdk'
 
 // 1. Initialize the client
-const client = new CodebuffClient({
+const client = new OpenbuffClient({
   cwd: '/path/to/your/project',
   onError: (error) => console.error('Openbuff error:', error.message),
 })
@@ -139,7 +139,7 @@ await client.run({
 })
 ```
 
-Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
+Learn more about the SDK [here](https://www.npmjs.com/package/@openbuff/sdk).
 
 ## Provider configuration
 
@@ -234,7 +234,7 @@ Some ways you can help:
 
 **CLI**: `npm install -g openbuff`
 
-**SDK**: `npm install @codebuff/sdk`
+**SDK**: `npm install @openbuff/sdk`
 
 ### Resources
 

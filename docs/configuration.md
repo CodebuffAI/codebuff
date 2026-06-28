@@ -199,6 +199,35 @@ tests that block the agent from ending its turn until they pass.
 - Hooks run from the repository root, so use `cd <pkg> && …` to scope a
   command to a package.
 
+### Hook naming convention
+
+The `name` field is a **free-form string** — there is no schema field or
+validation enforcing a naming pattern. However, the orchestrator's repair loop
+surfaces hook names directly in gate-state boxes and repair guidance (e.g.
+`typecheck-sdk failed (exit 1)`), so a consistent prefix convention makes it
+immediately clear to the agent *what kind* of validation failed and how to
+react.
+
+**Convention: prefix hook names with their validation category.**
+
+| Prefix        | Purpose                                      | Example name            |
+|---------------|----------------------------------------------|-------------------------|
+| `typecheck-`  | TypeScript / language typechecking           | `typecheck-sdk`         |
+| `lint-`       | Linters (eslint, prettier, ruff, etc.)       | `lint-cli`              |
+| `test-`       | Test suites (unit, integration, e2e)         | `test-agent-runtime`    |
+| `build-`      | Compilation / bundling                       | `build-sdk`             |
+
+- **Why a convention, not a schema field?** The `FileChangeHook` type has no
+  `kind`/`category` field — adding one would require a migration of all
+  existing `hooks.json` configs and provider-config merge logic. A naming
+  prefix is zero-cost, backward-compatible, and sufficient for the agent to
+  infer the failure category from the `hookName` string.
+- **Mixed prefixes are fine.** A repo can have both `typecheck-*` and `lint-*`
+  hooks; the gate runs all matching hooks and reports each by name.
+- **No prefix is also fine** — a hook named `prettier` or `my-custom-check`
+  still works; the agent just won't get the category hint in its repair
+  guidance.
+
 ### Recommended recipe (this repo)
 
 This monorepo has independent `typecheck` scripts per package, so a single
