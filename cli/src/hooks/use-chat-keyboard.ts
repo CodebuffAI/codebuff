@@ -86,6 +86,12 @@ export type ChatKeyboardHandlers = {
 
   // Toggle all handler
   onToggleAll: () => void
+
+  // Toggle command palette handler (Ctrl+P)
+  onToggleCommandPalette: () => void
+
+  // Toggle prompt history search handler (Ctrl+R)
+  onTogglePromptHistory: () => void
 }
 
 /**
@@ -257,6 +263,12 @@ function dispatchAction(
       return true
     case 'toggle-all':
       handlers.onToggleAll()
+      return true
+    case 'toggle-command-palette':
+      handlers.onToggleCommandPalette()
+      return true
+    case 'toggle-prompt-history':
+      handlers.onTogglePromptHistory()
       return true
     case 'none':
       return false

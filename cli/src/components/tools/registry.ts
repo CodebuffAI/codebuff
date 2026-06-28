@@ -25,7 +25,7 @@ import type {
   ToolBlock,
 } from './types'
 import type { ChatTheme } from '../../types/theme-system'
-import type { ToolName } from '@codebuff/sdk'
+import type { ToolName } from '@openbuff/sdk'
 
 /**
  * Registry of all tool-specific UI components.

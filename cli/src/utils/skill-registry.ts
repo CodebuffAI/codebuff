@@ -1,4 +1,4 @@
-import { loadSkills as sdkLoadSkills } from '@codebuff/sdk'
+import { loadSkills as sdkLoadSkills } from '@openbuff/sdk'
 
 import { getProjectRoot } from '../project-files'
 import { logger } from './logger'

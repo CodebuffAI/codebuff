@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-import { loadProviderConfigSync } from '@codebuff/sdk'
+import { loadProviderConfigSync } from '@openbuff/sdk'
 
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'

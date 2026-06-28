@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { createMessageUpdater } from '../message-updater'
-import { createStreamChunkHandler } from '../sdk-event-handlers'
+import { createEventHandler, createStreamChunkHandler } from '../sdk-event-handlers'
 
 import type { ChatMessage } from '../../types/chat'
 import type { EventHandlerState } from '../sdk-event-handlers'
@@ -52,6 +52,7 @@ const createTestContext = () => {
       },
       setStreamingAgents: () => {},
       setStreamStatus: () => {},
+      setContextWindowUsage: () => {},
     },
     message: {
       aiMessageId: 'ai-1',
@@ -92,5 +93,20 @@ describe('sdk-event-handlers', () => {
     expect(blocks.find((block) => block.type === 'plan')).toMatchObject({
       content: 'Build plan',
     })
+  })
+
+  test('handles context_window event by calling setContextWindowUsage', () => {
+    const captured: { usage: { used: number; max: number } | null } = {
+      usage: null,
+    }
+    const { ctx } = createTestContext()
+    ctx.streaming.setContextWindowUsage = (usage) => {
+      captured.usage = usage
+    }
+    const handleEvent = createEventHandler(ctx)
+
+    handleEvent({ type: 'context_window', used: 50000, max: 200000 })
+
+    expect(captured.usage).toEqual({ used: 50000, max: 200000 })
   })
 })

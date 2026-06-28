@@ -47,7 +47,7 @@ describe('getAgentDisplayPrompt', () => {
 
   test('normalizes scoped and versioned basher agent ids', () => {
     const block = createAgentBlock({
-      agentType: 'codebuff/basher@1.0.0',
+      agentType: 'openbuff/basher@1.0.0',
       params: {
         what_to_summarize: 'Summarize command output',
       },

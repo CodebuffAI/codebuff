@@ -1,6 +1,6 @@
 import { IndexManager } from '@codebuff/indexer'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
-import { CodebuffClient, loadProviderConfigSync, createConfiguredEmbedder } from '@codebuff/sdk'
+import { OpenbuffClient, loadProviderConfigSync, createConfiguredEmbedder } from '@openbuff/sdk'
 
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
@@ -10,8 +10,8 @@ import { logger } from './logger'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { JSONObject } from '@codebuff/common/types/json'
 
-// Singleton instance of the SDK's CodebuffClient for reuse within the CLI
-let clientInstance: CodebuffClient | null = null
+// Singleton instance of the SDK's OpenbuffClient for reuse within the CLI
+let clientInstance: OpenbuffClient | null = null
 
 /**
  * Recursively removes undefined values from an object to ensure clean JSON serialization.
@@ -44,7 +44,7 @@ export function resetCodebuffClient(): void {
   clientInstance = null
 }
 
-export async function getCodebuffClient(): Promise<CodebuffClient> {
+export async function getCodebuffClient(): Promise<OpenbuffClient> {
   // Reuse singleton
   if (clientInstance) {
     return clientInstance
@@ -62,7 +62,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient> {
     }
   }
 
-  clientInstance = new CodebuffClient({
+  clientInstance = new OpenbuffClient({
     cwd: getProjectRoot(),
     logger,
     overrideTools: {

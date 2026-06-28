@@ -2,7 +2,7 @@ import { extractImagePaths, processImageFile } from './image-handler'
 import { logger } from './logger'
 
 import type { PendingImageAttachment } from '../types/store'
-import type { MessageContent } from '@codebuff/sdk'
+import type { MessageContent } from '@openbuff/sdk'
 
 // Converts pending images + inline references into SDK-ready message content.
 export type ProcessedImagePart = {

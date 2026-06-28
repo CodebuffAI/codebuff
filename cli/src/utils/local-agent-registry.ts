@@ -6,7 +6,7 @@ import { pluralize } from '@codebuff/common/util/string'
 import {
   loadLocalAgents as sdkLoadLocalAgents,
   loadMCPConfigSync,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 

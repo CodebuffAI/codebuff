@@ -42,6 +42,13 @@ export interface MessageBlockCallbacks {
     },
   ) => void
   onCloseFeedback: () => void
+  /**
+   * Pre-populate the input bar with a previously-sent user message's text so
+   * the user can edit & resend it. On the next submit the conversation is
+   * truncated at (and including) the edited message and the new text is sent
+   * as a fresh user message.
+   */
+  onEditMessage: (messageId: string, content: string) => void
 }
 
 interface MessageBlockStoreState {
@@ -72,6 +79,7 @@ type MessageBlockStore = MessageBlockStoreState & MessageBlockStoreActions
 
 const noop = () => {}
 const noopFeedback: MessageBlockCallbacks['onFeedback'] = () => {}
+const noopEdit: MessageBlockCallbacks['onEditMessage'] = () => {}
 
 const initialContext: MessageBlockContext = {
   theme: null,
@@ -87,6 +95,7 @@ const initialCallbacks: MessageBlockCallbacks = {
   onBuildFast: noop,
   onFeedback: noopFeedback,
   onCloseFeedback: noop,
+  onEditMessage: noopEdit,
 }
 
 const initialState: MessageBlockStoreState = {

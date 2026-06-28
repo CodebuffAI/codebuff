@@ -88,6 +88,7 @@ const defaultCallbacks = {
   onBuildFast: () => {},
   onFeedback: () => {},
   onCloseFeedback: () => {},
+  onEditMessage: () => {},
 }
 
 const initializeStore = (overrides: {
@@ -197,6 +198,7 @@ describe('MessageBlockStore', () => {
         onBuildFast: mockBuildFast,
         onFeedback: mockFeedback,
         onCloseFeedback: mockCloseFeedback,
+        onEditMessage: () => {},
       })
 
       const state = useMessageBlockStore.getState()
@@ -245,6 +247,7 @@ describe('MessageBlockStore', () => {
         onBuildFast: mockFn,
         onFeedback: mockFn,
         onCloseFeedback: mockFn,
+        onEditMessage: () => {},
       })
 
       useMessageBlockStore.getState().reset()

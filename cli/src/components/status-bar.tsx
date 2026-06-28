@@ -46,6 +46,13 @@ interface StatusBarProps {
   isAtBottom: boolean
   scrollToLatest: () => void
   statusIndicatorState: StatusIndicatorState
+  contextWindowUsage?: { used: number; max: number } | null
+  /** Session-accumulated cost in cents (1 dollar = 100 cents). */
+  sessionCostCents?: number | null
+  /** Resolved model id for the active agent mode (short display string). */
+  modelName?: string | null
+  /** Git working-tree diff stats (modified/added/deleted counts). */
+  diffStats?: { modified: number; added: number; deleted: number } | null
   onStop?: () => void
 }
 
@@ -54,6 +61,10 @@ export const StatusBar = ({
   isAtBottom,
   scrollToLatest,
   statusIndicatorState,
+  contextWindowUsage,
+  sessionCostCents,
+  modelName,
+  diffStats,
   onStop,
 }: StatusBarProps) => {
   const theme = useTheme()
@@ -152,10 +163,69 @@ export const StatusBar = ({
     return <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
   }
 
+  const renderContextWindowUsage = () => {
+    if (!contextWindowUsage) {
+      return null
+    }
+
+    const pct = Math.round(
+      (contextWindowUsage.used / contextWindowUsage.max) * 100,
+    )
+    // Color-code: warning when approaching context limit (>= 70%)
+    const fg = pct >= 70 ? theme.warning : theme.secondary
+
+    return <span fg={fg}>{`ctx ${pct}%`}</span>
+  }
+
+  const renderSessionCost = () => {
+    if (sessionCostCents == null || sessionCostCents === 0) {
+      return null
+    }
+    const dollars = sessionCostCents / 100
+    const formatted =
+      dollars < 0.01 ? `$${(sessionCostCents / 100).toFixed(4)}` : `$${dollars.toFixed(2)}`
+    return <span fg={theme.secondary}>{`cost ${formatted}`}</span>
+  }
+
+  const renderModelName = () => {
+    if (!modelName) {
+      return null
+    }
+    // Shorten common provider prefixes for compactness
+    const short = modelName.replace(/^(openai|anthropic|google|openrouter)\//, '')
+    return <span fg={theme.secondary}>{short}</span>
+  }
+
+  const renderDiffStats = () => {
+    if (!diffStats) {
+      return null
+    }
+    const { modified, added, deleted } = diffStats
+    const total = modified + added + deleted
+    if (total === 0) {
+      return null
+    }
+    const parts: string[] = []
+    if (modified > 0) parts.push(`~${modified}`)
+    if (added > 0) parts.push(`+${added}`)
+    if (deleted > 0) parts.push(`-${deleted}`)
+    return <span fg={theme.secondary}>{`git ${parts.join(' ')}`}</span>
+  }
+
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
+  const contextWindowContent = renderContextWindowUsage()
+  const sessionCostContent = renderSessionCost()
+  const modelNameContent = renderModelName()
+  const diffStatsContent = renderDiffStats()
 
-  const hasContent = statusIndicatorContent || elapsedTimeContent
+  const hasContent =
+    statusIndicatorContent ||
+    elapsedTimeContent ||
+    contextWindowContent ||
+    sessionCostContent ||
+    modelNameContent ||
+    diffStatsContent
 
   return (
     <box
@@ -194,6 +264,10 @@ export const StatusBar = ({
           gap: 1,
         }}
       >
+        <text style={{ wrapMode: 'none' }}>{contextWindowContent}</text>
+        <text style={{ wrapMode: 'none' }}>{sessionCostContent}</text>
+        <text style={{ wrapMode: 'none' }}>{diffStatsContent}</text>
+        <text style={{ wrapMode: 'none' }}>{modelNameContent}</text>
         <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
         {onStop &&
           (statusIndicatorState.kind === 'waiting' ||

@@ -17,9 +17,9 @@ import {
   resolveConfiguredProviderModel,
   resolveModelCapabilities,
   writeProviderConfigFile,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 
-import type { ModelDiscoveryFetch } from '@codebuff/sdk'
+import type { ModelDiscoveryFetch } from '@openbuff/sdk'
 
 import { getProjectRoot } from '../project-files'
 import {
@@ -32,7 +32,7 @@ import type {
   AgentDefinition,
   OpenbuffReasoningEffort,
   ProviderConfigFileInput,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import type { AgentMode } from './constants'
 
 function asAgentId(agent: AgentDefinition | string, fallbackMode: AgentMode): string {
@@ -276,6 +276,22 @@ function getRelativeConfigPath(filePath: string): string {
   } catch {
     return filePath
   }
+}
+
+/**
+ * Resolve the short model id for the active agent mode from the openbuff
+ * provider config. Returns null if the config cannot be loaded or the
+ * route is unresolved / falls back to the agent default placeholder.
+ */
+export function resolveModelNameForAgent(agentId: string): string | null {
+  const loadedConfig = loadProviderConfigSync()
+  const route = resolveConfiguredAgentModelConfig({
+    agentId,
+    model: '(agent default)',
+    loadedConfig,
+  })
+  if (!route?.model || route.model === '(agent default)') return null
+  return route.model
 }
 
 export function formatOpenbuffModelStatus(): string {

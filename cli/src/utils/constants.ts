@@ -1,7 +1,7 @@
-import type { ToolName } from '@codebuff/sdk'
+import type { ToolName } from '@openbuff/sdk'
 
 // Agent IDs that should not be rendered in the CLI UI
-export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
+export const HIDDEN_AGENT_IDS = ['openbuff/context-pruner'] as const
 
 // Tool names that should be collapsed by default when rendered
 // Uses ToolName type to ensure only valid tool names are added

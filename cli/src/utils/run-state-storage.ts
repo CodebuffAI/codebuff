@@ -6,7 +6,7 @@ import { logger } from './logger'
 import { sanitizeForChatPersistence } from './payload-sanitizer'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
-import type { RunState } from '@codebuff/sdk'
+import type { RunState } from '@openbuff/sdk'
 import type {
   AgentState,
   SessionState,

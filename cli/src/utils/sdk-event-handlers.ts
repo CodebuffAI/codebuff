@@ -51,6 +51,7 @@ import type {
 } from '../types/chat'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
+  PrintModeContextWindow,
   PrintModeEvent as SDKEvent,
   PrintModeFinish,
   PrintModePhase,
@@ -60,7 +61,7 @@ import type {
   PrintModeToolResult,
   PrintModeToolStart,
 } from '@codebuff/common/types/print-mode'
-import type { ToolName } from '@codebuff/sdk'
+import type { ToolName } from '@openbuff/sdk'
 import type { MutableRefObject } from 'react'
 
 export type SetStreamingAgentsFn = (
@@ -68,6 +69,10 @@ export type SetStreamingAgentsFn = (
 ) => void
 
 export type SetStreamStatusFn = (status: StreamStatus) => void
+
+export type SetContextWindowUsageFn = (
+  usage: { used: number; max: number } | null,
+) => void
 
 export type StreamChunkEvent =
   | string
@@ -88,6 +93,7 @@ export type StreamingState = {
   streamRefs: StreamController
   setStreamingAgents: SetStreamingAgentsFn
   setStreamStatus: SetStreamStatusFn
+  setContextWindowUsage: SetContextWindowUsageFn
 }
 
 export type MessageState = {
@@ -592,7 +598,23 @@ const handlePhase = (
   })
 }
 
+const handleContextWindow = (
+  state: EventHandlerState,
+  event: PrintModeContextWindow,
+) => {
+  // Context-window events carry the current token usage and max so the
+  // CLI status bar can display how full the context window is.
+  state.streaming.setContextWindowUsage({
+    used: event.used,
+    max: event.max,
+  })
+}
+
 const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
+  // Clear context-window usage when the run finishes so the status bar
+  // doesn't show stale data from the previous run.
+  state.streaming.setContextWindowUsage(null)
+
   if (typeof event.totalCost === 'number' && state.onTotalCost) {
     state.onTotalCost(event.totalCost)
   }
@@ -662,5 +684,8 @@ export const createEventHandler =
       .with({ type: 'tool_result' }, (e) => handleToolResult(state, e))
       .with({ type: 'finish' }, (e) => handleFinish(state, e))
       .with({ type: 'phase' }, (e) => handlePhase(state, e))
+      .with({ type: 'context_window' }, (e) =>
+        handleContextWindow(state, e),
+      )
       .otherwise(() => undefined)
   }

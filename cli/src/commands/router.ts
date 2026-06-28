@@ -1,10 +1,11 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { runTerminalCommand } from '@codebuff/sdk'
+import { runTerminalCommand } from '@openbuff/sdk'
 
 
 import {
   findCommand,
+  findCommandSuggestions,
   type RouterParams,
   type CommandResult,
 } from './command-registry'
@@ -518,10 +519,15 @@ export async function routeUserPrompt(
       agentMode,
     })
 
+    const suggestions = findCommandSuggestions(attemptedCmd)
+    const suggestionText = suggestions.length > 0
+      ? ` Did you mean: ${suggestions.join(', ')}?`
+      : ''
+
     setMessages((prev) => [
       ...prev,
       getUserMessage(trimmed),
-      getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}`),
+      getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}${suggestionText}`),
     ])
     return
   }

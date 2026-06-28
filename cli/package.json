@@ -32,7 +32,7 @@
   "dependencies": {
     "@codebuff/common": "workspace:*",
     "@codebuff/indexer": "workspace:*",
-    "@codebuff/sdk": "workspace:*",
+    "@openbuff/sdk": "workspace:*",
     "@gravity-ai/api": "^0.1.2",
     "@opentui/core": "0.2.2",
     "@opentui/react": "0.2.2",

@@ -21,7 +21,7 @@ import type {
   ModelRouteTarget,
   ReasoningEffortInput,
 } from '../utils/openbuff-provider'
-import type { OpenbuffReasoningEffort, ProviderConfigFileInput } from '@codebuff/sdk'
+import type { OpenbuffReasoningEffort, ProviderConfigFileInput } from '@openbuff/sdk'
 
 const LAYOUT = {
   CONTENT_PADDING: 4,

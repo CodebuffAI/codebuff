@@ -1,4 +1,4 @@
-import { WEBSITE_URL } from '@codebuff/sdk'
+import { WEBSITE_URL } from '@openbuff/sdk'
 
 /**
  * API response types for consistent error handling.

@@ -27,8 +27,8 @@ const { setupStreamingContext, handleRunCompletion, handleRunError, finalizeQueu
 const { createBatchedMessageUpdater } = await import(
   '../../../utils/message-updater'
 )
-import { createPaymentRequiredError } from '@codebuff/sdk'
-import type { RunState } from '@codebuff/sdk'
+import { createPaymentRequiredError } from '@openbuff/sdk'
+import type { RunState } from '@openbuff/sdk'
 
 const createMockTimerController = (): SendMessageTimerController & {
   startCalls: string[]

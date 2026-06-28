@@ -75,16 +75,16 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'provider',
     description: 'Show, add, remove, connect, or disconnect providers',
   },
-  // {
-  //   id: 'undo',
-  //   label: 'undo',
-  //   description: 'Undo the last change made by the assistant',
-  // },
-  // {
-  //   id: 'redo',
-  //   label: 'redo',
-  //   description: 'Redo the most recent undone change',
-  // },
+  {
+    id: 'undo',
+    label: 'undo',
+    description: 'Undo the last change made by the assistant',
+  },
+  {
+    id: 'redo',
+    label: 'redo',
+    description: 'Redo the most recent undone change',
+  },
   {
     id: 'interview',
     label: 'interview',
@@ -138,6 +138,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'prompts',
+    label: 'prompts',
+    description: 'Fuzzy search past prompts',
+    aliases: ['prompt-search'],
+  },
+  {
     id: 'agent:general',
     label: 'agent:general',
     description: 'Spawn the general agent to help solve complex problems',
@@ -153,6 +159,16 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'bash',
     description: 'Enter bash mode ("!" at beginning enters bash mode)',
     aliases: ['!'],
+  },
+  {
+    id: 'diff',
+    label: 'diff',
+    description: 'Show unstaged git diff for the current project',
+  },
+  {
+    id: 'changes',
+    label: 'changes',
+    description: 'Show git status (changed files) for the current project',
   },
   {
     id: 'image',

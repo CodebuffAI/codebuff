@@ -2,7 +2,7 @@
  * Chat streaming hook - connection status, timer, queue management, and exit handling.
  */
 
-import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
+import { RECONNECTION_MESSAGE_DURATION_MS } from '@openbuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState, useTransition } from 'react'
 

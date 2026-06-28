@@ -9,7 +9,7 @@ import { loadModePreference, saveModePreference } from '../utils/settings'
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 import type { InputMode } from '../utils/input-modes'
-import type { RunState } from '@codebuff/sdk'
+import type { RunState } from '@openbuff/sdk'
 
 // Import types from the types/store module to avoid circular dependencies
 import type {
@@ -80,6 +80,10 @@ export type ChatStoreState = {
   suggestedFollowups: SuggestedFollowupsState | null
   /** Persisted clicked indices per toolCallId */
   clickedFollowupsMap: ClickedFollowupsMap
+  /** Snapshots of the message list captured before destructive commands (e.g. /new), available for /undo */
+  pastMessageSnapshots: ChatMessage[][]
+  /** Snapshots captured by undoing, available for /redo */
+  futureMessageSnapshots: ChatMessage[][]
 }
 
 const findLatestFollowupInBlocks = (
@@ -169,12 +173,27 @@ type ChatStoreActions = {
   clearPendingBashMessages: () => void
   setSuggestedFollowups: (state: SuggestedFollowupsState | null) => void
   markFollowupClicked: (toolCallId: string, index: number) => void
+  pushMessageSnapshot: () => void
+  undoMessages: () => void
+  redoMessages: () => void
   reset: () => void
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions
 
 const generateSessionId = () => crypto.randomUUID()
+
+/**
+ * Deep-clone the current message list so subsequent immer mutations on the live
+ * `messages` array cannot mutate a stored snapshot. Uses structuredClone
+ * (available on Node 17+/Bun) with a JSON fallback for older runtimes.
+ */
+const cloneMessageSnapshot = (messages: ChatMessage[]): ChatMessage[] => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(messages) as ChatMessage[]
+  }
+  return JSON.parse(JSON.stringify(messages)) as ChatMessage[]
+}
 
 const initialState: ChatStoreState = {
   chatSessionId: generateSessionId(),
@@ -203,6 +222,8 @@ const initialState: ChatStoreState = {
   pendingBashMessages: [],
   suggestedFollowups: null,
   clickedFollowupsMap: new Map<string, Set<number>>(),
+  pastMessageSnapshots: [],
+  futureMessageSnapshots: [],
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -214,6 +235,56 @@ export const useChatStore = create<ChatStore>()(
         state.messages =
           typeof value === 'function' ? value(state.messages) : value
       }),
+
+    pushMessageSnapshot: () => {
+      const { messages, pastMessageSnapshots } = useChatStore.getState()
+      const snapshot = cloneMessageSnapshot(messages)
+      set((state) => {
+        state.pastMessageSnapshots = castDraft([
+          ...pastMessageSnapshots,
+          snapshot,
+        ])
+        state.futureMessageSnapshots = []
+      })
+    },
+
+    undoMessages: () => {
+      const { messages, pastMessageSnapshots, futureMessageSnapshots } =
+        useChatStore.getState()
+      if (pastMessageSnapshots.length === 0) return
+      const futureSnapshot = cloneMessageSnapshot(messages)
+      const restored = cloneMessageSnapshot(
+        pastMessageSnapshots[pastMessageSnapshots.length - 1],
+      )
+      set((state) => {
+        state.futureMessageSnapshots = castDraft([
+          ...futureMessageSnapshots,
+          futureSnapshot,
+        ])
+        state.pastMessageSnapshots = castDraft(pastMessageSnapshots.slice(0, -1))
+        state.messages = castDraft(restored)
+      })
+    },
+
+    redoMessages: () => {
+      const { messages, pastMessageSnapshots, futureMessageSnapshots } =
+        useChatStore.getState()
+      if (futureMessageSnapshots.length === 0) return
+      const pastSnapshot = cloneMessageSnapshot(messages)
+      const restored = cloneMessageSnapshot(
+        futureMessageSnapshots[futureMessageSnapshots.length - 1],
+      )
+      set((state) => {
+        state.pastMessageSnapshots = castDraft([
+          ...pastMessageSnapshots,
+          pastSnapshot,
+        ])
+        state.futureMessageSnapshots = castDraft(
+          futureMessageSnapshots.slice(0, -1),
+        )
+        state.messages = castDraft(restored)
+      })
+    },
 
     setStreamingAgents: (value) =>
       set((state) => {
@@ -518,6 +589,8 @@ export const useChatStore = create<ChatStore>()(
         state.pendingBashMessages = []
         state.suggestedFollowups = null
         state.clickedFollowupsMap = new Map<string, Set<number>>()
+        state.pastMessageSnapshots = []
+        state.futureMessageSnapshots = []
       }),
   })),
 )

@@ -1,4 +1,4 @@
-import { sanitizeErrorMessage, getErrorStatusCode } from '@codebuff/sdk'
+import { sanitizeErrorMessage, getErrorStatusCode } from '@openbuff/sdk'
 
 /**
  * Formats an unknown error into a user-facing markdown string.

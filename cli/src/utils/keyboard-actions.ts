@@ -87,6 +87,12 @@ export type ChatKeyboardAction =
   // Toggle all collapsed/expanded
   | { type: 'toggle-all' }
 
+  // Toggle command palette (Ctrl+P)
+  | { type: 'toggle-command-palette' }
+
+  // Toggle prompt history search (Ctrl+R)
+  | { type: 'toggle-prompt-history' }
+
   // Queue actions
   | { type: 'clear-queue' }
 
@@ -154,6 +160,23 @@ export function resolveChatKeyboardAction(
   const modeConfig = getInputModeConfig(state.inputMode)
   if (isEscape && state.inputMode !== 'default' && !modeConfig.blockKeyboardExit) {
     return { type: 'exit-input-mode' }
+  }
+
+  // Priority 2.5: Toggle command palette (Ctrl+P)
+  // Fires in default input mode with no menus required. Not gated on menu state
+  // so it works regardless of slash/mention menu activity.
+  const isCtrlP = key.ctrl && key.name === 'p' && !key.meta && !key.option
+  if (isCtrlP) {
+    return { type: 'toggle-command-palette' }
+  }
+
+  // Priority 2.6: Toggle prompt history search (Ctrl+R)
+  // Fires in default input mode, mirroring the Ctrl+P command palette toggle.
+  // Openbuff runs in its own TUI (not a raw shell), so reusing Ctrl+R for
+  // reverse-i-search-style prompt history is safe.
+  const isCtrlR = key.ctrl && key.name === 'r' && !key.meta && !key.option
+  if (isCtrlR) {
+    return { type: 'toggle-prompt-history' }
   }
 
   // Priority 3: Clear input with ctrl-c when there's text

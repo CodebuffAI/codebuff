@@ -4,7 +4,7 @@ import {
   getChatGptOAuthCredentials,
   getValidChatGptOAuthCredentials,
   loadProviderConfigSync,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import { enableMapSet } from 'immer'
 
 import { initializeThemeStore } from '../hooks/use-theme'

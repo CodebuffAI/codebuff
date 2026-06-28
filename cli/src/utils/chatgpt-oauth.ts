@@ -18,10 +18,10 @@ import {
   isChatGptOAuthValid,
   resetChatGptOAuthRateLimit,
   saveChatGptOAuthCredentials,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 import { safeOpen } from './open-url'
 
-import type { ChatGptOAuthCredentials } from '@codebuff/sdk'
+import type { ChatGptOAuthCredentials } from '@openbuff/sdk'
 
 function parseOAuthTokenResponse(data: unknown): {
   accessToken: string

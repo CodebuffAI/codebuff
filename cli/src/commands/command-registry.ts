@@ -43,6 +43,7 @@ import {
   setupOpenbuffProviderFromArgs,
 } from '../utils/openbuff-provider'
 import { capturePendingAttachments } from '../utils/pending-attachments'
+import { fuzzyMatch } from '../utils/fuzzy-match'
 import { getSkillByName } from '../utils/skill-registry'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -79,6 +80,7 @@ export type CommandResult = {
   openFeedbackMode?: boolean
   openPublishMode?: boolean
   openChatHistory?: boolean
+  openPromptHistorySearch?: boolean
   openReviewScreen?: boolean
   openModelRoutePicker?: boolean
   openProviderPicker?: boolean
@@ -346,6 +348,31 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
+  defineCommandWithArgs({
+    name: 'diff',
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      // /diff with no args: unstaged diff. With args: pass through (e.g. --cached, --stat).
+      const command = trimmedArgs
+        ? `git diff ${trimmedArgs}`
+        : 'git diff'
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      runBashCommand(command)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'changes',
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      const command = trimmedArgs
+        ? `git status ${trimmedArgs}`
+        : 'git status --short'
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      runBashCommand(command)
+    },
+  }),
   defineCommand({
     name: 'exit',
     aliases: ['quit', 'q'],
@@ -358,6 +385,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
     aliases: ['n', 'clear', 'c', 'reset'],
     handler: (params, args) => {
       const trimmedArgs = args.trim()
+
+      // Snapshot the current conversation so it can be restored with /undo.
+      useChatStore.getState().pushMessageSnapshot()
 
       // Clear the conversation
       params.setMessages(() => [])
@@ -381,6 +411,34 @@ const ALL_COMMANDS: CommandDefinition[] = [
         // Only disable queue if we're not sending a message
         params.setCanProcessQueue(false)
       }
+    },
+  }),
+  defineCommand({
+    name: 'undo',
+    handler: (params) => {
+      const hadSnapshot =
+        useChatStore.getState().pastMessageSnapshots.length > 0
+      useChatStore.getState().undoMessages()
+      const message = hadSnapshot
+        ? 'Reverted to previous conversation state.'
+        : 'Nothing to undo.'
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'redo',
+    handler: (params) => {
+      const hadSnapshot =
+        useChatStore.getState().futureMessageSnapshots.length > 0
+      useChatStore.getState().redoMessages()
+      const message = hadSnapshot
+        ? 'Re-applied undone conversation state.'
+        : 'Nothing to redo.'
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
     },
   }),
   defineCommand({
@@ -626,6 +684,15 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       return { openChatHistory: true }
+    },
+  }),
+  defineCommand({
+    name: 'prompts',
+    aliases: ['prompt-search'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      return { openPromptHistorySearch: true }
     },
   }),
   defineCommandWithArgs({
@@ -882,6 +949,60 @@ export function findCommand(cmd: string): CommandDefinition | undefined {
   }
 
   return undefined
+}
+
+/**
+ * Suggests the closest known slash commands for a user's attempted (but
+ * unknown) command. Uses fuzzy matching against every command name and alias.
+ *
+ * Returns up to `limit` (default 3) candidates, each prefixed with `/` and
+ * sorted best-first. Returns an empty array when `attempted` is empty or no
+ * candidate scores within `maxScore` (default 30, lower=better in fuzzyMatch).
+ */
+export function findCommandSuggestions(
+  attempted: string,
+  opts?: { limit?: number; maxScore?: number },
+): string[] {
+  const query = attempted.trim()
+  if (query.length === 0) {
+    return []
+  }
+
+  const limit = opts?.limit ?? 3
+  const maxScore = opts?.maxScore ?? 30
+
+  // Enumerate every command id (name + each alias) and dedupe.
+  const seen = new Set<string>()
+  const candidates: string[] = []
+  for (const command of COMMAND_REGISTRY) {
+    for (const candidate of [command.name, ...command.aliases]) {
+      if (seen.has(candidate)) {
+        continue
+      }
+      seen.add(candidate)
+      candidates.push(candidate)
+    }
+  }
+
+  const scored: { candidate: string; score: number }[] = []
+  for (const candidate of candidates) {
+    const match = fuzzyMatch(candidate, query)
+    if (match === null) {
+      continue
+    }
+    if (match.score <= maxScore) {
+      scored.push({ candidate, score: match.score })
+    }
+  }
+
+  scored.sort((a, b) => {
+    if (a.score !== b.score) {
+      return a.score - b.score
+    }
+    return a.candidate < b.candidate ? -1 : a.candidate > b.candidate ? 1 : 0
+  })
+
+  return scored.slice(0, limit).map((entry) => `/${entry.candidate}`)
 }
 
 /**

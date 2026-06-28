@@ -12,7 +12,7 @@ import {
   clearChatState,
 } from '../run-state-storage'
 import type { ChatMessage, ContentBlock } from '../../types/chat'
-import type { RunState } from '@codebuff/sdk'
+import type { RunState } from '@openbuff/sdk'
 
 // Mock the project-files module
 const mockProjectDataDir = path.join(os.tmpdir(), 'codebuff-test-project')

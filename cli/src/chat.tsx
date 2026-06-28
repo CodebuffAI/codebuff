@@ -12,6 +12,8 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { ChatInputBar } from './components/chat-input-bar'
+import { CommandPaletteScreen } from './components/command-palette-screen'
+import { PromptHistorySearchScreen } from './components/prompt-history-search-screen'
 import { ModelRoutePicker } from './components/model-route-picker'
 import { PlanSessionPickerScreen } from './components/plan-session-picker-screen'
 import {
@@ -58,8 +60,10 @@ import { getInputModeConfig } from './utils/input-modes'
 import {
   addCustomOpenbuffProvider,
   handleOpenbuffProviderCommand,
+  resolveModelNameForAgent,
   setupOpenbuffProviderFromArgs,
 } from './utils/openbuff-provider'
+import { getDiffStats, type DiffStats } from './utils/git'
 
 import {
   type ChatKeyboardState,
@@ -85,7 +89,7 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
-import type { AgentMode } from './utils/constants'
+import { AGENT_MODE_TO_ID, type AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
 
@@ -120,6 +124,8 @@ export const Chat = ({
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
   const [modelRoutePickerOpen, setModelRoutePickerOpen] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [promptHistoryOpen, setPromptHistoryOpen] = useState(false)
   const [providerPickerOpen, setProviderPickerOpen] = useState(false)
   const [planSessionPickerCommand, setPlanSessionPickerCommand] = useState<
     string | null
@@ -368,6 +374,41 @@ export const Chat = ({
     sendMessageRef,
   })
 
+  // M4.3: Context-window usage for the status bar (updated via context_window
+  // PrintModeEvent from the agent runtime).
+  const [contextWindowUsage, setContextWindowUsage] = useState<{
+    used: number
+    max: number
+  } | null>(null)
+
+  // M9.3: Session-cost accumulator (sum of per-turn cost in cents from
+  // onTotalCost callbacks). Model name + git diff-stats for the status bar.
+  const [sessionCostCents, setSessionCostCents] = useState<number>(0)
+  const [diffStats, setDiffStats] = useState<DiffStats | null>(null)
+
+  // Resolve the model name for the active agent mode from the provider config.
+  const modelName = useMemo(() => {
+    const agentId = AGENT_MODE_TO_ID[agentMode]
+    return agentId ? resolveModelNameForAgent(agentId) : null
+  }, [agentMode])
+
+  // Poll git diff stats: on mount, after streaming ends, and periodically
+  // while idle (cheap `git status --short` call).
+  useEffect(() => {
+    const cwd = getProjectRoot() ?? process.cwd()
+    const refresh = () => setDiffStats(getDiffStats({ cwd }))
+    refresh()
+    const interval = setInterval(refresh, 10_000)
+    return () => clearInterval(interval)
+  }, [])
+  // Refresh diff stats when streaming completes (files may have changed).
+  useEffect(() => {
+    if (!isStreaming) {
+      const cwd = getProjectRoot() ?? process.cwd()
+      setDiffStats(getDiffStats({ cwd }))
+    }
+  }, [isStreaming])
+
   // When streaming completes, flush any pending bash commands into history (ghost mode only)
   // Non-ghost mode commands are already in history and will be cleared when user sends next message
   useEffect(() => {
@@ -412,12 +453,15 @@ export const Chat = ({
     activeSubagentsRef,
     isChainInProgressRef,
     setStreamStatus,
+    setContextWindowUsage,
     setCanProcessQueue,
     abortControllerRef,
     agentId,
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
     scrollToLatest,
+    onTotalCost: (costCents) =>
+      setSessionCostCents((prev) => prev + costCents),
     onTimerEvent: () => {},
     isQueuePausedRef,
     isProcessingQueueRef,
@@ -435,6 +479,23 @@ export const Chat = ({
       options?: { preserveInputValue?: boolean },
     ) => {
       ensureQueueActiveBeforeSubmit()
+
+      // Edit & resend: if the user clicked Edit on a previous user message, the
+      // edited message id was captured at click time. Before sending the new
+      // (edited) content as a fresh user message, snapshot the current
+      // conversation for /undo and truncate the conversation at (and including)
+      // the edited message. The ref is cleared immediately after reading so a
+      // failed/aborted edit cannot poison the next normal send.
+      const editingMessageId = editingMessageIdRef.current
+      if (editingMessageId) {
+        editingMessageIdRef.current = null
+        useChatStore.getState().pushMessageSnapshot()
+        useChatStore.getState().setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === editingMessageId)
+          if (idx === -1) return prev
+          return prev.slice(0, idx)
+        })
+      }
 
       const preserveInput = options?.preserveInputValue === true
       const previousInputValue = preserveInput
@@ -672,6 +733,10 @@ export const Chat = ({
         useChatHistoryStore.getState().openChatHistory()
       }
 
+      if (result.openPromptHistorySearch) {
+        setPromptHistoryOpen(true)
+      }
+
       if (result.openModelRoutePicker) {
         setModelRoutePickerOpen(true)
       }
@@ -693,6 +758,7 @@ export const Chat = ({
       openFeedbackForMessage,
       openPublishMode,
       preSelectAgents,
+      setPromptHistoryOpen,
     ],
   )
 
@@ -780,6 +846,24 @@ export const Chat = ({
       handleOpenFeedbackForMessage(id, options)
     },
     [handleOpenFeedbackForMessage],
+  )
+
+  // Edit & resend: capture the edited message id at click time so a re-render
+  // between click and submit cannot desync the truncation index lookup.
+  const editingMessageIdRef = useRef<string | null>(null)
+
+  const handleEditMessage = useCallback(
+    (messageId: string, content: string) => {
+      editingMessageIdRef.current = messageId
+      setInputValue({
+        text: content,
+        cursorPosition: content.length,
+        lastEditDueToNav: false,
+      })
+      setInputFocused(true)
+      inputRef.current?.focus()
+    },
+    [setInputValue, setInputFocused, inputRef],
   )
 
   const handleExitFeedback = useCallback(() => {
@@ -1150,6 +1234,8 @@ export const Chat = ({
       onScrollUp: scrollUp,
       onScrollDown: scrollDown,
       onToggleAll: handleToggleAll,
+      onToggleCommandPalette: () => setCommandPaletteOpen((prev) => !prev),
+      onTogglePromptHistory: () => setPromptHistoryOpen((prev) => !prev),
     }),
     [
       handleCloseFeedback,
@@ -1186,6 +1272,7 @@ export const Chat = ({
       scrollDown,
       handleToggleAll,
       handlePasteLongText,
+      setPromptHistoryOpen,
     ],
   )
 
@@ -1237,12 +1324,14 @@ export const Chat = ({
       onBuildFast: handleBuildFast,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
+      onEditMessage: handleEditMessage,
     })
   }, [
     handleCollapseToggle,
     handleBuildFast,
     handleMessageFeedback,
     handleCloseFeedback,
+    handleEditMessage,
     setMessageBlockCallbacks,
   ])
 
@@ -1397,6 +1486,54 @@ export const Chat = ({
     )
   }
 
+  if (commandPaletteOpen) {
+    return (
+      <CommandPaletteScreen
+        slashCommands={filteredSlashCommands}
+        fileTree={fileTree}
+        onClose={() => setCommandPaletteOpen(false)}
+        onExecuteCommand={async (commandString) => {
+          setCommandPaletteOpen(false)
+          const result = await onSubmitPrompt(commandString, agentMode)
+          handleCommandResult(result)
+        }}
+        onSelectFile={(filePath) => {
+          setCommandPaletteOpen(false)
+          setInputValue((prev) => ({
+            text:
+              prev.text.slice(0, prev.cursorPosition) +
+              `@${filePath} ` +
+              prev.text.slice(prev.cursorPosition),
+            cursorPosition: prev.cursorPosition + filePath.length + 2,
+            lastEditDueToNav: false,
+          }))
+          setInputFocused(true)
+          inputRef.current?.focus()
+        }}
+      />
+    )
+  }
+
+  if (promptHistoryOpen) {
+    return (
+      <PromptHistorySearchScreen
+        onClose={() => {
+          setPromptHistoryOpen(false)
+          setInputFocused(true)
+        }}
+        onSelectPrompt={(text) => {
+          setInputValue({
+            text,
+            cursorPosition: text.length,
+            lastEditDueToNav: false,
+          })
+          setInputFocused(true)
+          inputRef.current?.focus()
+        }}
+      />
+    )
+  }
+
   if (providerPickerOpen) {
     return <ProviderPickerScreen onSelect={handleProviderPickerSelect} />
   }
@@ -1499,6 +1636,10 @@ export const Chat = ({
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}
+            contextWindowUsage={contextWindowUsage}
+            sessionCostCents={sessionCostCents}
+            modelName={modelName}
+            diffStats={diffStats}
             onStop={chatKeyboardHandlers.onInterruptStream}
           />
         )}

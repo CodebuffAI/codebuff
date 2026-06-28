@@ -50,6 +50,8 @@ interface MessageBlockProps {
   onBuildFast: () => void
   onFeedback?: (messageId: string) => void
   onCloseFeedback?: () => void
+  /** Pre-populate the input bar with this message's text for edit & resend. */
+  onEditMessage?: (messageId: string, content: string) => void
   validationErrors?: Array<{ id: string; message: string }>
   /** Runtime error to display in UI but NOT send to LLM */
   userError?: string
@@ -133,6 +135,7 @@ export const MessageBlock = memo(({
   onBuildFast,
   onFeedback,
   onCloseFeedback,
+  onEditMessage,
   validationErrors,
   userError,
   onOpenFeedback,
@@ -170,6 +173,7 @@ export const MessageBlock = memo(({
       onBuildFast,
       onFeedback,
       onCloseFeedback,
+      onEditMessage,
       validationErrors,
       onOpenFeedback,
       metadata,
@@ -342,6 +346,30 @@ export const MessageBlock = memo(({
           onFeedback={onFeedback}
           onCloseFeedback={onCloseFeedback}
         />
+      )}
+
+      {/* Edit & resend affordance for complete user messages */}
+      {isUser && isComplete !== false && !isLoading && onEditMessage && (
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            alignSelf: 'flex-end',
+            gap: 1,
+          }}
+        >
+          <Button onClick={() => onEditMessage(messageId, content)}>
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'none',
+                fg: theme.muted,
+              }}
+            >
+              {'[✎ edit]'}
+            </text>
+          </Button>
+        </box>
       )}
     </box>
   )

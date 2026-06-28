@@ -42,12 +42,15 @@ import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
-import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
+import type { AgentDefinition, MessageContent, RunState } from '@openbuff/sdk'
 interface UseSendMessageOptions {
   inputRef: React.MutableRefObject<any>
   activeSubagentsRef: React.MutableRefObject<Set<string>>
   isChainInProgressRef: React.MutableRefObject<boolean>
   setStreamStatus: (status: StreamStatus) => void
+  setContextWindowUsage: (
+    usage: { used: number; max: number } | null,
+  ) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentId?: string
@@ -55,6 +58,8 @@ interface UseSendMessageOptions {
     success: boolean
     errors: Array<{ id: string; message: string }>
   }>
+  /** Optional callback fired with the per-turn cost in cents (USD * 100). */
+  onTotalCost?: (costCents: number) => void
   mainAgentTimer: ElapsedTimeTracker
   scrollToLatest: () => void
   onTimerEvent?: (event: SendMessageTimerEvent) => void
@@ -101,6 +106,7 @@ export const useSendMessage = ({
   activeSubagentsRef,
   isChainInProgressRef,
   setStreamStatus,
+  setContextWindowUsage,
   setCanProcessQueue,
   abortControllerRef,
   agentId,
@@ -108,6 +114,7 @@ export const useSendMessage = ({
   mainAgentTimer,
   scrollToLatest,
   onTimerEvent = () => {},
+  onTotalCost,
   isQueuePausedRef,
   isProcessingQueueRef,
   resumeQueue,
@@ -521,6 +528,7 @@ export const useSendMessage = ({
           streamRefs,
           setStreamingAgents,
           setStreamStatus,
+          setContextWindowUsage,
           aiMessageId,
           updater,
           hasReceivedContentRef,
@@ -532,6 +540,7 @@ export const useSendMessage = ({
           setIsRetrying,
           onTotalCost: (cost: number) => {
             actualCredits = cost
+            onTotalCost?.(cost)
           },
         })
 
@@ -645,6 +654,7 @@ export const useSendMessage = ({
       resumeQueue,
       scrollToLatest,
       setCanProcessQueue,
+      setContextWindowUsage,
       setStreamStatus,
       streamRefs,
       updateChainInProgress,

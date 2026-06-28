@@ -2,7 +2,7 @@ import path from 'path'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { IndexManager } from '@codebuff/indexer'
-import { loadProviderConfigSync } from '@codebuff/sdk'
+import { loadProviderConfigSync } from '@openbuff/sdk'
 
 import { getProjectRoot } from '../project-files'
 import {
@@ -18,7 +18,7 @@ import type {
   FileFilter,
   MessageContent,
   RunState,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 
 export type CreateRunConfigParams = {
   logger: Logger
