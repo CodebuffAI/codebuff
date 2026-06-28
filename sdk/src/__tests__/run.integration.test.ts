@@ -3,12 +3,12 @@ import path from 'path'
 
 import { describe, expect, it } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { OpenbuffClient } from '../client'
 import { EventCollector, DEFAULT_TIMEOUT } from '../../e2e/utils'
 
 import type { AgentOutput } from '@codebuff/common/types/session-state'
 
-const apiKey = process.env.CODEBUFF_API_KEY
+const apiKey = process.env.OPENBUFF_API_KEY
 
 function extractOutputText(output: AgentOutput): string {
   if (output.type !== 'lastMessage' && output.type !== 'allMessages') return ''
@@ -39,13 +39,13 @@ describe('Prompt Caching', () => {
     async () => {
       if (!apiKey) {
         console.log(
-          'Skipping prompt caching integration test: set CODEBUFF_API_KEY to run.\n' +
-            'Example: CODEBUFF_API_KEY=your-key bun test src/__tests__/run.integration.test.ts',
+          'Skipping prompt caching integration test: set OPENBUFF_API_KEY to run.\n' +
+            'Example: OPENBUFF_API_KEY=your-key bun test src/__tests__/run.integration.test.ts',
         )
         return
       }
 
-      const client = new CodebuffClient({ apiKey })
+      const client = new OpenbuffClient({ apiKey })
 
       const filler =
         `Run UUID: ${crypto.randomUUID()} ` +
@@ -90,7 +90,7 @@ describe('Prompt Caching', () => {
     async () => {
       if (!apiKey) {
         console.log(
-          'Skipping prompt caching integration test: set CODEBUFF_API_KEY to run.',
+          'Skipping prompt caching integration test: set OPENBUFF_API_KEY to run.',
         )
         return
       }
@@ -109,7 +109,7 @@ describe('Prompt Caching', () => {
       try {
         fs.writeFileSync(tempFile1, `MAGIC_NUMBER=${magic1}`)
 
-        const client = new CodebuffClient({ apiKey, cwd: process.cwd() })
+        const client = new OpenbuffClient({ apiKey, cwd: process.cwd() })
 
         const filler =
           `Run UUID: ${crypto.randomUUID()} ` +

@@ -7,15 +7,15 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test'
 
-import { CodebuffClient } from '../../src/client'
+import { OpenbuffClient } from '../../src/client'
 import { EventCollector, getApiKey, skipIfNoApiKey, DEFAULT_TIMEOUT } from '../utils'
 
 describe('Streaming: Subagent Streaming', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new OpenbuffClient({ apiKey: getApiKey() })
   })
 
   test(
@@ -27,7 +27,7 @@ describe('Streaming: Subagent Streaming', () => {
 
       // Use an agent that spawns subagents (like base which can spawn file-picker, etc.)
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'openbuff/base@latest',
         prompt: 'Search for files containing "test" in this project',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
@@ -62,7 +62,7 @@ describe('Streaming: Subagent Streaming', () => {
       const collector = new EventCollector()
 
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'openbuff/base@latest',
         prompt: 'List files in the current directory',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
@@ -98,7 +98,7 @@ describe('Streaming: Subagent Streaming', () => {
       const collector = new EventCollector()
 
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'openbuff/base@latest',
         prompt: 'What files are in the sdk folder?',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
@@ -133,7 +133,7 @@ describe('Streaming: Subagent Streaming', () => {
       const collector = new EventCollector()
 
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'openbuff/base@latest',
         prompt: 'Find TypeScript files',
         handleEvent: collector.handleEvent,
         cwd: process.cwd(),

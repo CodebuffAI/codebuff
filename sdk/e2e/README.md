@@ -97,7 +97,7 @@ bun run test:e2e && bun run test:integration && bun run test
 
 ## Prerequisites
 
-- **API Key**: Set `CODEBUFF_API_KEY` for E2E and integration tests
+- **API Key**: Set `OPENBUFF_API_KEY` for E2E and integration tests
 - **Opt-in**: Set `RUN_CODEBUFF_E2E=true` for local live API runs (CI runs automatically)
 - Tests skip gracefully if API key is not set
 
@@ -106,15 +106,15 @@ bun run test:e2e && bun run test:integration && bun run test
 ### E2E Test Pattern
 ```typescript
 import { describe, test, expect, beforeAll } from 'bun:test'
-import { CodebuffClient } from '../../src/client'
+import { OpenbuffClient } from '../../src/client'
 import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
 
 describe('E2E: My Test', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new OpenbuffClient({ apiKey: getApiKey() })
   })
 
   test('does something', async () => {

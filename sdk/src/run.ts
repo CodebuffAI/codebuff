@@ -85,7 +85,7 @@ type ClientToolOverrides = Partial<Record<PublishedClientToolName, ClientToolOve
   }) => Promise<Record<string, string | null>>
 }
 
-export type CodebuffClientOptions = {
+export type OpenbuffClientOptions = {
   apiKey?: string
 
   cwd?: string
@@ -138,6 +138,10 @@ export type CodebuffClientOptions = {
    *  while the event loop is busy with the active run. */
   runTimeoutMs?: number
 }
+
+/** @deprecated Use `OpenbuffClientOptions` instead. Kept as a compatibility
+ * alias so existing imports continue to resolve after the SDK rename. */
+export type CodebuffClientOptions = OpenbuffClientOptions
 
 export type ImageContent = {
   type: 'image'
@@ -194,7 +198,7 @@ const createAbortError = (signal?: AbortSignal) => {
 }
 
 type RunExecutionOptions = RunOptions &
-  CodebuffClientOptions & {
+  OpenbuffClientOptions & {
     apiKey: string
     fingerprintId: string
   }
@@ -657,7 +661,7 @@ async function runOnce({
 function requireCwd(cwd: string | undefined, toolName: string): string {
   if (!cwd) {
     throw new Error(
-      `cwd is required for the ${toolName} tool. Please provide cwd in CodebuffClientOptions or override the ${toolName} tool.`,
+      `cwd is required for the ${toolName} tool. Please provide cwd in OpenbuffClientOptions or override the ${toolName} tool.`,
     )
   }
   return cwd
@@ -674,7 +678,7 @@ async function readFiles({
   filePaths: string[]
   ranges?: FileLineRange[]
   override?: NonNullable<
-    Required<CodebuffClientOptions>['overrideTools']['read_files']
+    Required<OpenbuffClientOptions>['overrideTools']['read_files']
   >
   fileFilter?: FileFilter
   cwd?: string
@@ -702,7 +706,7 @@ async function handleToolCall({
   onFilesChanged,
 }: {
   action: ServerAction<'tool-call-request'>
-  overrides: NonNullable<CodebuffClientOptions['overrideTools']>
+  overrides: NonNullable<OpenbuffClientOptions['overrideTools']>
   customToolDefinitions: Record<string, CustomToolDefinition>
   cwd?: string
   fs: CodebuffFileSystem
@@ -1038,7 +1042,7 @@ async function handlePromptResponse({
       const message = [
         'Received invalid prompt response from server:',
         JSON.stringify(parsedOutput.error.issues),
-        'If this issues persists, please contact support@codebuff.com',
+        'If this issues persists, please contact support@openbuff.dev',
       ].join('\n')
       onError({ message })
       resolve({

@@ -1,5 +1,5 @@
 {
-  "name": "@codebuff/sdk-tree-sitter-queries-test",
+  "name": "@openbuff/sdk-tree-sitter-queries-test",
   "version": "0.0.1",
   "private": true,
   "type": "commonjs",
@@ -7,6 +7,6 @@
     "test:all": "node test-query-files.js"
   },
   "dependencies": {
-    "@codebuff/sdk": "file:../.."
+    "@openbuff/sdk": "file:../.."
   }
 }

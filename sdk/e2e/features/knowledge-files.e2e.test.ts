@@ -6,7 +6,7 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test'
 
-import { CodebuffClient } from '../../src/client'
+import { OpenbuffClient } from '../../src/client'
 import {
   EventCollector,
   getApiKey,
@@ -17,11 +17,11 @@ import {
 } from '../utils'
 
 describe('Features: Knowledge Files', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({
+    client = new OpenbuffClient({
       apiKey: getApiKey(),
       agentDefinitions: [DEFAULT_AGENT_DEFINITION],
     })

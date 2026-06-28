@@ -1,8 +1,8 @@
 import { describe, expect, test, mock, afterEach } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { OpenbuffClient } from '../client'
 
-describe('CodebuffClient', () => {
+describe('OpenbuffClient', () => {
   const originalFetch = globalThis.fetch
   const originalEnv = { ...process.env }
 
@@ -20,26 +20,26 @@ describe('CodebuffClient', () => {
     Object.assign(process.env, originalEnv)
   })
 
-  test('defaults to Openbuff local mode without a Codebuff API key', async () => {
-    delete process.env.CODEBUFF_API_KEY
+  test('defaults to Openbuff local mode without an Openbuff API key', async () => {
+    delete process.env.OPENBUFF_API_KEY
     delete process.env.OPENBUFF_LOCAL_MODE
 
     const mockFetch = mock(() => Promise.reject(new Error('should not fetch')))
     setFetchMock(mockFetch)
 
-    const client = new CodebuffClient({})
+    const client = new OpenbuffClient({})
 
     expect(client.options.apiKey).toBe('')
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
   test('allows explicit local mode with no API key', async () => {
-    delete process.env.CODEBUFF_API_KEY
+    delete process.env.OPENBUFF_API_KEY
 
     const mockFetch = mock(() => Promise.reject(new Error('should not fetch')))
     setFetchMock(mockFetch)
 
-    const client = new CodebuffClient({})
+    const client = new OpenbuffClient({})
 
     expect(client.options.apiKey).toBe('')
     expect(mockFetch).not.toHaveBeenCalled()

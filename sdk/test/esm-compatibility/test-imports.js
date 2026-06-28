@@ -4,16 +4,16 @@ console.log('🧪 Testing ESM imports in ESM-only project...');
 try {
   // Test 1: Named ESM import
   console.log('\n1. Testing named ESM import...');
-  const { CodebuffClient } = await import('@codebuff/sdk');
-  console.log('✅ Named ESM import successful:', typeof CodebuffClient);
+  const { OpenbuffClient } = await import('@openbuff/sdk');
+  console.log('✅ Named ESM import successful:', typeof OpenbuffClient);
   
-  if (typeof CodebuffClient !== 'function') {
-    throw new Error(`Expected CodebuffClient to be a function, got ${typeof CodebuffClient}`);
+  if (typeof OpenbuffClient !== 'function') {
+    throw new Error(`Expected OpenbuffClient to be a function, got ${typeof OpenbuffClient}`);
   }
   
   // Test 2: Namespace ESM import
   console.log('\n2. Testing namespace ESM import...');
-  const SDK = await import('@codebuff/sdk');
+  const SDK = await import('@openbuff/sdk');
   console.log('✅ Namespace ESM import successful:', typeof SDK);
   
   if (typeof SDK !== 'object' || SDK === null) {
@@ -25,7 +25,7 @@ try {
   const exports = Object.keys(SDK);
   console.log('✅ Found', exports.length, 'exports');
   
-  const expectedExports = ['CodebuffClient', 'getCustomToolDefinition'];
+  const expectedExports = ['OpenbuffClient', 'getCustomToolDefinition'];
   const foundExports = expectedExports.filter(exp => exp in SDK);
   console.log('✅ Found expected exports:', foundExports.join(', '));
   
@@ -35,9 +35,9 @@ try {
   
   // Test 4: Test that both access patterns work identically
   console.log('\n4. Testing access pattern consistency...');
-  const namedModule = await import('@codebuff/sdk');
-  const ClientFromNamed = namedModule.CodebuffClient;
-  const ClientFromNamespace = SDK.CodebuffClient;
+  const namedModule = await import('@openbuff/sdk');
+  const ClientFromNamed = namedModule.OpenbuffClient;
+  const ClientFromNamespace = SDK.OpenbuffClient;
   
   if (ClientFromNamed !== ClientFromNamespace) {
     throw new Error('Inconsistent access patterns');
@@ -52,7 +52,7 @@ try {
   
   // Test that require() doesn't work in ESM environment
   try {
-    eval('const { CodebuffClient } = require("@codebuff/sdk")');
+    eval('const { OpenbuffClient } = require("@openbuff/sdk")');
     throw new Error('CommonJS require should not work in ESM environment');
   } catch (referenceError) {
     if (referenceError.message.includes('require is not defined')) {
@@ -65,7 +65,7 @@ try {
   // Test 6: Test tree-shaking compatibility (static imports)
   console.log('\n6. Testing static import compatibility...');
   // This would be a static import in a real ESM file:
-  // import { CodebuffClient } from '@codebuff/sdk'
+  // import { OpenbuffClient } from '@openbuff/sdk'
   // We can't test static imports in a dynamic test, but we can verify the exports are clean
   const hasDefault = 'default' in SDK;
   console.log('✅ Has default export:', hasDefault);

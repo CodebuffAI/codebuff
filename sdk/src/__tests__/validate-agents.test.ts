@@ -693,12 +693,12 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://test.codebuff.com/api/agents/validate',
+        'https://test.openbuff.dev/api/agents/validate',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -763,7 +763,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(result.success).toBe(false)
@@ -791,7 +791,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(result.success).toBe(false)
@@ -815,7 +815,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(result.success).toBe(false)
@@ -844,7 +844,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(result.success).toBe(false)
@@ -871,7 +871,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       // Should handle gracefully with empty errors
@@ -897,7 +897,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(result.success).toBe(true)
@@ -922,7 +922,7 @@ describe('validateAgents', () => {
 
       const result = await validateAgents(agents, {
         remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+        websiteUrl: 'https://test.openbuff.dev',
       })
 
       expect(result.success).toBe(false)

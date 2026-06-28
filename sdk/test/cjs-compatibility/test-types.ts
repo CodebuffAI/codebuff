@@ -2,13 +2,13 @@
 import {
   CodebuffClient as ClientClass,
   getCustomToolDefinition,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 
 import type {
   CodebuffClient,
   CustomToolDefinition,
   RunState,
-} from '@codebuff/sdk'
+} from '@openbuff/sdk'
 
 // Test 1: Type imports work correctly
 const testClient: CodebuffClient = {} as any
@@ -46,7 +46,7 @@ const toolTypeTest: MockTool = {} as any
 console.log('✅ Custom tool definition types work correctly')
 
 // Test 5: CommonJS import syntax also works in TypeScript
-const SDKRequire = require('@codebuff/sdk')
+const SDKRequire = require('@openbuff/sdk')
 const ClientFromRequire: typeof ClientClass = SDKRequire.CodebuffClient
 
 console.log('✅ CommonJS require syntax works in TypeScript')

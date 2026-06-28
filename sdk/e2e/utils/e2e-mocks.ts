@@ -3,7 +3,7 @@ import { promptSuccess } from '@codebuff/common/util/error'
 import { spyOn } from 'bun:test'
 import z from 'zod/v4'
 
-import { CodebuffClient } from '../../src/client'
+import { OpenbuffClient } from '../../src/client'
 import * as databaseModule from '../../src/impl/database'
 import * as llmModule from '../../src/impl/llm'
 
@@ -510,7 +510,7 @@ export function setupE2eMocks(): void {
     promptAiSdkStructuredMock as typeof llmModule.promptAiSdkStructured,
   )
 
-  // CodebuffClient.checkConnection() was removed when the hosted-backend
+  // OpenbuffClient.checkConnection() was removed when the hosted-backend
   // connection-poll path was pruned (local/BYOK mode is always connected).
   // No replacement spy is needed.
 }

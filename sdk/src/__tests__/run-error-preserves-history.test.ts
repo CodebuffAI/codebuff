@@ -4,7 +4,7 @@ import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { OpenbuffClient } from '../client'
 import * as databaseModule from '../impl/database'
 
 interface ToolCallContentBlock {
@@ -111,7 +111,7 @@ describe('Error preserves in-progress message history', () => {
       },
     )
 
-    const client = new CodebuffClient({ apiKey: 'test-key' })
+    const client = new OpenbuffClient({ apiKey: 'test-key' })
     const result = await client.run({
       agent: 'base2',
       prompt: 'Fix the bug in auth.ts',
@@ -230,7 +230,7 @@ describe('Error preserves in-progress message history', () => {
       },
     )
 
-    const client = new CodebuffClient({ apiKey: 'test-key' })
+    const client = new OpenbuffClient({ apiKey: 'test-key' })
     const firstResult = await client.run({
       agent: 'base2',
       prompt: 'Investigate the login bug',

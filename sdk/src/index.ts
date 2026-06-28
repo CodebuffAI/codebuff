@@ -10,6 +10,7 @@ export { run } from './run'
 export { getFiles } from './tools/read-files'
 export type { FileFilter, FileFilterResult } from './tools/read-files'
 export type {
+  OpenbuffClientOptions,
   CodebuffClientOptions,
   RunOptions,
   MessageContent,
@@ -76,8 +77,10 @@ export {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
   RETRY_BACKOFF_MAX_DELAY_MS,
+  RETRY_BACKOFF_JITTER_FRACTION,
   RECONNECTION_MESSAGE_DURATION_MS,
   RECONNECTION_RETRY_DELAY_MS,
+  computeBackoffDelayMs,
 } from './retry-config'
 
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'

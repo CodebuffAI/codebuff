@@ -31,6 +31,7 @@ import {
   resolveConfiguredProviderModel,
   resolveModelCapabilities,
 } from '../provider-config'
+import type { ModelPricing } from './llm'
 import {
   createChatGptBackendFetch,
   extractChatGptAccountId,
@@ -127,6 +128,11 @@ export interface ModelRequestParams {
   costMode?: string
   /** True when the prompt/message history contains image input parts. */
   requiresVision?: boolean
+  /** When true, an explicit `model` wins over mode/agent/defaultModel routing
+   *  in openbuff.json. Used by the provider-failover loop so each configured
+   *  failover model is actually attempted instead of being re-resolved to the
+   *  same primary model (M8.1). */
+  preferModelParam?: boolean
 }
 
 /**
@@ -145,6 +151,10 @@ export interface ModelResult {
   effectiveModel: string
   /** Context window in tokens for the resolved configured model, when known from provider metadata. */
   contextWindowTokens?: number
+  /** Configured per-million-token pricing for the resolved model, from
+   *  openbuff.json `modelCapabilities.pricing`. Used by the cost-accounting
+   *  fallback when the provider does not return OpenRouter-style cost metadata. */
+  pricing?: ModelPricing
 }
 
 /**
@@ -160,12 +170,13 @@ export interface ModelResult {
 export async function getModelForRequest(
   params: ModelRequestParams,
 ): Promise<ModelResult> {
-  const { model, agentId, skipChatGptOAuth } = params
+  const { model, agentId, skipChatGptOAuth, preferModelParam } = params
   const loadedProviderConfig = loadProviderConfigSync()
   const effectiveAgentModelConfig = resolveConfiguredAgentModelConfig({
     agentId,
     model,
     loadedConfig: loadedProviderConfig,
+    preferModelParam,
   })
   let effectiveModel = effectiveAgentModelConfig.model
   let reasoningEffort = effectiveAgentModelConfig.reasoningEffort
@@ -185,13 +196,15 @@ export async function getModelForRequest(
     reasoningEffort = visionRoute.reasoningEffort
     configuredProviderModel = visionRoute.configuredProviderModel
   }
-  const contextWindowTokens = configuredProviderModel
+  const resolvedCapabilities = configuredProviderModel
     ? resolveModelCapabilities({
         providerId: configuredProviderModel.providerId,
         model: effectiveModel,
         loadedConfig: loadedProviderConfig,
-      }).context?.windowTokens
+      })
     : undefined
+  const contextWindowTokens = resolvedCapabilities?.context?.windowTokens
+  const pricing = resolvedCapabilities?.pricing
 
   if (configuredProviderModel) {
     if (configuredProviderModel.provider.type === 'chatgpt-oauth') {
@@ -212,6 +225,7 @@ export async function getModelForRequest(
         reasoningEffort,
         effectiveModel,
         contextWindowTokens,
+        pricing,
       }
     }
 
@@ -223,6 +237,7 @@ export async function getModelForRequest(
         reasoningEffort,
         effectiveModel,
         contextWindowTokens,
+        pricing,
       }
     }
 
@@ -240,6 +255,7 @@ export async function getModelForRequest(
       reasoningEffort,
       effectiveModel,
       contextWindowTokens,
+      pricing,
     }
   }
 

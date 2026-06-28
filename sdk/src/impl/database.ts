@@ -14,7 +14,7 @@ import {
 import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
-  RETRY_BACKOFF_MAX_DELAY_MS,
+  computeBackoffDelayMs,
 } from '../retry-config'
 
 import type {
@@ -45,7 +45,7 @@ const agentsResponseSchema = z.object({
 
 /**
  * Fetch with retry logic for transient errors (502, 503, etc.)
- * Implements exponential backoff between retries.
+ * Implements exponential backoff with jitter between retries.
  */
 async function fetchWithRetry(
   url: URL | string,
@@ -53,7 +53,6 @@ async function fetchWithRetry(
   logger?: { warn: (obj: object, msg: string) => void },
 ): Promise<Response> {
   let lastError: Error | null = null
-  let backoffDelay = RETRY_BACKOFF_BASE_DELAY_MS
 
   for (let attempt = 0; attempt <= MAX_RETRIES_PER_MESSAGE; attempt++) {
     try {
@@ -66,12 +65,15 @@ async function fetchWithRetry(
 
       // Retryable error - log and continue to retry
       if (attempt < MAX_RETRIES_PER_MESSAGE) {
+        const delayMs = computeBackoffDelayMs({
+          attempt,
+          baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
+        })
         logger?.warn(
-          { status: response.status, attempt: attempt + 1, url: String(url) },
-          `Retryable HTTP error, retrying in ${backoffDelay}ms`,
+          { status: response.status, attempt: attempt + 1, url: String(url), delayMs },
+          `Retryable HTTP error, retrying in ${delayMs}ms`,
         )
-        await new Promise((resolve) => setTimeout(resolve, backoffDelay))
-        backoffDelay = Math.min(backoffDelay * 2, RETRY_BACKOFF_MAX_DELAY_MS)
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
       } else {
         // Last attempt, return the response even if it's an error
         return response
@@ -81,12 +83,15 @@ async function fetchWithRetry(
       lastError = error instanceof Error ? error : new Error(String(error))
 
       if (attempt < MAX_RETRIES_PER_MESSAGE) {
+        const delayMs = computeBackoffDelayMs({
+          attempt,
+          baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
+        })
         logger?.warn(
-          { error: getErrorObject(lastError), attempt: attempt + 1, url: String(url) },
-          `Network error, retrying in ${backoffDelay}ms`,
+          { error: getErrorObject(lastError), attempt: attempt + 1, url: String(url), delayMs },
+          `Network error, retrying in ${delayMs}ms`,
         )
-        await new Promise((resolve) => setTimeout(resolve, backoffDelay))
-        backoffDelay = Math.min(backoffDelay * 2, RETRY_BACKOFF_MAX_DELAY_MS)
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
       }
     }
   }

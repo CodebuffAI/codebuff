@@ -14,7 +14,7 @@ interface ToolCallContentBlock {
   input: Record<string, unknown>
 }
 
-import { CodebuffClient } from '../client'
+import { OpenbuffClient } from '../client'
 import * as databaseModule from '../impl/database'
 
 describe('Run Cancellation Handling', () => {
@@ -71,7 +71,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -165,7 +165,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -225,7 +225,7 @@ describe('Run Cancellation Handling', () => {
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -287,7 +287,7 @@ describe('Run Cancellation Handling', () => {
       }),
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -335,7 +335,7 @@ describe('Run Cancellation Handling', () => {
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -380,7 +380,7 @@ describe('Run Cancellation Handling', () => {
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -419,7 +419,7 @@ describe('Run Cancellation Handling', () => {
       new Error('Network connection failed'),
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -517,7 +517,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -578,7 +578,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -713,7 +713,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -811,7 +811,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -859,7 +859,7 @@ describe('Run Cancellation Handling', () => {
     // Abort before the run starts
     abortController.abort()
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -923,7 +923,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -1015,7 +1015,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 
@@ -1261,7 +1261,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 

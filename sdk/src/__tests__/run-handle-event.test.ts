@@ -5,14 +5,14 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { OpenbuffClient } from '../client'
 import * as databaseModule from '../impl/database'
 
-import type { CodebuffClientOptions } from '../run'
+import type { OpenbuffClientOptions } from '../run'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-describe('CodebuffClient handleEvent / handleStreamChunk', () => {
+describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
   afterEach(() => {
     mock.restore()
   })
@@ -77,7 +77,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
     )
 
     const fs = createMockFs()
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/repo',
       fsSource: fs,
@@ -193,13 +193,13 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
     )
 
     type StreamChunk = Parameters<
-      NonNullable<CodebuffClientOptions['handleStreamChunk']>
+      NonNullable<OpenbuffClientOptions['handleStreamChunk']>
     >[0]
 
     const events: PrintModeEvent[] = []
     const streamChunks: StreamChunk[] = []
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
     })
 

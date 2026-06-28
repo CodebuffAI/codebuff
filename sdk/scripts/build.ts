@@ -1,4 +1,4 @@
-// Build script for @codebuff/sdk using Bun's bundler with dual package support
+// Build script for @openbuff/sdk using Bun's bundler with dual package support
 // Creates ESM + CJS bundles with TypeScript declarations
 
 import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
@@ -63,7 +63,10 @@ async function build() {
     sourcemap: 'linked',
     external,
     naming: '[dir]/index.mjs',
-    env: 'NEXT_PUBLIC_*',
+    // Disable env inlining so the published bundle uses runtime `process.env.X`
+    // lookups with source-code defaults, not build-time values that could leak
+    // local dev config (e.g. support email) into the npm package.
+    env: false,
     loader: {
       '.scm': 'text',
     },
@@ -84,7 +87,10 @@ async function build() {
       'import.meta.url': 'undefined',
       'import.meta': 'undefined',
     },
-    env: 'NEXT_PUBLIC_*',
+    // Disable env inlining so the published bundle uses runtime `process.env.X`
+    // lookups with source-code defaults, not build-time values that could leak
+    // local dev config (e.g. support email) into the npm package.
+    env: false,
     loader: {
       '.scm': 'text',
     },
@@ -99,15 +105,6 @@ async function build() {
           filePath: 'src/index.ts',
           output: {
             exportReferencedTypes: false,
-          },
-          libraries: {
-            // Treat all @codebuff/* workspace packages as external imports
-            // so dts-bundle-generator doesn't fail on their internal relative imports
-            importedLibraries: [
-              '@codebuff/common',
-              '@codebuff/agent-runtime',
-              '@codebuff/code-map',
-            ],
           },
         },
       ],

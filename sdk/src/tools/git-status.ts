@@ -6,7 +6,7 @@ import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const DEFAULT_MAX_CHARS = 40_000
 
-function runGit(args: string[], cwd: string): Promise<{
+export function runGit(args: string[], cwd: string): Promise<{
   stdout: string
   stderr: string
   exitCode: number

@@ -1,13 +1,13 @@
 import { z } from 'zod/v4'
 
-import { CodebuffClient, getCustomToolDefinition } from '@codebuff/sdk'
+import { OpenbuffClient, getCustomToolDefinition } from '@openbuff/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 async function main() {
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
     // Required only for the legacy hosted compatibility API.
-    apiKey: process.env.CODEBUFF_API_KEY,
+    apiKey: process.env.OPENBUFF_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
   })

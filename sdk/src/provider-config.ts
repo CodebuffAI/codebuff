@@ -1320,15 +1320,42 @@ export function resolveConfiguredAgentModelConfig(params: {
   agentId?: string
   model?: string
   loadedConfig?: LoadedProviderConfig
+  /**
+   * When true, an explicit `model` param wins over mode/agent/defaultModel
+   * routing. Used by the provider-failover loop so each configured
+   * `failoverModels` entry is actually attempted instead of being silently
+   * re-resolved to the same primary model via openbuff.json routing (M8.1).
+   * Mode/agent/defaultModel routing still applies when `model` is omitted.
+   */
+  preferModelParam?: boolean
 }): ResolvedAgentModelConfig {
+  const {
+    agentId,
+    model,
+    loadedConfig = loadProviderConfigSync(),
+    preferModelParam = false,
+  } = params
+  const agentModels = loadedConfig.config.agents ?? {}
+  const agentReasoningEfforts = loadedConfig.config.agentReasoningEfforts ?? {}
+
+  // Failover path: an explicit model param wins over routing so each
+  // configured failover model is actually attempted. Reasoning effort still
+  // resolves from matching route entries so per-model effort overrides apply.
+  if (preferModelParam && model) {
+    const mode = resolveModeForAgentId(agentId)
+    const reasoningEffort =
+      (mode && loadedConfig.config.modeReasoningEfforts?.[mode]) ??
+      normalizeAgentIdCandidates(agentId)
+        .map((candidate) => agentReasoningEfforts[candidate])
+        .find((effort) => effort !== undefined) ??
+      loadedConfig.config.defaultReasoningEffort
+    return { model, reasoningEffort }
+  }
+
   // Mode/agent/defaultModel routing in openbuff.json takes precedence. The
   // `model` param is used as a last-resort fallback so callers that pass an
   // explicit routable model id (e.g. getModelForRequest with no agent config)
   // still resolve successfully.
-  const { agentId, model, loadedConfig = loadProviderConfigSync() } = params
-  const agentModels = loadedConfig.config.agents ?? {}
-  const agentReasoningEfforts = loadedConfig.config.agentReasoningEfforts ?? {}
-
   const mode = resolveModeForAgentId(agentId)
   if (mode && loadedConfig.config.modes?.[mode]) {
     return {

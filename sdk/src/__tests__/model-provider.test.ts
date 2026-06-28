@@ -854,7 +854,7 @@ describe('model-provider', () => {
           defaultModel: 'local/qwen-coder',
           agents: {
             thinker: 'local/deep-reasoner',
-            'codebuff/agent-builder@1.2.3': { model: 'local/agent-builder' },
+            'openbuff/agent-builder@1.2.3': { model: 'local/agent-builder' },
           },
           providers: {
             local: {
@@ -882,7 +882,7 @@ describe('model-provider', () => {
       expect(
         resolveConfiguredAgentModel({
           model: 'anthropic/claude-opus-4.7',
-          agentId: 'codebuff/agent-builder@1.2.3',
+          agentId: 'openbuff/agent-builder@1.2.3',
         }),
       ).toBe('local/agent-builder')
 
@@ -989,6 +989,138 @@ describe('model-provider', () => {
       expect((result.model as any).provider).toBe('local')
       expect((result.model as any).modelId).toBe('deep-reasoner')
       expect(result.reasoningEffort).toBe('high')
+    })
+
+    test('M8.1: resolveConfiguredAgentModelConfig with preferModelParam uses the explicit model over mode/agent/defaultModel routing', () => {
+      const config = providerConfigFileSchema.parse({
+        defaultModel: 'local/default-reasoner',
+        defaultReasoningEffort: 'low',
+        modes: { edit: 'local/editor' },
+        modeReasoningEfforts: { edit: 'medium' },
+        agents: {
+          base2: {
+            model: 'local/base2-model',
+            reasoningEffort: 'high',
+          },
+        },
+        providers: {
+          local: {
+            type: 'openai-compatible',
+            baseURL: 'http://127.0.0.1:11434/v1',
+            models: ['default-reasoner', 'editor', 'base2-model', 'fallback'],
+          },
+        },
+      })
+      const loadedConfig = { sourceFilePaths: [], config }
+
+      // Without preferModelParam: mode/agent/defaultModel routing wins, the
+      // explicit `model` param is ignored (the pre-M8.1 bug).
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'local/fallback',
+          agentId: 'base2',
+          loadedConfig,
+        }),
+      ).toEqual({
+        model: 'local/base2-model',
+        reasoningEffort: 'high',
+      })
+
+      // With preferModelParam: the explicit model wins over agent routing.
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'local/fallback',
+          agentId: 'base2',
+          loadedConfig,
+          preferModelParam: true,
+        }),
+      ).toEqual({
+        model: 'local/fallback',
+        reasoningEffort: 'high',
+      })
+
+      // preferModelParam also wins over mode routing. Reasoning effort is
+      // orthogonal to model routing, so per-agent effort still applies even
+      // when the agent model is overridden. Clearing `agentReasoningEfforts`
+      // falls through to the default effort (`low`) since `base2` does not
+      // map to a configured mode.
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'local/fallback',
+          agentId: 'base2',
+          loadedConfig: {
+            ...loadedConfig,
+            config: { ...config, agents: {}, agentReasoningEfforts: {} },
+          },
+          preferModelParam: true,
+        }),
+      ).toEqual({
+        model: 'local/fallback',
+        reasoningEffort: 'low',
+      })
+
+      // preferModelParam also wins over defaultModel.
+      expect(
+        resolveConfiguredAgentModelConfig({
+          model: 'local/fallback',
+          loadedConfig,
+          preferModelParam: true,
+        }),
+      ).toEqual({
+        model: 'local/fallback',
+        reasoningEffort: 'low',
+      })
+
+      // preferModelParam with no `model` param falls back to normal routing.
+      expect(
+        resolveConfiguredAgentModelConfig({
+          agentId: 'base2',
+          loadedConfig,
+          preferModelParam: true,
+        }),
+      ).toEqual({
+        model: 'local/base2-model',
+        reasoningEffort: 'high',
+      })
+    })
+
+    test('M8.1: getModelForRequest threads preferModelParam so the failover model is actually used', async () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          defaultModel: 'local/primary',
+          defaultReasoningEffort: 'low',
+          providers: {
+            local: {
+              type: 'openai-compatible',
+              baseURL: 'http://127.0.0.1:11434/v1',
+              models: ['primary', 'fallback'],
+            },
+          },
+        }),
+      )
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      // Without preferModelParam: defaultModel routing wins, explicit model ignored.
+      const primary = await getModelForRequest({
+        apiKey: 'openbuff-local-mode',
+        model: 'local/fallback',
+      })
+      expect((primary.model as any).provider).toBe('local')
+      expect((primary.model as any).modelId).toBe('primary')
+
+      // With preferModelParam: explicit fallback model wins over defaultModel.
+      const fallback = await getModelForRequest({
+        apiKey: 'openbuff-local-mode',
+        model: 'local/fallback',
+        preferModelParam: true,
+      })
+      expect((fallback.model as any).provider).toBe('local')
+      expect((fallback.model as any).modelId).toBe('fallback')
     })
 
     test('getModelForRequest reroutes image requests to visionModel', async () => {

@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test'
 
-import { CodebuffClient } from '../../src/client'
+import { OpenbuffClient } from '../../src/client'
 import {
   EventCollector,
   getByokTestClientOptions,
@@ -18,11 +18,11 @@ import {
 } from '../utils'
 
 describe('Streaming: Concurrent Streams', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ ...getByokTestClientOptions(), agentDefinitions: [DEFAULT_AGENT_DEFINITION] })
+    client = new OpenbuffClient({ ...getByokTestClientOptions(), agentDefinitions: [DEFAULT_AGENT_DEFINITION] })
   })
 
   test(

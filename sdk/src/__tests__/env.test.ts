@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getChatGptOAuthTokenFromEnv, getSdkEnv } from '../env'
+import { getChatGptOAuthTokenFromEnv, getOpenbuffApiKeyFromEnv, getSdkEnv } from '../env'
 import { createTestSdkEnv } from '../testing/env'
 
 describe('sdk/env', () => {
@@ -145,6 +145,43 @@ describe('sdk/env', () => {
       process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'codebuff-token'
       process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN = 'openbuff-token'
       expect(getChatGptOAuthTokenFromEnv()).toBe('codebuff-token')
+    })
+  })
+
+  describe('getOpenbuffApiKeyFromEnv', () => {
+    const originalEnv = { ...process.env }
+
+    afterEach(() => {
+      Object.keys(process.env).forEach((key) => {
+        if (!(key in originalEnv)) {
+          delete process.env[key]
+        }
+      })
+      Object.assign(process.env, originalEnv)
+    })
+
+    test('returns undefined when both API key env vars are unset', () => {
+      delete process.env.OPENBUFF_API_KEY
+      delete process.env.CODEBUFF_API_KEY
+      expect(getOpenbuffApiKeyFromEnv()).toBeUndefined()
+    })
+
+    test('returns key from OPENBUFF_API_KEY', () => {
+      process.env.OPENBUFF_API_KEY = 'openbuff-key'
+      delete process.env.CODEBUFF_API_KEY
+      expect(getOpenbuffApiKeyFromEnv()).toBe('openbuff-key')
+    })
+
+    test('falls back to CODEBUFF_API_KEY when OPENBUFF_API_KEY is unset', () => {
+      delete process.env.OPENBUFF_API_KEY
+      process.env.CODEBUFF_API_KEY = 'codebuff-key'
+      expect(getOpenbuffApiKeyFromEnv()).toBe('codebuff-key')
+    })
+
+    test('OPENBUFF_API_KEY takes precedence over CODEBUFF_API_KEY', () => {
+      process.env.OPENBUFF_API_KEY = 'openbuff-key'
+      process.env.CODEBUFF_API_KEY = 'codebuff-key'
+      expect(getOpenbuffApiKeyFromEnv()).toBe('openbuff-key')
     })
   })
 })

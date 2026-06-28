@@ -9,7 +9,7 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test'
 
-import { CodebuffClient } from '../../src/client'
+import { OpenbuffClient } from '../../src/client'
 import {
   EventCollector,
   getApiKey,
@@ -20,11 +20,11 @@ import {
 } from '../utils'
 
 describe('Integration: Stream Chunks', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({
+    client = new OpenbuffClient({
       apiKey: getApiKey(),
       agentDefinitions: [DEFAULT_AGENT_DEFINITION],
     })

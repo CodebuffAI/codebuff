@@ -5,7 +5,7 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { OpenbuffClient } from '../client'
 import * as databaseModule from '../impl/database'
 
 import type { FileFilter } from '../tools/read-files'
@@ -60,7 +60,7 @@ function createMockFs(config: {
   } as unknown as CodebuffFileSystem
 }
 
-describe('CodebuffClientOptions fileFilter', () => {
+describe('OpenbuffClientOptions fileFilter', () => {
   afterEach(() => {
     mock.restore()
   })
@@ -130,7 +130,7 @@ describe('CodebuffClientOptions fileFilter', () => {
       return { status: 'allow' }
     }
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
@@ -211,7 +211,7 @@ describe('CodebuffClientOptions fileFilter', () => {
       return { status: 'allow' }
     }
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
@@ -294,7 +294,7 @@ describe('CodebuffClientOptions fileFilter', () => {
       return { status: 'allow' }
     }
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
@@ -366,7 +366,7 @@ describe('CodebuffClientOptions fileFilter', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
@@ -436,7 +436,7 @@ describe('CodebuffClientOptions fileFilter', () => {
     )
 
     // No fileFilter provided
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,
@@ -512,7 +512,7 @@ describe('CodebuffClientOptions fileFilter', () => {
       return { status: 'blocked' }
     }
 
-    const client = new CodebuffClient({
+    const client = new OpenbuffClient({
       apiKey: 'test-key',
       cwd: '/project',
       fsSource: mockFs,

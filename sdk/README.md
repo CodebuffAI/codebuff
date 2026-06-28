@@ -1,13 +1,13 @@
-# @codebuff/sdk
+# @openbuff/sdk
 
 SDK for local/BYOK workflows and legacy hosted API compatibility.
 
-This SDK focuses on user-configured providers and local/BYOK workflows. The published package name (`@codebuff/sdk`), client class (`CodebuffClient`), hosted API key (`CODEBUFF_API_KEY`), and hosted base agent (`codebuff/base`) remain compatibility surfaces while the transition is in progress.
+This SDK focuses on user-configured providers and local/BYOK workflows. The primary package name is `@openbuff/sdk` with the `OpenbuffClient` class. `CodebuffClient` is available as a compatibility alias. `OPENBUFF_API_KEY` is supported as a compatibility alias environment variable. The hosted base agent is `openbuff/base`.
 
 ## Installation
 
 ```bash
-npm install @codebuff/sdk
+npm install @openbuff/sdk
 ```
 
 ## Authentication
@@ -16,11 +16,11 @@ Choose the mode you are using:
 
 ### Hosted compatibility API (legacy)
 
-To call hosted compatibility agents (e.g. `codebuff/base@0.0.16`), set `CODEBUFF_API_KEY` in your environment or pass it to the constructor.
+To call hosted compatibility agents (e.g. `openbuff/base@0.0.16`), set `OPENBUFF_API_KEY` in your environment or pass it to the constructor.
 
 ```typescript
-const client = new CodebuffClient({
-  apiKey: process.env.CODEBUFF_API_KEY,
+const client = new OpenbuffClient({
+  apiKey: process.env.OPENBUFF_API_KEY,
   cwd: process.cwd(),
 })
 ```
@@ -34,18 +34,18 @@ Local/BYOK mode lets you bring your own LLM provider keys. In this mode **no hos
 ### Basic Hosted Compatibility Example
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+import { OpenbuffClient } from '@openbuff/sdk'
 
 async function main() {
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
+  const client = new OpenbuffClient({
+    apiKey: process.env.OPENBUFF_API_KEY,
     cwd: process.cwd(),
   })
 
   // First run
   const runState1 = await client.run({
     // Hosted compatibility agent id.
-    agent: 'codebuff/base@0.0.16',
+    agent: 'openbuff/base@0.0.16',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
@@ -55,7 +55,7 @@ async function main() {
 
   // Continue the same session with a follow-up
   const runOrError2 = await client.run({
-    agent: 'codebuff/base@0.0.16',
+    agent: 'openbuff/base@0.0.16',
     prompt: 'Add unit tests for the calculator',
     previousRun: runState1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
@@ -74,15 +74,15 @@ Here, we create a full agent and custom tools that can be reused between runs.
 ```typescript
 import { z } from 'zod/v4'
 
-import { CodebuffClient, getCustomToolDefinition } from '@codebuff/sdk'
+import { OpenbuffClient, getCustomToolDefinition } from '@openbuff/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 
 async function main() {
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
     // Required only when routing through the legacy hosted compatibility API.
     // Local/BYOK provider usage should use provider configuration instead.
-    apiKey: process.env.CODEBUFF_API_KEY,
+    apiKey: process.env.OPENBUFF_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
   })
@@ -162,7 +162,7 @@ Override with `knowledgeFiles` (replaces project files) or `userKnowledgeFiles` 
 
 ```typescript
 await client.run({
-  agent: 'codebuff/base@0.0.16',
+  agent: 'openbuff/base@0.0.16',
   prompt: 'Help me refactor',
   knowledgeFiles: { 'knowledge.md': '# Guidelines\n- Use TypeScript' },
   userKnowledgeFiles: { '~/.knowledge.md': '# Preferences\n- Be concise' },
@@ -174,8 +174,8 @@ await client.run({
 The `fileFilter` option controls which files the agent can read:
 
 ```typescript
-const client = new CodebuffClient({
-  apiKey: process.env.CODEBUFF_API_KEY,
+const client = new OpenbuffClient({
+  apiKey: process.env.OPENBUFF_API_KEY,
   fileFilter: (filePath) => {
     if (filePath === '.env') return { status: 'blocked' }
     if (filePath.endsWith('.env.example')) return { status: 'allow-example' }
@@ -193,7 +193,7 @@ const client = new CodebuffClient({
 Loads agent definitions from `.agents` directories on disk.
 
 ```typescript
-import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
+import { loadLocalAgents, OpenbuffClient } from '@openbuff/sdk'
 
 // Load from default locations (.agents in cwd, parent, or home)
 const agents = await loadLocalAgents({ verbose: true })
@@ -210,7 +210,7 @@ for (const agent of Object.values(agents)) {
 }
 
 // Use the loaded agents with client.run()
-const client = new CodebuffClient()
+const client = new OpenbuffClient()
 const result = await client.run({
   agent: 'my-custom-agent',
   agentDefinitions: Object.values(agents),
@@ -245,7 +245,7 @@ Runs an agent with the specified options.
 
 #### Parameters
 
-- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, a hosted compatibility agent such as `'codebuff/base@0.0.16'`, or a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
+- **`agent`** (string, required): The agent to run. Use `'base'` for the default agent, a hosted compatibility agent such as `'openbuff/base@0.0.16'`, or a custom agent ID if you made your own agent definition (passed with the `agentDefinitions` param).
 
 - **`prompt`** (string, required): The user prompt describing what you want the agent to do.
 

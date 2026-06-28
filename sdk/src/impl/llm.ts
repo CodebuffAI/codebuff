@@ -28,6 +28,11 @@ import {
   getErrorStatusCode,
   isRetryableStatusCode,
 } from '../error-utils'
+import {
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+  computeBackoffDelayMs,
+} from '../retry-config'
 
 import type { ModelRequestParams } from './model-provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
@@ -89,6 +94,78 @@ function calculateProviderCostCents(params: { costDollars: number }): number {
   const { costDollars } = params
 
   return Math.round(costDollars * 100)
+}
+
+/**
+ * Configured per-million-token pricing for a model (from openbuff.json
+ * `modelCapabilities.pricing`). Used to compute BYOK cost when the provider
+ * does not return OpenRouter-style cost metadata.
+ */
+export interface ModelPricing {
+  inputPerMillionTokens?: number
+  outputPerMillionTokens?: number
+  cachedInputPerMillionTokens?: number
+}
+
+/**
+ * Token usage reported by the AI SDK for a completed request.
+ * `cachedInputTokens` is the cache-hit portion of `inputTokens` and is billed
+ * at the (usually discounted) `cachedInputPerMillionTokens` rate when present.
+ */
+export interface UsageTokenCounts {
+  inputTokens?: number
+  outputTokens?: number
+  cachedInputTokens?: number
+}
+
+/**
+ * Compute cost in cents for a BYOK request from token usage and the
+ * configured `modelCapabilities.pricing` capability. Returns `undefined` when
+ * pricing is unavailable or insufficient (no input/output rates) so callers
+ * can fall back to provider-reported cost or skip cost tracking.
+ *
+ * `cachedInputTokens` is charged at `cachedInputPerMillionTokens` when that
+ * rate is configured, otherwise at the regular `inputPerMillionTokens` rate.
+ * Only non-negative token counts contribute; NaN/undefined contribute 0.
+ */
+export function computeCostCentsFromUsage(params: {
+  usage: UsageTokenCounts
+  pricing: ModelPricing | undefined
+}): number | undefined {
+  const { usage, pricing } = params
+  if (!pricing) return undefined
+
+  const inputRate = pricing.inputPerMillionTokens
+  const outputRate = pricing.outputPerMillionTokens
+  if (inputRate === undefined && outputRate === undefined) {
+    return undefined
+  }
+
+  const safeNonNeg = (value: number | undefined): number =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+
+  const rawInputTokens = safeNonNeg(usage.inputTokens)
+  const cachedInputTokens = safeNonNeg(usage.cachedInputTokens)
+  const chargeableInputTokens = Math.max(0, rawInputTokens - cachedInputTokens)
+  const outputTokens = safeNonNeg(usage.outputTokens)
+
+  const effectiveInputRate =
+    inputRate !== undefined ? inputRate : 0
+  const cachedInputRate =
+    pricing.cachedInputPerMillionTokens !== undefined
+      ? pricing.cachedInputPerMillionTokens
+      : effectiveInputRate
+  const effectiveOutputRate =
+    outputRate !== undefined ? outputRate : 0
+
+  const inputCostDollars =
+    (chargeableInputTokens * effectiveInputRate +
+      cachedInputTokens * cachedInputRate) /
+    1_000_000
+  const outputCostDollars = (outputTokens * effectiveOutputRate) / 1_000_000
+
+  const totalCents = Math.round((inputCostDollars + outputCostDollars) * 100)
+  return totalCents > 0 ? totalCents : 0
 }
 
 export function getProviderOptions(params: {
@@ -282,8 +359,6 @@ function emitCacheDebugUsage(params: {
 }
 
 const POST_STREAM_METADATA_TIMEOUT_MS = 500
-const MAX_STREAM_RETRIES = 2
-const STREAM_RETRY_BASE_DELAY_MS = 1000
 const MODEL_CONTEXT_MIN_RESERVED_TOKENS = 1_024
 const MODEL_CONTEXT_MAX_RESERVED_TOKENS = 16_000
 const MODEL_CONTEXT_RESERVED_FRACTION = 0.1
@@ -581,7 +656,7 @@ export async function* promptAiSdkStream(
   for (let failoverIndex = 0; failoverIndex < modelsToTry.length; failoverIndex++) {
     const failoverModel = modelsToTry[failoverIndex]
     try {
-  for (let attempt = 0; attempt <= MAX_STREAM_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= MAX_RETRIES_PER_MESSAGE; attempt++) {
     // Track if we've yielded content in THIS attempt (for ChatGPT OAuth fallback)
     let hasYieldedContent = false
     let response: ReturnType<typeof streamText>
@@ -597,12 +672,17 @@ export async function* promptAiSdkStream(
         skipChatGptOAuth: params.skipChatGptOAuth,
         costMode: params.costMode,
         requiresVision: valueContainsImageInput(params.messages),
+        // Failover attempts (failoverIndex > 0) must honor the explicit
+        // failoverModel over openbuff.json mode/agent/defaultModel routing;
+        // otherwise every backup model would silently re-resolve to the same
+        // primary and failover would be a no-op (M8.1).
+        preferModelParam: failoverIndex > 0,
       }
       const modelResult = await getModelForRequest(modelParams)
       aiSDKModel = modelResult.model
       isChatGptOAuth = modelResult.isChatGptOAuth
       compatibility = modelResult.compatibility
-      const { reasoningEffort, effectiveModel, contextWindowTokens } = modelResult
+      const { reasoningEffort, effectiveModel, contextWindowTokens, pricing } = modelResult
 
       if (isChatGptOAuth && failoverIndex === 0 && attempt === 0) {
         trackEvent({
@@ -1044,8 +1124,27 @@ export async function* promptAiSdkStream(
           }
         }
 
-        // Report provider cost in cents for local/BYOK telemetry only.
-        if (params.onCostCalculated && costOverrideDollars) {
+        // Fallback (M8.2): when the provider does not return OpenRouter-style
+        // cost metadata, compute cost from token usage × the configured
+        // `modelCapabilities.pricing` capability so BYOK providers get cost
+        // tracking too.
+        if (costOverrideDollars === undefined && pricing) {
+          const usageResult = await awaitOptionalPostStreamMetadata({
+            promise: response.usage,
+            label: 'provider usage metadata for cost',
+            logger,
+          })
+          if (usageResult) {
+            const fallbackCents = computeCostCentsFromUsage({
+              usage: usageResult,
+              pricing,
+            })
+            if (fallbackCents !== undefined && params.onCostCalculated) {
+              await params.onCostCalculated(fallbackCents)
+            }
+          }
+        } else if (params.onCostCalculated && costOverrideDollars) {
+          // Report provider cost in cents for local/BYOK telemetry only.
           await params.onCostCalculated(
             calculateProviderCostCents({ costDollars: costOverrideDollars }),
           )
@@ -1080,7 +1179,7 @@ export async function* promptAiSdkStream(
         throw error
       }
 
-      if (attempt >= MAX_STREAM_RETRIES) {
+      if (attempt >= MAX_RETRIES_PER_MESSAGE) {
         logger.error(
           {
             error: getErrorObject(error),
@@ -1092,13 +1191,15 @@ export async function* promptAiSdkStream(
         throw error
       }
 
-      const delayMs =
-        STREAM_RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
+      const delayMs = computeBackoffDelayMs({
+        attempt,
+        baseDelayMs: RETRY_BACKOFF_BASE_DELAY_MS,
+      })
       logger.warn(
         {
           error: getErrorObject(error),
           attempt: attempt + 1,
-          maxRetries: MAX_STREAM_RETRIES,
+          maxRetries: MAX_RETRIES_PER_MESSAGE,
           delayMs,
           statusCode,
         },
@@ -1179,6 +1280,7 @@ export async function promptAiSdk(
     reasoningEffort,
     effectiveModel: effectiveModelSdk,
     contextWindowTokens,
+    pricing,
   } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
@@ -1240,7 +1342,20 @@ export async function promptAiSdk(
   }
 
   // Report provider cost in cents for local/BYOK telemetry only.
-  if (params.onCostCalculated && costOverrideDollars) {
+  // Fallback (M8.2): when the provider does not return OpenRouter-style
+  // cost metadata, compute cost from token usage × the configured
+  // `modelCapabilities.pricing` capability so BYOK providers get cost
+  // tracking too.
+  if (costOverrideDollars === undefined && pricing) {
+    const fallbackCents = computeCostCentsFromUsage({
+      usage: response.usage,
+      pricing,
+    })
+    if (fallbackCents !== undefined && params.onCostCalculated) {
+      await params.onCostCalculated(fallbackCents)
+    }
+  } else if (params.onCostCalculated && costOverrideDollars) {
+    // Report provider cost in cents for local/BYOK telemetry only.
     await params.onCostCalculated(
       calculateProviderCostCents({ costDollars: costOverrideDollars }),
     )
@@ -1277,6 +1392,7 @@ export async function promptAiSdkStructured<T>(
     reasoningEffort,
     effectiveModel: effectiveModelStructured,
     contextWindowTokens,
+    pricing,
   } = await getModelForRequest(modelParams)
 
   const providerOptionsWithReasoning = withConfiguredReasoningEffort(
@@ -1340,8 +1456,20 @@ export async function promptAiSdkStructured<T>(
     }
   }
 
-  // Report provider cost in cents for local/BYOK telemetry only.
-  if (params.onCostCalculated && costOverrideDollars) {
+  // Fallback (M8.2): when the provider does not return OpenRouter-style
+  // cost metadata, compute cost from token usage × the configured
+  // `modelCapabilities.pricing` capability so BYOK providers get cost
+  // tracking too.
+  if (costOverrideDollars === undefined && pricing) {
+    const fallbackCents = computeCostCentsFromUsage({
+      usage: response.usage,
+      pricing,
+    })
+    if (fallbackCents !== undefined && params.onCostCalculated) {
+      await params.onCostCalculated(fallbackCents)
+    }
+  } else if (params.onCostCalculated && costOverrideDollars) {
+    // Report provider cost in cents for local/BYOK telemetry only.
     await params.onCostCalculated(
       calculateProviderCostCents({ costDollars: costOverrideDollars }),
     )

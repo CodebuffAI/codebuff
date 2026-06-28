@@ -31,9 +31,17 @@ export const getSdkEnv = (): SdkEnv => ({
   OVERRIDE_ARCH: process.env.OVERRIDE_ARCH,
 })
 
-export const getCodebuffApiKeyFromEnv = (): string | undefined => {
-  return undefined
+/**
+ * Resolve the API key from the environment. Prefers OPENBUFF_API_KEY and
+ * falls back to CODEBUFF_API_KEY for backward compatibility.
+ */
+export const getOpenbuffApiKeyFromEnv = (): string | undefined => {
+  return process.env.OPENBUFF_API_KEY ?? process.env.CODEBUFF_API_KEY
 }
+
+/** @deprecated Use getOpenbuffApiKeyFromEnv instead. Kept as a compatibility
+ * alias so existing imports continue to resolve after the SDK rename. */
+export const getCodebuffApiKeyFromEnv = getOpenbuffApiKeyFromEnv
 
 export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {
   return process.env

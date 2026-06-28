@@ -4,7 +4,7 @@ import path from 'path'
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 
-import { CodebuffClient } from '../../src'
+import { OpenbuffClient } from '../../src'
 import {
   DEFAULT_TIMEOUT,
   EventCollector,
@@ -15,7 +15,7 @@ import {
 import type { AgentDefinition } from '../../src'
 
 describe('Custom Agents: apply_patch tool', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   const patchAgent: AgentDefinition = {
     id: 'apply-patch-agent',
@@ -27,7 +27,7 @@ describe('Custom Agents: apply_patch tool', () => {
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new OpenbuffClient({ apiKey: getApiKey() })
   })
 
   test(

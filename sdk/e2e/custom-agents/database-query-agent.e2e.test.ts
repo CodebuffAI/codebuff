@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { z } from 'zod/v4'
 
-import { CodebuffClient, getCustomToolDefinition } from '../../src'
+import { OpenbuffClient, getCustomToolDefinition } from '../../src'
 import {
   EventCollector,
   getApiKey,
@@ -19,7 +19,7 @@ import {
 import type { AgentDefinition } from '../../src'
 
 describe('Custom Agents: Database Query Agent', () => {
-  let client: CodebuffClient
+  let client: OpenbuffClient
 
   const dbAgent: AgentDefinition = {
     id: 'db-query-agent',
@@ -79,7 +79,7 @@ Always format query results in a readable way.`,
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new OpenbuffClient({ apiKey: getApiKey() })
   })
 
   test(
