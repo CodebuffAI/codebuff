@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowUp, FileText, Paperclip, Square, X } from 'lucide-react'
+import { ArrowUp, FileText, Mic, Paperclip, Square, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import type { ChatDocument, ChatImage, PendingAttachment } from './types'
@@ -268,6 +268,19 @@ export function Composer(props: {
           Drop files to attach
         </div>
       )}
+
+      {/* Willow voice dictation link (top-right corner) */}
+      <a
+        href="https://go.willowvoice.com/james-grugett"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Use Willow to make prompting easier with voice"
+        aria-label="Use Willow to make prompting easier with voice"
+        className="absolute right-2.5 top-2.5 z-20 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+      >
+        <Mic className="h-4 w-4" />
+      </a>
+
 
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 px-3 pt-3">

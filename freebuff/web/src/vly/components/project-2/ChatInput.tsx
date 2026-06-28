@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   Pencil,
+  Mic,
 } from "lucide-react";
 import { QueuedMessage } from "@/vly/hooks/useMessageQueue";
 import React, { useRef, useState, useMemo, useEffect } from "react";
@@ -922,6 +923,25 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                         </TooltipContent>
                       </Tooltip>
                     )}
+                    {/* Willow voice dictation link - top right corner */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a
+                          href="https://go.willowvoice.com/james-grugett"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Use Willow to make prompting easier with voice"
+                          className={`absolute top-2 z-10 flex items-center justify-center rounded text-gray-400 transition-colors hover:text-gray-600 dark:text-zinc-300 dark:hover:text-white ${
+                            compactMode ? "h-6 w-6" : "h-6 w-6"
+                          } ${compactMode ? "right-2" : "right-9"}`}
+                        >
+                          <Mic className="h-4 w-4" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Use Willow to make prompting easier with voice</p>
+                      </TooltipContent>
+                    </Tooltip>
                     <MentionsEditor
                       key={editorKey}
                       providers={providers}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, memo, useRef } from "react";
 import Image from "next/image";
 import { ThemeBadge } from "../ui/ThemeBadge";
-import { Loader, ArrowUp, Palette, ImagePlus } from "lucide-react";
+import { Loader, ArrowUp, Palette, ImagePlus, Mic } from "lucide-react";
 // Suggestions can be added if needed in the future
 // import { allSuggestions, getRandomSuggestions, getDefaultSuggestions } from "../landing-4/suggestions";
 import { useSharedHeroStorage } from "@/vly/hooks/useSharedHeroStorage";
@@ -466,6 +466,19 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
           className="relative cursor-text rounded-2xl bg-card/80 shadow-xl shadow-black/20 ring-1 ring-border/40 backdrop-blur transition-colors focus-within:ring-primary/45"
           onClick={() => inputRef.current?.focus()}
         >
+          {/* Willow voice dictation link (top-right corner) */}
+          <a
+            href="https://go.willowvoice.com/james-grugett"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Use Willow to make prompting easier with voice"
+            aria-label="Use Willow to make prompting easier with voice"
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground sm:right-4 sm:top-4"
+          >
+            <Mic className="h-[18px] w-[18px]" />
+          </a>
+
           <div className="px-4 pt-4 sm:px-5 sm:pt-5">
             {/* Uploaded images and theme badge */}
             {(selectedTheme || uploadedImages.length > 0) && (
