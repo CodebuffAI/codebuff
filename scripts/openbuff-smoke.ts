@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { CodebuffClient, describeLoadedProviderConfig, loadProviderConfigSync } from '@codebuff/sdk'
+import { OpenbuffClient, describeLoadedProviderConfig, loadProviderConfigSync } from '@openbuff/sdk'
 
 import { loadAgentDefinitions } from '../cli/src/utils/local-agent-registry'
 
@@ -14,7 +14,7 @@ const abortController = new AbortController()
 const timeout = setTimeout(() => abortController.abort(), timeoutMs)
 
 try {
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
     cwd: process.cwd(),
     agentDefinitions: loadAgentDefinitions(),
   })

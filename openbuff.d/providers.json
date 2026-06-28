@@ -469,6 +469,23 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       }
+    },
+    "qwencloud": {
+      "type": "openai-compatible",
+      "baseURL": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+      "apiKeyEnv": "QWENCLOUD_API_KEY",
+      "models": [
+        "glm-5.2"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
     }
   }
 }

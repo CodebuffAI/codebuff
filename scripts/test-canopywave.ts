@@ -8,10 +8,10 @@
  *   bun scripts/test-canopywave.ts direct
  *
  *   # Test 2: Hit our chat completions endpoint (requires running web server + valid API key)
- *   CODEBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint
+ *   OPENBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint
  *
  *   # Run both tests
- *   CODEBUFF_API_KEY=<key> bun scripts/test-canopywave.ts both
+ *   OPENBUFF_API_KEY=<key> bun scripts/test-canopywave.ts both
  */
 
 export {}
@@ -174,10 +174,10 @@ async function consumeStream(streamResponse: Response, streamStart: number, labe
 // ─── Chat Completions Endpoint Test ─────────────────────────────────────────
 
 async function testChatCompletionsEndpoint() {
-  const codebuffApiKey = process.env.CODEBUFF_API_KEY
+  const codebuffApiKey = process.env.OPENBUFF_API_KEY
   if (!codebuffApiKey) {
-    console.error('❌ CODEBUFF_API_KEY is not set. Pass it as an env var.')
-    console.error('   Example: CODEBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint')
+    console.error('❌ OPENBUFF_API_KEY is not set. Pass it as an env var.')
+    console.error('   Example: OPENBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint')
     process.exit(1)
   }
 
@@ -240,7 +240,7 @@ async function testChatCompletionsEndpoint() {
       console.log('   ℹ️  This is expected if you don\'t have a valid run_id.')
       console.log('   ℹ️  The request reached the endpoint — routing to CanopyWave is wired up.')
     } else if (response.status === 401) {
-      console.log('   ℹ️  Auth failed. Make sure CODEBUFF_API_KEY is valid.')
+      console.log('   ℹ️  Auth failed. Make sure OPENBUFF_API_KEY is valid.')
     }
   }
   console.log()

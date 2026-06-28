@@ -102,8 +102,7 @@ jobs:
 
           Captures the staged state for the CLI prerelease, including the version bump.
 
-          🤖 Generated with Openbuff
-          Co-Authored-By: Openbuff <noreply@openbuff.dev>"
+          🤖 Generated with Openbuff"
 
       - name: Create and push staging tag
         run: |

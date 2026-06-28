@@ -5,7 +5,7 @@ import path from 'path'
 import { models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { promptAiSdk } from '@codebuff/sdk'
+import { promptAiSdk } from '@openbuff/sdk'
 import prettier from 'prettier'
 
 // Native slugify implementation

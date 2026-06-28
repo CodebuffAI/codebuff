@@ -10,9 +10,9 @@
  *   bun scripts/test-canopywave-e2e.ts
  */
 
-import { CodebuffClient } from '@codebuff/sdk'
+import { OpenbuffClient } from '@openbuff/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@openbuff/sdk'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 const minimaxAgent: AgentDefinition = {
@@ -24,10 +24,10 @@ const minimaxAgent: AgentDefinition = {
 }
 
 async function main() {
-  const apiKey = process.env.CODEBUFF_API_KEY
+  const apiKey = process.env.OPENBUFF_API_KEY
   if (!apiKey) {
-    console.error('❌ CODEBUFF_API_KEY is not set.')
-    console.error('   Example: CODEBUFF_API_KEY=<key> bun scripts/test-canopywave-e2e.ts')
+    console.error('❌ OPENBUFF_API_KEY is not set.')
+    console.error('   Example: OPENBUFF_API_KEY=<key> bun scripts/test-canopywave-e2e.ts')
     process.exit(1)
   }
 
@@ -38,7 +38,7 @@ async function main() {
   console.log(`Agent: ${minimaxAgent.id}`)
   console.log()
 
-  const client = new CodebuffClient({
+  const client = new OpenbuffClient({
     apiKey,
     cwd: process.cwd(),
   })
