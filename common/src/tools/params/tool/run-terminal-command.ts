@@ -116,9 +116,7 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
-    command: `git commit -m "Your commit message here.
-
-🤖 Generated with Openbuff"`,
+    command: `git commit -m "Your commit message here."`,
   },
   endsAgentStep,
 })}

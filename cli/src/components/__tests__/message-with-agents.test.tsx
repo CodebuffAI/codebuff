@@ -350,6 +350,90 @@ describe('MessageWithAgents', () => {
     })
   })
 
+  describe('long user message collapse behavior', () => {
+    // A user message with more than MAX_COLLAPSED_LINES (3) lines should be
+    // rendered collapsed-by-default with a "Show more" toggle.
+    const longUserContent = Array.from({ length: 10 }, (_, i) => `Line ${i + 1}`).join('\n')
+
+    test('renders a "Show more" toggle for a long complete user message', () => {
+      const message: ChatMessage = {
+        ...createUserMessage('user-long', longUserContent),
+        isComplete: true,
+      }
+
+      const markup = renderToStaticMarkup(
+        <MessageWithAgents
+          {...baseMessageWithAgentsProps}
+          message={message}
+        />,
+      )
+
+      expect(markup).toContain('Show more')
+      // Collapsed preview shows only the first few lines plus the truncation marker.
+      expect(markup).toContain('Line 1')
+      expect(markup).toContain('Line 2')
+      expect(markup).toContain('Line 3')
+      // Lines beyond the threshold are hidden while collapsed.
+      expect(markup).not.toContain('Line 10')
+    })
+
+    test('does not collapse a short user message', () => {
+      const message: ChatMessage = {
+        ...createUserMessage('user-short', 'just one line'),
+        isComplete: true,
+      }
+
+      const markup = renderToStaticMarkup(
+        <MessageWithAgents
+          {...baseMessageWithAgentsProps}
+          message={message}
+        />,
+      )
+
+      expect(markup).not.toContain('Show more')
+      expect(markup).not.toContain('Show less')
+      expect(markup).toContain('just one line')
+    })
+
+    test('does not collapse a long AI message (collapse is user-only)', () => {
+      const message: ChatMessage = {
+        ...createAiMessage('ai-long', longUserContent),
+        isComplete: true,
+      }
+
+      const markup = renderToStaticMarkup(
+        <MessageWithAgents
+          {...baseMessageWithAgentsProps}
+          message={message}
+        />,
+      )
+
+      expect(markup).not.toContain('Show more')
+      expect(markup).toContain('Line 10')
+    })
+
+    test('does not collapse an incomplete (streaming) long user message', () => {
+      // An incomplete user message (isComplete: false) is still streaming and
+      // should not be collapsed.
+      const message: ChatMessage = {
+        ...createUserMessage('user-incomplete', longUserContent),
+        isComplete: false,
+      }
+
+      const markup = renderToStaticMarkup(
+        <MessageWithAgents
+          {...baseMessageWithAgentsProps}
+          message={message}
+          isLastMessage={true}
+        />,
+      )
+
+      // While incomplete, all lines render and no toggle appears.
+      expect(markup).not.toContain('Show more')
+      expect(markup).toContain('Line 10')
+    })
+  })
+
   describe('mode divider block rendering', () => {
     test('renders ModeDivider when message contains only a mode-divider block and ignores content', () => {
       const message = createModeDividerMessage('mode-1', 'Edit Mode')

@@ -167,7 +167,7 @@ Some files carry elevated security risk — credentials, auth flows, crypto, pay
  */
 export const gitDisciplineSection = `# Git Discipline
 
-When the user asks to commit, stage, or branch changes, delegate the full git workflow to the \`git-committer\` agent rather than running raw \`git\` commands yourself. The git-committer agent handles staging decisions, commit-message composition (imperative mood, scoped, with the Openbuff footer), and guardrails (no push, no config changes, no secrets).
+When the user asks to commit, stage, or branch changes, delegate the full git workflow to the \`git-committer\` agent rather than running raw \`git\` commands yourself. The git-committer agent handles staging decisions, commit-message composition (imperative mood, scoped, with no AI-attribution footer), and guardrails (no push, no config changes, no secrets).
 
 - **Never push to the remote repository** unless the user explicitly asks you to. Commits are local until the user says otherwise.
 - **Never alter git config** (no \`git config user.name/email\`, no \`--global\` flags).

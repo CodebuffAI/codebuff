@@ -69,9 +69,11 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    // No user agents should be loaded (bundled agents may still be present)
-    // Check that no test-specific agents are loaded
-    expect(definitions.find((d) => d.id.startsWith('test-'))).toBeUndefined()
+    // No user-defined agents should be loaded (bundled agents like
+    // `test-writer` are compiled into the CLI binary and may still appear).
+    expect(
+      definitions.find((d) => d.id.startsWith('test-') && d.id !== 'test-writer')
+    ).toBeUndefined()
   })
 
   test('handles empty .agents directory', async () => {

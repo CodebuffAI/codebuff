@@ -102,7 +102,7 @@ const EditBody = ({
           </text>
         </box>
       ) : null}
-      {!isCreate && diffText.length > 0 && (
+      {diffText.length > 0 && (
         <box style={{ paddingLeft: 2, width: '100%' }}>
           <DiffViewer diffText={diffText} availableWidth={Math.max(10, availableWidth - 4)} />
         </box>

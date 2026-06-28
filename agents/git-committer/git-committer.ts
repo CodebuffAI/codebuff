@@ -45,7 +45,7 @@ const definition: SecretAgentDefinition = {
 2. If the changes span multiple unrelated concerns, stage only the files for one logical commit at a time (git add <files>). If all changes are related, stage them together.
 3. Read relevant source files with read_files if the diff does not give enough context to write a good message.
 4. Draft a commit message in the imperative mood: "Add feature X", "Fix bug Y", not "Added" or "Adds". Keep the subject line under 72 characters. Add a body paragraph if the why is not obvious from the subject.
-5. Create a single commit with: git commit -m "subject" -m "optional body" -m "🤖 Generated with Openbuff"
+5. Create a single commit with: git commit -m "subject" -m "optional body"
 6. Return a concise summary: the commit hash, the files committed, and the commit message subject.
 Do not push to remote. Do not commit secrets, .env files, or credentials. Do not amend or rebase existing commits. If there are no changes to commit, report that and stop.`.trim(),
 

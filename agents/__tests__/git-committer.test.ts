@@ -84,8 +84,10 @@ describe('git-committer (M5.2 resurrected)', () => {
     expect(gitCommitter.instructionsPrompt).toMatch(/do not push/i)
   })
 
-  test('instructions prompt includes Openbuff footer', () => {
-    expect(gitCommitter.instructionsPrompt).toContain('Openbuff')
+  test('instructions prompt does not include an AI-attribution footer', () => {
+    expect(gitCommitter.instructionsPrompt).not.toMatch(/Generated with Openbuff/i)
+    expect(gitCommitter.instructionsPrompt).not.toMatch(/Co-Authored-By/i)
+    expect(gitCommitter.instructionsPrompt).not.toMatch(/🤖/u)
   })
 
   test('instructions prompt warns about secrets', () => {

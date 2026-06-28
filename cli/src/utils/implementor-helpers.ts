@@ -858,11 +858,13 @@ function hasToolResultOutput(toolBlock: ToolContentBlock): boolean {
  * Decide whether the direct edit tool renderer should show a diff preview.
  *
  * Real edit tool calls render immediately with input only, then receive output
- * once the edit completes. Wait for that result before showing diffs so create
- * operations never briefly flash an input-derived full-file diff.
+ * once the edit completes. Wait for that result before showing diffs so a
+ * pending create never briefly flashes an input-derived full-file diff. Once
+ * the result arrives, new-file creations render their addition-only diff body,
+ * mirroring edit_transaction.
  */
 export function shouldShowEditDiff(toolBlock: ToolContentBlock): boolean {
-  if (!extractDiff(toolBlock) || isCreateFile(toolBlock)) {
+  if (!extractDiff(toolBlock)) {
     return false
   }
 

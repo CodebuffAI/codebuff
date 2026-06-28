@@ -45,6 +45,7 @@ describe('ApplyPatchComponent', () => {
     const markup = renderToStaticMarkup(result?.content as React.ReactElement)
     expect(markup).toContain('Create')
     expect(markup).toContain('src/new-file.ts')
+    expect(markup).toContain('+export const value = 1')
   })
 
   test('renders update_file operation with diff content', () => {
