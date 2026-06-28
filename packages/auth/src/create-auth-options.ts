@@ -10,7 +10,11 @@ import GitHubProvider from 'next-auth/providers/github'
 import GoogleProvider from 'next-auth/providers/google'
 
 import { LINK_INTENT_COOKIE } from './constants'
-import { decideExplicitLink, isUnverifiedGoogleEmail } from './link-guard'
+import {
+  decideExplicitLink,
+  isBlockedEmailDomain,
+  isUnverifiedGoogleEmail,
+} from './link-guard'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextAuthOptions } from 'next-auth'
@@ -251,6 +255,16 @@ export function createAuthOptions(
     callbacks: {
       async signIn({ user, account, profile }) {
         if (!account) return true
+
+        // 0. Domain blocklist: refuse abuse-ring domains before any user row is
+        //    created (signIn runs ahead of the adapter's createUser).
+        if (isBlockedEmailDomain(user?.email)) {
+          logger.warn(
+            { provider: account.provider },
+            'Rejected sign-in: blocked email domain',
+          )
+          return false
+        }
 
         // 1. Security gate: never trust an unverified Google email for linking.
         //    Only a literal `email_verified === true` is accepted.

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   appendErrorParam,
   decideExplicitLink,
+  isBlockedEmailDomain,
   isUnverifiedGoogleEmail,
 } from '../link-guard'
 
@@ -39,6 +40,31 @@ describe('isUnverifiedGoogleEmail (Google verified-email gate)', () => {
     expect(
       isUnverifiedGoogleEmail({ provider: 'github', emailVerified: false }),
     ).toBe(false)
+  })
+})
+
+describe('isBlockedEmailDomain (sign-in domain blocklist)', () => {
+  it('blocks a listed domain', () => {
+    expect(isBlockedEmailDomain('cooke65103@gkmaill.com')).toBe(true)
+  })
+
+  it('is case-insensitive and tolerates surrounding whitespace', () => {
+    expect(isBlockedEmailDomain('Foo@GKMAILL.com ')).toBe(true)
+  })
+
+  it('does not block the legit look-alike domain', () => {
+    expect(isBlockedEmailDomain('real.person@gmail.com')).toBe(false)
+  })
+
+  it('matches only the exact registrable domain, not a substring', () => {
+    expect(isBlockedEmailDomain('user@notgkmaill.com')).toBe(false)
+    expect(isBlockedEmailDomain('user@gkmaill.com.evil.com')).toBe(false)
+  })
+
+  it('does not block missing/malformed emails (other gates handle those)', () => {
+    expect(isBlockedEmailDomain(null)).toBe(false)
+    expect(isBlockedEmailDomain(undefined)).toBe(false)
+    expect(isBlockedEmailDomain('no-at-sign')).toBe(false)
   })
 })
 

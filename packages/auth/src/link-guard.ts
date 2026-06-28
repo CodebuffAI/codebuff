@@ -1,4 +1,4 @@
-import { LINK_NO_MATCH_ERROR } from './constants'
+import { BLOCKED_EMAIL_DOMAINS, LINK_NO_MATCH_ERROR } from './constants'
 
 const GOOGLE_PROVIDER = 'google'
 
@@ -25,6 +25,19 @@ export function isUnverifiedGoogleEmail(params: {
   emailVerified: unknown
 }): boolean {
   return params.provider === GOOGLE_PROVIDER && params.emailVerified !== true
+}
+
+/**
+ * Reject a sign-in whose email belongs to a blocked domain (see
+ * `BLOCKED_EMAIL_DOMAINS`). Matches the exact registrable domain after the last
+ * `@`, case-insensitively; missing/malformed emails are not blocked here (other
+ * gates handle those). Pure so it's unit-testable.
+ */
+export function isBlockedEmailDomain(email: string | null | undefined): boolean {
+  if (!email) return false
+  const domain = email.slice(email.lastIndexOf('@') + 1).trim().toLowerCase()
+  if (!domain) return false
+  return BLOCKED_EMAIL_DOMAINS.includes(domain)
 }
 
 /**
