@@ -22,7 +22,10 @@ import {
   markChatGptOAuthRateLimited,
 } from './model-provider'
 import { resolveModelsToTry, isFailoverEligibleError } from './failover'
-import { loadProviderConfigSync } from '../provider-config'
+import {
+  loadProviderConfigSync,
+  resolveConfiguredAgentModelConfig,
+} from '../provider-config'
 import { refreshChatGptOAuthToken } from '../credentials'
 import {
   getErrorStatusCode,
@@ -651,7 +654,23 @@ export async function* promptAiSdkStream(
   let lastError: unknown
 
   const loadedConfig = loadProviderConfigSync()
-  const modelsToTry = resolveModelsToTry(params.model, loadedConfig)
+  // When the caller's `model` is undefined (e.g. bundled agents whose model
+  // is intentionally deferred to openbuff.json routing), resolve the effective
+  // primary model from the agentId now so the failover loop below has at least
+  // one model to try. Without this, resolveModelsToTry(undefined, ...) returns
+  // [] and the loop never executes, leaving lastError as undefined and
+  // surfacing as "Agent run error: undefined" at the post-loop `throw lastError`.
+  // getModelForRequest performs the same resolution inside the loop, but only
+  // after resolveModelsToTry gates entry — so we must resolve up front.
+  const effectiveRequestedModel =
+    params.model ||
+    (params.agentId
+      ? resolveConfiguredAgentModelConfig({
+          agentId: params.agentId,
+          loadedConfig,
+        }).model
+      : undefined)
+  const modelsToTry = resolveModelsToTry(effectiveRequestedModel, loadedConfig)
 
   for (let failoverIndex = 0; failoverIndex < modelsToTry.length; failoverIndex++) {
     const failoverModel = modelsToTry[failoverIndex]
