@@ -42,6 +42,9 @@
       "@/lib/blog/*": ["./src/lib/blog/*"],
       "@/components/blog/*": ["./src/components/blog/*"],
       "@/components/landing/*": ["./src/components/landing/*"],
+      "@/components/chunk-error-reloader": [
+        "./src/components/chunk-error-reloader.tsx"
+      ],
       "@/components/background-beams": [
         "./src/components/background-beams.tsx"
       ],

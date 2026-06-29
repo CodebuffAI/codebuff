@@ -14,9 +14,9 @@ export function BlogChrome({ children }: { children: React.ReactNode }) {
         aria-hidden
         className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[min(100vh,820px)] overflow-hidden"
       >
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#03060a_0%,#060c12_22%,#0c1a1c_46%,#11201d_60%,#0a0f0e_80%,#000000_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-[60%] bg-[radial-gradient(ellipse_60%_70%_at_50%_-10%,rgba(36,107,55,0.22),transparent_70%)]" />
-        <div className="absolute inset-x-0 top-0 h-full">
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#03060a_0%,#05080c_30%,#070b0e_55%,#050708_78%,#000000_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-[55%] bg-[radial-gradient(ellipse_55%_60%_at_50%_-15%,rgba(36,107,55,0.07),transparent_72%)]" />
+        <div className="absolute inset-x-0 top-0 h-full opacity-40">
           <Starfield />
         </div>
       </div>
