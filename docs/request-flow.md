@@ -25,7 +25,7 @@ See [Local Mode](./local-mode.md) for provider configuration and
 
 Everything in the diagram runs on the user's machine. Provider HTTP calls go
 from the local process directly to the provider URL configured in
-`openbuff.json` (or its `codebuff.json` legacy alias). No request is proxied
+`openbuff.json` (no `codebuff.json` fallback is read). No request is proxied
 through a hosted Openbuff/Codebuff service in this primary flow.
 
 ## Step-by-Step Flow
@@ -50,8 +50,8 @@ through a hosted Openbuff/Codebuff service in this primary flow.
    session state.
 2. **Session state** is initialized fresh or restored from `previousRun`.
 3. **Provider routing** is resolved from `openbuff.json` (`defaultModel`,
-   `modes`, `agents`, and provider entries). Openbuff does not consult a
-   hosted model registry.
+   `modes`, `agents`, and provider entries). No `codebuff.json` fallback is
+   read. Openbuff does not consult a hosted model registry.
 4. **Local tool handlers** are registered. These execute on the user's
    machine, never on a server:
    - `write_file`, `str_replace`, `edit_transaction`, `apply_patch`,
@@ -78,9 +78,9 @@ through a hosted Openbuff/Codebuff service in this primary flow.
 1. Assembles local agent templates from the project's `.agents/` directory
    and the shipped `agents/` package.
 2. Sends a `response-chunk` `start` event to the CLI.
-3. `mainPrompt()` selects the agent based on cost mode (`free` → `base-free`,
-   `normal` → `base`, `ask` → `ask`, default → `base2`) or an explicit
-   custom agent ID.
+3. `mainPrompt()` selects the agent based on cost mode (`lite` → `base-free`,
+   `normal` → `base`, `ask` → `ask`, `max` → `base-max`, `experimental` →
+   `base2`, default → `base2`) or an explicit custom agent ID.
 4. Calls `loopAgentSteps()` with the agent template, prompt, and session
    state.
 

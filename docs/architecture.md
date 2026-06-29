@@ -7,34 +7,32 @@ Openbuff is an independent, local-first, and Bring Your Own Key (BYOK) fork of C
 Openbuff keeps the monorepo focused on local CLI/SDK execution. Hosted web, billing, BigQuery, and free-mode product surfaces have been removed from the active workspace.
 
 ```
-                                  ┌──────────┐
-                                  │   cli/   │  TUI client (OpenTUI + React)
-                                  └────┬─────┘
-                                       │
-                                  ┌────▼─────┐
-                          ┌───────│   sdk/   │  JS/TS SDK (Local / BYOK routing)
-                          │       └────┬─────┘
-                          │            │
-                  ┌───────▼────────┐   │
-                  │ agent-runtime/ │◄──┘  Agent execution engine
-                  └───────┬────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          │               │               │
-    ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
-    │  agents/  │   │  common/  │   │ internal/ │
-    └───────────┘   └───────────┘   └─────┬─────┘
-                                          │
-                                    ┌─────▼─────┐
-                                    │ code-map/ │
-                                    └───────────┘
+                          ┌──────────┐
+                          │   cli/   │  TUI client (OpenTUI + React)
+                          └────┬─────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+        ┌─────▼─────┐    ┌─────▼─────┐    ┌─────▼─────┐
+        │   sdk/    │    │  common/  │    │ indexer/  │
+        │ @openbuff │    │  (leaf)   │    │           │
+        │   /sdk    │    └───────────┘    └─────┬─────┘
+        └───────────┘                           │
+        (standalone;                      ┌─────▼─────┐
+         no workspace deps)               │ code-map/ │
+                                          └───────────┘
+
+  Other private workspace packages (@codebuff/*):
+    agent-runtime/ → code-map/      internal/ → common/
+    evals/ → {code-map, common, internal, sdk}   agents/ (leaf)
+    build-tools/   scripts/   .agents/
 ```
 
 ## Packages
 
 ### `cli/` — TUI Client
 
-The user-facing terminal UI, run via the `openbuff` CLI command (with fallback support for `codebuff --local`). Built with [OpenTUI](https://github.com/nickhudkins/opentui) (a React renderer for terminals) and React hooks.
+The user-facing terminal UI, run via the `openbuff` CLI command (the `codebuff` command prefix is a legacy alias retained during the transition where the shim is installed; prefer `openbuff`). Built with [OpenTUI](https://github.com/nickhudkins/opentui) (a React renderer for terminals) and React hooks.
 
 - **Entry point:** `cli/src/index.tsx` → `cli/src/app.tsx` → `cli/src/chat.tsx`
 - **Key responsibilities:**
@@ -42,18 +40,18 @@ The user-facing terminal UI, run via the `openbuff` CLI command (with fallback s
   - Manages user input, slash commands (`/help`, `/provider`, `/models`), and agent mode selection (DEFAULT, PLAN).
   - Handles local session persistence and chat history.
   - Calls `client.run()` from the SDK and processes streaming events.
-- **Depends on:** `sdk`, `common`
+- **Depends on:** `sdk` (published as `@openbuff/sdk`), `common` (`@codebuff/common`), `indexer` (`@codebuff/indexer`)
 
 ### `sdk/` — JavaScript/TypeScript SDK
 
-The public SDK used by the CLI and available to external users via `@codebuff/sdk` on npm.
+The public SDK used by the CLI and available to external users via `@openbuff/sdk` on npm.
 
-- **Entry point:** `sdk/src/client.ts` (`CodebuffClient` / compatible alias) → `sdk/src/run.ts` (`run()`)
+- **Entry point:** `sdk/src/client.ts` (`OpenbuffClient`, with `CodebuffClient` as a compatibility alias) → `sdk/src/run.ts` (`run()`)
 - **Key responsibilities:**
   - Orchestrates agent runs: initializes local session state, registers tool handlers, calls `callMainPrompt()`.
   - **Executes tool calls locally** on the user's machine (file edits, terminal commands, code search).
-  - Manages model provider routing dynamically: reads `openbuff.json` (or the legacy compatibility alias `codebuff.json`) to select and invoke user-configured OpenAI-compatible APIs (OpenAI, OpenRouter, Ollama, GLM, etc.), Anthropic-compatible Claude APIs, or ChatGPT OAuth directly from the client.
-- **Depends on:** `agent-runtime`, `common`, `internal` (for OpenAI-compatible provider)
+  - Manages model provider routing dynamically: reads `openbuff.json` to select and invoke user-configured OpenAI-compatible APIs (OpenAI, OpenRouter, Ollama, GLM, etc.), Anthropic-compatible Claude APIs, or ChatGPT OAuth directly from the client.
+- **Depends on:** none (standalone — published as `@openbuff/sdk` with no workspace dependencies)
 
 ### `packages/agent-runtime/` — Agent Execution Engine
 
@@ -66,7 +64,7 @@ The core agent loop that drives LLM inference, tool execution, and multi-step re
   - Handles subagent spawning and programmatic agent steps (`handleSteps` generators).
   - Processes the AI SDK stream (`streamText()`) and routes tool calls to the SDK.
   - Manages local context token counting, cache debugging, and local cost estimates.
-- **Depends on:** `common`, `agents` (for agent templates)
+- **Depends on:** `code-map` (`@codebuff/code-map`)
 
 ### `common/` — Shared Library
 
@@ -93,7 +91,7 @@ Prompt-based and programmatic agent definitions that ship with Openbuff.
   - `researcher/` — Local web search and docs search agents.
   - `basher.ts` — Terminal command execution agent (id: 'basher', displayName: 'Basher').
   - `context-pruner.ts` — Conversation summarization to manage context length.
-- **Depends on:** `common` (for agent definition types and tool params)
+- **Depends on:** nothing (leaf package)
 
 ### `packages/internal/` — Internal Utilities
 
@@ -105,6 +103,19 @@ Tree-sitter based source code parser that extracts function/variable names for f
 
 - **Supports:** TypeScript, JavaScript, Python, Go, Rust, Java, C, C++, C#, Ruby, PHP
 - **Depends on:** nothing (leaf package)
+
+### `packages/indexer/` — Codebase Graph Indexer
+
+Builds and queries the local codebase graph index backing the `query_index` tool for retrieval-led context gathering.
+
+- **Key responsibilities:** indexes file paths, extensions, symbols, imports, markdown headings, documentation concepts, package scripts, and CI workflow commands into a graph supporting ranked search, neighbor, and shortest-path queries.
+- **Depends on:** `code-map` (`@codebuff/code-map`), `ignore`
+
+### `packages/build-tools/` — Build Tooling
+
+Internal build tooling and helpers that support the monorepo's build pipeline. Private; not published.
+
+- **Depends on:** (workspace-internal tooling)
 
 ### `.agents/` — Local Agent Templates
 
@@ -120,7 +131,7 @@ BuffBench evaluation suite for measuring agent performance on real-world coding 
 
 - **Workflow:** Pick commits → generate eval tasks → run agents → judge results → extract lessons
 - **Runners:** Openbuff, Claude Code, Codex
-- **Depends on:** `common`, `agent-runtime`, `sdk`
+- **Depends on:** `code-map`, `common`, `internal`, `sdk` (all as `@codebuff/*` except `sdk`, which is published as `@openbuff/sdk`)
 
 ---
 
@@ -128,7 +139,7 @@ BuffBench evaluation suite for measuring agent performance on real-world coding 
 
 ### Bring Your Own Key (BYOK) & No Backend Fallback
 
-Openbuff operates on a strict BYOK architecture. There is absolutely no backend server fallback, hosted inference, or credit billing. Every single request is resolved directly to a configured LLM provider (specified in `openbuff.json` or its legacy compatibility counterpart `codebuff.json`):
+Openbuff operates on a strict BYOK architecture. There is absolutely no backend server fallback, hosted inference, or credit billing. Every single request is resolved directly to a configured LLM provider (specified in `openbuff.json`):
 
 - All LLM interactions are initiated directly from the user's terminal to the provider's API.
 - Local API keys (e.g. `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, or custom keys) are loaded from environment variables or provider configuration.
@@ -170,9 +181,13 @@ page; the high-level wiring is:
 
 ### Compatibility Aliases & Legacy Support
 
-During the transition from the upstream Codebuff codebase, several namespaces and interfaces remain as legacy compatibility aliases so existing tools and projects do not break:
+During the transition from the upstream Codebuff codebase, a small set of compatibility aliases are retained so existing tools and projects do not break. Most legacy surfaces were deliberately removed in the "BYOK purge"; only the aliases below remain:
 
-- **CLI Commands:** The CLI binary is named `openbuff`, but continues to support commands like `codebuff --local` or legacy configuration hooks.
-- **Environment Variables:** `OPENBUFF_*` is preferred, but `CODEBUFF_*` prefixes are fully supported.
-- **Configuration Files:** `openbuff.json` is the standard configuration file; however, any existing `codebuff.json` is automatically parsed and processed with identical behavior.
-- **SDK Package:** The npm SDK is distributed under `@codebuff/sdk` to prevent breaking changes for existing SDK consumers.
+- **CLI Commands:** The CLI binary is named `openbuff`. The `codebuff` command prefix is a legacy alias retained during the transition where the shim is installed; prefer `openbuff`. The `codebuff --local` form is not documented as a supported invocation in current code.
+- **Environment Variables:** `OPENBUFF_*` variables are primary. Only `CODEBUFF_API_KEY` is accepted as a legacy fallback for `OPENBUFF_API_KEY`. Other `CODEBUFF_*` env vars (`CODEBUFF_LOCAL_MODE`, `CODEBUFF_PROVIDER_CONFIG`, etc.) were removed in the BYOK purge and are not read.
+- **Configuration Files:** Openbuff reads `openbuff.json` only. `codebuff.json` is not parsed.
+- **SDK Package:** The SDK is published as `@openbuff/sdk`. `CodebuffClient` remains a compatibility alias for `OpenbuffClient`.
+
+### Internal Workspace Package Names
+
+All internal workspace packages retain their historical `@codebuff/*` names: `@codebuff/common`, `@codebuff/agents`, `@codebuff/internal`, `@codebuff/code-map`, `@codebuff/indexer`, `@codebuff/agent-runtime`, `@codebuff/build-tools`, `@codebuff/evals`, `@codebuff/scripts`, `@codebuff/.agents`, and the workspace `@codebuff/cli` (which is published as `@openbuff/cli`). These are private and never published to npm. Only `@openbuff/cli` (v0.1.0) and `@openbuff/sdk` (v0.11.0) are published. Homepage: openbuff.dev. Repo: github.com/AnzoBenjamin/openbuff.

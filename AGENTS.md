@@ -17,16 +17,20 @@ Make an efficient learning agent that can do anything.
 - `cli/` — TUI client (OpenTUI + React) and local UX
 - `sdk/` — JS/TS SDK used by the CLI and external users
 - `packages/agent-runtime/` — agent runtime + tool handling
+- `packages/indexer/` — codebase indexing/retrieval backend (`query_index`)
+- `packages/code-map/` — code-graph construction and symbol mapping
+- `packages/internal/` — internal utilities shared across runtime packages
 - `common/` — shared types, tools, schemas, utilities
 - `agents/` — main agents shipped with openbuff
 - `.agents/` — local agent templates (prompt + programmatic agents)
+- `evals/` — evaluation framework and benchmarks
 
 ## Conventions
 
 - Never force-push `main` unless explicitly requested.
 - Run interactive git commands in tmux (anything that opens an editor or prompts).
 - Prefer retrieval-led context gathering: start broad codebase tasks with `query_index`, then verify selected files with `read_files`/`read_subtree` before editing.
-- `query_index` supports graph-aware modes: `search`, `explain`, `neighbors`, and `path`, plus `commands` for package scripts, CI workflows, task runners, and validation docs. Use `relatedFiles`, `matchedSnippets`, and explanations to find adjacent implementation, test, type, or command files.
+- `query_index` supports graph-aware modes: `search`, `explain`, `neighbors`, `path`, and `references`, plus `commands` for package scripts, CI workflows, task runners, and validation docs. Use `relatedFiles`, `matchedSnippets`, and explanations to find adjacent implementation, test, type, or command files.
 
 ## Docs
 

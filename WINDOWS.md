@@ -28,7 +28,7 @@ Surprisingly: most guides in fact recommend running everything in an Admin Power
 - Install Choco: Open PowerShell as Admin, and run the command from https://chocolatey.org/install
 - Install NVM: Restart PowerShell (still as Admin) and run `choco install nvm -y`
 - Install Node: Restart PowerShell (still as Admin) and run `nvm install node`
-- Install Openbuff: Run `npm i -g openbuff`
+- Install Openbuff: Run `npm i -g @openbuff/cli`
 
 ---
 
@@ -74,7 +74,7 @@ Openbuff checks GitHub for the latest release on first run. This fails when:
 
 2. **Verify network access**:
    ```powershell
-   curl https://registry.npmjs.org/openbuff/latest
+   curl https://registry.npmjs.org/@openbuff/cli/latest
    ```
    If this fails, you have a network/firewall issue.
 
@@ -90,8 +90,8 @@ Openbuff checks GitHub for the latest release on first run. This fails when:
 5. **Clear npm cache and reinstall**:
    ```powershell
    npm cache clean --force
-   npm uninstall -g openbuff
-   npm install -g openbuff
+   npm uninstall -g @openbuff/cli
+   npm install -g @openbuff/cli
    ```
 
 **Reference**: Issue [#294](https://github.com/AnzoBenjamin/openbuff/issues/294)
@@ -189,8 +189,8 @@ When running Openbuff in Git Bash (MINGW64), the `start` command is not availabl
 3. **Clear cache if login still fails** (per issue #299):
    ```powershell
    npm cache clean --force
-   npm uninstall -g openbuff
-   npm install -g openbuff
+   npm uninstall -g @openbuff/cli
+   npm install -g @openbuff/cli
    ```
 
 > **Note:** Openbuff's local/BYOK mode (`openbuff.json` provider config) does not require browser login. This issue only applies when using the upstream Codebuff cloud authentication.

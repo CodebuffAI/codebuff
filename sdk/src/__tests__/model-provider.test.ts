@@ -522,6 +522,45 @@ describe('model-provider', () => {
       ).toThrow('openbuff.json')
     })
 
+    test('throws the docs-quoted hard error string verbatim when no routing or caller model is configured', () => {
+      // Locks the exact error string documented in docs/local-mode.md step 6
+      // ("No model configured for agent '<id>'. Run /setup or set defaultModel
+      // (or agents['<id>']) in your openbuff.json.") to the code so the docs
+      // and implementation cannot drift independently. The existing partial-
+      // assertion test above only checks substrings; this asserts the full
+      // interpolated message for a concrete agent id.
+      const emptyConfig = {
+        sourceFilePaths: [],
+        config: {
+          defaultModel: undefined,
+          defaultReasoningEffort: undefined,
+          modes: {},
+          modeReasoningEfforts: {},
+          agents: {},
+          agentReasoningEfforts: {},
+          indexing: {
+            enabled: true,
+            cacheDir: '.codebuff-index',
+            exclude: [],
+            semantic: { enabled: false },
+          },
+          fileChangeHooks: [],
+          providers: {},
+        },
+      }
+
+      const agentId = 'notion-query-agent'
+      expect(() =>
+        resolveConfiguredAgentModelConfig({
+          agentId,
+          model: undefined,
+          loadedConfig: emptyConfig,
+        }),
+      ).toThrow(
+        `No model configured for agent '${agentId}'. Run /setup or set defaultModel (or agents['${agentId}']) in your openbuff.json.`,
+      )
+    })
+
     test('throws a clear error when a matched provider is missing its api key env var', () => {
       expect(() =>
         resolveConfiguredProviderModel({

@@ -57,10 +57,13 @@ common/src/constants/local-mode.ts
 
 | Variable | Status | File |
 |----------|--------|------|
-| `CODEBUFF_API_KEY` | ⚠️ Only name (no Openbuff alias) | `common/src/constants/paths.ts` |
+| `OPENBUFF_API_KEY` | ✅ Primary | `sdk/src/env.ts` |
+| `CODEBUFF_API_KEY` | ✅ Compatibility fallback | `sdk/src/env.ts`, `common/src/constants/paths.ts` |
 
-**Detail:** Used for legacy/hosted Codebuff API auth and live integration tests. BYOK mode doesn't require it.
+**Detail:** The SDK resolves the API key as `process.env.OPENBUFF_API_KEY ?? process.env.CODEBUFF_API_KEY` (`sdk/src/env.ts`), so `OPENBUFF_API_KEY` is primary and `CODEBUFF_API_KEY` is the sole retained runtime fallback. Used for legacy/hosted Codebuff API auth and live integration tests. BYOK mode doesn't require it.
 ```
+sdk/src/env.ts
+  - return process.env.OPENBUFF_API_KEY ?? process.env.CODEBUFF_API_KEY
 common/src/constants/paths.ts
   - API_KEY_ENV_VAR = 'CODEBUFF_API_KEY'
 ```
@@ -77,19 +80,23 @@ common/src/constants/paths.ts
 
 | Variable | Status | File |
 |----------|--------|------|
-| `CODEBUFF_CHATGPT_OAUTH_TOKEN` | ⚠️ Only name | `common/src/constants/chatgpt-oauth.ts` |
+| `CODEBUFF_CHATGPT_OAUTH_TOKEN` | ✅ Compatibility fallback (legacy precedence) | `common/src/constants/chatgpt-oauth.ts`, `sdk/src/env.ts` |
+| `OPENBUFF_CHATGPT_OAUTH_TOKEN` | ✅ Alias | `common/src/constants/chatgpt-oauth.ts`, `common/src/env-ci.ts` |
+
+**Detail:** The SDK resolves the ChatGPT OAuth token as `process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN ?? process.env.OPENBUFF_CHATGPT_OAUTH_TOKEN` (`sdk/src/env.ts`). Note the **reversed precedence** vs. the API key: the legacy `CODEBUFF_*` name takes precedence over the `OPENBUFF_*` alias here (pre-existing inconsistency). `common/src/env-ci.ts` mirrors both into the CI env contract.
 
 ### 1.6 CI/Internal Variables
 
 | Variable | Status | File | Notes |
 |----------|--------|------|-------|
 | `CODEBUFF_GITHUB_ACTIONS` | ⚠️ Only name | `common/src/env.ts` | `IS_CI` check |
-| `CODEBUFF_GITHUB_TOKEN` | ⚠️ Only name | Various | Release scripts, eval scripts |
+| `CODEBUFF_GITHUB_TOKEN` | ✅ Compatibility fallback | `cli/scripts/release.ts` | Release script reads `OPENBUFF_GITHUB_TOKEN` (primary) then `CODEBUFF_GITHUB_TOKEN` (fallback); eval/CI scripts still use `CODEBUFF_GITHUB_TOKEN` only |
 | `CODEBUFF_IS_BINARY` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
 | `CODEBUFF_CLI_VERSION` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
 | `CODEBUFF_CLI_TARGET` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
 | `CODEBUFF_CLI_EDITOR` | ⚠️ Only name | `cli/src/types/env.ts`, `common/src/types/contracts/env.ts` | CLI editor override |
 | `CODEBUFF_EDITOR` | ⚠️ Only name | `cli/src/types/env.ts` | Fallback editor |
+| `CODEBUFF_GIT_BASH_PATH` | ⚠️ Only name | `sdk/src/tools/run-terminal-command.ts` | Windows bash.exe path override |
 | `CODEBUFF_FULL_TELEMETRY` | ⚠️ Only name | `common/src/util/analytics-sampling.ts` | Debug telemetry |
 | `CODEBUFF_RG_PATH` | ⚠️ Only name | `sdk/src/env.ts` | Ripgrep binary path |
 | `CODEBUFF_WASM_DIR` | ⚠️ Only name | `sdk/src/env.ts` | WASM directory |
@@ -99,7 +106,7 @@ common/src/constants/paths.ts
 
 > ⚠️ **Note about `NEXT_PUBLIC_*` variables:** These are Next.js build-time env vars baked into the client bundle at compile time (via `next.config.js`). Adding an `OPENBUFF_*` alias for these is **not** as simple as adding a runtime fallback — it requires changes to the Next.js build pipeline, the env schema, and the `env-process.ts` accessors in coordination. These should be handled in a separate build-config migration phase.
 
-**TODO:** Consider adding `OPENBUFF_*` aliases for the most commonly used ones (at minimum: `OPENBUFF_CLI_VERSION`, `OPENBUFF_IS_BINARY`, `OPENBUFF_API_KEY`). <!-- allow-todo -->
+**TODO:** Consider adding `OPENBUFF_*` aliases for the most commonly used ones (at minimum: `OPENBUFF_CLI_VERSION`, `OPENBUFF_IS_BINARY`). <!-- allow-todo -->
 
 ---
 
@@ -169,7 +176,8 @@ sdk/src/provider-config.ts
 
 | Constant | Value | Status | File |
 |----------|-------|--------|------|
-| `CHATGPT_OAUTH_TOKEN_ENV_VAR` | `'CODEBUFF_CHATGPT_OAUTH_TOKEN'` | ⚠️ Only name | `common/src/constants/chatgpt-oauth.ts` |
+| `CHATGPT_OAUTH_TOKEN_ENV_VAR` | `'CODEBUFF_CHATGPT_OAUTH_TOKEN'` | ✅ Primary (legacy precedence) | `common/src/constants/chatgpt-oauth.ts` |
+| `OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR` | `'OPENBUFF_CHATGPT_OAUTH_TOKEN'` | ✅ Alias | `common/src/constants/chatgpt-oauth.ts` |
 
 ### 3.5 Analytics Events
 
@@ -226,30 +234,36 @@ const cliName = isLocalMode() ? 'openbuff' : 'codebuff'
 
 | Name | Status | File |
 |------|--------|------|
-| `@codebuff/sdk` | ⚠️ Still Codebuff name | `sdk/package.json` |
+| `@openbuff/sdk` | ✅ Primary (published) | `sdk/package.json` |
+
+> **Note:** The old `@codebuff/sdk` package on npm is the upstream Codebuff package, not this fork. This fork publishes and consumes `@openbuff/sdk`.
 
 ### 5.2 SDK Client Class
 
 | Name | Status | File |
 |------|--------|------|
-| `CodebuffClient` | ⚠️ Still Codebuff name | `sdk/src/client.ts` |
+| `OpenbuffClient` | ✅ Primary | `sdk/src/client.ts` |
+| `CodebuffClient` | ✅ Compatibility alias | `sdk/src/client.ts` |
+
+**Detail:** Both `OpenbuffClient` and `CodebuffClient` are exported from `@openbuff/sdk`; `OpenbuffClient` is the primary class and `CodebuffClient` is a retained compatibility alias.
 
 ### 5.3 Import Paths
 
-All internal packages use `@codebuff/*` import paths:
+All internal packages use `@codebuff/*` import paths (the published SDK is `@openbuff/sdk`, listed in 5.1 above):
 
 | Package | Status |
 |---------|--------|
-| `@codebuff/common` | ⚠️ Codebuff name |
-| `@codebuff/sdk` | ⚠️ Codebuff name |
-| `@codebuff/internal` | ⚠️ Codebuff name |
-| `@codebuff/agent-runtime` | ⚠️ Codebuff name |
+| `@codebuff/common` | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/internal` | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/agent-runtime` | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/code-map` | ⚠️ Codebuff name (internal-only) |
+| `@codebuff/indexer` | ⚠️ Codebuff name (internal-only) |
 
 **TODO:** These require significant migration effort (package.json renames, import rewrites across hundreds of files). <!-- allow-todo -->
 
 ### 5.4 SDK README
 
-`sdk/README.md` explicitly documents that the package name and class name remain Codebuff-named compatibility surfaces during the fork transition.
+`sdk/README.md` documents that the package is published as `@openbuff/sdk` with `OpenbuffClient` as the primary export and `CodebuffClient` retained as a compatibility alias.
 
 ---
 
@@ -337,24 +351,22 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 - Dynamic branding for retained Openbuff/Codebuff compatibility surfaces
 - `--local` CLI flag maintained as compatibility
 - `openbuff` binary name
+- SDK published as `@openbuff/sdk` (`OpenbuffClient` primary, `CodebuffClient` retained compatibility alias — both exported from `@openbuff/sdk`)
+- `OPENBUFF_API_KEY` primary with `CODEBUFF_API_KEY` runtime fallback (`sdk/src/env.ts`)
 
 ### ⚠️ Uses Only CODEBUFF Name (no Openbuff Alias)
 
-- `CODEBUFF_API_KEY` — no `OPENBUFF_API_KEY` alias
 - `CODEBUFF_BYOK_OPENROUTER` — no alias
-- `CODEBUFF_CHATGPT_OAUTH_TOKEN` — no alias
 - `CODEBUFF_IS_BINARY`, `CODEBUFF_CLI_VERSION`, `CODEBUFF_CLI_TARGET` — build-time only
 - `CODEBUFF_CLI_EDITOR`, `CODEBUFF_EDITOR` — CLI config
-- `CODEBUFF_GITHUB_*` — CI/release specific; `OPENBUFF_GITHUB_TOKEN` is supported by the CLI release script as the primary token name with `CODEBUFF_GITHUB_TOKEN` as a compatibility fallback
+- `CODEBUFF_GITHUB_ACTIONS` — no alias (`IS_CI` check in `common/src/env.ts`); `CODEBUFF_GITHUB_TOKEN` has `OPENBUFF_GITHUB_TOKEN` as primary in the CLI release script (`CODEBUFF_GITHUB_TOKEN` compatibility fallback), though eval/CI scripts still use `CODEBUFF_GITHUB_TOKEN` only
 - `CODEBUFF_FULL_TELEMETRY` — debug telemetry
 - `NEXT_PUBLIC_CODEBUFF_APP_URL` — compatibility app URL used by retained legacy interfaces
 - Analytics events (`UPDATE_CODEBUFF_FAILED`, `CODEBUFF_REFERRER_ATTRIBUTED`)
 
 ### ⚠️ Package Ecosystem (Non-trivial Migration)
 
-- `@codebuff/sdk` package name
-- `CodebuffClient` class name
-- All `@codebuff/*` import paths
+- All `@codebuff/*` internal import paths (`@codebuff/common`, `@codebuff/internal`, `@codebuff/agent-runtime`, `@codebuff/code-map`, `@codebuff/indexer`)
 - These require coordinated changes across package.json files, build configs, and all import statements
 
 ### ⚠️ Internal Placeholders
@@ -367,9 +379,9 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 ## 11. Migration Plan (Suggested Order)
 
 ### Phase 1: Low-Hanging Fruit
-1. Add `OPENBUFF_API_KEY` as alias alongside `CODEBUFF_API_KEY`
+1. ✅ DONE — Add `OPENBUFF_API_KEY` as alias alongside `CODEBUFF_API_KEY` (`OPENBUFF_API_KEY` primary with `CODEBUFF_API_KEY` runtime fallback; see §1.3 and §10)
 2. Add `OPENBUFF_BYOK_OPENROUTER` alias
-3. Add `OPENBUFF_CHATGPT_OAUTH_TOKEN` alias
+3. ✅ DONE — Add `OPENBUFF_CHATGPT_OAUTH_TOKEN` alias (`OPENBUFF_CHATGPT_OAUTH_TOKEN_ENV_VAR` in `common/src/constants/chatgpt-oauth.ts`; SDK resolves `CODEBUFF_CHATGPT_OAUTH_TOKEN ?? OPENBUFF_CHATGPT_OAUTH_TOKEN`; note reversed precedence vs. API key — see §1.5)
 4. Add `OPENBUFF_CLI_EDITOR` / `OPENBUFF_EDITOR` aliases
 
 ### Phase 2: Build/CI Variables
@@ -377,12 +389,12 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 6. Expand `OPENBUFF_GITHUB_*` support beyond the CLI release script where other CI/release scripts still use only `CODEBUFF_GITHUB_*`
 
 ### Phase 3: Package Ecosystem (Major Effort)
-7. Rename `@codebuff/sdk` → `@openbuff/sdk` (coordinated with build/release)
-8. Rename `CodebuffClient` → `OpenbuffClient` (with compat alias)
-9. Rename `@codebuff/*` internal packages → `@openbuff/*`
-10. Update all import paths across the codebase
+7. ✅ DONE — Rename `@codebuff/sdk` → `@openbuff/sdk` (published; `@openbuff/sdk` is live on npm)
+8. ✅ DONE — Rename `CodebuffClient` → `OpenbuffClient` (with retained `CodebuffClient` compat alias; both exported from `@openbuff/sdk`)
+9. Rename `@codebuff/*` internal packages → `@openbuff/*` (still outstanding)
+10. Update all import paths across the codebase (still outstanding)
 
-> ⚠️ **Dual-publishing required:** Renaming `@codebuff/sdk` to `@openbuff/sdk` would break all downstream consumers who `import { CodebuffClient } from '@codebuff/sdk'`. This requires a **dual-publishing deprecation period** where both `@codebuff/sdk` and `@openbuff/sdk` are published to npm simultaneously for at least one major version. During this period, `@codebuff/sdk` should emit deprecation warnings directing users to migrate to `@openbuff/sdk`. The same applies to `CodebuffClient` → `OpenbuffClient` (export both names from both packages during the transition).
+> ✅ **Completed:** `@openbuff/sdk` is live on npm with `OpenbuffClient` primary and `CodebuffClient` compatibility alias (both exported from `@openbuff/sdk`). The historical dual-publishing note for context: Renaming `@codebuff/sdk` to `@openbuff/sdk` would break all downstream consumers who `import { CodebuffClient } from '@codebuff/sdk'`. This requires a **dual-publishing deprecation period** where both `@codebuff/sdk` and `@openbuff/sdk` are published to npm simultaneously for at least one major version. During this period, `@codebuff/sdk` should emit deprecation warnings directing users to migrate to `@openbuff/sdk`. The same applies to `CodebuffClient` → `OpenbuffClient` (export both names from both packages during the transition).
 
 ### Phase 4: Template Placeholders
 11. Add `{OPENBUFF_*}` placeholder aliases that map to the same values

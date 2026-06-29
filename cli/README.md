@@ -1,6 +1,6 @@
 # @codebuff/cli
 
-Openbuff's Terminal User Interface (TUI) package built with OpenTUI and React. The package name is retained for workspace compatibility.
+Openbuff's Terminal User Interface (TUI) package built with OpenTUI and React. `@codebuff/cli` is the private workspace package name; the published npm package is [`@openbuff/cli`](https://www.npmjs.com/package/@openbuff/cli).
 
 ## Installation
 

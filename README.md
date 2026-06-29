@@ -6,7 +6,7 @@ English | [简体中文](./README.zh-CN.md)
 
 Instead of using one model for everything, Openbuff coordinates specialized agents that work together to understand your project and make precise changes.
 
-> **Compatibility note:** Openbuff keeps selected upstream compatibility aliases so existing projects keep working. The SDK is published as `@openbuff/sdk`. The `CodebuffClient` SDK export remains available as a compatibility alias for `OpenbuffClient`, CLI aliases like `codebuff --local`, environment variable prefixes like `CODEBUFF_*`, and config paths like `codebuff.json` remain supported compatibility surfaces. New docs and examples should use the Openbuff brand and primary `openbuff` / `OPENBUFF_*` / `openbuff.json` names unless they are documenting those compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup.
+> **Compatibility note:** Openbuff keeps selected upstream compatibility aliases so existing projects keep working. The SDK is published as `@openbuff/sdk`; `OpenbuffClient` is the primary export and `CodebuffClient` remains available as a compatibility alias. `CODEBUFF_API_KEY` is accepted as a fallback for `OPENBUFF_API_KEY`. Other legacy `CODEBUFF_*` environment variables and `codebuff.json` config paths were removed in the BYOK purge and are not supported. New docs and examples should use the Openbuff brand and primary `openbuff` / `OPENBUFF_*` / `openbuff.json` names unless they are documenting those compatibility aliases. See [Openbuff Local/BYOK Provider Mode](./docs/local-mode.md) for provider setup.
 
 ## How it works
 
@@ -24,7 +24,7 @@ This multi-agent approach gives you better context understanding, more accurate 
 Install:
 
 ```bash
-npm install -g openbuff
+npm install -g @openbuff/cli
 ```
 
 Run:
@@ -232,7 +232,7 @@ Some ways you can help:
 
 ### Install
 
-**CLI**: `npm install -g openbuff`
+**CLI**: `npm install -g @openbuff/cli`
 
 **SDK**: `npm install @openbuff/sdk`
 

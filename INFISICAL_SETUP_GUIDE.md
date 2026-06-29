@@ -48,6 +48,8 @@ infisical secrets set --file .env.example
 infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
 ```
 
+> **Note:** `DATABASE_URL` is only needed if you are running the legacy hosted-backend integration services. Openbuff CLI/SDK development does not require a database.
+
 ### 5. Run Openbuff
 ```bash
 bun run dev  # Secrets auto-sync to .env.local

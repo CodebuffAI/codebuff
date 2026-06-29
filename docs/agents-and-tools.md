@@ -24,7 +24,7 @@ The distinction matters because adding a pattern-specific agent to `spawnableAge
 
 ### Model Routing and Configuration
 
-Because Openbuff does not rely on a hosted model registry or credit-balance router, all agent routing is configured directly in your local configuration (`openbuff.json` or its legacy alias `codebuff.json`). Under [Local BYOK Mode](./local-mode.md), you map individual agents (e.g., `thinker`, `code-reviewer`, or custom agents) to specific providers and models.
+Because Openbuff does not rely on a hosted model registry or credit-balance router, all agent routing is configured directly in your local configuration (`openbuff.json`, the only config file read; no `codebuff.json` fallback). Under [Local BYOK Mode](./local-mode.md), you map individual agents (e.g., `thinker`, `code-reviewer`, or custom agents) to specific providers and models.
 
 ### Shell Shims
 
@@ -36,7 +36,7 @@ eval "$(openbuff shims env)"
 base2 "fix this bug"
 ```
 
-For backward compatibility, the `codebuff` command prefix and legacy shims continue to function identically.
+For backward compatibility, the `codebuff` command prefix may still work as a compatibility alias where the shim is installed; prefer `openbuff`.
 
 ## Tools
 
@@ -58,6 +58,7 @@ Supported modes:
 - `explain` — ranked search plus an `explanation` for why each file matched.
 - `neighbors` — graph-adjacent files for a `from` path, or neighbors around files matching `query`.
 - `path` — shortest graph path between `from` and `to`, or a graph path inferred from `query` matches.
+- `references` — files that reference (import/call) the `from` path, expanding outward from a known symbol or file.
 - `commands` — command-discovery search that prioritizes package manifests, CI workflows, task runners, and testing/contributing docs; useful for prompts like “run the broader validation suite”.
 
 Examples:

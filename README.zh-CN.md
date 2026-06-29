@@ -6,7 +6,7 @@
 
 与那种"一个模型干所有事"的工具不同，Openbuff 会协调多个专业化的智能体（agent）协同工作，理解你的项目并做出精准的改动。
 
-> **兼容性说明：** Openbuff 保留了一些上游兼容别名，确保已有项目继续可用。包名 `@codebuff/sdk`、SDK 导出名 `CodebuffClient`、CLI 兼容别名 `codebuff --local`、环境变量前缀 `CODEBUFF_*`、配置路径 `codebuff.json` 仍然受支持。新的文档和示例应优先使用 Openbuff 品牌以及 `openbuff` / `OPENBUFF_*` / `openbuff.json` 主名称，除非是在说明这些兼容别名。参见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
+> **兼容性说明：** Openbuff 保留了一些上游兼容别名，确保已有项目继续可用。SDK 包名为 `@openbuff/sdk`，主导出类是 `OpenbuffClient`，`CodebuffClient` 仍是兼容别名。环境变量 `CODEBUFF_API_KEY` 可作为 `OPENBUFF_API_KEY` 的回退。其他旧版 `CODEBUFF_*` 环境变量和 `codebuff.json` 配置路径已在 BYOK 重构中移除，不再受支持。新的文档和示例应优先使用 Openbuff 品牌以及 `openbuff` / `OPENBUFF_*` / `openbuff.json` 主名称，除非是在说明这些兼容别名。参见 [Openbuff 本地/BYOK 提供商模式](./docs/local-mode.md)。
 
 <div align="center">
   <img src="./assets/codebuff-vs-claude-code.png" alt="Openbuff vs Claude Code" width="400">
@@ -35,7 +35,7 @@ Openbuff 的多智能体架构基于真实开源仓库的编码任务评测持�
 安装：
 
 ```bash
-npm install -g openbuff
+npm install -g @openbuff/cli
 ```
 
 运行：
@@ -87,7 +87,7 @@ knowledge.md               # Openbuff 用的项目上下文
 export default {
   id: 'git-committer',
   displayName: 'Git Committer',
-  model: 'openai/gpt-5-nano',
+  model: 'openai/gpt-5.4-nano',
   toolNames: ['read_files', 'run_terminal_command', 'end_turn'],
 
   instructionsPrompt:
@@ -106,19 +106,19 @@ export default {
 
 ## SDK：在生产环境里跑智能体
 
-安装 [SDK 包](https://www.npmjs.com/package/@codebuff/sdk)。注意：SDK 当前仍使用兼容包名 `@codebuff/sdk` 和导出名 `CodebuffClient`。
+安装 [SDK 包](https://www.npmjs.com/package/@openbuff/sdk)。SDK 包名为 `@openbuff/sdk`，主导出类是 `OpenbuffClient`（`CodebuffClient` 仍为兼容别名）。
 
 ```bash
-npm install @codebuff/sdk
+npm install @openbuff/sdk
 ```
 
 引入 client，开始跑智能体：
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+import { OpenbuffClient } from '@openbuff/sdk'
 
 // 1. 初始化 client
-const client = new CodebuffClient({
+const client = new OpenbuffClient({
   cwd: '/path/to/your/project',
   onError: (error) => console.error('Openbuff error:', error.message),
 })
@@ -136,7 +136,7 @@ const result = await client.run({
 const myCustomAgent: AgentDefinition = {
   id: 'greeter',
   displayName: 'Greeter',
-  model: 'openai/gpt-5.1',
+  model: 'openai/gpt-5.5',
   instructionsPrompt: 'Say hello!',
 }
 await client.run({
@@ -150,7 +150,7 @@ await client.run({
 })
 ```
 
-更多 SDK 用法请看[这里](https://www.npmjs.com/package/@codebuff/sdk)。
+更多 SDK 用法请看[这里](https://www.npmjs.com/package/@openbuff/sdk)。
 
 ## 提供商配置
 
@@ -239,9 +239,9 @@ sudo apt-get install tmux
 
 ### 安装
 
-**CLI**：`npm install -g openbuff`
+**CLI**：`npm install -g @openbuff/cli`
 
-**SDK**：`npm install @codebuff/sdk`
+**SDK**：`npm install @openbuff/sdk`
 
 ### 资源
 

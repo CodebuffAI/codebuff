@@ -82,7 +82,7 @@ openbuff.d/
 
 For each agent step, Openbuff resolves the model in this priority order:
 
-1. `modes[mode]` for the built-in root agents (`base`, `base2`, `base2-plan`).
+1. `modes[mode]` for the built-in root agents (`base`, `base2` in default mode; `base-plan`, `base2-plan` in plan mode).
 2. `agents[agentId]` for subagents and non-mode agents.
 3. `defaultModel` for anything not matched above.
 4. An explicit `model` passed by the caller (last resort).
@@ -93,6 +93,52 @@ For each agent step, Openbuff resolves the model in this priority order:
 There is **no hardcoded per-agent fallback**. The `model:` field on agent
 templates is documentation of intent only — it is never read at runtime. This
 keeps `openbuff.json` / `routes.json` authoritative for BYOK routing.
+
+### Failover routing
+
+Failover is a *secondary* layer that sits on top of the model-routing
+resolution above. It does not change how a request's primary model is chosen;
+it only kicks in *after* the primary model has been selected and the provider
+request has failed in a failover-eligible way.
+
+The `failoverModels` field (top-level in `openbuff.json` / `routes.json`)
+lists model IDs to try as backup providers when the primary fails:
+
+```jsonc
+{
+  "defaultModel": "openai/gpt-5.5",
+  "failoverModels": ["openrouter/anthropic/claude-sonnet-4.5", "opencode-go/glm-5.1"]
+}
+```
+
+Behavior, matched to the implementation in `sdk/src/impl/failover.ts` and
+`sdk/src/impl/llm.ts`:
+
+- **Entry list is model IDs, not provider IDs.** Each entry is routed through
+  the same provider-resolution step as the primary, so it must resolve to a
+  provider in `providers`.
+- **Primary is always attempted first.** The failover list is deduped against
+  the primary, so a `failoverModels` entry that repeats the primary does not
+  cause a redundant same-model attempt (`resolveModelsToTry`).
+- **Failover-eligible errors:** `401`, `403` (auth) and `500`, `502`, `503`,
+  `504` (server). These match `FAILOVER_ELIGIBLE_STATUS_CODES`. Auth errors
+  failover immediately (the inner retry loop does not retry them); 5xx are
+  retried first by the inner loop, and only failover once retries exhaust.
+- **Retry-only carve-out:** `429` (rate limit) and `408` (timeout) are **not**
+  failover-eligible — backoff is the proven response and failing over on 429
+  risks cascading load across providers.
+- **No-content-yielded gate:** failover fires **only when no content has been
+  yielded yet**, so partial output is never duplicated across attempts. If the
+  stream has already produced tokens, the error surfaces instead.
+- **`preferModelParam` bypass:** on each backup attempt the failover loop sets
+  `preferModelParam: failoverIndex > 0` when resolving the agent's model. This
+  makes the explicit backup model ID win over mode/agent/defaultModel routing
+  for that attempt, so each `failoverModels` entry is actually tried instead
+  of being silently re-resolved back to the primary via `openbuff.json`
+  routing. The primary attempt (index 0) still honors routing normally.
+
+Failover is independent of `fileChangeHooks`: it is a provider-request-level
+mechanism, not a post-edit verification gate.
 
 ### Model capabilities
 

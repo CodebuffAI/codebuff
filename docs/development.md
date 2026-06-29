@@ -62,4 +62,4 @@ For comprehensive E2E terminal testing (which requires `tmux`):
 
 ## CLI Command References
 
-When adding commands or updating help text, ensure they are written using the `openbuff` namespace rather than the upstream `codebuff`. Ensure any legacy command parsers for `codebuff` redirect or handle flags seamlessly in local mode.
+Use the `openbuff` namespace for new commands and help text. Do not reintroduce `codebuff` command parsers.

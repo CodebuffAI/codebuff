@@ -7,14 +7,13 @@ There is absolutely no backend fallback. Every LLM request must resolve to eithe
 1. an OpenAI-compatible or Anthropic-compatible provider in `openbuff.json`, or
 2. a configured ChatGPT/Codex OAuth provider for supported OpenAI models.
 
-Legacy `codebuff` / `manicode` config paths and `CODEBUFF_*` env-var aliases were removed in the BYOK legacy purge; `openbuff.json` and `OPENBUFF_*` are now the only supported names. See [docs/configuration.md](./configuration.md) for the full config layering and merge semantics.
+Legacy `codebuff.json` / `manicode` config paths and most `CODEBUFF_*` env-var aliases were removed in the BYOK legacy purge; `openbuff.json` and `OPENBUFF_*` are now the primary names. The sole exception is `CODEBUFF_API_KEY`, accepted as a fallback for `OPENBUFF_API_KEY`. See [docs/configuration.md](./configuration.md) for the full config layering and merge semantics.
 
 ## Start Openbuff
 
 ```bash
-openbuff
-# compatibility while this fork still builds the old binary name:
-codebuff --local
+openbuff          # primary binary
+# codebuff --local  # retained only where the legacy binary alias is installed
 ```
 
 Openbuff is always local/BYOK — there is no cloud-mode toggle.
@@ -141,7 +140,7 @@ ChatGPT/Codex subscription:
 Model routing is driven entirely by `openbuff.json` / `routes.json` — there is no
 hardcoded per-agent model fallback. For each agent step:
 
-1. `modes.default` or `modes.plan` overrides the built-in root agents (`base`, `base2`, `base2-plan`).
+1. `modes.default` or `modes.plan` overrides the built-in root agents (`base`, `base2` in default mode; `base-plan`, `base2-plan` in plan mode).
 2. `agents[agentId]` overrides subagents and other non-mode agents when present.
 3. `defaultModel` overrides every remaining agent when present.
 4. An explicit `model` passed by the caller is a last-resort fallback.
@@ -149,6 +148,11 @@ hardcoded per-agent model fallback. For each agent step:
 6. If nothing is configured, Openbuff fails with a hard error: `No model
    configured for agent '<id>'. Run /setup or set defaultModel (or
    agents['<id>']) in your openbuff.json.`
+
+Failover to backup providers on auth/server errors is a separate layer on top
+of routing — see the [Failover routing](./configuration.md#failover-routing)
+subsection for the `failoverModels` field, eligible HTTP status codes
+(401/403/5xx), the no-content-yielded gate, and the `preferModelParam` bypass.
 
 Agent keys may use the exact ID (`thinker`), a published ID
 (`publisher/agent@1.2.3`), or the unversioned/unpublished short ID.

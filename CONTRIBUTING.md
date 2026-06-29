@@ -11,7 +11,7 @@ Hey there! 👋 Thanks for contributing to Openbuff. Bug fixes, features, and do
 Before you begin, you'll need to install a few tools:
 
 1. **Bun** (our primary package manager): Follow the [Bun installation guide](https://bun.sh/docs/installation)
-2. **Docker**: Optional; only needed for local integration services that explicitly require containers
+2. **Docker**: Optional; only needed for specific local integration services. Most CLI/SDK contributors do not need it.
 
 ### Setting Up Your Development Environment
 
@@ -152,21 +152,12 @@ New methods, better TypeScript support, integration examples in `sdk/`.
 
 Improve `cli/`: better commands, error messages, interactive features.
 
-### 🌐 **Web Dashboard**
-
-Improve `web/`: agent management, project templates, analytics.
-
 ## Getting Help
 
 **Setup issues?**
 
 - **Script errors?** Double-check you're using bun for all commands
-- **Database connection errors?** If you see `password authentication failed for user "postgres"` errors:
-  1. Ensure DATABASE_URL in `.env.local` uses the correct credentials: `postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
-  2. Run the database migration: `bun --cwd packages/internal run db:migrate`
-  3. Restart your development services
 - **Using Infisical?** See the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for team secrets management
-- **Empty Agent Store in dev mode?** This is expected behavior - agents from `.agents/` directory need to be published to the database to appear in the marketplace
 
 **Questions?** Open a [GitHub Issue](https://github.com/AnzoBenjamin/openbuff/issues) - we're friendly and always happy to help!
 

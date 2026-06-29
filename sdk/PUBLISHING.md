@@ -1,8 +1,8 @@
-# Publishing the Codebuff SDK
+# Publishing the Openbuff SDK
 
 ## Quick Start
 
-To publish the SDK to npm:
+To publish the Openbuff SDK to npm:
 
 ```bash
 # Publish to npm
@@ -11,7 +11,7 @@ bun run release
 
 ## What the Publishing Script Does
 
-1. **Builds** the SDK with verification (includes smoke tests)
+1. **Builds** the Openbuff SDK with verification (includes smoke tests)
 2. **Verifies** package contents with `npm pack --dry-run`
 3. **Publishes** to npm (if not dry run)
 

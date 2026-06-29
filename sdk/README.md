@@ -2,7 +2,7 @@
 
 SDK for local/BYOK workflows and legacy hosted API compatibility.
 
-This SDK focuses on user-configured providers and local/BYOK workflows. The primary package name is `@openbuff/sdk` with the `OpenbuffClient` class. `CodebuffClient` is available as a compatibility alias. `OPENBUFF_API_KEY` is supported as a compatibility alias environment variable. The hosted base agent is `openbuff/base`.
+This SDK focuses on user-configured providers and local/BYOK workflows. The primary package name is `@openbuff/sdk` with the `OpenbuffClient` class. `CodebuffClient` is available as a compatibility alias. The primary API key environment variable is `OPENBUFF_API_KEY`; `CODEBUFF_API_KEY` is accepted as a legacy fallback. The hosted base agent is `openbuff/base`.
 
 ## Installation
 

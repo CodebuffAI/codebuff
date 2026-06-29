@@ -30,13 +30,16 @@ Bun loads (highest precedence last):
 
 Document only environment variables that are implemented in code. During the fork transition, several `CODEBUFF_*` names remain supported only as legacy compatibility aliases or existing internal names:
 
-- `OPENBUFF_LOCAL_MODE` controls local/BYOK mode. `CODEBUFF_LOCAL_MODE` is accepted as a compatibility alias.
-- `OPENBUFF_PROVIDER_CONFIG` points to provider configuration JSON. `CODEBUFF_PROVIDER_CONFIG` is accepted as a compatibility alias.
+- `OPENBUFF_LOCAL_MODE` controls local/BYOK mode. `CODEBUFF_LOCAL_MODE` is NOT supported (removed in the BYOK purge).
+- `OPENBUFF_PROVIDER_CONFIG` points to provider configuration JSON. `CODEBUFF_PROVIDER_CONFIG` is NOT supported (removed in the BYOK purge).
 - `CODEBUFF_API_KEY` is a legacy upstream compatibility name for Codebuff API authentication and any live tests that still exercise that compatibility path. Openbuff local/BYOK provider mode does not require a Codebuff API key.
 - `CODEBUFF_GIT_BASH_PATH` is the Windows bash path override used by the SDK terminal command helper.
+- `CODEBUFF_CHATGPT_OAUTH_TOKEN` is the legacy ChatGPT OAuth token name. `OPENBUFF_CHATGPT_OAUTH_TOKEN` is implemented as an alias; the SDK resolves `CODEBUFF_CHATGPT_OAUTH_TOKEN ?? OPENBUFF_CHATGPT_OAUTH_TOKEN` (`sdk/src/env.ts`), so the legacy name takes precedence over the alias (reversed from the API-key ordering).
+
+`CODEBUFF_API_KEY` functions as a runtime fallback (`OPENBUFF_API_KEY ?? CODEBUFF_API_KEY` in `sdk/src/env.ts`, Openbuff primary). `CODEBUFF_CHATGPT_OAUTH_TOKEN` also has an `OPENBUFF_*` alias but with reversed precedence (legacy name primary). `CODEBUFF_GIT_BASH_PATH` is the sole name with no Openbuff alias implemented.
 
 Do not document an `OPENBUFF_*` alias unless the code implements it.
 
 ## Releases
 
-Release scripts read `CODEBUFF_GITHUB_TOKEN`.
+Release scripts read `OPENBUFF_GITHUB_TOKEN` (primary) or `CODEBUFF_GITHUB_TOKEN` (compatibility fallback).
