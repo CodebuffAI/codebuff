@@ -92,6 +92,24 @@ export const api = {
    *  on its next turn. */
   setThreadHarness: (threadId: string, harnessId: HarnessId) =>
     post<{ ok: boolean; error?: string }>(`/api/thread/${threadId}/harness`, { harnessId }),
+  /** Set a tab's Freebuff model. Returns the resolved model (may be downgraded
+   *  to an unlimited model if another tab holds the premium slot) + `rejected`. */
+  setThreadModel: (threadId: string, model: string) =>
+    post<{ ok: boolean; model?: string; rejected?: boolean; error?: string }>(
+      `/api/thread/${threadId}/model`,
+      { model },
+    ),
+
+  // Freebuff auth (device-code login)
+  getAuthStatus: () =>
+    get<{ authed: boolean; user: { id?: string; name?: string; email?: string } | null }>(
+      '/api/auth/status',
+    ),
+  startLogin: () =>
+    post<{ ok: boolean; loginUrl?: string; expiresAt?: string; error?: string }>(
+      '/api/auth/login/start',
+    ),
+  logout: () => post<{ ok: boolean }>('/api/auth/logout'),
   getSettings: () =>
     get<{
       path: string

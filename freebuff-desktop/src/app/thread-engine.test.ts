@@ -21,6 +21,16 @@ class FakeClient {
   }
 }
 
+/** Stub free-mode sessions so turns never touch the network. Admission returns a
+ *  fixed instance id; the rest are no-ops. */
+const fakeFreebuffSessions = () => ({
+  getAccessTier: () => 'full' as const,
+  fetchTier: async () => ({ accessTier: 'full' as const }),
+  ensure: async () => 'inst-test',
+  release: async () => {},
+  releaseAll: async () => {},
+})
+
 async function gitEngine(client = new FakeClient(), extra: Record<string, unknown> = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fbd-thread-'))
   await bunRunner.run('git', ['init', '-b', 'main', root])
@@ -35,6 +45,7 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
   const engine = new ThreadEngine({
     repoRoot: root,
     client: client as any,
+    freebuffSessions: fakeFreebuffSessions(),
     globalSkillsDir: join(root, '.global-skills'),
     ...extra,
   })

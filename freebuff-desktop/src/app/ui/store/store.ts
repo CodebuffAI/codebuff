@@ -13,6 +13,7 @@ import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
 import type {
   AgentOption,
+  FreebuffSnapshot,
   HarnessId,
   Message,
   PendingAttachment,
@@ -121,6 +122,9 @@ interface StoreState {
   /** Which agent harness runs turns + the options the picker offers. */
   agentHarness: HarnessId | null
   agentOptions: AgentOption[]
+  /** Freebuff free-mode state for the model picker (tier, models, premium slot,
+   *  auth). Null until the first state event. */
+  freebuff: FreebuffSnapshot | null
   /** Whether the project has a previewable entry. Drives the Preview button. */
   previewReady: boolean
   /** Project settings (preview.entry, plus validation errors on read). */
@@ -130,6 +134,9 @@ interface StoreState {
   setAgentHarness: (id: HarnessId) => void
   /** Set the agent on a single tab; persists server-side and re-broadcasts. */
   setThreadHarness: (id: string, harnessId: HarnessId) => void
+  /** Set a tab's Freebuff model; persists server-side. Downgrades + toasts if the
+   *  premium slot is taken by another tab. */
+  setThreadModel: (id: string, model: string) => void
   /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
@@ -203,6 +210,7 @@ export const useStore = create<StoreState>((set, get) => ({
   projectPath: '',
   agentHarness: null,
   agentOptions: [],
+  freebuff: null,
   previewReady: false,
   settings: { version: 1, preview: { entry: 'index.html' } },
   settingsPath: null,
@@ -238,6 +246,29 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     })
     api.setThreadHarness(id, harnessId)
+  },
+
+  setThreadModel(id, model) {
+    // Optimistic: flip the tab's model immediately; the server's `thread`/`state`
+    // events reconcile (and may downgrade if the premium slot is taken).
+    set((s) => {
+      const slice = s.threads[id]
+      if (!slice) return {}
+      return {
+        threads: {
+          ...s.threads,
+          [id]: { ...slice, thread: { ...slice.thread, freebuffModel: model } },
+        },
+      }
+    })
+    void api.setThreadModel(id, model).then((res) => {
+      if (res?.rejected) {
+        get().pushToast(
+          'Another tab is using the premium model — switched this tab to an unlimited model.',
+          'info',
+        )
+      }
+    })
   },
 
   setPickerOpen(open) {
@@ -341,6 +372,7 @@ export const useStore = create<StoreState>((set, get) => ({
           projectPath: snapshot.project?.rootPath ?? s.projectPath,
           agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
           agentOptions: snapshot.agent?.options ?? s.agentOptions,
+          freebuff: snapshot.freebuff ?? s.freebuff,
           // The server sends `previewReady` based on whether the project has a
           // static preview entry — start false until the first state event.
           previewReady: snapshot.previewReady ?? false,

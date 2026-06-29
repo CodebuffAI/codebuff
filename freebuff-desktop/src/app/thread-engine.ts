@@ -41,12 +41,29 @@ import type {
   Thread,
 } from '../core/types'
 import { slugify, WorktreeManager } from '../core/worktree'
+import {
+  getRecommendedFreebuffModelId,
+  isFreebuffDesktopPremiumBucketModelId,
+  isFreebuffMultimodalModelId,
+  resolveFreebuffModelForAccessTier,
+  LIMITED_FREEBUFF_MODEL_ID,
+  type FreebuffAccessTier,
+  type FreebuffModelOption,
+} from '@codebuff/common/constants/freebuff-models'
+
 import { buildAttachmentBlock } from './attachments'
+import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
 import { ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
+  FreebuffSessionError,
+  FreebuffSessionManager,
+  type FreebuffSessions,
+} from './agents/freebuff-session-manager'
+import {
   AGENT_OPTIONS,
   DEFAULT_HARNESS,
+  freebuffModelOptions,
   type AgentHarness,
   type AgentOption,
   type HarnessId,
@@ -69,6 +86,20 @@ export interface Snapshot {
    * what's shown in the tab pill until the user picks something per-tab.
    */
   agent: { harnessId: HarnessId; options: readonly AgentOption[] }
+  /**
+   * Freebuff free-mode state for the model picker: the user's access tier, the
+   * models that tier may pick, which thread currently holds the single premium
+   * concurrency slot (so other tabs disable premium options), and auth status.
+   */
+  freebuff: {
+    accessTier: FreebuffAccessTier
+    /** Pickable models for the tier, each tagged with whether it occupies the
+     *  one-per-user premium concurrency slot (premium models + MiniMax M3). */
+    models: (FreebuffModelOption & { premiumBucket: boolean })[]
+    premiumSlotHolder: string | null
+    authed: boolean
+    user: { id?: string; name?: string; email?: string } | null
+  }
   /**
    * Whether the project has a previewable entry — derived from settings
    * (`preview.entry` resolved against the repo/worktree), falling back to a
@@ -97,6 +128,12 @@ export interface EngineOptions {
   projectId?: string
   repoUrl?: string
   client?: CodebuffClient
+  /** Freebuff auth token for the hosted agent. Defaults to the persisted login
+   *  token, then the CODEBUFF_API_KEY env var (dev). */
+  apiKey?: string
+  /** Inject the free-mode session manager (tests). Defaults to a real one that
+   *  talks to /api/v1/freebuff/session. */
+  freebuffSessions?: FreebuffSessions
   defaultBranch?: string
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
@@ -117,7 +154,14 @@ export class ThreadEngine {
   readonly docs: DocStore
   readonly skills: SkillStore
   readonly settings: SettingsStore
-  private readonly client: CodebuffClient
+  private client: CodebuffClient
+  /** Per-tab Freebuff free-mode session lifecycle (admission + release). */
+  private readonly freebuff: FreebuffSessions
+  /** Thread id currently holding the single premium-bucket concurrency slot, or
+   *  null when no tab is on a premium-bucket model. In-memory; recomputed from
+   *  persisted thread models on startup. The server is the race-safe source of
+   *  truth — this drives the soft UX gate (other tabs hide premium options). */
+  private premiumSlotHolder: string | null = null
   private readonly projectId: string
   private readonly repoRoot: string
   private readonly previewBaseUrl: string
@@ -187,7 +231,10 @@ export class ThreadEngine {
       globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
     })
     this.skills.seedDefaults()
-    this.client = opts.client ?? new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+    this.client = opts.client ?? new CodebuffClient({ apiKey: opts.apiKey ?? getAuthToken() })
+    this.freebuff =
+      opts.freebuffSessions ??
+      new FreebuffSessionManager(() => opts.apiKey ?? getAuthToken())
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
 
@@ -223,6 +270,20 @@ export class ThreadEngine {
       }
       for (const it of this.store.listQueueItems(t.id, 'running')) {
         this.store.updateQueueItem(it.id, { state: 'queued' }, this.now())
+      }
+    }
+    this.recomputePremiumSlotHolder()
+  }
+
+  /** Rebuild the in-memory premium-slot holder from persisted thread models.
+   *  The first open thread on a premium-bucket model wins the slot; the server
+   *  still enforces one-per-user, so this is only the UX gate. */
+  private recomputePremiumSlotHolder(): void {
+    this.premiumSlotHolder = null
+    for (const t of this.store.listThreads(this.projectId, { status: 'open' })) {
+      if (t.freebuffModel && isFreebuffDesktopPremiumBucketModelId(t.freebuffModel)) {
+        this.premiumSlotHolder = t.id
+        break
       }
     }
   }
@@ -281,6 +342,92 @@ export class ThreadEngine {
     this.emitState()
   }
 
+  /** The default model for a tab with no explicit pick: the tier's recommended
+   *  model when it can hold the premium slot, else an unlimited model so parallel
+   *  tabs don't all contend for the one premium session. */
+  private recommendedModelForNewTab(slotFree: boolean): string {
+    const recommended = getRecommendedFreebuffModelId(this.freebuff.getAccessTier())
+    return isFreebuffDesktopPremiumBucketModelId(recommended) && !slotFree
+      ? LIMITED_FREEBUFF_MODEL_ID
+      : recommended
+  }
+
+  /** The Freebuff model a thread's hosted-agent turns run on. An explicit
+   *  per-thread pick (coerced to the access tier) wins; otherwise the tab gets
+   *  the recommended default for its slot availability. */
+  freebuffModelForThread(threadId: string): string {
+    const t = this.store.getThread(threadId)
+    if (t?.freebuffModel) {
+      return resolveFreebuffModelForAccessTier(
+        t.freebuffModel,
+        this.freebuff.getAccessTier(),
+      )
+    }
+    const slotFree =
+      !this.premiumSlotHolder || this.premiumSlotHolder === threadId
+    return this.recommendedModelForNewTab(slotFree)
+  }
+
+  /**
+   * Set a thread's Freebuff model. Coerces to the access tier and applies the
+   * one-premium-tab soft gate: if another tab already holds the premium slot, a
+   * premium pick is downgraded to an unlimited model and `rejected` is returned
+   * so the UI can explain. Releasing the old session forces a fresh admission on
+   * the new model next turn.
+   */
+  setThreadFreebuffModel(
+    threadId: string,
+    model: string,
+  ): { model: string; rejected: boolean } {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return { model, rejected: false }
+    const tier = this.freebuff.getAccessTier()
+    let resolved = resolveFreebuffModelForAccessTier(model, tier)
+    let rejected = false
+
+    // Soft gate: if another tab already holds the premium slot, downgrade a
+    // premium pick to an unlimited model (the server is the real authority).
+    if (
+      isFreebuffDesktopPremiumBucketModelId(resolved) &&
+      this.premiumSlotHolder &&
+      this.premiumSlotHolder !== threadId
+    ) {
+      resolved = LIMITED_FREEBUFF_MODEL_ID
+      rejected = true
+    }
+
+    const changed = (thread.freebuffModel ?? null) !== resolved
+    if (changed) {
+      // Release the old session so the next turn re-admits on the new model, and
+      // drop cached run state (a model switch starts the thread fresh).
+      void this.freebuff.release(threadId)
+      this.threadState.delete(threadId)
+    }
+    this.store.updateThread(threadId, { freebuffModel: resolved }, this.now())
+    // `premiumSlotHolder` is derived from the persisted thread models — recompute
+    // it after the write rather than mutating it inline at every call site.
+    this.recomputePremiumSlotHolder()
+    this.emitThread(threadId)
+    this.emitState()
+    return { model: resolved, rejected }
+  }
+
+  /** Swap the Freebuff auth token (after login/logout): rebuild the hosted-agent
+   *  client so it carries the new bearer, then refresh the access tier. */
+  setAuthToken(token: string | undefined): void {
+    this.client = new CodebuffClient({ apiKey: token ?? getAuthToken() })
+    // Drop the cached codebuff harness so it picks up the new client.
+    this.harnesses.delete('codebuff')
+    void this.refreshTier()
+  }
+
+  /** Probe the Freebuff access tier (GET /freebuff/session) and broadcast it so
+   *  the model picker reflects full vs limited access. Fire-and-forget safe. */
+  async refreshTier(): Promise<void> {
+    await this.freebuff.fetchTier()
+    this.emitState()
+  }
+
   private now() {
     return Date.now()
   }
@@ -302,10 +449,22 @@ export class ThreadEngine {
     // Re-read each snapshot so an external edit to .freebuff/settings.json shows up
     // on the next state event (the file is small; this is free).
     const { settings } = this.settings.read()
+    const accessTier = this.freebuff.getAccessTier()
+    const user = getAuthUser()
     return {
       project,
       threads,
       agent: { harnessId: this.defaultHarness, options: AGENT_OPTIONS },
+      freebuff: {
+        accessTier,
+        models: freebuffModelOptions(accessTier).map((m) => ({
+          ...m,
+          premiumBucket: isFreebuffDesktopPremiumBucketModelId(m.id),
+        })),
+        premiumSlotHolder: this.premiumSlotHolder,
+        authed: isAuthed(),
+        user: user ?? null,
+      },
       previewReady: this.detectPreviewReady(settings),
       settings,
     }
@@ -357,16 +516,20 @@ export class ThreadEngine {
 
   createThread(opts: { title?: string } = {}): Thread {
     const id = `th${++this.threadSeq}`
-    // New threads start explicitly pinned to the default (rather than null) so
-    // the UI shows a non-empty pill right away, and any later change to the
-    // default does NOT silently migrate already-open threads.
+    // Pick the new tab's default Freebuff model with the one-premium-tab rule:
+    // the first tab (slot free) gets the recommended model (premium for full
+    // tier); later tabs default to an unlimited model so they run in parallel.
+    // New threads are pinned explicitly (not null) so the pill is non-empty and a
+    // later default change doesn't silently migrate already-open threads.
     const thread = this.store.insertThread({
       id,
       projectId: this.projectId,
       title: opts.title ?? 'New thread',
       harnessId: this.defaultHarness,
+      freebuffModel: this.recommendedModelForNewTab(!this.premiumSlotHolder),
       createdAt: this.now(),
     })
+    this.recomputePremiumSlotHolder()
     this.emitState()
     this.emitThread(id)
     return thread
@@ -429,6 +592,8 @@ export class ThreadEngine {
         this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
       }
       this.threadState.delete(id)
+      void this.freebuff.release(id)
+      this.recomputePremiumSlotHolder()
       this.emitState()
     } finally {
       this.closingIds.delete(id)
@@ -469,6 +634,8 @@ export class ThreadEngine {
     if (thread.branch) await this.worktrees.remove(id).catch(() => {})
     this.store.deleteThread(id)
     this.threadState.delete(id)
+    void this.freebuff.release(id)
+    this.recomputePremiumSlotHolder()
     this.emitState()
   }
 
@@ -514,11 +681,15 @@ export class ThreadEngine {
   postMessage(threadId: string, text: string, attachmentPaths: readonly string[] = []): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    // Only the Codebuff harness (MiniMax M3) sees inline image content; Claude Code
-    // reads images from the path, so we don't inline base64 for it.
+    // Only the Freebuff (hosted) harness on a multimodal model sees inline image
+    // content; Claude Code reads images from the path, and a text-only freebuff
+    // model would reject inlined bytes — so gate on both.
     const harnessId = this.harnessForThread(threadId)
+    const inlineImages =
+      harnessId === 'codebuff' &&
+      isFreebuffMultimodalModelId(this.freebuffModelForThread(threadId))
     const att = attachmentPaths.length
-      ? buildAttachmentBlock(attachmentPaths, { inlineImages: harnessId === 'codebuff' })
+      ? buildAttachmentBlock(attachmentPaths, { inlineImages })
       : null
     // The agent sees the inlined prompt block; the transcript shows the compact
     // summary. `appendBlock` is shared with the renderer so the two never drift.
@@ -708,10 +879,23 @@ export class ThreadEngine {
       const saved = this.threadState.get(threadId)
       const previousState = saved?.harnessId === harness.id ? saved.state : undefined
 
+      // Freebuff (hosted) turns run in free mode: resolve the thread's model and
+      // admit (or refresh) its per-tab session, then bind the turn to it. A
+      // failed admission (e.g. premium slot taken) throws FreebuffSessionError,
+      // caught below and surfaced as a friendly turn failure.
+      let model: string | undefined
+      let freeMode: { instanceId: string } | undefined
+      if (harness.id === 'codebuff') {
+        model = this.freebuffModelForThread(threadId)
+        freeMode = { instanceId: await this.freebuff.ensure(threadId, model) }
+      }
+
       const result = await harness.runTurn(
         {
           prompt,
           cwd,
+          model,
+          freeMode,
           abort: aborter,
           toolDeps: {
             onSuggest: (items) => this.addSuggestions(threadId, items),
@@ -749,6 +933,11 @@ export class ThreadEngine {
       if (aborter.signal.aborted) {
         turnOutcome = 'stopped'
         finalize('⏹ Stopped.')
+      } else if (err instanceof FreebuffSessionError) {
+        // Session admission failed (premium slot taken, rate limited, sign-in
+        // needed, …) — the error message is already user-facing.
+        turnOutcome = 'error'
+        finalize(`⚠️ ${err.message}`)
       } else {
         turnOutcome = 'error'
         const msg = (err as Error).message

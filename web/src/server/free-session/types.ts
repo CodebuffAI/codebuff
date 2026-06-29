@@ -24,6 +24,9 @@ export interface InternalSessionRow {
   active_instance_id: string
   /** Freebuff model id this row is queued for (or locked to, once active). */
   model: string
+  /** Desktop multi-session only: whether `model` occupies the per-user premium
+   *  concurrency slot. Absent for `free_session` rows (CLI/web). */
+  premium_bucket?: boolean
   access_tier?: FreebuffAccessTier
   /** Sticky Fireworks upstream pin set at admission (see `routeForAdmission`).
    *  Null/absent for queued rows and for models without a serverless backup. */

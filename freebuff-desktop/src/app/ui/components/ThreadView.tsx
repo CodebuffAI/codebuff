@@ -5,8 +5,9 @@ import { useStore } from '../store/store'
 import type { PendingAttachment } from '../lib/types'
 import { baseName, kindFor } from '../lib/file-drop'
 import freebuffLogo from './freebuff-logo.svg'
-import { AgentPicker } from './AgentSelector'
+import { AgentPicker, ModelPicker } from './AgentSelector'
 import { Composer } from './Composer'
+import { LoginGate } from './LoginGate'
 import { Icon } from './Icon'
 import { Message } from './Message'
 
@@ -43,6 +44,8 @@ export function ThreadView({ threadId }: { threadId: string }) {
   const agentOptions = useStore((s) => s.agentOptions)
   const agentHarness = useStore((s) => s.agentHarness)
   const setThreadHarness = useStore((s) => s.setThreadHarness)
+  const freebuff = useStore((s) => s.freebuff)
+  const setThreadModel = useStore((s) => s.setThreadModel)
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
@@ -187,6 +190,10 @@ export function ThreadView({ threadId }: { threadId: string }) {
 
   if (!slice) return <div className="threadview empty">No thread</div>
 
+  // The hosted Freebuff agent (model picker + sign-in gate apply to it only).
+  const isHostedAgent =
+    (slice.thread.harnessId ?? agentHarness ?? 'codebuff') === 'codebuff'
+
   return (
     <div className="threadview">
       <div className="thread-head">
@@ -206,6 +213,19 @@ export function ThreadView({ threadId }: { threadId: string }) {
             onChange={(h) => setThreadHarness(threadId, h)}
           />
         )}
+        {/* Freebuff model picker — only for the hosted (Freebuff) agent. */}
+        {isHostedAgent && freebuff && freebuff.models.length > 0 && (
+          <ModelPicker
+            model={slice.thread.freebuffModel}
+            models={freebuff.models}
+            premiumLocked={
+              !!freebuff.premiumSlotHolder &&
+              freebuff.premiumSlotHolder !== threadId
+            }
+            onChange={(m) => setThreadModel(threadId, m)}
+          />
+        )}
+        {isHostedAgent && freebuff && !freebuff.authed && <LoginGate />}
         {/* The thread title already lives in the tab above; no need to repeat it
             next to the folder name. */}
         {previewReady && preview && (

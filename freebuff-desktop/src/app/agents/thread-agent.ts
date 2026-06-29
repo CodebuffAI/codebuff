@@ -108,11 +108,14 @@ How to work:
 
 Do not commit or open a PR unless the user (or the open-pr / merge skill) asks you to.`
 
-export function threadAgentDefinition(toolNames: string[]): AgentDefinition {
+export function threadAgentDefinition(
+  toolNames: string[],
+  model: string = FREEBUFF_MODEL,
+): AgentDefinition {
   return {
     id: 'freebuff-desktop-thread',
     displayName: 'Freebuff',
-    model: FREEBUFF_MODEL,
+    model,
     toolNames,
     spawnableAgents: [...THREAD_SPAWNABLE_AGENTS],
     systemPrompt: THREAD_SYSTEM_PROMPT,

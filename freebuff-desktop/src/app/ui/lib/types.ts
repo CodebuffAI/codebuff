@@ -23,6 +23,8 @@ export interface Thread {
   status: ThreadStatus
   /** Per-tab agent pick. Null = inherit the project's default (see Snapshot.agent). */
   harnessId: HarnessId | null
+  /** Per-tab Freebuff model (hosted agent). Null = engine's recommended default. */
+  freebuffModel: string | null
   autoQueueSuggestions: boolean
   branch: string | null
   worktreePath: string | null
@@ -97,6 +99,22 @@ export interface AgentOption {
   description: string
 }
 
+export type FreebuffAccessTier = 'full' | 'limited'
+
+/** Mirror of @codebuff/common FreebuffModelOption — the picker's per-model row.
+ *  `premiumBucket` is added by the engine: true for models that occupy the
+ *  one-per-user premium concurrency slot (premium models + MiniMax M3). */
+export interface FreebuffModelOption {
+  id: string
+  displayName: string
+  tagline: string
+  availability: 'always' | 'deployment_hours'
+  warning?: string
+  premium: boolean
+  multimodal: boolean
+  premiumBucket: boolean
+}
+
 /** Folder-picker listing from /api/fs/list (mirrors server BrowseResult). */
 export interface BrowseEntry {
   name: string
@@ -126,10 +144,21 @@ export interface ProjectSettings {
   preview: { entry?: string }
 }
 
+export interface FreebuffSnapshot {
+  accessTier: FreebuffAccessTier
+  models: FreebuffModelOption[]
+  /** Thread id holding the single premium concurrency slot, or null. */
+  premiumSlotHolder: string | null
+  authed: boolean
+  user: { id?: string; name?: string; email?: string } | null
+}
+
 export interface Snapshot {
   project: { id: string; defaultBranch: string; rootPath: string }
   threads: Thread[]
   agent?: { harnessId: HarnessId; options: AgentOption[] }
+  /** Freebuff free-mode state for the model picker (tier, models, premium slot). */
+  freebuff?: FreebuffSnapshot
   /** True when the project has a previewable entry (resolved against settings). */
   previewReady?: boolean
   /** Project settings as the engine currently sees them. */

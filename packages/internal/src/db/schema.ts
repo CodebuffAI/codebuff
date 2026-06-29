@@ -1111,6 +1111,113 @@ export const freeSession = pgTable(
 )
 
 /**
+ * Freebuff Desktop multi-session state. Sibling of `free_session`, kept separate
+ * so the single-session CLI/web invariant on `free_session` (PK on user_id +
+ * takeover) is preserved byte-for-byte: this table is only ever touched by
+ * desktop requests carrying the multi-session flag.
+ *
+ * Unlike `free_session`, a single user may hold MANY concurrent rows here — one
+ * per parallel desktop tab, each keyed by its own active_instance_id. There is
+ * no queue/takeover: desktop sessions are admitted immediately (status always
+ * 'active') and never supersede each other.
+ *
+ * The one hard limit is the `premium_bucket` concurrency cap, enforced as a DB
+ * invariant by `uniq_free_session_desktop_premium_active`: at most one active
+ * premium-bucket session (premium models + MiniMax M3 + GLM 5.2, see
+ * isFreebuffDesktopPremiumBucketModelId) per user. A racing second premium admit
+ * hits a unique violation (23505), which the store maps to `premium_slot_taken`.
+ * Unlimited-bucket rows are outside the partial index → unbounded concurrency.
+ */
+export const freeSessionDesktop = pgTable(
+  'free_session_desktop',
+  {
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** One instance id per desktop tab. Part of the composite PK so tabs never
+     *  collide or supersede one another. */
+    active_instance_id: text('active_instance_id').notNull(),
+    /** Desktop sessions are admitted immediately, but the column mirrors
+     *  free_session so shared view/sweep code reads the same shape. */
+    status: freeSessionStatusEnum('status').notNull(),
+    /** Freebuff model this tab's session is locked to. */
+    model: text('model').notNull(),
+    /** Whether `model` is in the premium concurrency bucket. Stored (not derived
+     *  at query time) so the partial unique index below is a trivial DB
+     *  invariant immune to model-list drift. */
+    premium_bucket: boolean('premium_bucket').notNull().default(false),
+    access_tier: freebuffAccessTierEnum('access_tier')
+      .notNull()
+      .default('full'),
+    /** See free_session.fireworks_route. */
+    fireworks_route: text('fireworks_route').$type<
+      'deployment' | 'serverless'
+    >(),
+    /** See free_session.minimax_upstream. */
+    minimax_upstream: text('minimax_upstream').$type<'fireworks' | 'minimax'>(),
+    country_code: text('country_code'),
+    cf_country: text('cf_country'),
+    geoip_country: text('geoip_country'),
+    country_block_reason: text(
+      'country_block_reason',
+    ).$type<FreebuffCountryBlockReason | null>(),
+    ip_privacy_signals: text('ip_privacy_signals')
+      .array()
+      .$type<FreebuffIpPrivacySignal[] | null>(),
+    client_ip_hash: text('client_ip_hash'),
+    country_checked_at: timestamp('country_checked_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    queued_at: timestamp('queued_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    admitted_at: timestamp('admitted_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    expires_at: timestamp('expires_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    created_at: timestamp('created_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', {
+      mode: 'date',
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.user_id, table.active_instance_id] }),
+    // At most one active premium-bucket session per user (the concurrency cap).
+    uniqueIndex('uniq_free_session_desktop_premium_active')
+      .on(table.user_id)
+      .where(sql`${table.status} = 'active' AND ${table.premium_bucket} = true`),
+    // Expiry sweep.
+    index('idx_free_session_desktop_expiry').on(table.expires_at),
+    // Per-IP active-session count (abuse instrumentation).
+    index('idx_free_session_desktop_ip').on(
+      table.status,
+      table.client_ip_hash,
+    ),
+    // Cheap per-user total-active count + lookups.
+    index('idx_free_session_desktop_user_status').on(
+      table.user_id,
+      table.status,
+    ),
+  ],
+)
+
+/**
  * Shared cache for free-mode country/privacy decisions. Raw IP addresses are
  * never persisted; client_ip_hash is HMAC-SHA256 with the server auth secret.
  */

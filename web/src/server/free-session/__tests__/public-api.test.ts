@@ -15,6 +15,7 @@ import {
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
 
+import { FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS } from '../config'
 import {
   checkSessionAdmissible,
   endUserSession,
@@ -23,7 +24,10 @@ import {
   pinFreeSessionToMinimax,
   requestSession,
 } from '../public-api'
-import { FreeSessionModelLockedError } from '../store'
+import {
+  FreeSessionModelLockedError,
+  FreeSessionPremiumSlotTakenError,
+} from '../store'
 
 import type { SessionDeps } from '../public-api'
 import type {
@@ -59,11 +63,13 @@ interface AdmitRecord {
 
 function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
   rows: Map<string, InternalSessionRow>
+  desktopRows: Map<string, InternalSessionRow>
   admits: AdmitRecord[]
   _tick: (n: Date) => void
   _now: () => Date
 } {
   const rows = new Map<string, InternalSessionRow>()
+  const desktopRows = new Map<string, InternalSessionRow>()
   const admits: AdmitRecord[] = []
   let currentNow = new Date('2026-04-17T12:00:00Z')
   let instanceCounter = 0
@@ -72,11 +78,13 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
 
   const deps: SessionDeps & {
     rows: Map<string, InternalSessionRow>
+    desktopRows: Map<string, InternalSessionRow>
     admits: AdmitRecord[]
     _tick: (n: Date) => void
     _now: () => Date
   } = {
     rows,
+    desktopRows,
     admits,
     _tick: (n: Date) => {
       currentNow = n
@@ -222,6 +230,88 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
       existing.expires_at = null
       existing.updated_at = now
       return existing
+    },
+    // — Desktop multi-session in-memory store, keyed by `${userId}::${instanceId}`.
+    getDesktopSessionRow: async (userId, instanceId) =>
+      desktopRows.get(`${userId}::${instanceId}`) ?? null,
+    getActiveDesktopSessionCount: async (userId) =>
+      [...desktopRows.values()].filter(
+        (r) => r.user_id === userId && r.status === 'active',
+      ).length,
+    admitDesktopSession: async ({
+      userId,
+      instanceId,
+      model,
+      accessTier,
+      premiumBucket,
+      now,
+      sessionLengthMs,
+    }) => {
+      const key = `${userId}::${instanceId}`
+      const existing = desktopRows.get(key)
+      const expires_at = new Date(now.getTime() + sessionLengthMs)
+      if (existing) {
+        existing.status = 'active'
+        existing.model = model
+        existing.premium_bucket = premiumBucket
+        existing.access_tier = accessTier
+        existing.expires_at = expires_at
+        existing.updated_at = now
+        return existing
+      }
+      // Enforce the one-active-premium-bucket-per-user cap (the partial unique
+      // index in prod) — a racing/second premium admit throws.
+      if (premiumBucket) {
+        const other = [...desktopRows.values()].find(
+          (r) =>
+            r.user_id === userId &&
+            r.status === 'active' &&
+            r.premium_bucket === true,
+        )
+        if (other) {
+          throw new FreeSessionPremiumSlotTakenError(
+            other.model,
+            other.active_instance_id,
+          )
+        }
+      }
+      const row: InternalSessionRow = {
+        user_id: userId,
+        status: 'active',
+        active_instance_id: instanceId,
+        model,
+        premium_bucket: premiumBucket,
+        access_tier: accessTier,
+        queued_at: now,
+        admitted_at: now,
+        expires_at,
+        created_at: now,
+        updated_at: now,
+      }
+      desktopRows.set(key, row)
+      admits.push({
+        user_id: userId,
+        model,
+        access_tier: accessTier,
+        admitted_at: now,
+        session_units: 1,
+      })
+      return row
+    },
+    endDesktopSession: async ({ userId, instanceId }) => {
+      desktopRows.delete(`${userId}::${instanceId}`)
+    },
+    endAllDesktopSessions: async (userId) => {
+      for (const [k, r] of [...desktopRows.entries()]) {
+        if (r.user_id === userId) desktopRows.delete(k)
+      }
+    },
+    pinDesktopMinimaxUpstream: async ({ userId, instanceId, now }) => {
+      const r = desktopRows.get(`${userId}::${instanceId}`)
+      if (r) {
+        r.minimax_upstream = 'minimax'
+        r.updated_at = now
+      }
     },
     ...overrides,
   }
@@ -1799,5 +1889,103 @@ describe('endUserSession', () => {
 
     expect(deps.rows.has('u1')).toBe(false)
     expect(deps.admits[0]?.session_units).toBe(0.3)
+  })
+})
+
+describe('requestSession — desktop multi-session', () => {
+  let deps: ReturnType<typeof makeDeps>
+  beforeEach(() => {
+    deps = makeDeps()
+  })
+
+  const PRO = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  const FLASH = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  const M3 = FREEBUFF_MINIMAX_M3_MODEL_ID
+
+  test('admits one premium-bucket session plus several unlimited concurrently', async () => {
+    const a = await requestSession({
+      userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps,
+    })
+    const b = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'B', deps,
+    })
+    const c = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'C', deps,
+    })
+    expect(a.status).toBe('active')
+    expect(b.status).toBe('active')
+    expect(c.status).toBe('active')
+    expect(await deps.getActiveDesktopSessionCount!('u1')).toBe(3)
+    // Single-session table is untouched in multi-session mode.
+    expect(deps.rows.size).toBe(0)
+  })
+
+  test('a second premium-bucket session is rejected as premium_slot_taken', async () => {
+    await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    // MiniMax M3 is in the desktop premium concurrency bucket too.
+    const b = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(b).toMatchObject({
+      status: 'premium_slot_taken',
+      requestedModel: M3,
+      currentModel: PRO,
+      currentInstanceId: 'A',
+    })
+  })
+
+  test('premium slot frees after the holding session ends', async () => {
+    await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    const blocked = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(blocked.status).toBe('premium_slot_taken')
+    await endUserSession({ userId: 'u1', multiSession: true, instanceId: 'A', deps })
+    const ok = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(ok.status).toBe('active')
+  })
+
+  test('different users each get their own premium slot', async () => {
+    const a = await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    const b = await requestSession({ userId: 'u2', model: PRO, multiSession: true, instanceId: 'A', deps })
+    expect(a.status).toBe('active')
+    expect(b.status).toBe('active')
+  })
+
+  test('without the multiSession flag, behavior is unchanged (single-session table)', async () => {
+    const s = await requestSession({ userId: 'u1', model: PRO, instanceId: 'A', deps })
+    expect(s.status).toBe('active')
+    expect(deps.rows.has('u1')).toBe(true)
+    expect(deps.desktopRows.size).toBe(0)
+  })
+
+  test('per-user total concurrent cap rejects beyond the limit', async () => {
+    for (let i = 0; i < FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS; i++) {
+      const r = await requestSession({
+        userId: 'u1', model: FLASH, multiSession: true, instanceId: `i${i}`, deps,
+      })
+      expect(r.status).toBe('active')
+    }
+    const over = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'over', deps,
+    })
+    expect(over.status).toBe('rate_limited')
+  })
+})
+
+describe('checkSessionAdmissible — desktop multi-session', () => {
+  let deps: ReturnType<typeof makeDeps>
+  beforeEach(() => {
+    deps = makeDeps()
+  })
+  const FLASH = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+
+  test('validates the run against the per-tab desktop row by instance id', async () => {
+    await requestSession({ userId: 'u1', model: FLASH, multiSession: true, instanceId: 'A', deps })
+    const ok = await checkSessionAdmissible({
+      userId: 'u1', claimedInstanceId: 'A', multiSession: true, requestedModel: FLASH, deps,
+    })
+    expect(ok.ok).toBe(true)
+    // A different (unknown) instance id has no row → not admitted.
+    const bad = await checkSessionAdmissible({
+      userId: 'u1', claimedInstanceId: 'ZZZ', multiSession: true, requestedModel: FLASH, deps,
+    })
+    expect(bad.ok).toBe(false)
   })
 })

@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 9
+const SCHEMA_VERSION = 10
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -75,6 +75,8 @@ export interface NewThreadInput {
   status?: ThreadStatus
   /** Per-thread agent selection. Null means "use the engine's default". */
   harnessId?: HarnessId | null
+  /** Per-thread Freebuff model. Null means "use the recommended default". */
+  freebuffModel?: string | null
   autoQueueSuggestions?: boolean
   createdAt: number
 }
@@ -105,6 +107,7 @@ export type ThreadPatch = Partial<
     | 'title'
     | 'status'
     | 'harnessId'
+    | 'freebuffModel'
     | 'autoQueueSuggestions'
     | 'branch'
     | 'worktreePath'
@@ -141,6 +144,7 @@ type ThreadRow = {
   /** Per-thread agent (Codebuff/Claude Code). Mirrors Thread.harnessId. Null
    *  means the engine's default applies. */
   harness_id: HarnessId | null
+  freebuff_model: string | null
   auto_queue_suggestions: number
   branch: string | null
   worktree_path: string | null
@@ -222,6 +226,7 @@ export class Store {
         title         TEXT NOT NULL DEFAULT 'New thread',
         status        TEXT NOT NULL DEFAULT 'open',
         harness_id    TEXT,
+        freebuff_model TEXT,
         auto_queue_suggestions INTEGER NOT NULL DEFAULT 0,
         branch        TEXT,
         worktree_path TEXT,
@@ -354,6 +359,12 @@ export class Store {
       this.db.exec("ALTER TABLE threads ADD COLUMN pr_state TEXT NOT NULL DEFAULT 'none'")
     }
 
+    // v10: per-thread Freebuff model. Additive + nullable so legacy threads fall
+    // back to the engine's recommended default for the user's access tier.
+    if (!threadCols9.includes('freebuff_model')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN freebuff_model TEXT')
+    }
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
 
@@ -410,6 +421,7 @@ export class Store {
       title: input.title ?? 'New thread',
       status: input.status ?? 'open',
       harnessId: input.harnessId ?? null,
+      freebuffModel: input.freebuffModel ?? null,
       autoQueueSuggestions: input.autoQueueSuggestions ?? false,
       branch: null,
       worktreePath: null,
@@ -425,8 +437,8 @@ export class Store {
     this.db
       .query(
         `INSERT INTO threads
-          (id, project_id, title, status, harness_id, auto_queue_suggestions, turn_state, created_at, updated_at)
-         VALUES ($id, $project, $title, $status, $harness, $autoQueue, 'idle', $created, $updated)`,
+          (id, project_id, title, status, harness_id, freebuff_model, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $title, $status, $harness, $freebuffModel, $autoQueue, 'idle', $created, $updated)`,
       )
       .run({
         $id: thread.id,
@@ -434,6 +446,7 @@ export class Store {
         $title: thread.title,
         $status: thread.status,
         $harness: thread.harnessId,
+        $freebuffModel: thread.freebuffModel,
         $autoQueue: thread.autoQueueSuggestions ? 1 : 0,
         $created: thread.createdAt,
         $updated: thread.updatedAt,
@@ -656,6 +669,7 @@ function rowToThread(row: ThreadRow): Thread {
     title: row.title,
     status: row.status,
     harnessId: row.harness_id,
+    freebuffModel: row.freebuff_model ?? null,
     autoQueueSuggestions: row.auto_queue_suggestions === 1,
     branch: row.branch,
     worktreePath: row.worktree_path,

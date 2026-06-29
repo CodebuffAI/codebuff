@@ -420,6 +420,29 @@ select {
   margin-top: 4px;
 }
 
+/* "Premium" / "In use" pills on the Freebuff model picker. */
+.model-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  border-radius: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  vertical-align: middle;
+}
+.model-badge.muted {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+.agent-option.disabled,
+.agent-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* — Workspace split — */
 .workspace {
   position: relative;

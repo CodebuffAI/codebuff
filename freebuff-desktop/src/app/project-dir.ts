@@ -212,3 +212,37 @@ export function readAgentHarness(): string | undefined {
 export function writeAgentHarness(id: string): void {
   writeState({ agentHarness: id })
 }
+
+/** Minimal persisted identity for the logged-in Freebuff user. The auth token
+ *  is the bearer the desktop sends to the Freebuff API (chat-completions +
+ *  /freebuff/session), exactly like the CLI's saved credentials. */
+export interface DesktopAuthUser {
+  id?: string
+  name?: string
+  email?: string
+}
+
+/** The persisted Freebuff auth token (the user's API key / authToken). Absent
+ *  when not signed in; callers fall back to the env CODEBUFF_API_KEY for dev. */
+export function readAuthToken(): string | undefined {
+  const v = readState().authToken
+  return typeof v === 'string' && v.length ? v : undefined
+}
+
+export function writeAuthToken(token: string): void {
+  writeState({ authToken: token })
+}
+
+export function readAuthUser(): DesktopAuthUser | undefined {
+  const v = readState().authUser
+  return v && typeof v === 'object' ? (v as DesktopAuthUser) : undefined
+}
+
+export function writeAuthUser(user: DesktopAuthUser): void {
+  writeState({ authUser: user })
+}
+
+/** Clear the persisted auth token + user (logout). */
+export function clearAuth(): void {
+  writeState({ authToken: undefined, authUser: undefined })
+}

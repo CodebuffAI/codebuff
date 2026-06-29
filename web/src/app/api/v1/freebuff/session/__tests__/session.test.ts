@@ -2,15 +2,15 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   deleteFreebuffSession,
-  FREEBUFF_INSTANCE_HEADER,
-  FREEBUFF_MODEL_HEADER,
   getFreebuffSession,
   postFreebuffSession,
 } from '../_handlers'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_INSTANCE_HEADER,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MODEL_HEADER,
 } from '@codebuff/common/constants/freebuff-models'
 
 import type { FreebuffSessionDeps } from '../_handlers'

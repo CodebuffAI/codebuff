@@ -15,6 +15,8 @@ import { existsSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 
 import { isHarnessId, type HarnessId } from './agents/harness'
+import { LoginManager } from './auth/login-flow'
+import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
   browseDir,
@@ -25,6 +27,7 @@ import {
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
+import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -52,6 +55,16 @@ const persistedHarness = readAgentHarness()
 let currentHarness: HarnessId | undefined = isHarnessId(persistedHarness) ? persistedHarness : undefined
 let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).defaultBranch)
 let engineUnsub = engine.on(broadcast)
+// Probe the Freebuff access tier on startup so the model picker reflects full vs
+// limited access without waiting for the first turn. Fire-and-forget.
+void engine.refreshTier()
+
+// Drives the device-code login flow. On success we rebuild the engine's hosted
+// client with the new token, re-probe the tier, and broadcast so the UI updates.
+const loginManager = new LoginManager(() => {
+  engine.setAuthToken(getAuthToken())
+  broadcast({ type: 'state', snapshot: engine.snapshot() })
+})
 
 function makeEngine(repoRoot: string, defaultBranch?: string): ThreadEngine {
   const e = new ThreadEngine({
@@ -78,6 +91,7 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   engine = makeEngine(info.path, info.defaultBranch)
   engineUnsub = engine.on(broadcast)
   pushRecentProject(info.path)
+  void engine.refreshTier()
 
   broadcast({ type: 'state', snapshot: engine.snapshot() })
   return { ok: true }
@@ -227,6 +241,25 @@ const server = Bun.serve({
       return json({ ok: true, harnessId })
     }
 
+    // — Freebuff auth (device-code login) —
+    if (pathname === '/api/auth/status' && req.method === 'GET') {
+      return json({ authed: isAuthed(), user: getAuthUser() ?? null })
+    }
+    if (pathname === '/api/auth/login/start' && req.method === 'POST') {
+      try {
+        const { loginUrl, expiresAt } = await loginManager.start()
+        return json({ ok: true, loginUrl, expiresAt })
+      } catch (err) {
+        return json({ ok: false, error: (err as Error).message }, 502)
+      }
+    }
+    if (pathname === '/api/auth/logout' && req.method === 'POST') {
+      logoutAuth()
+      engine.setAuthToken(undefined)
+      broadcast({ type: 'state', snapshot: engine.snapshot() })
+      return json({ ok: true })
+    }
+
     // — Project settings (.freebuff/settings.json) —
     if (pathname === '/api/settings' && req.method === 'GET') {
       const r = engine.settings.read()
@@ -308,6 +341,17 @@ const server = Bun.serve({
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
           engine.setThreadHarness(threadId, id)
           return json({ ok: true })
+        }
+        case 'model': {
+          // Per-thread Freebuff model pick. Returns the resolved model (it may be
+          // downgraded to an unlimited model if another tab holds the premium
+          // slot) so the optimistic UI can reconcile.
+          const model = b.model
+          if (typeof model !== 'string' || !isSupportedFreebuffModelId(model)) {
+            return json({ error: 'invalid model' }, 400)
+          }
+          const result = engine.setThreadFreebuffModel(threadId, model)
+          return json({ ok: true, ...result })
         }
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)

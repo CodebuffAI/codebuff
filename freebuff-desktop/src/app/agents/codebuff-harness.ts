@@ -6,8 +6,10 @@
  * bookkeeping.
  */
 
+import { isFreebuffMultimodalModelId } from '@codebuff/common/constants/freebuff-models'
 import type { CodebuffClient, RunState } from '@codebuff/sdk'
 
+import { DEFAULT_FREEBUFF_MODEL } from '../models'
 import {
   buildThreadTools,
   threadAgentDefinition,
@@ -49,15 +51,19 @@ export class CodebuffHarness implements AgentHarness {
     // (already streamed) is dropped rather than double-rendered.
     const subagentIds = new Set<string>()
 
-    // Attached images go as multimodal message content so the model (MiniMax M3)
-    // can actually see them. The SDK combines `prompt` (text) with these image parts
-    // (see buildUserMessageContent). No images → omit `content` (prompt-only).
-    const content = turn.images?.length
-      ? turn.images.map((im) => ({ type: 'image' as const, image: im.image, mediaType: im.mediaType }))
-      : undefined
+    const model = turn.model ?? DEFAULT_FREEBUFF_MODEL
+
+    // Attached images go as multimodal message content so the model can actually
+    // see them. Only forward them when the chosen model accepts images; for a
+    // text-only freebuff model, dropping them avoids a provider error. The SDK
+    // combines `prompt` (text) with these image parts (see buildUserMessageContent).
+    const content =
+      turn.images?.length && isFreebuffMultimodalModelId(model)
+        ? turn.images.map((im) => ({ type: 'image' as const, image: im.image, mediaType: im.mediaType }))
+        : undefined
 
     const run = await this.client.run({
-      agent: threadAgentDefinition(toolNames),
+      agent: threadAgentDefinition(toolNames, model),
       agentDefinitions: THREAD_SUBAGENT_DEFINITIONS,
       prompt: turn.prompt,
       content,
@@ -65,6 +71,18 @@ export class CodebuffHarness implements AgentHarness {
       signal: turn.abort.signal,
       previousRun: turn.previousState as RunState | undefined,
       customToolDefinitions: tools,
+      // Free-mode binding: when the engine admitted a session for this thread,
+      // run with cost_mode='free' + the session's instance id (the server gates
+      // and meters the request against the desktop multi-session row).
+      ...(turn.freeMode
+        ? {
+            costMode: 'free',
+            extraCodebuffMetadata: {
+              freebuff_instance_id: turn.freeMode.instanceId,
+              freebuff_multi_session: '1',
+            },
+          }
+        : {}),
       drainSteeringMessages: cb.drainSteering,
       handleStreamChunk: (chunk: unknown) => {
         if (typeof chunk === 'string') {

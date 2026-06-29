@@ -265,3 +265,21 @@ export type FreebuffSessionServerResponse =
       /** Milliseconds from now until the next Pacific midnight reset. */
       retryAfterMs: number
     }
+  | {
+      /** Freebuff Desktop multi-session only: the user already holds an active
+       *  premium-bucket session and tried to admit a second one. Only one
+       *  premium-bucket model (DeepSeek V4 Pro / MiMo 2.5 Pro / Kimi / MiniMax
+       *  M3 / GLM 5.2) may run at a time per user; unlimited models (DeepSeek V4
+       *  Flash, MiMo 2.5) have no such cap. The desktop client surfaces this and
+       *  steers the tab to an unlimited model (or closes the holding tab). Never
+       *  returned to CLI/web, which run one session per user. */
+      status: 'premium_slot_taken'
+      accessTier?: FreebuffAccessTier
+      /** Model this tab tried to start. */
+      requestedModel: string
+      /** Model of the premium-bucket session already running. */
+      currentModel: string
+      /** Instance id of the existing premium-bucket session, so the client can
+       *  offer "switch to / close that one". */
+      currentInstanceId: string
+    }

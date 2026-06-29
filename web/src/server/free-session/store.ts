@@ -55,6 +55,25 @@ export class FreeSessionModelLockedError extends Error {
   }
 }
 
+/**
+ * Desktop multi-session: a second active premium-bucket session was requested
+ * while one is already running for this user. Thrown by `admitDesktopSession`
+ * when the partial unique index `uniq_free_session_desktop_premium_active`
+ * rejects the insert (race-safe). Carries the existing premium session's model +
+ * instance id so the public API can return a `premium_slot_taken` response.
+ */
+export class FreeSessionPremiumSlotTakenError extends Error {
+  constructor(
+    public readonly currentModel: string,
+    public readonly currentInstanceId: string,
+  ) {
+    super(
+      `A premium-bucket session is already active (${currentModel}); only one is allowed per user.`,
+    )
+    this.name = 'FreeSessionPremiumSlotTakenError'
+  }
+}
+
 function countryAccessColumns(
   countryAccess: FreeSessionCountryAccessMetadata | undefined,
 ) {
@@ -182,6 +201,63 @@ export function getRoundedSessionUnits(params: {
   return Math.ceil((usedMs / sessionLengthMs) * 10) / 10
 }
 
+type FreeSessionTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * Stamp the final charged session units onto the user's most recent admit for
+ * this row's (model, access_tier) — but only while the session is still
+ * active+unexpired (an already-expired/swept row was billed at admit time).
+ * Shared by `endSession` (free_session) and `endDesktopSession`
+ * (free_session_desktop), which carry the same admit-accounting columns.
+ */
+async function finalizeLatestAdmit(
+  tx: FreeSessionTx,
+  row: {
+    status: 'queued' | 'active'
+    admitted_at: Date | null
+    expires_at: Date | null
+    model: string
+    access_tier: FreebuffAccessTier | null
+  },
+  userId: string,
+  now: Date,
+  sessionLengthMs: number,
+): Promise<void> {
+  if (
+    row.status !== 'active' ||
+    !row.admitted_at ||
+    !row.expires_at ||
+    row.expires_at.getTime() <= now.getTime()
+  ) {
+    return
+  }
+  const sessionUnits = getRoundedSessionUnits({
+    admittedAt: row.admitted_at,
+    now,
+    sessionLengthMs,
+  }).toFixed(1)
+
+  const [latestAdmit] = await tx
+    .select({ id: schema.freeSessionAdmit.id })
+    .from(schema.freeSessionAdmit)
+    .where(
+      and(
+        eq(schema.freeSessionAdmit.user_id, userId),
+        eq(schema.freeSessionAdmit.model, row.model),
+        eq(schema.freeSessionAdmit.access_tier, row.access_tier ?? 'full'),
+      ),
+    )
+    .orderBy(desc(schema.freeSessionAdmit.admitted_at))
+    .limit(1)
+
+  if (latestAdmit) {
+    await tx
+      .update(schema.freeSessionAdmit)
+      .set({ session_units: sessionUnits })
+      .where(eq(schema.freeSessionAdmit.id, latestAdmit.id))
+  }
+}
+
 export async function endSession(params: {
   userId: string
   now: Date
@@ -196,38 +272,7 @@ export async function endSession(params: {
       .for('update')
       .limit(1)
 
-    if (
-      row?.status === 'active' &&
-      row.admitted_at &&
-      row.expires_at &&
-      row.expires_at.getTime() > now.getTime()
-    ) {
-      const sessionUnits = getRoundedSessionUnits({
-        admittedAt: row.admitted_at,
-        now,
-        sessionLengthMs,
-      }).toFixed(1)
-
-      const [latestAdmit] = await tx
-        .select({ id: schema.freeSessionAdmit.id })
-        .from(schema.freeSessionAdmit)
-        .where(
-          and(
-            eq(schema.freeSessionAdmit.user_id, userId),
-            eq(schema.freeSessionAdmit.model, row.model),
-            eq(schema.freeSessionAdmit.access_tier, row.access_tier ?? 'full'),
-          ),
-        )
-        .orderBy(desc(schema.freeSessionAdmit.admitted_at))
-        .limit(1)
-
-      if (latestAdmit) {
-        await tx
-          .update(schema.freeSessionAdmit)
-          .set({ session_units: sessionUnits })
-          .where(eq(schema.freeSessionAdmit.id, latestAdmit.id))
-      }
-    }
+    if (row) await finalizeLatestAdmit(tx, row, userId, now, sessionLengthMs)
 
     await tx
       .delete(schema.freeSession)
@@ -247,16 +292,31 @@ export async function endSession(params: {
 export async function countActiveSessionsForIpHash(
   clientIpHash: string,
 ): Promise<number> {
-  const rows = await db
-    .select({ n: count() })
-    .from(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'active'),
-        eq(schema.freeSession.client_ip_hash, clientIpHash),
+  // Sum across both session tables: a single egress IP may carry CLI/web rows
+  // (free_session) and desktop multi-session rows (free_session_desktop). Once
+  // desktop ships, the "one row per user" assumption no longer holds for the
+  // desktop table, so the per-IP count must include it or it under-reports.
+  const [cli, desktop] = await Promise.all([
+    db
+      .select({ n: count() })
+      .from(schema.freeSession)
+      .where(
+        and(
+          eq(schema.freeSession.status, 'active'),
+          eq(schema.freeSession.client_ip_hash, clientIpHash),
+        ),
       ),
-    )
-  return Number(rows[0]?.n ?? 0)
+    db
+      .select({ n: count() })
+      .from(schema.freeSessionDesktop)
+      .where(
+        and(
+          eq(schema.freeSessionDesktop.status, 'active'),
+          eq(schema.freeSessionDesktop.client_ip_hash, clientIpHash),
+        ),
+      ),
+  ])
+  return Number(cli[0]?.n ?? 0) + Number(desktop[0]?.n ?? 0)
 }
 
 /**
@@ -269,16 +329,27 @@ export async function sweepExpired(
   graceMs: number,
 ): Promise<number> {
   const cutoff = new Date(now.getTime() - graceMs)
-  const deleted = await db
-    .delete(schema.freeSession)
-    .where(
-      and(
-        eq(schema.freeSession.status, 'active'),
-        lt(schema.freeSession.expires_at, cutoff),
-      ),
-    )
-    .returning({ user_id: schema.freeSession.user_id })
-  return deleted.length
+  const [deleted, deletedDesktop] = await Promise.all([
+    db
+      .delete(schema.freeSession)
+      .where(
+        and(
+          eq(schema.freeSession.status, 'active'),
+          lt(schema.freeSession.expires_at, cutoff),
+        ),
+      )
+      .returning({ user_id: schema.freeSession.user_id }),
+    db
+      .delete(schema.freeSessionDesktop)
+      .where(
+        and(
+          eq(schema.freeSessionDesktop.status, 'active'),
+          lt(schema.freeSessionDesktop.expires_at, cutoff),
+        ),
+      )
+      .returning({ user_id: schema.freeSessionDesktop.user_id }),
+  ])
+  return deleted.length + deletedDesktop.length
 }
 
 /**
@@ -405,4 +476,261 @@ export async function listRecentFreeSessionAdmits(params: {
     model: r.model,
     sessionUnits: Number(r.session_units),
   }))
+}
+
+// ---------------------------------------------------------------------------
+// Desktop multi-session store (free_session_desktop)
+//
+// Sibling of the single-session helpers above. Keyed by (user_id,
+// active_instance_id) so one user holds many concurrent rows — one per desktop
+// tab. The single-session functions are untouched, so CLI/web keep their
+// one-row-per-user takeover semantics.
+// ---------------------------------------------------------------------------
+
+/** True for a Postgres unique-constraint violation (SQLSTATE 23505), however
+ *  drizzle/postgres-js surfaces it. Used to map the premium-bucket partial
+ *  unique index rejection to a typed error. */
+function isUniqueViolation(err: unknown): boolean {
+  const code = (err as { code?: string; cause?: { code?: string } })?.code
+  const causeCode = (err as { cause?: { code?: string } })?.cause?.code
+  return code === '23505' || causeCode === '23505'
+}
+
+export async function getDesktopSessionRow(
+  userId: string,
+  instanceId: string,
+): Promise<InternalSessionRow | null> {
+  const row = await db.query.freeSessionDesktop.findFirst({
+    where: and(
+      eq(schema.freeSessionDesktop.user_id, userId),
+      eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+    ),
+  })
+  return (row as InternalSessionRow | undefined) ?? null
+}
+
+export async function listDesktopSessionRows(
+  userId: string,
+): Promise<InternalSessionRow[]> {
+  const rows = await db.query.freeSessionDesktop.findMany({
+    where: eq(schema.freeSessionDesktop.user_id, userId),
+  })
+  return rows as InternalSessionRow[]
+}
+
+/** Count active desktop sessions for a user — bounds desktop fan-out against
+ *  FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS. */
+export async function getActiveDesktopSessionCount(
+  userId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.freeSessionDesktop)
+    .where(
+      and(
+        eq(schema.freeSessionDesktop.user_id, userId),
+        eq(schema.freeSessionDesktop.status, 'active'),
+      ),
+    )
+  return Number(rows[0]?.n ?? 0)
+}
+
+/** The user's currently-active premium-bucket desktop session, if any. Used to
+ *  describe the `premium_slot_taken` rejection. */
+export async function getActivePremiumBucketDesktopRow(
+  userId: string,
+): Promise<InternalSessionRow | null> {
+  const row = await db.query.freeSessionDesktop.findFirst({
+    where: and(
+      eq(schema.freeSessionDesktop.user_id, userId),
+      eq(schema.freeSessionDesktop.status, 'active'),
+      eq(schema.freeSessionDesktop.premium_bucket, true),
+    ),
+  })
+  return (row as InternalSessionRow | undefined) ?? null
+}
+
+/**
+ * Admit (or refresh) a single desktop tab's session. The client supplies a
+ * stable per-tab `instanceId`:
+ *   - No row for (user, instance) → INSERT an active row + write a
+ *     free_session_admit row (so the daily premium quota counts it exactly once)
+ *     + best-effort referral activation.
+ *   - Existing row → reclaim: refresh the session window, no new admit row (so
+ *     lazy per-turn re-admits never double-count the quota).
+ *
+ * The premium-bucket concurrency cap is enforced by the partial unique index;
+ * a racing second premium admit throws FreeSessionPremiumSlotTakenError.
+ */
+export async function admitDesktopSession(params: {
+  userId: string
+  instanceId: string
+  model: string
+  accessTier: FreebuffAccessTier
+  premiumBucket: boolean
+  now: Date
+  sessionLengthMs: number
+  fireworksRoute?: FireworksRoute | null
+  countryAccess?: FreeSessionCountryAccessMetadata
+  existing?: InternalSessionRow | null
+}): Promise<InternalSessionRow> {
+  const {
+    userId,
+    instanceId,
+    model,
+    accessTier,
+    premiumBucket,
+    now,
+    sessionLengthMs,
+    fireworksRoute,
+    countryAccess,
+  } = params
+  const expiresAt = new Date(now.getTime() + sessionLengthMs)
+  const countryAccessUpdate = countryAccessColumns(countryAccess)
+
+  try {
+    // Reuse the caller's already-fetched row when provided (avoids a duplicate
+    // PK read on the hot per-turn path); otherwise look it up.
+    const existing =
+      params.existing !== undefined
+        ? params.existing
+        : await getDesktopSessionRow(userId, instanceId)
+    if (existing) {
+      // Reclaim: refresh window in place; keep the original admitted_at so the
+      // charged session units stay anchored to first admit.
+      const [row] = await db
+        .update(schema.freeSessionDesktop)
+        .set({
+          status: 'active',
+          model,
+          premium_bucket: premiumBucket,
+          access_tier: accessTier,
+          fireworks_route: fireworksRoute ?? existing.fireworks_route ?? null,
+          admitted_at: existing.admitted_at ?? now,
+          expires_at: expiresAt,
+          updated_at: now,
+          ...countryAccessUpdate,
+        })
+        .where(
+          and(
+            eq(schema.freeSessionDesktop.user_id, userId),
+            eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+          ),
+        )
+        .returning()
+      return row as InternalSessionRow
+    }
+
+    const inserted = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(schema.freeSessionDesktop)
+        .values({
+          user_id: userId,
+          active_instance_id: instanceId,
+          status: 'active',
+          model,
+          premium_bucket: premiumBucket,
+          access_tier: accessTier,
+          fireworks_route: fireworksRoute ?? null,
+          ...countryAccessUpdate,
+          queued_at: now,
+          admitted_at: now,
+          expires_at: expiresAt,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+      await tx.insert(schema.freeSessionAdmit).values({
+        user_id: userId,
+        model,
+        access_tier: accessTier,
+        admitted_at: now,
+      })
+      return row as InternalSessionRow
+    })
+
+    // Mirror the single-session path: mark the referred user's referral as
+    // activated. Best-effort, never blocks admission.
+    await recordReferralV2Activation({
+      referredId: userId,
+      accessTier,
+      now,
+    }).catch((error) => {
+      logger.warn(
+        { error, userId },
+        'Failed to record referral_v2 activation (desktop)',
+      )
+    })
+    return inserted
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      const premium = await getActivePremiumBucketDesktopRow(userId)
+      if (premium) {
+        throw new FreeSessionPremiumSlotTakenError(
+          premium.model,
+          premium.active_instance_id,
+        )
+      }
+    }
+    throw err
+  }
+}
+
+/** End one desktop tab's session, finalizing its charged session units. */
+export async function endDesktopSession(params: {
+  userId: string
+  instanceId: string
+  now: Date
+  sessionLengthMs: number
+}): Promise<void> {
+  const { userId, instanceId, now, sessionLengthMs } = params
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(schema.freeSessionDesktop)
+      .where(
+        and(
+          eq(schema.freeSessionDesktop.user_id, userId),
+          eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+        ),
+      )
+      .for('update')
+      .limit(1)
+
+    if (row) await finalizeLatestAdmit(tx, row, userId, now, sessionLengthMs)
+
+    await tx
+      .delete(schema.freeSessionDesktop)
+      .where(
+        and(
+          eq(schema.freeSessionDesktop.user_id, userId),
+          eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+        ),
+      )
+  })
+}
+
+/** End every desktop session for a user (e.g. logout). */
+export async function endAllDesktopSessions(userId: string): Promise<void> {
+  await db
+    .delete(schema.freeSessionDesktop)
+    .where(eq(schema.freeSessionDesktop.user_id, userId))
+}
+
+/** Instance-scoped MiniMax upstream pin for a desktop session (see
+ *  pinMinimaxUpstreamToMinimax). */
+export async function pinDesktopMinimaxUpstreamToMinimax(params: {
+  userId: string
+  instanceId: string
+  now: Date
+}): Promise<void> {
+  await db
+    .update(schema.freeSessionDesktop)
+    .set({ minimax_upstream: 'minimax', updated_at: params.now })
+    .where(
+      and(
+        eq(schema.freeSessionDesktop.user_id, params.userId),
+        eq(schema.freeSessionDesktop.active_instance_id, params.instanceId),
+      ),
+    )
 }
