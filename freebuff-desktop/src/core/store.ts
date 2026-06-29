@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 10
+const SCHEMA_VERSION = 11
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -295,6 +295,13 @@ export class Store {
         pr_url        TEXT,
         pr_state      TEXT NOT NULL DEFAULT 'none',
         turn_state    TEXT NOT NULL DEFAULT 'idle',
+        -- Engine-internal recovery columns (not part of the Thread domain type):
+        -- the agent's carried context (Codebuff RunState / Claude session id) so
+        -- a turn after an app restart keeps the conversation, plus the prompt of a
+        -- typed turn that was in flight at quit so it can be re-run on relaunch.
+        harness_state    TEXT,
+        harness_state_id TEXT,
+        pending_prompt   TEXT,
         created_at    INTEGER NOT NULL,
         updated_at    INTEGER NOT NULL
       );
@@ -408,6 +415,20 @@ export class Store {
     // back to the engine's recommended default for the user's access tier.
     if (!this.hasColumn('threads', 'freebuff_model')) {
       this.db.exec('ALTER TABLE threads ADD COLUMN freebuff_model TEXT')
+    }
+
+    // v11: persist the agent's carried context + an in-flight typed prompt so
+    // closing the app no longer drops a running turn's conversation. All three
+    // are additive + nullable: legacy threads simply start the next turn fresh
+    // (the prior behaviour) until a turn writes its state.
+    if (!this.hasColumn('threads', 'harness_state')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN harness_state TEXT')
+    }
+    if (!this.hasColumn('threads', 'harness_state_id')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN harness_state_id TEXT')
+    }
+    if (!this.hasColumn('threads', 'pending_prompt')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN pending_prompt TEXT')
     }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -533,6 +554,52 @@ export class Store {
 
   deleteThread(id: ThreadId): void {
     this.db.query('DELETE FROM threads WHERE id = $id').run({ $id: id })
+  }
+
+  // — Crash-recovery state (engine-internal; kept off the Thread domain type) —
+
+  /**
+   * Persist the agent's carried context for a thread (the opaque harness state,
+   * already JSON-serialized) tagged with the harness that produced it, so the
+   * next turn after an app restart resumes the conversation instead of starting
+   * blank. Tagging lets a mid-thread agent switch ignore foreign state.
+   */
+  setHarnessState(threadId: ThreadId, harnessId: string, stateJson: string): void {
+    this.db
+      .query('UPDATE threads SET harness_state = $s, harness_state_id = $h WHERE id = $id')
+      .run({ $id: threadId, $s: stateJson, $h: harnessId })
+  }
+
+  clearHarnessState(threadId: ThreadId): void {
+    this.db
+      .query('UPDATE threads SET harness_state = NULL, harness_state_id = NULL WHERE id = $id')
+      .run({ $id: threadId })
+  }
+
+  /** The persisted harness state for a thread, or null if none/incomplete. */
+  getHarnessState(threadId: ThreadId): { harnessId: string; stateJson: string } | null {
+    const row = this.db
+      .query('SELECT harness_state, harness_state_id FROM threads WHERE id = $id')
+      .get({ $id: threadId }) as
+      | { harness_state: string | null; harness_state_id: string | null }
+      | null
+    if (!row || row.harness_state == null || row.harness_state_id == null) return null
+    return { harnessId: row.harness_state_id, stateJson: row.harness_state }
+  }
+
+  /** The prompt of a typed turn that was in flight (null = no pending turn). Set
+   *  while a non-queued turn runs so it can be re-run after a crash/quit. */
+  setPendingPrompt(threadId: ThreadId, prompt: string | null): void {
+    this.db
+      .query('UPDATE threads SET pending_prompt = $p WHERE id = $id')
+      .run({ $id: threadId, $p: prompt })
+  }
+
+  getPendingPrompt(threadId: ThreadId): string | null {
+    const row = this.db
+      .query('SELECT pending_prompt FROM threads WHERE id = $id')
+      .get({ $id: threadId }) as { pending_prompt: string | null } | null
+    return row?.pending_prompt ?? null
   }
 
   // — Messages —

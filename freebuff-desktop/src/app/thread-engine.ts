@@ -70,6 +70,7 @@ import {
   AGENT_OPTIONS,
   DEFAULT_HARNESS,
   freebuffModelOptions,
+  isHarnessId,
   type AgentHarness,
   type AgentOption,
   type HarnessId,
@@ -180,9 +181,11 @@ export class ThreadEngine {
 
   private listeners = new Set<(e: EngineEvent) => void>()
   /**
-   * Per-thread harness state for context/caching across turns (in-memory only).
-   * Tagged with the harness that produced it: switching agents mid-thread makes
-   * the stale state ignored, so each harness starts that thread fresh.
+   * Per-thread harness state for context/caching across turns. Mirrored to the
+   * thread row (see `saveThreadState`) so it survives an app restart and the
+   * agent keeps the conversation; restored into this map on startup. Tagged with
+   * the harness that produced it: switching agents mid-thread makes the stale
+   * state ignored, so each harness starts that thread fresh.
    */
   private threadState = new Map<string, { harnessId: HarnessId; state: unknown }>()
   /**
@@ -272,20 +275,59 @@ export class ThreadEngine {
       opts.worktrees ??
       new WorktreeManager({ repoRoot: opts.repoRoot, defaultBranch: opts.defaultBranch ?? 'main' })
 
-    // Crash recovery: a turn left `running` can't still be in flight (turnChain is
-    // in-memory). Reset threads to idle and any claimed queue items back to queued,
-    // and seed the id counter from persisted threads.
+    // Crash/quit recovery. The app's in-memory turn state (the running agent, the
+    // typed-message inbox, the carried context) all died with the prior process,
+    // but the thread rows tell us what was in flight. For each thread we:
+    //   1. restore the agent's carried context so the next turn keeps the
+    //      conversation instead of starting blank;
+    //   2. reset an orphaned `running` turn → idle and requeue any claimed item;
+    //   3. if the thread was mid-turn at quit, resurrect the work — a typed turn
+    //      from `pending_prompt`, a queued turn via the requeue above — and mark
+    //      the thread for a pump so it resumes automatically.
+    // Only threads that were actually running are auto-resumed: an idle thread
+    // with queued items was deliberately stopped, so reviving it would override
+    // the user's Stop (the interrupted flag is in-memory and gone on restart).
+    const resumeIds: string[] = []
     for (const t of this.store.listThreads(this.projectId)) {
       const n = Number(t.id.replace(/^th/, ''))
       if (Number.isFinite(n)) this.threadSeq = Math.max(this.threadSeq, n)
-      if (t.turnState === 'running') {
-        this.store.updateThread(t.id, { turnState: 'idle' }, this.now())
+
+      const saved = this.store.getHarnessState(t.id)
+      if (saved && isHarnessId(saved.harnessId)) {
+        try {
+          this.threadState.set(t.id, { harnessId: saved.harnessId, state: JSON.parse(saved.stateJson) })
+        } catch {
+          // Corrupt persisted state — drop it; the thread starts the next turn fresh.
+          this.store.clearHarnessState(t.id)
+        }
       }
+
+      const wasRunning = t.turnState === 'running'
+      if (wasRunning) this.store.updateThread(t.id, { turnState: 'idle' }, this.now())
+      let hadRunningItem = false
       for (const it of this.store.listQueueItems(t.id, 'running')) {
         this.store.updateQueueItem(it.id, { state: 'queued' }, this.now())
+        hadRunningItem = true
+      }
+
+      // `pending_prompt` only matters for a thread that was mid-turn at quit — an
+      // idle thread never re-runs it (and any stray value is harmless, only read
+      // here), so don't even read/clear it off the idle path.
+      if (wasRunning) {
+        const pending = this.store.getPendingPrompt(t.id)
+        if (pending != null) this.store.setPendingPrompt(t.id, null)
+        // A typed turn (no claimed queue item) is re-run from its pending prompt;
+        // a queued turn re-runs via the requeue above. The `!hadRunningItem` guard
+        // keeps the two recovery paths from double-running the same turn.
+        if (!hadRunningItem && pending) this.userInbox.set(t.id, [{ text: pending }])
+        resumeIds.push(t.id)
       }
     }
     this.recomputePremiumSlotHolder()
+    // Kick the pump for every thread that was mid-turn at quit: drain the
+    // resurrected typed prompt and/or the requeued items, now with context
+    // restored. Fire-and-forget — the turns run as the server comes up.
+    for (const id of resumeIds) void this.pump(id)
   }
 
   /** Rebuild the in-memory premium-slot holder from persisted thread models.
@@ -327,6 +369,31 @@ export class ThreadEngine {
     return h
   }
 
+  /**
+   * Persist + cache the agent's carried context for a thread, so the next turn —
+   * even after an app restart — resumes the conversation. The opaque harness
+   * state is JSON-serialized for the row; if it isn't serializable we clear the
+   * persisted copy (the thread degrades to starting fresh next launch) but keep
+   * the in-memory copy live for this session.
+   */
+  private saveThreadState(threadId: string, harnessId: HarnessId, state: unknown): void {
+    this.threadState.set(threadId, { harnessId, state })
+    try {
+      this.store.setHarnessState(threadId, harnessId, JSON.stringify(state))
+    } catch {
+      // Not serializable — keep the in-memory copy live for this session but drop
+      // the persisted one so a restart starts fresh rather than throwing on load.
+      this.store.clearHarnessState(threadId)
+    }
+  }
+
+  /** Drop a thread's carried context (both in-memory and persisted). Used when a
+   *  mid-thread agent/model switch invalidates the prior state, and on close/delete. */
+  private dropThreadState(threadId: string): void {
+    this.threadState.delete(threadId)
+    this.store.clearHarnessState(threadId)
+  }
+
   /** Set the agent for a specific thread; subsequent turns use it. Persists to
    *  SQLite (so the choice survives restarts) and re-broadcasts the thread. */
   setThreadHarness(threadId: string, id: HarnessId): void {
@@ -339,7 +406,7 @@ export class ThreadEngine {
     this.store.updateThread(threadId, { harnessId: value }, this.now())
     // Drop any cached harness state for this thread — switching agents makes
     // the prior state from the previous harness invalid (see `runTurn`).
-    this.threadState.delete(threadId)
+    this.dropThreadState(threadId)
     this.emitThread(threadId)
   }
 
@@ -414,7 +481,7 @@ export class ThreadEngine {
       // Release the old session so the next turn re-admits on the new model, and
       // drop cached run state (a model switch starts the thread fresh).
       void this.freebuff.release(threadId)
-      this.threadState.delete(threadId)
+      this.dropThreadState(threadId)
     }
     this.store.updateThread(threadId, { freebuffModel: resolved }, this.now())
     // `premiumSlotHolder` is derived from the persisted thread models — recompute
@@ -611,7 +678,7 @@ export class ThreadEngine {
       } else {
         this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
       }
-      this.threadState.delete(id)
+      this.dropThreadState(id)
       void this.freebuff.release(id)
       this.recomputePremiumSlotHolder()
       this.emitState()
@@ -654,6 +721,7 @@ export class ThreadEngine {
     if (thread.branch) await this.worktrees.remove(id).catch(() => {})
     this.store.deleteThread(id)
     this.threadState.delete(id)
+    // (No clearHarnessState — the row is already gone via deleteThread's cascade.)
     void this.freebuff.release(id)
     this.recomputePremiumSlotHolder()
     this.emitState()
@@ -931,6 +999,13 @@ export class ThreadEngine {
       const chatText = isCommand ? `/${item!.label ?? item!.skillName ?? 'skill'}` : prompt
       this.store.appendMessage(threadId, { role: 'user', text: chatText }, this.now())
       this.emit({ type: 'prompt', threadId, text: chatText })
+    } else {
+      // A typed turn is driven by the in-memory `userInbox` (the chat/steering path,
+      // mutated mid-turn by `drainSteering`), NOT a durable queue_items row — so it
+      // has nothing to requeue on crash-recovery. Stash its prompt on the thread row
+      // so the next launch re-runs it (see the constructor's recovery loop). Queued
+      // turns skip this: they're already recovered by requeueing the claimed item.
+      this.store.setPendingPrompt(threadId, prompt)
     }
     // Reset the in-memory turn outcome — the running pulse already conveys
     // "in flight", and the prior terminator only matters when the thread goes
@@ -1020,7 +1095,9 @@ export class ThreadEngine {
           drainSteering: () => this.drainSteering(threadId),
         },
       )
-      this.threadState.set(threadId, { harnessId: harness.id, state: result.state })
+      // Persist the carried context (mirrored to the thread row) so the next
+      // turn keeps the conversation even across an app restart.
+      this.saveThreadState(threadId, harness.id, result.state)
       // A Stop arrives as an abort; mark it but keep any partial output.
       if (aborter.signal.aborted) {
         turnOutcome = 'stopped'
@@ -1046,6 +1123,9 @@ export class ThreadEngine {
     } finally {
       this.aborters.delete(threadId)
       this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
+      // The typed turn is no longer in flight: clear its crash-recovery prompt so a
+      // later restart doesn't re-run a turn that already finished (or was stopped).
+      if (!meta.queueItemId) this.store.setPendingPrompt(threadId, null)
       if (meta.queueItemId) this.store.updateQueueItem(meta.queueItemId, { state: 'done' }, this.now())
       // Finalize the in-memory turn outcome (drives the tab's stopped/error icon);
       // the DB only learns about the idle transition.

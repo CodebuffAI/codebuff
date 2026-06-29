@@ -526,11 +526,24 @@ trackEvent(AnalyticsEvent.DESKTOP_APP_LAUNCHED, {
   version: process.env.FREEBUFF_APP_VERSION,
   authed: isAuthed(),
 })
-// Flush buffered PostHog events on shutdown so the launch/last events aren't lost
-// (SIGTERM is how the Electron shell stops the orchestrator).
-const flushOnExit = () => {
-  void flushAnalytics()
+// Graceful shutdown. SIGTERM is how the Electron shell stops the orchestrator (it
+// SIGKILLs 3s later as a fallback). Registering a signal listener overrides the
+// runtime's default "terminate on signal", so we MUST exit ourselves — otherwise
+// Bun.serve keeps the process alive and quit hangs until the shell's SIGKILL,
+// leaving a zombie that can hold the port against the next launch. Flush buffered
+// PostHog events first so the launch/last events aren't lost, then exit promptly.
+let shuttingDown = false
+const flushAndExit = async () => {
+  if (shuttingDown) return
+  shuttingDown = true
+  try {
+    await flushAnalytics()
+  } finally {
+    process.exit(0)
+  }
 }
-process.once('SIGTERM', flushOnExit)
-process.once('SIGINT', flushOnExit)
-process.once('beforeExit', flushOnExit)
+process.once('SIGTERM', () => void flushAndExit())
+process.once('SIGINT', () => void flushAndExit())
+// `beforeExit` fires on a natural empty-loop exit (not after process.exit); flush
+// best-effort without forcing an exit so a non-signal teardown still ships events.
+process.once('beforeExit', () => void flushAnalytics())
