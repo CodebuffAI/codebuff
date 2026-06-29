@@ -17,15 +17,22 @@
  */
 
 import { getCustomToolDefinition } from '@codebuff/sdk'
-import type { CustomToolDefinition } from '@codebuff/sdk'
+import type { AgentDefinition, CustomToolDefinition } from '@codebuff/sdk'
 import { z } from 'zod/v4'
 
+import basher from '../../../../agents/basher'
+import codeSearcher from '../../../../agents/file-explorer/code-searcher'
+import filePicker from '../../../../agents/file-explorer/file-picker'
+import fileLister from '../../../../agents/file-explorer/file-lister'
+import researcherDocs from '../../../../agents/researcher/researcher-docs'
+import researcherWeb from '../../../../agents/researcher/researcher-web'
 import type { BrowserCheckResult } from '../../core/browser-check'
 import { DOC_NAMES, type DocName } from '../../core/types'
 import { FREEBUFF_MODEL } from '../models'
 
 /** A focused but real coding tool set (mirrors the base coding agent). */
 export const THREAD_AGENT_TOOLS = [
+  'spawn_agents',
   'read_files',
   'read_subtree',
   'list_directory',
@@ -39,6 +46,36 @@ export const THREAD_AGENT_TOOLS = [
   'end_turn',
 ]
 
+/**
+ * The subagents the thread agent can spawn — the same exploration/research crew
+ * the free `base2` orchestrator uses. These run on cheap, fast models and report
+ * back into collapsible boxes in the transcript. file-picker itself spawns
+ * file-lister, so the tree nests one level deeper.
+ *
+ * The SDK only resolves `spawnableAgents` ids it's handed: we pass the full
+ * transitive closure (these defs + file-lister) to `run({ agentDefinitions })`.
+ * Kept to free-safe, dependency-free agents — the browser/tmux/reviewer/GPT
+ * subagents base2 also lists are omitted to avoid flaky external requirements.
+ */
+export const THREAD_SPAWNABLE_AGENTS = [
+  'file-picker',
+  'code-searcher',
+  'researcher-web',
+  'researcher-docs',
+  'basher',
+] as const
+
+/** Definitions handed to the SDK so the spawnable ids above (and file-picker's
+ *  own child, file-lister) resolve at spawn time. */
+export const THREAD_SUBAGENT_DEFINITIONS: AgentDefinition[] = [
+  filePicker as AgentDefinition,
+  fileLister as AgentDefinition,
+  codeSearcher as AgentDefinition,
+  researcherWeb as AgentDefinition,
+  researcherDocs as AgentDefinition,
+  basher as AgentDefinition,
+]
+
 const THREAD_SYSTEM_PROMPT = `You are Freebuff, a capable coding agent working directly in this repository's
 git worktree. You implement what the user asks: read the relevant code, make
 focused edits, run commands to verify, and keep the working tree in a good state.
@@ -46,6 +83,17 @@ focused edits, run commands to verify, and keep the working tree in a good state
 How to work:
 - Do the task well and completely. Read surrounding code before changing it; match
   the existing style and conventions.
+- Delegate exploration to subagents instead of spending your own steps on it. Spawn
+  them with spawn_agents — in parallel when the searches are independent — and wait
+  for their reports before editing:
+    • file-picker — find the files relevant to a task (give it a focused prompt).
+    • code-searcher — locate where a symbol / string / pattern is used.
+    • researcher-web — look something up on the web (APIs, errors, libraries).
+    • researcher-docs — search the project's / a framework's documentation.
+    • basher — run a read-only shell command and summarize its output.
+  Gather context up front with a batch of subagents, then make focused edits yourself
+  with str_replace / write_file. Don't spawn a subagent for something you can do in
+  one direct tool call.
 - Verify your work by running the project's commands when it matters (build, tests,
   or exercising the actual surface). Rendering is not correctness.
 - Be concise in your prose. The user is watching a live transcript.
@@ -60,15 +108,18 @@ How to work:
 
 Do not commit or open a PR unless the user (or the open-pr / merge skill) asks you to.`
 
-export function threadAgentDefinition(toolNames: string[]) {
+export function threadAgentDefinition(toolNames: string[]): AgentDefinition {
   return {
     id: 'freebuff-desktop-thread',
     displayName: 'Freebuff',
     model: FREEBUFF_MODEL,
     toolNames,
+    spawnableAgents: [...THREAD_SPAWNABLE_AGENTS],
     systemPrompt: THREAD_SYSTEM_PROMPT,
-    instructionsPrompt: 'Work in the current repository. Be concise.',
-  }
+    instructionsPrompt:
+      'Work in the current repository. Spawn file-picker / code-searcher to find ' +
+      'relevant code before editing, and other subagents as needed. Be concise.',
+  } as AgentDefinition
 }
 
 type ToolResult = { type: 'json'; value: any }

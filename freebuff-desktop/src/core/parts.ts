@@ -16,6 +16,30 @@
 /** How a reasoning block is shown. UI-only; `preview` shows the last few lines. */
 export type ReasoningCollapse = 'preview' | 'expanded' | 'hidden'
 
+/** Lifecycle of a spawned subagent's box. */
+export type AgentStatus = 'running' | 'done'
+
+/**
+ * A spawned subagent rendered as a collapsible box. Its `blocks` are the
+ * subagent's own ordered parts — reasoning, text, tool calls, and (when it
+ * spawns its own children) further `agent` parts. The tree nests arbitrarily;
+ * in practice base2's subagents go two levels deep (file-picker → file-lister).
+ */
+export interface AgentPart {
+  kind: 'agent'
+  /** The subagent's stable id (matches its subagent_start/finish + child events). */
+  id: string
+  /** The template id, e.g. `file-picker` (drives the icon / default-open rule). */
+  agentType: string
+  /** Human label shown on the box header, e.g. "Fletcher the File Fetcher". */
+  displayName: string
+  /** The prompt the parent sent to spawn this agent (shown collapsed + expanded). */
+  prompt?: string
+  status: AgentStatus
+  /** The subagent's own ordered parts (rendered inside the box). */
+  blocks: Part[]
+}
+
 export type Part =
   | { kind: 'text'; text: string }
   | {
@@ -29,6 +53,7 @@ export type Part =
       userOpened?: boolean
     }
   | { kind: 'tool'; id: string; toolName: string; input: unknown }
+  | AgentPart
 
 /** The minimal shape of the agent events we fold (a subset of the SDK's events). */
 export interface AgentEventLike {
@@ -37,6 +62,13 @@ export interface AgentEventLike {
   toolName?: string
   toolCallId?: string
   input?: unknown
+  /** The agent the event belongs to (subagent id, or the root's own type). */
+  agentId?: string
+  /** For `subagent_start`: the spawning agent's id (root or another subagent). */
+  parentAgentId?: string
+  agentType?: string
+  displayName?: string
+  prompt?: string
   [k: string]: unknown
 }
 
@@ -51,13 +83,87 @@ function closeReasoning(parts: Part[]): Part[] {
   return parts
 }
 
+type ReasoningPart = Extract<Part, { kind: 'reasoning' }>
+
 /**
- * Append one agent event to the ordered parts array, coalescing consecutive
- * deltas of the same kind into the trailing part. Returns the same array
- * reference when the event is a no-op (e.g. an empty text delta) so callers can
- * skip needless re-renders.
+ * Map every reasoning block in the tree (root + nested subagent blocks) through
+ * `fn`, recursing into `agent` parts. Returns the same array reference when
+ * nothing changed, so callers stay re-render-free on a no-op. The single
+ * tree-traversal primitive behind close/collapse/toggle (here and in the store).
  */
-export function foldAgentEvent(parts: Part[], ev: AgentEventLike, id: () => string): Part[] {
+export function mapReasoning(parts: Part[], fn: (r: ReasoningPart) => Part): Part[] {
+  let changed = false
+  const out = parts.map((p) => {
+    if (p.kind === 'reasoning') {
+      const next = fn(p)
+      if (next !== p) changed = true
+      return next
+    }
+    if (p.kind === 'agent') {
+      const blocks = mapReasoning(p.blocks, fn)
+      if (blocks !== p.blocks) {
+        changed = true
+        return { ...p, blocks }
+      }
+    }
+    return p
+  })
+  return changed ? out : parts
+}
+
+/** Close every open reasoning block in the tree (turn end). Ref-stable on no-op. */
+function closeAllReasoning(parts: Part[]): Part[] {
+  return mapReasoning(parts, (r) => (r.open ? { ...r, open: false } : r))
+}
+
+/**
+ * Find the `agent` part with `id === agentId` anywhere in the tree and replace
+ * it with `updater(agent)`. Returns the same array reference when the agent is
+ * absent or the updater is a no-op, so callers can skip needless re-renders.
+ */
+function updateAgent(
+  parts: Part[],
+  agentId: string,
+  updater: (a: AgentPart) => AgentPart,
+): Part[] {
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i]
+    if (p.kind !== 'agent') continue
+    if (p.id === agentId) {
+      const next = updater(p)
+      if (next === p) return parts
+      const out = parts.slice()
+      out[i] = next
+      return out
+    }
+    const nested = updateAgent(p.blocks, agentId, updater)
+    if (nested !== p.blocks) {
+      const out = parts.slice()
+      out[i] = { ...p, blocks: nested }
+      return out
+    }
+  }
+  return parts
+}
+
+/** Apply a fold to a subagent's `blocks` (by id), immutably. Ref-stable on no-op. */
+function updateAgentBlocks(
+  parts: Part[],
+  agentId: string,
+  fold: (blocks: Part[]) => Part[],
+): Part[] {
+  return updateAgent(parts, agentId, (a) => {
+    const blocks = fold(a.blocks)
+    return blocks === a.blocks ? a : { ...a, blocks }
+  })
+}
+
+/**
+ * Fold a single text/reasoning/tool event into one scope's ordered parts (the
+ * root turn, or one subagent's blocks). Coalesces consecutive deltas of the
+ * same kind into the trailing part. Ref-stable on no-op.
+ */
+function foldLeaf(parts: Part[], ev: AgentEventLike, id: () => string): Part[] {
   switch (ev.type) {
     case 'text': {
       const text = ev.text ?? ''
@@ -84,11 +190,85 @@ export function foldAgentEvent(parts: Part[], ev: AgentEventLike, id: () => stri
         { kind: 'tool', id: ev.toolCallId ?? id(), toolName: ev.toolName ?? 'tool', input: ev.input },
       ]
     }
-    case 'finish':
-      return closeReasoning(parts)
     default:
       return parts
   }
+}
+
+/**
+ * Append one agent event to the ordered parts array. Subagent lifecycle events
+ * (`subagent_start` / `subagent_finish`) create and close nested `agent` parts;
+ * text/reasoning/tool events carrying a known subagent `agentId` route into that
+ * subagent's blocks, while everything else folds into the root scope. Returns
+ * the same array reference on a no-op so callers can skip re-renders.
+ *
+ * This is the single source of truth shared by the server (ThreadEngine, which
+ * persists the result) and the client (the store, which streams it live), so a
+ * reloaded transcript matches the live one — including the subagent tree.
+ */
+/** Event types that produce parts and so must be folded; everything else (e.g.
+ *  `tool_result`) is ignored. `finish` is handled separately by callers, before
+ *  this filter, since it ends the turn rather than appending a part. */
+export const FOLDABLE_EVENT_TYPES = new Set([
+  'text',
+  'reasoning_delta',
+  'tool_call',
+  'subagent_start',
+  'subagent_finish',
+])
+
+export function foldAgentEvent(parts: Part[], ev: AgentEventLike, id: () => string): Part[] {
+  if (ev.type === 'subagent_start') {
+    const agent: AgentPart = {
+      kind: 'agent',
+      id: ev.agentId ?? id(),
+      agentType: ev.agentType ?? 'agent',
+      displayName: ev.displayName ?? ev.agentType ?? 'Agent',
+      prompt: typeof ev.prompt === 'string' && ev.prompt.trim() ? ev.prompt : undefined,
+      status: 'running',
+      blocks: [],
+    }
+    // Nest under the spawning subagent when known; otherwise (the root spawned
+    // it) append to the root scope.
+    const parentId = ev.parentAgentId
+    if (parentId) {
+      const nested = updateAgentBlocks(parts, parentId, (b) => [...closeReasoning(b), agent])
+      if (nested !== parts) return nested
+    }
+    return [...closeReasoning(parts), agent]
+  }
+
+  if (ev.type === 'subagent_finish' && ev.agentId) {
+    return updateAgent(parts, ev.agentId, (a) =>
+      a.status === 'done' ? a : { ...a, status: 'done', blocks: closeReasoning(a.blocks) },
+    )
+  }
+
+  if (ev.type === 'finish') return closeAllReasoning(parts)
+
+  // text / reasoning_delta / tool_call. A known subagent id routes the event
+  // into that box; an unknown id (the root agent's own type, which tool_call
+  // events carry) falls through to the root scope.
+  const agentId = ev.agentId
+  if (agentId) {
+    const routed = updateAgentBlocks(parts, agentId, (b) => foldLeaf(b, ev, id))
+    if (routed !== parts) return routed
+  }
+  return foldLeaf(parts, ev, id)
+}
+
+/** Recursively reset a persisted subtree to its reloaded resting state:
+ *  reasoning hidden, subagents marked done. */
+function normalizePersisted(parts: Part[]): Part[] {
+  return parts.map((p) => {
+    if (p.kind === 'reasoning') {
+      return { ...p, open: false, collapse: 'hidden' as const, userOpened: false }
+    }
+    if (p.kind === 'agent') {
+      return { ...p, status: 'done' as const, blocks: normalizePersisted(p.blocks) }
+    }
+    return p
+  })
 }
 
 /**
@@ -102,11 +282,7 @@ export function partsFromPersisted(
   id: () => string,
 ): Part[] {
   if (m.role === 'user') return m.text ? [{ kind: 'text', text: m.text }] : []
-  if (m.parts && m.parts.length) {
-    return m.parts.map((p) =>
-      p.kind === 'reasoning' ? { ...p, open: false, collapse: 'hidden', userOpened: false } : p,
-    )
-  }
+  if (m.parts && m.parts.length) return normalizePersisted(m.parts)
   const out: Part[] = []
   if (m.text) out.push({ kind: 'text', text: m.text })
   for (const a of m.acts ?? []) out.push({ kind: 'tool', id: id(), toolName: a.toolName, input: a.input })

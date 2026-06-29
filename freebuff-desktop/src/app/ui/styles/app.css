@@ -1020,6 +1020,122 @@ body.col-resizing {
   white-space: pre-wrap;
 }
 
+/* — Subagent boxes — collapsible, nest arbitrarily (file-picker → file-lister).
+   Default collapsed; the header previews the spawn prompt, the body shows the
+   subagent's own reasoning / tools / text (and any child boxes). */
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-box {
+  margin: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.agent-box.running {
+  border-color: var(--accent-dim);
+}
+.agent-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 7px 10px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.agent-head:hover {
+  background: var(--surface-2);
+}
+.agent-caret {
+  color: var(--faint);
+  font-size: 10px;
+  width: 10px;
+  flex: none;
+  transition: transform 0.15s;
+}
+.agent-caret.open {
+  transform: rotate(90deg);
+}
+.agent-name {
+  font-weight: 600;
+  flex: none;
+}
+.agent-status {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.agent-status.done {
+  color: var(--faint);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.agent-status.running {
+  color: var(--accent-dim);
+}
+.agent-spinner {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-dim);
+  border-top-color: transparent;
+  animation: agent-spin 0.7s linear infinite;
+}
+@keyframes agent-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Collapsed-state inline preview of the spawn prompt — truncates to one line. */
+.agent-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--faint);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-body {
+  border-top: 1px solid var(--border);
+  padding: 8px 11px;
+}
+/* The spawn prompt shown in full at the top of the expanded body. */
+.agent-prompt {
+  margin: 0 0 7px;
+  padding-left: 9px;
+  border-left: 2px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agent-working {
+  color: var(--faint);
+  font-size: 12px;
+  font-style: italic;
+  animation: reasoning-pulse 1.1s ease-in-out infinite;
+}
+/* Nested boxes indent slightly so the tree depth reads at a glance. */
+.parts.nested {
+  gap: 2px;
+}
+
 /* — Composer — */
 .composer {
   position: relative;

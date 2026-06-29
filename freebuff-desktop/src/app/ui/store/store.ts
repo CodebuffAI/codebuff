@@ -1,7 +1,14 @@
 import { create } from 'zustand'
 
 import { appendBlock, attachmentSummary } from '../../../core/attachments'
-import { foldAgentEvent, partsFromPersisted, type ReasoningCollapse } from '../../../core/parts'
+import {
+  FOLDABLE_EVENT_TYPES,
+  foldAgentEvent,
+  mapReasoning,
+  partsFromPersisted,
+  type Part,
+  type ReasoningCollapse,
+} from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
 import type {
@@ -482,20 +489,9 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => {
       const slice = s.threads[threadId]
       if (!slice) return {}
-      const messages = slice.messages.map((m) => {
-        if (m.id !== messageId) return m
-        return {
-          ...m,
-          parts: m.parts.map((p) => {
-            if (p.kind !== 'reasoning' || p.id !== partId) return p
-            const expanded = p.collapse === 'expanded'
-            // Expanded → back to preview; anything else → expanded. `userOpened`
-            // marks deliberate expansion so auto-collapse leaves it open.
-            const collapse: ReasoningCollapse = expanded ? 'preview' : 'expanded'
-            return { ...p, collapse, userOpened: !expanded }
-          }),
-        }
-      })
+      const messages = slice.messages.map((m) =>
+        m.id === messageId ? { ...m, parts: toggleReasoningInParts(m.parts, partId) } : m,
+      )
       return { threads: { ...s.threads, [threadId]: { ...slice, messages } } }
     })
   },
@@ -727,19 +723,31 @@ function appendMessage(
   })
 }
 
-/** Hide the thinking of every finished assistant turn the user didn't manually open. */
+/** Hide the thinking of every finished assistant turn the user didn't manually
+ *  open — recursing into subagent boxes so their reasoning collapses too. */
 function autoCollapseReasoning(messages: Message[]): Message[] {
   return messages.map((m) => {
     if (m.role !== 'assistant' || !m.done) return m
-    let changed = false
-    const parts = m.parts.map((p) => {
-      if (p.kind === 'reasoning' && !p.userOpened && p.collapse !== 'hidden') {
-        changed = true
-        return { ...p, collapse: 'hidden' as const }
-      }
-      return p
-    })
-    return changed ? { ...m, parts } : m
+    const parts = collapseReasoningInParts(m.parts)
+    return parts !== m.parts ? { ...m, parts } : m
+  })
+}
+
+/** Set every (non-user-opened) reasoning part in the tree to `hidden`. */
+function collapseReasoningInParts(parts: Part[]): Part[] {
+  return mapReasoning(parts, (p) =>
+    !p.userOpened && p.collapse !== 'hidden' ? { ...p, collapse: 'hidden' } : p,
+  )
+}
+
+/** Toggle one reasoning part (by id) anywhere in the tree between preview and
+ *  expanded, marking deliberate expansion so auto-collapse leaves it open. */
+function toggleReasoningInParts(parts: Part[], partId: string): Part[] {
+  return mapReasoning(parts, (p) => {
+    if (p.id !== partId) return p
+    const expanded = p.collapse === 'expanded'
+    const collapse: ReasoningCollapse = expanded ? 'preview' : 'expanded'
+    return { ...p, collapse, userOpened: !expanded }
   })
 }
 
@@ -772,9 +780,7 @@ function streamAgentEvent(messages: Message[], event: { type: string; [k: string
   }
 
   // Only stream the part-producing events; ignore the rest (tool_result, etc.).
-  if (event.type !== 'text' && event.type !== 'reasoning_delta' && event.type !== 'tool_call') {
-    return messages
-  }
+  if (!FOLDABLE_EVENT_TYPES.has(event.type)) return messages
 
   const base: Message = live ?? { id: nextId(), role: 'assistant', parts: [], done: false }
   const parts = foldAgentEvent(base.parts, event, nextId)

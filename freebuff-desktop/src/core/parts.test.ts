@@ -85,6 +85,97 @@ describe('foldAgentEvent', () => {
   })
 })
 
+describe('foldAgentEvent — subagents', () => {
+  it('renders a spawned subagent as an agent part and routes its events into it', () => {
+    const parts = fold([
+      { type: 'text', text: 'Let me look.' },
+      {
+        type: 'subagent_start',
+        agentId: 'sub-1',
+        agentType: 'file-picker',
+        displayName: 'Fletcher the File Fetcher',
+        parentAgentId: 'root',
+        prompt: 'find the auth code',
+      },
+      { type: 'reasoning_delta', text: 'scanning', agentId: 'sub-1' },
+      { type: 'text', text: 'auth.ts is relevant', agentId: 'sub-1' },
+      { type: 'subagent_finish', agentId: 'sub-1' },
+      { type: 'text', text: 'Got it.' },
+      { type: 'finish' },
+    ])
+    expect(parts.map((p) => p.kind)).toEqual(['text', 'agent', 'text'])
+    const agent = parts[1] as Extract<Part, { kind: 'agent' }>
+    expect(agent).toMatchObject({
+      kind: 'agent',
+      id: 'sub-1',
+      agentType: 'file-picker',
+      displayName: 'Fletcher the File Fetcher',
+      prompt: 'find the auth code',
+      status: 'done',
+    })
+    expect(agent.blocks.map((b) => b.kind)).toEqual(['reasoning', 'text'])
+    expect((agent.blocks[1] as Extract<Part, { kind: 'text' }>).text).toBe('auth.ts is relevant')
+    // The subagent's reasoning closed at finish.
+    expect((agent.blocks[0] as Extract<Part, { kind: 'reasoning' }>).open).toBe(false)
+  })
+
+  it('nests a subagent spawned by another subagent (file-picker → file-lister)', () => {
+    const parts = fold([
+      {
+        type: 'subagent_start',
+        agentId: 'picker',
+        agentType: 'file-picker',
+        displayName: 'File Picker',
+        parentAgentId: 'root',
+      },
+      {
+        type: 'subagent_start',
+        agentId: 'lister',
+        agentType: 'file-lister',
+        displayName: 'File Lister',
+        parentAgentId: 'picker',
+      },
+      { type: 'text', text: 'src/a.ts', agentId: 'lister' },
+      { type: 'subagent_finish', agentId: 'lister' },
+      { type: 'subagent_finish', agentId: 'picker' },
+    ])
+    expect(parts).toHaveLength(1)
+    const picker = parts[0] as Extract<Part, { kind: 'agent' }>
+    expect(picker.id).toBe('picker')
+    expect(picker.blocks).toHaveLength(1)
+    const lister = picker.blocks[0] as Extract<Part, { kind: 'agent' }>
+    expect(lister).toMatchObject({ kind: 'agent', id: 'lister', status: 'done' })
+    expect((lister.blocks[0] as Extract<Part, { kind: 'text' }>).text).toBe('src/a.ts')
+  })
+
+  it('treats a tool_call whose agentId is unknown (the root) as a root part', () => {
+    const parts = fold([
+      { type: 'tool_call', toolName: 'str_replace', input: { path: 'a.ts' }, toolCallId: 'c1', agentId: 'freebuff-desktop-thread' },
+    ])
+    expect(parts).toEqual([{ kind: 'tool', id: 'c1', toolName: 'str_replace', input: { path: 'a.ts' } }])
+  })
+
+  it('persists and reloads the agent tree with subagents marked done', () => {
+    const live = fold([
+      {
+        type: 'subagent_start',
+        agentId: 'sub-1',
+        agentType: 'basher',
+        displayName: 'Basher',
+        parentAgentId: 'root',
+      },
+      { type: 'reasoning_delta', text: 'running', agentId: 'sub-1' },
+    ])
+    // Still running before reload.
+    expect((live[0] as Extract<Part, { kind: 'agent' }>).status).toBe('running')
+    const reloaded = partsFromPersisted({ role: 'assistant', text: '', parts: live }, id)
+    const agent = reloaded[0] as Extract<Part, { kind: 'agent' }>
+    expect(agent.status).toBe('done')
+    // Nested reasoning collapses to hidden on reload.
+    expect(agent.blocks[0]).toMatchObject({ kind: 'reasoning', collapse: 'hidden' })
+  })
+})
+
 describe('partsFromPersisted', () => {
   it('returns stored parts verbatim, with reasoning collapsed to hidden', () => {
     const stored: Part[] = [

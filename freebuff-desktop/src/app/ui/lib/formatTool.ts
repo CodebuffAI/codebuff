@@ -14,6 +14,11 @@ const NAMES: Record<string, string> = {
   set_output: 'Output',
   suggest_prompts: 'Suggest',
   write_doc: 'Write doc',
+  // Subagent tools (rendered inside agent boxes)
+  web_search: 'Search web',
+  read_url: 'Read URL',
+  read_docs: 'Read docs',
+  spawn_agents: 'Spawn',
   // Claude Code tools
   Read: 'Read',
   Write: 'Write',
@@ -53,6 +58,12 @@ export function toolArg(toolName: string, input: unknown): string {
       return i.command ?? ''
     case 'code_search':
       return i.query ?? i.pattern ?? ''
+    case 'web_search':
+      return i.query ?? ''
+    case 'read_url':
+      return i.url ?? ''
+    case 'read_docs':
+      return i.query ?? i.prompt ?? ''
     case 'glob':
       return i.pattern ?? ''
     case 'write_doc':

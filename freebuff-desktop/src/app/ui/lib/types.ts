@@ -3,7 +3,7 @@
 import type { AttachmentKind } from '../../../core/attachments'
 import type { Part } from '../../../core/parts'
 
-export type { Part, ReasoningCollapse } from '../../../core/parts'
+export type { AgentPart, AgentStatus, Part, ReasoningCollapse } from '../../../core/parts'
 export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
 
 /** A file/photo/folder staged in the composer before send (absolute path + label). */
@@ -144,11 +144,21 @@ export type ServerEvent =
   | { type: 'prompt'; threadId: string; text: string }
   | { type: 'log'; level: 'info' | 'error'; message: string }
 
-/** A subset of the SDK PrintModeEvent we render. */
+/** A subset of the SDK PrintModeEvent we render. Text/reasoning/tool events may
+ *  carry an `agentId` attributing them to a spawned subagent (see core/parts). */
 export type AgentEvent =
-  | { type: 'text'; text: string }
-  | { type: 'reasoning_delta'; text: string }
-  | { type: 'tool_call'; toolName: string; input: unknown; toolCallId?: string }
+  | { type: 'text'; text: string; agentId?: string }
+  | { type: 'reasoning_delta'; text: string; agentId?: string }
+  | { type: 'tool_call'; toolName: string; input: unknown; toolCallId?: string; agentId?: string }
   | { type: 'tool_result'; toolName?: string; toolCallId?: string }
+  | {
+      type: 'subagent_start'
+      agentId: string
+      agentType: string
+      displayName: string
+      parentAgentId?: string
+      prompt?: string
+    }
+  | { type: 'subagent_finish'; agentId: string }
   | { type: 'finish' }
   | { type: string; [k: string]: unknown }
