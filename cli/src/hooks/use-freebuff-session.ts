@@ -163,6 +163,7 @@ function nextDelayMs(next: FreebuffSessionResponse): number | null {
     case 'model_locked':
     case 'rate_limited':
     case 'model_unavailable':
+    case 'premium_slot_taken':
       return null
   }
 }
