@@ -38,6 +38,17 @@ let serverProc = null
 /** @type {BrowserWindow | null} */
 let mainWindow = null
 let shuttingDown = false
+// The single trusted origin the renderer is allowed to live at (set in boot()
+// once the orchestrator port is known). Navigation / new-window requests to any
+// other origin are denied and handed to the system browser, so the preload
+// bridge never rides along to an untrusted document.
+/** @type {string | null} */
+let appOrigin = null
+// The URL the renderer loads (orchestrator origin, or the Vite dev server). Held
+// at module scope so a macOS dock re-activate can reattach to the live
+// orchestrator instead of spawning a second one.
+/** @type {string | null} */
+let appUrl = null
 
 // Override package.json's "@codebuff/freebuff-desktop" name — that string leaks
 // into the macOS app menu, About panel, and Windows taskbar/AppUserModelId.
@@ -88,13 +99,15 @@ function findFreePort() {
   })
 }
 
-// Poll the orchestrator's /api/state until it answers (or we give up).
+// Poll the orchestrator's /healthz until it answers (or we give up). Using the
+// trivial liveness probe instead of /api/state keeps readiness from depending on
+// the full engine snapshot serializing.
 function waitForServer(port, timeoutMs = 30000) {
   const start = Date.now()
   return new Promise((resolve, reject) => {
     const attempt = () => {
       const req = http.get(
-        { host: '127.0.0.1', port, path: '/api/state', timeout: 1500 },
+        { host: '127.0.0.1', port, path: '/healthz', timeout: 1500 },
         (res) => {
           res.resume()
           resolve()
@@ -206,6 +219,28 @@ function loadingPage() {
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
 }
 
+/** Whether `url` is same-origin with the trusted app origin (set in boot()).
+ *  False before boot resolves the origin, or for an unparseable URL. */
+function isAppUrl(url) {
+  if (!appOrigin) return false
+  try {
+    return new URL(url).origin === appOrigin
+  } catch {
+    return false
+  }
+}
+
+/** Hand an off-origin link to the system browser — but only http(s), so a
+ *  malicious document can't get the OS to launch a file:/custom-scheme URL. */
+function openExternalSafely(url) {
+  try {
+    const { protocol } = new URL(url)
+    if (protocol === 'http:' || protocol === 'https:') void shell.openExternal(url)
+  } catch {
+    /* unparseable URL — ignore */
+  }
+}
+
 function createWindow() {
   const winOpts = {
     width: 1440,
@@ -227,14 +262,24 @@ function createWindow() {
 
   mainWindow.loadURL(loadingPage())
 
-  // Open target=_blank / external links in the system browser, not a new
-  // Electron window.
+  // New windows: only the trusted app origin may open in-app (with the preload
+  // bridge attached); every other URL is denied and opened in the system browser.
+  // A broad "any localhost" allow would let a malicious preview link load another
+  // local service in a privileged window. http(s) only — never hand the OS a
+  // file:/custom-scheme URL.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
-      return { action: 'allow' }
-    }
-    shell.openExternal(url)
+    if (isAppUrl(url)) return { action: 'allow' }
+    openExternalSafely(url)
     return { action: 'deny' }
+  })
+
+  // Top-level navigation: keep the renderer pinned to the app origin so the
+  // preload surface can't travel to an untrusted document. Off-origin link
+  // clicks are cancelled and sent to the system browser instead.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url)) return
+    event.preventDefault()
+    openExternalSafely(url)
   })
 
   mainWindow.on('closed', () => {
@@ -328,9 +373,33 @@ function buildMenu(reloadApp) {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+// macOS shows the Dock / Cmd+Tab icon from the running .app bundle, NOT from a
+// BrowserWindow's `icon` option (that one is ignored on macOS). In the packaged
+// app the bundled icon.icns covers this, but in dev the running bundle is
+// Electron's own, so without this the switcher shows the Electron logo. Setting
+// the dock icon at runtime fixes both Dock and Cmd+Tab in dev. (The Cmd+Tab
+// *name* comes from the bundle's CFBundleName, which has no runtime API — see
+// scripts/brand-dev-electron.ts for the dev-only fix.)
+function applyDockIcon() {
+  if (process.platform !== 'darwin' || !app.dock) return
+  try {
+    if (fs.existsSync(APP_ICON_PATH)) app.dock.setIcon(APP_ICON_PATH)
+  } catch {
+    /* best-effort — a bad icon shouldn't stop the app booting */
+  }
+}
+
 async function boot() {
+  applyDockIcon()
+  // Reattach, don't respawn: on a macOS dock re-activate the window may have been
+  // closed while the orchestrator stayed alive. Spawning another would overwrite
+  // serverProc and leak the first. Reuse the live one and just open a window.
+  if (serverProc && appUrl) {
+    const win = createWindow()
+    await win.loadURL(appUrl)
+    return
+  }
   const win = createWindow()
-  let appUrl
   try {
     // Dev-UI mode: Vite serves the renderer on 5174 and proxies /api to the Bun
     // orchestrator pinned to 8787. Otherwise the Bun server serves the built SPA.
@@ -338,6 +407,8 @@ async function boot() {
     const port = devUi ? 8787 : await findFreePort()
     await startOrchestrator(port)
     appUrl = devUi ? 'http://127.0.0.1:5174/' : `http://127.0.0.1:${port}/`
+    // Pin the navigation/window-open guards to this exact origin.
+    appOrigin = new URL(appUrl).origin
     await win.loadURL(appUrl)
   } catch (err) {
     dialog.showErrorBox('Freebuff failed to start', String(err?.message ?? err))

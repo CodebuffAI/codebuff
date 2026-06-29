@@ -17,9 +17,10 @@ import { sql } from 'drizzle-orm'
  *   - limitedQualified → Freebuff CLI daily-session bonus
  *
  * A referral COUNTS when it is qualified, activated, and not revoked, where:
- *   - qualified  = the referred user's GitHub account is ≥ 12 months old —
- *     DERIVED from the immutable `github_account_created_at` (never stored as a
- *     flag), so it ages in automatically with no sweep.
+ *   - qualified  = the referred user's GitHub account is at least
+ *     MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL old — DERIVED from the immutable
+ *     `github_account_created_at` (never stored as a flag), so it ages in
+ *     automatically with no sweep.
  *   - activated  = `activated_at` is set (the referred user used a product).
  *   - not revoked = `revoked_at` is null.
  */
@@ -66,9 +67,12 @@ export async function getReferralStats(params: {
 
 /**
  * Weekly GLM 5.2 sessions a referrer has earned: one per full-access qualified
- * referral, capped. Earned (and usable) regardless of the referrer's own
- * region — bringing real full-access users is the anti-farming gate, so a
- * referrer in a limited region who refers full-access users still gets GLM.
+ * referral, capped. GLM is a full-access-only reward — the referrer must be on
+ * full access to actually start a GLM session (enforced at admission by
+ * `resolveFreebuffModelForAccessTier`, which downgrades a limited-tier user's
+ * GLM request). A limited-access referrer's reward is the daily-session bonus
+ * (see `cliDailySessionBonusFromStats`), not GLM — deliberately, to avoid a
+ * limited/VPN-region GLM farming vector.
  */
 export function glmWeeklySessionsFromStats(stats: ReferralStats): number {
   return Math.min(stats.fullQualified, FREEBUFF_GLM_V52_REFERRAL_CAP)

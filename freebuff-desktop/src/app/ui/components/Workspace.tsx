@@ -5,7 +5,7 @@ import { QueuePanel } from './QueuePanel'
 
 const MIN_QUEUE = 260
 const MAX_QUEUE = 760
-const DEFAULT_QUEUE = 360
+const DEFAULT_QUEUE = 720
 const STORAGE_KEY = 'fb.queueWidth'
 
 function clamp(w: number): number {

@@ -41,12 +41,36 @@ import type {
   Thread,
 } from '../core/types'
 import { slugify, WorktreeManager } from '../core/worktree'
+import {
+  getRecommendedFreebuffModelId,
+  isFreebuffDesktopPremiumBucketModelId,
+  isFreebuffMultimodalModelId,
+  resolveFreebuffModelForAccessTier,
+  FALLBACK_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_ID,
+  type FreebuffAccessTier,
+  type FreebuffModelOption,
+} from '@codebuff/common/constants/freebuff-models'
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
+import { trackEvent } from './analytics'
+import { CLAUDE_CODE_MODEL } from './models'
+import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
+import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
 import { ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
+  FreebuffSessionError,
+  FreebuffSessionManager,
+  type FreebuffSessions,
+} from './agents/freebuff-session-manager'
+import {
   AGENT_OPTIONS,
   DEFAULT_HARNESS,
+  freebuffModelOptions,
+  isHarnessId,
   type AgentHarness,
   type AgentOption,
   type HarnessId,
@@ -69,6 +93,20 @@ export interface Snapshot {
    * what's shown in the tab pill until the user picks something per-tab.
    */
   agent: { harnessId: HarnessId; options: readonly AgentOption[] }
+  /**
+   * Freebuff free-mode state for the model picker: the user's access tier, the
+   * models that tier may pick, which thread currently holds the single premium
+   * concurrency slot (so other tabs disable premium options), and auth status.
+   */
+  freebuff: {
+    accessTier: FreebuffAccessTier
+    /** Pickable models for the tier, each tagged with whether it occupies the
+     *  one-per-user premium concurrency slot (premium models + MiniMax M3). */
+    models: (FreebuffModelOption & { premiumBucket: boolean })[]
+    premiumSlotHolder: string | null
+    authed: boolean
+    user: { id?: string; name?: string; email?: string } | null
+  }
   /**
    * Whether the project has a previewable entry — derived from settings
    * (`preview.entry` resolved against the repo/worktree), falling back to a
@@ -97,6 +135,12 @@ export interface EngineOptions {
   projectId?: string
   repoUrl?: string
   client?: CodebuffClient
+  /** Freebuff auth token for the hosted agent. Defaults to the persisted login
+   *  token, then the CODEBUFF_API_KEY env var (dev). */
+  apiKey?: string
+  /** Inject the free-mode session manager (tests). Defaults to a real one that
+   *  talks to /api/v1/freebuff/session. */
+  freebuffSessions?: FreebuffSessions
   defaultBranch?: string
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
@@ -109,6 +153,9 @@ export interface EngineOptions {
   harnessId?: HarnessId
   /** User-home skills dir for acquired skills. Defaults to `~/.freebuff/skills`. */
   globalSkillsDir?: string
+  /** Inject the thread-title generator (tests). Defaults to the SDK-backed one
+   *  that runs a throwaway single-step agent on the hosted client. */
+  generateTitle?: TitleGenerator
 }
 
 export class ThreadEngine {
@@ -117,17 +164,28 @@ export class ThreadEngine {
   readonly docs: DocStore
   readonly skills: SkillStore
   readonly settings: SettingsStore
-  private readonly client: CodebuffClient
+  private client: CodebuffClient
+  /** Per-tab Freebuff free-mode session lifecycle (admission + release). */
+  private readonly freebuff: FreebuffSessions
+  /** Thread id currently holding the single premium-bucket concurrency slot, or
+   *  null when no tab is on a premium-bucket model. In-memory; recomputed from
+   *  persisted thread models on startup. The server is the race-safe source of
+   *  truth — this drives the soft UX gate (other tabs hide premium options). */
+  private premiumSlotHolder: string | null = null
   private readonly projectId: string
   private readonly repoRoot: string
   private readonly previewBaseUrl: string
   private readonly browserCheckFn: (url: string) => Promise<BrowserCheckResult>
+  /** Generates the LLM thread title swapped in after the first message. */
+  private readonly titleGenerator: TitleGenerator
 
   private listeners = new Set<(e: EngineEvent) => void>()
   /**
-   * Per-thread harness state for context/caching across turns (in-memory only).
-   * Tagged with the harness that produced it: switching agents mid-thread makes
-   * the stale state ignored, so each harness starts that thread fresh.
+   * Per-thread harness state for context/caching across turns. Mirrored to the
+   * thread row (see `saveThreadState`) so it survives an app restart and the
+   * agent keeps the conversation; restored into this map on startup. Tagged with
+   * the harness that produced it: switching agents mid-thread makes the stale
+   * state ignored, so each harness starts that thread fresh.
    */
   private threadState = new Map<string, { harnessId: HarnessId; state: unknown }>()
   /**
@@ -187,9 +245,14 @@ export class ThreadEngine {
       globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
     })
     this.skills.seedDefaults()
-    this.client = opts.client ?? new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+    this.client = opts.client ?? new CodebuffClient({ apiKey: opts.apiKey ?? getAuthToken() })
+    this.freebuff =
+      opts.freebuffSessions ??
+      new FreebuffSessionManager(() => opts.apiKey ?? getAuthToken())
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
+    // Reads `this.client` lazily so a post-login client swap is picked up.
+    this.titleGenerator = opts.generateTitle ?? ((req) => runTitleCompletion(this.client, req))
 
     if (!this.store.getProject(this.projectId)) {
       this.store.insertProject({
@@ -212,17 +275,70 @@ export class ThreadEngine {
       opts.worktrees ??
       new WorktreeManager({ repoRoot: opts.repoRoot, defaultBranch: opts.defaultBranch ?? 'main' })
 
-    // Crash recovery: a turn left `running` can't still be in flight (turnChain is
-    // in-memory). Reset threads to idle and any claimed queue items back to queued,
-    // and seed the id counter from persisted threads.
+    // Crash/quit recovery. The app's in-memory turn state (the running agent, the
+    // typed-message inbox, the carried context) all died with the prior process,
+    // but the thread rows tell us what was in flight. For each thread we:
+    //   1. restore the agent's carried context so the next turn keeps the
+    //      conversation instead of starting blank;
+    //   2. reset an orphaned `running` turn → idle and requeue any claimed item;
+    //   3. if the thread was mid-turn at quit, resurrect the work — a typed turn
+    //      from `pending_prompt`, a queued turn via the requeue above — and mark
+    //      the thread for a pump so it resumes automatically.
+    // Only threads that were actually running are auto-resumed: an idle thread
+    // with queued items was deliberately stopped, so reviving it would override
+    // the user's Stop (the interrupted flag is in-memory and gone on restart).
+    const resumeIds: string[] = []
     for (const t of this.store.listThreads(this.projectId)) {
       const n = Number(t.id.replace(/^th/, ''))
       if (Number.isFinite(n)) this.threadSeq = Math.max(this.threadSeq, n)
-      if (t.turnState === 'running') {
-        this.store.updateThread(t.id, { turnState: 'idle' }, this.now())
+
+      const saved = this.store.getHarnessState(t.id)
+      if (saved && isHarnessId(saved.harnessId)) {
+        try {
+          this.threadState.set(t.id, { harnessId: saved.harnessId, state: JSON.parse(saved.stateJson) })
+        } catch {
+          // Corrupt persisted state — drop it; the thread starts the next turn fresh.
+          this.store.clearHarnessState(t.id)
+        }
       }
+
+      const wasRunning = t.turnState === 'running'
+      if (wasRunning) this.store.updateThread(t.id, { turnState: 'idle' }, this.now())
+      let hadRunningItem = false
       for (const it of this.store.listQueueItems(t.id, 'running')) {
         this.store.updateQueueItem(it.id, { state: 'queued' }, this.now())
+        hadRunningItem = true
+      }
+
+      // `pending_prompt` only matters for a thread that was mid-turn at quit — an
+      // idle thread never re-runs it (and any stray value is harmless, only read
+      // here), so don't even read/clear it off the idle path.
+      if (wasRunning) {
+        const pending = this.store.getPendingPrompt(t.id)
+        if (pending != null) this.store.setPendingPrompt(t.id, null)
+        // A typed turn (no claimed queue item) is re-run from its pending prompt;
+        // a queued turn re-runs via the requeue above. The `!hadRunningItem` guard
+        // keeps the two recovery paths from double-running the same turn.
+        if (!hadRunningItem && pending) this.userInbox.set(t.id, [{ text: pending }])
+        resumeIds.push(t.id)
+      }
+    }
+    this.recomputePremiumSlotHolder()
+    // Kick the pump for every thread that was mid-turn at quit: drain the
+    // resurrected typed prompt and/or the requeued items, now with context
+    // restored. Fire-and-forget — the turns run as the server comes up.
+    for (const id of resumeIds) void this.pump(id)
+  }
+
+  /** Rebuild the in-memory premium-slot holder from persisted thread models.
+   *  The first open thread on a premium-bucket model wins the slot; the server
+   *  still enforces one-per-user, so this is only the UX gate. */
+  private recomputePremiumSlotHolder(): void {
+    this.premiumSlotHolder = null
+    for (const t of this.store.listThreads(this.projectId, { status: 'open' })) {
+      if (t.freebuffModel && isFreebuffDesktopPremiumBucketModelId(t.freebuffModel)) {
+        this.premiumSlotHolder = t.id
+        break
       }
     }
   }
@@ -253,6 +369,31 @@ export class ThreadEngine {
     return h
   }
 
+  /**
+   * Persist + cache the agent's carried context for a thread, so the next turn —
+   * even after an app restart — resumes the conversation. The opaque harness
+   * state is JSON-serialized for the row; if it isn't serializable we clear the
+   * persisted copy (the thread degrades to starting fresh next launch) but keep
+   * the in-memory copy live for this session.
+   */
+  private saveThreadState(threadId: string, harnessId: HarnessId, state: unknown): void {
+    this.threadState.set(threadId, { harnessId, state })
+    try {
+      this.store.setHarnessState(threadId, harnessId, JSON.stringify(state))
+    } catch {
+      // Not serializable — keep the in-memory copy live for this session but drop
+      // the persisted one so a restart starts fresh rather than throwing on load.
+      this.store.clearHarnessState(threadId)
+    }
+  }
+
+  /** Drop a thread's carried context (both in-memory and persisted). Used when a
+   *  mid-thread agent/model switch invalidates the prior state, and on close/delete. */
+  private dropThreadState(threadId: string): void {
+    this.threadState.delete(threadId)
+    this.store.clearHarnessState(threadId)
+  }
+
   /** Set the agent for a specific thread; subsequent turns use it. Persists to
    *  SQLite (so the choice survives restarts) and re-broadcasts the thread. */
   setThreadHarness(threadId: string, id: HarnessId): void {
@@ -265,7 +406,7 @@ export class ThreadEngine {
     this.store.updateThread(threadId, { harnessId: value }, this.now())
     // Drop any cached harness state for this thread — switching agents makes
     // the prior state from the previous harness invalid (see `runTurn`).
-    this.threadState.delete(threadId)
+    this.dropThreadState(threadId)
     this.emitThread(threadId)
   }
 
@@ -278,6 +419,98 @@ export class ThreadEngine {
   setHarness(id: HarnessId): void {
     if (id === this.defaultHarness) return
     this.defaultHarness = id
+    this.emitState()
+  }
+
+  /** The default model for a tab with no explicit pick: the tier's recommended
+   *  model when it can hold the premium slot, else an unlimited model so parallel
+   *  tabs don't all contend for the one premium session. */
+  private recommendedModelForNewTab(slotFree: boolean): string {
+    const recommended = getRecommendedFreebuffModelId(this.freebuff.getAccessTier())
+    return isFreebuffDesktopPremiumBucketModelId(recommended) && !slotFree
+      ? LIMITED_FREEBUFF_MODEL_ID
+      : recommended
+  }
+
+  /** The Freebuff model a thread's hosted-agent turns run on. An explicit
+   *  per-thread pick (coerced to the access tier) wins; otherwise the tab gets
+   *  the recommended default for its slot availability. */
+  freebuffModelForThread(threadId: string): string {
+    const t = this.store.getThread(threadId)
+    if (t?.freebuffModel) {
+      return resolveFreebuffModelForAccessTier(
+        t.freebuffModel,
+        this.freebuff.getAccessTier(),
+      )
+    }
+    const slotFree =
+      !this.premiumSlotHolder || this.premiumSlotHolder === threadId
+    return this.recommendedModelForNewTab(slotFree)
+  }
+
+  /**
+   * Set a thread's Freebuff model. Coerces to the access tier and applies the
+   * one-premium-tab soft gate: if another tab already holds the premium slot, a
+   * premium pick is downgraded to an unlimited model and `rejected` is returned
+   * so the UI can explain. Releasing the old session forces a fresh admission on
+   * the new model next turn.
+   */
+  setThreadFreebuffModel(
+    threadId: string,
+    model: string,
+  ): { model: string; rejected: boolean } {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return { model, rejected: false }
+    const tier = this.freebuff.getAccessTier()
+    let resolved = resolveFreebuffModelForAccessTier(model, tier)
+    let rejected = false
+
+    // Soft gate: if another tab already holds the premium slot, downgrade a
+    // premium pick to an unlimited model (the server is the real authority).
+    if (
+      isFreebuffDesktopPremiumBucketModelId(resolved) &&
+      this.premiumSlotHolder &&
+      this.premiumSlotHolder !== threadId
+    ) {
+      resolved = LIMITED_FREEBUFF_MODEL_ID
+      rejected = true
+    }
+
+    const changed = (thread.freebuffModel ?? null) !== resolved
+    if (changed) {
+      // Release the old session so the next turn re-admits on the new model, and
+      // drop cached run state (a model switch starts the thread fresh).
+      void this.freebuff.release(threadId)
+      this.dropThreadState(threadId)
+    }
+    this.store.updateThread(threadId, { freebuffModel: resolved }, this.now())
+    // `premiumSlotHolder` is derived from the persisted thread models — recompute
+    // it after the write rather than mutating it inline at every call site.
+    this.recomputePremiumSlotHolder()
+    this.emitThread(threadId)
+    this.emitState()
+    return { model: resolved, rejected }
+  }
+
+  /** End every per-tab free-mode session server-side (best-effort). Called on
+   *  logout so a user's desktop sessions don't linger until they expire/sweep. */
+  async releaseFreebuffSessions(): Promise<void> {
+    await this.freebuff.releaseAll()
+  }
+
+  /** Swap the Freebuff auth token (after login/logout): rebuild the hosted-agent
+   *  client so it carries the new bearer, then refresh the access tier. */
+  setAuthToken(token: string | undefined): void {
+    this.client = new CodebuffClient({ apiKey: token ?? getAuthToken() })
+    // Drop the cached codebuff harness so it picks up the new client.
+    this.harnesses.delete('codebuff')
+    void this.refreshTier()
+  }
+
+  /** Probe the Freebuff access tier (GET /freebuff/session) and broadcast it so
+   *  the model picker reflects full vs limited access. Fire-and-forget safe. */
+  async refreshTier(): Promise<void> {
+    await this.freebuff.fetchTier()
     this.emitState()
   }
 
@@ -302,10 +535,22 @@ export class ThreadEngine {
     // Re-read each snapshot so an external edit to .freebuff/settings.json shows up
     // on the next state event (the file is small; this is free).
     const { settings } = this.settings.read()
+    const accessTier = this.freebuff.getAccessTier()
+    const user = getAuthUser()
     return {
       project,
       threads,
       agent: { harnessId: this.defaultHarness, options: AGENT_OPTIONS },
+      freebuff: {
+        accessTier,
+        models: freebuffModelOptions(accessTier).map((m) => ({
+          ...m,
+          premiumBucket: isFreebuffDesktopPremiumBucketModelId(m.id),
+        })),
+        premiumSlotHolder: this.premiumSlotHolder,
+        authed: isAuthed(),
+        user: user ?? null,
+      },
       previewReady: this.detectPreviewReady(settings),
       settings,
     }
@@ -357,18 +602,23 @@ export class ThreadEngine {
 
   createThread(opts: { title?: string } = {}): Thread {
     const id = `th${++this.threadSeq}`
-    // New threads start explicitly pinned to the default (rather than null) so
-    // the UI shows a non-empty pill right away, and any later change to the
-    // default does NOT silently migrate already-open threads.
+    // Pick the new tab's default Freebuff model with the one-premium-tab rule:
+    // the first tab (slot free) gets the recommended model (premium for full
+    // tier); later tabs default to an unlimited model so they run in parallel.
+    // New threads are pinned explicitly (not null) so the pill is non-empty and a
+    // later default change doesn't silently migrate already-open threads.
     const thread = this.store.insertThread({
       id,
       projectId: this.projectId,
       title: opts.title ?? 'New thread',
       harnessId: this.defaultHarness,
+      freebuffModel: this.recommendedModelForNewTab(!this.premiumSlotHolder),
       createdAt: this.now(),
     })
+    this.recomputePremiumSlotHolder()
     this.emitState()
     this.emitThread(id)
+    trackEvent(AnalyticsEvent.DESKTOP_THREAD_CREATED, { harness: thread.harnessId })
     return thread
   }
 
@@ -428,7 +678,9 @@ export class ThreadEngine {
       } else {
         this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
       }
-      this.threadState.delete(id)
+      this.dropThreadState(id)
+      void this.freebuff.release(id)
+      this.recomputePremiumSlotHolder()
       this.emitState()
     } finally {
       this.closingIds.delete(id)
@@ -469,6 +721,9 @@ export class ThreadEngine {
     if (thread.branch) await this.worktrees.remove(id).catch(() => {})
     this.store.deleteThread(id)
     this.threadState.delete(id)
+    // (No clearHarnessState — the row is already gone via deleteThread's cascade.)
+    void this.freebuff.release(id)
+    this.recomputePremiumSlotHolder()
     this.emitState()
   }
 
@@ -514,23 +769,100 @@ export class ThreadEngine {
   postMessage(threadId: string, text: string, attachmentPaths: readonly string[] = []): void {
     const thread = this.store.getThread(threadId)
     if (!thread) return
-    // Only the Codebuff harness (MiniMax M3) sees inline image content; Claude Code
-    // reads images from the path, so we don't inline base64 for it.
+    // Only the Freebuff (hosted) harness on a multimodal model sees inline image
+    // content; Claude Code reads images from the path, and a text-only freebuff
+    // model would reject inlined bytes — so gate on both.
     const harnessId = this.harnessForThread(threadId)
+    const inlineImages =
+      harnessId === 'codebuff' &&
+      isFreebuffMultimodalModelId(this.freebuffModelForThread(threadId))
     const att = attachmentPaths.length
-      ? buildAttachmentBlock(attachmentPaths, { inlineImages: harnessId === 'codebuff' })
+      ? buildAttachmentBlock(attachmentPaths, { inlineImages })
       : null
     // The agent sees the inlined prompt block; the transcript shows the compact
     // summary. `appendBlock` is shared with the renderer so the two never drift.
     const steeringText = appendBlock(text, att?.promptBlock ?? '')
     const displayText = appendBlock(text, att?.summary ?? '')
-    // Auto-title a fresh thread from its first message (fall back to an attachment
-    // name when the message is attachment-only).
-    const titleSeed = text.trim() || att?.manifest[0]?.name
+    // Auto-title a fresh thread from its first message: show a prompt-prefix
+    // placeholder immediately (fall back to an attachment name when the message is
+    // attachment-only), then — for a real text prompt — swap in a short LLM topic
+    // title once it comes back (best-effort, in parallel with the turn). Mirrors
+    // the freebuff.com/chat thread titles (see ./title.ts).
+    const trimmed = text.trim()
+    const titleSeed = trimmed || att?.manifest[0]?.name
     if (thread.title === 'New thread' && titleSeed) {
-      this.store.updateThread(threadId, { title: titleSeed.slice(0, 60) }, this.now())
+      const placeholder = titleSeed.slice(0, TITLE_MAX_CHARS)
+      this.store.updateThread(threadId, { title: placeholder }, this.now())
+      if (trimmed) void this.generateThreadTitle(threadId, trimmed, placeholder)
     }
+    // Cross-surface DAU signal — one per user-submitted message. `accessTier`
+    // matches the convention the other surfaces adopted (see `message_sent`).
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, {
+      ...this.turnTelemetry(threadId),
+      kind: 'message',
+      hasAttachments: attachmentPaths.length > 0,
+      hasImages: Boolean(att?.images?.length),
+      inputLength: trimmed.length,
+    })
     this.startUserTurn(threadId, steeringText, displayText, att?.images)
+  }
+
+  /** Shared analytics context for a turn: which agent/model is in play and the
+   *  user's Freebuff access tier. Read at submit time so per-tab picks are
+   *  reflected (the hosted agent's model is per-thread; Claude Code is fixed). */
+  private turnTelemetry(threadId: string): {
+    harness: HarnessId
+    model: string
+    accessTier: FreebuffAccessTier
+  } {
+    const harness = this.harnessForThread(threadId)
+    return {
+      harness,
+      model:
+        harness === 'codebuff'
+          ? this.freebuffModelForThread(threadId)
+          : CLAUDE_CODE_MODEL,
+      accessTier: this.freebuff.getAccessTier(),
+    }
+  }
+
+  /**
+   * Generate a short LLM topic title for a fresh thread and swap it in for the
+   * prompt-prefix `placeholder`. Best-effort: runs a throwaway single-step agent
+   * on the hosted client as a normal metered request (free mode is gated to the
+   * freebuff agent hierarchy, which a one-off title agent can't satisfy — chat
+   * meters its title too) on a cheap model. Any failure — no credits, model
+   * error, empty output — leaves the placeholder untouched. The swap is also
+   * skipped if the thread was deleted or the user already renamed it.
+   */
+  private async generateThreadTitle(
+    threadId: string,
+    prompt: string,
+    placeholder: string,
+  ): Promise<void> {
+    const start = this.now()
+    try {
+      const title = await this.titleGenerator({
+        prompt,
+        // A cheap, fast model — the title only needs the gist.
+        model: FALLBACK_FREEBUFF_MODEL_ID,
+        cwd: this.repoRoot,
+      })
+      // Only swap if the thread still exists and is still showing the placeholder
+      // we set — a manual rename or a concurrent update wins.
+      const current = this.store.getThread(threadId)
+      if (title && current && current.title === placeholder) {
+        this.store.updateThread(threadId, { title }, this.now())
+        this.emitThread(threadId)
+        trackEvent(AnalyticsEvent.DESKTOP_THREAD_TITLED, {
+          ...this.turnTelemetry(threadId),
+          latencyMs: this.now() - start,
+          titleLength: title.length,
+        })
+      }
+    } catch {
+      // Best-effort: keep the prompt-prefix placeholder on any failure.
+    }
   }
 
   /**
@@ -547,6 +879,11 @@ export class ThreadEngine {
     if (!skill) return false
     const thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return false
+    // A /skill is a user-submitted prompt too — count it toward DAU (with a
+    // `kind`/`skill` tag) and emit a dedicated skill-run event for skill usage.
+    const ctx = this.turnTelemetry(threadId)
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, { ...ctx, kind: 'skill', skill: skillName })
+    trackEvent(AnalyticsEvent.DESKTOP_SKILL_RUN, { ...ctx, skill: skillName })
     this.startUserTurn(threadId, skill.prompt, `/${skillName}`)
     return true
   }
@@ -648,6 +985,7 @@ export class ThreadEngine {
   ): Promise<void> {
     let thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return
+    const turnStartedAt = this.now()
 
     if (meta.queueItemId) {
       const item = this.store.getQueueItem(meta.queueItemId)
@@ -661,6 +999,13 @@ export class ThreadEngine {
       const chatText = isCommand ? `/${item!.label ?? item!.skillName ?? 'skill'}` : prompt
       this.store.appendMessage(threadId, { role: 'user', text: chatText }, this.now())
       this.emit({ type: 'prompt', threadId, text: chatText })
+    } else {
+      // A typed turn is driven by the in-memory `userInbox` (the chat/steering path,
+      // mutated mid-turn by `drainSteering`), NOT a durable queue_items row — so it
+      // has nothing to requeue on crash-recovery. Stash its prompt on the thread row
+      // so the next launch re-runs it (see the constructor's recovery loop). Queued
+      // turns skip this: they're already recovered by requeueing the claimed item.
+      this.store.setPendingPrompt(threadId, prompt)
     }
     // Reset the in-memory turn outcome — the running pulse already conveys
     // "in flight", and the prior terminator only matters when the thread goes
@@ -708,10 +1053,23 @@ export class ThreadEngine {
       const saved = this.threadState.get(threadId)
       const previousState = saved?.harnessId === harness.id ? saved.state : undefined
 
+      // Freebuff (hosted) turns run in free mode: resolve the thread's model and
+      // admit (or refresh) its per-tab session, then bind the turn to it. A
+      // failed admission (e.g. premium slot taken) throws FreebuffSessionError,
+      // caught below and surfaced as a friendly turn failure.
+      let model: string | undefined
+      let freeMode: { instanceId: string } | undefined
+      if (harness.id === 'codebuff') {
+        model = this.freebuffModelForThread(threadId)
+        freeMode = { instanceId: await this.freebuff.ensure(threadId, model) }
+      }
+
       const result = await harness.runTurn(
         {
           prompt,
           cwd,
+          model,
+          freeMode,
           abort: aborter,
           toolDeps: {
             onSuggest: (items) => this.addSuggestions(threadId, items),
@@ -737,7 +1095,9 @@ export class ThreadEngine {
           drainSteering: () => this.drainSteering(threadId),
         },
       )
-      this.threadState.set(threadId, { harnessId: harness.id, state: result.state })
+      // Persist the carried context (mirrored to the thread row) so the next
+      // turn keeps the conversation even across an app restart.
+      this.saveThreadState(threadId, harness.id, result.state)
       // A Stop arrives as an abort; mark it but keep any partial output.
       if (aborter.signal.aborted) {
         turnOutcome = 'stopped'
@@ -749,6 +1109,11 @@ export class ThreadEngine {
       if (aborter.signal.aborted) {
         turnOutcome = 'stopped'
         finalize('⏹ Stopped.')
+      } else if (err instanceof FreebuffSessionError) {
+        // Session admission failed (premium slot taken, rate limited, sign-in
+        // needed, …) — the error message is already user-facing.
+        turnOutcome = 'error'
+        finalize(`⚠️ ${err.message}`)
       } else {
         turnOutcome = 'error'
         const msg = (err as Error).message
@@ -758,6 +1123,9 @@ export class ThreadEngine {
     } finally {
       this.aborters.delete(threadId)
       this.store.appendMessage(threadId, { role: 'assistant', text: assistantText, acts, parts }, this.now())
+      // The typed turn is no longer in flight: clear its crash-recovery prompt so a
+      // later restart doesn't re-run a turn that already finished (or was stopped).
+      if (!meta.queueItemId) this.store.setPendingPrompt(threadId, null)
       if (meta.queueItemId) this.store.updateQueueItem(meta.queueItemId, { state: 'done' }, this.now())
       // Finalize the in-memory turn outcome (drives the tab's stopped/error icon);
       // the DB only learns about the idle transition.
@@ -765,6 +1133,13 @@ export class ThreadEngine {
       this.store.updateThread(threadId, { turnState: 'idle' }, this.now())
       this.emitThread(threadId)
       this.emitState()
+      trackEvent(AnalyticsEvent.DESKTOP_TURN_COMPLETED, {
+        ...this.turnTelemetry(threadId),
+        outcome: turnOutcome ?? 'completed',
+        durationMs: this.now() - turnStartedAt,
+        toolCalls: acts.length,
+        responseChars: assistantText.length,
+      })
     }
   }
 

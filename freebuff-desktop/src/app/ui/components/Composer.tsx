@@ -1,16 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
+import { bridge } from '../lib/bridge'
 import { buildCommands, filterCommands, type Command } from '../lib/commands'
 import { baseName, kindFor } from '../lib/file-drop'
 import type { PendingAttachment } from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 import { SlashMenu } from './SlashMenu'
-
-/** The Electron preload bridge (absent in a plain browser). */
-function bridge(): any {
-  return (window as any).freebuffDesktop
-}
 
 const iconFor = (kind: PendingAttachment['kind']) =>
   kind === 'directory' ? 'folder' : kind === 'image' ? 'image' : 'file'
@@ -90,7 +86,7 @@ export function Composer({
       pushToast('Attaching files needs the desktop app', 'error')
       return
     }
-    const picked: { path: string; name: string; isDirectory: boolean }[] = await fb.pickAttachments()
+    const picked = await fb.pickAttachments()
     if (!picked?.length) return
     addAttachments(
       picked.map((p) => ({
@@ -124,7 +120,7 @@ export function Composer({
       } else if (type.startsWith('image/') && fb?.saveClipboardImage) {
         // In-memory image data (screenshot). Materialize it via the main process.
         const bytes = new Uint8Array(await file.arrayBuffer())
-        const saved: { path: string; name: string } | null = await fb.saveClipboardImage(bytes, type.split('/')[1] || 'png')
+        const saved = await fb.saveClipboardImage(bytes, type.split('/')[1] || 'png')
         if (saved?.path) metas.push({ path: saved.path, name: saved.name, kind: 'image' })
       }
     }

@@ -121,8 +121,8 @@ export default function AdminSnapshotsPage() {
               disabled={isBuilding}
               className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-black"
             >
-              <option value="full">Standard (2 vCPU / 4 GB / 6 GB)</option>
-              <option value="small">Limited (1 vCPU / 2 GB / 4 GB)</option>
+              <option value="full">Standard (2 vCPU / 4 GB / 4 GB)</option>
+              <option value="small">Limited (1 vCPU / 2 GB / 2 GB)</option>
             </select>
             <Button onClick={handleBuild} disabled={isBuilding}>
               {isBuilding ? (

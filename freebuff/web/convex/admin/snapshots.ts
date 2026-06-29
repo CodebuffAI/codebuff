@@ -21,7 +21,7 @@ import { getAuthUser } from "../users";
 export const buildGoldenSnapshot = action({
   args: {
     // Resource tier for the built snapshot. Defaults to the standard
-    // 2 vCPU / 4 GB / 6 GB tier; "small" is the limited-country tier.
+    // 2 vCPU / 4 GB / 4 GB tier; "small" is the limited-country tier.
     tier: v.optional(v.union(v.literal("small"), v.literal("full"))),
     daytonaServer: v.optional(v.union(v.literal("legacy"), v.literal("new"))),
   },

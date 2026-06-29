@@ -8,7 +8,7 @@ import {
   FREEBUFF_MCP_TOOL_NAMES,
 } from './claude-code-harness'
 import type { HarnessCallbacks } from './harness'
-import type { ThreadToolDeps } from './thread-agent'
+import type { ThreadToolDeps } from './thread-tools'
 
 /** Build callbacks that fold into ordered parts exactly like the engine does. */
 function recorder() {

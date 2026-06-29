@@ -14,7 +14,13 @@
 import { existsSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
 import { isHarnessId, type HarnessId } from './agents/harness'
+import { isAllowedApiOrigin } from './origin-guard'
+import { flushAnalytics, identifyOnLogin, initAnalytics, resetIdentity, trackEvent } from './analytics'
+import { LoginManager } from './auth/login-flow'
+import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
   browseDir,
@@ -25,6 +31,7 @@ import {
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
+import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -52,6 +59,23 @@ const persistedHarness = readAgentHarness()
 let currentHarness: HarnessId | undefined = isHarnessId(persistedHarness) ? persistedHarness : undefined
 let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).defaultBranch)
 let engineUnsub = engine.on(broadcast)
+// Probe the Freebuff access tier on startup so the model picker reflects full vs
+// limited access without waiting for the first turn. Fire-and-forget.
+void engine.refreshTier()
+
+// Drives the device-code login flow. On success we rebuild the engine's hosted
+// client with the new token, re-probe the tier, and broadcast so the UI updates.
+const loginManager = new LoginManager((user) => {
+  engine.setAuthToken(getAuthToken())
+  // Tie this install's pre-login activity to the real account, then record the
+  // sign-in (mirrors the CLI's `cli.login`).
+  identifyOnLogin(user)
+  trackEvent(AnalyticsEvent.DESKTOP_LOGIN, {
+    hasEmail: Boolean(user.email),
+    hasName: Boolean(user.name),
+  })
+  broadcast({ type: 'state', snapshot: engine.snapshot() })
+})
 
 function makeEngine(repoRoot: string, defaultBranch?: string): ThreadEngine {
   const e = new ThreadEngine({
@@ -78,6 +102,8 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   engine = makeEngine(info.path, info.defaultBranch)
   engineUnsub = engine.on(broadcast)
   pushRecentProject(info.path)
+  void engine.refreshTier()
+  trackEvent(AnalyticsEvent.DESKTOP_PROJECT_OPENED)
 
   broadcast({ type: 'state', snapshot: engine.snapshot() })
   return { ok: true }
@@ -144,16 +170,34 @@ const server = Bun.serve({
     const url = new URL(req.url)
     const { pathname } = url
 
+    // Local-CSRF guard: the API runs shell (`/api/run`) and mutates the project,
+    // so block any cross-origin browser request before routing. Same-origin
+    // renderer calls, the dev Vite proxy, and non-browser clients pass; a page on
+    // another origin (incl. DNS-rebinding) is rejected. See origin-guard.ts.
+    if (pathname.startsWith('/api/') && !isAllowedApiOrigin(req.headers.get('origin'))) {
+      return new Response('Forbidden: cross-origin request blocked', { status: 403 })
+    }
+
+    // Liveness probe — a trivial, dependency-free signal for the Electron shell's
+    // startup wait and any monitoring, so readiness doesn't ride on serializing
+    // the full engine snapshot (`/api/state`).
+    if (pathname === '/healthz') return new Response('ok')
+
     // — Server-Sent Events: live engine + thread state + agent activity —
     if (pathname === '/api/events') {
       let send: (e: EngineEvent) => void = () => {}
+      let heartbeat: ReturnType<typeof setInterval> | undefined
       const stream = new ReadableStream({
         start(controller) {
+          const cleanup = () => {
+            subscribers.delete(send)
+            if (heartbeat) clearInterval(heartbeat)
+          }
           send = (e: EngineEvent) => {
             try {
               controller.enqueue(`data: ${JSON.stringify(e)}\n\n`)
             } catch {
-              subscribers.delete(send)
+              cleanup()
             }
           }
           // Initial state + a thread event per open thread so a (re)connecting
@@ -163,9 +207,22 @@ const server = Bun.serve({
             send({ type: 'thread', threadId: t.id, thread: t, items: engine.store.listQueueItems(t.id) })
           }
           subscribers.add(send)
+          // Heartbeat: an SSE comment frame (ignored by EventSource) every 25s.
+          // Without traffic a half-open socket (laptop sleep, proxy drop) would
+          // sit dead in `subscribers` forever; the enqueue throws on a dead
+          // controller and triggers cleanup. Also keeps intermediaries from
+          // dropping an idle stream.
+          heartbeat = setInterval(() => {
+            try {
+              controller.enqueue(': ping\n\n')
+            } catch {
+              cleanup()
+            }
+          }, 25_000)
         },
         cancel() {
           subscribers.delete(send)
+          if (heartbeat) clearInterval(heartbeat)
         },
       })
       return new Response(stream, {
@@ -224,7 +281,34 @@ const server = Bun.serve({
       currentHarness = harnessId
       engine.setHarness(harnessId)
       writeAgentHarness(harnessId)
+      trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId, scope: 'default' })
       return json({ ok: true, harnessId })
+    }
+
+    // — Freebuff auth (device-code login) —
+    if (pathname === '/api/auth/status' && req.method === 'GET') {
+      return json({ authed: isAuthed(), user: getAuthUser() ?? null })
+    }
+    if (pathname === '/api/auth/login/start' && req.method === 'POST') {
+      try {
+        const { loginUrl, expiresAt } = await loginManager.start()
+        return json({ ok: true, loginUrl, expiresAt })
+      } catch (err) {
+        return json({ ok: false, error: (err as Error).message }, 502)
+      }
+    }
+    if (pathname === '/api/auth/logout' && req.method === 'POST') {
+      // Attribute the logout to the user before clearing identity.
+      trackEvent(AnalyticsEvent.DESKTOP_LOGOUT)
+      resetIdentity()
+      // Release the user's per-tab free-mode sessions while the token is still
+      // valid (the DELETE needs auth) so they don't linger server-side until
+      // they expire/sweep. Best-effort — failures just leave rows to expire.
+      await engine.releaseFreebuffSessions()
+      logoutAuth()
+      engine.setAuthToken(undefined)
+      broadcast({ type: 'state', snapshot: engine.snapshot() })
+      return json({ ok: true })
     }
 
     // — Project settings (.freebuff/settings.json) —
@@ -307,7 +391,23 @@ const server = Bun.serve({
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
           engine.setThreadHarness(threadId, id)
+          trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId: id, scope: 'thread' })
           return json({ ok: true })
+        }
+        case 'model': {
+          // Per-thread Freebuff model pick. Returns the resolved model (it may be
+          // downgraded to an unlimited model if another tab holds the premium
+          // slot) so the optimistic UI can reconcile.
+          const model = b.model
+          if (typeof model !== 'string' || !isSupportedFreebuffModelId(model)) {
+            return json({ error: 'invalid model' }, 400)
+          }
+          const result = engine.setThreadFreebuffModel(threadId, model)
+          trackEvent(AnalyticsEvent.DESKTOP_MODEL_CHANGED, {
+            requested: model,
+            resolved: result.model,
+          })
+          return json({ ok: true, ...result })
         }
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
@@ -415,3 +515,35 @@ const server = Bun.serve({
 
 console.log(`Freebuff Desktop orchestrator on http://localhost:${server.port}`)
 console.log(`Target repo: ${currentRepo}`)
+
+// — Analytics — top of the funnel: one launch event per orchestrator start.
+// Pre-login launches are captured under the install's anonymous id and aliased
+// to the account on sign-in, so install→login→first-message stays a clean funnel.
+initAnalytics()
+trackEvent(AnalyticsEvent.DESKTOP_APP_LAUNCHED, {
+  platform: process.platform,
+  arch: process.arch,
+  version: process.env.FREEBUFF_APP_VERSION,
+  authed: isAuthed(),
+})
+// Graceful shutdown. SIGTERM is how the Electron shell stops the orchestrator (it
+// SIGKILLs 3s later as a fallback). Registering a signal listener overrides the
+// runtime's default "terminate on signal", so we MUST exit ourselves — otherwise
+// Bun.serve keeps the process alive and quit hangs until the shell's SIGKILL,
+// leaving a zombie that can hold the port against the next launch. Flush buffered
+// PostHog events first so the launch/last events aren't lost, then exit promptly.
+let shuttingDown = false
+const flushAndExit = async () => {
+  if (shuttingDown) return
+  shuttingDown = true
+  try {
+    await flushAnalytics()
+  } finally {
+    process.exit(0)
+  }
+}
+process.once('SIGTERM', () => void flushAndExit())
+process.once('SIGINT', () => void flushAndExit())
+// `beforeExit` fires on a natural empty-loop exit (not after process.exit); flush
+// best-effort without forcing an exit so a non-signal teardown still ships events.
+process.once('beforeExit', () => void flushAnalytics())

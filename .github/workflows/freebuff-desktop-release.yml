@@ -1,0 +1,195 @@
+name: Freebuff Desktop Release
+
+# Builds the Freebuff Desktop Electron app for macOS (arm64 + Intel), Windows,
+# and Linux, then publishes the installers to a public GitHub Release so users
+# can download them. Mirrors the CLI release flow (freebuff-release.yml), but
+# uses electron-builder instead of `bun build --compile`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      checkout_ref:
+        description: 'Git ref to build from (commit SHA, branch, or tag). Defaults to latest main.'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: freebuff-desktop-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-commit:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.checkout_ref || '' }}
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Calculate and update version
+        id: bump_version
+        run: |
+          cd freebuff-desktop
+
+          CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
+          echo "Current version: $CURRENT_VERSION"
+
+          npm version ${{ inputs.version_type }} --no-git-tag-version
+          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
+
+          echo "New Freebuff Desktop version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push version bump
+        run: |
+          git stash
+          git pull --rebase origin main
+          git stash pop
+          git add freebuff-desktop/package.json
+          git commit -m "Bump Freebuff Desktop version to ${{ steps.bump_version.outputs.new_version }}"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag "freebuff-desktop-v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "freebuff-desktop-v${{ steps.bump_version.outputs.new_version }}"
+
+  build:
+    needs: prepare-and-commit
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: mac-arm64
+          - os: macos-15-intel
+            target: mac-x64
+          - os: windows-latest
+            target: win-x64
+          - os: ubuntu-latest
+            target: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Stamp release version
+        shell: bash
+        working-directory: freebuff-desktop
+        run: |
+          npm version ${{ needs.prepare-and-commit.outputs.new_version }} \
+            --no-git-tag-version --allow-same-version
+
+      - name: Configure environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+          # FREEBUFF_MODE is read by the orchestrator at runtime; the
+          # NEXT_PUBLIC_* vars are baked into the orchestrator bundle at build
+          # time (see freebuff-desktop/scripts/build-orchestrator.ts).
+          ENV_OVERRIDES: '{"FREEBUFF_MODE": "true", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
+        shell: bash
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
+
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "$ENV_OVERRIDES" | jq -r 'to_entries | .[] | .key + "=" + .value' >> $GITHUB_ENV
+
+      - name: Stage app (UI + icons + Bun + orchestrator)
+        shell: bash
+        working-directory: freebuff-desktop
+        run: bun run prepackage
+
+      - name: Package installer (electron-builder)
+        shell: bash
+        working-directory: freebuff-desktop
+        env:
+          # Unsigned builds for now: don't let electron-builder try to discover
+          # / use a signing identity on the macOS runners. Code signing +
+          # notarization is a follow-up (needs an Apple Developer cert; the
+          # equivalent on Windows is an Authenticode cert).
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: bun run pack:ci
+
+      - name: Collect installers
+        shell: bash
+        working-directory: freebuff-desktop
+        run: |
+          mkdir -p out
+          # Only the distributable installers — skip the unpacked dir/, the
+          # builder-debug.yml, etc.
+          find dist -maxdepth 1 -type f \
+            \( -name '*.dmg' -o -name '*.exe' -o -name '*.AppImage' \) \
+            -exec cp {} out/ \;
+          echo "Collected:" && ls -la out
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: freebuff-desktop-${{ matrix.target }}
+          path: freebuff-desktop/out/*
+          if-no-files-found: error
+
+  create-release:
+    needs: [prepare-and-commit, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all installer artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: installers/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: freebuff-desktop-v${{ needs.prepare-and-commit.outputs.new_version }}
+          name: Freebuff Desktop v${{ needs.prepare-and-commit.outputs.new_version }}
+          prerelease: false
+          body: |
+            ## Freebuff Desktop v${{ needs.prepare-and-commit.outputs.new_version }}
+
+            Desktop app for the Freebuff coding agent. Download the installer for your platform:
+
+            | Platform | File |
+            | --- | --- |
+            | macOS (Apple Silicon) | `Freebuff-${{ needs.prepare-and-commit.outputs.new_version }}-mac-arm64.dmg` |
+            | macOS (Intel) | `Freebuff-${{ needs.prepare-and-commit.outputs.new_version }}-mac-x64.dmg` |
+            | Windows (x64) | `Freebuff-${{ needs.prepare-and-commit.outputs.new_version }}-win-x64.exe` |
+            | Linux (x64) | `Freebuff-${{ needs.prepare-and-commit.outputs.new_version }}-linux-x64.AppImage` |
+
+            > **Note:** These builds are not yet code-signed. macOS users may need to
+            > right-click → Open (or allow it in System Settings → Privacy & Security);
+            > Windows users may see a SmartScreen warning.
+          files: |
+            installers/**/*.dmg
+            installers/**/*.exe
+            installers/**/*.AppImage
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}

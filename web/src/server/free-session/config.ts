@@ -28,6 +28,12 @@ export function getIpSessionCap(): number {
   return env.FREEBUFF_IP_SESSION_CAP
 }
 
+/** Max concurrent desktop multi-session rows a single user may hold at once.
+ *  Bounds desktop fan-out so a script can't open hundreds of unlimited-model
+ *  sessions on one account. Generous enough for real parallel-tab use; the
+ *  premium-bucket cap (one) is enforced separately at the DB level. */
+export const FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS = 8
+
 /** Only emit the per-IP concurrency log when an admission pushes a hash to at
  *  least this many concurrent active sessions. Filters out the long tail of
  *  singleton / low-concurrency IPs so the log stays cheap while still capturing

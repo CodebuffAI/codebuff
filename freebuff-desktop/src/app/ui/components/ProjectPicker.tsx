@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { useDismissable } from '../hooks/useDismissable'
 import { api } from '../lib/api'
 import { useStore } from '../store/store'
 import type { BrowseResult } from '../lib/types'
@@ -30,6 +31,8 @@ export function ProjectPicker({ onClose }: { onClose: () => void }) {
   // Stash the path a failed recent open tried to open, shown inline so a stale
   // or invalid entry doesn't silently disappear from the list on next refresh.
   const [recentError, setRecentError] = useState<string | null>(null)
+  // Escape closes the modal; the backdrop already handles outside clicks.
+  useDismissable(true, null, onClose, { escapeOnly: true })
 
   const load = (path?: string) => {
     setLoading(true)

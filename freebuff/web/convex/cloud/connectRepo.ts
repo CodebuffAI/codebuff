@@ -240,6 +240,7 @@ export const connectRepo = action({
       const { id: daytonaSandboxId } = await createDaytonaSandbox(
         "new",
         snapshotId,
+        { sizeClass },
       );
       const sandboxId = "daytona:" + daytonaSandboxId;
       const codebase = await initializeCodebase(sandboxId, undefined, "new");

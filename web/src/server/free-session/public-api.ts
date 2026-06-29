@@ -16,6 +16,7 @@ import {
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
   FREEBUFF_WEEKLY_SESSION_PERIOD,
+  isFreebuffDesktopPremiumBucketModelId,
   isFreebuffGeminiProModelId,
   isFreebuffGlmV52ModelId,
   isFreebuffModelAllowedForAccessTier,
@@ -31,18 +32,27 @@ import {
 import { getGlmReferralEntitlement } from '@codebuff/billing/referral-program'
 
 import {
+  FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS,
   getIpSessionCap,
   IP_SESSION_LOG_FLOOR,
   getSessionGraceMs,
   getSessionLengthMs,
 } from './config'
 import {
+  admitDesktopSession,
   countActiveSessionsForIpHash,
+  endAllDesktopSessions,
+  endDesktopSession,
   endSession,
   FreeSessionModelLockedError,
+  FreeSessionPremiumSlotTakenError,
+  getActiveDesktopSessionCount,
+  getDesktopSessionRow,
   getSessionRow,
   joinOrTakeOver,
   listRecentFreeSessionAdmits,
+  newInstanceId,
+  pinDesktopMinimaxUpstreamToMinimax,
   pinMinimaxUpstreamToMinimax,
   promoteQueuedUser,
 } from './store'
@@ -337,6 +347,40 @@ export interface SessionDeps {
    *  rate-limited it. Sticky for the session's life so the prompt cache stays
    *  warm. No-op when the session row is absent (waiting room off). */
   pinMinimaxUpstream: (params: { userId: string; now: Date }) => Promise<void>
+  // --- Desktop multi-session deps (optional: only used when multiSession is
+  // set, which only the desktop route does; defaultDeps provides them). ---
+  getDesktopSessionRow?: (
+    userId: string,
+    instanceId: string,
+  ) => Promise<InternalSessionRow | null>
+  admitDesktopSession?: (params: {
+    userId: string
+    instanceId: string
+    model: string
+    accessTier: FreebuffAccessTier
+    premiumBucket: boolean
+    now: Date
+    sessionLengthMs: number
+    fireworksRoute?: FireworksRoute | null
+    countryAccess?: FreeSessionCountryAccessMetadata
+    /** The row for (userId, instanceId) if the caller already fetched it, so the
+     *  store can skip a duplicate read on the reclaim path. */
+    existing?: InternalSessionRow | null
+  }) => Promise<InternalSessionRow>
+  endDesktopSession?: (params: {
+    userId: string
+    instanceId: string
+    now: Date
+    sessionLengthMs: number
+  }) => Promise<void>
+  endAllDesktopSessions?: (userId: string) => Promise<void>
+  getActiveDesktopSessionCount?: (userId: string) => Promise<number>
+  /** Instance-scoped MiniMax pin for a desktop session. */
+  pinDesktopMinimaxUpstream?: (params: {
+    userId: string
+    instanceId: string
+    now: Date
+  }) => Promise<void>
   /** Cached Fireworks fleet-health snapshot, used at admission time to pin
    *  a backup-capable session to 'deployment' (healthy) or 'serverless'
    *  (degraded/unhealthy) for its whole life. */
@@ -373,6 +417,12 @@ const defaultDeps: SessionDeps = {
   getStreakBonusUnits: (params) => sumStreakBonusUnits(params),
   promoteQueuedUser,
   pinMinimaxUpstream: pinMinimaxUpstreamToMinimax,
+  getDesktopSessionRow,
+  admitDesktopSession,
+  endDesktopSession,
+  endAllDesktopSessions,
+  getActiveDesktopSessionCount,
+  pinDesktopMinimaxUpstream: pinDesktopMinimaxUpstreamToMinimax,
   getFleetHealth,
   getDeploymentTtftP90Ms: deploymentTtftP90Ms,
   get graceMs() {
@@ -526,6 +576,15 @@ export type RequestSessionResult =
       requestedModel: string
       availableHours: string
     }
+  | {
+      /** Desktop multi-session: a premium-bucket session is already active for
+       *  this user; only one is allowed at a time. */
+      status: 'premium_slot_taken'
+      accessTier?: FreebuffAccessTier
+      requestedModel: string
+      currentModel: string
+      currentInstanceId: string
+    }
 
 /**
  * Promote the caller's freshly-joined queued row to active, pinning the
@@ -537,47 +596,67 @@ export type RequestSessionResult =
  * path. The pin is decided once here and frozen for the session — see
  * `routeForAdmission`.
  */
+/** Decide the sticky Fireworks upstream pin for a fresh admission from current
+ *  fleet health. Only backup-capable models (e.g. MiniMax M3) get a pin; others
+ *  return a null route (default deployment routing). Shared by the single-session
+ *  queue admit and the desktop multi-session admit. */
+async function resolveFireworksRouteForAdmission(
+  model: string,
+  deps: SessionDeps,
+): Promise<{
+  fireworksRoute: FireworksRoute | null
+  health?: FireworksHealth
+  ttftP90Ms?: number
+}> {
+  if (!hasFireworksServerlessBackup(model)) return { fireworksRoute: null }
+  const fleet = await deps.getFleetHealth()
+  const health = fleet[model] ?? 'healthy'
+  const ttftP90Ms = deps.getDeploymentTtftP90Ms(model)
+  return {
+    fireworksRoute: routeForAdmission(model, fleet, ttftP90Ms),
+    health,
+    ttftP90Ms,
+  }
+}
+
+/** One log per fresh admission of a backup-capable model (not takeover/reclaim).
+ *  The metric tag makes the deployment-vs-serverless split chartable in the
+ *  freebuff Axiom dataset; gated to backup-capable models so it stays low-volume. */
+function logFireworksRoute(
+  userId: string,
+  model: string,
+  route: Awaited<ReturnType<typeof resolveFireworksRouteForAdmission>>,
+): void {
+  if (!route.fireworksRoute) return
+  logger.info(
+    {
+      metric: 'freebuff_fireworks_route',
+      userId,
+      model,
+      route: route.fireworksRoute,
+      health: route.health,
+      ttftP90Ms: route.ttftP90Ms,
+    },
+    '[FreeSession] pinned fireworks upstream at admission',
+  )
+}
+
 async function admitQueuedRow(
   params: { userId: string; countryAccess?: FreeSessionCountryAccessMetadata },
   model: string,
   now: Date,
   deps: SessionDeps,
 ): Promise<InternalSessionRow | null> {
-  let fireworksRoute: FireworksRoute | null = null
-  let pinnedHealth: FireworksHealth | undefined
-  let pinnedTtftP90Ms: number | undefined
-  if (hasFireworksServerlessBackup(model)) {
-    const fleet = await deps.getFleetHealth()
-    pinnedHealth = fleet[model] ?? 'healthy'
-    pinnedTtftP90Ms = deps.getDeploymentTtftP90Ms(model)
-    fireworksRoute = routeForAdmission(model, fleet, pinnedTtftP90Ms)
-  }
+  const route = await resolveFireworksRouteForAdmission(model, deps)
   const promoted = await deps.promoteQueuedUser({
     userId: params.userId,
     model,
     sessionLengthMs: deps.sessionLengthMs,
     now,
-    fireworksRoute,
+    fireworksRoute: route.fireworksRoute,
   })
   if (!promoted) return null
-  // One log per fresh admission of a backup-capable model (M3) — not on
-  // takeover/reclaim, which keeps the existing pin. The metric tag makes the
-  // deployment-vs-serverless split chartable in the freebuff Axiom dataset, and
-  // `health` shows what drove it. Gated to backup-capable models so it stays
-  // low-volume.
-  if (fireworksRoute) {
-    logger.info(
-      {
-        metric: 'freebuff_fireworks_route',
-        userId: params.userId,
-        model,
-        route: fireworksRoute,
-        health: pinnedHealth,
-        ttftP90Ms: pinnedTtftP90Ms,
-      },
-      '[FreeSession] pinned fireworks upstream at admission',
-    )
-  }
+  logFireworksRoute(params.userId, model, route)
   await logIpSessionConcurrency(params, model, deps)
   return promoted
 }
@@ -605,9 +684,20 @@ export async function requestSession(params: {
   /** True if the account is banned. Short-circuited here so banned bots never
    *  create a session row at all. */
   userBanned?: boolean
+  /** Desktop multi-session mode: admit into free_session_desktop instead of the
+   *  single-session free_session table, allowing concurrent per-tab sessions
+   *  (capped at one premium-bucket session). */
+  multiSession?: boolean
+  /** Stable per-tab instance id (desktop multi-session only). The server keys
+   *  the desktop row on it so GET/DELETE for the same tab address the same row.
+   *  Generated server-side when absent. */
+  instanceId?: string | null | undefined
   deps?: SessionDeps
 }): Promise<RequestSessionResult> {
   const deps = params.deps ?? defaultDeps
+  if (params.multiSession) {
+    return requestDesktopSession(params, deps)
+  }
   const accessTier = params.accessTier ?? 'full'
   const model = resolveFreebuffModelForAccessTier(params.model, accessTier)
   const now = nowOf(deps)
@@ -733,6 +823,143 @@ export async function requestSession(params: {
   return attachRateLimit(params.userId, view, deps)
 }
 
+/**
+ * Desktop multi-session admission. Unlike `requestSession`, a single user may
+ * hold many concurrent rows — one per parallel tab, keyed by `instanceId`. The
+ * only concurrency limit is the premium-bucket cap (one), enforced as a DB
+ * invariant by the partial unique index (surfaced as `premium_slot_taken`).
+ */
+async function requestDesktopSession(
+  params: {
+    userId: string
+    model: string
+    accessTier?: FreebuffAccessTier
+    countryAccess?: FreeSessionCountryAccessMetadata
+    userBanned?: boolean
+    instanceId?: string | null | undefined
+  },
+  deps: SessionDeps,
+): Promise<RequestSessionResult> {
+  const accessTier = params.accessTier ?? 'full'
+  const model = resolveFreebuffModelForAccessTier(params.model, accessTier)
+  const now = nowOf(deps)
+  if (params.userBanned) {
+    return { status: 'banned' }
+  }
+  void deps.maybeSweepExpired?.()
+
+  const instanceId = params.instanceId || newInstanceId()
+
+  // Reclaim: an existing row for this tab refreshes its window instead of
+  // starting a new session (no quota re-count, no availability/cap gate).
+  let existing = await deps.getDesktopSessionRow!(params.userId, instanceId)
+  if (existing && !isSessionRowCompatibleWithAccessTier(existing, accessTier)) {
+    await deps.endDesktopSession!({
+      userId: params.userId,
+      instanceId,
+      now,
+      sessionLengthMs: deps.sessionLengthMs,
+    })
+    existing = null
+  }
+  const isReclaim =
+    !!existing &&
+    existing.model === model &&
+    (existing.access_tier ?? 'full') === accessTier &&
+    existing.status === 'active' &&
+    !!existing.expires_at &&
+    existing.expires_at.getTime() > now.getTime()
+
+  if (!isReclaim) {
+    if (!isFreebuffModelAvailable(model, now)) {
+      return {
+        status: 'model_unavailable',
+        accessTier,
+        requestedModel: model,
+        availableHours: FREEBUFF_DEPLOYMENT_HOURS_LABEL,
+      }
+    }
+    const snapshot = await fetchRateLimitSnapshot(
+      params.userId,
+      model,
+      accessTier,
+      deps,
+    )
+    if (snapshot && !canStartSession(snapshot.info)) {
+      return {
+        ...snapshot.info,
+        status: 'rate_limited',
+        accessTier,
+        retryAfterMs: Math.max(0, snapshot.resetsAt.getTime() - now.getTime()),
+      }
+    }
+    // Per-user total concurrent-session backstop (abuse). Rare for real use;
+    // reuse the rate_limited shape so the client already knows how to surface it.
+    const activeCount = await deps.getActiveDesktopSessionCount!(params.userId)
+    if (activeCount >= FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS) {
+      const bounds = getZonedDayBounds(
+        now,
+        FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+      )
+      return {
+        status: 'rate_limited',
+        accessTier,
+        model,
+        limit: FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS,
+        period: FREEBUFF_PREMIUM_SESSION_PERIOD,
+        resetTimeZone: FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+        resetAt: bounds.resetsAt.toISOString(),
+        windowHours: FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
+        recentCount: activeCount,
+        retryAfterMs: 0,
+      }
+    }
+  }
+
+  const route = await resolveFireworksRouteForAdmission(model, deps)
+
+  let row: InternalSessionRow
+  try {
+    row = await deps.admitDesktopSession!({
+      userId: params.userId,
+      instanceId,
+      model,
+      accessTier,
+      premiumBucket: isFreebuffDesktopPremiumBucketModelId(model),
+      now,
+      sessionLengthMs: deps.sessionLengthMs,
+      fireworksRoute: route.fireworksRoute,
+      countryAccess: params.countryAccess,
+      // Pass the row already fetched above so the store skips a duplicate read.
+      existing,
+    })
+  } catch (err) {
+    if (err instanceof FreeSessionPremiumSlotTakenError) {
+      return {
+        status: 'premium_slot_taken',
+        accessTier,
+        requestedModel: model,
+        currentModel: err.currentModel,
+        currentInstanceId: err.currentInstanceId,
+      }
+    }
+    throw err
+  }
+
+  if (!isReclaim) {
+    logFireworksRoute(params.userId, model, route)
+    await logIpSessionConcurrency(params, model, deps)
+  }
+
+  const view = await viewForRow(params.userId, deps, row)
+  if (!view) {
+    throw new Error(
+      `admitDesktopSession returned a row that maps to no view (user=${params.userId})`,
+    )
+  }
+  return attachRateLimit(params.userId, view, deps)
+}
+
 /** Thread the current quota snapshot onto active/ended views so the
  *  CLI can render "N of M sessions used" — both during the session and on
  *  the post-session banner. Other statuses pass through unchanged. Called on
@@ -799,6 +1026,10 @@ export async function getSessionState(params: {
   userEmail?: string | null | undefined
   userBanned?: boolean
   claimedInstanceId?: string | null | undefined
+  /** Desktop multi-session: read the per-tab row keyed by `claimedInstanceId`
+   *  instead of the single per-user row. With no instance id, returns a `none`
+   *  response (carrying accessTier + quota) — used by the desktop tier probe. */
+  multiSession?: boolean
   deps?: SessionDeps
 }): Promise<FreebuffSessionServerResponse> {
   const deps = params.deps ?? defaultDeps
@@ -806,10 +1037,9 @@ export async function getSessionState(params: {
   if (params.userBanned) {
     return { status: 'banned' }
   }
-  const row = await deps.getSessionRow(params.userId)
 
   // Build a `none` response with per-user quota snapshots so exhausted models
-  // are visible in the CLI's pre-join picker before POST.
+  // are visible in the picker before POST. Also the desktop tier-probe response.
   const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
     const rateLimitsByModel = await fetchRateLimitsByModel(
       params.userId,
@@ -825,18 +1055,37 @@ export async function getSessionState(params: {
     }
   }
 
+  // Desktop tier probe: GET without an instance id just wants accessTier + quota.
+  if (params.multiSession && !params.claimedInstanceId) return noneResponse()
+
+  const row = params.multiSession
+    ? await deps.getDesktopSessionRow!(params.userId, params.claimedInstanceId!)
+    : await deps.getSessionRow(params.userId)
+
   if (!row) return noneResponse()
 
   if (!isSessionRowCompatibleWithAccessTier(row, accessTier)) {
-    await deps.endSession({
-      userId: params.userId,
-      now: nowOf(deps),
-      sessionLengthMs: deps.sessionLengthMs,
-    })
+    if (params.multiSession && params.claimedInstanceId) {
+      await deps.endDesktopSession!({
+        userId: params.userId,
+        instanceId: params.claimedInstanceId,
+        now: nowOf(deps),
+        sessionLengthMs: deps.sessionLengthMs,
+      })
+    } else {
+      await deps.endSession({
+        userId: params.userId,
+        now: nowOf(deps),
+        sessionLengthMs: deps.sessionLengthMs,
+      })
+    }
     return noneResponse()
   }
 
+  // Desktop rows are keyed by instance id so they never supersede each other;
+  // the supersede check only applies to the single-session table.
   if (
+    !params.multiSession &&
     row.status === 'active' &&
     params.claimedInstanceId &&
     params.claimedInstanceId !== row.active_instance_id
@@ -852,12 +1101,30 @@ export async function getSessionState(params: {
 export async function endUserSession(params: {
   userId: string
   userEmail?: string | null | undefined
+  /** Desktop multi-session: end one tab's session (`instanceId` provided) or
+   *  all of the user's desktop sessions (omitted). */
+  multiSession?: boolean
+  instanceId?: string | null | undefined
   deps?: SessionDeps
 }): Promise<void> {
   const deps = params.deps ?? defaultDeps
+  const now = nowOf(deps)
+  if (params.multiSession) {
+    if (params.instanceId) {
+      await deps.endDesktopSession!({
+        userId: params.userId,
+        instanceId: params.instanceId,
+        now,
+        sessionLengthMs: deps.sessionLengthMs,
+      })
+    } else {
+      await deps.endAllDesktopSessions!(params.userId)
+    }
+    return
+  }
   await deps.endSession({
     userId: params.userId,
-    now: nowOf(deps),
+    now,
     sessionLengthMs: deps.sessionLengthMs,
   })
 }
@@ -873,7 +1140,16 @@ export async function endUserSession(params: {
 export async function pinFreeSessionToMinimax(
   userId: string,
   deps: SessionDeps = defaultDeps,
+  opts?: { multiSession?: boolean; instanceId?: string | null },
 ): Promise<void> {
+  if (opts?.multiSession && opts.instanceId) {
+    await deps.pinDesktopMinimaxUpstream!({
+      userId,
+      instanceId: opts.instanceId,
+      now: nowOf(deps),
+    })
+    return
+  }
   await deps.pinMinimaxUpstream({ userId, now: nowOf(deps) })
 }
 
@@ -941,6 +1217,9 @@ export async function checkSessionAdmissible(params: {
    *  rejects requests whose model doesn't match the active session's model
    *  so a stale CLI tab can't slip a request through under the wrong model. */
   requestedModel?: string | null | undefined
+  /** Desktop multi-session: validate against the per-tab desktop row keyed by
+   *  `claimedInstanceId` instead of the single per-user row. */
+  multiSession?: boolean
   deps?: SessionDeps
 }): Promise<SessionGateResult> {
   const deps = params.deps ?? defaultDeps
@@ -959,7 +1238,10 @@ export async function checkSessionAdmissible(params: {
     }
   }
 
-  const row = await deps.getSessionRow(params.userId)
+  // Desktop rows are keyed by (user, instance); single-session by user.
+  const row = params.multiSession
+    ? await deps.getDesktopSessionRow!(params.userId, params.claimedInstanceId)
+    : await deps.getSessionRow(params.userId)
 
   if (!row) {
     return {

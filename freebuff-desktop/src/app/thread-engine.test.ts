@@ -21,6 +21,16 @@ class FakeClient {
   }
 }
 
+/** Stub free-mode sessions so turns never touch the network. Admission returns a
+ *  fixed instance id; the rest are no-ops. */
+const fakeFreebuffSessions = () => ({
+  getAccessTier: () => 'full' as const,
+  fetchTier: async () => ({ accessTier: 'full' as const }),
+  ensure: async () => 'inst-test',
+  release: async () => {},
+  releaseAll: async () => {},
+})
+
 async function gitEngine(client = new FakeClient(), extra: Record<string, unknown> = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fbd-thread-'))
   await bunRunner.run('git', ['init', '-b', 'main', root])
@@ -35,7 +45,12 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
   const engine = new ThreadEngine({
     repoRoot: root,
     client: client as any,
+    freebuffSessions: fakeFreebuffSessions(),
     globalSkillsDir: join(root, '.global-skills'),
+    // Default to no LLM title (keeps the prompt-prefix placeholder) so the shared
+    // turn tests don't see the title agent's run on the fake client. Individual
+    // tests override this to exercise the swap.
+    generateTitle: async () => null,
     ...extra,
   })
   return {
@@ -147,6 +162,55 @@ describe('ThreadEngine — turns', () => {
       const data = engine.threadData(thread.id)!
       expect(data.thread.title).toBe('readme.md')
       expect(data.messages[0].text).toBe('📎 readme.md')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('the first message swaps the prompt-prefix title for the LLM topic title', async () => {
+    let titleReq: { prompt: string } | undefined
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      generateTitle: async (req: any) => {
+        titleReq = req
+        return 'OAuth Login Flow'
+      },
+    })
+    try {
+      const thread = engine.createThread()
+      const titles: string[] = []
+      engine.on((e) => {
+        if (e.type === 'thread' && e.threadId === thread.id) titles.push(e.thread.title)
+      })
+      engine.postMessage(thread.id, 'help me set up google oauth in next.js')
+      await settle(engine, thread.id)
+
+      // The generator saw the user's first message.
+      expect(titleReq?.prompt).toBe('help me set up google oauth in next.js')
+      // The placeholder showed first, then got swapped for the LLM title.
+      expect(titles[0]).toBe('help me set up google oauth in next.js'.slice(0, 60))
+      expect(titles).toContain('OAuth Login Flow')
+      expect(engine.getThread(thread.id)!.title).toBe('OAuth Login Flow')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('a manual rename before the LLM title returns is not clobbered', async () => {
+    let resolve: (t: string | null) => void = () => {}
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      generateTitle: () => new Promise<string | null>((r) => (resolve = r)),
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'first message')
+      await settle(engine, thread.id)
+      // The user renames the thread while the title call is still in flight.
+      engine.store.updateThread(thread.id, { title: 'My own title' }, Date.now())
+      resolve('LLM Title')
+      await new Promise((r) => setTimeout(r, 20))
+      // The in-flight LLM title only swaps the original placeholder, so the
+      // manual rename stands.
+      expect(engine.getThread(thread.id)!.title).toBe('My own title')
     } finally {
       cleanup()
     }
@@ -748,6 +812,160 @@ describe('ThreadEngine — close + rehydrate', () => {
       expect(afterClose.lastSeenHead).toBeTruthy()
       engine.rehydrateThread(thread.id)
       expect(engine.store.getThread(thread.id)!.status).toBe('open')
+    } finally {
+      cleanup()
+    }
+  })
+})
+
+/**
+ * App quit + relaunch. The orchestrator is a Bun process the Electron shell kills
+ * on quit and re-spawns on launch, so every restart is a brand-new ThreadEngine on
+ * the SAME on-disk `.freebuff/desktop.db`. These tests stand up a SECOND engine on
+ * the first one's repo to prove the conversation context survives and an
+ * interrupted turn resumes on its own.
+ */
+describe('ThreadEngine — app restart recovery', () => {
+  /** A client that returns a recognizable carried-context state and records the
+   *  `previousRun` it was handed (to prove restored context is threaded back in). */
+  class RecordingClient {
+    prompts: string[] = []
+    previousRuns: unknown[] = []
+    constructor(private readonly state: unknown = {}) {}
+    async run(opts: any) {
+      this.prompts.push(opts.prompt)
+      this.previousRuns.push(opts.previousRun)
+      opts.handleEvent?.({ type: 'finish' })
+      return this.state as any
+    }
+  }
+
+  /** Build a fresh engine on an existing repo — i.e. simulate a relaunch. */
+  const relaunch = (root: string, client: unknown) =>
+    new ThreadEngine({
+      repoRoot: root,
+      client: client as any,
+      freebuffSessions: fakeFreebuffSessions(),
+      globalSkillsDir: join(root, '.global-skills'),
+    })
+
+  test('restores conversation context so the next turn is not blank', async () => {
+    // First "session": run a real turn whose carried context we can fingerprint.
+    const first = new RecordingClient({ marker: 'ctx-from-turn-1' })
+    const { engine, root, cleanup } = await gitEngine(first as any)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'first message')
+      await settle(engine, thread.id)
+      // The completed turn persisted its harness state to the thread row.
+      expect(engine.store.getHarnessState(thread.id)).not.toBeNull()
+
+      // Relaunch and send a follow-up — it must carry the prior turn's context.
+      const second = new RecordingClient({ marker: 'ctx-from-turn-2' })
+      const engine2 = relaunch(root, second)
+      try {
+        engine2.postMessage(thread.id, 'do you remember?')
+        await settle(engine2, thread.id)
+        expect(second.prompts).toEqual(['do you remember?'])
+        // The restored context (not undefined) was threaded into the new run.
+        expect(second.previousRuns[0]).toEqual({ marker: 'ctx-from-turn-1' })
+      } finally {
+        engine2.close()
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('auto-resumes a typed turn that was in flight at quit', async () => {
+    // Drive the first session to a completed turn (persists context), then forge
+    // the "killed mid-turn" row state: turnState=running + a pending typed prompt.
+    const first = new RecordingClient({ marker: 'ctx-1' })
+    const { engine, root, cleanup } = await gitEngine(first as any)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'first message')
+      await settle(engine, thread.id)
+      // Simulate a hard quit while a SECOND, typed turn was running: the user
+      // message is in the transcript, turnState is 'running', pending_prompt is set,
+      // and the finally-block (which would clear them) never ran.
+      engine.store.appendMessage(thread.id, { role: 'user', text: 'keep going' }, Date.now())
+      engine.store.updateThread(thread.id, { turnState: 'running' }, Date.now())
+      engine.store.setPendingPrompt(thread.id, 'keep going')
+
+      // Relaunch: the engine should resurrect the in-flight prompt on its own —
+      // no new user message needed — with the restored context.
+      const second = new RecordingClient({ marker: 'ctx-2' })
+      const engine2 = relaunch(root, second)
+      try {
+        await settle(engine2, thread.id)
+        expect(second.prompts).toEqual(['keep going'])
+        expect(second.previousRuns[0]).toEqual({ marker: 'ctx-1' })
+        // pending_prompt is cleared once the resumed turn finishes, so a later
+        // restart won't run it twice.
+        expect(engine2.store.getPendingPrompt(thread.id)).toBeNull()
+        expect(engine2.getThread(thread.id)!.turnState).toBe('idle')
+      } finally {
+        engine2.close()
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('auto-resumes a queued turn that was running at quit (drains the queue)', async () => {
+    const first = new RecordingClient({})
+    const { engine, root, cleanup } = await gitEngine(first as any)
+    try {
+      const thread = engine.createThread()
+      // Two queued items; forge the state of "item 1 was running when the app quit"
+      // (claimed → running) plus turnState=running, with item 2 still queued.
+      const a = engine.enqueuePrompt(thread.id, 'queued one')
+      const b = engine.enqueuePrompt(thread.id, 'queued two')
+      await settle(engine, thread.id) // let the pump drain them in this session…
+      // …then forge a fresh interrupted state: re-queue both and mark item a running.
+      engine.store.updateQueueItem(a.id, { state: 'running' }, Date.now())
+      engine.store.updateQueueItem(b.id, { state: 'queued' }, Date.now())
+      engine.store.updateThread(thread.id, { turnState: 'running' }, Date.now())
+
+      const second = new RecordingClient({})
+      const engine2 = relaunch(root, second)
+      try {
+        await settle(engine2, thread.id)
+        // Both items ran on relaunch (requeued item a + still-queued item b).
+        expect(second.prompts).toEqual(['queued one', 'queued two'])
+        expect(engine2.store.getQueueItem(a.id)!.state).toBe('done')
+        expect(engine2.store.getQueueItem(b.id)!.state).toBe('done')
+      } finally {
+        engine2.close()
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('does NOT revive an idle thread with queued items (respects a prior Stop)', async () => {
+    const first = new RecordingClient({})
+    const { engine, root, cleanup } = await gitEngine(first as any)
+    try {
+      const thread = engine.createThread()
+      const a = engine.enqueuePrompt(thread.id, 'queued one')
+      await settle(engine, thread.id)
+      // Forge a "stopped" shape: an item left queued while the thread is idle (the
+      // in-memory interrupted flag that produced this is gone after a restart).
+      engine.store.updateQueueItem(a.id, { state: 'queued' }, Date.now())
+      // turnState stays 'idle' — the thread was NOT mid-turn at quit.
+
+      const second = new RecordingClient({})
+      const engine2 = relaunch(root, second)
+      try {
+        // Give a pump (if any) time to fire, then assert nothing ran.
+        await new Promise((r) => setTimeout(r, 100))
+        expect(second.prompts).toEqual([])
+        expect(engine2.store.getQueueItem(a.id)!.state).toBe('queued')
+      } finally {
+        engine2.close()
+      }
     } finally {
       cleanup()
     }

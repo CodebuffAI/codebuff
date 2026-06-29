@@ -29,25 +29,48 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 9
+const SCHEMA_VERSION = 11
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+
+/**
+ * Parse a JSON column, returning `fallback` if it's malformed. The DB lives in
+ * the repo (`.freebuff/desktop.db`) and is user-editable, so a single corrupt
+ * `parts_json`/`acts_json`/`skills_json`/`run_config` value must not blow up the
+ * whole transcript / workflow list / project load — it degrades to the default.
+ */
+function safeParse<T>(json: string | null | undefined, fallback: T): T {
+  if (json == null) return fallback
+  try {
+    return JSON.parse(json) as T
+  } catch {
+    return fallback
+  }
+}
 
 /**
  * Build an `UPDATE … SET col = $col, …, updated_at = $updated WHERE id = $id`
  * from a typed patch, mapping camelCase keys to snake_case columns. `boolKeys`
  * are coerced to 0/1. Returns null when the patch is empty.
+ *
+ * `allowed` is the set of permitted camelCase keys for this table: an unknown key
+ * throws rather than silently emitting `SET nonexistent_col = …` (the TS patch
+ * types erase at runtime, so this is the only guard against a stray/typo'd key).
  */
 function buildUpdate(
   table: string,
   id: string,
   patch: Record<string, unknown>,
   now: number,
-  boolKeys: readonly string[] = [],
+  opts: { allowed: readonly string[]; boolKeys?: readonly string[] },
 ): { sql: string; params: Record<string, string | number | null> } | null {
+  const { allowed, boolKeys = [] } = opts
   const sets: string[] = []
   const params: Record<string, string | number | null> = { $id: id, $updated: now }
   for (const [key, value] of Object.entries(patch)) {
+    if (!allowed.includes(key)) {
+      throw new Error(`buildUpdate(${table}): refusing unknown column for key "${key}"`)
+    }
     sets.push(`${toSnake(key)} = $${key}`)
     params[`$${key}`] = boolKeys.includes(key) ? (value ? 1 : 0) : (value as string | number | null)
   }
@@ -75,6 +98,8 @@ export interface NewThreadInput {
   status?: ThreadStatus
   /** Per-thread agent selection. Null means "use the engine's default". */
   harnessId?: HarnessId | null
+  /** Per-thread Freebuff model. Null means "use the recommended default". */
+  freebuffModel?: string | null
   autoQueueSuggestions?: boolean
   createdAt: number
 }
@@ -105,6 +130,7 @@ export type ThreadPatch = Partial<
     | 'title'
     | 'status'
     | 'harnessId'
+    | 'freebuffModel'
     | 'autoQueueSuggestions'
     | 'branch'
     | 'worktreePath'
@@ -122,6 +148,34 @@ export type QueueItemPatch = Partial<
     'prompt' | 'label' | 'state' | 'source' | 'skillName' | 'workflowRunId' | 'workflowName' | 'position'
   >
 >
+
+// Runtime allowlists for buildUpdate, kept honest by `satisfies` so a typo or a
+// key that isn't a real patch field is a compile error.
+const THREAD_PATCH_KEYS = [
+  'title',
+  'status',
+  'harnessId',
+  'freebuffModel',
+  'autoQueueSuggestions',
+  'branch',
+  'worktreePath',
+  'baseRef',
+  'lastSeenHead',
+  'prUrl',
+  'prState',
+  'turnState',
+] as const satisfies readonly (keyof ThreadPatch)[]
+
+const QUEUE_PATCH_KEYS = [
+  'prompt',
+  'label',
+  'state',
+  'source',
+  'skillName',
+  'workflowRunId',
+  'workflowName',
+  'position',
+] as const satisfies readonly (keyof QueueItemPatch)[]
 
 type ProjectRow = {
   id: string
@@ -141,6 +195,7 @@ type ThreadRow = {
   /** Per-thread agent (Codebuff/Claude Code). Mirrors Thread.harnessId. Null
    *  means the engine's default applies. */
   harness_id: HarnessId | null
+  freebuff_model: string | null
   auto_queue_suggestions: number
   branch: string | null
   worktree_path: string | null
@@ -187,6 +242,15 @@ export class Store {
     this.db.close()
   }
 
+  /** Whether `table` currently has `column`. Queried FRESH each call (not from a
+   *  cached `table_info` snapshot) so additive migration steps can't read a stale
+   *  column list after an intervening `ALTER`. Table names here are internal
+   *  literals, never user input. */
+  private hasColumn(table: string, column: string): boolean {
+    const rows = this.db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]
+    return rows.some((c) => c.name === column)
+  }
+
   private migrate(): void {
     const current = (
       this.db.query('PRAGMA user_version').get() as { user_version: number }
@@ -222,6 +286,7 @@ export class Store {
         title         TEXT NOT NULL DEFAULT 'New thread',
         status        TEXT NOT NULL DEFAULT 'open',
         harness_id    TEXT,
+        freebuff_model TEXT,
         auto_queue_suggestions INTEGER NOT NULL DEFAULT 0,
         branch        TEXT,
         worktree_path TEXT,
@@ -230,6 +295,13 @@ export class Store {
         pr_url        TEXT,
         pr_state      TEXT NOT NULL DEFAULT 'none',
         turn_state    TEXT NOT NULL DEFAULT 'idle',
+        -- Engine-internal recovery columns (not part of the Thread domain type):
+        -- the agent's carried context (Codebuff RunState / Claude session id) so
+        -- a turn after an app restart keeps the conversation, plus the prompt of a
+        -- typed turn that was in flight at quit so it can be re-run on relaunch.
+        harness_state    TEXT,
+        harness_state_id TEXT,
+        pending_prompt   TEXT,
         created_at    INTEGER NOT NULL,
         updated_at    INTEGER NOT NULL
       );
@@ -278,10 +350,7 @@ export class Store {
     // column on projects. Column drops need a table rebuild in SQLite; do that
     // once for any pre-v8 DB so we leave a clean shape behind.
     this.db.exec('DROP TABLE IF EXISTS budget_ledger')
-    const projectCols = (
-      this.db.query('PRAGMA table_info(projects)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (projectCols.includes('daily_budget')) {
+    if (this.hasColumn('projects', 'daily_budget')) {
       // Recreate `projects` without `daily_budget`. The data we care about
       // (id/repo_url/root_path/default_branch/run_config/merge_strategy/created_at)
       // is preserved; the column is just gone.
@@ -310,20 +379,14 @@ export class Store {
     // Prior values carry over verbatim: `autorun=0` (the overwhelming default)
     // becomes `auto_queue_suggestions=false`, the safe default; the rare user who
     // had autorun on will now auto-queue suggestions instead — acceptable.
-    const threadCols = (
-      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (threadCols.includes('autorun') && !threadCols.includes('auto_queue_suggestions')) {
+    if (this.hasColumn('threads', 'autorun') && !this.hasColumn('threads', 'auto_queue_suggestions')) {
       this.db.exec('ALTER TABLE threads RENAME COLUMN autorun TO auto_queue_suggestions')
     }
 
     // v7: ordered `parts` (reasoning/text/tool) for chronological rendering. Add
     // the column to existing dbs without dropping transcript history; old rows
     // keep `parts_json='[]'` and fall back to text+acts on read.
-    const msgCols = (
-      this.db.query('PRAGMA table_info(messages)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (!msgCols.includes('parts_json')) {
+    if (!this.hasColumn('messages', 'parts_json')) {
       this.db.exec("ALTER TABLE messages ADD COLUMN parts_json TEXT NOT NULL DEFAULT '[]'")
     }
 
@@ -332,10 +395,7 @@ export class Store {
     // (nullable; null on open threads since the branch tip itself is the
     // snapshot while live, and null on threads that were already closed before
     // this version shipped — they rehydrate as fresh branches off `base_ref`).
-    const threadCols7 = (
-      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (!threadCols7.includes('last_seen_head')) {
+    if (!this.hasColumn('threads', 'last_seen_head')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN last_seen_head TEXT")
     }
 
@@ -344,14 +404,31 @@ export class Store {
     // so legacy threads fall back to the engine's default picker; `pr_state`
     // is a 4-state enum with a safe `'none'` default so the tab row can render
     // unambiguously. Fresh DBs already have both from CREATE TABLE above.
-    const threadCols9 = (
-      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (!threadCols9.includes('harness_id')) {
+    if (!this.hasColumn('threads', 'harness_id')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN harness_id TEXT")
     }
-    if (!threadCols9.includes('pr_state')) {
+    if (!this.hasColumn('threads', 'pr_state')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN pr_state TEXT NOT NULL DEFAULT 'none'")
+    }
+
+    // v10: per-thread Freebuff model. Additive + nullable so legacy threads fall
+    // back to the engine's recommended default for the user's access tier.
+    if (!this.hasColumn('threads', 'freebuff_model')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN freebuff_model TEXT')
+    }
+
+    // v11: persist the agent's carried context + an in-flight typed prompt so
+    // closing the app no longer drops a running turn's conversation. All three
+    // are additive + nullable: legacy threads simply start the next turn fresh
+    // (the prior behaviour) until a turn writes its state.
+    if (!this.hasColumn('threads', 'harness_state')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN harness_state TEXT')
+    }
+    if (!this.hasColumn('threads', 'harness_state_id')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN harness_state_id TEXT')
+    }
+    if (!this.hasColumn('threads', 'pending_prompt')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN pending_prompt TEXT')
     }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -410,6 +487,7 @@ export class Store {
       title: input.title ?? 'New thread',
       status: input.status ?? 'open',
       harnessId: input.harnessId ?? null,
+      freebuffModel: input.freebuffModel ?? null,
       autoQueueSuggestions: input.autoQueueSuggestions ?? false,
       branch: null,
       worktreePath: null,
@@ -425,8 +503,8 @@ export class Store {
     this.db
       .query(
         `INSERT INTO threads
-          (id, project_id, title, status, harness_id, auto_queue_suggestions, turn_state, created_at, updated_at)
-         VALUES ($id, $project, $title, $status, $harness, $autoQueue, 'idle', $created, $updated)`,
+          (id, project_id, title, status, harness_id, freebuff_model, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $title, $status, $harness, $freebuffModel, $autoQueue, 'idle', $created, $updated)`,
       )
       .run({
         $id: thread.id,
@@ -434,6 +512,7 @@ export class Store {
         $title: thread.title,
         $status: thread.status,
         $harness: thread.harnessId,
+        $freebuffModel: thread.freebuffModel,
         $autoQueue: thread.autoQueueSuggestions ? 1 : 0,
         $created: thread.createdAt,
         $updated: thread.updatedAt,
@@ -466,12 +545,61 @@ export class Store {
   }
 
   updateThread(id: ThreadId, patch: ThreadPatch, now: number): void {
-    const upd = buildUpdate('threads', id, patch, now, ['autoQueueSuggestions'])
+    const upd = buildUpdate('threads', id, patch, now, {
+      allowed: THREAD_PATCH_KEYS,
+      boolKeys: ['autoQueueSuggestions'],
+    })
     if (upd) this.db.query(upd.sql).run(upd.params)
   }
 
   deleteThread(id: ThreadId): void {
     this.db.query('DELETE FROM threads WHERE id = $id').run({ $id: id })
+  }
+
+  // — Crash-recovery state (engine-internal; kept off the Thread domain type) —
+
+  /**
+   * Persist the agent's carried context for a thread (the opaque harness state,
+   * already JSON-serialized) tagged with the harness that produced it, so the
+   * next turn after an app restart resumes the conversation instead of starting
+   * blank. Tagging lets a mid-thread agent switch ignore foreign state.
+   */
+  setHarnessState(threadId: ThreadId, harnessId: string, stateJson: string): void {
+    this.db
+      .query('UPDATE threads SET harness_state = $s, harness_state_id = $h WHERE id = $id')
+      .run({ $id: threadId, $s: stateJson, $h: harnessId })
+  }
+
+  clearHarnessState(threadId: ThreadId): void {
+    this.db
+      .query('UPDATE threads SET harness_state = NULL, harness_state_id = NULL WHERE id = $id')
+      .run({ $id: threadId })
+  }
+
+  /** The persisted harness state for a thread, or null if none/incomplete. */
+  getHarnessState(threadId: ThreadId): { harnessId: string; stateJson: string } | null {
+    const row = this.db
+      .query('SELECT harness_state, harness_state_id FROM threads WHERE id = $id')
+      .get({ $id: threadId }) as
+      | { harness_state: string | null; harness_state_id: string | null }
+      | null
+    if (!row || row.harness_state == null || row.harness_state_id == null) return null
+    return { harnessId: row.harness_state_id, stateJson: row.harness_state }
+  }
+
+  /** The prompt of a typed turn that was in flight (null = no pending turn). Set
+   *  while a non-queued turn runs so it can be re-run after a crash/quit. */
+  setPendingPrompt(threadId: ThreadId, prompt: string | null): void {
+    this.db
+      .query('UPDATE threads SET pending_prompt = $p WHERE id = $id')
+      .run({ $id: threadId, $p: prompt })
+  }
+
+  getPendingPrompt(threadId: ThreadId): string | null {
+    const row = this.db
+      .query('SELECT pending_prompt FROM threads WHERE id = $id')
+      .get({ $id: threadId }) as { pending_prompt: string | null } | null
+    return row?.pending_prompt ?? null
   }
 
   // — Messages —
@@ -510,8 +638,8 @@ export class Store {
     return rows.map((r) => ({
       role: r.role,
       text: r.text,
-      acts: JSON.parse(r.acts_json) as unknown[],
-      parts: JSON.parse(r.parts_json) as Part[],
+      acts: safeParse<unknown[]>(r.acts_json, []),
+      parts: safeParse<Part[]>(r.parts_json, []),
     }))
   }
 
@@ -582,7 +710,7 @@ export class Store {
   }
 
   updateQueueItem(id: string, patch: QueueItemPatch, now: number): void {
-    const upd = buildUpdate('queue_items', id, patch, now)
+    const upd = buildUpdate('queue_items', id, patch, now, { allowed: QUEUE_PATCH_KEYS })
     if (upd) this.db.query(upd.sql).run(upd.params)
   }
 
@@ -626,14 +754,14 @@ export class Store {
     const row = this.db
       .query('SELECT name, skills_json FROM workflows WHERE project_id = $p AND name = $n')
       .get({ $p: projectId, $n: name }) as { name: string; skills_json: string } | null
-    return row ? { name: row.name, skills: JSON.parse(row.skills_json) as string[] } : null
+    return row ? { name: row.name, skills: safeParse<string[]>(row.skills_json, []) } : null
   }
 
   listWorkflows(projectId: string): Workflow[] {
     const rows = this.db
       .query('SELECT name, skills_json FROM workflows WHERE project_id = $p ORDER BY name ASC')
       .all({ $p: projectId }) as { name: string; skills_json: string }[]
-    return rows.map((r) => ({ name: r.name, skills: JSON.parse(r.skills_json) as string[] }))
+    return rows.map((r) => ({ name: r.name, skills: safeParse<string[]>(r.skills_json, []) }))
   }
 }
 
@@ -643,7 +771,7 @@ function rowToProject(row: ProjectRow): Project {
     repoUrl: row.repo_url,
     rootPath: row.root_path,
     defaultBranch: row.default_branch,
-    runConfig: JSON.parse(row.run_config) as RunConfig,
+    runConfig: safeParse<RunConfig>(row.run_config, {}),
     mergeStrategy: row.merge_strategy,
     createdAt: row.created_at,
   }
@@ -656,6 +784,7 @@ function rowToThread(row: ThreadRow): Thread {
     title: row.title,
     status: row.status,
     harnessId: row.harness_id,
+    freebuffModel: row.freebuff_model ?? null,
     autoQueueSuggestions: row.auto_queue_suggestions === 1,
     branch: row.branch,
     worktreePath: row.worktree_path,

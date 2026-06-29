@@ -65,6 +65,11 @@ export interface Thread {
    *  different tabs can run on different agents at the same time. Null while the
    *  thread is using the engine's default (newly-created threads inherit it). */
   harnessId: HarnessId | null
+  /** Which Freebuff model this thread's hosted-agent (`codebuff` harness) turns
+   *  run on. Per-thread so different tabs can run different freebuff models in
+   *  parallel. Null while using the engine's recommended default for the user's
+   *  access tier. Ignored by the Claude Code harness. */
+  freebuffModel: string | null
   /** When on, assistant-suggested prompts are dropped straight into the queue
    *  (which always auto-drains) instead of parking in the suggested lane. */
   autoQueueSuggestions: boolean

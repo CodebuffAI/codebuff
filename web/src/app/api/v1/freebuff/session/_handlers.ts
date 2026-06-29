@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
-import { FREEBUFF_FORCE_LIMITED_MODE } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_FORCE_LIMITED_MODE,
+  FREEBUFF_INSTANCE_HEADER,
+  FREEBUFF_MODEL_HEADER,
+  FREEBUFF_MULTI_SESSION_HEADER,
+} from '@codebuff/common/constants/freebuff-models'
 import { formatFreebuffHardBlockedMessage } from '@codebuff/common/util/freebuff-privacy'
 import { env } from '@codebuff/internal/env'
 
@@ -134,11 +139,9 @@ async function endSessionForHardBlock(
   })
 }
 
-/** Header the CLI uses to identify which instance is polling. Used by GET to
- *  detect when another CLI on the same account has rotated the id. */
-export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
-/** Header the CLI sends on POST to pick which model to use. */
-export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
+function isMultiSession(req: NextRequest): boolean {
+  return req.headers.get(FREEBUFF_MULTI_SESSION_HEADER) === '1'
+}
 
 export interface FreebuffSessionDeps {
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -237,6 +240,8 @@ export async function postFreebuffSession(
   const accessTier = getFreeModeAccessTier(countryAccess)
 
   const requestedModel = req.headers.get(FREEBUFF_MODEL_HEADER) ?? ''
+  const multiSession = isMultiSession(req)
+  const instanceId = req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined
 
   try {
     const state = await requestSession({
@@ -246,17 +251,21 @@ export async function postFreebuffSession(
       model: requestedModel,
       accessTier,
       countryAccess: toSessionCountryAccess(countryAccess),
+      multiSession,
+      instanceId,
       deps: deps.sessionDeps,
     })
-    // model_locked / model_unavailable are 409 so they're distinguishable
-    // from normal active responses on the client. banned is a 403
-    // (terminal, mirrors country_blocked) so older CLIs that don't know the
+    // model_locked / model_unavailable / premium_slot_taken are 409 so they're
+    // distinguishable from normal active responses on the client. banned is a
+    // 403 (terminal, mirrors country_blocked) so older CLIs that don't know the
     // status fall into their `!resp.ok` error path and back off instead of
     // tight-polling on the unrecognized 200 body. rate_limited uses 429 for
     // the same reason as banned — older CLIs back off, newer CLIs parse the
     // structured body.
     const status =
-      state.status === 'model_locked' || state.status === 'model_unavailable'
+      state.status === 'model_locked' ||
+      state.status === 'model_unavailable' ||
+      state.status === 'premium_slot_taken'
         ? 409
         : state.status === 'banned'
           ? 403
@@ -296,6 +305,7 @@ export async function getFreebuffSession(
       userEmail: auth.userEmail,
       userBanned: auth.userBanned,
       claimedInstanceId,
+      multiSession: isMultiSession(req),
       deps: deps.sessionDeps,
     })
     if (state.status === 'none') {
@@ -344,6 +354,8 @@ export async function deleteFreebuffSession(
     await endUserSession({
       userId: auth.userId,
       userEmail: auth.userEmail,
+      multiSession: isMultiSession(req),
+      instanceId: req.headers.get(FREEBUFF_INSTANCE_HEADER) ?? undefined,
       deps: deps.sessionDeps,
     })
     return NextResponse.json({ status: 'ended' }, { status: 200 })

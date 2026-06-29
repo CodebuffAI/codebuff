@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { bridge } from './lib/bridge'
 import freebuffLogo from './components/freebuff-logo.svg'
 import { ProjectPicker } from './components/ProjectPicker'
 import { SettingsModal } from './components/SettingsModal'
@@ -43,9 +44,9 @@ export function App() {
 
   // Electron menu → tab commands (Cmd+T / Cmd+Shift+T / Cmd+W).
   useEffect(() => {
-    const fb = (window as any).freebuffDesktop
+    const fb = bridge()
     if (!fb?.onMenuCommand) return
-    return fb.onMenuCommand((name: string) => {
+    return fb.onMenuCommand((name) => {
       const s = useStore.getState()
       if (name === 'new-tab') void s.newThread()
       else if (name === 'reopen-tab') s.rehydrateLast()

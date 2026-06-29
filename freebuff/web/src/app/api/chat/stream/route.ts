@@ -261,6 +261,7 @@ export async function POST(request: NextRequest) {
     properties: {
       surface: 'chat',
       model,
+      accessTier,
       isNewThread: !claimedThread,
       contentLength: content.length,
     },

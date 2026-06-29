@@ -17,7 +17,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p src/app/ui/tsconfig.json",
     "test": "bun test",
-    "app": "bun run stage:icons && bun run ui:build && electron .",
+    "app": "bun run stage:icons && bun scripts/brand-dev-electron.ts && bun run ui:build && electron .",
     "app:server": "PORT=8787 bun src/app/server.ts",
     "ui:dev": "vite",
     "ui:build": "vite build",
@@ -28,7 +28,9 @@
     "stage:orchestrator": "bun scripts/build-orchestrator.ts",
     "prepackage": "bun run ui:build && bun run stage:icons && bun scripts/fetch-bun.ts && bun scripts/build-orchestrator.ts",
     "dist": "bun run prepackage && electron-builder",
-    "dist:dir": "bun run prepackage && electron-builder --dir"
+    "dist:dir": "bun run prepackage && electron-builder --dir",
+    "pack:ci": "electron-builder --publish never",
+    "release": "bun run scripts/release.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.195",
@@ -83,19 +85,25 @@
         "dir",
         "dmg"
       ],
+      "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
-      "identity": null
+      "identity": null,
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Development"
+      "icon": "build/icon.png",
+      "category": "Development",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     }
   }
 }

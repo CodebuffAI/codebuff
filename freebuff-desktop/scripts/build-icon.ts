@@ -26,6 +26,22 @@ const SOURCE_PNG = resolve(REPO, 'freebuff', 'web', 'public', 'logo-icon.png')
 
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true })
 
+// Icon generation relies on macOS-only tooling (`sips` + `iconutil`). The built
+// icons (icon.png / icon.icns / icon.ico) are committed to build/, so on a
+// non-macOS host (e.g. the Linux/Windows CI runners that package the app) we
+// simply reuse the committed assets instead of regenerating them.
+if (process.platform !== 'darwin') {
+  const committed = ['icon.png', 'icon.icns', 'icon.ico'].map((f) => resolve(OUT, f))
+  if (committed.every((f) => existsSync(f))) {
+    console.log('Non-macOS host: reusing committed build/ icons (skipping regeneration).')
+    process.exit(0)
+  }
+  throw new Error(
+    'Icon generation requires macOS (sips/iconutil). On other platforms, commit ' +
+      'prebuilt build/icon.{png,icns,ico} (run this script once on macOS) so packaging can proceed.',
+  )
+}
+
 // 1. Master PNG — also used by electron itself at runtime.
 const iconPng = resolve(OUT, 'icon.png')
 spawnSync('cp', [SOURCE_PNG, iconPng], { stdio: 'inherit' })

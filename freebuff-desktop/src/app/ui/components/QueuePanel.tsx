@@ -212,17 +212,36 @@ function SortableRow({ item, threadId }: { item: QueueItem; threadId: string }) 
   )
 }
 
+// A label-less prompt longer than this truncates on one line, so it's worth a
+// toggle to read in full. (A distinct label always hides the prompt, so it's
+// expandable regardless of length.)
+const TRUNCATING_PROMPT_LEN = 48
+
 function SuggestionRow({ item, threadId }: { item: QueueItem; threadId: string }) {
   const promoteItem = useStore((s) => s.promoteItem)
   const deleteItem = useStore((s) => s.deleteItem)
+  const [expanded, setExpanded] = useState(false)
+  // Suggestions are usually shown as a short label (or a one-line, truncated
+  // prompt). Let the user expand the row in place to read the full prompt that
+  // would be sent — but only offer the toggle when there's hidden text.
+  const label = item.label ?? item.prompt
+  const canExpand = label !== item.prompt || item.prompt.length > TRUNCATING_PROMPT_LEN
   return (
-    <div className="qitem suggested">
+    <div className={`qitem suggested${expanded ? ' expanded' : ''}`}>
       <button className="qpromote" onClick={() => promoteItem(threadId, item.id)} title="Add to queue">
         <Icon name="up" />
       </button>
-      <span className="qlabel" title={item.prompt}>
-        {item.label ?? item.prompt}
-      </span>
+      <button
+        type="button"
+        className="sugg-label"
+        disabled={!canExpand}
+        onClick={() => setExpanded((v) => !v)}
+        title={canExpand ? (expanded ? 'Collapse' : 'Show full prompt') : undefined}
+        aria-expanded={canExpand ? expanded : undefined}
+      >
+        {canExpand && <Icon name="chevron-down" className={`sugg-caret${expanded ? ' open' : ''}`} />}
+        <span className="sugg-text">{expanded ? item.prompt : label}</span>
+      </button>
       <div className="qactions">
         <button onClick={() => deleteItem(threadId, item.id)} title="Dismiss">
           <Icon name="x" />

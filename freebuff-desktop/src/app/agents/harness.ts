@@ -18,21 +18,30 @@
  * engine threads back in on the next turn to carry context/caching.
  */
 
+import {
+  getFreebuffModelsForAccessTier,
+} from '@codebuff/common/constants/freebuff-models'
+
 import type { AttachmentImage } from '../../core/attachments'
 import type { AgentEventLike } from '../../core/parts'
-import { CLAUDE_CODE_MODEL, FREEBUFF_MODEL } from '../models'
-import type { ThreadToolDeps } from './thread-agent'
+import { CLAUDE_CODE_MODEL, DEFAULT_FREEBUFF_MODEL } from '../models'
+import type { ThreadToolDeps } from './thread-tools'
+import type {
+  FreebuffAccessTier,
+  FreebuffModelOption,
+} from '@codebuff/common/constants/freebuff-models'
 
 export type HarnessId = 'codebuff' | 'claude-code'
 
 /** Display metadata for the agent picker (surfaced in /api/state). */
 export interface AgentOption {
   id: HarnessId
-  /** Harness name, e.g. "Codebuff" / "Claude Code". */
+  /** Harness name, e.g. "Freebuff" / "Claude Code". */
   label: string
-  /** Model id the harness runs. */
+  /** Model id the harness runs. For `codebuff` this is just the default; the
+   *  actual per-thread model comes from the Freebuff model picker. */
   model: string
-  /** Human label for the model, e.g. "DeepSeek v4 Flash" / "Opus 4.8". */
+  /** Human label for the model, e.g. "MiniMax M3" / "Opus 4.8". */
   modelLabel: string
   /** One-line description shown in the picker. */
   description: string
@@ -48,10 +57,12 @@ export const AGENT_OPTIONS: readonly AgentOption[] = [
   },
   {
     id: 'codebuff',
-    label: 'Codebuff',
-    model: FREEBUFF_MODEL,
-    modelLabel: 'MiniMax M3',
-    description: 'Free hosted agent (sees images)',
+    label: 'Freebuff',
+    model: DEFAULT_FREEBUFF_MODEL,
+    // Empty: the per-thread model is shown by the adjacent ModelPicker, so the
+    // harness pill stays just "Freebuff" rather than a stale model name.
+    modelLabel: '',
+    description: 'Free hosted agent — pick any Freebuff model (sees images)',
   },
 ]
 
@@ -59,6 +70,14 @@ export const DEFAULT_HARNESS: HarnessId = 'codebuff'
 
 export function isHarnessId(v: unknown): v is HarnessId {
   return v === 'codebuff' || v === 'claude-code'
+}
+
+/** The Freebuff models a given access tier may pick from, for the model picker.
+ *  Full tier → the full grid; limited tier → DeepSeek V4 Flash + MiMo 2.5. */
+export function freebuffModelOptions(
+  accessTier: FreebuffAccessTier | null | undefined,
+): readonly FreebuffModelOption[] {
+  return getFreebuffModelsForAccessTier(accessTier)
 }
 
 /**
@@ -82,6 +101,14 @@ export interface HarnessCallbacks {
 export interface HarnessTurn {
   prompt: string
   cwd: string
+  /** The Freebuff model this turn runs on (codebuff harness). Claude Code
+   *  ignores it (it always runs Opus 4.8 via the local SDK). */
+  model?: string
+  /** Free-mode session binding for this turn (codebuff harness only). Present
+   *  once the engine has admitted a session for this thread+model: the
+   *  instance id is forwarded as `codebuff_metadata.freebuff_instance_id` and
+   *  the request runs with `cost_mode: 'free'`. Absent → billed run. */
+  freeMode?: { instanceId: string }
   /** Per-thread custom-tool deps (suggest_prompts / write_doc / browser_check). */
   toolDeps: ThreadToolDeps
   /** Opaque state this harness returned last turn (carries context/caching). */

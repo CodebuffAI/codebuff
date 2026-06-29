@@ -9,6 +9,7 @@
     "build": "bun run prepare:workspace && bun run build:next",
     "build:next": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "deploy:render-preview": "bun run scripts/render-preview-deploy.ts",
+    "snapshot:deploy": "bun run scripts/deploy-golden-snapshots.ts",
     "prepare:workspace": "cd ../../sdk && bun run build",
     "start": "next start",
     "typecheck": "bun run prepare:workspace && node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc --noEmit -p .",

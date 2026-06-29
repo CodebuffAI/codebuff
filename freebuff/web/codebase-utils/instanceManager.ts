@@ -6,6 +6,7 @@ import { action } from "../convex/_generated/server";
 import { createRepository } from "./github";
 import { DaytonaSdkManager } from "./codebase/DaytonaSdkManager";
 import type { DaytonaServer } from "./codebase/DaytonaSdkManager";
+import { GOLDEN_AUTO_ARCHIVE_MINUTES } from "./golden-image";
 
 export async function openSandboxWithRetry(
   sdk: CodeSandbox,
@@ -219,6 +220,7 @@ export async function withDaytonaRateLimitRetry<T>(
 export async function createDaytonaSandbox(
   daytonaServer: DaytonaServer = "new",
   snapshotId?: string,
+  options?: { sizeClass?: "standard" | "small" },
 ) {
   try {
     const effectiveSnapshotId = snapshotId ?? process.env.DAYTONA_SNAPSHOT_ID;
@@ -236,13 +238,18 @@ export async function createDaytonaSandbox(
     // Snapshot-based sandboxes inherit the snapshot's fixed CPU/RAM/disk, so
     // sizing tiers are expressed as separate snapshots (standard vs limited),
     // not as per-create resource overrides.
+    const autoArchiveInterval =
+      options?.sizeClass === "small"
+        ? GOLDEN_AUTO_ARCHIVE_MINUTES.small
+        : GOLDEN_AUTO_ARCHIVE_MINUTES.full;
+
     const sandbox = await withDaytonaRateLimitRetry(
       () =>
         daytona.create({
           snapshot: effectiveSnapshotId,
           public: true,
           autoStopInterval: 10,
-          autoArchiveInterval: 60,
+          autoArchiveInterval,
         }),
       "createDaytonaSandbox",
     );

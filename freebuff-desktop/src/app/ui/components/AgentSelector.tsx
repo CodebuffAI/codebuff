@@ -9,9 +9,10 @@
  * alongside the project and preview controls.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
-import type { AgentOption, HarnessId } from '../lib/types'
+import { useDismissable } from '../hooks/useDismissable'
+import type { AgentOption, FreebuffModelOption, HarnessId } from '../lib/types'
 import { Icon } from './Icon'
 
 export interface AgentPickerProps {
@@ -36,21 +37,7 @@ export function AgentPicker({
 }: AgentPickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  // Close on outside click / Escape.
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    window.addEventListener('mousedown', onDown)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  useDismissable(open, ref, () => setOpen(false))
 
   if (!options.length) return null
   const resolvedId: HarnessId = harnessId ?? fallbackId ?? options[0].id
@@ -71,7 +58,7 @@ export function AgentPicker({
       >
         <span className={`agent-dot agent-dot-${active.id}`} />
         <span className="agent-name">{active.label}</span>
-        <span className="agent-model">{active.modelLabel}</span>
+        {active.modelLabel && <span className="agent-model">{active.modelLabel}</span>}
         <Icon name="chevron-down" />
       </button>
       {open && (
@@ -90,13 +77,91 @@ export function AgentPicker({
               <span className={`agent-dot agent-dot-${o.id}`} />
               <span className="agent-option-body">
                 <span className="agent-option-title">
-                  {o.label} <span className="agent-option-model">· {o.modelLabel}</span>
+                  {o.label}
+                  {o.modelLabel && (
+                    <span className="agent-option-model"> · {o.modelLabel}</span>
+                  )}
                 </span>
                 <span className="agent-option-desc">{o.description}</span>
               </span>
               {o.id === resolvedId && <Icon name="check" />}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export interface ModelPickerProps {
+  /** The tab's current Freebuff model (null → falls back to the first listed). */
+  model: string | null
+  /** Models the user's access tier may pick, tagged with `premiumBucket`. */
+  models: readonly FreebuffModelOption[]
+  /** When true, another tab holds the single premium slot, so premium-bucket
+   *  models are disabled here (only one premium tab at a time). */
+  premiumLocked: boolean
+  onChange: (model: string) => void
+}
+
+/**
+ * Per-thread Freebuff model picker. Shown only for the Freebuff (hosted) agent.
+ * Premium-bucket models (premium models + MiniMax M3) are disabled when another
+ * tab already holds the single premium slot — the soft side of the one-premium
+ * rule (the server is the source of truth).
+ */
+export function ModelPicker({ model, models, premiumLocked, onChange }: ModelPickerProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useDismissable(open, ref, () => setOpen(false))
+
+  if (!models.length) return null
+  const active = models.find((m) => m.id === model) ?? models[0]
+
+  return (
+    <div className="agent-selector" ref={ref} onClick={(e) => e.stopPropagation()}>
+      <button
+        className="agent-trigger"
+        onClick={() => setOpen((v) => !v)}
+        title="Switch this thread's Freebuff model"
+      >
+        <span className="agent-model">{active.displayName}</span>
+        {active.premiumBucket && <span className="model-badge">Premium</span>}
+        <Icon name="chevron-down" />
+      </button>
+      {open && (
+        <div className="agent-menu" role="listbox">
+          {models.map((m) => {
+            const disabled = m.premiumBucket && premiumLocked && m.id !== active.id
+            return (
+              <button
+                key={m.id}
+                className={`agent-option ${m.id === active.id ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+                role="option"
+                aria-selected={m.id === active.id}
+                disabled={disabled}
+                title={disabled ? 'In use in another tab' : undefined}
+                onClick={() => {
+                  if (disabled) return
+                  onChange(m.id)
+                  setOpen(false)
+                }}
+              >
+                <span className="agent-option-body">
+                  <span className="agent-option-title">
+                    {m.displayName}
+                    {m.premiumBucket && <span className="model-badge">Premium</span>}
+                    {disabled && <span className="model-badge muted">In use</span>}
+                  </span>
+                  <span className="agent-option-desc">
+                    {m.tagline}
+                    {m.warning ? ` · ${m.warning}` : ''}
+                  </span>
+                </span>
+                {m.id === active.id && <Icon name="check" />}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

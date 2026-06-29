@@ -473,3 +473,32 @@ spread over time) untouched — which is why it works where the rejected per-IP
    over-cap NAT user gets a nudge, never a ban. Add a partial index on
    `free_session (client_ip_hash) WHERE status='active'` when enforcing, since the
    count then gates the hot path.
+
+### Desktop multi-session inflates the per-IP count (PR #358)
+
+Freebuff Desktop lets **one user hold multiple concurrent free-mode sessions**
+(1 premium-bucket + N unlimited per user, capped at
+`FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS` = 8 in
+`web/src/server/free-session/config.ts`). These admit into a separate
+`free_session_desktop` table, not `free_session`. Three things to know for abuse
+detection:
+
+- **It's gated, so CLI/web are unaffected.** Multi-session admission requires the
+  `x-freebuff-multi-session` header (`FREEBUFF_MULTI_SESSION_HEADER` in
+  `common/src/constants/freebuff-models.ts`) / `freebuff_multi_session = '1'`
+  metadata flag. Without it, every surface stays **one-session-per-user** as
+  before — only the desktop app opts in.
+- **The premium-bucket cap is a DB invariant.** A user can hold at most one active
+  premium-bucket desktop session, enforced by the partial unique index
+  `uniq_free_session_desktop_premium_active` (`packages/internal/src/db/schema.ts`,
+  migration 0074) — not just application logic. The other 7 slots are unlimited-tier.
+- **The per-IP metric now reads higher for legitimate desktop users.**
+  `countActiveSessionsForIpHash` (`web/src/server/free-session/store.ts`) **sums
+  both** `free_session` and `free_session_desktop`, so the `freebuff_ip_session_cap`
+  signal (`logIpSessionConcurrency` in `public-api.ts`) counts every desktop slot a
+  power user holds. A single legitimate desktop user can now contribute up to 8 to
+  `activeForIp`. **Before the per-IP cap is flipped from log-only to enforcement, it
+  must either count distinct `user_id`s per IP (not raw active rows) or exclude
+  desktop multi-session rows** and rely on the per-user `FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS`
+  cap — otherwise one heavy desktop user (or a small shared NAT of them) trips a
+  raw-row cap that was sized for one-session-per-user.

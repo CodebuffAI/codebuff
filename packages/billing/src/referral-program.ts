@@ -19,6 +19,7 @@ import {
   tryConsumeGlmReferralBonus,
   tryConsumeReferralBonus,
 } from './referral-qualification'
+import { getReferralStats } from './referral-stats'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -585,21 +586,32 @@ export function evaluateGlmReferralForReferredUser(params: {
 }
 
 /**
- * The referrer's GLM session entitlement: their GLM referral score, capped at
- * FREEBUFF_GLM_V52_REFERRAL_CAP. This is the number of 1-hour GLM 5.2 sessions
- * they may start per (Pacific) week — read live by the free-session quota.
+ * The referrer's GLM session entitlement: the number of 1-hour GLM 5.2 sessions
+ * they may start per (Pacific) week, capped at FREEBUFF_GLM_V52_REFERRAL_CAP —
+ * read live by the free-session quota.
+ *
+ * Phase 3 of the unified-referral migration (docs/referrals.md): the source of
+ * truth moves to the new model's full-access referral count
+ * (`getReferralStats().fullQualified`), but we take the MAX with the legacy glm
+ * score to **grandfather** existing referrers — nobody loses GLM as reads switch
+ * over. This is safe to ship before the referral_v2 backfill runs: an empty
+ * referral_v2 makes fullQualified 0, so the max falls back to the legacy score
+ * and behavior is unchanged. Phase 4 drops the legacy half.
  */
 export async function getGlmReferralEntitlement(params: {
   userId: string
 }): Promise<number> {
   // Kill-switch: while the program is wound down nobody earns GLM sessions,
-  // and we skip the score query entirely.
+  // and we skip the queries entirely.
   if (!FREEBUFF_GLM_V52_REFERRAL_ENABLED) return 0
-  const score = await getReferralScore({
-    userId: params.userId,
-    program: 'glm',
-  })
-  return Math.min(score, FREEBUFF_GLM_V52_REFERRAL_CAP)
+  const [legacyScore, stats] = await Promise.all([
+    getReferralScore({ userId: params.userId, program: 'glm' }),
+    getReferralStats({ referrerId: params.userId }),
+  ])
+  return Math.min(
+    Math.max(legacyScore, stats.fullQualified),
+    FREEBUFF_GLM_V52_REFERRAL_CAP,
+  )
 }
 
 /** A pending-referral evaluator, keyed by the program it completes. */

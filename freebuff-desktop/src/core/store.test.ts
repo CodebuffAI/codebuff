@@ -1,6 +1,23 @@
-import { describe, expect, test } from 'bun:test'
+import { Database } from 'bun:sqlite'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
 import { Store } from './store'
+
+/** Column-name set of a table, queried fresh from a live db. */
+function columns(db: Database, table: string): Set<string> {
+  const rows = db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]
+  return new Set(rows.map((r) => r.name))
+}
+
+function tableExists(db: Database, table: string): boolean {
+  const row = db
+    .query("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+    .get(table)
+  return row != null
+}
 
 function seeded(): Store {
   const store = Store.memory()
@@ -53,6 +70,16 @@ describe('Store — threads', () => {
     expect(store.getThread('th1')!.prState).toBe('none')
   })
 
+  test('updateThread rejects an unknown column key', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    // A stray/typo'd key must throw, not silently emit `SET bogus = …`.
+    expect(() => store.updateThread('th1', { bogus: 1 } as any, 2)).toThrow(/unknown column/)
+    // A valid update on the same thread still works.
+    store.updateThread('th1', { title: 'ok' }, 3)
+    expect(store.getThread('th1')!.title).toBe('ok')
+  })
+
   test('messages round-trip with acts', () => {
     const store = seeded()
     store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
@@ -65,6 +92,19 @@ describe('Store — threads', () => {
     const msgs = store.getMessages('th1')
     expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant'])
     expect((msgs[1].acts as any[])[0].toolName).toBe('write_file')
+  })
+
+  test('a corrupt JSON column degrades to defaults instead of throwing', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.appendMessage('th1', { role: 'assistant', text: 'ok' }, 1)
+    // Simulate a corrupted/hand-edited DB: garbage in the JSON columns.
+    store.db.exec("UPDATE messages SET parts_json = '{bad', acts_json = 'nope'")
+    // The whole transcript must still load (one bad row can't nuke it).
+    const msgs = store.getMessages('th1')
+    expect(msgs.length).toBe(1)
+    expect(msgs[0].parts).toEqual([])
+    expect(msgs[0].acts).toEqual([])
   })
 })
 
@@ -112,6 +152,105 @@ describe('Store — queue items', () => {
     mk('c', 2)
     mk('b', 1.5)
     expect(store.listQueueItems('th1', 'queued').map((i) => i.id)).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('Store — migrations (upgrade path)', () => {
+  let dir: string
+  let dbPath: string
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'fb-store-mig-'))
+    dbPath = join(dir, 'desktop.db')
+  })
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  /** Build a representative pre-v10 database directly (the shape before the
+   *  additive thread columns / parts_json / budget drop), seed a row in each
+   *  table, and stamp an old user_version so opening via Store runs migrate(). */
+  function buildLegacyDb(): void {
+    const db = new Database(dbPath, { create: true })
+    db.exec(`
+      CREATE TABLE projects (
+        id TEXT PRIMARY KEY, repo_url TEXT NOT NULL, root_path TEXT NOT NULL,
+        default_branch TEXT NOT NULL DEFAULT 'main', run_config TEXT NOT NULL DEFAULT '{}',
+        merge_strategy TEXT NOT NULL DEFAULT 'squash', daily_budget INTEGER,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE threads (
+        id TEXT PRIMARY KEY, project_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT 'New thread',
+        status TEXT NOT NULL DEFAULT 'open', autorun INTEGER NOT NULL DEFAULT 0,
+        branch TEXT, worktree_path TEXT, base_ref TEXT, pr_url TEXT,
+        turn_state TEXT NOT NULL DEFAULT 'idle', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE messages (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT, thread_id TEXT NOT NULL, role TEXT NOT NULL,
+        text TEXT NOT NULL DEFAULT '', acts_json TEXT NOT NULL DEFAULT '[]', ts INTEGER NOT NULL
+      );
+      CREATE TABLE budget_ledger (id INTEGER PRIMARY KEY, amount INTEGER);
+      INSERT INTO projects (id, repo_url, root_path, daily_budget, created_at)
+        VALUES ('project', 'r', '/tmp/r', 500, 1);
+      INSERT INTO threads (id, project_id, title, status, autorun, turn_state, created_at, updated_at)
+        VALUES ('th1', 'project', 'Legacy thread', 'open', 1, 'idle', 1, 1);
+      INSERT INTO messages (thread_id, role, text, acts_json, ts)
+        VALUES ('th1', 'user', 'hello', '[]', 1);
+      PRAGMA user_version = 5;
+    `)
+    db.close()
+  }
+
+  test('upgrading a pre-v10 db preserves data and adds the new columns', () => {
+    buildLegacyDb()
+    const store = new Store(dbPath)
+
+    // Data survived the upgrade.
+    expect(store.getProject('project')!.repoUrl).toBe('r')
+    const t = store.getThread('th1')!
+    expect(t.title).toBe('Legacy thread')
+    expect(store.getMessages('th1')[0].text).toBe('hello')
+
+    // New thread columns resolve to their safe defaults.
+    expect(t.prState).toBe('none')
+    expect(t.lastSeenHead).toBeNull()
+    expect(t.harnessId).toBeNull()
+    expect(t.freebuffModel).toBeNull()
+    // autorun=1 carried over to auto_queue_suggestions (the documented contract).
+    expect(t.autoQueueSuggestions).toBe(true)
+
+    store.close()
+  })
+
+  test('upgrade drops the removed budget schema and renames autorun', () => {
+    buildLegacyDb()
+    const store = new Store(dbPath)
+
+    expect(tableExists(store.db, 'budget_ledger')).toBe(false)
+    const threadCols = columns(store.db, 'threads')
+    expect(threadCols.has('autorun')).toBe(false)
+    expect(threadCols.has('auto_queue_suggestions')).toBe(true)
+    expect(columns(store.db, 'projects').has('daily_budget')).toBe(false)
+    expect(columns(store.db, 'messages').has('parts_json')).toBe(true)
+
+    store.close()
+  })
+
+  test('an upgraded db ends with the same table shape as a fresh one', () => {
+    buildLegacyDb()
+    const upgraded = new Store(dbPath)
+    const fresh = Store.memory()
+
+    // The CREATE-TABLE path (fresh) and the ALTER path (upgrade) must converge,
+    // or new columns would silently differ between new and upgraded installs.
+    for (const table of ['projects', 'threads', 'messages', 'queue_items', 'workflows']) {
+      expect([...columns(upgraded.db, table)].sort()).toEqual(
+        [...columns(fresh.db, table)].sort(),
+      )
+    }
+
+    upgraded.close()
+    fresh.close()
   })
 })
 

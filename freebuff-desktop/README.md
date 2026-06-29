@@ -3,45 +3,55 @@
 Freebuff Desktop — a GitHub-native coding-agent orchestrator. See the design doc /
 PRD at [`docs/freebuff-desktop-prd.md`](../docs/freebuff-desktop-prd.md).
 
-## Status: M0 (thin spine)
+## Architecture
 
-This package is being built up in layers per the PRD roadmap (§15). The current
-layer is the **orchestration core** — the headless engine the Electron UI will sit
-on top of:
+Freebuff Desktop is the **thread model**: each browser-style tab is one thread
+running a single full coding agent (the **harness** — hosted Codebuff or the
+user's local Claude Code), turn by turn, in its own git worktree, fed by a
+per-thread queue. It's structured as an **Electron UI shell + a Bun orchestrator
+process** the renderer drives over local HTTP + SSE.
+
+The orchestration core (`src/core/`) has no Electron or React dependency and is
+exercised with `bun test`:
 
 ```
 src/core/
-  types.ts        — domain model: Project, Thread, QueueItem, Skill, Workflow
-  store.ts        — local SQLite persistence under .freebuff/ (bun:sqlite)
-  graph.ts        — task-graph queries: unblocked tasks, cycle detection
-  worktree.ts     — git worktree lifecycle + gh PR helpers (branches from main, §8)
-  orchestrator.ts — the §19 tool surface (create_task, add_dependency, ...)
-  pipeline.ts     — fixed per-task stage runner (implement→simplify→review→test→pr)
+  types.ts          — domain model: Project, Thread, QueueItem, Skill, Workflow
+  store.ts          — local SQLite persistence under .freebuff/ (bun:sqlite)
+  worktree.ts       — per-thread git worktree lifecycle (create / closeOut / remove)
+  parts.ts          — fold streamed agent events into ordered render parts
+  skills.ts         — built-in + user/global skill files; default workflows
+  skill-registry.ts — skills.sh registry client (search / download)
+  settings.ts       — .freebuff/settings.json (preview entry, …)
+  docs.ts           — governing-doc store (length-capped markdown files)
+  attachments.ts    — file/photo/folder attachment blocks
+  browser-check.ts  — headless-browser render check (playwright)
+  exec.ts           — process runner for git
+  queue-order.ts    — fractional position ordering for the queue
 ```
 
-The core has no Electron or React dependency and is exercised with `bun test`.
+`src/app/thread-engine.ts` is the engine that drives all of the above; the
+pluggable agents live in `src/app/agents/` (see `harness.ts`).
 
-### Architecture note (Electron + Bun)
+### Electron + Bun split
 
-Electron's main process runs Node, not Bun. To honor the PRD's "Bun main process"
-(reuse `sdk/` and `agent-runtime` directly, which export Bun-targeted TS) the app is
-structured as **an Electron UI shell + a Bun orchestrator process** it spawns and
-talks to over local IPC.
+Electron's main process runs Node, not Bun. To reuse `sdk/` (Bun-targeted TS) the
+engine runs in a spawned Bun process the renderer drives over HTTP/SSE.
 
 ```
 electron/main.cjs (Node)                src/app/server.ts (Bun)
 ┌─────────────────────────┐  spawn   ┌───────────────────────────────┐
-│ BrowserWindow            ├─────────►│ Engine (store/worktree/docs/   │
-│  └ loads 127.0.0.1:PORT  │  HTTP/   │ scheduler/pipeline) +          │
-│ child-process lifecycle  │◄── SSE ──┤ self-contained UI (index.html) │
+│ BrowserWindow            ├─────────►│ ThreadEngine (store/worktree/  │
+│  └ loads 127.0.0.1:PORT  │  HTTP/   │ docs/skills/harnesses) +       │
+│ child-process lifecycle  │◄── SSE ──┤ the built React UI             │
 └─────────────────────────┘          └───────────────────────────────┘
 ```
 
 `electron/main.cjs` picks a free loopback port, spawns the Bun orchestrator with
-that `PORT`, waits for `/api/state` to answer, then points the window at it. There is
-no separate renderer build step — the Bun server serves the existing UI and the
-window talks to it over fetch + EventSource, exactly as a browser would. The window
-owns the orchestrator's lifecycle: closing/quitting the app stops the Bun process.
+that `PORT`, waits for `/api/state` to answer, then points the window at it. The
+renderer is built by Vite (`bun run ui:build` → `dist-ui/`); the Bun server serves
+that build and the window talks to it over fetch + EventSource. The window owns the
+orchestrator's lifecycle: closing/quitting the app stops the Bun process.
 
 It runs the orchestrator one of two ways (`resolveOrchestrator()` in `main.cjs`):
 

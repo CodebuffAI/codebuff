@@ -6,10 +6,31 @@
  * bookkeeping.
  */
 
+import { isFreebuffMultimodalModelId } from '@codebuff/common/constants/freebuff-models'
 import type { CodebuffClient, RunState } from '@codebuff/sdk'
 
-import { buildThreadTools, threadAgentDefinition, THREAD_AGENT_TOOLS } from './thread-agent'
+import { DEFAULT_FREEBUFF_MODEL } from '../models'
+import {
+  buildThreadTools,
+  threadAgentDefinition,
+  THREAD_AGENT_TOOLS,
+  THREAD_SUBAGENT_DEFINITIONS,
+} from './thread-agent'
 import type { AgentHarness, HarnessCallbacks, HarnessResult, HarnessTurn } from './harness'
+
+/**
+ * Spawn / flow-control tool calls that would be noise in the transcript: the
+ * subagent boxes already represent each spawn, and end_turn / set_output are
+ * plumbing the user doesn't need to see.
+ */
+const HIDDEN_TOOL_NAMES = new Set([
+  'spawn_agents',
+  'spawn_agent_inline',
+  'end_turn',
+  'set_output',
+  'set_messages',
+  'add_message',
+])
 
 export class CodebuffHarness implements AgentHarness {
   readonly id = 'codebuff' as const
@@ -23,24 +44,45 @@ export class CodebuffHarness implements AgentHarness {
     // The SDK emits prose both as per-token stream chunks (handleStreamChunk) and
     // as consolidated whole-segment `text` events (handleEvent). Stream when we can
     // and fall back to the consolidated copy only when nothing streamed, so the
-    // transcript never double-renders.
+    // transcript never double-renders. Tracked for the root agent only; subagent
+    // prose always streams via `subagent_chunk`.
     let streamedText = false
+    // Subagent ids we've seen start, so a consolidated `text` event for a subagent
+    // (already streamed) is dropped rather than double-rendered.
+    const subagentIds = new Set<string>()
 
-    // Attached images go as multimodal message content so the model (MiniMax M3)
-    // can actually see them. The SDK combines `prompt` (text) with these image parts
-    // (see buildUserMessageContent). No images → omit `content` (prompt-only).
-    const content = turn.images?.length
-      ? turn.images.map((im) => ({ type: 'image' as const, image: im.image, mediaType: im.mediaType }))
-      : undefined
+    const model = turn.model ?? DEFAULT_FREEBUFF_MODEL
+
+    // Attached images go as multimodal message content so the model can actually
+    // see them. Only forward them when the chosen model accepts images; for a
+    // text-only freebuff model, dropping them avoids a provider error. The SDK
+    // combines `prompt` (text) with these image parts (see buildUserMessageContent).
+    const content =
+      turn.images?.length && isFreebuffMultimodalModelId(model)
+        ? turn.images.map((im) => ({ type: 'image' as const, image: im.image, mediaType: im.mediaType }))
+        : undefined
 
     const run = await this.client.run({
-      agent: threadAgentDefinition(toolNames),
+      agent: threadAgentDefinition(toolNames, model),
+      agentDefinitions: THREAD_SUBAGENT_DEFINITIONS,
       prompt: turn.prompt,
       content,
       cwd: turn.cwd,
       signal: turn.abort.signal,
       previousRun: turn.previousState as RunState | undefined,
       customToolDefinitions: tools,
+      // Free-mode binding: when the engine admitted a session for this thread,
+      // run with cost_mode='free' + the session's instance id (the server gates
+      // and meters the request against the desktop multi-session row).
+      ...(turn.freeMode
+        ? {
+            costMode: 'free',
+            extraCodebuffMetadata: {
+              freebuff_instance_id: turn.freeMode.instanceId,
+              freebuff_multi_session: '1',
+            },
+          }
+        : {}),
       drainSteeringMessages: cb.drainSteering,
       handleStreamChunk: (chunk: unknown) => {
         if (typeof chunk === 'string') {
@@ -49,15 +91,47 @@ export class CodebuffHarness implements AgentHarness {
           cb.onText(chunk)
           return
         }
-        const c = chunk as { type?: string; chunk?: string }
-        if (c?.type === 'reasoning_chunk' && c.chunk) cb.onReasoning(c.chunk)
+        const c = chunk as {
+          type?: string
+          chunk?: string
+          agentId?: string
+          ancestorRunIds?: string[]
+        }
+        if (c?.type === 'subagent_chunk' && c.chunk) {
+          // A subagent's prose delta → fold into that subagent's box.
+          cb.onEvent({ type: 'text', text: c.chunk, agentId: c.agentId })
+        } else if (c?.type === 'reasoning_chunk' && c.chunk) {
+          // Empty ancestor chain = the root agent is thinking; otherwise it's a
+          // subagent's reasoning, attributed by agentId.
+          if (c.ancestorRunIds && c.ancestorRunIds.length > 0 && c.agentId) {
+            cb.onEvent({ type: 'reasoning_delta', text: c.chunk, agentId: c.agentId })
+          } else {
+            cb.onReasoning(c.chunk)
+          }
+        }
       },
       handleEvent: (event: any) => {
-        if (event.type === 'text') {
-          if (!streamedText) cb.onText(event.text)
-          return
+        switch (event.type) {
+          case 'text': {
+            // Root consolidated fallback only (subagent text already streamed).
+            const isSubagent = event.agentId && subagentIds.has(event.agentId)
+            if (!streamedText && !isSubagent) cb.onText(event.text)
+            return
+          }
+          case 'subagent_start':
+            subagentIds.add(event.agentId)
+            cb.onEvent(event)
+            return
+          case 'tool_call':
+          case 'tool_result':
+            // Drop spawn / flow-control tool noise; the boxes convey the spawns.
+            if (HIDDEN_TOOL_NAMES.has(event.toolName)) return
+            cb.onEvent(event)
+            return
+          default:
+            // subagent_finish, finish, etc.
+            cb.onEvent(event)
         }
-        cb.onEvent(event)
       },
     })
 

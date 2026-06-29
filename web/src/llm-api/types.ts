@@ -13,6 +13,10 @@ export interface CodebuffMetadata {
    *  rejected so a second CLI on the same account cannot keep serving traffic
    *  after the first one re-admitted. */
   freebuff_instance_id?: string
+  /** Set to '1' by Freebuff Desktop so the gate validates `freebuff_instance_id`
+   *  against the desktop multi-session table (per-tab rows) instead of the
+   *  single per-user session row. Absent for CLI/web. */
+  freebuff_multi_session?: string
 }
 
 export interface ChatMessage {
@@ -121,7 +125,9 @@ export function isCodebuffMetadata(value: unknown): value is CodebuffMetadata {
     (v.n === undefined || typeof v.n === 'number') &&
     (v.cost_mode === undefined || typeof v.cost_mode === 'string') &&
     (v.freebuff_instance_id === undefined ||
-      typeof v.freebuff_instance_id === 'string')
+      typeof v.freebuff_instance_id === 'string') &&
+    (v.freebuff_multi_session === undefined ||
+      typeof v.freebuff_multi_session === 'string')
   )
 }
 

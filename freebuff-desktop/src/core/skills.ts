@@ -132,7 +132,12 @@ export class SkillStore {
         }
       }
     }
-    return [...names].sort().map((n) => this.read(n)!).filter(Boolean)
+    // `read` can return null if a file vanishes between readdir and read; narrow
+    // it away instead of asserting non-null (which would lie to the type system).
+    return [...names]
+      .sort()
+      .map((n) => this.read(n))
+      .filter((s): s is Skill => s !== null)
   }
 
   /** Write a user-defined skill or override a builtin (project-scoped). */

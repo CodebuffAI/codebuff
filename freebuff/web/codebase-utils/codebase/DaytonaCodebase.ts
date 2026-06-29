@@ -24,6 +24,7 @@ import {
   PackageManagerType,
   getPackageManager,
 } from "../packageManager";
+import { GOLDEN_AUTO_ARCHIVE_MINUTES } from "../golden-image";
 
 const SANDBOX_IP_ERROR_PATTERNS = [
   "no ip address found",
@@ -96,7 +97,7 @@ export class DaytonaCodebase
   private getCheckRegistry(
     enableStatsMonitoring: boolean,
   ): IntegrityCheckRegistry {
-    const sandboxConfigurationVersion = "autostop:10|autoarchive:60";
+    const sandboxConfigurationVersion = "autostop:10|autoarchive:tiered-v1";
     const registry: IntegrityCheckRegistry = {
       ensureSandboxConfiguration: {
         frequency: "when",
@@ -344,9 +345,15 @@ export class DaytonaCodebase
         await this.sandbox.setAutostopInterval(desiredAutostopInterval);
       }
 
-      // Configure auto-archive interval (1 hour)
-      // Sandboxes are archived after being continuously stopped for 1 hour.
-      const desiredAutoArchiveInterval = 60; // 1 hour in minutes
+      // Configure auto-archive interval by resource size.
+      const diskSize = Number(
+        (this.sandbox as { resources?: { disk?: number | string } }).resources
+          ?.disk,
+      );
+      const desiredAutoArchiveInterval =
+        diskSize <= 2
+          ? GOLDEN_AUTO_ARCHIVE_MINUTES.small
+          : GOLDEN_AUTO_ARCHIVE_MINUTES.full;
       if (this.sandbox.autoArchiveInterval !== desiredAutoArchiveInterval) {
         await this.sandbox.setAutoArchiveInterval(desiredAutoArchiveInterval);
       }

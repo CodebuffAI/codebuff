@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import freebuffLogo from './freebuff-logo.svg'
+import { useDismissable } from '../hooks/useDismissable'
+import { bridge } from '../lib/bridge'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 
-const isMac = (window as any).freebuffDesktop?.platform === 'darwin'
+const isMac = bridge()?.platform === 'darwin'
 
 const CONN_LABEL: Record<string, string> = {
   connecting: 'Connecting…',
@@ -24,14 +26,7 @@ export function TabBar() {
   // Overflow menu: jump to any open tab when there are too many to scan.
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!menuOpen) return
-    const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
-    }
-    window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
-  }, [menuOpen])
+  useDismissable(menuOpen, menuRef, () => setMenuOpen(false))
 
   return (
     <div className={`tabbar ${isMac ? 'is-mac' : ''}`}>

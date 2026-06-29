@@ -850,6 +850,8 @@ export async function postChatCompletions(params: {
     // Freebuff free-session gate: every free-mode request must carry a valid
     // active session (instance id). Runs before the rate limiter so rejected
     // requests don't burn the user's free-mode counters.
+    const freebuffMultiSession =
+      typedBody.codebuff_metadata?.freebuff_multi_session === '1'
     if (isFreeModeRequest) {
       const claimedInstanceId =
         typedBody.codebuff_metadata?.freebuff_instance_id
@@ -858,6 +860,7 @@ export async function postChatCompletions(params: {
         accessTier: freebuffAccessTier,
         userEmail: userInfo.email,
         claimedInstanceId,
+        multiSession: freebuffMultiSession,
         requestedModel: typedBody.model,
         // GLM 5.2 always requires a live session row so its weekly referral
         // entitlement is enforced even if the waiting room is globally off
@@ -910,7 +913,10 @@ export async function postChatCompletions(params: {
     // write must not break the request that is already falling back.
     const onMinimaxRateLimited = async () => {
       try {
-        await pinFreeSessionToMinimax(userId)
+        await pinFreeSessionToMinimax(userId, undefined, {
+          multiSession: freebuffMultiSession,
+          instanceId: typedBody.codebuff_metadata?.freebuff_instance_id,
+        })
       } catch (error) {
         logger.warn(
           { error: getErrorObject(error), userId },

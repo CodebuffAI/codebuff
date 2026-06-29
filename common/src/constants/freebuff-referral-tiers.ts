@@ -21,11 +21,11 @@ export const MIN_GITHUB_ACCOUNT_AGE_MONTHS = 4
 export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM = 12
 
 /**
- * Unified referral system (docs/referrals.md): a single 12-month GitHub
- * account-age bar for ALL products (no public-repo requirement). Replaces the
- * per-program bars (cli/glm = 12mo, web = 4mo) as the programs consolidate.
+ * Unified referral system (docs/referrals.md): a single 4-month GitHub
+ * account-age bar for ALL products (no public-repo requirement), consolidating
+ * the old per-program bars (cli/glm = 12mo, web = 4mo).
  */
-export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 12
+export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 4
 
 /**
  * Freebuff CLI limited-tier perk: each qualified referral whose referred user

@@ -1,11 +1,19 @@
 import { create } from 'zustand'
 
 import { appendBlock, attachmentSummary } from '../../../core/attachments'
-import { foldAgentEvent, partsFromPersisted, type ReasoningCollapse } from '../../../core/parts'
+import {
+  FOLDABLE_EVENT_TYPES,
+  foldAgentEvent,
+  mapReasoning,
+  partsFromPersisted,
+  type Part,
+  type ReasoningCollapse,
+} from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
 import type {
   AgentOption,
+  FreebuffSnapshot,
   HarnessId,
   Message,
   PendingAttachment,
@@ -18,6 +26,9 @@ import type {
 
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
+// Monotonic toast id — collision-free, unlike Date.now()+random (two toasts in
+// the same millisecond could collide on the random suffix and clash as React keys).
+let toastSeq = 0
 
 // `init()` runs from App's mount effect, which React StrictMode invokes twice in
 // dev (and any future remount could repeat). Two concurrent inits both see an
@@ -114,6 +125,9 @@ interface StoreState {
   /** Which agent harness runs turns + the options the picker offers. */
   agentHarness: HarnessId | null
   agentOptions: AgentOption[]
+  /** Freebuff free-mode state for the model picker (tier, models, premium slot,
+   *  auth). Null until the first state event. */
+  freebuff: FreebuffSnapshot | null
   /** Whether the project has a previewable entry. Drives the Preview button. */
   previewReady: boolean
   /** Project settings (preview.entry, plus validation errors on read). */
@@ -123,6 +137,9 @@ interface StoreState {
   setAgentHarness: (id: HarnessId) => void
   /** Set the agent on a single tab; persists server-side and re-broadcasts. */
   setThreadHarness: (id: string, harnessId: HarnessId) => void
+  /** Set a tab's Freebuff model; persists server-side. Downgrades + toasts if the
+   *  premium slot is taken by another tab. */
+  setThreadModel: (id: string, model: string) => void
   /** Whether the project-picker modal is open. */
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
@@ -196,6 +213,7 @@ export const useStore = create<StoreState>((set, get) => ({
   projectPath: '',
   agentHarness: null,
   agentOptions: [],
+  freebuff: null,
   previewReady: false,
   settings: { version: 1, preview: { entry: 'index.html' } },
   settingsPath: null,
@@ -216,21 +234,25 @@ export const useStore = create<StoreState>((set, get) => ({
     // without waiting for the SSE round-trip; the server's `thread` event
     // confirms it a frame later. We don't drop thread state here (the backend
     // does that on its own when the per-thread harness changes).
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      // Match the backend's "null means default" rule: if the user picks the
-      // active default, persist as the default rather than pinning.
-      const value: HarnessId | null =
-        harnessId === s.agentHarness ? null : harnessId
-      return {
-        threads: {
-          ...s.threads,
-          [id]: { ...slice, thread: { ...slice.thread, harnessId: value } },
-        },
+    // Match the backend's "null means default" rule: if the user picks the
+    // active default, persist as the default rather than pinning.
+    const value: HarnessId | null = harnessId === get().agentHarness ? null : harnessId
+    patchThread(set, id, { harnessId: value })
+    api.setThreadHarness(id, harnessId)
+  },
+
+  setThreadModel(id, model) {
+    // Optimistic: flip the tab's model immediately; the server's `thread`/`state`
+    // events reconcile (and may downgrade if the premium slot is taken).
+    patchThread(set, id, { freebuffModel: model })
+    void api.setThreadModel(id, model).then((res) => {
+      if (res?.rejected) {
+        get().pushToast(
+          'Another tab is using the premium model — switched this tab to an unlimited model.',
+          'info',
+        )
       }
     })
-    api.setThreadHarness(id, harnessId)
   },
 
   setPickerOpen(open) {
@@ -257,7 +279,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   pushToast(text, kind = 'info') {
-    const id = Date.now() + Math.floor(Math.random() * 1000)
+    const id = ++toastSeq
     set((s) => ({ toasts: [...s.toasts, { id, text, kind }] }))
     setTimeout(() => get().dismissToast(id), 6000)
   },
@@ -334,6 +356,7 @@ export const useStore = create<StoreState>((set, get) => ({
           projectPath: snapshot.project?.rootPath ?? s.projectPath,
           agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
           agentOptions: snapshot.agent?.options ?? s.agentOptions,
+          freebuff: snapshot.freebuff ?? s.freebuff,
           // The server sends `previewReady` based on whether the project has a
           // static preview entry — start false until the first state event.
           previewReady: snapshot.previewReady ?? false,
@@ -482,20 +505,9 @@ export const useStore = create<StoreState>((set, get) => ({
     set((s) => {
       const slice = s.threads[threadId]
       if (!slice) return {}
-      const messages = slice.messages.map((m) => {
-        if (m.id !== messageId) return m
-        return {
-          ...m,
-          parts: m.parts.map((p) => {
-            if (p.kind !== 'reasoning' || p.id !== partId) return p
-            const expanded = p.collapse === 'expanded'
-            // Expanded → back to preview; anything else → expanded. `userOpened`
-            // marks deliberate expansion so auto-collapse leaves it open.
-            const collapse: ReasoningCollapse = expanded ? 'preview' : 'expanded'
-            return { ...p, collapse, userOpened: !expanded }
-          }),
-        }
-      })
+      const messages = slice.messages.map((m) =>
+        m.id === messageId ? { ...m, parts: toggleReasoningInParts(m.parts, partId) } : m,
+      )
       return { threads: { ...s.threads, [threadId]: { ...slice, messages } } }
     })
   },
@@ -524,13 +536,7 @@ export const useStore = create<StoreState>((set, get) => ({
   stopTurn(id) {
     // Optimistically flip the tab/composer out of the running state; the server's
     // thread event confirms it a moment later.
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      return {
-        threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, turnState: 'idle' } } },
-      }
-    })
+    patchThread(set, id, { turnState: 'idle' })
     api.stopTurn(id)
   },
 
@@ -599,13 +605,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   setAutoQueueSuggestions(id, on) {
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      return {
-        threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, autoQueueSuggestions: on } } },
-      }
-    })
+    patchThread(set, id, { autoQueueSuggestions: on })
     api.setAutoQueueSuggestions(id, on)
   },
 
@@ -697,6 +697,22 @@ function optimisticItems(
   })
 }
 
+/** Optimistically merge a partial into a thread's `thread` record (no-op if the
+ *  thread isn't open). The actions below pair this with an `api.*` call; the
+ *  server's `thread`/`state` event reconciles a frame later (and may correct it,
+ *  e.g. a premium-slot downgrade). */
+function patchThread(
+  set: (fn: (s: StoreState) => Partial<StoreState>) => void,
+  id: string,
+  patch: Partial<Thread>,
+) {
+  set((s) => {
+    const slice = s.threads[id]
+    if (!slice) return {}
+    return { threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, ...patch } } } }
+  })
+}
+
 /** Append a message to a thread's transcript (no-op if the thread isn't loaded).
  *  For a fresh user message we also append an empty assistant placeholder — the
  *  gap between "send" and the first SSE event would otherwise have no visual
@@ -727,19 +743,31 @@ function appendMessage(
   })
 }
 
-/** Hide the thinking of every finished assistant turn the user didn't manually open. */
+/** Hide the thinking of every finished assistant turn the user didn't manually
+ *  open — recursing into subagent boxes so their reasoning collapses too. */
 function autoCollapseReasoning(messages: Message[]): Message[] {
   return messages.map((m) => {
     if (m.role !== 'assistant' || !m.done) return m
-    let changed = false
-    const parts = m.parts.map((p) => {
-      if (p.kind === 'reasoning' && !p.userOpened && p.collapse !== 'hidden') {
-        changed = true
-        return { ...p, collapse: 'hidden' as const }
-      }
-      return p
-    })
-    return changed ? { ...m, parts } : m
+    const parts = collapseReasoningInParts(m.parts)
+    return parts !== m.parts ? { ...m, parts } : m
+  })
+}
+
+/** Set every (non-user-opened) reasoning part in the tree to `hidden`. */
+function collapseReasoningInParts(parts: Part[]): Part[] {
+  return mapReasoning(parts, (p) =>
+    !p.userOpened && p.collapse !== 'hidden' ? { ...p, collapse: 'hidden' } : p,
+  )
+}
+
+/** Toggle one reasoning part (by id) anywhere in the tree between preview and
+ *  expanded, marking deliberate expansion so auto-collapse leaves it open. */
+function toggleReasoningInParts(parts: Part[], partId: string): Part[] {
+  return mapReasoning(parts, (p) => {
+    if (p.id !== partId) return p
+    const expanded = p.collapse === 'expanded'
+    const collapse: ReasoningCollapse = expanded ? 'preview' : 'expanded'
+    return { ...p, collapse, userOpened: !expanded }
   })
 }
 
@@ -772,9 +800,7 @@ function streamAgentEvent(messages: Message[], event: { type: string; [k: string
   }
 
   // Only stream the part-producing events; ignore the rest (tool_result, etc.).
-  if (event.type !== 'text' && event.type !== 'reasoning_delta' && event.type !== 'tool_call') {
-    return messages
-  }
+  if (!FOLDABLE_EVENT_TYPES.has(event.type)) return messages
 
   const base: Message = live ?? { id: nextId(), role: 'assistant', parts: [], done: false }
   const parts = foldAgentEvent(base.parts, event, nextId)
