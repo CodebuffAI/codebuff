@@ -118,6 +118,32 @@ export const promoteSnapshotToPrimary = mutation({
 });
 
 /**
+ * Admin: delete a snapshot record from Convex.
+ *
+ * Safety rule: primary snapshots cannot be deleted directly because they are
+ * active bases for new sandbox creation. Promote another snapshot of the same
+ * size class first, then delete the previous one.
+ */
+export const deleteSnapshot = mutation({
+  args: { id: v.id("daytona_snapshot") },
+  handler: async (ctx, args) => {
+    requireAdmin(await getAuthUser(ctx));
+
+    const target = await ctx.db.get(args.id);
+    if (!target) {
+      throw new Error("Snapshot not found");
+    }
+    if (target.status === "primary") {
+      throw new Error(
+        "Cannot delete a primary snapshot. Promote another snapshot of the same tier first.",
+      );
+    }
+
+    await ctx.db.delete(args.id);
+  },
+});
+
+/**
  * Internal: resolve the current primary golden snapshot for a size class.
  * Used by project creation to decide which base snapshot to boot sandboxes
  * from. `sizeClass` "small" returns the limited-country snapshot; "standard"

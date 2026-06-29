@@ -14,7 +14,7 @@ import {
 import { Badge } from '@/vly/components/ui/badge'
 import { Button } from '@/vly/components/ui/button'
 import { Skeleton } from '@/vly/components/ui/skeleton'
-import { AlertTriangle, Boxes, Loader2 } from 'lucide-react'
+import { AlertTriangle, Boxes, Loader2, Trash2 } from 'lucide-react'
 
 function statusBadgeClass(status: string) {
   switch (status) {
@@ -43,11 +43,15 @@ export default function AdminSnapshotsPage() {
   const promoteSnapshot = useMutation(
     api.admin.snapshot_mutations.promoteSnapshotToPrimary,
   )
+  const deleteSnapshot = useMutation(api.admin.snapshot_mutations.deleteSnapshot)
 
   const [isBuilding, setIsBuilding] = useState(false)
   const [tier, setTier] = useState<'full' | 'small'>('full')
   const [error, setError] = useState<string | null>(null)
   const [promotingId, setPromotingId] = useState<Id<'daytona_snapshot'> | null>(
+    null,
+  )
+  const [deletingId, setDeletingId] = useState<Id<'daytona_snapshot'> | null>(
     null,
   )
 
@@ -92,6 +96,23 @@ export default function AdminSnapshotsPage() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setPromotingId(null)
+    }
+  }
+
+  const handleDelete = async (id: Id<'daytona_snapshot'>) => {
+    const confirmed = window.confirm(
+      'Delete this snapshot record? This cannot be undone.',
+    )
+    if (!confirmed) return
+
+    setDeletingId(id)
+    setError(null)
+    try {
+      await deleteSnapshot({ id })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -204,6 +225,23 @@ export default function AdminSnapshotsPage() {
                         <span className="text-xs font-medium text-green-700">
                           Active base snapshot
                         </span>
+                      )}
+                      {snap.status !== 'primary' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={deletingId === snap._id}
+                          onClick={() => handleDelete(snap._id)}
+                        >
+                          {deletingId === snap._id ? (
+                            'Deleting...'
+                          ) : (
+                            <>
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />
+                              Delete
+                            </>
+                          )}
+                        </Button>
                       )}
                     </div>
                   </div>
