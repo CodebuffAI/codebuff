@@ -204,9 +204,9 @@ export function ProjectIframeArea({
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
       {/* ── Top tab bar ──────────────────────────────────────────────── */}
       {!hideTabs && !isCloudSurface && (
-        <div className="flex flex-shrink-0 flex-col bg-background">
+        <div className="flex flex-shrink-0 flex-col">
           <TooltipProvider delayDuration={200}>
-            <div className="flex items-center gap-1 px-3 py-1">
+            <div className="flex items-center gap-2 border-b border-border bg-[#181818] px-1.5 py-1 lg:px-2">
               {/* Primary tabs: compact icon + label */}
               <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
                 {primaryTabs.map(({ id, label, Icon }) => {
@@ -216,10 +216,10 @@ export function ProjectIframeArea({
                       key={id}
                       type="button"
                       onClick={() => setActiveTab(id)}
-                      className={`flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium transition-colors ${
+                      className={`cloud-tab flex h-7 flex-shrink-0 items-center gap-1.5 px-2.5 text-xs font-medium transition-colors ${
                         isActive
-                          ? 'bg-muted/70 text-foreground'
-                          : 'text-foreground/55 hover:bg-muted/40 hover:text-foreground'
+                          ? 'bg-[#1e1e1e] text-foreground shadow-[inset_0_-1px_0_0_hsl(var(--primary))]'
+                          : 'text-foreground/55 hover:bg-white/[0.04] hover:text-foreground'
                       }`}
                       aria-pressed={isActive}
                     >
@@ -234,7 +234,7 @@ export function ProjectIframeArea({
 
               {/* Secondary tabs: icon-only with tooltips, behind a separator */}
               <div className="flex flex-shrink-0 items-center gap-0.5">
-                <div className="mx-1 h-5 w-px bg-border/60" aria-hidden />
+                <div className="mx-1 h-5 w-px bg-border" aria-hidden />
                 {ICON_TABS.map(({ id, label, Icon }) => {
                   const isActive = activeTab === id
                   return (
@@ -245,10 +245,10 @@ export function ProjectIframeArea({
                           onClick={() => setActiveTab(id)}
                           aria-label={label}
                           aria-pressed={isActive}
-                          className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                          className={`cloud-tab flex h-7 w-7 items-center justify-center transition-colors ${
                             isActive
-                              ? 'bg-muted/70 text-foreground'
-                              : 'text-foreground/55 hover:bg-muted/40 hover:text-foreground'
+                              ? 'bg-[#1e1e1e] text-foreground shadow-[inset_0_-1px_0_0_hsl(var(--primary))]'
+                              : 'text-foreground/55 hover:bg-white/[0.04] hover:text-foreground'
                           }`}
                         >
                           <Icon className="h-4 w-4" />
@@ -263,7 +263,7 @@ export function ProjectIframeArea({
 
                 {isPlatformAdmin && (
                   <div className="hidden items-center gap-0.5 md:flex">
-                    <div className="mx-1 h-5 w-px bg-border/60" aria-hidden />
+                    <div className="mx-1 h-5 w-px bg-border" aria-hidden />
                     <GodModeActions layout="icons" project={project} />
                   </div>
                 )}

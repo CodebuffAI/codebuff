@@ -135,7 +135,7 @@ export function TopBar({
   return (
     <TooltipProvider delayDuration={200}>
       <div
-        className="flex h-11 w-full items-center justify-between gap-1.5 border-b border-border/60 bg-background/95 px-2 backdrop-blur-xl sm:gap-2 sm:px-3"
+        className="cloud-titlebar flex h-10 w-full items-center justify-between gap-1.5 border-b border-border px-2 sm:gap-2 sm:px-2.5"
         style={{ contain: 'layout style paint' }}
       >
         {/* ── Left: project dropdown ───────────────────────────────────── */}
@@ -143,7 +143,7 @@ export function TopBar({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="group flex max-w-[180px] items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60 focus:bg-muted focus:outline-none sm:max-w-[260px] md:max-w-[320px]"
+                className="group flex max-w-[180px] items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-muted focus:bg-muted focus:outline-none sm:max-w-[260px] md:max-w-[320px]"
                 aria-label="Project menu"
               >
                 {/* Freebuff brand mark — uses the canonical logo asset
@@ -152,7 +152,7 @@ export function TopBar({
                 <img
                   src="/logo-icon.png"
                   alt="Freebuff"
-                  className="h-6 w-6 flex-shrink-0 object-contain"
+                  className="h-5 w-5 flex-shrink-0 object-contain"
                 />
                 <BetaBadge className="hidden sm:inline-flex" />
                 <span className="min-w-0 truncate text-[13px] font-medium text-foreground/90">
@@ -164,7 +164,7 @@ export function TopBar({
             <DropdownMenuContent
               align="start"
               sideOffset={6}
-              className="w-64 rounded-xl border border-border bg-popover p-1 shadow-2xl shadow-black/40"
+              className="w-64 rounded-md border border-border bg-popover p-1 shadow-2xl shadow-black/50"
             >
               {/* Project header */}
               <div className="px-2 py-2">
@@ -268,7 +268,7 @@ export function TopBar({
                 type="button"
                 onClick={() => router.push('/web/referrals')}
                 aria-label="Referrals"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <Gift className="h-4 w-4" />
               </button>
@@ -282,6 +282,8 @@ export function TopBar({
             </TooltipContent>
           </Tooltip>
 
+          <div className="h-5 w-px shrink-0 bg-border" aria-hidden />
+
           {/* Beta notice — Discord button with the report-issues text to its
               right. Text collapses on narrow screens; the icon stays clickable. */}
           <a
@@ -289,7 +291,7 @@ export function TopBar({
             target="_blank"
             rel="noopener noreferrer"
             aria-label="This is a beta: report issues in our Discord"
-            className="flex h-8 min-w-0 shrink items-center gap-2 rounded-md px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-7 min-w-0 shrink items-center gap-2 rounded px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <DiscordIcon className="h-4 w-4 shrink-0 text-[#5865F2]" />
             <span className="hidden truncate text-xs font-medium md:inline">
@@ -322,7 +324,7 @@ export function TopBar({
                 <InviteDialog projectId={project._id}>
                   <button
                     type="button"
-                    className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-foreground/85 transition-colors hover:bg-muted hover:text-foreground sm:px-2.5"
+                    className="flex h-7 items-center gap-1.5 rounded px-2 text-[13px] text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
                     aria-label="Project members"
                   >
                     <Users className="h-4 w-4" />
@@ -349,7 +351,7 @@ export function TopBar({
               trigger={
                 <button
                   type="button"
-                  className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:ml-1 sm:px-3"
+                  className="ml-0.5 flex h-7 flex-shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:ml-1"
                   aria-label="Publish"
                 >
                   <Rocket className="h-3.5 w-3.5" />
@@ -366,7 +368,7 @@ export function TopBar({
                 void triggerCloudPublish()
               }}
               disabled={isCloudPublishing}
-              className="ml-0.5 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:ml-1 sm:px-3"
+              className="ml-0.5 flex h-7 flex-shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:ml-1"
               aria-label="Publish"
             >
               <Rocket className="h-3.5 w-3.5" />
@@ -401,7 +403,7 @@ function IconButton({
         <button
           onClick={onClick}
           aria-label={label}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center rounded text-foreground/75 transition-colors hover:bg-muted hover:text-foreground"
         >
           {children}
         </button>

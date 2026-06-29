@@ -795,7 +795,7 @@ function ProjectWrapper({
         </Suspense>
       )}
 
-      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-background">
+      <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#1e1e1e]">
         {/* Top bar — hidden on the mobile Preview tab so the iframe gets
             the full screen. Chat tab still shows it for project context. */}
         {(!isMobile || mobileView === "chat") && (
@@ -838,7 +838,7 @@ function ProjectWrapper({
               duration: 0.42,
               ease: [0.22, 1, 0.36, 1] as const,
             }}
-            className={`relative flex h-full min-h-0 flex-col overflow-hidden bg-background ${
+            className={`cloud-sidebar relative flex h-full min-h-0 flex-col overflow-hidden border-r border-border ${
               isMobile
                 ? `w-full ${mobileView === "chat" ? "flex" : "hidden"}`
                 : `max-w-[820px] ${isSideTabActive ? "min-w-[300px]" : "min-w-[400px]"}`

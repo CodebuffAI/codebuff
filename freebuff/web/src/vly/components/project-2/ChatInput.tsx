@@ -810,7 +810,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
 
                 <div
                   ref={dropZoneRef}
-                  className={`relative rounded-xl transition-all duration-200 focus-within:shadow-none focus-within:outline-none focus-within:ring-1 focus-within:ring-border/60 focus-within:ring-offset-0 ${
+                  className={`relative rounded-md transition-all duration-200 focus-within:shadow-none focus-within:outline-none focus-within:ring-1 focus-within:ring-border/60 focus-within:ring-offset-0 ${
                     isDragOver
                       ? "bg-primary/10 ring-1 ring-primary"
                       : "bg-muted/40"
@@ -826,7 +826,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                   onDrop={handleDrop}
                 >
                   {isDragOver && (
-                    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/10">
+                    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/10">
                       <div className="flex items-center gap-2 font-medium text-primary">
                         <ImageIcon className="h-5 w-5" />
                         Drop images here

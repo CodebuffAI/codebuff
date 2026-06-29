@@ -1047,8 +1047,9 @@ html {
  * Modern" editor + workbench palette: warm near-black surfaces, hairline
  * borders, near-square corners, and a muted dark-green primary pill. Applied
  * to any subtree whose root carries `data-cursor-skin="cursor"` (the Cloud and
- * Web layout roots both do). Cloud-only chrome classes (`.cloud-titlebar`,
- * `.cloud-sidebar`, `.cloud-tab`) are no-ops on Web.
+ * Web layout roots both do). The shared chrome classes (`.cloud-titlebar`,
+ * `.cloud-sidebar`, `.cloud-tab`) are used by both the Cloud workspace and the
+ * Web project builder so their flush surfaces stay in sync.
  */
 [data-cursor-skin='cursor'],
 [data-cloud-skin='cursor'] {

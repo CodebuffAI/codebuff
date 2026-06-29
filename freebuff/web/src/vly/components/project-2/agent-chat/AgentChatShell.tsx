@@ -1293,7 +1293,7 @@ export function AgentChatShell({
                 inline switcher, no Codex chips). The Pencil edit affordance
                 stays subtle and only appears on hover.
               */}
-              <div className="group flex-shrink-0 bg-transparent px-3 py-3 sm:px-4">
+              <div className="group flex-shrink-0 border-b border-border bg-transparent px-3 py-2 sm:px-4">
                 <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1354,7 +1354,7 @@ export function AgentChatShell({
                         <>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild disabled={isProcessing}>
-                              <button className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
+                              <button className="inline-flex items-center gap-1 rounded border border-border/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
                                 {activeThread.agent_type === "Freebuff" ||
                                 activeThread.agent_type === "Codex" ||
                                 activeThread.agent_type === "Claude Code" ? (
@@ -1711,7 +1711,7 @@ export function AgentChatShell({
                   />
                 </div>
               ) : (
-                <div className="flex-shrink-0 border-t border-border/40 bg-transparent">
+                <div className="flex-shrink-0 border-t border-border bg-transparent">
                   <DailyReferralLimitBanner
                     selectedModelId={selectedFreebuffModel}
                     remaining={selectedDailyRemaining}

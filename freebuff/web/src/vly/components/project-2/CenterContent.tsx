@@ -870,10 +870,10 @@ export function CenterContent({
 
   return (
     <div
-      className="flex h-full w-full flex-col px-0 pb-0 pt-0 lg:px-3 lg:pb-3 lg:pt-2"
+      className="flex h-full w-full flex-col"
       suppressHydrationWarning
     >
-      <div className="flex h-full w-full flex-col items-stretch justify-start gap-0 lg:gap-2">
+      <div className="flex h-full w-full flex-col items-stretch justify-start gap-0">
         {/* --- Compact URL bar (Lovable-style). Hidden on mobile so the
               iframe gets the full available height; the floating "Open
               in new tab" + bottom Chat tab cover navigation needs. --- */}
@@ -883,7 +883,7 @@ export function CenterContent({
               isConnectedRepo
                 ? "flex"
                 : "hidden lg:flex"
-            } w-full min-w-[220px] items-center gap-1 rounded-lg border border-border bg-card px-2 py-1`}
+            } w-full min-w-[220px] items-center gap-1 border-b border-border bg-[#181818] px-2 py-1`}
             style={{ minHeight: 32 }}
           >
             <div className="flex items-center gap-0.5">
@@ -1120,7 +1120,7 @@ export function CenterContent({
         <div className="min-h-0 w-full flex-1">
           <div
             ref={iframeContainerRef}
-            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card lg:rounded-lg lg:border lg:border-border lg:shadow-xl lg:shadow-black/40 ${isSelectingElement ? styles.selectingFrame : ""}`}
+            className={`${styles.iframeWrapper} relative h-full w-full overflow-hidden bg-card ${isSelectingElement ? styles.selectingFrame : ""}`}
             suppressHydrationWarning
           >
             {(() => {
