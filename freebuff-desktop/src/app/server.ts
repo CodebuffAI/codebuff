@@ -254,6 +254,10 @@ const server = Bun.serve({
       }
     }
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
+      // Release the user's per-tab free-mode sessions while the token is still
+      // valid (the DELETE needs auth) so they don't linger server-side until
+      // they expire/sweep. Best-effort — failures just leave rows to expire.
+      await engine.releaseFreebuffSessions()
       logoutAuth()
       engine.setAuthToken(undefined)
       broadcast({ type: 'state', snapshot: engine.snapshot() })

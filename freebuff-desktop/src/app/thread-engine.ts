@@ -412,6 +412,12 @@ export class ThreadEngine {
     return { model: resolved, rejected }
   }
 
+  /** End every per-tab free-mode session server-side (best-effort). Called on
+   *  logout so a user's desktop sessions don't linger until they expire/sweep. */
+  async releaseFreebuffSessions(): Promise<void> {
+    await this.freebuff.releaseAll()
+  }
+
   /** Swap the Freebuff auth token (after login/logout): rebuild the hosted-agent
    *  client so it carries the new bearer, then refresh the access tier. */
   setAuthToken(token: string | undefined): void {
