@@ -9,7 +9,7 @@ import { Loader, ArrowUp, Palette, ImagePlus, Mic } from "lucide-react";
 import { useSharedHeroStorage } from "@/vly/hooks/useSharedHeroStorage";
 import { useSignedInUser } from "@/vly/hooks/use-user";
 import { SignedOut, SignInButton } from "@/vly/components/auth/AuthComponents";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -61,6 +61,8 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/gif",
 ]);
 const IMAGE_TYPE_ERROR_MESSAGE = "Please upload a JPG, PNG, WebP, or GIF image";
+const OUTER_REGION_PROJECT_LIMIT_MESSAGE =
+  "Due to usage spikes, you are limited to one project per day.";
 
 function isAllowedImageFile(file: File): boolean {
   return ALLOWED_IMAGE_MIME_TYPES.has(file.type);
@@ -172,6 +174,36 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
   const user = useSignedInUser();
   const router = useRouter();
   const createProject = useMutation(api.codesandbox.create.create);
+  const webAccessStatus = useQuery(api.webAccess.getWebAccessStatus, {});
+
+  const limitedProjectDailyLimit =
+    webAccessStatus?.accessTier === "limited"
+      ? webAccessStatus.projectDailyLimit
+      : null;
+  const projectsCreatedToday =
+    webAccessStatus?.accessTier === "limited"
+      ? webAccessStatus.projectsCreatedToday
+      : null;
+  const projectsRemainingToday =
+    webAccessStatus?.accessTier === "limited"
+      ? webAccessStatus.projectsRemaining
+      : null;
+  const hasLimitedProjectQuota =
+    limitedProjectDailyLimit !== null &&
+    projectsCreatedToday !== null &&
+    projectsRemainingToday !== null;
+  const limitedProjectUsageCount = hasLimitedProjectQuota
+    ? Math.min(projectsCreatedToday, limitedProjectDailyLimit)
+    : 0;
+  const limitedProjectProgressPercent = hasLimitedProjectQuota
+    ? Math.min(
+        100,
+        (limitedProjectUsageCount / Math.max(1, limitedProjectDailyLimit)) *
+          100,
+      )
+    : 0;
+  const isLimitedProjectQuotaExhausted =
+    hasLimitedProjectQuota && projectsRemainingToday <= 0;
 
   // Selected Freebuff model for the initial generation. Shares the same
   // localStorage key as the project chat so the picker remembers the user's
@@ -387,6 +419,11 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
   const handleStartProject = useCallback(async () => {
     if (!userInput.trim()) return;
 
+    if (isLimitedProjectQuotaExhausted) {
+      toast.error(OUTER_REGION_PROJECT_LIMIT_MESSAGE);
+      return;
+    }
+
     if (pendingUploads > 0) {
       toast.info("Hang on — still uploading your images…");
       return;
@@ -408,6 +445,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
     user,
     selectedTheme,
     pendingUploads,
+    isLimitedProjectQuotaExhausted,
     createProjectWithCurrentState,
   ]);
 
@@ -533,6 +571,25 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
             </div>
           </div>
 
+          {hasLimitedProjectQuota && (
+            <div className="mx-3 mb-2 rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 sm:mx-4">
+              <div className="flex items-start justify-between gap-3 text-[11px] leading-relaxed">
+                <span className="font-medium text-amber-100">
+                  Due to usage spikes, you are limited to one project per day.
+                </span>
+                <span className="shrink-0 tabular-nums text-amber-200">
+                  {limitedProjectUsageCount}/{limitedProjectDailyLimit}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-amber-200/20">
+                <span
+                  className="block h-full rounded-full bg-amber-300 transition-all"
+                  style={{ width: `${limitedProjectProgressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Toolbar */}
           <div className="flex items-center justify-between gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
             <div className="flex items-center gap-1.5">
@@ -585,13 +642,25 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
                 e.stopPropagation();
                 handleStartProject();
               }}
-              disabled={isLoading || pendingUploads > 0 || !userInput.trim()}
+              disabled={
+                isLoading ||
+                pendingUploads > 0 ||
+                !userInput.trim() ||
+                isLimitedProjectQuotaExhausted
+              }
               aria-label="Create project"
               title={
-                pendingUploads > 0 ? "Uploading images…" : "Create project"
+                isLimitedProjectQuotaExhausted
+                  ? OUTER_REGION_PROJECT_LIMIT_MESSAGE
+                  : pendingUploads > 0
+                    ? "Uploading images…"
+                    : "Create project"
               }
               className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-                isLoading || pendingUploads > 0 || !userInput.trim()
+                isLoading ||
+                pendingUploads > 0 ||
+                !userInput.trim() ||
+                isLimitedProjectQuotaExhausted
                   ? "cursor-not-allowed bg-muted text-muted-foreground"
                   : "bg-primary text-primary-foreground hover:bg-primary/85"
               }`}

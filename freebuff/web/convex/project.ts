@@ -642,6 +642,16 @@ export async function getVerifiedAccessProject(
     return null;
   }
 
+  // Temporary Cloud protection: outer-region (limited-tier) users cannot open
+  // connected-repo projects while we shed load from usage spikes.
+  if (project.project_type === "connected_repo") {
+    const identity = await ctx.auth.getUserIdentity();
+    const accessTier = (identity as Record<string, unknown> | null)?.access_tier;
+    if (accessTier === "limited") {
+      return null;
+    }
+  }
+
   // For organization-owned projects, verify organization membership
   if (project.organization_id) {
     // SECURITY FIX: Verify organization membership through JWT token
@@ -878,6 +888,9 @@ export const getUserProjects = query({
     // SECURITY FIX: Get organization context from JWT token instead of client
     // Fetch this ONCE to avoid duplicate JWT validations
     const orgContext = await getOrganizationContext(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    const hideConnectedRepoProjects =
+      (identity as Record<string, unknown> | null)?.access_tier === "limited";
 
     // Get all project memberships for the user
     const projectMembers = await ctx.db
@@ -890,6 +903,10 @@ export const getUserProjects = query({
       projectMembers.map(async (pm) => {
         const project = await ctx.db.get(pm.project);
         if (!project) return null;
+
+        if (hideConnectedRepoProjects && project.project_type === "connected_repo") {
+          return null;
+        }
 
         // Filter out deleted projects
         if (project.deleted) return null;

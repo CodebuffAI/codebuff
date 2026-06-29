@@ -1,5 +1,6 @@
 import { query } from './_generated/server'
 import {
+  getLimitedProjectCreationStatus,
   getLimitedSessionStatus,
   getWebAccessTier,
 } from './coding_agent/shared/geoAccess'
@@ -14,6 +15,12 @@ export type WebAccessStatus = {
   activeSessionExpiresAt: number | null
   /** Ms until the limited-tier quota resets (midnight Pacific). */
   resetsInMs: number | null
+  /** Limited tier only; null means no project quota applies. */
+  projectDailyLimit: number | null
+  projectsCreatedToday: number | null
+  projectsRemaining: number | null
+  /** Ms until the limited-tier project quota resets (midnight Pacific). */
+  projectResetsInMs: number | null
 }
 
 /**
@@ -36,15 +43,27 @@ export const getWebAccessStatus = query({
         sessionsRemaining: null,
         activeSessionExpiresAt: null,
         resetsInMs: null,
+        projectDailyLimit: null,
+        projectsCreatedToday: null,
+        projectsRemaining: null,
+        projectResetsInMs: null,
       }
     }
 
-    const status = await getLimitedSessionStatus(ctx, user._id)
+    const [sessionStatus, projectStatus] = await Promise.all([
+      getLimitedSessionStatus(ctx, user._id),
+      getLimitedProjectCreationStatus(ctx, user._id),
+    ])
+
     return {
       accessTier,
-      sessionsRemaining: status.sessionsRemaining,
-      activeSessionExpiresAt: status.activeSessionExpiresAt,
-      resetsInMs: status.resetsInMs,
+      sessionsRemaining: sessionStatus.sessionsRemaining,
+      activeSessionExpiresAt: sessionStatus.activeSessionExpiresAt,
+      resetsInMs: sessionStatus.resetsInMs,
+      projectDailyLimit: projectStatus.dailyLimit,
+      projectsCreatedToday: projectStatus.projectsCreatedToday,
+      projectsRemaining: projectStatus.projectsRemaining,
+      projectResetsInMs: projectStatus.resetsInMs,
     }
   },
 })
