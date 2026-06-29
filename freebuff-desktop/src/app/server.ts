@@ -14,7 +14,10 @@
 import { existsSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
 import { isHarnessId, type HarnessId } from './agents/harness'
+import { flushAnalytics, identifyOnLogin, initAnalytics, resetIdentity, trackEvent } from './analytics'
 import { LoginManager } from './auth/login-flow'
 import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
@@ -61,8 +64,15 @@ void engine.refreshTier()
 
 // Drives the device-code login flow. On success we rebuild the engine's hosted
 // client with the new token, re-probe the tier, and broadcast so the UI updates.
-const loginManager = new LoginManager(() => {
+const loginManager = new LoginManager((user) => {
   engine.setAuthToken(getAuthToken())
+  // Tie this install's pre-login activity to the real account, then record the
+  // sign-in (mirrors the CLI's `cli.login`).
+  identifyOnLogin(user)
+  trackEvent(AnalyticsEvent.DESKTOP_LOGIN, {
+    hasEmail: Boolean(user.email),
+    hasName: Boolean(user.name),
+  })
   broadcast({ type: 'state', snapshot: engine.snapshot() })
 })
 
@@ -92,6 +102,7 @@ async function openProject(dir: string): Promise<{ ok: boolean; error?: string }
   engineUnsub = engine.on(broadcast)
   pushRecentProject(info.path)
   void engine.refreshTier()
+  trackEvent(AnalyticsEvent.DESKTOP_PROJECT_OPENED)
 
   broadcast({ type: 'state', snapshot: engine.snapshot() })
   return { ok: true }
@@ -238,6 +249,7 @@ const server = Bun.serve({
       currentHarness = harnessId
       engine.setHarness(harnessId)
       writeAgentHarness(harnessId)
+      trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId, scope: 'default' })
       return json({ ok: true, harnessId })
     }
 
@@ -254,6 +266,9 @@ const server = Bun.serve({
       }
     }
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
+      // Attribute the logout to the user before clearing identity.
+      trackEvent(AnalyticsEvent.DESKTOP_LOGOUT)
+      resetIdentity()
       // Release the user's per-tab free-mode sessions while the token is still
       // valid (the DELETE needs auth) so they don't linger server-side until
       // they expire/sweep. Best-effort — failures just leave rows to expire.
@@ -344,6 +359,7 @@ const server = Bun.serve({
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
           engine.setThreadHarness(threadId, id)
+          trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId: id, scope: 'thread' })
           return json({ ok: true })
         }
         case 'model': {
@@ -355,6 +371,10 @@ const server = Bun.serve({
             return json({ error: 'invalid model' }, 400)
           }
           const result = engine.setThreadFreebuffModel(threadId, model)
+          trackEvent(AnalyticsEvent.DESKTOP_MODEL_CHANGED, {
+            requested: model,
+            resolved: result.model,
+          })
           return json({ ok: true, ...result })
         }
         case 'reorder':
@@ -463,3 +483,22 @@ const server = Bun.serve({
 
 console.log(`Freebuff Desktop orchestrator on http://localhost:${server.port}`)
 console.log(`Target repo: ${currentRepo}`)
+
+// — Analytics — top of the funnel: one launch event per orchestrator start.
+// Pre-login launches are captured under the install's anonymous id and aliased
+// to the account on sign-in, so install→login→first-message stays a clean funnel.
+initAnalytics()
+trackEvent(AnalyticsEvent.DESKTOP_APP_LAUNCHED, {
+  platform: process.platform,
+  arch: process.arch,
+  version: process.env.FREEBUFF_APP_VERSION,
+  authed: isAuthed(),
+})
+// Flush buffered PostHog events on shutdown so the launch/last events aren't lost
+// (SIGTERM is how the Electron shell stops the orchestrator).
+const flushOnExit = () => {
+  void flushAnalytics()
+}
+process.once('SIGTERM', flushOnExit)
+process.once('SIGINT', flushOnExit)
+process.once('beforeExit', flushOnExit)

@@ -51,6 +51,10 @@ import {
   type FreebuffModelOption,
 } from '@codebuff/common/constants/freebuff-models'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
+import { trackEvent } from './analytics'
+import { CLAUDE_CODE_MODEL } from './models'
 import { buildAttachmentBlock } from './attachments'
 import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
 import { ClaudeCodeHarness } from './agents/claude-code-harness'
@@ -538,6 +542,7 @@ export class ThreadEngine {
     this.recomputePremiumSlotHolder()
     this.emitState()
     this.emitThread(id)
+    trackEvent(AnalyticsEvent.DESKTOP_THREAD_CREATED, { harness: thread.harnessId })
     return thread
   }
 
@@ -707,7 +712,35 @@ export class ThreadEngine {
     if (thread.title === 'New thread' && titleSeed) {
       this.store.updateThread(threadId, { title: titleSeed.slice(0, 60) }, this.now())
     }
+    // Cross-surface DAU signal — one per user-submitted message. `accessTier`
+    // matches the convention the other surfaces adopted (see `message_sent`).
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, {
+      ...this.turnTelemetry(threadId),
+      kind: 'message',
+      hasAttachments: attachmentPaths.length > 0,
+      hasImages: Boolean(att?.images?.length),
+      inputLength: text.trim().length,
+    })
     this.startUserTurn(threadId, steeringText, displayText, att?.images)
+  }
+
+  /** Shared analytics context for a turn: which agent/model is in play and the
+   *  user's Freebuff access tier. Read at submit time so per-tab picks are
+   *  reflected (the hosted agent's model is per-thread; Claude Code is fixed). */
+  private turnTelemetry(threadId: string): {
+    harness: HarnessId
+    model: string
+    accessTier: FreebuffAccessTier
+  } {
+    const harness = this.harnessForThread(threadId)
+    return {
+      harness,
+      model:
+        harness === 'codebuff'
+          ? this.freebuffModelForThread(threadId)
+          : CLAUDE_CODE_MODEL,
+      accessTier: this.freebuff.getAccessTier(),
+    }
   }
 
   /**
@@ -724,6 +757,11 @@ export class ThreadEngine {
     if (!skill) return false
     const thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return false
+    // A /skill is a user-submitted prompt too — count it toward DAU (with a
+    // `kind`/`skill` tag) and emit a dedicated skill-run event for skill usage.
+    const ctx = this.turnTelemetry(threadId)
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, { ...ctx, kind: 'skill', skill: skillName })
+    trackEvent(AnalyticsEvent.DESKTOP_SKILL_RUN, { ...ctx, skill: skillName })
     this.startUserTurn(threadId, skill.prompt, `/${skillName}`)
     return true
   }
@@ -825,6 +863,7 @@ export class ThreadEngine {
   ): Promise<void> {
     let thread = this.store.getThread(threadId)
     if (!thread || thread.status === 'closed') return
+    const turnStartedAt = this.now()
 
     if (meta.queueItemId) {
       const item = this.store.getQueueItem(meta.queueItemId)
@@ -960,6 +999,13 @@ export class ThreadEngine {
       this.store.updateThread(threadId, { turnState: 'idle' }, this.now())
       this.emitThread(threadId)
       this.emitState()
+      trackEvent(AnalyticsEvent.DESKTOP_TURN_COMPLETED, {
+        ...this.turnTelemetry(threadId),
+        outcome: turnOutcome ?? 'completed',
+        durationMs: this.now() - turnStartedAt,
+        toolCalls: acts.length,
+        responseChars: assistantText.length,
+      })
     }
   }
 

@@ -7,7 +7,8 @@ export enum AnalyticsEvent {
   // (cli / web / chat), and never sampled. `distinct_id` is the canonical
   // codebuff Postgres user id on every surface, so unique-users of this event
   // gives accurate per-surface DAU (filter on the `surface` property) and a
-  // combined DAU (no filter). The `surface` property is one of: cli, web, chat.
+  // combined DAU (no filter). The `surface` property is one of: cli, web, chat,
+  // desktop.
   MESSAGE_SENT = 'message_sent',
 
   // Cross-surface — engaged time
@@ -233,6 +234,20 @@ export enum AnalyticsEvent {
   FREEBUFF_REDDIT_FUNNEL_SIGN_UP = 'freebuff.reddit_funnel.sign_up',
   FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT = 'freebuff.reddit_funnel.first_prompt',
   FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'freebuff.reddit_funnel.gravity_ad_click',
+
+  // Freebuff Desktop (Electron app)
+  // Mirrors the CLI's surface events so the desktop shows up in the same DAU /
+  // login funnels. `message_sent` (above) is reused with `surface: 'desktop'`;
+  // these capture the launch, auth, and per-turn activity unique to the app.
+  DESKTOP_APP_LAUNCHED = 'desktop.app_launched',
+  DESKTOP_LOGIN = 'desktop.login',
+  DESKTOP_LOGOUT = 'desktop.logout',
+  DESKTOP_THREAD_CREATED = 'desktop.thread_created',
+  DESKTOP_PROJECT_OPENED = 'desktop.project_opened',
+  DESKTOP_TURN_COMPLETED = 'desktop.turn_completed',
+  DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
+  DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
+  DESKTOP_SKILL_RUN = 'desktop.skill_run',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',

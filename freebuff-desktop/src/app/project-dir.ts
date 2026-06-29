@@ -246,3 +246,20 @@ export function writeAuthUser(user: DesktopAuthUser): void {
 export function clearAuth(): void {
   writeState({ authToken: undefined, authUser: undefined })
 }
+
+/**
+ * A stable, per-install anonymous analytics id. Pre-login events (app_launched,
+ * the first turns before sign-in) are captured under this id and later aliased
+ * to the real user id on login, so a user's pre-auth and post-auth activity
+ * collapse to one PostHog person. Minted once and persisted; deliberately a
+ * random UUID (not a hardware fingerprint) so a reinstall doesn't bleed into a
+ * previous user's identity. Mirrors the CLI's `analytics-id.json`, but kept in
+ * the desktop's own state file so the two surfaces stay independent.
+ */
+export function getOrCreateAnalyticsId(): string {
+  const existing = readState().analyticsId
+  if (typeof existing === 'string' && existing.length) return existing
+  const minted = `anon_${crypto.randomUUID()}`
+  writeState({ analyticsId: minted })
+  return minted
+}
