@@ -41,7 +41,7 @@ Problems this creates:
 3. **Activation is required.** A referral only counts once the referred user has
    actually used a product. (We don't need it to count the instant they connect
    GitHub.)
-4. **One qualification bar:** GitHub account ≥ **12 months**, no public-repo
+4. **One qualification bar:** GitHub account ≥ **4 months**, no public-repo
    requirement — and **derived, not stored** (see below).
 5. **Tier-aware.** We record the access tier (`full` / `limited`) the referred
    user activated at; each product derives its own benefit from the per-tier
@@ -65,23 +65,23 @@ Note there is **no `qualified_at` column** — see below.
 
 ### Qualification is derived, not stored
 
-A referral is *qualified* when the referred user's GitHub account is ≥ 12 months
+A referral is *qualified* when the referred user's GitHub account is ≥ 4 months
 old. That is a pure function of the immutable `github_account_created_at` already
 cached in `referral_qualification` (keyed by GitHub user id). So we **derive** it
 at read time:
 
 ```sql
 ... JOIN referral_qualification q ON q.github_user_id = r.referred_github_user_id
-WHERE q.github_account_created_at <= now() - interval '12 months'
+WHERE q.github_account_created_at <= now() - interval '4 months'
 ```
 
 Why derive instead of storing a `qualified_at` flag:
 
 - **No bar ambiguity.** A stored flag set by per-program evaluators meant
-  different things (web = 4mo). Deriving makes the single 12-month bar the
-  literal source of truth.
+  different things (web = 4mo, glm = 12mo). Deriving makes the single 4-month
+  bar the literal source of truth.
 - **Ages in automatically.** Account age only increases, so a too-new referral
-  becomes qualified the moment it crosses 12 months — **with no sweep to flip a
+  becomes qualified the moment it crosses 4 months — **with no sweep to flip a
   flag.** This retires the entire periodic-sweep mechanism (and the class of
   bug where that sweep silently failed).
 
@@ -91,7 +91,7 @@ per-program `*_bonus_consumed_*` columns are removed — burn-once now lives on
 
 A referral **counts** for benefits when it is activated
 (`activated_at IS NOT NULL`), not revoked (`revoked_at IS NULL`), and qualified
-(derived age ≥ 12 months).
+(derived age ≥ 4 months).
 
 ## Lifecycle
 
@@ -101,7 +101,7 @@ A referral **counts** for benefits when it is activated
   (code captured + carried      (referrer bound here,         activation_access_tier
    through the auth flow)        durably)                      set (tier from the admit)
 
-  qualified = derived live from the referred user's GitHub account age (≥ 12mo).
+  qualified = derived live from the referred user's GitHub account age (≥ 4mo).
   No stored flag, no sweep.
 ```
 
@@ -148,11 +148,16 @@ Decision A: full-access referrals earn the premium reward (GLM); limited-access
 referrals earn the smaller daily-session bump. A referrer can earn both by
 referring both kinds of users.
 
-**GLM earned via referral is usable regardless of the referrer's own region.**
-This is a change from today, where GLM is region-gated at usage. The anti-farming
-gate is that the *referred* users must be real **full-access** users — so a
-referrer in a limited region who brings full-access users earns and can use GLM,
-but nobody can farm GLM from limited/VPN signups.
+**GLM stays full-access-only — a limited-access referrer cannot get GLM.** This
+is a deliberate anti-abuse stance: letting limited/VPN-region users earn usable
+GLM (paid serverless time) would be a large farming vector. The gate already
+exists and we keep it — `resolveFreebuffModelForAccessTier` coerces a
+limited-tier user's GLM request down to the limited model before admission, so a
+limited user can never start a GLM session regardless of any referral
+entitlement. A limited-access referrer's only reward is the **daily-session
+bonus** (`limitedQualified`); they earn GLM only once they're themselves on full
+access. (Earlier drafts proposed making GLM usable from any region — that idea is
+dropped.)
 
 ## Migration (phased, no downtime, no lost access)
 
