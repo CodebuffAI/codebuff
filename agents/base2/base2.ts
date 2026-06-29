@@ -489,7 +489,24 @@ ${securityReviewSection}
         }
 
         const stepResult = yield 'STEP'
-        const { stepsComplete } = stepResult
+        const { stepsComplete, hitStepCap } = stepResult as {
+          stepsComplete: boolean
+          hitStepCap?: boolean
+        }
+        // If the LLM step hit the step-cap guard (stepsRemaining <= 0), the turn
+        // is over. Break out immediately instead of falling through to the
+        // validation/reviewer gate: the gate would re-yield STEP, which would
+        // re-trigger the step-cap (stepsRemaining is still 0), looping forever.
+        if (hitStepCap) {
+          activeWorkState.currentPhase = 'final_response_allowed'
+          activeWorkState.nextRequiredAction =
+            'Step cap reached; turn ended automatically. Summarize what was completed and suggest resuming on the next turn if work remains.'
+          activeWorkState.latestWorkSummary =
+            'Step-cap guard fired; agent turn ended automatically to prevent exceeding maxAgentSteps.'
+          mutableAgentState.canSuggestFollowups = true
+          markActiveWorkStateChanged()
+          break
+        }
         if (Array.isArray((stepResult as any)?.agentState?.messageHistory)) {
           currentConversationMessages = (stepResult as any).agentState.messageHistory
         }
@@ -524,6 +541,13 @@ ${securityReviewSection}
         if (editsThisStep) {
           gatePassedForCurrentEdits = false
           finalResponseGateOpen = false
+          // Keep canSuggestFollowups in sync with finalResponseGateOpen so that
+          // edits made in an earlier tool-call batch of this step immediately
+          // retract suggest_followups permission (which was computed at the top
+          // of the loop from the prior gate state). Without this, an LLM could
+          // make edits and then call suggest_followups in the same step before
+          // the gate has a chance to re-run.
+          mutableAgentState.canSuggestFollowups = false
           activeWorkState.currentPhase = 'awaiting_validation'
           markActiveWorkStateChanged()
         }
@@ -555,6 +579,9 @@ ${securityReviewSection}
         if (editsThisStep) {
           gatePassedForCurrentEdits = false
           finalResponseGateOpen = false
+          // Same mid-step resync as above: git-status-detected edits must also
+          // retract suggest_followups permission for the remainder of this step.
+          mutableAgentState.canSuggestFollowups = false
           activeWorkState.currentPhase = 'awaiting_validation'
           markActiveWorkStateChanged()
         }

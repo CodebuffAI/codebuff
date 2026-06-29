@@ -871,6 +871,68 @@ describe('base2 verification and reviewer gates', () => {
     })
   })
 
+  test('hitStepCap breaks out instead of falling through to the validation/reviewer gate', () => {
+    // Regression: when the step-cap guard (stepsRemaining <= 0) fires, the LLM
+    // step returns shouldEndTurn=true. Before the hitStepCap flag was threaded
+    // through, base2 fell through to the gate (since `if (!stepsComplete)
+    // continue` didn't trigger for stepsComplete=true). The gate would re-yield
+    // STEP, which would re-trigger the step-cap (stepsRemaining still 0),
+    // causing an infinite loop between the step-cap guard and the reviewer.
+    // With hitStepCap, base2 breaks out immediately and finalizes.
+    const base2 = createBase2('default')
+    const agentState = {
+      agentId: 'base2-custom',
+      base2ActiveWork: {
+        changedFiles: ['src/a.ts'],
+        touchedFiles: ['src/a.ts'],
+        pendingGateFiles: ['src/a.ts'],
+        currentPhase: 'awaiting_validation',
+        latestWorkSummary: '',
+        openReviewerBlockers: [],
+        lastValidationSummary: 'No configured file-change hooks ran.',
+        nextRequiredAction: '',
+        lastPinnedStateMessage: '',
+      },
+    }
+    const gen = base2.handleSteps!({
+      agentState,
+      prompt: 'Continue working',
+      params: {},
+    } as any)
+
+    expect(gen.next().value).toMatchObject({ toolName: 'git_status' })
+    expect(
+      gen.next({ toolResult: [{ type: 'json', value: { status: ' M src/a.ts' } }] } as any)
+        .value,
+    ).toMatchObject({ toolName: 'spawn_agent_inline' })
+    const maybePinnedState = gen.next().value
+    if (maybePinnedState !== 'STEP') {
+      expect(maybePinnedState).toMatchObject({ toolName: 'add_message' })
+      expect(gen.next().value).toBe('STEP')
+    }
+
+    // The LLM step hit the step-cap: shouldEndTurn=true AND hitStepCap=true.
+    const stepResult = gen.next({
+      stepsComplete: true,
+      hitStepCap: true,
+      toolResult: [{ type: 'json', value: { file: 'src/a.ts' } }],
+    } as any)
+
+    // The generator must break out (return done) rather than yield the
+    // git_status tool call that precedes the gate. If it fell through to the
+    // gate, this would be a git_status yield instead of done.
+    expect(stepResult.done).toBe(true)
+    expect((agentState as any).base2ActiveWork.currentPhase).toBe(
+      'final_response_allowed',
+    )
+    expect((agentState as any).base2ActiveWork.nextRequiredAction).toContain(
+      'Step cap reached',
+    )
+    // canSuggestFollowups must be re-enabled so the agent can offer follow-ups
+    // for resuming on the next turn.
+    expect((agentState as any).canSuggestFollowups).toBe(true)
+  })
+
   test('historical changed files alone do not trigger stale validation or review', () => {
     const base2 = createBase2('default')
     const agentState = {

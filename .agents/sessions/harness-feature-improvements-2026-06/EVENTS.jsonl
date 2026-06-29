@@ -133,3 +133,4 @@
 {"ts":"2026-06-28T13:33:27.788Z","kind":"append_lesson","summary":"Appended entry \"Final gate — Complete\" to STATUS.md","payload":{"heading":"Final gate — Complete","artifact":"STATUS.md"}}
 {"ts":"2026-06-28T13:33:27.788Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
 {"ts":"2026-06-28T13:47:08.336Z","kind":"append_lesson","summary":"Appended entry \"Post-completion follow-up — librarian e2e flake (structuredOutput null-value quirk)\" to LESSONS.md","payload":{"heading":"Post-completion follow-up — librarian e2e flake (structuredOutput null-value quirk)","artifact":"LESSONS.md"}}
+{"ts":"2026-06-29T13:41:13.190Z","kind":"append_lesson","summary":"Appended entry \"Post-plan follow-up: two harness bug fixes (2026-06-29)\" to LESSONS.md","payload":{"heading":"Post-plan follow-up: two harness bug fixes (2026-06-29)","artifact":"LESSONS.md"}}

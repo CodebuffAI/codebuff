@@ -158,6 +158,11 @@ export async function runProgrammaticStep(
     repoUrl: string | undefined
     stepNumber: number
     stepsComplete: boolean
+    // True when stepsComplete is due to the step-cap guard (stepsRemaining <= 0).
+    // Forwarded to the generator so orchestrators (e.g. base2) can break out
+    // instead of falling through to the validation/reviewer gate, which would
+    // re-yield STEP and re-trigger the step-cap, causing an infinite loop.
+    hitStepCap?: boolean
     template: AgentTemplate
     toolCallParams: Record<string, any> | undefined
     sendAction: SendActionFn
@@ -213,6 +218,7 @@ export async function runProgrammaticStep(
     onResponseChunk,
     localAgentTemplates: _localAgentTemplates,
     stepsComplete,
+    hitStepCap,
     handleStepsLogChunk,
     sendAction,
     addAgentStep,
@@ -385,6 +391,7 @@ export async function runProgrammaticStep(
         ),
         toolResult: toolResult ?? [],
         stepsComplete,
+        hitStepCap,
         nResponses,
       })
 

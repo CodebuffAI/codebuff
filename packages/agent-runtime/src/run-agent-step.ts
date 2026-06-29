@@ -192,6 +192,12 @@ export const runAgentStep = async (
   agentState: AgentState
   fullResponse: string
   shouldEndTurn: boolean
+  // True when shouldEndTurn is due to the step-cap guard (stepsRemaining <= 0),
+  // not a natural turn end. Threading this through loopAgentSteps →
+  // runProgrammaticStep → the base2 generator lets orchestrators break out
+  // instead of falling through to the validation/reviewer gate, which would
+  // re-yield STEP and re-trigger the step-cap, causing an infinite loop.
+  hitStepCap?: boolean
   messageId: string | null
   nResponses?: string[]
 }> => {
@@ -260,6 +266,7 @@ export const runAgentStep = async (
       agentState,
       fullResponse: STEP_WARNING_MESSAGE,
       shouldEndTurn: true,
+      hitStepCap: true,
       messageId: null,
     }
   }
@@ -1081,6 +1088,11 @@ export async function loopAgentSteps(
   let currentParams = spawnParams
   let totalSteps = 0
   let nResponses: string[] | undefined = undefined
+  // True when the most recent LLM step ended due to the step-cap guard. Threading
+  // this into the next programmatic-step invocation lets orchestrators (base2)
+  // break out instead of falling through to the validation/reviewer gate, which
+  // would re-yield STEP and re-trigger the step-cap, causing an infinite loop.
+  let hitStepCap = false
 
   // P2-3: Mid-turn checkpoint throttle. Fire at most every 30s so lost work on
   // crash is bounded to ~30s regardless of step duration. The first step always
@@ -1187,6 +1199,7 @@ export async function loopAgentSteps(
           agentState: currentAgentState,
           localAgentTemplates,
           nResponses,
+          hitStepCap,
           onCostCalculated: async (providerCostCents: number) => {
             currentAgentState.creditsUsed += providerCostCents
             currentAgentState.directCreditsUsed += providerCostCents
@@ -1269,6 +1282,7 @@ export async function loopAgentSteps(
       const {
         agentState: newAgentState,
         shouldEndTurn: llmShouldEndTurn,
+        hitStepCap: llmHitStepCap,
         messageId,
         nResponses: generatedResponses,
       } = await runAgentStep({
@@ -1303,12 +1317,10 @@ export async function loopAgentSteps(
       Object.assign(initialAgentState, newAgentState)
       currentAgentState = initialAgentState
       shouldEndTurn = llmShouldEndTurn
-
-      // P2-3: Mid-turn checkpoint at the main-agent step boundary (post-
-      // Object.assign, after in-flight state is committed to the shared
-      // reference). Time-throttled inside maybeCheckpoint (30s). Only fires
-      // when onCheckpoint is provided (main agent loop only; subagent loops
-      // never pass it).
+      // Preserve the step-cap flag so the next programmatic-step invocation
+      // can forward it to the generator (orchestrators like base2 use it to
+      // break out instead of falling through to the gate, which would loop).
+      hitStepCap = llmHitStepCap ?? false
       maybeCheckpoint(currentAgentState)
       nResponses = generatedResponses
 

@@ -498,6 +498,64 @@ describe('runAgentStep - set_output tool', () => {
     )
   })
 
+  it('retracts canSuggestFollowups on agentState after a file-changing tool executes', async () => {
+    // Regression for Bug 1: canSuggestFollowups is computed once at the top of
+    // the orchestrator's loop from the prior gate state. If a file-changing
+    // tool executes mid-step, the flag must be immediately retracted on
+    // agentState so a later tool-call batch in the same step (or a downstream
+    // check reading agentState) cannot see a stale `true` value that bypasses
+    // the validation/reviewer gate. The same-batch toolCalls.some() check in
+    // tool-executor.ts covers the batch containing the edit; this mutation
+    // covers cross-batch and post-step reads.
+    runAgentStepBaseParams = {
+      ...runAgentStepBaseParams,
+      requestToolCall: async () => ({
+        output: [
+          {
+            type: 'json',
+            value: {
+              file: 'src/a.ts',
+              message: 'File written successfully.',
+            },
+          },
+        ],
+      }),
+    }
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('write_file', {
+        path: 'src/a.ts',
+        instructions: 'Write file',
+        content: 'export const a = 1\n',
+      })
+      yield createToolCallChunk('end_turn', {})
+      return promptSuccess('mock-message-id')
+    }
+
+    const sessionState = getInitialSessionState(mockFileContext)
+    const agentState = sessionState.mainAgentState as typeof sessionState.mainAgentState & {
+      canSuggestFollowups?: boolean
+    }
+    agentState.canSuggestFollowups = true
+    const followupAgent: AgentTemplate = {
+      ...testAgent,
+      id: 'test-followup-agent',
+      toolNames: ['write_file', 'end_turn'],
+    }
+
+    await runAgentStep({
+      ...runAgentStepBaseParams,
+      agentType: 'test-followup-agent',
+      localAgentTemplates: { 'test-followup-agent': followupAgent },
+      agentTemplate: followupAgent,
+      agentState,
+      prompt: 'Edit a file then end',
+    })
+
+    // The write_file execution must have retracted canSuggestFollowups on the
+    // agentState object, even though end_turn ended the turn.
+    expect(agentState.canSuggestFollowups).toBe(false)
+  })
+
   it('blocks suggest_followups after same-step rewrite_symbol edits when the gate started open', async () => {
     const chunks: unknown[] = []
     runAgentStepBaseParams = {

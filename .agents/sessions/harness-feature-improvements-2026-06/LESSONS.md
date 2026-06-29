@@ -568,3 +568,26 @@ During the final whole-repo gate, the librarian e2e sub-suite (`agents/librarian
 
 **Reusable pattern:** When a test's failure message is self-contradictory ("expected X, got X"), the real condition is almost always a *third* axis the if/else ladder doesn't branch on (here: `value === null` vs `value !== null` within the same `type`). Add the missing branch before trusting the message.
 
+
+<!-- update_plan_status:appended -->
+## Post-plan follow-up: two harness bug fixes (2026-06-29) — 2026-06-29T13:41:13.184Z
+
+After the M1–M10 plan completed, two live harness bugs were reported and fixed outside the plan:
+
+**Bug 1 — `suggest_followups` called before the automated reviewer re-ran:**
+- Root cause: `canSuggestFollowups` was evaluated once at the top of base2's while-loop, before `yield 'STEP'`. New edits mid-step set `finalResponseGateOpen = false` but did not retract `canSuggestFollowups`, so a later batch in the same step could call `suggest_followups` before the gate re-ran. The same-batch `toolCalls.some(isFileChangingTool)` guard only caught edits in the same tool-call batch.
+- Fix: In `agents/base2/base2.ts`, set `mutableAgentState.canSuggestFollowups = false` in both edits-detected blocks alongside `finalResponseGateOpen = false`. Complementary belt-and-suspenders fix in `packages/agent-runtime/src/tools/tool-executor.ts`: retract `agentState.canSuggestFollowups` immediately after a file-changing tool executes (covers cross-batch within a step).
+- Test: `retracts canSuggestFollowups on agentState after a file-changing tool executes` in `packages/agent-runtime/src/__tests__/run-agent-step-tools.test.ts`.
+
+**Bug 2 — Step-cap guard loops with the automated reviewer (infinite loop):**
+- Root cause: When `stepsRemaining <= 0`, `runAgentStep` returned `shouldEndTurn: true`. The generator resumed with `stepsComplete: true`, fell through the `if (!stepsComplete) continue` guard, and ran the gate. If the reviewer returned BLOCKING or validation failed, the gate `continue`d → `yield 'STEP'` → step-cap fired again → generator resumed → gate ran again → infinite loop.
+- Fix: Threaded a `hitStepCap` flag through the `STEP` yield result (`common/src/types/agent-template.ts` StepGenerator TNext type → `packages/agent-runtime/src/run-agent-step.ts` runAgentStep return + loopAgentSteps threading → `packages/agent-runtime/src/run-programmatic-step.ts` forwards to generator.next()) → base2 breaks out of its while-loop when `hitStepCap` is true instead of falling through to the gate.
+- Backward compatible: `hitStepCap` is an optional field; agents without `handleSteps` skip `runProgrammaticStep` entirely; agents with `handleSteps` that don't check `hitStepCap` retain the original (buggy) behavior as opt-in.
+- Test: `hitStepCap breaks out instead of falling through to the validation/reviewer gate` in `agents/__tests__/base2.test.ts`.
+
+**Validation:** typechecks pass for agent-runtime, agents, common; both targeted test files pass including the two new regression tests. Automated validation/reviewer gate: LOOKS_GOOD.
+
+**Minor non-blocking reviewer note:** the `hitStepCap` break path in base2 doesn't call `emitGateTelemetry` like other `final_response_allowed` transitions do — observability parity gap, not a correctness issue.
+
+**Key source-verified finding for the executor:** `runAgentStep` is single-batch (one `processStream` call per invocation), so cross-batch tool calls within a single `runAgentStep` can't occur. The Bug 1 cross-batch scenario only matters across `yield 'STEP'` boundaries (between LLM steps), which base2's top-of-loop recompute already handles. The tool-executor mutation is defensive and doesn't change behavior for the single-batch case.
+

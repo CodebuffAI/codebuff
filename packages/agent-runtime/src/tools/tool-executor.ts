@@ -425,6 +425,19 @@ export async function executeToolCall<T extends ToolName>(
     return previousToolCallFinished
   }
 
+  // Retract suggest_followups permission for the remainder of this step as
+  // soon as a file-changing tool executes. canSuggestFollowups is computed
+  // once at the top of the orchestrator's loop from the prior gate state;
+  // without this, an LLM could make edits in one tool-call batch and then
+  // call suggest_followups in a later batch of the same step (before the
+  // post-step edits-detected block re-evaluates the gate), bypassing the
+  // validation/reviewer gate. The same-batch case is already covered by the
+  // toolCalls.some(isFileChangingTool) check above; this covers cross-batch.
+  if (isFileChangingTool(toolName) && canSuggestFollowups !== false) {
+    ;(agentState as { canSuggestFollowups?: boolean }).canSuggestFollowups =
+      false
+  }
+
   // TODO: Allow tools to provide a validation function, and move this logic into the spawn_agents validation function.
   // Pre-validate spawn_agents to filter out non-existent agents before streaming
   let effectiveInput = toolCall.input as Record<string, unknown>

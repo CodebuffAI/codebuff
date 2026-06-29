@@ -215,6 +215,11 @@ export type StepGenerator = Generator<
     agentState: PublicAgentState
     toolResult: ToolResultOutput[]
     stepsComplete: boolean
+    // True when stepsComplete is due to the step-cap guard (stepsRemaining <= 0),
+    // not a natural turn end. Orchestrators use this to break out of their loop
+    // instead of falling through to the validation/reviewer gate, which would
+    // re-yield STEP and re-trigger the step-cap, causing an infinite loop.
+    hitStepCap?: boolean
     nResponses?: string[]
   }
 >
