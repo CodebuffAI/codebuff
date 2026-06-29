@@ -38,15 +38,21 @@ export const GOLDEN_TOOL_VERSIONS = {
 
 /**
  * Daytona resource tiers. Default ("full") = 2 vCPU / 4 GB / 4 GB; the
- * limited-country ("small") tier shrinks to 1 vCPU / 2 GB / 3 GB.
+ * limited-country ("small") tier shrinks to 1 vCPU / 2 GB / 2 GB.
  */
 export const GOLDEN_RESOURCE_TIERS: Record<
   "full" | "small",
   Resources & { label: string }
 > = {
   full: { label: "Standard", cpu: 2, memory: 4, disk: 4 },
-  small: { label: "Limited", cpu: 1, memory: 2, disk: 3 },
+  small: { label: "Limited", cpu: 1, memory: 2, disk: 2 },
 };
+
+/** Auto-archive minutes by size class (full=3h, small=1h). */
+export const GOLDEN_AUTO_ARCHIVE_MINUTES = {
+  full: 180,
+  small: 60,
+} as const;
 
 /**
  * The startup script baked into the image. Launches the web terminal (ttyd)

@@ -167,12 +167,16 @@ export const initializeUnassignedProject = internalAction({
   handler: async (ctx, args) => {
     console.log("Starting background project creation");
     const snapshotId = args.snapshotId ?? process.env.DAYTONA_SNAPSHOT_ID;
+    const smallSnapshotId = process.env.DAYTONA_SNAPSHOT_SMALL_ID;
+    const sizeClass =
+      smallSnapshotId && snapshotId === smallSnapshotId ? "small" : "standard";
 
     // Create the sandbox and start its preview server
     try {
       const { id: daytonaSandboxId } = await createDaytonaSandbox(
         "new",
         snapshotId,
+        { sizeClass },
       );
       console.log("Created daytona sandbox:", { daytonaSandboxId, snapshotId });
 
