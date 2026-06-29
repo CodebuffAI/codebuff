@@ -25,7 +25,7 @@ import {
 import type { AttachmentImage } from '../../core/attachments'
 import type { AgentEventLike } from '../../core/parts'
 import { CLAUDE_CODE_MODEL, DEFAULT_FREEBUFF_MODEL } from '../models'
-import type { ThreadToolDeps } from './thread-agent'
+import type { ThreadToolDeps } from './thread-tools'
 import type {
   FreebuffAccessTier,
   FreebuffModelOption,

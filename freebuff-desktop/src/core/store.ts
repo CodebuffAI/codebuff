@@ -191,6 +191,15 @@ export class Store {
     this.db.close()
   }
 
+  /** Whether `table` currently has `column`. Queried FRESH each call (not from a
+   *  cached `table_info` snapshot) so additive migration steps can't read a stale
+   *  column list after an intervening `ALTER`. Table names here are internal
+   *  literals, never user input. */
+  private hasColumn(table: string, column: string): boolean {
+    const rows = this.db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]
+    return rows.some((c) => c.name === column)
+  }
+
   private migrate(): void {
     const current = (
       this.db.query('PRAGMA user_version').get() as { user_version: number }
@@ -283,10 +292,7 @@ export class Store {
     // column on projects. Column drops need a table rebuild in SQLite; do that
     // once for any pre-v8 DB so we leave a clean shape behind.
     this.db.exec('DROP TABLE IF EXISTS budget_ledger')
-    const projectCols = (
-      this.db.query('PRAGMA table_info(projects)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (projectCols.includes('daily_budget')) {
+    if (this.hasColumn('projects', 'daily_budget')) {
       // Recreate `projects` without `daily_budget`. The data we care about
       // (id/repo_url/root_path/default_branch/run_config/merge_strategy/created_at)
       // is preserved; the column is just gone.
@@ -315,20 +321,14 @@ export class Store {
     // Prior values carry over verbatim: `autorun=0` (the overwhelming default)
     // becomes `auto_queue_suggestions=false`, the safe default; the rare user who
     // had autorun on will now auto-queue suggestions instead — acceptable.
-    const threadCols = (
-      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (threadCols.includes('autorun') && !threadCols.includes('auto_queue_suggestions')) {
+    if (this.hasColumn('threads', 'autorun') && !this.hasColumn('threads', 'auto_queue_suggestions')) {
       this.db.exec('ALTER TABLE threads RENAME COLUMN autorun TO auto_queue_suggestions')
     }
 
     // v7: ordered `parts` (reasoning/text/tool) for chronological rendering. Add
     // the column to existing dbs without dropping transcript history; old rows
     // keep `parts_json='[]'` and fall back to text+acts on read.
-    const msgCols = (
-      this.db.query('PRAGMA table_info(messages)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (!msgCols.includes('parts_json')) {
+    if (!this.hasColumn('messages', 'parts_json')) {
       this.db.exec("ALTER TABLE messages ADD COLUMN parts_json TEXT NOT NULL DEFAULT '[]'")
     }
 
@@ -337,10 +337,7 @@ export class Store {
     // (nullable; null on open threads since the branch tip itself is the
     // snapshot while live, and null on threads that were already closed before
     // this version shipped — they rehydrate as fresh branches off `base_ref`).
-    const threadCols7 = (
-      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (!threadCols7.includes('last_seen_head')) {
+    if (!this.hasColumn('threads', 'last_seen_head')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN last_seen_head TEXT")
     }
 
@@ -349,19 +346,16 @@ export class Store {
     // so legacy threads fall back to the engine's default picker; `pr_state`
     // is a 4-state enum with a safe `'none'` default so the tab row can render
     // unambiguously. Fresh DBs already have both from CREATE TABLE above.
-    const threadCols9 = (
-      this.db.query('PRAGMA table_info(threads)').all() as { name: string }[]
-    ).map((c) => c.name)
-    if (!threadCols9.includes('harness_id')) {
+    if (!this.hasColumn('threads', 'harness_id')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN harness_id TEXT")
     }
-    if (!threadCols9.includes('pr_state')) {
+    if (!this.hasColumn('threads', 'pr_state')) {
       this.db.exec("ALTER TABLE threads ADD COLUMN pr_state TEXT NOT NULL DEFAULT 'none'")
     }
 
     // v10: per-thread Freebuff model. Additive + nullable so legacy threads fall
     // back to the engine's recommended default for the user's access tier.
-    if (!threadCols9.includes('freebuff_model')) {
+    if (!this.hasColumn('threads', 'freebuff_model')) {
       this.db.exec('ALTER TABLE threads ADD COLUMN freebuff_model TEXT')
     }
 

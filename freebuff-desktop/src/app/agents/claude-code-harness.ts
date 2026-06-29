@@ -25,12 +25,14 @@
  */
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk'
-import { z } from 'zod/v4'
 
-import { DOC_NAMES, type DocName } from '../../core/types'
 import { CLAUDE_CODE_MODEL } from '../models'
 import type { AgentHarness, HarnessCallbacks, HarnessResult, HarnessTurn } from './harness'
-import type { ThreadToolDeps } from './thread-agent'
+import {
+  SUGGEST_PROMPTS_GUIDANCE,
+  THREAD_TOOL_SPECS,
+  type ThreadToolDeps,
+} from './thread-tools'
 
 interface ClaudeState {
   sessionId?: string
@@ -76,9 +78,7 @@ export const FREEBUFF_MCP_TOOL_NAMES = [
  */
 export const CLAUDE_CODE_SYSTEM_APPEND = `This thread runs inside the Freebuff desktop app, which has a per-thread queue of follow-up prompts beside the chat.
 
-When you finish a task, call the suggest_prompts tool to propose 1–3 high-confidence follow-ups the user is likely to want next — a natural next feature, a polish pass, a test, or a cleanup the work created. Each follow-up parks in the queue, where the user can accept, edit, or ignore it; they do NOT run automatically. Aim to end a finished task with a suggest_prompts call so the user always has a useful handoff ready.
-
-Keep them high-signal: give each a concrete, self-contained prompt plus a short label, and only propose things you'd genuinely expect the user to accept. If nothing obvious comes to mind, skip the call — zero good follow-ups beats noisy, speculative, or busywork ones.`
+${SUGGEST_PROMPTS_GUIDANCE}`
 
 /** MCP tool results are content blocks; we ship our JSON payloads as text. */
 const jsonResult = (value: unknown) => ({
@@ -104,65 +104,22 @@ export function claudeCodeEnv(): Record<string, string | undefined> {
 }
 
 /**
- * Build the Freebuff custom tools as in-process MCP tools backed by the engine
- * callbacks (`turn.toolDeps`). These mirror buildThreadTools() in thread-agent.ts
- * so Claude Code behaves like the Codebuff harness. The SDK's `tool()` takes a Zod
- * RAW SHAPE (a `{ key: ZodType }` map, not a `z.object(...)`); the repo is on zod v4
- * and the SDK accepts a v4 raw shape (`AnyZodRawShape = ZodRawShape | v4 ZodRawShape`).
+ * Claude Code adapter: wrap each shared {@link THREAD_TOOL_SPECS} entry as an
+ * in-process MCP tool backed by the engine callbacks (`turn.toolDeps`), so Claude
+ * Code gets the same tools as the Codebuff harness (which wraps the same specs via
+ * buildThreadTools). The SDK's `tool()` takes a Zod RAW SHAPE (a `{ key: ZodType }`
+ * map, not a `z.object(...)`) — which is exactly `spec.shape` — and the repo's zod
+ * v4 raw shape is accepted (`AnyZodRawShape = ZodRawShape | v4 ZodRawShape`).
  *
  * Exported so a unit test can invoke the handlers directly (the SDK transport calls
  * them in-process when the model emits the matching tool_use).
  */
 export function buildFreebuffMcpTools(deps: ThreadToolDeps) {
-  return [
-    tool(
-      'suggest_prompts',
-      'Propose one or more follow-up prompts the user might want to run next in ' +
-        'this thread. They appear as suggestions the user can accept, edit, or ignore ' +
-        '— they do NOT run automatically. Each needs a concrete prompt; a short label ' +
-        'is optional.',
-      {
-        prompts: z.array(
-          z.object({ prompt: z.string(), label: z.string().optional() }),
-        ),
-      },
-      async (args) => {
-        const items = args.prompts.filter((p) => p.prompt.trim())
-        deps.onSuggest(items)
-        return jsonResult({ ok: true, added: items.length })
-      },
+  return THREAD_TOOL_SPECS.map((spec) =>
+    tool(spec.name, spec.description, spec.shape, async (args) =>
+      jsonResult(await spec.run(deps, args)),
     ),
-
-    tool(
-      'write_doc',
-      'Record durable, generally-useful learnings into a governing doc (product, ' +
-        'priorities, technical, learning). Defaults to appending. There is a length ' +
-        'cap — if the write exceeds it you must condense and try again.',
-      {
-        name: z.enum(['product', 'priorities', 'technical', 'learning']),
-        content: z.string(),
-        mode: z.enum(['append', 'replace']).optional(),
-      },
-      async (args) => {
-        if (!(DOC_NAMES as readonly string[]).includes(args.name)) {
-          return jsonResult({ error: 'unknown_doc', message: args.name })
-        }
-        const r = deps.onWriteDoc(args.name as DocName, args.content, args.mode ?? 'append')
-        return jsonResult(r.ok ? { ok: true } : { error: 'cap', message: r.error })
-      },
-    ),
-
-    tool(
-      'browser_check',
-      "Load this thread's current work in a REAL headless browser and report whether it " +
-        'renders without console/page errors. Use this for ANY web UI, page, or game change — ' +
-        'it returns the facts you cannot get by reading code (did it load, did it render, what ' +
-        'errors appeared). Rendering is not correctness, but errors or a blank render mean it is ' +
-        'broken no matter how good the code looks.',
-      {},
-      async () => jsonResult(await deps.onBrowserCheck()),
-    ),
-  ]
+  )
 }
 
 /**

@@ -1,10 +1,29 @@
-/** Client-side mirror of the backend thread-model types (see src/core/types.ts). */
+/**
+ * Renderer-side types. The domain model (Thread, QueueItem, Skill, the lane/state
+ * enums, HarnessId) is RE-EXPORTED from src/core/types so the wire contract has a
+ * single source of truth — a backend field change is a compile error here rather
+ * than a silent runtime mismatch. Only renderer-specific shapes (the client
+ * `Message`, SSE/agent event unions, picker view-models, server-result mirrors)
+ * are defined locally.
+ */
 
 import type { AttachmentKind } from '../../../core/attachments'
 import type { Part } from '../../../core/parts'
+import type { HarnessId, QueueItem, Thread } from '../../../core/types'
 
 export type { AgentPart, AgentStatus, Part, ReasoningCollapse } from '../../../core/parts'
 export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
+export type {
+  HarnessId,
+  Thread,
+  ThreadStatus,
+  TurnState,
+  QueueItem,
+  QueueItemState,
+  QueueItemSource,
+  Skill,
+  SkillSearchResult,
+} from '../../../core/types'
 
 /** A file/photo/folder staged in the composer before send (absolute path + label). */
 export interface PendingAttachment {
@@ -13,83 +32,25 @@ export interface PendingAttachment {
   kind: AttachmentKind
 }
 
-export type ThreadStatus = 'open' | 'closed'
-export type TurnState = 'idle' | 'running'
-
-export interface Thread {
-  id: string
-  projectId: string
-  title: string
-  status: ThreadStatus
-  /** Per-tab agent pick. Null = inherit the project's default (see Snapshot.agent). */
-  harnessId: HarnessId | null
-  /** Per-tab Freebuff model (hosted agent). Null = engine's recommended default. */
-  freebuffModel: string | null
-  autoQueueSuggestions: boolean
-  branch: string | null
-  worktreePath: string | null
-  baseRef: string | null
-  /** Branch tip at the time this thread was last closed (engine keeps it so a
-   *  rehydrated tab materializes the user's exact file tree). The UI doesn't
-   *  read this — mirror only so the wire shape round-trips. */
-  lastSeenHead?: string | null
-  prUrl: string | null
-  /** Inferred PR lifecycle (see core/types for source). Drives the tab icon. */
-  prState: 'none' | 'open' | 'merged' | 'closed'
-  turnState: TurnState
-  /**
-   * Outcome of the most recent turn — null while running, then completed /
-   * stopped / error. The tab icon uses this when the thread is idle to mark a
-   * stopped or errored turn distinctly from one that completed cleanly.
-   */
-  lastTurnOutcome: 'completed' | 'stopped' | 'error' | null
-  createdAt: number
-  updatedAt: number
-}
-
-export type QueueItemState = 'queued' | 'running' | 'done' | 'suggested'
-export type QueueItemSource = 'user' | 'assistant' | 'skill' | 'workflow'
-
-export interface QueueItem {
-  id: string
-  threadId: string
-  prompt: string
-  label: string | null
-  state: QueueItemState
-  source: QueueItemSource
-  skillName: string | null
-  workflowRunId: string | null
-  workflowName: string | null
-  position: number
-  createdAt: number
-  updatedAt: number
-}
-
 export interface ToolCall {
   id: string
   toolName: string
   input: unknown
 }
 
+/**
+ * The renderer's message model: a client-assigned `id` plus a `done` streaming
+ * flag, with the turn's reasoning/text/tool calls in stream order (see
+ * core/parts.ts), rendered chronologically so tools interleave with prose. This
+ * intentionally differs from the persisted core `Message` (role/text/acts/parts).
+ */
 export interface Message {
   id: string
   role: 'user' | 'assistant'
-  /**
-   * The turn's reasoning/text/tool calls in stream order (see core/parts.ts).
-   * Rendered chronologically so tools interleave with prose instead of grouping.
-   */
   parts: Part[]
   /** False while the assistant message is still streaming. */
   done: boolean
 }
-
-export interface Skill {
-  name: string
-  prompt: string
-  builtin: boolean
-}
-
-export type HarnessId = 'codebuff' | 'claude-code'
 
 export interface AgentOption {
   id: HarnessId
@@ -126,15 +87,6 @@ export interface BrowseResult {
   parent: string | null
   isRepo: boolean
   entries: BrowseEntry[]
-}
-
-/** A skill from the skills.sh registry — a candidate to acquire. */
-export interface SkillSearchResult {
-  id: string
-  name: string
-  slug: string
-  source: string
-  installs: number
 }
 
 /** Mirror of the engine's ProjectSettings (see core/settings.ts). v1 is
