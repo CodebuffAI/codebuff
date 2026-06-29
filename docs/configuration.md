@@ -125,6 +125,63 @@ removed. Declare capabilities explicitly:
 }
 ```
 
+This repo's `openbuff.d/providers.json` sets
+`defaultCapabilities.context.windowTokens: 500000` on every provider as a
+fallback baseline. A model that does not declare an explicit
+`modelCapabilities[modelId].context.windowTokens` override therefore trims at
+~450k tokens (500k − 10% reserve) rather than getting no trimming at all.
+Per-model overrides still win over the provider default — declare
+`context.windowTokens` on a model when its true context window differs from the
+500k baseline. (The 500k value is a repo-local config choice in
+`defaultCapabilities`, the field that is read; it does not revive the removed
+legacy top-level `contextWindowTokens` field.)
+
+### Indexing weights
+
+The `indexing` config (loaded from `openbuff.d/indexing.json`) exposes an
+optional `weights` tuning surface for the file indexer's relevance scoring.
+`weights` is entirely optional and backwards compatible — when omitted (or when
+an individual sub-field is omitted), the indexer falls back to its historical
+hardcoded defaults. Every field is a number.
+
+```jsonc
+{
+  "indexing": {
+    "weights": {
+      "lexical": {
+        "fileName": 1,
+        "path": 0.6,
+        "symbol": 2.5,
+        "heading": 2,
+        "concept": 1.5,
+        "import": 1.2
+      },
+      "graph": {
+        "defines": 3,
+        "imports": 2.5,
+        "references": 1.5,
+        "containsHeading": 1,
+        "mentions": 0.8,
+        "calls": 2
+      },
+      "semanticBlend": 0.6
+    }
+  }
+}
+```
+
+- `lexical` — term-match weights per match location:
+  - `fileName` (1), `path` (0.6), `symbol` (2.5), `heading` (2),
+    `concept` (1.5), `import` (1.2).
+- `graph` — code-graph edge weights:
+  - `defines` (3), `imports` (2.5), `references` (1.5),
+    `containsHeading` (1), `mentions` (0.8), `calls` (2).
+- `semanticBlend` (0.6) — how strongly semantic similarity blends into the
+  final lexical+graph score.
+
+The values above mirror `openbuff.d/indexing.json` so docs and config stay
+aligned; adjust them only if you want to re-weight scoring for this repo.
+
 ## Merge semantics
 
 When multiple config sources are loaded (global → ancestor → project, or
