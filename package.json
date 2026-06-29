@@ -38,6 +38,7 @@
     "release:sdk": "bun run --cwd=sdk release",
     "dev:freebuff": "FREEBUFF_MODE=true bun --cwd cli dev",
     "release:freebuff": "bun run --cwd=freebuff release",
+    "release:desktop": "bun run --cwd=freebuff-desktop release",
     "clean-ts": "find . -name '*.tsbuildinfo' -type f -delete && find . -name '.next' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'node_modules' -type d -exec rm -rf {} + 2>/dev/null || true && bun install",
     "typecheck": "bun scripts/check-env-architecture.ts && bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/common,@codebuff/agents,@codebuff/agent-runtime,@codebuff/llm-providers,@codebuff/sdk,@codebuff/web,@codebuff/cli,@codebuff/evals,@codebuff/scripts,@codebuff/freebuff-desktop}' run test",
