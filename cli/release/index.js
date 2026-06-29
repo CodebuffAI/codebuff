@@ -11,7 +11,11 @@ const zlib = require('zlib')
 const tar = require('tar')
 const { createReleaseHttpClient } = require('./http')
 
-const packageName = 'openbuff'
+// npm package name — used for registry version checks (auto-update).
+// Distinct from binaryName below: the npm package is scoped (@openbuff/cli)
+// but the compiled binary and command users type is still `openbuff`.
+const npmPackageName = '@openbuff/cli'
+const binaryName = 'openbuff'
 
 /**
  * Terminal escape sequences to reset terminal state after the child process exits.
@@ -47,25 +51,25 @@ function resetTerminal() {
   }
 }
 
-function createConfig(packageName) {
+function createConfig(binName) {
   const homeDir = os.homedir()
   const configDir = path.join(homeDir, '.config', 'manicode')
-  const binaryName =
-    process.platform === 'win32' ? `${packageName}.exe` : packageName
+  const resolvedBinaryName =
+    process.platform === 'win32' ? `${binName}.exe` : binName
 
   return {
     homeDir,
     configDir,
-    binaryName,
-    binaryPath: path.join(configDir, binaryName),
+    binaryName: resolvedBinaryName,
+    binaryPath: path.join(configDir, resolvedBinaryName),
     metadataPath: path.join(configDir, 'openbuff-metadata.json'),
     tempDownloadDir: path.join(configDir, '.download-temp'),
-    userAgent: `${packageName}-cli`,
+    userAgent: `${binName}-cli`,
     requestTimeout: 20000,
   }
 }
 
-const CONFIG = createConfig(packageName)
+const CONFIG = createConfig(binaryName)
 const { getProxyUrl, httpGet } = createReleaseHttpClient({
   env: process.env,
   userAgent: CONFIG.userAgent,
@@ -135,12 +139,14 @@ function trackUpdateFailed(errorMessage, version, context = {}) {
   }
 }
 
+// Binary tarball asset filenames on the GitHub Release. The binary is named
+// `openbuff` (see binaryName above) regardless of the scoped npm package name.
 const PLATFORM_TARGETS = {
-  'linux-x64': `${packageName}-linux-x64.tar.gz`,
-  'linux-arm64': `${packageName}-linux-arm64.tar.gz`,
-  'darwin-x64': `${packageName}-darwin-x64.tar.gz`,
-  'darwin-arm64': `${packageName}-darwin-arm64.tar.gz`,
-  'win32-x64': `${packageName}-win32-x64.tar.gz`,
+  'linux-x64': `${binaryName}-linux-x64.tar.gz`,
+  'linux-arm64': `${binaryName}-linux-arm64.tar.gz`,
+  'darwin-x64': `${binaryName}-darwin-x64.tar.gz`,
+  'darwin-arm64': `${binaryName}-darwin-arm64.tar.gz`,
+  'win32-x64': `${binaryName}-win32-x64.tar.gz`,
 }
 
 const term = {
@@ -162,7 +168,7 @@ const term = {
 async function getLatestVersion() {
   try {
     const res = await httpGet(
-      `https://registry.npmjs.org/${packageName}/latest`,
+      `https://registry.npmjs.org/${npmPackageName}/latest`,
     )
 
     if (res.statusCode !== 200) return null
@@ -289,9 +295,14 @@ async function downloadBinary(version) {
     throw error
   }
 
+  // Binaries are hosted as GitHub Release assets on the public repo.
+  // Public repo → unauthenticated downloads; GitHub 302-redirects to a CDN,
+  // and the http.js client follows redirects. OPENBUFF_DOWNLOAD_BASE may
+  // override the base (e.g. for staging mirrors).
   const downloadUrl = `${
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
-  }/api/releases/download/${version}/${fileName}`
+    process.env.OPENBUFF_DOWNLOAD_BASE ||
+    'https://github.com/AnzoBenjamin/openbuff/releases/download'
+  }/v${version}/${fileName}`
 
   // Ensure config directory exists
   fs.mkdirSync(CONFIG.configDir, { recursive: true })
@@ -531,7 +542,7 @@ function printCrashDiagnostics(code, signal) {
 
   const exitInfo = signal ? `signal ${signal}` : `code ${code}`
   console.error('')
-  console.error(`❌ ${packageName} exited immediately (${exitInfo})`)
+  console.error(`❌ ${binaryName} exited immediately (${exitInfo})`)
   console.error('')
 
   if (isIllegalInstruction) {

@@ -1,6 +1,6 @@
 {
-  "name": "openbuff",
-  "version": "1.0.677",
+  "name": "@openbuff/cli",
+  "version": "0.1.0",
   "description": "AI coding agent",
   "license": "MIT",
   "bin": {
@@ -34,9 +34,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicholasgriffintn/openbuff.git"
+    "url": "https://github.com/AnzoBenjamin/openbuff.git"
   },
-  "homepage": "https://github.com/nicholasgriffintn/openbuff",
+  "homepage": "https://github.com/AnzoBenjamin/openbuff",
   "publishConfig": {
     "access": "public"
   }

@@ -33,9 +33,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicholasgriffintn/openbuff.git"
+    "url": "https://github.com/AnzoBenjamin/openbuff.git"
   },
-  "homepage": "https://github.com/nicholasgriffintn/openbuff",
+  "homepage": "https://github.com/AnzoBenjamin/openbuff",
   "publishConfig": {
     "access": "public"
   }

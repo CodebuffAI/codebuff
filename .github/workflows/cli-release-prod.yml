@@ -120,7 +120,7 @@ jobs:
 
             ### Installation
             ```bash
-            npm install -g openbuff
+            npm install -g @openbuff/cli
             ```
 
             ### Platform Binaries
@@ -160,3 +160,5 @@ jobs:
         run: |
           cd cli/release
           npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
