@@ -178,16 +178,26 @@ const server = Bun.serve({
       return new Response('Forbidden: cross-origin request blocked', { status: 403 })
     }
 
+    // Liveness probe — a trivial, dependency-free signal for the Electron shell's
+    // startup wait and any monitoring, so readiness doesn't ride on serializing
+    // the full engine snapshot (`/api/state`).
+    if (pathname === '/healthz') return new Response('ok')
+
     // — Server-Sent Events: live engine + thread state + agent activity —
     if (pathname === '/api/events') {
       let send: (e: EngineEvent) => void = () => {}
+      let heartbeat: ReturnType<typeof setInterval> | undefined
       const stream = new ReadableStream({
         start(controller) {
+          const cleanup = () => {
+            subscribers.delete(send)
+            if (heartbeat) clearInterval(heartbeat)
+          }
           send = (e: EngineEvent) => {
             try {
               controller.enqueue(`data: ${JSON.stringify(e)}\n\n`)
             } catch {
-              subscribers.delete(send)
+              cleanup()
             }
           }
           // Initial state + a thread event per open thread so a (re)connecting
@@ -197,9 +207,22 @@ const server = Bun.serve({
             send({ type: 'thread', threadId: t.id, thread: t, items: engine.store.listQueueItems(t.id) })
           }
           subscribers.add(send)
+          // Heartbeat: an SSE comment frame (ignored by EventSource) every 25s.
+          // Without traffic a half-open socket (laptop sleep, proxy drop) would
+          // sit dead in `subscribers` forever; the enqueue throws on a dead
+          // controller and triggers cleanup. Also keeps intermediaries from
+          // dropping an idle stream.
+          heartbeat = setInterval(() => {
+            try {
+              controller.enqueue(': ping\n\n')
+            } catch {
+              cleanup()
+            }
+          }, 25_000)
         },
         cancel() {
           subscribers.delete(send)
+          if (heartbeat) clearInterval(heartbeat)
         },
       })
       return new Response(stream, {

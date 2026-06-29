@@ -99,13 +99,15 @@ function findFreePort() {
   })
 }
 
-// Poll the orchestrator's /api/state until it answers (or we give up).
+// Poll the orchestrator's /healthz until it answers (or we give up). Using the
+// trivial liveness probe instead of /api/state keeps readiness from depending on
+// the full engine snapshot serializing.
 function waitForServer(port, timeoutMs = 30000) {
   const start = Date.now()
   return new Promise((resolve, reject) => {
     const attempt = () => {
       const req = http.get(
-        { host: '127.0.0.1', port, path: '/api/state', timeout: 1500 },
+        { host: '127.0.0.1', port, path: '/healthz', timeout: 1500 },
         (res) => {
           res.resume()
           resolve()
