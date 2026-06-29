@@ -120,6 +120,11 @@ Behavior, matched to the implementation in `sdk/src/impl/failover.ts` and
 - **Primary is always attempted first.** The failover list is deduped against
   the primary, so a `failoverModels` entry that repeats the primary does not
   cause a redundant same-model attempt (`resolveModelsToTry`).
+- **Duplicate backups are collapsed automatically.** `resolveModelsToTry` also
+  dedupes *within* `failoverModels` itself, preserving first-seen order — so a
+  misconfigured list like `["backup-a", "backup-a", "backup-b"]` is treated as
+  `["backup-a", "backup-b"]` and the loop never wastefully retries the same
+  backup model twice.
 - **Failover-eligible errors:** `401`, `403` (auth) and `500`, `502`, `503`,
   `504` (server). These match `FAILOVER_ELIGIBLE_STATUS_CODES`. Auth errors
   failover immediately (the inner retry loop does not retry them); 5xx are

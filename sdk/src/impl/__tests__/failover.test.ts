@@ -93,7 +93,7 @@ describe('resolveModelsToTry', () => {
     ])
   })
 
-  it('preserves duplicates within the failover list (only dedupes against the primary)', () => {
+  it('dedupes duplicates within the failover list (preserves first-seen order)', () => {
     const config = makeLoadedConfig([
       'anthropic/claude-sonnet-4-5',
       'anthropic/claude-sonnet-4-5',
@@ -101,7 +101,20 @@ describe('resolveModelsToTry', () => {
     expect(resolveModelsToTry('openai/gpt-5.5', config)).toEqual([
       'openai/gpt-5.5',
       'anthropic/claude-sonnet-4-5',
+    ])
+  })
+
+  it('dedupes duplicate backups while preserving order of first occurrences', () => {
+    const config = makeLoadedConfig([
       'anthropic/claude-sonnet-4-5',
+      'openrouter/anthropic/claude-sonnet-4-5',
+      'anthropic/claude-sonnet-4-5',
+      'openrouter/anthropic/claude-sonnet-4-5',
+    ])
+    expect(resolveModelsToTry('openai/gpt-5.5', config)).toEqual([
+      'openai/gpt-5.5',
+      'anthropic/claude-sonnet-4-5',
+      'openrouter/anthropic/claude-sonnet-4-5',
     ])
   })
 })

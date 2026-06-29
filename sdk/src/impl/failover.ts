@@ -34,10 +34,12 @@ export const FAILOVER_ELIGIBLE_STATUS_CODES = new Set([401, 403, 500, 502, 503, 
  * Resolve the ordered list of models to attempt for a request, starting with
  * the primary requested model followed by the configured failover models.
  *
- * The primary model is always first. The failover list is deduped against the
- * primary (so a misconfigured `failoverModels` that repeats the primary does
- * not cause a redundant same-model attempt). If no failover models are
- * configured, returns a single-element list containing only the primary.
+ * The primary model is always first. The failover list is deduped both against
+ * the primary AND within itself (preserving first-seen order), so a
+ * misconfigured `failoverModels` that repeats the primary or lists a backup
+ * multiple times does not cause a redundant same-model attempt. If no failover
+ * models are configured, returns a single-element list containing only the
+ * primary (or an empty list when `primaryModel` is undefined).
  */
 export function resolveModelsToTry(
   primaryModel: string | undefined,
@@ -45,9 +47,16 @@ export function resolveModelsToTry(
 ): string[] {
   const failoverModels = loadedConfig?.config?.failoverModels ?? []
   const primary = primaryModel ? [primaryModel] : []
-  const dedupedFailovers = failoverModels.filter(
-    (model) => model !== primaryModel,
-  )
+  // Dedupe against the primary AND within failoverModels itself, preserving
+  // first-seen order. A misconfigured list with duplicate backups must not
+  // cause the loop to wastefully retry the same backup model twice.
+  const seen = new Set<string>(primary)
+  const dedupedFailovers: string[] = []
+  for (const model of failoverModels) {
+    if (seen.has(model)) continue
+    seen.add(model)
+    dedupedFailovers.push(model)
+  }
   return [...primary, ...dedupedFailovers]
 }
 
