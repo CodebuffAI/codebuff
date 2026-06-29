@@ -49,7 +49,7 @@ function resetTerminal() {
 
 function createConfig(packageName) {
   const homeDir = os.homedir()
-  const configDir = path.join(homeDir, '.config', 'manicode')
+  const configDir = path.join(homeDir, '.config', 'openbuff')
   const binaryName =
     process.platform === 'win32' ? `${packageName}.exe` : packageName
 

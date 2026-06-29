@@ -9,7 +9,7 @@
   },
   "scripts": {
     "postinstall": "node postinstall.js",
-    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const configDir = path.join(os.homedir(), '.config', 'manicode'); for (const name of (process.platform === 'win32' ? ['openbuff.exe', 'codebuff.exe'] : ['openbuff', 'codebuff'])) { try { fs.unlinkSync(path.join(configDir, name)) } catch (e) { /* ignore if file doesn't exist */ } }\""
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const configDir = path.join(os.homedir(), '.config', 'openbuff'); for (const name of (process.platform === 'win32' ? ['openbuff.exe'] : ['openbuff'])) { try { fs.unlinkSync(path.join(configDir, name)) } catch (e) { /* ignore if file doesn't exist */ } }\""
   },
   "files": [
     "index.js",

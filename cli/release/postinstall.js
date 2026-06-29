@@ -5,10 +5,10 @@ const os = require('os');
 const path = require('path');
 
 // Clean up managed binaries so the wrapper downloads a fresh copy.
-const configDir = path.join(os.homedir(), '.config', 'manicode');
+const configDir = path.join(os.homedir(), '.config', 'openbuff');
 const binaryNames = process.platform === 'win32'
-  ? ['openbuff.exe', 'codebuff.exe']
-  : ['openbuff', 'codebuff'];
+  ? ['openbuff.exe']
+  : ['openbuff'];
 
 for (const binaryName of binaryNames) {
   try {

@@ -53,7 +53,7 @@ function resetTerminal() {
 
 function createConfig(binName) {
   const homeDir = os.homedir()
-  const configDir = path.join(homeDir, '.config', 'manicode')
+  const configDir = path.join(homeDir, '.config', 'openbuff')
   const resolvedBinaryName =
     process.platform === 'win32' ? `${binName}.exe` : binName
 
