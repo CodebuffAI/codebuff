@@ -67,6 +67,19 @@ export const FREEBUFF_MCP_TOOL_NAMES = [
   'browser_check',
 ].map((n) => `mcp__${FREEBUFF_MCP_SERVER}__${n}`)
 
+/**
+ * Appended to Claude Code's built-in (preset) system prompt so it ends finished
+ * work with follow-up suggestions, the same way the Codebuff thread agent does
+ * (see THREAD_SYSTEM_PROMPT in thread-agent.ts). The tool reaches the model as
+ * `mcp__freebuff__suggest_prompts`; we describe the behaviour rather than lean on
+ * the qualified name.
+ */
+export const CLAUDE_CODE_SYSTEM_APPEND = `This thread runs inside the Freebuff desktop app, which has a per-thread queue of follow-up prompts beside the chat.
+
+When you finish a task, call the suggest_prompts tool to propose 1–3 high-confidence follow-ups the user is likely to want next — a natural next feature, a polish pass, a test, or a cleanup the work created. Each follow-up parks in the queue, where the user can accept, edit, or ignore it; they do NOT run automatically. Aim to end a finished task with a suggest_prompts call so the user always has a useful handoff ready.
+
+Keep them high-signal: give each a concrete, self-contained prompt plus a short label, and only propose things you'd genuinely expect the user to accept. If nothing obvious comes to mind, skip the call — zero good follow-ups beats noisy, speculative, or busywork ones.`
+
 /** MCP tool results are content blocks; we ship our JSON payloads as text. */
 const jsonResult = (value: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(value) }],
@@ -238,6 +251,13 @@ export class ClaudeCodeHarness implements AgentHarness {
         model: CLAUDE_CODE_MODEL,
         cwd: turn.cwd,
         env: claudeCodeEnv(),
+        // Keep Claude Code's full default behaviour, but append our follow-up
+        // guidance so it ends finished work with suggest_prompts.
+        systemPrompt: {
+          type: 'preset',
+          preset: 'claude_code',
+          append: CLAUDE_CODE_SYSTEM_APPEND,
+        },
         abortController: turn.abort,
         ...(sessionId ? { resume: sessionId } : {}),
         permissionMode: 'bypassPermissions',

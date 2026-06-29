@@ -1752,6 +1752,48 @@ body.col-resizing {
   background: transparent;
   border-style: dashed;
 }
+/* Expanded suggestions wrap to several lines; pin the promote/dismiss buttons to
+   the top so they don't float to the vertical centre of a tall row. */
+.qitem.suggested.expanded {
+  align-items: flex-start;
+}
+/* The clickable body of a suggestion: a borderless button so the whole label
+   row toggles the full prompt while still exposing button semantics for a11y. */
+.sugg-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+.sugg-label:disabled {
+  cursor: default;
+}
+.sugg-caret {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--faint);
+  transition: transform 0.15s ease;
+}
+.sugg-caret.open {
+  transform: rotate(180deg);
+}
+.sugg-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qitem.suggested.expanded .sugg-text {
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .toasts {
   position: fixed;

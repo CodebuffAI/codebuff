@@ -76,6 +76,8 @@ export const THREAD_SUBAGENT_DEFINITIONS: AgentDefinition[] = [
   basher as AgentDefinition,
 ]
 
+// The suggest_prompts guidance below is mirrored, in preset-append form, by
+// CLAUDE_CODE_SYSTEM_APPEND in claude-code-harness.ts — keep the two in sync.
 const THREAD_SYSTEM_PROMPT = `You are Freebuff, a capable coding agent working directly in this repository's
 git worktree. You implement what the user asks: read the relevant code, make
 focused edits, run commands to verify, and keep the working tree in a good state.
