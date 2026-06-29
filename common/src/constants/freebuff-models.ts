@@ -286,6 +286,32 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
  *  so GLM never falls into the shared 5/day premium quota. */
 export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 
+/** Models that occupy the single per-user "premium-bucket" CONCURRENCY slot in
+ *  Freebuff Desktop's multi-session mode: at most one of these may have an
+ *  active session per user at a time, while unlimited-bucket models (DeepSeek V4
+ *  Flash, MiMo 2.5) may run in any number of concurrent tabs.
+ *
+ *  This is strictly a CONCURRENCY bucket, NOT a quota bucket. It is intentionally
+ *  a SUPERSET of FREEBUFF_PREMIUM_MODEL_IDS: it also includes MiniMax M3 and GLM
+ *  5.2, which are unlimited / weekly for QUOTA purposes but expensive enough that
+ *  we cap them to one concurrent desktop session. Do NOT use this for the daily
+ *  premium quota — that stays on isFreebuffPremiumModelId so M3/GLM never start
+ *  burning the 5/day premium pool. */
+export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
+  ...FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_GLM_V52_MODEL_ID,
+] as const
+
+/** Wire headers for the free-mode session endpoints
+ *  (/api/v1/freebuff/session). Shared so the server handlers and every client
+ *  (CLI, desktop) agree on the exact strings instead of redefining literals. */
+export const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
+export const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
+/** Set to '1' by Freebuff Desktop to opt into multi-session mode (concurrent
+ *  per-tab sessions); absent for CLI/web, which keep one session per user. */
+export const FREEBUFF_MULTI_SESSION_HEADER = 'x-freebuff-multi-session'
+
 /** Models that accept image input. Used to decide whether uploaded images are
  *  forwarded to the model as real multimodal content. */
 export const FREEBUFF_MULTIMODAL_MODEL_IDS = [
@@ -491,6 +517,20 @@ export function isFreebuffPremiumModelId(
   // Suffix-tolerant: a dated variant of a premium id (e.g. a dated Kimi) must
   // still count as premium so it can't dodge the premium daily rate cap.
   return FREEBUFF_PREMIUM_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
+}
+
+/** Whether `model` occupies the one-per-user Freebuff Desktop premium
+ *  CONCURRENCY slot (premium models + MiniMax M3 + GLM 5.2). Suffix-tolerant
+ *  (dated snapshots) like the other model predicates so a dated variant can't
+ *  dodge the cap. Distinct from isFreebuffPremiumModelId, which gates the daily
+ *  premium QUOTA and must NOT include M3/GLM. */
+export function isFreebuffDesktopPremiumBucketModelId(
+  id: string | null | undefined,
+): boolean {
+  if (!id) return false
+  return FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
 }
