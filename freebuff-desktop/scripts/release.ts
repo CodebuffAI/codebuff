@@ -11,8 +11,6 @@
  * GitHub Release upload.
  */
 
-import { execSync } from 'node:child_process'
-
 const REPO = 'CodebuffAI/freebuff-private'
 const WORKFLOW = 'freebuff-desktop-release.yml'
 
@@ -43,23 +41,33 @@ log('🚀 Initiating Freebuff Desktop release...')
 log(`Version bump type: ${versionType}`)
 
 try {
-  const cmd = `curl -s -w "\\nHTTP %{http_code}" -X POST \
-    -H "Accept: application/vnd.github.v3+json" \
-    -H "Authorization: token ${token}" \
-    -H "Content-Type: application/json" \
-    https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches \
-    -d '{"ref":"main","inputs":{"version_type":"${versionType}"}}'`
-
-  const response = execSync(cmd, { encoding: 'utf8' })
+  // Use fetch (this is a Bun script) so the token rides in a header instead of
+  // being interpolated into a shell command string — no leak via `ps`, and no
+  // breakage/injection if the token ever contains shell metacharacters.
+  const res = await fetch(
+    `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        Authorization: `token ${token}`,
+        'Content-Type': 'application/json',
+        // GitHub's API rejects requests without a User-Agent.
+        'User-Agent': 'freebuff-desktop-release',
+      },
+      body: JSON.stringify({ ref: 'main', inputs: { version_type: versionType } }),
+    },
+  )
 
   // The dispatch endpoint returns 204 No Content on success; anything else is a failure.
-  if (!response.includes('HTTP 204')) {
-    log(`⚠️  Workflow dispatch may have failed: ${response}`)
+  if (res.status === 204) {
+    log('🎉 Desktop release workflow triggered!')
+  } else {
+    const detail = await res.text().catch(() => '')
+    log(`⚠️  Workflow dispatch may have failed (HTTP ${res.status}): ${detail}`)
     log(
       `Trigger it manually at: https://github.com/${REPO}/actions/workflows/${WORKFLOW}`,
     )
-  } else {
-    log('🎉 Desktop release workflow triggered!')
   }
 } catch (err: any) {
   log(`⚠️  Failed to trigger workflow automatically: ${err?.message ?? err}`)

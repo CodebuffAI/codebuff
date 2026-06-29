@@ -44,6 +44,11 @@ let shuttingDown = false
 // bridge never rides along to an untrusted document.
 /** @type {string | null} */
 let appOrigin = null
+// The URL the renderer loads (orchestrator origin, or the Vite dev server). Held
+// at module scope so a macOS dock re-activate can reattach to the live
+// orchestrator instead of spawning a second one.
+/** @type {string | null} */
+let appUrl = null
 
 // Override package.json's "@codebuff/freebuff-desktop" name — that string leaks
 // into the macOS app menu, About panel, and Windows taskbar/AppUserModelId.
@@ -367,8 +372,15 @@ function buildMenu(reloadApp) {
 }
 
 async function boot() {
+  // Reattach, don't respawn: on a macOS dock re-activate the window may have been
+  // closed while the orchestrator stayed alive. Spawning another would overwrite
+  // serverProc and leak the first. Reuse the live one and just open a window.
+  if (serverProc && appUrl) {
+    const win = createWindow()
+    await win.loadURL(appUrl)
+    return
+  }
   const win = createWindow()
-  let appUrl
   try {
     // Dev-UI mode: Vite serves the renderer on 5174 and proxies /api to the Bun
     // orchestrator pinned to 8787. Otherwise the Bun server serves the built SPA.

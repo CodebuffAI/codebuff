@@ -26,6 +26,9 @@ import type {
 
 let msgSeq = 0
 const nextId = () => `m${++msgSeq}`
+// Monotonic toast id — collision-free, unlike Date.now()+random (two toasts in
+// the same millisecond could collide on the random suffix and clash as React keys).
+let toastSeq = 0
 
 // `init()` runs from App's mount effect, which React StrictMode invokes twice in
 // dev (and any future remount could repeat). Two concurrent inits both see an
@@ -276,7 +279,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   pushToast(text, kind = 'info') {
-    const id = Date.now() + Math.floor(Math.random() * 1000)
+    const id = ++toastSeq
     set((s) => ({ toasts: [...s.toasts, { id, text, kind }] }))
     setTimeout(() => get().dismissToast(id), 6000)
   },

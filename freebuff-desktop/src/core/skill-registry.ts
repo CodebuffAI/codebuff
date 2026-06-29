@@ -21,15 +21,18 @@ export async function searchRegistry(query: string): Promise<SkillSearchResult[]
     const url = `${REGISTRY_BASE}/api/search?q=${encodeURIComponent(q)}&limit=16`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     if (!res.ok) return []
-    const data = (await res.json()) as { skills?: any[] }
+    const data = (await res.json()) as { skills?: unknown[] }
     const sorted = (data.skills ?? [])
-      .map((s) => ({
-        id: String(s.id ?? ''),
-        name: String(s.name ?? s.skillId ?? ''),
-        slug: String(s.skillId ?? ''),
-        source: String(s.source ?? ''),
-        installs: Number(s.installs ?? 0),
-      }))
+      .map((raw) => {
+        const s = (raw ?? {}) as Record<string, unknown>
+        return {
+          id: String(s.id ?? ''),
+          name: String(s.name ?? s.skillId ?? ''),
+          slug: String(s.skillId ?? ''),
+          source: String(s.source ?? ''),
+          installs: Number(s.installs ?? 0),
+        }
+      })
       .filter((s) => s.slug && s.source)
       .sort((a, b) => b.installs - a.installs)
     // The registry returns the same skill name from multiple repos (e.g. two

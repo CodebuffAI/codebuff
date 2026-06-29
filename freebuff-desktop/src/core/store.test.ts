@@ -70,6 +70,16 @@ describe('Store — threads', () => {
     expect(store.getThread('th1')!.prState).toBe('none')
   })
 
+  test('updateThread rejects an unknown column key', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    // A stray/typo'd key must throw, not silently emit `SET bogus = …`.
+    expect(() => store.updateThread('th1', { bogus: 1 } as any, 2)).toThrow(/unknown column/)
+    // A valid update on the same thread still works.
+    store.updateThread('th1', { title: 'ok' }, 3)
+    expect(store.getThread('th1')!.title).toBe('ok')
+  })
+
   test('messages round-trip with acts', () => {
     const store = seeded()
     store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })

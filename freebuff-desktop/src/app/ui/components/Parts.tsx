@@ -134,8 +134,8 @@ type ItemPart =
   | { kind: 'tool'; tool: ToolCall }
 
 type Group =
-  | { kind: 'fold'; parts: FoldPart[] }
-  | { kind: 'items'; parts: ItemPart[] }
+  | { kind: 'fold'; parts: FoldPart[]; key: string }
+  | { kind: 'items'; parts: ItemPart[]; key: string }
   | { kind: 'text'; text: string; key: string }
   | { kind: 'agent'; agent: AgentPart; key: string }
 
@@ -161,16 +161,20 @@ function groupParts(parts: Part[], fold: boolean): Group[] {
           ? { kind: 'reasoning', id: p.id, text: p.text }
           : { kind: 'tool', tool: { id: p.id, toolName: p.toolName, input: p.input } }
       const last = out[out.length - 1]
+      // Key the fold group by its FIRST part's stable id (kept as the group grows)
+      // so React doesn't reassign FoldedActivity's open/closed state when parts
+      // stream in and shift array indices.
       if (last?.kind === 'fold') last.parts.push(foldPart)
-      else out.push({ kind: 'fold', parts: [foldPart] })
+      else out.push({ kind: 'fold', parts: [foldPart], key: `f${p.id}` })
       return
     }
     if (p.kind === 'reasoning') {
-      out.push({ kind: 'items', parts: [{ kind: 'reasoning', part: p }] })
+      out.push({ kind: 'items', parts: [{ kind: 'reasoning', part: p }], key: `i${p.id}` })
     } else {
       out.push({
         kind: 'items',
         parts: [{ kind: 'tool', tool: { id: p.id, toolName: p.toolName, input: p.input } }],
+        key: `i${p.id}`,
       })
     }
   })
@@ -194,8 +198,8 @@ export function PartsView(props: {
 
   return (
     <div className={`parts ${props.nested ? 'nested' : ''}`}>
-      {groups.map((g, i) => {
-        if (g.kind === 'fold') return <FoldedActivity key={`f${i}`} parts={g.parts} />
+      {groups.map((g) => {
+        if (g.kind === 'fold') return <FoldedActivity key={g.key} parts={g.parts} />
         if (g.kind === 'agent') {
           return (
             <AgentBox
@@ -209,7 +213,7 @@ export function PartsView(props: {
         }
         if (g.kind === 'items') {
           return (
-            <Fragment key={`items-${i}`}>
+            <Fragment key={g.key}>
               {g.parts.map((item) =>
                 item.kind === 'reasoning' ? (
                   <Thinking

@@ -52,17 +52,25 @@ function safeParse<T>(json: string | null | undefined, fallback: T): T {
  * Build an `UPDATE … SET col = $col, …, updated_at = $updated WHERE id = $id`
  * from a typed patch, mapping camelCase keys to snake_case columns. `boolKeys`
  * are coerced to 0/1. Returns null when the patch is empty.
+ *
+ * `allowed` is the set of permitted camelCase keys for this table: an unknown key
+ * throws rather than silently emitting `SET nonexistent_col = …` (the TS patch
+ * types erase at runtime, so this is the only guard against a stray/typo'd key).
  */
 function buildUpdate(
   table: string,
   id: string,
   patch: Record<string, unknown>,
   now: number,
-  boolKeys: readonly string[] = [],
+  opts: { allowed: readonly string[]; boolKeys?: readonly string[] },
 ): { sql: string; params: Record<string, string | number | null> } | null {
+  const { allowed, boolKeys = [] } = opts
   const sets: string[] = []
   const params: Record<string, string | number | null> = { $id: id, $updated: now }
   for (const [key, value] of Object.entries(patch)) {
+    if (!allowed.includes(key)) {
+      throw new Error(`buildUpdate(${table}): refusing unknown column for key "${key}"`)
+    }
     sets.push(`${toSnake(key)} = $${key}`)
     params[`$${key}`] = boolKeys.includes(key) ? (value ? 1 : 0) : (value as string | number | null)
   }
@@ -140,6 +148,34 @@ export type QueueItemPatch = Partial<
     'prompt' | 'label' | 'state' | 'source' | 'skillName' | 'workflowRunId' | 'workflowName' | 'position'
   >
 >
+
+// Runtime allowlists for buildUpdate, kept honest by `satisfies` so a typo or a
+// key that isn't a real patch field is a compile error.
+const THREAD_PATCH_KEYS = [
+  'title',
+  'status',
+  'harnessId',
+  'freebuffModel',
+  'autoQueueSuggestions',
+  'branch',
+  'worktreePath',
+  'baseRef',
+  'lastSeenHead',
+  'prUrl',
+  'prState',
+  'turnState',
+] as const satisfies readonly (keyof ThreadPatch)[]
+
+const QUEUE_PATCH_KEYS = [
+  'prompt',
+  'label',
+  'state',
+  'source',
+  'skillName',
+  'workflowRunId',
+  'workflowName',
+  'position',
+] as const satisfies readonly (keyof QueueItemPatch)[]
 
 type ProjectRow = {
   id: string
@@ -488,7 +524,10 @@ export class Store {
   }
 
   updateThread(id: ThreadId, patch: ThreadPatch, now: number): void {
-    const upd = buildUpdate('threads', id, patch, now, ['autoQueueSuggestions'])
+    const upd = buildUpdate('threads', id, patch, now, {
+      allowed: THREAD_PATCH_KEYS,
+      boolKeys: ['autoQueueSuggestions'],
+    })
     if (upd) this.db.query(upd.sql).run(upd.params)
   }
 
@@ -604,7 +643,7 @@ export class Store {
   }
 
   updateQueueItem(id: string, patch: QueueItemPatch, now: number): void {
-    const upd = buildUpdate('queue_items', id, patch, now)
+    const upd = buildUpdate('queue_items', id, patch, now, { allowed: QUEUE_PATCH_KEYS })
     if (upd) this.db.query(upd.sql).run(upd.params)
   }
 
