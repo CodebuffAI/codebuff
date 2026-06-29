@@ -9,8 +9,9 @@
  * alongside the project and preview controls.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
+import { useDismissable } from '../hooks/useDismissable'
 import type { AgentOption, FreebuffModelOption, HarnessId } from '../lib/types'
 import { Icon } from './Icon'
 
@@ -36,21 +37,7 @@ export function AgentPicker({
 }: AgentPickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  // Close on outside click / Escape.
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    window.addEventListener('mousedown', onDown)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  useDismissable(open, ref, () => setOpen(false))
 
   if (!options.length) return null
   const resolvedId: HarnessId = harnessId ?? fallbackId ?? options[0].id
@@ -126,20 +113,7 @@ export interface ModelPickerProps {
 export function ModelPicker({ model, models, premiumLocked, onChange }: ModelPickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    window.addEventListener('mousedown', onDown)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  useDismissable(open, ref, () => setOpen(false))
 
   if (!models.length) return null
   const active = models.find((m) => m.id === model) ?? models[0]

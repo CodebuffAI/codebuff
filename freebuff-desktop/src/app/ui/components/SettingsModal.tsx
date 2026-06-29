@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { useDismissable } from '../hooks/useDismissable'
 import { useStore } from '../store/store'
 import type { ProjectSettings } from '../lib/types'
 import { Icon } from './Icon'
@@ -22,6 +23,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [showJson, setShowJson] = useState(false)
   // Re-sync on outside changes (e.g. another panel / a save that came back via SSE).
   useEffect(() => setDraft(settings), [settings])
+  // Escape closes the modal; the backdrop already handles outside clicks.
+  useDismissable(true, null, onClose, { escapeOnly: true })
 
   const entry = draft.preview.entry ?? ''
   const setEntry = (next: string) =>

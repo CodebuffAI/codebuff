@@ -231,36 +231,17 @@ export const useStore = create<StoreState>((set, get) => ({
     // without waiting for the SSE round-trip; the server's `thread` event
     // confirms it a frame later. We don't drop thread state here (the backend
     // does that on its own when the per-thread harness changes).
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      // Match the backend's "null means default" rule: if the user picks the
-      // active default, persist as the default rather than pinning.
-      const value: HarnessId | null =
-        harnessId === s.agentHarness ? null : harnessId
-      return {
-        threads: {
-          ...s.threads,
-          [id]: { ...slice, thread: { ...slice.thread, harnessId: value } },
-        },
-      }
-    })
+    // Match the backend's "null means default" rule: if the user picks the
+    // active default, persist as the default rather than pinning.
+    const value: HarnessId | null = harnessId === get().agentHarness ? null : harnessId
+    patchThread(set, id, { harnessId: value })
     api.setThreadHarness(id, harnessId)
   },
 
   setThreadModel(id, model) {
     // Optimistic: flip the tab's model immediately; the server's `thread`/`state`
     // events reconcile (and may downgrade if the premium slot is taken).
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      return {
-        threads: {
-          ...s.threads,
-          [id]: { ...slice, thread: { ...slice.thread, freebuffModel: model } },
-        },
-      }
-    })
+    patchThread(set, id, { freebuffModel: model })
     void api.setThreadModel(id, model).then((res) => {
       if (res?.rejected) {
         get().pushToast(
@@ -552,13 +533,7 @@ export const useStore = create<StoreState>((set, get) => ({
   stopTurn(id) {
     // Optimistically flip the tab/composer out of the running state; the server's
     // thread event confirms it a moment later.
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      return {
-        threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, turnState: 'idle' } } },
-      }
-    })
+    patchThread(set, id, { turnState: 'idle' })
     api.stopTurn(id)
   },
 
@@ -627,13 +602,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   setAutoQueueSuggestions(id, on) {
-    set((s) => {
-      const slice = s.threads[id]
-      if (!slice) return {}
-      return {
-        threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, autoQueueSuggestions: on } } },
-      }
-    })
+    patchThread(set, id, { autoQueueSuggestions: on })
     api.setAutoQueueSuggestions(id, on)
   },
 
@@ -722,6 +691,22 @@ function optimisticItems(
     const slice = s.threads[id]
     if (!slice) return {}
     return { threads: { ...s.threads, [id]: { ...slice, items: fn(slice.items) } } }
+  })
+}
+
+/** Optimistically merge a partial into a thread's `thread` record (no-op if the
+ *  thread isn't open). The actions below pair this with an `api.*` call; the
+ *  server's `thread`/`state` event reconciles a frame later (and may correct it,
+ *  e.g. a premium-slot downgrade). */
+function patchThread(
+  set: (fn: (s: StoreState) => Partial<StoreState>) => void,
+  id: string,
+  patch: Partial<Thread>,
+) {
+  set((s) => {
+    const slice = s.threads[id]
+    if (!slice) return {}
+    return { threads: { ...s.threads, [id]: { ...slice, thread: { ...slice.thread, ...patch } } } }
   })
 }
 
