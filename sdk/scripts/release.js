@@ -1,13 +1,25 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process')
+// Publishes @openbuff/sdk directly to the npm registry.
+//
+// Previously this script triggered a GitHub Actions workflow on the
+// CodebuffAI/codebuff repo, which no longer exists for Openbuff. It now
+// runs the publish locally: optional version bump -> npm pack dry-run
+// verification -> npm publish --access public.
+//
+// Usage:
+//   node scripts/release.js              # publish current version
+//   node scripts/release.js patch        # bump patch then publish
+//   node scripts/release.js minor        # bump minor then publish
+//   node scripts/release.js 1.2.3       # set exact version then publish
+//   node scripts/release.js --dry-run   # verify tarball, do not publish
 
-// Parse command line arguments
-const args = process.argv.slice(2)
-const versionType = args[0] || 'patch' // patch, minor, major, or specific version like 1.2.3
+const { execSync } = require('child_process')
+const fs = require('fs')
+const path = require('path')
 
 function log(message) {
-  console.log(`${message}`)
+  console.log(`📦 ${message}`)
 }
 
 function error(message) {
@@ -15,84 +27,80 @@ function error(message) {
   process.exit(1)
 }
 
-function formatTimestamp() {
-  const now = new Date()
-  const options = {
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    timeZoneName: 'short',
-  }
-  return now.toLocaleDateString('en-US', options)
-}
-
-function checkGitHubToken() {
-  const token = process.env.CODEBUFF_GITHUB_TOKEN
-  if (!token) {
-    error(
-      'CODEBUFF_GITHUB_TOKEN environment variable is required but not set.\n' +
-      'Please set it with your GitHub personal access token or use the infisical setup.'
-    )
-  }
-  
-  // Set GITHUB_TOKEN for compatibility with existing curl commands
-  process.env.GITHUB_TOKEN = token
-  return token
-}
-
-async function triggerWorkflow(versionType) {
-  if (!process.env.GITHUB_TOKEN) {
-    error('GITHUB_TOKEN environment variable is required but not set')
-  }
-
+function run(command) {
+  log(`Running: ${command}`)
   try {
-    // Use workflow filename instead of ID
-    const triggerCmd = `curl -s -w "HTTP Status: %{http_code}" -X POST \
-      -H "Accept: application/vnd.github.v3+json" \
-      -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
-      -H "Content-Type: application/json" \
-      https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/sdk-release.yml/dispatches \
-      -d '{"ref":"main","inputs":{"version_type":"${versionType}"}}'`
-
-    const response = execSync(triggerCmd, { encoding: 'utf8' })
-
-    // Check if response contains error message
-    if (response.includes('workflow_dispatch')) {
-      log(`⚠️  Workflow dispatch failed: ${response}`)
-      log('The workflow may need to be updated on GitHub. Continuing anyway...')
-      log(
-        'Please manually trigger the workflow at: https://github.com/CodebuffAI/codebuff/actions/workflows/sdk-release.yml',
-      )
-    } else {
-      log('🎉 SDK release workflow triggered!')
-    }
+    return execSync(command, { stdio: 'inherit' })
   } catch (err) {
-    log(`⚠️  Failed to trigger workflow automatically: ${err.message}`)
-    log(
-      'You may need to trigger it manually at: https://github.com/CodebuffAI/codebuff/actions/workflows/sdk-release.yml',
-    )
+    error(`Command failed: ${command}\n${err.message}`)
   }
 }
 
-async function main() {
-  log('🚀 Initiating SDK release...')
-  log(`Date: ${formatTimestamp()}`)
-
-  // Check for local GitHub token
-  checkGitHubToken()
-  log('✅ Using local CODEBUFF_GITHUB_TOKEN')
-
-  log(`Version bump type: ${versionType}`)
-
-  // Trigger the workflow
-  await triggerWorkflow(versionType)
-
-  log('')
-  log('Monitor progress at: https://github.com/CodebuffAI/codebuff/actions')
+function readPackageJson() {
+  return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'))
 }
 
-main().catch((err) => {
-  error(`SDK release failed: ${err.message}`)
-})
+function writePackageJson(pkg) {
+  fs.writeFileSync(
+    path.join(process.cwd(), 'package.json'),
+    JSON.stringify(pkg, null, 2) + '\n',
+  )
+}
+
+function setVersion(versionType, pkg) {
+  if (!versionType || versionType === '--dry-run') {
+    return pkg.version
+  }
+  if (/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(versionType)) {
+    pkg.version = versionType
+  } else if (['patch', 'minor', 'major'].includes(versionType)) {
+    run(`npm version ${versionType} --no-git-tag-version`)
+    // npm version rewrites package.json; re-read it
+    return readPackageJson().version
+  } else {
+    error(`Invalid version argument: ${versionType}\nExpected patch | minor | major | <semver> | --dry-run`)
+  }
+  writePackageJson(pkg)
+  return pkg.version
+}
+
+function main() {
+  const args = process.argv.slice(2)
+  const isDryRun = args.includes('--dry-run')
+  const versionType = args.find((a) => !a.startsWith('--'))
+
+  log('Initiating @openbuff/sdk release...')
+
+  // Verify npm auth before doing anything destructive
+  try {
+    const whoami = execSync('npm whoami', { encoding: 'utf8' }).trim()
+    log(`Logged in to npm as: ${whoami}`)
+  } catch {
+    error('Not logged in to npm. Run `npm login` first.')
+  }
+
+  const pkg = readPackageJson()
+  if (pkg.private) {
+    error(`package.json has "private": true — refusing to publish ${pkg.name}.`)
+  }
+
+  const version = setVersion(versionType, pkg)
+  log(`Releasing ${pkg.name}@${version}`)
+
+  // Verify the tarball contents
+  log('Verifying package tarball (npm pack --dry-run)...')
+  run('npm pack --dry-run')
+
+  if (isDryRun) {
+    log('Dry run complete. Re-run without --dry-run to publish.')
+    return
+  }
+
+  // Publish
+  log('Publishing to npm...')
+  run(`npm publish --access public`)
+  log(`✅ Published ${pkg.name}@${version}`)
+  log(`View at: https://www.npmjs.com/package/${pkg.name}`)
+}
+
+main()
