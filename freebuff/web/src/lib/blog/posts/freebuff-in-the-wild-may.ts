@@ -63,7 +63,7 @@ export const post: Post = {
     },
     {
       type: 'p',
-      text: 'This pattern shows up a lot in our feedback. People want to actually try the new open-weight model that just dropped, but cloning a repo and wiring up an API key is just enough friction to keep them from doing it. Freebuff already speaks DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, plus GPT-5.4 through a connected ChatGPT subscription. So `/model deepseek-v4-pro` and you\u2019re running a real benchmark against your own codebase.',
+      text: 'This pattern shows up a lot in our feedback. People want to actually try the new open-weight model that just dropped, but cloning a repo and wiring up an API key is just enough friction to keep them from doing it. Freebuff already speaks Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, plus GPT-5.4 through a connected ChatGPT subscription. So `/model deepseek-v4` and you\u2019re running a real benchmark against your own codebase.',
     },
     { type: 'hr' },
     { type: 'h2', text: '4. Someone who finally got their project across the line' },
@@ -82,7 +82,7 @@ export const post: Post = {
       type: 'ul',
       items: [
         '**Freebuff Web is becoming the on-ramp for the CLI.** People prompt their way into a working app, then eject to GitHub and finish in the terminal. We didn\u2019t plan it that way \u2014 it just emerged.',
-        '**`/model` is used more than we expected.** We assumed people would set-and-forget. Instead, a lot of users swap models per task: Kimi for refactors, DeepSeek for greenfield, connected GPT-5.4 for the final review pass.',
+        '**`/model` is used more than we expected.** We assumed people would set-and-forget. Instead, a lot of users swap models per task: Kimi for refactors, DeepSeek or GLM for greenfield, connected GPT-5.4 for the final review pass.',
         '**Subagents are getting forked.** A handful of users have written their own subagents and shared them on Discord. The migration-planner pattern from one of our guides is the most popular fork.',
         '**The non-English share is climbing.** Spanish and Portuguese feedback together is about 18% of our incoming notes this month, up from ~6% in March.',
       ],

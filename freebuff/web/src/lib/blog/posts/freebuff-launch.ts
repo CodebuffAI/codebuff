@@ -27,7 +27,7 @@ export const post: Post = {
       type: 'tldr',
       items: [
         'Freebuff is a free, no-config CLI coding agent — install with `npm install -g freebuff`.',
-        'It uses frontier models (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7) plus Gemini 3.1 Flash Lite for file finding.',
+        'It uses frontier models (Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3) plus Gemini 3.1 Flash Lite for file finding.',
         '9 specialized subagents ship in the box: code-reviewer, browser-use, file-picker, thinker-gpt, and more.',
         'It is the free alternative to Claude Code, Codex CLI, Cursor, Windsurf, and Devin.',
         'Limited mode means it works in every country on Earth, even behind a VPN.',
@@ -46,7 +46,7 @@ export const post: Post = {
       type: 'ul',
       items: [
         '**One command to install.** `npm install -g freebuff` and you are agentic.',
-        '**Your choice of frontier model.** DeepSeek V4 Pro for raw intelligence, Kimi K2.6 for balance, MiniMax M2.7 for speed, or DeepSeek V4 Flash if you care about efficiency.',
+        '**Your choice of frontier model.** Deepseek v4 for raw intelligence, Kimi K2.6 for balance, GLM 5.2 for coding precision, Minimax M3 for speed — plus BYOK for Claude Code.',
         '**9 specialized subagents.** Code review, browser automation, deep thinking with your own ChatGPT subscription, file finding, and more — orchestrated automatically.',
         '**Polished slash commands.** `/interview` → `/plan` → implement → `/review` takes you from a vague idea to a polished PR.',
         '**Follow-up suggestions.** After every response, Freebuff proposes three clickable next steps so the chat never dead-ends.',
@@ -73,7 +73,7 @@ export const post: Post = {
       competitor: 'Claude Code',
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: '$20/mo (Pro) or $200/mo (Max)' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7', competitor: 'Claude only' },
+        { feature: 'Models', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3 + BYOK for Claude', competitor: 'Claude only' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'Generic' },
         { feature: 'Browser use', freebuff: 'Built-in', competitor: 'MCP setup required' },
         { feature: 'Connect ChatGPT subscription', freebuff: 'Yes (GPT-5.4 for deep thinking)', competitor: 'No' },
@@ -82,7 +82,7 @@ export const post: Post = {
     { type: 'h2', text: 'Limited mode for the rest of the world' },
     {
       type: 'p',
-      text: 'Full-model Freebuff is available in 25+ countries today. Outside those countries — or when you are using a VPN — Freebuff drops to limited mode: DeepSeek V4 Flash only, 5 one-hour sessions per day. Still free. Still better than nothing. We are expanding the full-mode list every month.',
+      text: 'Full-model Freebuff is available in 25+ countries today. Outside those countries — or when you are using a VPN — Freebuff drops to limited mode: Deepseek v4 Flash only, 5 one-hour sessions per day. Still free. Still better than nothing. We are expanding the full-mode list every month.',
     },
     { type: 'h2', text: 'What\u2019s next' },
     {

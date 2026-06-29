@@ -45,7 +45,7 @@ keywords: [
       competitor: 'Pi Coding Agent',
       rows: [
         { feature: 'Price', freebuff: 'Free (models included)', competitor: 'Free agent; ~$20/mo API typical' },
-        { feature: 'Model bundle', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7 included', competitor: 'BYOK or /login subscriptions' },
+        { feature: 'Model bundle', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3 included', competitor: 'BYOK or /login subscriptions' },
         { feature: 'Subagents', freebuff: '9 specialized, shipped', competitor: 'Via extensions only' },
         { feature: 'Browser-use', freebuff: 'Built-in subagent', competitor: 'Via extension' },
         { feature: 'Slash commands', freebuff: '/plan, /review, /pr, /deploy, more', competitor: 'Minimal defaults' },

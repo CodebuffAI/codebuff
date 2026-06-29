@@ -26,7 +26,7 @@ export const post: Post = {
       type: 'tldr',
       items: [
         'Gemini CLI is great, free during preview, and locked to one model family — Google Gemini.',
-        'Freebuff is also free, supports many models (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, and GPT-5.4 through a connected ChatGPT subscription), and ships 9 specialized subagents.',
+        'Freebuff is also free, supports many models (Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, and GPT-5.4 through a connected ChatGPT subscription), and ships 9 specialized subagents.',
         'Gemini CLI requires a Google Cloud / Gemini API key. Freebuff requires nothing.',
         'Both run locally and edit files in your terminal.',
       ],
@@ -42,7 +42,7 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: 'Free during preview; rate-limited' },
         { feature: 'API key required', freebuff: 'No', competitor: 'Yes — Gemini API key' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Gemini 3.x family only' },
+        { feature: 'Models', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, GPT-5.4 (connected ChatGPT)', competitor: 'Gemini 3.x family only' },
         { feature: 'Choose model per task', freebuff: '`/model` switch', competitor: 'Locked' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General agent' },
         { feature: 'Browser-use', freebuff: 'Built-in', competitor: 'No native support' },

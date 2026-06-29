@@ -25,7 +25,7 @@ export const post: Post = {
       type: 'tldr',
       items: [
         'OpenCode is a great open-source CLI agent, but you bring (and pay for) the model API keys.',
-        'Freebuff bundles frontier models in the free tier — DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, plus GPT-5.4 through a connected ChatGPT subscription.',
+        'Freebuff bundles frontier models in the free tier — Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, plus GPT-5.4 through a connected ChatGPT subscription.',
         '9 specialized subagents ship in the box; OpenCode is one general agent.',
         'Browser-use is built in on Freebuff; OpenCode needs MCP + extra setup.',
         'If you already self-host Ollama + open weights, OpenCode is the closer fit. Otherwise Freebuff is faster to value.',
@@ -46,7 +46,7 @@ export const post: Post = {
       competitor: 'OpenCode',
       rows: [
         { feature: 'Per-run cost', freebuff: 'Free', competitor: 'Pay your model provider per token' },
-        { feature: 'Model bundle', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7 included', competitor: 'BYOK — OpenAI, Anthropic, OpenRouter, Ollama' },
+        { feature: 'Model bundle', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3 included + BYOK for Claude Code & Codex', competitor: 'BYOK — OpenAI, Anthropic, OpenRouter, Ollama' },
         { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'Not applicable; OpenCode uses API keys' },
         { feature: 'Subagents bundled', freebuff: '9 specialized', competitor: '1 general agent' },
         { feature: 'Browser-use', freebuff: 'Built-in', competitor: 'MCP + setup' },
@@ -95,7 +95,7 @@ export const post: Post = {
         },
         {
           q: 'Can Freebuff use the same models OpenCode uses?',
-          a: 'Freebuff does not support BYOK. It includes DeepSeek V4 Pro and Kimi K2.6, uses Gemini for file finding, and can use GPT-5.4 through a connected ChatGPT subscription.',
+          a: 'Freebuff supports BYOK for Claude Code and Codex, plus ChatGPT OAuth for Codex. It also includes all top Chinese frontier models (Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3) and can use GPT-5.4 through a connected ChatGPT subscription.',
         },
       ],
     },

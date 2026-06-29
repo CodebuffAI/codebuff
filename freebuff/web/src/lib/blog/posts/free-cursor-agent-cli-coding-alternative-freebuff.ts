@@ -56,7 +56,7 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: '$20/mo (Pro), $200/mo (Ultra)' },
         { feature: 'Editor lock-in', freebuff: 'None — works anywhere', competitor: 'Cursor-only' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Curated set; Auto by default' },
+        { feature: 'Models', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, GPT-5.4 (connected ChatGPT)', competitor: 'Curated set; Auto by default' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General agent only' },
         { feature: 'Browser use', freebuff: 'Built-in', competitor: 'Beta / MCP' },
         { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'No' },

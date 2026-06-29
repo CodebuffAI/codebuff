@@ -29,7 +29,7 @@ export const post: Post = {
         'Freebuff is a free alternative to Claude Code with the same CLI-first agent loop.',
         'Claude Code Pro is $20/mo, Max is $200/mo. Freebuff is $0.',
         'You get 9 specialized subagents in the box: code-reviewer, browser-use, file-picker, and more.',
-        'Frontier model options (DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7) plus GPT-5.4 through a connected ChatGPT subscription.',
+        'Frontier model options (Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3) plus BYOK for Claude Code and GPT-5.4 through a connected ChatGPT subscription.',
         'Connect your ChatGPT subscription to layer in GPT-5.4 deep thinking.',
       ],
     },
@@ -48,7 +48,7 @@ export const post: Post = {
       competitor: 'Claude Code',
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: '$20/mo (Pro), $200/mo (Max)' },
-        { feature: 'Primary model', freebuff: 'DeepSeek V4 Pro / Kimi K2.6 / MiniMax M2.7', competitor: 'Claude 4.x family' },
+        { feature: 'Primary model', freebuff: 'Deepseek v4 / Kimi K2.6 / GLM 5.2 / Minimax M3 + BYOK for Claude', competitor: 'Claude 4.x family' },
         { feature: 'Model choice per task', freebuff: 'Yes via `/model`', competitor: 'Limited' },
         { feature: 'Subagents bundled', freebuff: '9 specialized', competitor: 'Generic delegation' },
         { feature: 'Browser-use subagent', freebuff: 'Built-in', competitor: 'MCP setup required' },
@@ -87,7 +87,7 @@ export const post: Post = {
       type: 'callout',
       tone: 'success',
       title: 'You can run both',
-      text: 'Plenty of devs alternate. They keep Claude Code for Anthropic-flavored reasoning and use Freebuff for fast iteration, browser tasks, and any model that is not Claude.',
+      text: 'Plenty of devs alternate. They keep Claude Code for Anthropic-flavored reasoning or use their own Anthropic key via BYOK, and use Freebuff for fast iteration, browser tasks, and any model that is not Claude.',
     },
     { type: 'h2', text: 'Migrating from Claude Code' },
     {
@@ -111,11 +111,11 @@ export const post: Post = {
       items: [
         {
           q: 'Can Freebuff use Claude under the hood?',
-          a: 'Not directly today — Freebuff defaults to DeepSeek, Kimi, MiniMax, and Gemini. You can connect ChatGPT to layer in GPT-5.4.',
+          a: 'Yes — Freebuff supports BYOK for Claude Code, so you can bring your own Anthropic API key. It also includes all top Chinese frontier models (Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3) and Gemini, plus GPT-5.4 through a connected ChatGPT subscription.',
         },
         {
           q: 'Will the quality match Claude Code?',
-          a: 'For typical agentic coding (read, plan, edit, run tests), DeepSeek V4 Pro and Kimi K2.6 are at parity with Claude on most benchmarks. For the hardest reasoning, connected GPT-5.4 closes the gap.',
+          a: 'For typical agentic coding (read, plan, edit, run tests), Deepseek v4 and Kimi K2.6 are at parity with Claude on most benchmarks. You can also BYOK to bring your own Anthropic key. For the hardest reasoning, connected GPT-5.4 closes the gap.',
         },
         {
           q: 'How does the ad-supported model work?',

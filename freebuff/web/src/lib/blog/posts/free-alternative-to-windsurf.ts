@@ -41,7 +41,7 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: '$15+/mo per seat' },
         { feature: 'Editor lock-in', freebuff: 'None — works anywhere', competitor: 'Windsurf IDE (Codeium)' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Codeium-curated set' },
+        { feature: 'Models', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, GPT-5.4 (connected ChatGPT)', competitor: 'Codeium-curated set' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General Cascade agent' },
         { feature: 'Browser-use subagent', freebuff: 'Built-in', competitor: 'No' },
         { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'No' },

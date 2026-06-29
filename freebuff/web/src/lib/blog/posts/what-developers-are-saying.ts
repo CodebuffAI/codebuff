@@ -46,7 +46,7 @@ export const post: Post = {
     },
     {
       type: 'p',
-      text: "The \u201Ctry out new models with real coding tasks\u201D part is something we think about a lot. Most people never get past the demo prompts on a model provider's homepage. With Freebuff you can `/model` your way through DeepSeek, Kimi, MiniMax, and GPT-5.4 through a connected ChatGPT subscription on the same task, with the same context, in your own repo. That was always the goal.",
+      text: "The \u201Ctry out new models with real coding tasks\u201D part is something we think about a lot. Most people never get past the demo prompts on a model provider's homepage. With Freebuff you can `/model` your way through Deepseek, Kimi, GLM, Minimax, and GPT-5.4 through a connected ChatGPT subscription on the same task, with the same context, in your own repo. That was always the goal.",
     },
     { type: 'hr' },
     {

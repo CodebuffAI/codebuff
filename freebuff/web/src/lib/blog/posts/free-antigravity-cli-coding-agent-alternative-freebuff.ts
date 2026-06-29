@@ -46,7 +46,7 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free (permanent, ad-supported)', competitor: 'Free at launch; future pricing TBD' },
         { feature: 'Editor', freebuff: 'Use any editor', competitor: 'Antigravity IDE (forked editor)' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Gemini 3.x only' },
+        { feature: 'Models', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, GPT-5.4 (connected ChatGPT)', competitor: 'Gemini 3.x only' },
         { feature: 'Model choice per task', freebuff: 'Yes', competitor: 'Locked to Gemini' },
         { feature: 'Subagents bundled', freebuff: '9 specialized', competitor: 'One general agent' },
         { feature: 'Browser-use', freebuff: 'Built-in subagent', competitor: 'Yes (built-in)' },

@@ -26,7 +26,7 @@ export const post: Post = {
       items: [
         'Freebuff is the free alternative to OpenAI Codex and the Codex CLI.',
         'Codex requires ChatGPT Plus ($20/mo) or higher to run the cloud agent.',
-        'Freebuff runs locally, ships with 9 subagents, and can use a connected ChatGPT subscription for GPT-5.4 deep thinking.',
+        'Freebuff runs locally, ships with 9 subagents, supports BYOK for Codex (ChatGPT OAuth) and Claude Code, and can use a connected ChatGPT subscription for GPT-5.4 deep thinking.',
         'Same shape: read repo, plan, edit, run, verify, PR.',
       ],
     },
@@ -46,7 +46,7 @@ export const post: Post = {
       rows: [
         { feature: 'Price', freebuff: 'Free', competitor: 'ChatGPT Plus ($20+/mo) required' },
         { feature: 'Execution location', freebuff: 'Local — your machine, your filesystem', competitor: 'OpenAI cloud sandbox' },
-        { feature: 'Model choice', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'GPT-5.x family only' },
+        { feature: 'Model choice', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, GPT-5.4 (connected ChatGPT) + BYOK for Codex', competitor: 'GPT-5.x family only' },
         { feature: 'Subagents', freebuff: '9 specialized', competitor: 'General agent only' },
         { feature: 'Connect ChatGPT subscription', freebuff: 'Yes', competitor: 'You are already paying' },
         { feature: 'Browser-use subagent', freebuff: 'Built-in', competitor: 'Limited' },

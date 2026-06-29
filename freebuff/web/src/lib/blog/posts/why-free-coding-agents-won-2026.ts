@@ -38,13 +38,13 @@ export const post: Post = {
     { type: 'h2', text: '1. Model commodification' },
     {
       type: 'p',
-      text: 'DeepSeek V4 Pro (Jan 2026), Kimi K2.6 (Feb 2026), and MiniMax M2.7 (Apr 2026) each landed within 2 points of GPT-5.4 on SWE-Bench Verified at <10% of the cost. By summer, the gap on coding tasks was effectively zero. Paid tools that locked you into Claude or GPT-5.4 had nothing to defend.',
+      text: 'Deepseek v4 (Jan 2026), Kimi K2.6 (Feb 2026), GLM 5.2 (Mar 2026), and Minimax M3 (Apr 2026) each landed within 2 points of GPT-5.4 on SWE-Bench Verified at <10% of the cost. By summer, the gap on coding tasks was effectively zero. Paid tools that locked you into Claude or GPT-5.4 had nothing to defend.',
     },
     {
       type: 'compare',
       competitor: 'Frontier closed (GPT-5.4 Pro)',
       rows: [
-        { feature: 'SWE-Bench Verified', freebuff: 'DeepSeek V4 Pro: 71%', competitor: '74%' },
+        { feature: 'SWE-Bench Verified', freebuff: 'Deepseek v4: 71%', competitor: '74%' },
         { feature: 'HumanEval+', freebuff: 'Kimi K2.6: 92%', competitor: '94%' },
         { feature: 'Cost per 1M output tokens', freebuff: '$0.50 \u2013 $1.40', competitor: '$15+' },
         { feature: 'Latency p50', freebuff: '350 \u2013 600 ms first token', competitor: '500 ms first token' },

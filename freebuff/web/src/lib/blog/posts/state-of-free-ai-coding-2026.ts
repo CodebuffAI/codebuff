@@ -99,7 +99,7 @@ export const post: Post = {
       items: [
         {
           q: 'Are the free models really at parity with Claude / GPT?',
-          a: 'For coding, yes. DeepSeek V4 Pro, Kimi K2.6, and GPT-5.4 through a connected ChatGPT subscription match Claude on most coding-specific benchmarks. The "best for everything" debate is messier; the "best for coding" question is mostly settled.',
+          a: 'For coding, yes. Deepseek v4, Kimi K2.6, GLM 5.2, and GPT-5.4 through a connected ChatGPT subscription match Claude on most coding-specific benchmarks. You can also BYOK to use Claude Code directly. The "best for everything" debate is messier; the "best for coding" question is mostly settled.',
         },
         {
           q: 'Why would anyone still pay for Cursor / Claude Code / Lovable?',

@@ -90,7 +90,7 @@ export const post: Post = {
     {
       type: 'ul',
       items: [
-        '**Premium model defaults.** Freebuff defaults to DeepSeek V4 Pro and Kimi K2.6 (excellent, but not Anthropic). Connect your ChatGPT subscription to unlock GPT-5.4 for the truly hard turns.',
+        '**Premium model defaults.** Freebuff defaults to Deepseek v4 and Kimi K2.6 (excellent, but not Anthropic). BYOK to use Claude, or connect your ChatGPT subscription to unlock GPT-5.4 for the truly hard turns.',
         '**Some plugin ecosystem maturity.** Lovable has been around longer and has more pre-built integrations. We are catching up fast.',
       ],
     },

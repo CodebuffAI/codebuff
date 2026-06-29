@@ -45,7 +45,7 @@ export const post: Post = {
         { feature: 'Execution location', freebuff: 'Local + your shell', competitor: 'Devin\u2019s cloud sandbox' },
         { feature: 'Opens PRs', freebuff: 'Yes via `/pr`', competitor: 'Yes' },
         { feature: 'Verifies in browser', freebuff: 'Built-in browser-use subagent', competitor: 'Yes' },
-        { feature: 'Models', freebuff: 'DeepSeek V4 Pro, Kimi K2.6, MiniMax M2.7, GPT-5.4 (connected ChatGPT)', competitor: 'Internal model selection' },
+        { feature: 'Models', freebuff: 'Deepseek v4, Kimi K2.6, GLM 5.2, Minimax M3, GPT-5.4 (connected ChatGPT)', competitor: 'Internal model selection' },
         { feature: 'Inspect & take over', freebuff: 'You watch in your terminal', competitor: 'Devin Console' },
         { feature: 'Per-task cost', freebuff: 'Free', competitor: 'Burns Devin "ACUs"' },
       ],
