@@ -47,6 +47,10 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
     client: client as any,
     freebuffSessions: fakeFreebuffSessions(),
     globalSkillsDir: join(root, '.global-skills'),
+    // Default to no LLM title (keeps the prompt-prefix placeholder) so the shared
+    // turn tests don't see the title agent's run on the fake client. Individual
+    // tests override this to exercise the swap.
+    generateTitle: async () => null,
     ...extra,
   })
   return {
@@ -158,6 +162,55 @@ describe('ThreadEngine — turns', () => {
       const data = engine.threadData(thread.id)!
       expect(data.thread.title).toBe('readme.md')
       expect(data.messages[0].text).toBe('📎 readme.md')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('the first message swaps the prompt-prefix title for the LLM topic title', async () => {
+    let titleReq: { prompt: string } | undefined
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      generateTitle: async (req: any) => {
+        titleReq = req
+        return 'OAuth Login Flow'
+      },
+    })
+    try {
+      const thread = engine.createThread()
+      const titles: string[] = []
+      engine.on((e) => {
+        if (e.type === 'thread' && e.threadId === thread.id) titles.push(e.thread.title)
+      })
+      engine.postMessage(thread.id, 'help me set up google oauth in next.js')
+      await settle(engine, thread.id)
+
+      // The generator saw the user's first message.
+      expect(titleReq?.prompt).toBe('help me set up google oauth in next.js')
+      // The placeholder showed first, then got swapped for the LLM title.
+      expect(titles[0]).toBe('help me set up google oauth in next.js'.slice(0, 60))
+      expect(titles).toContain('OAuth Login Flow')
+      expect(engine.getThread(thread.id)!.title).toBe('OAuth Login Flow')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('a manual rename before the LLM title returns is not clobbered', async () => {
+    let resolve: (t: string | null) => void = () => {}
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      generateTitle: () => new Promise<string | null>((r) => (resolve = r)),
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'first message')
+      await settle(engine, thread.id)
+      // The user renames the thread while the title call is still in flight.
+      engine.store.updateThread(thread.id, { title: 'My own title' }, Date.now())
+      resolve('LLM Title')
+      await new Promise((r) => setTimeout(r, 20))
+      // The in-flight LLM title only swaps the original placeholder, so the
+      // manual rename stands.
+      expect(engine.getThread(thread.id)!.title).toBe('My own title')
     } finally {
       cleanup()
     }

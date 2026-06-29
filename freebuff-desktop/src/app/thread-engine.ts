@@ -46,6 +46,7 @@ import {
   isFreebuffDesktopPremiumBucketModelId,
   isFreebuffMultimodalModelId,
   resolveFreebuffModelForAccessTier,
+  FALLBACK_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   type FreebuffAccessTier,
   type FreebuffModelOption,
@@ -55,6 +56,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { trackEvent } from './analytics'
 import { CLAUDE_CODE_MODEL } from './models'
+import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
 import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
 import { ClaudeCodeHarness } from './agents/claude-code-harness'
@@ -150,6 +152,9 @@ export interface EngineOptions {
   harnessId?: HarnessId
   /** User-home skills dir for acquired skills. Defaults to `~/.freebuff/skills`. */
   globalSkillsDir?: string
+  /** Inject the thread-title generator (tests). Defaults to the SDK-backed one
+   *  that runs a throwaway single-step agent on the hosted client. */
+  generateTitle?: TitleGenerator
 }
 
 export class ThreadEngine {
@@ -170,6 +175,8 @@ export class ThreadEngine {
   private readonly repoRoot: string
   private readonly previewBaseUrl: string
   private readonly browserCheckFn: (url: string) => Promise<BrowserCheckResult>
+  /** Generates the LLM thread title swapped in after the first message. */
+  private readonly titleGenerator: TitleGenerator
 
   private listeners = new Set<(e: EngineEvent) => void>()
   /**
@@ -241,6 +248,8 @@ export class ThreadEngine {
       new FreebuffSessionManager(() => opts.apiKey ?? getAuthToken())
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
+    // Reads `this.client` lazily so a post-login client swap is picked up.
+    this.titleGenerator = opts.generateTitle ?? ((req) => runTitleCompletion(this.client, req))
 
     if (!this.store.getProject(this.projectId)) {
       this.store.insertProject({
@@ -706,11 +715,17 @@ export class ThreadEngine {
     // summary. `appendBlock` is shared with the renderer so the two never drift.
     const steeringText = appendBlock(text, att?.promptBlock ?? '')
     const displayText = appendBlock(text, att?.summary ?? '')
-    // Auto-title a fresh thread from its first message (fall back to an attachment
-    // name when the message is attachment-only).
-    const titleSeed = text.trim() || att?.manifest[0]?.name
+    // Auto-title a fresh thread from its first message: show a prompt-prefix
+    // placeholder immediately (fall back to an attachment name when the message is
+    // attachment-only), then — for a real text prompt — swap in a short LLM topic
+    // title once it comes back (best-effort, in parallel with the turn). Mirrors
+    // the freebuff.com/chat thread titles (see ./title.ts).
+    const trimmed = text.trim()
+    const titleSeed = trimmed || att?.manifest[0]?.name
     if (thread.title === 'New thread' && titleSeed) {
-      this.store.updateThread(threadId, { title: titleSeed.slice(0, 60) }, this.now())
+      const placeholder = titleSeed.slice(0, TITLE_MAX_CHARS)
+      this.store.updateThread(threadId, { title: placeholder }, this.now())
+      if (trimmed) void this.generateThreadTitle(threadId, trimmed, placeholder)
     }
     // Cross-surface DAU signal — one per user-submitted message. `accessTier`
     // matches the convention the other surfaces adopted (see `message_sent`).
@@ -719,7 +734,7 @@ export class ThreadEngine {
       kind: 'message',
       hasAttachments: attachmentPaths.length > 0,
       hasImages: Boolean(att?.images?.length),
-      inputLength: text.trim().length,
+      inputLength: trimmed.length,
     })
     this.startUserTurn(threadId, steeringText, displayText, att?.images)
   }
@@ -740,6 +755,45 @@ export class ThreadEngine {
           ? this.freebuffModelForThread(threadId)
           : CLAUDE_CODE_MODEL,
       accessTier: this.freebuff.getAccessTier(),
+    }
+  }
+
+  /**
+   * Generate a short LLM topic title for a fresh thread and swap it in for the
+   * prompt-prefix `placeholder`. Best-effort: runs a throwaway single-step agent
+   * on the hosted client as a normal metered request (free mode is gated to the
+   * freebuff agent hierarchy, which a one-off title agent can't satisfy — chat
+   * meters its title too) on a cheap model. Any failure — no credits, model
+   * error, empty output — leaves the placeholder untouched. The swap is also
+   * skipped if the thread was deleted or the user already renamed it.
+   */
+  private async generateThreadTitle(
+    threadId: string,
+    prompt: string,
+    placeholder: string,
+  ): Promise<void> {
+    const start = this.now()
+    try {
+      const title = await this.titleGenerator({
+        prompt,
+        // A cheap, fast model — the title only needs the gist.
+        model: FALLBACK_FREEBUFF_MODEL_ID,
+        cwd: this.repoRoot,
+      })
+      // Only swap if the thread still exists and is still showing the placeholder
+      // we set — a manual rename or a concurrent update wins.
+      const current = this.store.getThread(threadId)
+      if (title && current && current.title === placeholder) {
+        this.store.updateThread(threadId, { title }, this.now())
+        this.emitThread(threadId)
+        trackEvent(AnalyticsEvent.DESKTOP_THREAD_TITLED, {
+          ...this.turnTelemetry(threadId),
+          latencyMs: this.now() - start,
+          titleLength: title.length,
+        })
+      }
+    } catch {
+      // Best-effort: keep the prompt-prefix placeholder on any failure.
     }
   }
 
