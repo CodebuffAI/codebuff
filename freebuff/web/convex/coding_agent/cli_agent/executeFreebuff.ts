@@ -46,14 +46,16 @@ async function readResumeStateFromStorage(
 async function readStoredRunState(
   ctx: ActionCtx,
   threadId: Id<'agent_thread'>,
-): Promise<any | undefined> {
+): Promise<{ state: any | undefined; storageId: Id<'_storage'> | undefined }> {
   const thread = await ctx.runQuery(
     internal.coding_agent.cli_agent.agent_thread.getAgentThread,
     { threadId },
   )
-  const storageId = (thread as any)?.active_freebuff_run_state_storage_id
-  if (!storageId) return undefined
-  return readResumeStateFromStorage(ctx, storageId)
+  const storageId = (thread as any)?.active_freebuff_run_state_storage_id as
+    | Id<'_storage'>
+    | undefined
+  if (!storageId) return { state: undefined, storageId: undefined }
+  return { state: await readResumeStateFromStorage(ctx, storageId), storageId }
 }
 
 function trimOutput(output: unknown) {
@@ -71,11 +73,19 @@ function trimOutput(output: unknown) {
 // connected repos resume with FULL conversation context — no message pruning,
 // role-stripping, or content clipping — so every "continue" keeps complete
 // history, the same way the CLI/SDK resumes from the full `sessionState`):
-//   - 'continuation' (mid-task auto-continue): verbatim full sessionState,
-//     including the file-index cache and pending/queued tool calls, so the
-//     agent picks up exactly where it left off.
-//   - 'full' (between turns): keep the full conversation history; only drop the
-//     heavy, rebuildable file-index cache to keep the persisted blob smaller.
+//   - 'continuation' (mid-task auto-continue) and 'full' (between turns) now
+//     produce the SAME minimal blob: full message history with the heavy,
+//     rebuildable file-index cache (fileTree / fileTokenScores / tokenCallers)
+//     dropped.
+//
+// Why dropping the cache is safe AND a big egress win: `runFreebuffAgent` always
+// passes fresh `projectFiles` to `run()`, and the SDK's
+// `applyOverridesToSessionState` recomputes fileTree/fileTokenScores/tokenCallers
+// from those `projectFiles` on every resume — so any persisted cache is discarded
+// and rebuilt regardless. Persisting it verbatim (the old 'continuation' path)
+// just stored and re-read a large, immediately-overwritten payload, up to
+// MAX_FREEBUFF_CONTINUATIONS times per long task. That file store/read is billed
+// as Convex data egress and was a primary driver of this action's egress cost.
 type ResumeMode = 'continuation' | 'full'
 
 function buildResumeState(runState: unknown, mode: ResumeMode) {
@@ -93,18 +103,9 @@ function buildResumeState(runState: unknown, mode: ResumeMode) {
   const sessionState = typed?.sessionState
   if (!sessionState) return undefined
 
-  if (mode === 'continuation') {
-    // Verbatim — never mutate the caller's object.
-    return {
-      sessionState,
-      traceSessionId: typed.traceSessionId,
-      output: trimOutput(typed.output),
-    }
-  }
-
   // Shallow-clone so concurrent persists in the same handler don't see
   // mutations. Keep the full message history; only drop the rebuildable
-  // file-index cache.
+  // file-index cache. (Applies to both resume modes — see note above.)
   const outSession: any = { ...sessionState }
   if (sessionState.fileContext) {
     outSession.fileContext = {
@@ -287,11 +288,16 @@ function createRunEventBuffer(params: {
 
   const enqueueFlush = () => {
     if (flushTimer) return
+    // Each flush is one `recordRunEvent` mutation, and that mutation does a
+    // read-modify-write of the entire (growing) `assistant_stream` array on the
+    // message doc. Fewer flushes => fewer full-array rewrites => quadratically
+    // less Convex DB I/O over a long message. 750ms keeps streaming visibly
+    // live while roughly halving the mutation count vs the old 350ms.
     flushTimer = setTimeout(() => {
       flushPromise = flushPromise.then(flushNow).catch((error) => {
         console.error('[vly-freebuff-workpool] stream flush failed', error)
       })
-    }, 350)
+    }, 750)
   }
 
   const append = (event: BufferedDelta) => {
@@ -1024,6 +1030,12 @@ async function persistRunState(
   ctx: ActionCtx,
   runState: unknown,
   mode: ResumeMode,
+  // Storage id of the resume blob this one replaces. Deleted best-effort after
+  // the new blob is stored so stale resume blobs don't accumulate forever (each
+  // turn/continuation used to orphan its predecessor — those dead blobs inflate
+  // file storage and get re-serialized into every backup, which Convex bills as
+  // data egress).
+  supersedesStorageId?: Id<'_storage'>,
 ): Promise<Id<'_storage'> | undefined> {
   try {
     const resumeState = buildResumeState(runState, mode)
@@ -1033,7 +1045,18 @@ async function persistRunState(
     const blob = new Blob([JSON.stringify(resumeState)], {
       type: 'application/json',
     })
-    return await ctx.storage.store(blob)
+    const storageId = await ctx.storage.store(blob)
+    if (supersedesStorageId && supersedesStorageId !== storageId) {
+      try {
+        await ctx.storage.delete(supersedesStorageId)
+      } catch (deleteError) {
+        console.warn(
+          '[vly-freebuff-workpool] failed to delete superseded run state',
+          deleteError,
+        )
+      }
+    }
+    return storageId
   } catch (error) {
     console.error('[vly-freebuff-workpool] failed to persist run state', error)
     return undefined
@@ -1154,6 +1177,12 @@ export const runFreebuffAgent = internalAction({
     let lastToolStatusAt = 0
     let lastToolStatusKey = ''
 
+    // Storage id of the resume blob this turn resumed from. Assigned once the
+    // previous state is loaded below; every blob we persist this turn supersedes
+    // it, so we hand it to `persistRunState` for best-effort deletion (keeps
+    // stale resume blobs from accumulating in file storage / backups).
+    let priorResumeStorageId: Id<'_storage'> | undefined
+
     const maybeRecordToolStatus = async (
       toolName: string | undefined,
       input: unknown,
@@ -1221,8 +1250,12 @@ export const runFreebuffAgent = internalAction({
         ctx,
         runState,
         'continuation',
+        priorResumeStorageId,
       )
       if (!resumeStorageId) return false
+      // The continuation now owns this blob; the next iteration supersedes the
+      // one we just wrote, not the (now-deleted) prior one.
+      priorResumeStorageId = resumeStorageId
 
       // Refresh the run ledger (reset started_at) so the 10-minute timeout sweep
       // doesn't reap an actively-continuing run. Returns ok:false if the run was
@@ -1333,9 +1366,23 @@ export const runFreebuffAgent = internalAction({
           ? [{ type: 'text' as const, text: userMessage }, ...imageContents]
           : undefined
       const promptForRun = isContinuation ? CONTINUATION_PROMPT : userMessage
-      const previousRun = isContinuation
-        ? await readResumeStateFromStorage(ctx, args.resumeFromStorageId!)
-        : await readStoredRunState(ctx, args.threadId)
+      // Storage id of the resume blob we're resuming from. Whatever we persist
+      // this turn supersedes it, so we delete it after the new blob is stored
+      // (best-effort) to stop stale resume blobs from piling up in file storage
+      // and backups. Between turns we read the thread + blob in a single
+      // `readStoredRunState` call so we don't add an extra thread read.
+      let previousRun: any | undefined
+      if (isContinuation) {
+        priorResumeStorageId = args.resumeFromStorageId
+        previousRun = await readResumeStateFromStorage(
+          ctx,
+          args.resumeFromStorageId!,
+        )
+      } else {
+        const stored = await readStoredRunState(ctx, args.threadId)
+        priorResumeStorageId = stored.storageId
+        previousRun = stored.state
+      }
       const codebase = await getCodebase()
       const projectFiles = await buildDaytonaProjectFiles(codebase)
 
@@ -1461,7 +1508,7 @@ export const runFreebuffAgent = internalAction({
       // web template projects and cloud connected repos keep the FULL
       // conversation context on resume.
       const runStateStorageId = runState.sessionState
-        ? await persistRunState(ctx, runState, 'full')
+        ? await persistRunState(ctx, runState, 'full', priorResumeStorageId)
         : undefined
 
       // User terminated the thread mid-run. Save partial state cleanly and bail

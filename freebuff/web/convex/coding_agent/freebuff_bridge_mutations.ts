@@ -28,6 +28,74 @@ const RUN_TRACKING_EVENT_TYPES = new Set([
 
 const RUN_HEARTBEAT_INTERVAL_MS = 30_000
 
+// Hard ceiling on the persisted assistant stream. Each streaming delta does a
+// read-modify-write of the WHOLE `assistant_stream` array (it lives inline on
+// the message doc), so an unbounded stream makes DB I/O grow quadratically with
+// message length — the single biggest driver of Convex DB I/O for Freebuff. A
+// runaway / looping agent that never stops emitting text would otherwise rewrite
+// an ever-larger array on every flush (and eventually hit the 1 MiB doc limit).
+//
+// We bound BOTH the number of items and the total character payload. When either
+// limit is exceeded we drop the oldest *streaming* items (text / reasoning /
+// subagent deltas) — never status / ask_user / error / timeout markers, which
+// are small and carry UI state — and prepend a single truncation notice so the
+// UI still renders coherently.
+const MAX_ASSISTANT_STREAM_ITEMS = 2_000
+const MAX_ASSISTANT_STREAM_CHARS = 400_000
+const TRUNCATABLE_STREAM_TYPES = new Set(['text', 'reasoning', 'subagent'])
+
+function assistantStreamCharCount(items: AssistantStreamItem[]): number {
+  let total = 0
+  for (const item of items) total += item.content.length
+  return total
+}
+
+/**
+ * Cap the persisted stream so a single message can't grow without bound. Drops
+ * the oldest truncatable (streaming-text) items first and inserts one notice.
+ * Keeps non-truncatable markers (status/error/ask_user) so UI state survives.
+ */
+function capAssistantStream(
+  items: AssistantStreamItem[],
+): AssistantStreamItem[] {
+  if (
+    items.length <= MAX_ASSISTANT_STREAM_ITEMS &&
+    assistantStreamCharCount(items) <= MAX_ASSISTANT_STREAM_CHARS
+  ) {
+    return items
+  }
+
+  const result = [...items]
+  const dropOldestTruncatable = () => {
+    const idx = result.findIndex((item) =>
+      TRUNCATABLE_STREAM_TYPES.has(item.type),
+    )
+    if (idx === -1) return false
+    result.splice(idx, 1)
+    return true
+  }
+
+  while (
+    (result.length > MAX_ASSISTANT_STREAM_ITEMS ||
+      assistantStreamCharCount(result) > MAX_ASSISTANT_STREAM_CHARS) &&
+    dropOldestTruncatable()
+  ) {
+    // keep dropping until we're under both limits or out of truncatable items
+  }
+
+  const alreadyNotified =
+    result[0]?.type === 'status' && result[0]?.title === 'Output truncated'
+  if (!alreadyNotified) {
+    result.unshift({
+      type: 'status',
+      title: 'Output truncated',
+      content:
+        'Earlier streamed output was trimmed to keep this message within size limits.',
+    })
+  }
+  return result
+}
+
 async function recordDailyUsage(
   ctx: any,
   args: {
@@ -244,7 +312,9 @@ export const recordRunEvent = internalMutation({
     }
 
     const patch: Record<string, any> = {
-      assistant_stream: assistantStream,
+      // Cap before persisting so a single message can't grow unbounded and turn
+      // every subsequent delta's read-modify-write into ever-larger DB I/O.
+      assistant_stream: capAssistantStream(assistantStream),
     }
 
     if (event.type === 'start') {
