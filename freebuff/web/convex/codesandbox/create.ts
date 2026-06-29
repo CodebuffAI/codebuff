@@ -6,7 +6,10 @@ import { checkUserRateLimit } from "../coding_agent/rateLimiter";
 import { getOrganizationContext } from "../org_security";
 import { FEATURE_FLAGS } from "../featureFlags";
 import { agentModeValidator } from "../utils/registry_validators";
-import { getWebAccessTier } from "../coding_agent/shared/geoAccess";
+import {
+  checkLimitedProjectCreationGate,
+  getWebAccessTier,
+} from "../coding_agent/shared/geoAccess";
 
 export const create = mutation({
   args: {
@@ -113,7 +116,34 @@ export const create = mutation({
         throw new Error("DAYTONA_SNAPSHOT_ID is not configured");
       }
 
-      const accessTier = user?.role === "god" ? "full" : await getWebAccessTier(ctx);
+      const accessTier =
+        user?.role === "god" ? "full" : await getWebAccessTier(ctx);
+
+      if (accessTier === "blocked") {
+        return {
+          success: false as const,
+          error: {
+            kind: "ACCESS_BLOCKED",
+            message:
+              "Due to usage spikes, project creation is temporarily unavailable in your region.",
+          },
+        };
+      }
+
+      if (accessTier === "limited") {
+        const projectGate = await checkLimitedProjectCreationGate(ctx, userId);
+        if (!projectGate.success) {
+          return {
+            success: false as const,
+            error: {
+              kind: "PROJECT_LIMIT",
+              retryAfter: projectGate.error.retryAfter,
+              message: projectGate.error.message,
+            },
+          };
+        }
+      }
+
       const targetSnapshotId =
         accessTier === "full" ? fullSnapshotId : (smallSnapshotId ?? fullSnapshotId);
 

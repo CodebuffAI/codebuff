@@ -196,6 +196,16 @@ export const connectRepo = action({
         },
       };
     }
+    if (user.role !== "god" && rawTier === "limited") {
+      return {
+        success: false,
+        error: {
+          kind: "ACCESS_LIMITED",
+          message:
+            "Due to usage spikes, Freebuff Cloud is temporarily unavailable in your region.",
+        },
+      };
+    }
     const connectQuota = await ctx.runMutation(
       internal.cloud.connectRepoMutations.consumeConnectRepoQuota,
       { freebuffModel: args.freebuffModel },

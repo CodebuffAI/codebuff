@@ -7,6 +7,7 @@ import {
   checkUserRateLimit,
   peekFreebuffDailyQuota,
 } from "../coding_agent/rateLimiter";
+import { checkLimitedProjectCreationGate } from "../coding_agent/shared/geoAccess";
 import { getAuthUser, getQualifiedReferralCount } from "../users";
 import { getUniqueProjectIdentifier } from "../codesandbox/projectCrud";
 
@@ -150,6 +151,22 @@ export const consumeConnectRepoQuota = internalMutation({
     // (getRateLimitKeyForUser) so Cloud shares one allowance with web chat /
     // project creation instead of accumulating in a separate bucket.
     const identity = await ctx.auth.getUserIdentity();
+    const accessTier = (identity as Record<string, unknown> | null)?.access_tier;
+
+    if (accessTier === "limited") {
+      const projectGate = await checkLimitedProjectCreationGate(ctx, user._id);
+      if (!projectGate.success) {
+        return {
+          success: false as const,
+          error: {
+            kind: "PROJECT_LIMIT",
+            retryAfter: projectGate.error.retryAfter,
+            message: projectGate.error.message,
+          },
+        };
+      }
+    }
+
     const rateLimitKey =
       user.freebuff_user_id ?? user.clerk_id ?? user._id;
     const qualifiedReferralCount = getQualifiedReferralCount(identity, user);

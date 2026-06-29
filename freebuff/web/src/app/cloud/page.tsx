@@ -12,7 +12,15 @@ import { AmbientBackdrop } from '@/vly/components/app-shell/AmbientBackdrop'
 import { AppShell } from '@/vly/components/app-shell/AppShell'
 import { LimitedSandboxBadge } from '@/vly/components/cloud/LimitedSandboxBadge'
 import { CloudFeedbackDialog } from '@/vly/components/cloud/CloudFeedbackDialog'
-import { Github, Loader2, Plus, GitBranch, ArrowUpRight, MessageCircle } from 'lucide-react'
+import {
+  Github,
+  Loader2,
+  Plus,
+  GitBranch,
+  ArrowUpRight,
+  MessageCircle,
+  AlertTriangle,
+} from 'lucide-react'
 
 export default function CloudHome() {
   const { status } = useSession()
@@ -26,6 +34,11 @@ export default function CloudHome() {
   const connectedProjects = (projects ?? []).filter(
     (p) => (p as any).project_type === 'connected_repo',
   )
+  const webAccessStatus = useQuery(
+    api.webAccess.getWebAccessStatus,
+    isAuthed ? {} : 'skip',
+  )
+  const isCloudRegionLimited = webAccessStatus?.accessTier === 'limited'
 
   const [isConnectOpen, setIsConnectOpen] = useState(false)
 
@@ -33,11 +46,18 @@ export default function CloudHome() {
   useEffect(() => {
     if (
       typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('connectRepo') === '1'
+      new URLSearchParams(window.location.search).get('connectRepo') === '1' &&
+      !isCloudRegionLimited
     ) {
       setIsConnectOpen(true)
     }
-  }, [])
+  }, [isCloudRegionLimited])
+
+  useEffect(() => {
+    if (isCloudRegionLimited) {
+      setIsConnectOpen(false)
+    }
+  }, [isCloudRegionLimited])
 
   return (
     <AppShell
@@ -81,6 +101,21 @@ export default function CloudHome() {
             >
               Sign in
             </Link>
+          </div>
+        ) : isCloudRegionLimited ? (
+          <div className="rounded-md border border-amber-400/35 bg-amber-500/10 p-8 text-left sm:p-10">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+              <div>
+                <p className="text-sm font-semibold text-amber-200">
+                  Cloud temporarily unavailable in your region
+                </p>
+                <p className="mt-1 text-sm text-amber-100/90">
+                  Due to heavy usage spikes, project creation and viewing are
+                  temporarily unavailable in your region.
+                </p>
+              </div>
+            </div>
           </div>
         ) : projects === undefined ? (
           <div className="flex items-center justify-center py-24">

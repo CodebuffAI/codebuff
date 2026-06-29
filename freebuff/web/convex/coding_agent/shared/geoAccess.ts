@@ -1,4 +1,5 @@
 import {
+  FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT,
   FREEBUFF_WEB_LIMITED_SESSION_LENGTH_MS,
   FREEBUFF_WEB_LIMITED_SESSION_LIMIT,
 } from "@codebuff/common/constants/freebuff-models";
@@ -11,6 +12,8 @@ const PACIFIC_TIMEZONE = "America/Los_Angeles";
 /** Fallback when Intl timezone data is unavailable: fixed UTC-8 (PST). */
 const PACIFIC_FALLBACK_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const LIMITED_PROJECT_DAILY_LIMIT_MESSAGE =
+  "Due to usage spikes, you are limited to one project per day.";
 
 /**
  * Reads the geo-derived access tier from the Convex JWT. The claim is set by
@@ -73,6 +76,101 @@ export function getPacificDayKey(now: number): string {
  *  off by up to an hour, which only affects the displayed retry time). */
 export function msUntilNextPacificMidnight(now: number): number {
   return Math.max(0, DAY_MS - pacificDayParts(now).msIntoDay);
+}
+
+async function countProjectsCreatedTodayForOwner(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  dayKey: string,
+): Promise<number> {
+  const memberships = await ctx.db
+    .query("project_member")
+    .withIndex("by_user", (q) => q.eq("user", userId))
+    .collect();
+
+  const ownerProjectIds = Array.from(
+    new Set(
+      memberships
+        .filter((membership) => membership.project_role === "owner")
+        .map((membership) => membership.project),
+    ),
+  );
+
+  if (ownerProjectIds.length === 0) return 0;
+
+  const ownedProjects = await Promise.all(
+    ownerProjectIds.map((projectId) => ctx.db.get(projectId)),
+  );
+
+  let projectsCreatedToday = 0;
+  for (const project of ownedProjects) {
+    if (!project) continue;
+    if (getPacificDayKey(project._creationTime) !== dayKey) continue;
+    projectsCreatedToday += 1;
+  }
+
+  return projectsCreatedToday;
+}
+
+export type LimitedProjectCreationStatus = {
+  dailyLimit: number;
+  projectsCreatedToday: number;
+  projectsRemaining: number;
+  resetsInMs: number;
+};
+
+/** Read-only view of the limited-tier project-creation quota for UI display. */
+export async function getLimitedProjectCreationStatus(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+): Promise<LimitedProjectCreationStatus> {
+  const now = Date.now();
+  const dayKey = getPacificDayKey(now);
+  const projectsCreatedToday = await countProjectsCreatedTodayForOwner(
+    ctx,
+    userId,
+    dayKey,
+  );
+
+  return {
+    dailyLimit: FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT,
+    projectsCreatedToday,
+    projectsRemaining: Math.max(
+      0,
+      FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT - projectsCreatedToday,
+    ),
+    resetsInMs: msUntilNextPacificMidnight(now),
+  };
+}
+
+export type LimitedProjectGateResult =
+  | { success: true }
+  | {
+      success: false;
+      error: { kind: string; retryAfter: number; message: string };
+    };
+
+/**
+ * Limited-tier project quota: outer-region users may create at most
+ * FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT projects per Pacific day.
+ */
+export async function checkLimitedProjectCreationGate(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<LimitedProjectGateResult> {
+  const status = await getLimitedProjectCreationStatus(ctx, userId);
+  if (status.projectsCreatedToday < status.dailyLimit) {
+    return { success: true };
+  }
+
+  return {
+    success: false,
+    error: {
+      kind: "LimitedProjectRateLimited",
+      retryAfter: status.resetsInMs,
+      message: LIMITED_PROJECT_DAILY_LIMIT_MESSAGE,
+    },
+  };
 }
 
 export type LimitedSessionGateResult =
