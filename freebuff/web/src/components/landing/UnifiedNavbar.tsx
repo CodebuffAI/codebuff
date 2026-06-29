@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Cloud } from 'lucide-react'
+import { Cloud, MessageCircle } from 'lucide-react'
 import type { ReactNode, RefObject } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -28,7 +28,7 @@ const PRODUCT_LINKS = [
     badge: 'beta',
     mobileIconOnly: true,
   },
-  { label: 'Chat', href: '/chat' },
+  { label: 'Chat', href: '/chat', icon: <MessageCircle className="h-4 w-4" />, mobileIconOnly: true },
 ]
 
 /**

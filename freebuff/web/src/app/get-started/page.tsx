@@ -75,8 +75,8 @@ export default async function GetStartedPage({
       <GetStartedReferrerCapture referrerName={referrerName} />
 
       {/* Landing-style night sky, matching /login for a consistent feel. */}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_36%,#0b1620_70%,#000000_100%)]" />
-      <div className="lp-gpu pointer-events-none absolute inset-0">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#070d12_34%,#05080c_66%,#000000_100%)]" />
+      <div className="lp-gpu pointer-events-none absolute inset-0 opacity-40">
         <Starfield />
       </div>
 
@@ -89,7 +89,7 @@ export default async function GetStartedPage({
                 className="absolute inset-0 rounded-full"
                 style={{
                   boxShadow:
-                    '0 0 40px 10px rgba(124, 255, 63, 0.15), 0 0 80px 20px rgba(124, 255, 63, 0.08)',
+                    '0 0 40px 10px rgba(124, 255, 63, 0.06), 0 0 80px 20px rgba(124, 255, 63, 0.03)',
                 }}
               />
               <Image

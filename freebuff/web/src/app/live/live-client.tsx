@@ -559,8 +559,8 @@ export default function LiveClient({
       <LandingNavbar />
       <section className="relative overflow-hidden">
         {/* Landing-style night sky + stars so /live matches the home hero. */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_32%,#0b1620_64%,#000000_100%)]" />
-        <div className="lp-gpu pointer-events-none absolute inset-0">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#070d12_32%,#05080c_64%,#000000_100%)]" />
+        <div className="lp-gpu pointer-events-none absolute inset-0 opacity-40">
           <Starfield />
         </div>
         <div className="relative container mx-auto px-4 pb-6 pt-28 md:pb-8 md:pt-32">

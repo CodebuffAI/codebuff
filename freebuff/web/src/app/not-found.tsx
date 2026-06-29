@@ -7,8 +7,8 @@ import { Starfield } from '../components/landing/Starfield'
 export default function NotFound() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-black font-paragraph text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#0a1218_38%,#0b1620_72%,#000000_100%)]" />
-      <div className="lp-gpu pointer-events-none absolute inset-0">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#070b11_0%,#070d12_36%,#05080c_70%,#000000_100%)]" />
+      <div className="lp-gpu pointer-events-none absolute inset-0 opacity-40">
         <Starfield />
       </div>
       <LandingNavbar />
