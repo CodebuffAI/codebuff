@@ -34,6 +34,21 @@ const SCHEMA_VERSION = 10
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
 /**
+ * Parse a JSON column, returning `fallback` if it's malformed. The DB lives in
+ * the repo (`.freebuff/desktop.db`) and is user-editable, so a single corrupt
+ * `parts_json`/`acts_json`/`skills_json`/`run_config` value must not blow up the
+ * whole transcript / workflow list / project load — it degrades to the default.
+ */
+function safeParse<T>(json: string | null | undefined, fallback: T): T {
+  if (json == null) return fallback
+  try {
+    return JSON.parse(json) as T
+  } catch {
+    return fallback
+  }
+}
+
+/**
  * Build an `UPDATE … SET col = $col, …, updated_at = $updated WHERE id = $id`
  * from a typed patch, mapping camelCase keys to snake_case columns. `boolKeys`
  * are coerced to 0/1. Returns null when the patch is empty.
@@ -517,8 +532,8 @@ export class Store {
     return rows.map((r) => ({
       role: r.role,
       text: r.text,
-      acts: JSON.parse(r.acts_json) as unknown[],
-      parts: JSON.parse(r.parts_json) as Part[],
+      acts: safeParse<unknown[]>(r.acts_json, []),
+      parts: safeParse<Part[]>(r.parts_json, []),
     }))
   }
 
@@ -633,14 +648,14 @@ export class Store {
     const row = this.db
       .query('SELECT name, skills_json FROM workflows WHERE project_id = $p AND name = $n')
       .get({ $p: projectId, $n: name }) as { name: string; skills_json: string } | null
-    return row ? { name: row.name, skills: JSON.parse(row.skills_json) as string[] } : null
+    return row ? { name: row.name, skills: safeParse<string[]>(row.skills_json, []) } : null
   }
 
   listWorkflows(projectId: string): Workflow[] {
     const rows = this.db
       .query('SELECT name, skills_json FROM workflows WHERE project_id = $p ORDER BY name ASC')
       .all({ $p: projectId }) as { name: string; skills_json: string }[]
-    return rows.map((r) => ({ name: r.name, skills: JSON.parse(r.skills_json) as string[] }))
+    return rows.map((r) => ({ name: r.name, skills: safeParse<string[]>(r.skills_json, []) }))
   }
 }
 
@@ -650,7 +665,7 @@ function rowToProject(row: ProjectRow): Project {
     repoUrl: row.repo_url,
     rootPath: row.root_path,
     defaultBranch: row.default_branch,
-    runConfig: JSON.parse(row.run_config) as RunConfig,
+    runConfig: safeParse<RunConfig>(row.run_config, {}),
     mergeStrategy: row.merge_strategy,
     createdAt: row.created_at,
   }

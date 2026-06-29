@@ -23,10 +23,7 @@ import {
   FREEBUFF_MULTI_SESSION_HEADER as MULTI_SESSION_HEADER,
 } from '@codebuff/common/constants/freebuff-models'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
-import type {
-  FreebuffSessionRateLimitByModel,
-  FreebuffSessionServerResponse,
-} from '@codebuff/common/types/freebuff-session'
+import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 
 function sessionEndpoint(): string {
   const base = (
@@ -51,7 +48,6 @@ export class FreebuffSessionError extends Error {
 
 export interface FreebuffTierInfo {
   accessTier: FreebuffAccessTier
-  rateLimitsByModel?: FreebuffSessionRateLimitByModel
 }
 
 /** The session lifecycle surface the ThreadEngine depends on. Implemented by
@@ -112,9 +108,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
       if ('accessTier' in body && body.accessTier) {
         this.accessTier = body.accessTier
       }
-      const rateLimitsByModel =
-        'rateLimitsByModel' in body ? body.rateLimitsByModel : undefined
-      return { accessTier: this.accessTier, rateLimitsByModel }
+      return { accessTier: this.accessTier }
     } catch {
       return { accessTier: this.accessTier }
     }

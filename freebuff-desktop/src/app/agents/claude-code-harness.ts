@@ -38,6 +38,16 @@ interface ClaudeState {
   sessionId?: string
 }
 
+/** Narrow an opaque {@link HarnessTurn.previousState} to this harness's own state
+ *  shape before trusting it. The engine already replays state only for the
+ *  matching harness, but validating here means a future mismatch starts a fresh
+ *  session (no resume) instead of feeding a foreign object to `resume`. */
+function isClaudeState(v: unknown): v is ClaudeState {
+  if (typeof v !== 'object' || v === null) return false
+  const s = (v as ClaudeState).sessionId
+  return s === undefined || typeof s === 'string'
+}
+
 /** Tools the agent is pre-approved to use (so they run without a permission prompt). */
 const ALLOWED_TOOLS = [
   'Read',
@@ -188,7 +198,7 @@ export class ClaudeCodeHarness implements AgentHarness {
   readonly id = 'claude-code' as const
 
   async runTurn(turn: HarnessTurn, cb: HarnessCallbacks): Promise<HarnessResult> {
-    const prev = (turn.previousState as ClaudeState | undefined) ?? {}
+    const prev = isClaudeState(turn.previousState) ? turn.previousState : {}
     const sessionId = prev.sessionId
     // Note: we don't forward `turn.images` here. Claude Code views attached images
     // via its `Read` tool on the path referenced in the prompt text (attachments.ts),

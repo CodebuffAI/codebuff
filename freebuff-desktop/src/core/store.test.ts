@@ -83,6 +83,19 @@ describe('Store — threads', () => {
     expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant'])
     expect((msgs[1].acts as any[])[0].toolName).toBe('write_file')
   })
+
+  test('a corrupt JSON column degrades to defaults instead of throwing', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.appendMessage('th1', { role: 'assistant', text: 'ok' }, 1)
+    // Simulate a corrupted/hand-edited DB: garbage in the JSON columns.
+    store.db.exec("UPDATE messages SET parts_json = '{bad', acts_json = 'nope'")
+    // The whole transcript must still load (one bad row can't nuke it).
+    const msgs = store.getMessages('th1')
+    expect(msgs.length).toBe(1)
+    expect(msgs[0].parts).toEqual([])
+    expect(msgs[0].acts).toEqual([])
+  })
 })
 
 describe('Store — queue items', () => {

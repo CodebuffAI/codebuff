@@ -38,6 +38,12 @@ let serverProc = null
 /** @type {BrowserWindow | null} */
 let mainWindow = null
 let shuttingDown = false
+// The single trusted origin the renderer is allowed to live at (set in boot()
+// once the orchestrator port is known). Navigation / new-window requests to any
+// other origin are denied and handed to the system browser, so the preload
+// bridge never rides along to an untrusted document.
+/** @type {string | null} */
+let appOrigin = null
 
 // Override package.json's "@codebuff/freebuff-desktop" name — that string leaks
 // into the macOS app menu, About panel, and Windows taskbar/AppUserModelId.
@@ -206,6 +212,28 @@ function loadingPage() {
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
 }
 
+/** Whether `url` is same-origin with the trusted app origin (set in boot()).
+ *  False before boot resolves the origin, or for an unparseable URL. */
+function isAppUrl(url) {
+  if (!appOrigin) return false
+  try {
+    return new URL(url).origin === appOrigin
+  } catch {
+    return false
+  }
+}
+
+/** Hand an off-origin link to the system browser — but only http(s), so a
+ *  malicious document can't get the OS to launch a file:/custom-scheme URL. */
+function openExternalSafely(url) {
+  try {
+    const { protocol } = new URL(url)
+    if (protocol === 'http:' || protocol === 'https:') void shell.openExternal(url)
+  } catch {
+    /* unparseable URL — ignore */
+  }
+}
+
 function createWindow() {
   const winOpts = {
     width: 1440,
@@ -227,14 +255,24 @@ function createWindow() {
 
   mainWindow.loadURL(loadingPage())
 
-  // Open target=_blank / external links in the system browser, not a new
-  // Electron window.
+  // New windows: only the trusted app origin may open in-app (with the preload
+  // bridge attached); every other URL is denied and opened in the system browser.
+  // A broad "any localhost" allow would let a malicious preview link load another
+  // local service in a privileged window. http(s) only — never hand the OS a
+  // file:/custom-scheme URL.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
-      return { action: 'allow' }
-    }
-    shell.openExternal(url)
+    if (isAppUrl(url)) return { action: 'allow' }
+    openExternalSafely(url)
     return { action: 'deny' }
+  })
+
+  // Top-level navigation: keep the renderer pinned to the app origin so the
+  // preload surface can't travel to an untrusted document. Off-origin link
+  // clicks are cancelled and sent to the system browser instead.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url)) return
+    event.preventDefault()
+    openExternalSafely(url)
   })
 
   mainWindow.on('closed', () => {
@@ -338,6 +376,8 @@ async function boot() {
     const port = devUi ? 8787 : await findFreePort()
     await startOrchestrator(port)
     appUrl = devUi ? 'http://127.0.0.1:5174/' : `http://127.0.0.1:${port}/`
+    // Pin the navigation/window-open guards to this exact origin.
+    appOrigin = new URL(appUrl).origin
     await win.loadURL(appUrl)
   } catch (err) {
     dialog.showErrorBox('Freebuff failed to start', String(err?.message ?? err))

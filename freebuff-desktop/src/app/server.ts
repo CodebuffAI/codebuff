@@ -17,6 +17,7 @@ import { join } from 'path'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { isHarnessId, type HarnessId } from './agents/harness'
+import { isAllowedApiOrigin } from './origin-guard'
 import { flushAnalytics, identifyOnLogin, initAnalytics, resetIdentity, trackEvent } from './analytics'
 import { LoginManager } from './auth/login-flow'
 import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
@@ -168,6 +169,14 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url)
     const { pathname } = url
+
+    // Local-CSRF guard: the API runs shell (`/api/run`) and mutates the project,
+    // so block any cross-origin browser request before routing. Same-origin
+    // renderer calls, the dev Vite proxy, and non-browser clients pass; a page on
+    // another origin (incl. DNS-rebinding) is rejected. See origin-guard.ts.
+    if (pathname.startsWith('/api/') && !isAllowedApiOrigin(req.headers.get('origin'))) {
+      return new Response('Forbidden: cross-origin request blocked', { status: 403 })
+    }
 
     // — Server-Sent Events: live engine + thread state + agent activity —
     if (pathname === '/api/events') {
