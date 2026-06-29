@@ -44,7 +44,6 @@ export const api = {
   getThread: (id: string) => get<ThreadData>(`/api/thread/${id}`),
   closeThread: (id: string) => post(`/api/thread/${id}/close`),
   rehydrateThread: (id: string) => post(`/api/thread/${id}/rehydrate`),
-  deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
   sendMessage: (id: string, text: string, attachments?: string[]) =>
     post(`/api/thread/${id}/message`, { text, attachments }),
   stopTurn: (id: string) => post(`/api/thread/${id}/stop`),
@@ -57,8 +56,8 @@ export const api = {
     post(`/api/thread/${id}/reorder`, { itemId, afterItemId }),
 
   // Queue
-  enqueuePrompt: (id: string, prompt: string, label?: string) =>
-    post(`/api/thread/${id}/queue`, { prompt, label }),
+  enqueuePrompt: (id: string, prompt: string) =>
+    post(`/api/thread/${id}/queue`, { prompt }),
   enqueueSkill: (id: string, skill: string) => post(`/api/thread/${id}/queue/skill`, { skill }),
   editItem: (itemId: string, prompt: string) => post(`/api/queue/${itemId}/edit`, { prompt }),
   deleteItem: (itemId: string) => post(`/api/queue/${itemId}/delete`),
@@ -101,15 +100,10 @@ export const api = {
     ),
 
   // Freebuff auth (device-code login)
-  getAuthStatus: () =>
-    get<{ authed: boolean; user: { id?: string; name?: string; email?: string } | null }>(
-      '/api/auth/status',
-    ),
   startLogin: () =>
     post<{ ok: boolean; loginUrl?: string; expiresAt?: string; error?: string }>(
       '/api/auth/login/start',
     ),
-  logout: () => post<{ ok: boolean }>('/api/auth/logout'),
   getSettings: () =>
     get<{
       path: string
