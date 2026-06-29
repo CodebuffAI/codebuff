@@ -103,6 +103,7 @@ export const saveMessageAndStartWorkflow = mutation({
           properties: {
             surface: "web",
             agentType: args.agentType,
+            accessTier: gates.accessTier,
           },
         });
       }

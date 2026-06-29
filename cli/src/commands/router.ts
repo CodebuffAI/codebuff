@@ -16,6 +16,7 @@ import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
+import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { trackEvent } from '../utils/analytics'
 import {
   buildBashHistoryMessages,
@@ -301,8 +302,13 @@ export async function routeUserPrompt(
   // so combined DAU is a single unique-users query. Freebuff-only: codebuff
   // CLI usage is intentionally excluded.
   if (IS_FREEBUFF) {
+    const freebuffSession = useFreebuffSessionStore.getState().session
     trackEvent(AnalyticsEvent.MESSAGE_SENT, {
       surface: 'cli',
+      accessTier:
+        freebuffSession && 'accessTier' in freebuffSession
+          ? freebuffSession.accessTier
+          : 'unknown',
       mode: agentMode,
       inputMode,
       inputLength: trimmed.length,
