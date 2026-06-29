@@ -243,6 +243,7 @@ export enum AnalyticsEvent {
   DESKTOP_LOGIN = 'desktop.login',
   DESKTOP_LOGOUT = 'desktop.logout',
   DESKTOP_THREAD_CREATED = 'desktop.thread_created',
+  DESKTOP_THREAD_TITLED = 'desktop.thread_titled',
   DESKTOP_PROJECT_OPENED = 'desktop.project_opened',
   DESKTOP_TURN_COMPLETED = 'desktop.turn_completed',
   DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
