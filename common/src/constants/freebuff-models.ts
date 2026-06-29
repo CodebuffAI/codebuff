@@ -374,6 +374,11 @@ export type FreebuffWebAccessTier = FreebuffAccessTier | 'blocked'
 export const FREEBUFF_WEB_LIMITED_SESSION_LIMIT = 5
 export const FREEBUFF_WEB_LIMITED_SESSION_LENGTH_MS = 60 * 60 * 1000
 
+/** Temporary project-creation cap for outer-region (limited-tier) Freebuff Web
+ *  users. A new project consumes one slot; the quota resets at midnight
+ *  Pacific time. */
+export const FREEBUFF_WEB_LIMITED_PROJECT_DAILY_LIMIT = 1
+
 /** Models exempt from Freebuff Web geo limits: geo-limited users can run
  *  these without consuming limited sessions. Matches the shared limited
  *  model set (DeepSeek V4 Flash, MiMo 2.5); every other model stays
