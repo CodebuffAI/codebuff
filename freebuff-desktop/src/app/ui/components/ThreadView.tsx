@@ -4,6 +4,7 @@ import { MAX_ATTACHMENTS } from '../../../core/attachments'
 import { useStore } from '../store/store'
 import type { PendingAttachment } from '../lib/types'
 import { baseName, kindFor } from '../lib/file-drop'
+import { copyText } from '../lib/clipboard'
 import freebuffLogo from './freebuff-logo.svg'
 import { AgentPicker, ModelPicker } from './AgentSelector'
 import { Composer } from './Composer'
@@ -28,6 +29,21 @@ function bridge(): any {
   return (window as any).freebuffDesktop
 }
 
+/**
+ * Make an absolute path fit on one line in the welcome state: collapse a home
+ * directory to `~`, then middle-truncate so the meaningful tail (the worktree
+ * leaf) stays visible. We don't have os.homedir() in the renderer, so match the
+ * common home shapes (`/Users/<u>`, `/home/<u>`, `C:\Users\<u>`) heuristically.
+ */
+function displayPath(path: string, max = 52): string {
+  const collapsed = path.replace(/^(\/Users\/[^/]+|\/home\/[^/]+|[A-Za-z]:\\Users\\[^\\]+)/, '~')
+  if (collapsed.length <= max) return collapsed
+  // Keep more of the tail than the head — the leaf folder matters most.
+  const head = Math.ceil((max - 1) * 0.4)
+  const tail = max - 1 - head
+  return `${collapsed.slice(0, head)}…${collapsed.slice(collapsed.length - tail)}`
+}
+
 export function ThreadView({ threadId }: { threadId: string }) {
   const slice = useStore((s) => s.threads[threadId])
   const projectPath = useStore((s) => s.projectPath)
@@ -50,6 +66,7 @@ export function ThreadView({ threadId }: { threadId: string }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
   const [preview, setPreview] = useState(false)
+  const [pathCopied, setPathCopied] = useState(false)
   const [nonce, setNonce] = useState(0)
   // Whether the last user message has scrolled up out of view — only then do we
   // surface the sticky reminder of what was asked. While the prompt itself is
@@ -301,6 +318,23 @@ export function ThreadView({ threadId }: { threadId: string }) {
             {slice.messages.length === 0 && (
               <div className="welcome">
                 <img className="welcome-logo" src={freebuffLogo} alt="" />
+                <div className="welcome-title">New thread</div>
+                {projectPath && (
+                  <button
+                    type="button"
+                    className="welcome-path"
+                    title={pathCopied ? 'Copied' : `${projectPath} — click to copy`}
+                    onClick={() => {
+                      void copyText(projectPath).then((ok) => {
+                        if (!ok) return
+                        setPathCopied(true)
+                        setTimeout(() => setPathCopied(false), 1200)
+                      })
+                    }}
+                  >
+                    {pathCopied ? 'Copied' : displayPath(projectPath)}
+                  </button>
+                )}
               </div>
             )}
             {slice.messages.map((m) => (

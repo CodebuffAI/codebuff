@@ -447,8 +447,8 @@ select {
 .workspace {
   position: relative;
   display: grid;
-  /* --queue-w is set by the Workspace component (default 360px). */
-  grid-template-columns: 1fr 6px var(--queue-w, 360px);
+  /* --queue-w is set by the Workspace component (default 720px). */
+  grid-template-columns: 1fr 6px var(--queue-w, 720px);
   flex: 1;
   min-height: 0;
 }
@@ -582,7 +582,34 @@ body.col-resizing {
   width: 96px;
   height: 96px;
   margin: 0 auto;
-  opacity: 0.92;
+  opacity: 0.18;
+}
+.welcome-title {
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.welcome-path {
+  display: block;
+  margin: 4px auto 0;
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--muted);
+  opacity: 0.45;
+  white-space: nowrap;
+  max-width: 420px;
+  cursor: pointer;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+.welcome-path:hover {
+  opacity: 0.8;
+  background: var(--surface-2);
 }
 .welcome-sub {
   font-size: 13px;
@@ -944,7 +971,7 @@ body.col-resizing {
   font-size: 12px;
 }
 .act-name {
-  color: var(--accent-dim);
+  color: var(--muted);
   font-family: ui-monospace, Menlo, monospace;
 }
 .act-arg {
@@ -1333,14 +1360,15 @@ body.col-resizing {
 }
 .stop {
   display: flex;
-  background: var(--danger);
-  color: #1a0808;
-  border: none;
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 9px;
 }
 .stop:hover {
-  filter: brightness(1.1);
+  background: var(--surface-2);
+  border-color: var(--faint);
 }
 
 /* Non-interactive visual affordance: the Enter key sends. Shown at the end
