@@ -373,7 +373,24 @@ function buildMenu(reloadApp) {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+// macOS shows the Dock / Cmd+Tab icon from the running .app bundle, NOT from a
+// BrowserWindow's `icon` option (that one is ignored on macOS). In the packaged
+// app the bundled icon.icns covers this, but in dev the running bundle is
+// Electron's own, so without this the switcher shows the Electron logo. Setting
+// the dock icon at runtime fixes both Dock and Cmd+Tab in dev. (The Cmd+Tab
+// *name* comes from the bundle's CFBundleName, which has no runtime API — see
+// scripts/brand-dev-electron.ts for the dev-only fix.)
+function applyDockIcon() {
+  if (process.platform !== 'darwin' || !app.dock) return
+  try {
+    if (fs.existsSync(APP_ICON_PATH)) app.dock.setIcon(APP_ICON_PATH)
+  } catch {
+    /* best-effort — a bad icon shouldn't stop the app booting */
+  }
+}
+
 async function boot() {
+  applyDockIcon()
   // Reattach, don't respawn: on a macOS dock re-activate the window may have been
   // closed while the orchestrator stayed alive. Spawning another would overwrite
   // serverProc and leak the first. Reuse the live one and just open a window.

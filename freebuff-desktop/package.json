@@ -17,7 +17,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p src/app/ui/tsconfig.json",
     "test": "bun test",
-    "app": "bun run stage:icons && bun run ui:build && electron .",
+    "app": "bun run stage:icons && bun scripts/brand-dev-electron.ts && bun run ui:build && electron .",
     "app:server": "PORT=8787 bun src/app/server.ts",
     "ui:dev": "vite",
     "ui:build": "vite build",

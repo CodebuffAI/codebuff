@@ -6,7 +6,12 @@
  *   bun run dev
  */
 
+import { brandDevElectron } from './brand-dev-electron'
 import { run } from './_procs'
+
+// Make the dev Electron bundle show "Freebuff" + our icon in the Dock/Cmd+Tab
+// (macOS-only, idempotent, best-effort — never blocks launch).
+brandDevElectron()
 
 run('vite', ['bunx', 'vite'])
 
