@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { ConvexProviderWithAuth, ConvexReactClient } from 'convex/react'
-import { ReactNode, useCallback, useMemo } from 'react'
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from 'react'
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
@@ -26,23 +26,45 @@ function buildClientHintHeaders(): Record<string, string> {
 function useFreebuffConvexAuth() {
   const { status } = useSession()
 
-  const fetchAccessToken = useCallback(async () => {
-    if (status !== 'authenticated') {
-      return null
-    }
-
-    const response = await fetch('/api/web/convex-token', {
-      credentials: 'include',
-      headers: buildClientHintHeaders(),
-    })
-
-    if (!response.ok) {
-      return null
-    }
-
-    const data = (await response.json()) as { token?: string }
-    return data.token ?? null
+  // Convex's `ConvexProviderWithAuth` keys its internal auth effects on the
+  // IDENTITY of `fetchAccessToken`. If that identity changes while the user is
+  // authenticated, Convex tears down auth (`client.clearAuth()`) and resets its
+  // internal `isConvexAuthenticated` back to `null` — which makes
+  // `useConvexAuth().isLoading` flip back to `true`. On a client-side navigation
+  // into a project, NextAuth's `useSession` re-renders (and can briefly re-enter
+  // `loading`) as the session re-resolves; if `fetchAccessToken` were recreated
+  // on every `status` change, that auth teardown would race the project query
+  // and strand the page on the loading screen until a hard refresh
+  // re-initialized the Convex client.
+  //
+  // Fix: keep `fetchAccessToken` STABLE (created once) and read the live auth
+  // status from a ref. This eliminates the teardown/reset churn entirely while
+  // still returning `null` when unauthenticated and honoring `forceRefreshToken`.
+  const statusRef = useRef(status)
+  useEffect(() => {
+    statusRef.current = status
   }, [status])
+
+  const fetchAccessToken = useCallback(
+    async (_args: { forceRefreshToken: boolean }) => {
+      if (statusRef.current !== 'authenticated') {
+        return null
+      }
+
+      const response = await fetch('/api/web/convex-token', {
+        credentials: 'include',
+        headers: buildClientHintHeaders(),
+      })
+
+      if (!response.ok) {
+        return null
+      }
+
+      const data = (await response.json()) as { token?: string }
+      return data.token ?? null
+    },
+    [],
+  )
 
   return useMemo(
     () => ({
