@@ -11,6 +11,10 @@ import type {
 } from './types'
 
 const GRAVITY_URL = 'https://server.trygravity.ai/api/v1/ad'
+// Stable, identifiable UA for our server-to-Gravity ad requests. Overrides the
+// Bun runtime default so request traffic is attributable to us (and lines up
+// with the impression pixels, which carry the forwarded CLI user-agent).
+const GRAVITY_REQUEST_USER_AGENT = 'Freebuff-Server/1.0 (+https://freebuff.com)'
 const SINGLE_AD_PLACEMENT_IDS = ['Single-Ad-Unit-1']
 const WAITING_ROOM_PLACEMENT_IDS = [
   'waiting-room-1',
@@ -229,6 +233,11 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         headers: {
           Authorization: `Bearer ${config.apiKey}`,
           'Content-Type': 'application/json',
+          // Identify ourselves explicitly. Without this, Bun's runtime default
+          // (`Bun/<version>`) is sent, which makes our ad requests look like an
+          // anonymous bot and prevents Gravity from attributing requests to the
+          // same client that later fires impression pixels.
+          'User-Agent': GRAVITY_REQUEST_USER_AGENT,
         },
         body: JSON.stringify(requestBody),
       })
