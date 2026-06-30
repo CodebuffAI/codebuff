@@ -141,16 +141,19 @@ export function QueuePanel({ threadId }: { threadId: string }) {
             }
           }}
         />
-        {/* The add button is gone — Enter is the only way to enqueue. The
-            icon here is a non-interactive affordance mirroring the composer's
-            send affordance, brightening once there's text to add. */}
-        <span
-          className={`enter-hint queue${draft.trim() ? ' ready' : ''}`}
-          title="Press Enter to add to queue"
-          aria-label="Press Enter to add to queue"
+        {/* Add to queue: keycap-styled button mirroring the composer's send
+            key, doubling as the "Enter adds" affordance. Quiet until there's
+            text to add. */}
+        <button
+          type="button"
+          className={`send-key queue${draft.trim() ? ' ready' : ''}`}
+          onClick={addDraft}
+          disabled={!draft.trim()}
+          title="Add to queue (Enter)"
+          aria-label="Add to queue"
         >
           <Icon name="enter" />
-        </span>
+        </button>
       </div>
     </div>
   )

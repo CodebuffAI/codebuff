@@ -1381,28 +1381,38 @@ body.col-resizing {
   border-color: var(--faint);
 }
 
-/* Non-interactive visual affordance: the Enter key sends. Shown at the end
-   of both the composer input and the queue input, replacing what used to be
-   a clickable send/add button. */
-.enter-hint {
+/* Send / add key: a keycap-styled button at the end of the composer and queue
+   inputs. Doubles as the "Enter sends" affordance (it carries the ↵ glyph) but
+   is now clickable. Quiet while there's nothing to send; brightens when ready;
+   lifts to accent on hover. */
+.send-key {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 9px;
   border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   color: var(--faint);
-  /* Keep it out of the accessibility tab order — it's purely decorative. */
-  pointer-events: none;
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
-.enter-hint.ready {
+.send-key:disabled {
+  cursor: default;
+}
+.send-key.ready {
+  background: var(--raised);
+  color: var(--text);
+}
+.send-key.ready:hover {
+  border-color: var(--accent-dim);
   color: var(--accent);
 }
-.enter-hint.queue {
+.send-key.ready:active {
+  background: var(--surface-2);
+}
+.send-key.queue {
   padding: 6px 9px;
   border-radius: 7px;
-}
-.enter-hint.queue.ready {
-  color: var(--accent-dim);
 }
 
 /* Per-message actions (copy), revealed on hover. */

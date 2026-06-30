@@ -231,22 +231,25 @@ export function Composer({
             }
           }}
         />
-        {/* The send button is gone — Enter is the only way to send. The icon
-            here is a non-interactive affordance so the affordance is still
-            visible at the end of the input. It brightens when there's
-            something to send, mirroring the old send button's enabled state. */}
+        {/* Send: a keycap-styled button that also doubles as the "Enter sends"
+            affordance. Disabled (quiet) until there's text or an attachment;
+            brightens when ready. While a turn is running with nothing staged,
+            it's replaced by the Stop button. */}
         {running && !canSend ? (
           <button className="stop" onClick={() => stopTurn(threadId)} title="Stop the running turn">
             <Icon name="stop" />
           </button>
         ) : (
-          <span
-            className={`enter-hint${canSend ? ' ready' : ''}`}
-            title="Press Enter to send"
-            aria-label="Press Enter to send"
+          <button
+            type="button"
+            className={`send-key${canSend ? ' ready' : ''}`}
+            onClick={submit}
+            disabled={!canSend}
+            title="Send (Enter)"
+            aria-label="Send message"
           >
             <Icon name="enter" />
-          </span>
+          </button>
         )}
       </div>
     </div>
