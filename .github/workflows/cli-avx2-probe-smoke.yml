@@ -1,0 +1,60 @@
+# Smoke-tests the Windows AVX2 CPU-feature probe used by the CLI launcher
+# scripts to pick between the optimized (AVX2) and baseline binaries.
+#
+# The probe shells out to PowerShell + Add-Type to call kernel32's
+# IsProcessorFeaturePresent. None of that can be exercised on Linux/macOS, so
+# this job runs the exact invocation on a real Windows runner and asserts it
+# yields a clean boolean — catching breakage in the PowerShell string, the
+# Add-Type P/Invoke, or the output format before it ships to users.
+#
+# It cannot test the AVX2-absent case (runners are AVX2-capable), but it locks
+# down the mechanism the code depends on.
+
+name: CLI AVX2 probe smoke test
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'cli/release/index.js'
+      - 'cli/release-staging/index.js'
+      - 'freebuff/cli/release/index.js'
+      - '.github/workflows/cli-avx2-probe-smoke.yml'
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'cli/release/index.js'
+      - 'cli/release-staging/index.js'
+      - 'freebuff/cli/release/index.js'
+      - '.github/workflows/cli-avx2-probe-smoke.yml'
+
+jobs:
+  windows-avx2-probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Syntax-check all three launchers on Windows (they run under the
+      # system Node, not Bun).
+      - name: Syntax-check launcher scripts
+        shell: bash
+        run: |
+          for f in cli/release/index.js cli/release-staging/index.js freebuff/cli/release/index.js; do
+            node --check "$f"
+            echo "ok: $f"
+          done
+
+      # Run the exact PowerShell invocation the launchers use and assert it
+      # prints a clean "True"/"False" — i.e. Add-Type + IsProcessorFeaturePresent
+      # works and the output is parseable by probeWindowsAvx2().
+      - name: Probe AVX2 via IsProcessorFeaturePresent
+        shell: pwsh
+        run: |
+          $script = "`$f = Add-Type -MemberDefinition '[DllImport(`"kernel32.dll`")] public static extern bool IsProcessorFeaturePresent(uint feature);' -Name Cpu -Namespace Win32 -PassThru; `$f::IsProcessorFeaturePresent(40)"
+          $out = (& powershell.exe -NoProfile -NonInteractive -Command $script | Out-String).Trim()
+          Write-Host "Probe output: '$out'"
+          if ($out -ne 'True' -and $out -ne 'False') {
+            Write-Error "Expected probe to print 'True' or 'False', got: '$out'"
+            exit 1
+          }
+          Write-Host "AVX2 probe returned a clean boolean: $out"
