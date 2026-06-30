@@ -30,6 +30,10 @@ import {
   getZonedWeekBounds,
 } from '@codebuff/common/util/zoned-time'
 import { getGlmReferralEntitlement } from '@codebuff/billing/referral-program'
+import {
+  cliDailySessionBonusFromStats,
+  getReferralStats,
+} from '@codebuff/billing/referral-stats'
 
 import {
   FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS,
@@ -200,7 +204,14 @@ async function fetchSessionQuotaSnapshot(
     pool: config.pool,
     since: bounds.startsAt,
   })
-  const limit = roundSessionUnits(config.limit + bonusUnits)
+  // Limited-tier referral reward: a limited-access user earns extra daily
+  // sessions by referring (docs/referrals.md). Only the limited pool gets it;
+  // GLM/premium pools don't (full-access referrals drive GLM instead).
+  const referralBonus =
+    config.pool === 'limited'
+      ? await deps.getLimitedReferralSessionBonus(userId)
+      : 0
+  const limit = roundSessionUnits(config.limit + bonusUnits + referralBonus)
   return {
     info: {
       limit,
@@ -324,6 +335,11 @@ export interface SessionDeps {
    *  Indirected through deps so the session tests can set it without seeding
    *  referral rows. */
   getGlmReferralEntitlement: (userId: string) => Promise<number>
+  /** Extra daily limited-tier sessions earned from referrals: +1 per
+   *  limited-tier qualified referral, capped (see cliDailySessionBonusFromStats).
+   *  Added to the limited pool's base limit only. Indirected through deps so
+   *  session tests can set it without seeding referral rows. Defaults to 0. */
+  getLimitedReferralSessionBonus: (userId: string) => Promise<number>
   /** Streak-reward bonus session units for `userId` in `pool` awarded since the
    *  current period start. Added to the pool's base limit so a 7-day streak
    *  milestone grants an extra session. Indirected through deps so session tests
@@ -414,6 +430,8 @@ const defaultDeps: SessionDeps = {
   listRecentFreeSessionAdmits,
   getGlmReferralEntitlement: (userId: string) =>
     getGlmReferralEntitlement({ userId }),
+  getLimitedReferralSessionBonus: (userId: string) =>
+    getReferralStats({ referrerId: userId }).then(cliDailySessionBonusFromStats),
   getStreakBonusUnits: (params) => sumStreakBonusUnits(params),
   promoteQueuedUser,
   pinMinimaxUpstream: pinMinimaxUpstreamToMinimax,

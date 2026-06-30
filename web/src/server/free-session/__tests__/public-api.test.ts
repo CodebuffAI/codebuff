@@ -11,6 +11,7 @@ import {
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  FREEBUFF_PREMIUM_MODEL_IDS,
   FREEBUFF_PREMIUM_SESSION_LIMIT,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
 } from '@codebuff/common/constants/freebuff-models'
@@ -124,6 +125,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
         }))
     },
     getGlmReferralEntitlement: async () => 0,
+    getLimitedReferralSessionBonus: async () => 0,
     getStreakBonusUnits: async () => 0,
     promoteQueuedUser: async ({
       userId,
@@ -951,6 +953,53 @@ describe('requestSession', () => {
     expect(state.limit).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
     expect(state.recentCount).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
     expect(deps.rows.has('u1')).toBe(false)
+  })
+
+  test('limited referral bonus raises the daily cap (5 base + bonus)', async () => {
+    deps.getLimitedReferralSessionBonus = async () => 2 // 2 limited-tier referrals
+    const now = deps._now()
+    const cap = FREEBUFF_LIMITED_SESSION_LIMIT + 2
+    for (let i = 0; i < cap; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        access_tier: 'limited',
+        admitted_at: new Date(now.getTime() - i * 60_000),
+      })
+    }
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      accessTier: 'limited',
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.limit).toBe(cap) // base 5 + 2 referral bonus = 7
+  })
+
+  test('limited referral bonus does NOT apply to the premium (full-tier) pool', async () => {
+    // Even with a bonus configured, a full-access user's premium pool is gated
+    // out (`config.pool === 'limited'`), so the cap is unchanged.
+    deps.getLimitedReferralSessionBonus = async () => 3
+    const now = deps._now()
+    for (let i = 0; i < FREEBUFF_PREMIUM_SESSION_LIMIT; i++) {
+      deps.admits.push({
+        user_id: 'u1',
+        model: FREEBUFF_PREMIUM_MODEL_IDS[0],
+        access_tier: 'full',
+        admitted_at: new Date(now.getTime() - i * 60_000),
+      })
+    }
+    const state = await requestSession({
+      userId: 'u1',
+      model: FREEBUFF_PREMIUM_MODEL_IDS[0],
+      accessTier: 'full',
+      deps,
+    })
+    expect(state.status).toBe('rate_limited')
+    if (state.status !== 'rate_limited') throw new Error('unreachable')
+    expect(state.limit).toBe(FREEBUFF_PREMIUM_SESSION_LIMIT) // no referral bonus
   })
 
   test('rate_limited: full Flash sessions do not consume the limited quota', async () => {
