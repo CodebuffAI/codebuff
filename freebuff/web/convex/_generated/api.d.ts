@@ -68,6 +68,7 @@ import type * as coding_agent_agent_runtime_v2 from "../coding_agent/agent/runti
 import type * as coding_agent_agent_tools from "../coding_agent/agent/tools.js";
 import type * as coding_agent_agent_wrapper from "../coding_agent/agent/wrapper.js";
 import type * as coding_agent_cli_agent_agent_message from "../coding_agent/cli_agent/agent_message.js";
+import type * as coding_agent_cli_agent_agent_message_stream from "../coding_agent/cli_agent/agent_message_stream.js";
 import type * as coding_agent_cli_agent_agent_thread from "../coding_agent/cli_agent/agent_thread.js";
 import type * as coding_agent_cli_agent_byokAuth from "../coding_agent/cli_agent/byokAuth.js";
 import type * as coding_agent_cli_agent_cli_agent_timeout from "../coding_agent/cli_agent/cli_agent_timeout.js";
@@ -317,6 +318,7 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/agent/tools": typeof coding_agent_agent_tools;
   "coding_agent/agent/wrapper": typeof coding_agent_agent_wrapper;
   "coding_agent/cli_agent/agent_message": typeof coding_agent_cli_agent_agent_message;
+  "coding_agent/cli_agent/agent_message_stream": typeof coding_agent_cli_agent_agent_message_stream;
   "coding_agent/cli_agent/agent_thread": typeof coding_agent_cli_agent_agent_thread;
   "coding_agent/cli_agent/byokAuth": typeof coding_agent_cli_agent_byokAuth;
   "coding_agent/cli_agent/cli_agent_timeout": typeof coding_agent_cli_agent_cli_agent_timeout;

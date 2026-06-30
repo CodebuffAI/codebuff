@@ -10,6 +10,7 @@ import { getAuthUser } from "../../users";
 import { getVerifiedAccessProject } from "../../project";
 import { workflow } from "./workflow";
 import type { WorkflowId } from "@convex-dev/workflow";
+import { finalizeMessageStream } from "./agent_message_stream";
 
 const agentAdPayloadValidator = v.object({
   provider: v.string(),
@@ -173,10 +174,25 @@ export const updateAgentMessageState = internalMutation({
     stateMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Reaching a terminal state finalizes the message: coalesce any live deltas
+    // / inline stream into the immutable body and clear the inline array so list
+    // reads stay light. (Codex/Claude/Gemini stream inline; this is where their
+    // content is moved off the doc.)
+    if (args.state !== "Processing") {
+      await finalizeMessageStream(ctx, args.messageId, {
+        messagePatch: {
+          state: args.state,
+          state_message: args.stateMessage,
+          isStreaming: false,
+        },
+      });
+      return;
+    }
+
     await ctx.db.patch(args.messageId, {
       state: args.state,
       state_message: args.stateMessage,
-      isStreaming: args.state === "Processing" ? true : false,
+      isStreaming: true,
     });
   },
 });
@@ -296,10 +312,14 @@ export const deactivateAgentMessage = internalMutation({
     messageId: v.id("agent_message"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.messageId, {
-      deactivated: true,
-      state: "Cancelled",
-      isStreaming: false,
+    // Finalize so any in-flight deltas are coalesced/cleaned up rather than
+    // orphaned when a streaming message is rolled back.
+    await finalizeMessageStream(ctx, args.messageId, {
+      messagePatch: {
+        deactivated: true,
+        state: "Cancelled",
+        isStreaming: false,
+      },
     });
   },
 });
@@ -388,11 +408,15 @@ export const cancelAgentMessageWorkflowInternal = internalMutation({
     userMessage: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    // Keep canceled messages visible in history; only stop streaming/processing state.
-    await ctx.db.patch(args.messageId, {
-      deactivated: false,
-      state: "Cancelled",
-      isStreaming: false,
+    // Keep canceled messages visible in history; only stop streaming/processing
+    // state. Finalize so any partial streamed content (live deltas or inline) is
+    // coalesced into the body and still renders in history.
+    await finalizeMessageStream(ctx, args.messageId, {
+      messagePatch: {
+        deactivated: false,
+        state: "Cancelled",
+        isStreaming: false,
+      },
     });
 
     // Reset thread processing state and clear workflow ID
@@ -526,6 +550,66 @@ export const cancelAgentMessage = action({
         userMessage: message.user_message,
       },
     );
+  },
+});
+
+// One-time (self-scheduling) backfill: move the inline assistant_stream of
+// existing finalized messages into the agent_message_body table and clear the
+// inline array, so listAgentThreadMessages reads become light for historical
+// messages too. New messages are already written this way at finalization.
+// Skips in-flight (streaming) and ad messages (ads keep their small inline copy,
+// which the UI reads directly). Safe to re-run: already-migrated messages have
+// no inline content and are skipped. Invoke once after deploy, e.g.
+//   npx convex run coding_agent/cli_agent/agent_message:backfillAgentMessageBodies '{"cursor":null}'
+export const backfillAgentMessageBodies = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    numItems: v.optional(v.number()),
+    autoContinue: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    migrated: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const numItems = args.numItems ?? 50;
+    const page = await ctx.db.query("agent_message").paginate({
+      cursor: args.cursor,
+      numItems,
+    });
+
+    let migrated = 0;
+    for (const msg of page.page) {
+      if (
+        msg.isStreaming ||
+        msg.ad_payload ||
+        !msg.assistant_stream ||
+        msg.assistant_stream.length === 0
+      ) {
+        continue;
+      }
+      await finalizeMessageStream(ctx, msg._id);
+      migrated += 1;
+    }
+
+    if (args.autoContinue && !page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.coding_agent.cli_agent.agent_message.backfillAgentMessageBodies,
+        {
+          cursor: page.continueCursor,
+          numItems,
+          autoContinue: true,
+        },
+      );
+    }
+
+    return {
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+      migrated,
+    };
   },
 });
 

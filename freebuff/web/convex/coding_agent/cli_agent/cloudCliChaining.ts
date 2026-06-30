@@ -1,8 +1,9 @@
-import { internalMutation } from "!/_generated/server";
+import { internalMutation, type MutationCtx } from "!/_generated/server";
 import { internal } from "!/_generated/api";
 import { v } from "convex/values";
 import { Id } from "!/_generated/dataModel";
 import { CLOUD_TURN_BUDGET_MS, CLI_AGENT_TIMEOUT_MESSAGE } from "./timeLimits";
+import { finalizeMessageStream } from "./agent_message_stream";
 
 // Cloud (connected_repo) chaining for the Codex / Claude Code CLI agents.
 //
@@ -14,14 +15,6 @@ import { CLOUD_TURN_BUDGET_MS, CLI_AGENT_TIMEOUT_MESSAGE } from "./timeLimits";
 // CLOUD_TURN_BUDGET_MS (default 20 min). This mirrors the Freebuff continuation
 // loop in executeFreebuff.ts, but reuses the existing workflow + execute path
 // (and therefore all of Codex/Claude's auth, resume, and streaming logic).
-
-type AssistantStreamItem = {
-  type: string;
-  title?: string;
-  status?: string;
-  content: string;
-  description?: string;
-};
 
 // Called by handleWorkflowComplete when a Codex/Claude run returns
 // timedOut=true. For connected_repo projects still within the turn budget, this
@@ -185,24 +178,21 @@ export const startCloudCliContinuation = internalMutation({
 });
 
 async function pauseWithTimeout(
-  ctx: { db: { get: any; patch: any } },
+  ctx: MutationCtx,
   messageId: Id<"agent_message">,
 ) {
-  const existingMessage = await ctx.db.get(messageId);
-  const existingStream = (existingMessage?.assistant_stream ??
-    []) as AssistantStreamItem[];
-  const nextStream: AssistantStreamItem[] = [
-    ...existingStream,
-    {
-      type: "timeout_continue",
-      title: "Time limit reached",
-      content: CLI_AGENT_TIMEOUT_MESSAGE,
+  await finalizeMessageStream(ctx, messageId, {
+    extraItems: [
+      {
+        type: "timeout_continue",
+        title: "Time limit reached",
+        content: CLI_AGENT_TIMEOUT_MESSAGE,
+      },
+    ],
+    messagePatch: {
+      state: "Paused",
+      state_message: CLI_AGENT_TIMEOUT_MESSAGE,
+      isStreaming: false,
     },
-  ];
-  await ctx.db.patch(messageId, {
-    state: "Paused",
-    state_message: CLI_AGENT_TIMEOUT_MESSAGE,
-    isStreaming: false,
-    assistant_stream: nextStream,
   });
 }

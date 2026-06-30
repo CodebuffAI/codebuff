@@ -569,7 +569,11 @@ export default defineSchema(
       // bundled base2-free agent runs). Defaults to DEFAULT_FREEBUFF_MODEL_ID
       // when unset. Only meaningful for agent_type === 'Freebuff'.
       selected_freebuff_model: v.optional(v.string()),
-    }).index('by_project', ['project_id']),
+    })
+      .index('by_project', ['project_id'])
+      // Bounds the per-minute timeout sweep to the (tiny) set of in-flight
+      // threads instead of scanning the whole table. See sweepTimedOutCliAgentRuns.
+      .index('by_processing', ['isProcessing', 'last_edited_timestamp']),
 
     // New agent message format for Claude Code, Gemini CLI, and Codex
     // Combines user and assistant turns into a single message
@@ -608,6 +612,11 @@ export default defineSchema(
         v.literal('Error'),
       ), // Current state of the message
       state_message: v.optional(v.string()), // Additional context about the state, ie logging error message
+
+      // Monotonic counter for live streaming deltas (see agent_message_delta).
+      // Incremented as each delta row is appended during a streaming run, and
+      // cleared when the message is finalized (deltas coalesced into the body).
+      stream_seq: v.optional(v.number()),
 
       // Wall-clock start (ms) of the current cloud (connected_repo) CLI-agent
       // turn, carried across chained continuations so the per-turn budget
@@ -672,6 +681,45 @@ export default defineSchema(
         'commit_hash',
         'isStreaming',
       ]), //verify these indexes
+
+    // Append-only live streaming deltas for an in-flight agent_message. Each row
+    // is one stream chunk (a single text/reasoning/subagent/status item). Writing
+    // a tiny row per flush instead of read-modify-writing the whole
+    // `assistant_stream` array eliminates the quadratic DB I/O that dominated
+    // Freebuff's bandwidth. Clients tail rows with seq > cursor, so the websocket
+    // only ships new chunks (not the full growing message) on each update. Rows
+    // are coalesced into agent_message_body and deleted when the run finalizes.
+    agent_message_delta: defineTable({
+      message_id: v.id('agent_message'),
+      seq: v.number(),
+      type: v.string(),
+      title: v.optional(v.string()),
+      status: v.optional(v.string()),
+      content: v.string(),
+      description: v.optional(v.string()),
+    }).index('by_message_seq', ['message_id', 'seq']),
+
+    // Immutable coalesced assistant stream for a finalized agent_message. Holding
+    // the (potentially large) body here instead of inline on agent_message keeps
+    // listAgentThreadMessages reads light, and because the row never changes
+    // after the run completes it never re-invalidates the per-message body
+    // subscription.
+    agent_message_body: defineTable({
+      message_id: v.id('agent_message'),
+      // Denormalized so the per-message body query can authorize against the
+      // thread without reading the (mutable) agent_message doc — keeping the body
+      // subscription immutable so post-completion metadata patches don't re-push it.
+      thread_id: v.id('agent_thread'),
+      stream: v.array(
+        v.object({
+          type: v.string(),
+          title: v.optional(v.string()),
+          status: v.optional(v.string()),
+          content: v.string(),
+          description: v.optional(v.string()),
+        }),
+      ),
+    }).index('by_message', ['message_id']),
 
     scraped_site_logs: defineTable({
       url: v.string(),

@@ -566,6 +566,7 @@ function shouldIncludeProjectIndexContent(filePath: string) {
 
 async function buildDaytonaProjectFiles(
   codebase: DaytonaCodebase,
+  options?: { includeContent?: boolean },
 ): Promise<Record<string, string>> {
   const filePaths = (await codebase.getAllFilePaths()).filter(
     (filePath) => !isSensitiveProjectPath(filePath),
@@ -573,6 +574,15 @@ async function buildDaytonaProjectFiles(
   const projectFiles: Record<string, string> = Object.fromEntries(
     filePaths.map((filePath) => [filePath, '']),
   )
+
+  // On continuations (same turn, same agent session) the model already saw the
+  // seed file contents in the resumed history and can re-read anything via its
+  // tools. Re-sending up to ~750KB of file bodies to the LLM on every chained
+  // continuation is pure egress, so we ship only the file tree (empty content)
+  // and keep the full content seed for the first action of a turn.
+  if (options?.includeContent === false) {
+    return projectFiles
+  }
 
   let contentBudget = PROJECT_INDEX_CONTENT_LIMIT
   let contentFiles = 0
@@ -1425,7 +1435,9 @@ export const runFreebuffAgent = internalAction({
         previousRun = stored.state
       }
       const codebase = await getCodebase()
-      const projectFiles = await buildDaytonaProjectFiles(codebase)
+      const projectFiles = await buildDaytonaProjectFiles(codebase, {
+        includeContent: !isContinuation,
+      })
 
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),

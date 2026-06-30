@@ -1,6 +1,7 @@
 'use client'
 
 import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 import { trackRedditGravityAdClick } from '@/lib/reddit-funnel'
 import {
   ChevronDown,
@@ -1330,19 +1331,115 @@ export const AgentChatMessages = forwardRef<
     { initialNumItems: 20 },
   )
 
-  // Get streamed messages - only query if project has active thread
-  const streamedMessages = useQuery(
-    api.coding_agent.cli_agent.queries.getStreamedAgentMessages,
+  // Live streaming tail. Instead of re-reading the whole growing message on
+  // every update, we subscribe to only the delta rows newer than the highest
+  // seq we've already applied (tracked per streaming message). The accumulated
+  // deltas are reconstructed into an assistant_stream-shaped array for rendering.
+  const [streamTail, setStreamTail] = useState<{
+    messageId: string | null
+    deltas: Array<{
+      seq: number
+      type: string
+      title?: string
+      status?: string
+      content: string
+      description?: string
+    }>
+    cursorSeq: number
+  }>({ messageId: null, deltas: [], cursorSeq: -1 })
+
+  const streamData = useQuery(
+    api.coding_agent.cli_agent.queries.getStreamingMessageDeltas,
     hasActiveThread
-      ? { semanticIdentifier: projectSemanticIdentifier }
+      ? {
+          semanticIdentifier: projectSemanticIdentifier,
+          afterSeq: streamTail.cursorSeq,
+          ...(streamTail.messageId
+            ? { afterMessageId: streamTail.messageId as Id<'agent_message'> }
+            : {}),
+        }
       : 'skip',
   )
+
+  useEffect(() => {
+    if (streamData === undefined) return
+    const message = streamData.message
+    if (!message || (message as any)._optimistic) {
+      // No active stream, or only a client-only optimistic placeholder (whose id
+      // isn't a real Convex id and must not be used as a delta cursor): keep the
+      // tail reset so the query subscribes with afterSeq:-1 and no afterMessageId.
+      setStreamTail((prev) =>
+        prev.messageId === null
+          ? prev
+          : { messageId: null, deltas: [], cursorSeq: -1 },
+      )
+      return
+    }
+    const incoming = (streamData.deltas ?? []) as Array<{
+      seq: number
+      type: string
+      title?: string
+      status?: string
+      content: string
+      description?: string
+    }>
+    setStreamTail((prev) => {
+      const sameMessage = prev.messageId === message._id
+      const bySeq = new Map<number, (typeof incoming)[number]>()
+      if (sameMessage) for (const d of prev.deltas) bySeq.set(d.seq, d)
+      for (const d of incoming) bySeq.set(d.seq, d)
+      const deltas = Array.from(bySeq.values()).sort((a, b) => a.seq - b.seq)
+      const maxSeq = deltas.length ? deltas[deltas.length - 1].seq : -1
+      const cursorSeq = sameMessage ? Math.max(prev.cursorSeq, maxSeq) : maxSeq
+      return { messageId: message._id, deltas, cursorSeq }
+    })
+  }, [streamData])
+
+  const streamingMessage = useMemo(() => {
+    const message = streamData?.message
+    if (!message) return undefined
+    const useDeltas =
+      streamTail.messageId === message._id && streamTail.deltas.length > 0
+    if (!useDeltas) {
+      return { ...message, assistant_stream: message.assistant_stream ?? [] }
+    }
+    // Merge consecutive same-type streamed chunks so multi-flush text (e.g. a
+    // code block split across flushes) renders as one coherent markdown block.
+    const merged: AssistantStreamItemType[] = []
+    for (const d of streamTail.deltas) {
+      const item: AssistantStreamItemType = {
+        type: d.type,
+        title: d.title,
+        status: d.status,
+        content: d.content,
+        description: d.description,
+      }
+      const previous = merged[merged.length - 1]
+      const canMerge =
+        previous &&
+        previous.type === item.type &&
+        previous.title === item.title &&
+        previous.status === item.status &&
+        previous.description === item.description &&
+        (item.type === 'text' ||
+          item.type === 'reasoning' ||
+          item.type === 'subagent' ||
+          item.type === 'assistant' ||
+          item.type === 'thinking')
+      if (canMerge) {
+        previous.content += item.content
+      } else {
+        merged.push(item)
+      }
+    }
+    return { ...message, assistant_stream: merged }
+  }, [streamData, streamTail])
 
   // Determine loading state - only show loading if there IS an active thread AND queries haven't returned yet
   // When skipped (no active thread), queries return undefined immediately - don't show loading
   const isLoading =
     hasActiveThread &&
-    (threadMessages === undefined || streamedMessages === undefined)
+    (threadMessages === undefined || streamData === undefined)
 
   // Handle empty states - if no active thread, queries return undefined, treat as empty array
   // Filter deactivated messages client-side - move array creation inside useMemo
@@ -1351,17 +1448,53 @@ export const AgentChatMessages = forwardRef<
     return threadMessagesArray.filter((msg: any) => msg.deactivated !== true)
   }, [threadMessages])
 
+  // Lazy-load the immutable coalesced bodies for completed list messages. The
+  // list query no longer carries the (large) assistant_stream inline, so we
+  // fetch bodies from their own table; because they never change after the run
+  // completes this subscription isn't re-pushed when message metadata is patched.
+  const bodyMessageIds = useMemo(
+    () =>
+      filteredThreadMessages
+        .filter(
+          (msg: any) =>
+            !msg.ad_payload && !(msg.assistant_stream?.length > 0),
+        )
+        .map((msg: any) => msg._id as Id<'agent_message'>),
+    [filteredThreadMessages],
+  )
+
+  const messageBodies = useQuery(
+    api.coding_agent.cli_agent.queries.getMessageBodies,
+    hasActiveThread && bodyMessageIds.length > 0
+      ? {
+          semanticIdentifier: projectSemanticIdentifier,
+          messageIds: bodyMessageIds,
+        }
+      : 'skip',
+  )
+
+  // Merge fetched bodies back onto the (lightweight) list messages so existing
+  // rendering that reads message.assistant_stream keeps working unchanged.
+  const hydratedThreadMessages = useMemo(() => {
+    if (!messageBodies) return filteredThreadMessages
+    return filteredThreadMessages.map((msg: any) => {
+      if (msg.assistant_stream?.length > 0) return msg
+      const body = messageBodies[msg._id]
+      return body ? { ...msg, assistant_stream: body } : msg
+    })
+  }, [filteredThreadMessages, messageBodies])
+
   const filteredStreamedMessages = useMemo(() => {
-    const streamedMessagesArray = streamedMessages ?? []
-    return streamedMessagesArray.filter((msg: any) => msg.deactivated !== true)
-  }, [streamedMessages])
+    if (!streamingMessage) return []
+    return streamingMessage.deactivated === true ? [] : [streamingMessage]
+  }, [streamingMessage])
 
   // Combine and sort messages (oldest first for rendering)
   const sortedMessages = useMemo(() => {
-    const allMessages = [...filteredThreadMessages, ...filteredStreamedMessages]
+    const allMessages = [...hydratedThreadMessages, ...filteredStreamedMessages]
     // Sort by _creationTime (oldest first for bottom-up rendering)
     return allMessages.sort((a, b) => a._creationTime - b._creationTime)
-  }, [filteredThreadMessages, filteredStreamedMessages])
+  }, [hydratedThreadMessages, filteredStreamedMessages])
 
   const activeAskUserQuestions = useMemo(() => {
     for (let i = sortedMessages.length - 1; i >= 0; i--) {

@@ -521,20 +521,27 @@ export function AgentChatShell({
       return;
     }
 
-    const existingStreamedMessages = localStore.getQuery(
-      api.coding_agent.cli_agent.queries.getStreamedAgentMessages,
+    // The live tail query is subscribed at idle with afterSeq: -1 (no
+    // afterMessageId). Match those exact args so the optimistic in-flight message
+    // renders immediately before the server creates the real row.
+    const existingStreamData = localStore.getQuery(
+      api.coding_agent.cli_agent.queries.getStreamingMessageDeltas,
       {
         semanticIdentifier,
+        afterSeq: -1,
       },
     );
 
-    if (existingStreamedMessages === undefined) {
+    if (existingStreamData === undefined) {
       return;
     }
 
     const now = Date.now();
     const optimisticMessage = {
       _id: crypto.randomUUID() as Id<"agent_message">,
+      // Marks this as a client-only placeholder so the live tail doesn't track
+      // its (non-Convex) id as a delta cursor before the real row exists.
+      _optimistic: true,
       _creationTime: now,
       thread_id: project.active_agent_thread,
       session_id: undefined,
@@ -553,13 +560,13 @@ export function AgentChatShell({
       images: args.images,
     };
 
-    // Streamed query returns the active in-flight message only.
     localStore.setQuery(
-      api.coding_agent.cli_agent.queries.getStreamedAgentMessages,
+      api.coding_agent.cli_agent.queries.getStreamingMessageDeltas,
       {
         semanticIdentifier,
+        afterSeq: -1,
       },
-      [optimisticMessage],
+      { message: optimisticMessage, deltas: [] },
     );
   });
   // Cancel message action
@@ -567,15 +574,16 @@ export function AgentChatShell({
     api.coding_agent.cli_agent.agent_message.cancelAgentMessage,
   );
 
-  // Get currently streaming message to cancel it from ChatInput X button
+  // Get currently streaming message to cancel it from ChatInput X button. Only
+  // the streaming metadata is needed here, so skip the delta read (metaOnly).
   const hasActiveThread = !!project?.active_agent_thread;
-  const streamedMessages = useQuery(
-    api.coding_agent.cli_agent.queries.getStreamedAgentMessages,
+  const streamData = useQuery(
+    api.coding_agent.cli_agent.queries.getStreamingMessageDeltas,
     hasActiveThread
-      ? { semanticIdentifier: projectSemanticIdentifier }
+      ? { semanticIdentifier: projectSemanticIdentifier, metaOnly: true }
       : "skip",
   );
-  const currentStreamingMessage = streamedMessages?.[0];
+  const currentStreamingMessage = streamData?.message ?? undefined;
 
   // Get active thread data (for title editing and processing state)
   const activeThread = useQuery(

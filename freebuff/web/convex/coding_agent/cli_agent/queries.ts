@@ -284,6 +284,160 @@ export const getStreamedAgentMessages = query({
   },
 });
 
+// Internal cacheable version - tails live streaming deltas for the active
+// streaming message. Returns the (light) streaming message plus only the delta
+// rows with seq > afterSeq, so the websocket ships new chunks instead of the
+// whole growing message on every update.
+export const getStreamingMessageDeltasInternal = internalQuery({
+  args: {
+    activeThread: v.optional(v.id("agent_thread")),
+    afterSeq: v.number(),
+    // When the client is already tracking a streaming message, it passes the id
+    // so we only return deltas newer than afterSeq. If it differs from the
+    // current streaming message (a new run started), we return the new message's
+    // full delta history instead so the client doesn't miss early chunks.
+    afterMessageId: v.optional(v.id("agent_message")),
+    // Skip the delta read entirely (callers that only need streaming metadata).
+    metaOnly: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.activeThread) {
+      return { message: null as any, deltas: [] as any[] };
+    }
+
+    const messages = await ctx.db
+      .query("agent_message")
+      .withIndex("by_thread_active", (q) =>
+        q
+          .eq("thread_id", args.activeThread!)
+          .eq("isStreaming", true)
+          .eq("deactivated", false),
+      )
+      .order("desc")
+      .take(1);
+
+    const message = messages[0];
+    if (!message) {
+      return { message: null as any, deltas: [] as any[] };
+    }
+
+    if (args.metaOnly) {
+      return { message, deltas: [] as any[] };
+    }
+
+    const effectiveAfter =
+      args.afterMessageId && args.afterMessageId === message._id
+        ? args.afterSeq
+        : -1;
+
+    const deltas = await ctx.db
+      .query("agent_message_delta")
+      .withIndex("by_message_seq", (q) =>
+        q.eq("message_id", message._id).gt("seq", effectiveAfter),
+      )
+      .order("asc")
+      .collect();
+
+    return { message, deltas };
+  },
+});
+
+// Live streaming tail for a project's active thread. Clients pass the highest
+// delta seq they've already applied (afterSeq); the query returns only newer
+// deltas plus the current streaming message metadata.
+export const getStreamingMessageDeltas = query({
+  args: {
+    semanticIdentifier: v.string(),
+    afterSeq: v.optional(v.number()),
+    afterMessageId: v.optional(v.id("agent_message")),
+    metaOnly: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<any> => {
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      return { message: null, deltas: [] };
+    }
+
+    const projectData = await ctx.runQuery(
+      internal.coding_agent.cli_agent.queries
+        .getVerifiedProjectForStreamedAgentMessagesInternal,
+      {
+        semanticIdentifier: args.semanticIdentifier,
+        userId: user._id,
+      },
+    );
+
+    if (!projectData) {
+      return { message: null, deltas: [] };
+    }
+
+    return await ctx.runQuery(
+      internal.coding_agent.cli_agent.queries.getStreamingMessageDeltasInternal,
+      {
+        activeThread: projectData.active_agent_thread,
+        afterSeq: args.afterSeq ?? -1,
+        afterMessageId: args.afterMessageId,
+        metaOnly: args.metaOnly,
+      },
+    );
+  },
+});
+
+// Fetch the immutable coalesced bodies for a set of finalized messages. Bodies
+// live in their own table and never change after a run completes, so this
+// subscription is not re-pushed when message metadata (cost, checkpoint, etc.)
+// is patched — keeping listAgentThreadMessages reads light. Access is authorized
+// against the thread via the denormalized thread_id on the body row (no read of
+// the mutable agent_message doc, which would re-invalidate the subscription).
+export const getMessageBodies = query({
+  args: {
+    semanticIdentifier: v.string(),
+    threadId: v.optional(v.id("agent_thread")),
+    messageIds: v.array(v.id("agent_message")),
+  },
+  handler: async (ctx, args): Promise<Record<string, any[]>> => {
+    const result: Record<string, any[]> = {};
+    if (args.messageIds.length === 0) {
+      return result;
+    }
+
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      return result;
+    }
+
+    const projectData = await ctx.runQuery(
+      internal.coding_agent.cli_agent.queries
+        .getVerifiedProjectForAgentMessagesInternal,
+      {
+        semanticIdentifier: args.semanticIdentifier,
+        userId: user._id,
+      },
+    );
+
+    if (!projectData) {
+      return result;
+    }
+
+    const threadId = args.threadId ?? projectData.active_agent_thread;
+    if (!threadId) {
+      return result;
+    }
+
+    for (const messageId of args.messageIds) {
+      const body = await ctx.db
+        .query("agent_message_body")
+        .withIndex("by_message", (q) => q.eq("message_id", messageId))
+        .unique();
+      if (body && body.thread_id === threadId) {
+        result[messageId] = body.stream;
+      }
+    }
+
+    return result;
+  },
+});
+
 // Get all agent threads for a project
 export const getProjectAgentThreads = query({
   args: {

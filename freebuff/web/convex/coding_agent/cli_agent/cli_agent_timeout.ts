@@ -5,6 +5,7 @@ import {
   CLI_AGENT_TIMEOUT_MESSAGE,
   HARD_DEADLINE_GRACE_MS,
 } from "./timeLimits";
+import { finalizeMessageStream } from "./agent_message_stream";
 
 // 10-minute cron sweep for stuck Codex / Claude Code agent runs. Mirrors the
 // Freebuff implementation in `freebuff_bridge_mutations.sweepTimedOutFreebuffRuns`
@@ -21,26 +22,20 @@ import {
 
 const CLI_AGENT_CRON_TIMEOUT_MS = CRON_SWEEP_TIMEOUT_MS;
 
-type AssistantStreamItem = {
-  type: string;
-  title?: string;
-  status?: string;
-  content: string;
-  description?: string;
-};
-
 export const sweepTimedOutCliAgentRuns = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     const cutoff = now - CLI_AGENT_CRON_TIMEOUT_MS;
 
-    // Threads currently flagged as processing. Number of concurrent processing
-    // threads is small in practice (one per active user run), so a filtered
-    // collect is acceptable at the 1-minute cron cadence.
+    // Threads flagged as processing whose last activity predates the cutoff.
+    // The by_processing index bounds this to the (tiny) set of stale in-flight
+    // threads instead of scanning the whole agent_thread table every minute.
     const processingThreads = await ctx.db
       .query("agent_thread")
-      .filter((q) => q.eq(q.field("isProcessing"), true))
+      .withIndex("by_processing", (q) =>
+        q.eq("isProcessing", true).lt("last_edited_timestamp", cutoff),
+      )
       .collect();
 
     let timedOut = 0;
@@ -49,9 +44,6 @@ export const sweepTimedOutCliAgentRuns = internalMutation({
         thread.agent_type !== "Codex" &&
         thread.agent_type !== "Claude Code"
       ) {
-        continue;
-      }
-      if (thread.last_edited_timestamp >= cutoff) {
         continue;
       }
 
@@ -69,21 +61,19 @@ export const sweepTimedOutCliAgentRuns = internalMutation({
         message.state === "Processing" &&
         message._creationTime < cutoff
       ) {
-        const existingStream = (message.assistant_stream ??
-          []) as AssistantStreamItem[];
-        const nextStream: AssistantStreamItem[] = [
-          ...existingStream,
-          {
-            type: "timeout_continue",
-            title: "Time limit reached",
-            content: CLI_AGENT_TIMEOUT_MESSAGE,
+        await finalizeMessageStream(ctx, message._id, {
+          extraItems: [
+            {
+              type: "timeout_continue",
+              title: "Time limit reached",
+              content: CLI_AGENT_TIMEOUT_MESSAGE,
+            },
+          ],
+          messagePatch: {
+            state: "Cancelled",
+            state_message: CLI_AGENT_TIMEOUT_MESSAGE,
+            isStreaming: false,
           },
-        ];
-        await ctx.db.patch(message._id, {
-          state: "Cancelled",
-          state_message: CLI_AGENT_TIMEOUT_MESSAGE,
-          isStreaming: false,
-          assistant_stream: nextStream,
         });
       }
 
@@ -173,22 +163,20 @@ export const enforceProcessingDeadlines = internalMutation({
         continue;
       }
 
-      const existingStream = (message.assistant_stream ??
-        []) as AssistantStreamItem[];
-      const nextStream: AssistantStreamItem[] = [
-        ...existingStream,
-        {
-          type: "timeout_continue",
-          title: "Time limit reached",
-          content: CLI_AGENT_TIMEOUT_MESSAGE,
+      await finalizeMessageStream(ctx, message._id, {
+        extraItems: [
+          {
+            type: "timeout_continue",
+            title: "Time limit reached",
+            content: CLI_AGENT_TIMEOUT_MESSAGE,
+          },
+        ],
+        messagePatch: {
+          state: "Paused",
+          state_message: CLI_AGENT_TIMEOUT_MESSAGE,
+          isStreaming: false,
+          processing_deadline_at: undefined,
         },
-      ];
-      await ctx.db.patch(message._id, {
-        state: "Paused",
-        state_message: CLI_AGENT_TIMEOUT_MESSAGE,
-        isStreaming: false,
-        assistant_stream: nextStream,
-        processing_deadline_at: undefined,
       });
 
       const thread = await ctx.db.get(message.thread_id);

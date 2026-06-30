@@ -2,14 +2,11 @@ import { v } from 'convex/values'
 import { internalMutation } from '../_generated/server'
 import { Id } from '../_generated/dataModel'
 import { CRON_SWEEP_TIMEOUT_MS } from './cli_agent/timeLimits'
-
-type AssistantStreamItem = {
-  type: string
-  title?: string
-  status?: string
-  content: string
-  description?: string
-}
+import {
+  appendDeltaItems,
+  finalizeMessageStream,
+  type StreamItem,
+} from './cli_agent/agent_message_stream'
 
 const TERMINAL_RUN_STATUSES = new Set([
   'completed',
@@ -28,74 +25,6 @@ const RUN_TRACKING_EVENT_TYPES = new Set([
 ])
 
 const RUN_HEARTBEAT_INTERVAL_MS = 30_000
-
-// Hard ceiling on the persisted assistant stream. Each streaming delta does a
-// read-modify-write of the WHOLE `assistant_stream` array (it lives inline on
-// the message doc), so an unbounded stream makes DB I/O grow quadratically with
-// message length — the single biggest driver of Convex DB I/O for Freebuff. A
-// runaway / looping agent that never stops emitting text would otherwise rewrite
-// an ever-larger array on every flush (and eventually hit the 1 MiB doc limit).
-//
-// We bound BOTH the number of items and the total character payload. When either
-// limit is exceeded we drop the oldest *streaming* items (text / reasoning /
-// subagent deltas) — never status / ask_user / error / timeout markers, which
-// are small and carry UI state — and prepend a single truncation notice so the
-// UI still renders coherently.
-const MAX_ASSISTANT_STREAM_ITEMS = 2_000
-const MAX_ASSISTANT_STREAM_CHARS = 400_000
-const TRUNCATABLE_STREAM_TYPES = new Set(['text', 'reasoning', 'subagent'])
-
-function assistantStreamCharCount(items: AssistantStreamItem[]): number {
-  let total = 0
-  for (const item of items) total += item.content.length
-  return total
-}
-
-/**
- * Cap the persisted stream so a single message can't grow without bound. Drops
- * the oldest truncatable (streaming-text) items first and inserts one notice.
- * Keeps non-truncatable markers (status/error/ask_user) so UI state survives.
- */
-function capAssistantStream(
-  items: AssistantStreamItem[],
-): AssistantStreamItem[] {
-  if (
-    items.length <= MAX_ASSISTANT_STREAM_ITEMS &&
-    assistantStreamCharCount(items) <= MAX_ASSISTANT_STREAM_CHARS
-  ) {
-    return items
-  }
-
-  const result = [...items]
-  const dropOldestTruncatable = () => {
-    const idx = result.findIndex((item) =>
-      TRUNCATABLE_STREAM_TYPES.has(item.type),
-    )
-    if (idx === -1) return false
-    result.splice(idx, 1)
-    return true
-  }
-
-  while (
-    (result.length > MAX_ASSISTANT_STREAM_ITEMS ||
-      assistantStreamCharCount(result) > MAX_ASSISTANT_STREAM_CHARS) &&
-    dropOldestTruncatable()
-  ) {
-    // keep dropping until we're under both limits or out of truncatable items
-  }
-
-  const alreadyNotified =
-    result[0]?.type === 'status' && result[0]?.title === 'Output truncated'
-  if (!alreadyNotified) {
-    result.unshift({
-      type: 'status',
-      title: 'Output truncated',
-      content:
-        'Earlier streamed output was trimmed to keep this message within size limits.',
-    })
-  }
-  return result
-}
 
 async function recordDailyUsage(
   ctx: any,
@@ -136,39 +65,6 @@ async function recordDailyUsage(
     timed_out_count: timedOutIncrement,
     last_run_at: args.now,
   })
-}
-
-function appendOrMergeStreamItem(
-  assistantStream: AssistantStreamItem[],
-  item: AssistantStreamItem,
-) {
-  if (!item.content) return
-
-  const previous = assistantStream[assistantStream.length - 1]
-  const canMerge =
-    previous &&
-    previous.type === item.type &&
-    previous.title === item.title &&
-    previous.status === item.status &&
-    previous.description === item.description &&
-    (item.type === 'text' ||
-      item.type === 'reasoning' ||
-      item.type === 'subagent')
-
-  if (canMerge) {
-    previous.content += item.content
-    return
-  }
-
-  assistantStream.push(item)
-}
-
-function compactAssistantStream(items: AssistantStreamItem[]) {
-  const compacted: AssistantStreamItem[] = []
-  for (const item of items) {
-    appendOrMergeStreamItem(compacted, { ...item })
-  }
-  return compacted
 }
 
 export const recordRunEvent = internalMutation({
@@ -260,71 +156,77 @@ export const recordRunEvent = internalMutation({
       throw new Error('Project/thread mismatch')
     }
 
-    const assistantStream = compactAssistantStream(
-      (message.assistant_stream ?? []) as AssistantStreamItem[],
-    )
-
+    // Map the event to a single stream item (a delta) where applicable.
+    let deltaItem: StreamItem | undefined
     if (event.type === 'text_delta') {
-      appendOrMergeStreamItem(assistantStream, {
-        type: 'text',
-        content: String(event.chunk ?? ''),
-      })
+      deltaItem = { type: 'text', content: String(event.chunk ?? '') }
     } else if (event.type === 'reasoning_delta') {
-      appendOrMergeStreamItem(assistantStream, {
+      deltaItem = {
         type: 'reasoning',
         title: 'Reasoning',
         content: String(event.chunk ?? ''),
-      })
+      }
     } else if (event.type === 'subagent_delta') {
-      appendOrMergeStreamItem(assistantStream, {
+      deltaItem = {
         type: 'subagent',
         title: event.agentType,
         content: String(event.chunk ?? ''),
-      })
+      }
     } else if (event.type === 'status') {
-      assistantStream.push({
+      deltaItem = {
         type: 'status',
         title: event.title ?? event.status,
         content: String(event.content ?? event.status ?? ''),
-      })
+      }
     } else if (event.type === 'ask_user_pause') {
-      assistantStream.push({
+      deltaItem = {
         type: 'ask_user',
         title: 'Question',
         content: JSON.stringify({
           questions: Array.isArray(event.questions) ? event.questions : [],
         }),
-      })
+      }
     } else if (event.type === 'time_limit_pause') {
-      assistantStream.push({
+      deltaItem = {
         type: 'timeout_continue',
         title: 'Time limit reached',
         content: String(
           event.message ??
             'Maximum time limit for a prompt reached. Engagement required to continue.',
         ),
-      })
+      }
     } else if (event.type === 'error') {
-      assistantStream.push({
+      deltaItem = {
         type: 'error',
         title: 'Freebuff error',
         content: String(event.message ?? 'Unknown Freebuff error'),
-      })
+      }
     }
 
-    const patch: Record<string, any> = {
-      // Cap before persisting so a single message can't grow unbounded and turn
-      // every subsequent delta's read-modify-write into ever-larger DB I/O.
-      assistant_stream: capAssistantStream(assistantStream),
+    const isTerminal =
+      event.type === 'final' ||
+      event.type === 'error' ||
+      event.type === 'time_limit_pause' ||
+      event.type === 'ask_user_pause'
+
+    // Non-terminal events: append a tiny delta row (O(1) DB I/O) instead of
+    // rewriting the whole stream. `start` only flips the message to streaming.
+    if (!isTerminal) {
+      if (deltaItem) await appendDeltaItems(ctx, messageId, [deltaItem])
+      if (event.type === 'start') {
+        await ctx.db.patch(messageId, { state: 'Processing', isStreaming: true })
+      }
+      return
     }
 
-    if (event.type === 'start') {
-      patch.state = 'Processing'
-      patch.isStreaming = true
-    } else if (event.type === 'final') {
-      patch.state = 'Completed'
-      patch.isStreaming = false
-      patch.session_id = event.runId
+    // Terminal events: coalesce the live deltas (plus this terminal item) into
+    // the immutable body and apply the message/thread/project state patches.
+    const messagePatch: Record<string, any> = {}
+
+    if (event.type === 'final') {
+      messagePatch.state = 'Completed'
+      messagePatch.isStreaming = false
+      messagePatch.session_id = event.runId
       const threadPatch: Record<string, any> = {
         isProcessing: false,
         workflow_id: undefined,
@@ -341,9 +243,9 @@ export const recordRunEvent = internalMutation({
       await ctx.db.patch(threadId, threadPatch as any)
       await ctx.db.patch(thread.project_id, { state: 'active' })
     } else if (event.type === 'error') {
-      patch.state = 'Error'
-      patch.state_message = String(event.message ?? 'Freebuff run failed')
-      patch.isStreaming = false
+      messagePatch.state = 'Error'
+      messagePatch.state_message = String(event.message ?? 'Freebuff run failed')
+      messagePatch.isStreaming = false
       const threadPatch: Record<string, any> = {
         isProcessing: false,
         workflow_id: undefined,
@@ -356,11 +258,11 @@ export const recordRunEvent = internalMutation({
       await ctx.db.patch(threadId, threadPatch as any)
       await ctx.db.patch(thread.project_id, { state: 'active' })
     } else if (event.type === 'time_limit_pause') {
-      patch.state = 'Paused'
-      patch.state_message =
+      messagePatch.state = 'Paused'
+      messagePatch.state_message =
         'Maximum time limit for a prompt reached. Engagement required to continue.'
-      patch.isStreaming = false
-      patch.session_id = event.runId
+      messagePatch.isStreaming = false
+      messagePatch.session_id = event.runId
       const threadPatch: Record<string, any> = {
         isProcessing: false,
         workflow_id: undefined,
@@ -377,10 +279,10 @@ export const recordRunEvent = internalMutation({
       await ctx.db.patch(threadId, threadPatch as any)
       await ctx.db.patch(thread.project_id, { state: 'active' })
     } else if (event.type === 'ask_user_pause') {
-      patch.state = 'Paused'
-      patch.state_message = 'Waiting for your answer'
-      patch.isStreaming = false
-      patch.session_id = event.runId
+      messagePatch.state = 'Paused'
+      messagePatch.state_message = 'Waiting for your answer'
+      messagePatch.isStreaming = false
+      messagePatch.session_id = event.runId
       const threadPatch: Record<string, any> = {
         active_session_id: event.runId,
         active_session_id_freebuff: event.runId,
@@ -396,7 +298,10 @@ export const recordRunEvent = internalMutation({
       await ctx.db.patch(thread.project_id, { state: 'active' })
     }
 
-    await ctx.db.patch(messageId, patch)
+    await finalizeMessageStream(ctx, messageId, {
+      extraItems: deltaItem ? [deltaItem] : [],
+      messagePatch,
+    })
   },
 })
 
@@ -495,21 +400,21 @@ export const sweepTimedOutFreebuffRuns = internalMutation({
       }
 
       if (message) {
-        const assistantStream = compactAssistantStream(
-          (message.assistant_stream ?? []) as AssistantStreamItem[],
-        )
-        assistantStream.push({
-          type: 'timeout_continue',
-          title: 'Time limit reached',
-          content:
-            'Maximum time limit for a prompt reached. Engagement required to continue.',
-        })
-        await ctx.db.patch(latestRunDoc.message_id, {
-          state: 'Cancelled',
-          state_message:
-            'Maximum time limit for a prompt reached. Engagement required to continue.',
-          isStreaming: false,
-          assistant_stream: assistantStream,
+        await finalizeMessageStream(ctx, latestRunDoc.message_id, {
+          extraItems: [
+            {
+              type: 'timeout_continue',
+              title: 'Time limit reached',
+              content:
+                'Maximum time limit for a prompt reached. Engagement required to continue.',
+            },
+          ],
+          messagePatch: {
+            state: 'Cancelled',
+            state_message:
+              'Maximum time limit for a prompt reached. Engagement required to continue.',
+            isStreaming: false,
+          },
         })
       }
 
