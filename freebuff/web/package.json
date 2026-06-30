@@ -45,6 +45,7 @@
     "@codingame/monaco-vscode-typescript-basics-default-extension": "^33.0.9",
     "@codingame/monaco-vscode-typescript-language-features-default-extension": "^33.0.9",
     "@convex-dev/aggregate": "^0.2.0",
+    "@convex-dev/crons": "^0.2.2",
     "@convex-dev/migrations": "^0.2.9",
     "@convex-dev/rate-limiter": "^0.2.14",
     "@convex-dev/workflow": "^0.3.3",

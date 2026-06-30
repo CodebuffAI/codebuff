@@ -61,29 +61,44 @@ function getRateLimitKeyForUser(user: User): string {
   return user.freebuff_user_id ?? user.clerk_id ?? user._id;
 }
 
-export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
-  const user = await getAuthUser(args.ctx);
-  if (!user) {
-    return {
-      ok: false,
-      error: { kind: "AUTH_ERROR", message: "User not found" },
-    };
-  }
+/** Inputs for the gate checks that do NOT require a JWT — everything is
+ *  resolved from the DB (or a caller-supplied policy value). The human path
+ *  resolves these from `ctx.auth` in `runTriggerGates`; the automation path
+ *  (convex/automations.ts) resolves user/project from the row, reads
+ *  `referralCount` from the users table, and passes `accessTier: "full"` so the
+ *  geo/session gates are skipped while rate-limit/quota/pause still apply. */
+export interface ResolvedGateArgs {
+  ctx: MutationCtx;
+  user: User;
+  /** Already access-verified project (caller resolves + checks ownership). */
+  project: Project;
+  agentType?: "Claude Code" | "Codex" | "Gemini CLI" | "Freebuff";
+  freebuffModel?: string;
+  /** Web referral score: from the JWT for human sends, or
+   *  `users.qualified_referral_count` for automations. Scales the daily quota. */
+  referralCount: number;
+  /** Geo tier: from the JWT for human sends, or `"full"` for automations
+   *  (geo is decided once at automation-create time, not re-checked per fire). */
+  accessTier: FreebuffWebAccessTier;
+  skipRateLimitCheck?: boolean;
+}
 
-  const identity = await args.ctx.auth.getUserIdentity();
-  const qualifiedReferralCount = getQualifiedReferralCount(identity, user);
+/**
+ * The gate checks that key off the DB-resolved user/project/tier/referral —
+ * rate limit, deployments-paused, daily model quota, and (for limited tier) the
+ * session pool. Shared by the human path (`runTriggerGates`) and the automation
+ * path. Contains no JWT access; the caller supplies `referralCount`/`accessTier`.
+ */
+export async function runResolvedGates(
+  args: ResolvedGateArgs,
+): Promise<GateResult> {
+  const { ctx, user, project } = args;
 
   const isGodRole = user.role === "god";
   const isPlatformAdmin = isGodRole || user.role === "admin";
   const rateLimitKey = getRateLimitKeyForUser(user);
 
-  // Geographic access tier, resolved by the Next.js token route and carried
-  // as a tamper-proof JWT claim. God-role users are exempt from all geo
-  // enforcement — checked against the users row, so it can't be spoofed.
-  const accessTier: FreebuffWebAccessTier =
-    isGodRole ? "full" : await getWebAccessTier(args.ctx);
-
-  if (accessTier === "blocked") {
+  if (args.accessTier === "blocked") {
     return {
       ok: false,
       error: {
@@ -100,7 +115,7 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   // standard/free-model daily quota, but never unlock premium-model usage
   // there. Full/allowed regions keep both standard and premium tier scaling.
   const freebuffModel =
-    args.agentType === "Freebuff" && accessTier === "limited"
+    args.agentType === "Freebuff" && args.accessTier === "limited"
       ? resolveFreebuffWebModelForLimitedTier(args.freebuffModel)
       : args.freebuffModel;
 
@@ -111,28 +126,12 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     // shared userMessages bucket so their behavior is unchanged.
     const rl =
       args.agentType === "Freebuff"
-        ? await checkFreebuffRateLimit(args.ctx, rateLimitKey)
-        : await checkUserRateLimit(args.ctx, rateLimitKey);
+        ? await checkFreebuffRateLimit(ctx, rateLimitKey)
+        : await checkUserRateLimit(ctx, rateLimitKey);
     if (!rl.success) return { ok: false, error: rl.error };
   }
 
-  const project = await getVerifiedAccessProject(
-    args.ctx,
-    user._id,
-    args.projectSemanticIdentifier,
-    args.projectId,
-  );
-  if (!project) {
-    return {
-      ok: false,
-      error: {
-        kind: "PROJECT_NOT_FOUND",
-        message: "Project not found or access denied",
-      },
-    };
-  }
-
-  const selfHostedConnection = await args.ctx.runQuery(
+  const selfHostedConnection = await ctx.runQuery(
     internal.convex_oauth.connections.getConnectionByProjectId,
     { projectId: project._id },
   );
@@ -142,12 +141,12 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     args.agentType === "Codex" && user.codex_auth_mode === "chatgpt";
 
   if (!isPlatformAdmin && !isSelfHosted && !isCodexWithChatGptAuth) {
-    const pauseStatus = await args.ctx.runQuery(
+    const pauseStatus = await ctx.runQuery(
       internal.deployment_queries.getUserPauseStatusInternal,
       { userId: user._id },
     );
     if (pauseStatus) {
-      await args.ctx.scheduler.runAfter(
+      await ctx.scheduler.runAfter(
         0,
         internal.deployment_helpers.checkAndUnpauseUser,
         { userId: user._id },
@@ -172,14 +171,14 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
   if (!args.skipRateLimitCheck && !isGodRole && args.agentType === "Freebuff") {
     const daily = isFreebuffPremiumModelId(freebuffModel)
       ? await checkPremiumModelRateLimit(
-          args.ctx,
+          ctx,
           rateLimitKey,
-          qualifiedReferralCount,
+          args.referralCount,
         )
       : await checkStandardModelRateLimit(
-          args.ctx,
+          ctx,
           rateLimitKey,
-          qualifiedReferralCount,
+          args.referralCount,
         );
     if (!daily.success) return { ok: false, error: daily.error };
   }
@@ -192,10 +191,10 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     args.agentType === "Freebuff" && isFreebuffWebGeoExemptModelId(freebuffModel);
   if (
     !args.skipRateLimitCheck &&
-    accessTier === "limited" &&
+    args.accessTier === "limited" &&
     !isGeoExemptFreebuffSend
   ) {
-    const session = await checkLimitedSessionGate(args.ctx, user._id);
+    const session = await checkLimitedSessionGate(ctx, user._id);
     if (!session.success) return { ok: false, error: session.error };
   }
 
@@ -205,7 +204,59 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     project,
     isPlatformAdmin,
     isSelfHosted,
-    accessTier,
+    accessTier: args.accessTier,
     freebuffModel,
   };
+}
+
+/**
+ * Human-send gate: resolves the user, geo tier, referral score, and project
+ * from the request's JWT (`ctx.auth`), then delegates the actual checks to
+ * `runResolvedGates`. Behavior is unchanged from the original single function.
+ */
+export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
+  const user = await getAuthUser(args.ctx);
+  if (!user) {
+    return {
+      ok: false,
+      error: { kind: "AUTH_ERROR", message: "User not found" },
+    };
+  }
+
+  const identity = await args.ctx.auth.getUserIdentity();
+  const qualifiedReferralCount = getQualifiedReferralCount(identity, user);
+
+  // Geographic access tier, resolved by the Next.js token route and carried
+  // as a tamper-proof JWT claim. God-role users are exempt from all geo
+  // enforcement — checked against the users row, so it can't be spoofed.
+  const isGodRole = user.role === "god";
+  const accessTier: FreebuffWebAccessTier =
+    isGodRole ? "full" : await getWebAccessTier(args.ctx);
+
+  const project = await getVerifiedAccessProject(
+    args.ctx,
+    user._id,
+    args.projectSemanticIdentifier,
+    args.projectId,
+  );
+  if (!project) {
+    return {
+      ok: false,
+      error: {
+        kind: "PROJECT_NOT_FOUND",
+        message: "Project not found or access denied",
+      },
+    };
+  }
+
+  return runResolvedGates({
+    ctx: args.ctx,
+    user,
+    project,
+    agentType: args.agentType,
+    freebuffModel: args.freebuffModel,
+    referralCount: qualifiedReferralCount,
+    accessTier,
+    skipRateLimitCheck: args.skipRateLimitCheck,
+  });
 }

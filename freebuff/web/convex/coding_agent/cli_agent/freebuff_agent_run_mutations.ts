@@ -19,6 +19,9 @@ export const createFreebuffAgentRun = internalMutation({
     projectId: v.id('project'),
     threadId: v.id('agent_thread'),
     messageId: v.id('agent_message'),
+    // Set when this run was started by a scheduled Automation fire; powers the
+    // per-automation run history (freebuff_agent_runs by_automation index).
+    automationId: v.optional(v.id('automation')),
   },
   handler: async (ctx, args) => {
     const now = Date.now()
@@ -31,6 +34,7 @@ export const createFreebuffAgentRun = internalMutation({
       status: 'queued',
       queued_at: now,
       last_event_at: now,
+      ...(args.automationId ? { automation_id: args.automationId } : {}),
     })
   },
 })
