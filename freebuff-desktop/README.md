@@ -61,24 +61,44 @@ It runs the orchestrator one of two ways (`resolveOrchestrator()` in `main.cjs`)
 
 ## Run
 
+> ⚠️ `bun --cwd freebuff-desktop run …` is broken in this repo. `cd freebuff-desktop`
+> first (as below), or run a script by path from the repo root
+> (`bun freebuff-desktop/scripts/<name>.ts`).
+
 ```bash
-# Launch the desktop app (Electron shell + Bun orchestrator)
-bun --cwd freebuff-desktop run app
+cd freebuff-desktop
+
+# Full desktop app: Electron shell + Bun orchestrator (builds the UI first)
+bun run app
 
 # Point it at a real repo instead of the bundled demo repo
-FREEBUFF_TARGET_REPO=/path/to/repo bun --cwd freebuff-desktop run app
+FREEBUFF_TARGET_REPO=/path/to/repo bun run app
 
-# Just the orchestrator + UI in a browser (no Electron window), for fast iteration
-PORT=8787 bun --cwd freebuff-desktop run app:server   # then open http://localhost:8787
+# Hot UI iteration in Electron: Vite (renderer) + Electron + orchestrator
+bun run dev
 
-bun test --cwd freebuff-desktop      # unit tests for the core
-bun --cwd freebuff-desktop run typecheck
+# Full web stack in a normal browser, no Electron — orchestrator (:8787) + Vite (:5174)
+bun run dev:web        # then open http://localhost:5174
+
+# Orchestrator + API only (best for headless / curl-driving). Serves the *built* UI
+# at :8787 only after `bun run ui:build`; the API works without it.
+bun run app:server     # PORT=8787 bun src/app/server.ts
+
+bun test               # unit tests for src/core + src/app
+bun run typecheck
 ```
 
-Env vars consumed by the shell: `FREEBUFF_TARGET_REPO` (repo to operate on) and
-`FREEBUFF_BUN_PATH` (override the `bun` binary if it isn't on `PATH`). The
-orchestrator itself reads `PORT`, `TARGET_REPO`, `TEST_CMD`, `CONCURRENCY`, and
-`ENABLE_SCOUT` (see `src/app/server.ts`).
+To drive the app end-to-end without clicking the UI (the HTTP/SSE API, headless build
+loop, verification), see [`../docs/desktop/e2e-testing.md`](../docs/desktop/e2e-testing.md).
+
+**Env vars.** The Electron shell (`main.cjs`) reads `FREEBUFF_TARGET_REPO` (repo to
+open — passed to the orchestrator as `TARGET_REPO`), `FREEBUFF_BUN_PATH` (override the
+`bun` binary if it isn't on `PATH`), and `FREEBUFF_DEV_UI` (set by `bun run dev`). The
+orchestrator (`src/app/server.ts`) reads `PORT` (default `8787`), `TARGET_REPO`
+(default `~/freebuff-desktop-demo`, seeds a sample repo if absent), `TEST_CMD` (default
+`node --test`, the `test` skill's command), `FREEBUFF_UI_DIR` (built SPA dir), and —
+for the hosted `codebuff` harness — `NEXT_PUBLIC_CODEBUFF_APP_URL` (LLM backend) and
+`CODEBUFF_API_KEY` (fallback auth when not logged in via the in-app device-code flow).
 
 ## Packaging (distributable app)
 
@@ -111,15 +131,18 @@ import and throws otherwise. Values come from the build environment: `.env.local
 locally (dev), GitHub Secrets in CI (prod).
 
 In the packaged app, `main.cjs` resolves `process.resourcesPath/bun/bun` and
-`…/orchestrator/orchestrator.js`, sets `FREEBUFF_UI_PATH` to the shipped UI, and
+`…/orchestrator/orchestrator.js`, sets `FREEBUFF_UI_DIR` to the shipped UI, and
 runs with the orchestrator dir as cwd so the bundled `import 'playwright'`
 resolves.
 
+**Auth (shipped).** The app has its own device-code login (`src/app/auth/`,
+`/api/auth/*`) → web GitHub/Google, with the token stored in
+`~/.config/freebuff-desktop` (independent of the CLI's credential store). The hosted
+`codebuff` harness uses that token; in dev it falls back to `CODEBUFF_API_KEY` from the
+shell. The `claude-code` harness reuses local Claude Code's subscription auth and needs
+neither.
+
 **Not yet wired (next milestones, out of scope for packaging):**
-- **Auth.** The orchestrator needs `CODEBUFF_API_KEY` to construct its SDK client.
-  Dev inherits it from the shell; a distributed app needs a login flow that
-  supplies it (cf. the freebuff CLI's session/credential store). Until then, launch
-  a packaged build with `CODEBUFF_API_KEY` in the environment.
 - **Code signing / notarization.** `mac.identity` is `null` (unsigned). Shipping to
   users needs an Apple Developer cert + notarization (and equivalents on Win/Linux).
 - **Cross-platform Bun.** `fetch-bun.ts --target <platform-arch>` downloads the
