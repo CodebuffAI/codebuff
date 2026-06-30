@@ -569,11 +569,7 @@ export default defineSchema(
       // bundled base2-free agent runs). Defaults to DEFAULT_FREEBUFF_MODEL_ID
       // when unset. Only meaningful for agent_type === 'Freebuff'.
       selected_freebuff_model: v.optional(v.string()),
-    })
-      .index('by_project', ['project_id'])
-      // Bounds the per-minute timeout sweep to the (tiny) set of in-flight
-      // threads instead of scanning the whole table. See sweepTimedOutCliAgentRuns.
-      .index('by_processing', ['isProcessing', 'last_edited_timestamp']),
+    }).index('by_project', ['project_id']),
 
     // New agent message format for Claude Code, Gemini CLI, and Codex
     // Combines user and assistant turns into a single message
