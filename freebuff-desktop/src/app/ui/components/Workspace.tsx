@@ -13,7 +13,11 @@ function clamp(w: number): number {
 }
 
 function loadWidth(): number {
-  const saved = Number(localStorage.getItem(STORAGE_KEY))
+  // getItem returns null when unset; Number(null) is 0 (finite), which would
+  // mask DEFAULT_QUEUE and collapse a fresh profile to MIN_QUEUE. Treat a
+  // missing/blank value as "no preference" so the default applies.
+  const raw = localStorage.getItem(STORAGE_KEY)
+  const saved = raw == null || raw === '' ? NaN : Number(raw)
   return Number.isFinite(saved) ? clamp(saved) : DEFAULT_QUEUE
 }
 
