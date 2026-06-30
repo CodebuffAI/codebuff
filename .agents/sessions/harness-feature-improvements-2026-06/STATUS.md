@@ -930,3 +930,27 @@ Final whole-repo validation gate run.
 
 All milestones M1–M10 are now complete. The harness-feature-improvements-2026-06 plan is finished.
 
+
+<!-- update_plan_status:appended -->
+## Circuit-breaker fix: stop resetting failure counter on fresh basedOnRead — COMPLETE — 2026-06-30 — 2026-06-30T08:12:32.725Z
+
+Post-plan follow-up harness fix prompted by the failure-instance diagnosis (transcript of a model stuck in a ~5x re-read-and-retry loop re-emitting the same broken `atomic` payload).
+
+**Root-cause analysis (confirmed by re-reading source):**
+- `str_replace` preflight validates the newString against the **full resulting file** (not in isolation) via `preflightValidateSyntax` → `Bun.Transpiler.transformSync(fullPostEditContent)`. The preflight was NOT the gap; it correctly rejected dangling-code states (`Unexpected .`/`)`/`}`).
+- A circuit breaker already existed (`STR_REPLACE_MAX_CONSECUTIVE_FAILURES = 3` + per-path `consecutiveStrReplaceFailuresByPath`), but it was structurally unreachable in the re-read-and-retry loop: the `hasReadCapability` block cleared BOTH `failedEditRequiresReadByPath` AND `consecutiveStrReplaceFailuresByPath` before the breaker check. Since `failedEditRequiresReadByPath` forces a re-read (which the model does with a fresh `basedOnRead`), every re-read reset the counter to 0 — so the breaker could only trip if the model retried 3+ times WITHOUT any `basedOnRead`, which the read-gate already prevents.
+
+**Fix (packages/agent-runtime/src/tools/handlers/tool/str-replace.ts, ~L82-88):**
+- Removed `delete fileProcessingState.consecutiveStrReplaceFailuresByPath[path]` from the `hasReadCapability` block. Now only `failedEditRequiresReadByPath` is cleared on a fresh `basedOnRead` (preserving the read-gate), while the failure counter only resets on a genuine clean success (the existing line ~242).
+- Updated the inline comment to document the rationale: "a re-read-and-retry loop that keeps failing on the same path is exactly the retry spiral the circuit breaker exists to stop."
+- Resulting behavior: fail → re-read → fail → re-read → fail → breaker trips at 3 (desired). Clean success still resets the counter.
+
+**Tests (packages/agent-runtime/src/tools/handlers/tool/__tests__/str-replace-circuit-breaker.test.ts):**
+- Rewrote the existing third test (which pre-set the counter to 3 + supplied a basedOnRead expecting success) to assert the NEW behavior: the breaker still trips at the limit even with a fresh basedOnRead.
+- Added a new test: `trips the breaker after a re-read-and-retry loop of repeated failures even when each retry carries a fresh basedOnRead` — simulates the exact transcript scenario (3 sequential failing calls each with a fresh basedOnRead) and asserts the 3rd trips the breaker with the circuit-breaker errorMessage.
+- All 4 tests pass (16 expect() calls). typecheck-agent-runtime clean (the file is below the large-file threshold so basedOnRead was correctly omitted on the edit).
+
+**Scope note (optional enhancement NOT implemented):** A more precise breaker would track failure count by `(oldString, newString)` payload signature rather than by path, distinguishing "stuck re-emitting the same broken payload" (a definite loop) from "trying different edits that each fail once" (legitimate struggle). The path-based breaker is the minimal correct fix; the payload-signature enhancement is left as a follow-up since the transcript's loop would have been caught by the path-based breaker alone once the counter stops being reset.
+
+Next checkpoint: this was a standalone harness fix outside the M1–M10 milestone structure. No further plan items remain.
+

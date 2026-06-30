@@ -76,11 +76,13 @@ export const handleStrReplace = (async (
   )
 
   // A fresh basedOnRead anchor proves the agent has just seen the current
-  // disk content, so it can clear a stale failedEditRequiresReadByPath flag
-  // and the Fix C consecutive-failure counter.
+  // disk content, so it clears the stale failedEditRequiresReadByPath flag
+  // (unblocking the next edit). It does NOT reset the consecutive-failure
+  // counter: a re-read-and-retry loop that keeps failing on the same path is
+  // exactly the retry spiral the circuit breaker exists to stop. The counter
+  // only clears on a genuine clean success below.
   if (hasReadCapability) {
     delete fileProcessingState.failedEditRequiresReadByPath[path]
-    delete fileProcessingState.consecutiveStrReplaceFailuresByPath[path]
   }
 
   // Fix C: per-path consecutive-failure circuit breaker. If the agent has

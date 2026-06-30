@@ -112,23 +112,22 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
     expect(value?.errorMessage).not.toMatch(/^str_replace circuit breaker:/)
   })
 
-  it('clears the counter when a fresh basedOnRead capability is supplied, then succeeds on an exact match', async () => {
-    const path = 'cleared.ts'
+  it('does NOT reset the failure counter when a fresh basedOnRead is supplied — the breaker still trips at the limit', async () => {
+    const path = 'not-cleared.ts'
     const fileContent = 'const x = 1\nconst y = 2\n'
     const fileProcessingState = getFileProcessingValues({
       consecutiveStrReplaceFailuresByPath: { [path]: 3 },
       strictReadBeforeEdit: false,
     })
 
-    // A basedOnRead anchor proves a fresh read, so the handler clears the
-    // counter before the breaker check. Because a basedOnRead anchor forces the
-    // handler to re-read current disk content (ignoring any prior in-memory
-    // edit promise), the small file's content comes straight from the
-    // requestOptionalFile stub. processStrReplace then applies an exact match
-    // (a clean success with no auto-correct marker), which keeps the counter
-    // cleared. The token must be a real minted capability (not a stub string)
-    // so decode + hash validation succeed and the handler reaches the exact
-    // match path.
+    // Before the fix, a fresh basedOnRead cleared the consecutive-failure
+    // counter, so a re-read-and-retry loop that kept failing never tripped the
+    // breaker. After the fix, a fresh basedOnRead only clears
+    // failedEditRequiresReadByPath (unblocking the edit); the counter is left
+    // untouched, so it still trips at the limit and forces the agent to switch
+    // tools. The token is a real minted capability so decode + hash validation
+    // would succeed and the handler would reach processStrReplace — but the
+    // breaker fires first.
     const freshReadToken = encodeReadCapabilityToken({
       startLine: 1,
       endLine: 2,
@@ -159,13 +158,108 @@ describe('handleStrReplace circuit breaker (Fix C)', () => {
       | { errorMessage?: string; message?: string }
       | undefined
     expect(value).toBeDefined()
-    // Counter was cleared by the fresh basedOnRead anchor, so the circuit
-    // breaker message must NOT appear. On a clean success the output carries a
-    // `message` (not `errorMessage`), so guard the undefined case before the
-    // toMatch matcher (which requires a string input).
+    // The counter is pre-set to the limit and a fresh basedOnRead no longer
+    // resets it, so the breaker must trip before any file processing.
+    expect(value?.errorMessage).toMatch(/^str_replace circuit breaker:/)
+    expect(value?.errorMessage).toContain('consecutive failed or auto-corrected')
+    // The counter is NOT cleared by the fresh basedOnRead; it stays at the
+    // limit.
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(3)
+  })
+
+  it('trips the breaker after a re-read-and-retry loop of repeated failures even when each retry carries a fresh basedOnRead', async () => {
+    // Reproduces the real-world failure mode the fix targets: the agent fails,
+    // re-reads (minting a fresh basedOnRead), retries with the SAME broken
+    // payload, fails again, re-reads, retries again... Before the fix each
+    // fresh basedOnRead reset the counter so this loop never tripped the
+    // breaker. After the fix the counter accumulates across re-reads and the
+    // breaker fires on the 4th attempt (3 prior failures + this one).
+    const path = 'retry-loop.ts'
+    const fileContent = 'const x = 1\nconst y = 2\n'
+    const fileProcessingState = getFileProcessingValues({
+      consecutiveStrReplaceFailuresByPath: { [path]: 2 },
+      strictReadBeforeEdit: false,
+    })
+
+    const freshReadToken = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 2,
+      hash: getContentHash(fileContent),
+    })
+    // An oldString that does NOT exist in the file forces processStrReplace to
+    // return a hard error, which increments the counter. The basedOnRead is
+    // valid (fresh read) but cannot rescue a wrong oldString.
+    const result = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeStrReplaceCall({
+        path,
+        atomic: false,
+        replacements: [
+          {
+            oldString: 'const NOT_PRESENT = 999',
+            newString: 'const NOT_PRESENT = 1000',
+            allowMultiple: false,
+            basedOnRead: freshReadToken,
+          },
+        ],
+      }),
+      fileProcessingState,
+      logger: silentLogger,
+      requestClientToolCall: emptyRequestClientToolCall,
+      requestOptionalFile: async () => fileContent,
+      writeToClient: noopWriteToClient,
+    })
+
+    const value = result.output[0]?.value as
+      | { errorMessage?: string; message?: string }
+      | undefined
+    expect(value).toBeDefined()
+    // This is the 3rd consecutive failure (counter was 2, this failure makes
+    // it 3). The breaker does NOT trip on this call (it trips when the counter
+    // is ALREADY >= 3 at the START of the call), but the counter must now be 3
+    // so the NEXT attempt — even with a fresh basedOnRead — will trip it.
     expect(value?.errorMessage ?? '').not.toMatch(/^str_replace circuit breaker:/)
-    // A clean exact-match success (no auto-correct marker) leaves the counter
-    // cleared.
-    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBeUndefined()
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(3)
+
+    // Second attempt: a fresh basedOnRead re-read, same broken payload. Before
+    // the fix the counter would reset to 0 here and the loop would continue
+    // forever. After the fix the counter stays at 3 and the breaker trips.
+    const freshReadToken2 = encodeReadCapabilityToken({
+      startLine: 1,
+      endLine: 2,
+      hash: getContentHash(fileContent),
+    })
+    const result2 = await handleStrReplace({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: makeStrReplaceCall({
+        path,
+        atomic: false,
+        replacements: [
+          {
+            oldString: 'const NOT_PRESENT = 999',
+            newString: 'const NOT_PRESENT = 1000',
+            allowMultiple: false,
+            basedOnRead: freshReadToken2,
+          },
+        ],
+      }),
+      fileProcessingState,
+      logger: silentLogger,
+      requestClientToolCall: emptyRequestClientToolCall,
+      requestOptionalFile: async () => fileContent,
+      writeToClient: noopWriteToClient,
+    })
+
+    const value2 = result2.output[0]?.value as
+      | { errorMessage?: string; message?: string }
+      | undefined
+    expect(value2).toBeDefined()
+    expect(value2?.errorMessage).toMatch(/^str_replace circuit breaker:/)
+    // The breaker message must direct the agent to switch tools, which is the
+    // whole point of breaking the loop.
+    expect(value2?.errorMessage).toContain('rewrite_symbol')
+    // Counter is unchanged by the tripped attempt (the breaker returns before
+    // any processing that would increment it).
+    expect(fileProcessingState.consecutiveStrReplaceFailuresByPath[path]).toBe(3)
   })
 })
