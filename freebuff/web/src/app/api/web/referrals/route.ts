@@ -1,13 +1,13 @@
 import {
   FREEBUFF_REFERRAL_TIERS,
-  MIN_GITHUB_ACCOUNT_AGE_MONTHS,
+  MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
   getNextReferralTier,
   getReferralTier,
 } from '@codebuff/common/constants/freebuff-referral-tiers'
-import { getWebReferralScore } from '@codebuff/billing'
+import { getWebReferralScore, referredGithubIdSql } from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 
@@ -44,8 +44,11 @@ export async function GET() {
       .select({
         activatedAt: schema.referralV2.activated_at,
         createdAt: schema.referralV2.created_at,
-        // Null when the friend has no GitHub account linked at all.
-        githubUserId: schema.referralV2.referred_github_user_id,
+        // The referred friend's resolved GitHub id (shared with getReferralStats
+        // so the list never disagrees with the score). Null only when the friend
+        // has no GitHub linked, OR when their GitHub is already burned by another
+        // referral (the resolver's NOT EXISTS guard) — both correctly "uncounted".
+        githubUserId: referredGithubIdSql,
         // GitHub server-set account-creation date, for the derived age check.
         githubAccountCreatedAt:
           schema.referralQualification.github_account_created_at,
@@ -53,10 +56,7 @@ export async function GET() {
       .from(schema.referralV2)
       .leftJoin(
         schema.referralQualification,
-        eq(
-          schema.referralQualification.github_user_id,
-          schema.referralV2.referred_github_user_id,
-        ),
+        sql`${schema.referralQualification.github_user_id} = ${referredGithubIdSql}`,
       )
       .where(
         and(
@@ -78,7 +78,9 @@ export async function GET() {
   // age bar the same way the score does, so the list never shows "Qualified"
   // for a friend who hasn't actually used Freebuff.
   const ageThreshold = new Date()
-  ageThreshold.setMonth(ageThreshold.getMonth() - MIN_GITHUB_ACCOUNT_AGE_MONTHS)
+  ageThreshold.setMonth(
+    ageThreshold.getMonth() - MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
+  )
 
   return NextResponse.json({
     code: user.referralCode,
@@ -86,7 +88,7 @@ export async function GET() {
     currentTier: getReferralTier(score),
     nextTier: getNextReferralTier(score),
     tiers: FREEBUFF_REFERRAL_TIERS,
-    minGithubAccountAgeMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS,
+    minGithubAccountAgeMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
     recentReferrals: recentReferrals.map((referral) => {
       const hasGithub = !!referral.githubUserId
       const githubOldEnough =

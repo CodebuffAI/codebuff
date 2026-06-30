@@ -149,6 +149,9 @@ export async function recordReferralV2Attribution(params: {
         eq(schema.account.provider, 'github'),
       ),
     )
+    // Deterministic tie-break for the rare multi-GitHub user, so the id stored
+    // here matches the one the read-time fallback (referredGithubIdSql) picks.
+    .orderBy(schema.account.providerAccountId)
     .limit(1)
 
   const inserted = await conn

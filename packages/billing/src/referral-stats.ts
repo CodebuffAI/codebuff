@@ -7,6 +7,37 @@ import db from '@codebuff/internal/db'
 import { sql } from 'drizzle-orm'
 
 /**
+ * SQL expression that resolves a referral's referred GitHub id: the denormalized
+ * burn-once `referred_github_user_id` when set, else a fallback to the referred
+ * user's linked GitHub account (the denormalized id is only written on the
+ * NextAuth linkAccount web event, so links via other paths leave it NULL and the
+ * referral would otherwise be silently dropped from qualification).
+ *
+ * The fallback carries the SAME burn-once guard as linkReferralV2GithubId: it
+ * only resolves to a GitHub identity that no other referral_v2 row already
+ * holds. Without it, a re-signup's NULL row (left NULL precisely because the
+ * identity was burned by an earlier referral) would be re-credited via the
+ * account table — crediting one GitHub identity to two referrers. Shared by
+ * getReferralStats and the /api/web/referrals list so the two never diverge.
+ *
+ * References the OUTER `referral_v2` row, so the consuming query must keep that
+ * table unaliased (its own name) in FROM.
+ */
+export const referredGithubIdSql = sql<string | null>`COALESCE(
+  referral_v2.referred_github_user_id,
+  (SELECT a."providerAccountId"
+     FROM account a
+    WHERE a."userId" = referral_v2.referred_id
+      AND a.provider = 'github'
+      AND NOT EXISTS (
+        SELECT 1 FROM referral_v2 e
+        WHERE e.referred_github_user_id = a."providerAccountId"
+      )
+    ORDER BY a."providerAccountId"
+    LIMIT 1)
+)`
+
+/**
  * Unified referral read model (docs/referrals.md).
  *
  * One referral per referred user (`referral_v2`); each carries the access tier
@@ -42,8 +73,10 @@ export interface ReferralStats {
 /**
  * Count a referrer's qualified-and-activated referrals, split by the access tier
  * the referred user activated at. Qualification is derived from the referred
- * user's GitHub account age (joined via `referred_github_user_id`); referrals
- * with no GitHub identity never qualify (the join drops them).
+ * user's GitHub account age, joined via the denormalized `referred_github_user_id`
+ * with a fallback to the referred user's linked GitHub account when that id is
+ * NULL (it's only populated on the linkAccount web event, so other link paths
+ * can leave it unset). A referred user with no linked GitHub never qualifies.
  *
  * Includes the self-referral bump: the row where this user is themselves the
  * referred party (`referred_id = referrerId`) counts too, at their own
@@ -55,20 +88,22 @@ export async function getReferralStats(params: {
   conn?: typeof db
 }): Promise<ReferralStats> {
   const conn = params.conn ?? db
+  // Table kept unaliased so `referredGithubIdSql` (which references the outer
+  // `referral_v2` row + carries the burn-once guard) resolves correctly.
   const rows = (await conn.execute(sql`
     SELECT
-      count(*) FILTER (WHERE r.activation_access_tier = 'full')::int
+      count(*) FILTER (WHERE referral_v2.activation_access_tier = 'full')::int
         AS "fullQualified",
-      count(*) FILTER (WHERE r.activation_access_tier = 'limited')::int
+      count(*) FILTER (WHERE referral_v2.activation_access_tier = 'limited')::int
         AS "limitedQualified"
-    FROM referral_v2 r
-    JOIN referral_qualification q
-      ON q.github_user_id = r.referred_github_user_id
-    WHERE (r.referrer_id = ${params.referrerId}
-           OR r.referred_id = ${params.referrerId})
-      AND r.activated_at IS NOT NULL
-      AND r.revoked_at IS NULL
-      AND q.github_account_created_at
+    FROM referral_v2
+    JOIN referral_qualification
+      ON referral_qualification.github_user_id = ${referredGithubIdSql}
+    WHERE (referral_v2.referrer_id = ${params.referrerId}
+           OR referral_v2.referred_id = ${params.referrerId})
+      AND referral_v2.activated_at IS NOT NULL
+      AND referral_v2.revoked_at IS NULL
+      AND referral_qualification.github_account_created_at
         <= now() - (${MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL} || ' months')::interval
   `)) as unknown as Record<string, unknown>[]
 

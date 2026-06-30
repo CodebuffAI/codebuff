@@ -35,6 +35,15 @@ const F_TOONEW = `${P}f_toonew` // activated full, github too new → excluded
 const F_REVOKED = `${P}f_revoked` // activated full, aged, revoked → excluded
 const F_INACTIVE = `${P}f_inactive` // aged but never activated → excluded
 const F_NOGITHUB = `${P}f_nogithub` // activated full but null github → excluded
+// activated full, v2 github id NULL, BUT has a linked github account + aged
+// qualification row → must be RESCUED by the resilient-join fallback and counted.
+const R2 = `${P}R2` // referrer of F_NULLID
+const F_NULLID = `${P}f_nullid`
+// Burn-once guard: F_HELD's v2 id is NULL and its linked github is already held
+// by OLDHOLDER's row (a re-signup), so the fallback must NOT re-credit R3.
+const R3 = `${P}R3`
+const F_HELD = `${P}f_held`
+const OLDHOLDER = `${P}f_oldholder`
 
 const ALL_USERS = [
   R,
@@ -47,6 +56,11 @@ const ALL_USERS = [
   F_REVOKED,
   F_INACTIVE,
   F_NOGITHUB,
+  R2,
+  F_NULLID,
+  R3,
+  F_HELD,
+  OLDHOLDER,
 ]
 
 const gh = (u: string) => `${u}-gh`
@@ -59,6 +73,8 @@ const QUAL_GHS = [
   gh(F_INACTIVE),
   gh(R), // R's own (self-bump) github
   gh(SELFONLY),
+  gh(F_NULLID), // qualification keyed to the linked account, not the (null) v2 id
+  gh(F_HELD), // held by OLDHOLDER's row → fallback must be blocked for F_HELD
 ]
 
 let client: ReturnType<typeof postgres>
@@ -96,6 +112,27 @@ describe('getReferralStats (real DB)', () => {
       )
       .onConflictDoNothing()
 
+    // F_NULLID has a linked GitHub account, but its referral_v2 row's id is NULL
+    // (the backfill-gap bug). The resilient join must rescue it via this account.
+    await testDb
+      .insert(schema.account)
+      .values([
+        {
+          userId: F_NULLID,
+          type: 'oauth',
+          provider: 'github',
+          providerAccountId: gh(F_NULLID),
+        },
+        // F_HELD currently owns the github that OLDHOLDER's row already burned.
+        {
+          userId: F_HELD,
+          type: 'oauth',
+          provider: 'github',
+          providerAccountId: gh(F_HELD),
+        },
+      ])
+      .onConflictDoNothing()
+
     const now = new Date()
     await testDb
       .insert(schema.referralV2)
@@ -110,6 +147,12 @@ describe('getReferralStats (real DB)', () => {
         // Self rows: R and SELFONLY were themselves referred (by INV).
         { referred_id: R, referrer_id: INV, referred_github_user_id: gh(R), activated_at: now, activation_access_tier: 'full' },
         { referred_id: SELFONLY, referrer_id: INV, referred_github_user_id: gh(SELFONLY), activated_at: now, activation_access_tier: 'limited' },
+        // NULL v2 id, but a linked + aged github → rescued by the resilient join.
+        { referred_id: F_NULLID, referrer_id: R2, referred_github_user_id: null, activated_at: now, activation_access_tier: 'full' },
+        // Burn-once: OLDHOLDER already holds gh(F_HELD); F_HELD's row is NULL and
+        // its account resolves to the same github → fallback must be BLOCKED.
+        { referred_id: OLDHOLDER, referrer_id: INV, referred_github_user_id: gh(F_HELD), activated_at: now, activation_access_tier: 'full' },
+        { referred_id: F_HELD, referrer_id: R3, referred_github_user_id: null, activated_at: now, activation_access_tier: 'full' },
       ])
       .onConflictDoNothing()
   })
@@ -122,6 +165,9 @@ describe('getReferralStats (real DB)', () => {
     await testDb
       .delete(schema.referralQualification)
       .where(inArray(schema.referralQualification.github_user_id, QUAL_GHS))
+    await testDb
+      .delete(schema.account)
+      .where(inArray(schema.account.userId, ALL_USERS))
     await testDb.delete(schema.user).where(inArray(schema.user.id, ALL_USERS))
     await client.end()
   })
@@ -141,6 +187,22 @@ describe('getReferralStats (real DB)', () => {
 
   it('returns zeros for a user with no referrals', async () => {
     const stats = await getReferralStats({ referrerId: EMPTY, conn: testDb })
+    expect(stats).toEqual({ fullQualified: 0, limitedQualified: 0 })
+  })
+
+  it('rescues a referral whose v2 github id is NULL via the linked github account', async () => {
+    // The backfill-gap case: F_NULLID activated full and has a linked, aged
+    // github, but the denormalized referred_github_user_id was never written.
+    // The resilient join must still count it (was silently dropped before).
+    const stats = await getReferralStats({ referrerId: R2, conn: testDb })
+    expect(stats).toEqual({ fullQualified: 1, limitedQualified: 0 })
+  })
+
+  it('does NOT rescue a NULL-id row whose github is already burned by another referral', async () => {
+    // F_HELD activated full with a linked aged github, but that github is already
+    // held by OLDHOLDER's row. The fallback's burn-once guard must block it, so
+    // R3 gets no credit — otherwise one github counts for two referrers.
+    const stats = await getReferralStats({ referrerId: R3, conn: testDb })
     expect(stats).toEqual({ fullQualified: 0, limitedQualified: 0 })
   })
 })
