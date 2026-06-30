@@ -16,6 +16,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
 import {
+  linkReferralV2GithubId,
   recordReferralV2Activation,
   recordReferralV2Attribution,
 } from '../referral-v2'
@@ -33,11 +34,14 @@ const SEED = `${P}seed` // pre-seeds a burn-once github
 const BURN = `${P}burn` // re-signup of the seed github → burn-once blocks it
 const ACT = `${P}act` // activation tier transitions
 const NOREF = `${P}noref` // activation no-op (no referral row)
+const LINK = `${P}link` // null-github referral → backfilled on github link
+const LINK2 = `${P}link2` // burn-once: can't claim a github another row holds
 
-const ALL_USERS = [REFERRER, REFERRER2, A, G, SEED, BURN, ACT, NOREF]
+const ALL_USERS = [REFERRER, REFERRER2, A, G, SEED, BURN, ACT, NOREF, LINK, LINK2]
 const GH_A = `${P}ghA`
 const GH_SHARED = `${P}ghShared`
 const GH_ACT = `${P}ghAct`
+const GH_LINK = `${P}ghLink`
 
 let client: ReturnType<typeof postgres>
 let testDb: ReturnType<typeof drizzle<typeof schema>>
@@ -79,13 +83,15 @@ describe('referral-v2 write side (real DB)', () => {
 
     // Pre-seed a referral whose burn-once github is GH_SHARED (as if the SEED
     // user already consumed it), so a later re-signup under BURN is blocked.
+    // LINK / LINK2 are referrals written with a null github (attributed before
+    // GitHub linked) used by the github-backfill tests.
     await testDb
       .insert(schema.referralV2)
-      .values({
-        referred_id: SEED,
-        referrer_id: REFERRER,
-        referred_github_user_id: GH_SHARED,
-      })
+      .values([
+        { referred_id: SEED, referrer_id: REFERRER, referred_github_user_id: GH_SHARED },
+        { referred_id: LINK, referrer_id: REFERRER, referred_github_user_id: null },
+        { referred_id: LINK2, referrer_id: REFERRER, referred_github_user_id: null },
+      ])
       .onConflictDoNothing()
   })
 
@@ -180,6 +186,36 @@ describe('referral-v2 write side (real DB)', () => {
 
   it('activation is a no-op for a user with no referral row', async () => {
     await recordReferralV2Activation({ referredId: NOREF, accessTier: 'full', conn: testDb })
+    expect(await rowFor(NOREF)).toBeUndefined()
+  })
+
+  it('backfills a null github id when the referred user links GitHub', async () => {
+    expect((await rowFor(LINK)).referred_github_user_id).toBeNull()
+    await linkReferralV2GithubId({ referredId: LINK, githubUserId: GH_LINK, conn: testDb })
+    expect((await rowFor(LINK)).referred_github_user_id).toBe(GH_LINK)
+  })
+
+  it('does not overwrite a github id that is already set', async () => {
+    await linkReferralV2GithubId({
+      referredId: LINK,
+      githubUserId: `${P}ghOther`,
+      conn: testDb,
+    })
+    expect((await rowFor(LINK)).referred_github_user_id).toBe(GH_LINK) // unchanged
+  })
+
+  it('respects burn-once: skips a github id another referral already holds', async () => {
+    // LINK already holds GH_LINK; LINK2 trying to claim it is a no-op.
+    await linkReferralV2GithubId({ referredId: LINK2, githubUserId: GH_LINK, conn: testDb })
+    expect((await rowFor(LINK2)).referred_github_user_id).toBeNull()
+  })
+
+  it('github backfill is a no-op for a user with no referral row', async () => {
+    await linkReferralV2GithubId({
+      referredId: NOREF,
+      githubUserId: `${P}ghNoref`,
+      conn: testDb,
+    })
     expect(await rowFor(NOREF)).toBeUndefined()
   })
 })

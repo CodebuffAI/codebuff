@@ -1,6 +1,6 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
@@ -118,4 +118,34 @@ export async function recordReferralV2Activation(params: {
       activation_access_tier: nextActivationTier(existing.tier, accessTier),
     })
     .where(eq(schema.referralV2.referred_id, referredId))
+}
+
+/**
+ * Backfill a referral's `referred_github_user_id` once the referred user links a
+ * GitHub account. Attribution can happen before the account is linked (the
+ * `createUser` auth event fires ahead of `linkAccount`) or for a Google-only
+ * signup that connects GitHub later — in both cases the row is written with a
+ * null github id, and the derived qualification join drops it (so it never
+ * counts) until this fills it in.
+ *
+ * No-op when the user has no referral row or the id is already set. Burn-once
+ * safe: skips when that GitHub identity already backs another referral (the
+ * NOT EXISTS guard avoids tripping the UNIQUE constraint).
+ */
+export async function linkReferralV2GithubId(params: {
+  referredId: string
+  githubUserId: string
+  conn?: DbConn
+}): Promise<void> {
+  const { referredId, githubUserId, conn = db } = params
+  await conn
+    .update(schema.referralV2)
+    .set({ referred_github_user_id: githubUserId })
+    .where(
+      and(
+        eq(schema.referralV2.referred_id, referredId),
+        isNull(schema.referralV2.referred_github_user_id),
+        sql`NOT EXISTS (SELECT 1 FROM referral_v2 e WHERE e.referred_github_user_id = ${githubUserId})`,
+      ),
+    )
 }

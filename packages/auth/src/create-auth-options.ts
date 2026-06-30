@@ -1,5 +1,8 @@
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
-import { getReferralQualification } from '@codebuff/billing'
+import {
+  getReferralQualification,
+  linkReferralV2GithubId,
+} from '@codebuff/billing'
 import { SESSION_MAX_AGE_SECONDS } from '@codebuff/common/old-constants'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -402,6 +405,19 @@ export function createAuthOptions(
                   { error, userId: user.id },
                   'Failed to prime referral qualification on GitHub link',
                 ),
+            )
+            // Unified referral (docs/referrals.md): a referral attributed before
+            // this account linked — or a Google signup that connects GitHub
+            // later — has a null github id and won't qualify until it's filled.
+            // Backfill it now that the id is known. No-op without a referral row.
+            linkReferralV2GithubId({
+              referredId: user.id,
+              githubUserId: account.providerAccountId,
+            }).catch((error) =>
+              logger.error(
+                { error, userId: user.id },
+                'Failed to backfill referral_v2 github id on GitHub link',
+              ),
             )
           },
         },
