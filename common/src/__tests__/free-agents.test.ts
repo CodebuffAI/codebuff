@@ -12,8 +12,10 @@ import {
 import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
 import {
+  FREEBUFF_DESKTOP_THREAD_AGENT_ID,
   getFreebuffRootAgentIdForModel,
   isFreebuffGeminiThinkerAgent,
+  isFreebuffRootAgent,
   isFreeModeAllowedAgentModel,
   shouldUseLocalTokenCountForFreebuffDeepseekFlash,
 } from '../constants/free-agents'
@@ -190,6 +192,40 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       ),
     ).toBe(true)
+  })
+
+  test('allows the Freebuff Desktop root agent with every desktop model', () => {
+    // The desktop runs ONE root id across all its picker models (model chosen
+    // per tab), so each desktop-pickable model must be allowed for it.
+    for (const model of [
+      MINIMAX_M3_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_KIMI_MODEL_ID,
+      FREEBUFF_MIMO_V25_PRO_MODEL_ID,
+      FREEBUFF_MIMO_V25_MODEL_ID,
+    ]) {
+      expect(
+        isFreeModeAllowedAgentModel(FREEBUFF_DESKTOP_THREAD_AGENT_ID, model),
+      ).toBe(true)
+    }
+    // It's a recognized free-mode root (so its subagents pass the hierarchy gate
+    // and the "You are Buffy" marker gate applies to it).
+    expect(isFreebuffRootAgent(FREEBUFF_DESKTOP_THREAD_AGENT_ID)).toBe(true)
+    // A non-free premium model (e.g. raw Claude) stays disallowed even for it.
+    expect(
+      isFreeModeAllowedAgentModel(
+        FREEBUFF_DESKTOP_THREAD_AGENT_ID,
+        'anthropic/claude-sonnet-4.5',
+      ),
+    ).toBe(false)
+    // Publisher-spoof safe.
+    expect(
+      isFreeModeAllowedAgentModel(
+        `other/${FREEBUFF_DESKTOP_THREAD_AGENT_ID}@0.0.1`,
+        MINIMAX_M3_MODEL_ID,
+      ),
+    ).toBe(false)
   })
 
   test('allows the browser-use subagent with its bundled model', () => {
