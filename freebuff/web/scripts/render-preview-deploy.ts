@@ -1,11 +1,11 @@
-import { access, cp, mkdir, realpath, writeFile } from 'fs/promises'
+import { access, cp, mkdir, realpath } from 'fs/promises'
 import { join } from 'path'
 
 const webRoot = join(import.meta.dir, '..')
 const repoRoot = join(webRoot, '..', '..')
 const sdkRoot = join(repoRoot, 'sdk')
 const sdkDist = join(sdkRoot, 'dist')
-const convexDeployEnvFile = join(webRoot, '.convex-deploy.env')
+type ConvexDeployKeyType = 'preview' | 'project' | 'deployment'
 
 function sanitizePreviewName(value: string) {
   return value
@@ -66,7 +66,9 @@ async function syncSdkDistForPackageResolution() {
       realpath(packageDist).catch(() => packageDist),
     ])
     if (sourceDistPath === targetDistPath) {
-      console.log(`[render-preview] SDK dist already available at ${packageDist}`)
+      console.log(
+        `[render-preview] SDK dist already available at ${packageDist}`,
+      )
       continue
     }
 
@@ -89,28 +91,43 @@ function getRequiredEnv(name: string) {
   return value
 }
 
-async function writeConvexDeployEnvFile() {
-  const deployKey = getRequiredEnv('CONVEX_DEPLOY_KEY')
-  const issuer = process.env.VLY_CONVEX_AUTH_ISSUER
-  const lines = [`CONVEX_DEPLOY_KEY=${deployKey}`]
-  if (issuer) {
-    lines.push(`VLY_CONVEX_AUTH_ISSUER=${issuer}`)
+function getConvexDeployKeyType(deployKey: string): ConvexDeployKeyType {
+  const prefix = deployKey.split('|')[0] ?? ''
+  const prefixParts = prefix.split(':')
+
+  if (prefixParts[0] === 'preview' && prefixParts.length === 3) {
+    return 'preview'
   }
 
-  lines.push('')
-  await writeFile(
-    convexDeployEnvFile,
-    lines.join('\n'),
-  )
-  const issuerMessage = issuer
-    ? ` and VLY_CONVEX_AUTH_ISSUER=${issuer}`
-    : ''
-  console.log(`[render-preview] wrote Convex deploy env file with CONVEX_DEPLOY_KEY${issuerMessage}`)
+  if (prefixParts[0] === 'project') {
+    return 'project'
+  }
+
+  return 'deployment'
+}
+
+function getConvexDeployCommand(deployKey: string) {
+  const deployKeyType = getConvexDeployKeyType(deployKey)
+  const command = ['bun', 'x', 'convex', 'deploy']
+
+  if (deployKeyType === 'deployment') {
+    command.push('--allow-deleting-large-indexes')
+    console.log(
+      '[render-preview] using deployment key target; omitting --preview-name because Convex ignores it for deployment keys',
+    )
+  } else {
+    command.push('--preview-name', previewName)
+  }
+
+  command.push('--cmd', 'bun run build:next')
+  return command
 }
 
 const previewName =
-  sanitizePreviewName(process.env.CONVEX_PREVIEW_NAME ?? 'freebuff-web-preview') ||
-  'freebuff-web-preview'
+  sanitizePreviewName(
+    process.env.CONVEX_PREVIEW_NAME ?? 'freebuff-web-preview',
+  ) || 'freebuff-web-preview'
+const convexDeployKey = getRequiredEnv('CONVEX_DEPLOY_KEY')
 
 if (!process.env.CONVEX_PREVIEW_NAME && process.env.RENDER_GIT_BRANCH) {
   console.log(
@@ -118,25 +135,19 @@ if (!process.env.CONVEX_PREVIEW_NAME && process.env.RENDER_GIT_BRANCH) {
   )
 }
 console.log(`[render-preview] using Convex preview deployment "${previewName}"`)
+console.log(
+  `[render-preview] using Convex ${getConvexDeployKeyType(convexDeployKey)} deploy key`,
+)
 
-await runStep('building @codebuff/sdk before Convex snapshots dependencies', [
-  'bun',
-  'run',
-  'build',
-], sdkRoot)
+await runStep(
+  'building @codebuff/sdk before Convex snapshots dependencies',
+  ['bun', 'run', 'build'],
+  sdkRoot,
+)
 
 await syncSdkDistForPackageResolution()
-await writeConvexDeployEnvFile()
 
-await runStep('deploying Convex preview and building Next.js', [
-  'bun',
-  'x',
-  'convex',
-  'deploy',
-  '--preview-name',
-  previewName,
-  '--env-file',
-  convexDeployEnvFile,
-  '--cmd',
-  'bun run build:next',
-])
+await runStep(
+  'deploying Convex preview and building Next.js',
+  getConvexDeployCommand(convexDeployKey),
+)
