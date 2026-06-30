@@ -187,6 +187,9 @@ export const FreebuffReferralBanner: React.FC = () => {
           alignItems: 'flex-start',
           gap: 0,
           marginTop: 1,
+          // Never let a height-starved landing column squash the banner — that
+          // would draw the bordered copy button on top of the line above it.
+          flexShrink: 0,
         }}
       >
         <text style={{ wrapMode: 'word' }}>
@@ -233,6 +236,9 @@ export const FreebuffReferralBanner: React.FC = () => {
         borderStyle: 'rounded',
         borderColor: theme.primary,
         marginTop: 1,
+        // Never let a height-starved landing column squash the card — that
+        // would draw the bordered action buttons on top of the status line.
+        flexShrink: 0,
       }}
       border={['top', 'bottom', 'left', 'right']}
       title=" ✦ GLM 5.2 unlocked "
