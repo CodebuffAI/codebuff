@@ -44,6 +44,16 @@ crons.interval(
   internal.coding_agent.cli_agent.cli_agent_timeout.sweepTimedOutCliAgentRuns,
 )
 
+// Hard absolute-deadline watchdog for ALL agent runs (Freebuff, Codex, Claude).
+// Last-resort guarantee that a stuck run is force-finished (Paused, with a
+// continue affordance) once its turn budget passes — cloud=20min, web=10min —
+// independent of the in-action timer, idle detection, or the chaining loop.
+crons.interval(
+  'enforce agent processing deadlines',
+  { minutes: 1 },
+  internal.coding_agent.cli_agent.cli_agent_timeout.enforceProcessingDeadlines,
+)
+
 // Keep the Freebuff agent Node bundle warm. Cold-loading it (@codebuff/sdk +
 // all bundled agent definitions) costs ~5-9s, which used to land on the first
 // user message after an idle period.

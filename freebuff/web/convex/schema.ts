@@ -615,6 +615,15 @@ export default defineSchema(
       // action. Only set for Codex/Claude runs on connected_repo projects.
       cloud_turn_started_at: v.optional(v.number()),
 
+      // Absolute wall-clock deadline (ms) after which the watchdog cron
+      // force-finishes this run (marks it Paused so the user can continue),
+      // regardless of agent activity. Set when the turn starts for every agent
+      // (cloud=20min, web/template=10min). This is the hard guarantee against
+      // "stuck forever" runs; it does not depend on the in-action abort timer
+      // or idle detection. Cleared/superseded when the message reaches a
+      // terminal state.
+      processing_deadline_at: v.optional(v.number()),
+
       // Usage and cost tracking
       total_cost_usd: v.optional(v.number()), // Total cost in USD for this message
       credits_deducted: v.optional(v.number()), // Actual credits deducted (after tier multiplier)
@@ -656,6 +665,7 @@ export default defineSchema(
     })
       .index('by_thread', ['thread_id'])
       .index('by_thread_active', ['thread_id', 'isStreaming', 'deactivated'])
+      .index('by_processing_deadline', ['isStreaming', 'processing_deadline_at'])
       .index('by_thread_and_ad_source', ['thread_id', 'ad_source_message_id'])
       .index('by_thread_and_commit', [
         'thread_id',

@@ -6,6 +6,10 @@ import {
   createAgentThread,
   formatInitialUserMessageThreadTitle,
 } from "./agent_thread";
+import {
+  WEB_TURN_DEADLINE_MS,
+  CLOUD_TURN_DEADLINE_MS,
+} from "./timeLimits";
 import { workflow } from "./workflow";
 import { runTriggerGates } from "../shared/triggerGates";
 
@@ -264,6 +268,19 @@ export const saveMessageAndStartWorkflow = mutation({
         },
       );
       messageIdForCleanup = messageId;
+
+      // Hard watchdog deadline (absolute wall-clock) for this turn. The watchdog
+      // cron force-finishes the message (Paused) past this time no matter what,
+      // so a stuck agent can never hold the thread in "processing" forever.
+      // Cloud (connected_repo) gets the full chained-turn budget; everything
+      // else gets the single-action web limit.
+      const turnDeadlineMs =
+        project.project_type === "connected_repo"
+          ? CLOUD_TURN_DEADLINE_MS
+          : WEB_TURN_DEADLINE_MS;
+      await ctx.db.patch(messageId, {
+        processing_deadline_at: Date.now() + turnDeadlineMs,
+      });
 
       if (shouldSetInitialThreadTitle) {
         await ctx.runMutation(

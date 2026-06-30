@@ -45,3 +45,26 @@ export const MAX_TURN_CONTINUATIONS = 25
 
 export const CLI_AGENT_TIMEOUT_MESSAGE =
   'Maximum time limit for a prompt reached. Engagement required to continue.'
+
+// Absolute hard-deadline (wall-clock, from the start of the user's turn) after
+// which a run is FORCE-finished by the watchdog cron, regardless of whether the
+// agent is still emitting events. This is the last-resort guarantee against
+// "stuck forever" runs — it does not depend on the in-action abort timer firing
+// or on idle detection.
+//
+//   - Web/template: 10 minutes. These don't chain, so the turn is a single
+//     action; 10 min lines up with the Convex action ceiling.
+//   - Cloud (connected_repo): equals CLOUD_TURN_BUDGET_MS (20 min), the total
+//     budget across chained continuations.
+//
+// A small grace is added on top of these in the watchdog so we don't race the
+// normal in-action finalization (which should land slightly before the
+// deadline); see CLOUD/WEB *_HARD_DEADLINE_GRACE_MS.
+export const WEB_TURN_DEADLINE_MS = 10 * 60 * 1000
+export const CLOUD_TURN_DEADLINE_MS = CLOUD_TURN_BUDGET_MS
+
+// Grace added to the absolute deadline before the watchdog force-finishes a
+// run. Gives the normal in-action/chaining finalization a chance to land first
+// so the watchdog only ever fires for genuinely stuck runs (avoids double
+// finalization races and premature pauses).
+export const HARD_DEADLINE_GRACE_MS = 90 * 1000
