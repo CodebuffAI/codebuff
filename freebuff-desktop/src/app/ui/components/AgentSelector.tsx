@@ -56,7 +56,6 @@ export function AgentPicker({
         onClick={() => setOpen((v) => !v)}
         title="Switch this thread's coding agent"
       >
-        <span className={`agent-dot agent-dot-${active.id}`} />
         <span className="agent-name">{active.label}</span>
         {active.modelLabel && <span className="agent-model">{active.modelLabel}</span>}
         <Icon name="chevron-down" />

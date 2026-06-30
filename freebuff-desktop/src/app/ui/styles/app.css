@@ -332,7 +332,9 @@ select {
   padding: 0 8px;
   border-radius: 7px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  /* Borderless to keep the selector flat/low-chroma; the transparent border
+     preserves the box size so hover/layout don't shift. */
+  border: 1px solid transparent;
   color: var(--text);
   font-size: 12px;
   white-space: nowrap;
@@ -507,6 +509,11 @@ body.col-resizing {
   right: auto;
   left: 0;
 }
+/* Empty flex filler that pushes the preview controls to the far right — they're
+   secondary to the project/agent/model selectors grouped on the left. */
+.head-spacer {
+  flex: 1;
+}
 .thread-head-project {
   display: inline-flex;
   align-items: center;
@@ -516,7 +523,9 @@ body.col-resizing {
   padding: 3px 8px;
   border-radius: 6px;
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  /* Borderless to match the agent selector and keep the header low-chroma; the
+     transparent border preserves sizing. */
+  border: 1px solid transparent;
   font-size: 12px;
   color: var(--text);
   white-space: nowrap;
@@ -524,7 +533,8 @@ body.col-resizing {
   text-overflow: ellipsis;
 }
 .thread-head-project:hover {
-  border-color: var(--accent-dim);
+  /* Calm background shift instead of an accent-colored border on hover. */
+  background: var(--raised);
 }
 .thread-head-project svg {
   flex-shrink: 0;

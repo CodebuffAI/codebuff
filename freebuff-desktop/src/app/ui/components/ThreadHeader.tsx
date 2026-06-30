@@ -69,6 +69,9 @@ export function ThreadHeader({
       {isHostedAgent && freebuff && !freebuff.authed && <LoginGate />}
       {/* The thread title already lives in the tab above; no need to repeat it
           next to the folder name. */}
+      {/* Push the preview controls to the far right — they're a secondary action
+          relative to the project + agent/model selectors on the left. */}
+      <div className="head-spacer" />
       {previewReady && preview && (
         <button className="head-btn" onClick={onReloadPreview} title="Reload preview">
           <Icon name="dot" /> Reload
