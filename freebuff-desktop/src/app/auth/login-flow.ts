@@ -18,22 +18,27 @@ import { saveAuth, type DesktopAuthUser } from './login-store'
 const POLL_INTERVAL_MS = 2_000
 
 function apiBaseUrl(): string {
+  // Default to the canonical www host: the apex `codebuff.com` 301/307-redirects
+  // every request to `www.codebuff.com`, so polling the apex adds a redirect
+  // round-trip every 2s. Match the rest of the codebase (see scripts/smoke-sdk.ts).
   return (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
   ).replace(/\/$/, '')
 }
 
 interface PendingLogin {
   fingerprintId: string
   fingerprintHash: string
-  expiresAt: string
+  // The web `/api/auth/cli/code` endpoint returns this as a number (epoch ms).
+  expiresAt: number | string
   loginUrl: string
 }
 
 interface LoginCodeResponse {
   loginUrl: string
   fingerprintHash: string
-  expiresAt: string
+  // Epoch milliseconds (number), though older/proxied responses may stringify it.
+  expiresAt: number | string
 }
 
 interface LoginStatusResponse {
@@ -60,7 +65,7 @@ export class LoginManager {
 
   /** Begin a login attempt: request a code and return the URL for the user to
    *  open. Polling for completion runs in the background. */
-  async start(): Promise<{ loginUrl: string; expiresAt: string }> {
+  async start(): Promise<{ loginUrl: string; expiresAt: number | string }> {
     const fingerprintId = crypto.randomUUID()
     const res = await fetch(`${apiBaseUrl()}/api/auth/cli/code`, {
       method: 'POST',
@@ -88,40 +93,54 @@ export class LoginManager {
   }
 
   private async poll(): Promise<void> {
-    if (this.polling || !this.pending) return
+    // Only one poll loop runs at a time. It always polls the *current*
+    // `this.pending`, so if `start()` is called again while we're running (a
+    // renderer reload mid-flight, or a retry after timeout), the outer loop
+    // picks up the replacement instead of stranding it unpolled.
+    if (this.polling) return
     this.polling = true
-    const pending = this.pending
     try {
-      const deadline = Date.parse(pending.expiresAt) || Date.now() + 10 * 60_000
-      while (this.pending === pending && Date.now() < deadline) {
-        await sleep(POLL_INTERVAL_MS)
-        let user: LoginStatusResponse['user']
-        try {
-          const url = new URL(`${apiBaseUrl()}/api/auth/cli/status`)
-          url.searchParams.set('fingerprintId', pending.fingerprintId)
-          url.searchParams.set('fingerprintHash', pending.fingerprintHash)
-          url.searchParams.set('expiresAt', pending.expiresAt)
-          const res = await fetch(url, { method: 'GET' })
-          if (res.ok) {
-            user = ((await res.json()) as LoginStatusResponse).user
+      while (this.pending) {
+        const pending = this.pending
+        // `expiresAt` is epoch milliseconds (a number). Parse it numerically —
+        // `Date.parse` on a numeric value returns NaN, which previously collapsed
+        // the poll window from the server's 1 hour to the 10-minute fallback and
+        // silently stranded slower sign-ins on "Waiting for sign-in…".
+        const expiresAtMs = Number(pending.expiresAt)
+        const deadline = Number.isFinite(expiresAtMs)
+          ? expiresAtMs
+          : Date.now() + 60 * 60_000
+        while (this.pending === pending && Date.now() < deadline) {
+          await sleep(POLL_INTERVAL_MS)
+          let user: LoginStatusResponse['user']
+          try {
+            const url = new URL(`${apiBaseUrl()}/api/auth/cli/status`)
+            url.searchParams.set('fingerprintId', pending.fingerprintId)
+            url.searchParams.set('fingerprintHash', pending.fingerprintHash)
+            url.searchParams.set('expiresAt', String(pending.expiresAt))
+            const res = await fetch(url, { method: 'GET' })
+            if (res.ok) {
+              user = ((await res.json()) as LoginStatusResponse).user
+            }
+          } catch {
+            // Transient network error — keep polling until the deadline.
           }
-        } catch {
-          // Transient network error — keep polling until the deadline.
-        }
-        if (user?.authToken) {
-          const saved: DesktopAuthUser = {
-            id: user.id,
-            email: user.email,
-            name: user.name ?? undefined,
+          if (user?.authToken) {
+            const saved: DesktopAuthUser = {
+              id: user.id,
+              email: user.email,
+              name: user.name ?? undefined,
+            }
+            saveAuth(user.authToken, saved)
+            this.pending = null
+            this.onAuthenticated?.(saved)
+            return
           }
-          saveAuth(user.authToken, saved)
-          this.pending = null
-          this.onAuthenticated?.(saved)
-          return
         }
+        // This attempt expired without completing. Drop it (unless `start()`
+        // already swapped in a newer one, which the outer loop will then poll).
+        if (this.pending === pending) this.pending = null
       }
-      // Expired without completing — drop the attempt so the user can retry.
-      if (this.pending === pending) this.pending = null
     } finally {
       this.polling = false
     }

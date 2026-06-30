@@ -27,7 +27,7 @@ import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freeb
 
 function sessionEndpoint(): string {
   const base = (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
   ).replace(/\/$/, '')
   return `${base}/api/v1/freebuff/session`
 }

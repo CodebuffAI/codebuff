@@ -101,9 +101,13 @@ export const api = {
 
   // Freebuff auth (device-code login)
   startLogin: () =>
-    post<{ ok: boolean; loginUrl?: string; expiresAt?: string; error?: string }>(
-      '/api/auth/login/start',
-    ),
+    post<{
+      ok: boolean
+      loginUrl?: string
+      // Epoch milliseconds (number); older proxied responses may stringify it.
+      expiresAt?: number | string
+      error?: string
+    }>('/api/auth/login/start'),
   getSettings: () =>
     get<{
       path: string
