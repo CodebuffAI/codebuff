@@ -18,6 +18,7 @@
 
 import { getCustomToolDefinition } from '@codebuff/sdk'
 import type { AgentDefinition, CustomToolDefinition } from '@codebuff/sdk'
+import { FREEBUFF_DESKTOP_THREAD_AGENT_ID } from '@codebuff/common/constants/free-agents'
 import { z } from 'zod/v4'
 
 import basher from '../../../../agents/basher'
@@ -75,7 +76,11 @@ export const THREAD_SUBAGENT_DEFINITIONS: AgentDefinition[] = [
   basher as AgentDefinition,
 ]
 
-const THREAD_SYSTEM_PROMPT = `You are Freebuff, a capable coding agent working directly in this repository's
+// The "You are Buffy" opener is also a load-bearing marker: the free-mode gate
+// (web requestHasFreebuffSystemMarker) requires it in a root agent's system
+// prompt, so free-mode turns from the desktop are admitted. Keep it in the first
+// line. Buffy is the Freebuff/Codebuff agent persona, so this reads naturally.
+const THREAD_SYSTEM_PROMPT = `You are Buffy, the Freebuff coding agent, working directly in this repository's
 git worktree. You implement what the user asks: read the relevant code, make
 focused edits, run commands to verify, and keep the working tree in a good state.
 
@@ -106,7 +111,7 @@ export function threadAgentDefinition(
   model: string = FREEBUFF_MODEL,
 ): AgentDefinition {
   return {
-    id: 'freebuff-desktop-thread',
+    id: FREEBUFF_DESKTOP_THREAD_AGENT_ID,
     displayName: 'Freebuff',
     model,
     toolNames,

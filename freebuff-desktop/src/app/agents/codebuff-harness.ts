@@ -135,6 +135,20 @@ export class CodebuffHarness implements AgentHarness {
       },
     })
 
+    // The SDK RESOLVES (rather than rejects) on a run-level failure — a free-mode
+    // admission/gate rejection, a network error, a server error, or "no response
+    // from agent" — surfacing it as an `error` AgentOutput. The top-level failure
+    // path emits no `error` *event* either, so without this check the engine would
+    // treat the turn as a successful empty completion: the user sees the three-dot
+    // pulse, then nothing (no reply, no error). A normal turn returns a
+    // lastMessage/allMessages/structuredOutput output, never `error`, so this is a
+    // reliable failure signal. Re-throw so the engine finalizes the turn with the
+    // message (⚠️ Turn failed: …). User aborts also resolve as an error output —
+    // let the engine's own abort handling own those rather than reporting a failure.
+    if (run.output?.type === 'error' && !turn.abort.signal.aborted) {
+      throw new Error(run.output.message || 'The agent did not return a response.')
+    }
+
     return { state: run }
   }
 }
