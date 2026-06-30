@@ -431,7 +431,17 @@ const defaultDeps: SessionDeps = {
   getGlmReferralEntitlement: (userId: string) =>
     getGlmReferralEntitlement({ userId }),
   getLimitedReferralSessionBonus: (userId: string) =>
-    getReferralStats({ referrerId: userId }).then(cliDailySessionBonusFromStats),
+    getReferralStats({ referrerId: userId })
+      .then(cliDailySessionBonusFromStats)
+      // Runs on the limited-tier admission/poll hot path. A transient referral
+      // query error must not break session admission — degrade to no bonus.
+      .catch((error) => {
+        logger.warn(
+          { error, userId },
+          'getLimitedReferralSessionBonus failed; defaulting to 0',
+        )
+        return 0
+      }),
   getStreakBonusUnits: (params) => sumStreakBonusUnits(params),
   promoteQueuedUser,
   pinMinimaxUpstream: pinMinimaxUpstreamToMinimax,
