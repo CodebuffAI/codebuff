@@ -35,8 +35,7 @@ const SKIP_DIRECTORIES = new Set([
   'web',
 ])
 
-const SKIP_PATH_PREFIXES = [
-  '.agents/sessions/',
+const SKIP_PATH_PREFIXES = [<br>  '.agents/sessions/',<br>  '.kimchi/',
   'packages/billing/',
   'packages/bigquery/',
 ]
