@@ -7,6 +7,12 @@ import { DaytonaCodebase } from "../../../codebase-utils/codebase/DaytonaCodebas
 import { cliAgentSystemPrompt, knowledgePrompts } from "./system_prompt";
 import { escapeShellArg } from "./shellEscape";
 import { processStreamItem as parseStreamItem } from "./streamParser";
+import {
+  PER_ACTION_ABORT_MS,
+  CLOUD_PER_ACTION_ABORT_MS,
+  CLOUD_TURN_BUDGET_MS,
+  CLI_AGENT_TIMEOUT_MESSAGE,
+} from "./timeLimits";
 
 export interface ExecuteClaudeCodeArgs {
   projectId: Id<"project">;
@@ -21,6 +27,10 @@ export interface ExecuteClaudeCodeArgs {
   claudeModelPreference?: string;
   anthropicApiKey?: string;
   bedrockBearerToken?: string;
+  // Start (ms) of the overall cloud turn (connected_repo only). When set, the
+  // per-action abort is capped at the remaining turn budget so the final
+  // chained action lands at CLOUD_TURN_BUDGET_MS instead of overshooting.
+  cloudTurnStartedAt?: number;
 }
 
 export interface ExecuteClaudeCodeResult {
@@ -30,11 +40,10 @@ export interface ExecuteClaudeCodeResult {
   timedOut?: boolean;
 }
 
-// Mirrors executeFreebuff.ts FREEBUFF_RUN_TIMEOUT_MS. Aborts the Claude run
-// before the 10-minute cron sweep so the action has time to clean up state.
-const CLAUDE_RUN_TIMEOUT_MS = 9 * 60 * 1000;
-const CLI_AGENT_TIMEOUT_MESSAGE =
-  "Maximum time limit for a prompt reached. Engagement required to continue.";
+// Mirrors executeFreebuff.ts per-action abort. Aborts the Claude run before the
+// 10-minute cron sweep so the action has time to clean up state. A single user
+// turn crosses this by chaining poll actions (cloud only).
+const CLAUDE_RUN_TIMEOUT_MS = PER_ACTION_ABORT_MS;
 
 const ANTHROPIC_CLAUDE_MODELS = [
   "claude-opus-4-8",
@@ -233,15 +242,35 @@ export async function executeClaudeCode(
 
   // Track if we should terminate (when result type received with session ID and usage)
   let shouldTerminate = false;
-  // Tracks the 9-minute in-process timeout (mirrors Freebuff). When this
-  // fires we flip shouldTerminate so the existing termination promise calls
-  // pkill, and we report timedOut=true so the workflow handler marks the
-  // message as Paused with the canonical timeout copy.
+  // In-process per-action abort (mirrors Freebuff). When this fires we flip
+  // shouldTerminate so the termination promise calls pkill, and we report
+  // timedOut=true. For cloud (connected_repo) this triggers a transparent chain
+  // to the next action; for web/template it surfaces as a Paused message. Cloud
+  // uses CLOUD_PER_ACTION_ABORT_MS so the finalization margin before the Convex
+  // action ceiling can be tuned independently of web/template.
+  const isConnectedRepo = projectRecord?.project_type === "connected_repo";
+  // Cap the cloud abort at the remaining turn budget so the LAST chained action
+  // doesn't run a full per-action window past the 20-minute mark.
+  const MIN_CLOUD_ACTION_MS = 30 * 1000;
+  const cloudAbortMs = (() => {
+    if (typeof args.cloudTurnStartedAt !== "number") {
+      return CLOUD_PER_ACTION_ABORT_MS;
+    }
+    const remaining =
+      CLOUD_TURN_BUDGET_MS - (Date.now() - args.cloudTurnStartedAt);
+    return Math.max(
+      MIN_CLOUD_ACTION_MS,
+      Math.min(CLOUD_PER_ACTION_ABORT_MS, remaining),
+    );
+  })();
+  const perActionAbortMs = isConnectedRepo
+    ? cloudAbortMs
+    : CLAUDE_RUN_TIMEOUT_MS;
   let timedOut = false;
   const runTimeoutHandle = setTimeout(() => {
     timedOut = true;
     shouldTerminate = true;
-  }, CLAUDE_RUN_TIMEOUT_MS);
+  }, perActionAbortMs);
 
   // Batching mechanism to avoid concurrent update conflicts
   // Update every N items instead of on every item
@@ -534,6 +563,7 @@ export async function executeClaudeCode(
         success: false,
         error: CLI_AGENT_TIMEOUT_MESSAGE,
         timedOut: true,
+        sessionId: newSessionId,
       };
     }
 
@@ -556,6 +586,7 @@ export async function executeClaudeCode(
         success: false,
         error: CLI_AGENT_TIMEOUT_MESSAGE,
         timedOut: true,
+        sessionId: newSessionId,
       };
     }
     const errorMessage =

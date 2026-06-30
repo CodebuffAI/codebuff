@@ -74,6 +74,7 @@ export const cliAgentWorkflow = workflow.define({
     success: v.boolean(),
     error: v.optional(v.string()),
     sessionId: v.optional(v.string()),
+    timedOut: v.optional(v.boolean()),
   }),
   handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -168,6 +169,12 @@ export const cliAgentWorkflow = workflow.define({
           userMessage: message.user_message || "",
           images: message.images, // Pass images from message
           freebuffModel: thread.selected_freebuff_model, // Selected open-source model (Freebuff only)
+          // Cloud (connected_repo) Codex/Claude chaining: the start of the
+          // overall user turn (shared across chained actions). The executor
+          // caps its per-action abort so the final chained action lands at the
+          // CLOUD_TURN_BUDGET_MS boundary instead of overshooting it by a full
+          // per-action window. Undefined for web/template (no chaining).
+          cloudTurnStartedAt: message.cloud_turn_started_at,
         },
       );
 
@@ -248,30 +255,28 @@ export const handleWorkflowComplete = internalMutation({
         // copy and append a timeout_continue stream item so the UI matches
         // Freebuff exactly.
         if (returnValue?.timedOut === true) {
-          const existingMessage = await ctx.db.get(messageId);
-          const existingStream = (existingMessage?.assistant_stream ?? []) as Array<{
-            type: string;
-            title?: string;
-            status?: string;
-            content: string;
-            description?: string;
-          }>;
-          const nextStream = [
-            ...existingStream,
+          // Cloud (connected_repo) Codex/Claude transparently chain another
+          // action that resumes the same session, instead of pausing — until
+          // the per-turn budget (CLOUD_TURN_BUDGET_MS) is exhausted. Web/template
+          // projects (and the no-session-id / over-budget cases) fall back to
+          // the canonical Paused state inside continueOrPauseCloudCliAgent.
+          const { continued } = await ctx.runMutation(
+            internal.coding_agent.cli_agent.cloudCliChaining
+              .continueOrPauseCloudCliAgent,
             {
-              type: "timeout_continue",
-              title: "Time limit reached",
-              content:
-                "Maximum time limit for a prompt reached. Engagement required to continue.",
+              threadId,
+              messageId,
+              projectId,
+              userId,
+              agentType: agentType ?? "Codex",
+              sessionId: returnValue.sessionId,
             },
-          ];
-          await ctx.db.patch(messageId, {
-            state: "Paused",
-            state_message:
-              "Maximum time limit for a prompt reached. Engagement required to continue.",
-            isStreaming: false,
-            assistant_stream: nextStream,
-          });
+          );
+          if (continued) {
+            // Keep the thread workflow pointer cleared here; the continuation
+            // sets its own workflow id. The message stays streaming.
+            return;
+          }
         } else if (returnValue?.success) {
           await ctx.db.patch(messageId, {
             state: "Completed",

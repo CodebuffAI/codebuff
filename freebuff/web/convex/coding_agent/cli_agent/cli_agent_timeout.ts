@@ -1,4 +1,8 @@
 import { internalMutation } from "!/_generated/server";
+import {
+  CRON_SWEEP_TIMEOUT_MS,
+  CLI_AGENT_TIMEOUT_MESSAGE,
+} from "./timeLimits";
 
 // 10-minute cron sweep for stuck Codex / Claude Code agent runs. Mirrors the
 // Freebuff implementation in `freebuff_bridge_mutations.sweepTimedOutFreebuffRuns`
@@ -13,9 +17,7 @@ import { internalMutation } from "!/_generated/server";
 // with the canonical timeout copy, append a `timeout_continue` activity item,
 // clear thread processing state, and reset the project state.
 
-const CLI_AGENT_CRON_TIMEOUT_MS = 10 * 60 * 1000;
-const CLI_AGENT_TIMEOUT_MESSAGE =
-  "Maximum time limit for a prompt reached. Engagement required to continue.";
+const CLI_AGENT_CRON_TIMEOUT_MS = CRON_SWEEP_TIMEOUT_MS;
 
 type AssistantStreamItem = {
   type: string;

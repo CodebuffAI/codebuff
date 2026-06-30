@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { internalMutation } from '../_generated/server'
 import { Id } from '../_generated/dataModel'
+import { CRON_SWEEP_TIMEOUT_MS } from './cli_agent/timeLimits'
 
 type AssistantStreamItem = {
   type: string
@@ -452,7 +453,7 @@ export const sweepTimedOutFreebuffRuns = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now()
-    const cutoff = now - 10 * 60 * 1000
+    const cutoff = now - CRON_SWEEP_TIMEOUT_MS
 
     const staleRunning = await ctx.db
       .query('freebuff_agent_runs')

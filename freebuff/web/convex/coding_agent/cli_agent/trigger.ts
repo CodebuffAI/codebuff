@@ -363,6 +363,19 @@ export const saveMessageAndStartWorkflow = mutation({
           },
         );
       } else {
+        // Cloud (connected_repo) Codex/Claude turns chain across the per-action
+        // limit. Stamp the turn start so the chaining loop can measure elapsed
+        // wall-clock against CLOUD_TURN_BUDGET_MS. Web/template projects leave
+        // this unset and keep the manual pause/continue behavior.
+        if (
+          project.project_type === "connected_repo" &&
+          (args.agentType === "Codex" || args.agentType === "Claude Code")
+        ) {
+          await ctx.db.patch(messageId, {
+            cloud_turn_started_at: Date.now(),
+          });
+        }
+
         await ctx.runMutation(
           internal.coding_agent.cli_agent.agent_message.updateAgentMessageState,
           {

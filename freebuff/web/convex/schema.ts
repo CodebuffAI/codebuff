@@ -609,6 +609,12 @@ export default defineSchema(
       ), // Current state of the message
       state_message: v.optional(v.string()), // Additional context about the state, ie logging error message
 
+      // Wall-clock start (ms) of the current cloud (connected_repo) CLI-agent
+      // turn, carried across chained continuations so the per-turn budget
+      // (CLOUD_TURN_BUDGET_MS) is measured from the first run, not each chained
+      // action. Only set for Codex/Claude runs on connected_repo projects.
+      cloud_turn_started_at: v.optional(v.number()),
+
       // Usage and cost tracking
       total_cost_usd: v.optional(v.number()), // Total cost in USD for this message
       credits_deducted: v.optional(v.number()), // Actual credits deducted (after tier multiplier)

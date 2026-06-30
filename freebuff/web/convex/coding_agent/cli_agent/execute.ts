@@ -55,6 +55,9 @@ export const execute = internalAction({
     images: v.optional(v.array(v.id("_storage"))), // Image storage IDs
     freebuffModel: v.optional(v.string()), // Selected open-source model (Freebuff only)
     packageManager: v.optional(v.union(v.literal("bun"), v.literal("pnpm"))),
+    // Start (ms) of the overall cloud turn, used by Codex/Claude to cap the
+    // per-action abort so the final chained action lands at CLOUD_TURN_BUDGET_MS.
+    cloudTurnStartedAt: v.optional(v.number()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -150,6 +153,7 @@ export const execute = internalAction({
         claudeModelPreference: executingUser.claude_model_preference ?? 'default',
         anthropicApiKey,
         bedrockBearerToken,
+        cloudTurnStartedAt: args.cloudTurnStartedAt,
       });
     } else if (args.agentType === "Codex") {
       const gptAuthMethod = executingUser.gpt_auth_method ?? "oauth";
@@ -183,6 +187,7 @@ export const execute = internalAction({
         gptAuthMethod,
         gptModelPreference: executingUser.gpt_model_preference ?? 'default',
         openAiApiKey,
+        cloudTurnStartedAt: args.cloudTurnStartedAt,
       });
     } else if (args.agentType === "Gemini CLI") {
       if (GEMINI_CLI_TEMPORARILY_DISABLED) {

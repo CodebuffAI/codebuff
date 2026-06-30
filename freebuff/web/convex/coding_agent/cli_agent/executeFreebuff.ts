@@ -22,6 +22,12 @@ import {
   resolveFreebuffAgentId,
   CONNECTED_REPO_AGENT_GUIDANCE,
 } from './freebuff_bundled_agents'
+import {
+  PER_ACTION_ABORT_MS,
+  CLOUD_PER_ACTION_ABORT_MS,
+  CLOUD_TURN_BUDGET_MS,
+  MAX_TURN_CONTINUATIONS,
+} from './timeLimits'
 
 function requireEnv(name: string) {
   const value = process.env[name]
@@ -1010,16 +1016,16 @@ function gravityIndexStatusEvent(input: unknown): {
 
 // In-action time limit. We abort ~1 minute before the 10-minute cron sweep so
 // the handler can persist state and schedule a continuation before Convex (or
-// the sweep) reclaims the run.
-const FREEBUFF_RUN_TIMEOUT_MS = 9 * 60 * 1000
+// the sweep) reclaims the run. A single user turn crosses this by chaining
+// continuations (cloud only) up to CLOUD_TURN_BUDGET_MS.
+const FREEBUFF_RUN_TIMEOUT_MS = PER_ACTION_ABORT_MS
 
-// How many times a single user turn may auto-continue across the in-action time
-// limit before we stop and ask the user to resume manually. Each continuation
-// resumes from the FULL persisted session state, so the agent always keeps
-// complete context. The agent's own step budget (`stepsRemaining`, persisted in
-// sessionState) is the primary bound on total work; this is a wall-clock safety
-// ceiling so a pathological loop can't run forever.
-const MAX_FREEBUFF_CONTINUATIONS = 10
+// Defensive backstop on the number of chained continuations for a single user
+// turn. The binding limit for cloud turns is the wall-clock CLOUD_TURN_BUDGET_MS
+// checked in attemptContinuation; this only guards against a pathological loop
+// that somehow stays under the wall-clock budget. Each continuation resumes from
+// the FULL persisted session state, so the agent always keeps complete context.
+const MAX_FREEBUFF_CONTINUATIONS = MAX_TURN_CONTINUATIONS
 
 const CONTINUATION_PROMPT =
   'Continue working on the current task from exactly where you left off. ' +
@@ -1113,10 +1119,29 @@ export const runFreebuffAgent = internalAction({
     // bounds how many times we may transparently continue.
     continuationCount: v.optional(v.number()),
     resumeFromStorageId: v.optional(v.id('_storage')),
+    // Wall-clock timestamp (ms) of when this user turn first started, carried
+    // across continuations. The cloud turn budget (CLOUD_TURN_BUDGET_MS) is
+    // measured against this so chained continuations share one budget rather
+    // than each getting a fresh per-action window. Absent on the first run.
+    turnStartedAtMs: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const isContinuation = !!args.resumeFromStorageId
+    // Wall-clock start of THIS user turn, shared across all chained
+    // continuations. On the first run we stamp it now; continuations carry it
+    // forward so CLOUD_TURN_BUDGET_MS bounds the whole turn, not each action.
+    const turnStartedAtMs = args.turnStartedAtMs ?? Date.now()
+
+    // Detect cloud (connected_repo) once, up front: it selects the (shorter)
+    // per-action abort so the chained continuation has a larger finalization
+    // margin, and is reused below for the connected-repo agent guidance.
+    const connectedRepoProject = await ctx.runQuery(
+      internal.cloud.connectRepoMutations.getConnectedRepoProject,
+      { projectId: args.projectId },
+    )
+    const isConnectedRepoProject =
+      connectedRepoProject?.project_type === 'connected_repo'
 
     await ctx.runMutation(
       (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
@@ -1155,11 +1180,25 @@ export const runFreebuffAgent = internalAction({
 
     const abortController = new AbortController()
     const runStartedAtMs = Date.now()
+    // Cloud (connected_repo) caps the per-action abort at the remaining turn
+    // budget so the final chained action lands at CLOUD_TURN_BUDGET_MS instead
+    // of overshooting by a full per-action window. Web/template uses the flat
+    // per-action limit and pauses for a manual continue.
+    const MIN_CLOUD_ACTION_MS = 30 * 1000
+    const perActionAbortMs = isConnectedRepoProject
+      ? Math.max(
+          MIN_CLOUD_ACTION_MS,
+          Math.min(
+            CLOUD_PER_ACTION_ABORT_MS,
+            CLOUD_TURN_BUDGET_MS - (Date.now() - turnStartedAtMs),
+          ),
+        )
+      : FREEBUFF_RUN_TIMEOUT_MS
     const timeoutHandle = setTimeout(() => {
       abortController.abort(
-        new Error('Freebuff run exceeded 9-minute time limit'),
+        new Error('Freebuff run exceeded per-action time limit'),
       )
-    }, FREEBUFF_RUN_TIMEOUT_MS)
+    }, perActionAbortMs)
 
     // Review-phase instrumentation. The code reviewer runs as a spawned subagent
     // (kept inline by design). We track whether a reviewer was streaming and how
@@ -1241,9 +1280,15 @@ export const runFreebuffAgent = internalAction({
     // to type "continue". Returns true when a continuation was scheduled (the
     // caller should then exit without recording a terminal/pause event so the
     // message keeps streaming seamlessly).
+    //
+    // The binding limit is the wall-clock CLOUD_TURN_BUDGET_MS measured from the
+    // turn's first start (shared across continuations). MAX_FREEBUFF_CONTINUATIONS
+    // is only a defensive backstop. Once the turn budget is exhausted we fall
+    // through to a normal time-limit pause so the user can resume manually.
     const attemptContinuation = async (runState: any): Promise<boolean> => {
       const nextCount = (args.continuationCount ?? 0) + 1
       if (nextCount > MAX_FREEBUFF_CONTINUATIONS) return false
+      if (Date.now() - turnStartedAtMs >= CLOUD_TURN_BUDGET_MS) return false
       if (!runState?.sessionState) return false
 
       const resumeStorageId = await persistRunState(
@@ -1293,6 +1338,7 @@ export const runFreebuffAgent = internalAction({
           packageManager: args.packageManager,
           continuationCount: nextCount,
           resumeFromStorageId: resumeStorageId,
+          turnStartedAtMs,
         },
       )
 
@@ -1328,16 +1374,11 @@ export const runFreebuffAgent = internalAction({
       }
 
       // Connected-repo (Freebuff Cloud) projects manage their own git and
-      // preview process; detect the project type once so the override tools
-      // can adjust behavior.
-      const connectedRepoProject = await ctx.runQuery(
-        internal.cloud.connectRepoMutations.getConnectedRepoProject,
-        { projectId: args.projectId },
-      )
-      const connectedRepoContext =
-        connectedRepoProject?.project_type === 'connected_repo'
-          ? { projectType: 'connected_repo' as const }
-          : undefined
+      // preview process; we detected the project type up front (see
+      // isConnectedRepoProject) so the override tools can adjust behavior.
+      const connectedRepoContext = isConnectedRepoProject
+        ? { projectType: 'connected_repo' as const }
+        : undefined
 
       const agentId = resolveFreebuffAgentId(args.freebuffModel)
       const supportsImages = isFreebuffMultimodalModelId(args.freebuffModel)

@@ -71,6 +71,7 @@ import type * as coding_agent_cli_agent_agent_message from "../coding_agent/cli_
 import type * as coding_agent_cli_agent_agent_thread from "../coding_agent/cli_agent/agent_thread.js";
 import type * as coding_agent_cli_agent_byokAuth from "../coding_agent/cli_agent/byokAuth.js";
 import type * as coding_agent_cli_agent_cli_agent_timeout from "../coding_agent/cli_agent/cli_agent_timeout.js";
+import type * as coding_agent_cli_agent_cloudCliChaining from "../coding_agent/cli_agent/cloudCliChaining.js";
 import type * as coding_agent_cli_agent_codexAuth from "../coding_agent/cli_agent/codexAuth.js";
 import type * as coding_agent_cli_agent_creditTracking from "../coding_agent/cli_agent/creditTracking.js";
 import type * as coding_agent_cli_agent_execute from "../coding_agent/cli_agent/execute.js";
@@ -84,6 +85,7 @@ import type * as coding_agent_cli_agent_queries from "../coding_agent/cli_agent/
 import type * as coding_agent_cli_agent_shellEscape from "../coding_agent/cli_agent/shellEscape.js";
 import type * as coding_agent_cli_agent_streamParser from "../coding_agent/cli_agent/streamParser.js";
 import type * as coding_agent_cli_agent_system_prompt from "../coding_agent/cli_agent/system_prompt.js";
+import type * as coding_agent_cli_agent_timeLimits from "../coding_agent/cli_agent/timeLimits.js";
 import type * as coding_agent_cli_agent_trigger from "../coding_agent/cli_agent/trigger.js";
 import type * as coding_agent_cli_agent_workflow from "../coding_agent/cli_agent/workflow.js";
 import type * as coding_agent_config_contextLengthPresets from "../coding_agent/config/contextLengthPresets.js";
@@ -318,6 +320,7 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/cli_agent/agent_thread": typeof coding_agent_cli_agent_agent_thread;
   "coding_agent/cli_agent/byokAuth": typeof coding_agent_cli_agent_byokAuth;
   "coding_agent/cli_agent/cli_agent_timeout": typeof coding_agent_cli_agent_cli_agent_timeout;
+  "coding_agent/cli_agent/cloudCliChaining": typeof coding_agent_cli_agent_cloudCliChaining;
   "coding_agent/cli_agent/codexAuth": typeof coding_agent_cli_agent_codexAuth;
   "coding_agent/cli_agent/creditTracking": typeof coding_agent_cli_agent_creditTracking;
   "coding_agent/cli_agent/execute": typeof coding_agent_cli_agent_execute;
@@ -331,6 +334,7 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/cli_agent/shellEscape": typeof coding_agent_cli_agent_shellEscape;
   "coding_agent/cli_agent/streamParser": typeof coding_agent_cli_agent_streamParser;
   "coding_agent/cli_agent/system_prompt": typeof coding_agent_cli_agent_system_prompt;
+  "coding_agent/cli_agent/timeLimits": typeof coding_agent_cli_agent_timeLimits;
   "coding_agent/cli_agent/trigger": typeof coding_agent_cli_agent_trigger;
   "coding_agent/cli_agent/workflow": typeof coding_agent_cli_agent_workflow;
   "coding_agent/config/contextLengthPresets": typeof coding_agent_config_contextLengthPresets;
