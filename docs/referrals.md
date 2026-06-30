@@ -190,11 +190,16 @@ dedup (one row per `referred_id` from the start).
   GitHub account is the referred party in at most one referral, ever — stops
   re-signup farming.
 - **Referred at most once** (`referred_id` PK).
-- **No self-referral — by GitHub identity, not just user id.** A user can link
-  multiple GitHub accounts (observed in support: a referrer pointing at their own
-  second handle). Block when the referred GitHub id is one of the referrer's own
-  linked identities, in addition to the `referrer_id = referred_id` check.
-- No reverse referrals; 30-day signup attribution window.
+- **No self-referral (same user)** — `referrer_id = referred_id` is blocked in
+  `recordReferralV2Attribution`. Note there is **no deterministic identity-level
+  self-referral check, by design**: the `account` table keys a GitHub id to
+  exactly one freebuff user, so a referred GitHub id can never also belong to the
+  referrer (that case *is* the same-user check). A determined operator using a
+  separate freebuff account + a separate aged GitHub is a sybil — bounded by
+  burn-once (one reward per GitHub identity) and caught by the abuse sweep
+  (`revoked_at`), not by a check here.
+- **No reverse referrals** and the **30-day signup attribution window** are
+  enforced in `recordReferralV2Attribution` (and the legacy redeem path).
 - GLM requires the *referred* user to be a real **full-access** user (approved
   country, no VPN/proxy) — the strongest anti-farming gate.
 - **Revocation is a process, not just a column.** A periodic abuse sweep sets

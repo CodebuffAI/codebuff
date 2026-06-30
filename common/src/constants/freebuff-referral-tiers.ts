@@ -88,6 +88,24 @@ export const FREEBUFF_REFERRAL_TIERS: readonly FreebuffReferralTier[] = [
  */
 export const FREEBUFF_WEB_REFERRAL_LIMIT = 20
 
+/**
+ * A referral can only be attributed within this many days of the referred
+ * user's signup — stops a referrer from claiming long-pre-existing accounts.
+ * (Lived in packages/billing's referral-program.ts as the legacy redeem gate;
+ * hoisted here so the unified referral_v2 attribution path can enforce it too,
+ * without a billing→billing import cycle.)
+ */
+export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
+
+/**
+ * Max attributed referrals (referral_v2 rows) a single referrer may accumulate.
+ * A generous anti-spam ceiling only — every actual reward is already capped at
+ * read time (GLM at FREEBUFF_GLM_V52_REFERRAL_CAP, the web tier ladder, the CLI
+ * bonus at REFERRAL_CLI_DAILY_SESSION_BONUS_CAP), so this never throttles a
+ * legitimate referrer; it just bounds pathological row creation.
+ */
+export const FREEBUFF_REFERRAL_SIGNUP_LIMIT = 100
+
 export const MAX_FREEBUFF_REFERRAL_TIER =
   FREEBUFF_REFERRAL_TIERS[FREEBUFF_REFERRAL_TIERS.length - 1].tier
 

@@ -103,7 +103,7 @@ export async function syncWebReferralState(params: {
         : null
     if (referrerId) {
       await deps
-        .recordReferralV2Attribution({ referrerId, referredId: userId })
+        .recordReferralV2Attribution({ referrerId, referredId: userId, logger })
         .catch((error) => {
           logger.warn(
             { error, userId, referrerId },

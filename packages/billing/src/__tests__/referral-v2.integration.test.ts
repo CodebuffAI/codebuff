@@ -9,6 +9,10 @@
  * POSTGRES_PASSWORD=postgres -e POSTGRES_DB=testdb postgres:16-alpine`, or set
  * DATABASE_URL to a test database.
  */
+import {
+  FREEBUFF_REFERRAL_SIGNUP_LIMIT,
+  REFERRAL_SIGNUP_WINDOW_DAYS,
+} from '@codebuff/common/constants/freebuff-referral-tiers'
 import * as schema from '@codebuff/internal/db/schema'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { eq, inArray } from 'drizzle-orm'
@@ -36,8 +40,27 @@ const ACT = `${P}act` // activation tier transitions
 const NOREF = `${P}noref` // activation no-op (no referral row)
 const LINK = `${P}link` // null-github referral → backfilled on github link
 const LINK2 = `${P}link2` // burn-once: can't claim a github another row holds
+const RV1 = `${P}rv1` // reverse-referral pair
+const RV2 = `${P}rv2`
+const OLDUSER = `${P}old` // signup outside the 30-day attribution window
+const LIMITER = `${P}limiter` // referrer at the signup cap
 
-const ALL_USERS = [REFERRER, REFERRER2, A, G, SEED, BURN, ACT, NOREF, LINK, LINK2]
+const ALL_USERS = [
+  REFERRER,
+  REFERRER2,
+  A,
+  G,
+  SEED,
+  BURN,
+  ACT,
+  NOREF,
+  LINK,
+  LINK2,
+  RV1,
+  RV2,
+  OLDUSER,
+  LIMITER,
+]
 const GH_A = `${P}ghA`
 const GH_SHARED = `${P}ghShared`
 const GH_ACT = `${P}ghAct`
@@ -217,5 +240,77 @@ describe('referral-v2 write side (real DB)', () => {
       conn: testDb,
     })
     expect(await rowFor(NOREF)).toBeUndefined()
+  })
+
+  it('refuses a reverse referral (B cannot refer A after A referred B)', async () => {
+    expect(
+      await recordReferralV2Attribution({
+        referrerId: RV1,
+        referredId: RV2,
+        conn: testDb,
+      }),
+    ).toBe(true)
+    // RV2 trying to refer RV1 back is a reverse referral → refused.
+    expect(
+      await recordReferralV2Attribution({
+        referrerId: RV2,
+        referredId: RV1,
+        conn: testDb,
+      }),
+    ).toBe(false)
+    expect(await rowFor(RV1)).toBeUndefined()
+  })
+
+  it('refuses attribution outside the 30-day signup window', async () => {
+    await testDb
+      .update(schema.user)
+      .set({
+        created_at: new Date(
+          Date.now() - (REFERRAL_SIGNUP_WINDOW_DAYS + 5) * 24 * 60 * 60 * 1000,
+        ),
+      })
+      .where(eq(schema.user.id, OLDUSER))
+    const created = await recordReferralV2Attribution({
+      referrerId: REFERRER,
+      referredId: OLDUSER,
+      conn: testDb,
+    })
+    expect(created).toBe(false)
+    expect(await rowFor(OLDUSER)).toBeUndefined()
+  })
+
+  it('refuses attribution once the referrer hits the signup cap', async () => {
+    const filler = Array.from(
+      { length: FREEBUFF_REFERRAL_SIGNUP_LIMIT },
+      (_, i) => `${P}fill-${i}`,
+    )
+    const oneMore = `${P}one-more`
+    const extra = [...filler, oneMore]
+    await testDb
+      .insert(schema.user)
+      .values(
+        extra.map((id) => ({ id, email: `${id}@codebuff.test`, name: id })),
+      )
+      .onConflictDoNothing()
+    // LIMITER already sits at exactly the signup cap.
+    await testDb
+      .insert(schema.referralV2)
+      .values(filler.map((id) => ({ referred_id: id, referrer_id: LIMITER })))
+      .onConflictDoNothing()
+
+    try {
+      const created = await recordReferralV2Attribution({
+        referrerId: LIMITER,
+        referredId: oneMore,
+        conn: testDb,
+      })
+      expect(created).toBe(false)
+      expect(await rowFor(oneMore)).toBeUndefined()
+    } finally {
+      await testDb
+        .delete(schema.referralV2)
+        .where(inArray(schema.referralV2.referred_id, extra))
+      await testDb.delete(schema.user).where(inArray(schema.user.id, extra))
+    }
   })
 })

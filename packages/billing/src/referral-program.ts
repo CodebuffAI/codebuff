@@ -3,6 +3,7 @@ import {
   isGithubAccountOldEnoughForReferral,
   MIN_GITHUB_ACCOUNT_AGE_MONTHS,
   MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+  REFERRAL_SIGNUP_WINDOW_DAYS,
 } from '@codebuff/common/constants/freebuff-referral-tiers'
 import {
   FREEBUFF_GLM_V52_REFERRAL_CAP,
@@ -50,8 +51,12 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  * only rows where it is set.
  */
 
-/** Only signups this recent can be attributed to a referral code. */
-export const REFERRAL_SIGNUP_WINDOW_DAYS = 30
+/**
+ * Only signups this recent can be attributed to a referral code. The constant
+ * now lives in common (so the unified referral_v2 attribution path can import
+ * it too); re-exported here so existing importers of this module are unaffected.
+ */
+export { REFERRAL_SIGNUP_WINDOW_DAYS }
 
 /**
  * Which referral program a `referral` row belongs to. Both programs share the

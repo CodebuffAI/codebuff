@@ -252,8 +252,9 @@ export const referral = pgTable(
  * dropped once products cut over).
  *
  * Qualification is deliberately NOT stored here: a referral "counts" when the
- * referred user's GitHub account is ≥ 12 months old, which is DERIVED at read
- * time from the immutable `github_account_created_at` in `referral_qualification`
+ * referred user's GitHub account is at least MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL
+ * (4 months) old, which is DERIVED at read time from the immutable
+ * `github_account_created_at` in `referral_qualification`
  * (joined via `referred_github_user_id`). Because the account age only ever
  * increases, this ages in automatically — no `qualified_at` flag to flip and no
  * sweep to flip it. The only writes are attribution (at signup) and activation

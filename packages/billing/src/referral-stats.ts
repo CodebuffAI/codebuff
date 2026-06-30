@@ -51,8 +51,11 @@ export interface ReferralStats {
  */
 export async function getReferralStats(params: {
   referrerId: string
+  /** Injectable connection (defaults to the shared db) for integration tests. */
+  conn?: typeof db
 }): Promise<ReferralStats> {
-  const rows = (await db.execute(sql`
+  const conn = params.conn ?? db
+  const rows = (await conn.execute(sql`
     SELECT
       count(*) FILTER (WHERE r.activation_access_tier = 'full')::int
         AS "fullQualified",
