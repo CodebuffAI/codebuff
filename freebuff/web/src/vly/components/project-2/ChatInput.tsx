@@ -58,6 +58,7 @@ import { ContextLengthSelector, ContextLength } from "./ContextLengthSelector";
 import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPresets";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { IssueReportButton } from "@/vly/components/IssueReportButton";
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -121,6 +122,9 @@ interface ChatInputProps {
   compactMode?: boolean;
   /** Hide the preview element picker (not supported on general cloud repos). */
   hideElementSelector?: boolean;
+  /** When set, renders the inline "Report issue" trigger in the toolbar. */
+  issueReportSource?: "chat" | "cloud";
+  issueReportThreadId?: string | null;
 }
 
 // Add new interface for pending images
@@ -164,6 +168,9 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     terminateThread,
     isSelectingElement,
     setIsSelectingElement,
+    projectId,
+    issueReportSource,
+    issueReportThreadId,
     onOpenDivergenceDialog,
     queuedMessages = [],
     onRemoveQueuedMessage,
@@ -999,6 +1006,15 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                     <div
                       className={`flex items-center ${compactMode ? "gap-1.5" : "gap-2"}`}
                     >
+                      {issueReportSource && (
+                        <IssueReportButton
+                          source={issueReportSource}
+                          threadId={issueReportThreadId}
+                          projectId={projectId}
+                          projectSemanticIdentifier={projectSemanticIdentifier}
+                          className="mr-0.5"
+                        />
+                      )}
                       {!hideElementSelector && (
                         <Tooltip>
                           <TooltipTrigger asChild>

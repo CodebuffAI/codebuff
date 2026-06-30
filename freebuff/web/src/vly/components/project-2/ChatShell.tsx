@@ -1206,16 +1206,18 @@ ${message}`;
                 divergenceInfo={divergenceInfo}
               />
             )}
-            <IssueReportButton
-              source="chat"
-              projectId={project?._id}
-              projectSemanticIdentifier={projectSemanticIdentifier}
-              threadId={
-                project?.active_thread
-                  ? String(project.active_thread)
-                  : undefined
-              }
-            />
+            <div className="flex justify-center pb-3">
+              <IssueReportButton
+                source="chat"
+                projectId={project?._id}
+                projectSemanticIdentifier={projectSemanticIdentifier}
+                threadId={
+                  project?.active_thread
+                    ? String(project.active_thread)
+                    : undefined
+                }
+              />
+            </div>
         </div>
       )}
     </>

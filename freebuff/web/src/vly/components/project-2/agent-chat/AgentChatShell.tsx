@@ -78,7 +78,6 @@ import {
   FREEBUFF_MODEL_STORAGE_KEY,
   resolveVisibleFreebuffModel,
 } from "@/vly/components/project-2/FreebuffModelSelector";
-import { IssueReportButton } from "@/vly/components/IssueReportButton";
 import {
   AgentLogo,
   CliAgentConfigurationPanel,
@@ -1759,21 +1758,17 @@ export function AgentChatShell({
                     restoreMessage={messageToRestore}
                     compactMode={true}
                     hideElementSelector={hideElementSelector}
+                    issueReportSource="cloud"
+                    issueReportThreadId={
+                      project.active_agent_thread
+                        ? String(project.active_agent_thread)
+                        : undefined
+                    }
                   />
                 </div>
               )}
                 </>
               )}
-          <IssueReportButton
-            source="cloud"
-            projectId={project._id}
-            projectSemanticIdentifier={projectSemanticIdentifier}
-            threadId={
-              project.active_agent_thread
-                ? String(project.active_agent_thread)
-                : undefined
-            }
-          />
         </div>
       )}
     </TooltipProvider>
