@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process')
+const { spawn, execFileSync } = require('child_process')
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
@@ -224,14 +224,98 @@ function getTargetOverride() {
 }
 
 function linuxCpuHasAvx2() {
-  if (process.platform !== 'linux' || process.arch !== 'x64') {
-    return true
-  }
-
   try {
     return /\bavx2\b/i.test(fs.readFileSync('/proc/cpuinfo', 'utf8'))
   } catch {
     return true
+  }
+}
+
+// Returns true (AVX2 present), false (absent), or null (couldn't determine).
+// Ask the OS directly via IsProcessorFeaturePresent (kernel32), which is
+// backed by CPUID — far more reliable than matching CPU model names, and it
+// works on the stock Windows PowerShell that ships with every supported
+// Windows version. Feature 40 = PF_AVX2_INSTRUCTIONS_AVAILABLE.
+function probeWindowsAvx2() {
+  const script =
+    "$f = Add-Type -MemberDefinition '[DllImport(\"kernel32.dll\")] " +
+    "public static extern bool IsProcessorFeaturePresent(uint feature);' " +
+    "-Name Cpu -Namespace Win32 -PassThru; $f::IsProcessorFeaturePresent(40)"
+  try {
+    const out = execFileSync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim()
+    if (out === 'True') return true
+    if (out === 'False') return false
+    return null
+  } catch {
+    // No PowerShell, locked-down policy, timeout, etc. — inconclusive.
+    return null
+  }
+}
+
+let _hasAvx2Cache
+
+function machineHasAvx2() {
+  if (_hasAvx2Cache === undefined) {
+    _hasAvx2Cache = detectMachineHasAvx2()
+  }
+  return _hasAvx2Cache
+}
+
+function detectMachineHasAvx2() {
+  if (process.arch !== 'x64') {
+    return true
+  }
+
+  // Linux detection is a cheap file read, so we don't bother persisting it.
+  if (process.platform === 'linux') {
+    return linuxCpuHasAvx2()
+  }
+
+  if (process.platform !== 'win32') {
+    return true
+  }
+
+  // Windows detection shells out to PowerShell. getDefaultTargetKey runs on
+  // every launch (via the version check), so cache the result on disk to keep
+  // startup fast after the first probe.
+  const cached = readCachedAvx2()
+  if (cached !== null) {
+    return cached
+  }
+  const detected = probeWindowsAvx2()
+  if (detected === null) {
+    // Inconclusive probe: assume AVX2 for this launch and rely on the SIGILL
+    // fallback, but don't persist it — a transient failure must not lock in a
+    // wrong answer for the lifetime of the install. We'll re-probe next launch.
+    return true
+  }
+  writeCachedAvx2(detected)
+  return detected
+}
+
+function getCpuFeatureCachePath() {
+  return path.join(CONFIG.configDir, 'cpu-features.json')
+}
+
+function readCachedAvx2() {
+  try {
+    const cache = JSON.parse(fs.readFileSync(getCpuFeatureCachePath(), 'utf8'))
+    return typeof cache.avx2 === 'boolean' ? cache.avx2 : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedAvx2(value) {
+  try {
+    fs.mkdirSync(CONFIG.configDir, { recursive: true })
+    fs.writeFileSync(getCpuFeatureCachePath(), JSON.stringify({ avx2: value }))
+  } catch {
+    // Best effort; we'll just re-probe next launch.
   }
 }
 
@@ -242,16 +326,26 @@ function getDefaultTargetKey() {
   }
 
   const platformKey = getPlatformKey()
-  if (platformKey === 'linux-x64' && !linuxCpuHasAvx2()) {
-    return 'linux-x64-baseline'
+  // Select the binary up front from explicit CPU feature detection rather than
+  // optimistically launching the AVX2 build and waiting for it to crash with
+  // an illegal instruction. The crash isn't always a clean immediate failure —
+  // it can surface later from a deeper code path — so older CPUs (e.g. an
+  // Intel Xeon with AVX but no AVX2) are safer on baseline from the start.
+  //
+  // This assumes every baseline target is gated on AVX2 specifically, which
+  // holds today (only linux-x64 and win32-x64 have baseline builds, both
+  // AVX2-gated). If a baseline build is ever added for a different reason, give
+  // BASELINE_FALLBACK_TARGETS a per-target capability and check that instead.
+  if (BASELINE_FALLBACK_TARGETS[platformKey] && !machineHasAvx2()) {
+    return BASELINE_FALLBACK_TARGETS[platformKey]
   }
 
   return platformKey
 }
 
 function getBaselineFallbackTargetKey() {
-  // Windows has no reliable plain-Node CPU feature check here, so we keep
-  // the fast x64 binary first and fall back after the native SIGILL code.
+  // Runtime safety net: if proactive detection was unavailable or wrong and the
+  // optimized binary still dies with SIGILL, fall back to baseline.
   return BASELINE_FALLBACK_TARGETS[getPlatformKey()] || null
 }
 
@@ -260,9 +354,11 @@ function isTargetAllowedForThisMachine(target) {
   if (override) {
     return target === override
   }
+  // Check the baseline fallback first: it's always safe on its platform and
+  // avoids running CPU detection when a baseline binary is already installed.
   return (
-    target === getDefaultTargetKey() ||
-    target === getBaselineFallbackTargetKey()
+    target === getBaselineFallbackTargetKey() ||
+    target === getDefaultTargetKey()
   )
 }
 
@@ -635,8 +731,13 @@ function printCrashDiagnostics(code, signal) {
   if (isIllegalInstruction) {
     console.error('Your CPU may not support the required instruction set (AVX2).')
     console.error('This typically affects CPUs from before 2013.')
-    console.error('Unfortunately, this binary is not compatible with your system.')
     console.error('')
+    const fallbackTarget = getBaselineFallbackTargetKey()
+    if (fallbackTarget) {
+      console.error('To force the baseline (non-AVX2) build, set:')
+      console.error(`  ${packageName.toUpperCase()}_BINARY_TARGET=${fallbackTarget}`)
+      console.error('')
+    }
   } else if (isAccessViolation) {
     console.error('The binary crashed with an access violation.')
     console.error('')
@@ -649,9 +750,14 @@ function printCrashDiagnostics(code, signal) {
     console.error('')
   }
 
+  const metadata = getCurrentMetadata()
   console.error('System info:')
   console.error(`  Platform: ${process.platform} ${process.arch}`)
   console.error(`  Node:     ${process.version}`)
+  if (process.arch === 'x64') {
+    console.error(`  AVX2:     ${machineHasAvx2() ? 'yes' : 'no'}`)
+  }
+  console.error(`  Target:   ${metadata?.target || getDefaultTargetKey()}`)
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
   console.error('Please report this issue at:')

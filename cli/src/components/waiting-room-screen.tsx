@@ -501,17 +501,21 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     ? 1 /* marginTop */ + wrappedRows(streakBonusNote)
     : 0
   // GLM referral banner (landing, full tier). Reserve the rows it occupies so
-  // the scrollbox shrinks to make room. Locked = one quiet line (marginTop +
-  // 1); unlocked = the accent card (marginTop + border 2 + status + action +
-  // limited-time footnote + optional connect-github row).
+  // the scrollbox shrinks to make room — under-reserving lets the landing
+  // content overflow the terminal height, and the flex column then squashes the
+  // banner so its bordered button overlaps the line above it. Both the copy and
+  // "Use GLM 5.2" controls are bordered boxes (3 rows), so count those rows.
   const referralInfo = isLanding ? getReferralInfo(session) : undefined
   const referralBannerRows = !referralInfo
     ? 0
     : referralInfo.weeklySessionsRemaining > 0
-      ? 1 + 5 + (referralInfo.githubLinked ? 0 : 1)
-      : // Locked: marginTop + the invite line, which can wrap to two rows now
-        // that it carries the full "most powerful open-source model" pitch.
-        1 + 2
+      ? // Unlocked card: marginTop 1 + border 2 + status 1 + the bordered
+        // action-button row 3 + optional connect-github row.
+        1 + 2 + 1 + 3 + (referralInfo.githubLinked ? 0 : 1)
+      : // Locked: marginTop 1 + the invite line (wraps to two rows now that it
+        // carries the full "most powerful open-source model" pitch) + the
+        // bordered "Copy invite link" button (3 rows).
+        1 + 2 + 3
   const belowPickerRows =
     streakRows + noticeRows + streakBonusRows + referralBannerRows
   const counterRows = showBelowPickerCounter
