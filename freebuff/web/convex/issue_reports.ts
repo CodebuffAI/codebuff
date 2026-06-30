@@ -19,6 +19,22 @@ const reportTypeValidator = v.union(
   v.literal('feature_request'),
 )
 
+// Anti-abuse: cap combined bug reports + feature requests per user per day.
+export const MAX_ISSUE_REPORTS_PER_DAY = 2
+const ISSUE_REPORT_WINDOW_MS = 24 * 60 * 60 * 1000
+
+async function countRecentReports(
+  ctx: { db: any },
+  userId: any,
+): Promise<number> {
+  const cutoff = Date.now() - ISSUE_REPORT_WINDOW_MS
+  const recent = await ctx.db
+    .query('issue_reports')
+    .withIndex('by_user', (q: any) => q.eq('userId', userId))
+    .collect()
+  return recent.filter((r: any) => r.submittedAt >= cutoff).length
+}
+
 export const insertIssueReport = internalMutation({
   args: {
     userId: v.id('users'),
@@ -37,12 +53,42 @@ export const insertIssueReport = internalMutation({
   },
   returns: v.id('issue_reports'),
   handler: async (ctx, args) => {
+    const recentCount = await countRecentReports(ctx, args.userId)
+    if (recentCount >= MAX_ISSUE_REPORTS_PER_DAY) {
+      throw new Error('RATE_LIMITED')
+    }
     return await ctx.db.insert('issue_reports', {
       ...args,
       status: 'open',
       submittedAt: Date.now(),
       emailSendStatus: 'pending',
     })
+  },
+})
+
+// Lets the client show the Discord fallback before the user fills out the form.
+export const getDailyQuota = query({
+  args: {},
+  returns: v.object({
+    used: v.number(),
+    limit: v.number(),
+    remaining: v.number(),
+  }),
+  handler: async (ctx) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      return {
+        used: 0,
+        limit: MAX_ISSUE_REPORTS_PER_DAY,
+        remaining: MAX_ISSUE_REPORTS_PER_DAY,
+      }
+    }
+    const used = await countRecentReports(ctx, user._id)
+    return {
+      used,
+      limit: MAX_ISSUE_REPORTS_PER_DAY,
+      remaining: Math.max(0, MAX_ISSUE_REPORTS_PER_DAY - used),
+    }
   },
 })
 
