@@ -24,6 +24,7 @@ import type * as admin_usage_backfill_actions from "../admin_usage_backfill_acti
 import type * as aggregates_admin_aggregates from "../aggregates/admin_aggregates.js";
 import type * as analytics from "../analytics.js";
 import type * as assets from "../assets.js";
+import type * as automations from "../automations.js";
 import type * as autumn from "../autumn.js";
 import type * as build_errors from "../build_errors.js";
 import type * as cleanup_deleteSandboxInstances from "../cleanup/deleteSandboxInstances.js";
@@ -276,6 +277,7 @@ declare const fullApi: ApiFromModules<{
   "aggregates/admin_aggregates": typeof aggregates_admin_aggregates;
   analytics: typeof analytics;
   assets: typeof assets;
+  automations: typeof automations;
   autumn: typeof autumn;
   build_errors: typeof build_errors;
   "cleanup/deleteSandboxInstances": typeof cleanup_deleteSandboxInstances;
@@ -537,6 +539,7 @@ export declare const components: {
   migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
   migrationWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"migrationWorkpool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+  crons: import("@convex-dev/crons/_generated/component.js").ComponentApi<"crons">;
   allUsersAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"allUsersAggregate">;
   userActivityAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"userActivityAggregate">;
   activeUsersByDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"activeUsersByDayAggregate">;

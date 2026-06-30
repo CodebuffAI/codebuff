@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { Crons } from "@convex-dev/crons";
+import { components, internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import {
   getOrganizationContext,
@@ -19,6 +20,10 @@ import {
 } from "./_generated/server";
 import { getAuthUser } from "./users";
 import { allProjects, cloudProjectsByTypeDay, projectsByDay } from "./aggregates/admin_aggregates";
+
+// Used to tear down a deleted project's scheduled automation crons. (We avoid
+// importing the automations module here to prevent a circular import.)
+const crons = new Crons(components.crons);
 
 function serializeThreadMessage(message: Doc<"messages">) {
   return {
@@ -1823,6 +1828,25 @@ export const deleteProject = mutation({
     await ctx.db.patch(args.projectId, {
       deleted: true,
     });
+
+    // Tear down any scheduled automations for this project so they stop firing.
+    // Soft-delete keeps the rows (for a potential restore) but removes the live
+    // component crons and disables them.
+    const automations = await ctx.db
+      .query("automation")
+      .withIndex("by_project", (q) => q.eq("project_id", args.projectId))
+      .collect();
+    for (const automation of automations) {
+      if (automation.cron_component_id) {
+        await crons.delete(ctx, { id: automation.cron_component_id });
+      }
+      if (automation.enabled || automation.cron_component_id) {
+        await ctx.db.patch(automation._id, {
+          enabled: false,
+          cron_component_id: undefined,
+        });
+      }
+    }
 
     // Track sandbox deletion to decrement quota
     const sandboxSize = project.sandbox_size || "small"; // Default to small for legacy projects

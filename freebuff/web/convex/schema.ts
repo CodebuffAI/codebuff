@@ -317,10 +317,47 @@ export default defineSchema(
       timed_out_at: v.optional(v.number()),
       error: v.optional(v.string()),
       metered_credits: v.optional(v.number()),
+      // Set when this run was started by a scheduled Automation fire (see
+      // convex/automations.ts). Null/undefined for human-initiated runs.
+      // Filtering by `by_automation` yields an automation's run history.
+      automation_id: v.optional(v.id('automation')),
     })
       .index('by_run_id', ['run_id'])
       .index('by_status', ['status'])
-      .index('by_status_started_at', ['status', 'started_at']),
+      .index('by_status_started_at', ['status', 'started_at'])
+      .index('by_automation', ['automation_id']),
+    // User-configured scheduled agent runs. Each enabled automation owns one
+    // runtime-registered cron in the @convex-dev/crons component
+    // (cron_component_id). On fire it starts a fresh agent_thread run via
+    // internal.automations.startAutomationRun. See convex/automations.ts.
+    automation: defineTable({
+      user_id: v.id('users'), // owner → rate-limit key + project access
+      project_id: v.id('project'),
+      name: v.string(),
+      prompt: v.string(), // message sent to the agent on each fire
+      freebuff_model: v.optional(v.string()),
+      cron_spec: v.string(), // standard 5-field cronspec, interpreted as UTC (v1)
+      enabled: v.boolean(),
+      // @convex-dev/crons cron id; present only while enabled + registered.
+      cron_component_id: v.optional(v.string()),
+      last_run_at: v.optional(v.number()),
+      last_run_status: v.optional(
+        v.union(
+          v.literal('success'),
+          v.literal('skipped'),
+          v.literal('rate_limited'),
+          v.literal('quota_exceeded'),
+          v.literal('paused'),
+          v.literal('error'),
+        ),
+      ),
+      last_run_error: v.optional(v.string()),
+      last_run_thread_id: v.optional(v.id('agent_thread')),
+      created_by: v.id('users'),
+    })
+      .index('by_user', ['user_id'])
+      .index('by_project', ['project_id'])
+      .index('by_project_and_enabled', ['project_id', 'enabled']),
     freebuff_daily_usage: defineTable({
       user_id: v.id('users'),
       day: v.string(),

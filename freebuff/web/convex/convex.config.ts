@@ -1,4 +1,5 @@
 // convex/convex.config.ts
+import crons from '@convex-dev/crons/convex.config'
 import migrations from '@convex-dev/migrations/convex.config'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config'
 import workflow from '@convex-dev/workflow/convex.config'
@@ -15,6 +16,9 @@ app.use(migrations)
 app.use(workpool, { name: 'migrationWorkpool' })
 
 app.use(rateLimiter)
+
+// Runtime-registered cron jobs, one per Automation (see convex/automations.ts).
+app.use(crons)
 
 // Separate aggregate instances to avoid data interference and improve throughput
 // Each aggregate type gets its own component to prevent count conflicts
