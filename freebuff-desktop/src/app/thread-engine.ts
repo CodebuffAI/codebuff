@@ -228,7 +228,6 @@ export class ThreadEngine {
    * tab bar wants — and it should reset to null the moment a new turn starts.
    */
   private lastTurnOutcome = new Map<string, Thread['lastTurnOutcome']>()
-  private threadSeq = 0
 
   constructor(opts: EngineOptions) {
     const fbDir = join(opts.repoRoot, '.freebuff')
@@ -263,6 +262,12 @@ export class ThreadEngine {
         createdAt: this.now(),
       })
     }
+    // Every thread in this (per-repo) DB runs in this repo, so backfill any row
+    // missing its project_path — legacy rows the schema migration couldn't reach
+    // (it runs before the project row exists), or any future blank insert. Makes
+    // `Thread.projectPath` reliably non-empty, which the UI's per-project tab
+    // reconciliation depends on.
+    this.store.backfillThreadProjectPath(opts.repoRoot)
 
     // Seed default workflows (e.g. "ship") once per project.
     for (const [name, skills] of Object.entries(DEFAULT_WORKFLOWS)) {
@@ -289,9 +294,6 @@ export class ThreadEngine {
     // the user's Stop (the interrupted flag is in-memory and gone on restart).
     const resumeIds: string[] = []
     for (const t of this.store.listThreads(this.projectId)) {
-      const n = Number(t.id.replace(/^th/, ''))
-      if (Number.isFinite(n)) this.threadSeq = Math.max(this.threadSeq, n)
-
       const saved = this.store.getHarnessState(t.id)
       if (saved && isHarnessId(saved.harnessId)) {
         try {
@@ -518,6 +520,11 @@ export class ThreadEngine {
     return Date.now()
   }
 
+  /** Absolute path of the git repo this engine drives (its project root). */
+  get rootPath(): string {
+    return this.repoRoot
+  }
+
   // — Event bus —
 
   on(listener: (e: EngineEvent) => void): () => void {
@@ -601,7 +608,10 @@ export class ThreadEngine {
   // — Thread lifecycle —
 
   createThread(opts: { title?: string } = {}): Thread {
-    const id = `th${++this.threadSeq}`
+    // Globally-unique id: the desktop runs one engine per opened repo, each with
+    // its own DB, so a per-engine counter (`th1`, `th2`…) would collide across
+    // projects in the server's thread→engine routing and the UI's thread map.
+    const id = `th${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
     // Pick the new tab's default Freebuff model with the one-premium-tab rule:
     // the first tab (slot free) gets the recommended model (premium for full
     // tier); later tabs default to an unlimited model so they run in parallel.
@@ -610,6 +620,7 @@ export class ThreadEngine {
     const thread = this.store.insertThread({
       id,
       projectId: this.projectId,
+      projectPath: this.repoRoot,
       title: opts.title ?? 'New thread',
       harnessId: this.defaultHarness,
       freebuffModel: this.recommendedModelForNewTab(!this.premiumSlotHolder),

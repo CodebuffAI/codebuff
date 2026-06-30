@@ -6,9 +6,12 @@
  *
  *   PORT=8787 bun freebuff-desktop/src/app/server.ts
  *
- * The project directory is not fixed at launch: the user can open any local git
- * repo from the UI. On open we tear down the engine, stand up a fresh one pointed
- * at the chosen folder, and remember it for next launch.
+ * The project directory is not fixed at launch and is not global: each tab can
+ * target a different local git repo. We keep one ThreadEngine per opened repo
+ * (each its own DB + worktrees) in an EngineRegistry, route every thread-scoped
+ * request to the engine that owns the thread, fan app-wide concerns (auth token,
+ * harness default, tier) out to every engine, and remember the open set so a
+ * relaunch restores all the tabs.
  */
 
 import { existsSync, readFileSync, statSync } from 'fs'
@@ -45,28 +48,150 @@ const initialRepo = process.env.TARGET_REPO ?? readRecentProjects()[0] ?? defaul
 if (initialRepo === defaultRepo()) await ensureSampleRepo(initialRepo)
 
 // — Engine lifecycle —
-// SSE subscribers live at the server level, not on the engine, so an open-project
-// swap keeps every connected client streaming from the new engine without a reconnect.
+// SSE subscribers live at the server level (not on a single engine), so events
+// from every project's engine fan out to all connected clients over one stream.
 const subscribers = new Set<(e: EngineEvent) => void>()
 const broadcast = (e: EngineEvent) => {
   for (const s of subscribers) s(e)
 }
 
-let currentRepo = initialRepo
-// The agent harness is an app-wide choice; persist it so it survives project swaps
-// and restarts, and apply it to every engine we stand up.
+// The agent harness is an app-wide choice; persist it so it survives restarts and
+// apply it to every engine we stand up.
 const persistedHarness = readAgentHarness()
 let currentHarness: HarnessId | undefined = isHarnessId(persistedHarness) ? persistedHarness : undefined
-let engine = makeEngine(initialRepo, (await validateProjectDir(initialRepo)).defaultBranch)
-let engineUnsub = engine.on(broadcast)
-// Probe the Freebuff access tier on startup so the model picker reflects full vs
-// limited access without waiting for the first turn. Fire-and-forget.
-void engine.refreshTier()
 
-// Drives the device-code login flow. On success we rebuild the engine's hosted
+/**
+ * One ThreadEngine per opened project directory. Each tab targets a repo, so we
+ * keep an engine (its own DB + worktrees) alive per project and route every
+ * thread-scoped request to the engine that owns the thread. App-wide concerns
+ * (auth token, harness default, access tier) are fanned out to every engine.
+ *
+ * Note: the Freebuff one-premium-tab soft gate is per-engine (the server backend
+ * is the real authority over free-mode concurrency); cross-project premium picks
+ * aren't coordinated in the optimistic UI. Acceptable for v1.
+ */
+class EngineRegistry {
+  private engines = new Map<string, ThreadEngine>()
+  /** threadId → repo path, for routing requests that only carry a thread id. */
+  private threadOwner = new Map<string, string>()
+  /** Most-recent project (new-tab default), cached so request paths don't hit disk. */
+  private recentPath?: string
+
+  /** Open (or return) the engine for `dir`. Validates it's a git repo first. */
+  async ensure(dir: string): Promise<{ ok: boolean; path?: string; engine?: ThreadEngine; error?: string }> {
+    const info = await validateProjectDir(dir)
+    if (!info.ok) return { ok: false, error: info.error }
+    const path = info.path
+    let engine = this.engines.get(path)
+    if (!engine) {
+      engine = new ThreadEngine({
+        repoRoot: path,
+        repoUrl: path,
+        defaultBranch: info.defaultBranch,
+        harnessId: currentHarness,
+        // browser_check loads a thread's preview from this same server.
+        previewBaseUrl: `http://127.0.0.1:${PORT}`,
+      })
+      engine.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
+      this.engines.set(path, engine)
+      // Engines live for the session — there's no close-project action (a project's
+      // closed threads must stay reopenable), so the subscription is never undone.
+      engine.on((e) => {
+        this.index(e, path)
+        broadcast(e)
+      })
+      for (const t of engine.listThreads()) this.threadOwner.set(t.id, path)
+      // Probe the Freebuff tier so the model picker reflects full vs limited access.
+      void engine.refreshTier()
+    }
+    return { ok: true, path, engine }
+  }
+
+  /** Keep the threadId→path routing index warm from emitted events, pruning this
+   *  project's entries for threads that are no longer open so the map stays bounded. */
+  private index(e: EngineEvent, path: string): void {
+    if (e.type === 'state') {
+      const live = new Set(e.snapshot.threads.map((t) => t.id))
+      for (const [id, owner] of this.threadOwner) {
+        if (owner === path && !live.has(id)) this.threadOwner.delete(id)
+      }
+      for (const t of e.snapshot.threads) this.threadOwner.set(t.id, path)
+    } else if (e.type === 'thread') {
+      this.threadOwner.set(e.threadId, path)
+    }
+  }
+
+  /** Mark `path` as the most-recent project (new-tab default), persisted in the MRU. */
+  markRecent(path: string): void {
+    this.recentPath = path
+    pushRecentProject(path)
+  }
+
+  /** The engine owning `threadId`, scanning as a fallback if the index is cold. */
+  forThread(threadId: string): { engine: ThreadEngine; path: string } | null {
+    const known = this.threadOwner.get(threadId)
+    if (known) {
+      const e = this.engines.get(known)
+      if (e && e.getThread(threadId)) return { engine: e, path: known }
+    }
+    for (const [path, e] of this.engines) {
+      if (e.getThread(threadId)) {
+        this.threadOwner.set(threadId, path)
+        return { engine: e, path }
+      }
+    }
+    return null
+  }
+
+  /** The engine owning queue item `itemId` (ids are globally-unique UUIDs). */
+  forItem(itemId: string): ThreadEngine | null {
+    for (const e of this.engines.values()) if (e.store.getQueueItem(itemId)) return e
+    return null
+  }
+
+  /** Default project for a new tab / project-wide endpoints (most-recent open). */
+  defaultPath(): string | undefined {
+    if (this.recentPath && this.engines.has(this.recentPath)) return this.recentPath
+    return this.engines.keys().next().value
+  }
+  defaultEngine(): ThreadEngine | undefined {
+    const p = this.defaultPath()
+    return p ? this.engines.get(p) : undefined
+  }
+
+  /** Every open thread across all engines (each already carries its projectPath). */
+  allThreads() {
+    return [...this.engines.values()].flatMap((e) => e.listThreads())
+  }
+
+  /** Re-emit current state for every engine (SSE (re)connect backfill). */
+  replay(send: (e: EngineEvent) => void): void {
+    for (const e of this.engines.values()) {
+      send({ type: 'state', snapshot: e.snapshot() })
+      for (const t of e.listThreads()) {
+        send({ type: 'thread', threadId: t.id, thread: t, items: e.store.listQueueItems(t.id) })
+      }
+    }
+  }
+
+  // — App-wide fan-out —
+  setAuthTokenAll(token: string | undefined): void {
+    for (const e of this.engines.values()) e.setAuthToken(token)
+  }
+  setHarnessAll(id: HarnessId): void {
+    for (const e of this.engines.values()) e.setHarness(id)
+  }
+  async releaseFreebuffAll(): Promise<void> {
+    await Promise.all([...this.engines.values()].map((e) => e.releaseFreebuffSessions()))
+  }
+}
+
+const registry = new EngineRegistry()
+
+// Drives the device-code login flow. On success we rebuild every engine's hosted
 // client with the new token, re-probe the tier, and broadcast so the UI updates.
 const loginManager = new LoginManager((user) => {
-  engine.setAuthToken(getAuthToken())
+  registry.setAuthTokenAll(getAuthToken())
   // Tie this install's pre-login activity to the real account, then record the
   // sign-in (mirrors the CLI's `cli.login`).
   identifyOnLogin(user)
@@ -74,40 +199,23 @@ const loginManager = new LoginManager((user) => {
     hasEmail: Boolean(user.email),
     hasName: Boolean(user.name),
   })
-  broadcast({ type: 'state', snapshot: engine.snapshot() })
+  const e = registry.defaultEngine()
+  if (e) broadcast({ type: 'state', snapshot: e.snapshot() })
 })
 
-function makeEngine(repoRoot: string, defaultBranch?: string): ThreadEngine {
-  const e = new ThreadEngine({
-    repoRoot,
-    repoUrl: repoRoot,
-    defaultBranch,
-    harnessId: currentHarness,
-    // browser_check loads a thread's preview from this same server.
-    previewBaseUrl: `http://127.0.0.1:${PORT}`,
-  })
-  e.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
-  return e
-}
-
-/** Tear down the current engine and open `dir` as the project. */
-async function openProject(dir: string): Promise<{ ok: boolean; error?: string }> {
-  const info = await validateProjectDir(dir)
-  if (!info.ok) return { ok: false, error: info.error }
-
-  engineUnsub()
-  engine.close()
-
-  currentRepo = info.path
-  engine = makeEngine(info.path, info.defaultBranch)
-  engineUnsub = engine.on(broadcast)
-  pushRecentProject(info.path)
-  void engine.refreshTier()
-  trackEvent(AnalyticsEvent.DESKTOP_PROJECT_OPENED)
-
-  broadcast({ type: 'state', snapshot: engine.snapshot() })
-  return { ok: true }
-}
+// Restore every recently-open project (each its own tab set), so a relaunch
+// reopens all the tabs. Validation spawns git per repo, so open them
+// concurrently; the new-tab default is set explicitly afterward.
+const toOpen = readRecentProjects()
+if (!toOpen.includes(initialRepo)) toOpen.unshift(initialRepo)
+await Promise.all(
+  toOpen.map(async (dir) => {
+    const r = await registry.ensure(dir)
+    if (!r.ok) console.warn(`Skipping project ${dir}: ${r.error}`)
+  }),
+)
+// Make the initial repo the new-tab default + MRU head.
+registry.markRecent(initialRepo)
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
@@ -200,12 +308,9 @@ const server = Bun.serve({
               cleanup()
             }
           }
-          // Initial state + a thread event per open thread so a (re)connecting
-          // client backfills everything it missed.
-          send({ type: 'state', snapshot: engine.snapshot() })
-          for (const t of engine.listThreads()) {
-            send({ type: 'thread', threadId: t.id, thread: t, items: engine.store.listQueueItems(t.id) })
-          }
+          // Initial state + a thread event per open thread (across every project)
+          // so a (re)connecting client backfills everything it missed.
+          registry.replay(send)
           subscribers.add(send)
           // Heartbeat: an SSE comment frame (ignored by EventSource) every 25s.
           // Without traffic a half-open socket (laptop sleep, proxy drop) would
@@ -236,40 +341,55 @@ const server = Bun.serve({
 
     // Per-thread live preview: serve files from THAT thread's git worktree, so you
     // can see a thread's in-progress work (web projects) without it touching the
-    // project root. Falls back to the project root if the thread has no worktree yet.
+    // project root. Falls back to the thread's project root before its worktree exists.
     const tpMatch = pathname.match(/^\/thread-preview\/([^/]+)(\/.*)?$/)
     if (tpMatch) {
       const [, threadId, sub] = tpMatch
-      return servePreview(engine.getThread(threadId)?.worktreePath ?? currentRepo, sub ?? '/')
+      const owner = registry.forThread(threadId)
+      return servePreview(owner?.engine.getThread(threadId)?.worktreePath ?? owner?.path ?? defaultRepo(), sub ?? '/')
     }
 
-    // Live preview of the project's own files (web projects).
+    // Live preview of the default project's own files (web projects).
     if (pathname === '/preview' || pathname.startsWith('/preview/')) {
-      return servePreview(currentRepo, pathname === '/preview' ? '/' : pathname.slice('/preview'.length))
+      const root = registry.defaultPath() ?? defaultRepo()
+      return servePreview(root, pathname === '/preview' ? '/' : pathname.slice('/preview'.length))
     }
 
-    if (pathname === '/api/state') return json(engine.snapshot())
+    if (pathname === '/api/state') {
+      const e = registry.defaultEngine()
+      return e ? json(e.snapshot()) : json({ error: 'no project' }, 404)
+    }
 
     if (pathname === '/api/fs/list') {
       return json(browseDir(url.searchParams.get('path') ?? undefined))
     }
 
+    // Validate a directory (for the folder picker) without opening it.
+    if (pathname === '/api/project/validate') {
+      const dir = url.searchParams.get('path')
+      if (!dir) return json({ error: 'path required' }, 400)
+      return json(await validateProjectDir(dir))
+    }
+
     // List the MRU of recently-opened projects so the picker can offer
-    // one-click return to a previous workspace. The list is also implied by
-    // the current repo, which always sits at index 0 after a successful open.
+    // one-click return to a previous workspace.
     if (pathname === '/api/project/recents') {
       const recents = readRecentProjects()
-      // The current repo pins to the top of the picker list even if a stale
-      // entry is missing — keeps "return to current" discoverable.
-      const merged = currentRepo && !recents.includes(currentRepo) ? [currentRepo, ...recents] : recents
+      const current = registry.defaultPath()
+      const merged = current && !recents.includes(current) ? [current, ...recents] : recents
       return json({ recents: merged })
     }
 
+    // Open (ensure an engine for) a project without disturbing other tabs — the
+    // renderer opens a new tab in it. Returns the validated absolute path.
     if (pathname === '/api/project/open' && req.method === 'POST') {
       const { path } = await body(req)
       if (!path) return json({ error: 'path required' }, 400)
-      const result = await openProject(String(path))
-      return result.ok ? json({ ok: true, path: currentRepo }) : json(result, 400)
+      const r = await registry.ensure(String(path))
+      if (!r.ok) return json(r, 400)
+      registry.markRecent(r.path!)
+      trackEvent(AnalyticsEvent.DESKTOP_PROJECT_OPENED)
+      return json({ ok: true, path: r.path })
     }
 
     // Switch the agent harness (the project-wide DEFAULT for new threads).
@@ -279,7 +399,7 @@ const server = Bun.serve({
       const { harnessId } = await body(req)
       if (!isHarnessId(harnessId)) return json({ error: 'invalid harnessId' }, 400)
       currentHarness = harnessId
-      engine.setHarness(harnessId)
+      registry.setHarnessAll(harnessId)
       writeAgentHarness(harnessId)
       trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId, scope: 'default' })
       return json({ ok: true, harnessId })
@@ -301,47 +421,55 @@ const server = Bun.serve({
       // Attribute the logout to the user before clearing identity.
       trackEvent(AnalyticsEvent.DESKTOP_LOGOUT)
       resetIdentity()
-      // Release the user's per-tab free-mode sessions while the token is still
-      // valid (the DELETE needs auth) so they don't linger server-side until
-      // they expire/sweep. Best-effort — failures just leave rows to expire.
-      await engine.releaseFreebuffSessions()
+      // Release the user's per-tab free-mode sessions (across every project) while
+      // the token is still valid (the DELETE needs auth) so they don't linger
+      // server-side until they expire/sweep. Best-effort.
+      await registry.releaseFreebuffAll()
       logoutAuth()
-      engine.setAuthToken(undefined)
-      broadcast({ type: 'state', snapshot: engine.snapshot() })
+      registry.setAuthTokenAll(undefined)
+      const de = registry.defaultEngine()
+      if (de) broadcast({ type: 'state', snapshot: de.snapshot() })
       return json({ ok: true })
     }
 
-    // — Project settings (.freebuff/settings.json) —
+    // — Project settings (.freebuff/settings.json). Project-scoped; served from the
+    // most-recent project's engine (the SettingsModal is app-level). —
     if (pathname === '/api/settings' && req.method === 'GET') {
-      const r = engine.settings.read()
+      const e = registry.defaultEngine()
+      if (!e) return json({ error: 'no project' }, 404)
+      const r = e.settings.read()
       return json({
-        path: engine.settings.filePath(),
-        exists: engine.settings.exists(),
+        path: e.settings.filePath(),
+        exists: e.settings.exists(),
         settings: r.settings,
         errors: r.errors,
       })
     }
     if (pathname === '/api/settings' && req.method === 'POST') {
+      const e = registry.defaultEngine()
+      if (!e) return json({ error: 'no project' }, 404)
       const { settings } = await body(req)
       if (!settings || typeof settings !== 'object') {
         return json({ error: 'settings object required' }, 400)
       }
       try {
-        engine.settings.write(settings)
+        e.settings.write(settings)
       } catch (err) {
         return json({ error: (err as Error).message }, 400)
       }
       // Broadcast so any open UI re-renders (and the next /api/state carries the
       // updated snapshot + previewReady).
-      engine.emitState()
+      e.emitState()
       return json({ ok: true })
     }
 
     if (pathname === '/api/run' && req.method === 'POST') {
+      const e = registry.defaultEngine()
+      if (!e) return json({ error: 'no project' }, 404)
       const { command } = await body(req)
       if (!command) return json({ error: 'command required' }, 400)
       try {
-        return json(await engine.runShell(String(command)))
+        return json(await e.runShell(String(command)))
       } catch (err) {
         return json({ error: (err as Error).message }, 500)
       }
@@ -351,14 +479,23 @@ const server = Bun.serve({
     if (pathname === '/api/threads') {
       if (req.method === 'POST') {
         const b = await body(req)
-        return json(engine.createThread({ title: b.title }))
+        // A new tab targets a chosen directory, defaulting to the most-recent project.
+        const dir = b.projectPath ? String(b.projectPath) : registry.defaultPath()
+        if (!dir) return json({ error: 'no project' }, 400)
+        const r = await registry.ensure(dir)
+        if (!r.ok || !r.engine) return json({ error: r.error ?? 'cannot open project' }, 400)
+        registry.markRecent(r.path!)
+        return json(r.engine.createThread({ title: b.title }))
       }
-      return json(engine.listThreads())
+      return json(registry.allThreads())
     }
 
     const threadActionMatch = pathname.match(/^\/api\/thread\/([^/]+)\/(.+)$/)
     if (threadActionMatch && req.method === 'POST') {
       const [, threadId, action] = threadActionMatch
+      const owner = registry.forThread(threadId)
+      if (!owner) return json({ error: 'thread not found' }, 404)
+      const engine = owner.engine
       const b = await body(req)
       switch (action) {
         case 'message': {
@@ -430,7 +567,7 @@ const server = Bun.serve({
 
     const threadMatch = pathname.match(/^\/api\/thread\/([^/]+)$/)
     if (threadMatch && req.method === 'GET') {
-      const data = engine.threadData(threadMatch[1])
+      const data = registry.forThread(threadMatch[1])?.engine.threadData(threadMatch[1])
       return data ? json(data) : json({ error: 'not found' }, 404)
     }
 
@@ -438,6 +575,8 @@ const server = Bun.serve({
     const queueMatch = pathname.match(/^\/api\/queue\/([^/]+)\/([^/]+)$/)
     if (queueMatch && req.method === 'POST') {
       const [, itemId, action] = queueMatch
+      const engine = registry.forItem(itemId)
+      if (!engine) return json({ error: 'item not found' }, 404)
       const b = await body(req)
       switch (action) {
         case 'edit':
@@ -457,52 +596,53 @@ const server = Bun.serve({
       }
     }
 
-    // — Skills & workflows —
+    // — Skills, workflows & governing docs (project-scoped; served from the
+    // most-recent project's engine — defaults are seeded identically per engine). —
+    const primary = registry.defaultEngine()
     if (pathname === '/api/skills/search') {
-      return json({ skills: await engine.searchSkills(url.searchParams.get('q') ?? '') })
+      return json({ skills: primary ? await primary.searchSkills(url.searchParams.get('q') ?? '') : [] })
     }
-    if (pathname === '/api/skills/install' && req.method === 'POST') {
+    if (pathname === '/api/skills/install' && req.method === 'POST' && primary) {
       const b = await body(req)
-      const skill = await engine.installSkill(
+      const skill = await primary.installSkill(
         String(b.source ?? ''),
         String(b.slug ?? ''),
         b.name ? String(b.name) : undefined,
       )
       return skill
-        ? json({ skill, skills: engine.listSkills() })
+        ? json({ skill, skills: primary.listSkills() })
         : json({ error: 'install failed' }, 400)
     }
-    if (pathname === '/api/skills') return json(engine.listSkills())
+    if (pathname === '/api/skills') return json(primary?.listSkills() ?? [])
     const skillMatch = pathname.match(/^\/api\/skill\/([^/]+)$/)
-    if (skillMatch && req.method === 'POST') {
+    if (skillMatch && req.method === 'POST' && primary) {
       const b = await body(req)
-      engine.writeSkill(skillMatch[1], String(b.prompt ?? ''))
+      primary.writeSkill(skillMatch[1], String(b.prompt ?? ''))
       return json({ ok: true })
     }
-    if (pathname === '/api/workflows') return json(engine.listWorkflows())
+    if (pathname === '/api/workflows') return json(primary?.listWorkflows() ?? [])
     const workflowMatch = pathname.match(/^\/api\/workflow\/([^/]+)$/)
-    if (workflowMatch && req.method === 'POST') {
+    if (workflowMatch && req.method === 'POST' && primary) {
       const b = await body(req)
-      engine.saveWorkflow(workflowMatch[1], Array.isArray(b.skills) ? b.skills.map(String) : [])
+      primary.saveWorkflow(workflowMatch[1], Array.isArray(b.skills) ? b.skills.map(String) : [])
       return json({ ok: true })
     }
 
-    // — Governing docs —
     const docMatch = pathname.match(/^\/api\/doc\/([^/]+)$/)
-    if (docMatch && req.method === 'POST') {
+    if (docMatch && req.method === 'POST' && primary) {
       const { content } = await body(req)
       try {
-        engine.saveDoc(docMatch[1], String(content ?? ''))
+        primary.saveDoc(docMatch[1], String(content ?? ''))
         return json({ ok: true })
       } catch (err) {
         return json({ error: (err as Error).message }, 400)
       }
     }
-    if (docMatch) {
+    if (docMatch && primary) {
       return json({
         name: docMatch[1],
-        content: engine.docs.read(docMatch[1] as any),
-        cap: engine.docs.capFor(docMatch[1] as any),
+        content: primary.docs.read(docMatch[1] as any),
+        cap: primary.docs.capFor(docMatch[1] as any),
       })
     }
 
@@ -514,7 +654,7 @@ const server = Bun.serve({
 })
 
 console.log(`Freebuff Desktop orchestrator on http://localhost:${server.port}`)
-console.log(`Target repo: ${currentRepo}`)
+console.log(`Open projects: ${registry.allThreads().length} thread(s) across ${toOpen.length} project(s)`)
 
 // — Analytics — top of the funnel: one launch event per orchestrator start.
 // Pre-login launches are captured under the install's anonymous id and aliased

@@ -15,22 +15,34 @@ function tailName(path: string): string {
 
 /**
  * Folder-picker modal. Browses the local filesystem via /api/fs/list (no native
- * OS dialog — the bridge doesn't expose one) and opens the chosen git repo as the
- * active project. A folder is openable only when it's a git repo. A "Recents"
- * section sits at the top so returning users can skip the folder drill-down.
+ * OS dialog — the bridge doesn't expose one) and points a tab at the chosen git
+ * repo. A folder is openable only when it's a git repo. A "Recents" section sits
+ * at the top so returning users can skip the folder drill-down.
+ *
+ * With `threadId`, the pick changes that tab's directory (re-homing an unstarted
+ * tab in place, else opening a new tab). Without one, it opens a new tab in the
+ * chosen project.
  */
-export function ProjectPicker({ onClose }: { onClose: () => void }) {
-  const openProject = useStore((s) => s.openProject)
-  const projectPath = useStore((s) => s.projectPath)
+export function ProjectPicker({
+  onClose,
+  threadId,
+}: {
+  onClose: () => void
+  threadId?: string | null
+}) {
+  const newThread = useStore((s) => s.newThread)
+  const changeTabDirectory = useStore((s) => s.changeTabDirectory)
   const recentProjects = useStore((s) => s.recentProjects)
+  // Browse starts at the tab's current repo (changing a tab) or the most-recent
+  // project (opening a new tab), so the relevant folder is one click away.
+  const startPath = useStore(
+    (s) => (threadId && s.threads[threadId]?.thread.projectPath) || s.recentProjects[0] || '',
+  )
   const refreshRecents = useStore((s) => s.refreshRecents)
   const [listing, setListing] = useState<BrowseResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [opening, setOpening] = useState(false)
   const [openingRecent, setOpeningRecent] = useState<string | null>(null)
-  // Stash the path a failed recent open tried to open, shown inline so a stale
-  // or invalid entry doesn't silently disappear from the list on next refresh.
-  const [recentError, setRecentError] = useState<string | null>(null)
   // Escape closes the modal; the backdrop already handles outside clicks.
   useDismissable(true, null, onClose, { escapeOnly: true })
 
@@ -42,9 +54,9 @@ export function ProjectPicker({ onClose }: { onClose: () => void }) {
       .finally(() => setLoading(false))
   }
 
-  // Start at the parent of the current project so it's one click away.
+  // Start at the parent of the current tab's project so it's one click away.
   useEffect(() => {
-    const start = projectPath ? projectPath.replace(/[/\\][^/\\]+$/, '') : undefined
+    const start = startPath ? startPath.replace(/[/\\][^/\\]+$/, '') : undefined
     load(start || undefined)
   }, [])
 
@@ -54,31 +66,33 @@ export function ProjectPicker({ onClose }: { onClose: () => void }) {
     void refreshRecents()
   }, [refreshRecents])
 
-  // Hide the current project from the Recents section — the active repo has a
-  // visible header above the picker, listing it again would just be noise.
-  const visibleRecents = recentProjects.filter((p) => p !== projectPath)
+  // Hide the tab's current project from Recents — re-picking it is a no-op.
+  const visibleRecents = recentProjects.filter((p) => p !== startPath)
+
+  // Point the tab at `path` (re-home or new tab); errors surface as toasts.
+  const pick = async (path: string) => {
+    if (threadId) await changeTabDirectory(threadId, path)
+    else await newThread(path)
+    onClose()
+  }
 
   const open = async (path: string) => {
     setOpening(true)
-    const res = await openProject(path)
+    await pick(path)
     setOpening(false)
-    if (res.ok) onClose()
   }
 
   const openRecent = async (path: string) => {
     setOpeningRecent(path)
-    setRecentError(null)
-    const res = await openProject(path)
+    await pick(path)
     setOpeningRecent(null)
-    if (res.ok) onClose()
-    else setRecentError(`${tailName(path)}: ${res.error ?? 'could not open'}`)
   }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal picker" onClick={(e) => e.stopPropagation()}>
         <div className="picker-head">
-          <span className="picker-title">Open project</span>
+          <span className="picker-title">{threadId ? "Change this tab’s folder" : 'Open a project folder'}</span>
           <button className="head-btn" onClick={onClose} title="Close">
             <Icon name="x" />
           </button>
@@ -87,11 +101,6 @@ export function ProjectPicker({ onClose }: { onClose: () => void }) {
         {visibleRecents.length > 0 && (
           <div className="picker-recents">
             <div className="recents-head">Recents</div>
-            {recentError && (
-              <div className="recents-error" title={recentError}>
-                {recentError}
-              </div>
-            )}
             <div className="recents-list">
               {visibleRecents.map((p) => (
                 <button

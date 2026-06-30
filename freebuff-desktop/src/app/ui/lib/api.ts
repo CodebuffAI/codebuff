@@ -40,9 +40,11 @@ async function get<T = unknown>(path: string): Promise<T> {
 export const api = {
   // Threads
   listThreads: () => get<Thread[]>('/api/threads'),
-  createThread: (title?: string) => post<Thread>('/api/threads', { title }),
+  createThread: (opts: { title?: string; projectPath?: string } = {}) =>
+    post<Thread & { error?: string }>('/api/threads', opts),
   getThread: (id: string) => get<ThreadData>(`/api/thread/${id}`),
   closeThread: (id: string) => post(`/api/thread/${id}/close`),
+  deleteThread: (id: string) => post(`/api/thread/${id}/delete`),
   rehydrateThread: (id: string) => post(`/api/thread/${id}/rehydrate`),
   sendMessage: (id: string, text: string, attachments?: string[]) =>
     post(`/api/thread/${id}/message`, { text, attachments }),
@@ -76,8 +78,6 @@ export const api = {
     }),
 
   // Project
-  openProject: (path: string) =>
-    post<{ ok: boolean; path?: string; error?: string }>('/api/project/open', { path }),
   browse: (path?: string) =>
     get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
   listRecents: () => get<{ recents: string[] }>('/api/project/recents'),
