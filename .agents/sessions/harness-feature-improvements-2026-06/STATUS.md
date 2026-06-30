@@ -954,3 +954,21 @@ Post-plan follow-up harness fix prompted by the failure-instance diagnosis (tran
 
 Next checkpoint: this was a standalone harness fix outside the M1–M10 milestone structure. No further plan items remain.
 
+
+<!-- update_plan_status:appended -->
+## M4 — memory-drift-guard staleness: mtime → git-log (completed) — 2026-06-30T09:07:20.693Z
+
+Rewrote `checkStaleness` in `scripts/memory-drift-guard.ts` to use `git log -1 --format=%ct -- <pathspec>` commit timestamps instead of filesystem mtimes. Root cause: git does not preserve mtime across checkouts, so a fresh CI checkout ordered directory mtimes by tree-traversal write order rather than content recency — the mtime-based check fired deterministically on every CI run. The git-log-based check uses the real source of truth (commit dates) and degrades gracefully (returns null → skips) when git is unavailable or a path is untracked.
+
+Tests: rewrote the two existing staleness tests (which used `utimesSync`) to use real `git init` + backdated commits via `GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE` env vars. Added a third test for the no-git-repo (untracked) graceful-skip case. All 27 tests pass (55 expect() calls).
+
+Against the real repo, the guard now reports 3 genuine staleness findings (cli/knowledge.md, cli/tmux.knowledge.md, common/knowledge.md) — these are real content drift a docs author should address separately.
+
+Files: scripts/memory-drift-guard.ts, scripts/__tests__/memory-drift-guard.test.ts
+
+
+<!-- update_plan_status:appended -->
+## Reviewer NON_BLOCKING follow-up — 2026-06-30 — 2026-06-30T16:38:01.693Z
+
+Code-reviewer returned NON_BLOCKING with two findings on commit 375d54fba: (1) dead `statSync` import left after the mtime→git rewrite, (2) `execSync` + `JSON.stringify` shell-escaping risk in `lastCommitEpoch`. Both fixed: removed `statSync` from `node:fs` import, switched to `execFileSync('git', ['log','-1','--format=%ct','--',pathspec], …)` with array args (no shell interpolation). Re-validated: 27/27 tests pass, guard still reports the same 3 genuine staleness findings against the real repo. Ready to commit the follow-up.
+

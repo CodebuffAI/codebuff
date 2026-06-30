@@ -1,13 +1,12 @@
 import {
   readdirSync,
   readFileSync,
-  statSync,
   existsSync,
   type Dirent,
 } from 'node:fs'
 import { dirname, relative, resolve, sep, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 export type Finding = {
   path: string
@@ -360,7 +359,7 @@ export function checkStaleness(root: string): Finding[] {
 function lastCommitEpoch(root: string, pathspec: string): number | null {
   let stdout: string
   try {
-    stdout = execSync(`git log -1 --format=%ct -- ${JSON.stringify(pathspec)}`, {
+    stdout = execFileSync('git', ['log', '-1', '--format=%ct', '--', pathspec], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
