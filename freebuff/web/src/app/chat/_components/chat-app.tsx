@@ -497,7 +497,6 @@ export function ChatApp() {
       attachments={pendingAttachments}
       setAttachments={setPendingAttachments}
       autoFocus
-      issueReport={{ source: 'chat', threadId: activeThreadId }}
     />
   )
 

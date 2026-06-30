@@ -1,5 +1,11 @@
 'use client'
 
+// IMPORTANT: the /chat route (this Composer's only consumer) is NOT wrapped in
+// a Convex provider — it's a next-auth + HTTP-API surface (see app/chat/layout.tsx,
+// ConvexClientProvider only lives under app/web and app/cloud). Do not import
+// components that call Convex hooks (useQuery/useAction/useConvexAuth) here, or
+// the whole page throws "Could not find ConvexProviderWithAuth".
+
 import { ArrowUp, FileText, Mic, Paperclip, Square, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -16,7 +22,6 @@ import {
   classifyAttachment,
 } from '@/app/chat/models'
 import { cn } from '@/lib/utils'
-import { IssueReportButton } from '@/vly/components/IssueReportButton'
 
 /** Whether a drag event carries files (vs. text/other), used to gate the
  *  drop-to-attach affordance. */
@@ -57,8 +62,6 @@ export function Composer(props: {
   attachments: PendingAttachment[]
   setAttachments: React.Dispatch<React.SetStateAction<PendingAttachment[]>>
   autoFocus?: boolean
-  /** When set, renders the inline "Report issue" trigger in the toolbar. */
-  issueReport?: { source: 'chat' | 'cloud'; threadId?: string | null }
 }) {
   const { value, onChange, attachments, setAttachments } = props
   const [dragging, setDragging] = useState(false)
@@ -410,13 +413,6 @@ export function Composer(props: {
                 <Paperclip className="h-4 w-4" />
               </button>
             </>
-          )}
-          {props.issueReport && (
-            <IssueReportButton
-              source={props.issueReport.source}
-              threadId={props.issueReport.threadId}
-              className="ml-0.5"
-            />
           )}
         </div>
         {props.streaming ? (
