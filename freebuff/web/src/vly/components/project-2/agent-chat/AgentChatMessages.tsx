@@ -228,6 +228,16 @@ const GRAVITY_CHAT_PLACEMENT_TO_AGENT_PLACEMENT: Record<
   'Web-Chat-After-Assistant-Message': 'agent-chat-after-assistant',
 }
 
+const UUID_LIKE_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isClientOnlyAgentMessage(message: Pick<AgentMessageForAd, '_id'>) {
+  return (
+    (message as { _optimistic?: boolean })._optimistic === true ||
+    UUID_LIKE_ID_PATTERN.test(String(message._id))
+  )
+}
+
 function warnAdClient(message: string, error?: unknown) {
   if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') return
   if (error === undefined) {
@@ -299,7 +309,8 @@ const SimpleMarkdown: React.FC<{ text: string }> = React.memo(({ text }) => {
       let lastIndex = 0
       let key = 0
 
-      const regex = /(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*[^*]+\*\*|`[^`]+`)/g
+      const regex =
+        /(\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\*\*[^*]+\*\*|`[^`]+`)/g
       let match
 
       while ((match = regex.exec(line)) !== null) {
@@ -966,7 +977,9 @@ const AgentAdMessage: React.FC<{
   className?: string
 }> = ({ ad, className }) => {
   return (
-    <div className={cn('my-3 w-full max-w-[min(100%,760px)] text-sm', className)}>
+    <div
+      className={cn('my-3 w-full max-w-[min(100%,760px)] text-sm', className)}
+    >
       <GravityReactAd
         ad={{
           adText: ad.adText,
@@ -1034,13 +1047,7 @@ const AgentMessageCard: React.FC<{
   onContinueAfterTimeout?: () => void | Promise<unknown>
   /** Resends this message's prompt. Only provided for the latest failed run. */
   onRetry?: () => void
-}> = ({
-  message,
-  ads,
-  onRollback,
-  onContinueAfterTimeout,
-  onRetry,
-}) => {
+}> = ({ message, ads, onRollback, onContinueAfterTimeout, onRetry }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   if (message.ad_payload) {
@@ -1240,13 +1247,13 @@ const AgentMessageCard: React.FC<{
           streaming, swap in a distinct "Reviewing changes" indicator so the
           review phase is visually separate from general work. Hidden once
           streaming ends or the time-limit panel shows. */}
-      {isStreaming && !isPromptTimeLimit && (
-        isReviewingNow(assistantStream, isStreaming) ? (
+      {isStreaming &&
+        !isPromptTimeLimit &&
+        (isReviewingNow(assistantStream, isStreaming) ? (
           <ReviewingState activityKey={message._id} />
         ) : (
           <ThinkingState activityKey={message._id} />
-        )
-      )}
+        ))}
 
       {isPromptTimeLimit && (
         <TimeLimitContinuePanel onContinue={onContinueAfterTimeout} />
@@ -1456,8 +1463,7 @@ export const AgentChatMessages = forwardRef<
     () =>
       filteredThreadMessages
         .filter(
-          (msg: any) =>
-            !msg.ad_payload && !(msg.assistant_stream?.length > 0),
+          (msg: any) => !msg.ad_payload && !(msg.assistant_stream?.length > 0),
         )
         .map((msg: any) => msg._id as Id<'agent_message'>),
     [filteredThreadMessages],
@@ -1574,12 +1580,14 @@ export const AgentChatMessages = forwardRef<
       (message) => message._id === liveAgentAds.sourceMessageId,
     )
     if (!matchingMessage) {
-      matchingMessage = [...sortedMessages].reverse().find(
-        (message) =>
-          message.user_message?.trim() === liveAgentAds.userMessage &&
-          Math.abs(message._creationTime - liveAgentAds.sourceCreationTime) <
-            60000,
-      )
+      matchingMessage = [...sortedMessages]
+        .reverse()
+        .find(
+          (message) =>
+            message.user_message?.trim() === liveAgentAds.userMessage &&
+            Math.abs(message._creationTime - liveAgentAds.sourceCreationTime) <
+              60000,
+        )
     }
     if (!matchingMessage) return ads
 
@@ -1593,6 +1601,7 @@ export const AgentChatMessages = forwardRef<
   const sourceMessageForAd = useMemo(() => {
     for (let i = sortedMessages.length - 1; i >= 0; i--) {
       const message = sortedMessages[i]
+      if (isClientOnlyAgentMessage(message)) continue
       if (message.ad_payload) continue
       if (!message.user_message) continue
       const sourceAds = adsBySourceMessageId.get(message._id)
