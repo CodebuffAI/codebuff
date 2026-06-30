@@ -139,3 +139,5 @@
 {"ts":"2026-06-30T09:07:20.694Z","kind":"append_lesson","summary":"Appended entry \"M4 — memory-drift-guard staleness: mtime → git-log (completed)\" to STATUS.md","payload":{"heading":"M4 — memory-drift-guard staleness: mtime → git-log (completed)","artifact":"STATUS.md"}}
 {"ts":"2026-06-30T09:08:32.761Z","kind":"append_lesson","summary":"Appended entry \"LESSONS — staleness checker CI flakiness (mtime → git log)\" to LESSONS.md","payload":{"heading":"LESSONS — staleness checker CI flakiness (mtime → git log)","artifact":"LESSONS.md"}}
 {"ts":"2026-06-30T16:38:01.694Z","kind":"append_lesson","summary":"Appended entry \"Reviewer NON_BLOCKING follow-up — 2026-06-30\" to STATUS.md","payload":{"heading":"Reviewer NON_BLOCKING follow-up — 2026-06-30","artifact":"STATUS.md"}}
+{"ts":"2026-06-30T16:41:02.053Z","kind":"append_lesson","summary":"Appended entry \"Reviewer gate satisfied — 2026-06-30\" to STATUS.md","payload":{"heading":"Reviewer gate satisfied — 2026-06-30","artifact":"STATUS.md"}}
+{"ts":"2026-06-30T16:41:02.053Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}

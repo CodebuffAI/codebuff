@@ -972,3 +972,9 @@ Files: scripts/memory-drift-guard.ts, scripts/__tests__/memory-drift-guard.test.
 
 Code-reviewer returned NON_BLOCKING with two findings on commit 375d54fba: (1) dead `statSync` import left after the mtime→git rewrite, (2) `execSync` + `JSON.stringify` shell-escaping risk in `lastCommitEpoch`. Both fixed: removed `statSync` from `node:fs` import, switched to `execFileSync('git', ['log','-1','--format=%ct','--',pathspec], …)` with array args (no shell interpolation). Re-validated: 27/27 tests pass, guard still reports the same 3 genuine staleness findings against the real repo. Ready to commit the follow-up.
 
+
+<!-- update_plan_status:appended -->
+## Reviewer gate satisfied — 2026-06-30 — 2026-06-30T16:41:02.052Z
+
+Final code-reviewer run returned LOOKS_GOOD with no findings. The dead `statSync` import is removed, `execFileSync` with array args avoids shell interpolation, and all three staleness tests cover the changed branches. Follow-up commit `284eb5b89` pushed to origin/main. Workflow complete.
+
