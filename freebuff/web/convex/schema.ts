@@ -1418,6 +1418,42 @@ export default defineSchema(
       .index('by_submitted_at', ['submittedAt'])
       .index('by_product_direction', ['productDirection']),
 
+    issue_reports: defineTable({
+      userId: v.id('users'),
+      recordedUserName: v.optional(v.string()),
+      recordedUserEmail: v.optional(v.string()),
+      replyEmail: v.string(),
+      reportType: v.optional(
+        v.union(v.literal('bug'), v.literal('feature_request')),
+      ),
+      severity: v.number(),
+      issue: v.string(),
+      source: v.union(v.literal('chat'), v.literal('cloud')),
+      status: v.union(
+        v.literal('open'),
+        v.literal('reviewing'),
+        v.literal('resolved'),
+      ),
+      pageUrl: v.optional(v.string()),
+      userAgent: v.optional(v.string()),
+      threadId: v.optional(v.string()),
+      projectId: v.optional(v.id('project')),
+      projectSemanticIdentifier: v.optional(v.string()),
+      submittedAt: v.number(),
+      emailSendStatus: v.union(
+        v.literal('pending'),
+        v.literal('sent'),
+        v.literal('failed'),
+      ),
+      emailSentAt: v.optional(v.number()),
+      emailError: v.optional(v.string()),
+    })
+      .index('by_user', ['userId'])
+      .index('by_status', ['status'])
+      .index('by_project', ['projectId'])
+      .index('by_submitted_at', ['submittedAt'])
+      .index('by_email_send_status', ['emailSendStatus']),
+
     // ============================================
     // VLY SOCIAL MEDIA TABLES
     // ============================================

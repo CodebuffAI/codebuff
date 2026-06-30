@@ -36,6 +36,7 @@ import { AdminNavbar } from '@/vly/components/AdminNavbar'
 import { AdminProjectOwnershipManager } from '@/vly/components/admin/AdminProjectOwnershipManager'
 import { TicketsView } from '@/vly/components/pages/TicketsView'
 import { AdminIntegrationsView } from '@/vly/components/pages/AdminIntegrationsView'
+import { IssueReportsView } from '@/vly/components/pages/IssueReportsView'
 import TicketDetailDialog from '@/vly/components/TicketDetailDialog'
 import { IntegrationApprovalDialog } from '@/vly/components/IntegrationApprovalDialog'
 import TimeRangeSelector from '@/vly/components/project-2/monitoring/shared/TimeRangeSelector'
@@ -45,9 +46,10 @@ export default function AdminDashboard() {
   const user = useSignedInUser()
   const isAdmin = user?.role === 'god' || user?.role === 'admin'
   const [activeView, setActiveView] = useState<
-    'admin' | 'tickets' | 'integrations'
+    'admin' | 'tickets' | 'integrations' | 'issues'
   >('admin')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [issueStatusFilter, setIssueStatusFilter] = useState<string>('all')
   const [integrationStatusFilter, setIntegrationStatusFilter] =
     useState<string>('pending')
   const [isUpdatingDaytonaMigrationToggle, setIsUpdatingDaytonaMigrationToggle] =
@@ -164,6 +166,8 @@ export default function AdminDashboard() {
       setActiveView('tickets')
     } else if (tab === 'integrations') {
       setActiveView('integrations')
+    } else if (tab === 'issues') {
+      setActiveView('issues')
     } else {
       setActiveView('admin')
     }
@@ -322,6 +326,17 @@ export default function AdminDashboard() {
             integrationStatusFilter={integrationStatusFilter}
             setIntegrationStatusFilter={setIntegrationStatusFilter}
             setSelectedIntegration={setSelectedIntegration}
+          />
+        </div>
+      )
+    }
+
+    if (activeView === 'issues') {
+      return (
+        <div className="mx-auto max-w-7xl px-8 py-12">
+          <IssueReportsView
+            statusFilter={issueStatusFilter}
+            setStatusFilter={setIssueStatusFilter}
           />
         </div>
       )

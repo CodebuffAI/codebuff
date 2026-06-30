@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleAgentSendError } from "@/vly/lib/agentErrorHandler";
 import { trackRedditFirstPromptOnce } from "@/lib/reddit-funnel";
+import { IssueReportButton } from "@/vly/components/IssueReportButton";
 
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -1205,6 +1206,16 @@ ${message}`;
                 divergenceInfo={divergenceInfo}
               />
             )}
+            <IssueReportButton
+              source="chat"
+              projectId={project?._id}
+              projectSemanticIdentifier={projectSemanticIdentifier}
+              threadId={
+                project?.active_thread
+                  ? String(project.active_thread)
+                  : undefined
+              }
+            />
         </div>
       )}
     </>

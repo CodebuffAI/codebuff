@@ -201,6 +201,8 @@ import type * as integrations from "../integrations.js";
 import type * as integrations_add_integration from "../integrations/add_integration.js";
 import type * as integrations_research_agent from "../integrations/research_agent.js";
 import type * as invites from "../invites.js";
+import type * as issue_reports from "../issue_reports.js";
+import type * as issue_reports_email from "../issue_reports_email.js";
 import type * as lib_convex_pricing from "../lib/convex_pricing.js";
 import type * as lib_featureAccessControl from "../lib/featureAccessControl.js";
 import type * as lib_self_hosted_deployment from "../lib/self_hosted_deployment.js";
@@ -451,6 +453,8 @@ declare const fullApi: ApiFromModules<{
   "integrations/add_integration": typeof integrations_add_integration;
   "integrations/research_agent": typeof integrations_research_agent;
   invites: typeof invites;
+  issue_reports: typeof issue_reports;
+  issue_reports_email: typeof issue_reports_email;
   "lib/convex_pricing": typeof lib_convex_pricing;
   "lib/featureAccessControl": typeof lib_featureAccessControl;
   "lib/self_hosted_deployment": typeof lib_self_hosted_deployment;

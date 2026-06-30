@@ -3,7 +3,7 @@
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "@/vly/components/ui/badge";
-import { Shield, Ticket, Puzzle, LucideIcon } from "lucide-react";
+import { Bug, Shield, Ticket, Puzzle, LucideIcon } from "lucide-react";
 import { cn } from "@/vly/lib/utils";
 
 interface NavButtonProps {
@@ -13,7 +13,7 @@ interface NavButtonProps {
   isActive: boolean;
   showBadge?: boolean;
   badgeCount?: number;
-  colorScheme: "purple" | "blue" | "green";
+  colorScheme: "purple" | "blue" | "green" | "amber";
   onClick: () => void;
 }
 
@@ -44,6 +44,15 @@ const colorSchemes = {
     iconHoverBg: "group-hover:bg-green-100",
     iconHoverText: "group-hover:text-green-600",
     activeText: "text-green-900",
+  },
+  amber: {
+    activeBorder: "border-amber-500",
+    activeBg: "bg-amber-50",
+    hoverBorder: "hover:border-amber-300",
+    iconBg: "bg-amber-600",
+    iconHoverBg: "group-hover:bg-amber-100",
+    iconHoverText: "group-hover:text-amber-600",
+    activeText: "text-amber-900",
   },
 };
 
@@ -129,6 +138,9 @@ export function AdminNavbar({
   const inProgressTickets = useQuery(api.tickets.listAll, {
     status: "in_progress",
   });
+  const openIssueReports = useQuery(api.issue_reports.listAll, {
+    status: "open",
+  });
 
   const { results: pendingIntegrations } = usePaginatedQuery(
     api.integrations.listAllUserGeneratedIntegrations,
@@ -138,6 +150,7 @@ export function AdminNavbar({
 
   const activeTicketsCount =
     (openTickets?.length || 0) + (inProgressTickets?.length || 0);
+  const openIssueReportsCount = openIssueReports?.length || 0;
   const hasPendingIntegrations =
     pendingIntegrations && pendingIntegrations.length > 0;
 
@@ -175,6 +188,16 @@ export function AdminNavbar({
               showBadge={hasPendingIntegrations}
               colorScheme="green"
               onClick={() => onTabChange?.("integrations")}
+            />
+
+            <NavButton
+              label="Issues"
+              subtitle="Chat Reports"
+              icon={Bug}
+              isActive={activeTab === "issues"}
+              badgeCount={openIssueReportsCount}
+              colorScheme="amber"
+              onClick={() => onTabChange?.("issues")}
             />
           </div>
 

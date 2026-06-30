@@ -8,10 +8,12 @@ import { Tabs, TabsContent } from "@/vly/components/ui/tabs";
 import { AdminNavbar } from "@/vly/components/AdminNavbar";
 import { TicketsView } from "./TicketsView";
 import { AdminIntegrationsView } from "./AdminIntegrationsView";
+import { IssueReportsView } from "./IssueReportsView";
 
 export default function AppAndSupportViewDashboard() {
   const [activeTab, setActiveTab] = useState<string>("tickets");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [issueStatusFilter, setIssueStatusFilter] = useState<string>("all");
   const [integrationStatusFilter, setIntegrationStatusFilter] =
     useState<string>("pending");
   const [selectedTicketId, setSelectedTicketId] =
@@ -42,6 +44,13 @@ export default function AppAndSupportViewDashboard() {
               integrationStatusFilter={integrationStatusFilter}
               setIntegrationStatusFilter={setIntegrationStatusFilter}
               setSelectedIntegration={setSelectedIntegration}
+            />
+          </TabsContent>
+
+          <TabsContent value="issues">
+            <IssueReportsView
+              statusFilter={issueStatusFilter}
+              setStatusFilter={setIssueStatusFilter}
             />
           </TabsContent>
         </Tabs>

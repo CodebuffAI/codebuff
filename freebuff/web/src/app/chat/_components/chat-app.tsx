@@ -22,6 +22,7 @@ import {
 } from '@/app/chat/blocks'
 import { cn } from '@/lib/utils'
 import { trackRedditFirstPromptOnce } from '@/lib/reddit-funnel'
+import { IssueReportButton } from '@/vly/components/IssueReportButton'
 import { ChatAds } from './chat-ads'
 import { ChatBackdrop } from './chat-backdrop'
 import { Composer } from './composer'
@@ -704,6 +705,7 @@ export function ChatApp() {
             </div>
           </>
         )}
+        <IssueReportButton source="chat" threadId={activeThreadId} />
         </main>
       </div>
     </div>
