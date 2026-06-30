@@ -3,12 +3,12 @@ import {
   mkdirSync,
   mkdtempSync,
   writeFileSync,
-  utimesSync,
   rmSync,
   existsSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execSync } from 'node:child_process'
 
 import {
   runMemoryDriftGuard,
@@ -37,6 +37,26 @@ afterEach(() => {
     rmSync(tmpRoot, { recursive: true, force: true })
   }
 })
+
+/** Initialize a temp git repo with a deterministic identity for commits. */
+function initGitRepo(root: string): void {
+  execSync('git init -q', { cwd: root })
+  execSync('git config user.email test@example.com', { cwd: root })
+  execSync('git config user.name Test', { cwd: root })
+  // Allow commits even when there are no branches yet.
+  execSync('git config commit.gpgsign false', { cwd: root })
+}
+
+/** Stage and commit `paths` with a backdated committer date (ISO 8601). */
+function gitCommit(root: string, paths: string[], message: string, dateIso: string): void {
+  for (const p of paths) {
+    execSync(`git add -- ${JSON.stringify(p)}`, { cwd: root })
+  }
+  execSync(`git commit -q -m ${JSON.stringify(message)} --date ${JSON.stringify(dateIso)}`, {
+    cwd: root,
+    env: { ...process.env, GIT_AUTHOR_DATE: dateIso, GIT_COMMITTER_DATE: dateIso },
+  })
+}
 
 test('path checker flags missing backtick-quoted repo-relative path', () => {
   mkdirSync(join(tmpRoot, 'docs'), { recursive: true })
@@ -69,18 +89,41 @@ test('index-sync checker flags missing file referenced in AGENTS.md', () => {
   expect(findings.length).toBeGreaterThanOrEqual(1)
 })
 
-test('staleness checker flags knowledge.md older than sibling src/', () => {
+test('staleness checker flags knowledge.md with older last commit than sibling src/', () => {
+  // Set up a real git repo so the git-log-based staleness check has signal.
+  initGitRepo(tmpRoot)
   mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
   const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
   writeFileSync(knowledgePath, '# demo\n')
-  // set knowledge.md mtime older than now, src dir remains newer
-  const oldTime = new Date(Date.now() - 1000 * 60 * 60 * 24)
-  const newTime = new Date(Date.now() + 1000 * 60 * 60 * 24)
-  utimesSync(knowledgePath, oldTime, oldTime)
-  utimesSync(join(tmpRoot, 'packages', 'demo', 'src'), newTime, newTime)
+  // Commit knowledge.md with an old timestamp.
+  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2023-01-01T00:00:00')
+  // Add a source file under src/ and commit it with a newer timestamp.
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
+  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
   const findings = checkStaleness(tmpRoot)
   expect(findings.length).toBeGreaterThanOrEqual(1)
   expect(findings.some((f) => f.message.includes('stale'))).toBe(true)
+})
+
+test('staleness checker does NOT flag knowledge.md when its last commit is newer than src/', () => {
+  initGitRepo(tmpRoot)
+  mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
+  const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
+  writeFileSync(knowledgePath, '# demo\n')
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
+  // Commit src first (older), then knowledge.md (newer) — not stale.
+  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2023-01-01T00:00:00')
+  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2024-06-01T00:00:00')
+  const findings = checkStaleness(tmpRoot)
+  expect(findings.some((f) => f.path.includes('knowledge.md'))).toBe(false)
+})
+
+test('staleness checker skips untracked knowledge.md (no false positive without git history)', () => {
+  // No git repo at all — lastCommitEpoch returns null, so the checker skips.
+  mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'knowledge.md'), '# demo\n')
+  const findings = checkStaleness(tmpRoot)
+  expect(findings.length).toBe(0)
 })
 
 test('command checker flags missing script via --cwd subpackage', () => {
@@ -362,6 +405,7 @@ test('integration: runMemoryDriftGuard returns sum score and 11 checkers in orde
     ].join('\n'),
   )
 
+  initGitRepo(tmpRoot)
   mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
   const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
   writeFileSync(
@@ -374,10 +418,10 @@ test('integration: runMemoryDriftGuard returns sum score and 11 checkers in orde
       '- `nope-dir`',
     ].join('\n'),
   )
-  const oldTime = new Date(Date.now() - 1000 * 60 * 60 * 24)
-  const newTime = new Date(Date.now() + 1000 * 60 * 60 * 24)
-  utimesSync(knowledgePath, oldTime, oldTime)
-  utimesSync(join(tmpRoot, 'packages', 'demo', 'src'), newTime, newTime)
+  // Commit knowledge.md (old) then a src file (newer) so staleness fires.
+  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2023-01-01T00:00:00')
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
+  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
 
   writeFileSync(
     join(tmpRoot, 'AGENTS.md'),

@@ -7,6 +7,7 @@ import {
 } from 'node:fs'
 import { dirname, relative, resolve, sep, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execSync } from 'node:child_process'
 
 export type Finding = {
   path: string
@@ -313,25 +314,66 @@ export function checkStaleness(root: string): Finding[] {
     }
     const projectPath = toProjectPath(root, filePath)
     try {
-      const mdMtime = statSync(filePath).mtimeMs
-      const srcMtime = statSync(siblingSrc).mtimeMs
-      if (srcMtime > mdMtime) {
+      // Use git commit timestamps (the real source of truth for content
+      // recency) instead of filesystem mtimes. Filesystem mtimes are flaky
+      // in CI: git does not preserve mtime across checkouts, and a fresh
+      // checkout always orders directory mtimes by tree-traversal write
+      // order rather than by actual content freshness. This made the
+      // mtime-based check fire deterministically on every CI run.
+      const srcRelative = toProjectPath(root, siblingSrc)
+      const lastCommitSource = lastCommitEpoch(root, srcRelative)
+      const lastCommitMd = lastCommitEpoch(root, projectPath)
+      // If git is unavailable or the path is untracked, fall back to no-op
+      // (skip) rather than a false positive — we cannot reason about
+      // freshness without a real signal.
+      if (lastCommitSource === null || lastCommitMd === null) {
+        continue
+      }
+      if (lastCommitSource > lastCommitMd) {
         findings.push({
           path: projectPath,
           line: 1,
-          message: `knowledge.md is older than sibling src/ (stale)`,
+          message: `knowledge.md last commit is older than sibling src/ last commit (stale)`,
         })
       }
     } catch (err) {
-      // ignore stat failures
+      // ignore git/stat failures
       console.debug(
-        `[memory-drift-guard] checkStaleness stat failed for ${filePath}: ${
+        `[memory-drift-guard] checkStaleness git lookup failed for ${filePath}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       )
     }
   }
   return findings
+}
+
+/**
+ * Returns the epoch seconds of the most recent git commit touching `pathspec`,
+ * or `null` if git is unavailable or the path is untracked/unknown.
+ *
+ * `pathspec` is project-relative (e.g. `common/src` or `common/knowledge.md`).
+ * `git log -1 --format=%ct -- <pathspec>` returns the committer timestamp;
+ * for a directory it resolves to the last commit that touched any file under
+ * that directory. Empty stdout means the path is untracked or nonexistent.
+ */
+function lastCommitEpoch(root: string, pathspec: string): number | null {
+  let stdout: string
+  try {
+    stdout = execSync(`git log -1 --format=%ct -- ${JSON.stringify(pathspec)}`, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch {
+    return null
+  }
+  const trimmed = stdout.trim()
+  if (trimmed === '') {
+    return null
+  }
+  const epoch = Number.parseInt(trimmed, 10)
+  return Number.isFinite(epoch) ? epoch : null
 }
 
 export function checkCommand(root: string): Finding[] {
