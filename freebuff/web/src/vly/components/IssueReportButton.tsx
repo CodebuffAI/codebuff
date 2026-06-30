@@ -7,7 +7,7 @@ import { useSignedInUser } from '@/vly/hooks/use-user'
 import { cn } from '@/vly/lib/utils'
 import { useAction, useQuery } from 'convex/react'
 import { ArrowLeft, Bug, Lightbulb, Loader2, Send } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 type IssueSource = 'chat' | 'cloud'
@@ -86,8 +86,7 @@ export function IssueReportButton({
     setStep(2)
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleSubmit = async () => {
     if (!canSubmit) return
 
     try {
@@ -183,7 +182,10 @@ export function IssueReportButton({
               </a>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-2.5 p-3">
+            // Plain div, not <form> — this popover is rendered inside the
+            // chat composer's own <form>, and nested <form> elements trigger
+            // unpredictable native submission (full page reload) in browsers.
+            <div className="space-y-2.5 p-3">
               {step === 1 ? (
                 <>
                   <label className="block space-y-1">
@@ -283,7 +285,8 @@ export function IssueReportButton({
                   </label>
 
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSubmit}
                     disabled={!canSubmit}
                     className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-primary text-[12px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -296,7 +299,7 @@ export function IssueReportButton({
                   </button>
                 </>
               )}
-            </form>
+            </div>
           )}
         </div>
       )}
