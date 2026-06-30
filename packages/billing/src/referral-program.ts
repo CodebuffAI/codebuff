@@ -590,13 +590,16 @@ export function evaluateGlmReferralForReferredUser(params: {
  * they may start per (Pacific) week, capped at FREEBUFF_GLM_V52_REFERRAL_CAP —
  * read live by the free-session quota.
  *
- * Phase 3 of the unified-referral migration (docs/referrals.md): the source of
- * truth moves to the new model's full-access referral count
- * (`getReferralStats().fullQualified`), but we take the MAX with the legacy glm
- * score to **grandfather** existing referrers — nobody loses GLM as reads switch
- * over. This is safe to ship before the referral_v2 backfill runs: an empty
- * referral_v2 makes fullQualified 0, so the max falls back to the legacy score
- * and behavior is unchanged. Phase 4 drops the legacy half.
+ * Phase 4 of the unified-referral migration (docs/referrals.md): the source of
+ * truth is the new model's full-access referral count
+ * (`getReferralStats().fullQualified`). The Phase-3 grandfather (MAX with the
+ * legacy glm score) is dropped: the legacy 'glm' path completed on GitHub
+ * account age ALONE, with no product-use requirement, so a friend who signed up
+ * but never used a product still earned GLM. We now require **activation** —
+ * the referred user must actually use a product, which is exactly what
+ * `fullQualified` (activated_at IS NOT NULL, full tier) encodes. This makes the
+ * "your friend must use the product" UI copy truthful and closes the
+ * signup-only farming path.
  */
 export async function getGlmReferralEntitlement(params: {
   userId: string
@@ -604,14 +607,24 @@ export async function getGlmReferralEntitlement(params: {
   // Kill-switch: while the program is wound down nobody earns GLM sessions,
   // and we skip the queries entirely.
   if (!FREEBUFF_GLM_V52_REFERRAL_ENABLED) return 0
-  const [legacyScore, stats] = await Promise.all([
-    getReferralScore({ userId: params.userId, program: 'glm' }),
-    getReferralStats({ referrerId: params.userId }),
-  ])
-  return Math.min(
-    Math.max(legacyScore, stats.fullQualified),
-    FREEBUFF_GLM_V52_REFERRAL_CAP,
-  )
+  const stats = await getReferralStats({ referrerId: params.userId })
+  return Math.min(stats.fullQualified, FREEBUFF_GLM_V52_REFERRAL_CAP)
+}
+
+/**
+ * The referrer's Freebuff Web tier score (docs/referrals.md). Phase 4: reads the
+ * unified model — every qualified-and-activated referral, full or limited
+ * (`fullQualified + limitedQualified`; the web tier counts both). Like GLM, this
+ * **requires activation**: the legacy 'web' path completed on GitHub account age
+ * alone (no product use), so it is no longer read — a referral counts toward the
+ * web tier only once the referred user actually uses a product. This makes the
+ * tier copy truthful and matches the unified design.
+ */
+export async function getWebReferralScore(params: {
+  userId: string
+}): Promise<number> {
+  const stats = await getReferralStats({ referrerId: params.userId })
+  return stats.fullQualified + stats.limitedQualified
 }
 
 /** A pending-referral evaluator, keyed by the program it completes. */

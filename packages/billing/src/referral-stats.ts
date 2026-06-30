@@ -23,6 +23,14 @@ import { sql } from 'drizzle-orm'
  *     automatically with no sweep.
  *   - activated  = `activated_at` is set (the referred user used a product).
  *   - not revoked = `revoked_at` is null.
+ *
+ * Self-referral bump: a referrer's OWN referral (the row where they are the
+ * referred party) counts too, at the tier they activated at — i.e. being
+ * referred and qualifying is worth +1 to yourself, mirroring the legacy
+ * per-program score. Because `referred_id` is the PK, that self row is counted
+ * at most once, and self-referral is blocked, so a row is never both. It routes
+ * by tier like any other: a full-tier self-referral feeds GLM/Opus/Web, a
+ * limited-tier one feeds the CLI daily bonus/Web.
  */
 export interface ReferralStats {
   /** Counting referrals whose referred user activated at the 'full' tier. */
@@ -36,6 +44,10 @@ export interface ReferralStats {
  * the referred user activated at. Qualification is derived from the referred
  * user's GitHub account age (joined via `referred_github_user_id`); referrals
  * with no GitHub identity never qualify (the join drops them).
+ *
+ * Includes the self-referral bump: the row where this user is themselves the
+ * referred party (`referred_id = referrerId`) counts too, at their own
+ * activation tier — see the module doc above.
  */
 export async function getReferralStats(params: {
   referrerId: string
@@ -49,7 +61,8 @@ export async function getReferralStats(params: {
     FROM referral_v2 r
     JOIN referral_qualification q
       ON q.github_user_id = r.referred_github_user_id
-    WHERE r.referrer_id = ${params.referrerId}
+    WHERE (r.referrer_id = ${params.referrerId}
+           OR r.referred_id = ${params.referrerId})
       AND r.activated_at IS NOT NULL
       AND r.revoked_at IS NULL
       AND q.github_account_created_at

@@ -1,5 +1,5 @@
 import {
-  MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+  MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
   isGithubAccountOldEnoughForReferral,
 } from '@codebuff/common/constants/freebuff-referral-tiers'
 import { getReferralQualification } from '@codebuff/billing'
@@ -16,17 +16,19 @@ export const runtime = 'nodejs'
  * Live referral eligibility for the signed-in visitor of /get-started, so the
  * onboarding card can tell them whether the invite they're claiming will count.
  *
- * The bright line for the headline reward (GLM 5.2) is just: a linked GitHub
- * account that is at least a year old. We deliberately ignore the CLI program's
- * extra public-repo requirement here — the page only promises the "connect
- * GitHub + 1-year-old account" rule the user sees.
+ * The bright line for the headline reward (GLM 5.2) is a linked GitHub account
+ * that is at least MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL months old (the
+ * unified bar). `qualifies` only reflects this age check — the referral still
+ * requires the friend to ACTIVATE by using a product, which can't have happened
+ * yet on /get-started, so the card frames it as "use Freebuff to unlock", not
+ * "unlocked".
  */
 export type ReferralEligibilityData = {
   /** Whether the visitor is signed in at all. */
   signedIn: boolean
   /** Whether a GitHub account is linked to the signed-in user. */
   githubLinked: boolean
-  /** True once we know the GitHub account is at least a year old. */
+  /** True once we know the GitHub account passes the age bar (still needs use). */
   qualifies: boolean
   /** False when we couldn't read the account age (e.g. GitHub API hiccup). */
   accountAgeKnown: boolean
@@ -44,7 +46,7 @@ export async function GET() {
       githubLinked: false,
       qualifies: false,
       accountAgeKnown: false,
-      minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+      minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
     } satisfies ReferralEligibilityData)
   }
 
@@ -70,7 +72,7 @@ export async function GET() {
       ? isGithubAccountOldEnoughForReferral(
           accountCreatedAt.getTime(),
           Date.now(),
-          MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+          MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
         )
       : false
 
@@ -79,7 +81,7 @@ export async function GET() {
       githubLinked,
       qualifies,
       accountAgeKnown: accountCreatedAt != null,
-      minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+      minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
     } satisfies ReferralEligibilityData)
   } catch (error) {
     // Don't fail the page on a GitHub/DB hiccup: report "signed in, age
@@ -90,7 +92,7 @@ export async function GET() {
       githubLinked: true,
       qualifies: false,
       accountAgeKnown: false,
-      minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_GLM,
+      minMonths: MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL,
     } satisfies ReferralEligibilityData)
   }
 }

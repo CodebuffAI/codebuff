@@ -140,7 +140,7 @@ function BenefitsStrip() {
         <Benefit
           icon={<Terminal className="h-4 w-4" />}
           title="GLM 5.2 in the CLI"
-          desc="The most powerful open-source model — earn weekly sessions for every friend who joins."
+          desc="The most powerful open-source model — earn weekly sessions for every friend who joins and starts using Freebuff."
         />
         <Benefit
           icon={<Sparkles className="h-4 w-4" />}

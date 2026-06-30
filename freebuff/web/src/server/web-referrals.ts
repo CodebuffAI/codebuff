@@ -1,7 +1,7 @@
 import {
   evaluateGlmReferralForReferredUser,
   evaluateWebReferralForReferredUser,
-  getReferralScore,
+  getWebReferralScore,
   recordReferralV2Attribution,
   redeemReferralCode,
 } from '@codebuff/billing'
@@ -22,7 +22,7 @@ export interface SyncWebReferralDeps {
   recordReferralV2Attribution: typeof recordReferralV2Attribution
   evaluateWebReferralForReferredUser: typeof evaluateWebReferralForReferredUser
   evaluateGlmReferralForReferredUser: typeof evaluateGlmReferralForReferredUser
-  getReferralScore: typeof getReferralScore
+  getWebReferralScore: typeof getWebReferralScore
 }
 
 const defaultSyncWebReferralDeps: SyncWebReferralDeps = {
@@ -32,7 +32,7 @@ const defaultSyncWebReferralDeps: SyncWebReferralDeps = {
   recordReferralV2Attribution,
   evaluateWebReferralForReferredUser,
   evaluateGlmReferralForReferredUser,
-  getReferralScore,
+  getWebReferralScore,
 }
 
 /**
@@ -132,5 +132,5 @@ export async function syncWebReferralState(params: {
       }),
   ])
 
-  return deps.getReferralScore({ userId, program: 'web' })
+  return deps.getWebReferralScore({ userId })
 }

@@ -497,7 +497,7 @@ export default function GeneralSettingsPage() {
           <SettingsSection
             id="sign-in-methods"
             title="Sign-in methods"
-            description="Link GitHub and Google so you can sign in with either and always land on this same account. Linking GitHub also lets you qualify for referral bonuses."
+            description="Link GitHub and Google so you can sign in with either and always land on this same account. Linking GitHub also lets a referral you were invited through count once you use Freebuff."
           >
             <SignInMethodsSection />
           </SettingsSection>

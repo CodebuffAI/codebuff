@@ -64,7 +64,7 @@ interface ReferralStatus {
     status: "pending" | "completed";
     createdAt: number;
     /** Why a pending signup hasn't qualified yet; null when qualified or just awaiting verification. */
-    blockedReason: "no_github" | "account_too_new" | null;
+    blockedReason: "no_github" | "account_too_new" | "needs_activation" | null;
   }[];
   leaderboard: ReferralLeaderboardEntry[];
 }
@@ -84,7 +84,7 @@ const ACTION_BADGE_CLASS =
 function describeReferral(
   referral: {
     status: "pending" | "completed";
-    blockedReason: "no_github" | "account_too_new" | null;
+    blockedReason: "no_github" | "account_too_new" | "needs_activation" | null;
   },
   minGithubAccountAgeMonths: number,
 ): {
@@ -111,8 +111,18 @@ function describeReferral(
     case "account_too_new":
       return {
         label: "GitHub too new",
-        detail: `Their GitHub account is under ${minGithubAccountAgeMonths} months old. It'll qualify automatically once it's old enough and they sign in again.`,
+        detail: `Their GitHub account is under ${minGithubAccountAgeMonths} months old. Once it's old enough and they've used Freebuff, the referral counts.`,
         variant: "secondary",
+      };
+    // GitHub checks pass, but the referral only counts once the friend actually
+    // uses a product — the one thing the referrer can nudge here.
+    case "needs_activation":
+      return {
+        label: "Needs to use Freebuff",
+        detail:
+          "Their GitHub account qualifies — the referral counts once they send their first message in any Freebuff product.",
+        variant: "secondary",
+        badgeClass: ACTION_BADGE_CLASS,
       };
     default:
       return {
@@ -204,10 +214,13 @@ export default function ReferralsPage() {
               Share Freebuff. Unlock more daily usage.
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              A referral qualifies when your friend signs up with a GitHub
-              account that's at least {status?.minGithubAccountAgeMonths ?? 4}{" "}
-              months old. Qualified referrals unlock higher message limits and
-              Freebuff Web perks.
+              A referral counts when your friend signs up with a GitHub account
+              that's at least {status?.minGithubAccountAgeMonths ?? 4} months old{" "}
+              <span className="font-medium text-foreground">
+                and uses Freebuff
+              </span>{" "}
+              — signing up alone isn't enough. Counted referrals unlock higher
+              message limits and Freebuff Web perks.
             </p>
           </div>
 
@@ -383,8 +396,8 @@ export default function ReferralsPage() {
             <CardTitle>Recent signups</CardTitle>
             <CardDescription>
               Signups through your link stay pending until your friend's GitHub
-              account passes the age and one-time bonus checks. We re-check each
-              time they sign in — the status below shows what's still needed.
+              account passes the age check and they've used Freebuff at least
+              once. The status below shows what's still needed.
             </CardDescription>
           </CardHeader>
           <CardContent>

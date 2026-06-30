@@ -49,7 +49,7 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
       calls.evalGlm++
       return { outcome: 'no_pending_referral' as const }
     },
-    getReferralScore: async () => {
+    getWebReferralScore: async () => {
       calls.score++
       return 0
     },
@@ -80,7 +80,7 @@ describe('syncWebReferralState', () => {
         // Route Handler. The fix swallows this so redemption isn't aborted.
         throw new Error('Cookies can only be modified in a Server Action')
       },
-      getReferralScore: async () => {
+      getWebReferralScore: async () => {
         calls.score++
         return 3
       },

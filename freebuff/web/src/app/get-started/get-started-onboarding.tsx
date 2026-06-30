@@ -15,6 +15,7 @@ import posthog from 'posthog-js'
 import { useEffect, useState } from 'react'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL } from '@codebuff/common/constants/freebuff-referral-tiers'
 
 import type { ReferralEligibilityData } from '../api/web/referral-eligibility/route'
 
@@ -154,8 +155,9 @@ function SignedOut() {
           />
         </div>
         <p className="px-1 text-xs leading-relaxed text-white/45">
-          If your account is at least a year old, you and your inviter both
-          unlock GLM 5.2.
+          If your GitHub account is at least{' '}
+          {MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL} months old, you and your
+          inviter both unlock GLM 5.2 once you start using Freebuff.
         </p>
 
         <div className="flex items-center gap-3 py-1">
@@ -183,7 +185,7 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
         tone="action"
         icon={<Github className="h-5 w-5" />}
         title="Connect GitHub to unlock GLM 5.2"
-        body="You're signed in with Google. Connect a GitHub account that's at least a year old, and you and your inviter both unlock it."
+        body={`You're signed in with Google. Connect a GitHub account that's at least ${MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL} months old, then start using Freebuff — that's when you and your inviter both unlock it.`}
         action={
           <Button
             onClick={() => {
@@ -210,7 +212,8 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
       <StatusCard
         tone="success"
         icon={<ShieldCheck className="h-5 w-5" />}
-        title="GLM 5.2 unlocked — for you and your inviter"
+        title="You're eligible for GLM 5.2"
+        body="Your GitHub account qualifies. Install Freebuff and send your first message — that unlocks GLM 5.2 for you and your inviter."
       >
         <InstallBlock />
       </StatusCard>
@@ -222,8 +225,8 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
       <StatusCard
         tone="warn"
         icon={<TriangleAlert className="h-5 w-5" />}
-        title="Your GitHub account is under a year old"
-        body="GLM 5.2 needs a GitHub account at least a year old, so this invite won't unlock it yet — but Freebuff is still free. Install it and start coding."
+        title={`Your GitHub account is under ${eligibility.minMonths} months old`}
+        body={`GLM 5.2 needs a GitHub account at least ${eligibility.minMonths} months old, so this invite won't unlock it yet — but Freebuff is still free. Install it and start coding.`}
       >
         <InstallBlock />
       </StatusCard>
@@ -236,7 +239,7 @@ function SignedIn({ eligibility }: { eligibility: ReferralEligibilityData }) {
       tone="neutral"
       icon={<Check className="h-5 w-5" />}
       title="You're signed in"
-      body="Install Freebuff and start coding for free. If your GitHub account is at least a year old, you and your inviter both unlock GLM 5.2 automatically."
+      body={`Install Freebuff and start coding for free. If your GitHub account is at least ${eligibility.minMonths} months old, you and your inviter both unlock GLM 5.2 once you start using it.`}
     >
       <InstallBlock />
     </StatusCard>
