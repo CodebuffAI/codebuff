@@ -135,10 +135,12 @@ async function main() {
     // instead of aborting the whole backfill (it's idempotent, so re-running
     // picks up where it left off).
     try {
+      // db.execute returns timestamp columns as strings; coerce to Date before
+      // they hit the drizzle timestamp insert (which calls .toISOString()).
       const created = await recordReferralV2Attribution({
         referrerId: p.referrer_id,
         referredId: p.referred_id,
-        now: p.created_at,
+        now: new Date(p.created_at),
       })
       if (created) attributed++
       const tier = backfillTier(p)
@@ -146,7 +148,7 @@ async function main() {
         await recordReferralV2Activation({
           referredId: p.referred_id,
           accessTier: tier,
-          now: p.first_admit ?? p.created_at,
+          now: new Date(p.first_admit ?? p.created_at),
         })
         activated++
       }
