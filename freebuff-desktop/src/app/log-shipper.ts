@@ -26,7 +26,7 @@ let flushing = false
 
 function apiBaseUrl(): string {
   return (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
   ).replace(/\/$/, '')
 }
 
