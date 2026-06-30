@@ -267,12 +267,12 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // It stays in SUPPORTED_FREEBUFF_MODELS so the session/chat layers accept it as
 // a valid model id once the user's weekly entitlement admits them.
 export const FREEBUFF_MODELS = [
+  MINIMAX_M3_MODEL,
   DEEPSEEK_V4_PRO_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_PRO_MODEL] : []),
   KIMI_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
-  MINIMAX_M3_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 export const FREEBUFF_PREMIUM_MODEL_IDS = [

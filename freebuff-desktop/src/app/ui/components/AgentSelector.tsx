@@ -81,7 +81,6 @@ export function AgentPicker({
                     <span className="agent-option-model"> · {o.modelLabel}</span>
                   )}
                 </span>
-                <span className="agent-option-desc">{o.description}</span>
               </span>
               {o.id === resolvedId && <Icon name="check" />}
             </button>

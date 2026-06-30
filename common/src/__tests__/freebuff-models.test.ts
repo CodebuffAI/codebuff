@@ -173,11 +173,8 @@ describe('freebuff model availability', () => {
     expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'full'),
     ).toBe(true)
-    // Pickers split sections by the premium flag while preserving array order,
-    // so "last unlimited entry" means last in FREEBUFF_MODELS overall.
-    expect(FREEBUFF_MODELS[FREEBUFF_MODELS.length - 1]!.id).toBe(
-      MINIMAX_M3_MODEL_ID,
-    )
+    // MiniMax M3 is the recommended default, so it leads the picker list.
+    expect(FREEBUFF_MODELS[0]!.id).toBe(MINIMAX_M3_MODEL_ID)
   })
 
   test('limited access exposes DeepSeek V4 Flash and non-Pro MiMo 2.5', () => {
