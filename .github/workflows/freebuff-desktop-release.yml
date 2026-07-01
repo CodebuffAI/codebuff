@@ -171,7 +171,7 @@ jobs:
         with:
           tag_name: freebuff-desktop-v${{ needs.prepare-and-commit.outputs.new_version }}
           name: Freebuff Desktop v${{ needs.prepare-and-commit.outputs.new_version }}
-          prerelease: false
+          prerelease: true
           body: |
             ## Freebuff Desktop v${{ needs.prepare-and-commit.outputs.new_version }}
 
