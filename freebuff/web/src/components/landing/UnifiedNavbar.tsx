@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Cloud, MessageCircle } from 'lucide-react'
+import { Cloud, MessageCircle, Monitor } from 'lucide-react'
 import type { ReactNode, RefObject } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -21,6 +21,13 @@ import { TooltipProvider } from '@/vly/components/ui/tooltip'
 const PRODUCT_LINKS = [
   { label: 'CLI', href: '/cli' },
   { label: 'Web', href: '/web' },
+  {
+    label: 'Desktop',
+    href: '/desktop',
+    icon: <Monitor className="h-4 w-4" />,
+    badge: 'beta',
+    mobileIconOnly: true,
+  },
   {
     label: 'Cloud',
     href: '/cloud',
