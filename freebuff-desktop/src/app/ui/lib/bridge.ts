@@ -31,6 +31,9 @@ export interface FreebuffDesktopBridge {
   getPathForFile: (file: File) => string
   /** Native open dialog (files AND folders, multi-select). */
   pickAttachments: () => Promise<PickedAttachment[]>
+  /** Native folder chooser for the project picker; resolves to the chosen
+   *  absolute path, or null when the user cancels. */
+  pickDirectory: () => Promise<string | null>
   /** Write pasted image bytes to a temp file so they attach like any other file. */
   saveClipboardImage: (
     bytes: Uint8Array,

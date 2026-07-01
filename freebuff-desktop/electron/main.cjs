@@ -328,6 +328,19 @@ ipcMain.handle('dialog:pickAttachments', async () => {
   })
 })
 
+// Project picker → native folder chooser. Lets the user jump anywhere (home,
+// favorites, type a path) instead of drilling the in-app browser from wherever
+// it happens to start. Returns the chosen absolute path, or null on cancel.
+ipcMain.handle('dialog:pickDirectory', async () => {
+  if (!mainWindow) return null
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open a project folder',
+    buttonLabel: 'Open',
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  return res.canceled || res.filePaths.length === 0 ? null : res.filePaths[0]
+})
+
 // Paste-to-attach: a pasted screenshot has no file path, so the renderer hands us
 // the raw bytes and we write them to a temp file the attachment pipeline can read.
 // `ext` is sanitized to a short alnum token. Returns { path, name } or null.

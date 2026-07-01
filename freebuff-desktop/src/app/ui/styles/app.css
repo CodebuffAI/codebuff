@@ -1858,6 +1858,11 @@ body.col-resizing {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
+.picker-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 /* Recents strip: surfaces the MRU list above the folder tree so returning
    users can re-open a previous project with one click. Hidden until the
    list has at least one entry (the fetch may take a tick on a cold start). */

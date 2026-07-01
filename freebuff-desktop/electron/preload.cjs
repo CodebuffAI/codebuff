@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld('freebuffDesktop', {
   // Native open dialog for the paperclip button — files AND folders, multi-select.
   // Resolves to [{ path, name, isDirectory }] (the main process stats each pick).
   pickAttachments: () => ipcRenderer.invoke('dialog:pickAttachments'),
+  // Native folder chooser for the project picker. Resolves to the chosen
+  // absolute path, or null when the user cancels.
+  pickDirectory: () => ipcRenderer.invoke('dialog:pickDirectory'),
   // Write pasted image bytes (a screenshot has no path) to a temp file so it can be
   // attached like any other file. Resolves to { path, name } or null on failure.
   saveClipboardImage: (bytes, ext) => ipcRenderer.invoke('clipboard:saveImage', { bytes, ext }),

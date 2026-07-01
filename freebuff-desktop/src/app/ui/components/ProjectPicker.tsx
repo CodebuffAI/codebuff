@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { bridge } from '../lib/bridge'
 import { useDismissable } from '../hooks/useDismissable'
 import { api } from '../lib/api'
 import { useStore } from '../store/store'
@@ -54,9 +55,15 @@ export function ProjectPicker({
       .finally(() => setLoading(false))
   }
 
-  // Start at the parent of the current tab's project so it's one click away.
+  // Opening a new project starts at Home — familiar, and avoids landing in
+  // whatever transient dir the last project happened to live in. Changing an
+  // existing tab's folder starts next to its current repo so the sibling repo
+  // is one click away. `load(undefined)` browses the home directory.
   useEffect(() => {
-    const start = startPath ? startPath.replace(/[/\\][^/\\]+$/, '') : undefined
+    const start =
+      threadId && startPath
+        ? startPath.replace(/[/\\][^/\\]+$/, '')
+        : undefined
     load(start || undefined)
   }, [])
 
@@ -82,6 +89,15 @@ export function ProjectPicker({
     setOpening(false)
   }
 
+  // Native OS folder chooser (Electron only) — the fastest way to reach a repo
+  // anywhere on disk without drilling the in-app tree. Falls through to the
+  // normal open flow, which validates that the pick is a git repo.
+  const canBrowseNative = !!bridge()?.pickDirectory
+  const browseNative = async () => {
+    const picked = await bridge()?.pickDirectory()
+    if (picked) await open(picked)
+  }
+
   const openRecent = async (path: string) => {
     setOpeningRecent(path)
     await pick(path)
@@ -93,9 +109,16 @@ export function ProjectPicker({
       <div className="modal picker" onClick={(e) => e.stopPropagation()}>
         <div className="picker-head">
           <span className="picker-title">{threadId ? "Change this tab’s folder" : 'Open a project folder'}</span>
-          <button className="head-btn" onClick={onClose} title="Close">
-            <Icon name="x" />
-          </button>
+          <div className="picker-head-actions">
+            {canBrowseNative && (
+              <button className="btn" onClick={browseNative} disabled={opening} title="Choose a folder with the system dialog">
+                Browse…
+              </button>
+            )}
+            <button className="head-btn" onClick={onClose} title="Close">
+              <Icon name="x" />
+            </button>
+          </div>
         </div>
 
         {visibleRecents.length > 0 && (
@@ -128,6 +151,13 @@ export function ProjectPicker({
             title="Parent folder"
           >
             <Icon name="left" />
+          </button>
+          <button
+            className="btn"
+            onClick={() => load()}
+            title="Go to your home folder"
+          >
+            Home
           </button>
           <span className="picker-cwd" title={listing?.path}>
             {listing?.path ?? '…'}
