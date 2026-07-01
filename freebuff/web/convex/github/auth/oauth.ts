@@ -49,7 +49,13 @@ export const initiateGitHubAuth = action({
     if (!identity) {
       throw new Error("Your session has expired. Please sign in again to connect GitHub.");
     }
-    const user = await getAuthUser(ctx);
+    let user = await getAuthUser(ctx);
+    // Cloud can hit this action before a Convex user row is linked/created.
+    // Self-heal by creating the user record on-demand instead of throwing.
+    if (!user) {
+      const userId = await ctx.runMutation(api.users.getOrCreateSignedInUser, {});
+      user = await ctx.runQuery(internal.users.get, { userId });
+    }
     if (!user) {
       throw new Error("User account not found. Please sign out and sign in again.");
     }

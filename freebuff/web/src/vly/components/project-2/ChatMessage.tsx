@@ -953,6 +953,71 @@ const AssistantMessageContent: React.FC<{
   );
 };
 
+const getMessageStateSignature = (message: Message) => {
+  const state = message.message_state;
+  if (!state) return "";
+  return `${state.status ?? ""}:${state.message ?? ""}:${state.color ?? ""}:${state.timestamp ?? ""}`;
+};
+
+const getMessageRenderSignature = (message: Message) => {
+  const images = message.images?.join(",") ?? "";
+  const integrationRefs =
+    ((message as any).integration_references as string[] | undefined)?.join(
+      ",",
+    ) ?? "";
+  const fastReturnPreview =
+    ((message as any).fast_return_preview as string | undefined) ?? "";
+  const optionalCore = ((message as MessageWithOptionalCore).core_message ??
+    "") as string;
+
+  return [
+    message.role,
+    message.date,
+    message.content ?? "",
+    optionalCore,
+    message.commit_hash ?? "",
+    message.streaming ? "1" : "0",
+    getMessageStateSignature(message),
+    (message as any).has_execution_details ? "1" : "0",
+    (message as any).has_thinking ? "1" : "0",
+    (message as any).has_usage ? "1" : "0",
+    images,
+    integrationRefs,
+    fastReturnPreview,
+  ].join("|");
+};
+
+const areChatMessagePropsEqual = (
+  prev: ChatMessageProps,
+  next: ChatMessageProps,
+) => {
+  if (prev.message._id !== next.message._id) return false;
+
+  if (
+    getMessageRenderSignature(prev.message) !==
+    getMessageRenderSignature(next.message)
+  ) {
+    return false;
+  }
+
+  if (prev.shouldShowLoadingState !== next.shouldShowLoadingState) return false;
+
+  if (
+    (prev.shouldShowLoadingState || next.shouldShowLoadingState) &&
+    prev.loadingActivityKey !== next.loadingActivityKey
+  ) {
+    return false;
+  }
+
+  if (!!prev.onRollback !== !!next.onRollback) return false;
+
+  if (prev.projectSemanticIdentifier !== next.projectSemanticIdentifier) {
+    return false;
+  }
+
+  return true;
+};
+
 const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   message,
   onRollback,
@@ -1002,4 +1067,4 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   );
 };
 
-export const ChatMessage = ChatMessageComponent;
+export const ChatMessage = React.memo(ChatMessageComponent, areChatMessagePropsEqual);
