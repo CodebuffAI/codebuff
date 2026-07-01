@@ -8,7 +8,11 @@ import { getAuthUser } from './users'
 import type { Id } from './_generated/dataModel'
 
 const FREEBUFF_FROM_EMAIL = 'Freebuff Reports <james@mail.freebuff.app>'
-const ISSUE_REPORT_RECIPIENTS = ['victor@codebuff.com', 'victor@vly.ai']
+const ISSUE_REPORT_RECIPIENTS = [
+  'victor@codebuff.com',
+  'victor@vly.ai',
+  'harsh@vly.ai',
+]
 const MAX_ISSUE_LENGTH = 5000
 
 type SubmitIssueReportResult = {
