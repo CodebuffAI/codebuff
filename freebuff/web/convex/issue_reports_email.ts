@@ -4,6 +4,10 @@ import { Resend } from 'resend'
 import { v } from 'convex/values'
 import { action } from './_generated/server'
 import { internal } from './_generated/api'
+import {
+  issueCategoryLabel,
+  issueCategoryValidator,
+} from './issue_reports'
 import { getAuthUser } from './users'
 import type { Id } from './_generated/dataModel'
 
@@ -14,11 +18,19 @@ const ISSUE_REPORT_RECIPIENTS = [
   'harsh@vly.ai',
 ]
 const MAX_ISSUE_LENGTH = 5000
+const MAX_REPRODUCTION_LENGTH = 5000
+const MAX_LOGS_LENGTH = 10000
 
 type SubmitIssueReportResult = {
   reportId: Id<'issue_reports'>
   emailSent: boolean
   emailError?: string
+}
+
+type ThreadContextMessage = {
+  role: string
+  content: string
+  date?: number
 }
 
 function clampSeverity(severity: number): number {
@@ -43,12 +55,62 @@ function isLikelyEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+function projectLink(
+  source: 'chat' | 'cloud',
+  semanticIdentifier?: string,
+  pageUrl?: string,
+): string | null {
+  if (pageUrl) return pageUrl
+  if (!semanticIdentifier) return null
+  const base =
+    source === 'cloud'
+      ? `https://freebuff.com/cloud/project/${semanticIdentifier}`
+      : `https://freebuff.com/web/project/${semanticIdentifier}`
+  return base
+}
+
+function formatThreadContext(messages: ThreadContextMessage[]): string[] {
+  if (messages.length === 0) return []
+  return [
+    '',
+    'Recent thread messages:',
+    ...messages.map((message) => {
+      const timestamp = message.date
+        ? new Date(message.date).toISOString()
+        : 'unknown time'
+      return `[${message.role} @ ${timestamp}]\n${message.content}`
+    }),
+  ]
+}
+
+function renderThreadContextHtml(messages: ThreadContextMessage[]): string {
+  if (messages.length === 0) return ''
+  return `
+    <h3 style="margin: 20px 0 8px;">Recent thread messages</h3>
+    ${messages
+      .map((message) => {
+        const timestamp = message.date
+          ? new Date(message.date).toLocaleString()
+          : 'unknown time'
+        return `<div style="margin-bottom: 10px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #fafafa;">
+          <div style="font-size: 12px; color: #6b7280; margin-bottom: 6px;"><strong>${escapeHtml(message.role)}</strong> · ${escapeHtml(timestamp)}</div>
+          <div style="white-space: pre-wrap; font-size: 13px;">${escapeHtml(message.content)}</div>
+        </div>`
+      })
+      .join('')}
+  `
+}
+
 export const submitIssueReport = action({
   args: {
     replyEmail: v.string(),
     reportType: v.union(v.literal('bug'), v.literal('feature_request')),
     severity: v.number(),
     issue: v.string(),
+    category: v.optional(issueCategoryValidator),
+    reproductionSteps: v.optional(v.string()),
+    additionalLogs: v.optional(v.string()),
+    screenshotIds: v.optional(v.array(v.id('_storage'))),
     source: v.union(v.literal('chat'), v.literal('cloud')),
     pageUrl: v.optional(v.string()),
     userAgent: v.optional(v.string()),
@@ -77,6 +139,26 @@ export const submitIssueReport = action({
       throw new Error('Describe the issue before sending')
     }
 
+    const reproductionSteps = args.reproductionSteps
+      ? truncate(args.reproductionSteps.trim(), MAX_REPRODUCTION_LENGTH)
+      : undefined
+    const additionalLogs = args.additionalLogs
+      ? truncate(args.additionalLogs.trim(), MAX_LOGS_LENGTH)
+      : undefined
+    const screenshotIds = args.screenshotIds ?? []
+
+    if (args.reportType === 'bug') {
+      if (!args.category) {
+        throw new Error('Select a bug category')
+      }
+      if (!reproductionSteps) {
+        throw new Error('Describe how to reproduce the bug')
+      }
+      if (screenshotIds.length === 0) {
+        throw new Error('Attach at least one screenshot of the issue')
+      }
+    }
+
     const severity = clampSeverity(args.severity)
     const reportId: Id<'issue_reports'> = await ctx.runMutation(
       internal.issue_reports.insertIssueReport,
@@ -88,6 +170,10 @@ export const submitIssueReport = action({
         reportType: args.reportType,
         severity,
         issue,
+        category: args.category,
+        reproductionSteps,
+        additionalLogs,
+        screenshotIds: screenshotIds.length > 0 ? screenshotIds : undefined,
         source: args.source,
         pageUrl: args.pageUrl,
         userAgent: args.userAgent,
@@ -108,13 +194,46 @@ export const submitIssueReport = action({
       return { reportId, emailSent: false, emailError }
     }
 
+    const [recentMessages, screenshotUrls] = await Promise.all([
+      ctx.runQuery(internal.issue_reports.getRecentThreadContext, {
+        source: args.source,
+        threadId: args.threadId,
+        limit: 6,
+      }),
+      screenshotIds.length > 0
+        ? ctx.runQuery(internal.issue_reports.getScreenshotUrls, {
+            screenshotIds,
+          })
+        : Promise.resolve([]),
+    ])
+
+    const validScreenshotUrls = screenshotUrls.filter(
+      (url): url is string => typeof url === 'string' && url.length > 0,
+    )
+
     const reportLabel =
       args.reportType === 'feature_request' ? 'Feature request' : 'Bug report'
     const scaleLabel =
       args.reportType === 'feature_request' ? 'Urgency' : 'Severity'
-    const subject = `[Freebuff ${reportLabel.toLowerCase()} ${severity}/10] ${args.source}`
+    const categoryLabel =
+      args.reportType === 'bug'
+        ? issueCategoryLabel(args.category)
+        : undefined
+    const link = projectLink(
+      args.source,
+      args.projectSemanticIdentifier,
+      args.pageUrl,
+    )
+
+    const subjectParts = [
+      `[Freebuff ${reportLabel.toLowerCase()} ${severity}/10]`,
+      categoryLabel ?? args.source,
+    ]
+    const subject = subjectParts.join(' · ')
+
     const contextLines = [
       `Type: ${reportLabel}`,
+      categoryLabel ? `Category: ${categoryLabel}` : null,
       `${scaleLabel}: ${severity}/10`,
       `Source: ${args.source}`,
       `Reply email: ${replyEmail}`,
@@ -122,17 +241,45 @@ export const submitIssueReport = action({
       args.projectSemanticIdentifier
         ? `Project: ${args.projectSemanticIdentifier}`
         : null,
+      link ? `Project link: ${link}` : null,
       args.threadId ? `Thread: ${args.threadId}` : null,
-      args.pageUrl ? `URL: ${args.pageUrl}` : null,
+      args.pageUrl ? `Page URL: ${args.pageUrl}` : null,
+      args.userAgent ? `User agent: ${args.userAgent}` : null,
     ].filter(Boolean)
+
+    const detailSections =
+      args.reportType === 'bug'
+        ? [
+            '',
+            'What is the bug?',
+            issue,
+            '',
+            'How to reproduce:',
+            reproductionSteps ?? '',
+            additionalLogs
+              ? ''
+              : null,
+            additionalLogs ? 'Additional logs / context:' : null,
+            additionalLogs ?? null,
+          ].filter((line): line is string => line !== null)
+        : ['', 'Request:', issue]
+
+    const screenshotLines =
+      validScreenshotUrls.length > 0
+        ? [
+            '',
+            'Screenshots:',
+            ...validScreenshotUrls.map((url, index) => `${index + 1}. ${url}`),
+          ]
+        : []
 
     const text = [
       `New Freebuff ${reportLabel.toLowerCase()}`,
       '',
       ...contextLines,
-      '',
-      'Issue:',
-      issue,
+      ...detailSections,
+      ...screenshotLines,
+      ...formatThreadContext(recentMessages),
     ].join('\n')
 
     const html = `
@@ -142,11 +289,46 @@ export const submitIssueReport = action({
           ${contextLines
             .map((line) => {
               const [label, ...rest] = String(line).split(': ')
-              return `<tr><td style="padding: 3px 12px 3px 0; color: #555;">${escapeHtml(label)}</td><td style="padding: 3px 0;">${escapeHtml(rest.join(': '))}</td></tr>`
+              const value = rest.join(': ')
+              const linkedValue =
+                label === 'Project link' && value
+                  ? `<a href="${escapeHtml(value)}" style="color: #2563eb;">${escapeHtml(value)}</a>`
+                  : escapeHtml(value)
+              return `<tr><td style="padding: 3px 12px 3px 0; color: #555; vertical-align: top;">${escapeHtml(label)}</td><td style="padding: 3px 0;">${linkedValue}</td></tr>`
             })
             .join('')}
         </table>
-        <div style="white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa;">${escapeHtml(issue)}</div>
+        ${
+          args.reportType === 'bug'
+            ? `
+              <h3 style="margin: 0 0 8px;">What is the bug?</h3>
+              <div style="white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; margin-bottom: 16px;">${escapeHtml(issue)}</div>
+              <h3 style="margin: 0 0 8px;">How to reproduce</h3>
+              <div style="white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; margin-bottom: 16px;">${escapeHtml(reproductionSteps ?? '')}</div>
+              ${
+                additionalLogs
+                  ? `<h3 style="margin: 0 0 8px;">Additional logs / context</h3>
+                     <div style="white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; margin-bottom: 16px;">${escapeHtml(additionalLogs)}</div>`
+                  : ''
+              }
+            `
+            : `<h3 style="margin: 0 0 8px;">Request</h3>
+               <div style="white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fafafa; margin-bottom: 16px;">${escapeHtml(issue)}</div>`
+        }
+        ${
+          validScreenshotUrls.length > 0
+            ? `<h3 style="margin: 0 0 8px;">Screenshots</h3>
+               <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                 ${validScreenshotUrls
+                   .map(
+                     (url) =>
+                       `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(url)}" alt="Bug screenshot" style="max-width: 100%; border: 1px solid #ddd; border-radius: 8px;" /></a>`,
+                   )
+                   .join('')}
+               </div>`
+            : ''
+        }
+        ${renderThreadContextHtml(recentMessages)}
       </div>
     `
 

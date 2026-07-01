@@ -111,7 +111,7 @@ export function UnifiedNavbar({
       <motion.div
         style={{ y }}
         className={cn(
-          'relative flex items-center justify-between gap-3',
+          'relative flex min-w-0 items-center justify-between gap-2 sm:gap-3',
           containerClassName ??
             'mx-auto max-w-6xl px-6 py-4 sm:px-10 lg:px-12',
         )}
@@ -119,7 +119,7 @@ export function UnifiedNavbar({
         {/* Left cluster: brand (→ home) + optional page tabs */}
         <motion.div
           style={{ scale }}
-          className="flex min-w-0 origin-left items-center gap-1.5 sm:gap-3"
+          className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2 lg:gap-3"
         >
           {brand ?? <DefaultBrand />}
           {leftNav}
@@ -128,7 +128,7 @@ export function UnifiedNavbar({
         {/* Right cluster: unified product links · socials · account */}
         <motion.div
           style={{ scale }}
-          className="flex flex-shrink-0 origin-right items-center gap-2 sm:gap-3"
+          className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-3"
         >
           <TooltipProvider delayDuration={200}>
             {rightExtras}
@@ -183,7 +183,7 @@ function ProductLinks({
           href={link.href}
           aria-current={isActive(link.href) ? 'page' : undefined}
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-[13px] transition-colors sm:px-3 sm:text-sm',
+            'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-2 text-[13px] transition-colors sm:px-2 lg:px-3 lg:text-sm',
             isActive(link.href)
               ? 'text-white'
               : 'text-white/55 hover:text-white',

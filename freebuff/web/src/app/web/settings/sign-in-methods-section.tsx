@@ -7,7 +7,6 @@ import { LINK_NO_MATCH_ERROR } from "@codebuff/auth/constants";
 
 import type { LinkedProvidersData } from "@/app/api/account/providers/route";
 
-import { Badge } from "@/vly/components/ui/badge";
 import { Button } from "@/vly/components/ui/button";
 import { clearLinkIntent, startProviderLink } from "@/lib/link-provider";
 
@@ -56,28 +55,30 @@ export function SignInMethodsSection() {
   const linked = new Set(providers ?? []);
 
   return (
-    <div className="space-y-3">
+    <div>
       {PROVIDERS.map((provider) => {
         const isLinked = linked.has(provider.id);
         return (
           <div
             key={provider.id}
-            className="flex items-center gap-4 rounded-md border border-border/50 bg-background p-3"
+            className="flex items-center gap-3 border-t border-border/60 py-4 first:border-t-0 first:pt-0"
           >
             <img
               src={`https://s2.googleusercontent.com/s2/favicons?domain=${provider.domain}&sz=64`}
-              width={20}
-              height={20}
-              className="size-5 rounded-full"
-              alt={`${provider.label} logo`}
+              width={18}
+              height={18}
+              className="size-[18px] rounded-full"
+              alt=""
             />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-[13px] font-medium text-foreground">
                 {provider.label}
               </p>
             </div>
             {providers === null ? null : isLinked ? (
-              <Badge variant="secondary">Connected</Badge>
+              <span className="text-[13px] text-muted-foreground">
+                Connected
+              </span>
             ) : (
               <Button
                 size="sm"

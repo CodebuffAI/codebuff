@@ -7,18 +7,9 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { useQuery } from "convex/react";
-import {
-  ArrowLeft,
-  Settings as SettingsIcon,
-  Activity,
-  Database,
-  KeyRound,
-  Github,
-  Rocket,
-  MessageCircle,
-  Loader,
-} from "lucide-react";
+import { ArrowLeft, Loader } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { cn } from "@/lib/utils";
 import { TopBar } from "@/vly/components/project-2/TopBar";
 import { getDirectPreviewUrl } from "@/vly/lib/project-preview-url";
 
@@ -44,22 +35,21 @@ const SECTIONS: {
   id: Section;
   group: string;
   label: string;
-  Icon: typeof SettingsIcon;
 }[] = [
-  { id: "general", group: "Project", label: "General", Icon: SettingsIcon },
-  { id: "usage", group: "Project", label: "Usage", Icon: Activity },
-  { id: "deployments", group: "Infrastructure", label: "Deployments", Icon: Rocket },
-  { id: "database", group: "Infrastructure", label: "Database", Icon: Database },
-  { id: "env", group: "Infrastructure", label: "Environment vars", Icon: KeyRound },
-  { id: "github", group: "Infrastructure", label: "GitHub sync", Icon: Github },
+  { id: "general", group: "Project", label: "General" },
+  { id: "usage", group: "Project", label: "Usage" },
+  { id: "deployments", group: "Infrastructure", label: "Deployments" },
+  { id: "database", group: "Infrastructure", label: "Database" },
+  { id: "env", group: "Infrastructure", label: "Environment vars" },
+  { id: "github", group: "Infrastructure", label: "GitHub sync" },
 ];
+
+const SECTION_GROUPS = ["Project", "Infrastructure"] as const;
 
 const EXTERNAL_LINKS = [
   {
-    group: "Help",
     label: "Discord",
     href: "https://discord.gg/yXG3w7wxfs",
-    Icon: MessageCircle,
   },
 ];
 
@@ -122,6 +112,23 @@ export default function ProjectSettingsPage() {
   }
 
   const fullWindowSection = section !== "general";
+  const activeLabel = SECTIONS.find((s) => s.id === section)?.label ?? "Settings";
+
+  const navButton = (id: Section, label: string) => (
+    <button
+      key={id}
+      onClick={() => setSection(id)}
+      className={cn(
+        "rounded-md px-3 py-1.5 text-left text-[13px] transition-colors",
+        section === id
+          ? "bg-foreground/10 text-foreground"
+          : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+      )}
+      aria-pressed={section === id}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
@@ -131,64 +138,91 @@ export default function ProjectSettingsPage() {
         <TopBar project={project} />
       </div>
 
-      <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-border/60 bg-background/95 px-3 py-2 backdrop-blur">
+      {/* Mobile section switcher */}
+      <div className="flex flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 px-3 py-2 md:hidden">
         <button
           type="button"
           onClick={goBack}
-          className="flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full bg-muted/50 px-3 text-xs font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Back to project"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Project
         </button>
-        <div className="h-5 w-px flex-shrink-0 bg-border/60" aria-hidden />
-        {SECTIONS.map(({ id, label, Icon }) => {
-          const isActive = section === id;
-          return (
-            <button
-              key={id}
-              onClick={() => setSection(id)}
-              className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
-                isActive
-                  ? "bg-primary/15 text-primary"
-                  : "bg-muted/30 text-foreground/85 hover:bg-muted hover:text-foreground"
-              }`}
-              aria-pressed={isActive}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          );
-        })}
-        {EXTERNAL_LINKS.map(({ label, href, Icon }) => (
-          <a
-            key={label}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full bg-muted/30 px-3 text-xs font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+        <div className="h-4 w-px flex-shrink-0 bg-border/60" aria-hidden />
+        {SECTIONS.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setSection(id)}
+            className={cn(
+              "flex-shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-xs transition-colors",
+              section === id
+                ? "bg-foreground/10 text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            <Icon className="h-3.5 w-3.5" />
             {label}
-          </a>
+          </button>
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <main className="h-full min-w-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Desktop sidebar */}
+        <aside className="hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border/60 px-3 py-4 md:flex">
+          <button
+            type="button"
+            onClick={goBack}
+            className="mb-4 flex items-center gap-1.5 px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to project
+          </button>
+          {SECTION_GROUPS.map((group) => (
+            <div key={group} className="mb-4">
+              <p className="mb-1 px-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                {group}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {SECTIONS.filter((s) => s.group === group).map((s) =>
+                  navButton(s.id, s.label),
+                )}
+              </div>
+            </div>
+          ))}
+          <div>
+            <p className="mb-1 px-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              Help
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {EXTERNAL_LINKS.map(({ label, href }) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <div
             className={
               fullWindowSection
                 ? "flex h-full w-full flex-col overflow-hidden p-3 sm:p-4"
-                : "mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-4 py-6 sm:px-6 sm:py-8"
+                : "mx-auto flex h-full w-full max-w-2xl flex-col overflow-y-auto px-5 py-8 sm:px-8 sm:py-10"
             }
           >
             {!fullWindowSection && (
-              <header className="mb-5 sm:mb-6">
-                <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
-                  {SECTIONS.find((s) => s.id === section)?.label ?? "Settings"}
+              <header className="mb-6">
+                <h1 className="text-[15px] font-medium text-foreground">
+                  {activeLabel}
                 </h1>
-                <p className="mt-1 truncate text-sm text-muted-foreground">
+                <p className="mt-1 truncate text-[13px] text-muted-foreground">
                   {project.name || project.semantic_identifier}
                 </p>
               </header>
@@ -233,13 +267,10 @@ function GeneralSection({
   >;
 }) {
   return (
-    <div className="space-y-4">
+    <div>
       <Field label="Project name" value={project.name ?? "—"} />
       <Field label="Identifier" value={project.semantic_identifier ?? "—"} />
-      <Field
-        label="Preview URL"
-        value={getDirectPreviewUrl(project) ?? "—"}
-      />
+      <Field label="Preview URL" value={getDirectPreviewUrl(project) ?? "—"} />
       <Field
         label="Created"
         value={
@@ -254,11 +285,11 @@ function GeneralSection({
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-card/60 p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
+    <div className="flex flex-col gap-1 border-t border-border/60 py-4 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+      <p className="text-[13px] font-medium text-foreground">{label}</p>
+      <p className="break-all text-[13px] text-muted-foreground sm:text-right">
+        {value}
       </p>
-      <p className="mt-1 break-words text-sm text-foreground">{value}</p>
     </div>
   );
 }

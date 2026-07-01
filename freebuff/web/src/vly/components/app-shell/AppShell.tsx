@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Cloud, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/vly/lib/utils'
 // NB: `@/components/*` is aliased to `src/vly/components/*`, so the shared
 // landing nav is imported relatively.
@@ -20,17 +20,24 @@ export interface AppShellNavItem {
   mobileIcon?: React.ReactNode
 }
 
-const NAV_ITEMS: AppShellNavItem[] = [
+export type AppShellSurface = 'web' | 'cloud'
+
+const WEB_NAV_ITEMS: AppShellNavItem[] = [
   { label: 'Projects', href: '/web', exact: true },
-  {
-    label: 'Cloud',
-    href: '/cloud',
-    mobileIcon: <Cloud className="h-4 w-4" />,
-  },
   { label: 'Community', href: '/web/community' },
   { label: 'Referrals', href: '/web/referrals' },
   { label: 'Settings', href: '/web/settings' },
 ]
+
+const CLOUD_NAV_ITEMS: AppShellNavItem[] = [
+  { label: 'Projects', href: '/cloud' },
+  { label: 'Referrals', href: '/web/referrals' },
+  { label: 'Settings', href: '/web/settings' },
+]
+
+function getNavItems(surface: AppShellSurface): AppShellNavItem[] {
+  return surface === 'cloud' ? CLOUD_NAV_ITEMS : WEB_NAV_ITEMS
+}
 
 function useIsActive() {
   const pathname = usePathname()
@@ -42,10 +49,11 @@ function useIsActive() {
 }
 
 /**
- * Consistent application shell for the Freebuff Web "logged-in app" surface:
- * Projects, Community, Settings. Navigation lives in a top tab bar (instead of
- * a left sidebar) so the content area gets the full width and the chrome stays
- * out of the way — minimal, borderless, dark.
+ * Consistent application shell for the Freebuff Web / Cloud "logged-in app"
+ * surfaces. Navigation lives in a top tab bar (instead of a left sidebar) so the
+ * content area gets the full width and the chrome stays out of the way — minimal,
+ * borderless, dark. Left tabs are surface-specific; product switching (CLI · Web ·
+ * Cloud · Chat) stays in the right cluster.
  *
  * `title` / `subtitle` are accepted for backwards-compatibility but are no
  * longer rendered: per-page headers were intentionally removed.
@@ -72,6 +80,7 @@ export function AppShell({
   brandName = 'Freebuff Web',
   brandHref = '/',
   brandBadge,
+  surface = 'web',
 }: {
   title?: React.ReactNode
   subtitle?: React.ReactNode
@@ -85,21 +94,24 @@ export function AppShell({
   brandName?: string
   brandHref?: string
   brandBadge?: React.ReactNode
+  /** Which product surface this shell wraps — controls left-tab items. */
+  surface?: AppShellSurface
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isActive = useIsActive()
   const mainRef = useRef<HTMLElement>(null)
+  const navItems = getNavItems(surface)
 
   const desktopTabs = (
-    <nav className="ml-1 hidden items-center sm:flex">
-      {NAV_ITEMS.map((item) => {
+    <nav className="ml-1 hidden min-w-0 items-center overflow-x-auto scrollbar-none md:flex">
+      {navItems.map((item) => {
         const active = isActive(item)
         return (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              'rounded-md px-2 py-2 text-[13px] transition-colors sm:px-3 sm:text-sm',
+              'whitespace-nowrap rounded-md px-2 py-2 text-[13px] transition-colors lg:px-3 lg:text-sm',
               active ? 'text-white' : 'text-white/55 hover:text-white',
             )}
             aria-current={active ? 'page' : undefined}
@@ -121,7 +133,7 @@ export function AppShell({
       aria-label={`${brandName} home`}
     >
       <FreebuffLogo size={28} />
-      <span className="hidden font-['Geist'] text-sm font-semibold tracking-tight text-white sm:inline">
+      <span className="hidden font-['Geist'] text-sm font-semibold tracking-tight text-white md:inline">
         {brandName}
       </span>
       {brandBadge ?? <BetaBadge />}
@@ -132,7 +144,7 @@ export function AppShell({
     <button
       type="button"
       onClick={() => setMenuOpen((v) => !v)}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:hidden"
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white md:hidden"
       aria-label="Toggle navigation"
       aria-expanded={menuOpen}
     >
@@ -175,8 +187,8 @@ export function AppShell({
 
       {/* ── Mobile nav menu ──────────────────────────────────────────── */}
       {menuOpen && (
-        <div className="relative z-30 flex flex-col gap-0.5 px-3 pb-2 sm:hidden">
-          {NAV_ITEMS.map((item) => {
+        <div className="relative z-30 flex flex-col gap-0.5 px-3 pb-2 md:hidden">
+          {navItems.map((item) => {
             const active = isActive(item)
             return (
               <Link

@@ -112,6 +112,7 @@ export default function CloudHome() {
         brandName="Freebuff Cloud"
         brandHref="/cloud"
         brandBadge={<CloudBetaBadge />}
+        surface="cloud"
         contentClassName="px-4 sm:px-6"
         actions={isAuthed ? <LimitedSandboxBadge /> : null}
       >

@@ -2,6 +2,7 @@
 
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import { issueReportCategoryLabel } from '@/vly/lib/issue-report-categories'
 import { Badge } from '@/vly/components/ui/badge'
 import { Button } from '@/vly/components/ui/button'
 import { Skeleton } from '@/vly/components/ui/skeleton'
@@ -138,6 +139,11 @@ export function IssueReportsView({
                       <Badge className="border-gray-200 bg-gray-50 text-gray-700">
                         {report.source}
                       </Badge>
+                      {report.category && (
+                        <Badge className="border-purple-200 bg-purple-50 text-purple-700">
+                          {issueReportCategoryLabel(report.category)}
+                        </Badge>
+                      )}
                       <Badge
                         className={emailStatusClass(report.emailSendStatus)}
                       >
@@ -151,6 +157,48 @@ export function IssueReportsView({
                     <p className="whitespace-pre-wrap text-sm leading-6 text-gray-900">
                       {report.issue}
                     </p>
+
+                    {report.reproductionSteps && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          How to reproduce
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-800">
+                          {report.reproductionSteps}
+                        </p>
+                      </div>
+                    )}
+
+                    {report.additionalLogs && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Additional logs
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-800">
+                          {report.additionalLogs}
+                        </p>
+                      </div>
+                    )}
+
+                    {report.screenshotUrls && report.screenshotUrls.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {report.screenshotUrls.map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block overflow-hidden rounded-md border border-gray-200"
+                          >
+                            <img
+                              src={url}
+                              alt="Issue screenshot"
+                              className="h-24 w-32 object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
                       <span>

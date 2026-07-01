@@ -3,22 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
-import {
-  ArrowLeft,
-  Settings as SettingsIcon,
-  Globe2,
-  FileCog,
-  Rocket,
-  Bot,
-  GitBranch,
-  Github,
-  Loader,
-  Loader2,
-  Play,
-  Square,
-  Save,
-} from "lucide-react";
+import { ArrowLeft, Github, Loader, Loader2, Play, Square, Save } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { cn } from "@/lib/utils";
 import { CloudTopBar } from "@/vly/components/project-2/cloud/CloudTopBar";
 import { ConnectedRepoEnvPanel } from "@/vly/components/project-2/ConnectedRepoEnvPanel";
 import { CliAgentConfigurationPanel } from "@/vly/components/project-2/agent-chat/CliAgentConfigurationPanel";
@@ -33,13 +20,13 @@ import { toast } from "sonner";
 
 type Section = "general" | "preview" | "env" | "deploys" | "agent" | "git";
 
-const SECTIONS: { id: Section; label: string; Icon: typeof SettingsIcon }[] = [
-  { id: "general", label: "General", Icon: SettingsIcon },
-  { id: "preview", label: "Preview", Icon: Globe2 },
-  { id: "env", label: "Environment", Icon: FileCog },
-  { id: "deploys", label: "Deploys", Icon: Rocket },
-  { id: "agent", label: "Agent", Icon: Bot },
-  { id: "git", label: "Git", Icon: GitBranch },
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "preview", label: "Preview" },
+  { id: "env", label: "Environment" },
+  { id: "deploys", label: "Deploys" },
+  { id: "agent", label: "Agent" },
+  { id: "git", label: "Git" },
 ];
 
 function isSection(value: string | null): value is Section {
@@ -96,88 +83,120 @@ export default function CloudProjectSettingsPage() {
     );
   }
 
+  const activeLabel = SECTIONS.find((s) => s.id === section)?.label ?? "Settings";
+
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
       <div className="relative z-50 flex-shrink-0">
         <CloudTopBar project={project} />
       </div>
 
-      <div className="flex flex-shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-[#181818] px-3 py-2">
+      {/* Mobile section switcher */}
+      <div className="flex flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 px-3 py-2 md:hidden">
         <button
           type="button"
           onClick={() => router.push(`/cloud/project/${semanticIdentifier}`)}
-          className="flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full bg-muted/50 px-3 text-xs font-medium text-foreground/85 transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Workspace
         </button>
-        <div className="h-5 w-px flex-shrink-0 bg-border/60" aria-hidden />
-        {SECTIONS.map(({ id, label, Icon }) => {
-          const isActive = section === id;
-          return (
-            <button
-              key={id}
-              onClick={() => setSection(id)}
-              className={`flex h-8 flex-shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
-                isActive
-                  ? "bg-primary/15 text-primary"
-                  : "bg-muted/30 text-foreground/85 hover:bg-muted hover:text-foreground"
-              }`}
-              aria-pressed={isActive}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          );
-        })}
+        <div className="h-4 w-px flex-shrink-0 bg-border/60" aria-hidden />
+        {SECTIONS.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setSection(id)}
+            className={cn(
+              "flex-shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-xs transition-colors",
+              section === id
+                ? "bg-foreground/10 text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-          <header className="mb-6">
-            <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
-              {SECTIONS.find((s) => s.id === section)?.label ?? "Settings"}
-            </h1>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              {project.repo_full_name ||
-                project.name ||
-                project.semantic_identifier}
-            </p>
-          </header>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Desktop sidebar */}
+        <aside className="hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border/60 px-3 py-4 md:flex">
+          <button
+            type="button"
+            onClick={() => router.push(`/cloud/project/${semanticIdentifier}`)}
+            className="mb-4 flex items-center gap-1.5 px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to workspace
+          </button>
+          <div className="flex flex-col gap-0.5">
+            {SECTIONS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setSection(id)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-left text-[13px] transition-colors",
+                  section === id
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+                )}
+                aria-pressed={section === id}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </aside>
 
-          {section === "general" && <GeneralSection project={project} />}
-          {section === "preview" && (
-            <PreviewSection
-              semanticIdentifier={semanticIdentifier}
-              project={project}
-            />
-          )}
-          {section === "env" && (
-            <SettingsCard
-              title="Environment variables"
-              description="Edit config files (e.g. .env) inside the repo. For interactive auth, use the in-app Terminal or VS Code."
-            >
-              <div className="h-[460px] overflow-hidden rounded-lg border border-border">
-                <ConnectedRepoEnvPanel semanticIdentifier={semanticIdentifier} />
-              </div>
-            </SettingsCard>
-          )}
-          {section === "deploys" && (
-            <DeploysSection
-              semanticIdentifier={semanticIdentifier}
-              project={project}
-            />
-          )}
-          {section === "agent" && (
-            <AgentSection semanticIdentifier={semanticIdentifier} />
-          )}
-          {section === "git" && (
-            <GitSection
-              semanticIdentifier={semanticIdentifier}
-              project={project}
-            />
-          )}
-        </div>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8 sm:py-10">
+            <header className="mb-6">
+              <h1 className="text-[15px] font-medium text-foreground">
+                {activeLabel}
+              </h1>
+              <p className="mt-1 truncate text-[13px] text-muted-foreground">
+                {project.repo_full_name ||
+                  project.name ||
+                  project.semantic_identifier}
+              </p>
+            </header>
+
+            {section === "general" && <GeneralSection project={project} />}
+            {section === "preview" && (
+              <PreviewSection
+                semanticIdentifier={semanticIdentifier}
+                project={project}
+              />
+            )}
+            {section === "env" && (
+              <SettingsCard
+                title="Environment variables"
+                description="Edit config files (e.g. .env) inside the repo. For interactive auth, use the in-app Terminal or VS Code."
+              >
+                <div className="h-[460px] overflow-hidden rounded-md border border-border/60">
+                  <ConnectedRepoEnvPanel
+                    semanticIdentifier={semanticIdentifier}
+                  />
+                </div>
+              </SettingsCard>
+            )}
+            {section === "deploys" && (
+              <DeploysSection
+                semanticIdentifier={semanticIdentifier}
+                project={project}
+              />
+            )}
+            {section === "agent" && (
+              <AgentSection semanticIdentifier={semanticIdentifier} />
+            )}
+            {section === "git" && (
+              <GitSection
+                semanticIdentifier={semanticIdentifier}
+                project={project}
+              />
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );
@@ -197,10 +216,12 @@ function SettingsCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-5 rounded-2xl border border-border bg-card/60 p-5">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <section className="mb-9 last:mb-0">
+      <h2 className="text-[13px] font-medium text-foreground">{title}</h2>
       {description && (
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       )}
       <div className="mt-4">{children}</div>
     </section>
@@ -210,7 +231,7 @@ function SettingsCard({
 function GeneralSection({ project }: { project: ProjectData }) {
   return (
     <SettingsCard title="Project">
-      <div className="space-y-3">
+      <div>
         <Field label="Repository" value={project.repo_full_name ?? "—"} />
         <Field label="Identifier" value={project.semantic_identifier ?? "—"} />
         <Field label="Current branch" value={project.current_branch ?? "—"} />
@@ -229,11 +250,9 @@ function GeneralSection({ project }: { project: ProjectData }) {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-background/60 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 break-words font-mono text-sm text-foreground">
+    <div className="flex flex-col gap-1 border-t border-border/60 py-3 first:border-t-0 first:pt-0 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+      <p className="text-[13px] font-medium text-foreground">{label}</p>
+      <p className="break-all font-mono text-[13px] text-muted-foreground sm:text-right">
         {value}
       </p>
     </div>
@@ -424,13 +443,9 @@ function DeploysSection({
             }
           }}
           disabled={publishing}
-          className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          className="flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
-          {publishing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Rocket className="h-4 w-4" />
-          )}
+          {publishing && <Loader2 className="h-4 w-4 animate-spin" />}
           Publish now
         </button>
       </div>

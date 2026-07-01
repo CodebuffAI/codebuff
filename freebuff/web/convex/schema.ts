@@ -1479,6 +1479,21 @@ export default defineSchema(
       ),
       severity: v.number(),
       issue: v.string(),
+      category: v.optional(
+        v.union(
+          v.literal('agent_response'),
+          v.literal('ui_ux'),
+          v.literal('deployment'),
+          v.literal('previews'),
+          v.literal('github_sync'),
+          v.literal('integrations'),
+          v.literal('backend'),
+          v.literal('other'),
+        ),
+      ),
+      reproductionSteps: v.optional(v.string()),
+      additionalLogs: v.optional(v.string()),
+      screenshotIds: v.optional(v.array(v.id('_storage'))),
       source: v.union(v.literal('chat'), v.literal('cloud')),
       status: v.union(
         v.literal('open'),

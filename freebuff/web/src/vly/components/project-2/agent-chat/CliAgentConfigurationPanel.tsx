@@ -6,13 +6,7 @@ import { Input } from "@/vly/components/ui/input";
 import { cn } from "@/vly/lib/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import {
-  Check,
-  ExternalLink,
-  Loader,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { Check, ExternalLink, Loader, Trash2 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -265,10 +259,10 @@ function ConfigCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-border/60 bg-background/30 p-4">
+    <div className="border-t border-border/60 pt-5 first:border-t-0 first:pt-0">
       <div className="flex items-center gap-2">
-        <AgentLogo agentType={agent} className="h-6 w-6" />
-        <p className="text-sm font-medium text-foreground">
+        <AgentLogo agentType={agent} className="h-5 w-5" />
+        <p className="text-[13px] font-medium text-foreground">
           {agent === "Codex" ? "Codex authentication" : "Claude Code provider"}
         </p>
       </div>
@@ -613,13 +607,10 @@ export function CliAgentConfigurationPanel({
       )}
 
       {variant === "settings" && (
-        <div className="flex items-start gap-2 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200/90">
-          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <p>
-            Credentials are encrypted before storage and applied at run time for
-            all projects under your account.
-          </p>
-        </div>
+        <p className="border-t border-border/60 pt-4 text-xs leading-relaxed text-muted-foreground">
+          Credentials are encrypted before storage and applied at run time for
+          all projects under your account.
+        </p>
       )}
     </div>
   );

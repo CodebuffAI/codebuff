@@ -1,6 +1,12 @@
 import { v } from 'convex/values'
-import { internalMutation, mutation, query } from './_generated/server'
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server'
 import { getAuthUser } from './users'
+import type { Id } from './_generated/dataModel'
 
 const issueReportStatusValidator = v.union(
   v.literal('open'),
@@ -19,9 +25,36 @@ const reportTypeValidator = v.union(
   v.literal('feature_request'),
 )
 
+export const issueCategoryValidator = v.union(
+  v.literal('agent_response'),
+  v.literal('ui_ux'),
+  v.literal('deployment'),
+  v.literal('previews'),
+  v.literal('github_sync'),
+  v.literal('integrations'),
+  v.literal('backend'),
+  v.literal('other'),
+)
+
 // Anti-abuse: cap combined bug reports + feature requests per user per day.
 export const MAX_ISSUE_REPORTS_PER_DAY = 2
 const ISSUE_REPORT_WINDOW_MS = 24 * 60 * 60 * 1000
+
+const CATEGORY_LABELS: Record<string, string> = {
+  agent_response: 'Agent Response',
+  ui_ux: 'UI/UX',
+  deployment: 'Deployment',
+  previews: 'Previews',
+  github_sync: 'Github Sync',
+  integrations: 'Integrations',
+  backend: 'Backend',
+  other: 'Other',
+}
+
+export function issueCategoryLabel(category: string | undefined): string {
+  if (!category) return 'Other'
+  return CATEGORY_LABELS[category] ?? category
+}
 
 async function countRecentReports(
   ctx: { db: any },
@@ -35,6 +68,118 @@ async function countRecentReports(
   return recent.filter((r: any) => r.submittedAt >= cutoff).length
 }
 
+function truncateContent(value: string, maxLength: number): string {
+  const trimmed = value.trim()
+  if (trimmed.length <= maxLength) return trimmed
+  return `${trimmed.slice(0, maxLength)}…`
+}
+
+function getAgentAssistantText(
+  assistantStream:
+    | Array<{ type: string; content: string }>
+    | undefined,
+): string {
+  return (assistantStream ?? [])
+    .filter((item) => item.type === 'text' || item.type === 'assistant')
+    .map((item) => item.content)
+    .join('')
+    .trim()
+}
+
+export const getRecentThreadContext = internalQuery({
+  args: {
+    source: v.union(v.literal('chat'), v.literal('cloud')),
+    threadId: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      role: v.string(),
+      content: v.string(),
+      date: v.optional(v.number()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!args.threadId) return []
+
+    const limit = Math.min(args.limit ?? 6, 10)
+
+    if (args.source === 'cloud') {
+      const messages = await ctx.db
+        .query('agent_message')
+        .withIndex('by_thread_active', (q) =>
+          q
+            .eq('thread_id', args.threadId as Id<'agent_thread'>)
+            .eq('isStreaming', false)
+            .eq('deactivated', false),
+        )
+        .order('desc')
+        .take(limit)
+
+      const context: Array<{
+        role: string
+        content: string
+        date?: number
+      }> = []
+
+      for (const message of messages.reverse()) {
+        if (message.user_message?.trim()) {
+          context.push({
+            role: 'user',
+            content: truncateContent(message.user_message, 800),
+            date: message._creationTime,
+          })
+        }
+        const assistantText = getAgentAssistantText(message.assistant_stream)
+        if (assistantText) {
+          context.push({
+            role: 'assistant',
+            content: truncateContent(assistantText, 800),
+            date: message._creationTime,
+          })
+        }
+      }
+
+      return context.slice(-limit)
+    }
+
+    const messages = await ctx.db
+      .query('messages')
+      .withIndex('by_thread', (q) =>
+        q
+          .eq('thread_id', args.threadId as Id<'thread'>)
+          .eq('streaming', false),
+      )
+      .order('desc')
+      .filter((q) => q.neq(q.field('deactivated'), true))
+      .take(limit)
+
+    return messages
+      .reverse()
+      .map((message) => ({
+        role: message.role,
+        content: truncateContent(
+          message.core_message || message.content || '',
+          800,
+        ),
+        date: message.date ?? message._creationTime,
+      }))
+      .filter((message) => message.content.length > 0)
+  },
+})
+
+export const getScreenshotUrls = internalQuery({
+  args: {
+    screenshotIds: v.array(v.id('_storage')),
+  },
+  returns: v.array(v.union(v.string(), v.null())),
+  handler: async (ctx, args) => {
+    return await Promise.all(
+      args.screenshotIds.map((id) => ctx.storage.getUrl(id)),
+    )
+  },
+})
+
 export const insertIssueReport = internalMutation({
   args: {
     userId: v.id('users'),
@@ -44,6 +189,10 @@ export const insertIssueReport = internalMutation({
     reportType: reportTypeValidator,
     severity: v.number(),
     issue: v.string(),
+    category: v.optional(issueCategoryValidator),
+    reproductionSteps: v.optional(v.string()),
+    additionalLogs: v.optional(v.string()),
+    screenshotIds: v.optional(v.array(v.id('_storage'))),
     source: v.union(v.literal('chat'), v.literal('cloud')),
     pageUrl: v.optional(v.string()),
     userAgent: v.optional(v.string()),
@@ -63,6 +212,18 @@ export const insertIssueReport = internalMutation({
       submittedAt: Date.now(),
       emailSendStatus: 'pending',
     })
+  },
+})
+
+export const generateUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    const user = await getAuthUser(ctx)
+    if (!user) {
+      throw new Error('Not authenticated')
+    }
+    return await ctx.storage.generateUploadUrl()
   },
 })
 
@@ -133,6 +294,11 @@ export const listAll = query({
         const project = report.projectId
           ? await ctx.db.get(report.projectId)
           : null
+        const screenshotUrls = report.screenshotIds
+          ? await Promise.all(
+              report.screenshotIds.map((id) => ctx.storage.getUrl(id)),
+            )
+          : []
         return {
           ...report,
           userName:
@@ -142,6 +308,9 @@ export const listAll = query({
             'Unknown User',
           userEmail: report.recordedUserEmail || reportUser?.email,
           projectName: project?.name || project?.semantic_identifier,
+          screenshotUrls: screenshotUrls.filter(
+            (url): url is string => typeof url === 'string',
+          ),
         }
       }),
     )
