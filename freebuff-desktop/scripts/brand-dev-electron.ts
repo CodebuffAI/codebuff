@@ -76,8 +76,25 @@ export function brandDevElectron(): void {
     }
   }
 
-  if (before !== APP_NAME) {
-    // Nudge LaunchServices to pick up the new name/icon (it caches by mtime).
+  // Editing Info.plist (and swapping the icns) breaks the bundle's ad-hoc code
+  // signature — the outer seal hashes both. With a broken seal, macOS keeps
+  // showing the OLD name in the Cmd+Tab switcher/Dock no matter what the plist
+  // says, so re-sign ad-hoc whenever verification fails. Cheap (<1s) and only
+  // runs when something actually changed.
+  const sealBroken =
+    spawnSync('codesign', ['--verify', appBundle], { stdio: 'ignore' }).status !== 0
+  if (sealBroken) {
+    spawnSync('codesign', ['--force', '--sign', '-', appBundle], { stdio: 'ignore' })
+  }
+
+  if (before !== APP_NAME || sealBroken) {
+    // Nudge LaunchServices to drop its cached registration for the bundle —
+    // a plain `touch` is not reliable for the Cmd+Tab name on modern macOS.
+    spawnSync(
+      '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister',
+      ['-f', appBundle],
+      { stdio: 'ignore' },
+    )
     spawnSync('touch', [appBundle], { stdio: 'ignore' })
     console.log(`[brand-dev-electron] branded dev Electron bundle as "${APP_NAME}".`)
   }

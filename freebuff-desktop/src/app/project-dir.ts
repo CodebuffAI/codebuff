@@ -222,6 +222,32 @@ export function pushRecentProject(path: string): void {
   writeState({ recentProjects: next })
 }
 
+/**
+ * Per-user UI preferences (layout knobs like the queue-panel width). Persisted
+ * here rather than renderer localStorage: the packaged app serves the UI from
+ * a random localhost port each launch, so origin-keyed storage resets on every
+ * restart. Served via /api/settings/ui.
+ */
+export interface UiPrefs {
+  /** Width of the right-hand queue panel, in px. */
+  queueWidth?: number
+}
+
+export function readUiPrefs(): UiPrefs {
+  const v = readState().uiPrefs
+  if (!v || typeof v !== 'object') return {}
+  const obj = v as Record<string, unknown>
+  const prefs: UiPrefs = {}
+  if (typeof obj.queueWidth === 'number' && Number.isFinite(obj.queueWidth)) {
+    prefs.queueWidth = obj.queueWidth
+  }
+  return prefs
+}
+
+export function writeUiPrefs(patch: UiPrefs): void {
+  writeState({ uiPrefs: { ...readUiPrefs(), ...patch } })
+}
+
 /** The persisted agent-harness choice (id string; validated by the caller). */
 export function readAgentHarness(): string | undefined {
   const v = readState().agentHarness

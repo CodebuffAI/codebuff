@@ -449,8 +449,8 @@ select {
 .workspace {
   position: relative;
   display: grid;
-  /* --queue-w is set by the Workspace component (default 720px). */
-  grid-template-columns: 1fr 6px var(--queue-w, 720px);
+  /* --queue-w is set by the Workspace component (default 600px). */
+  grid-template-columns: 1fr 6px var(--queue-w, 600px);
   flex: 1;
   min-height: 0;
 }
@@ -593,6 +593,21 @@ body.col-resizing {
   height: 96px;
   margin: 0 auto;
   opacity: 0.18;
+}
+/* Cold-start CTA: clear air below the wordmark, and a touch larger than the
+   stock .btn so it reads as the primary action on an otherwise empty screen. */
+.btn.welcome-open {
+  margin-top: 30px;
+  padding: 8px 16px;
+  gap: 8px;
+  font-size: 13px;
+  border-radius: 9px;
+}
+.btn.welcome-open svg {
+  color: var(--muted);
+}
+.btn.welcome-open:hover svg {
+  color: var(--accent);
 }
 .welcome-title {
   margin-top: 14px;

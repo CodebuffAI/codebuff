@@ -29,8 +29,10 @@ import {
   initProjectRepo,
   readAgentHarness,
   readRecentProjects,
+  readUiPrefs,
   validateProjectDir,
   writeAgentHarness,
+  writeUiPrefs,
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
@@ -426,6 +428,22 @@ const server = Bun.serve({
       writeAgentHarness(harnessId)
       trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId, scope: 'default' })
       return json({ ok: true, harnessId })
+    }
+
+    // Per-user UI preferences (queue-panel width, …). Persisted in the app
+    // state file, not renderer localStorage: the packaged app serves the UI
+    // from a random localhost port each launch, so origin-keyed storage
+    // resets on every restart.
+    if (pathname === '/api/settings/ui' && req.method === 'GET') {
+      return json(readUiPrefs())
+    }
+    if (pathname === '/api/settings/ui' && req.method === 'POST') {
+      const b = await body(req)
+      const w = Number(b.queueWidth)
+      if (!Number.isFinite(w)) return json({ error: 'queueWidth must be a number' }, 400)
+      // Broad sanity clamp only — the renderer enforces its own layout min/max.
+      writeUiPrefs({ queueWidth: Math.min(2000, Math.max(200, Math.round(w))) })
+      return json({ ok: true })
     }
 
     // — Freebuff auth (device-code login) —

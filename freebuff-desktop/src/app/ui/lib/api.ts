@@ -114,6 +114,12 @@ export const api = {
       expiresAt?: number | string
       error?: string
     }>('/api/auth/login/start'),
+  /** Per-user UI prefs (queue-panel width). Server-persisted because the
+   *  packaged app's origin (random localhost port) changes every launch,
+   *  which resets localStorage. */
+  getUiPrefs: () => get<{ queueWidth?: number }>('/api/settings/ui'),
+  saveUiPrefs: (prefs: { queueWidth: number }) =>
+    post<{ ok: boolean; error?: string }>('/api/settings/ui', prefs),
   getSettings: () =>
     get<{
       path: string

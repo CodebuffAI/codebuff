@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { bridge } from './lib/bridge'
 import freebuffLogo from './components/freebuff-logo.svg'
+import { Icon } from './components/Icon'
 import { useDismissable } from './hooks/useDismissable'
 import { SettingsModal } from './components/SettingsModal'
 import { TabBar } from './components/TabBar'
@@ -67,7 +68,8 @@ export function App() {
               yet, so without this the app dead-ends on a cold start. */}
           <div className="welcome">
             <img className="welcome-logo" src={freebuffLogo} alt="" />
-            <button className="btn" onClick={() => void pickProject()}>
+            <button className="btn welcome-open" onClick={() => void pickProject()}>
+              <Icon name="folder" />
               Open a project folder
             </button>
           </div>
