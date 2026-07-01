@@ -508,14 +508,18 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const referralInfo = isLanding ? getReferralInfo(session) : undefined
   const referralBannerRows = !referralInfo
     ? 0
-    : referralInfo.weeklySessionsRemaining > 0
-      ? // Unlocked card: marginTop 1 + border 2 + status 1 + the bordered
-        // action-button row 3 + optional connect-github row.
-        1 + 2 + 1 + 3 + (referralInfo.githubLinked ? 0 : 1)
-      : // Locked: marginTop 1 + the invite line (wraps to two rows now that it
-        // carries the full "most powerful open-source model" pitch) + the
-        // bordered "Copy invite link" button (3 rows).
+    : accessTier === 'limited'
+      ? // Limited daily-session referral: marginTop 1 + the invite line (wraps
+        // to two rows) + the bordered "Copy invite link" button (3 rows).
         1 + 2 + 3
+      : (referralInfo.weeklySessionsRemaining ?? 0) > 0
+        ? // Unlocked card: marginTop 1 + border 2 + status 1 + the bordered
+          // action-button row 3 + optional connect-github row.
+          1 + 2 + 1 + 3 + (referralInfo.githubLinked ? 0 : 1)
+        : // Locked: marginTop 1 + the invite line (wraps to two rows now that it
+          // carries the full "most powerful open-source model" pitch) + the
+          // bordered "Copy invite link" button (3 rows).
+          1 + 2 + 3
   const belowPickerRows =
     streakRows + noticeRows + streakBonusRows + referralBannerRows
   const counterRows = showBelowPickerCounter
