@@ -95,7 +95,7 @@ function AutomationCard({
         </div>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          {describeCron(automation.cron_spec)}
+          {describeCron(automation.cron_spec, automation.cron_timezone)}
         </p>
         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">
           {automation.prompt}
