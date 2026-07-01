@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 import { MAX_ATTACHMENTS } from '../../../core/attachments'
 import { useFileDrop } from '../hooks/useFileDrop'
@@ -48,8 +48,7 @@ export function ThreadView({ threadId }: { threadId: string }) {
   const [nonce, setNonce] = useState(0)
 
   const messages = slice?.messages
-  const { scrollRef, showPinned, atBottom, hasNew, scrollToBottom, scrollToLastPrompt, onScroll } =
-    useScrollPin(threadId, messages)
+  const { scrollRef, atBottom, hasNew, scrollToBottom, onScroll } = useScrollPin(threadId, messages)
 
   // Staged attachments live one level up from the composer so the entire chat
   // body — not just the input strip — can accept drops and feed the same list.
@@ -64,21 +63,6 @@ export function ThreadView({ threadId }: { threadId: string }) {
     setAtts(merged.slice(0, MAX_ATTACHMENTS))
   }
   const { dragging, dropHandlers } = useFileDrop(addAttachments, pushToast)
-
-  // The last user prompt — surfaced as a sticky bar above the chat so it stays
-  // visible while reading a long assistant response. Skip when there's no user
-  // message yet (empty/welcome state) so we don't show a floating empty bar.
-  const lastUserText = useMemo(() => {
-    if (!messages) return null
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i]
-      if (m.role === 'user') {
-        const t = m.parts.map((p) => (p.kind === 'text' ? p.text : '')).join('').trim()
-        if (t) return t
-      }
-    }
-    return null
-  }, [messages])
 
   if (!slice) return <div className="threadview empty">No thread</div>
 
@@ -104,16 +88,6 @@ export function ThreadView({ threadId }: { threadId: string }) {
           />
         ) : (
           <div className="messages" ref={scrollRef} onScroll={onScroll}>
-            {showPinned && lastUserText && (
-              <button
-                type="button"
-                className="msg-pinned"
-                title="Jump to your last prompt"
-                onClick={scrollToLastPrompt}
-              >
-                <div className="msg-pinned-bubble">{lastUserText}</div>
-              </button>
-            )}
             {slice.messages.length === 0 && (
               <div className="welcome">
                 <img className="welcome-logo" src={freebuffLogo} alt="" />
