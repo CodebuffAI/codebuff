@@ -66,6 +66,14 @@ describe('server (integration)', () => {
     expect(Array.isArray(snap.threads)).toBe(true)
   })
 
+  test('GET /api/activity reports idle when nothing is running', async () => {
+    const res = await fetch(`${BASE}/api/activity`)
+    expect(res.status).toBe(200)
+    const act = (await res.json()) as { busy: boolean; running: number; queued: number }
+    // A freshly-booted engine with no turns in flight is idle.
+    expect(act).toEqual({ busy: false, running: 0, queued: 0 })
+  })
+
   test('a cross-origin request to /api is rejected', async () => {
     const res = await fetch(`${BASE}/api/state`, { headers: { Origin: 'https://evil.com' } })
     expect(res.status).toBe(403)

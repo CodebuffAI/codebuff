@@ -7,6 +7,7 @@ import { CloudOnboardingChecklist } from './CloudOnboardingChecklist'
 import { CloudGitPanel } from './CloudGitPanel'
 import { CloudCenterContent, type CloudViewMode } from './CloudCenterContent'
 import { CloudGodModePanel } from './CloudGodModePanel'
+import { AutomationsSection } from '../automations/AutomationsSection'
 import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
 import dynamic from 'next/dynamic'
 
@@ -42,9 +43,12 @@ export function CloudIframeArea({
   hideTabs,
   onSendLogsToChat,
 }: CloudIframeAreaProps) {
-  const { isPlatformAdmin } = useIsPlatformAdmin()
+  const { isPlatformAdmin, isGod } = useIsPlatformAdmin()
   const isSpecialTab =
-    cloudTab === 'git' || cloudTab === 'integrations' || cloudTab === 'god'
+    cloudTab === 'git' ||
+    cloudTab === 'integrations' ||
+    cloudTab === 'automations' ||
+    cloudTab === 'god'
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-background">
@@ -61,6 +65,7 @@ export function CloudIframeArea({
           onChange={onCloudTabChange}
           semanticIdentifier={semanticIdentifier}
           isGodMode={isPlatformAdmin}
+          isGod={isGod}
         />
       )}
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -73,6 +78,10 @@ export function CloudIframeArea({
         ) : cloudTab === 'integrations' ? (
           <div className="h-full w-full overflow-hidden bg-background px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
             <IntegrationsView semanticIdentifier={semanticIdentifier} />
+          </div>
+        ) : cloudTab === 'automations' && isGod ? (
+          <div className="h-full w-full overflow-y-auto bg-background px-4 pb-4 pt-4 sm:px-6 sm:pt-5">
+            <AutomationsSection projectId={project._id} />
           </div>
         ) : cloudTab === 'god' && isPlatformAdmin ? (
           <CloudGodModePanel project={project} />

@@ -337,6 +337,10 @@ export default defineSchema(
       prompt: v.string(), // message sent to the agent on each fire
       freebuff_model: v.optional(v.string()),
       cron_spec: v.string(), // standard 5-field cronspec, interpreted as UTC (v1)
+      // IANA timezone the schedule was authored in (e.g. "America/New_York").
+      // Display/edit only — cron_spec is still a fixed UTC schedule. Optional
+      // for rows created before this field existed (fall back to UTC).
+      cron_timezone: v.optional(v.string()),
       enabled: v.boolean(),
       // @convex-dev/crons cron id; present only while enabled + registered.
       cron_component_id: v.optional(v.string()),

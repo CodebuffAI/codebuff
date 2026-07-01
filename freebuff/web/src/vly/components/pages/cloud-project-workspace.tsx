@@ -48,7 +48,16 @@ function CloudProjectWorkspaceInner({
 }) {
   const router = useRouter()
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth()
-  const project = useQuery(api.project.getProjectData, { semanticIdentifier })
+  const projectQuery = useQuery(api.project.getProjectData, { semanticIdentifier })
+  // Keep the last loaded project so a transient auth/Convex re-subscribe (which
+  // briefly returns `undefined`) can't unmount the whole workspace — that
+  // unmount is what flashes the loading screen and refires the Gravity ad
+  // `/ack` beacon every cycle. `null` (genuinely not found) is still respected;
+  // only `undefined` (loading/re-subscribe) falls back to the last known value.
+  const loadedProjectRef = useRef(projectQuery)
+  if (projectQuery !== undefined) loadedProjectRef.current = projectQuery
+  const project =
+    projectQuery !== undefined ? projectQuery : loadedProjectRef.current
   const isMobile = useIsMobile()
 
   // One active project/agent at a time per user — seamless take-over prompt.
@@ -118,7 +127,10 @@ function CloudProjectWorkspaceInner({
     return () => aside.removeEventListener('focusin', handleFocusIn)
   }, [isMobile, project?._id])
 
-  if (isAuthLoading || project === undefined) {
+  // Only take over the whole screen on the FIRST load. Once auth has settled and
+  // a project has loaded, keep the workspace mounted through transient auth
+  // revalidations so it doesn't flash/remount (see `project` latch above).
+  if ((!hasAuthSettled && isAuthLoading) || project === undefined) {
     return <ProjectLoadingScreen />
   }
 

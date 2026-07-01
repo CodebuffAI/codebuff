@@ -23,7 +23,7 @@ import {
   FreebuffModelSelector,
 } from "@/vly/components/project-2/FreebuffModelSelector";
 import { DEFAULT_FREEBUFF_MODEL_ID } from "@codebuff/common/constants/freebuff-models";
-import { CronScheduleInput } from "./CronScheduleInput";
+import { CronScheduleInput, browserTimeZone } from "./CronScheduleInput";
 
 export function AutomationDialog({
   open,
@@ -42,7 +42,10 @@ export function AutomationDialog({
 
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [cronSpec, setCronSpec] = useState("0 9 * * *");
+  // Empty for a new automation — CronScheduleInput seeds a default and emits
+  // its cronspec + timezone. Editing passes the stored UTC spec + timezone.
+  const [cronSpec, setCronSpec] = useState("");
+  const [timezone, setTimezone] = useState<string>(browserTimeZone());
   const [model, setModel] = useState<string>(DEFAULT_FREEBUFF_MODEL_ID);
   const [saving, setSaving] = useState(false);
 
@@ -52,7 +55,8 @@ export function AutomationDialog({
     if (!open) return;
     setName(automation?.name ?? "");
     setPrompt(automation?.prompt ?? "");
-    setCronSpec(automation?.cron_spec ?? "0 9 * * *");
+    setCronSpec(automation?.cron_spec ?? "");
+    setTimezone(automation?.cron_timezone ?? browserTimeZone());
     setModel(automation?.freebuff_model ?? DEFAULT_FREEBUFF_MODEL_ID);
   }, [open, automation]);
 
@@ -68,6 +72,7 @@ export function AutomationDialog({
           name: name.trim(),
           prompt: prompt.trim(),
           cronSpec: cronSpec.trim(),
+          timezone,
           freebuffModel: model,
         });
         toast.success("Automation updated");
@@ -77,6 +82,7 @@ export function AutomationDialog({
           name: name.trim(),
           prompt: prompt.trim(),
           cronSpec: cronSpec.trim(),
+          timezone,
           freebuffModel: model,
         });
         toast.success("Automation created");
@@ -123,7 +129,14 @@ export function AutomationDialog({
             />
           </div>
 
-          <CronScheduleInput value={cronSpec} onChange={setCronSpec} />
+          <CronScheduleInput
+            cronSpec={cronSpec}
+            timezone={timezone}
+            onChange={(next) => {
+              setCronSpec(next.cronSpec);
+              setTimezone(next.timezone);
+            }}
+          />
 
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Model</Label>

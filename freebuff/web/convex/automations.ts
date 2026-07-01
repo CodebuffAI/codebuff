@@ -144,6 +144,8 @@ export const createAutomation = mutation({
     prompt: v.string(),
     freebuffModel: v.optional(v.string()),
     cronSpec: v.string(),
+    /** IANA timezone the schedule was authored in (display/edit only). */
+    timezone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
@@ -187,6 +189,7 @@ export const createAutomation = mutation({
     }
     const cronSpec = validateCronSpec(args.cronSpec);
     const freebuffModel = args.freebuffModel?.trim() || undefined;
+    const timezone = args.timezone?.trim() || undefined;
 
     const automationId = await ctx.db.insert("automation", {
       user_id: user._id,
@@ -195,6 +198,7 @@ export const createAutomation = mutation({
       prompt,
       ...(freebuffModel ? { freebuff_model: freebuffModel } : {}),
       cron_spec: cronSpec,
+      ...(timezone ? { cron_timezone: timezone } : {}),
       enabled: true,
       created_by: user._id,
     });
@@ -220,6 +224,7 @@ export const updateAutomation = mutation({
     prompt: v.optional(v.string()),
     freebuffModel: v.optional(v.string()),
     cronSpec: v.optional(v.string()),
+    timezone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { automation } = await loadAccessibleAutomation(
@@ -232,8 +237,13 @@ export const updateAutomation = mutation({
       prompt?: string;
       freebuff_model?: string;
       cron_spec?: string;
+      cron_timezone?: string;
       cron_component_id?: string;
     } = {};
+
+    if (args.timezone !== undefined) {
+      patch.cron_timezone = args.timezone.trim() || undefined;
+    }
 
     if (args.name !== undefined) {
       const name = args.name.trim();
