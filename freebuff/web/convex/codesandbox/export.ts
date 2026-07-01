@@ -141,6 +141,12 @@ export const migrateDaytonaWorkspace = action({
   args: {
     projectId: v.id('project'),
     targetSnapshotId: v.string(),
+    // When provided, skips the legacy `config/daytona-snapshots` lookup used to
+    // derive the new sandbox_size. Required for golden snapshots (e.g. the 8 GB
+    // storage upgrade) that aren't part of the legacy snapshot catalog.
+    sizeOverride: v.optional(
+      v.union(v.literal('small'), v.literal('medium'), v.literal('large')),
+    ),
   },
   handler: async (
     ctx,
@@ -239,18 +245,24 @@ export const migrateDaytonaWorkspace = action({
 
     const previewDomain = `5173-${newDaytonaSandboxId}.proxy.daytona.works`
 
-    // Determine sandbox size based on target snapshot tier
-    const { getSnapshotById } = await import('../../config/daytona-snapshots')
-    const targetSnapshot = getSnapshotById(args.targetSnapshotId)
+    // Determine sandbox size based on target snapshot tier (or explicit override
+    // for golden snapshots not present in the legacy catalog).
+    let newSize: 'small' | 'medium' | 'large'
+    if (args.sizeOverride) {
+      newSize = args.sizeOverride
+    } else {
+      const { getSnapshotById } = await import('../../config/daytona-snapshots')
+      const targetSnapshot = getSnapshotById(args.targetSnapshotId)
 
-    if (!targetSnapshot) {
-      throw new ConvexError({
-        message: 'Invalid target snapshot ID',
-        code: 'INVALID_SNAPSHOT',
-      })
+      if (!targetSnapshot) {
+        throw new ConvexError({
+          message: 'Invalid target snapshot ID',
+          code: 'INVALID_SNAPSHOT',
+        })
+      }
+
+      newSize = targetSnapshot.tier as 'small' | 'medium' | 'large'
     }
-
-    const newSize = targetSnapshot.tier as 'small' | 'medium' | 'large'
 
     const oldSize =
       (project.sandbox_size as 'small' | 'medium' | 'large') ?? 'small'

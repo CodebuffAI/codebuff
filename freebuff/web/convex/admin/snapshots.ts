@@ -21,8 +21,12 @@ import { getAuthUser } from "../users";
 export const buildGoldenSnapshot = action({
   args: {
     // Resource tier for the built snapshot. Defaults to the standard
-    // 2 vCPU / 4 GB / 4 GB tier; "small" is the limited-country tier.
-    tier: v.optional(v.union(v.literal("small"), v.literal("full"))),
+    // 2 vCPU / 4 GB / 6 GB tier; "small" is the limited-country tier; "xl" is
+    // the 8 GB storage-upgrade tier (built on demand, referenced by
+    // DAYTONA_SNAPSHOT_8GB_ID, not promoted to a warm-pool primary).
+    tier: v.optional(
+      v.union(v.literal("small"), v.literal("full"), v.literal("xl")),
+    ),
     daytonaServer: v.optional(v.union(v.literal("legacy"), v.literal("new"))),
   },
   returns: v.object({ snapshotId: v.string(), recordId: v.string() }),
@@ -39,8 +43,10 @@ export const buildGoldenSnapshot = action({
     const now = new Date();
     const version = `golden-${now.toISOString().slice(0, 10)}-${now.getTime()}`;
     const snapshotName = version;
-    // "small" => limited-country tier; "full" => standard tier (stored "large").
-    const tableTier = tierKey === "small" ? "small" : "large";
+    // "small" => limited-country tier; "full" => standard tier (stored "large");
+    // "xl" => 8 GB storage-upgrade tier (stored "medium").
+    const tableTier =
+      tierKey === "small" ? "small" : tierKey === "xl" ? "medium" : "large";
 
     const recordId = await ctx.runMutation(
       internal.admin.snapshot_mutations.createSnapshotRecord,

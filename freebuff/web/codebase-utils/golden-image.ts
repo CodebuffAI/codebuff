@@ -11,7 +11,7 @@ import type { Resources } from "@daytonaio/sdk";
  * admin dashboard (`/web/admin/snapshots`) via the Daytona declarative Image
  * builder, NOT baked outside the repo.
  *
- * Keep the toolchain lean: the smallest (limited-country) tier only gets 4 GB
+ * Keep the toolchain lean: the smallest (limited-country) tier only gets 2 GB
  * of disk, so avoid pulling large unused runtimes.
  */
 
@@ -37,21 +37,25 @@ export const GOLDEN_TOOL_VERSIONS = {
 } as const;
 
 /**
- * Daytona resource tiers. Default ("full") = 2 vCPU / 4 GB / 4 GB; the
- * limited-country ("small") tier shrinks to 1 vCPU / 2 GB / 2 GB.
+ * Daytona resource tiers. Default ("full", primary countries) = 2 vCPU / 4 GB /
+ * 6 GB; the limited-country ("small") tier shrinks to 1 vCPU / 2 GB / 2 GB. The
+ * "xl" tier (2 vCPU / 4 GB / 8 GB) backs the user-requested storage upgrade and
+ * is migrated to via `migrateDaytonaWorkspace` (not part of the warm pool).
  */
 export const GOLDEN_RESOURCE_TIERS: Record<
-  "full" | "small",
+  "full" | "small" | "xl",
   Resources & { label: string }
 > = {
-  full: { label: "Standard", cpu: 2, memory: 4, disk: 4 },
+  full: { label: "Standard", cpu: 2, memory: 4, disk: 6 },
   small: { label: "Limited", cpu: 1, memory: 2, disk: 2 },
+  xl: { label: "Large", cpu: 2, memory: 4, disk: 8 },
 };
 
-/** Auto-archive minutes by size class (full=3h, small=1h). */
+/** Auto-archive minutes by size class (full/xl=3h, small=1h). */
 export const GOLDEN_AUTO_ARCHIVE_MINUTES = {
   full: 180,
   small: 60,
+  xl: 180,
 } as const;
 
 /**

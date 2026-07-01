@@ -3503,6 +3503,31 @@ if (!hasIntegration) {
   }
 }
 
+/**
+ * Heuristic: does this Daytona error/reason look like the sandbox ran out of
+ * disk? Large dependency installs are the common trigger — once the rootfs is
+ * full the VM can fail to (re)start. We surface a clear, actionable message
+ * instead of an opaque "error state".
+ */
+function isDiskPressureFailure(message: string | null | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes("no space left") ||
+    m.includes("enospc") ||
+    m.includes("disk full") ||
+    m.includes("out of disk") ||
+    m.includes("disk quota") ||
+    m.includes("no space") ||
+    (m.includes("disk") && m.includes("full"))
+  );
+}
+
+/** User-facing guidance appended when a start failure looks disk-related. */
+const DISK_PRESSURE_HINT =
+  "Your cloud VM ran out of storage (this usually happens after installing large dependencies). " +
+  "Free up space (e.g. clear node_modules / build caches) or increase the VM storage to keep building.";
+
 async function openDaytonaSandboxWithRetry(
   sandboxId: string,
   daytonaServer: DaytonaServer = "legacy",
@@ -3510,6 +3535,7 @@ async function openDaytonaSandboxWithRetry(
   const maxRetries = 10;
   let lastError: Error | null = null;
   let retryCount = 0;
+  let diskPressureSuspected = false;
 
   const candidateServers: DaytonaServer[] =
     daytonaServer === "legacy" ? ["legacy", "new"] : ["new", "legacy"];
@@ -3535,9 +3561,21 @@ async function openDaytonaSandboxWithRetry(
       }
 
       if (sandbox.state === "error") {
-        throw new Error(
-          `Sandbox is in error state: ${sandbox.errorReason || "Unknown error"}`,
-        );
+        const reason = sandbox.errorReason || "Unknown error";
+        if (isDiskPressureFailure(reason)) {
+          console.error(
+            "[DaytonaDiagnostics] sandbox in error state — disk pressure suspected",
+            JSON.stringify({
+              sandboxId,
+              state: sandbox.state,
+              errorReason: reason,
+              retryCount,
+            }),
+          );
+          // Disk-full is not transient; fail fast with actionable guidance.
+          throw new Error(`Sandbox is in error state: ${reason}. ${DISK_PRESSURE_HINT}`);
+        }
+        throw new Error(`Sandbox is in error state: ${reason}`);
       }
 
       if (sandbox.state !== "started") {
@@ -3605,6 +3643,10 @@ async function openDaytonaSandboxWithRetry(
       lastError = error as Error;
       retryCount++;
 
+      if (isDiskPressureFailure(errorMessage)) {
+        diskPressureSuspected = true;
+      }
+
       if (retryCount >= maxRetries) {
         break;
       }
@@ -3622,8 +3664,21 @@ async function openDaytonaSandboxWithRetry(
     }
   }
 
-  // If we've exhausted all retries, throw the last error
-  console.error("Failed to open Daytona sandbox after all retries:", lastError);
+  // If we've exhausted all retries, throw the last error.
+  const lastMessage = lastError?.message ?? "";
+  const diskRelated = diskPressureSuspected || isDiskPressureFailure(lastMessage);
+  console.error(
+    "[DaytonaDiagnostics] failed to open sandbox after all retries",
+    JSON.stringify({
+      sandboxId,
+      maxRetries,
+      diskPressureSuspected: diskRelated,
+      lastError: lastMessage || String(lastError),
+    }),
+  );
+  if (diskRelated && lastError && !lastError.message.includes(DISK_PRESSURE_HINT)) {
+    throw new Error(`${lastError.message}. ${DISK_PRESSURE_HINT}`);
+  }
   throw (
     lastError ||
     new Error(

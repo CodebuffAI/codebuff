@@ -32,6 +32,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/vly/components/ui/tooltip";
+import { VmStatusPopover } from "./VmStatusPopover";
+import type { SandboxSize } from "@/vly/lib/sandbox-specs";
 
 // @ts-ignore
 type EntryPoint = FunctionReturnType<typeof api.project.getEntryPoints>[number];
@@ -476,6 +478,7 @@ export function CenterContent({
     isConnecting,
     isError: isConnectionError,
     isSuccess: isConnectionSuccess,
+    error: connectionError,
     checkProjectConnection,
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
@@ -981,22 +984,18 @@ export function CenterContent({
                 />
               </div>
               <div className="flex items-center gap-0.5">
-                <ToolbarTooltip label={`Connection: ${connectionStatusInfo.label}`}>
-                  <div
-                    className="relative flex h-7 w-7 items-center justify-center rounded-md"
-                    aria-label={`Connection status: ${connectionStatusInfo.label}`}
-                    role="status"
-                  >
-                    {connectionStatusInfo.pingClassName && (
-                      <span
-                        className={`absolute h-2.5 w-2.5 rounded-full ${connectionStatusInfo.pingClassName} animate-ping`}
-                      />
-                    )}
-                    <span
-                      className={`relative h-2.5 w-2.5 rounded-full ${connectionStatusInfo.dotClassName}`}
-                    />
-                  </div>
-                </ToolbarTooltip>
+                <VmStatusPopover
+                  projectId={project?._id}
+                  sandboxSize={project?.sandbox_size as SandboxSize | undefined}
+                  statusLabel={connectionStatusInfo.label}
+                  dotClassName={connectionStatusInfo.dotClassName}
+                  pingClassName={connectionStatusInfo.pingClassName}
+                  connectionErrorMessage={
+                    isConnectionError && connectionError instanceof Error
+                      ? connectionError.message
+                      : null
+                  }
+                />
                 <ToolbarTooltip
                   label={
                     isRestarting

@@ -41,6 +41,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/vly/components/ui/tooltip'
+import { VmStatusPopover } from '../VmStatusPopover'
+import type { SandboxSize } from '@/vly/lib/sandbox-specs'
 
 // Cloud workspace service ports (editor port is forced by cloud connection strategy).
 const OPENVSCODE_PORT = 43867
@@ -312,6 +314,7 @@ export function CloudCenterContent({
     isConnecting,
     isError: isConnectionError,
     isSuccess: isConnectionSuccess,
+    error: connectionError,
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
     runtimeSurface: 'cloud',
@@ -542,23 +545,18 @@ export function CloudCenterContent({
                   </button>
                 </CloudToolbarTooltip>
               )}
-              <CloudToolbarTooltip
-                label={`Connection: ${connectionStatusInfo.label}`}
-              >
-                <div
-                  className="relative flex h-7 w-7 items-center justify-center rounded-md"
-                  role="status"
-                >
-                  {connectionStatusInfo.pingClassName && (
-                    <span
-                      className={`absolute h-2.5 w-2.5 rounded-full ${connectionStatusInfo.pingClassName} animate-ping`}
-                    />
-                  )}
-                  <span
-                    className={`relative h-2.5 w-2.5 rounded-full ${connectionStatusInfo.dotClassName}`}
-                  />
-                </div>
-              </CloudToolbarTooltip>
+              <VmStatusPopover
+                projectId={project?._id}
+                sandboxSize={project?.sandbox_size as SandboxSize | undefined}
+                statusLabel={connectionStatusInfo.label}
+                dotClassName={connectionStatusInfo.dotClassName}
+                pingClassName={connectionStatusInfo.pingClassName}
+                connectionErrorMessage={
+                  isConnectionError && connectionError instanceof Error
+                    ? connectionError.message
+                    : null
+                }
+              />
               <CloudToolbarTooltip label="Preview settings">
                 <button
                   onClick={handleOpenPreviewSettings}

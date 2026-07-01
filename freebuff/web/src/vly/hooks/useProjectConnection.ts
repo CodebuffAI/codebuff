@@ -18,6 +18,33 @@ interface CheckProjectConnectionOptions {
   silentErrorToast?: boolean;
 }
 
+/** Heuristic mirror of the server-side disk-pressure classifier. */
+export function isDiskPressureMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes("no space left") ||
+    m.includes("enospc") ||
+    m.includes("disk full") ||
+    m.includes("out of disk") ||
+    m.includes("disk quota") ||
+    m.includes("no space") ||
+    (m.includes("disk") && m.includes("full"))
+  );
+}
+
+function connectionErrorToast(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (isDiskPressureMessage(message)) {
+    toast.error("⚠️ Cloud VM is out of storage", {
+      description:
+        "Large installs filled the VM disk. Free up space or increase storage from the VM status menu.",
+    });
+    return;
+  }
+  toast.error("⚠️ Failed to connect to project");
+}
+
 export function useProjectConnection({
   semanticIdentifier,
   onSuccess,
@@ -62,7 +89,7 @@ export function useProjectConnection({
       } catch (error) {
         console.error("Failed to verify project access:", error);
         if (!options.silentErrorToast) {
-          toast.error("⚠️ Failed to connect to project");
+          connectionErrorToast(error);
         }
         return {
           success: false as const,
@@ -102,7 +129,7 @@ export function useProjectConnection({
     } else if (query.isError && !hasToasted.current) {
       hasToasted.current = true;
       console.error("Failed to verify project access:", query.error);
-      toast.error("⚠️ Failed to connect to project");
+      connectionErrorToast(query.error);
     }
   }, [query.isSuccess, query.isError, query.error, onSuccess]);
 
