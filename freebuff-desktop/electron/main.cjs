@@ -26,6 +26,16 @@ const os = require('node:os')
 const path = require('node:path')
 const net = require('node:net')
 const http = require('node:http')
+const updater = require('./updater.cjs')
+
+// In-app update checker (see updater.cjs). Wired up once boot succeeds; the
+// "Check for Updates…" menu item calls through this handle. Null until boot.
+/** @type {{ checkNow: (opts?: {interactive?: boolean}) => Promise<void> } | null} */
+let updateChecker = null
+
+function checkForUpdatesInteractive() {
+  void updateChecker?.checkNow({ interactive: true })
+}
 
 const PKG_DIR = path.join(__dirname, '..')
 // The packaged app's Info.plist / .ico / .png bundle the right icon, but in dev
@@ -339,7 +349,27 @@ function buildMenu(reloadApp) {
   // Custom File/Window menus (no default Cmd+W "Close Window" binding) so Cmd+W
   // closes the active TAB, not the window.
   const template = [
-    ...(isMac ? [{ role: 'appMenu' }] : []),
+    // On mac, build the app menu by hand (instead of `role: 'appMenu'`) so we can
+    // slot a native-feeling "Check for Updates…" item right under About.
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { label: 'Check for Updates…', click: () => checkForUpdatesInteractive() },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
     {
       label: 'File',
       submenu: [
@@ -369,6 +399,17 @@ function buildMenu(reloadApp) {
       ],
     },
     { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
+    // Non-mac has no app menu, so "Check for Updates…" lives under Help.
+    ...(isMac
+      ? []
+      : [
+          {
+            label: 'Help',
+            submenu: [
+              { label: 'Check for Updates…', click: () => checkForUpdatesInteractive() },
+            ],
+          },
+        ]),
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
@@ -416,6 +457,17 @@ async function boot() {
     return
   }
   buildMenu(() => mainWindow?.loadURL(appUrl))
+
+  // Start checking for new releases (no-op in dev; see updater.cjs). init() is
+  // idempotent, so a macOS dock re-activate that re-runs boot() won't double it.
+  updateChecker = updater.init({
+    currentVersion: app.getVersion(),
+    isPackaged: app.isPackaged,
+    getWindow: () => mainWindow,
+    // Base URL for the orchestrator so the "install when idle" watcher can poll
+    // /api/activity. appUrl always ends in '/'.
+    getActivityBase: () => appUrl,
+  })
 }
 
 // Single-instance lock — a second launch focuses the existing window.

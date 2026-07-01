@@ -164,6 +164,21 @@ class EngineRegistry {
     return [...this.engines.values()].flatMap((e) => e.listThreads())
   }
 
+  /** Aggregate work state across every engine: are any turns running or queued?
+   *  Powers the desktop shell's "install when idle" updater — `busy: false`
+   *  means every tab (across all projects) has stopped working. */
+  activity() {
+    let running = 0
+    let queued = 0
+    for (const e of this.engines.values()) {
+      for (const t of e.listThreads()) {
+        if (t.turnState === 'running') running++
+        queued += e.store.listQueueItems(t.id, 'queued').length
+      }
+    }
+    return { busy: running > 0 || queued > 0, running, queued }
+  }
+
   /** Re-emit current state for every engine (SSE (re)connect backfill). */
   replay(send: (e: EngineEvent) => void): void {
     for (const e of this.engines.values()) {
@@ -290,6 +305,10 @@ const server = Bun.serve({
     // startup wait and any monitoring, so readiness doesn't ride on serializing
     // the full engine snapshot (`/api/state`).
     if (pathname === '/healthz') return new Response('ok')
+
+    // Lightweight activity probe for the desktop shell's "install when idle"
+    // updater: are any turns running or queued across all tabs/projects?
+    if (pathname === '/api/activity') return json(registry.activity())
 
     // — Server-Sent Events: live engine + thread state + agent activity —
     if (pathname === '/api/events') {
