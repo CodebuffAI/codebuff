@@ -11,6 +11,12 @@ export interface UseIsPlatformAdminResult {
   isPlatformAdmin: boolean;
 
   /**
+   * True only for the "god" role (strictly). Use for god-only surfaces like
+   * Automations, whose server-side gate requires role === "god".
+   */
+  isGod: boolean;
+
+  /**
    * True while the viewer query is still loading.
    */
   isLoading: boolean;
@@ -27,6 +33,7 @@ export function useIsPlatformAdmin(): UseIsPlatformAdminResult {
   const viewer = useQuery(api.users.viewer);
   const isLoading = viewer === undefined;
   const isPlatformAdmin = viewer?.role === "god" || viewer?.role === "admin";
+  const isGod = viewer?.role === "god";
 
-  return { isPlatformAdmin, isLoading };
+  return { isPlatformAdmin, isGod, isLoading };
 }

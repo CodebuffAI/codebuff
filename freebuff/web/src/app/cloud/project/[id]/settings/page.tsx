@@ -17,10 +17,8 @@ import {
   Play,
   Square,
   Save,
-  Clock,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
-import { AutomationsSection } from "@/vly/components/project-2/automations/AutomationsSection";
 import { CloudTopBar } from "@/vly/components/project-2/cloud/CloudTopBar";
 import { ConnectedRepoEnvPanel } from "@/vly/components/project-2/ConnectedRepoEnvPanel";
 import { CliAgentConfigurationPanel } from "@/vly/components/project-2/agent-chat/CliAgentConfigurationPanel";
@@ -33,14 +31,7 @@ import { CloudBranchSwitcher } from "@/vly/components/project-2/cloud/CloudBranc
 import { DEFAULT_FREEBUFF_MODEL_ID } from "@codebuff/common/constants/freebuff-models";
 import { toast } from "sonner";
 
-type Section =
-  | "general"
-  | "preview"
-  | "env"
-  | "deploys"
-  | "agent"
-  | "git"
-  | "automations";
+type Section = "general" | "preview" | "env" | "deploys" | "agent" | "git";
 
 const SECTIONS: { id: Section; label: string; Icon: typeof SettingsIcon }[] = [
   { id: "general", label: "General", Icon: SettingsIcon },
@@ -49,7 +40,6 @@ const SECTIONS: { id: Section; label: string; Icon: typeof SettingsIcon }[] = [
   { id: "deploys", label: "Deploys", Icon: Rocket },
   { id: "agent", label: "Agent", Icon: Bot },
   { id: "git", label: "Git", Icon: GitBranch },
-  { id: "automations", label: "Automations", Icon: Clock },
 ];
 
 function isSection(value: string | null): value is Section {
@@ -59,8 +49,7 @@ function isSection(value: string | null): value is Section {
     value === "env" ||
     value === "deploys" ||
     value === "agent" ||
-    value === "git" ||
-    value === "automations"
+    value === "git"
   );
 }
 
@@ -71,17 +60,9 @@ export default function CloudProjectSettingsPage() {
   const semanticIdentifier = typeof params.id === "string" ? params.id : "";
 
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
-  const viewer = useQuery(api.users.viewer);
-  // Automations is gated to god-mode accounts (matches the server-side gate).
-  const isGod = viewer?.role === "god";
 
   const sectionParam = searchParams.get("section");
-  const requestedSection: Section = isSection(sectionParam)
-    ? sectionParam
-    : "general";
-  // Non-god users can't land on the automations section even via ?section=.
-  const section: Section =
-    requestedSection === "automations" && !isGod ? "general" : requestedSection;
+  const section: Section = isSection(sectionParam) ? sectionParam : "general";
 
   const setSection = (next: Section) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -131,7 +112,7 @@ export default function CloudProjectSettingsPage() {
           Workspace
         </button>
         <div className="h-5 w-px flex-shrink-0 bg-border/60" aria-hidden />
-        {SECTIONS.filter((s) => s.id !== "automations" || isGod).map(({ id, label, Icon }) => {
+        {SECTIONS.map(({ id, label, Icon }) => {
           const isActive = section === id;
           return (
             <button
@@ -195,9 +176,6 @@ export default function CloudProjectSettingsPage() {
               semanticIdentifier={semanticIdentifier}
               project={project}
             />
-          )}
-          {section === "automations" && isGod && (
-            <AutomationsSection projectId={project._id} />
           )}
         </div>
       </div>

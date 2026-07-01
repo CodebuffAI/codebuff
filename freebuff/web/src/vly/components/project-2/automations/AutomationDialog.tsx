@@ -42,7 +42,9 @@ export function AutomationDialog({
 
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [cronSpec, setCronSpec] = useState("0 9 * * *");
+  // Empty for a new automation — CronScheduleInput seeds a local-9am default
+  // and emits its cronspec. Editing passes the stored UTC spec to be parsed.
+  const [cronSpec, setCronSpec] = useState("");
   const [model, setModel] = useState<string>(DEFAULT_FREEBUFF_MODEL_ID);
   const [saving, setSaving] = useState(false);
 
@@ -52,7 +54,7 @@ export function AutomationDialog({
     if (!open) return;
     setName(automation?.name ?? "");
     setPrompt(automation?.prompt ?? "");
-    setCronSpec(automation?.cron_spec ?? "0 9 * * *");
+    setCronSpec(automation?.cron_spec ?? "");
     setModel(automation?.freebuff_model ?? DEFAULT_FREEBUFF_MODEL_ID);
   }, [open, automation]);
 

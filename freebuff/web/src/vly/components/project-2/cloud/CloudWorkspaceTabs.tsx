@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   Plug,
   ShieldAlert,
+  Clock,
 } from 'lucide-react'
 
 export type CloudTab =
@@ -21,6 +22,7 @@ export type CloudTab =
   | 'links'
   | 'git'
   | 'integrations'
+  | 'automations'
   | 'god'
 
 const BASE_TABS: { id: CloudTab; label: string; Icon: typeof Globe2 }[] = [
@@ -33,6 +35,10 @@ const BASE_TABS: { id: CloudTab; label: string; Icon: typeof Globe2 }[] = [
   { id: 'git', label: 'Git', Icon: GitBranch },
 ]
 
+// God-only tabs, rendered to the right of the base tabs. Automations sits
+// between Git and God and is gated strictly to the "god" role (matches the
+// server-side gate in convex/automations.ts).
+const AUTOMATIONS_TAB = { id: 'automations' as CloudTab, label: 'Automations', Icon: Clock }
 const GOD_TAB = { id: 'god' as CloudTab, label: 'God', Icon: ShieldAlert }
 
 /** Maps a workspace tab to the settings section it deep-links to. */
@@ -44,6 +50,7 @@ const TAB_SETTINGS_SECTION: Record<CloudTab, string> = {
   links: 'preview',
   integrations: 'preview',
   git: 'git',
+  automations: 'general',
   god: 'preview',
 }
 
@@ -58,14 +65,22 @@ export function CloudWorkspaceTabs({
   onChange,
   semanticIdentifier,
   isGodMode = false,
+  isGod = false,
 }: {
   activeTab: CloudTab
   onChange: (tab: CloudTab) => void
   semanticIdentifier: string
+  /** god OR admin — shows the God tab. */
   isGodMode?: boolean
+  /** strictly god — shows the Automations tab (to the left of God). */
+  isGod?: boolean
 }) {
   const router = useRouter()
-  const TABS = isGodMode ? [...BASE_TABS, GOD_TAB] : BASE_TABS
+  const TABS = [
+    ...BASE_TABS,
+    ...(isGod ? [AUTOMATIONS_TAB] : []),
+    ...(isGodMode ? [GOD_TAB] : []),
+  ]
 
   return (
     <div className="flex w-full flex-shrink-0 items-center gap-2 border-b border-border bg-[#181818] px-1.5 py-1 lg:px-2">
