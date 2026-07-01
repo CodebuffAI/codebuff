@@ -1713,9 +1713,21 @@ export const runFreebuffAgent = internalAction({
       }
 
       if (abortController.signal.aborted) {
+        // The SDK's `run()` normally resolves gracefully on abort (with
+        // sessionState intact) so the happy path above can persist full state
+        // and attach a fresh runStateStorageId. This branch only fires when
+        // something threw instead (e.g. a failure before/outside `run()`
+        // itself), so there's no fresh state to persist. Without a fallback,
+        // `runStateStorageId` would be omitted entirely — and downstream
+        // (`freebuff_bridge_mutations`) that means the thread's resume
+        // pointer is left stale, or unset on a user's very first message —
+        // so "Continue" would restart the agent with no prior context at all.
+        // Reuse the blob this run resumed FROM so at minimum the context up
+        // to the start of this action isn't lost.
         await recordRunEvent({
           ctx,
           ...args,
+          runStateStorageId: priorResumeStorageId,
           event: {
             type: 'time_limit_pause',
             message:
@@ -1728,6 +1740,7 @@ export const runFreebuffAgent = internalAction({
       await recordRunEvent({
         ctx,
         ...args,
+        runStateStorageId: priorResumeStorageId,
         event: {
           type: 'error',
           message: getErrorMessage(error),
