@@ -5,6 +5,7 @@ import {
   activeUsersByDay,
   allProjects,
   allUsers,
+  CLOUD_PROJECT_TYPE,
   cloudActiveUsersByDay,
   cloudProjectsByTypeDay,
   getDayKeyForDaysAgo,
@@ -12,12 +13,11 @@ import {
   projectsByDay,
   userActivityByTime,
   usersByDay,
+  WEB_PROJECT_TYPE,
+  webActiveUsersByDay,
 } from './aggregates/admin_aggregates'
 
 const HOUR_MS = 60 * 60 * 1000
-
-/** Day-bucketed prefix for connected_repo projects in cloudProjectsByTypeDay. */
-const CLOUD_PROJECT_TYPE = 'connected_repo'
 
 /**
  * Record that a user sent a message. Scheduled (runAfter 0) from the Freebuff
@@ -117,6 +117,41 @@ export const recordCloudActivity = internalMutation({
 })
 
 /**
+ * Record that a user was active on Freebuff Web (i.e. sent a message in a
+ * non-connected_repo project). Scheduled (runAfter 0) from the send mutation,
+ * only for Web/template projects, so a metrics failure can never break a send.
+ *
+ * O(1): one point-indexed read + (on the user's first Web message of the UTC
+ * day) one insert + aggregate node update. No scans. Counted via
+ * webActiveUsersByDay for Freebuff Web DAU.
+ */
+export const recordWebActivity = internalMutation({
+  args: {
+    userId: v.id('users'),
+  },
+  handler: async (ctx, args) => {
+    const todayKey = getTodayKey()
+    const existing = await ctx.db
+      .query('web_user_activity_daily')
+      .withIndex('by_user_and_day', (q) =>
+        q.eq('user_id', args.userId).eq('day', todayKey),
+      )
+      .unique()
+
+    if (!existing) {
+      const id = await ctx.db.insert('web_user_activity_daily', {
+        user_id: args.userId,
+        day: todayKey,
+      })
+      const inserted = await ctx.db.get(id)
+      if (inserted) {
+        await webActiveUsersByDay.insert(ctx, inserted)
+      }
+    }
+  },
+})
+
+/**
  * Snapshot yesterday's metrics into the durable daily_stats table. Runs from
  * a cron shortly after UTC midnight. Idempotent: re-running updates the same
  * day's row. All counts come from aggregates — no table scans.
@@ -203,6 +238,44 @@ export const snapshotDailyStats = internalMutation({
     console.log(
       `[activity.snapshotDailyStats] cloud ${day}: active=${cloudActiveUsers} newProjects=${cloudNewProjects} totalProjects=${cloudTotalProjects}`,
     )
+
+    // Freebuff Web (template / non-connected_repo) snapshot — same day.
+    const [webActiveUsers, webNewProjects, webTotalProjects] = await Promise.all(
+      [
+        webActiveUsersByDay.count(ctx, { bounds: { prefix: [day] } }),
+        cloudProjectsByTypeDay.count(ctx, {
+          bounds: { prefix: [WEB_PROJECT_TYPE, day] },
+        }),
+        cloudProjectsByTypeDay.count(ctx, {
+          bounds: { prefix: [WEB_PROJECT_TYPE] },
+        }),
+      ],
+    )
+
+    const existingWeb = await ctx.db
+      .query('web_daily_stats')
+      .withIndex('by_day', (q) => q.eq('day', day))
+      .unique()
+
+    if (existingWeb) {
+      await ctx.db.patch(existingWeb._id, {
+        active_users: webActiveUsers,
+        new_projects: webNewProjects,
+        total_projects: webTotalProjects,
+      })
+    } else {
+      await ctx.db.insert('web_daily_stats', {
+        day,
+        active_users: webActiveUsers,
+        new_projects: webNewProjects,
+        total_projects: webTotalProjects,
+        created_at: Date.now(),
+      })
+    }
+
+    console.log(
+      `[activity.snapshotDailyStats] web ${day}: active=${webActiveUsers} newProjects=${webNewProjects} totalProjects=${webTotalProjects}`,
+    )
   },
 })
 
@@ -232,6 +305,8 @@ export const getEngagementStats = query({
     const [
       liveUsers,
       activeToday,
+      webActiveToday,
+      cloudActiveToday,
       newUsersToday,
       newProjectsToday,
       totalUsers,
@@ -242,6 +317,8 @@ export const getEngagementStats = query({
         bounds: { lower: { key: [now - HOUR_MS], inclusive: true } },
       }),
       activeUsersByDay.count(ctx, { bounds: { prefix: [todayKey] } }),
+      webActiveUsersByDay.count(ctx, { bounds: { prefix: [todayKey] } }),
+      cloudActiveUsersByDay.count(ctx, { bounds: { prefix: [todayKey] } }),
       usersByDay.count(ctx, { bounds: { prefix: [todayKey] } }),
       projectsByDay.count(ctx, { bounds: { prefix: [todayKey] } }),
       allUsers.count(ctx, { bounds: {} }),
@@ -263,6 +340,8 @@ export const getEngagementStats = query({
       today: {
         day: todayKey,
         activeUsers: activeToday,
+        webActiveUsers: webActiveToday,
+        cloudActiveUsers: cloudActiveToday,
         newUsers: newUsersToday,
         newProjects: newProjectsToday,
       },
@@ -317,6 +396,61 @@ export const getCloudEngagementStats = query({
 
     const history = await ctx.db
       .query('cloud_daily_stats')
+      .withIndex('by_day')
+      .order('desc')
+      .take(historyDays)
+
+    return {
+      asOf: now,
+      today: {
+        day: todayKey,
+        activeUsers: activeToday,
+        newProjects: newProjectsToday,
+      },
+      totals: {
+        projects: totalProjects,
+      },
+      history: history.map((row) => ({
+        day: row.day,
+        activeUsers: row.active_users,
+        newProjects: row.new_projects,
+        totalProjects: row.total_projects,
+      })),
+    }
+  },
+})
+
+/**
+ * Admin-only Freebuff Web engagement metrics. Mirrors getCloudEngagementStats
+ * but scoped to template / non-connected_repo usage.
+ */
+export const getWebEngagementStats = query({
+  args: {
+    refreshKey: v.optional(v.number()),
+    historyDays: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx)
+    if (!user || (user.role !== 'god' && user.role !== 'admin')) {
+      return null
+    }
+
+    const now = Date.now()
+    const todayKey = getTodayKey()
+    const historyDays = Math.min(Math.max(args.historyDays ?? 30, 1), 90)
+
+    const [activeToday, newProjectsToday, totalProjects] = await Promise.all([
+      webActiveUsersByDay.count(ctx, { bounds: { prefix: [todayKey] } }),
+      cloudProjectsByTypeDay.count(ctx, {
+        bounds: { prefix: [WEB_PROJECT_TYPE, todayKey] },
+      }),
+      cloudProjectsByTypeDay.count(ctx, {
+        bounds: { prefix: [WEB_PROJECT_TYPE] },
+      }),
+    ])
+
+    const history = await ctx.db
+      .query('web_daily_stats')
       .withIndex('by_day')
       .order('desc')
       .take(historyDays)

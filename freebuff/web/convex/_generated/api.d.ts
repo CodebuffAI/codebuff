@@ -556,6 +556,7 @@ export declare const components: {
   projectsByDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"projectsByDayAggregate">;
   cloudActiveUsersByDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"cloudActiveUsersByDayAggregate">;
   cloudProjectsByTypeDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"cloudProjectsByTypeDayAggregate">;
+  webActiveUsersByDayAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"webActiveUsersByDayAggregate">;
   allConvexInstancesAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"allConvexInstancesAggregate">;
   pausedProjectsByActiveAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"pausedProjectsByActiveAggregate">;
   pausedUsersByActiveAggregate: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"pausedUsersByActiveAggregate">;

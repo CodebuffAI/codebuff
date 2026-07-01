@@ -33,6 +33,8 @@ app.use(aggregate, { name: 'projectsByDayAggregate' })
 // Freebuff Cloud (connected_repo) usage analytics
 app.use(aggregate, { name: 'cloudActiveUsersByDayAggregate' })
 app.use(aggregate, { name: 'cloudProjectsByTypeDayAggregate' })
+// Freebuff Web (template / non-connected_repo) usage analytics
+app.use(aggregate, { name: 'webActiveUsersByDayAggregate' })
 app.use(aggregate, { name: 'allConvexInstancesAggregate' })
 app.use(aggregate, { name: 'pausedProjectsByActiveAggregate' })
 app.use(aggregate, { name: 'pausedUsersByActiveAggregate' })

@@ -15,7 +15,7 @@ import { Skeleton } from '@/vly/components/ui/skeleton'
 import { CountUp } from '@/vly/components/CountUp'
 import { Confetti } from '@/vly/components/Confetti'
 import { useCountCelebration } from '@/vly/hooks/use-count-celebration'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Id } from '@/convex/_generated/dataModel'
 import {
   Users,
@@ -31,6 +31,7 @@ import {
   BarChart3,
   Search,
   Cloud,
+  Globe,
 } from 'lucide-react'
 import { AdminNavbar } from '@/vly/components/AdminNavbar'
 import { AdminProjectOwnershipManager } from '@/vly/components/admin/AdminProjectOwnershipManager'
@@ -85,6 +86,11 @@ export default function AdminDashboard() {
     isAdmin ? { refreshKey: engagementRefreshKey, historyDays: 30 } : 'skip',
   )
 
+  const webStats = useQuery(
+    api.activity.getWebEngagementStats,
+    isAdmin ? { refreshKey: engagementRefreshKey, historyDays: 30 } : 'skip',
+  )
+
   const dashboardStats = useQuery(
     api.admin_stats.getDashboardStats,
     isAdmin && timeRangeHook.timeRangeValues
@@ -112,6 +118,45 @@ export default function AdminDashboard() {
     defaultValue: true,
   })
   const updateSetting = useMutation(api.settings.update)
+
+  const dauHistoryByProduct = useMemo(() => {
+    if (!engagementStats || !webStats || !cloudStats) return []
+
+    const today = engagementStats.today.day
+    const days = new Set<string>([today])
+    for (const row of engagementStats.history) days.add(row.day)
+    for (const row of webStats.history) days.add(row.day)
+    for (const row of cloudStats.history) days.add(row.day)
+
+    const platformByDay = new Map(
+      engagementStats.history.map((row) => [row.day, row.activeUsers]),
+    )
+    const webByDay = new Map(
+      webStats.history.map((row) => [row.day, row.activeUsers]),
+    )
+    const cloudByDay = new Map(
+      cloudStats.history.map((row) => [row.day, row.activeUsers]),
+    )
+
+    return Array.from(days)
+      .sort((a, b) => b.localeCompare(a))
+      .map((day) => ({
+        day,
+        isToday: day === today,
+        platform:
+          day === today
+            ? engagementStats.today.activeUsers
+            : (platformByDay.get(day) ?? null),
+        web:
+          day === today
+            ? webStats.today.activeUsers
+            : (webByDay.get(day) ?? null),
+        cloud:
+          day === today
+            ? cloudStats.today.activeUsers
+            : (cloudByDay.get(day) ?? null),
+      }))
+  }, [engagementStats, webStats, cloudStats])
 
   const toggleDaytonaMigration = async () => {
     if (daytonaMigrationEnabled === undefined) {
@@ -425,13 +470,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Active Today (DAU) */}
+          {/* Platform DAU (all agent sends) */}
           <Card className="border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Active Today (DAU)
+                    Platform DAU (today)
                   </p>
                   <div className="mt-1 flex items-center">
                     <CountUp
@@ -440,7 +485,7 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    Unique users who sent a message today (UTC)
+                    Web + Cloud combined · unique users who sent a message (UTC)
                   </p>
                 </div>
                 <div className="rounded-full bg-gray-100 p-2">
@@ -450,6 +495,59 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* DAU by product */}
+        <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <BarChart3 className="h-5 w-5 text-gray-600" />
+              DAU by product
+              <span className="text-xs font-normal text-gray-500">
+                (UTC today · agent message sends)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-blue-700">
+                  <Globe className="h-3.5 w-3.5" />
+                  Freebuff Web
+                </div>
+                <p className="mt-2 text-2xl font-semibold text-black">
+                  {engagementStats?.today.webActiveUsers ?? webStats?.today.activeUsers ?? '—'}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Template / sandbox projects
+                </p>
+              </div>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-emerald-700">
+                  <Cloud className="h-3.5 w-3.5" />
+                  Freebuff Cloud
+                </div>
+                <p className="mt-2 text-2xl font-semibold text-black">
+                  {engagementStats?.today.cloudActiveUsers ?? cloudStats?.today.activeUsers ?? '—'}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Connected-repo projects
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-600">
+                  <Zap className="h-3.5 w-3.5" />
+                  Platform total
+                </div>
+                <p className="mt-2 text-2xl font-semibold text-black">
+                  {engagementStats?.today.activeUsers ?? '—'}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Users active on either product (may overlap)
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg text-black">
@@ -703,6 +801,171 @@ export default function AdminDashboard() {
                       <td colSpan={6} className="py-6 text-center text-gray-500">
                         No saved daily snapshots yet — history is saved nightly
                         at 00:05 UTC.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* DAU history: Web vs Cloud vs platform */}
+        <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <BarChart3 className="h-5 w-5 text-gray-600" />
+              DAU history by product
+              <span className="text-xs font-normal text-gray-500">
+                (UTC days · saved nightly from deploy forward for Web)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="py-2 pr-4 font-medium">Day</th>
+                    <th className="py-2 pr-4 font-medium">Web DAU</th>
+                    <th className="py-2 pr-4 font-medium">Cloud DAU</th>
+                    <th className="py-2 font-medium">Platform DAU</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dauHistoryByProduct.map((row) => (
+                    <tr
+                      key={row.day}
+                      className={
+                        row.isToday
+                          ? 'border-b border-gray-100 bg-blue-50/30'
+                          : 'border-b border-gray-100'
+                      }
+                    >
+                      <td className="py-2 pr-4 font-medium text-black">
+                        {row.day}
+                        {row.isToday && (
+                          <Badge className="ml-2 border-blue-200 bg-blue-100 text-[10px] text-blue-700">
+                            TODAY
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {row.web ?? '—'}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {row.cloud ?? '—'}
+                      </td>
+                      <td className="py-2 text-black">
+                        {row.platform ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  {dauHistoryByProduct.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-gray-500">
+                        Loading product DAU history…
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Freebuff Web Breakdown */}
+        <Card className="mb-8 border border-gray-200 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <Globe className="h-5 w-5 text-gray-600" />
+              Freebuff Web
+              <span className="text-xs font-normal text-gray-500">
+                (template / sandbox usage · UTC days)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Active Today (DAU)
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-black">
+                  {webStats ? webStats.today.activeUsers : '—'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  New Projects Today
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-black">
+                  {webStats ? webStats.today.newProjects : '—'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Total Web Projects
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-black">
+                  {webStats ? webStats.totals.projects : '—'}
+                </p>
+              </div>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="py-2 pr-4 font-medium">Day</th>
+                    <th className="py-2 pr-4 font-medium">Active Users</th>
+                    <th className="py-2 pr-4 font-medium">New Projects</th>
+                    <th className="py-2 font-medium">Total Projects</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {webStats && (
+                    <tr className="border-b border-gray-100 bg-blue-50/40">
+                      <td className="py-2 pr-4 font-medium text-black">
+                        {webStats.today.day}
+                        <Badge className="ml-2 border-blue-200 bg-blue-100 text-[10px] text-blue-700">
+                          TODAY
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {webStats.today.activeUsers}
+                      </td>
+                      <td className="py-2 pr-4 text-black">
+                        {webStats.today.newProjects}
+                      </td>
+                      <td className="py-2 text-black">
+                        {webStats.totals.projects}
+                      </td>
+                    </tr>
+                  )}
+                  {webStats?.history
+                    .filter((row) => row.day !== webStats.today.day)
+                    .map((row) => (
+                      <tr key={row.day} className="border-b border-gray-100">
+                        <td className="py-2 pr-4 font-medium text-black">
+                          {row.day}
+                        </td>
+                        <td className="py-2 pr-4 text-black">
+                          {row.activeUsers}
+                        </td>
+                        <td className="py-2 pr-4 text-black">
+                          {row.newProjects}
+                        </td>
+                        <td className="py-2 text-gray-600">
+                          {row.totalProjects}
+                        </td>
+                      </tr>
+                    ))}
+                  {webStats && webStats.history.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-gray-500">
+                        No saved Web snapshots yet — history is saved nightly at
+                        00:05 UTC.
                       </td>
                     </tr>
                   )}

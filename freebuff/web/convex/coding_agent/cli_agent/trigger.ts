@@ -499,6 +499,11 @@ export const saveMessageAndStartWorkflow = mutation({
       await ctx.scheduler.runAfter(0, internal.activity.recordCloudActivity, {
         userId: user._id,
       });
+    } else {
+      // Freebuff Web DAU: template / legacy Web projects (non-connected_repo).
+      await ctx.scheduler.runAfter(0, internal.activity.recordWebActivity, {
+        userId: user._id,
+      });
     }
 
     // Admin metrics: O(1) daily counter per agent type (no message scans).

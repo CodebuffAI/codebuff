@@ -104,6 +104,26 @@ export const cloudActiveUsersByDay = new TableAggregate<{
 });
 
 /**
+ * Aggregate web_user_activity_daily rows keyed by day.
+ * One row per (user, day) for Freebuff Web (non-connected_repo) sends, so a
+ * prefix count for a day = unique Web-active users that day (Web DAU)
+ * without any table scan.
+ */
+export const webActiveUsersByDay = new TableAggregate<{
+  Key: [string]; // Day key in format YYYY-MM-DD
+  DataModel: DataModel;
+  TableName: "web_user_activity_daily";
+}>(components.webActiveUsersByDayAggregate, {
+  sortKey: (doc) => [doc.day],
+});
+
+/** project_type bucket for connected_repo (Freebuff Cloud) projects. */
+export const CLOUD_PROJECT_TYPE = "connected_repo";
+
+/** project_type bucket for template / legacy Web projects (see sortKey below). */
+export const WEB_PROJECT_TYPE = "template";
+
+/**
  * Aggregate projects keyed by [project_type, creation-day]. Lets us answer
  * "total connected_repo projects" (prefix ["connected_repo"]) and "new
  * connected_repo projects on day X" (prefix ["connected_repo", X]) as O(log n)
@@ -250,6 +270,7 @@ export const clearAllAggregates = internalMutation({
     await userActivityByTime.clear(ctx);
     await activeUsersByDay.clear(ctx);
     await cloudActiveUsersByDay.clear(ctx);
+    await webActiveUsersByDay.clear(ctx);
     await cloudProjectsByTypeDay.clear(ctx);
 
     console.log("✅ All aggregate data structures cleared");
