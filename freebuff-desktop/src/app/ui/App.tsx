@@ -16,6 +16,7 @@ export function App() {
   const toasts = useStore((s) => s.toasts)
   const dismissToast = useStore((s) => s.dismissToast)
   const pickerOpen = useStore((s) => s.pickerOpen)
+  const pickerThreadId = useStore((s) => s.pickerThreadId)
   const setPickerOpen = useStore((s) => s.setPickerOpen)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
@@ -69,7 +70,7 @@ export function App() {
           </div>
         </div>
       )}
-      {pickerOpen && <ProjectPicker onClose={() => setPickerOpen(false)} />}
+      {pickerOpen && <ProjectPicker threadId={pickerThreadId} onClose={() => setPickerOpen(false)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <div className="toasts">
         {toasts.map((t) => (

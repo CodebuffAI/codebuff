@@ -121,7 +121,6 @@ interface StoreState {
 
   /** Local per-skill usage counts (persisted) — drives the quick-skill buttons. */
   skillTally: Record<string, number>
-  projectPath: string
   /** Which agent harness runs turns + the options the picker offers. */
   agentHarness: HarnessId | null
   agentOptions: AgentOption[]
@@ -140,17 +139,19 @@ interface StoreState {
   /** Set a tab's Freebuff model; persists server-side. Downgrades + toasts if the
    *  premium slot is taken by another tab. */
   setThreadModel: (id: string, model: string) => void
-  /** Whether the project-picker modal is open. */
+  /** Whether the project-picker modal is open, and which tab it's changing the
+   *  directory for (null = open a new tab in the chosen project). */
   pickerOpen: boolean
-  setPickerOpen: (open: boolean) => void
+  pickerThreadId: string | null
+  setPickerOpen: (open: boolean, threadId?: string | null) => void
   /** Whether the project-settings modal is open. */
   settingsOpen: boolean
   setSettingsOpen: (open: boolean) => void
   /** MRU list of recently-opened projects (most recent first). Loaded on init
-   *  and refreshed after every successful open so the picker stays in sync. */
+   *  and refreshed when the picker opens so it stays in sync. */
   recentProjects: string[]
-  /** Re-fetch the recent-projects list from the server. Called on init and
-   *  after a successful openProject so the picker reflects the new MRU. */
+  /** Re-fetch the recent-projects list from the server. Called on init and when
+   *  the ProjectPicker mounts so it reflects the latest MRU. */
   refreshRecents: () => Promise<void>
   toasts: { id: number; text: string; kind: 'info' | 'error' }[]
   pushToast: (text: string, kind?: 'info' | 'error') => void
@@ -162,7 +163,9 @@ interface StoreState {
 
   // tabs
   setActive: (id: string) => void
-  newThread: () => Promise<void>
+  newThread: (projectPath?: string) => Promise<void>
+  /** Point a tab at a different repo: re-home an unstarted tab, else open a new tab. */
+  changeTabDirectory: (id: string, projectPath: string) => Promise<void>
   closeTab: (id: string) => void
   rehydrateLast: () => void
   cycleTab: (delta: number) => void
@@ -179,7 +182,6 @@ interface StoreState {
   // messaging + queue
   send: (id: string, text: string, attachments?: PendingAttachment[]) => void
   stopTurn: (id: string) => void
-  openProject: (path: string) => Promise<{ ok: boolean; error?: string }>
   runSkill: (id: string, skill: string) => void
   enqueuePrompt: (id: string, prompt: string) => void
   enqueueSkill: (id: string, skill: string) => void
@@ -210,7 +212,6 @@ export const useStore = create<StoreState>((set, get) => ({
   skills: [],
   drafts: {},
   skillTally: loadSkillTally(),
-  projectPath: '',
   agentHarness: null,
   agentOptions: [],
   freebuff: null,
@@ -219,6 +220,7 @@ export const useStore = create<StoreState>((set, get) => ({
   settingsPath: null,
   settingsLoadError: null,
   pickerOpen: false,
+  pickerThreadId: null,
   settingsOpen: false,
   recentProjects: [],
   toasts: [],
@@ -255,8 +257,8 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
 
-  setPickerOpen(open) {
-    set({ pickerOpen: open })
+  setPickerOpen(open, threadId = null) {
+    set({ pickerOpen: open, pickerThreadId: open ? threadId : null })
   },
 
   setSettingsOpen(open) {
@@ -335,25 +337,34 @@ export const useStore = create<StoreState>((set, get) => ({
   applyEvent(ev) {
     if (ev.type === 'state') {
       const { snapshot } = ev
+      // Each project's engine emits its own `state`, so reconcile only the tabs
+      // belonging to THIS project — other projects' tabs must be left untouched.
+      const path = snapshot.project?.rootPath ?? ''
       set((s) => {
         const threads = { ...s.threads }
         const live = new Set(snapshot.threads.map((t) => t.id))
-        // Update / add open threads.
+        // Update / add this project's open threads.
         for (const t of snapshot.threads) {
           threads[t.id] = threads[t.id]
             ? { ...threads[t.id], thread: { ...threads[t.id].thread, ...t } }
             : emptySlice(t)
         }
-        // A thread no longer open (closed elsewhere) drops out of the tab bar.
-        let tabOrder = s.tabOrder.filter((id) => live.has(id))
+        // Drop a tab only if it belongs to this project and is no longer open.
+        // A tab with a *known different* project is left untouched; one of this
+        // project (or with an unknown/blank path) gets the live check, so a closed
+        // thread can never get stranded in the tab bar.
+        let tabOrder = s.tabOrder.filter((id) => {
+          const tp = threads[id]?.thread.projectPath
+          if (tp === undefined) return false
+          return tp && tp !== path ? true : live.has(id)
+        })
         for (const t of snapshot.threads) tabOrder = appendTab(tabOrder, t.id)
         let activeId = s.activeId
-        if (activeId && !live.has(activeId)) activeId = tabOrder[tabOrder.length - 1] ?? null
+        if (activeId && !tabOrder.includes(activeId)) activeId = tabOrder[tabOrder.length - 1] ?? null
         return {
           threads,
           tabOrder,
           activeId,
-          projectPath: snapshot.project?.rootPath ?? s.projectPath,
           agentHarness: snapshot.agent?.harnessId ?? s.agentHarness,
           agentOptions: snapshot.agent?.options ?? s.agentOptions,
           freebuff: snapshot.freebuff ?? s.freebuff,
@@ -408,8 +419,18 @@ export const useStore = create<StoreState>((set, get) => ({
     get().ensureLoaded(id)
   },
 
-  async newThread() {
-    const t = await api.createThread()
+  async newThread(projectPath) {
+    // Default to the directory of the tab you're currently on, so a new tab opens
+    // in the same repo unless changed. With no active tab and no explicit path, the
+    // server falls back to the most-recent project.
+    const s0 = get()
+    const activeTab = s0.activeId ? s0.threads[s0.activeId] : undefined
+    const path = projectPath ?? activeTab?.thread.projectPath
+    const t = await api.createThread(path ? { projectPath: path } : {})
+    if (!t?.id) {
+      get().pushToast(`Couldn't open folder: ${t?.error ?? 'unknown error'}`, 'error')
+      return
+    }
     set((s) => ({
       threads: { ...s.threads, [t.id]: { ...emptySlice(t), loaded: true } },
       // The server's `createThread` emits a `state` event (over the already-open
@@ -418,6 +439,37 @@ export const useStore = create<StoreState>((set, get) => ({
       tabOrder: appendTab(s.tabOrder, t.id),
       activeId: t.id,
     }))
+  },
+
+  async changeTabDirectory(id, projectPath) {
+    const slice = get().threads[id]
+    if (!slice || slice.thread.projectPath === projectPath) return
+    // Once a tab has started work (a worktree/branch or any messages), its repo is
+    // fixed — open the chosen directory in a NEW tab instead of disturbing it.
+    const started = !!slice.thread.branch || slice.messages.length > 0
+    if (started) {
+      await get().newThread(projectPath)
+      return
+    }
+    // Empty tab: re-home it in place. Create the thread in the target project, then
+    // swap it into the same tab slot and discard the old empty thread.
+    const t = await api.createThread({ projectPath })
+    if (!t?.id) {
+      get().pushToast(`Couldn't open folder: ${t?.error ?? 'unknown error'}`, 'error')
+      return
+    }
+    api.deleteThread(id)
+    set((s) => {
+      const threads = { ...s.threads }
+      delete threads[id]
+      threads[t.id] = { ...emptySlice(t), loaded: true }
+      return {
+        threads,
+        tabOrder: replaceTab(s.tabOrder, id, t.id),
+        activeId: s.activeId === id ? t.id : s.activeId,
+        recentlyClosed: s.recentlyClosed.filter((x) => x !== id),
+      }
+    })
   },
 
   closeTab(id) {
@@ -538,19 +590,6 @@ export const useStore = create<StoreState>((set, get) => ({
     // thread event confirms it a moment later.
     patchThread(set, id, { turnState: 'idle' })
     api.stopTurn(id)
-  },
-
-  async openProject(path) {
-    const res: { ok: boolean; path?: string; error?: string } = await api
-      .openProject(path)
-      .catch((e) => ({ ok: false, error: String(e) }))
-    if (res.ok) {
-      get().pushToast(`Opened ${res.path ?? path}`)
-      // Server-side `openProject` already pushed to the MRU; refresh local
-      // state so the picker's "Recents" list reflects the new top entry.
-      void get().refreshRecents()
-    } else get().pushToast(res.error ?? 'Could not open folder', 'error')
-    return res
   },
 
   // Run a skill from the main chat: show its compact `/name` label and steer the
@@ -774,6 +813,13 @@ function toggleReasoningInParts(parts: Part[], partId: string): Part[] {
 /** Append a tab id idempotently — racing async sources (SSE `state`, create, reopen) can both add it. */
 function appendTab(order: string[], id: string): string[] {
   return order.includes(id) ? order : [...order, id]
+}
+
+/** Swap `oldId` for `newId` in place (re-homing a tab), de-duping in case a racing
+ *  SSE `state` event already appended `newId`, and appending if `oldId` was absent. */
+function replaceTab(order: string[], oldId: string, newId: string): string[] {
+  const swapped = order.includes(oldId) ? order.map((x) => (x === oldId ? newId : x)) : [...order, newId]
+  return swapped.filter((x, i) => swapped.indexOf(x) === i)
 }
 
 /** Reorder `itemId` to just after `afterItemId` (null = top of its lane). */

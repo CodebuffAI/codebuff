@@ -41,7 +41,7 @@ function displayPath(path: string, max = 52): string {
 
 export function ThreadView({ threadId }: { threadId: string }) {
   const slice = useStore((s) => s.threads[threadId])
-  const projectPath = useStore((s) => s.projectPath)
+  const projectPath = slice?.thread.projectPath ?? ''
   const pushToast = useStore((s) => s.pushToast)
   const [preview, setPreview] = useState(false)
   const [pathCopied, setPathCopied] = useState(false)

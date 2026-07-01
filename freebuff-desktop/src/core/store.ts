@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 11
+const SCHEMA_VERSION = 12
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -94,6 +94,8 @@ export interface NewProjectInput {
 export interface NewThreadInput {
   id: ThreadId
   projectId: string
+  /** Absolute path of the repo this thread runs in (the engine's root). */
+  projectPath: string
   title?: string
   status?: ThreadStatus
   /** Per-thread agent selection. Null means "use the engine's default". */
@@ -190,6 +192,7 @@ type ProjectRow = {
 type ThreadRow = {
   id: string
   project_id: string
+  project_path: string | null
   title: string
   status: ThreadStatus
   /** Per-thread agent (Codebuff/Claude Code). Mirrors Thread.harnessId. Null
@@ -283,6 +286,10 @@ export class Store {
       CREATE TABLE IF NOT EXISTS threads (
         id            TEXT PRIMARY KEY,
         project_id    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        -- Absolute path of the git repo this thread (tab) runs in. Equals the
+        -- engine's project root; persisted so every thread is self-describing in
+        -- a multi-project app (one engine per repo). Backfilled for legacy rows.
+        project_path  TEXT,
         title         TEXT NOT NULL DEFAULT 'New thread',
         status        TEXT NOT NULL DEFAULT 'open',
         harness_id    TEXT,
@@ -431,6 +438,16 @@ export class Store {
       this.db.exec('ALTER TABLE threads ADD COLUMN pending_prompt TEXT')
     }
 
+    // v12: per-thread project path so each tab can run in a different repo.
+    // Additive + nullable; backfill legacy rows from the (single) project root
+    // this DB belongs to, so existing tabs keep showing their folder.
+    if (!this.hasColumn('threads', 'project_path')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN project_path TEXT')
+      this.db.exec(
+        'UPDATE threads SET project_path = (SELECT root_path FROM projects LIMIT 1) WHERE project_path IS NULL',
+      )
+    }
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
 
@@ -484,6 +501,7 @@ export class Store {
     const thread: Thread = {
       id: input.id,
       projectId: input.projectId,
+      projectPath: input.projectPath,
       title: input.title ?? 'New thread',
       status: input.status ?? 'open',
       harnessId: input.harnessId ?? null,
@@ -503,12 +521,13 @@ export class Store {
     this.db
       .query(
         `INSERT INTO threads
-          (id, project_id, title, status, harness_id, freebuff_model, auto_queue_suggestions, turn_state, created_at, updated_at)
-         VALUES ($id, $project, $title, $status, $harness, $freebuffModel, $autoQueue, 'idle', $created, $updated)`,
+          (id, project_id, project_path, title, status, harness_id, freebuff_model, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $projectPath, $title, $status, $harness, $freebuffModel, $autoQueue, 'idle', $created, $updated)`,
       )
       .run({
         $id: thread.id,
         $project: thread.projectId,
+        $projectPath: thread.projectPath,
         $title: thread.title,
         $status: thread.status,
         $harness: thread.harnessId,
@@ -525,6 +544,14 @@ export class Store {
       .query('SELECT * FROM threads WHERE id = $id')
       .get({ $id: id }) as ThreadRow | null
     return row ? rowToThread(row) : null
+  }
+
+  /** Set `project_path` on any thread that's missing it (NULL/empty) to `rootPath`.
+   *  Every thread in a per-repo DB belongs to that repo, so this is always safe. */
+  backfillThreadProjectPath(rootPath: string): void {
+    this.db
+      .query("UPDATE threads SET project_path = $p WHERE project_path IS NULL OR project_path = ''")
+      .run({ $p: rootPath })
   }
 
   /** Threads for a project in creation order. */
@@ -781,6 +808,7 @@ function rowToThread(row: ThreadRow): Thread {
   return {
     id: row.id,
     projectId: row.project_id,
+    projectPath: row.project_path ?? '',
     title: row.title,
     status: row.status,
     harnessId: row.harness_id,

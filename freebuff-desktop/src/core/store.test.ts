@@ -33,12 +33,12 @@ function seeded(): Store {
 describe('Store — threads', () => {
   test('insert, get, list (open only), update, close', () => {
     const store = seeded()
-    const a = store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    const a = store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     expect(a.status).toBe('open')
     expect(a.autoQueueSuggestions).toBe(false)
     expect(a.prState).toBe('none')
     expect(a.lastTurnOutcome).toBeNull()
-    store.insertThread({ id: 'th2', projectId: 'project', title: 'Two', createdAt: 2 })
+    store.insertThread({ id: 'th2', projectId: 'project', projectPath: '/tmp/r', title: 'Two', createdAt: 2 })
 
     expect(store.getThread('th1')!.title).toBe('New thread')
     expect(store.listThreads('project').length).toBe(2)
@@ -55,7 +55,7 @@ describe('Store — threads', () => {
 
   test('pr_state round-trips through the store (default "none", accepts updates)', () => {
     const store = seeded()
-    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     // Default is 'none' on insert; passing via update path works for the four
     // PR lifecycle states the engine infers from tool calls (see
     // ThreadEngine.observePrIntent).
@@ -72,7 +72,7 @@ describe('Store — threads', () => {
 
   test('updateThread rejects an unknown column key', () => {
     const store = seeded()
-    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     // A stray/typo'd key must throw, not silently emit `SET bogus = …`.
     expect(() => store.updateThread('th1', { bogus: 1 } as any, 2)).toThrow(/unknown column/)
     // A valid update on the same thread still works.
@@ -82,7 +82,7 @@ describe('Store — threads', () => {
 
   test('messages round-trip with acts', () => {
     const store = seeded()
-    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     store.appendMessage('th1', { role: 'user', text: 'hi' }, 1)
     store.appendMessage(
       'th1',
@@ -96,7 +96,7 @@ describe('Store — threads', () => {
 
   test('a corrupt JSON column degrades to defaults instead of throwing', () => {
     const store = seeded()
-    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     store.appendMessage('th1', { role: 'assistant', text: 'ok' }, 1)
     // Simulate a corrupted/hand-edited DB: garbage in the JSON columns.
     store.db.exec("UPDATE messages SET parts_json = '{bad', acts_json = 'nope'")
@@ -111,7 +111,7 @@ describe('Store — threads', () => {
 describe('Store — queue items', () => {
   test('lanes, ordering, nextQueuedItem, maxPosition', () => {
     const store = seeded()
-    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     const mk = (id: string, pos: number, state: any = 'queued') =>
       store.insertQueueItem({
         id,
@@ -145,7 +145,7 @@ describe('Store — queue items', () => {
 
   test('fractional position lets an item insert between neighbors', () => {
     const store = seeded()
-    store.insertThread({ id: 'th1', projectId: 'project', createdAt: 1 })
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
     const mk = (id: string, pos: number) =>
       store.insertQueueItem({ id, threadId: 'th1', prompt: id, state: 'queued', source: 'user', position: pos, createdAt: 1 })
     mk('a', 1)

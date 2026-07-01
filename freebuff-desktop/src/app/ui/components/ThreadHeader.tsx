@@ -21,7 +21,6 @@ export function ThreadHeader({
   onReloadPreview: () => void
 }) {
   const slice = useStore((s) => s.threads[threadId])
-  const projectPath = useStore((s) => s.projectPath)
   const setPickerOpen = useStore((s) => s.setPickerOpen)
   // The server reports `previewReady` based on whether the project has a
   // previewable entry. Until then, offer "Set up preview" instead so users
@@ -35,7 +34,11 @@ export function ThreadHeader({
   const setThreadModel = useStore((s) => s.setThreadModel)
 
   if (!slice) return null
+  // Each tab runs in its own repo (see Thread.projectPath); the chip changes THIS
+  // tab's directory. A started tab (worktree/messages) re-targets in a new tab.
+  const projectPath = slice.thread.projectPath
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
+  const started = !!slice.thread.branch || slice.messages.length > 0
   // The hosted Freebuff agent (model picker + sign-in gate apply to it only).
   const isHostedAgent = (slice.thread.harnessId ?? agentHarness ?? 'codebuff') === 'codebuff'
 
@@ -43,10 +46,14 @@ export function ThreadHeader({
     <div className="thread-head">
       <button
         className="thread-head-project"
-        onClick={() => setPickerOpen(true)}
-        title={projectPath ? `${projectPath} — click to open another project` : 'Open a project'}
+        onClick={() => setPickerOpen(true, threadId)}
+        title={
+          projectPath
+            ? `${projectPath}${started ? ' — choose a folder for a new tab' : ' — click to change this tab’s folder'}`
+            : 'Choose a project folder'
+        }
       >
-        <Icon name="folder" /> {projectName || 'Open project'}
+        <Icon name="folder" /> {projectName || 'Choose folder'}
         <Icon name="down" className="caret" />
       </button>
       {agentOptions.length > 0 && (

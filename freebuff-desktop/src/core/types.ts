@@ -59,6 +59,10 @@ export type TurnState = 'idle' | 'running'
 export interface Thread {
   id: ThreadId
   projectId: ProjectId
+  /** Absolute path of the git repo this thread (tab) runs in. The desktop keeps
+   *  one engine per opened repo, so this is the engine's root; persisted per row
+   *  so each tab is self-describing and can target a different repo. */
+  projectPath: string
   title: string
   status: ThreadStatus
   /** Which agent (Codebuff / Claude Code) runs this thread's turns. Per-thread so

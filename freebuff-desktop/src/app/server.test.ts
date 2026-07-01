@@ -84,7 +84,8 @@ describe('server (integration)', () => {
     })
     expect(created.status).toBe(200)
     const thread = (await created.json()) as { id: string; title: string }
-    expect(thread.id).toMatch(/^th\d+$/)
+    // Globally-unique id (one engine per repo → no per-engine `th1` counter).
+    expect(thread.id).toMatch(/^th[a-z0-9]+$/)
     expect(thread.title).toBe('Integration thread')
 
     const list = (await (await fetch(`${BASE}/api/threads`)).json()) as { id: string }[]
