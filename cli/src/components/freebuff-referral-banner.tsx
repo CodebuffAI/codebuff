@@ -7,6 +7,7 @@ import {
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V52_REFERRAL_CAP,
 } from '@codebuff/common/constants/freebuff-models'
+import { REFERRAL_CLI_DAILY_SESSION_BONUS_CAP } from '@codebuff/common/constants/freebuff-referral-tiers'
 import { getReferralInfo } from '@codebuff/common/types/freebuff-session'
 import { pluralize } from '@codebuff/common/util/string'
 
@@ -95,17 +96,20 @@ const CopyInviteLinkButton: React.FC<{
 }
 
 /**
- * Advertises GLM 5.2 on the waiting-room model screen — a hyped model you unlock
- * by referring friends. Two deliberately different presentations:
+ * Advertises the "invite friends" reward on the waiting-room model screen. The
+ * reward — and the presentation — depends on the session's access tier:
  *
- *   - UNLOCKED (you have weekly GLM sessions): a flashy accent-bordered card
- *     with your remaining sessions and a prominent "Use GLM 5.2 ↵" launch
- *     button, so the reward feels earned and inviting.
- *   - LOCKED (no sessions yet): a single quiet muted line inviting referrals,
- *     so it advertises the perk without crowding the model picker.
+ *   - LIMITED tier: referrals earn a daily free-session bonus (not GLM). One
+ *     quiet muted line ("refer friends → more sessions per day") + the copy
+ *     button, so it advertises the perk without crowding the picker.
+ *   - FULL tier, UNLOCKED (you have weekly GLM sessions): a flashy accent-
+ *     bordered card with your remaining sessions and a prominent "Use GLM 5.2 ↵"
+ *     launch button, so the reward feels earned and inviting.
+ *   - FULL tier, LOCKED (no GLM sessions yet): a single quiet muted line
+ *     inviting referrals.
  *
- * Renders nothing unless the server attached a `referral` block (full-tier
- * only), so limited-tier and pre-referral-code users never see it.
+ * Renders nothing unless the server attached a `referral` block, so
+ * pre-referral-code users never see it.
  */
 export const FreebuffReferralBanner: React.FC = () => {
   const theme = useTheme()
@@ -135,9 +139,9 @@ export const FreebuffReferralBanner: React.FC = () => {
     })
   }, [])
 
-  // Referrals are a full-tier-only perk: limited users never earn GLM sessions,
-  // so the whole banner is hidden for them. The server already omits the
-  // `referral` block for non-full tiers; this is a belt-and-suspenders guard.
+  // Both tiers can have a referral block now: full tier advertises GLM, limited
+  // tier advertises its daily free-session bonus. The server omits the block for
+  // pre-referral-code users, and we still guard on its presence below.
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
   const referral = getReferralInfo(session)
@@ -148,10 +152,12 @@ export const FreebuffReferralBanner: React.FC = () => {
 
   // Register this banner's buttons as keyboard focus targets so the model
   // selector's arrow navigation flows from "see all models" into them (and
-  // wraps back up). Locked state shows just the copy button; the unlocked card
-  // leads with "Use GLM 5.2" then the invite button.
-  const hidden = accessTier === 'limited' || !referral
-  const isLocked = (referral?.weeklySessionsRemaining ?? 0) <= 0
+  // wraps back up). The limited variant and the full-tier locked state show
+  // just the copy button; the full-tier unlocked card leads with "Use GLM 5.2"
+  // then the invite button.
+  const hidden = !referral
+  const isLocked =
+    accessTier === 'limited' || (referral?.weeklySessionsRemaining ?? 0) <= 0
   useEffect(() => {
     if (hidden) {
       setExtraTargets([])
@@ -168,13 +174,68 @@ export const FreebuffReferralBanner: React.FC = () => {
     return () => setExtraTargets([])
   }, [hidden, isLocked, copy, useGlm, setExtraTargets])
 
-  if (accessTier === 'limited' || !referral) return null
+  if (!referral) return null
 
-  const { qualifiedCount, weeklySessionsRemaining, resetAt, githubLinked } =
-    referral
-  const resetsIn = formatFreebuffPremiumResetCountdown(new Date(resetAt), now, {
-    withDays: true,
-  })
+  const { qualifiedCount, githubLinked } = referral
+
+  // LIMITED tier: referrals earn a daily free-session bonus, not GLM. Keep it
+  // quiet — one line advertising the perk + the share button below it, with the
+  // earned bonus (capped) shown as progress. `qualifiedCount` is the capped
+  // bonus sessions/day already earned.
+  if (accessTier === 'limited') {
+    const atCap = qualifiedCount >= REFERRAL_CLI_DAILY_SESSION_BONUS_CAP
+    return (
+      <box
+        style={{
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 0,
+          marginTop: 1,
+          // Never let a height-starved landing column squash the banner — that
+          // would draw the bordered copy button on top of the line above it.
+          flexShrink: 0,
+        }}
+      >
+        <text style={{ wrapMode: 'word' }}>
+          <span fg={theme.muted}>✦ </span>
+          {qualifiedCount > 0 ? (
+            <>
+              <span fg={theme.foreground}>
+                +{pluralize(qualifiedCount, 'session')}/day
+              </span>
+              <span fg={theme.muted}>
+                {' '}
+                from referrals
+                {atCap
+                  ? ''
+                  : ` — refer more (${qualifiedCount}/${REFERRAL_CLI_DAILY_SESSION_BONUS_CAP}):`}
+              </span>
+            </>
+          ) : (
+            <span fg={theme.muted}>
+              Refer friends to unlock more free sessions per day:
+            </span>
+          )}
+        </text>
+        <CopyInviteLinkButton
+          isCopied={isCopied}
+          focused={copyFocused}
+          onCopy={copy}
+        />
+      </box>
+    )
+  }
+
+  // FULL tier: GLM 5.2 reward. The GLM-only fields are always present on a
+  // full-tier block from the server; default defensively for the wire type.
+  const weeklySessionsRemaining = referral.weeklySessionsRemaining ?? 0
+  const resetsIn = formatFreebuffPremiumResetCountdown(
+    referral.resetAt ? new Date(referral.resetAt) : new Date(now),
+    now,
+    {
+      withDays: true,
+    },
+  )
 
   // NOT USABLE: keep it quiet — one line that advertises the reward, with the
   // share link as a clearly-clickable button below it. Message adapts to *why*
