@@ -5,20 +5,10 @@
  *
  *  - validateProjectDir()  — is this path a usable project root? (exists, is a dir,
  *                            is a git repo) and what's its default branch.
- *  - browseDir()           — list a directory's subfolders so the renderer can offer
- *                            a folder picker without a native OS dialog (no Electron
- *                            shell yet; the UI runs in a plain browser).
  *  - last-opened persistence so reopening the app returns to the same project.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { dirname, join, resolve } from 'path'
 
@@ -32,6 +22,10 @@ export interface ProjectDirInfo {
   defaultBranch?: string
   /** Human-readable reason when `ok` is false. */
   error?: string
+  /** True when the only problem is that the folder isn't a git repo yet —
+   *  i.e. `git init` here would make it openable. Lets callers offer init
+   *  without inferring intent from the error string. */
+  needsInit?: boolean
 }
 
 /** Resolve a user-entered path to absolute, expanding a leading `~` to $HOME. */
@@ -57,12 +51,21 @@ export async function validateProjectDir(dir: string): Promise<ProjectDirInfo> {
   // Must be the top level of a git repo (where `.git` lives) — worktree add is run
   // against this root. A subdirectory of a repo would put `.freebuff/` in the wrong
   // place, so require `.git` here rather than walking up.
-  if (!existsSync(join(path, '.git')))
+  if (!existsSync(join(path, '.git'))) {
+    const enclosing = findEnclosingRepoRoot(path)
+    if (enclosing)
+      return {
+        ok: false,
+        path,
+        error: `This folder is inside the git repository at ${enclosing} — open that folder instead`,
+      }
     return {
       ok: false,
       path,
       error: 'Not a git repository (run `git init` here first)',
+      needsInit: true,
     }
+  }
 
   const defaultBranch = await detectDefaultBranch(path)
   return { ok: true, path, defaultBranch }
@@ -87,6 +90,16 @@ export async function initProjectRepo(dir: string): Promise<ProjectDirInfo> {
     return { ok: false, path, error: 'Cannot read folder' }
   }
 
+  // Never nest a repo inside an existing one — `git init` in a subfolder of a
+  // real repo would silently corrupt the user's project layout.
+  const enclosing = findEnclosingRepoRoot(path)
+  if (enclosing)
+    return {
+      ok: false,
+      path,
+      error: `This folder is inside the git repository at ${enclosing} — open that folder instead`,
+    }
+
   const git = (args: string[]) => bunRunner.run('git', ['-C', path, ...args])
 
   const init = await bunRunner.run('git', ['init', '-b', 'main', path])
@@ -106,6 +119,20 @@ export async function initProjectRepo(dir: string): Promise<ProjectDirInfo> {
   return validateProjectDir(path)
 }
 
+/** Nearest ancestor of `path` (strictly above it) that contains `.git`, or null.
+ *  Used to distinguish "not a repo yet" (offer `git init`) from "subfolder of an
+ *  existing repo" (must not be opened or initialized — worktrees/`.freebuff`
+ *  would land in the wrong place, and `git init` would nest a repo). */
+function findEnclosingRepoRoot(path: string): string | null {
+  let dir = dirname(path)
+  while (true) {
+    if (existsSync(join(dir, '.git'))) return dir
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
 /** The repo's current branch — the base every task worktree branches from (§8). */
 async function detectDefaultBranch(repoRoot: string): Promise<string> {
   const r = await bunRunner.run('git', [
@@ -119,60 +146,14 @@ async function detectDefaultBranch(repoRoot: string): Promise<string> {
   return branch || 'main'
 }
 
-export interface BrowseEntry {
-  name: string
-  path: string
-  /** True if this subfolder is itself a git repo — openable as a project. */
-  isRepo: boolean
-}
-
-export interface BrowseResult {
-  path: string
-  /** Parent dir, or null at the filesystem root. */
-  parent: string | null
-  /** Is the browsed path itself an openable git repo? */
-  isRepo: boolean
-  entries: BrowseEntry[]
-}
-
-/**
- * List the subdirectories of `dir` for the folder picker. Hidden dirs and common
- * heavy/uninteresting folders are skipped. Defaults to the user's home directory.
- */
-export function browseDir(dir?: string): BrowseResult {
-  const path = toAbsolute(dir || homedir())
-  const SKIP = new Set(['node_modules', '.git', '.freebuff'])
-  let entries: BrowseEntry[] = []
-  try {
-    entries = readdirSync(path, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !SKIP.has(d.name) && !d.name.startsWith('.'))
-      .map((d) => {
-        const full = join(path, d.name)
-        return { name: d.name, path: full, isRepo: existsSync(join(full, '.git')) }
-      })
-      .sort((a, b) => a.name.localeCompare(b.name))
-  } catch {
-    // Unreadable dir — return empty list rather than failing the request.
-  }
-  const parent = dirname(path)
-  return {
-    path,
-    parent: parent === path ? null : parent,
-    isRepo: existsSync(join(path, '.git')),
-    entries,
-  }
-}
-
 // — Last-opened persistence (§6.2): reopening the app returns to the same project —
 //
-// The state file tracks a small MRU list of recently-opened repos, so the
-// ProjectPicker can offer one-click return and the orchestrator can pick up
-// where the last session left off on launch.
+// The state file tracks a small MRU list of recently-opened repos so the
+// orchestrator can pick up where the last session left off on launch.
 
 const STATE_PATH = join(homedir(), '.config', 'freebuff-desktop', 'state.json')
 
-/** Cap on how many recent projects we keep. Keeps the picker list bounded
- *  and the state file small. */
+/** Cap on how many recent projects we keep. Keeps the state file small. */
 const MAX_RECENTS = 8
 
 /** Read the whole settings blob (last project + agent harness, …). */

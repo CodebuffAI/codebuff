@@ -76,19 +76,6 @@ export interface FreebuffModelOption {
   premiumBucket: boolean
 }
 
-/** Folder-picker listing from /api/fs/list (mirrors server BrowseResult). */
-export interface BrowseEntry {
-  name: string
-  path: string
-  isRepo: boolean
-}
-export interface BrowseResult {
-  path: string
-  parent: string | null
-  isRepo: boolean
-  entries: BrowseEntry[]
-}
-
 /** Mirror of the engine's ProjectSettings (see core/settings.ts). v1 is
  *  deliberately narrow — `preview.entry` is the only knob. */
 export interface ProjectSettings {

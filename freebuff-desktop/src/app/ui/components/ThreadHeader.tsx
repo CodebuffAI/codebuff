@@ -21,7 +21,7 @@ export function ThreadHeader({
   onReloadPreview: () => void
 }) {
   const slice = useStore((s) => s.threads[threadId])
-  const setPickerOpen = useStore((s) => s.setPickerOpen)
+  const pickProject = useStore((s) => s.pickProject)
   // The server reports `previewReady` based on whether the project has a
   // previewable entry. Until then, offer "Set up preview" instead so users
   // don't click into a 404.
@@ -46,7 +46,7 @@ export function ThreadHeader({
     <div className="thread-head">
       <button
         className="thread-head-project"
-        onClick={() => setPickerOpen(true, threadId)}
+        onClick={() => void pickProject(threadId)}
         title={
           projectPath
             ? `${projectPath}${started ? ' — choose a folder for a new tab' : ' — click to change this tab’s folder'}`

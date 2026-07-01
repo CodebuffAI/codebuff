@@ -26,7 +26,6 @@ import { LoginManager } from './auth/login-flow'
 import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
-  browseDir,
   initProjectRepo,
   readAgentHarness,
   readRecentProjects,
@@ -380,11 +379,7 @@ const server = Bun.serve({
       return e ? json(e.snapshot()) : json({ error: 'no project' }, 404)
     }
 
-    if (pathname === '/api/fs/list') {
-      return json(browseDir(url.searchParams.get('path') ?? undefined))
-    }
-
-    // Validate a directory (for the folder picker) without opening it.
+    // Validate a directory (for the native folder chooser) without opening it.
     if (pathname === '/api/project/validate') {
       const dir = url.searchParams.get('path')
       if (!dir) return json({ error: 'path required' }, 400)
@@ -399,8 +394,8 @@ const server = Bun.serve({
       return json(await initProjectRepo(String(dir)))
     }
 
-    // List the MRU of recently-opened projects so the picker can offer
-    // one-click return to a previous workspace.
+    // List the MRU of recently-opened projects — the renderer uses it to know
+    // whether the server has a default project to fall back on for new tabs.
     if (pathname === '/api/project/recents') {
       const recents = readRecentProjects()
       const current = registry.defaultPath()

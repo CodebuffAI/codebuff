@@ -11,6 +11,7 @@ import {
 } from '../../../core/parts'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
+import { bridge } from '../lib/bridge'
 import type {
   AgentOption,
   FreebuffSnapshot,
@@ -139,19 +140,24 @@ interface StoreState {
   /** Set a tab's Freebuff model; persists server-side. Downgrades + toasts if the
    *  premium slot is taken by another tab. */
   setThreadModel: (id: string, model: string) => void
-  /** Whether the project-picker modal is open, and which tab it's changing the
-   *  directory for (null = open a new tab in the chosen project). */
-  pickerOpen: boolean
-  pickerThreadId: string | null
-  setPickerOpen: (open: boolean, threadId?: string | null) => void
+  /** Open the native OS folder chooser and point a tab at the pick — changing
+   *  `threadId`'s directory when given (re-homing an unstarted tab in place,
+   *  else opening a new tab), otherwise opening a new tab in the chosen
+   *  project. A non-repo pick parks in `pendingInit` for git-init confirmation. */
+  pickProject: (threadId?: string | null) => Promise<void>
+  /** A native-picked folder that isn't a git repo yet, awaiting the user's
+   *  confirmation to `git init` it (null = nothing pending). */
+  pendingInit: { path: string; threadId: string | null } | null
+  /** Run `git init` on the pending pick, then open it like a normal pick. */
+  confirmPendingInit: () => Promise<void>
+  cancelPendingInit: () => void
   /** Whether the project-settings modal is open. */
   settingsOpen: boolean
   setSettingsOpen: (open: boolean) => void
-  /** MRU list of recently-opened projects (most recent first). Loaded on init
-   *  and refreshed when the picker opens so it stays in sync. */
+  /** MRU list of recently-opened projects (most recent first). Loaded on init;
+   *  it backs the server's default-project fallback for new tabs. */
   recentProjects: string[]
-  /** Re-fetch the recent-projects list from the server. Called on init and when
-   *  the ProjectPicker mounts so it reflects the latest MRU. */
+  /** Re-fetch the recent-projects list from the server (called on init). */
   refreshRecents: () => Promise<void>
   toasts: { id: number; text: string; kind: 'info' | 'error' }[]
   pushToast: (text: string, kind?: 'info' | 'error') => void
@@ -219,8 +225,7 @@ export const useStore = create<StoreState>((set, get) => ({
   settings: { version: 1, preview: { entry: 'index.html' } },
   settingsPath: null,
   settingsLoadError: null,
-  pickerOpen: false,
-  pickerThreadId: null,
+  pendingInit: null,
   settingsOpen: false,
   recentProjects: [],
   toasts: [],
@@ -257,8 +262,58 @@ export const useStore = create<StoreState>((set, get) => ({
     })
   },
 
-  setPickerOpen(open, threadId = null) {
-    set({ pickerOpen: open, pickerThreadId: open ? threadId : null })
+  async pickProject(threadId = null) {
+    // Native OS folder chooser (Electron). In a plain browser (Vite dev server /
+    // packaged SPA in a tab) the bridge is absent — there's no dialog to show.
+    const pickDirectory = bridge()?.pickDirectory
+    if (!pickDirectory) {
+      get().pushToast('Choosing a folder needs the desktop app.', 'error')
+      return
+    }
+    const picked = await pickDirectory()
+    if (!picked) return // canceled
+    try {
+      const info = await api.validateProject(picked)
+      if (info.needsInit) {
+        // Not a git repo yet — offer to initialize it rather than failing.
+        set({ pendingInit: { path: picked, threadId } })
+        return
+      }
+      if (!info.ok) {
+        // Unusable for another reason (inside an existing repo, unreadable, …)
+        // — git init wouldn't help, so surface the server's error instead.
+        get().pushToast(info.error ?? 'Cannot open this folder.', 'error')
+        return
+      }
+      await openPickedPath(get, picked, threadId)
+    } catch (e) {
+      // A rejected fetch (server restarting) must not swallow the pick silently
+      // — every call site fires this action as `void pickProject()`.
+      get().pushToast(`Couldn't open folder: ${(e as Error).message}`, 'error')
+    }
+  },
+
+  async confirmPendingInit() {
+    const pending = get().pendingInit
+    if (!pending) return
+    try {
+      const r = await api.initRepo(pending.path)
+      if (!r.ok) {
+        get().pushToast(`Couldn't initialize repo: ${r.error ?? 'unknown error'}`, 'error')
+        return
+      }
+      await openPickedPath(get, pending.path, pending.threadId)
+    } catch (e) {
+      get().pushToast(`Couldn't initialize repo: ${(e as Error).message}`, 'error')
+    } finally {
+      // Always dismiss the confirm modal — a rejected request would otherwise
+      // strand it with its buttons disabled and no way to close it.
+      set({ pendingInit: null })
+    }
+  },
+
+  cancelPendingInit() {
+    set({ pendingInit: null })
   },
 
   setSettingsOpen(open) {
@@ -269,14 +324,14 @@ export const useStore = create<StoreState>((set, get) => ({
   async refreshRecents() {
     try {
       const res = await api.listRecents()
-      // The picker calls `.filter()` on this directly, so a malformed payload
-      // (missing `recents`, null, non-array) would crash the picker. Coerce to
-      // a string array before storing — bad data is dropped, not propagated.
+      // A malformed payload (missing `recents`, null, non-array) would crash
+      // callers that iterate this list. Coerce to a string array before storing
+      // — bad data is dropped, not propagated.
       const list = Array.isArray(res?.recents) ? res.recents.filter((v): v is string => typeof v === 'string') : []
       set({ recentProjects: list })
     } catch {
-      // Leave the existing list alone on failure; the picker falls back to it
-      // and the next open will refresh again.
+      // Leave the existing list alone on failure — thread opens keep it fresh
+      // via pushRecent, so a failed fetch just means slightly stale data.
     }
   },
 
@@ -297,14 +352,14 @@ export const useStore = create<StoreState>((set, get) => ({
         api.listThreads(),
         api.listSkills(),
         get().loadSettings(),
-        // Recents are a small MRU list — fetch in parallel so the picker has
-        // it ready the first time the user opens it, without a visible gap.
+        // Recents are a small MRU list — fetched so newThread knows whether
+        // the server has a default project to fall back on for a new tab.
         get().refreshRecents(),
       ])
       // Hydrate persisted drafts before any thread loaders run so a reload
       // never races a getThread into the store ahead of its restored draft.
       // Garbage-collect entries whose threads are gone (deleted/cleaned up
-      // server-side) so the picker doesn't surface phantom drafts.
+      // server-side) so a composer never resurrects a phantom draft.
       const persistedDrafts = loadDrafts()
       const liveIds = new Set(threads.map((t) => t.id))
       const drafts: Record<string, ThreadDrafts> = {}
@@ -429,9 +484,11 @@ export const useStore = create<StoreState>((set, get) => ({
     // First launch (or every existing tab closed) with nothing to fall back on:
     // there's no project for the server to open, so prompt for a folder instead
     // of failing with "no project". Recents power the server's default project,
-    // so once one is opened this branch stops firing.
+    // so once one is opened this branch stops firing. In a plain browser there's
+    // no native dialog to prompt with — stay on the welcome screen rather than
+    // firing an unprompted error toast (its button explains when clicked).
     if (!path && s0.recentProjects.length === 0) {
-      get().setPickerOpen(true)
+      if (bridge()?.pickDirectory) void get().pickProject()
       return
     }
     const t = await api.createThread(path ? { projectPath: path } : {})
@@ -446,6 +503,7 @@ export const useStore = create<StoreState>((set, get) => ({
       // in `tabOrder` — `appendTab` keeps it from being added a second time.
       tabOrder: appendTab(s.tabOrder, t.id),
       activeId: t.id,
+      recentProjects: pushRecent(s.recentProjects, t.projectPath),
     }))
   },
 
@@ -476,6 +534,7 @@ export const useStore = create<StoreState>((set, get) => ({
         tabOrder: replaceTab(s.tabOrder, id, t.id),
         activeId: s.activeId === id ? t.id : s.activeId,
         recentlyClosed: s.recentlyClosed.filter((x) => x !== id),
+        recentProjects: pushRecent(s.recentProjects, t.projectPath),
       }
     })
   },
@@ -682,6 +741,28 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 }))
+
+/** Open a pick that passed validation (or was just git-initialized): change
+ *  `threadId`'s folder when given, else open a new tab in the project. The one
+ *  shared exit for both pickProject and confirmPendingInit, so the two flows
+ *  can't drift. */
+async function openPickedPath(
+  get: () => StoreState,
+  path: string,
+  threadId: string | null,
+): Promise<void> {
+  if (threadId) await get().changeTabDirectory(threadId, path)
+  else await get().newThread(path)
+}
+
+/** Local mirror of the server's MRU push (pushRecentProject) when a thread
+ *  opens in `path`. Keeps `recentProjects` truthful mid-session so the
+ *  "no recents → prompt for a folder" fallback stops firing once a project
+ *  has been opened. */
+function pushRecent(list: string[], path: string | undefined): string[] {
+  if (!path) return list
+  return [path, ...list.filter((p) => p !== path)]
+}
 
 const SKILL_TALLY_KEY = 'freebuff:skillTally'
 

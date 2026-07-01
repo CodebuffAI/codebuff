@@ -2,7 +2,6 @@
  * Vite proxy) and packaged (served by the Bun server). */
 
 import type {
-  BrowseResult,
   HarnessId,
   Part,
   ProjectSettings,
@@ -78,8 +77,12 @@ export const api = {
     }),
 
   // Project
-  browse: (path?: string) =>
-    get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  /** Can this path be opened as a project (exists, is a git repo)? `needsInit`
+   *  means "no, but `git init` would fix it" — the offer-to-initialize signal. */
+  validateProject: (path: string) =>
+    get<{ ok: boolean; path: string; needsInit?: boolean; error?: string }>(
+      `/api/project/validate?path=${encodeURIComponent(path)}`,
+    ),
   listRecents: () => get<{ recents: string[] }>('/api/project/recents'),
   /** `git init` a folder that isn't a repo yet so it can be opened. */
   initRepo: (path: string) =>

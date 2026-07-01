@@ -223,7 +223,7 @@ sends no `Origin` header — non-browser clients are allowed.
 | `GET·POST /api/settings` `{settings}` | `.freebuff/settings.json` (e.g. `preview.entry`) |
 | `POST /api/settings/agent` `{harnessId}` | set the **project-wide default** harness for new threads |
 | `GET /api/auth/status` · `POST /api/auth/login/start` · `POST /api/auth/logout` | device-code auth |
-| `GET /api/project/recents` · `POST /api/project/open` `{path}` · `GET /api/fs/list?path=` | project picker |
+| `GET /api/project/recents` · `POST /api/project/open` `{path}` · `GET /api/project/validate?path=` · `POST /api/project/init` `{path}` | open a project (folder choice itself is the native OS dialog; `validate` reports `needsInit` for non-repos, `init` runs `git init`) |
 | `POST /api/run` `{command}` | run a shell command in the repo (utility) |
 
 ### Send a build like a human typing into a tab
