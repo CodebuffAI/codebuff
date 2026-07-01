@@ -36,6 +36,15 @@ crons.interval(
   internal.coding_agent.freebuff_bridge_mutations.sweepTimedOutFreebuffRuns,
 )
 
+// Bug-fixer bot queue pump: settles finished Codex runs and dispatches the
+// next approved issue report into the configured cloud project. No-op unless
+// the bot is enabled in /web/admin/bug-fixer.
+crons.interval(
+  'process bug fixer queue',
+  { minutes: 1 },
+  internal.bug_fixer.queue.processQueue,
+)
+
 // Mirror of the Freebuff sweep above, for Codex / Claude Code threads (which
 // don't have a dedicated run ledger). See cli_agent_timeout.ts for details.
 crons.interval(

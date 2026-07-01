@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import { internal } from './_generated/api'
 import {
   internalMutation,
   internalQuery,
@@ -206,12 +207,24 @@ export const insertIssueReport = internalMutation({
     if (recentCount >= MAX_ISSUE_REPORTS_PER_DAY) {
       throw new Error('RATE_LIMITED')
     }
-    return await ctx.db.insert('issue_reports', {
+    const reportId = await ctx.db.insert('issue_reports', {
       ...args,
       status: 'open',
       submittedAt: Date.now(),
       emailSendStatus: 'pending',
     })
+
+    // Automated bug-fixer pipeline: AI triage, then (if approved) a queued
+    // Codex run against the configured cloud project. Scheduled so a triage
+    // failure can never break report submission. No-ops unless the bot is
+    // enabled in /web/admin/bug-fixer.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.bug_fixer.triage.triageIssueReport,
+      { reportId },
+    )
+
+    return reportId
   },
 })
 
