@@ -18,6 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords: siteConfig.keywords(),
+    // Desktop is a soft launch: reachable directly at /desktop, but kept out
+    // of search results (not in the sitemap or navbar either) until we're
+    // ready to make it public.
+    robots: { index: false, follow: false },
     alternates: { canonical: canonicalUrl() },
     openGraph: {
       title,
