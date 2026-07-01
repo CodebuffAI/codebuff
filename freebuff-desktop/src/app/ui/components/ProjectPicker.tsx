@@ -40,6 +40,7 @@ export function ProjectPicker({
     (s) => (threadId && s.threads[threadId]?.thread.projectPath) || s.recentProjects[0] || '',
   )
   const refreshRecents = useStore((s) => s.refreshRecents)
+  const pushToast = useStore((s) => s.pushToast)
   const [listing, setListing] = useState<BrowseResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [opening, setOpening] = useState(false)
@@ -95,7 +96,31 @@ export function ProjectPicker({
   const canBrowseNative = !!bridge()?.pickDirectory
   const browseNative = async () => {
     const picked = await bridge()?.pickDirectory()
-    if (picked) await open(picked)
+    if (!picked) return
+    // The native dialog can return any folder; if it isn't a repo, offer to
+    // initialize it rather than failing.
+    const info = await api.browse(picked)
+    if (info.isRepo) await open(picked)
+    else setPendingInit(picked)
+  }
+
+  // A non-repo folder awaiting the user's confirmation to `git init` it.
+  const [pendingInit, setPendingInit] = useState<string | null>(null)
+  const [initing, setIniting] = useState(false)
+
+  const confirmInit = async () => {
+    if (!pendingInit) return
+    setIniting(true)
+    const r = await api.initRepo(pendingInit)
+    setIniting(false)
+    if (!r.ok) {
+      pushToast(`Couldn't initialize repo: ${r.error ?? 'unknown error'}`, 'error')
+      setPendingInit(null)
+      return
+    }
+    const path = pendingInit
+    setPendingInit(null)
+    await open(path)
   }
 
   const openRecent = async (path: string) => {
@@ -105,8 +130,9 @@ export function ProjectPicker({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal picker" onClick={(e) => e.stopPropagation()}>
+    <>
+      <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal picker" onClick={(e) => e.stopPropagation()}>
         <div className="picker-head">
           <span className="picker-title">{threadId ? "Change this tab’s folder" : 'Open a project folder'}</span>
           <div className="picker-head-actions">
@@ -162,10 +188,21 @@ export function ProjectPicker({
           <span className="picker-cwd" title={listing?.path}>
             {listing?.path ?? '…'}
           </span>
-          {listing?.isRepo && (
+          {listing?.isRepo ? (
             <button className="btn open-here" disabled={opening} onClick={() => open(listing.path)}>
               Open this folder
             </button>
+          ) : (
+            listing && (
+              <button
+                className="btn open-here"
+                disabled={opening || initing}
+                onClick={() => setPendingInit(listing.path)}
+                title="git init this folder, then open it"
+              >
+                Initialize git here
+              </button>
+            )
           )}
         </div>
 
@@ -191,9 +228,34 @@ export function ProjectPicker({
         </div>
 
         <div className="picker-foot">
-          Only git repositories can be opened. Need one? Run <code>git init</code> in the folder first.
+          Only git repositories can be opened — pick a non-repo folder and Freebuff will offer to initialize it.
+        </div>
         </div>
       </div>
-    </div>
+
+      {pendingInit && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !initing && setPendingInit(null)}
+        >
+          <div className="modal init-confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="init-confirm-title">Initialize a git repository?</div>
+            <p className="init-confirm-body">
+              <code>{pendingInit}</code> isn’t a git repository yet. Freebuff will
+              run <code>git init</code> and make an initial commit so it can open
+              the folder.
+            </p>
+            <div className="init-confirm-actions">
+              <button className="btn" disabled={initing} onClick={() => setPendingInit(null)}>
+                Cancel
+              </button>
+              <button className="btn save" disabled={initing} onClick={confirmInit}>
+                {initing ? 'Initializing…' : 'Initialize with git'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

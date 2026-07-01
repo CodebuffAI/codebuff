@@ -27,6 +27,7 @@ import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './aut
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
   browseDir,
+  initProjectRepo,
   readAgentHarness,
   readRecentProjects,
   validateProjectDir,
@@ -388,6 +389,14 @@ const server = Bun.serve({
       const dir = url.searchParams.get('path')
       if (!dir) return json({ error: 'path required' }, 400)
       return json(await validateProjectDir(dir))
+    }
+
+    // `git init` a folder the user picked that isn't yet a repo, so it can be
+    // opened as a project.
+    if (pathname === '/api/project/init' && req.method === 'POST') {
+      const dir = (await body(req)).path
+      if (!dir) return json({ error: 'path required' }, 400)
+      return json(await initProjectRepo(String(dir)))
     }
 
     // List the MRU of recently-opened projects so the picker can offer

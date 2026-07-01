@@ -68,6 +68,44 @@ export async function validateProjectDir(dir: string): Promise<ProjectDirInfo> {
   return { ok: true, path, defaultBranch }
 }
 
+/**
+ * `git init` a folder so it can be opened as a project. Idempotent (a folder
+ * that's already a repo is returned as-is). Makes an initial commit — with
+ * `--allow-empty` so even an empty folder gets one — because task worktrees
+ * (`git worktree add`) need at least one commit to branch from. A fallback git
+ * identity is set locally ONLY when the user has none configured, so real
+ * commits keep the user's own name/email.
+ */
+export async function initProjectRepo(dir: string): Promise<ProjectDirInfo> {
+  const path = toAbsolute(dir)
+  if (existsSync(join(path, '.git'))) return validateProjectDir(path)
+  if (!existsSync(path)) return { ok: false, path, error: 'Folder does not exist' }
+  try {
+    if (!statSync(path).isDirectory())
+      return { ok: false, path, error: 'Not a folder' }
+  } catch {
+    return { ok: false, path, error: 'Cannot read folder' }
+  }
+
+  const git = (args: string[]) => bunRunner.run('git', ['-C', path, ...args])
+
+  const init = await bunRunner.run('git', ['init', '-b', 'main', path])
+  if (init.exitCode !== 0)
+    return { ok: false, path, error: `git init failed: ${init.stderr.trim()}` }
+
+  if (!(await git(['config', 'user.email'])).stdout.trim()) {
+    await git(['config', 'user.email', 'desktop@freebuff.local'])
+    await git(['config', 'user.name', 'Freebuff Desktop'])
+  }
+
+  await git(['add', '-A'])
+  const commit = await git(['commit', '--allow-empty', '-m', 'Initial commit'])
+  if (commit.exitCode !== 0)
+    return { ok: false, path, error: `git commit failed: ${commit.stderr.trim()}` }
+
+  return validateProjectDir(path)
+}
+
 /** The repo's current branch — the base every task worktree branches from (§8). */
 async function detectDefaultBranch(repoRoot: string): Promise<string> {
   const r = await bunRunner.run('git', [

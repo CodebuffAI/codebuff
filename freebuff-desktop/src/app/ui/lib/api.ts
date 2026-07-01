@@ -81,6 +81,9 @@ export const api = {
   browse: (path?: string) =>
     get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
   listRecents: () => get<{ recents: string[] }>('/api/project/recents'),
+  /** `git init` a folder that isn't a repo yet so it can be opened. */
+  initRepo: (path: string) =>
+    post<{ ok: boolean; path: string; error?: string }>('/api/project/init', { path }),
 
   // Settings
   // Project-wide default harness for NEW threads. /api/thread/{id}/harness

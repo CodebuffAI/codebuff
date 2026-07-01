@@ -1863,6 +1863,34 @@ body.col-resizing {
   align-items: center;
   gap: 8px;
 }
+/* Confirm dialog shown when the user picks a folder that isn't a git repo. */
+.init-confirm {
+  max-width: 460px;
+  padding: 18px 20px 16px;
+}
+.init-confirm-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.init-confirm-body {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 0 16px;
+  word-break: break-all;
+}
+.init-confirm-body code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.init-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 /* Recents strip: surfaces the MRU list above the folder tree so returning
    users can re-open a previous project with one click. Hidden until the
    list has at least one entry (the fetch may take a tick on a cold start). */
