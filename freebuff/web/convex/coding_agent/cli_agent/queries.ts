@@ -288,6 +288,30 @@ export const getStreamedAgentMessages = query({
 // streaming message. Returns the (light) streaming message plus only the delta
 // rows with seq > afterSeq, so the websocket ships new chunks instead of the
 // whole growing message on every update.
+/**
+ * Internal: the id of a project's currently-streaming agent message (if any).
+ * Used by the take-over flow to cancel the previously-active project's run.
+ */
+export const getStreamingMessageIdForProjectInternal = internalQuery({
+  args: { projectId: v.id("project") },
+  returns: v.union(v.id("agent_message"), v.null()),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !project.active_agent_thread) return null;
+    const messages = await ctx.db
+      .query("agent_message")
+      .withIndex("by_thread_active", (q) =>
+        q
+          .eq("thread_id", project.active_agent_thread!)
+          .eq("isStreaming", true)
+          .eq("deactivated", false),
+      )
+      .order("desc")
+      .take(1);
+    return messages[0]?._id ?? null;
+  },
+});
+
 export const getStreamingMessageDeltasInternal = internalQuery({
   args: {
     activeThread: v.optional(v.id("agent_thread")),

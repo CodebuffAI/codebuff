@@ -86,11 +86,6 @@ export default function Navigation({
       href: "/cloud",
       onClick: () => handleNavigate("/cloud"),
       icon: <Cloud className="mr-1.5 h-4 w-4 lg:hidden" />,
-      badge: (
-        <span className="ml-1.5 rounded-full border border-[#7CFF3F]/30 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-[#7CFF3F]">
-          beta
-        </span>
-      ),
     },
     {
       label: "My Projects",

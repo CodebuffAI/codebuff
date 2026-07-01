@@ -102,11 +102,6 @@ export const Header: React.FC<HeaderProps> = ({
       label: 'Cloud',
       href: '/cloud',
       icon: <Cloud className="mr-1.5 h-4 w-4 md:hidden" />,
-      badge: (
-        <span className="ml-1.5 rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90">
-          beta
-        </span>
-      ),
     },
     {
       label: 'Community',

@@ -18,7 +18,6 @@ function IntegrationsView({ semanticIdentifier }: IntegrationsViewProps) {
         </span>
         <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Info className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Beta —</span>
           <a
             href="https://discord.gg/yXG3w7wxfs"
             target="_blank"

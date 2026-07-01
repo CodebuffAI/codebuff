@@ -6,7 +6,14 @@ import { DISCORD_URL } from '@/components/landing/nav-links'
 import { useSignedInUser } from '@/vly/hooks/use-user'
 import { cn } from '@/vly/lib/utils'
 import { useAction, useQuery } from 'convex/react'
-import { ArrowLeft, Bug, Lightbulb, Loader2, Send } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bug,
+  Lightbulb,
+  Loader2,
+  MessageCircle,
+  Send,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -163,6 +170,16 @@ export function IssueReportButton({
                 {step}/2
               </span>
             )}
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Chat with the community on Discord"
+              title="Chat with the community on Discord"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-[#5865F2]"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+            </a>
           </div>
 
           {overLimit ? (

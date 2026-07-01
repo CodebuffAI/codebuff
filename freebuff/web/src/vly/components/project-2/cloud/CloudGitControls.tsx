@@ -212,7 +212,7 @@ export function CloudGitControls({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className={`flex h-7 max-w-[150px] items-center gap-1.5 rounded border px-2 text-xs font-medium transition-colors sm:max-w-[180px] ${
+            className={`flex h-7 max-w-[104px] items-center gap-1.5 rounded border px-2 text-xs font-medium transition-colors sm:max-w-[180px] ${
               onMain
                 ? 'border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
                 : 'border-border bg-muted/40 text-foreground/85 hover:bg-muted hover:text-foreground'
@@ -519,15 +519,17 @@ export function CloudGitControls({
           </span>
         </GitIconButton>
 
-        {/* Open pull request */}
-        <GitIconButton
-          label={onMain ? 'Create a branch to open a PR' : 'Open pull request'}
-          onClick={() => void handleCreatePr()}
-          disabled={onMain || anyBusy}
-          loading={busy === 'open pull request'}
-        >
-          <GitPullRequest className="h-4 w-4" />
-        </GitIconButton>
+        {/* Open pull request — hidden on mobile to keep the bar uncrowded. */}
+        <span className="hidden sm:inline-flex">
+          <GitIconButton
+            label={onMain ? 'Create a branch to open a PR' : 'Open pull request'}
+            onClick={() => void handleCreatePr()}
+            disabled={onMain || anyBusy}
+            loading={busy === 'open pull request'}
+          >
+            <GitPullRequest className="h-4 w-4" />
+          </GitIconButton>
+        </span>
       </div>
     </div>
   )

@@ -23,6 +23,7 @@ import { DeploymentDialog } from './deployment/DeploymentDialog'
 import { EditableProjectName } from './EditableProjectName'
 import { BetaBadge } from '@/vly/components/app-shell/BetaBadge'
 import { DiscordIcon } from '@/vly/components/app-shell/DiscordIcon'
+import { LimitedSandboxBadge } from '@/vly/components/cloud/LimitedSandboxBadge'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -284,25 +285,25 @@ export function TopBar({
 
           <div className="h-5 w-px shrink-0 bg-border" aria-hidden />
 
-          {/* Beta notice — Discord button with the report-issues text to its
-              right. Text collapses on narrow screens; the icon stays clickable. */}
+          {/* Community — join our Discord. */}
           <a
             href="https://discord.gg/yXG3w7wxfs"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="This is a beta: report issues in our Discord"
+            aria-label="Join our Discord community"
             className="flex h-7 min-w-0 shrink items-center gap-2 rounded px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <DiscordIcon className="h-4 w-4 shrink-0 text-[#5865F2]" />
             <span className="hidden truncate text-xs font-medium md:inline">
-              This is a beta: report issues in our{' '}
-              <span className="text-primary">Discord</span>
+              Join our <span className="text-primary">Discord</span>
             </span>
           </a>
         </div>
 
         {/* ── Right: icon actions ──────────────────────────────────────── */}
         <div className="flex flex-shrink-0 items-center gap-1">
+          <LimitedSandboxBadge className="mr-0.5" />
+
           {/* Preview - opens in new tab. Always visible; this is the
               fastest path to a real production-style preview. */}
           <IconButton

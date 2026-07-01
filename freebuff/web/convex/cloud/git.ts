@@ -8,7 +8,10 @@ import { getAuthUser } from "../users";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
 import { escapeShellArg } from "../coding_agent/cli_agent/shellEscape";
-import { createPullRequest as createGithubPullRequest } from "../../codebase-utils/github";
+import {
+  createPullRequest as createGithubPullRequest,
+  getInstallationToken,
+} from "../../codebase-utils/github";
 
 /**
  * Git integration for Freebuff Cloud (connected-repo) projects: branch status,
@@ -48,6 +51,40 @@ async function getCurrentBranch(codebase: DaytonaCodebase): Promise<string> {
     10_000,
   );
   return branchResult.output.trim() || "main";
+}
+
+/**
+ * Refresh the sandbox `origin` remote with a freshly-minted GitHub App
+ * installation token before any network git op.
+ *
+ * The token embedded in `origin` at clone time expires after ~1 hour, which is
+ * why "Sync"/push/PR started failing for longer-lived sandboxes with
+ * "Invalid username or token. Password authentication is not supported".
+ * Re-minting and rewriting the remote URL right before fetch/pull/push keeps
+ * auth valid regardless of how long the sandbox has been alive.
+ */
+async function refreshOriginAuth(
+  codebase: DaytonaCodebase,
+  project: {
+    repo_full_name?: string | null;
+    github_installation_id?: number | null;
+  },
+): Promise<void> {
+  if (!project.repo_full_name || !project.github_installation_id) return;
+  let token: string;
+  try {
+    token = await getInstallationToken(project.github_installation_id);
+  } catch (error) {
+    console.error("[cloud/git] failed to mint installation token", error);
+    throw new Error(
+      "GitHub access has expired or the app was uninstalled. Please reconnect the repository from the Cloud page.",
+    );
+  }
+  const remoteUrl = `https://x-access-token:${token}@github.com/${project.repo_full_name}.git`;
+  await codebase.runCommand(
+    `git remote set-url origin ${escapeShellArg(remoteUrl)}`,
+    30_000,
+  );
 }
 
 export type CloudGitStatus = {
@@ -307,6 +344,7 @@ export const switchBranch = action({
       60_000,
     );
     if (result.exitCode && result.exitCode !== 0) {
+      await refreshOriginAuth(codebase, project);
       result = await codebase.runCommand(
         `git fetch origin ${branch} && git checkout -B ${branch} origin/${branch}`,
         120_000,
@@ -466,6 +504,7 @@ export const pushCurrentBranch = action({
     );
 
     const currentBranch = await getCurrentBranch(codebase);
+    await refreshOriginAuth(codebase, project);
     // -u sets the upstream so subsequent ahead/behind status is accurate.
     const pushResult = await codebase.runCommand(
       `git push -u origin ${escapeShellArg(currentBranch)}`,
@@ -573,6 +612,7 @@ export const commitAndPush = action({
       committed = true;
     }
 
+    await refreshOriginAuth(codebase, project);
     // -u sets the upstream so subsequent ahead/behind status is accurate.
     const pushResult = await codebase.runCommand(
       `git push -u origin ${escapeShellArg(currentBranch)}`,
@@ -634,6 +674,7 @@ export const syncFromRemote = action({
     );
 
     const currentBranch = await getCurrentBranch(codebase);
+    await refreshOriginAuth(codebase, project);
     // Fetch all so ahead/behind vs the default branch is fresh after sync.
     const syncResult = await codebase.runCommand(
       `git fetch origin && git pull --rebase origin ${escapeShellArg(currentBranch)}`,
@@ -719,6 +760,7 @@ export const createPullRequest = action({
       };
     }
 
+    await refreshOriginAuth(codebase, project);
     // Push the branch so the PR head exists on the remote.
     const pushResult = await codebase.runCommand(
       `git push -u origin ${escapeShellArg(currentBranch)}`,

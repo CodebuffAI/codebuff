@@ -27,6 +27,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${siteUrl}/cloud`,
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
+    {
       url: `${siteUrl}${blogConfig.basePath}`,
       changeFrequency: 'daily',
       priority: 0.9,
@@ -91,22 +96,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }))
 
   const communityData = await getCommunitySitemapData()
-  const communityProjectEntries: MetadataRoute.Sitemap = communityData.posts.map(
-    (post) => ({
+  const communityProjectEntries: MetadataRoute.Sitemap =
+    communityData.posts.map((post) => ({
       url: `${siteUrl}/web/community/project/${post._id}`,
       lastModified: new Date(post.updatedAt).toISOString(),
       changeFrequency: 'weekly',
       priority: 0.55,
-    }),
-  )
-  const communityProfileEntries: MetadataRoute.Sitemap = communityData.users.map(
-    (user) => ({
+    }))
+  const communityProfileEntries: MetadataRoute.Sitemap =
+    communityData.users.map((user) => ({
       url: `${siteUrl}/web/community/profile/${user._id}`,
       lastModified: new Date(user.updatedAt).toISOString(),
       changeFrequency: 'weekly',
       priority: 0.45,
-    }),
-  )
+    }))
 
   return [
     ...staticEntries,

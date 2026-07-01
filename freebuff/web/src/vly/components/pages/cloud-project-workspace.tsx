@@ -17,6 +17,8 @@ import { CloudIframeArea } from '../project-2/cloud/CloudIframeArea'
 import type { CloudTab } from '../project-2/cloud/CloudWorkspaceTabs'
 import { SandboxTierNotice } from '../project-2/SandboxTierNotice'
 import { AmbientBackdrop } from '../app-shell/AmbientBackdrop'
+import { ActiveSessionTakeoverOverlay } from '../project-2/ActiveSessionTakeoverOverlay'
+import { useActiveSession } from '@/vly/hooks/useActiveSession'
 
 /**
  * Cloud-only project workspace shell. Forked from the shared web `Project2`
@@ -48,6 +50,14 @@ function CloudProjectWorkspaceInner({
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth()
   const project = useQuery(api.project.getProjectData, { semanticIdentifier })
   const isMobile = useIsMobile()
+
+  // One active project/agent at a time per user — seamless take-over prompt.
+  const activeSession = useActiveSession({
+    projectId: project?._id,
+    semanticIdentifier,
+    surface: 'cloud',
+    enabled: isAuthenticated && !!project?._id,
+  })
 
   const [cloudTab, setCloudTab] = useState<CloudTab>('preview')
   const [isChatExpanded, setIsChatExpanded] = useState(false)
@@ -149,6 +159,12 @@ function CloudProjectWorkspaceInner({
         >
           <AmbientBackdrop />
         </div>
+        <ActiveSessionTakeoverOverlay
+          open={activeSession.conflict}
+          onTakeOver={activeSession.takeOver}
+          takingOver={activeSession.takingOver}
+          holderLabel={activeSession.holderLabel}
+        />
         {(!isMobile || mobileView === 'chat') && (
           <div className="relative z-50 flex-shrink-0">
             <CloudTopBar project={project} />

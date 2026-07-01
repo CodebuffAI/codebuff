@@ -46,6 +46,8 @@ import {
   type IframeTab,
 } from "../project-2/ProjectIframeArea";
 import { SandboxTierNotice } from "../project-2/SandboxTierNotice";
+import { ActiveSessionTakeoverOverlay } from "../project-2/ActiveSessionTakeoverOverlay";
+import { useActiveSession } from "@/vly/hooks/useActiveSession";
 
 // Lazy load heavy components that may not be immediately visible
 const SyncStatusBanner = lazy(() =>
@@ -190,6 +192,14 @@ function ProjectWrapper({
   const { projectTheme, toggleProjectTheme } = useProjectPageTheme();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
+
+  // One active project/agent at a time per user — seamless take-over prompt.
+  const activeSession = useActiveSession({
+    projectId: project?._id,
+    semanticIdentifier,
+    surface: runtimeSurface === "cloud" ? "cloud" : "web",
+    enabled: isAuthenticated && !!project?._id,
+  });
 
   // Determine which chat UI to show based on active thread type
   const useAgentChat = project?.active_agent_thread ? true : false;
@@ -796,6 +806,12 @@ function ProjectWrapper({
       )}
 
       <div className="project-page-root fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#1e1e1e]">
+        <ActiveSessionTakeoverOverlay
+          open={activeSession.conflict}
+          onTakeOver={activeSession.takeOver}
+          takingOver={activeSession.takingOver}
+          holderLabel={activeSession.holderLabel}
+        />
         {/* Top bar — hidden on the mobile Preview tab so the iframe gets
             the full screen. Chat tab still shows it for project context. */}
         {(!isMobile || mobileView === "chat") && (

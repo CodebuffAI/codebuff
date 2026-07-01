@@ -29,39 +29,206 @@ const FREEBUFF: Competitor = {
 // CLI coding agents — projected average yearly cost (higher tiers).
 export const CLI_COMPETITORS: Competitor[] = [
   FREEBUFF,
-  { name: 'OpenCode', color: '#f5a623', mark: 'O', slug: 'opencode', domain: 'opencode.ai', yearly: 120, note: '$120 / yr' },
-  { name: 'Codex', color: '#7b6bf2', mark: 'C', logo: '/landing/codex.svg', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
-  { name: 'Cursor', color: '#e6e6e6', mark: 'C', slug: 'cursor', domain: 'cursor.com', yearly: 720, note: '$60 / mo' },
-  { name: 'Claude Code', color: '#d97757', mark: 'A', slug: 'claude', domain: 'claude.ai', yearly: 1200, note: '$100 / mo' },
-  { name: 'Devin', color: '#6366f1', mark: 'D', domain: 'devin.ai', yearly: 2400, note: '$200 / mo' },
+  {
+    name: 'OpenCode',
+    color: '#f5a623',
+    mark: 'O',
+    slug: 'opencode',
+    domain: 'opencode.ai',
+    yearly: 120,
+    note: '$120 / yr',
+  },
+  {
+    name: 'Codex',
+    color: '#7b6bf2',
+    mark: 'C',
+    logo: '/landing/codex.svg',
+    domain: 'openai.com',
+    yearly: 240,
+    note: '$20 / mo',
+  },
+  {
+    name: 'Cursor',
+    color: '#e6e6e6',
+    mark: 'C',
+    slug: 'cursor',
+    domain: 'cursor.com',
+    yearly: 720,
+    note: '$60 / mo',
+  },
+  {
+    name: 'Claude Code',
+    color: '#d97757',
+    mark: 'A',
+    slug: 'claude',
+    domain: 'claude.ai',
+    yearly: 1200,
+    note: '$100 / mo',
+  },
+  {
+    name: 'Devin',
+    color: '#6366f1',
+    mark: 'D',
+    domain: 'devin.ai',
+    yearly: 2400,
+    note: '$200 / mo',
+  },
 ]
 
 // Web app builders.
 export const WEB_COMPETITORS: Competitor[] = [
   FREEBUFF,
-  { name: 'Emergent', color: '#8b5cf6', mark: 'E', domain: 'emergent.sh', yearly: 240, note: '$20 / mo' },
-  { name: 'Bolt.new', color: '#1389fd', mark: 'B', slug: 'bolt', domain: 'bolt.new', yearly: 324, note: '$27 / mo' },
-  { name: 'Lovable', color: '#ff4d6d', mark: 'L', logo: '/landing/lovable.svg', domain: 'lovable.dev', yearly: 600, note: '$50 / mo' },
-  { name: 'Replit', color: '#f26207', mark: 'R', slug: 'replit', domain: 'replit.com', yearly: 1080, note: '$90 / mo' },
-  { name: 'Base44', color: '#3b82f6', mark: 'B', domain: 'base44.com', yearly: 1920, note: '$160 / mo' },
+  {
+    name: 'Emergent',
+    color: '#8b5cf6',
+    mark: 'E',
+    domain: 'emergent.sh',
+    yearly: 240,
+    note: '$20 / mo',
+  },
+  {
+    name: 'Bolt.new',
+    color: '#1389fd',
+    mark: 'B',
+    slug: 'bolt',
+    domain: 'bolt.new',
+    yearly: 324,
+    note: '$27 / mo',
+  },
+  {
+    name: 'Lovable',
+    color: '#ff4d6d',
+    mark: 'L',
+    logo: '/landing/lovable.svg',
+    domain: 'lovable.dev',
+    yearly: 600,
+    note: '$50 / mo',
+  },
+  {
+    name: 'Replit',
+    color: '#f26207',
+    mark: 'R',
+    slug: 'replit',
+    domain: 'replit.com',
+    yearly: 1080,
+    note: '$90 / mo',
+  },
+  {
+    name: 'Base44',
+    color: '#3b82f6',
+    mark: 'B',
+    domain: 'base44.com',
+    yearly: 1920,
+    note: '$160 / mo',
+  },
 ]
 
 // Chat assistants.
 export const CHAT_COMPETITORS: Competitor[] = [
   FREEBUFF,
-  { name: 'Copilot Pro', color: '#8957e5', mark: 'C', slug: 'githubcopilot', logo: 'https://cdn.simpleicons.org/githubcopilot/white', yearly: 120, note: '$10 / mo' },
-  { name: 'Perplexity Pro', color: '#20b8cd', mark: 'P', slug: 'perplexity', domain: 'perplexity.ai', yearly: 200, note: '$200 / yr' },
-  { name: 'ChatGPT Plus', color: '#10a37f', mark: 'G', domain: 'openai.com', yearly: 240, note: '$20 / mo' },
-  { name: 'Gemini Advanced', color: '#4285f4', mark: 'G', slug: 'googlegemini', domain: 'gemini.google.com', yearly: 240, note: '$20 / mo' },
-  { name: 'Grok', color: '#e6e6e6', mark: 'X', slug: 'x', domain: 'x.ai', yearly: 360, note: '$30 / mo' },
+  {
+    name: 'Copilot Pro',
+    color: '#8957e5',
+    mark: 'C',
+    slug: 'githubcopilot',
+    logo: 'https://cdn.simpleicons.org/githubcopilot/white',
+    yearly: 120,
+    note: '$10 / mo',
+  },
+  {
+    name: 'Perplexity Pro',
+    color: '#20b8cd',
+    mark: 'P',
+    slug: 'perplexity',
+    domain: 'perplexity.ai',
+    yearly: 200,
+    note: '$200 / yr',
+  },
+  {
+    name: 'ChatGPT Plus',
+    color: '#10a37f',
+    mark: 'G',
+    domain: 'openai.com',
+    yearly: 240,
+    note: '$20 / mo',
+  },
+  {
+    name: 'Gemini Advanced',
+    color: '#4285f4',
+    mark: 'G',
+    slug: 'googlegemini',
+    domain: 'gemini.google.com',
+    yearly: 240,
+    note: '$20 / mo',
+  },
+  {
+    name: 'Grok',
+    color: '#e6e6e6',
+    mark: 'X',
+    slug: 'x',
+    domain: 'x.ai',
+    yearly: 360,
+    note: '$30 / mo',
+  },
 ]
 
-export type TabId = 'cli' | 'web' | 'chat'
+// Cloud coding agents / cloud sandboxes — projected average yearly cost at
+// the tier that unlocks their remote/cloud-agent capability (not their entry
+// price, since the cheapest tier is usually terminal/IDE-only).
+export const CLOUD_COMPETITORS: Competitor[] = [
+  FREEBUFF,
+  {
+    name: 'Lovable',
+    color: '#ff4d6d',
+    mark: 'L',
+    logo: '/landing/lovable.svg',
+    domain: 'lovable.dev',
+    yearly: 600,
+    note: '$50 / mo',
+  },
+  {
+    name: 'Replit',
+    color: '#f26207',
+    mark: 'R',
+    slug: 'replit',
+    domain: 'replit.com',
+    yearly: 1080,
+    note: '$90 / mo',
+  },
+  {
+    name: 'Cursor Cloud',
+    color: '#e6e6e6',
+    mark: 'C',
+    slug: 'cursor',
+    domain: 'cursor.com',
+    yearly: 720,
+    note: '$60 / mo',
+  },
+  {
+    name: 'Factory',
+    color: '#8b5cf6',
+    mark: 'F',
+    domain: 'factory.ai',
+    yearly: 1200,
+    note: '$100 / mo',
+  },
+  {
+    name: 'Devin',
+    color: '#6366f1',
+    mark: 'D',
+    domain: 'devin.ai',
+    yearly: 2400,
+    note: '$200 / mo',
+  },
+]
+
+export type TabId = 'cli' | 'web' | 'chat' | 'cloud'
 
 export const COMPETITORS_BY_TAB: Record<TabId, Competitor[]> = {
   cli: CLI_COMPETITORS,
   web: WEB_COMPETITORS,
   chat: CHAT_COMPETITORS,
+  cloud: CLOUD_COMPETITORS,
 }
 
 /**

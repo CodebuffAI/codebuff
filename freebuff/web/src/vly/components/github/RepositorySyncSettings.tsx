@@ -213,11 +213,10 @@ export function RepositorySyncSettings({
             </div>
             <div className="flex-1">
               <p className="text-xs font-semibold text-blue-900">
-                Free During Beta
+                Free to use
               </p>
               <p className="mt-0.5 text-xs text-blue-700">
-                GitHub Sync is currently free while in beta. This will become a
-                paid feature in the future.
+                GitHub Sync is currently free to use.
               </p>
             </div>
           </div>

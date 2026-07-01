@@ -647,16 +647,6 @@ export async function getVerifiedAccessProject(
     return null;
   }
 
-  // Temporary Cloud protection: outer-region (limited-tier) users cannot open
-  // connected-repo projects while we shed load from usage spikes.
-  if (project.project_type === "connected_repo") {
-    const identity = await ctx.auth.getUserIdentity();
-    const accessTier = (identity as Record<string, unknown> | null)?.access_tier;
-    if (accessTier === "limited") {
-      return null;
-    }
-  }
-
   // For organization-owned projects, verify organization membership
   if (project.organization_id) {
     // SECURITY FIX: Verify organization membership through JWT token

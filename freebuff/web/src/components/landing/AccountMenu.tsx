@@ -89,7 +89,7 @@ export function AccountMenu({
             {l.beta && <Cloud className="mr-2.5 h-4 w-4 text-white/45" />}
             {l.label}
             {l.beta && (
-              <span className="ml-auto rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90">
+              <span className="ml-2 rounded-full bg-white/10 px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-white/60">
                 beta
               </span>
             )}

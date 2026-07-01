@@ -196,16 +196,9 @@ export const connectRepo = action({
         },
       };
     }
-    if (user.role !== "god" && rawTier === "limited") {
-      return {
-        success: false,
-        error: {
-          kind: "ACCESS_LIMITED",
-          message:
-            "Due to usage spikes, Freebuff Cloud is temporarily unavailable in your region.",
-        },
-      };
-    }
+    // Limited-region users are NOT blocked from Cloud anymore: they get a
+    // half-size (small) VM and the standard 1-project-per-day cap, enforced via
+    // consumeConnectRepoQuota (checkLimitedProjectCreationGate) below.
     const connectQuota = await ctx.runMutation(
       internal.cloud.connectRepoMutations.consumeConnectRepoQuota,
       { freebuffModel: args.freebuffModel },

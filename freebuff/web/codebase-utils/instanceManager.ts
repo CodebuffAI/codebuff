@@ -289,6 +289,32 @@ export async function deleteDaytonaSandbox(
   }
 }
 
+/**
+ * Best-effort STOP (pause) of a Daytona sandbox without deleting it. Used by the
+ * take-over flow to immediately free the previously-active VM instead of waiting
+ * for the idle auto-stop. Accepts the id with or without the "daytona:" prefix.
+ * Never throws.
+ */
+export async function stopDaytonaSandbox(
+  sandboxId: string,
+  daytonaServer: DaytonaServer = "new",
+) {
+  const daytonaSandboxId = sandboxId.replace("daytona:", "");
+  try {
+    const sdk = DaytonaSdkManager.getDaytonaSDK(daytonaServer);
+    const sandbox = await sdk.get(daytonaSandboxId);
+    if (sandbox.state !== "stopped" && sandbox.state !== "archived") {
+      await sandbox.stop(60);
+    }
+    console.log(`[stopDaytonaSandbox] stopped ${daytonaSandboxId}`);
+  } catch (error) {
+    console.error(
+      `[stopDaytonaSandbox] failed to stop ${daytonaSandboxId}:`,
+      error,
+    );
+  }
+}
+
 export async function shutdownInstance(id: string) {
   console.log("Starting shutdownInstance:", id);
   try {

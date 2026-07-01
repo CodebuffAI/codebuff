@@ -15,6 +15,10 @@ import {
   resolveFreebuffWebModelForLimitedTier,
 } from "@codebuff/common/constants/freebuff-models";
 import { checkLimitedSessionGate, getWebAccessTier } from "./geoAccess";
+import {
+  readActiveProjectConflict,
+  refreshActiveProjectSlot,
+} from "../../active_session";
 
 import type { FreebuffWebAccessTier } from "@codebuff/common/constants/freebuff-models";
 
@@ -249,7 +253,28 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     };
   }
 
-  return runResolvedGates({
+  // One active project/agent at a time per user (backstop for the seamless
+  // take-over UI). If a *different* project is actively held, block this send;
+  // the client shows a "take over" prompt that pauses the other project.
+  if (!isGodRole) {
+    const conflict = await readActiveProjectConflict(
+      args.ctx,
+      user._id,
+      project._id,
+    );
+    if (conflict) {
+      return {
+        ok: false,
+        error: {
+          kind: "CONCURRENT_SESSION",
+          message:
+            "Freebuff is already running in another project. Take over here to continue — this pauses the other project.",
+        },
+      };
+    }
+  }
+
+  const result = await runResolvedGates({
     ctx: args.ctx,
     user,
     project,
@@ -259,4 +284,14 @@ export async function runTriggerGates(args: GateArgs): Promise<GateResult> {
     accessTier,
     skipRateLimitCheck: args.skipRateLimitCheck,
   });
+
+  // Claim/refresh the active slot for this project once the send is allowed, so
+  // the lock is server-authoritative even if a client never heartbeats.
+  if (result.ok && !isGodRole) {
+    const surface =
+      project.project_type === "connected_repo" ? "cloud" : "web";
+    await refreshActiveProjectSlot(args.ctx, user._id, project._id, surface);
+  }
+
+  return result;
 }

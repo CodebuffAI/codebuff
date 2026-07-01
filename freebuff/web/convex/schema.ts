@@ -369,6 +369,20 @@ export default defineSchema(
     })
       .index('by_user_day', ['user_id', 'day'])
       .index('by_day_metered_credits', ['day', 'metered_credits']),
+    // Single active session/VM/agent per user. One row per user (upserted). The
+    // holder claims the slot with a random session_id (tab); other tabs/devices
+    // read this reactively to show a seamless "take over" prompt, and the agent
+    // trigger gate uses agent_running to hard-block a second concurrent agent.
+    user_active_session: defineTable({
+      user_id: v.id('users'),
+      session_id: v.string(), // random per browser tab/instance
+      project_id: v.optional(v.id('project')),
+      semantic_identifier: v.optional(v.string()),
+      surface: v.optional(v.union(v.literal('web'), v.literal('cloud'))),
+      agent_running: v.optional(v.boolean()),
+      agent_thread_id: v.optional(v.id('agent_thread')),
+      updated_at: v.number(),
+    }).index('by_user', ['user_id']),
     temporary_stream: defineTable({
       content: v.string(),
       resolved: v.boolean(),

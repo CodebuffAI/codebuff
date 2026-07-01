@@ -18,15 +18,23 @@ import { GitHubStarLink } from './GitHubStarLink'
 import { NavSocialLinks } from './NavSocialLinks'
 import { TooltipProvider } from '@/vly/components/ui/tooltip'
 
-const PRODUCT_LINKS = [
+type ProductLink = {
+  label: string
+  href: string
+  icon?: ReactNode
+  mobileIconOnly?: boolean
+  beta?: boolean
+}
+
+const PRODUCT_LINKS: ProductLink[] = [
   { label: 'CLI', href: '/cli' },
   { label: 'Web', href: '/web' },
   {
     label: 'Cloud',
     href: '/cloud',
     icon: <Cloud className="h-4 w-4" />,
-    badge: 'beta',
     mobileIconOnly: true,
+    beta: true,
   },
   { label: 'Chat', href: '/chat', icon: <MessageCircle className="h-4 w-4" />, mobileIconOnly: true },
 ]
@@ -127,21 +135,15 @@ export function UnifiedNavbar({
             <ProductLinks
               className={hideRightOnMobile ? 'hidden sm:flex' : 'flex'}
               trailing={
-                <GitHubStarLink
-                  hideOnMobile={hideRightOnMobile}
-                  className="ml-1 sm:ml-2"
-                />
+                <GitHubStarLink hideOnMobile className="ml-1 sm:ml-2" />
               }
             />
 
-            <span
-              className={cn(
-                'mx-1 h-4 w-px bg-white/15 sm:mx-2',
-                hideRightOnMobile ? 'hidden sm:block' : 'block',
-              )}
-            />
+            {/* Divider + socials are supplementary — hidden on mobile so the
+                brand/logo never gets squeezed by a crowded right cluster. */}
+            <span className="mx-1 hidden h-4 w-px bg-white/15 sm:mx-2 sm:block" />
 
-            <NavSocialLinks hideOnMobile={hideRightOnMobile} />
+            <NavSocialLinks hideOnMobile />
           </TooltipProvider>
 
           <AccountMenu />
@@ -186,7 +188,7 @@ function ProductLinks({
               ? 'text-white'
               : 'text-white/55 hover:text-white',
           )}
-          aria-label={link.mobileIconOnly ? `${link.label} beta` : undefined}
+          aria-label={link.mobileIconOnly ? link.label : undefined}
         >
           {link.icon && (
             <span className={link.mobileIconOnly ? 'sm:hidden' : ''}>
@@ -196,9 +198,9 @@ function ProductLinks({
           <span className={link.mobileIconOnly ? 'hidden sm:inline' : ''}>
             {link.label}
           </span>
-          {link.badge && (
-            <span className="hidden rounded-full border border-forest-bright/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-forest-bright/90 sm:inline-flex">
-              {link.badge}
+          {link.beta && (
+            <span className="hidden rounded-full bg-white/10 px-1 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-white/60 sm:inline-block">
+              beta
             </span>
           )}
         </Link>
@@ -212,14 +214,14 @@ function DefaultBrand() {
   return (
     <Link
       href="/"
-      className="group flex items-center gap-2.5 opacity-65 transition-opacity duration-200 hover:opacity-100"
+      className="group flex flex-shrink-0 items-center gap-2.5 opacity-65 transition-opacity duration-200 hover:opacity-100"
     >
       <Image
         src="/logo-icon.png"
         alt="Freebuff"
         width={24}
         height={24}
-        className="h-6 w-6 rounded-[5px]"
+        className="h-6 w-6 flex-shrink-0 rounded-[5px]"
       />
       <span className="hidden lp-serif text-lg tracking-wide text-white/85 transition-colors group-hover:text-white sm:inline">
         freebuff

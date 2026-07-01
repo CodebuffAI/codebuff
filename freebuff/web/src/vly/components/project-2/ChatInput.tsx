@@ -46,6 +46,7 @@ import MentionsEditor, {
   serializeToText,
 } from "@/vly/components/MentionsEditor";
 import { useAssetsCache } from "@/vly/hooks/useAssetsCache";
+import { EditorErrorBoundary } from "./EditorErrorBoundary";
 import { useChatStorageContext } from "@/vly/contexts/ChatStorageContext";
 import imageCompression from "browser-image-compression";
 import { AgentModeSelector } from "./AgentModeSelector";
@@ -949,26 +950,56 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                         <p>Use Willow to make prompting easier with voice</p>
                       </TooltipContent>
                     </Tooltip>
-                    <MentionsEditor
-                      key={editorKey}
-                      providers={providers}
-                      value={editorValue}
-                      onChange={updateEditorValue}
-                      selection={selection}
-                      onSelectionChange={updateSelection}
-                      placeholder={
-                        compactMode
-                          ? "Message..."
-                          : "Build... (Use @ to mention assets and integrations)"
+                    <EditorErrorBoundary
+                      resetKey={editorKey}
+                      fallback={
+                        <textarea
+                          value={
+                            editorValue ? serializeToText(editorValue) : ""
+                          }
+                          onChange={(e) =>
+                            updateEditorValue(toEditorValue(e.target.value))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSubmit();
+                            }
+                          }}
+                          placeholder={
+                            compactMode
+                              ? "Message..."
+                              : "Build... (Use @ to mention assets and integrations)"
+                          }
+                          className={`block w-full resize-none overflow-y-auto border-none bg-transparent text-sm text-foreground caret-black outline-none focus:border-none focus:shadow-none focus:outline-none focus:ring-0 dark:caret-white ${
+                            compactMode
+                              ? "min-h-[40px] pb-8 pl-2.5 pr-2.5 pt-2"
+                              : "min-h-[120px] pb-12 pl-3 pr-3 pt-3"
+                          }`}
+                        />
                       }
-                      className={`block w-full overflow-y-auto border-none bg-transparent caret-black focus:animate-none focus:border-none focus:shadow-none focus:outline-none focus:ring-0 focus-visible:border-none focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 dark:caret-white ${
-                        compactMode
-                          ? "min-h-[40px] pb-8 pl-2.5 pr-2.5 pt-2"
-                          : "min-h-[120px] pb-12 pl-3 pr-3 pt-3"
-                      }`}
-                      onMentionSelect={handleMentionSelect}
-                      onEnterSubmit={handleSubmit}
-                    />
+                    >
+                      <MentionsEditor
+                        key={editorKey}
+                        providers={providers}
+                        value={editorValue}
+                        onChange={updateEditorValue}
+                        selection={selection}
+                        onSelectionChange={updateSelection}
+                        placeholder={
+                          compactMode
+                            ? "Message..."
+                            : "Build... (Use @ to mention assets and integrations)"
+                        }
+                        className={`block w-full overflow-y-auto border-none bg-transparent caret-black focus:animate-none focus:border-none focus:shadow-none focus:outline-none focus:ring-0 focus-visible:border-none focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 dark:caret-white ${
+                          compactMode
+                            ? "min-h-[40px] pb-8 pl-2.5 pr-2.5 pt-2"
+                            : "min-h-[120px] pb-12 pl-3 pr-3 pt-3"
+                        }`}
+                        onMentionSelect={handleMentionSelect}
+                        onEnterSubmit={handleSubmit}
+                      />
+                    </EditorErrorBoundary>
                   </div>
 
                   {/* Bottom button row - separate from text area */}

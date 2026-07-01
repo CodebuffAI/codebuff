@@ -7,10 +7,32 @@ import { ReactQueryProvider } from '@/app/web/providers'
 import ConvexClientProvider from '@/vly/components/ConvexClientProvider'
 import { Toaster } from '@/vly/components/ui/sonner'
 import { TooltipProvider } from '@/vly/components/ui/tooltip'
+import { siteConfig } from '@/lib/constant'
+
+const title = 'Freebuff Cloud — free cloud sandboxes for any GitHub repo'
+const description =
+  'Connect any GitHub repo and get a free cloud sandbox with a live preview. The free alternative to Lovable, Replit, Cursor Cloud, Devin, and Factory.'
 
 export const metadata: Metadata = {
-  title: 'Freebuff Cloud Beta',
-  description: 'Connect a GitHub repo and build in a Freebuff Cloud sandbox.',
+  title,
+  description,
+  keywords: siteConfig.keywords(),
+  alternates: { canonical: '/cloud' },
+  openGraph: {
+    title,
+    description,
+    url: '/cloud',
+    type: 'website',
+    siteName: 'Freebuff',
+    locale: 'en_US',
+    images: [siteConfig.socialImage],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: [siteConfig.socialImage],
+  },
 }
 
 export default function CloudLayout({

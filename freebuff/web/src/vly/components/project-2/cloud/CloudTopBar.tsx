@@ -109,7 +109,7 @@ export function CloudTopBar({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="group flex max-w-[180px] items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-muted focus:bg-muted focus:outline-none sm:max-w-[260px] md:max-w-[320px]"
+                className="group flex min-w-0 max-w-[150px] items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-muted focus:bg-muted focus:outline-none sm:max-w-[260px] md:max-w-[320px]"
                 aria-label="Project menu"
               >
                 <img
@@ -189,7 +189,7 @@ export function CloudTopBar({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <CloudBetaBadge />
+          <CloudBetaBadge className="hidden sm:inline-flex" />
 
           {project.semantic_identifier && (
             <>
@@ -214,13 +214,17 @@ export function CloudTopBar({
             <Eye className="h-4 w-4" />
           </IconButton>
 
-          <IconButton label="Copy preview URL" onClick={copyPreviewUrl}>
+          <IconButton
+            label="Copy preview URL"
+            onClick={copyPreviewUrl}
+            className="hidden sm:flex"
+          >
             <LinkIcon className="h-4 w-4" />
           </IconButton>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <span>
+              <span className="hidden sm:inline-flex">
                 <InviteDialog projectId={project._id}>
                   <button
                     type="button"
@@ -266,10 +270,12 @@ function IconButton({
   children,
   label,
   onClick,
+  className = '',
 }: {
   children: React.ReactNode
   label: string
   onClick?: () => void
+  className?: string
 }) {
   return (
     <Tooltip>
@@ -277,7 +283,7 @@ function IconButton({
         <button
           onClick={onClick}
           aria-label={label}
-          className="flex h-7 w-7 items-center justify-center rounded text-foreground/75 transition-colors hover:bg-muted hover:text-foreground"
+          className={`h-7 w-7 items-center justify-center rounded text-foreground/75 transition-colors hover:bg-muted hover:text-foreground ${className || 'flex'}`}
         >
           {children}
         </button>

@@ -10,6 +10,8 @@
 
 import type * as abstractor_agent from "../abstractor/agent.js";
 import type * as abstractor_routeSync from "../abstractor/routeSync.js";
+import type * as active_session from "../active_session.js";
+import type * as active_session_node from "../active_session_node.js";
 import type * as activity from "../activity.js";
 import type * as admin from "../admin.js";
 import type * as admin_snapshot_mutations from "../admin/snapshot_mutations.js";
@@ -264,6 +266,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   "abstractor/agent": typeof abstractor_agent;
   "abstractor/routeSync": typeof abstractor_routeSync;
+  active_session: typeof active_session;
+  active_session_node: typeof active_session_node;
   activity: typeof activity;
   admin: typeof admin;
   "admin/snapshot_mutations": typeof admin_snapshot_mutations;

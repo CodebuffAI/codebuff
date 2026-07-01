@@ -1,17 +1,11 @@
 import React from 'react'
 
 /**
- * Subtle "Beta" badge for Freebuff Web. Sits next to the logo / product name
- * to signal the app is still in beta without drawing too much attention.
+ * Freebuff Web is out of beta — this badge is intentionally a no-op so the
+ * "Beta" pill no longer renders anywhere it's still mounted.
  */
-export function BetaBadge({ className = '' }: { className?: string }) {
-  return (
-    <span
-      className={`inline-flex flex-shrink-0 items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-primary ${className}`}
-    >
-      Beta
-    </span>
-  )
+export function BetaBadge(_props: { className?: string }) {
+  return null
 }
 
 export default BetaBadge

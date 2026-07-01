@@ -435,14 +435,11 @@ export default function HomeClient() {
             </Link>
             <Link
               href="/cloud"
-              aria-label="Freebuff Cloud beta"
+              aria-label="Freebuff Cloud"
               className="relative inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium text-zinc-400 transition-all duration-200 hover:text-white sm:px-3"
             >
               <Cloud className="h-4 w-4 sm:hidden" />
               <span className="hidden sm:inline">Cloud</span>
-              <span className="hidden rounded-full border border-acid-matrix/25 px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-acid-matrix/90 sm:inline-flex">
-                beta
-              </span>
             </Link>
             <Link
               href="/chat"
