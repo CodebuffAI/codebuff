@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the notarized macOS build.
+
+  Electron's V8 needs JIT + writable/executable memory. `disable-library-validation`
+  and `allow-dyld-environment-variables` let the signed app load and spawn the
+  bundled `bun` binary and the orchestrator we ship under Contents/Resources
+  (they're re-signed with our cert during packaging, but they are not the main
+  Electron binary). These only take effect when a real Developer ID identity is
+  configured; for the interim unsigned/ad-hoc builds they are inert.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+</dict>
+</plist>
