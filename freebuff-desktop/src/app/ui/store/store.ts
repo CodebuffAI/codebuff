@@ -426,6 +426,14 @@ export const useStore = create<StoreState>((set, get) => ({
     const s0 = get()
     const activeTab = s0.activeId ? s0.threads[s0.activeId] : undefined
     const path = projectPath ?? activeTab?.thread.projectPath
+    // First launch (or every existing tab closed) with nothing to fall back on:
+    // there's no project for the server to open, so prompt for a folder instead
+    // of failing with "no project". Recents power the server's default project,
+    // so once one is opened this branch stops firing.
+    if (!path && s0.recentProjects.length === 0) {
+      get().setPickerOpen(true)
+      return
+    }
     const t = await api.createThread(path ? { projectPath: path } : {})
     if (!t?.id) {
       get().pushToast(`Couldn't open folder: ${t?.error ?? 'unknown error'}`, 'error')

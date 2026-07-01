@@ -62,11 +62,15 @@ export function App() {
         <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
-          {/* Empty-state mirrors ThreadView's in-thread placeholder: just the
-              wordmark. The ⌘T hint is the App-level keyboard overlay, which
-              already handles this affordance globally. */}
+          {/* No open tab (first launch, or every tab closed). Show the wordmark
+              plus an explicit way to open a folder — the ProjectPicker is
+              otherwise only reachable from a tab's header, which doesn't exist
+              yet, so without this the app dead-ends on a cold start. */}
           <div className="welcome">
             <img className="welcome-logo" src={freebuffLogo} alt="" />
+            <button className="btn" onClick={() => setPickerOpen(true)}>
+              Open a project folder
+            </button>
           </div>
         </div>
       )}

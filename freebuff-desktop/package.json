@@ -59,6 +59,7 @@
     "appId": "com.freebuff.desktop",
     "productName": "Freebuff",
     "electronVersion": "33.4.11",
+    "afterPack": "scripts/ad-hoc-sign.cjs",
     "icon": "build/icon.png",
     "directories": {
       "output": "dist"
