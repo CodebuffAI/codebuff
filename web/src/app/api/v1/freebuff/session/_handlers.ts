@@ -309,18 +309,20 @@ export async function getFreebuffSession(
       deps: deps.sessionDeps,
     })
     if (state.status === 'none') {
-      // Referral banner data is full-tier only (limited users can't earn GLM
-      // sessions). Best-effort: a failure here must not break session polling.
-      const referral =
-        state.accessTier === 'full'
-          ? await getFreebuffReferralInfo(auth.userId).catch((error) => {
-              deps.logger.warn(
-                { error, userId: auth.userId },
-                '[freebuff/session] failed to build referral info',
-              )
-              return null
-            })
-          : null
+      // Referral banner data for both tiers: full advertises GLM 5.2, limited
+      // advertises its daily free-session bonus (getFreebuffReferralInfo picks
+      // the reward by tier). Best-effort: a failure here must not break session
+      // polling.
+      const referral = await getFreebuffReferralInfo(
+        auth.userId,
+        accessTier,
+      ).catch((error) => {
+        deps.logger.warn(
+          { error, userId: auth.userId },
+          '[freebuff/session] failed to build referral info',
+        )
+        return null
+      })
       return NextResponse.json(
         {
           status: 'none',
