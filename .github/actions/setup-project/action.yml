@@ -28,4 +28,14 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: bun install --frozen-lockfile
+      run: |
+        for i in 1 2 3; do
+          bun install --frozen-lockfile && break
+          if [ "$i" -eq 3 ]; then
+            echo "bun install failed after $i attempts"
+            exit 1
+          fi
+          echo "bun install failed (attempt $i), clearing download cache and retrying..."
+          rm -rf ~/.bun/install/cache
+          sleep 5
+        done
