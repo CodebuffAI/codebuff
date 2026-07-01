@@ -51,8 +51,11 @@ jobs:
           CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
           echo "Current version: $CURRENT_VERSION"
 
-          npm version ${{ inputs.version_type }} --no-git-tag-version
-          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
+          # Use a bun script rather than `npm version`: freebuff-desktop is a
+          # member of the root Bun workspace, so npm resolves the whole
+          # workspace and dies on the sibling package `@codebuff/.agents`
+          # ("name cannot start with a period").
+          NEW_VERSION=$(bun scripts/bump-version.ts ${{ inputs.version_type }})
 
           echo "New Freebuff Desktop version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
@@ -102,8 +105,8 @@ jobs:
         shell: bash
         working-directory: freebuff-desktop
         run: |
-          npm version ${{ needs.prepare-and-commit.outputs.new_version }} \
-            --no-git-tag-version --allow-same-version
+          # See prepare-and-commit for why this uses a bun script, not npm.
+          bun scripts/bump-version.ts ${{ needs.prepare-and-commit.outputs.new_version }}
 
       - name: Configure environment variables
         env:
