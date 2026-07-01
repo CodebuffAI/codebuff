@@ -23,6 +23,15 @@ const path = require('node:path')
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return
 
+  // When a real Developer ID identity is configured (CI exports CSC_LINK after
+  // decoding the .p12 secret), electron-builder does its own hardened-runtime
+  // signing + notarization after this hook. Skip the ad-hoc pass so we don't
+  // seal an ad-hoc signature that real signing would just have to redo.
+  if (process.env.CSC_LINK || process.env.FREEBUFF_NOTARIZE === 'true') {
+    console.log('[ad-hoc-sign] Developer ID signing configured — skipping ad-hoc sign')
+    return
+  }
+
   // Find the packed bundle by scanning the output dir rather than relying on a
   // specific appInfo field, so a rename of productName can't silently break it.
   const bundle = fs

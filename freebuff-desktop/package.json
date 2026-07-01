@@ -1,6 +1,6 @@
 {
   "name": "@codebuff/freebuff-desktop",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "private": true,
   "type": "module",
   "description": "Freebuff Desktop — GitHub-native coding-agent orchestrator (see docs/freebuff-desktop-prd.md)",
@@ -88,7 +88,10 @@
       ],
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
-      "identity": null,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "win": {
