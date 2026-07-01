@@ -513,18 +513,24 @@ export const saveMessageAndStartWorkflow = mutation({
       { agentType: args.agentType },
     );
 
-    // DAU signal in PostHog: one event per user-submitted web message. Keyed
-    // by the canonical codebuff user id (users.freebuff_user_id = the JWT
-    // subject = the Postgres user id) so it unions with the cli and chat
-    // surfaces. Legacy users without a freebuff_user_id are skipped here;
-    // they still count toward the Convex `recordActivity` DAU above. The
-    // event name mirrors AnalyticsEvent.MESSAGE_SENT in @codebuff/common.
+    // DAU signal in PostHog: one event per user-submitted message. Keyed by the
+    // canonical codebuff user id (users.freebuff_user_id = the JWT subject = the
+    // Postgres user id) so it unions with the cli and chat surfaces. Legacy
+    // users without a freebuff_user_id are skipped here; they still count toward
+    // the Convex `recordActivity` DAU above. The event name mirrors
+    // AnalyticsEvent.MESSAGE_SENT in @codebuff/common.
+    //
+    // `surface` distinguishes Freebuff Web (template / sandbox projects) from
+    // Freebuff Cloud (connected_repo projects) so the cross-product DAU
+    // dashboard can segment them. Both send through this same mutation, so the
+    // surface must be derived from the project type — not hardcoded.
     if (user.freebuff_user_id) {
       await ctx.scheduler.runAfter(0, internal.analytics.captureEvent, {
         event: "message_sent",
         distinctId: user.freebuff_user_id,
         properties: {
-          surface: "web",
+          surface:
+            project.project_type === "connected_repo" ? "cloud" : "web",
           agentType: args.agentType,
           accessTier: gates.accessTier,
         },
