@@ -378,6 +378,42 @@ select {
   flex-direction: column;
   gap: 2px;
 }
+/* Agent group inside the combined agent+model menu: a header row (dot + agent
+   name + short description) followed by that agent's model rows. */
+.agent-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-menu-group + .agent-menu-group {
+  margin-top: 5px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+.agent-menu-header {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 4px 10px 2px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.agent-menu-header .agent-dot {
+  align-self: center;
+}
+.agent-menu-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.agent-menu-desc {
+  font-size: 10.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .agent-option {
   display: flex;
   align-items: flex-start;

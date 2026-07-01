@@ -1,11 +1,11 @@
 import { useStore } from '../store/store'
-import { AgentPicker, ModelPicker } from './AgentSelector'
+import { AgentModelPicker } from './AgentSelector'
 import { Icon } from './Icon'
 import { LoginGate } from './LoginGate'
 
 /**
- * The thread's top bar: project switcher, per-thread agent + Freebuff model
- * pickers, sign-in gate, and the Preview controls. Reads thread/project/agent
+ * The thread's top bar: project switcher, the combined per-thread agent+model
+ * picker, sign-in gate, and the Preview controls. Reads thread/project/agent
  * state from the store; `preview` is owned by ThreadView (shared with the
  * preview iframe in the body), so it arrives as props.
  */
@@ -29,9 +29,8 @@ export function ThreadHeader({
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const agentOptions = useStore((s) => s.agentOptions)
   const agentHarness = useStore((s) => s.agentHarness)
-  const setThreadHarness = useStore((s) => s.setThreadHarness)
   const freebuff = useStore((s) => s.freebuff)
-  const setThreadModel = useStore((s) => s.setThreadModel)
+  const setThreadAgent = useStore((s) => s.setThreadAgent)
 
   if (!slice) return null
   // Each tab runs in its own repo (see Thread.projectPath); the chip changes THIS
@@ -57,20 +56,17 @@ export function ThreadHeader({
         <Icon name="down" className="caret" />
       </button>
       {agentOptions.length > 0 && (
-        <AgentPicker
+        <AgentModelPicker
           harnessId={slice.thread.harnessId}
-          options={agentOptions}
           fallbackId={agentHarness ?? undefined}
-          onChange={(h) => setThreadHarness(threadId, h)}
-        />
-      )}
-      {/* Freebuff model picker — only for the hosted (Freebuff) agent. */}
-      {isHostedAgent && freebuff && freebuff.models.length > 0 && (
-        <ModelPicker
-          model={slice.thread.freebuffModel}
-          models={freebuff.models}
-          premiumLocked={!!freebuff.premiumSlotHolder && freebuff.premiumSlotHolder !== threadId}
-          onChange={(m) => setThreadModel(threadId, m)}
+          agents={agentOptions}
+          claudeModel={slice.thread.claudeModel}
+          freebuffModel={slice.thread.freebuffModel}
+          freebuffModels={freebuff?.models ?? []}
+          premiumLocked={
+            !!freebuff?.premiumSlotHolder && freebuff.premiumSlotHolder !== threadId
+          }
+          onSelect={(h, m) => setThreadAgent(threadId, h, m)}
         />
       )}
       {isHostedAgent && freebuff && !freebuff.authed && <LoginGate />}

@@ -135,11 +135,10 @@ interface StoreState {
   settingsPath: string | null
   settingsLoadError: string | null
   setAgentHarness: (id: HarnessId) => void
-  /** Set the agent on a single tab; persists server-side and re-broadcasts. */
-  setThreadHarness: (id: string, harnessId: HarnessId) => void
-  /** Set a tab's Freebuff model; persists server-side. Downgrades + toasts if the
-   *  premium slot is taken by another tab. */
-  setThreadModel: (id: string, model: string) => void
+  /** Set a tab's agent + model together (one pick in the combined menu);
+   *  persists server-side. Downgrades + toasts if a premium Freebuff pick loses
+   *  to another tab holding the premium slot. */
+  setThreadAgent: (id: string, harnessId: HarnessId, model: string) => void
   /** Open the native OS folder chooser and point a tab at the pick — changing
    *  `threadId`'s directory when given (re-homing an unstarted tab in place,
    *  else opening a new tab), otherwise opening a new tab in the chosen
@@ -236,23 +235,22 @@ export const useStore = create<StoreState>((set, get) => ({
     api.setAgentHarness(id)
   },
 
-  setThreadHarness(id, harnessId) {
+  setThreadAgent(id, harnessId, model) {
     // Optimistic: flip the local slice immediately so the tab's pill updates
-    // without waiting for the SSE round-trip; the server's `thread` event
-    // confirms it a frame later. We don't drop thread state here (the backend
-    // does that on its own when the per-thread harness changes).
-    // Match the backend's "null means default" rule: if the user picks the
-    // active default, persist as the default rather than pinning.
+    // without waiting for the SSE round-trip; the server's `thread`/`state`
+    // events reconcile (and may downgrade a premium Freebuff pick if the slot
+    // is taken). Match the backend's "null means default" rule for the harness:
+    // if the user picks the active default, persist as the default rather than
+    // pinning.
     const value: HarnessId | null = harnessId === get().agentHarness ? null : harnessId
-    patchThread(set, id, { harnessId: value })
-    api.setThreadHarness(id, harnessId)
-  },
-
-  setThreadModel(id, model) {
-    // Optimistic: flip the tab's model immediately; the server's `thread`/`state`
-    // events reconcile (and may downgrade if the premium slot is taken).
-    patchThread(set, id, { freebuffModel: model })
-    void api.setThreadModel(id, model).then((res) => {
+    patchThread(
+      set,
+      id,
+      harnessId === 'codebuff'
+        ? { harnessId: value, freebuffModel: model }
+        : { harnessId: value, claudeModel: model },
+    )
+    void api.setThreadAgent(id, harnessId, model).then((res) => {
       if (res?.rejected) {
         get().pushToast(
           'Another tab is using the premium model — switched this tab to an unlimited model.',

@@ -38,6 +38,8 @@ import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
 import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
+import { isClaudeModelId } from '../core/claude-models'
+
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
 // the packaged app. In dev this is unset — Vite serves the UI and proxies here.
@@ -563,27 +565,25 @@ const server = Bun.serve({
         case 'auto-queue-suggestions':
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
-        case 'harness': {
-          // Per-thread agent pick — flips which harness runs that tab's turns.
-          // /api/settings/agent (above) keeps doing the project-wide default.
+        case 'agent': {
+          // Combined per-tab agent + model pick (the header's single menu): sets
+          // the harness and — when given — the model for that harness in one
+          // call, so one click never needs two round-trips. Returns the resolved
+          // model (a Freebuff premium pick may be downgraded — see 'model').
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
-          engine.setThreadHarness(threadId, id)
-          trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId: id, scope: 'thread' })
-          return json({ ok: true })
-        }
-        case 'model': {
-          // Per-thread Freebuff model pick. Returns the resolved model (it may be
-          // downgraded to an unlimited model if another tab holds the premium
-          // slot) so the optimistic UI can reconcile.
-          const model = b.model
-          if (typeof model !== 'string' || !isSupportedFreebuffModelId(model)) {
-            return json({ error: 'invalid model' }, 400)
+          const model = b.model == null ? undefined : String(b.model)
+          if (model !== undefined) {
+            const valid =
+              id === 'codebuff' ? isSupportedFreebuffModelId(model) : isClaudeModelId(model)
+            if (!valid) return json({ error: 'invalid model' }, 400)
           }
-          const result = engine.setThreadFreebuffModel(threadId, model)
+          const result = engine.setThreadAgent(threadId, id, model)
           trackEvent(AnalyticsEvent.DESKTOP_MODEL_CHANGED, {
-            requested: model,
-            resolved: result.model,
+            harnessId: id,
+            requested: model ?? null,
+            resolved: result.model ?? null,
+            scope: 'thread',
           })
           return json({ ok: true, ...result })
         }

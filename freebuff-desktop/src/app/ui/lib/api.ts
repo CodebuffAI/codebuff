@@ -89,20 +89,18 @@ export const api = {
     post<{ ok: boolean; path: string; error?: string }>('/api/project/init', { path }),
 
   // Settings
-  // Project-wide default harness for NEW threads. /api/thread/{id}/harness
-  // overrides per-tab — see setThreadHarness below.
+  // Project-wide default harness for NEW threads. /api/thread/{id}/agent
+  // overrides per-tab — see setThreadAgent below.
   setAgentHarness: (harnessId: HarnessId) =>
     post<{ ok: boolean; error?: string }>('/api/settings/agent', { harnessId }),
-  /** Set the agent for a single tab; persists with the thread and takes effect
-   *  on its next turn. */
-  setThreadHarness: (threadId: string, harnessId: HarnessId) =>
-    post<{ ok: boolean; error?: string }>(`/api/thread/${threadId}/harness`, { harnessId }),
-  /** Set a tab's Freebuff model. Returns the resolved model (may be downgraded
-   *  to an unlimited model if another tab holds the premium slot) + `rejected`. */
-  setThreadModel: (threadId: string, model: string) =>
+  /** Set a tab's agent + model in one call (the combined picker); persists with
+   *  the thread and takes effect on its next turn. Returns the resolved model
+   *  (a premium Freebuff pick may be downgraded if another tab holds the
+   *  premium slot) + `rejected`. */
+  setThreadAgent: (threadId: string, harnessId: HarnessId, model: string) =>
     post<{ ok: boolean; model?: string; rejected?: boolean; error?: string }>(
-      `/api/thread/${threadId}/model`,
-      { model },
+      `/api/thread/${threadId}/agent`,
+      { harnessId, model },
     ),
 
   // Freebuff auth (device-code login)

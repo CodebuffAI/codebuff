@@ -195,8 +195,7 @@ sends no `Origin` header — non-browser clients are allowed.
 | `POST /api/thread/{id}/close` | close (keeps worktree + history for reopen) |
 | `POST /api/thread/{id}/rehydrate` | restore a closed thread's file tree |
 | `POST /api/thread/{id}/delete` | delete the thread |
-| `POST /api/thread/{id}/harness` `{harnessId}` | pin this tab's agent (`codebuff`/`claude-code`) |
-| `POST /api/thread/{id}/model` `{model}` | pin this tab's Freebuff model (may be downgraded; returns resolved) |
+| `POST /api/thread/{id}/agent` `{harnessId, model?}` | pin this tab's agent (`codebuff`/`claude-code`) + its model in one call (a premium Freebuff pick may be downgraded; returns resolved) |
 | `POST /api/thread/{id}/auto-queue-suggestions` `{on}` | auto-run assistant suggestions instead of parking them |
 
 ### Queue

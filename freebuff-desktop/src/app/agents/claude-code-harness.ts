@@ -6,7 +6,8 @@
  * which reads the same credentials the user established with `claude` / `claude login`
  * (Anthropic subscription/OAuth token, stored in the OS keychain or ~/.claude). So
  * "switch the agent to Claude Code" literally reuses the terminal session's auth —
- * provided no `ANTHROPIC_API_KEY` is set to override it. Model is Opus 4.8.
+ * provided no `ANTHROPIC_API_KEY` is set to override it. The model is the thread's
+ * pick (see core/claude-models.ts), defaulting to Opus 4.8.
  *
  * Streaming: we ask for partial messages and drive everything off the raw Anthropic
  * stream events so order is preserved (text → tool → text interleaves correctly):
@@ -215,7 +216,7 @@ export class ClaudeCodeHarness implements AgentHarness {
     const stream = query({
       prompt: turn.prompt,
       options: {
-        model: CLAUDE_CODE_MODEL,
+        model: turn.model ?? CLAUDE_CODE_MODEL,
         cwd: turn.cwd,
         env: claudeCodeEnv(),
         // Keep Claude Code's full default behaviour, but append our follow-up

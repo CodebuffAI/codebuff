@@ -55,8 +55,6 @@ export interface Message {
 export interface AgentOption {
   id: HarnessId
   label: string
-  model: string
-  modelLabel: string
   description: string
 }
 

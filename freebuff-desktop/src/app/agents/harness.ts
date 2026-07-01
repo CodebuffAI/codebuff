@@ -24,7 +24,6 @@ import {
 
 import type { AttachmentImage } from '../../core/attachments'
 import type { AgentEventLike } from '../../core/parts'
-import { CLAUDE_CODE_MODEL, DEFAULT_FREEBUFF_MODEL } from '../models'
 import type { ThreadToolDeps } from './thread-tools'
 import type {
   FreebuffAccessTier,
@@ -33,16 +32,13 @@ import type {
 
 export type HarnessId = 'codebuff' | 'claude-code'
 
-/** Display metadata for the agent picker (surfaced in /api/state). */
+/** Display metadata for the agent picker (surfaced in /api/state). The
+ *  per-thread MODEL is not here — the combined picker renders it from the
+ *  thread's own pick (claudeModel / freebuffModel). */
 export interface AgentOption {
   id: HarnessId
   /** Harness name, e.g. "Freebuff" / "Claude Code". */
   label: string
-  /** Model id the harness runs. For `codebuff` this is just the default; the
-   *  actual per-thread model comes from the Freebuff model picker. */
-  model: string
-  /** Human label for the model, e.g. "MiniMax M3" / "Opus 4.8". */
-  modelLabel: string
   /** One-line description shown in the picker. */
   description: string
 }
@@ -51,17 +47,11 @@ export const AGENT_OPTIONS: readonly AgentOption[] = [
   {
     id: 'claude-code',
     label: 'Claude Code',
-    model: CLAUDE_CODE_MODEL,
-    modelLabel: 'Opus 4.8',
     description: 'Your local, authenticated Claude Code (Anthropic subscription)',
   },
   {
     id: 'codebuff',
     label: 'Freebuff',
-    model: DEFAULT_FREEBUFF_MODEL,
-    // Empty: the per-thread model is shown by the adjacent ModelPicker, so the
-    // harness pill stays just "Freebuff" rather than a stale model name.
-    modelLabel: '',
     description: 'Free hosted agent — pick any Freebuff model (sees images)',
   },
 ]
@@ -101,8 +91,8 @@ export interface HarnessCallbacks {
 export interface HarnessTurn {
   prompt: string
   cwd: string
-  /** The Freebuff model this turn runs on (codebuff harness). Claude Code
-   *  ignores it (it always runs Opus 4.8 via the local SDK). */
+  /** The model this turn runs on: the thread's Freebuff model (codebuff
+   *  harness) or Claude model (claude-code harness, default Opus 4.8). */
   model?: string
   /** Free-mode session binding for this turn (codebuff harness only). Present
    *  once the engine has admitted a session for this thread+model: the

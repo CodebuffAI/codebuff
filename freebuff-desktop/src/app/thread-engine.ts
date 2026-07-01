@@ -396,25 +396,9 @@ export class ThreadEngine {
     this.store.clearHarnessState(threadId)
   }
 
-  /** Set the agent for a specific thread; subsequent turns use it. Persists to
-   *  SQLite (so the choice survives restarts) and re-broadcasts the thread. */
-  setThreadHarness(threadId: string, id: HarnessId): void {
-    const thread = this.store.getThread(threadId)
-    if (!thread) return
-    // Treat setting to the default as "clear the per-thread override" so the
-    // pill genuinely inherits later default changes — otherwise a tab that was
-    // once picked to the default would still pin to that exact value forever.
-    const value: HarnessId | null = id === this.defaultHarness ? null : id
-    this.store.updateThread(threadId, { harnessId: value }, this.now())
-    // Drop any cached harness state for this thread — switching agents makes
-    // the prior state from the previous harness invalid (see `runTurn`).
-    this.dropThreadState(threadId)
-    this.emitThread(threadId)
-  }
-
   /**
    * Set the default agent for NEW threads. Existing threads keep whatever
-   * they've been pinned to via {@link setThreadHarness}; null rows (including
+   * they've been pinned to via {@link setThreadAgent}; null rows (including
    * any thread still on the previous default) start following the new default
    * the next time they run a turn.
    */
@@ -432,6 +416,43 @@ export class ThreadEngine {
     return isFreebuffDesktopPremiumBucketModelId(recommended) && !slotFree
       ? LIMITED_FREEBUFF_MODEL_ID
       : recommended
+  }
+
+  /** The Claude model a thread's Claude Code turns run on — its explicit pick,
+   *  else the default (Opus 4.8). */
+  claudeModelForThread(threadId: string): string {
+    return this.store.getThread(threadId)?.claudeModel ?? CLAUDE_CODE_MODEL
+  }
+
+  /**
+   * Set a thread's agent + model in one step (the combined header picker).
+   * Switching harness drops the carried context (state from the other harness is
+   * foreign — see `runTurn`); a Claude model switch KEEPS it (Claude Code
+   * sessions resume fine on a different model), and a Freebuff model switch goes
+   * through {@link setThreadFreebuffModel} for the premium gate + session release.
+   */
+  setThreadAgent(
+    threadId: string,
+    harnessId: HarnessId,
+    model?: string,
+  ): { model?: string; rejected: boolean } {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return { model, rejected: false }
+    if ((thread.harnessId ?? this.defaultHarness) !== harnessId) {
+      // Null means default (matching harnessForThread) so a tab set to the
+      // default keeps following later default changes.
+      const value: HarnessId | null = harnessId === this.defaultHarness ? null : harnessId
+      this.store.updateThread(threadId, { harnessId: value }, this.now())
+      this.dropThreadState(threadId)
+    }
+    if (harnessId === 'codebuff' && model) {
+      return this.setThreadFreebuffModel(threadId, model)
+    }
+    if (harnessId === 'claude-code' && model && (thread.claudeModel ?? null) !== model) {
+      this.store.updateThread(threadId, { claudeModel: model }, this.now())
+    }
+    this.emitThread(threadId)
+    return { model, rejected: false }
   }
 
   /** The Freebuff model a thread's hosted-agent turns run on. An explicit
@@ -820,7 +841,7 @@ export class ThreadEngine {
 
   /** Shared analytics context for a turn: which agent/model is in play and the
    *  user's Freebuff access tier. Read at submit time so per-tab picks are
-   *  reflected (the hosted agent's model is per-thread; Claude Code is fixed). */
+   *  reflected (both harnesses carry a per-thread model). */
   private turnTelemetry(threadId: string): {
     harness: HarnessId
     model: string
@@ -832,7 +853,7 @@ export class ThreadEngine {
       model:
         harness === 'codebuff'
           ? this.freebuffModelForThread(threadId)
-          : CLAUDE_CODE_MODEL,
+          : this.claudeModelForThread(threadId),
       accessTier: this.freebuff.getAccessTier(),
     }
   }
@@ -1073,6 +1094,8 @@ export class ThreadEngine {
       if (harness.id === 'codebuff') {
         model = this.freebuffModelForThread(threadId)
         freeMode = { instanceId: await this.freebuff.ensure(threadId, model) }
+      } else {
+        model = this.claudeModelForThread(threadId)
       }
 
       const result = await harness.runTurn(
