@@ -29,6 +29,7 @@ export function Composer({
   const text = useStore((s) => s.drafts[threadId]?.composerText ?? '')
   const setText = useStore((s) => s.setComposerText)
   const send = useStore((s) => s.send)
+  const queueMessage = useStore((s) => s.queueMessage)
   const stopTurn = useStore((s) => s.stopTurn)
   const pushToast = useStore((s) => s.pushToast)
   const running = useStore((s) => s.threads[threadId]?.thread.turnState === 'running')
@@ -130,9 +131,13 @@ export function Composer({
 
   const submit = () => {
     if (!canSend) return
-    // `send` clears the per-thread composer draft via the store, so a later
-    // switch back to this tab doesn't resurrect the message we just sent.
-    send(threadId, text.trim(), atts)
+    // One box, queue-by-default: while a turn is running the message parks in
+    // the queue (visible in the panel, deliverable early via its Send-now
+    // action); when idle it runs immediately. Both clear the per-thread
+    // composer draft via the store, so a later switch back to this tab doesn't
+    // resurrect the message we just sent.
+    if (running) queueMessage(threadId, text.trim(), atts)
+    else send(threadId, text.trim(), atts)
     setAtts([])
     resetHeight()
   }
@@ -150,7 +155,10 @@ export function Composer({
         s.rehydrateLast()
         break
       case 'skill':
-        s.runSkill(threadId, c.action.name)
+        // Same queue-by-default rule as typed messages: a /skill picked while
+        // a turn is running waits its turn in the queue.
+        if (running) s.enqueueSkill(threadId, c.action.name)
+        else s.runSkill(threadId, c.action.name)
         break
     }
     setText(threadId, '')
@@ -194,7 +202,7 @@ export function Composer({
           ref={ref}
           value={text}
           rows={1}
-          placeholder={running ? 'Send a message to steer the run…' : 'Type a message, or / for commands'}
+          placeholder={running ? 'Type a message — added to the queue' : 'Type a message, or / for commands'}
           onChange={(e) => {
             setText(threadId, e.target.value)
             setDismissed(false)
@@ -245,8 +253,8 @@ export function Composer({
             className={`send-key${canSend ? ' ready' : ''}`}
             onClick={submit}
             disabled={!canSend}
-            title="Send (Enter)"
-            aria-label="Send message"
+            title={running ? 'Add to queue (Enter)' : 'Send (Enter)'}
+            aria-label={running ? 'Add to queue' : 'Send message'}
           >
             <Icon name="enter" />
           </button>

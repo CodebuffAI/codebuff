@@ -327,6 +327,106 @@ describe('ThreadEngine — turns', () => {
     }
   })
 
+  test('sendNow on a queued item steers the running turn and consumes the item', async () => {
+    const { engine, client, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      let steeredAtBoundary: string[] = []
+      // While the first turn is in flight, park a message in the queue (the
+      // composer's queue-by-default path), then pull it forward with Send now.
+      client.onRun = async (opts) => {
+        if (opts.prompt !== 'first') return
+        const item = engine.enqueuePrompt(thread.id, 'urgent fix')
+        expect(engine.sendNow(item.id)).toBe(true)
+        steeredAtBoundary = opts.drainSteeringMessages?.() ?? []
+      }
+      engine.postMessage(thread.id, 'first')
+      await settle(engine, thread.id)
+
+      // The item's prompt reached the in-flight turn via the steering drain…
+      expect(steeredAtBoundary).toEqual(['urgent fix'])
+      // …no second turn ran, and the item is gone from the queue.
+      expect(client.prompts).toEqual(['first'])
+      expect(engine.store.listQueueItems(thread.id)).toHaveLength(0)
+      // The transcript records it like a typed message.
+      const userTexts = engine
+        .threadData(thread.id)!
+        .messages.filter((m) => m.role === 'user')
+        .map((m) => m.text)
+      expect(userTexts).toEqual(['first', 'urgent fix'])
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('sendNow on an idle thread runs the item next, ahead of the rest of the queue', async () => {
+    const { engine, client, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      // Park two items behind a Stop so the queue sits idle (mirrors the
+      // "does NOT revive an idle thread" recovery test).
+      client.onRun = async (opts) => {
+        if (opts.prompt !== 'first') return
+        engine.enqueuePrompt(thread.id, 'a')
+        engine.enqueuePrompt(thread.id, 'b')
+        engine.stopTurn(thread.id)
+      }
+      engine.postMessage(thread.id, 'first')
+      for (let i = 0; i < 300 && engine.getThread(thread.id)!.turnState !== 'idle'; i++) {
+        await new Promise((r) => setTimeout(r, 10))
+      }
+      expect(engine.store.listQueueItems(thread.id, 'queued')).toHaveLength(2)
+
+      // Send-now the SECOND item: it should run before 'a', and re-engage the
+      // halted pump (like any typed message), which then drains the rest.
+      const b = engine.store.listQueueItems(thread.id, 'queued').find((i) => i.prompt === 'b')!
+      expect(engine.sendNow(b.id)).toBe(true)
+      await settle(engine, thread.id)
+
+      expect(client.prompts).toEqual(['first', 'b', 'a'])
+      expect(engine.store.nextQueuedItem(thread.id)).toBeNull()
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('sendNow on a non-queued item is a no-op', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      expect(engine.sendNow('no-such-item')).toBe(false)
+      expect(engine.threadData(thread.id)!.messages).toHaveLength(0)
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('enqueued attachments inline into the stored prompt; the row + transcript show a 📎 label', async () => {
+    const { engine, client, root, cleanup } = await gitEngine()
+    try {
+      const file = join(root, 'attach-me.txt')
+      writeFileSync(file, 'secret content')
+      const thread = engine.createThread()
+      const item = engine.enqueuePrompt(thread.id, 'look at this', { attachmentPaths: [file] })
+
+      // The stored prompt carries the inlined contents (snapshotted at enqueue
+      // time); the label is the compact display text.
+      expect(item.prompt).toContain('secret content')
+      expect(item.label).toContain('look at this')
+      expect(item.label).toContain('📎 attach-me.txt')
+      expect(item.label).not.toContain('secret content')
+
+      await settle(engine, thread.id)
+      // The agent got the full block; the transcript shows the label.
+      expect(client.prompts[0]).toContain('secret content')
+      const userText = engine.threadData(thread.id)!.messages[0].text
+      expect(userText).toContain('📎 attach-me.txt')
+      expect(userText).not.toContain('secret content')
+    } finally {
+      cleanup()
+    }
+  })
+
 })
 
 describe('ThreadEngine — agent/model lock after start', () => {

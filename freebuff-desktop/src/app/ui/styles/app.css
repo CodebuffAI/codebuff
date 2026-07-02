@@ -1632,10 +1632,10 @@ body.col-resizing {
   border-color: var(--faint);
 }
 
-/* Send / add key: a keycap-styled button at the end of the composer and queue
-   inputs. Doubles as the "Enter sends" affordance (it carries the ↵ glyph) but
-   is now clickable. Quiet while there's nothing to send; brightens when ready;
-   lifts to accent on hover. */
+/* Send / add key: a keycap-styled button at the end of the composer. Doubles
+   as the "Enter sends" affordance (it carries the ↵ glyph) but is now
+   clickable. Quiet while there's nothing to send; brightens when ready; lifts
+   to accent on hover. */
 .send-key {
   display: flex;
   align-items: center;
@@ -1661,11 +1661,6 @@ body.col-resizing {
 .send-key.ready:active {
   background: var(--surface-2);
 }
-.send-key.queue {
-  padding: 6px 9px;
-  border-radius: 7px;
-}
-
 /* Per-message actions (copy), revealed on hover. */
 .msg-actions {
   display: flex;
@@ -1700,10 +1695,9 @@ body.col-resizing {
   background: var(--surface);
   border-left: 1px solid var(--border);
 }
-/* Skill-search takeover: hide the lanes/queue input/suggestions so the
-   SkillsPanel (with `flex: 1` when .searching) fills the whole column. */
+/* Skill-search takeover: hide the lanes/suggestions so the SkillsPanel
+   (with `flex: 1` when .searching) fills the whole column. */
 .queue.searching .lane,
-.queue.searching .queue-compose,
 .queue.searching .suggestions {
   display: none;
 }
@@ -1907,7 +1901,9 @@ body.col-resizing {
 .lane {
   flex: 1;
   overflow-y: auto;
-  padding: 0 14px;
+  /* Bottom padding stands in for the removed compose bar — the queue is fed
+     by the chat composer now. */
+  padding: 0 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1917,15 +1913,23 @@ body.col-resizing {
   font-size: 12px;
   padding: 8px 2px;
 }
+/* A queue/suggestion row: a one-line header (drag handle, title, actions)
+   that can grow downward — the expanded prompt or the inline editor stack
+   below the header, so the title never swaps out from under the user. */
 .qitem {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 7px 8px;
+  padding: 6px 8px;
   font-size: 12.5px;
+}
+.qrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 .qitem.running {
   border-color: var(--accent-dim);
@@ -1936,6 +1940,7 @@ body.col-resizing {
 }
 .qlabel {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1949,23 +1954,68 @@ body.col-resizing {
   font-size: 11px;
   color: var(--accent-dim);
 }
-.qdrag,
-.qpromote {
+.qdrag {
   display: flex;
   background: none;
   border: none;
   color: var(--faint);
   padding: 2px;
-}
-.qdrag {
   cursor: grab;
 }
-.qpromote:hover {
-  color: var(--accent);
+/* The clickable body of a row: a borderless button so the whole title line
+   toggles the full prompt while still exposing button semantics for a11y. */
+.qbody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-size: inherit;
+  color: inherit;
 }
+.qbody:disabled {
+  cursor: default;
+}
+.qtitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qcaret {
+  flex-shrink: 0;
+  color: var(--faint);
+  transition: transform 0.15s ease;
+}
+.qcaret.open {
+  transform: rotate(180deg);
+}
+/* The expanded full prompt, under the header line. Indented past the caret
+   column and capped so a very long prompt scrolls inside its row. */
+.qprompt {
+  margin: 5px 2px 2px 22px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+/* Row actions (send-now / edit / delete), revealed on hover or keyboard focus
+   so resting rows stay quiet. Opacity only — no layout shift. */
 .qactions {
   display: flex;
   gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.qitem:hover .qactions,
+.qitem:focus-within .qactions {
+  opacity: 1;
 }
 .qactions button {
   display: flex;
@@ -1979,14 +2029,21 @@ body.col-resizing {
   color: var(--text);
   background: var(--raised);
 }
+.qactions .qsend:hover {
+  color: var(--accent);
+}
+/* Inline full-prompt editor: auto-grows with its content (see PromptEditor). */
 .qedit {
-  flex: 1;
-  resize: vertical;
+  width: 100%;
+  margin-top: 6px;
+  resize: none;
   background: var(--bg);
   border: 1px solid var(--accent-dim);
   border-radius: 6px;
-  padding: 5px 7px;
+  padding: 6px 8px;
   outline: none;
+  font: inherit;
+  font-size: 12.5px;
 }
 .qspin {
   width: 11px;
@@ -2002,24 +2059,6 @@ body.col-resizing {
   flex-direction: column;
   gap: 4px;
   margin-top: 4px;
-}
-.queue-compose {
-  display: flex;
-  gap: 6px;
-  padding: 10px 14px;
-}
-.queue-compose textarea {
-  flex: 1;
-  resize: none;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 7px 9px;
-  max-height: 120px;
-  outline: none;
-}
-.queue-compose textarea:focus {
-  border-color: var(--accent-dim);
 }
 .suggestions {
   border-top: 1px solid var(--border);
@@ -2050,48 +2089,6 @@ body.col-resizing {
 .qitem.suggested {
   background: transparent;
   border-style: dashed;
-}
-/* Expanded suggestions wrap to several lines; pin the promote/dismiss buttons to
-   the top so they don't float to the vertical centre of a tall row. */
-.qitem.suggested.expanded {
-  align-items: flex-start;
-}
-/* The clickable body of a suggestion: a borderless button so the whole label
-   row toggles the full prompt while still exposing button semantics for a11y. */
-.sugg-label {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-}
-.sugg-label:disabled {
-  cursor: default;
-}
-.sugg-caret {
-  flex-shrink: 0;
-  margin-top: 1px;
-  color: var(--faint);
-  transition: transform 0.15s ease;
-}
-.sugg-caret.open {
-  transform: rotate(180deg);
-}
-.sugg-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.qitem.suggested.expanded .sugg-text {
-  overflow: visible;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .toasts {

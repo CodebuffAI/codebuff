@@ -57,13 +57,16 @@ export const api = {
     post(`/api/thread/${id}/reorder`, { itemId, afterItemId }),
 
   // Queue
-  enqueuePrompt: (id: string, prompt: string) =>
-    post(`/api/thread/${id}/queue`, { prompt }),
+  enqueuePrompt: (id: string, prompt: string, attachments?: string[]) =>
+    post(`/api/thread/${id}/queue`, { prompt, attachments }),
   enqueueSkill: (id: string, skill: string) => post(`/api/thread/${id}/queue/skill`, { skill }),
   editItem: (itemId: string, prompt: string) => post(`/api/queue/${itemId}/edit`, { prompt }),
   deleteItem: (itemId: string) => post(`/api/queue/${itemId}/delete`),
   promoteItem: (itemId: string) => post(`/api/queue/${itemId}/promote`),
   demoteItem: (itemId: string) => post(`/api/queue/${itemId}/demote`),
+  // Deliver a queued item like a typed message: steers a running turn at its
+  // next step boundary, or runs as the next turn when idle (jumps the queue).
+  sendNowItem: (itemId: string) => post<{ ok?: boolean; error?: string }>(`/api/queue/${itemId}/send-now`),
 
   // Skills
   listSkills: () => get<Skill[]>('/api/skills'),
