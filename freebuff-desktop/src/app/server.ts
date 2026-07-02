@@ -26,16 +26,19 @@ import { LoginManager } from './auth/login-flow'
 import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
-  browseDir,
   initProjectRepo,
   readAgentHarness,
   readRecentProjects,
+  readUiPrefs,
   validateProjectDir,
   writeAgentHarness,
+  writeUiPrefs,
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
 import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+
+import { isClaudeModelId } from '../core/claude-models'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -92,6 +95,8 @@ class EngineRegistry {
         harnessId: currentHarness,
         // browser_check loads a thread's preview from this same server.
         previewBaseUrl: `http://127.0.0.1:${PORT}`,
+        // A 401 signs the whole app out, not just this engine.
+        onAuthRejected: signOutOnAuthRejected,
       })
       engine.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
       this.engines.set(path, engine)
@@ -203,6 +208,30 @@ class EngineRegistry {
 }
 
 const registry = new EngineRegistry()
+
+/** Shared local sign-out: reset the analytics identity, clear this host's
+ *  persisted token/user, swap every open project's client off the dead bearer,
+ *  and broadcast so the UI flips to the sign-in gate. Used by the logout route
+ *  AND by the 401 auto sign-out — one path, so the two can't drift. Runs
+ *  unconditionally (an explicit logout must clean up identity/clients even if
+ *  another instance already cleared the shared token file); loop protection
+ *  for the 401 path lives in its caller below. */
+function signOutLocally(): void {
+  resetIdentity()
+  logoutAuth()
+  registry.setAuthTokenAll(undefined)
+  const de = registry.defaultEngine()
+  if (de) broadcast({ type: 'state', snapshot: de.snapshot() })
+}
+
+/** The 401 auto sign-out. Guarded on isAuthed(): only a real persisted
+ *  sign-in for THIS host gets cleared, and the guard breaks the loop where
+ *  the post-sign-out tier re-probes 401 again under the env-key fallback
+ *  (never "signed in") and would re-enter here forever. */
+function signOutOnAuthRejected(): void {
+  if (!isAuthed()) return
+  signOutLocally()
+}
 
 // Drives the device-code login flow. On success we rebuild every engine's hosted
 // client with the new token, re-probe the tier, and broadcast so the UI updates.
@@ -380,11 +409,7 @@ const server = Bun.serve({
       return e ? json(e.snapshot()) : json({ error: 'no project' }, 404)
     }
 
-    if (pathname === '/api/fs/list') {
-      return json(browseDir(url.searchParams.get('path') ?? undefined))
-    }
-
-    // Validate a directory (for the folder picker) without opening it.
+    // Validate a directory (for the native folder chooser) without opening it.
     if (pathname === '/api/project/validate') {
       const dir = url.searchParams.get('path')
       if (!dir) return json({ error: 'path required' }, 400)
@@ -399,8 +424,8 @@ const server = Bun.serve({
       return json(await initProjectRepo(String(dir)))
     }
 
-    // List the MRU of recently-opened projects so the picker can offer
-    // one-click return to a previous workspace.
+    // List the MRU of recently-opened projects — the renderer uses it to know
+    // whether the server has a default project to fall back on for new tabs.
     if (pathname === '/api/project/recents') {
       const recents = readRecentProjects()
       const current = registry.defaultPath()
@@ -433,9 +458,33 @@ const server = Bun.serve({
       return json({ ok: true, harnessId })
     }
 
+    // Per-user UI preferences (queue-panel width, …). Persisted in the app
+    // state file, not renderer localStorage: the packaged app serves the UI
+    // from a random localhost port each launch, so origin-keyed storage
+    // resets on every restart.
+    if (pathname === '/api/settings/ui' && req.method === 'GET') {
+      return json(readUiPrefs())
+    }
+    if (pathname === '/api/settings/ui' && req.method === 'POST') {
+      const b = await body(req)
+      const w = Number(b.queueWidth)
+      if (!Number.isFinite(w)) return json({ error: 'queueWidth must be a number' }, 400)
+      // Broad sanity clamp only — the renderer enforces its own layout min/max.
+      writeUiPrefs({ queueWidth: Math.min(2000, Math.max(200, Math.round(w))) })
+      return json({ ok: true })
+    }
+
     // — Freebuff auth (device-code login) —
     if (pathname === '/api/auth/status' && req.method === 'GET') {
-      return json({ authed: isAuthed(), user: getAuthUser() ?? null })
+      return json({
+        authed: isAuthed(),
+        user: getAuthUser() ?? null,
+        // Surface the in-flight login attempt so a reloaded renderer can
+        // restore its "waiting" state (and the cancel affordance) instead of
+        // showing an idle button while the server is still polling.
+        loginPending: loginManager.isPending(),
+        loginExpiresAt: loginManager.pendingExpiresAt(),
+      })
     }
     if (pathname === '/api/auth/login/start' && req.method === 'POST') {
       try {
@@ -445,18 +494,19 @@ const server = Bun.serve({
         return json({ ok: false, error: (err as Error).message }, 502)
       }
     }
+    if (pathname === '/api/auth/login/cancel' && req.method === 'POST') {
+      loginManager.cancel()
+      return json({ ok: true })
+    }
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
       // Attribute the logout to the user before clearing identity.
       trackEvent(AnalyticsEvent.DESKTOP_LOGOUT)
-      resetIdentity()
       // Release the user's per-tab free-mode sessions (across every project) while
       // the token is still valid (the DELETE needs auth) so they don't linger
-      // server-side until they expire/sweep. Best-effort.
+      // server-side until they expire/sweep. Best-effort. The auto sign-out
+      // path skips this — a 401'd token couldn't authorize the DELETE anyway.
       await registry.releaseFreebuffAll()
-      logoutAuth()
-      registry.setAuthTokenAll(undefined)
-      const de = registry.defaultEngine()
-      if (de) broadcast({ type: 'state', snapshot: de.snapshot() })
+      signOutLocally()
       return json({ ok: true })
     }
 
@@ -550,27 +600,31 @@ const server = Bun.serve({
         case 'auto-queue-suggestions':
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
-        case 'harness': {
-          // Per-thread agent pick — flips which harness runs that tab's turns.
-          // /api/settings/agent (above) keeps doing the project-wide default.
+        case 'agent': {
+          // Combined per-tab agent + model pick (the setup picker on a fresh
+          // tab): sets the harness and — when given — the model for that harness
+          // in one call, so one click never needs two round-trips. Returns the
+          // resolved model (a Freebuff premium pick may be downgraded). Only
+          // valid before the thread starts — after that the pick is locked.
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
-          engine.setThreadHarness(threadId, id)
-          trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId: id, scope: 'thread' })
-          return json({ ok: true })
-        }
-        case 'model': {
-          // Per-thread Freebuff model pick. Returns the resolved model (it may be
-          // downgraded to an unlimited model if another tab holds the premium
-          // slot) so the optimistic UI can reconcile.
-          const model = b.model
-          if (typeof model !== 'string' || !isSupportedFreebuffModelId(model)) {
-            return json({ error: 'invalid model' }, 400)
+          const model = b.model == null ? undefined : String(b.model)
+          if (model !== undefined) {
+            const valid =
+              id === 'codebuff' ? isSupportedFreebuffModelId(model) : isClaudeModelId(model)
+            if (!valid) return json({ error: 'invalid model' }, 400)
           }
-          const result = engine.setThreadFreebuffModel(threadId, model)
+          const result = engine.setThreadAgent(threadId, id, model)
+          // A started thread's agent/model is fixed (ThreadEngine.threadStarted):
+          // surface the lock instead of silently succeeding so a stale client learns.
+          if (result.locked) {
+            return json({ error: 'thread already started — its agent/model is locked' }, 409)
+          }
           trackEvent(AnalyticsEvent.DESKTOP_MODEL_CHANGED, {
-            requested: model,
-            resolved: result.model,
+            harnessId: id,
+            requested: model ?? null,
+            resolved: result.model ?? null,
+            scope: 'thread',
           })
           return json({ ok: true, ...result })
         }

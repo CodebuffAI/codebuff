@@ -51,6 +51,18 @@ describe('foldAgentEvent', () => {
     for (const p of parts) if (p.kind === 'reasoning') expect(p.open).toBe(false)
   })
 
+  it('appends a notice as its own part and closes open reasoning', () => {
+    const parts = fold([
+      { type: 'reasoning_delta', text: 'connecting' },
+      { type: 'notice', notice: 'claude-code-auth', text: 'Claude Code is signed out.' },
+      { type: 'finish' },
+    ])
+    expect(parts).toEqual([
+      { kind: 'reasoning', id: 'p1', text: 'connecting', open: false, collapse: 'preview' },
+      { kind: 'notice', id: 'p2', notice: 'claude-code-auth', text: 'Claude Code is signed out.' },
+    ])
+  })
+
   it('closes an open reasoning block when text or a tool arrives', () => {
     const afterText = fold([
       { type: 'reasoning_delta', text: 'x' },

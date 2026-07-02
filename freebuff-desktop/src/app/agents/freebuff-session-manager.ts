@@ -25,11 +25,10 @@ import {
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 
+import { API_HOST } from '../api-host'
+
 function sessionEndpoint(): string {
-  const base = (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
-  ).replace(/\/$/, '')
-  return `${base}/api/v1/freebuff/session`
+  return `${API_HOST}/api/v1/freebuff/session`
 }
 
 /** Thrown by `ensure` when a session can't be admitted. `status` mirrors the
@@ -46,6 +45,17 @@ export class FreebuffSessionError extends Error {
   }
 }
 
+/** The "no usable sign-in" rejection. One constructor shared by the admission
+ *  path (authHeader below) and CodebuffHarness's null-client guard, so every
+ *  signed-out surface throws the identical error and renders the same sign-in
+ *  recovery card. */
+export function unauthenticatedError(): FreebuffSessionError {
+  return new FreebuffSessionError(
+    'unauthenticated',
+    'Sign in to Freebuff to use the hosted agent.',
+  )
+}
+
 export interface FreebuffTierInfo {
   accessTier: FreebuffAccessTier
 }
@@ -56,8 +66,8 @@ export interface FreebuffTierInfo {
 export interface FreebuffSessions {
   getAccessTier(): FreebuffAccessTier
   fetchTier(): Promise<FreebuffTierInfo>
-  ensure(threadId: string, model: string): Promise<string>
-  release(threadId: string): Promise<void>
+  ensure(threadId: string, model: string, instanceId?: string): Promise<string>
+  release(threadId: string, instanceId?: string): Promise<void>
   releaseAll(): Promise<void>
 }
 
@@ -65,14 +75,24 @@ export class FreebuffSessionManager implements FreebuffSessions {
   private readonly instanceByThread = new Map<string, string>()
   private accessTier: FreebuffAccessTier = 'full'
 
-  constructor(private readonly getToken: () => string | undefined) {}
+  /** `onAuthRejected` fires when the API answers 401 — the bearer we hold is
+   *  expired/revoked, so the owner should treat it as a sign-out (clear the
+   *  persisted identity and flip the header to the sign-in gate). */
+  constructor(
+    private readonly getToken: () => string | undefined,
+    private readonly onAuthRejected?: () => void,
+  ) {}
 
   /** The most recently observed access tier (default 'full' until first probe). */
   getAccessTier(): FreebuffAccessTier {
     return this.accessTier
   }
 
-  private instanceFor(threadId: string): string {
+  private instanceFor(threadId: string, preferred?: string): string {
+    if (preferred) {
+      this.instanceByThread.set(threadId, preferred)
+      return preferred
+    }
     let id = this.instanceByThread.get(threadId)
     if (!id) {
       id = crypto.randomUUID()
@@ -83,12 +103,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
 
   private authHeader(): string {
     const token = this.getToken()
-    if (!token) {
-      throw new FreebuffSessionError(
-        'unauthenticated',
-        'Sign in to Freebuff to use the hosted agent.',
-      )
-    }
+    if (!token) throw unauthenticatedError()
     return `Bearer ${token}`
   }
 
@@ -104,6 +119,10 @@ export class FreebuffSessionManager implements FreebuffSessions {
           [MULTI_SESSION_HEADER]: '1',
         },
       })
+      if (res.status === 401) {
+        this.onAuthRejected?.()
+        return { accessTier: this.accessTier }
+      }
       const body = (await res.json()) as FreebuffSessionServerResponse
       if ('accessTier' in body && body.accessTier) {
         this.accessTier = body.accessTier
@@ -119,8 +138,8 @@ export class FreebuffSessionManager implements FreebuffSessions {
    * id to forward as `freebuff_instance_id`. Throws FreebuffSessionError on a
    * non-active outcome so the engine can surface a friendly message.
    */
-  async ensure(threadId: string, model: string): Promise<string> {
-    const instanceId = this.instanceFor(threadId)
+  async ensure(threadId: string, model: string, preferredInstanceId?: string): Promise<string> {
+    const instanceId = this.instanceFor(threadId, preferredInstanceId)
     const res = await fetch(sessionEndpoint(), {
       method: 'POST',
       headers: {
@@ -131,6 +150,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
       },
     })
     if (res.status === 401) {
+      this.onAuthRejected?.()
       throw new FreebuffSessionError(
         'unauthenticated',
         'Your Freebuff sign-in expired. Sign in again.',
@@ -147,8 +167,8 @@ export class FreebuffSessionManager implements FreebuffSessions {
   }
 
   /** End this tab's session (best-effort). Frees the premium slot if held. */
-  async release(threadId: string): Promise<void> {
-    const instanceId = this.instanceByThread.get(threadId)
+  async release(threadId: string, knownInstanceId?: string): Promise<void> {
+    const instanceId = knownInstanceId ?? this.instanceByThread.get(threadId)
     if (!instanceId) return
     this.instanceByThread.delete(threadId)
     try {

@@ -357,6 +357,23 @@ ipcMain.handle('clipboard:saveImage', async (_e, { bytes, ext }) => {
   }
 })
 
+// Recovery flows (e.g. the "Claude Code is signed out" card) hand the user off
+// to a real terminal they can type `claude /login` into. mac-only (stock
+// Terminal.app, at its modern path with the pre-Catalina one as fallback);
+// other platforms resolve false and the renderer hides the button — the
+// copyable command is the whole flow there. shell.openPath resolves '' on
+// success and an error string on failure, so the renderer can show feedback.
+ipcMain.handle('shell:openTerminal', async () => {
+  if (process.platform !== 'darwin') return false
+  for (const terminalApp of [
+    '/System/Applications/Utilities/Terminal.app',
+    '/Applications/Utilities/Terminal.app',
+  ]) {
+    if ((await shell.openPath(terminalApp)) === '') return true
+  }
+  return false
+})
+
 function buildMenu(reloadApp) {
   const isMac = process.platform === 'darwin'
   // Custom File/Window menus (no default Cmd+W "Close Window" binding) so Cmd+W

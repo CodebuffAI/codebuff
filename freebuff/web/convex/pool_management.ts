@@ -93,7 +93,7 @@ export const flushProjectPoolAndInitializeNew = internalAction({
     console.log("Pool flush created projects", { created, newPoolSize });
 
     // Delete only the old projects after new ones are created
-    if (!args.skipFlushing && oldProjectIds.length > 0) {
+    if (!args.skipFlushing && oldProjectIds.length > 0 && created > 0) {
       // First, clean up Daytona sandbox instances
       try {
         await ctx.runAction(

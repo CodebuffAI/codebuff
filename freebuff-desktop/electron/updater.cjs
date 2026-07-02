@@ -1,18 +1,17 @@
 /**
  * Freebuff Desktop — in-app updater (main-process side).
  *
- * WHY NOT electron-updater / Squirrel? The installers are currently UNSIGNED.
- * Squirrel.Mac refuses to apply an unsigned update, and the release workflow
- * publishes no `latest*.yml` metadata, so electron-updater can't drive this yet.
- * Instead we hand-roll a cross-platform "download the installer and swap it in"
- * flow that works today even unsigned:
+ * WHY NOT electron-updater / Squirrel? The release workflow still publishes no
+ * `latest*.yml` update metadata, so electron-updater can't drive this yet (mac
+ * builds ARE Developer ID signed + notarized now, so that side of the blocker
+ * is gone). Instead we hand-roll a cross-platform "download the installer and
+ * swap it in" flow:
  *
  *   - Windows: run the NSIS `.exe`; it replaces the install and relaunches.
  *   - Linux:   overwrite the running `$APPIMAGE` with the new one and re-exec.
- *   - macOS:   mount the `.dmg`, swap the `.app` bundle into place, then STRIP
- *              the `com.apple.quarantine` xattr. That strip is what lets an
- *              *unsigned* app relaunch without Gatekeeper blocking it — the same
- *              thing that happens when a user right-click-opens the first install.
+ *   - macOS:   mount the `.dmg` and swap the `.app` bundle into place. The new
+ *              bundle is signed + notarized with a stapled ticket, so Gatekeeper
+ *              clears it silently on relaunch (no quarantine strip needed).
  *
  * Each platform's swap runs in a detached shell that first waits for THIS
  * process to exit (so we never overwrite a running bundle/binary), then
@@ -189,8 +188,9 @@ function buildInstallPlan({ platform, installerPath, execPath, appImagePath, pid
       `hdiutil detach "$MNT" -quiet`,
       `if ! mv ${shQuote(bundle)} ${shQuote(backup)}; then rm -rf ${shQuote(stage)}; exit 1; fi`,
       `if mv ${shQuote(stage)} ${shQuote(bundle)}; then rm -rf ${shQuote(backup)}; else mv ${shQuote(backup)} ${shQuote(bundle)}; exit 1; fi`,
-      // Clear the download quarantine so the unsigned app can relaunch silently.
-      `xattr -dr com.apple.quarantine ${shQuote(bundle)} 2>/dev/null`,
+      // No quarantine strip needed: the swapped-in bundle is Developer ID signed
+      // and notarized with a stapled ticket, so Gatekeeper clears it silently
+      // (offline) on relaunch even with com.apple.quarantine set.
       `open ${shQuote(bundle)}`,
     ].join('\n')
     return { command: '/bin/sh', args: ['-c', script], detached: true }

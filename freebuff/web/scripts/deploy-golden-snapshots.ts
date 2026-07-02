@@ -126,18 +126,29 @@ async function main() {
     prod: parsed.prod,
   }
 
-  console.log('[snapshot:deploy] building standard snapshot')
-  const full = (await runConvex(
+  console.log('[snapshot:deploy] building Cloud standard snapshot (6 GB)')
+  const cloudStandard = (await runConvex(
     'admin/snapshots:buildGoldenSnapshot',
-    { tier: 'full' },
+    { tier: 'cloud_standard' },
     options,
   )) as BuildResult
 
-  if (!full?.recordId || !full?.snapshotId) {
-    throw new Error('Failed to parse standard build result')
+  if (!cloudStandard?.recordId || !cloudStandard?.snapshotId) {
+    throw new Error('Failed to parse Cloud standard build result')
   }
 
-  console.log('[snapshot:deploy] building small snapshot')
+  console.log('[snapshot:deploy] building Web standard snapshot (4 GB)')
+  const webStandard = (await runConvex(
+    'admin/snapshots:buildGoldenSnapshot',
+    { tier: 'web_standard' },
+    options,
+  )) as BuildResult
+
+  if (!webStandard?.recordId || !webStandard?.snapshotId) {
+    throw new Error('Failed to parse Web standard build result')
+  }
+
+  console.log('[snapshot:deploy] building small snapshot (4 GB)')
   const small = (await runConvex(
     'admin/snapshots:buildGoldenSnapshot',
     { tier: 'small' },
@@ -148,10 +159,12 @@ async function main() {
     throw new Error('Failed to parse small build result')
   }
 
-  console.log('[snapshot:deploy] promoting standard snapshot')
+  // Only the Cloud primaries are promoted. The Web standard snapshot is wired
+  // via the DAYTONA_SNAPSHOT_ID env var instead (see logs below).
+  console.log('[snapshot:deploy] promoting Cloud standard snapshot')
   await runConvex(
     'admin/snapshot_mutations:promoteSnapshotToPrimary',
-    { id: full.recordId },
+    { id: cloudStandard.recordId },
     options,
   )
 
@@ -163,8 +176,21 @@ async function main() {
   )
 
   console.log('\n[snapshot:deploy] done')
-  console.log(`[snapshot:deploy] standard snapshot: ${full.snapshotId} (${full.recordId})`)
-  console.log(`[snapshot:deploy] small snapshot: ${small.snapshotId} (${small.recordId})`)
+  console.log(
+    `[snapshot:deploy] Cloud standard (primary): ${cloudStandard.snapshotId} (${cloudStandard.recordId})`,
+  )
+  console.log(
+    `[snapshot:deploy] small (primary): ${small.snapshotId} (${small.recordId})`,
+  )
+  console.log(
+    `[snapshot:deploy] Web standard (NOT promoted): ${webStandard.snapshotId} (${webStandard.recordId})`,
+  )
+  console.log(
+    '\n[snapshot:deploy] Next steps for Freebuff Web pool:\n' +
+      `  - Set DAYTONA_SNAPSHOT_ID=${webStandard.snapshotId}\n` +
+      `  - Set DAYTONA_SNAPSHOT_SMALL_ID=${small.snapshotId}\n` +
+      '  - Flush the project pool so new pooled sandboxes use them.',
+  )
 }
 
 await main()

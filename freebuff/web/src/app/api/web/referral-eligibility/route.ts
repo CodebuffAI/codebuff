@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { clientIpHashFromHeaders } from '@/server/geo'
 import { syncWebReferralState } from '@/server/web-referrals'
 import { logger } from '@/util/logger'
 
@@ -36,7 +37,7 @@ export type ReferralEligibilityData = {
   minMonths: number
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   const userId = session?.user?.id
 
@@ -57,7 +58,10 @@ export async function GET() {
   // the CLI. Unlike the /onboard Server Component, this is a Route Handler, so
   // clearing the cookie after redemption works normally. Best-effort: a
   // referral hiccup must never break the eligibility check the page renders.
-  await syncWebReferralState({ userId }).catch((error) => {
+  await syncWebReferralState({
+    userId,
+    clientIpHash: clientIpHashFromHeaders(req.headers),
+  }).catch((error) => {
     logger.warn(
       { userId, error },
       'referral redemption on /get-started eligibility check failed',

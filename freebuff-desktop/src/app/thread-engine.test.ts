@@ -4,6 +4,9 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { bunRunner } from '../core/exec'
+import { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH, type Part } from '../core/parts'
+import { ClaudeCodeAuthError } from './agents/claude-code-harness'
+import { FreebuffSessionError } from './agents/freebuff-session-manager'
 import { ThreadEngine } from './thread-engine'
 
 /** A fake SDK client: records prompts + multimodal content, optionally drives
@@ -326,6 +329,38 @@ describe('ThreadEngine — turns', () => {
 
 })
 
+describe('ThreadEngine — agent/model lock after start', () => {
+  test('setThreadAgent works on a fresh thread, then locks once the thread starts', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+
+      // Fresh thread: picks apply and persist (claude pick remembered, then the
+      // tab is put back on the faked codebuff harness so the turn below runs
+      // against the FakeClient rather than a real Claude Code).
+      const claudePick = engine.setThreadAgent(thread.id, 'claude-code', 'claude-sonnet-5')
+      expect(claudePick.locked).toBeUndefined()
+      expect(engine.getThread(thread.id)!.claudeModel).toBe('claude-sonnet-5')
+      engine.setThreadAgent(thread.id, 'codebuff')
+      expect(engine.harnessForThread(thread.id)).toBe('codebuff')
+      expect(engine.threadStarted(thread.id)).toBe(false)
+
+      // First message starts the thread — from here the pick is fixed.
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      expect(engine.threadStarted(thread.id)).toBe(true)
+
+      const after = engine.setThreadAgent(thread.id, 'claude-code', 'claude-fable-5')
+      expect(after.locked).toBe(true)
+      const t = engine.getThread(thread.id)!
+      expect(engine.harnessForThread(thread.id)).toBe('codebuff')
+      expect(t.claudeModel).toBe('claude-sonnet-5')
+    } finally {
+      cleanup()
+    }
+  })
+})
+
 describe('ThreadEngine — workflows & suggestions', () => {
   test('enqueueWorkflow expands "ship" into one queued prompt per skill', async () => {
     const { engine, cleanup } = await gitEngine()
@@ -626,6 +661,125 @@ describe('ThreadEngine — last turn outcome', () => {
       cleanup()
     }
   })
+
+  test('Claude Code auth failure: persists a recovery notice part, not raw error text', async () => {
+    // The default (codebuff) harness slot is swapped for a stub that fails the
+    // way ClaudeCodeHarness does when the local CLI is signed out.
+    const { engine, cleanup } = await gitEngine()
+    try {
+      ;(engine as any).harnesses.set('codebuff', {
+        id: 'codebuff',
+        runTurn: async () => {
+          throw new ClaudeCodeAuthError(
+            'Claude Code returned an error result: Not logged in · Please run /login',
+          )
+        },
+      })
+      const thread = engine.createThread()
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+
+      // The persisted assistant turn carries a structured notice (the UI's
+      // sign-in recovery card), with the Freebuff-worded instructions.
+      const data = engine.threadData(thread.id)!
+      const assistant = data.messages.at(-1)!
+      expect(assistant.role).toBe('assistant')
+      const notice = assistant.parts?.find((p) => p.kind === 'notice') as
+        | Extract<Part, { kind: 'notice' }>
+        | undefined
+      expect(notice?.notice).toBe(NOTICE_CLAUDE_CODE_AUTH)
+      expect(notice?.text).toContain('claude /login')
+      // The raw SDK phrasing never reaches the transcript…
+      expect(JSON.stringify(assistant.parts)).not.toContain('Please run /login')
+      // …and never a `log` event either (the client renders those as toasts).
+      expect(events.some((e) => e.type === 'log' && /\/login/.test(e.message))).toBe(false)
+
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('error')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('Freebuff auth failure: persists a sign-in recovery notice part', async () => {
+    // Session admission rejects the way FreebuffSessionManager does on a 401
+    // (expired/revoked token) — the turn should end in the freebuff-auth
+    // recovery card, not a bare "Turn failed" line.
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      freebuffSessions: {
+        ...fakeFreebuffSessions(),
+        ensure: async () => {
+          throw new FreebuffSessionError(
+            'unauthenticated',
+            'Your Freebuff sign-in expired. Sign in again.',
+          )
+        },
+      },
+    })
+    try {
+      const thread = engine.createThread()
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+
+      const data = engine.threadData(thread.id)!
+      const assistant = data.messages.at(-1)!
+      expect(assistant.role).toBe('assistant')
+      const notice = assistant.parts?.find((p) => p.kind === 'notice') as
+        | Extract<Part, { kind: 'notice' }>
+        | undefined
+      expect(notice?.notice).toBe(NOTICE_FREEBUFF_AUTH)
+      expect(notice?.text).toContain('sign-in expired')
+
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('error')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('non-auth session failures still end as plain turn-failure text', async () => {
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      freebuffSessions: {
+        ...fakeFreebuffSessions(),
+        ensure: async () => {
+          throw new FreebuffSessionError('rate_limited', 'Daily limit reached for model-x.')
+        },
+      },
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+
+      const assistant = engine.threadData(thread.id)!.messages.at(-1)!
+      expect(assistant.parts?.some((p) => p.kind === 'notice')).toBe(false)
+      // The failure line lands as a plain text part (the ⚠️ turn-failure ending).
+      const textParts = (assistant.parts ?? []).filter((p) => p.kind === 'text')
+      expect(JSON.stringify(textParts)).toContain('Daily limit reached')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('a Freebuff 401 delegates sign-out to the injected onAuthRejected handler', async () => {
+    // The server wires onAuthRejected to its registry-wide sign-out (the logout
+    // route's path); the engine must delegate rather than run its local
+    // fallback (which touches the real persisted auth state).
+    let called = 0
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      onAuthRejected: () => called++,
+    })
+    try {
+      ;(engine as any).onFreebuffAuthRejected()
+      expect(called).toBe(1)
+    } finally {
+      cleanup()
+    }
+  })
 })
 
 describe('ThreadEngine — close + rehydrate', () => {
@@ -869,6 +1023,58 @@ describe('ThreadEngine — app restart recovery', () => {
         expect(second.prompts).toEqual(['do you remember?'])
         // The restored context (not undefined) was threaded into the new run.
         expect(second.previousRuns[0]).toEqual({ marker: 'ctx-from-turn-1' })
+      } finally {
+        engine2.close()
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('reuses the Freebuff desktop instance id after relaunch', async () => {
+    const sessions = () => {
+      const calls: { threadId: string; model: string; instanceId?: string }[] = []
+      return {
+        calls,
+        getAccessTier: () => 'full' as const,
+        fetchTier: async () => ({ accessTier: 'full' as const }),
+        ensure: async (threadId: string, model: string, instanceId?: string) => {
+          calls.push({ threadId, model, instanceId })
+          return instanceId ?? 'inst-generated'
+        },
+        release: async () => {},
+        releaseAll: async () => {},
+      }
+    }
+
+    const firstSessions = sessions()
+    const { engine, root, cleanup } = await gitEngine(new RecordingClient({}) as any, {
+      freebuffSessions: firstSessions,
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'first message')
+      await settle(engine, thread.id)
+
+      const persisted = engine.store.getFreebuffInstanceId(thread.id)
+      expect(persisted).toBeTruthy()
+      const persistedId = persisted!
+      expect(firstSessions.calls[0].instanceId).toBe(persistedId)
+
+      const secondSessions = sessions()
+      const engine2 = new ThreadEngine({
+        repoRoot: root,
+        client: new RecordingClient({}) as any,
+        freebuffSessions: secondSessions,
+        globalSkillsDir: join(root, '.global-skills'),
+      })
+      try {
+        engine2.postMessage(thread.id, 'after relaunch')
+        await settle(engine2, thread.id)
+
+        expect(secondSessions.calls[0].threadId).toBe(thread.id)
+        expect(secondSessions.calls[0].instanceId).toBe(persistedId)
+        expect(engine2.store.getFreebuffInstanceId(thread.id)).toBe(persistedId)
       } finally {
         engine2.close()
       }

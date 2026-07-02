@@ -1,6 +1,8 @@
 import { env } from '@codebuff/internal/env'
 import {
+  extractClientIp,
   getCachedFreeModeCountryAccess,
+  hashClientIp,
   shouldHardBlockFreeModeAccess,
 } from '@codebuff/internal/free-mode-country'
 
@@ -15,6 +17,12 @@ import type {
 export type FreebuffWebGeoAccess = {
   accessTier: FreebuffWebAccessTier
   countryCode: string | null
+  /**
+   * The pipeline's own client_ip_hash — the exact value written to
+   * free_mode_country_access_cache for this request, so callers recording
+   * referral signals can't drift from the table the sock check joins against.
+   */
+  clientIpHash: string | null
 }
 
 /** Hint headers attached by the web client to the convex-token fetch. All
@@ -37,6 +45,16 @@ export function clientHintsFromHeaders(headers: Headers): ClientHintsInput {
           .filter((part) => part.length > 0 && part !== '*')
       : null,
   }
+}
+
+/**
+ * The request's client_ip_hash — same extraction and HMAC secret as the
+ * free-session / country-access pipeline, so the value joins against
+ * `free_session.client_ip_hash` and `free_mode_country_access_cache`.
+ * Null when no client IP header is present (e.g. local dev).
+ */
+export function clientIpHashFromHeaders(headers: Headers): string | null {
+  return hashClientIp(extractClientIp({ headers }), env.NEXTAUTH_SECRET)
 }
 
 function tierFromAccess(access: FreeModeCountryAccess): FreebuffWebAccessTier {
@@ -75,12 +93,13 @@ export async function resolveFreebuffWebGeoAccess(params: {
     return {
       accessTier: tierFromAccess(access),
       countryCode: access.countryCode,
+      clientIpHash: access.clientIpHash,
     }
   } catch (error) {
     logger.warn(
       { userId: params.userId, error },
       'Freebuff web geo access resolution failed; defaulting to full tier',
     )
-    return { accessTier: 'full', countryCode: null }
+    return { accessTier: 'full', countryCode: null, clientIpHash: null }
   }
 }

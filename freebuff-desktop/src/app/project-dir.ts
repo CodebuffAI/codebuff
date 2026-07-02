@@ -5,20 +5,10 @@
  *
  *  - validateProjectDir()  — is this path a usable project root? (exists, is a dir,
  *                            is a git repo) and what's its default branch.
- *  - browseDir()           — list a directory's subfolders so the renderer can offer
- *                            a folder picker without a native OS dialog (no Electron
- *                            shell yet; the UI runs in a plain browser).
  *  - last-opened persistence so reopening the app returns to the same project.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { dirname, join, resolve } from 'path'
 
@@ -32,6 +22,10 @@ export interface ProjectDirInfo {
   defaultBranch?: string
   /** Human-readable reason when `ok` is false. */
   error?: string
+  /** True when the only problem is that the folder isn't a git repo yet —
+   *  i.e. `git init` here would make it openable. Lets callers offer init
+   *  without inferring intent from the error string. */
+  needsInit?: boolean
 }
 
 /** Resolve a user-entered path to absolute, expanding a leading `~` to $HOME. */
@@ -57,12 +51,21 @@ export async function validateProjectDir(dir: string): Promise<ProjectDirInfo> {
   // Must be the top level of a git repo (where `.git` lives) — worktree add is run
   // against this root. A subdirectory of a repo would put `.freebuff/` in the wrong
   // place, so require `.git` here rather than walking up.
-  if (!existsSync(join(path, '.git')))
+  if (!existsSync(join(path, '.git'))) {
+    const enclosing = findEnclosingRepoRoot(path)
+    if (enclosing)
+      return {
+        ok: false,
+        path,
+        error: `This folder is inside the git repository at ${enclosing} — open that folder instead`,
+      }
     return {
       ok: false,
       path,
       error: 'Not a git repository (run `git init` here first)',
+      needsInit: true,
     }
+  }
 
   const defaultBranch = await detectDefaultBranch(path)
   return { ok: true, path, defaultBranch }
@@ -87,6 +90,16 @@ export async function initProjectRepo(dir: string): Promise<ProjectDirInfo> {
     return { ok: false, path, error: 'Cannot read folder' }
   }
 
+  // Never nest a repo inside an existing one — `git init` in a subfolder of a
+  // real repo would silently corrupt the user's project layout.
+  const enclosing = findEnclosingRepoRoot(path)
+  if (enclosing)
+    return {
+      ok: false,
+      path,
+      error: `This folder is inside the git repository at ${enclosing} — open that folder instead`,
+    }
+
   const git = (args: string[]) => bunRunner.run('git', ['-C', path, ...args])
 
   const init = await bunRunner.run('git', ['init', '-b', 'main', path])
@@ -106,6 +119,20 @@ export async function initProjectRepo(dir: string): Promise<ProjectDirInfo> {
   return validateProjectDir(path)
 }
 
+/** Nearest ancestor of `path` (strictly above it) that contains `.git`, or null.
+ *  Used to distinguish "not a repo yet" (offer `git init`) from "subfolder of an
+ *  existing repo" (must not be opened or initialized — worktrees/`.freebuff`
+ *  would land in the wrong place, and `git init` would nest a repo). */
+function findEnclosingRepoRoot(path: string): string | null {
+  let dir = dirname(path)
+  while (true) {
+    if (existsSync(join(dir, '.git'))) return dir
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
 /** The repo's current branch — the base every task worktree branches from (§8). */
 async function detectDefaultBranch(repoRoot: string): Promise<string> {
   const r = await bunRunner.run('git', [
@@ -119,60 +146,14 @@ async function detectDefaultBranch(repoRoot: string): Promise<string> {
   return branch || 'main'
 }
 
-export interface BrowseEntry {
-  name: string
-  path: string
-  /** True if this subfolder is itself a git repo — openable as a project. */
-  isRepo: boolean
-}
-
-export interface BrowseResult {
-  path: string
-  /** Parent dir, or null at the filesystem root. */
-  parent: string | null
-  /** Is the browsed path itself an openable git repo? */
-  isRepo: boolean
-  entries: BrowseEntry[]
-}
-
-/**
- * List the subdirectories of `dir` for the folder picker. Hidden dirs and common
- * heavy/uninteresting folders are skipped. Defaults to the user's home directory.
- */
-export function browseDir(dir?: string): BrowseResult {
-  const path = toAbsolute(dir || homedir())
-  const SKIP = new Set(['node_modules', '.git', '.freebuff'])
-  let entries: BrowseEntry[] = []
-  try {
-    entries = readdirSync(path, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !SKIP.has(d.name) && !d.name.startsWith('.'))
-      .map((d) => {
-        const full = join(path, d.name)
-        return { name: d.name, path: full, isRepo: existsSync(join(full, '.git')) }
-      })
-      .sort((a, b) => a.name.localeCompare(b.name))
-  } catch {
-    // Unreadable dir — return empty list rather than failing the request.
-  }
-  const parent = dirname(path)
-  return {
-    path,
-    parent: parent === path ? null : parent,
-    isRepo: existsSync(join(path, '.git')),
-    entries,
-  }
-}
-
 // — Last-opened persistence (§6.2): reopening the app returns to the same project —
 //
-// The state file tracks a small MRU list of recently-opened repos, so the
-// ProjectPicker can offer one-click return and the orchestrator can pick up
-// where the last session left off on launch.
+// The state file tracks a small MRU list of recently-opened repos so the
+// orchestrator can pick up where the last session left off on launch.
 
 const STATE_PATH = join(homedir(), '.config', 'freebuff-desktop', 'state.json')
 
-/** Cap on how many recent projects we keep. Keeps the picker list bounded
- *  and the state file small. */
+/** Cap on how many recent projects we keep. Keeps the state file small. */
 const MAX_RECENTS = 8
 
 /** Read the whole settings blob (last project + agent harness, …). */
@@ -241,6 +222,32 @@ export function pushRecentProject(path: string): void {
   writeState({ recentProjects: next })
 }
 
+/**
+ * Per-user UI preferences (layout knobs like the queue-panel width). Persisted
+ * here rather than renderer localStorage: the packaged app serves the UI from
+ * a random localhost port each launch, so origin-keyed storage resets on every
+ * restart. Served via /api/settings/ui.
+ */
+export interface UiPrefs {
+  /** Width of the right-hand queue panel, in px. */
+  queueWidth?: number
+}
+
+export function readUiPrefs(): UiPrefs {
+  const v = readState().uiPrefs
+  if (!v || typeof v !== 'object') return {}
+  const obj = v as Record<string, unknown>
+  const prefs: UiPrefs = {}
+  if (typeof obj.queueWidth === 'number' && Number.isFinite(obj.queueWidth)) {
+    prefs.queueWidth = obj.queueWidth
+  }
+  return prefs
+}
+
+export function writeUiPrefs(patch: UiPrefs): void {
+  writeState({ uiPrefs: { ...readUiPrefs(), ...patch } })
+}
+
 /** The persisted agent-harness choice (id string; validated by the caller). */
 export function readAgentHarness(): string | undefined {
   const v = readState().agentHarness
@@ -260,29 +267,75 @@ export interface DesktopAuthUser {
   email?: string
 }
 
-/** The persisted Freebuff auth token (the user's API key / authToken). Absent
- *  when not signed in; callers fall back to the env CODEBUFF_API_KEY for dev. */
-export function readAuthToken(): string | undefined {
-  const v = readState().authToken
-  return typeof v === 'string' && v.length ? v : undefined
+/** One persisted sign-in: the bearer plus the user it belongs to. */
+export interface DesktopAuthEntry {
+  token: string
+  user?: DesktopAuthUser
 }
 
-export function writeAuthToken(token: string): void {
-  writeState({ authToken: token })
+/**
+ * Sign-ins are stored PER API HOST (`authSessions: {[host]: {token, user}}`):
+ * the state file is shared across launches while the API host is per-launch
+ * (repo/dev launches target the local dev stack), so a single slot would let
+ * one host's login or sign-out destroy another host's session. Legacy
+ * single-slot fields (`authToken`/`authHost`/`authUser`, host defaulting to
+ * prod — packaged installs only ever signed into prod) are read as one map
+ * entry and folded into the map on the next write.
+ */
+const LEGACY_AUTH_HOST_DEFAULT = 'https://www.codebuff.com'
+
+/** Pure map extraction (exported for tests): current per-host entries with the
+ *  legacy single-slot fields folded in (an explicit `authSessions` entry for
+ *  the same host wins over the legacy one). */
+export function extractAuthSessions(state: Record<string, unknown>): Record<string, DesktopAuthEntry> {
+  const sessions: Record<string, DesktopAuthEntry> = {}
+  const legacyToken = state.authToken
+  if (typeof legacyToken === 'string' && legacyToken.length) {
+    const legacyHost =
+      typeof state.authHost === 'string' && state.authHost.length
+        ? state.authHost
+        : LEGACY_AUTH_HOST_DEFAULT
+    const user = state.authUser
+    sessions[legacyHost] = {
+      token: legacyToken,
+      ...(user && typeof user === 'object' ? { user: user as DesktopAuthUser } : {}),
+    }
+  }
+  const raw = state.authSessions
+  if (raw && typeof raw === 'object') {
+    for (const [host, entry] of Object.entries(raw as Record<string, unknown>)) {
+      if (!entry || typeof entry !== 'object') continue
+      const token = (entry as Record<string, unknown>).token
+      if (typeof token !== 'string' || !token.length) continue
+      const user = (entry as Record<string, unknown>).user
+      sessions[host] = {
+        token,
+        ...(user && typeof user === 'object' ? { user: user as DesktopAuthUser } : {}),
+      }
+    }
+  }
+  return sessions
 }
 
-export function readAuthUser(): DesktopAuthUser | undefined {
-  const v = readState().authUser
-  return v && typeof v === 'object' ? (v as DesktopAuthUser) : undefined
+/** The persisted sign-in for `host`, if any. One state read. */
+export function readAuth(host: string): DesktopAuthEntry | undefined {
+  return extractAuthSessions(readState())[host]
 }
 
-export function writeAuthUser(user: DesktopAuthUser): void {
-  writeState({ authUser: user })
+/** Persist a sign-in for `host`, migrating any legacy single-slot fields into
+ *  the per-host map (other hosts' entries are preserved). */
+export function writeAuth(host: string, entry: DesktopAuthEntry): void {
+  const sessions = extractAuthSessions(readState())
+  sessions[host] = entry
+  writeState({ authSessions: sessions, authToken: undefined, authHost: undefined, authUser: undefined })
 }
 
-/** Clear the persisted auth token + user (logout). */
-export function clearAuth(): void {
-  writeState({ authToken: undefined, authUser: undefined })
+/** Clear the persisted sign-in for `host` only (logout / revoked token).
+ *  Other hosts' sessions are untouched. */
+export function clearAuth(host: string): void {
+  const sessions = extractAuthSessions(readState())
+  delete sessions[host]
+  writeState({ authSessions: sessions, authToken: undefined, authHost: undefined, authUser: undefined })
 }
 
 /**

@@ -40,6 +40,31 @@ export interface AgentPart {
   blocks: Part[]
 }
 
+/**
+ * A structured, actionable callout the engine emits instead of plain error text
+ * when it knows how the user can recover (e.g. the local Claude Code being
+ * signed out). `notice` picks the rendering (title, action buttons) in the UI's
+ * NoticeCard; `text` is the full explanation and doubles as the fallback body
+ * for notice kinds the renderer doesn't recognize.
+ */
+export interface NoticePart {
+  kind: 'notice'
+  id: string
+  /** Discriminator for kind-specific rendering, e.g. {@link NOTICE_CLAUDE_CODE_AUTH}. */
+  notice: string
+  text: string
+}
+
+/** Notice kind for "the local Claude Code CLI isn't authenticated" — rendered
+ *  as a sign-in recovery card. Lives here (not in the harness) because the
+ *  renderer's NoticeCard needs the same value and can't import server modules. */
+export const NOTICE_CLAUDE_CODE_AUTH = 'claude-code-auth'
+
+/** Notice kind for "the Freebuff API rejected our sign-in" (never signed in, or
+ *  the stored token expired/was revoked) — rendered as a sign-in recovery card
+ *  whose action starts the same device-code flow as the tab bar's LoginGate. */
+export const NOTICE_FREEBUFF_AUTH = 'freebuff-auth'
+
 export type Part =
   | { kind: 'text'; text: string }
   | {
@@ -53,6 +78,7 @@ export type Part =
       userOpened?: boolean
     }
   | { kind: 'tool'; id: string; toolName: string; input: unknown }
+  | NoticePart
   | AgentPart
 
 /** The minimal shape of the agent events we fold (a subset of the SDK's events). */
@@ -62,6 +88,8 @@ export interface AgentEventLike {
   toolName?: string
   toolCallId?: string
   input?: unknown
+  /** For `notice`: the notice kind (see {@link NoticePart}). */
+  notice?: string
   /** The agent the event belongs to (subagent id, or the root's own type). */
   agentId?: string
   /** For `subagent_start`: the spawning agent's id (root or another subagent). */
@@ -190,6 +218,10 @@ function foldLeaf(parts: Part[], ev: AgentEventLike, id: () => string): Part[] {
         { kind: 'tool', id: ev.toolCallId ?? id(), toolName: ev.toolName ?? 'tool', input: ev.input },
       ]
     }
+    case 'notice': {
+      const base = closeReasoning(parts)
+      return [...base, { kind: 'notice', id: id(), notice: ev.notice ?? 'generic', text: ev.text ?? '' }]
+    }
     default:
       return parts
   }
@@ -213,6 +245,7 @@ export const FOLDABLE_EVENT_TYPES = new Set([
   'text',
   'reasoning_delta',
   'tool_call',
+  'notice',
   'subagent_start',
   'subagent_finish',
 ])

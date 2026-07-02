@@ -10,6 +10,7 @@ import { isFreebuffMultimodalModelId } from '@codebuff/common/constants/freebuff
 import type { CodebuffClient, RunState } from '@codebuff/sdk'
 
 import { DEFAULT_FREEBUFF_MODEL } from '../models'
+import { unauthenticatedError } from './freebuff-session-manager'
 import {
   buildThreadTools,
   threadAgentDefinition,
@@ -35,9 +36,16 @@ const HIDDEN_TOOL_NAMES = new Set([
 export class CodebuffHarness implements AgentHarness {
   readonly id = 'codebuff' as const
 
-  constructor(private readonly client: CodebuffClient) {}
+  /** `client` is null while signed out with no dev-key fallback; runTurn is
+   *  normally unreachable then (the engine's freebuff.ensure() rejects the turn
+   *  first). The guard throws the same FreebuffSessionError the admission path
+   *  does, so if it ever fires (e.g. a token written by another instance lets
+   *  ensure() pass while this process's client is still null) the user gets
+   *  the sign-in recovery card, not a raw turn-failure line. */
+  constructor(private readonly client: CodebuffClient | null) {}
 
   async runTurn(turn: HarnessTurn, cb: HarnessCallbacks): Promise<HarnessResult> {
+    if (!this.client) throw unauthenticatedError()
     const tools = buildThreadTools(turn.toolDeps)
     const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
 

@@ -1,3 +1,4 @@
+import { recordReferralV2Activation } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { NextResponse } from 'next/server'
@@ -250,6 +251,24 @@ export async function POST(request: NextRequest) {
     content,
     images,
     attachments,
+  })
+
+  // An accepted chat message is a product use: mark the sender's unified
+  // referral as activated at their verified chat tier (docs/referrals.md) —
+  // the only activation hook on the chat-only path; without it web referrals
+  // of chat-only users never count. The tier is the same IP/geo/privacy
+  // verification the free-session admits use, so a VPN/datacenter/unsupported
+  // -country sender activates at 'limited' (web-ladder credit, no GLM) while
+  // a verified-clean sender activates at 'full'. Forensics: the tier check
+  // above already persisted this user's client_ip_hash + privacy signals to
+  // free_mode_country_access_cache. Fire-and-forget, mirroring the
+  // free-session admit call sites: idempotent, a no-op for non-referred
+  // users, never delays the stream.
+  void recordReferralV2Activation({
+    referredId: userId,
+    accessTier,
+  }).catch((error) => {
+    logger.warn({ error, userId }, 'Failed to record referral_v2 activation (chat)')
   })
 
   // DAU signal: one event per user-submitted chat message. userId is the

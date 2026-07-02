@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { CodebuffHarness } from './codebuff-harness'
+import { FreebuffSessionError } from './freebuff-session-manager'
 import type { HarnessCallbacks, HarnessTurn } from './harness'
 
 /** Minimal CodebuffClient stub: `run` returns whatever RunState we hand it. */
@@ -75,5 +76,15 @@ describe('CodebuffHarness error output handling', () => {
 
     const result = await harness.runTurn(makeTurn(), noopCallbacks())
     expect(result.state).toBe(run)
+  })
+
+  test('a null client rejects with the unauthenticated session error, not a plain Error', async () => {
+    // The guard is normally unreachable (ensure() rejects the turn first), but if
+    // it ever fires the engine must classify it as the sign-in recovery card —
+    // that requires FreebuffSessionError with status 'unauthenticated'.
+    const harness = new CodebuffHarness(null)
+    const err = await harness.runTurn(makeTurn(), noopCallbacks()).catch((e) => e)
+    expect(err).toBeInstanceOf(FreebuffSessionError)
+    expect((err as FreebuffSessionError).status).toBe('unauthenticated')
   })
 })

@@ -13,18 +13,10 @@
  * React/analytics-coupled modules.
  */
 
+import { API_HOST } from '../api-host'
 import { saveAuth, type DesktopAuthUser } from './login-store'
 
 const POLL_INTERVAL_MS = 2_000
-
-function apiBaseUrl(): string {
-  // Default to the canonical www host: the apex `codebuff.com` 301/307-redirects
-  // every request to `www.codebuff.com`, so polling the apex adds a redirect
-  // round-trip every 2s. Match the rest of the codebase (see scripts/smoke-sdk.ts).
-  return (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
-  ).replace(/\/$/, '')
-}
 
 interface PendingLogin {
   fingerprintId: string
@@ -64,10 +56,23 @@ export class LoginManager {
   constructor(private readonly onAuthenticated?: (user: DesktopAuthUser) => void) {}
 
   /** Begin a login attempt: request a code and return the URL for the user to
-   *  open. Polling for completion runs in the background. */
+   *  open. Polling for completion runs in the background.
+   *
+   *  A retry while an attempt is still live returns the SAME pending code
+   *  instead of minting a fresh one — otherwise each retry click would open a
+   *  new tab with a new code and silently invalidate the older tabs, so
+   *  completing any tab but the newest would never be picked up. A fresh code
+   *  is minted only when there's no attempt or it's about to expire. */
   async start(): Promise<{ loginUrl: string; expiresAt: number | string }> {
+    const existing = this.pending
+    if (existing) {
+      const expMs = Number(existing.expiresAt)
+      if (!Number.isFinite(expMs) || Date.now() < expMs - 60_000) {
+        return { loginUrl: existing.loginUrl, expiresAt: existing.expiresAt }
+      }
+    }
     const fingerprintId = crypto.randomUUID()
-    const res = await fetch(`${apiBaseUrl()}/api/auth/cli/code`, {
+    const res = await fetch(`${API_HOST}/api/auth/cli/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ fingerprintId }),
@@ -92,6 +97,19 @@ export class LoginManager {
     return this.pending !== null
   }
 
+  /** Expiry of the pending attempt (epoch ms as returned by the server), or
+   *  null when nothing is pending. Lets the UI rehydrate its waiting state. */
+  pendingExpiresAt(): number | string | null {
+    return this.pending?.expiresAt ?? null
+  }
+
+  /** Abandon the current attempt (user hit cancel in the UI). The poll loop
+   *  notices `pending` changed and winds down; a completed browser sign-in for
+   *  the dropped code is simply never picked up. */
+  cancel(): void {
+    this.pending = null
+  }
+
   private async poll(): Promise<void> {
     // Only one poll loop runs at a time. It always polls the *current*
     // `this.pending`, so if `start()` is called again while we're running (a
@@ -114,7 +132,7 @@ export class LoginManager {
           await sleep(POLL_INTERVAL_MS)
           let user: LoginStatusResponse['user']
           try {
-            const url = new URL(`${apiBaseUrl()}/api/auth/cli/status`)
+            const url = new URL(`${API_HOST}/api/auth/cli/status`)
             url.searchParams.set('fingerprintId', pending.fingerprintId)
             url.searchParams.set('fingerprintHash', pending.fingerprintHash)
             url.searchParams.set('expiresAt', String(pending.expiresAt))
@@ -125,7 +143,11 @@ export class LoginManager {
           } catch {
             // Transient network error — keep polling until the deadline.
           }
-          if (user?.authToken) {
+          // Re-check identity after the awaits: cancel() or a replacing start()
+          // may have dropped this attempt while the sleep/fetch was in flight —
+          // completing a cancelled or superseded attempt must not sign us in
+          // (nor abandon the replacement, which the outer loop picks up).
+          if (user?.authToken && this.pending === pending) {
             const saved: DesktopAuthUser = {
               id: user.id,
               email: user.email,

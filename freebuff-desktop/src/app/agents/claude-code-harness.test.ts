@@ -4,8 +4,11 @@ import { foldAgentEvent, type AgentEventLike, type Part } from '../../core/parts
 import {
   buildFreebuffMcpTools,
   claudeCodeEnv,
+  ClaudeCodeAuthError,
   consumeClaudeStream,
   FREEBUFF_MCP_TOOL_NAMES,
+  resolveClaudeCodeExecutable,
+  translateClaudeCodeError,
 } from './claude-code-harness'
 import type { HarnessCallbacks } from './harness'
 import type { ThreadToolDeps } from './thread-tools'
@@ -56,6 +59,15 @@ const result = (subtype: string, session_id: string) => ({
   type: 'result',
   subtype,
   session_id,
+})
+/** An in-band `is_error` result — how the CLI reports a failed turn when the
+ *  process still exits cleanly (subtype 'success' puts the text in `result`). */
+const errorResult = (text: string, subtype = 'success') => ({
+  type: 'result',
+  subtype,
+  is_error: true,
+  ...(subtype === 'success' ? { result: text } : { errors: [text] }),
+  session_id: 's',
 })
 
 describe('consumeClaudeStream', () => {
@@ -116,6 +128,40 @@ describe('consumeClaudeStream', () => {
     expect(text.text).toContain('error_max_turns')
   })
 
+  // The SDK only throws its "returned an error result" wrapper when the CLI
+  // ALSO exits nonzero; an in-band is_error result with a clean exit must be
+  // classified by the stream consumer itself or the turn ends silently empty.
+  test('in-band auth error result (clean exit) throws ClaudeCodeAuthError', async () => {
+    const rec = recorder()
+    await expect(
+      consumeClaudeStream(
+        gen([sysInit('s'), errorResult('Not logged in · Please run /login')]),
+        rec.cb,
+      ),
+    ).rejects.toBeInstanceOf(ClaudeCodeAuthError)
+  })
+
+  test('in-band auth error via error subtype also throws', async () => {
+    const rec = recorder()
+    await expect(
+      consumeClaudeStream(
+        gen([errorResult('OAuth token has expired', 'error_during_execution')]),
+        rec.cb,
+      ),
+    ).rejects.toBeInstanceOf(ClaudeCodeAuthError)
+  })
+
+  test('in-band non-auth error result surfaces its text verbatim', async () => {
+    const rec = recorder()
+    await consumeClaudeStream(
+      gen([errorResult('Credit balance is too low')]),
+      rec.cb,
+    )
+    const text = rec.parts.find((p) => p.kind === 'text') as Extract<Part, { kind: 'text' }>
+    expect(text.text).toContain('Credit balance is too low')
+    expect(rec.events.at(-1)!.type).toBe('finish')
+  })
+
   test('malformed tool JSON is captured as _raw instead of throwing', async () => {
     const rec = recorder()
     await consumeClaudeStream(
@@ -130,6 +176,94 @@ describe('consumeClaudeStream', () => {
     const tool = rec.parts.find((p) => p.kind === 'tool') as Extract<Part, { kind: 'tool' }>
     expect(tool.toolName).toBe('Bash')
     expect(tool.input).toEqual({ _raw: '{ not json' })
+  })
+})
+
+describe('translateClaudeCodeError', () => {
+  // The SDK surfaces the CLI's auth failures as plain Errors quoting terminal
+  // advice ("Please run /login"); those become the typed ClaudeCodeAuthError so
+  // the engine can render a sign-in recovery card instead of the raw text.
+  test.each([
+    'Claude Code returned an error result: Not logged in · Please run /login',
+    'Claude Code returned an error result: Invalid API key · Fix external API key',
+    'Claude Code returned an error result: OAuth token has expired',
+    'Claude Code returned an error result: OAuth token revoked · Please run /login',
+  ])('maps %s to ClaudeCodeAuthError', (raw) => {
+    const out = translateClaudeCodeError(new Error(raw))
+    expect(out).toBeInstanceOf(ClaudeCodeAuthError)
+    const auth = out as ClaudeCodeAuthError
+    // The user-facing message speaks Freebuff, not terminal: the fix (a
+    // terminal `claude /login`) and the alternative (switch agents).
+    expect(auth.message).toContain('claude /login')
+    expect(auth.message).toContain('Freebuff agent')
+    // The raw SDK text is preserved for logs.
+    expect(auth.causeMessage).toBe(raw)
+  })
+
+  test('passes non-auth errors through unchanged', () => {
+    const err = new Error('Claude Code process exited with code 1')
+    expect(translateClaudeCodeError(err)).toBe(err)
+    const abort = new Error('Operation aborted')
+    expect(translateClaudeCodeError(abort)).toBe(abort)
+  })
+
+  // The result text can quote arbitrary tool/model output, so a bare
+  // "invalid API key" about some third-party service must NOT be
+  // misclassified into a bogus "Claude Code is signed out" card.
+  test('does not misclassify third-party key errors as Claude Code auth', () => {
+    const err = new Error(
+      'Claude Code returned an error result: MCP server fetch failed: invalid API key for OpenAI',
+    )
+    expect(translateClaudeCodeError(err)).toBe(err)
+  })
+
+  test('is idempotent — an already-translated error passes through', () => {
+    const auth = translateClaudeCodeError(
+      new Error('Claude Code returned an error result: Not logged in · Please run /login'),
+    )
+    expect(translateClaudeCodeError(auth)).toBe(auth)
+  })
+
+  // The packaged app has no node_modules, so if no installed claude is resolved
+  // the SDK errors that it can't find its native CLI binary. That terminal-speak
+  // ("Reinstall @anthropic-ai/claude-agent-sdk without --omit=optional") is
+  // meaningless in the app — map it to actionable install guidance.
+  test.each([
+    'Native CLI binary for darwin-arm64 not found. Reinstall @anthropic-ai/claude-agent-sdk without --omit=optional, or set options.pathToClaudeCodeExecutable.',
+    'Could not find Claude Code executable',
+  ])('maps missing-CLI error %s to an install message', (raw) => {
+    const out = translateClaudeCodeError(new Error(raw)) as Error
+    expect(out).toBeInstanceOf(Error)
+    expect(out).not.toBeInstanceOf(ClaudeCodeAuthError)
+    expect(out.message).toContain('Claude Code CLI not found')
+    expect(out.message).toContain('claude.ai/download')
+  })
+})
+
+describe('resolveClaudeCodeExecutable', () => {
+  const orig = process.env.FREEBUFF_CLAUDE_PATH
+  const restore = () => {
+    if (orig === undefined) delete process.env.FREEBUFF_CLAUDE_PATH
+    else process.env.FREEBUFF_CLAUDE_PATH = orig
+  }
+
+  test('FREEBUFF_CLAUDE_PATH override wins when it points at a real file', () => {
+    // process.execPath (the bun binary) is guaranteed to exist + be executable.
+    process.env.FREEBUFF_CLAUDE_PATH = process.execPath
+    try {
+      expect(resolveClaudeCodeExecutable()).toBe(process.execPath)
+    } finally {
+      restore()
+    }
+  })
+
+  test('a non-existent override is ignored (does not short-circuit)', () => {
+    process.env.FREEBUFF_CLAUDE_PATH = '/no/such/claude-binary-xyz'
+    try {
+      expect(resolveClaudeCodeExecutable()).not.toBe('/no/such/claude-binary-xyz')
+    } finally {
+      restore()
+    }
   })
 })
 

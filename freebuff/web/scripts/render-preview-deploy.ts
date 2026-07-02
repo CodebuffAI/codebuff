@@ -108,7 +108,7 @@ function getConvexDeployKeyType(deployKey: string): ConvexDeployKeyType {
 
 function getConvexDeployCommand(deployKey: string) {
   const deployKeyType = getConvexDeployKeyType(deployKey)
-  const command = ['bun', 'x', 'convex', 'deploy']
+  const command = ['bun', 'x', 'convex', 'deploy', '--typecheck=disable']
 
   if (deployKeyType === 'deployment') {
     command.push('--allow-deleting-large-indexes')

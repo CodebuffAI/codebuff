@@ -378,6 +378,42 @@ select {
   flex-direction: column;
   gap: 2px;
 }
+/* Agent group inside the combined agent+model menu: a header row (dot + agent
+   name + short description) followed by that agent's model rows. */
+.agent-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-menu-group + .agent-menu-group {
+  margin-top: 5px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+.agent-menu-header {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 4px 10px 2px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.agent-menu-header .agent-dot {
+  align-self: center;
+}
+.agent-menu-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.agent-menu-desc {
+  font-size: 10.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .agent-option {
   display: flex;
   align-items: flex-start;
@@ -449,8 +485,8 @@ select {
 .workspace {
   position: relative;
   display: grid;
-  /* --queue-w is set by the Workspace component (default 720px). */
-  grid-template-columns: 1fr 6px var(--queue-w, 720px);
+  /* --queue-w is set by the Workspace component (default 600px). */
+  grid-template-columns: 1fr 6px var(--queue-w, 600px);
   flex: 1;
   min-height: 0;
 }
@@ -545,6 +581,30 @@ body.col-resizing {
   height: 12px;
   opacity: 0.7;
 }
+/* Started thread: the folder is fixed, so the chip is a plain label — same
+   footprint as the button, minus affordances. */
+.thread-head-project.static {
+  cursor: default;
+}
+.thread-head-project.static:hover {
+  background: var(--surface-2);
+}
+/* Started thread: read-only agent + model chip (mirrors .agent-trigger's look
+   without the button affordances — the pick is locked). */
+.agent-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+}
 /* The thread title lives in the tab bar at the top of the window — we don't
    also surface it in this header, so there's no thread-head-title style. */
 .head-btn {
@@ -561,9 +621,116 @@ body.col-resizing {
 .head-btn:hover {
   border-color: var(--accent-dim);
 }
+.head-btn:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
 .head-btn.on {
   border-color: var(--accent);
   color: var(--accent);
+}
+/* Non-prod API host badge (a repo launch's dev stack) — warning-tinted so a
+   sign-in pointed at localhost is unmistakable. Shrinks with an ellipsis in
+   narrow panes (the title tooltip carries the full host). */
+.head-api-host {
+  border: 1px solid var(--warn, #b58900);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 11px;
+  color: var(--warn, #b58900);
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 96px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.head-btn.icon-only {
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+}
+.head-btn.icon-only:hover {
+  color: var(--text);
+}
+.preview-btn:not(.on) {
+  background: var(--surface);
+}
+/* Account control — lives in the tab bar (window-global row), so it must opt
+   out of the bar's drag region to stay clickable. */
+.account-menu {
+  position: relative;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+/* Signed-out stand-in for the account icon. Must opt out of the tab bar's
+   drag region to stay clickable (same as .account-menu above). */
+.tabbar-login {
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+/* LoginGate's own row: the main pill plus, while waiting, a cancel ✕ — kept on
+   one line no matter what layout the mount point uses. */
+.login-gate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.account-trigger {
+  background: var(--surface);
+}
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.header-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 180px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+}
+.header-menu-note {
+  max-width: 240px;
+  padding: 6px 8px 7px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  color: var(--faint);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+}
+.header-menu-item:hover:not(:disabled) {
+  background: var(--raised);
+}
+.header-menu-item:disabled {
+  cursor: default;
+  color: var(--faint);
 }
 .thread-preview {
   flex: 1;
@@ -594,6 +761,29 @@ body.col-resizing {
   margin: 0 auto;
   opacity: 0.18;
 }
+/* Cold-start CTA row: clear air below the wordmark. One primary action at a
+   time — sign-in while signed out, the folder picker once signed in. */
+.welcome-actions {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+/* A touch larger than the stock .btn so it reads as the primary action on an
+   otherwise empty screen. */
+.btn.welcome-open {
+  padding: 8px 16px;
+  gap: 8px;
+  font-size: 13px;
+  border-radius: 9px;
+}
+.btn.welcome-open svg {
+  color: var(--muted);
+}
+.btn.welcome-open:hover svg {
+  color: var(--accent);
+}
 .welcome-title {
   margin-top: 14px;
   font-size: 14px;
@@ -601,26 +791,9 @@ body.col-resizing {
   color: var(--muted);
   opacity: 0.7;
 }
-.welcome-path {
-  display: block;
-  margin: 4px auto 0;
-  padding: 2px 6px;
-  border: none;
-  background: none;
-  border-radius: 5px;
-  font-size: 11px;
-  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  color: var(--muted);
-  opacity: 0.45;
-  white-space: nowrap;
-  max-width: 420px;
-  cursor: pointer;
-  transition: opacity 0.12s ease, background 0.12s ease;
-}
-.welcome-path:hover {
-  opacity: 0.8;
-  background: var(--surface-2);
-}
+/* — New-thread welcome card: just the wordmark + title; the project and
+   agent/model pickers live in the thread header, so we don't duplicate them
+   here. — */
 .welcome-sub {
   font-size: 13px;
   max-width: 380px;
@@ -1050,6 +1223,52 @@ body.col-resizing {
   border-radius: var(--radius);
   background: var(--surface);
   overflow: hidden;
+}
+
+/* An actionable failure callout (see NoticeCard.tsx) — e.g. "Claude Code is
+   signed out" with sign-in recovery actions. Styled like an agent box but
+   danger-tinted so it reads as "this turn stopped, here's what to do". */
+.notice-card {
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+.notice-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.notice-body {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* Notice actions are shared .btn pills — only the shape and resting surface
+   differ, so future .btn polish (focus, disabled) applies here too. */
+.btn.notice-action {
+  border-radius: 999px;
+  background: var(--raised);
+  cursor: pointer;
+}
+.btn.notice-action:disabled {
+  color: var(--muted);
+  border-color: var(--border);
+  cursor: default;
+}
+.notice-action code {
+  font-size: 11.5px;
+  color: var(--muted);
 }
 .agent-box.running {
   border-color: var(--accent-dim);
@@ -1829,7 +2048,7 @@ body.col-resizing {
     transform: translateY(6px);
   }
 }
-/* — Modal / project picker — */
+/* — Modals — */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1845,23 +2064,33 @@ body.col-resizing {
   border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
-.picker {
+/* Standard modal panel: fixed width, column layout, header + footer bars. */
+.modal-panel {
   width: min(560px, 92vw);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
 }
-.picker-head {
+.modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
-.picker-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.modal-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.modal-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.modal-foot code {
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--muted);
 }
 /* Confirm dialog shown when the user picks a folder that isn't a git repo. */
 .init-confirm {
@@ -1890,171 +2119,6 @@ body.col-resizing {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-/* Recents strip: surfaces the MRU list above the folder tree so returning
-   users can re-open a previous project with one click. Hidden until the
-   list has at least one entry (the fetch may take a tick on a cold start). */
-.picker-recents {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-.recents-head {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--faint);
-  margin-bottom: 6px;
-}
-.recents-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-}
-.recent-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 7px 9px;
-  font-size: 12px;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-.recent-row:hover:not(:disabled) {
-  border-color: var(--accent-dim);
-}
-.recent-row:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-.recent-row > svg {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-.recent-name {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 0;
-  max-width: 50%;
-}
-/* The full path is shown muted on the right for context without taking the
-   primary label slot — ellipsizes when a path is too long. */
-.recent-path {
-  flex: 1;
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 11px;
-  color: var(--faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  direction: rtl;
-  text-align: left;
-}
-.recent-spin {
-  width: 11px;
-  height: 11px;
-  border: 2px solid var(--raised);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-  flex-shrink: 0;
-}
-.recents-error {
-  font-size: 11.5px;
-  color: var(--danger);
-  padding: 4px 8px;
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-  border-radius: 5px;
-  margin-bottom: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.picker-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-.picker-path {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.picker-cwd {
-  flex: 1;
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 11.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  direction: rtl;
-  text-align: left;
-}
-.open-here {
-  flex-shrink: 0;
-  color: var(--accent);
-  border-color: var(--accent-dim);
-}
-.picker-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.picker-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 7px;
-  padding: 2px 6px;
-}
-.picker-row:hover {
-  background: var(--surface-2);
-}
-.picker-nav {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  color: var(--text);
-  text-align: left;
-  padding: 6px 2px;
-  overflow: hidden;
-}
-.picker-nav svg {
-  color: var(--muted);
-  flex-shrink: 0;
-}
-.picker-row.repo .picker-nav svg {
-  color: var(--accent-dim);
-}
-.picker-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.picker-foot {
-  padding: 10px 14px;
-  border-top: 1px solid var(--border);
-  font-size: 11.5px;
-  color: var(--faint);
-}
-.picker-foot code {
-  font-family: ui-monospace, Menlo, monospace;
-  color: var(--muted);
 }
 .btn:disabled {
   opacity: 0.5;

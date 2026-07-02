@@ -180,19 +180,50 @@ export async function redeemReferralCode(params: {
       .limit(1),
   ])
 
-  if (!referrer) return { ok: false, error: 'invalid_code' }
-  if (referrer.id === userId) return { ok: false, error: 'self_referral' }
-  if (referrer.banned) return { ok: false, error: 'user_banned' }
-  if (!referred) return { ok: false, error: 'user_not_found' }
-  if (referred.banned) return { ok: false, error: 'user_banned' }
+  // Every guard below returns silently to the caller (redemption is
+  // best-effort on auth hops), so log each rejection — without this, "my
+  // friend's invite didn't count" is undiagnosable from the outside.
+  //
+  // Two errors are repeat-prone, not diagnostic, and stay OFF the Axiom event:
+  // an `invalid_code` cookie is deliberately never cleared (legacy Convex
+  // codes), and `already_referred` re-fires on every hop when the cookie
+  // outlives its redemption (the /onboard RSC can't clear it). Both re-run on
+  // every <=10-min convex-token mint × 2 programs — thousands of events per
+  // user-week of pure noise (and DB rows already tell the already_referred
+  // story). The one-shot guard hits keep the event.
+  const fail = (error: RedeemReferralError): RedeemReferralResult => {
+    const repeatProne = error === 'invalid_code' || error === 'already_referred'
+    const payload = {
+      ...(repeatProne
+        ? {}
+        : { eventId: AnalyticsEvent.FREEBUFF_REFERRAL_REDEEM_FAILED }),
+      userId,
+      referralCode,
+      referrerId: referrer?.id ?? null,
+      program,
+      error,
+    }
+    if (repeatProne) {
+      logger.debug(payload, `Referral code redemption failed: ${error}`)
+    } else {
+      logger.info(payload, `Referral code redemption failed: ${error}`)
+    }
+    return { ok: false, error }
+  }
+
+  if (!referrer) return fail('invalid_code')
+  if (referrer.id === userId) return fail('self_referral')
+  if (referrer.banned) return fail('user_banned')
+  if (!referred) return fail('user_not_found')
+  if (referred.banned) return fail('user_banned')
 
   const signupCutoff = new Date(
     now.getTime() - REFERRAL_SIGNUP_WINDOW_DAYS * 24 * 60 * 60 * 1000,
   )
   if (referred.createdAt < signupCutoff) {
-    return { ok: false, error: 'signup_too_old' }
+    return fail('signup_too_old')
   }
-  if (alreadyReferred) return { ok: false, error: 'already_referred' }
+  if (alreadyReferred) return fail('already_referred')
 
   // These two need referrer.id; run them together.
   const [[reverse], [{ n: referrerCount }]] = await Promise.all([
@@ -222,7 +253,7 @@ export async function redeemReferralCode(params: {
         ),
       ),
   ])
-  if (reverse) return { ok: false, error: 'reverse_referral' }
+  if (reverse) return fail('reverse_referral')
   // CLI uses the per-user referral_limit column (default 5). Web and GLM have
   // their own headroom: web tops out at 7 qualified, GLM at
   // FREEBUFF_GLM_V52_REFERRAL_CAP (10), so both need a signup cap above their
@@ -234,7 +265,7 @@ export async function redeemReferralCode(params: {
         ? FREEBUFF_GLM_V52_REFERRAL_CAP * 2
         : FREEBUFF_WEB_REFERRAL_LIMIT
   if (referrerCount >= referralLimit) {
-    return { ok: false, error: 'referrer_limit_reached' }
+    return fail('referrer_limit_reached')
   }
 
   // credits=0: v2 never mints credits (grant-credits throws on type='referral').

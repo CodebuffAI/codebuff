@@ -2,7 +2,6 @@
  * Vite proxy) and packaged (served by the Bun server). */
 
 import type {
-  BrowseResult,
   HarnessId,
   Part,
   ProjectSettings,
@@ -78,28 +77,30 @@ export const api = {
     }),
 
   // Project
-  browse: (path?: string) =>
-    get<BrowseResult>(`/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  /** Can this path be opened as a project (exists, is a git repo)? `needsInit`
+   *  means "no, but `git init` would fix it" — the offer-to-initialize signal. */
+  validateProject: (path: string) =>
+    get<{ ok: boolean; path: string; needsInit?: boolean; error?: string }>(
+      `/api/project/validate?path=${encodeURIComponent(path)}`,
+    ),
   listRecents: () => get<{ recents: string[] }>('/api/project/recents'),
   /** `git init` a folder that isn't a repo yet so it can be opened. */
   initRepo: (path: string) =>
     post<{ ok: boolean; path: string; error?: string }>('/api/project/init', { path }),
 
   // Settings
-  // Project-wide default harness for NEW threads. /api/thread/{id}/harness
-  // overrides per-tab — see setThreadHarness below.
+  // Project-wide default harness for NEW threads. /api/thread/{id}/agent
+  // overrides per-tab — see setThreadAgent below.
   setAgentHarness: (harnessId: HarnessId) =>
     post<{ ok: boolean; error?: string }>('/api/settings/agent', { harnessId }),
-  /** Set the agent for a single tab; persists with the thread and takes effect
-   *  on its next turn. */
-  setThreadHarness: (threadId: string, harnessId: HarnessId) =>
-    post<{ ok: boolean; error?: string }>(`/api/thread/${threadId}/harness`, { harnessId }),
-  /** Set a tab's Freebuff model. Returns the resolved model (may be downgraded
-   *  to an unlimited model if another tab holds the premium slot) + `rejected`. */
-  setThreadModel: (threadId: string, model: string) =>
+  /** Set a tab's agent + model in one call (the combined picker); persists with
+   *  the thread and takes effect on its next turn. Returns the resolved model
+   *  (a premium Freebuff pick may be downgraded if another tab holds the
+   *  premium slot) + `rejected`. */
+  setThreadAgent: (threadId: string, harnessId: HarnessId, model: string) =>
     post<{ ok: boolean; model?: string; rejected?: boolean; error?: string }>(
-      `/api/thread/${threadId}/model`,
-      { model },
+      `/api/thread/${threadId}/agent`,
+      { harnessId, model },
     ),
 
   // Freebuff auth (device-code login)
@@ -111,6 +112,20 @@ export const api = {
       expiresAt?: number | string
       error?: string
     }>('/api/auth/login/start'),
+  cancelLogin: () => post<{ ok: boolean }>('/api/auth/login/cancel'),
+  authStatus: () =>
+    get<{
+      authed: boolean
+      user: { id?: string; email?: string; name?: string } | null
+      loginPending: boolean
+      loginExpiresAt: number | string | null
+    }>('/api/auth/status'),
+  /** Per-user UI prefs (queue-panel width). Server-persisted because the
+   *  packaged app's origin (random localhost port) changes every launch,
+   *  which resets localStorage. */
+  getUiPrefs: () => get<{ queueWidth?: number }>('/api/settings/ui'),
+  saveUiPrefs: (prefs: { queueWidth: number }) =>
+    post<{ ok: boolean; error?: string }>('/api/settings/ui', prefs),
   getSettings: () =>
     get<{
       path: string
@@ -120,4 +135,7 @@ export const api = {
     }>('/api/settings'),
   saveSettings: (settings: ProjectSettings) =>
     post<{ ok: boolean; error?: string }>('/api/settings', { settings }),
+
+  // Auth
+  logout: () => post<{ ok: boolean; error?: string }>('/api/auth/logout'),
 }

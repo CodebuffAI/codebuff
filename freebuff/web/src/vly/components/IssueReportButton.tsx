@@ -18,6 +18,7 @@ import {
   Loader2,
   MessageCircle,
   Send,
+  Sparkles,
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -627,6 +628,13 @@ export function IssueReportButton({
       >
         <Bug className="h-3 w-3" />
         Report issue or feature
+        <span
+          title="Approved reports are picked up by our AI bug fixer, which ships fix PRs automatically"
+          className="ml-0.5 inline-flex items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+        >
+          <Sparkles className="h-2.5 w-2.5" />
+          New
+        </span>
       </button>
     </div>
   )

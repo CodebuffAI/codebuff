@@ -122,9 +122,25 @@ never permanently unrecoverable.
 
 ### Activation
 
-When the referred user is admitted to a session and uses it, set `activated_at`
-and `activation_access_tier` (the tier of that admit). Upgrade the tier
-`limited → full` if they later activate at full; never downgrade.
+Every product surface activates, always at the user's **verified** access tier
+— the same IP/geo/privacy pipeline everywhere, so a VPN/datacenter/unsupported
+-country user activates at `limited` (web-ladder credit, no GLM) and only a
+verified-clean user activates at `full`:
+
+- **CLI / desktop** — on free-session admission, at the admit's tier
+  (`web/src/server/free-session/store.ts`).
+- **Web chat (freebuff.com/chat)** — on each accepted signed-in message, at
+  the sender's chat tier (`freebuff/web/src/app/api/chat/stream/route.ts`).
+- **Web coding agent (freebuff.com/web)** — on convex-token mint (the app
+  being open, refreshed ≤10 min), at the request's web tier; hard-blocked
+  requests never activate (`syncWebReferralState` via the convex-token
+  route). The CLI `/onboard` login hop calls the same sync WITHOUT
+  activation — logging in is not product use.
+
+Upgrade the tier `limited → full` if they later activate at full; never
+downgrade. Chat/web activations leave no `free_session` rows; for
+investigations, the tier checks persist `client_ip_hash` + privacy signals to
+`free_mode_country_access_cache` (recent-window, per user+IP).
 
 ## Benefit policies (read-time, per product)
 
@@ -202,6 +218,16 @@ dedup (one row per `referred_id` from the start).
   enforced in `recordReferralV2Attribution` (and the legacy redeem path).
 - GLM requires the *referred* user to be a real **full-access** user (approved
   country, no VPN/proxy) — the strongest anti-farming gate.
+- **Attribution records sock evidence** (migration 0075): the redeeming
+  request's `referred_ip_hash` + browser `referred_device_id`, checked inline
+  against the referrer's known IPs (`free_mode_country_access_cache`) and
+  browsers (`user_device`) into `referrer_ip_overlap` /
+  `referrer_device_overlap`. Strictly flag-only, never a gate: a genuine
+  in-person referral ("try it, here's my laptop") shares both the IP and the
+  browser, so overlap alone is expected for the most organic referrals.
+  Surfaced via `scripts/referral-sock-signals.ts` and the
+  `freebuff.referral.sock_signal` event; actionable only with corroborating
+  farm signals (see `docs/freebuff-abuse-detection.md`).
 - **Revocation is a process, not just a column.** A periodic abuse sweep sets
   `revoked_at` on suspicious clusters (shared-IP bursts, disposable-domain /
   email-alias farms, display-name farms — see `docs/freebuff-abuse-detection.md`).

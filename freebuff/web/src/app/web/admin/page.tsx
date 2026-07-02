@@ -29,6 +29,8 @@ import {
   UserPlus,
   Ticket,
   BarChart3,
+  Boxes,
+  Bot,
   Search,
   Cloud,
   Globe,
@@ -400,7 +402,7 @@ export default function AdminDashboard() {
             <CheckCircle className="h-4 w-4 text-green-600" />
             <span className="text-sm font-medium text-green-600">Active</span>
           </div>
-          <div className="mt-4 flex items-center justify-center gap-4">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-4">
             <a
               href="/web/admin/referrals"
               className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80"
@@ -421,6 +423,20 @@ export default function AdminDashboard() {
             >
               <BarChart3 className="h-4 w-4" />
               Platform Usage
+            </a>
+            <a
+              href="/web/admin/snapshots"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-50"
+            >
+              <Boxes className="h-4 w-4" />
+              Snapshot Builder
+            </a>
+            <a
+              href="/web/admin/bug-fixer"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-50"
+            >
+              <Bot className="h-4 w-4" />
+              Bug Fixer Bot
             </a>
           </div>
           <div className="mt-4 flex justify-center">

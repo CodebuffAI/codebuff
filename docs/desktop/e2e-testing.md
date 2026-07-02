@@ -53,15 +53,19 @@ the assistant can PROPOSE follow-up prompts ──► park in the queue's "sugge
 
 ## 2. Prerequisites (the easy-to-miss ones)
 
-1. **For the `codebuff` harness: a Codebuff backend the SDK can reach.** The SDK sends
-   LLM traffic to `NEXT_PUBLIC_CODEBUFF_APP_URL`
-   (`packages/agent-runtime/src/llm-api/codebuff-web-api.ts`). The **production** host
-   rejects a local dev key with `401`. To test against local backend:
+1. **For the `codebuff` harness: a Codebuff backend the SDK can reach.** The desktop's
+   API host (sign-in, sessions, SDK) is `NEXT_PUBLIC_CODEBUFF_APP_URL`, defaulting to
+   prod (`freebuff-desktop/src/app/api-host.ts`). Launched from the repo
+   (`bun run app` / `dev` / `dev:web`), the direnv bun wrapper injects `.env.local`,
+   so **repo launches target the LOCAL dev stack (localhost:3000)** — start the web
+   app (`bun --filter @codebuff/web dev` or the repo's normal dev flow) and confirm
+   `:3000` is listening before signing in or sending messages, or sign-in/turns fail.
+   A non-prod host shows as a yellow `API: …` badge in the thread header. Shell env
+   beats the wrapper's env file, so to force prod from a repo launch:
    ```bash
-   export NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3000   # NOT prod
+   NEXT_PUBLIC_CODEBUFF_APP_URL=https://www.codebuff.com bun run app
    ```
-   Start the web app separately (`bun --filter @codebuff/web dev` or the repo's normal
-   dev flow) and confirm `:3000` is listening before sending messages.
+   (The **production** host rejects a local dev key with `401`.)
 2. **Auth for the `codebuff` harness.** Either:
    - `CODEBUFF_API_KEY` in the orchestrator's environment (a dev key works against the
      local backend — easiest for headless runs), **or**
@@ -89,8 +93,7 @@ for the orchestrator.
 ### a. Orchestrator + API only (best for headless / curl-driving)
 
 ```bash
-# from the repo root
-NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3000 \
+# from the repo root (the bun wrapper's .env.local already targets localhost:3000)
 CODEBUFF_API_KEY=<dev-key> \
 TARGET_REPO=/Users/<you>/freebuff-projects/active \
 PORT=8787 \
@@ -132,7 +135,7 @@ Electron picks a free loopback port, spawns the orchestrator on it, waits for
 | `PORT` | `8787` | HTTP/SSE port |
 | `TARGET_REPO` | `~/freebuff-desktop-demo` | project repo to open at launch (falls back to the MRU recent project) |
 | `TEST_CMD` | `node --test` | the project's test command (run-config used by the `test` skill) |
-| `NEXT_PUBLIC_CODEBUFF_APP_URL` | (build/env) | backend the `codebuff` harness's SDK calls |
+| `NEXT_PUBLIC_CODEBUFF_APP_URL` | prod | API host for sign-in, sessions, SDK (repo launches inherit localhost:3000 from `.env.local`; shell env wins) |
 | `CODEBUFF_API_KEY` | — | fallback auth for the `codebuff` harness |
 | `FREEBUFF_UI_DIR` | `…/dist-ui` | built SPA dir (set by the shell in packaged builds) |
 
@@ -195,8 +198,7 @@ sends no `Origin` header — non-browser clients are allowed.
 | `POST /api/thread/{id}/close` | close (keeps worktree + history for reopen) |
 | `POST /api/thread/{id}/rehydrate` | restore a closed thread's file tree |
 | `POST /api/thread/{id}/delete` | delete the thread |
-| `POST /api/thread/{id}/harness` `{harnessId}` | pin this tab's agent (`codebuff`/`claude-code`) |
-| `POST /api/thread/{id}/model` `{model}` | pin this tab's Freebuff model (may be downgraded; returns resolved) |
+| `POST /api/thread/{id}/agent` `{harnessId, model?}` | pin this tab's agent (`codebuff`/`claude-code`) + its model in one call (a premium Freebuff pick may be downgraded; returns resolved). Only before the thread starts — 409 once it has messages or a branch (agent/model/folder are fixed per thread) |
 | `POST /api/thread/{id}/auto-queue-suggestions` `{on}` | auto-run assistant suggestions instead of parking them |
 
 ### Queue
@@ -223,7 +225,7 @@ sends no `Origin` header — non-browser clients are allowed.
 | `GET·POST /api/settings` `{settings}` | `.freebuff/settings.json` (e.g. `preview.entry`) |
 | `POST /api/settings/agent` `{harnessId}` | set the **project-wide default** harness for new threads |
 | `GET /api/auth/status` · `POST /api/auth/login/start` · `POST /api/auth/logout` | device-code auth |
-| `GET /api/project/recents` · `POST /api/project/open` `{path}` · `GET /api/fs/list?path=` | project picker |
+| `GET /api/project/recents` · `POST /api/project/open` `{path}` · `GET /api/project/validate?path=` · `POST /api/project/init` `{path}` | open a project (folder choice itself is the native OS dialog; `validate` reports `needsInit` for non-repos, `init` runs `git init`) |
 | `POST /api/run` `{command}` | run a shell command in the repo (utility) |
 
 ### Send a build like a human typing into a tab
@@ -390,8 +392,10 @@ For UI behavior, do a real smoke instead of eyeballing source:
   rewrite. The old task-model reference scripts (`m1-e2e`, `scout-test`, `seed-demo`)
   have been removed; use the live scripts in §12.
 - **Prod backend 401s the dev key (codebuff harness).** If every turn fails instantly,
-  you're pointed at prod — set `NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3000` and
-  start the local web app (§2).
+  you're pointed at prod — check the yellow `API:` badge / the orchestrator's
+  "Freebuff API host" log line; repo launches should inherit localhost:3000 from
+  `.env.local` (§2). Conversely, sign-in hanging on a repo launch usually means the
+  local web app isn't up.
 - **`claude-code` harness "not authed".** It reuses local Claude Code's subscription
   auth — make sure `claude` is logged in. Sanity-check with `scripts/claude-smoke.ts`.
 - **UI stuck on "No threads open" in the browser.** You opened `:5174` without the
@@ -428,9 +432,9 @@ Run scripts from the repo root (so workspace resolution + env apply):
 
 ## 13. Quick checklist for a clean E2E run
 
-1. Pick a harness. For `codebuff`: local backend up on `:3000`,
-   `NEXT_PUBLIC_CODEBUFF_APP_URL` points at it, `CODEBUFF_API_KEY` set (or logged in).
-   For `claude-code`: local `claude` is logged in.
+1. Pick a harness. For `codebuff`: local backend up on `:3000` (repo launches target
+   it via `.env.local` — confirm with the yellow `API:` badge), `CODEBUFF_API_KEY` set
+   (or logged in). For `claude-code`: local `claude` is logged in.
 2. Fresh project repo on its default branch; `active` symlink repointed (§4).
 3. Start the orchestrator (§3a) → `curl localhost:8787/healthz` returns `ok`;
    `GET /api/state` shows the repo and no threads.

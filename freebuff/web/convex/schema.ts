@@ -1294,10 +1294,15 @@ export default defineSchema(
       // Daytona snapshot name/id (unique on the Daytona side).
       snapshot_id: v.string(),
       name: v.string(),
+      // "small" = limited; "large" = Cloud standard (6 GB, promotable);
+      // "web_standard" = Web standard (4 GB, used via DAYTONA_SNAPSHOT_ID env);
+      // "medium" = 8 GB storage-upgrade snapshot. Legacy rows may still be
+      // "medium"/"large".
       tier: v.union(
         v.literal('small'),
         v.literal('medium'),
         v.literal('large'),
+        v.literal('web_standard'),
       ),
       specs: v.object({
         cpu: v.string(),
@@ -1519,6 +1524,64 @@ export default defineSchema(
       .index('by_project', ['projectId'])
       .index('by_submitted_at', ['submittedAt'])
       .index('by_email_send_status', ['emailSendStatus']),
+
+    // God-configurable target for the automated bug-fixer bot: the Freebuff
+    // Cloud (connected_repo) project whose sandbox runs Codex against our
+    // production codebase. Single row, managed from /web/admin/bug-fixer.
+    bug_fixer_config: defineTable({
+      target_project_semantic_id: v.string(),
+      enabled: v.boolean(),
+      updated_by: v.id('users'),
+      updated_at: v.number(),
+    }),
+
+    // One row per issue report that entered the bug-fixer pipeline. Doubles as
+    // the dedupe ledger for triage (past summaries) and the FIFO dispatch
+    // queue for the configured cloud project. Runs dispatch strictly one at a
+    // time so concurrent Codex runs never fight over the sandbox worktree.
+    bug_fixer_queue: defineTable({
+      report_id: v.id('issue_reports'),
+      user_id: v.id('users'),
+      status: v.union(
+        v.literal('triaging'),
+        v.literal('rejected'),
+        v.literal('queued'),
+        v.literal('running'),
+        v.literal('completed'),
+        v.literal('failed'),
+      ),
+      // Stamped at enqueue time; dispatch refuses to fire into any project
+      // other than the currently configured target.
+      target_project_semantic_id: v.string(),
+      triage_reason: v.optional(v.string()),
+      // Short normalized summary produced by triage; fed back into future
+      // triage calls for duplicate detection.
+      triage_summary: v.optional(v.string()),
+      thread_id: v.optional(v.id('agent_thread')),
+      message_id: v.optional(v.id('agent_message')),
+      enqueued_at: v.number(),
+      started_at: v.optional(v.number()),
+      finished_at: v.optional(v.number()),
+      error: v.optional(v.string()),
+      // Why a 'failed' row stopped, distinct from the free-text `error`
+      // message: lets the admin log show "timed out at the 20-min cloud turn
+      // budget" vs. "the agent errored" vs. "dispatch itself never started"
+      // instead of collapsing every failure into one generic label.
+      failure_kind: v.optional(
+        v.union(
+          v.literal('timed_out'),
+          v.literal('agent_error'),
+          v.literal('cancelled'),
+          v.literal('dispatch_error'),
+        ),
+      ),
+    })
+      .index('by_status', ['status'])
+      .index('by_report', ['report_id'])
+      // Range-scan dispatched rows within a rolling window for the per-day
+      // Codex dispatch cap (rows without started_at sort before any number
+      // and are excluded from a `.gte(cutoff)` range).
+      .index('by_started_at', ['started_at']),
 
     // ============================================
     // VLY SOCIAL MEDIA TABLES

@@ -1,47 +1,140 @@
 /**
- * Per-thread agent picker. Each thread carries its own harness pick (Codebuff
- * vs. Claude Code), so different threads can run on different agents in parallel.
- * Persists with the thread (see /api/thread/{id}/harness); a null pick
- * inherits the project-wide default (`store.agentHarness`) so a freshly-open
- * thread doesn't start empty.
+ * Per-thread agent + model picker — ONE menu for both choices, so switching
+ * takes a single click. Each thread carries its own harness pick (Freebuff vs.
+ * Claude Code) plus a model for that harness, so different tabs can run
+ * different agents/models in parallel. Persists with the thread (see
+ * /api/thread/{id}/agent); a null harness inherits the project-wide default
+ * (`store.agentHarness`) so a freshly-open thread doesn't start empty.
  *
- * Lives in the thread header bar (a full pill showing the agent name + model),
- * alongside the project and preview controls.
+ * The menu groups models by agent: the Claude Code section lists the local
+ * Claude models (core/claude-models.ts — user's subscription, no gating), the
+ * Freebuff section lists the hosted models for the user's access tier with the
+ * one-premium-tab soft gate (the server is the source of truth).
+ *
+ * Lives in the thread header bar (a pill showing agent + model), alongside the
+ * project and preview controls.
  */
 
 import { useRef, useState } from 'react'
 
+import { CLAUDE_MODEL_OPTIONS, DEFAULT_CLAUDE_MODEL } from '../../../core/claude-models'
 import { useDismissable } from '../hooks/useDismissable'
 import type { AgentOption, FreebuffModelOption, HarnessId } from '../lib/types'
 import { Icon } from './Icon'
 
-export interface AgentPickerProps {
+export interface AgentModelPickerProps {
   /** Which harness is currently active for this tab (null = using the default).
    *  When `null`, the picker shows the project default so the trigger is never
-   *  empty. The popover's `active.id` reflects this resolved value. */
+   *  empty. */
   harnessId: HarnessId | null
-  /** The full option catalog. Tab-level defaulting can read this to resolve
-   *  `null` into a real id without an extra store call. */
-  options: readonly AgentOption[]
   /** Fallback when no project default is known (server hasn't sent the snapshot
-   *  yet, or no threads are open). First option is used. */
+   *  yet, or no threads are open). First agent is used. */
   fallbackId?: HarnessId
-  onChange: (harnessId: HarnessId) => void
+  /** The agent catalog from the snapshot (labels + descriptions per harness). */
+  agents: readonly AgentOption[]
+  /** The tab's Claude model pick (null → the default, Opus 4.8). */
+  claudeModel: string | null
+  /** The tab's Freebuff model pick (null → falls back to the first listed). */
+  freebuffModel: string | null
+  /** Freebuff models the user's access tier may pick, tagged `premiumBucket`. */
+  freebuffModels: readonly FreebuffModelOption[]
+  /** When true, another tab holds the single premium slot, so premium-bucket
+   *  Freebuff models are disabled here (only one premium tab at a time). */
+  premiumLocked: boolean
+  /** One pick sets both: which agent runs the tab and on which model. */
+  onSelect: (harnessId: HarnessId, model: string) => void
 }
 
-export function AgentPicker({
+/** What a tab's (harness, model) picks resolve to for display: agent label +
+ *  model label (+ premium flag). Shared by the picker trigger and the static
+ *  header label a started thread shows. */
+export function resolveAgentModel(sel: {
+  harnessId: HarnessId | null
+  fallbackId?: HarnessId
+  agents: readonly AgentOption[]
+  claudeModel: string | null
+  freebuffModel: string | null
+  freebuffModels: readonly FreebuffModelOption[]
+}): { agent: AgentOption; isClaude: boolean; modelLabel?: string; premium: boolean } | null {
+  const { agents, freebuffModels } = sel
+  if (!agents.length) return null
+  const resolvedId: HarnessId = sel.harnessId ?? sel.fallbackId ?? agents[0].id
+  const agent = agents.find((o) => o.id === resolvedId) ?? agents[0]
+  const activeClaude =
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === sel.claudeModel) ??
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
+    CLAUDE_MODEL_OPTIONS[0]
+  const activeFreebuff =
+    freebuffModels.find((m) => m.id === sel.freebuffModel) ?? freebuffModels[0]
+  const isClaude = resolvedId === 'claude-code'
+  return {
+    agent,
+    isClaude,
+    modelLabel: isClaude ? activeClaude.label : activeFreebuff?.displayName,
+    premium: !isClaude && !!activeFreebuff?.premiumBucket,
+  }
+}
+
+/** Read-only agent + model chip for a STARTED thread — same content as the
+ *  picker trigger, but a plain label: the pick is locked once a thread starts
+ *  (a different agent/model means a new tab). */
+export function AgentModelLabel(props: {
+  harnessId: HarnessId | null
+  fallbackId?: HarnessId
+  agents: readonly AgentOption[]
+  claudeModel: string | null
+  freebuffModel: string | null
+  freebuffModels: readonly FreebuffModelOption[]
+}) {
+  const active = resolveAgentModel(props)
+  if (!active) return null
+  return (
+    <span
+      className="agent-label"
+      title="This thread's agent & model are locked — open a new tab to use a different one"
+    >
+      <span className="agent-name">{active.agent.label}</span>
+      {active.modelLabel && <span className="agent-model">{active.modelLabel}</span>}
+      {active.premium && <span className="model-badge">Premium</span>}
+    </span>
+  )
+}
+
+export function AgentModelPicker({
   harnessId,
-  options,
   fallbackId,
-  onChange,
-}: AgentPickerProps) {
+  agents,
+  claudeModel,
+  freebuffModel,
+  freebuffModels,
+  premiumLocked,
+  onSelect,
+}: AgentModelPickerProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useDismissable(open, ref, () => setOpen(false))
 
-  if (!options.length) return null
-  const resolvedId: HarnessId = harnessId ?? fallbackId ?? options[0].id
-  const active = options.find((o) => o.id === resolvedId) ?? options[0]
+  const active = resolveAgentModel({
+    harnessId,
+    fallbackId,
+    agents,
+    claudeModel,
+    freebuffModel,
+    freebuffModels,
+  })
+  if (!active) return null
+  const { agent: activeAgent, isClaude } = active
+  const activeClaude =
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === claudeModel) ??
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
+    CLAUDE_MODEL_OPTIONS[0]
+  const activeFreebuff = freebuffModels.find((m) => m.id === freebuffModel) ?? freebuffModels[0]
+  const triggerModel = active.modelLabel
+
+  const pick = (agent: HarnessId, model: string) => {
+    onSelect(agent, model)
+    setOpen(false)
+  }
 
   return (
     <div
@@ -54,110 +147,80 @@ export function AgentPicker({
       <button
         className="agent-trigger"
         onClick={() => setOpen((v) => !v)}
-        title="Switch this thread's coding agent"
+        title="Switch this thread's coding agent & model"
       >
-        <span className="agent-name">{active.label}</span>
-        {active.modelLabel && <span className="agent-model">{active.modelLabel}</span>}
+        <span className="agent-name">{activeAgent.label}</span>
+        {triggerModel && <span className="agent-model">{triggerModel}</span>}
+        {!isClaude && activeFreebuff?.premiumBucket && (
+          <span className="model-badge">Premium</span>
+        )}
         <Icon name="chevron-down" />
       </button>
       {open && (
         <div className="agent-menu" role="listbox">
-          {options.map((o) => (
-            <button
-              key={o.id}
-              className={`agent-option ${o.id === resolvedId ? 'active' : ''}`}
-              role="option"
-              aria-selected={o.id === resolvedId}
-              onClick={() => {
-                onChange(o.id)
-                setOpen(false)
-              }}
-            >
-              <span className={`agent-dot agent-dot-${o.id}`} />
-              <span className="agent-option-body">
-                <span className="agent-option-title">
-                  {o.label}
-                  {o.modelLabel && (
-                    <span className="agent-option-model"> · {o.modelLabel}</span>
-                  )}
-                </span>
-              </span>
-              {o.id === resolvedId && <Icon name="check" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-export interface ModelPickerProps {
-  /** The tab's current Freebuff model (null → falls back to the first listed). */
-  model: string | null
-  /** Models the user's access tier may pick, tagged with `premiumBucket`. */
-  models: readonly FreebuffModelOption[]
-  /** When true, another tab holds the single premium slot, so premium-bucket
-   *  models are disabled here (only one premium tab at a time). */
-  premiumLocked: boolean
-  onChange: (model: string) => void
-}
-
-/**
- * Per-thread Freebuff model picker. Shown only for the Freebuff (hosted) agent.
- * Premium-bucket models (premium models + MiniMax M3) are disabled when another
- * tab already holds the single premium slot — the soft side of the one-premium
- * rule (the server is the source of truth).
- */
-export function ModelPicker({ model, models, premiumLocked, onChange }: ModelPickerProps) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useDismissable(open, ref, () => setOpen(false))
-
-  if (!models.length) return null
-  const active = models.find((m) => m.id === model) ?? models[0]
-
-  return (
-    <div className="agent-selector" ref={ref} onClick={(e) => e.stopPropagation()}>
-      <button
-        className="agent-trigger"
-        onClick={() => setOpen((v) => !v)}
-        title="Switch this thread's Freebuff model"
-      >
-        <span className="agent-model">{active.displayName}</span>
-        {active.premiumBucket && <span className="model-badge">Premium</span>}
-        <Icon name="chevron-down" />
-      </button>
-      {open && (
-        <div className="agent-menu" role="listbox">
-          {models.map((m) => {
-            const disabled = m.premiumBucket && premiumLocked && m.id !== active.id
+          {agents.map((agent) => {
+            // Hide a group with nothing to pick: the Freebuff models arrive with
+            // the first state snapshot, so until then this group would render as
+            // an empty header (the old ModelPicker was likewise gated on models).
+            if (agent.id === 'codebuff' && freebuffModels.length === 0) return null
             return (
-              <button
-                key={m.id}
-                className={`agent-option ${m.id === active.id ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
-                role="option"
-                aria-selected={m.id === active.id}
-                disabled={disabled}
-                title={disabled ? 'In use in another tab' : undefined}
-                onClick={() => {
-                  if (disabled) return
-                  onChange(m.id)
-                  setOpen(false)
-                }}
-              >
-                <span className="agent-option-body">
-                  <span className="agent-option-title">
-                    {m.displayName}
-                    {m.premiumBucket && <span className="model-badge">Premium</span>}
-                    {disabled && <span className="model-badge muted">In use</span>}
-                  </span>
-                  <span className="agent-option-desc">
-                    {m.tagline}
-                    {m.warning ? ` · ${m.warning}` : ''}
-                  </span>
-                </span>
-                {m.id === active.id && <Icon name="check" />}
-              </button>
+            <div key={agent.id} className="agent-menu-group">
+              <div className="agent-menu-header">
+                <span className={`agent-dot agent-dot-${agent.id}`} />
+                <span className="agent-menu-title">{agent.label}</span>
+                <span className="agent-menu-desc">{agent.description}</span>
+              </div>
+              {agent.id === 'claude-code'
+                ? CLAUDE_MODEL_OPTIONS.map((m) => {
+                    const selected = isClaude && m.id === activeClaude.id
+                    return (
+                      <button
+                        key={m.id}
+                        className={`agent-option ${selected ? 'active' : ''}`}
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => pick(agent.id, m.id)}
+                      >
+                        <span className="agent-option-body">
+                          <span className="agent-option-title">{m.label}</span>
+                          <span className="agent-option-desc">{m.tagline}</span>
+                        </span>
+                        {selected && <Icon name="check" />}
+                      </button>
+                    )
+                  })
+                : freebuffModels.map((m) => {
+                    const selected = !isClaude && m.id === activeFreebuff?.id
+                    const disabled = m.premiumBucket && premiumLocked && !selected
+                    return (
+                      <button
+                        key={m.id}
+                        className={`agent-option ${selected ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+                        role="option"
+                        aria-selected={selected}
+                        disabled={disabled}
+                        title={disabled ? 'In use in another tab' : undefined}
+                        onClick={() => {
+                          if (disabled) return
+                          pick(agent.id, m.id)
+                        }}
+                      >
+                        <span className="agent-option-body">
+                          <span className="agent-option-title">
+                            {m.displayName}
+                            {m.premiumBucket && <span className="model-badge">Premium</span>}
+                            {disabled && <span className="model-badge muted">In use</span>}
+                          </span>
+                          <span className="agent-option-desc">
+                            {m.tagline}
+                            {m.warning ? ` · ${m.warning}` : ''}
+                          </span>
+                        </span>
+                        {selected && <Icon name="check" />}
+                      </button>
+                    )
+                  })}
+            </div>
             )
           })}
         </div>

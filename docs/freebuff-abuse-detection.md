@@ -333,6 +333,19 @@ were backed by such accounts.**
   12-month bar but has **0 public repos AND 0 followers AND 0 `agent_run` rows**
   (`oldest_public_repo_created_at` null). The single strongest tell: these are
   aged-but-unused accounts that exist only to be referred.
+  - Caveat since web/chat activation (2026-07): a referred user whose only
+    product use is **freebuff.com/chat or /web** legitimately has 0
+    `agent_run` and 0 `free_session` rows (both surfaces run under the
+    freebuff-web service account), and since 2026-07-02 they CAN activate at
+    tier `full` when their IP passes the same clean-IP/country verification
+    the CLI waiting room uses — i.e. one signed-in chat message or web-app
+    visit from a clean residential IP now feeds the referrer's GLM count.
+    Before reading "no agent runs" as dormant, check `chat_message` /
+    `chat_usage_event` (chat) and Convex activity (web). For IP clustering on
+    these users, `free_mode_country_access_cache` holds their recent
+    `client_ip_hash` + privacy signals (written by every tier check, keyed
+    user+IP, expiring) — group referred users on that instead of
+    `free_session.client_ip_hash`.
 - **Bulk-created identity batch** — many of a referrer's referred GitHub accounts
   share an **identical `github_account_created_at` date** (e.g. 8 accounts all
   created on one day, ~6–18 months prior), with **email mirroring the GitHub
@@ -378,6 +391,34 @@ referral reward they already earned. To strip the inflated entitlement:
 | `glm-referral-clawback.ts` | Ironclad dormant-account farms: ban operator + socks, clawback, revoke v2. `--commit` to apply. |
 | `glm-referral-burst-ban.ts` | Bursty operators: ban **operator only** (referreds spared) + clawback. `--commit` to apply. |
 | `glm-referral-stuck.ts` / `referral-health.ts` | Pipeline diagnostics (why pending, counts by program/status). |
+| `referral-sock-signals.ts` | Attribution-evidence sweep over `referral_v2`: referrals redeemed from an IP/browser the **referrer** was seen on (re-derived live, plus the attribution-time `referrer_ip_overlap` / `referrer_device_overlap` flags), and the same device/IP appearing on multiple referral rows. |
+
+Since migration 0075, freebuff-web attributions record `referred_ip_hash`
+(joinable with `free_session` / `free_mode_country_access_cache` hashes) and
+`referred_device_id` (the browser's `vly_device_id` cookie), and the authed
+freebuff-web hops record which browsers each signed-in user has used
+(`user_device`). Overlap with the referrer fires a
+`freebuff.referral.sock_signal` Axiom event at attribution time. Scope caveat:
+signals are captured only on the freebuff-web hops (convex-token,
+referral-eligibility, /onboard) — the legacy CLI-program redemption route
+(`web/src/app/api/referrals/route.ts`) writes no referral_v2 row and records
+no signals, so CLI-only referrals are invisible to this sweep. Redemptions
+that hit a one-shot eligibility guard now log
+`freebuff.referral.redeem_failed` with the error (repeat-prone
+`invalid_code`/`already_referred` log at debug only — see
+`scripts/logs/referral-funnel.ts`).
+
+**Interpreting overlap — do not treat it as a verdict.** A genuine in-person
+referral shares BOTH the IP and the device: "try it, here's my laptop", a
+sibling on the family computer, coworkers on office wifi. That is the most
+organic referral pattern there is, and it fires both flags. Overlap means
+"look closer", never "sock confirmed" — action only when corroborated by real
+farm signals (dormant/aged-burner GitHub accounts, burst velocity, zero
+product use, MANY referreds on one device across referrers). Cautionary tale
+(2026-07): a referrer + same-device "friend" + rapid double signup looked like
+a textbook ring and was actually a genuine user, his brother, and a buggy
+redemption flow — the double signup was one person accidentally creating
+Google and GitHub accounts while retrying a referral that silently failed.
 
 **Open follow-up (root cause):** tighten the GLM gate so a referred friend must
 actually **run the agent** (or have a non-dormant GitHub profile) before the

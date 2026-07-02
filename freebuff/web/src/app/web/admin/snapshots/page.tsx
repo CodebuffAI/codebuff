@@ -46,7 +46,9 @@ export default function AdminSnapshotsPage() {
   const deleteSnapshot = useMutation(api.admin.snapshot_mutations.deleteSnapshot)
 
   const [isBuilding, setIsBuilding] = useState(false)
-  const [tier, setTier] = useState<'full' | 'small'>('full')
+  const [tier, setTier] = useState<
+    'cloud_standard' | 'web_standard' | 'small' | 'xl'
+  >('cloud_standard')
   const [error, setError] = useState<string | null>(null)
   const [promotingId, setPromotingId] = useState<Id<'daytona_snapshot'> | null>(
     null,
@@ -123,11 +125,36 @@ export default function AdminSnapshotsPage() {
           <Boxes className="h-6 w-6 text-gray-700" />
           <h1 className="text-2xl font-bold text-black">Golden Snapshots</h1>
         </div>
-        <p className="mb-6 text-sm text-gray-600">
+        <p className="mb-2 text-sm text-gray-600">
           Build a golden Daytona snapshot from the declarative image, then
           promote it to <span className="font-medium">primary</span>. The
           primary snapshot is the base every new sandbox is created from.
         </p>
+        <ul className="mb-6 list-disc space-y-1 pl-5 text-xs text-gray-500">
+          <li>
+            <span className="font-medium">Cloud Standard (6 GB)</span> and{' '}
+            <span className="font-medium">Limited (4 GB)</span>: promote to
+            primary — Freebuff Cloud connect-repo picks them up automatically.
+          </li>
+          <li>
+            <span className="font-medium">Web Standard (4 GB)</span>: do NOT
+            promote. Copy its snapshot id into the{' '}
+            <code className="rounded bg-gray-100 px-1">DAYTONA_SNAPSHOT_ID</code>{' '}
+            env var and flush the pool. (Set{' '}
+            <code className="rounded bg-gray-100 px-1">
+              DAYTONA_SNAPSHOT_SMALL_ID
+            </code>{' '}
+            to the Limited snapshot for web limited users.)
+          </li>
+          <li>
+            <span className="font-medium">Storage upgrade (8 GB)</span>: do NOT
+            promote. Wire its id to{' '}
+            <code className="rounded bg-gray-100 px-1">
+              DAYTONA_SNAPSHOT_8GB_ID
+            </code>
+            .
+          </li>
+        </ul>
 
         <Card className="mb-6 border border-gray-200 bg-white shadow-sm">
           <CardHeader className="pb-3">
@@ -138,12 +165,30 @@ export default function AdminSnapshotsPage() {
           <CardContent className="flex flex-wrap items-center gap-3 p-4 pt-0">
             <select
               value={tier}
-              onChange={(e) => setTier(e.target.value as 'full' | 'small')}
+              onChange={(e) =>
+                setTier(
+                  e.target.value as
+                    | 'cloud_standard'
+                    | 'web_standard'
+                    | 'small'
+                    | 'xl',
+                )
+              }
               disabled={isBuilding}
               className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-black"
             >
-              <option value="full">Standard (2 vCPU / 4 GB / 4 GB)</option>
-              <option value="small">Limited (1 vCPU / 2 GB / 2 GB)</option>
+              <option value="cloud_standard">
+                Cloud Standard (2 vCPU / 4 GB RAM / 6 GB disk)
+              </option>
+              <option value="web_standard">
+                Web Standard (2 vCPU / 4 GB RAM / 4 GB disk)
+              </option>
+              <option value="small">
+                Limited (1 vCPU / 2 GB RAM / 4 GB disk)
+              </option>
+              <option value="xl">
+                Storage upgrade (2 vCPU / 4 GB RAM / 8 GB disk)
+              </option>
             </select>
             <Button onClick={handleBuild} disabled={isBuilding}>
               {isBuilding ? (

@@ -23,7 +23,13 @@ import { appendBlock, type AttachmentImage } from '../core/attachments'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
-import { foldAgentEvent, type AgentEventLike, type Part } from '../core/parts'
+import {
+  foldAgentEvent,
+  NOTICE_CLAUDE_CODE_AUTH,
+  NOTICE_FREEBUFF_AUTH,
+  type AgentEventLike,
+  type Part,
+} from '../core/parts'
 import { positionAfter } from '../core/queue-order'
 import { searchRegistry, downloadSkill } from '../core/skill-registry'
 import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
@@ -54,12 +60,13 @@ import {
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
+import { API_HOST, PROD_API_HOST } from './api-host'
 import { trackEvent } from './analytics'
 import { CLAUDE_CODE_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
-import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
-import { ClaudeCodeHarness } from './agents/claude-code-harness'
+import { getAuth, getAuthToken } from './auth/login-store'
+import { ClaudeCodeAuthError, ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
   FreebuffSessionError,
@@ -106,6 +113,10 @@ export interface Snapshot {
     premiumSlotHolder: string | null
     authed: boolean
     user: { id?: string; name?: string; email?: string } | null
+    /** Set only when the desktop targets a non-prod API host (a repo launch's
+     *  dev stack from .env.local) so the UI can surface where sign-in and
+     *  sessions actually go. Absent → prod. */
+    apiHost?: string
   }
   /**
    * Whether the project has a previewable entry — derived from settings
@@ -141,6 +152,11 @@ export interface EngineOptions {
   /** Inject the free-mode session manager (tests). Defaults to a real one that
    *  talks to /api/v1/freebuff/session. */
   freebuffSessions?: FreebuffSessions
+  /** Called when the Freebuff API rejects our bearer (401). The server wires
+   *  this to its shared sign-out (identity reset + every engine's client swap
+   *  + broadcast); unwired engines do nothing — library code must never wipe
+   *  the real persisted sign-in as a side effect. */
+  onAuthRejected?: () => void
   defaultBranch?: string
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
@@ -164,9 +180,14 @@ export class ThreadEngine {
   readonly docs: DocStore
   readonly skills: SkillStore
   readonly settings: SettingsStore
-  private client: CodebuffClient
+  /** Hosted-agent SDK client. Null while signed out with no dev-key fallback —
+   *  hosted turns can't reach it then (freebuff.ensure() rejects first), and
+   *  sign-in rebuilds it via setAuthToken. */
+  private client: CodebuffClient | null
   /** Per-tab Freebuff free-mode session lifecycle (admission + release). */
   private readonly freebuff: FreebuffSessions
+  /** Server-injected sign-out for API 401s (see EngineOptions.onAuthRejected). */
+  private readonly authRejectedHandler?: () => void
   /** Thread id currently holding the single premium-bucket concurrency slot, or
    *  null when no tab is on a premium-bucket model. In-memory; recomputed from
    *  persisted thread models on startup. The server is the race-safe source of
@@ -244,14 +265,24 @@ export class ThreadEngine {
       globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
     })
     this.skills.seedDefaults()
-    this.client = opts.client ?? new CodebuffClient({ apiKey: opts.apiKey ?? getAuthToken() })
+    // CodebuffClient refuses to construct without an apiKey; signed out with no
+    // dev key we boot clientless (the sign-in gate is the only hosted surface).
+    const bootKey = opts.apiKey ?? getAuthToken()
+    this.client = opts.client ?? (bootKey ? new CodebuffClient({ apiKey: bootKey }) : null)
     this.freebuff =
       opts.freebuffSessions ??
-      new FreebuffSessionManager(() => opts.apiKey ?? getAuthToken())
+      new FreebuffSessionManager(
+        () => opts.apiKey ?? getAuthToken(),
+        () => this.onFreebuffAuthRejected(),
+      )
+    this.authRejectedHandler = opts.onAuthRejected
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
     // Reads `this.client` lazily so a post-login client swap is picked up.
-    this.titleGenerator = opts.generateTitle ?? ((req) => runTitleCompletion(this.client, req))
+    // Signed out (null client) titles keep their placeholder.
+    this.titleGenerator =
+      opts.generateTitle ??
+      ((req) => (this.client ? runTitleCompletion(this.client, req) : Promise.resolve(null)))
 
     if (!this.store.getProject(this.projectId)) {
       this.store.insertProject({
@@ -396,25 +427,29 @@ export class ThreadEngine {
     this.store.clearHarnessState(threadId)
   }
 
-  /** Set the agent for a specific thread; subsequent turns use it. Persists to
-   *  SQLite (so the choice survives restarts) and re-broadcasts the thread. */
-  setThreadHarness(threadId: string, id: HarnessId): void {
-    const thread = this.store.getThread(threadId)
-    if (!thread) return
-    // Treat setting to the default as "clear the per-thread override" so the
-    // pill genuinely inherits later default changes — otherwise a tab that was
-    // once picked to the default would still pin to that exact value forever.
-    const value: HarnessId | null = id === this.defaultHarness ? null : id
-    this.store.updateThread(threadId, { harnessId: value }, this.now())
-    // Drop any cached harness state for this thread — switching agents makes
-    // the prior state from the previous harness invalid (see `runTurn`).
-    this.dropThreadState(threadId)
-    this.emitThread(threadId)
+  /** Stable Freebuff desktop session id for this tab. Persisted before the
+   *  network call so a relaunched app can reclaim the same backend row rather
+   *  than colliding with its own stale premium-bucket session. */
+  private freebuffInstanceForThread(threadId: string): string {
+    let id = this.store.getFreebuffInstanceId(threadId)
+    if (!id) {
+      id = crypto.randomUUID()
+      this.store.setFreebuffInstanceId(threadId, id)
+    }
+    return id
+  }
+
+  /** End this tab's server-side Freebuff session and rotate its instance id.
+   *  Best-effort: if the DELETE fails, the backend row expires/sweeps. */
+  private async releaseThreadFreebuffSession(threadId: string): Promise<void> {
+    const instanceId = this.store.getFreebuffInstanceId(threadId)
+    this.store.setFreebuffInstanceId(threadId, null)
+    await this.freebuff.release(threadId, instanceId ?? undefined)
   }
 
   /**
    * Set the default agent for NEW threads. Existing threads keep whatever
-   * they've been pinned to via {@link setThreadHarness}; null rows (including
+   * they've been pinned to via {@link setThreadAgent}; null rows (including
    * any thread still on the previous default) start following the new default
    * the next time they run a turn.
    */
@@ -432,6 +467,56 @@ export class ThreadEngine {
     return isFreebuffDesktopPremiumBucketModelId(recommended) && !slotFree
       ? LIMITED_FREEBUFF_MODEL_ID
       : recommended
+  }
+
+  /** The Claude model a thread's Claude Code turns run on — its explicit pick,
+   *  else the default (Opus 4.8). */
+  claudeModelForThread(threadId: string): string {
+    return this.store.getThread(threadId)?.claudeModel ?? CLAUDE_CODE_MODEL
+  }
+
+  /** A thread is "started" once it has any transcript or a branch/worktree (a
+   *  turn ran). From then on its project folder and agent/model are FIXED —
+   *  a different pick means a new tab, so mid-thread context/model identity
+   *  never silently changes. */
+  threadStarted(threadId: string): boolean {
+    const t = this.store.getThread(threadId)
+    if (!t) return false
+    return !!t.branch || this.store.hasMessages(threadId)
+  }
+
+  /**
+   * Set a thread's agent + model in one step (the setup picker on a fresh tab).
+   * Locked once the thread has started (`locked: true` comes back and nothing
+   * changes). Switching harness drops the carried context (state from the other
+   * harness is foreign — see `runTurn`); a Claude model switch KEEPS it (Claude
+   * Code sessions resume fine on a different model), and a Freebuff model switch
+   * goes through {@link setThreadFreebuffModel} for the premium gate + session
+   * release.
+   */
+  setThreadAgent(
+    threadId: string,
+    harnessId: HarnessId,
+    model?: string,
+  ): { model?: string; rejected: boolean; locked?: boolean } {
+    const thread = this.store.getThread(threadId)
+    if (!thread) return { model, rejected: false }
+    if (this.threadStarted(threadId)) return { model, rejected: false, locked: true }
+    if ((thread.harnessId ?? this.defaultHarness) !== harnessId) {
+      // Null means default (matching harnessForThread) so a tab set to the
+      // default keeps following later default changes.
+      const value: HarnessId | null = harnessId === this.defaultHarness ? null : harnessId
+      this.store.updateThread(threadId, { harnessId: value }, this.now())
+      this.dropThreadState(threadId)
+    }
+    if (harnessId === 'codebuff' && model) {
+      return this.setThreadFreebuffModel(threadId, model)
+    }
+    if (harnessId === 'claude-code' && model && (thread.claudeModel ?? null) !== model) {
+      this.store.updateThread(threadId, { claudeModel: model }, this.now())
+    }
+    this.emitThread(threadId)
+    return { model, rejected: false }
   }
 
   /** The Freebuff model a thread's hosted-agent turns run on. An explicit
@@ -482,7 +567,7 @@ export class ThreadEngine {
     if (changed) {
       // Release the old session so the next turn re-admits on the new model, and
       // drop cached run state (a model switch starts the thread fresh).
-      void this.freebuff.release(threadId)
+      void this.releaseThreadFreebuffSession(threadId)
       this.dropThreadState(threadId)
     }
     this.store.updateThread(threadId, { freebuffModel: resolved }, this.now())
@@ -497,16 +582,33 @@ export class ThreadEngine {
   /** End every per-tab free-mode session server-side (best-effort). Called on
    *  logout so a user's desktop sessions don't linger until they expire/sweep. */
   async releaseFreebuffSessions(): Promise<void> {
+    const threadIds = this.store.listThreads(this.projectId).map((t) => t.id)
+    await Promise.all(threadIds.map((id) => this.releaseThreadFreebuffSession(id)))
     await this.freebuff.releaseAll()
   }
 
   /** Swap the Freebuff auth token (after login/logout): rebuild the hosted-agent
-   *  client so it carries the new bearer, then refresh the access tier. */
+   *  client so it carries the new bearer, then refresh the access tier. Signed
+   *  out with no dev-key fallback the client goes null — the ONE representation
+   *  of "no usable bearer" (title generation skips on it, and hosted turns are
+   *  gated by freebuff.ensure(), which rejects unauthenticated first) — so a
+   *  revoked token can never ride along on a later request. */
   setAuthToken(token: string | undefined): void {
-    this.client = new CodebuffClient({ apiKey: token ?? getAuthToken() })
+    const key = token ?? getAuthToken()
+    this.client = key ? new CodebuffClient({ apiKey: key }) : null
     // Drop the cached codebuff harness so it picks up the new client.
     this.harnesses.delete('codebuff')
     void this.refreshTier()
+  }
+
+  /** The Freebuff API answered 401: the persisted sign-in is expired/revoked.
+   *  Sign-out policy lives with the server (EngineOptions.onAuthRejected →
+   *  signOutLocally: identity reset + every open project's client swap +
+   *  broadcast — the same path the logout route uses). Unwired engines
+   *  (tests, standalone embedding) deliberately do NOTHING: library code must
+   *  not wipe the real ~/.config/freebuff-desktop sign-in as a side effect. */
+  private onFreebuffAuthRejected(): void {
+    this.authRejectedHandler?.()
   }
 
   /** Probe the Freebuff access tier (GET /freebuff/session) and broadcast it so
@@ -543,7 +645,8 @@ export class ThreadEngine {
     // on the next state event (the file is small; this is free).
     const { settings } = this.settings.read()
     const accessTier = this.freebuff.getAccessTier()
-    const user = getAuthUser()
+    // One state-file read for token+user+authed (snapshots run per emitState).
+    const auth = getAuth()
     return {
       project,
       threads,
@@ -555,8 +658,9 @@ export class ThreadEngine {
           premiumBucket: isFreebuffDesktopPremiumBucketModelId(m.id),
         })),
         premiumSlotHolder: this.premiumSlotHolder,
-        authed: isAuthed(),
-        user: user ?? null,
+        authed: auth.authed,
+        user: auth.user ?? null,
+        ...(API_HOST !== PROD_API_HOST ? { apiHost: API_HOST } : {}),
       },
       previewReady: this.detectPreviewReady(settings),
       settings,
@@ -690,7 +794,7 @@ export class ThreadEngine {
         this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
       }
       this.dropThreadState(id)
-      void this.freebuff.release(id)
+      void this.releaseThreadFreebuffSession(id)
       this.recomputePremiumSlotHolder()
       this.emitState()
     } finally {
@@ -729,11 +833,12 @@ export class ThreadEngine {
   async deleteThread(id: string): Promise<void> {
     const thread = this.store.getThread(id)
     if (!thread) return
+    const instanceId = this.store.getFreebuffInstanceId(id)
     if (thread.branch) await this.worktrees.remove(id).catch(() => {})
     this.store.deleteThread(id)
     this.threadState.delete(id)
     // (No clearHarnessState — the row is already gone via deleteThread's cascade.)
-    void this.freebuff.release(id)
+    void this.freebuff.release(id, instanceId ?? undefined)
     this.recomputePremiumSlotHolder()
     this.emitState()
   }
@@ -820,7 +925,7 @@ export class ThreadEngine {
 
   /** Shared analytics context for a turn: which agent/model is in play and the
    *  user's Freebuff access tier. Read at submit time so per-tab picks are
-   *  reflected (the hosted agent's model is per-thread; Claude Code is fixed). */
+   *  reflected (both harnesses carry a per-thread model). */
   private turnTelemetry(threadId: string): {
     harness: HarnessId
     model: string
@@ -832,7 +937,7 @@ export class ThreadEngine {
       model:
         harness === 'codebuff'
           ? this.freebuffModelForThread(threadId)
-          : CLAUDE_CODE_MODEL,
+          : this.claudeModelForThread(threadId),
       accessTier: this.freebuff.getAccessTier(),
     }
   }
@@ -1026,6 +1131,15 @@ export class ThreadEngine {
     this.emitThread(threadId)
     this.emitState()
 
+    // A sign-in can land from OUTSIDE this process (the state file is shared;
+    // e.g. a second app instance completes the device-code flow): if we booted
+    // clientless but a token now exists, pick it up before the harness is
+    // resolved — otherwise ensure() would admit the turn and the harness's
+    // null-client guard would fail it. No-op when a client exists or no key
+    // has appeared.
+    if (!this.client && this.harnessForThread(threadId) === 'codebuff' && getAuthToken()) {
+      this.setAuthToken(undefined)
+    }
     const harness = this.harnessInstanceFor(threadId)
     // Hoisted above the try so the catch/finally can finalize partial output when
     // a Stop aborts the run or it throws.
@@ -1041,11 +1155,17 @@ export class ThreadEngine {
       parts = foldAgentEvent(parts, event, partId)
       this.emit({ type: 'agent', threadId, event: event as unknown as PrintModeEvent })
     }
-    // End a turn with a terminal marker (Stopped / failed): stream it + fold it into
-    // `parts`, then emit a finish so the message leaves the working state (the
-    // harness emits none on abort/error). Used for both endings so they stay symmetric.
-    const finalize = (marker: string) => {
-      emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
+    // End a turn with a terminal marker — plain text (Stopped / failed) or a
+    // structured notice (a recovery card, see NoticeCard.tsx): stream it + fold
+    // it into `parts`, then emit a finish so the message leaves the working
+    // state (the harness emits none on abort/error). Every ending funnels
+    // through here so they stay symmetric.
+    const finalize = (ending: string | { notice: string; text: string }) => {
+      emitAgent(
+        typeof ending === 'string'
+          ? { type: 'text', text: parts.length ? `\n\n${ending}` : ending }
+          : { type: 'notice', notice: ending.notice, text: ending.text },
+      )
       emitAgent({ type: 'finish' })
     }
     // `turnOutcome` is finalized in the finally block — the UI uses it to mark
@@ -1072,7 +1192,13 @@ export class ThreadEngine {
       let freeMode: { instanceId: string } | undefined
       if (harness.id === 'codebuff') {
         model = this.freebuffModelForThread(threadId)
-        freeMode = { instanceId: await this.freebuff.ensure(threadId, model) }
+        const instanceId = this.freebuffInstanceForThread(threadId)
+        freeMode = { instanceId: await this.freebuff.ensure(threadId, model, instanceId) }
+        if (freeMode.instanceId !== instanceId) {
+          this.store.setFreebuffInstanceId(threadId, freeMode.instanceId)
+        }
+      } else {
+        model = this.claudeModelForThread(threadId)
       }
 
       const result = await harness.runTurn(
@@ -1122,9 +1248,24 @@ export class ThreadEngine {
         finalize('⏹ Stopped.')
       } else if (err instanceof FreebuffSessionError) {
         // Session admission failed (premium slot taken, rate limited, sign-in
-        // needed, …) — the error message is already user-facing.
+        // needed, …) — the error message is already user-facing. The
+        // unauthenticated case renders as a sign-in recovery card (the 401
+        // already cleared the stale identity via onFreebuffAuthRejected).
         turnOutcome = 'error'
-        finalize(`⚠️ ${err.message}`)
+        if (err.status === 'unauthenticated') {
+          finalize({ notice: NOTICE_FREEBUFF_AUTH, text: err.message })
+        } else {
+          finalize(`⚠️ ${err.message}`)
+        }
+      } else if (err instanceof ClaudeCodeAuthError) {
+        // The local Claude Code is signed out — the notice renders as a sign-in
+        // recovery card. The raw SDK text stays out of the transcript AND out
+        // of `log` events (the client shows those as user-facing toasts, which
+        // would re-expose the "run /login" terminal-speak the card replaces);
+        // it goes to the orchestrator log only.
+        turnOutcome = 'error'
+        finalize({ notice: NOTICE_CLAUDE_CODE_AUTH, text: err.message })
+        console.error(`Thread ${threadId} Claude Code auth error: ${err.causeMessage}`)
       } else {
         turnOutcome = 'error'
         const msg = (err as Error).message

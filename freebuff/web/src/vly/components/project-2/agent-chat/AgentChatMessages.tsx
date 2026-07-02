@@ -1033,21 +1033,76 @@ const AgentAdMessage: React.FC<{
   )
 }
 
-// Agent Message Component - No card, just text with user message having google-doc outline
-const AgentMessageCard: React.FC<{
-  message:
-    | FunctionReturnType<
-        typeof api.coding_agent.cli_agent.queries.getAgentThreadMessages
-      >[0]
-    | FunctionReturnType<
-        typeof api.coding_agent.cli_agent.queries.getStreamedAgentMessages
-      >[0]
+type AgentMessageCardProps = {
+  message: AgentMessageForAd
   ads?: AdsByPlacement
   onRollback?: () => Promise<void>
   onContinueAfterTimeout?: () => void | Promise<unknown>
   /** Resends this message's prompt. Only provided for the latest failed run. */
   onRetry?: () => void
-}> = ({ message, ads, onRollback, onContinueAfterTimeout, onRetry }) => {
+}
+
+const getAgentMessageStreamSignature = (message: {
+  assistant_stream?: AssistantStreamItemType[]
+}) => {
+  const stream = message.assistant_stream ?? []
+  if (stream.length === 0) return '0'
+  const last = stream[stream.length - 1]
+  return [
+    stream.length,
+    last.type ?? '',
+    last.title ?? '',
+    last.status ?? '',
+    last.content ?? '',
+  ].join(':')
+}
+
+const getPersistedAdSignature = (ad?: PersistedAgentAd) => {
+  if (!ad) return ''
+  return [
+    ad.placementId ?? '',
+    ad.url ?? '',
+    ad.title ?? '',
+    ad.adText ?? '',
+    ad.cta ?? '',
+  ].join(':')
+}
+
+const getAdsSignature = (ads?: AdsByPlacement) =>
+  [
+    getPersistedAdSignature(ads?.['agent-chat-after-user']),
+    getPersistedAdSignature(ads?.['agent-chat-after-assistant']),
+  ].join('|')
+
+const areAgentMessageCardPropsEqual = (
+  prev: AgentMessageCardProps,
+  next: AgentMessageCardProps,
+) => {
+  if (prev.message._id !== next.message._id) return false
+  if (prev.message._creationTime !== next.message._creationTime) return false
+  if (prev.message.user_message !== next.message.user_message) return false
+  if (prev.message.state !== next.message.state) return false
+  if (prev.message.state_message !== next.message.state_message) return false
+  if (prev.message.isStreaming !== next.message.isStreaming) return false
+  if (prev.message.commit_hash !== next.message.commit_hash) return false
+  if (
+    getAgentMessageStreamSignature(prev.message) !==
+    getAgentMessageStreamSignature(next.message)
+  ) {
+    return false
+  }
+  if (getAdsSignature(prev.ads) !== getAdsSignature(next.ads)) return false
+  if (!!prev.onRollback !== !!next.onRollback) return false
+  if (!!prev.onContinueAfterTimeout !== !!next.onContinueAfterTimeout) {
+    return false
+  }
+  if (!!prev.onRetry !== !!next.onRetry) return false
+  return true
+}
+
+// Agent Message Component - No card, just text with user message having google-doc outline
+const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
+  ({ message, ads, onRollback, onContinueAfterTimeout, onRetry }) => {
   const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   if (message.ad_payload) {
@@ -1296,7 +1351,9 @@ const AgentMessageCard: React.FC<{
       )}
     </div>
   )
-}
+  },
+  areAgentMessageCardPropsEqual,
+)
 
 export const AgentChatMessages = forwardRef<
   AgentChatMessagesRef,

@@ -20,12 +20,22 @@ import { getAuthUser } from "../users";
  */
 export const buildGoldenSnapshot = action({
   args: {
-    // Resource tier for the built snapshot. Defaults to the standard
-    // 2 vCPU / 4 GB / 6 GB tier; "small" is the limited-country tier; "xl" is
-    // the 8 GB storage-upgrade tier (built on demand, referenced by
-    // DAYTONA_SNAPSHOT_8GB_ID, not promoted to a warm-pool primary).
+    // Resource tier for the built snapshot. Defaults to the Cloud standard
+    // 2 vCPU / 4 GB / 6 GB tier.
+    //  - "cloud_standard" => Freebuff Cloud standard (6 GB); promoted to the
+    //    "standard" primary and picked up automatically by connect-repo.
+    //  - "web_standard"   => Freebuff Web standard (4 GB); used via the
+    //    DAYTONA_SNAPSHOT_ID env var (NOT promoted to a warm-pool primary).
+    //  - "small"          => limited-country tier (1 vCPU / 2 GB / 4 GB).
+    //  - "xl"             => 8 GB storage-upgrade tier (built on demand,
+    //    referenced by DAYTONA_SNAPSHOT_8GB_ID, not a warm-pool primary).
     tier: v.optional(
-      v.union(v.literal("small"), v.literal("full"), v.literal("xl")),
+      v.union(
+        v.literal("small"),
+        v.literal("web_standard"),
+        v.literal("cloud_standard"),
+        v.literal("xl"),
+      ),
     ),
     daytonaServer: v.optional(v.union(v.literal("legacy"), v.literal("new"))),
   },
@@ -36,17 +46,26 @@ export const buildGoldenSnapshot = action({
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const tierKey = args.tier ?? "full";
+    const tierKey = args.tier ?? "cloud_standard";
     const resources = GOLDEN_RESOURCE_TIERS[tierKey];
     const server: DaytonaServer = args.daytonaServer ?? "new";
 
     const now = new Date();
     const version = `golden-${now.toISOString().slice(0, 10)}-${now.getTime()}`;
     const snapshotName = version;
-    // "small" => limited-country tier; "full" => standard tier (stored "large");
-    // "xl" => 8 GB storage-upgrade tier (stored "medium").
+    // DB tier stored on the record:
+    //  "small" => limited; "cloud_standard" => Cloud standard (size class
+    //  "standard", promotable); "web_standard" => Web standard (own size
+    //  class, used via env, never a Cloud primary); "xl" => 8 GB storage
+    //  upgrade (stored "medium").
     const tableTier =
-      tierKey === "small" ? "small" : tierKey === "xl" ? "medium" : "large";
+      tierKey === "small"
+        ? "small"
+        : tierKey === "xl"
+          ? "medium"
+          : tierKey === "web_standard"
+            ? "web_standard"
+            : "large";
 
     const recordId = await ctx.runMutation(
       internal.admin.snapshot_mutations.createSnapshotRecord,

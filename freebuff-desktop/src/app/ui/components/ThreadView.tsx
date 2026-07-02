@@ -5,12 +5,11 @@ import { useFileDrop } from '../hooks/useFileDrop'
 import { useScrollPin } from '../hooks/useScrollPin'
 import { useStore } from '../store/store'
 import type { PendingAttachment } from '../lib/types'
-import { copyText } from '../lib/clipboard'
-import freebuffLogo from './freebuff-logo.svg'
 import { Composer } from './Composer'
 import { Icon } from './Icon'
 import { Message } from './Message'
 import { ThreadHeader } from './ThreadHeader'
+import { ThreadSetup } from './ThreadSetup'
 
 /** Merge new attachments into the staged list, de-duping by absolute path. */
 function merge(prev: PendingAttachment[], next: PendingAttachment[]): PendingAttachment[] {
@@ -24,27 +23,10 @@ function merge(prev: PendingAttachment[], next: PendingAttachment[]): PendingAtt
   return out
 }
 
-/**
- * Make an absolute path fit on one line in the welcome state: collapse a home
- * directory to `~`, then middle-truncate so the meaningful tail (the worktree
- * leaf) stays visible. We don't have os.homedir() in the renderer, so match the
- * common home shapes (`/Users/<u>`, `/home/<u>`, `C:\Users\<u>`) heuristically.
- */
-function displayPath(path: string, max = 52): string {
-  const collapsed = path.replace(/^(\/Users\/[^/]+|\/home\/[^/]+|[A-Za-z]:\\Users\\[^\\]+)/, '~')
-  if (collapsed.length <= max) return collapsed
-  // Keep more of the tail than the head — the leaf folder matters most.
-  const head = Math.ceil((max - 1) * 0.4)
-  const tail = max - 1 - head
-  return `${collapsed.slice(0, head)}…${collapsed.slice(collapsed.length - tail)}`
-}
-
 export function ThreadView({ threadId }: { threadId: string }) {
   const slice = useStore((s) => s.threads[threadId])
-  const projectPath = slice?.thread.projectPath ?? ''
   const pushToast = useStore((s) => s.pushToast)
   const [preview, setPreview] = useState(false)
-  const [pathCopied, setPathCopied] = useState(false)
   const [nonce, setNonce] = useState(0)
 
   const messages = slice?.messages
@@ -88,28 +70,7 @@ export function ThreadView({ threadId }: { threadId: string }) {
           />
         ) : (
           <div className="messages" ref={scrollRef} onScroll={onScroll}>
-            {slice.messages.length === 0 && (
-              <div className="welcome">
-                <img className="welcome-logo" src={freebuffLogo} alt="" />
-                <div className="welcome-title">New thread</div>
-                {projectPath && (
-                  <button
-                    type="button"
-                    className="welcome-path"
-                    title={pathCopied ? 'Copied' : `${projectPath} — click to copy`}
-                    onClick={() => {
-                      void copyText(projectPath).then((ok) => {
-                        if (!ok) return
-                        setPathCopied(true)
-                        setTimeout(() => setPathCopied(false), 1200)
-                      })
-                    }}
-                  >
-                    {pathCopied ? 'Copied' : displayPath(projectPath)}
-                  </button>
-                )}
-              </div>
-            )}
+            {slice.messages.length === 0 && <ThreadSetup threadId={threadId} />}
             {slice.messages.map((m) => (
               <Message key={m.id} msg={m} threadId={threadId} />
             ))}

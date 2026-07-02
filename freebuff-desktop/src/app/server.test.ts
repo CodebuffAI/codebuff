@@ -12,6 +12,7 @@ import { join } from 'path'
 const PORT = 8912
 const BASE = `http://127.0.0.1:${PORT}`
 let repoDir: string
+let homeDir: string
 let proc: ReturnType<typeof Bun.spawn>
 
 async function waitForReady(timeoutMs = 15_000): Promise<void> {
@@ -38,8 +39,13 @@ beforeAll(async () => {
   git(['add', '-A'])
   git(['commit', '-m', 'init'])
 
+  // Isolate HOME: the server boots an engine for EVERY project in the real
+  // ~/.config/freebuff-desktop/state.json recents (restoring their tabs, some
+  // mid-turn), which leaks the developer's live projects into /api/activity —
+  // and each run would push this throwaway repo into their real MRU.
+  homeDir = mkdtempSync(join(tmpdir(), 'fb-home-'))
   proc = Bun.spawn(['bun', join(import.meta.dir, 'server.ts')], {
-    env: { ...process.env, PORT: String(PORT), TARGET_REPO: repoDir },
+    env: { ...process.env, PORT: String(PORT), TARGET_REPO: repoDir, HOME: homeDir },
     stdout: 'ignore',
     stderr: 'ignore',
   })
@@ -49,6 +55,7 @@ beforeAll(async () => {
 afterAll(() => {
   proc?.kill()
   if (repoDir) rmSync(repoDir, { recursive: true, force: true })
+  if (homeDir) rmSync(homeDir, { recursive: true, force: true })
 })
 
 describe('server (integration)', () => {

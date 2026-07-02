@@ -4,7 +4,9 @@ import freebuffLogo from './freebuff-logo.svg'
 import { useDismissable } from '../hooks/useDismissable'
 import { bridge } from '../lib/bridge'
 import { useStore } from '../store/store'
+import { AccountMenu } from './AccountMenu'
 import { Icon } from './Icon'
+import { LoginGate } from './LoginGate'
 
 const isMac = bridge()?.platform === 'darwin'
 
@@ -22,6 +24,11 @@ export function TabBar() {
   const closeTab = useStore((s) => s.closeTab)
   const newThread = useStore((s) => s.newThread)
   const connection = useStore((s) => s.connection)
+  // Boolean selector (not the whole freebuff object): the snapshot is rebuilt
+  // with fresh identity on every state event, but this only changes when auth
+  // actually flips. Null (state not loaded yet) counts as signed in — the
+  // AccountMenu branch renders nothing then, so neither control flashes.
+  const signedOut = useStore((s) => !!s.freebuff && !s.freebuff.authed)
 
   // Overflow menu: jump to any open tab when there are too many to scan.
   const [menuOpen, setMenuOpen] = useState(false)
@@ -128,6 +135,21 @@ export function TabBar() {
         <span className="conn-dot" />
         {connection !== 'open' && <span className="conn-label">{CONN_LABEL[connection]}</span>}
       </div>
+
+      {/* Account is window-global (unlike the folder/agent picks in each
+          thread's header below), so it sits on this row, far right — the
+          sign-in pill while signed out, the profile icon once signed in.
+          With no tab open the welcome screen shows its own (sole) sign-in
+          CTA, so the pill hides there to keep exactly one on screen. */}
+      {signedOut ? (
+        activeId && (
+          <div className="tabbar-login">
+            <LoginGate />
+          </div>
+        )
+      ) : (
+        <AccountMenu />
+      )}
     </div>
   )
 }

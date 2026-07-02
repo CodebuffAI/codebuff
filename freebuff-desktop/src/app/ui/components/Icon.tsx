@@ -22,7 +22,6 @@ const PATHS: Record<string, string> = {
   copy: 'M5 5.5h6.5V12H5zM3.5 9.5V3h6',
   menu: 'M3 4.5h9M3 7.5h9M3 10.5h9',
   down: 'M4 6l3.5 3.5L11 6',
-  left: 'M9.5 3.5l-4 4 4 4',
   search: 'M6.75 11a4.25 4.25 0 100-8.5 4.25 4.25 0 000 8.5zM10 10l2.5 2.5',
   download: 'M7.5 2.5v6.5M4.5 6.5l3 3 3-3M3 12.5h9',
   paperclip:
@@ -48,6 +47,8 @@ const PATHS: Record<string, string> = {
     'M3.5 8h4a3 3 0 013 3v0a3 3 0 003 3' +
     'M11.5 13.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z' +
     'M11.5 14.75h0.01',
+  // Person silhouette: head circle over a shoulders arc.
+  user: 'M7.5 2.9a2.1 2.1 0 100 4.2 2.1 2.1 0 000-4.2zM3.2 12.5a4.3 4.3 0 018.6 0',
   // 8-toothed gear, slightly stylized. ~15x15 viewBox.
   settings:
     'M7.5 2v1.8M7.5 11.2V13M2 7.5h1.8M11.2 7.5H13M3.7 3.7l1.3 1.3M9.9 9.9l1.3 1.3M3.7 11.3l1.3-1.3M9.9 5.1l1.3-1.3M7.5 5.5a2 2 0 100 4 2 2 0 000-4z',

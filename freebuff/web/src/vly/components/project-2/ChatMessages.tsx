@@ -256,6 +256,17 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
       return undefined;
     }, [sortedMessages]);
 
+    const lastEmptyAssistantIndex = useMemo(
+      () =>
+        sortedMessages.findLastIndex(
+          (msg) =>
+            msg.role === "assistant" &&
+            !msg.content &&
+            !(msg as any).has_execution_details,
+        ),
+      [sortedMessages],
+    );
+
     const shouldShowCompactionSuccess = useMemo(() => {
       if (isCompactingHistory || !lastUserMessage) {
         return false;
@@ -435,15 +446,6 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
                         !message.content &&
                         !(message as any).has_execution_details;
 
-                      // Find the LAST empty assistant message index
-                      const lastEmptyAssistantIndex =
-                        sortedMessages.findLastIndex(
-                          (msg) =>
-                            msg.role === "assistant" &&
-                            !msg.content &&
-                            !(msg as any).has_execution_details,
-                        );
-
                       // Only show loading state for THE last empty assistant message when processing
                       // AND if there's no message_state (which takes precedence)
                       const shouldShowLoadingState =
@@ -458,12 +460,16 @@ export const ChatMessages = forwardRef<ChatMessagesRef, ChatMessagesProps>(
                         rollbackCallback = rollbackCallbacks.get(message._id);
                       }
 
+                      const stableLoadingActivityKey = shouldShowLoadingState
+                        ? loadingActivityKey
+                        : undefined;
+
                       return (
                         <div key={message._id} className="mb-2 last:mb-0">
                           <MemoizedChatMessage
                             message={message}
                             shouldShowLoadingState={shouldShowLoadingState}
-                            loadingActivityKey={loadingActivityKey}
+                            loadingActivityKey={stableLoadingActivityKey}
                             onRollback={rollbackCallback}
                             onSendMessage={onSendMessage}
                             projectSemanticIdentifier={
