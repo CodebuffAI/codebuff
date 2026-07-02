@@ -25,11 +25,7 @@ export function ThreadHeader({
 }) {
   const slice = useStore((s) => s.threads[threadId])
   const pickProject = useStore((s) => s.pickProject)
-  // The server reports `previewReady` based on whether the project has a
-  // previewable entry. Until then, offer "Set up preview" instead so users
-  // don't click into a 404.
   const previewReady = useStore((s) => s.previewReady)
-  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const agentOptions = useStore((s) => s.agentOptions)
   const agentHarness = useStore((s) => s.agentHarness)
   const freebuff = useStore((s) => s.freebuff)
@@ -103,21 +99,13 @@ export function ThreadHeader({
           <Icon name="dot" /> Reload
         </button>
       )}
-      {previewReady ? (
+      {previewReady && (
         <button
           className={`head-btn ${preview ? 'on' : ''}`}
           onClick={onTogglePreview}
           title="Preview this thread's work in a browser"
         >
           <Icon name="play" /> {preview ? 'Hide preview' : 'Preview'}
-        </button>
-      ) : (
-        <button
-          className="head-btn"
-          onClick={() => setSettingsOpen(true)}
-          title="Set up the preview entry to enable Preview"
-        >
-          <Icon name="settings" /> Set up preview
         </button>
       )}
     </div>

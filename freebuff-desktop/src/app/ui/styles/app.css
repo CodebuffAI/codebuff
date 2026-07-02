@@ -1522,6 +1522,59 @@ body.col-resizing {
   justify-content: space-between;
   padding: 12px 14px 8px;
 }
+/* Overflow menu ("…" button) in the queue header — triggers a small dropdown
+   with secondary actions like Settings and Sign out. */
+.queue-overflow {
+  position: relative;
+}
+.queue-overflow-btn {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--faint);
+  padding: 3px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.queue-overflow-btn:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+.queue-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+}
+.queue-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  min-width: 160px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 40;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.queue-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--muted);
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.queue-menu-item:hover {
+  background: var(--raised);
+  color: var(--text);
+}
 .queue-title {
   font-size: 12px;
   text-transform: uppercase;

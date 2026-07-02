@@ -135,4 +135,7 @@ export const api = {
     }>('/api/settings'),
   saveSettings: (settings: ProjectSettings) =>
     post<{ ok: boolean; error?: string }>('/api/settings', { settings }),
+
+  // Auth
+  logout: () => post<{ ok: boolean }>('/api/auth/logout'),
 }
