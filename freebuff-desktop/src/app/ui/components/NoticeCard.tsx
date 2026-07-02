@@ -12,7 +12,7 @@
  *
  * `freebuff-auth`: the Freebuff API rejected our sign-in (expired/revoked token,
  * or never signed in). The action starts the same device-code flow as the
- * header's LoginGate; it hides once `authed` flips so a card in an old
+ * tab bar's LoginGate; it hides once `authed` flips so a card in an old
  * transcript doesn't keep offering a sign-in that already happened.
  */
 
@@ -20,7 +20,6 @@ import { useState } from 'react'
 
 import { useCopied } from '../hooks/useCopied'
 import { bridge } from '../lib/bridge'
-import { startLoginInBrowser } from '../lib/login'
 import { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH, type NoticePart } from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
@@ -64,26 +63,22 @@ function ClaudeCodeAuthActions() {
   )
 }
 
-/** Kicks off the device-code sign-in (startLoginInBrowser — the same flow the
- *  header's LoginGate drives); on success the server broadcasts a state event
- *  that flips `authed`, which unmounts this action row. The button stays
- *  clickable while waiting so a lost browser tab can be reopened. */
+/** Kicks off the device-code sign-in. A thin view over the store's shared
+ *  login slice — the same flow the tab bar's LoginGate drives — so this button
+ *  and the gate always show the same phase (and a reload rehydrates both). On
+ *  success the server broadcasts a state event that flips `authed`, which
+ *  unmounts this action row. The button stays clickable while waiting so a
+ *  lost browser tab can be reopened. */
 function FreebuffAuthActions() {
-  const pushToast = useStore((s) => s.pushToast)
-  const [phase, setPhase] = useState<'idle' | 'starting' | 'waiting'>('idle')
-  const start = async () => {
-    setPhase('starting')
-    try {
-      await startLoginInBrowser()
-      setPhase('waiting')
-    } catch (err) {
-      pushToast((err as Error).message, 'error')
-      setPhase('idle')
-    }
-  }
+  const phase = useStore((s) => s.login.phase)
+  const startLogin = useStore((s) => s.startLogin)
   return (
     <div className="notice-actions">
-      <button className="btn notice-action" onClick={start} disabled={phase === 'starting'}>
+      <button
+        className="btn notice-action"
+        onClick={() => void startLogin()}
+        disabled={phase === 'starting'}
+      >
         {phase === 'waiting' ? 'Waiting for sign-in… (retry)' : 'Sign in to Freebuff'}
       </button>
     </div>

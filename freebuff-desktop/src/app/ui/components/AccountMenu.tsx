@@ -8,8 +8,8 @@ import { Icon } from './Icon'
  * Signed-in account control in the tab bar's top-right corner. The account is
  * global (unlike the folder/agent choices in each thread's header), so it
  * lives on the window-level row. Icon-only trigger; the popover carries the
- * email and Sign out. Renders nothing while signed out — the per-thread
- * LoginGate owns that state.
+ * email and Sign out. Renders nothing while signed out — the LoginGate takes
+ * over the same tab-bar slot (see TabBar).
  */
 export function AccountMenu() {
   const freebuff = useStore((s) => s.freebuff)
