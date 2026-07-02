@@ -60,6 +60,7 @@
     "productName": "Freebuff",
     "electronVersion": "33.4.11",
     "afterPack": "scripts/ad-hoc-sign.cjs",
+    "afterAllArtifactBuild": "scripts/staple-dmg.cjs",
     "icon": "build/icon.png",
     "directories": {
       "output": "dist"

@@ -132,7 +132,7 @@ describe('buildInstallPlan', () => {
     ).toBeNull() // no $APPIMAGE → can't self-update
   })
 
-  test('mac mounts, swaps the bundle, and strips quarantine; null off-bundle', () => {
+  test('mac mounts and swaps the bundle (no quarantine strip); null off-bundle', () => {
     const plan = updater.buildInstallPlan({
       ...base,
       platform: 'darwin',
@@ -142,7 +142,8 @@ describe('buildInstallPlan', () => {
     const script = plan.args[1]
     expect(script).toContain('hdiutil attach')
     expect(script).toContain("ditto") // stage a full copy before swapping
-    expect(script).toContain('xattr -dr com.apple.quarantine')
+    // Builds are notarized now, so we no longer strip com.apple.quarantine.
+    expect(script).not.toContain('xattr')
     expect(script).toContain("open '/Applications/Freebuff.app'")
     expect(script).toContain('kill -0 4242')
 
