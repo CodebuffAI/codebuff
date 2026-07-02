@@ -32,6 +32,7 @@ import {
   createSpawnAgentBlocks,
   isSpawnAgentsResult,
   markMessageComplete,
+  sanitizeRestoredMessages,
   setMessageError,
 } from '../send-message-helpers'
 
@@ -1696,6 +1697,108 @@ describe('setMessageError', () => {
 
     expect(result.content).toBe('Error occurred')
     expect(result.blocks).toBeUndefined()
+    expect(result.isComplete).toBe(true)
+  })
+})
+
+// ============================================================================
+// sanitizeRestoredMessages Tests
+// ============================================================================
+
+describe('sanitizeRestoredMessages', () => {
+  const streamedShell = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+    id: 'ai-1750000000000-abc123',
+    variant: 'ai',
+    content: '',
+    timestamp: new Date().toISOString(),
+    blocks: [{ type: 'text', content: 'partial answer' }],
+    ...overrides,
+  })
+
+  test('marks an interrupted AI response complete with an interruption notice', () => {
+    const [result] = sanitizeRestoredMessages([streamedShell()])
+
+    expect(result.isComplete).toBe(true)
+    const lastBlock = result.blocks![result.blocks!.length - 1]
+    expect(lastBlock.type).toBe('text')
+    expect((lastBlock as TextContentBlock).content).toContain(
+      '[response interrupted]',
+    )
+  })
+
+  test('cancels running agent blocks in an interrupted AI response', () => {
+    const [result] = sanitizeRestoredMessages([
+      streamedShell({
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'agent-1',
+            agentName: 'TestAgent',
+            agentType: 'inline',
+            content: '',
+            status: 'running',
+            blocks: [],
+          },
+        ],
+      }),
+    ])
+
+    const agentBlock = result.blocks![0] as AgentContentBlock
+    expect(agentBlock.status).toBe('cancelled')
+  })
+
+  test('adds a notice to an interrupted AI response with no blocks yet', () => {
+    const [result] = sanitizeRestoredMessages([streamedShell({ blocks: [] })])
+
+    expect(result.isComplete).toBe(true)
+    expect(result.blocks).toHaveLength(1)
+    expect((result.blocks![0] as TextContentBlock).content).toBe(
+      '[response interrupted]',
+    )
+  })
+
+  test('leaves completed AI responses untouched', () => {
+    const message = streamedShell({ isComplete: true })
+    const [result] = sanitizeRestoredMessages([message])
+
+    expect(result).toBe(message)
+  })
+
+  test('leaves mode dividers, system messages, and user messages untouched', () => {
+    const divider = createModeDividerMessage('DEFAULT' as any)
+    const system: ChatMessage = {
+      id: 'sys-123',
+      variant: 'ai',
+      content: 'system notice',
+      timestamp: new Date().toISOString(),
+    }
+    const user: ChatMessage = {
+      id: 'user-123',
+      variant: 'user',
+      content: 'hello',
+      timestamp: new Date().toISOString(),
+    }
+
+    const results = sanitizeRestoredMessages([divider, system, user])
+
+    expect(results[0]).toBe(divider)
+    expect(results[1]).toBe(system)
+    expect(results[2]).toBe(user)
+  })
+})
+
+describe('sanitizeRestoredMessages corruption tolerance', () => {
+  test('does not throw on null entries in a restored blocks array', () => {
+    const corrupted: ChatMessage = {
+      id: 'ai-1750000000000-abc123',
+      variant: 'ai',
+      content: '',
+      timestamp: new Date().toISOString(),
+      blocks: [null as unknown as ContentBlock, { type: 'text', content: 'x' }],
+    }
+
+    const [result] = sanitizeRestoredMessages([corrupted])
+
     expect(result.isComplete).toBe(true)
   })
 })

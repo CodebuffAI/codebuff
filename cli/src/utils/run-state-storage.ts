@@ -22,6 +22,50 @@ type SavedChatState = {
   chatId?: string
 }
 
+type LiveChatState = {
+  runState: RunState
+  messages: ChatMessage[]
+}
+
+let liveChatStateProvider: {
+  ownerId: string
+  provide: () => LiveChatState | null
+} | null = null
+
+/**
+ * Register a provider for the in-flight chat state. While a run is active,
+ * exit paths call flushLiveChatState() to persist the latest checkpoint so a
+ * quit/crash doesn't lose the turn. ownerId ties the provider to a specific
+ * run so a stale run can't clear a newer run's provider.
+ */
+export function setLiveChatStateProvider(
+  ownerId: string,
+  provide: () => LiveChatState | null,
+): void {
+  liveChatStateProvider = { ownerId, provide }
+}
+
+export function clearLiveChatStateProvider(ownerId: string): void {
+  if (liveChatStateProvider?.ownerId === ownerId) {
+    liveChatStateProvider = null
+  }
+}
+
+/**
+ * Synchronously persist the in-flight chat state, if any. Safe to call from
+ * process exit/signal handlers (saveChatState uses writeFileSync).
+ */
+export function flushLiveChatState(): void {
+  try {
+    const state = liveChatStateProvider?.provide()
+    if (state) {
+      saveChatState(state.runState, state.messages)
+    }
+  } catch {
+    // Best-effort - never block process exit.
+  }
+}
+
 /**
  * Recursively extract all agent IDs and tool call IDs from content blocks
  */
@@ -56,11 +100,30 @@ export function getAllToggleIdsFromMessages(messages: ChatMessage[]): string[] {
   return ids
 }
 
+// Test-only escape hatch: persistence normally resolves the chat directory
+// through project-files (under the user's real config dir). Tests point it at
+// a temp directory instead of mocking module internals — mock.module leaks
+// across bun test files and os.homedir() ignores $HOME on macOS, so both of
+// those seams are unreliable (see docs/testing.md: DI over module mocking).
+let chatDirOverride: string | undefined
+
+export function setChatDirOverrideForTesting(dir: string | undefined): void {
+  chatDirOverride = dir
+}
+
+function resolveCurrentChatDir(): string {
+  if (chatDirOverride) {
+    fs.mkdirSync(chatDirOverride, { recursive: true })
+    return chatDirOverride
+  }
+  return getCurrentChatDir()
+}
+
 /**
  * Get the path to the run state file for the current chat
  */
 export function getRunStatePath(): string {
-  const chatDir = getCurrentChatDir()
+  const chatDir = resolveCurrentChatDir()
   return path.join(chatDir, RUN_STATE_FILENAME)
 }
 
@@ -68,7 +131,7 @@ export function getRunStatePath(): string {
  * Get the path to the chat messages file for the current chat
  */
 export function getChatMessagesPath(): string {
-  const chatDir = getCurrentChatDir()
+  const chatDir = resolveCurrentChatDir()
   return path.join(chatDir, CHAT_MESSAGES_FILENAME)
 }
 
@@ -83,8 +146,10 @@ export function saveChatState(
     const runStatePath = getRunStatePath()
     const messagesPath = getChatMessagesPath()
 
-    writeFileAtomic(runStatePath, JSON.stringify(runState, null, 2))
-    writeFileAtomic(messagesPath, JSON.stringify(messages, null, 2))
+    // Compact JSON: these files are rewritten on every checkpoint and grow to
+    // multiple MB; pretty-printing roughly doubles the write.
+    writeFileAtomic(runStatePath, JSON.stringify(runState))
+    writeFileAtomic(messagesPath, JSON.stringify(messages))
   } catch (error) {
     logger.error(
       {
@@ -105,9 +170,9 @@ export function loadMostRecentChatState(
   chatId?: string,
 ): SavedChatState | null {
   try {
-    let chatDir: string | null = null
+    let chatDir: string | null = chatDirOverride ?? null
 
-    if (chatId && chatId.trim().length > 0) {
+    if (!chatDir && chatId && chatId.trim().length > 0) {
       const baseDir = path.join(getProjectDataDir(), 'chats')
       const candidateDir = path.join(baseDir, chatId.trim())
       if (
@@ -135,20 +200,55 @@ export function loadMostRecentChatState(
     const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
     const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
 
-    if (!fs.existsSync(runStatePath) || !fs.existsSync(messagesPath)) {
+    // Parse the two files independently: a missing or torn run-state.json
+    // must not lose the transcript, and vice versa. Restore whatever is
+    // readable and fall back for the rest.
+    let runState: RunState | null = null
+    try {
+      runState = JSON.parse(
+        fs.readFileSync(runStatePath, 'utf8'),
+      ) as RunState
+    } catch (error) {
+      logger.warn(
+        {
+          runStatePath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Could not read run state; restoring transcript without agent context',
+      )
+    }
+
+    let messages: ChatMessage[] | null = null
+    try {
+      messages = JSON.parse(
+        fs.readFileSync(messagesPath, 'utf8'),
+      ) as ChatMessage[]
+    } catch (error) {
+      logger.warn(
+        {
+          messagesPath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Could not read chat messages; restoring agent context without transcript',
+      )
+    }
+
+    if (!runState && !messages) {
       logger.debug(
         { runStatePath, messagesPath },
-        'Missing state files in chat directory',
+        'No readable state files in chat directory',
       )
       return null
     }
 
-    const runStateContent = fs.readFileSync(runStatePath, 'utf8')
-    const messagesContent = fs.readFileSync(messagesPath, 'utf8')
-
-    const runState = JSON.parse(runStateContent) as RunState
+    runState ??= {
+      output: {
+        type: 'error',
+        message: 'Previous run state could not be restored.',
+      },
+    } as RunState
     runState.traceSessionId ??= randomUUID()
-    const messages = JSON.parse(messagesContent) as ChatMessage[]
+    messages ??= []
 
     const resolvedChatId = path.basename(chatDir)
 

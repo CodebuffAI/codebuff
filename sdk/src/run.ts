@@ -174,7 +174,21 @@ export type RunOptions = {
    *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers like
    *  `freebuff_instance_id` that server-side gates read from the request body. */
   extraCodebuffMetadata?: Record<string, string>
+  /** Optional checkpoint hook. Called once when the run starts and then
+   * periodically while it is in flight, with a RunState snapshot that
+   * preserves all progress so far (the user's prompt plus any completed
+   * agent steps, ending with an interruption note). Hosts can persist these
+   * snapshots so that a killed process (closed terminal, crash) does not
+   * lose the in-flight turn. The final resolved RunState supersedes any
+   * snapshot; no snapshots are emitted after the run settles. */
+  onStateSnapshot?: (runState: RunState) => void
 }
+
+/** How often onStateSnapshot fires while a run is in flight. */
+const STATE_SNAPSHOT_INTERVAL_MS = 5_000
+
+export const STATE_SNAPSHOT_INTERRUPTION_MESSAGE =
+  'The session ended before this response completed. Partial progress has been preserved.'
 
 const createAbortError = (signal?: AbortSignal) => {
   if (signal?.reason instanceof Error) {
@@ -245,6 +259,7 @@ async function runOnce({
   drainSteeringMessages,
   costMode,
   extraCodebuffMetadata,
+  onStateSnapshot,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -302,12 +317,25 @@ async function runOnce({
     delete sessionState.fileContext.customToolDefinitions[toolName]
   }
 
-  let resolve: (value: RunReturnType) => any = () => {}
+  let resolvePromise: (value: RunReturnType) => any = () => {}
   let _reject: (error: any) => any = () => {}
   const promise = new Promise<RunReturnType>((res, rej) => {
-    resolve = res
+    resolvePromise = res
     _reject = rej
   })
+
+  // Snapshot support: stop emitting the moment the run settles so a late
+  // snapshot can never overwrite the final state persisted by the host.
+  let settled = false
+  let snapshotTimer: ReturnType<typeof setInterval> | null = null
+  const resolve = (value: RunReturnType) => {
+    settled = true
+    if (snapshotTimer !== null) {
+      clearInterval(snapshotTimer)
+      snapshotTimer = null
+    }
+    resolvePromise(value)
+  }
 
   async function onError(error: { message: string }) {
     if (handleEvent) {
@@ -548,6 +576,43 @@ async function runOnce({
 
   if (signal?.aborted) {
     return getCancelledRunState('Run cancelled by user.')
+  }
+
+  if (onStateSnapshot) {
+    // The runtime replaces mainAgentState.messageHistory with a new array at
+    // each step boundary, so reference identity is a cheap "has anything
+    // durable changed" check. Skipping unchanged ticks avoids deep-cloning a
+    // potentially multi-MB sessionState every interval while the run is just
+    // waiting on a slow LLM call.
+    let lastSnapshotHistory: unknown = null
+    const emitStateSnapshot = () => {
+      if (settled || signal?.aborted) {
+        return
+      }
+      const history = sessionState.mainAgentState.messageHistory
+      if (history === lastSnapshotHistory) {
+        return
+      }
+      lastSnapshotHistory = history
+      try {
+        onStateSnapshot(
+          getCancelledRunState(STATE_SNAPSHOT_INTERRUPTION_MESSAGE),
+        )
+      } catch (error) {
+        logger?.debug?.(
+          { error: error instanceof Error ? error.message : String(error) },
+          'onStateSnapshot handler threw',
+        )
+      }
+    }
+    // Emit immediately so the user's prompt is checkpointed as soon as the
+    // run starts, then keep checkpointing progress while it is in flight.
+    emitStateSnapshot()
+    snapshotTimer = setInterval(emitStateSnapshot, STATE_SNAPSHOT_INTERVAL_MS)
+    // Don't let the checkpoint timer keep the host process alive.
+    if (typeof (snapshotTimer as any).unref === 'function') {
+      ;(snapshotTimer as any).unref()
+    }
   }
 
   callMainPrompt({

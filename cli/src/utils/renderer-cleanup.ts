@@ -1,4 +1,5 @@
 import { resetTerminalTitle } from './terminal-title'
+import { flushLiveChatState } from './run-state-storage'
 
 import type { CliRenderer } from '@opentui/core'
 
@@ -68,7 +69,11 @@ function resetTerminalState(): void {
  * This resets terminal state to prevent garbled output after exit.
  */
 function cleanup(): void {
-  // FIRST: Reset terminal state by writing escape sequences directly to stdout.
+  // Persist any in-flight chat state first (synchronous, best-effort) so
+  // closing the terminal or killing the process mid-run doesn't lose the turn.
+  flushLiveChatState()
+
+  // Reset terminal state by writing escape sequences directly to stdout.
   // This ensures mouse mode, focus reporting, etc. are disabled even if
   // renderer.destroy() fails or doesn't fully clean up.
   resetTerminalState()

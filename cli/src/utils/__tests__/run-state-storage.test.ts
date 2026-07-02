@@ -1,4 +1,11 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+} from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -10,6 +17,10 @@ import {
   saveChatState,
   loadMostRecentChatState,
   clearChatState,
+  setChatDirOverrideForTesting,
+  setLiveChatStateProvider,
+  clearLiveChatStateProvider,
+  flushLiveChatState,
 } from '../run-state-storage'
 import type { ChatMessage, ContentBlock } from '../../types/chat'
 import type { RunState } from '@codebuff/sdk'
@@ -362,5 +373,168 @@ describe('run-state-storage', () => {
       expect(ids[1]).toBe('second')
       expect(ids[2]).toBe('third')
     })
+  })
+})
+
+describe('live chat state provider', () => {
+  // Point persistence at a temp dir via the explicit test override — module
+  // seams (mock.module, HOME, spyOn on auth) are unreliable across bun test
+  // files and platforms.
+  const chatDir = path.join(os.tmpdir(), 'codebuff-test-live-chatdir')
+
+  const testRunState = (marker: string): RunState =>
+    ({
+      output: { type: 'error', message: marker },
+    }) as unknown as RunState
+
+  const testMessages = (marker: string): ChatMessage[] => [
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: marker,
+      timestamp: new Date().toISOString(),
+    },
+  ]
+
+  const readSavedMessages = () =>
+    JSON.parse(
+      fs.readFileSync(path.join(chatDir, 'chat-messages.json'), 'utf8'),
+    ) as ChatMessage[]
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(() => {
+    clearLiveChatStateProvider('run-a')
+    clearLiveChatStateProvider('run-b')
+    setChatDirOverrideForTesting(undefined)
+    fs.rmSync(chatDir, { recursive: true, force: true })
+  })
+
+  test('flushLiveChatState persists the provided state', () => {
+    setLiveChatStateProvider('run-a', () => ({
+      runState: testRunState('checkpoint'),
+      messages: testMessages('in-flight prompt'),
+    }))
+
+    flushLiveChatState()
+
+    expect(readSavedMessages()[0].content).toBe('in-flight prompt')
+  })
+
+  test('flushLiveChatState is a no-op with no provider registered', () => {
+    flushLiveChatState()
+
+    expect(fs.existsSync(path.join(chatDir, 'chat-messages.json'))).toBe(false)
+  })
+
+  test('clearLiveChatStateProvider stops flushing', () => {
+    setLiveChatStateProvider('run-a', () => ({
+      runState: testRunState('checkpoint'),
+      messages: testMessages('in-flight prompt'),
+    }))
+    clearLiveChatStateProvider('run-a')
+
+    flushLiveChatState()
+
+    expect(fs.existsSync(path.join(chatDir, 'chat-messages.json'))).toBe(false)
+  })
+
+  test('a stale run cannot clear a newer run provider', () => {
+    setLiveChatStateProvider('run-a', () => ({
+      runState: testRunState('old'),
+      messages: testMessages('old prompt'),
+    }))
+    setLiveChatStateProvider('run-b', () => ({
+      runState: testRunState('new'),
+      messages: testMessages('new prompt'),
+    }))
+
+    // The old run settling late must not remove the new run's provider.
+    clearLiveChatStateProvider('run-a')
+    flushLiveChatState()
+
+    expect(readSavedMessages()[0].content).toBe('new prompt')
+  })
+
+  test('flushLiveChatState swallows provider errors', () => {
+    setLiveChatStateProvider('run-a', () => {
+      throw new Error('boom')
+    })
+
+    expect(() => flushLiveChatState()).not.toThrow()
+  })
+})
+
+describe('atomic save and resilient load', () => {
+  const chatDir = path.join(os.tmpdir(), 'codebuff-test-resilient-chatdir')
+
+  const runState = { output: { type: 'error', message: 'x' } } as RunState
+  const messages: ChatMessage[] = [
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: 'the prompt',
+      timestamp: new Date().toISOString(),
+    },
+  ]
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(() => {
+    setChatDirOverrideForTesting(undefined)
+    fs.rmSync(chatDir, { recursive: true, force: true })
+  })
+
+  test('saveChatState leaves no .tmp files behind', () => {
+    saveChatState(runState, messages)
+
+    const leftovers = fs
+      .readdirSync(chatDir)
+      .filter((name) => name.endsWith('.tmp'))
+    expect(leftovers).toHaveLength(0)
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(chatDir, 'chat-messages.json'), 'utf8'),
+      ),
+    ).toHaveLength(1)
+  })
+
+  test('torn run-state.json still restores the transcript', () => {
+    saveChatState(runState, messages)
+    fs.writeFileSync(
+      path.join(chatDir, 'run-state.json'),
+      '{"sessionState": {"trunc',
+    )
+
+    const loaded = loadMostRecentChatState()
+
+    expect(loaded).not.toBeNull()
+    expect(loaded!.messages[0].content).toBe('the prompt')
+    expect(loaded!.runState.output.type).toBe('error')
+  })
+
+  test('torn chat-messages.json still restores the run state', () => {
+    saveChatState(runState, messages)
+    fs.writeFileSync(path.join(chatDir, 'chat-messages.json'), '[{"id":')
+
+    const loaded = loadMostRecentChatState()
+
+    expect(loaded).not.toBeNull()
+    expect(loaded!.messages).toHaveLength(0)
+    expect((loaded!.runState.output as any).message).toBe('x')
+  })
+
+  test('returns null when both files are unreadable', () => {
+    saveChatState(runState, messages)
+    fs.writeFileSync(path.join(chatDir, 'run-state.json'), '{')
+    fs.writeFileSync(path.join(chatDir, 'chat-messages.json'), '[')
+
+    expect(loadMostRecentChatState()).toBeNull()
   })
 })
