@@ -632,6 +632,24 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       }
+    },
+    "anyrouter": {
+      "type": "openai-compatible",
+      "baseURL": "https://anyrouter.top/v1",
+      "apiKeyEnv": "ANYROUTER_API_KEY",
+      "models": [
+        "gpt-5.5",
+        "claude-opus-4-8"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
     }
   }
 }

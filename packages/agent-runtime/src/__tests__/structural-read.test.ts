@@ -4,6 +4,7 @@ import { handleReadOutline } from '../tools/handlers/tool/read-outline'
 import { handleReadSlices } from '../tools/handlers/tool/read-slices'
 import { processStrReplace } from '../process-str-replace'
 import { extractSlices, extendRangeToPrecedingComment } from '../structural-read'
+import { mockFileContext } from './test-utils'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -46,6 +47,7 @@ describe('read_outline handler (AST-backed)', () => {
       previousToolCallFinished: Promise.resolve(),
       toolCall: { input: { path: 'svc.ts' } },
       requestOptionalFile: fileResponder(TS_SRC),
+      fileContext: mockFileContext,
     } as any)
     const { outline } = outputJson(result)
 
@@ -62,6 +64,7 @@ describe('read_outline handler (AST-backed)', () => {
       previousToolCallFinished: Promise.resolve(),
       toolCall: { input: { path: 'data.unknownext' } },
       requestOptionalFile: fileResponder('function x() {}'),
+      fileContext: mockFileContext,
     } as any)
     const { outline } = outputJson(result)
     expect(typeof outline).toBe('string')

@@ -48,3 +48,328 @@
 {"ts":"2026-07-02T00:11:52.532Z","kind":"append_lesson","summary":"Appended entry \"Reviewer-fix batch lessons — 2026-07-02\" to LESSONS.md","payload":{"heading":"Reviewer-fix batch lessons — 2026-07-02","artifact":"LESSONS.md"}}
 {"ts":"2026-07-02T00:14:05.678Z","kind":"append_lesson","summary":"Appended entry \"Final-pass reviewer follow-up notes (NON_BLOCKING) — 2026-07-02\" to LESSONS.md","payload":{"heading":"Final-pass reviewer follow-up notes (NON_BLOCKING) — 2026-07-02","artifact":"LESSONS.md"}}
 {"ts":"2026-07-02T00:14:15.739Z","kind":"append_lesson","summary":"Appended entry \"Final reviewer pass — 2026-07-02 — 2026-07-02T00:15:30.000Z\" to STATUS.md","payload":{"heading":"Final reviewer pass — 2026-07-02 — 2026-07-02T00:15:30.000Z","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T06:28:43.718Z","kind":"append_lesson","summary":"Appended entry \"M2 cancellation follow-up resumed\" to STATUS.md","payload":{"heading":"M2 cancellation follow-up resumed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T06:28:43.718Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T06:37:35.005Z","kind":"append_lesson","summary":"Appended entry \"M2 foreground child-process cancellation follow-up validation — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 foreground child-process cancellation follow-up validation — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T06:37:35.006Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:00:49.436Z","kind":"append_lesson","summary":"Appended entry \"M2 foreground cancellation follow-up hook validation — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 foreground cancellation follow-up hook validation — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:05:57.716Z","kind":"append_lesson","summary":"Appended entry \"M2 foreground cancellation follow-up reviewed — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 foreground cancellation follow-up reviewed — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:05:57.893Z","kind":"append_lesson","summary":"Appended entry \"M2 find-files cancellation lessons — 2026-07-02\" to LESSONS.md","payload":{"heading":"M2 find-files cancellation lessons — 2026-07-02","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:10:25.316Z","kind":"append_lesson","summary":"Appended entry \"M2 git_status cancellation validation — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 git_status cancellation validation — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:10:25.642Z","kind":"append_lesson","summary":"Appended entry \"M2 git_status cancellation lessons — 2026-07-02\" to LESSONS.md","payload":{"heading":"M2 git_status cancellation lessons — 2026-07-02","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:12:08.972Z","kind":"append_lesson","summary":"Appended entry \"M2 git_status reviewer blocker — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 git_status reviewer blocker — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:14:35.427Z","kind":"append_lesson","summary":"Appended entry \"M2 git_status reviewer blocker fixed — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 git_status reviewer blocker fixed — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:14:35.983Z","kind":"append_lesson","summary":"Appended entry \"M2 git_status reviewer blocker lesson — 2026-07-02\" to LESSONS.md","payload":{"heading":"M2 git_status reviewer blocker lesson — 2026-07-02","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:16:19.774Z","kind":"append_lesson","summary":"Appended entry \"M2 find-files reviewer blocker — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 find-files reviewer blocker — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:20:08.729Z","kind":"append_lesson","summary":"Appended entry \"M2 focused validation — git_status/find_files cancellation\" to STATUS.md","payload":{"heading":"M2 focused validation — git_status/find_files cancellation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:20:08.729Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:21:24.478Z","kind":"append_lesson","summary":"Appended entry \"M2 review blocker — findFilesMatchingContent async child error\" to STATUS.md","payload":{"heading":"M2 review blocker — findFilesMatchingContent async child error","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:21:24.478Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:22:48.909Z","kind":"append_lesson","summary":"Appended entry \"M2 focused validation — async ripgrep child error fix\" to STATUS.md","payload":{"heading":"M2 focused validation — async ripgrep child error fix","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:22:48.909Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:24:34.409Z","kind":"append_lesson","summary":"Appended entry \"M2 review blocker — duplicate findFilesMatchingContent error handlers\" to STATUS.md","payload":{"heading":"M2 review blocker — duplicate findFilesMatchingContent error handlers","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:24:34.409Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:25:59.864Z","kind":"append_lesson","summary":"Appended entry \"M2 focused validation — duplicate error handler blocker fixed\" to STATUS.md","payload":{"heading":"M2 focused validation — duplicate error handler blocker fixed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:25:59.865Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:26:12.138Z","kind":"append_lesson","summary":"Appended entry \"M2 cancellation lesson — preserve existing child-process error contracts\" to LESSONS.md","payload":{"heading":"M2 cancellation lesson — preserve existing child-process error contracts","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:26:12.138Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:27:13.795Z","kind":"append_lesson","summary":"Appended entry \"M2 review passed — focused SDK cancellation delta\" to STATUS.md","payload":{"heading":"M2 review passed — focused SDK cancellation delta","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:27:13.795Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:32:36.876Z","kind":"append_lesson","summary":"Appended entry \"M2 retry-sleep cancellation checkpoint — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 retry-sleep cancellation checkpoint — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:32:52.167Z","kind":"append_lesson","summary":"Appended entry \"M2 retry-sleep cancellation lesson — 2026-07-02\" to LESSONS.md","payload":{"heading":"M2 retry-sleep cancellation lesson — 2026-07-02","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:34:42.919Z","kind":"append_lesson","summary":"Appended entry \"M2 retry-sleep reviewer blocker — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 retry-sleep reviewer blocker — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:37:18.115Z","kind":"append_lesson","summary":"Appended entry \"M2 retry-sleep blocker resolved — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 retry-sleep blocker resolved — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:38:18.188Z","kind":"append_lesson","summary":"Appended entry \"M2 SDK cancellation batch approved — 2026-07-02\" to STATUS.md","payload":{"heading":"M2 SDK cancellation batch approved — 2026-07-02","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:38:39.727Z","kind":"append_lesson","summary":"Appended entry \"M2 abort-listener race lesson — 2026-07-02\" to LESSONS.md","payload":{"heading":"M2 abort-listener race lesson — 2026-07-02","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:42:18.588Z","kind":"append_lesson","summary":"Appended entry \"M2 model-discovery cancellation checkpoint\" to STATUS.md","payload":{"heading":"M2 model-discovery cancellation checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:43:54.947Z","kind":"append_lesson","summary":"Appended entry \"M2 model-discovery cancellation review approved\" to STATUS.md","payload":{"heading":"M2 model-discovery cancellation review approved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:44:12.010Z","kind":"append_lesson","summary":"Appended entry \"M2 model-discovery cancellation\" to LESSONS.md","payload":{"heading":"M2 model-discovery cancellation","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:48:45.386Z","kind":"append_lesson","summary":"Appended entry \"M2 check_job validation\" to STATUS.md","payload":{"heading":"M2 check_job validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:48:45.386Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:49:58.242Z","kind":"append_lesson","summary":"Appended entry \"M2 check_job review approved\" to STATUS.md","payload":{"heading":"M2 check_job review approved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:49:58.242Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:54:58.726Z","kind":"append_lesson","summary":"Appended entry \"M2 CLI ownership validation\" to STATUS.md","payload":{"heading":"M2 CLI ownership validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:54:58.726Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:55:07.880Z","kind":"append_lesson","summary":"Appended entry \"CLI send ownership guard\" to LESSONS.md","payload":{"heading":"CLI send ownership guard","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T07:55:07.880Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:56:18.542Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker — CLI provider readiness owner release\" to STATUS.md","payload":{"heading":"Reviewer blocker — CLI provider readiness owner release","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:56:18.542Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:57:39.428Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker resolved — provider readiness owner release\" to STATUS.md","payload":{"heading":"Reviewer blocker resolved — provider readiness owner release","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:57:39.429Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T07:58:52.250Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker — provider-readiness branch coverage\" to STATUS.md","payload":{"heading":"Reviewer blocker — provider-readiness branch coverage","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T07:58:52.250Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:00:56.175Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker resolved — provider-readiness cleanup coverage\" to STATUS.md","payload":{"heading":"Reviewer blocker resolved — provider-readiness cleanup coverage","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:00:56.175Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:06:40.660Z","kind":"append_lesson","summary":"Appended entry \"M2 CLI ownership checkpoint approved\" to STATUS.md","payload":{"heading":"M2 CLI ownership checkpoint approved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:06:40.660Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:15:17.417Z","kind":"append_lesson","summary":"Appended entry \"M2 queue watchdog blocker resolution\" to STATUS.md","payload":{"heading":"M2 queue watchdog blocker resolution","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:15:17.417Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:22:00.310Z","kind":"append_lesson","summary":"Appended entry \"M2 queue ownership checkpoint\" to STATUS.md","payload":{"heading":"M2 queue ownership checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:22:00.310Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:22:08.874Z","kind":"append_lesson","summary":"Appended entry \"Queue ownership coverage\" to LESSONS.md","payload":{"heading":"Queue ownership coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T08:32:54.762Z","kind":"append_lesson","summary":"Appended entry \"Eval timeout review blocker\" to STATUS.md","payload":{"heading":"Eval timeout review blocker","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:32:54.762Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:34:09.681Z","kind":"append_lesson","summary":"Appended entry \"Eval timeout cleanup checkpoint approved\" to STATUS.md","payload":{"heading":"Eval timeout cleanup checkpoint approved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:34:09.681Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:34:19.858Z","kind":"append_lesson","summary":"Appended entry \"Eval timeout cancellation seam\" to LESSONS.md","payload":{"heading":"Eval timeout cancellation seam","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T08:44:44.370Z","kind":"append_lesson","summary":"Appended entry \"Eval external runner abort checkpoint\" to STATUS.md","payload":{"heading":"Eval external runner abort checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:44:44.371Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:44:54.072Z","kind":"append_lesson","summary":"Appended entry \"Eval external runner abort testing\" to LESSONS.md","payload":{"heading":"Eval external runner abort testing","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T08:49:23.374Z","kind":"append_lesson","summary":"Appended entry \"M2 reconciliation checkpoint\" to STATUS.md","payload":{"heading":"M2 reconciliation checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:49:23.374Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:58:57.277Z","kind":"append_lesson","summary":"Appended entry \"Residual M2 client/custom tool cancellation checkpoint\" to STATUS.md","payload":{"heading":"Residual M2 client/custom tool cancellation checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T08:58:57.280Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T08:59:04.546Z","kind":"append_lesson","summary":"Appended entry \"Residual M2 cancellation signal contract lesson\" to LESSONS.md","payload":{"heading":"Residual M2 cancellation signal contract lesson","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:09:01.444Z","kind":"append_lesson","summary":"Appended entry \"M2 MCP cancellation coverage\" to LESSONS.md","payload":{"heading":"M2 MCP cancellation coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:28:48.162Z","kind":"append_lesson","summary":"Appended entry \"M2 closure — background-job timeout contract\" to STATUS.md","payload":{"heading":"M2 closure — background-job timeout contract","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T09:28:48.163Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:28:56.677Z","kind":"append_lesson","summary":"Appended entry \"M2 background-job timeout contract coverage\" to LESSONS.md","payload":{"heading":"M2 background-job timeout contract coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:33:25.713Z","kind":"append_lesson","summary":"Appended entry \"M3 freshness checkpoint — markStale query suppression\" to STATUS.md","payload":{"heading":"M3 freshness checkpoint — markStale query suppression","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T09:33:25.713Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:33:40.688Z","kind":"append_lesson","summary":"Appended entry \"M3 markStale freshness\" to LESSONS.md","payload":{"heading":"M3 markStale freshness","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:33:40.688Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:43:46.707Z","kind":"append_lesson","summary":"Appended entry \"M3 freshness checkpoint — pending refresh race fixed\" to STATUS.md","payload":{"heading":"M3 freshness checkpoint — pending refresh race fixed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T09:43:46.707Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:43:54.246Z","kind":"append_lesson","summary":"Appended entry \"M3 stale refresh pending barrier\" to LESSONS.md","payload":{"heading":"M3 stale refresh pending barrier","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:43:54.246Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:45:03.660Z","kind":"task_update","summary":"Updated 1 task line(s): Make `markStale()` force next `query()` refresh","payload":{"matched":["Make `markStale()` force next `query()` refresh"]}}
+{"ts":"2026-07-02T09:45:03.661Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:45:03.661Z","kind":"current_task","summary":"Current task -> \"M3 command-file freshness checks for command-mode index queries\"","payload":{"currentTask":"M3 command-file freshness checks for command-mode index queries"}}
+{"ts":"2026-07-02T09:46:57.060Z","kind":"task_update","summary":"Updated 1 task line(s): Add command-file freshness checks for command-mode index queries","payload":{"matched":["Add command-file freshness checks for command-mode index queries"]}}
+{"ts":"2026-07-02T09:46:57.060Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:46:57.060Z","kind":"current_task","summary":"Current task -> \"Validate/review command-mode freshness checkpoint and update STATUS/LESSONS\"","payload":{"currentTask":"Validate/review command-mode freshness checkpoint and update STATUS/LESSONS"}}
+{"ts":"2026-07-02T09:47:05.082Z","kind":"append_lesson","summary":"Appended entry \"M3 command-mode freshness checkpoint\" to STATUS.md","payload":{"heading":"M3 command-mode freshness checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T09:47:05.082Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:47:12.410Z","kind":"append_lesson","summary":"Appended entry \"M3 command-mode freshness\" to LESSONS.md","payload":{"heading":"M3 command-mode freshness","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:47:12.410Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:49:56.335Z","kind":"task_update","summary":"Updated 1 task line(s): Detect same-size/same-mtime content changes or document/implement a hash strategy","payload":{"matched":["Detect same-size/same-mtime content changes or document/implement a hash strategy"]}}
+{"ts":"2026-07-02T09:49:56.335Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:49:56.335Z","kind":"current_task","summary":"Current task -> \"Validate/review same-size/same-mtime checkpoint and update STATUS/LESSONS\"","payload":{"currentTask":"Validate/review same-size/same-mtime checkpoint and update STATUS/LESSONS"}}
+{"ts":"2026-07-02T09:50:05.903Z","kind":"append_lesson","summary":"Appended entry \"M3 same-size/same-mtime hash freshness checkpoint\" to STATUS.md","payload":{"heading":"M3 same-size/same-mtime hash freshness checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T09:50:05.903Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:50:15.143Z","kind":"append_lesson","summary":"Appended entry \"M3 same-size same-mtime hashing\" to LESSONS.md","payload":{"heading":"M3 same-size same-mtime hashing","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:50:15.143Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:51:48.334Z","kind":"append_lesson","summary":"Appended entry \"M3 same-size/same-mtime coverage strengthened\" to STATUS.md","payload":{"heading":"M3 same-size/same-mtime coverage strengthened","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T09:51:48.334Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T09:51:56.951Z","kind":"append_lesson","summary":"Appended entry \"M3 same-size same-mtime coverage\" to LESSONS.md","payload":{"heading":"M3 same-size same-mtime coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T09:51:56.951Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:07:56.879Z","kind":"append_lesson","summary":"Appended entry \"M3 same-size/same-mtime blocker resolved\" to STATUS.md","payload":{"heading":"M3 same-size/same-mtime blocker resolved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T13:08:05.185Z","kind":"append_lesson","summary":"Appended entry \"M3 metadata hash-read failures\" to LESSONS.md","payload":{"heading":"M3 metadata hash-read failures","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T13:08:30.665Z","kind":"current_task","summary":"Current task -> \"Normalize extension casing and unify indexer/code-map language tables\"","payload":{"currentTask":"Normalize extension casing and unify indexer/code-map language tables"}}
+{"ts":"2026-07-02T13:19:01.016Z","kind":"task_update","summary":"Updated 1 task line(s): Normalize extension casing and unify indexer/code-map language tables","payload":{"matched":["Normalize extension casing and unify indexer/code-map language tables"]}}
+{"ts":"2026-07-02T13:19:01.016Z","kind":"current_task","summary":"Current task -> \"Invalidate provider config cache on expanded openbuff.d fragment changes\"","payload":{"currentTask":"Invalidate provider config cache on expanded openbuff.d fragment changes"}}
+{"ts":"2026-07-02T13:19:13.246Z","kind":"append_lesson","summary":"Appended entry \"M3 extension casing/language-table checkpoint complete\" to STATUS.md","payload":{"heading":"M3 extension casing/language-table checkpoint complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T13:19:22.625Z","kind":"append_lesson","summary":"Appended entry \"M3 extension tables and public exports\" to LESSONS.md","payload":{"heading":"M3 extension tables and public exports","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T13:31:04.346Z","kind":"append_lesson","summary":"Appended entry \"Provider config cache checkpoint\" to STATUS.md","payload":{"heading":"Provider config cache checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T13:31:04.346Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:31:16.805Z","kind":"append_lesson","summary":"Appended entry \"Provider config fragment cache invalidation\" to LESSONS.md","payload":{"heading":"Provider config fragment cache invalidation","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T13:31:16.805Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:31:46.990Z","kind":"task_update","summary":"Updated 1 task line(s): Invalidate provider config cache on expanded `openbuff.d` fragment changes","payload":{"matched":["Invalidate provider config cache on expanded `openbuff.d` fragment changes"]}}
+{"ts":"2026-07-02T13:31:46.990Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:31:46.990Z","kind":"current_task","summary":"Current task -> \"Preserve/recover background job read offsets without duplicating historical output\"","payload":{"currentTask":"Preserve/recover background job read offsets without duplicating historical output"}}
+{"ts":"2026-07-02T13:46:33.906Z","kind":"task_update","summary":"Updated 1 task line(s): Preserve/recover background job read offsets without duplicating historical output","payload":{"matched":["Preserve/recover background job read offsets without duplicating historical output"]}}
+{"ts":"2026-07-02T13:46:33.906Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:46:33.906Z","kind":"current_task","summary":"Current task -> \"Rework gate/reviewer reuse only as needed to avoid stale local-file validation; avoid hosted trust framing\"","payload":{"currentTask":"Rework gate/reviewer reuse only as needed to avoid stale local-file validation; avoid hosted trust framing"}}
+{"ts":"2026-07-02T13:46:54.607Z","kind":"append_lesson","summary":"Appended entry \"Background job read-offset checkpoint\" to STATUS.md","payload":{"heading":"Background job read-offset checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T13:46:54.607Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:47:15.909Z","kind":"append_lesson","summary":"Appended entry \"Recovered background job offsets\" to LESSONS.md","payload":{"heading":"Recovered background job offsets","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T13:47:15.909Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:51:21.728Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
+{"ts":"2026-07-02T13:51:37.359Z","kind":"task_update","summary":"Updated 1 task line(s): Rework gate/reviewer reuse only as needed","payload":{"matched":["Rework gate/reviewer reuse only as needed"]}}
+{"ts":"2026-07-02T13:51:37.359Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
+{"ts":"2026-07-02T13:51:47.868Z","kind":"append_lesson","summary":"Appended entry \"M3 gate/reviewer reuse freshness checkpoint\" to STATUS.md","payload":{"heading":"M3 gate/reviewer reuse freshness checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T13:51:47.868Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T13:52:02.959Z","kind":"append_lesson","summary":"Appended entry \"Gate/reviewer reuse freshness\" to LESSONS.md","payload":{"heading":"Gate/reviewer reuse freshness","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T13:52:02.959Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T14:01:07.367Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker resolved — static-review-only reviewer join\" to STATUS.md","payload":{"heading":"Reviewer blocker resolved — static-review-only reviewer join","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T14:01:07.490Z","kind":"append_lesson","summary":"Appended entry \"Static-review-only reviewer join lesson\" to LESSONS.md","payload":{"heading":"Static-review-only reviewer join lesson","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T14:04:18.697Z","kind":"task_update","summary":"Updated 1 task line(s): M4 — Registry, schema, API/ABI alignment","payload":{"matched":["M4 — Registry, schema, API/ABI alignment"]}}
+{"ts":"2026-07-02T14:04:18.697Z","kind":"append_lesson","summary":"Appended entry \"M4 scoped — local tool/schema/config contract surfaces\" to STATUS.md","payload":{"heading":"M4 scoped — local tool/schema/config contract surfaces","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T14:04:18.716Z","kind":"append_lesson","summary":"Appended entry \"M4 scoping lesson — distinguish canonical registry from executable surfaces\" to LESSONS.md","payload":{"heading":"M4 scoping lesson — distinguish canonical registry from executable surfaces","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T14:04:18.724Z","kind":"current_task","summary":"Current task -> \"M4 — Local tool/schema/config contract alignment\"","payload":{"currentTask":"M4 — Local tool/schema/config contract alignment"}}
+{"ts":"2026-07-02T14:08:37.422Z","kind":"task_update","summary":"Updated 1 task line(s): Make `hasNoValidation` public option match runtime gates","payload":{"matched":["Make `hasNoValidation` public option match runtime gates"]}}
+{"ts":"2026-07-02T14:08:37.422Z","kind":"current_task","summary":"Current task -> \"M4 — preserve setup config merge options\"","payload":{"currentTask":"M4 — preserve setup config merge options"}}
+{"ts":"2026-07-02T14:08:49.867Z","kind":"append_lesson","summary":"Appended entry \"M4 first-batch validation — read_docs and hasNoValidation\" to STATUS.md","payload":{"heading":"M4 first-batch validation — read_docs and hasNoValidation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T14:08:49.867Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T14:08:59.459Z","kind":"append_lesson","summary":"Appended entry \"M4 hasNoValidation serialized handleSteps fallback\" to LESSONS.md","payload":{"heading":"M4 hasNoValidation serialized handleSteps fallback","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T14:08:59.459Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T14:11:24.063Z","kind":"task_update","summary":"Updated 2 task line(s): Preserve `/setup` fields such as `failoverModels` and `maxAgentSteps` during config merges, Fix read-docs default description/schema mismatch","payload":{"matched":["Preserve `/setup` fields such as `failoverModels` and `maxAgentSteps` during config merges","Fix read-docs default description/schema mismatch"]}}
+{"ts":"2026-07-02T14:11:24.063Z","kind":"current_task","summary":"Current task -> \"M4 — registry/tool-surface consistency verification\"","payload":{"currentTask":"M4 — registry/tool-surface consistency verification"}}
+{"ts":"2026-07-02T14:11:34.236Z","kind":"append_lesson","summary":"Appended entry \"M4 config merge preservation checkpoint\" to STATUS.md","payload":{"heading":"M4 config merge preservation checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T14:11:34.237Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T15:21:47.954Z","kind":"append_lesson","summary":"Appended entry \"Config merge checkpoint\" to STATUS.md","payload":{"heading":"Config merge checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T15:21:47.954Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T15:21:58.761Z","kind":"append_lesson","summary":"Appended entry \"Config merge checkpoint\" to LESSONS.md","payload":{"heading":"Config merge checkpoint","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T15:21:58.761Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:02:24.693Z","kind":"append_lesson","summary":"Appended entry \"Config Merge Checkpoint\" to STATUS.md","payload":{"heading":"Config Merge Checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:02:24.694Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:02:36.986Z","kind":"append_lesson","summary":"Appended entry \"Reviewer Loop Resolution\" to LESSONS.md","payload":{"heading":"Reviewer Loop Resolution","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:02:36.986Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:09:29.423Z","kind":"append_lesson","summary":"Appended entry \"M4 registry drift checkpoint — read_docs generated type descriptions\" to STATUS.md","payload":{"heading":"M4 registry drift checkpoint — read_docs generated type descriptions","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:09:29.423Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:09:43.269Z","kind":"append_lesson","summary":"Appended entry \"Generated tool type drift\" to LESSONS.md","payload":{"heading":"Generated tool type drift","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:09:43.269Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:14:24.204Z","kind":"append_lesson","summary":"Appended entry \"M4 SDK Dispatch Helper Regression Completed\" to STATUS.md","payload":{"heading":"M4 SDK Dispatch Helper Regression Completed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:14:24.204Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:14:36.893Z","kind":"append_lesson","summary":"Appended entry \"SDK tool override surface\" to LESSONS.md","payload":{"heading":"SDK tool override surface","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:14:36.893Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:18:18.703Z","kind":"append_lesson","summary":"Appended entry \"Reviewer Blocker Resolved\" to STATUS.md","payload":{"heading":"Reviewer Blocker Resolved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:18:18.703Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:27:24.679Z","kind":"append_lesson","summary":"Appended entry \"M4 validation update\" to STATUS.md","payload":{"heading":"M4 validation update","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:27:24.679Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:27:38.513Z","kind":"append_lesson","summary":"Appended entry \"M4 generated tool declarations\" to LESSONS.md","payload":{"heading":"M4 generated tool declarations","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:27:38.513Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:33:18.653Z","kind":"append_lesson","summary":"Appended entry \"Broader validation results\" to STATUS.md","payload":{"heading":"Broader validation results","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:33:18.653Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:33:33.122Z","kind":"append_lesson","summary":"Appended entry \"Broader validation gotcha\" to LESSONS.md","payload":{"heading":"Broader validation gotcha","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:33:33.122Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:37:06.125Z","kind":"append_lesson","summary":"Appended entry \"Agent-runtime structural-read fix\" to STATUS.md","payload":{"heading":"Agent-runtime structural-read fix","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:37:06.126Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:37:18.296Z","kind":"append_lesson","summary":"Appended entry \"read_outline direct handler tests\" to LESSONS.md","payload":{"heading":"read_outline direct handler tests","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:37:18.296Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:48:55.955Z","kind":"append_lesson","summary":"Appended entry \"Set Output Prompt Tool Availability Alignment\" to STATUS.md","payload":{"heading":"Set Output Prompt Tool Availability Alignment","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:48:55.955Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:49:08.847Z","kind":"append_lesson","summary":"Appended entry \"Set Output Prompt Availability Gotcha\" to LESSONS.md","payload":{"heading":"Set Output Prompt Availability Gotcha","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:49:08.847Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:57:54.383Z","kind":"append_lesson","summary":"Appended entry \"M4 env/config docs validation\" to STATUS.md","payload":{"heading":"M4 env/config docs validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T16:57:54.383Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T16:58:09.118Z","kind":"append_lesson","summary":"Appended entry \"M4 env compatibility docs gotcha\" to LESSONS.md","payload":{"heading":"M4 env compatibility docs gotcha","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T16:58:09.118Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T17:01:17.617Z","kind":"task_update","summary":"Updated 5 task line(s): Generate/verify consistency among, Remove unsupported SDK-local advertised tools, Fix stale public tool aliases, Align editor/support-agent prompts, Update env/config/migration docs","payload":{"matched":["Generate/verify consistency among","Remove unsupported SDK-local advertised tools","Fix stale public tool aliases","Align editor/support-agent prompts","Update env/config/migration docs"]}}
+{"ts":"2026-07-02T17:01:17.617Z","kind":"append_lesson","summary":"Appended entry \"M4 closure and M5 start\" to PLAN.md","payload":{"heading":"M4 closure and M5 start","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T17:01:17.617Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T17:01:17.617Z","kind":"current_task","summary":"Current task -> \"M5 — BYOK provider and MCP integration hygiene\"","payload":{"currentTask":"M5 — BYOK provider and MCP integration hygiene"}}
+{"ts":"2026-07-02T17:11:49.554Z","kind":"append_lesson","summary":"Appended entry \"M5 provider/MCP hygiene focused validation\" to STATUS.md","payload":{"heading":"M5 provider/MCP hygiene focused validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T17:11:49.555Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T17:14:34.805Z","kind":"append_lesson","summary":"Appended entry \"M5 MCP duplicate-case cache-key blocker resolved\" to STATUS.md","payload":{"heading":"M5 MCP duplicate-case cache-key blocker resolved","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T17:14:34.805Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T17:22:28.270Z","kind":"append_lesson","summary":"Appended entry \"M5 runtime cache-debug snapshot redaction validation\" to STATUS.md","payload":{"heading":"M5 runtime cache-debug snapshot redaction validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T17:22:28.270Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T17:22:44.637Z","kind":"append_lesson","summary":"Appended entry \"M5 runtime cache-debug snapshot redaction\" to LESSONS.md","payload":{"heading":"M5 runtime cache-debug snapshot redaction","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T17:22:44.637Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:25:31.099Z","kind":"append_lesson","summary":"Appended entry \"M5 provider discovery auth completed\" to STATUS.md","payload":{"heading":"M5 provider discovery auth completed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:25:31.099Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:25:45.750Z","kind":"append_lesson","summary":"Appended entry \"Provider discovery auth configurability\" to LESSONS.md","payload":{"heading":"Provider discovery auth configurability","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T18:25:45.750Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:29:09.956Z","kind":"append_lesson","summary":"Appended entry \"M5 MCP cache hygiene validation\" to STATUS.md","payload":{"heading":"M5 MCP cache hygiene validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:29:09.956Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:29:09.961Z","kind":"append_lesson","summary":"Appended entry \"M5 MCP cache hygiene regression gate\" to LESSONS.md","payload":{"heading":"M5 MCP cache hygiene regression gate","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T18:29:09.961Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:30:15.082Z","kind":"append_lesson","summary":"Appended entry \"M5 combined validation hooks passed\" to STATUS.md","payload":{"heading":"M5 combined validation hooks passed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:30:15.082Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:30:49.566Z","kind":"task_update","summary":"Updated 6 task line(s): Reclassify provider/MCP findings as optional local integration correctness/secret-hygiene, Do not blanket-block cross-origin/custom provider/model-discovery endpoints, Verify whether credentials are sent only to user-configured or otherwise expected endpoints, If automatic discovery can send credentials to ambiguous endpoints, Include non-secret endpoint/header identity in remote MCP cache keys, Redact provider keys, MCP Authorization headers, prompts, and cache snapshots","payload":{"matched":["Reclassify provider/MCP findings as optional local integration correctness/secret-hygiene","Do not blanket-block cross-origin/custom provider/model-discovery endpoints","Verify whether credentials are sent only to user-configured or otherwise expected endpoints","If automatic discovery can send credentials to ambiguous endpoints","Include non-secret endpoint/header identity in remote MCP cache keys","Redact provider keys, MCP Authorization headers, prompts, and cache snapshots"]}}
+{"ts":"2026-07-02T18:30:49.566Z","kind":"append_lesson","summary":"Appended entry \"M5 complete; M6 next\" to PLAN.md","payload":{"heading":"M5 complete; M6 next","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T18:30:49.566Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:30:49.566Z","kind":"current_task","summary":"Current task -> \"M6 — Error handling, diagnostics, and bounded local resource use\"","payload":{"currentTask":"M6 — Error handling, diagnostics, and bounded local resource use"}}
+{"ts":"2026-07-02T18:31:37.840Z","kind":"append_lesson","summary":"Appended entry \"M6 scoping started\" to STATUS.md","payload":{"heading":"M6 scoping started","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:31:37.840Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:33:36.246Z","kind":"append_lesson","summary":"Appended entry \"M6 first batch selected\" to STATUS.md","payload":{"heading":"M6 first batch selected","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:33:36.246Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:38:40.328Z","kind":"append_lesson","summary":"Appended entry \"M6 bounded XML parser batch complete\" to STATUS.md","payload":{"heading":"M6 bounded XML parser batch complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:38:40.328Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:38:40.411Z","kind":"append_lesson","summary":"Appended entry \"M6 streamed XML parser error surfacing\" to LESSONS.md","payload":{"heading":"M6 streamed XML parser error surfacing","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T18:38:40.411Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:38:40.414Z","kind":"task_update","summary":"Updated 1 task line(s): Bound unterminated streamed XML/tool-call buffers","payload":{"matched":["Bound unterminated streamed XML/tool-call buffers"]}}
+{"ts":"2026-07-02T18:38:40.414Z","kind":"append_lesson","summary":"Appended entry \"M6 partial completion\" to PLAN.md","payload":{"heading":"M6 partial completion","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T18:38:40.414Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:38:40.414Z","kind":"current_task","summary":"Current task -> \"M6 next diagnostics/resource-use batch\"","payload":{"currentTask":"M6 next diagnostics/resource-use batch"}}
+{"ts":"2026-07-02T18:39:38.781Z","kind":"append_lesson","summary":"Appended entry \"M6 combined validation hooks passed\" to STATUS.md","payload":{"heading":"M6 combined validation hooks passed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:39:38.781Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:40:11.608Z","kind":"append_lesson","summary":"Appended entry \"M6 malformed tool input scoping started\" to STATUS.md","payload":{"heading":"M6 malformed tool input scoping started","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:40:11.608Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:40:32.792Z","kind":"append_lesson","summary":"Appended entry \"M6 malformed tool input diagnostics\" to STATUS.md","payload":{"heading":"M6 malformed tool input diagnostics","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:40:32.792Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:41:42.490Z","kind":"append_lesson","summary":"Appended entry \"M6 malformed input scope\" to STATUS.md","payload":{"heading":"M6 malformed input scope","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:41:42.490Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:45:08.571Z","kind":"append_lesson","summary":"Appended entry \"M6 malformed input diagnostics result\" to STATUS.md","payload":{"heading":"M6 malformed input diagnostics result","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:45:08.575Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:45:23.077Z","kind":"append_lesson","summary":"Appended entry \"M6 malformed STEP_TEXT tool calls\" to LESSONS.md","payload":{"heading":"M6 malformed STEP_TEXT tool calls","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T18:45:23.077Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:46:38.665Z","kind":"append_lesson","summary":"Appended entry \"M6 malformed input validation complete\" to STATUS.md","payload":{"heading":"M6 malformed input validation complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:46:38.665Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:47:12.809Z","kind":"append_lesson","summary":"Appended entry \"M6 code-map/indexer diagnostics start\" to STATUS.md","payload":{"heading":"M6 code-map/indexer diagnostics start","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:47:12.809Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:55:18.730Z","kind":"append_lesson","summary":"Appended entry \"M6 parse diagnostics result\" to STATUS.md","payload":{"heading":"M6 parse diagnostics result","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T18:55:18.730Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T18:55:36.694Z","kind":"append_lesson","summary":"Appended entry \"M6 parse diagnostics lesson\" to LESSONS.md","payload":{"heading":"M6 parse diagnostics lesson","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T18:55:36.694Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:08:02.930Z","kind":"task_update","summary":"Updated 2 task line(s): Surface tree-sitter parse failures in index/code-map diagnostics, Return structured errors for malformed tool input parse failures","payload":{"matched":["Surface tree-sitter parse failures in index/code-map diagnostics","Return structured errors for malformed tool input parse failures"]}}
+{"ts":"2026-07-02T19:08:02.930Z","kind":"append_lesson","summary":"Appended entry \"M6 parse diagnostics checkpoint\" to PLAN.md","payload":{"heading":"M6 parse diagnostics checkpoint","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T19:08:02.930Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:08:02.930Z","kind":"current_task","summary":"Current task -> \"M6 — select next incomplete diagnostics/resource-bound batch\"","payload":{"currentTask":"M6 — select next incomplete diagnostics/resource-bound batch"}}
+{"ts":"2026-07-02T19:09:19.342Z","kind":"append_lesson","summary":"Appended entry \"M6 format-value hardening start\" to STATUS.md","payload":{"heading":"M6 format-value hardening start","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:09:19.342Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:12:36.405Z","kind":"append_lesson","summary":"Appended entry \"M6 format-value hardening result\" to STATUS.md","payload":{"heading":"M6 format-value hardening result","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:12:36.405Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:12:48.313Z","kind":"append_lesson","summary":"Appended entry \"M6 format-value error formatting\" to LESSONS.md","payload":{"heading":"M6 format-value error formatting","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:12:48.313Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:17:17.489Z","kind":"append_lesson","summary":"Appended entry \"M6 Model Discovery Timeout Checkpoint\" to STATUS.md","payload":{"heading":"M6 Model Discovery Timeout Checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:17:17.489Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:17:27.813Z","kind":"append_lesson","summary":"Appended entry \"Model Discovery Timeout Composition\" to LESSONS.md","payload":{"heading":"Model Discovery Timeout Composition","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:17:27.813Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:18:03.742Z","kind":"task_update","summary":"Updated 1 task line(s): Add timeout/cancellation to model discovery fetches and eval final-check commands","payload":{"matched":["Add timeout/cancellation to model discovery fetches and eval final-check commands"]}}
+{"ts":"2026-07-02T19:18:03.742Z","kind":"append_lesson","summary":"Appended entry \"M6 Timeout Task Completed\" to PLAN.md","payload":{"heading":"M6 Timeout Task Completed","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T19:18:03.742Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:18:03.742Z","kind":"current_task","summary":"Current task -> \"Scope initCommand parsing semantics and target tests\"","payload":{"currentTask":"Scope initCommand parsing semantics and target tests"}}
+{"ts":"2026-07-02T19:23:22.219Z","kind":"append_lesson","summary":"Appended entry \"M6 InitCommand Semantics Checkpoint\" to STATUS.md","payload":{"heading":"M6 InitCommand Semantics Checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:23:22.219Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:23:35.986Z","kind":"append_lesson","summary":"Appended entry \"InitCommand Shell Semantics\" to LESSONS.md","payload":{"heading":"InitCommand Shell Semantics","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:23:35.986Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:23:48.106Z","kind":"task_update","summary":"Updated 1 task line(s): Fix `initCommand` parsing semantics","payload":{"matched":["Fix `initCommand` parsing semantics"]}}
+{"ts":"2026-07-02T19:23:48.106Z","kind":"append_lesson","summary":"Appended entry \"M6 InitCommand Task Completed\" to PLAN.md","payload":{"heading":"M6 InitCommand Task Completed","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T19:23:48.106Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:23:48.106Z","kind":"current_task","summary":"Current task -> \"Scope eval per-agent error summarization and target tests\"","payload":{"currentTask":"Scope eval per-agent error summarization and target tests"}}
+{"ts":"2026-07-02T19:29:36.194Z","kind":"append_lesson","summary":"Appended entry \"M6 eval per-agent error summarization completed\" to STATUS.md","payload":{"heading":"M6 eval per-agent error summarization completed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:29:36.194Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:29:48.466Z","kind":"append_lesson","summary":"Appended entry \"BuffBench per-agent error summarization\" to LESSONS.md","payload":{"heading":"BuffBench per-agent error summarization","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:29:48.466Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:30:26.384Z","kind":"task_update","summary":"Updated 2 task line(s): Harden `format-value` and stream cleanup, Improve per-agent eval error summarization","payload":{"matched":["Harden `format-value` and stream cleanup","Improve per-agent eval error summarization"]}}
+{"ts":"2026-07-02T19:30:26.384Z","kind":"append_lesson","summary":"Appended entry \"M6 completion reconciliation\" to PLAN.md","payload":{"heading":"M6 completion reconciliation","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T19:30:26.384Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:30:26.384Z","kind":"current_task","summary":"Current task -> \"M7 docs/hosted-product wording audit\"","payload":{"currentTask":"M7 docs/hosted-product wording audit"}}
+{"ts":"2026-07-02T19:35:08.101Z","kind":"append_lesson","summary":"Appended entry \"M7 hosted-product wording audit completed\" to STATUS.md","payload":{"heading":"M7 hosted-product wording audit completed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:35:08.101Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:35:21.193Z","kind":"append_lesson","summary":"Appended entry \"M7 wording audit classification\" to LESSONS.md","payload":{"heading":"M7 wording audit classification","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:35:21.193Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:38:54.588Z","kind":"append_lesson","summary":"Appended entry \"M8 plan-sharding repeated-agent counting completed\" to STATUS.md","payload":{"heading":"M8 plan-sharding repeated-agent counting completed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:38:54.588Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:39:08.677Z","kind":"append_lesson","summary":"Appended entry \"M8 repeated spawn_agents counting\" to LESSONS.md","payload":{"heading":"M8 repeated spawn_agents counting","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:39:08.677Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:56:34.369Z","kind":"append_lesson","summary":"Appended entry \"M8 planner-output coverage validation\" to STATUS.md","payload":{"heading":"M8 planner-output coverage validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:56:34.369Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:56:46.278Z","kind":"append_lesson","summary":"Appended entry \"M8 planner-output coverage live gate\" to LESSONS.md","payload":{"heading":"M8 planner-output coverage live gate","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:56:46.278Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:57:49.530Z","kind":"append_lesson","summary":"Appended entry \"Validation checkpoint\" to STATUS.md","payload":{"heading":"Validation checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T19:57:49.530Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T19:58:01.007Z","kind":"append_lesson","summary":"Appended entry \"M8 eval validation closure\" to LESSONS.md","payload":{"heading":"M8 eval validation closure","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T19:58:01.007Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:01:20.460Z","kind":"append_lesson","summary":"Appended entry \"M8 judge spec parity completed\" to STATUS.md","payload":{"heading":"M8 judge spec parity completed","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:01:20.460Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:01:34.740Z","kind":"append_lesson","summary":"Appended entry \"M8 judge spec parity\" to LESSONS.md","payload":{"heading":"M8 judge spec parity","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T20:01:34.740Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:07:35.619Z","kind":"append_lesson","summary":"Appended entry \"M8 Eval Helper Registry Smoke Coverage\" to STATUS.md","payload":{"heading":"M8 Eval Helper Registry Smoke Coverage","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:07:35.619Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:07:49.331Z","kind":"append_lesson","summary":"Appended entry \"M8 Eval Helper Registry Smoke Coverage\" to LESSONS.md","payload":{"heading":"M8 Eval Helper Registry Smoke Coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T20:07:49.331Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:08:42.385Z","kind":"append_lesson","summary":"Appended entry \"M8 Eval Helper Registry Hook Result\" to STATUS.md","payload":{"heading":"M8 Eval Helper Registry Hook Result","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:08:42.385Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:40:09.350Z","kind":"task_update","summary":"Updated 13 task line(s): Search docs and prompts for hosted-product wording, Classify each hit as, Update stale docs to consistently say Openbuff is local-first, Remove unnecessary dead/stale code only after verifying, Keep intentional compatibility aliases documented, Run existing formatting/lint commands for touched docs/code, Add a lightweight docs drift check, Make plan-sharding default prompt exercise broad-audit minimum shard gates, Count repeated `spawn_agents` agent types correctly in traces, Validate planner-output coverage rather than prompt-token presence, Include generated task `spec` in judge rubric and scoring parity tests, Add registry smoke test for eval helper agents/tools against current local agent registry, Fix run summary filtering so per-agent outcomes remain visible when one agent errors","payload":{"matched":["Search docs and prompts for hosted-product wording","Classify each hit as","Update stale docs to consistently say Openbuff is local-first","Remove unnecessary dead/stale code only after verifying","Keep intentional compatibility aliases documented","Run existing formatting/lint commands for touched docs/code","Add a lightweight docs drift check","Make plan-sharding default prompt exercise broad-audit minimum shard gates","Count repeated `spawn_agents` agent types correctly in traces","Validate planner-output coverage rather than prompt-token presence","Include generated task `spec` in judge rubric and scoring parity tests","Add registry smoke test for eval helper agents/tools against current local agent registry","Fix run summary filtering so per-agent outcomes remain visible when one agent errors"]}}
+{"ts":"2026-07-02T20:40:09.350Z","kind":"append_lesson","summary":"Appended entry \"M7/M8 reconciliation; M9 next\" to PLAN.md","payload":{"heading":"M7/M8 reconciliation; M9 next","artifact":"PLAN.md"}}
+{"ts":"2026-07-02T20:40:09.350Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:40:09.350Z","kind":"current_task","summary":"Current task -> \"M9 final local-model closure\"","payload":{"currentTask":"M9 final local-model closure"}}
+{"ts":"2026-07-02T20:41:17.050Z","kind":"append_lesson","summary":"Appended entry \"M9 final closure started\" to STATUS.md","payload":{"heading":"M9 final closure started","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:41:17.050Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:41:42.276Z","kind":"append_lesson","summary":"Appended entry \"M9 checkpoint decision\" to LESSONS.md","payload":{"heading":"M9 checkpoint decision","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T20:41:42.276Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:43:23.683Z","kind":"append_lesson","summary":"Appended entry \"M9 scope — inputs and remaining tracker debt\" to STATUS.md","payload":{"heading":"M9 scope — inputs and remaining tracker debt","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:43:23.683Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:46:26.149Z","kind":"append_lesson","summary":"Appended entry \"M9 closure classifications complete\" to STATUS.md","payload":{"heading":"M9 closure classifications complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:46:26.149Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:57:49.225Z","kind":"append_lesson","summary":"Appended entry \"M9 final closure artifacts complete\" to STATUS.md","payload":{"heading":"M9 final closure artifacts complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T20:57:49.225Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T20:58:08.013Z","kind":"append_lesson","summary":"Appended entry \"M9 final closure lessons\" to LESSONS.md","payload":{"heading":"M9 final closure lessons","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T20:58:08.013Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T21:02:09.659Z","kind":"append_lesson","summary":"Appended entry \"M9 reviewer blocker resolved — memory-drift untracked knowledge coverage\" to STATUS.md","payload":{"heading":"M9 reviewer blocker resolved — memory-drift untracked knowledge coverage","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T21:02:09.660Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T21:02:24.314Z","kind":"append_lesson","summary":"Appended entry \"M9 memory-drift staleness coverage gotcha\" to LESSONS.md","payload":{"heading":"M9 memory-drift staleness coverage gotcha","artifact":"LESSONS.md"}}
+{"ts":"2026-07-02T21:02:24.314Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

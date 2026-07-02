@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { execFileSync } from 'child_process'
+import { execFileSync, execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
@@ -66,6 +66,17 @@ async function executeGitCommandWithRetry(
   }
 
   throw lastError || new Error('Git command failed after all retries')
+}
+
+export function executeInitCommand(
+  initCommand: string,
+  repoDir: string,
+): void {
+  execSync(initCommand, {
+    cwd: repoDir,
+    stdio: 'inherit',
+    timeout: 240_000,
+  })
 }
 
 export async function setupTestRepo(
@@ -256,12 +267,7 @@ export async function setupTestRepo(
     try {
       if (initCommand) {
         console.log(`Executing initialization command: ${initCommand}`)
-        const [command, ...args] = initCommand.split(' ')
-        execFileSync(command, args, {
-          cwd: repoDir,
-          stdio: 'inherit',
-          timeout: 240_000,
-        })
+        executeInitCommand(initCommand, repoDir)
         console.log('Initialization command completed successfully')
       }
     } catch (error) {

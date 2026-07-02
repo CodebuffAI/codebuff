@@ -1,7 +1,11 @@
-import type { OpenbuffClient} from '@openbuff/sdk';
-import { type AgentDefinition } from '@openbuff/sdk'
+import { type AgentDefinition, type OpenbuffClient } from '@openbuff/sdk'
 
 import { PLACEHOLDER } from '../../agents/types/secret-agent-definition'
+import codeSearcherDef from '../../agents/file-explorer/code-searcher'
+import directoryListerDef from '../../agents/file-explorer/directory-lister'
+import fileListerDef from '../../agents/file-explorer/file-lister'
+import filePickerDef from '../../agents/file-explorer/file-picker'
+import globMatcherDef from '../../agents/file-explorer/glob-matcher'
 import fileExplorerDef from '../../agents-graveyard/file-explorer/file-explorer'
 import findAllReferencerDef from '../../agents-graveyard/file-explorer/find-all-referencer'
 
@@ -107,7 +111,7 @@ export async function generateEvalTask({
     commitMessage?: string
     repoPath: string
   }
-  agentDefinitions?: any[]
+  agentDefinitions?: AgentDefinition[]
 }): Promise<{
   id: string
   reasoning: string
@@ -121,6 +125,11 @@ export async function generateEvalTask({
     evalTaskGeneratorAgentDef,
     fileExplorerDef,
     findAllReferencerDef,
+    filePickerDef,
+    fileListerDef,
+    codeSearcherDef,
+    directoryListerDef,
+    globMatcherDef,
     ...(agentDefinitions || []),
   ]
 

@@ -1,15 +1,19 @@
 
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
+import * as mcpClientModule from '@codebuff/common/mcp/client'
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import z from 'zod/v4'
 
 import { OpenbuffClient } from '../client'
+import { getCustomToolDefinition } from '../custom-tool'
 import * as databaseModule from '../impl/database'
 
 import type { OpenbuffClientOptions } from '../run'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
+import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
@@ -101,6 +105,413 @@ describe('OpenbuffClient handleEvent / handleStreamChunk', () => {
     expect(await fs.readFile('/repo/.agents/sessions/test-session/PLAN.md', 'utf-8')).toBe(
       '# Plan\n\n- Write the plan artifact\n',
     )
+  })
+
+  it('validates overridden native client tool inputs before calling the override', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let globResult: ToolResultOutput[] | undefined
+    let overrideCalled = false
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (
+        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
+      ) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(
+          getStubProjectFileContext(),
+        )
+
+        globResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'glob',
+            input: {},
+          })
+        ).output
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      overrideTools: {
+        glob: async () => {
+          overrideCalled = true
+          return [{ type: 'json', value: { files: [] } }]
+        },
+      },
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'glob files',
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(overrideCalled).toBe(false)
+    const firstOutput = globResult?.[0]
+    expect(firstOutput?.type).toBe('json')
+    if (firstOutput?.type !== 'json') {
+      throw new Error('Expected glob override validation to return a JSON error')
+    }
+    expect(firstOutput.value).toMatchObject({
+      errorMessage: expect.stringContaining('Invalid input'),
+    })
+  })
+
+  it('allows overrideTools to handle published tools that the SDK does not implement natively', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let readDocsResult: ToolResultOutput[] | undefined
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (
+        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
+      ) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(
+          getStubProjectFileContext(),
+        )
+
+        readDocsResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'read_docs',
+            input: {
+              libraryTitle: 'React',
+              topic: 'hooks',
+            },
+          })
+        ).output
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      overrideTools: {
+        read_docs: async () => [
+          {
+            type: 'json',
+            value: { docs: 'override docs' },
+          },
+        ],
+      },
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'read docs',
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(readDocsResult).toEqual([
+      {
+        type: 'json',
+        value: { docs: 'override docs' },
+      },
+    ])
+  })
+
+  it('returns the SDK unsupported-tool error for published tools without native handlers', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let readDocsResult: ToolResultOutput[] | undefined
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (
+        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
+      ) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(
+          getStubProjectFileContext(),
+        )
+
+        readDocsResult = (
+          await requestToolCall({
+            userInputId: promptId,
+            toolName: 'read_docs',
+            input: {
+              libraryTitle: 'React',
+              topic: 'hooks',
+            },
+          })
+        ).output
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'read docs',
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(readDocsResult).toEqual([
+      {
+        type: 'json',
+        value: {
+          errorMessage:
+            'Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: read_docs',
+        },
+      },
+    ])
+  })
+
+  it('passes the run abort signal to custom tool execution context', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const controller = new AbortController()
+    let observedSignal: AbortSignal | undefined
+    const customTool = getCustomToolDefinition({
+      toolName: 'observe_signal',
+      inputSchema: z.object({}),
+      description: 'Observes the run abort signal',
+      execute: async (_input, context) => {
+        observedSignal = context?.signal
+        return [{ type: 'json', value: { ok: true } }]
+      },
+    })
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (
+        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
+      ) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(
+          getStubProjectFileContext(),
+        )
+
+        await requestToolCall({
+          userInputId: promptId,
+          toolName: 'observe_signal',
+          input: {},
+        })
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+      customToolDefinitions: [customTool],
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'use custom tool',
+      signal: controller.signal,
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(observedSignal).toBe(controller.signal)
+  })
+
+  it('passes the run abort signal to MCP tool execution options', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const controller = new AbortController()
+    const mcpConfig: MCPConfig = {
+      type: 'stdio',
+      command: 'fake-mcp-server',
+      args: [],
+      env: {},
+    }
+    let observedSignal: AbortSignal | undefined
+
+    spyOn(mcpClientModule, 'getMCPClient').mockResolvedValue('mcp-client-id')
+    spyOn(mcpClientModule, 'callMCPTool').mockImplementation(
+      async (...args: Parameters<typeof mcpClientModule.callMCPTool>) => {
+        observedSignal = args[3]?.signal
+        return [{ type: 'json', value: { ok: true } }]
+      },
+    )
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (
+        params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
+      ) => {
+        const { requestToolCall, sendAction, promptId } = params
+        const sessionState = getInitialSessionState(
+          getStubProjectFileContext(),
+        )
+
+        await requestToolCall({
+          userInputId: promptId,
+          toolName: 'mcp_tool',
+          input: { value: 'hello' },
+          mcpConfig,
+        })
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new OpenbuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'use mcp tool',
+      signal: controller.signal,
+    })
+
+    expect(result.output.type).toBe('lastMessage')
+    expect(observedSignal).toBe(controller.signal)
   })
 
   it('streams subagent start/finish once and forwards subagent chunks to handleStreamChunk', async () => {

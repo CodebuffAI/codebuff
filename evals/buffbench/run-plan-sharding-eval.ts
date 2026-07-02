@@ -29,8 +29,10 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import { logger } from '../logger'
 import {
   buildCoverageMatrix,
+  buildPlannerOutputCoverage,
   classifyBreadth,
   computePlanShardingSignals,
+  evaluatePlannerOutputCoverage,
   evaluateShardingVerdict,
   evaluateSubsystemEnumeration,
 } from './plan-sharding-signals'
@@ -38,7 +40,7 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const DEFAULT_PROMPT =
-  'Audit this codebase for any feature improvements that can be made. Survey the major subsystems and surface concrete opportunities.'
+  'Audit the whole codebase for feature improvements across agents, sdk, cli, common, evals, docs, and packages. Survey the major subsystems and surface concrete opportunities.'
 
 async function main() {
   const cwd = resolve('.')
@@ -102,13 +104,20 @@ async function main() {
   const signals = computePlanShardingSignals({ events, prompt })
   // Pass `prompt` so the M10.2 minimum-shard gate (layered inside
   // evaluateShardingVerdict) fires for broad-audit prompts in the live eval.
-  const evaluation = evaluateShardingVerdict(signals, prompt)
+  const baseEvaluation = evaluateShardingVerdict(signals, prompt)
 
   // M10.3 coverage matrix + M10.4 subsystem-enumeration guard: diagnostic
   // visibility into which enumerated domains got a shard and which top-level
-  // repo dirs were audited vs. left unenumerated. Non-downgrading (M10.2 is
-  // the hard gate); these surface coverage gaps for the eval report.
+  // repo dirs were audited vs. left unenumerated. Planner-output coverage is
+  // a hard gate: prompt-token presence alone does not prove the planner
+  // synthesized coverage for the domains it was asked to audit.
   const breadth = classifyBreadth(prompt)
+  const evaluation = evaluatePlannerOutputCoverage({
+    evaluation: baseEvaluation,
+    breadth,
+    events,
+  })
+  const plannerOutputCoverage = buildPlannerOutputCoverage({ breadth, events })
   const coverageMatrix = buildCoverageMatrix({ breadth, signals })
   const topLevelDirs = readdirSync(cwd, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
@@ -150,6 +159,21 @@ async function main() {
     if (!coverageMatrix.allCovered) {
       console.log(
         '  Uncovered domains: ' + coverageMatrix.uncoveredDomains.join(', '),
+      )
+    }
+  }
+
+  // M10.3 planner-output coverage summary.
+  if (plannerOutputCoverage.entries.length > 0) {
+    console.log('\nPlanner-output coverage:')
+    for (const entry of plannerOutputCoverage.entries) {
+      console.log(
+        '  - ' + entry.domain + ': ' + (entry.covered ? 'covered' : 'missing'),
+      )
+    }
+    if (!plannerOutputCoverage.allCovered) {
+      console.log(
+        '  Missing domains: ' + plannerOutputCoverage.uncoveredDomains.join(', '),
       )
     }
   }
@@ -196,6 +220,12 @@ async function main() {
     coverageMatrix: {
       entries: coverageMatrix.entries,
       uncoveredDomains: coverageMatrix.uncoveredDomains,
+    },
+    // M10.3 planner-output coverage: domains must appear in planner output,
+    // not merely in the input prompt.
+    plannerOutputCoverage: {
+      entries: plannerOutputCoverage.entries,
+      uncoveredDomains: plannerOutputCoverage.uncoveredDomains,
     },
     // M10.4 subsystem-enumeration guard (SPEC R10.4): audit/scope disposition.
     subsystemEnumeration: {

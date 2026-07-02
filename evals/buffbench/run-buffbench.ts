@@ -11,13 +11,13 @@ import pLimit from 'p-limit'
 
 import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
 import { formatTaskResults } from './format-output'
-import { judgeCommitResult } from './judge'
+import { judgeCommitResult, type JudgingResult } from './judge'
 import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { logger } from '../logger'
 import { analyzeAllTasks } from './meta-analyzer'
 
-import type { AgentEvalResults, EvalDataV2, EvalCommitV2 } from './types'
+import type { AgentEvalResults, EvalDataV2, EvalCommitV2, EvalRun } from './types'
 
 function parseAgentId(agent: string): {
   agentId: string
@@ -37,6 +37,34 @@ function parseAgentId(agent: string): {
     return { agentId: agent, externalAgentType: externalType }
   }
   return { agentId: agent }
+}
+
+function formatUnknownError(error: unknown): string {
+  return error instanceof Error ? `${error.message}\n${error.stack}` : String(error)
+}
+
+function failedJudgingResult(error: string): JudgingResult {
+  return {
+    analysis: `Agent evaluation failed before judging completed: ${error}`,
+    strengths: [],
+    weaknesses: [error],
+    completionScore: 0,
+    codeQualityScore: 0,
+    overallScore: 0,
+  }
+}
+
+export function summarizeAgentRuns(agentData: AgentEvalResults): {
+  validRuns: EvalRun[]
+  runsExcludingFailures: EvalRun[]
+} {
+  const validRuns = agentData.runs.filter((run) => !run.error)
+  return {
+    validRuns,
+    runsExcludingFailures: validRuns.filter(
+      (run) => run.judging.overallScore > 1.0,
+    ),
+  }
 }
 
 async function runTask(options: {
@@ -88,120 +116,150 @@ async function runTask(options: {
   const commitTraces: AgentTraceData[] = []
 
   const agentPromises = agents.map(async (agent) => {
-    const { agentId, externalAgentType } = parseAgentId(agent)
+    let agentId = agent
+    try {
+      const { agentId: parsedAgentId, externalAgentType } = parseAgentId(agent)
+      agentId = parsedAgentId
 
-    const agentResult = await runAgentOnCommit({
-      client,
-      agentId,
-      commit,
-      repoUrl,
-      initCommand,
-      env,
-      localAgentDefinitions,
-      printEvents,
-      finalCheckCommands,
-      externalAgentType,
-    })
-
-    const judgeResult = await judgeCommitResult({
-      client,
-      commit,
-      contextFiles: agentResult.contextFiles,
-      agentDiff: agentResult.diff,
-      error: agentResult.error,
-      finalCheckOutputs: agentResult.finalCheckOutputs
-        ? agentResult.finalCheckOutputs
-            .map(
-              (output) =>
-                `### ${output.command}\n\`\`\`\n${output.stdout}${output.stderr ? '\nSTDERR:\n' + output.stderr : ''}\n\`\`\``,
-            )
-            .join('\n\n')
-        : undefined,
-      finalCheckOutputsStructured: agentResult.finalCheckOutputs,
-    })
-
-    // Extract and append agent lessons
-    if (extractLessons) {
-      console.log(`[${commit.id}] Extracting lessons for ${agentId}...`)
-      const { lessons } = await extractAgentLessons({
+      const agentResult = await runAgentOnCommit({
         client,
+        agentId,
+        commit,
+        repoUrl,
+        initCommand,
+        env,
         localAgentDefinitions,
-        prompt: commit.prompt,
-        groundTruthFileDiffs: commit.fileDiffs,
+        printEvents,
+        finalCheckCommands,
+        externalAgentType,
+      })
+
+      const judgeResult = await judgeCommitResult({
+        client,
+        commit,
         contextFiles: agentResult.contextFiles,
         agentDiff: agentResult.diff,
-        agentTrace: agentResult.trace,
-        judgeResult,
         error: agentResult.error,
+        finalCheckOutputs: agentResult.finalCheckOutputs
+          ? agentResult.finalCheckOutputs
+              .map(
+                (output) =>
+                  `### ${output.command}\n\`\`\`\n${output.stdout}${output.stderr ? '\nSTDERR:\n' + output.stderr : ''}\n\`\`\``,
+              )
+              .join('\n\n')
+          : undefined,
+        finalCheckOutputsStructured: agentResult.finalCheckOutputs,
       })
 
-      saveAgentLessons({
-        agentId,
-        commitId: commit.id,
-        commitSha: commit.sha,
-        prompt: commit.prompt,
-        lessons,
-        lessonsDir: path.join(__dirname, 'agent-lessons'),
-      })
-    }
+      // Extract and append agent lessons
+      if (extractLessons) {
+        console.log(`[${commit.id}] Extracting lessons for ${agentId}...`)
+        const { lessons } = await extractAgentLessons({
+          client,
+          localAgentDefinitions,
+          prompt: commit.prompt,
+          groundTruthFileDiffs: commit.fileDiffs,
+          contextFiles: agentResult.contextFiles,
+          agentDiff: agentResult.diff,
+          agentTrace: agentResult.trace,
+          judgeResult,
+          error: agentResult.error,
+        })
 
-    const evalRun = {
-      commitSha: commit.sha,
-      prompt: commit.prompt,
-      diff: agentResult.diff,
-      judging: judgeResult,
-      cost: agentResult.cost,
-      durationMs: agentResult.durationMs,
-      error: agentResult.error,
-      finalCheckOutputs: agentResult.finalCheckOutputs,
-    }
-
-    // Save trace to logs directory
-    const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
-    const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
-    const safeCommitShort = commit.sha.slice(0, 7)
-    const traceFilename = `${index + 1}-${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
-    const tracePath = path.join(logsDir, traceFilename)
-
-    // Store judging result and trace for combined output later
-    commitTraces.push({
-      agentId,
-      commitSha: commit.sha,
-      prompt: commit.prompt,
-      trace: agentResult.trace,
-      diff: agentResult.diff,
-      judgeResult,
-      cost: agentResult.cost,
-      durationMs: agentResult.durationMs,
-      error: agentResult.error,
-      timestamp: new Date().toISOString(),
-      finalCheckOutputs: agentResult.finalCheckOutputs,
-    })
-
-    // Save judge traces to separate files if saveTraces is enabled
-    if (saveTraces) {
-      const tracesDir = path.join(logsDir, 'traces')
-      if (!fs.existsSync(tracesDir)) {
-        fs.mkdirSync(tracesDir, { recursive: true })
+        saveAgentLessons({
+          agentId,
+          commitId: commit.id,
+          commitSha: commit.sha,
+          prompt: commit.prompt,
+          lessons,
+          lessonsDir: path.join(__dirname, 'agent-lessons'),
+        })
       }
 
-      // Save agent trace only (not judge traces)
-      const agentTracePath = path.join(
-        tracesDir,
-        `${index + 1}-${safeTaskId}-${safeAgentId}-${safeCommitShort}-agent.json`,
-      )
+      const evalRun = {
+        commitSha: commit.sha,
+        prompt: commit.prompt,
+        diff: agentResult.diff,
+        judging: judgeResult,
+        cost: agentResult.cost,
+        durationMs: agentResult.durationMs,
+        error: agentResult.error,
+        finalCheckOutputs: agentResult.finalCheckOutputs,
+      }
+
+      // Save trace to logs directory
+      const safeTaskId = commit.id.replace(/[^a-zA-Z0-9-]/g, '_')
+      const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
+      const safeCommitShort = commit.sha.slice(0, 7)
+      const traceFilename = `${index + 1}-${safeTaskId}-${safeAgentId}-${safeCommitShort}.json`
+      const tracePath = path.join(logsDir, traceFilename)
+
+      // Store judging result and trace for combined output later
+      commitTraces.push({
+        agentId,
+        commitSha: commit.sha,
+        prompt: commit.prompt,
+        trace: agentResult.trace,
+        diff: agentResult.diff,
+        judgeResult,
+        cost: agentResult.cost,
+        durationMs: agentResult.durationMs,
+        error: agentResult.error,
+        timestamp: new Date().toISOString(),
+        finalCheckOutputs: agentResult.finalCheckOutputs,
+      })
+
+      // Save judge traces to separate files if saveTraces is enabled
+      if (saveTraces) {
+        const tracesDir = path.join(logsDir, 'traces')
+        if (!fs.existsSync(tracesDir)) {
+          fs.mkdirSync(tracesDir, { recursive: true })
+        }
+
+        // Save agent trace only (not judge traces)
+        const agentTracePath = path.join(
+          tracesDir,
+          `${index + 1}-${safeTaskId}-${safeAgentId}-${safeCommitShort}-agent.json`,
+        )
+        fs.writeFileSync(
+          agentTracePath,
+          JSON.stringify(agentResult.trace, null, 2),
+        )
+      }
+
       fs.writeFileSync(
-        agentTracePath,
-        JSON.stringify(agentResult.trace, null, 2),
+        tracePath,
+        JSON.stringify(commitTraces[commitTraces.length - 1], null, 2),
       )
+
+      return { agentId, evalRun }
+    } catch (error) {
+      const message = formatUnknownError(error)
+      console.error(`[${commit.id}] Agent ${agentId} failed:`, message)
+      const judgeResult = failedJudgingResult(message)
+      const evalRun = {
+        commitSha: commit.sha,
+        prompt: commit.prompt,
+        diff: '',
+        judging: judgeResult,
+        cost: 0,
+        durationMs: 0,
+        error: message,
+      }
+      commitTraces.push({
+        agentId,
+        commitSha: commit.sha,
+        prompt: commit.prompt,
+        trace: [],
+        diff: '',
+        judgeResult,
+        cost: 0,
+        durationMs: 0,
+        error: message,
+        timestamp: new Date().toISOString(),
+      })
+      return { agentId, evalRun }
     }
-
-    fs.writeFileSync(
-      tracePath,
-      JSON.stringify(commitTraces[commitTraces.length - 1], null, 2),
-    )
-
-    return { agentId, evalRun }
   })
 
   const agentResults = await Promise.all(agentPromises)
@@ -484,18 +542,9 @@ export async function runBuffBench(options: {
 
   const commitResults = await Promise.allSettled(commitPromises)
 
-  // Track which commits had any agent errors
-  const commitShasWithErrors = new Set<string>()
-
   for (const result of commitResults) {
     if (result.status === 'fulfilled') {
-      const { commit, agentResults } = result.value
-
-      // Check if any agent had an error for this commit
-      const hasAnyError = agentResults.some(({ evalRun }) => evalRun.error)
-      if (hasAnyError) {
-        commitShasWithErrors.add(commit.sha)
-      }
+      const { agentResults } = result.value
 
       for (const { agentId, evalRun } of agentResults) {
         results[agentId].runs.push(evalRun)
@@ -506,10 +555,7 @@ export async function runBuffBench(options: {
   }
 
   for (const agentData of Object.values(results)) {
-    // Filter out runs from commits where ANY agent had an error
-    const validRuns = agentData.runs.filter(
-      (r) => !commitShasWithErrors.has(r.commitSha),
-    )
+    const { validRuns, runsExcludingFailures } = summarizeAgentRuns(agentData)
 
     agentData.averageScore =
       validRuns.length > 0
@@ -518,9 +564,6 @@ export async function runBuffBench(options: {
         : 0
 
     // Calculate average excluding huge failures (scores ≤1.0)
-    const runsExcludingFailures = validRuns.filter(
-      (r) => r.judging.overallScore > 1.0,
-    )
     agentData.averageScoreExcludingFailures =
       runsExcludingFailures.length > 0
         ? runsExcludingFailures.reduce(
@@ -612,19 +655,10 @@ export async function runBuffBench(options: {
   }
 
   console.log(`Traces saved to ${logsDir}`)
-  if (commitShasWithErrors.size > 0) {
-    console.log(
-      `\nNote: ${commitShasWithErrors.size} commit(s) had agent errors and were excluded from averages`,
-    )
-  }
   console.log('\n=== Summary ===')
   for (const [agentId, data] of Object.entries(results)) {
-    const validRuns = data.runs.filter(
-      (r) => !commitShasWithErrors.has(r.commitSha),
-    )
-    const runsExcludingFailures = validRuns.filter(
-      (r) => r.judging.overallScore > 1.0,
-    )
+    const { validRuns, runsExcludingFailures } = summarizeAgentRuns(data)
+    const errorCount = data.runs.length - validRuns.length
     console.log(`\n${agentId}:`)
     console.log(`  Average Score: ${data.averageScore.toFixed(2)}/10`)
     console.log(
@@ -635,16 +669,14 @@ export async function runBuffBench(options: {
       `  Average Duration: ${(data.averageDuration / 1000).toFixed(1)}s`,
     )
     console.log(
-      `  Valid runs: ${validRuns.length}/${data.runs.length} (excluding ${commitShasWithErrors.size} commit(s) with errors)`,
+      `  Valid runs: ${validRuns.length}/${data.runs.length} (excluding ${errorCount} agent error(s))`,
     )
   }
 
   // Print all overall scores for distribution analysis
   console.log('\n=== Score Distribution ===')
   for (const [agentId, data] of Object.entries(results)) {
-    const validRuns = data.runs.filter(
-      (r) => !commitShasWithErrors.has(r.commitSha),
-    )
+    const { validRuns } = summarizeAgentRuns(data)
     const scores = validRuns.map((r) => r.judging.overallScore.toFixed(1))
     console.log(`\n${agentId}:`)
     console.log(`  Scores: ${scores.join(', ')}`)

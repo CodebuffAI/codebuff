@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 
 import {
   buildMetadataIndex,
@@ -31,6 +31,24 @@ describe('metadata indexer', () => {
     expect(index.graph.edges.some((edge) => edge.type === 'mentions')).toBe(true)
   })
 
+  test('uses code-map language extensions for code concepts', async () => {
+    const root = await makeTempProject({
+      'src/plugin.PHP': '<?php // payment gateway integration\n',
+      'src/build.KTS': '// kotlin build pipeline\n',
+    })
+
+    const index = await buildMetadataIndex(root)
+
+    expect(index.files['src/plugin.PHP']?.ext).toBe('.php')
+    expect(index.files['src/plugin.PHP']?.concepts).toEqual(
+      expect.arrayContaining(['payment', 'gateway', 'integration']),
+    )
+    expect(index.files['src/build.KTS']?.ext).toBe('.kts')
+    expect(index.files['src/build.KTS']?.concepts).toEqual(
+      expect.arrayContaining(['kotlin', 'build', 'pipeline']),
+    )
+  })
+
   test('uses content hash to avoid reindexing unchanged file content', async () => {
     const root = await makeTempProject({
       'src/a.ts': 'export const a = 1\n',
@@ -48,6 +66,135 @@ describe('metadata indexer', () => {
     expect(second.files['src/a.ts']?.symbols).toEqual(first.files['src/a.ts']?.symbols)
     expect(second.files['src/a.ts']?.mtime).not.toBe(originalMtime)
     expect(second.files['src/a.ts']?.size).toBe(originalSize)
+  })
+
+  test('detects same-size same-mtime content changes by hash', async () => {
+    const root = await makeTempProject({
+      'docs/a.md': '# Alpha\n\nalpha topic\n',
+    })
+    const first = await buildMetadataIndex(root)
+    const original = first.files['docs/a.md']
+    expect(original).toBeDefined()
+    expect(original?.headings).toContain('Alpha')
+    expect(original?.concepts).toContain('alpha')
+
+    await fs.promises.writeFile(path.join(root, 'docs/a.md'), '# Bravo\n\nbravo topic\n', 'utf8')
+    await fs.promises.utimes(
+      path.join(root, 'docs/a.md'),
+      new Date(original!.mtime),
+      new Date(original!.mtime),
+    )
+    const second = await updateMetadataIndex(first, root)
+    const updated = second.files['docs/a.md']
+
+    expect(updated?.size).toBe(original?.size)
+    expect(Math.trunc(updated?.mtime ?? 0)).toBe(Math.trunc(original?.mtime ?? 0))
+    expect(updated?.hash).not.toBe(original?.hash)
+    expect(updated?.headings).toContain('Bravo')
+    expect(updated?.headings).not.toContain('Alpha')
+    expect(updated?.concepts).toContain('bravo')
+    expect(updated?.concepts).not.toContain('alpha')
+  })
+
+  test('drops stale metadata when a walked file cannot be read during incremental hashing', async () => {
+    const root = await makeTempProject({
+      'docs/a.md': '# Alpha\n\nalpha topic\n',
+    })
+    const targetPath = path.join(root, 'docs/a.md')
+    const first = await buildMetadataIndex(root)
+
+    expect(first.files['docs/a.md']?.headings).toContain('Alpha')
+
+    const originalReadFile = fs.promises.readFile.bind(fs.promises) as typeof fs.promises.readFile
+    const readFileSpy = spyOn(fs.promises, 'readFile').mockImplementation(
+      (async (filePath, options) => {
+        if (filePath === targetPath) {
+          throw new Error('simulated read failure')
+        }
+        return originalReadFile(filePath, options)
+      }) as typeof fs.promises.readFile,
+    )
+
+    try {
+      const second = await updateMetadataIndex(first, root)
+
+      expect(second.files['docs/a.md']).toBeUndefined()
+      expect(second.graph.nodes['file:docs/a.md']).toBeUndefined()
+    } finally {
+      readFileSpy.mockRestore()
+    }
+  })
+
+  test('drops unreadable code files without poisoning other changed code metadata', async () => {
+    const root = await makeTempProject({
+      'src/unreadable.ts': 'export function staleSymbol() { return 1 }\n',
+      'src/live.ts': 'export function oldLiveSymbol() { return 1 }\n',
+    })
+    const unreadablePath = path.join(root, 'src/unreadable.ts')
+    const livePath = path.join(root, 'src/live.ts')
+    const first = await buildMetadataIndex(root)
+
+    expect(first.files['src/unreadable.ts']?.symbols).toContain('staleSymbol')
+    expect(first.files['src/live.ts']?.symbols).toContain('oldLiveSymbol')
+
+    await fs.promises.writeFile(livePath, 'export function freshLiveSymbol() { return 2 }\n', 'utf8')
+
+    const originalReadFile = fs.promises.readFile.bind(fs.promises) as typeof fs.promises.readFile
+    const readFileSpy = spyOn(fs.promises, 'readFile').mockImplementation(
+      (async (filePath, options) => {
+        if (filePath === unreadablePath) {
+          throw new Error('simulated code read failure')
+        }
+        return originalReadFile(filePath, options)
+      }) as typeof fs.promises.readFile,
+    )
+
+    try {
+      const second = await updateMetadataIndex(first, root)
+
+      expect(second.files['src/unreadable.ts']).toBeUndefined()
+      expect(second.graph.nodes['file:src/unreadable.ts']).toBeUndefined()
+      expect(second.files['src/live.ts']?.symbols).toContain('freshLiveSymbol')
+      expect(second.files['src/live.ts']?.symbols).not.toContain('oldLiveSymbol')
+    } finally {
+      readFileSpy.mockRestore()
+    }
+  })
+
+  test('surfaces non-fatal code parse diagnostics on the metadata index', async () => {
+    const root = await makeTempProject({
+      'src/unreadable.ts': 'export function unreadableSymbol() { return 1 }\n',
+      'docs/readme.md': '# Readme\n',
+    })
+    const unreadablePath = path.join(root, 'src/unreadable.ts')
+    const originalReadFile = fs.readFileSync.bind(fs) as typeof fs.readFileSync
+    const readFileSyncSpy = spyOn(fs, 'readFileSync').mockImplementation(
+      ((filePath, options) => {
+        if (filePath === unreadablePath) {
+          throw new Error('simulated sync read failure')
+        }
+        return originalReadFile(filePath, options)
+      }) as typeof fs.readFileSync,
+    )
+
+    try {
+      const index = await buildMetadataIndex(root)
+
+      expect(index.files['docs/readme.md']?.headings).toContain('Readme')
+      expect(index.files['src/unreadable.ts']).toBeDefined()
+      expect(index.files['src/unreadable.ts']?.symbols).toEqual([])
+      expect(index.parseDiagnostics).toEqual(
+        expect.arrayContaining([
+          {
+            filePath: unreadablePath,
+            stage: 'parse',
+            message: 'simulated sync read failure',
+          },
+        ]),
+      )
+    } finally {
+      readFileSyncSpy.mockRestore()
+    }
   })
 
   test('indexes package scripts and CI commands as command concepts', async () => {

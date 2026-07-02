@@ -827,3 +827,8 @@ Typing `@` scans the local `.agents` directory and surfaces agent `displayName`s
 ## Streaming Markdown Optimization
 
 Streaming markdown renders as plain text until the message or agent finishes. This prevents scroll jitter that occurred when partial formatting changed line heights mid-stream.
+
+## Recent Runtime State Notes
+
+- Queue processing uses a single-owner lock plus a watchdog in `cli/src/hooks/use-message-queue.ts` so stale async cleanup cannot release a newer queue-processing run.
+- Status indicators in `cli/src/utils/status-indicator-state.ts` distinguish retrying, reconnecting, paused ask_user prompts, and phase-aware waiting/streaming labels.

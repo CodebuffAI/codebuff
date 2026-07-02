@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -46,12 +48,30 @@ function substituteEnvInRecord(
   return result
 }
 
-function hashConfig(config: MCPConfig): string {
+function stableHash(value: unknown): string {
+  return createHash('sha256')
+    .update(JSON.stringify(value))
+    .digest('hex')
+}
+
+function hashRecordValues(record: Record<string, string>): Record<string, string> {
+  const normalized: Record<string, string> = {}
+  for (const [key, value] of Object.entries(record)) {
+    // Header/env names are normalized first; later duplicates deterministically win.
+    normalized[key.toLowerCase()] = stableHash(value)
+  }
+
+  return Object.fromEntries(
+    Object.entries(normalized).sort(([a], [b]) => a.localeCompare(b)),
+  )
+}
+
+export function getMCPClientCacheKey(config: MCPConfig): string {
   if (config.type === 'stdio') {
     return JSON.stringify({
       command: config.command,
       args: config.args,
-      env: config.env,
+      env: hashRecordValues(substituteEnvInRecord(config.env)),
     })
   }
   if (config.type === 'http') {
@@ -59,6 +79,7 @@ function hashConfig(config: MCPConfig): string {
       type: 'http',
       url: config.url,
       params: config.params,
+      headers: hashRecordValues(substituteEnvInRecord(config.headers)),
     })
   }
   if (config.type === 'sse') {
@@ -66,6 +87,7 @@ function hashConfig(config: MCPConfig): string {
       type: 'sse',
       url: config.url,
       params: config.params,
+      headers: hashRecordValues(substituteEnvInRecord(config.headers)),
     })
   }
   config.type satisfies never
@@ -75,7 +97,7 @@ function hashConfig(config: MCPConfig): string {
 }
 
 export async function getMCPClient(config: MCPConfig): Promise<string> {
-  let key = hashConfig(config)
+  let key = getMCPClientCacheKey(config)
   if (key in runningClients) {
     return key
   }

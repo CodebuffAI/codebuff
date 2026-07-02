@@ -598,6 +598,7 @@ export async function executeToolCall<T extends ToolName>(
         userInputId,
         toolName: clientToolCall.toolName,
         input: clientToolCall.input,
+        signal: params.signal,
       })
       return clientToolResult.output as CodebuffToolOutput<T>
     }) as any,
@@ -841,6 +842,7 @@ export async function executeCustomToolCall(
               toolCall.toolName.split(MCP_TOOL_SEPARATOR)[0]
             ]
           : undefined,
+        signal: params.signal,
       })
       return clientToolResult.output satisfies ToolResultOutput[]
     })

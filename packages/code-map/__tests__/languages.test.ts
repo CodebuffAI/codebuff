@@ -5,6 +5,7 @@ import { describe, it, expect, mock } from 'bun:test'
 import {
   languageTable,
   WASM_FILES,
+  SUPPORTED_CODE_EXTENSIONS,
   setWasmDir,
   getWasmDir,
   findLanguageConfigByExtension,
@@ -53,7 +54,7 @@ describe('languages module', () => {
       const jsConfig = languageTable.find((c) => c.extensions.includes('.js'))
       expect(jsConfig).toBeDefined()
       expect(jsConfig?.wasmFile).toBe('tree-sitter-javascript.wasm')
-      expect(jsConfig?.extensions).toContain('.jsx')
+      expect(jsConfig?.extensions).toEqual(expect.arrayContaining(['.jsx', '.mjs', '.cjs']))
     })
 
     it('should support Python files', () => {
@@ -184,9 +185,20 @@ describe('languages module', () => {
       expect(config?.extensions).toContain('.ts')
     })
 
-    it('should be case sensitive', () => {
+    it('should normalize extension casing', () => {
       const config = findLanguageConfigByExtension('test.TS')
-      expect(config).toBeUndefined()
+      expect(config).toBeDefined()
+      expect(config?.extensions).toContain('.ts')
+    })
+
+    it('should expose a frozen canonical supported code extension list', () => {
+      expect(SUPPORTED_CODE_EXTENSIONS).toEqual(
+        languageTable.flatMap((config) => config.extensions),
+      )
+      expect(SUPPORTED_CODE_EXTENSIONS).toEqual(
+        expect.arrayContaining(['.ts', '.tsx', '.js', '.mjs', '.php', '.swift', '.kt', '.kts']),
+      )
+      expect(Object.isFrozen(SUPPORTED_CODE_EXTENSIONS)).toBe(true)
     })
   })
 

@@ -337,7 +337,11 @@ ${securityReviewSection}
 
       const mutableAgentState = (agentState ?? {}) as Base2AgentState
       const agentId = mutableAgentState.agentId
-      const runValidationGate = agentId !== 'base2-fast' && agentId !== 'base2-fast-no-validation'
+      const runValidationGate =
+        typeof hasNoValidation === 'boolean'
+          ? !hasNoValidation
+          : agentId !== 'base2-fast' &&
+            agentId !== 'base2-fast-no-validation'
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
       const MAX_REPAIR_ROUNDS = 3
@@ -634,13 +638,22 @@ ${securityReviewSection}
           currentPendingGateFiles,
           currentConversationMessages,
         )
-        if (runValidationGate && editsHappened && conversationGatePass) {
+        const conversationValidationSummary =
+          activeWorkState.lastValidationSummary ||
+          activeWorkState.gatePassedValidationSummary ||
+          'No configured file-change hooks ran.'
+        if (
+          runValidationGate &&
+          editsHappened &&
+          conversationGatePass &&
+          hasFreshGateFingerprintForPendingFiles(
+            currentPendingGateFiles,
+            currentGitStatusLineMap,
+            conversationValidationSummary,
+          )
+        ) {
           const conversationReviewerVerdict =
             conversationGatePass.reviewerVerdict || 'LOOKS_GOOD'
-          const conversationValidationSummary =
-            activeWorkState.lastValidationSummary ||
-            activeWorkState.gatePassedValidationSummary ||
-            'No configured file-change hooks ran.'
           activeWorkState.openReviewerBlockers = []
           activeWorkState.pendingGateFiles = []
           activeWorkState.latestWorkSummary = ''
@@ -1059,15 +1072,17 @@ ${securityReviewSection}
               toolName: 'check_background_agent',
               input: {
                 jobId: activeWorkState.staticReviewerJobId,
-                wait_for: 'LOOKS_GOOD',
                 timeout_seconds: 120,
               },
             } as any
             // check_background_agent returns { result } where `result` is the
             // subagent's final output (same shape a foreground spawn_agents
-            // toolResult wraps). On error/timeout with no result, fall through
-            // to the existing 'did not return LOOKS_GOOD/NON_BLOCKING' blocked
-            // handling below.
+            // toolResult wraps). Wait for the background reviewer to settle
+            // rather than matching only one verdict token: LOOKS_GOOD and
+            // NON_BLOCKING both pass, while BLOCKING must be parsed below as
+            // actionable feedback. On error/timeout with no result, fall
+            // through to the existing 'did not return LOOKS_GOOD/NON_BLOCKING'
+            // blocked handling below.
             reviewerToolResult =
               (checkResult as any)?.toolResult?.result ??
               (checkResult as any)?.toolResult
@@ -1577,12 +1592,12 @@ ${securityReviewSection}
         return extractChangedFilesFromMessages([message], 0).length > 0
       }
 
-      function hasDurableGatePassForPendingFiles(
+      function hasFreshGateFingerprintForPendingFiles(
         files: string[],
         currentStatusLines: Map<string, string>,
+        validationSummary: string,
       ): boolean {
         if (files.length === 0) return false
-        if (!reviewerFinalizationVerdictFromDurablePass()) return false
         if (!gateFileSetsEqual(files, activeWorkState.gatePassedPendingFiles)) {
           return false
         }
@@ -1595,11 +1610,23 @@ ${securityReviewSection}
         const currentFingerprint = buildGateFingerprint(
           files,
           currentStatusLines,
+          validationSummary,
+        )
+        return recorded === currentFingerprint
+      }
+
+      function hasDurableGatePassForPendingFiles(
+        files: string[],
+        currentStatusLines: Map<string, string>,
+      ): boolean {
+        if (!reviewerFinalizationVerdictFromDurablePass()) return false
+        return hasFreshGateFingerprintForPendingFiles(
+          files,
+          currentStatusLines,
           activeWorkState.gatePassedValidationSummary ||
             activeWorkState.lastValidationSummary ||
             'No configured file-change hooks ran.',
         )
-        return recorded === currentFingerprint
       }
 
       function reviewerFinalizationVerdictFromDurablePass():

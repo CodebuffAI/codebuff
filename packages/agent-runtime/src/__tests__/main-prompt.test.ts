@@ -341,6 +341,7 @@ describe('mainPrompt', () => {
         path: 'new-file.txt',
         content: 'Hello, world!',
       }),
+      signal: expect.any(AbortSignal),
     })
   })
 

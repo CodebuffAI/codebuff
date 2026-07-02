@@ -19,6 +19,20 @@ export type { AgentStep }
 
 export type ExternalAgentType = 'claude' | 'codex' | 'opencode'
 
+export async function runWithTimeoutSignal<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  const controller = new AbortController()
+  return withTimeout(
+    Promise.resolve().then(() => operation(controller.signal)),
+    timeoutMs,
+    timeoutMessage,
+    { controller },
+  )
+}
+
 export async function runAgentOnCommit({
   client,
   agentId,
@@ -61,8 +75,8 @@ export async function runAgentOnCommit({
 
   try {
     const timeoutMs = 60 * 60 * 1000 // 60 minutes
-    await withTimeout(
-      withTestRepo(
+    await runWithTimeoutSignal(
+      async (timeoutSignal) => withTestRepo(
         {
           repoUrl,
           parentSha: commit.parentSha,
@@ -95,7 +109,9 @@ export async function runAgentOnCommit({
             `[${commit.id}] Running agent: ${externalAgentType || 'codebuff'}`,
           )
 
-          const result = await runner.run(commit.prompt)
+          const result = await runner.run(commit.prompt, {
+            signal: timeoutSignal,
+          })
           trace.push(...result.steps)
           cost = result.totalCostUsd
           diff = result.diff
@@ -135,6 +151,7 @@ export async function runAgentOnCommit({
               finalCheckCommands,
               repoDir,
               env,
+              timeoutSignal,
             )
           }
         },
@@ -159,10 +176,11 @@ export async function runAgentOnCommit({
   }
 }
 
-async function runFinalCheckCommands(
+export async function runFinalCheckCommands(
   commands: string[],
   cwd: string,
   env?: Record<string, string>,
+  signal?: AbortSignal,
 ): Promise<FinalCheckOutput[]> {
   const results: FinalCheckOutput[] = []
 
@@ -174,6 +192,7 @@ async function runFinalCheckCommands(
         encoding: 'utf-8',
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
         env: { ...process.env, ...env },
+        signal,
       })
       results.push({
         command,
@@ -184,13 +203,14 @@ async function runFinalCheckCommands(
       console.log(`  ✓ Command succeeded: ${command}`)
     } catch (error: any) {
       // Command failed, but we still capture the output
+      const exitCode = typeof error.code === 'number' ? error.code : 1
       results.push({
         command,
-        exitCode: error.code || 1,
+        exitCode,
         stdout: error.stdout || '',
         stderr: error.stderr || error.message || '',
       })
-      console.log(`  ✗ Command failed (exit ${error.code}): ${command}`)
+      console.log(`  ✗ Command failed (exit ${exitCode}): ${command}`)
     }
   }
 

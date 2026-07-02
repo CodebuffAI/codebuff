@@ -865,6 +865,8 @@ async function executeSegmentsArray(
 
       // Stream assistant text
       onResponseChunk(segment.text)
+    } else if (segment.type === 'parse_error') {
+      onResponseChunk({ type: 'error', message: segment.message })
     } else {
       // Handle tool call segment
       const toolResult = await executeSingleToolCall(segment, params)

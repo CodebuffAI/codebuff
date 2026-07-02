@@ -1,6 +1,13 @@
 import { execSync, spawn } from 'child_process'
 
-import type { AgentStep, Runner, RunnerResult } from './runner'
+import {
+  createExternalRunnerAbortError,
+  isAbortError,
+  type AgentStep,
+  type Runner,
+  type RunnerOptions,
+  type RunnerResult,
+} from './runner'
 import type {
   PrintModeToolCall,
   PrintModeToolResult,
@@ -76,7 +83,7 @@ export class OpenCodeRunner implements Runner {
     this.env = env
   }
 
-  async run(prompt: string): Promise<RunnerResult> {
+  async run(prompt: string, options: RunnerOptions = {}): Promise<RunnerResult> {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 
@@ -106,10 +113,13 @@ export class OpenCodeRunner implements Runner {
             this.env.OPENCODE_API_KEY || process.env.OPENCODE_API_KEY,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
+        signal: options.signal,
       })
 
       let stdoutBuffer = ''
       let stderr = ''
+      let aborted = false
+      let settled = false
 
       const processEvent = (event: OpenCodeEvent) => {
         if (event.type === 'error') {
@@ -202,8 +212,30 @@ export class OpenCodeRunner implements Runner {
         process.stderr.write(data)
       })
 
+      const rejectOnce = (error: Error) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        reject(error)
+      }
+
+      const resolveOnce = (result: RunnerResult) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        resolve(result)
+      }
+
       child.on('error', (error) => {
-        reject(
+        if (isAbortError(error)) {
+          aborted = true
+          rejectOnce(createExternalRunnerAbortError('OpenCode'))
+          return
+        }
+
+        rejectOnce(
           new Error(
             `OpenCode CLI failed to start: ${error.message}. Make sure 'opencode' is installed and in PATH.`,
           ),
@@ -211,6 +243,12 @@ export class OpenCodeRunner implements Runner {
       })
 
       child.on('close', (code) => {
+        if (aborted || options.signal?.aborted) {
+          aborted = true
+          rejectOnce(createExternalRunnerAbortError('OpenCode'))
+          return
+        }
+
         if (stdoutBuffer.trim()) {
           processLine(stdoutBuffer)
         }
@@ -228,7 +266,7 @@ export class OpenCodeRunner implements Runner {
         }
 
         if (code !== 0) {
-          reject(
+          rejectOnce(
             new Error(
               `OpenCode CLI exited with code ${code}. stderr: ${stderr}`,
             ),
@@ -237,11 +275,11 @@ export class OpenCodeRunner implements Runner {
         }
 
         if (openCodeError) {
-          reject(new Error(openCodeError))
+          rejectOnce(new Error(openCodeError))
           return
         }
 
-        resolve({
+        resolveOnce({
           steps,
           totalCostUsd,
           diff,

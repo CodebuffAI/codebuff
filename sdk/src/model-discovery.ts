@@ -28,9 +28,12 @@ export type ModelDiscoveryStrategy =
   | 'custom'
 
 /** Per-provider discovery settings (may be absent – auto-detected). */
+export type ModelDiscoveryAuth = 'auto' | 'provider' | 'none'
+
 export type ModelDiscoveryConfig = {
   strategy?: ModelDiscoveryStrategy
   endpoint?: string
+  auth?: ModelDiscoveryAuth
   arrayPath?: string
   idPath?: string
 }
@@ -62,6 +65,8 @@ export type DiscoverProviderModelsParams = {
   loadedConfig?: LoadedProviderConfig
   env?: NodeJS.ProcessEnv
   fetch: ModelDiscoveryFetch
+  signal?: AbortSignal
+  timeoutMs?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +74,7 @@ export type DiscoverProviderModelsParams = {
 // ---------------------------------------------------------------------------
 
 const MODEL_DISCOVERY_CACHE_FILE = 'model-discovery-cache.json'
+const DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS = 30_000
 
 function getCachePath(): string {
   return path.join(
@@ -134,6 +140,22 @@ function normalizeEndpoint(
   return `${provider.baseURL.replace(/\/$/, '')}/models`
 }
 
+function shouldSendAuthorizationHeader(params: {
+  provider: ProviderConfig
+  discovery: NonNullable<ModelDiscoveryConfig>
+  endpoint: string
+}): boolean {
+  const auth = params.discovery.auth ?? 'auto'
+  if (auth === 'none') return false
+  if (auth === 'provider') return true
+  if (!params.discovery.endpoint) return true
+  if (params.provider.type !== 'openai-compatible') return false
+
+  const providerOrigin = new URL(params.provider.baseURL).origin
+  const endpointOrigin = new URL(params.endpoint).origin
+  return endpointOrigin === providerOrigin
+}
+
 function authorizationHeaders(
   provider: ProviderConfig,
   env: NodeJS.ProcessEnv,
@@ -146,6 +168,44 @@ function authorizationHeaders(
     )
   }
   return { Authorization: `Bearer ${apiKey}` }
+}
+
+function createDiscoveryAbortSignal(params: {
+  parent?: AbortSignal
+  timeoutMs: number
+}): { signal?: AbortSignal; cleanup: () => void } {
+  const { parent, timeoutMs } = params
+  if (timeoutMs <= 0) {
+    return { signal: parent, cleanup: () => {} }
+  }
+
+  const controller = new AbortController()
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const abort = (reason: unknown) => {
+    if (!controller.signal.aborted) controller.abort(reason)
+  }
+  const onParentAbort = () => abort(parent?.reason)
+
+  if (parent?.aborted) {
+    abort(parent.reason)
+  } else {
+    parent?.addEventListener('abort', onParentAbort, { once: true })
+    timeout = setTimeout(() => {
+      abort(
+        new Error(
+          `Model discovery timed out after ${timeoutMs}ms.`,
+        ),
+      )
+    }, timeoutMs)
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      if (timeout) clearTimeout(timeout)
+      parent?.removeEventListener('abort', onParentAbort)
+    },
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -278,12 +338,31 @@ export async function discoverProviderModels(
     )
   const strategy = discovery.strategy ?? 'openai-compatible'
   const endpoint = normalizeEndpoint(provider, discovery)
-  const response = await params.fetch(endpoint, {
-    headers: {
-      Accept: 'application/json',
-      ...authorizationHeaders(provider, env),
-    },
+  const timeoutMs = params.timeoutMs ?? DEFAULT_MODEL_DISCOVERY_TIMEOUT_MS
+  const { signal, cleanup } = createDiscoveryAbortSignal({
+    parent: params.signal,
+    timeoutMs,
   })
+
+  let response: Response
+  try {
+    response = await params.fetch(endpoint, {
+      signal,
+      headers: {
+        Accept: 'application/json',
+        ...(shouldSendAuthorizationHeader({ provider, discovery, endpoint })
+          ? authorizationHeaders(provider, env)
+          : {}),
+      },
+    })
+  } catch (error) {
+    if (signal?.aborted && signal.reason instanceof Error) {
+      throw signal.reason
+    }
+    throw error
+  } finally {
+    cleanup()
+  }
   if (!response.ok) {
     throw new Error(
       `Model discovery failed for '${params.providerId}' (${response.status} ${response.statusText}).`,

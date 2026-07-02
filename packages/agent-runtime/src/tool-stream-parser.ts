@@ -5,7 +5,10 @@ import {
   parseStreamChunk,
 } from './util/stream-xml-parser'
 
-import type { StreamParserState } from './util/stream-xml-parser'
+import type {
+  StreamParserError,
+  StreamParserState,
+} from './util/stream-xml-parser'
 import type { Model } from '@codebuff/common/old-constants'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
@@ -168,6 +171,15 @@ export async function* processStreamWithTools(params: {
     buffer = ''
   }
 
+  function emitParserErrors(errors: StreamParserError[]) {
+    for (const error of errors) {
+      onResponseChunk({
+        type: 'error',
+        message: error.message,
+      })
+    }
+  }
+
   async function* processChunk(
     chunk: StreamChunk | undefined,
   ): AsyncGenerator<StreamChunk> {
@@ -179,10 +191,12 @@ export async function* processStreamWithTools(params: {
 
     if (chunk.type === 'text') {
       // Parse XML tool calls from the text stream
-      const { filteredText, toolCalls } = parseStreamChunk(
+      const { filteredText, toolCalls, errors } = parseStreamChunk(
         chunk.text,
         xmlParserState,
       )
+
+      emitParserErrors(errors)
 
       if (filteredText) {
         buffer += filteredText

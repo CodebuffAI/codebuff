@@ -26,9 +26,16 @@ const MAX_TOTAL_PARSE_BYTES = getPositiveIntegerEnv(
   DEFAULT_MAX_TOTAL_PARSE_BYTES,
 )
 
+export interface ParseDiagnostic {
+  filePath: string
+  stage: 'language' | 'read' | 'parse'
+  message: string
+}
+
 type ParseTokensOptions = {
   maxBytes?: number
   remainingBytes?: number
+  diagnostics?: ParseDiagnostic[]
 }
 
 type ParsedTokens = {
@@ -72,12 +79,18 @@ export async function getFileTokenScores(
   filePaths: string[],
   readFile?: SourceReader,
   reuseParsed?: Record<string, ParsedFileTokens>,
-): Promise<FileTokenData & { parsed: Record<string, ParsedFileTokens> }> {
+): Promise<
+  FileTokenData & {
+    parsed: Record<string, ParsedFileTokens>
+    diagnostics: ParseDiagnostic[]
+  }
+> {
   const startTime = Date.now()
   const tokenScores: Record<string, Record<string, number>> = {}
   const externalCalls: Record<string, number> = {}
   const fileCallsMap = new Map<string, string[]>()
   const parsedByPath: Record<string, ParsedFileTokens> = {}
+  const diagnostics: ParseDiagnostic[] = []
   let parsedFiles = 0
   let totalParsedBytes = 0
 
@@ -99,7 +112,16 @@ export async function getFileTokenScores(
         break
       }
       const languageConfig = await getLanguageConfig(fullPath)
-      if (!languageConfig) continue
+      if (!languageConfig) {
+        diagnostics.push({
+          filePath,
+          stage: 'language',
+          message: `No tree-sitter language configuration available for ${
+            path.extname(filePath) || 'file'
+          }`,
+        })
+        continue
+      }
 
       const result = await parseTokensForScoring({
         filePath,
@@ -107,6 +129,7 @@ export async function getFileTokenScores(
         languageConfig,
         readFile,
         remainingBytes: MAX_TOTAL_PARSE_BYTES - totalParsedBytes,
+        diagnostics,
       })
       if (result.skipped) continue
 
@@ -153,7 +176,7 @@ export async function getFileTokenScores(
     }
   }
 
-  return { tokenScores, tokenCallers, parsed: parsedByPath }
+  return { tokenScores, tokenCallers, parsed: parsedByPath, diagnostics }
 }
 
 export function parseTokens(
@@ -177,14 +200,16 @@ async function parseTokensForScoring(params: {
   languageConfig: LanguageConfig
   readFile?: SourceReader
   remainingBytes: number
+  diagnostics: ParseDiagnostic[]
 }): Promise<ParsedTokensForScoring> {
-  const { filePath, fullPath, languageConfig, readFile, remainingBytes } =
+  const { filePath, fullPath, languageConfig, readFile, remainingBytes, diagnostics } =
     params
 
   if (!readFile) {
     return parseTokensWithLimits(fullPath, languageConfig, undefined, {
       maxBytes: MAX_PARSE_FILE_BYTES,
       remainingBytes,
+      diagnostics,
     })
   }
 
@@ -193,8 +218,14 @@ async function parseTokensForScoring(params: {
     return parseTokensWithLimits(filePath, languageConfig, () => source, {
       maxBytes: MAX_PARSE_FILE_BYTES,
       remainingBytes,
+      diagnostics,
     })
   } catch (e) {
+    diagnostics.push({
+      filePath,
+      stage: 'read',
+      message: getErrorMessage(e),
+    })
     if (DEBUG_PARSING) {
       console.error(`Error reading source: ${e}`)
       console.log(filePath)
@@ -250,6 +281,11 @@ function parseTokensWithLimits(
       skipped: false,
     }
   } catch (e) {
+    options.diagnostics?.push({
+      filePath,
+      stage: 'parse',
+      message: getErrorMessage(e),
+    })
     if (DEBUG_PARSING) {
       console.error(`Error parsing query: ${e}`)
       console.log(filePath)
@@ -365,6 +401,10 @@ function emptyParsedTokens(skipped: boolean): ParsedTokensForScoring {
 
 function countLines(sourceCode: string): number {
   return (sourceCode.match(/\n/g)?.length ?? 0) + 1
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function getPositiveIntegerEnv(name: string, fallback: number): number {

@@ -308,6 +308,60 @@ describe('enrichCacheDebugSnapshotWithProviderRequest', () => {
     })
   })
 
+  test('redacts prompt text and secret-like fields in stored provider requests', () => {
+    const correlation = createCacheDebugSnapshot({
+      agentType: 'base',
+      system: 's',
+      toolDefinitions: {},
+      messages: [],
+      logger: noopLogger,
+      projectRoot,
+    })
+    const prompt = 'Explain this private repository code.'
+    enrichCacheDebugSnapshotWithProviderRequest({
+      correlation,
+      provider: 'openai',
+      rawBody: {
+        messages: [{ role: 'user', content: prompt }],
+        tools: [
+          {
+            headers: {
+              Authorization: 'Bearer provider-secret',
+              'X-Api-Key': 'api-secret',
+            },
+          },
+        ],
+      },
+      normalized: { messages: [{ role: 'user', content: prompt }] },
+      logger: noopLogger,
+    })
+
+    const snapshot = readSnapshot(projectRoot, correlation)
+    const serialized = JSON.stringify(snapshot.providerRequest)
+    const rawBody = snapshot.providerRequest!.rawBody
+    const normalized = snapshot.providerRequest!.normalized
+
+    expect(rawBody.messages[0].content).toEqual({
+      type: 'redacted-text',
+      length: prompt.length,
+    })
+    expect(normalized.messages[0].content).toEqual({
+      type: 'redacted-text',
+      length: prompt.length,
+    })
+    expect(rawBody.tools[0].headers.Authorization).toEqual({
+      type: 'redacted-secret',
+      length: 'Bearer provider-secret'.length,
+    })
+    expect(rawBody.tools[0].headers['X-Api-Key']).toEqual({
+      type: 'redacted-secret',
+      length: 'api-secret'.length,
+    })
+    expect(serialized).not.toContain(prompt)
+    expect(serialized).not.toContain('provider-secret')
+    expect(serialized).not.toContain('api-secret')
+  })
+
   test('warns when the snapshot file is missing', () => {
     const warn = mock(() => {})
     const logger = { ...noopLogger, warn } as unknown as Logger

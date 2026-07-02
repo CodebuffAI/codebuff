@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { createBase2 } from './base2/base2'
 import { createCodeEditor } from './editor/editor'
+import thinker from './thinker/thinker'
 
 /**
  * Guards against the "registered but unusable" failure mode: a tool can be in
@@ -43,6 +44,31 @@ describe('agent tool reachability', () => {
     const tools = createCodeEditor({ model: 'opus' }).toolNames ?? []
     for (const tool of [...STRUCTURAL_READ_TOOLS, ...STRUCTURAL_EDIT_TOOLS]) {
       expect(tools).toContain(tool)
+    }
+  })
+})
+
+describe('agent prompt/tool availability alignment', () => {
+  test('structured-output agents without set_output do not prompt the model to call it', () => {
+    const defs = [thinker]
+
+    for (const def of defs) {
+      const tools = def.toolNames ?? []
+      const modelVisiblePrompt = [
+        def.spawnerPrompt,
+        def.systemPrompt,
+        def.instructionsPrompt,
+        def.stepPrompt,
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      if (!tools.includes('set_output')) {
+        expect(
+          modelVisiblePrompt,
+          `${def.id} must not mention set_output unless it exposes the tool`,
+        ).not.toContain('set_output')
+      }
     }
   })
 })

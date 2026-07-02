@@ -876,6 +876,89 @@ describe('model-provider', () => {
       expect(loadedConfig.config.providers.local).toBeDefined()
     })
 
+    test('invalidates cached provider config when implicit openbuff.d fragments change', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      const fragmentDir = path.join(tempDir, 'openbuff.d')
+      const routesPath = path.join(fragmentDir, 'routes.json')
+      fs.mkdirSync(fragmentDir, { recursive: true })
+      fs.writeFileSync(configPath, JSON.stringify({}))
+      fs.writeFileSync(routesPath, JSON.stringify({ defaultModel: 'local/old' }))
+      fs.utimesSync(routesPath, new Date(1_700_000_000_000), new Date(1_700_000_000_000))
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      const first = loadProviderConfigSync()
+      expect(first.config.defaultModel).toBe('local/old')
+
+      fs.writeFileSync(routesPath, JSON.stringify({ defaultModel: 'local/new' }))
+      fs.utimesSync(routesPath, new Date(1_700_000_100_000), new Date(1_700_000_100_000))
+
+      const second = loadProviderConfigSync()
+      expect(second.config.defaultModel).toBe('local/new')
+    })
+
+    test('invalidates cached provider config when implicit openbuff.d fragments are added', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      const fragmentDir = path.join(tempDir, 'openbuff.d')
+      const routesPath = path.join(fragmentDir, 'routes.json')
+      fs.mkdirSync(fragmentDir, { recursive: true })
+      fs.writeFileSync(configPath, JSON.stringify({ defaultModel: 'local/base' }))
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      const first = loadProviderConfigSync()
+      expect(first.config.defaultModel).toBe('local/base')
+      expect(first.config.agents.editor).toBeUndefined()
+
+      fs.writeFileSync(routesPath, JSON.stringify({ agents: { editor: 'local/fragment' } }))
+      fs.utimesSync(fragmentDir, new Date(1_700_000_100_000), new Date(1_700_000_100_000))
+
+      const second = loadProviderConfigSync()
+      expect(second.config.defaultModel).toBe('local/base')
+      expect(second.config.agents.editor).toBe('local/fragment')
+    })
+
+    test('malformed repeated fragments do not poison dependency discovery for later fragments', () => {
+      const tempDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'openbuff-provider-'),
+      )
+      const configPath = path.join(tempDir, 'openbuff.json')
+      const badPath = path.join(tempDir, 'bad.json')
+      const wrapperPath = path.join(tempDir, 'wrapper.json')
+      const validPath = path.join(tempDir, 'valid.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({ include: ['bad.json', 'wrapper.json'] }),
+      )
+      fs.writeFileSync(badPath, '{ invalid json')
+      fs.writeFileSync(
+        wrapperPath,
+        JSON.stringify({ include: ['bad.json', 'valid.json'] }),
+      )
+      fs.writeFileSync(validPath, JSON.stringify({ agents: { editor: 'local/old' } }))
+      process.env[PROVIDER_CONFIG_ENV_VAR] = configPath
+
+      let thrown: unknown
+      try {
+        loadProviderConfigSync()
+      } catch (error) {
+        thrown = error
+      }
+      expect(thrown).toBeDefined()
+      expect(String(thrown)).not.toContain('cycle')
+
+      fs.writeFileSync(validPath, JSON.stringify({ agents: { editor: 'local/new' } }))
+      fs.utimesSync(validPath, new Date(1_700_000_100_000), new Date(1_700_000_100_000))
+      fs.writeFileSync(badPath, JSON.stringify({}))
+
+      const loadedConfig = loadProviderConfigSync()
+      expect(loadedConfig.config.agents.editor).toBe('local/new')
+    })
+
     test('getModelForRequest fails instead of using hosted backend fallback for unmatched models', async () => {
       const tempDir = fs.mkdtempSync(
         path.join(os.tmpdir(), 'openbuff-provider-'),
@@ -1510,7 +1593,7 @@ describe('model-provider', () => {
       expect(overwrittenConfig.providers['opencode-go']).toBeUndefined()
     })
 
-    test('writeProviderConfigFile preserves existing modes and agents during merge', () => {
+    test('writeProviderConfigFile preserves existing routing and run options during merge', () => {
       const tempDir = fs.mkdtempSync(
         path.join(os.tmpdir(), 'codebuff-provider-'),
       )
@@ -1523,6 +1606,8 @@ describe('model-provider', () => {
           defaultModel: 'custom/default',
           modes: { default: 'custom/default', plan: 'custom/plan' },
           agents: { thinker: 'custom/thinker' },
+          failoverModels: ['custom/backup-a', 'custom/backup-b'],
+          maxAgentSteps: 42,
           providers: {
             custom: {
               type: 'openai-compatible',
@@ -1547,11 +1632,16 @@ describe('model-provider', () => {
       expect(mergedConfig.providers['custom']).toBeDefined()
       expect(mergedConfig.providers['openai']).toBeDefined()
 
-      // defaultModel, modes, agents preserved
+      // defaultModel, modes, agents, failover, and run options preserved
       expect(mergedConfig.defaultModel).toBe('custom/default')
       expect(mergedConfig.modes.default).toBe('custom/default')
       expect(mergedConfig.modes.plan).toBe('custom/plan')
       expect(mergedConfig.agents.thinker).toBe('custom/thinker')
+      expect(mergedConfig.failoverModels).toEqual([
+        'custom/backup-a',
+        'custom/backup-b',
+      ])
+      expect(mergedConfig.maxAgentSteps).toBe(42)
     })
 
     test('writeProviderConfigFile throws clear error for malformed existing config without force', () => {
@@ -1711,6 +1801,7 @@ describe('model-provider', () => {
             discovery: {
               strategy: 'custom',
               endpoint: 'https://api.example.com/v1/custom-models',
+              auth: 'none',
               arrayPath: 'results.models',
               idPath: 'slug',
             },
@@ -1725,6 +1816,7 @@ describe('model-provider', () => {
       expect(result?.endpoint).toBe(
         'https://api.example.com/v1/custom-models',
       )
+      expect(result?.auth).toBe('none')
       expect(result?.arrayPath).toBe('results.models')
       expect(result?.idPath).toBe('slug')
     })
@@ -1755,6 +1847,91 @@ describe('model-provider', () => {
       expect(result.models[0].id).toBe('llama3.1')
       expect(result.models[1].id).toBe('qwen2.5-coder:32b')
       expect(result.models[0].created).toBe(1_700_000_000)
+    })
+
+    test('discoverProviderModels forwards AbortSignal to fetch when timeout is disabled', async () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+      const abortController = new AbortController()
+      let seenSignal: AbortSignal | undefined
+
+      const result = await discoverProviderModels({
+        providerId: 'local',
+        loadedConfig,
+        signal: abortController.signal,
+        timeoutMs: 0,
+        fetch: async (_input, init) => {
+          seenSignal = init?.signal ?? undefined
+          return new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      })
+
+      expect(result.models).toEqual([])
+      expect(seenSignal).toBe(abortController.signal)
+    })
+
+    test('discoverProviderModels aborts hung fetches after timeout', async () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+      let seenSignal: AbortSignal | undefined
+
+      await expect(
+        discoverProviderModels({
+          providerId: 'local',
+          loadedConfig,
+          timeoutMs: 1,
+          fetch: async (_input, init) => {
+            seenSignal = init?.signal ?? undefined
+            return new Promise<Response>((_resolve, reject) => {
+              init?.signal?.addEventListener('abort', () => {
+                reject(init.signal?.reason)
+              })
+            })
+          },
+        }),
+      ).rejects.toThrow('Model discovery timed out after 1ms.')
+
+      expect(seenSignal?.aborted).toBe(true)
+    })
+
+    test('discoverProviderModels propagates fetch aborts', async () => {
+      writeTestProviderConfig({
+        local: {
+          type: 'openai-compatible',
+          baseURL: 'http://127.0.0.1:8080/v1',
+          models: [],
+        },
+      })
+      const loadedConfig = loadProviderConfigSync()
+      const abortController = new AbortController()
+      abortController.abort()
+
+      await expect(
+        discoverProviderModels({
+          providerId: 'local',
+          loadedConfig,
+          signal: abortController.signal,
+          fetch: async (_input, init) => {
+            expect(init?.signal?.aborted).toBe(true)
+            throw new DOMException('The operation was aborted.', 'AbortError')
+          },
+        }),
+      ).rejects.toThrow('The operation was aborted.')
     })
 
     test('discoverProviderModels parses Ollama response', async () => {
@@ -1877,6 +2054,134 @@ describe('model-provider', () => {
       expect(result.models[0].id).toBe('custom-model-v1')
       expect(result.models[0].name).toBe('Custom Model V1')
       expect(result.models[1].id).toBe('custom-model-v2')
+    })
+
+    test('discoverProviderModels sends auth to same-origin custom discovery endpoints by default', async () => {
+      writeTestProviderConfig({
+        custom: {
+          type: 'openai-compatible',
+          baseURL: 'https://api.custom.com/v1',
+          apiKeyEnv: 'CUSTOM_API_KEY',
+          models: [],
+          discovery: {
+            strategy: 'custom',
+            endpoint: 'https://api.custom.com/v1/catalog/models',
+          },
+        },
+      })
+      process.env.CUSTOM_API_KEY = 'test-key'
+      const loadedConfig = loadProviderConfigSync()
+      const seen: { authorization: string | null } = { authorization: null }
+
+      await discoverProviderModels({
+        providerId: 'custom',
+        loadedConfig,
+        fetch: async (_input, init) => {
+          seen.authorization = new Headers(init?.headers).get('Authorization')
+          return new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      })
+
+      expect(seen.authorization).toBe('Bearer test-key')
+    })
+
+    test('discoverProviderModels omits auth from cross-origin custom discovery endpoints by default', async () => {
+      writeTestProviderConfig({
+        custom: {
+          type: 'openai-compatible',
+          baseURL: 'https://api.custom.com/v1',
+          apiKeyEnv: 'CUSTOM_API_KEY',
+          models: [],
+          discovery: {
+            strategy: 'custom',
+            endpoint: 'https://catalog.custom.com/models',
+          },
+        },
+      })
+      process.env.CUSTOM_API_KEY = 'test-key'
+      const loadedConfig = loadProviderConfigSync()
+      let authorization: string | null = 'not-seen'
+
+      await discoverProviderModels({
+        providerId: 'custom',
+        loadedConfig,
+        fetch: async (_input, init) => {
+          authorization = new Headers(init?.headers).get('Authorization')
+          return new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      })
+
+      expect(authorization).toBeNull()
+    })
+
+    test('discoverProviderModels can opt in auth for cross-origin custom discovery endpoints', async () => {
+      writeTestProviderConfig({
+        custom: {
+          type: 'openai-compatible',
+          baseURL: 'https://api.custom.com/v1',
+          apiKeyEnv: 'CUSTOM_API_KEY',
+          models: [],
+          discovery: {
+            strategy: 'custom',
+            endpoint: 'https://catalog.custom.com/models',
+            auth: 'provider',
+          },
+        },
+      })
+      process.env.CUSTOM_API_KEY = 'test-key'
+      const loadedConfig = loadProviderConfigSync()
+      const seen: { authorization: string | null } = { authorization: null }
+
+      await discoverProviderModels({
+        providerId: 'custom',
+        loadedConfig,
+        fetch: async (_input, init) => {
+          seen.authorization = new Headers(init?.headers).get('Authorization')
+          return new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      })
+
+      expect(seen.authorization).toBe('Bearer test-key')
+    })
+
+    test('discoverProviderModels can disable auth for inferred discovery endpoints', async () => {
+      writeTestProviderConfig({
+        custom: {
+          type: 'openai-compatible',
+          baseURL: 'https://api.custom.com/v1',
+          apiKeyEnv: 'CUSTOM_API_KEY',
+          models: [],
+          discovery: {
+            auth: 'none',
+          },
+        },
+      })
+      process.env.CUSTOM_API_KEY = 'test-key'
+      const loadedConfig = loadProviderConfigSync()
+      let authorization: string | null = 'not-seen'
+
+      await discoverProviderModels({
+        providerId: 'custom',
+        loadedConfig,
+        fetch: async (_input, init) => {
+          authorization = new Headers(init?.headers).get('Authorization')
+          return new Response(JSON.stringify({ data: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        },
+      })
+
+      expect(authorization).toBeNull()
     })
 
     test('discoverProviderModels throws on missing provider', async () => {

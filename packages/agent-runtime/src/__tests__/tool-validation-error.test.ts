@@ -886,9 +886,14 @@ describe('tool validation error handling', () => {
       await new Promise((resolve) => setTimeout(resolve, 20))
       return []
     }
-    agentRuntimeImpl.requestToolCall = async () => ({
-      output: jsonToolResult({ ok: true }),
-    })
+    const controller = new AbortController()
+    let observedSignal: AbortSignal | undefined
+    agentRuntimeImpl.requestToolCall = async ({ signal }) => {
+      observedSignal = signal
+      return {
+        output: jsonToolResult({ ok: true }),
+      }
+    }
 
     await processStream({
       ...agentRuntimeImpl,
@@ -907,7 +912,7 @@ describe('tool validation error handling', () => {
       repoId: undefined,
       repoUrl: undefined,
       runId: 'test-run-id',
-      signal: new AbortController().signal,
+      signal: controller.signal,
       stream: mockStream(),
       system: 'test system',
       tools: {},
@@ -916,6 +921,8 @@ describe('tool validation error handling', () => {
       onCostCalculated: async () => {},
       onResponseChunk: () => {},
     })
+
+    expect(observedSignal).toBe(controller.signal)
 
     const assistantToolCallMessages = agentState.messageHistory.filter(
       (m): m is AssistantMessage =>

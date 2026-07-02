@@ -40,6 +40,12 @@ export interface IndexGraph {
   edges: IndexEdge[]
 }
 
+export interface ParseDiagnostic {
+  filePath: string
+  stage: 'language' | 'read' | 'parse'
+  message: string
+}
+
 export interface MetadataIndex {
   version: '2'
   projectRoot: string
@@ -47,6 +53,7 @@ export interface MetadataIndex {
   fileCount: number
   files: Record<string, IndexedFile>
   graph: IndexGraph
+  parseDiagnostics?: ParseDiagnostic[]
 }
 
 export type QueryIndexMode =

@@ -26,6 +26,8 @@ import {
 } from '../utils/send-message-helpers'
 import { createSendMessageTimerController } from '../utils/send-message-timer'
 import {
+  cleanupProviderReadinessFailure,
+  createRunOwnership,
   handleRunCompletion,
   handleRunError,
   prepareUserMessage as prepareUserMessageHelper,
@@ -147,6 +149,7 @@ export const useSendMessage = ({
     streamRefsRef.current = createStreamController()
   }
   const streamRefs = streamRefsRef.current
+  const activeRunOwnerRef = useRef<symbol | null>(null)
 
   useEffect(() => {
     if (continueChat && !previousRunStateRef.current) {
@@ -284,6 +287,8 @@ export const useSendMessage = ({
       isChainInProgressRef.current = true
       updateChainInProgress(true)
       setCanProcessQueue(false)
+      const { isCurrentRunOwner, isCurrentRunActive, releaseRunOwner } =
+        createRunOwnership(activeRunOwnerRef)
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -331,6 +336,7 @@ export const useSendMessage = ({
           isProcessingQueueRef,
           isQueuePausedRef,
         })
+        releaseRunOwner()
         return
       }
 
@@ -372,6 +378,7 @@ export const useSendMessage = ({
             isProcessingQueueRef,
             isQueuePausedRef,
           })
+          releaseRunOwner()
           return
         }
       } catch (error) {
@@ -395,6 +402,7 @@ export const useSendMessage = ({
           isProcessingQueueRef,
           isQueuePausedRef,
         })
+        releaseRunOwner()
         return
       }
 
@@ -426,6 +434,7 @@ export const useSendMessage = ({
           isProcessingQueueRef,
           isQueuePausedRef,
         })
+        releaseRunOwner()
         return
       }
 
@@ -469,14 +478,17 @@ export const useSendMessage = ({
           agentMode,
         })
         if (!providerReadiness.ok) {
-          updater.setError(providerReadiness.message)
-          timerController.stop('error')
-          setStreamStatus('idle')
-          setCanProcessQueue(!isQueuePausedRef?.current)
-          if (isProcessingQueueRef) {
-            isProcessingQueueRef.current = false
-          }
-          updateChainInProgress(false)
+          cleanupProviderReadinessFailure({
+            message: providerReadiness.message,
+            updater,
+            timerController,
+            setStreamStatus,
+            setCanProcessQueue,
+            updateChainInProgress,
+            releaseRunOwner,
+            isProcessingQueueRef,
+            isQueuePausedRef,
+          })
           return
         }
 
@@ -554,8 +566,11 @@ export const useSendMessage = ({
           eventHandlerState,
           signal: abortController.signal,
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
-          onCheckpoint: (agentState) =>
-            saveCheckpoint(userMessageId, agentState),
+          onCheckpoint: (agentState) => {
+            if (isCurrentRunActive(abortController.signal)) {
+              saveCheckpoint(userMessageId, agentState)
+            }
+          },
           resumeInterruptedTurn,
         })
 
@@ -565,7 +580,20 @@ export const useSendMessage = ({
         )
         const runState = await client.run(runConfig)
 
-        // Finalize: persist state and mark complete
+        // Finalize: persist state and mark complete. If this run was aborted or
+        // superseded by a newer send, skip persistence so late completions cannot
+        // clobber the newer run's state/checkpoint ownership.
+        if (!isCurrentRunActive(abortController.signal)) {
+          logger.debug(
+            {
+              aborted: abortController.signal.aborted,
+              isCurrentRunOwner: isCurrentRunOwner(),
+            },
+            '[send-message] Ignoring run completion after abort or superseded send',
+          )
+          return
+        }
+
         previousRunStateRef.current = runState
         setRunState(runState)
         setIsRetrying(false)
@@ -620,7 +648,7 @@ export const useSendMessage = ({
         // interfering with any new run that may have started after the abort.
         // Uses per-run abortController.signal (not shared streamRefs) so a newer
         // run's reset() can't clear this flag.
-        if (!abortController.signal.aborted) {
+        if (isCurrentRunActive(abortController.signal)) {
           if (isChainInProgressRef.current) {
             logger.warn(
               {},
@@ -636,6 +664,7 @@ export const useSendMessage = ({
             isProcessingQueueRef.current = false
           }
         }
+        releaseRunOwner()
         updater.dispose()
       }
     },

@@ -251,27 +251,39 @@ Thinking about the task...
       expect(allToolCalls[0].toolName).toBe('test')
     })
 
-    it('should handle tiny chunks (1-2 chars at a time)', () => {
+    it('should report invalid JSON inside a completed tool call', () => {
       const state = createStreamParserState()
-      const allChunks: string[] = []
-      const allToolCalls: any[] = []
+      const chunk = `<codebuff_tool_call>
+{"cb_tool_name": "test_tool",
+</codebuff_tool_call>`
 
-      const fullText = `Hi<codebuff_tool_call>
-{"cb_tool_name": "x"}
-</codebuff_tool_call>Bye`
+      const result = parseStreamChunk(chunk, state)
 
-      // Stream 2 chars at a time
-      for (let i = 0; i < fullText.length; i += 2) {
-        const chunk = fullText.slice(i, i + 2)
-        const result = parseStreamChunk(chunk, state)
-        allChunks.push(result.filteredText)
-        allToolCalls.push(...result.toolCalls)
-      }
+      expect(result.filteredText).toBe('')
+      expect(result.toolCalls).toEqual([])
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].code).toBe('invalid_tool_call_json')
+      expect(result.errors[0].message).toContain('JSON parsing failed')
+    })
 
-      const combinedText = allChunks.join('')
-      expect(combinedText).toBe('HiBye')
-      expect(allToolCalls).toHaveLength(1)
-      expect(allToolCalls[0].toolName).toBe('x')
+    it('should report and clear unterminated tool call buffers past the limit', () => {
+      const state = createStreamParserState({ maxToolCallBufferLength: 8 })
+
+      const result = parseStreamChunk('<codebuff_tool_call>123456789', state)
+
+      expect(result.filteredText).toBe('')
+      expect(result.toolCalls).toEqual([])
+      expect(result.errors).toEqual([
+        {
+          code: 'tool_call_buffer_exceeded',
+          message:
+            'Discarded unterminated codebuff_tool_call content after 9 buffered characters (limit 8).',
+          bufferedLength: 9,
+          maxBufferLength: 8,
+        },
+      ])
+      expect(state.buffer).toBe('')
+      expect(state.insideToolCall).toBe(false)
     })
   })
 })

@@ -13,7 +13,7 @@ import {
   callMCPTool,
 } from '@codebuff/common/mcp/client'
 import { toolNames } from '@codebuff/common/tools/constants'
-import { clientToolCallSchema } from '@codebuff/common/tools/list'
+import { clientToolCallSchema, clientToolNames } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { listRunningBackgroundJobs } from '@codebuff/common/util/pending-background-jobs'
@@ -46,8 +46,8 @@ import type { FileFilter } from './tools/read-files'
 import type { FileLineRange } from '@codebuff/common/types/contracts/client'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-import type { ToolName } from '@codebuff/common/tools/constants'
-import type { PublishedClientToolName } from '@codebuff/common/tools/list'
+import type { PublishedToolName, ToolName } from '@codebuff/common/tools/constants'
+import type { ClientToolName } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
@@ -77,7 +77,7 @@ const wrapContentForUserMessage = (
 
 type ClientToolOverride = (input: never) => Promise<ToolResultOutput[]>
 
-type ClientToolOverrides = Partial<Record<PublishedClientToolName, ClientToolOverride>> & {
+type ClientToolOverrides = Partial<Record<PublishedToolName, ClientToolOverride>> & {
   // Include read_files separately, since it has a different signature.
   read_files?: (input: {
     filePaths: string[]
@@ -434,7 +434,13 @@ async function runOnce({
     handleStepsLogChunk: () => {
       // Does nothing for now
     },
-    requestToolCall: async ({ userInputId, toolName, input, mcpConfig }) => {
+    requestToolCall: async ({
+      userInputId,
+      toolName,
+      input,
+      mcpConfig,
+      signal: toolSignal,
+    }) => {
       return handleToolCall({
         action: {
           type: 'tool-call-request',
@@ -455,7 +461,7 @@ async function runOnce({
         cwd,
         fs,
         env,
-        signal,
+        signal: toolSignal ?? signal,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -723,10 +729,15 @@ async function handleToolCall({
   if (action.mcpConfig) {
     try {
       const mcpClientId = await getMCPClient(action.mcpConfig)
-      const result = await callMCPTool(mcpClientId, {
-        name: toolName,
-        arguments: input,
-      })
+      const result = await callMCPTool(
+        mcpClientId,
+        {
+          name: toolName,
+          arguments: input,
+        },
+        undefined,
+        { signal },
+      )
       return { output: result }
     } catch (error) {
       return {
@@ -744,9 +755,7 @@ async function handleToolCall({
   }
 
   let result: ToolResultOutput[]
-  if (toolNames.includes(toolName as ToolName)) {
-    clientToolCallSchema.parse(action)
-  } else {
+  if (!toolNames.includes(toolName as ToolName)) {
     const customToolHandler = customToolDefinitions[toolName]
 
     if (!customToolHandler) {
@@ -755,12 +764,12 @@ async function handleToolCall({
       )
     }
     return {
-      output: await customToolHandler.execute(action.input),
+      output: await customToolHandler.execute(action.input, { signal }),
     }
   }
 
   try {
-    let override = overrides[toolName as PublishedClientToolName]
+    let override = overrides[toolName as PublishedToolName]
     if (
       !override &&
       (toolName === 'str_replace' ||
@@ -771,11 +780,20 @@ async function handleToolCall({
       // FileChange-shaped payloads to the client.
       override = overrides['write_file']
     }
+
+    const isClientTool = clientToolNames.includes(toolName as ClientToolName)
+    if (!override && !isClientTool) {
+      throw new Error(
+        `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,
+      )
+    }
+    if (isClientTool) {
+      clientToolCallSchema.parse(action)
+    }
+
     if (override) {
       // Note: This type assertion is necessary because TypeScript cannot narrow
       // the union type of all possible tool inputs based on the dynamic toolName.
-      // The input has been validated by clientToolCallSchema.parse above.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result = await override(input as never)
     } else if (toolName === 'end_turn') {
       const runningJobs = listRunningBackgroundJobs()
@@ -861,6 +879,7 @@ async function handleToolCall({
       result = await findFilesMatchingContent({
         ...findFilesInput,
         projectPath: requireCwd(cwd, 'find_files_matching_content'),
+        signal,
       })
     } else if (toolName === 'list_directory') {
       result = await listDirectory({
@@ -902,6 +921,7 @@ async function handleToolCall({
       result = await gitStatus({
         ...gitStatusInput,
         cwd: requireCwd(cwd, 'git_status'),
+        signal,
       })
     } else {
       throw new Error(

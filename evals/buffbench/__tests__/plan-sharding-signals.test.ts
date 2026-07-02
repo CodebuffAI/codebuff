@@ -11,10 +11,13 @@ import {
   evaluateShardingVerdict,
   evaluateMinimumShardRule,
   buildCoverageMatrix,
+  buildPlannerOutputCoverage,
+  evaluatePlannerOutputCoverage,
   evaluateSubsystemEnumeration,
   type PromptKind,
   type MinimumShardEvaluation,
   type CoverageMatrix,
+  type PlannerOutputCoverage,
   type SubsystemEnumeration,
 } from '../plan-sharding-signals'
 
@@ -77,6 +80,10 @@ function subagentFinish(
     onlyChild: overrides.onlyChild ?? false,
     parentAgentId: overrides.parentAgentId,
   } as PrintModeEvent
+}
+
+function textEvent(text: string): PrintModeEvent {
+  return { type: 'text', text } as PrintModeEvent
 }
 
 const AUDIT_PROMPT =
@@ -374,6 +381,12 @@ describe('computePlanShardingSignals', () => {
     const s = computePlanShardingSignals({ events, prompt: AUDIT_PROMPT })
     expect(s.maxBatchSize).toBe(4)
     expect(s.totalRequestedAgents).toBe(4)
+    expect(s.requestedAgentTypes).toEqual([
+      'file-picker',
+      'file-picker',
+      'code-searcher',
+      'researcher-docs',
+    ])
     expect(s.distinctAgentTypes).toEqual([
       'code-searcher',
       'file-picker',
@@ -583,6 +596,31 @@ describe('evaluateMinimumShardRule', () => {
     expect(result.reason).toContain('only 2')
   })
 
+  test('counts repeated spawn_agents agent types before subagent_start events', () => {
+    const breadth = classifyBreadth(BROAD_AUDIT_3_DOMAINS)
+    const events: PrintModeEvent[] = [
+      spawnAgentsCall([
+        ...Array.from({ length: 5 }, (_, index) => ({
+          agent_type: 'file-picker',
+          prompt: `file shard ${index}`,
+        })),
+        ...Array.from({ length: 5 }, (_, index) => ({
+          agent_type: 'code-searcher',
+          prompt: `search shard ${index}`,
+        })),
+      ]),
+    ]
+    const signals = computePlanShardingSignals({
+      events,
+      prompt: BROAD_AUDIT_3_DOMAINS,
+    })
+    const result = evaluateMinimumShardRule({ signals, breadth })
+    expect(signals.filePickerCount).toBe(5)
+    expect(signals.codeSearcherCount).toBe(5)
+    expect(result.actualPairs).toBe(5)
+    expect(result.satisfies).toBe(true)
+  })
+
   test('violates: has file-pickers but no code-searchers (actualPairs=0)', () => {
     const breadth = classifyBreadth(BROAD_AUDIT_3_DOMAINS)
     const signals = computePlanShardingSignals({
@@ -770,6 +808,85 @@ describe('buildCoverageMatrix', () => {
     // 7 pairs across 3 domains: 3,2,2 round-robin (first domain gets the extra).
     expect(matrix.entries.map((e) => e.assignedPairs)).toEqual([3, 2, 2])
     expect(matrix.entries[0].domain).toBe(matrix.entries[0].domain)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Planner-output coverage
+// ---------------------------------------------------------------------------
+
+describe('buildPlannerOutputCoverage', () => {
+  test('requires planner text to mention broad-audit domains', () => {
+    const breadth = classifyBreadth(BROAD_AUDIT_5_DOMAINS)
+    expect(breadth.kind).toBe('broad-audit')
+    const coverage: PlannerOutputCoverage = buildPlannerOutputCoverage({
+      breadth,
+      events: [
+        textEvent('I will audit agents, cli, and sdk.'),
+        toolCall('spawn_agents', { agents: [] }),
+      ],
+    })
+    expect(coverage.entries).toHaveLength(5)
+    expect(coverage.uncoveredDomains).toEqual(['common', 'evals'])
+    expect(coverage.allCovered).toBe(false)
+  })
+
+  test('does not count domains that appear only in the prompt', () => {
+    const breadth = classifyBreadth(BROAD_AUDIT_3_DOMAINS)
+    const coverage = buildPlannerOutputCoverage({
+      breadth,
+      events: [textEvent('I will inspect the repository broadly.')],
+    })
+    expect(coverage.uncoveredDomains).toEqual(['agents', 'cli', 'sdk'])
+  })
+
+  test('vacuously satisfied for non-broad breadth', () => {
+    const breadth = classifyBreadth('Review src/foo.ts for bugs')
+    const coverage = buildPlannerOutputCoverage({
+      breadth,
+      events: [textEvent('agents cli sdk')],
+    })
+    expect(coverage.entries).toEqual([])
+    expect(coverage.uncoveredDomains).toEqual([])
+    expect(coverage.allCovered).toBe(true)
+  })
+})
+
+describe('evaluatePlannerOutputCoverage', () => {
+  test('downgrades pass to fail when planner output misses domains', () => {
+    const signals = computePlanShardingSignals({
+      events: shardingEvents(5, 5),
+      prompt: BROAD_AUDIT_3_DOMAINS,
+    })
+    const baseEvaluation = evaluateShardingVerdict(signals, BROAD_AUDIT_3_DOMAINS)
+    expect(baseEvaluation.verdict).toBe('pass')
+
+    const result = evaluatePlannerOutputCoverage({
+      evaluation: baseEvaluation,
+      breadth: classifyBreadth(BROAD_AUDIT_3_DOMAINS),
+      events: [textEvent('I will audit agents and sdk.')],
+    })
+    expect(result.verdict).toBe('fail')
+    expect(
+      result.reasons.some((reason) =>
+        reason.includes('Planner-output coverage (M10.3) missing domains: cli'),
+      ),
+    ).toBe(true)
+  })
+
+  test('preserves pass when planner output covers every domain', () => {
+    const signals = computePlanShardingSignals({
+      events: shardingEvents(5, 5),
+      prompt: BROAD_AUDIT_3_DOMAINS,
+    })
+    const baseEvaluation = evaluateShardingVerdict(signals, BROAD_AUDIT_3_DOMAINS)
+    const result = evaluatePlannerOutputCoverage({
+      evaluation: baseEvaluation,
+      breadth: classifyBreadth(BROAD_AUDIT_3_DOMAINS),
+      events: [textEvent('Coverage plan: agents, cli, and sdk.')],
+    })
+    expect(result.verdict).toBe('pass')
+    expect(result.reasons).toEqual(baseEvaluation.reasons)
   })
 })
 

@@ -2,7 +2,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-import { getFileTokenScores } from '@codebuff/code-map'
+import { getFileTokenScores, SUPPORTED_CODE_EXTENSIONS } from '@codebuff/code-map'
 
 import { walkProject } from './file-walker'
 import { sanitizeIndexCacheDir } from './index-store'
@@ -14,13 +14,11 @@ import type {
   IndexingConfig,
   IndexNode,
   MetadataIndex,
+  ParseDiagnostic,
 } from './types'
 import type { ParsedFileTokens } from '@codebuff/code-map'
 
-const CODE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.java', '.cs', '.cpp', '.hpp', '.rs', '.rb', '.go',
-])
+const CODE_EXTENSIONS = new Set(SUPPORTED_CODE_EXTENSIONS)
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.rst'])
 const CONFIG_EXTENSIONS = new Set(['.json', '.jsonc', '.yaml', '.yml', '.toml'])
@@ -110,14 +108,16 @@ export async function buildMetadataIndex(
 
   let tokenScores: Record<string, Record<string, number>> = {}
   let tokenCallers: Record<string, Record<string, string[]>> = {}
+  let parseDiagnostics: ParseDiagnostic[] = []
   if (codeFilePaths.length > 0) {
     try {
       const data = await getFileTokenScores(projectRoot, codeFilePaths)
       tokenScores = data.tokenScores
       tokenCallers = data.tokenCallers
+      parseDiagnostics = data.diagnostics
       parsedCacheByRoot.set(projectRoot, data.parsed)
-    } catch {
-      // code-map parse errors are non-fatal; proceed with empty symbols
+    } catch (error) {
+      parseDiagnostics = [createParseDiagnostic(projectRoot, error)]
     }
   }
 
@@ -135,7 +135,13 @@ export async function buildMetadataIndex(
     if (indexed) indexedFiles[file.relativePath] = indexed
   }
 
-  return createMetadataIndex(projectRoot, indexedFiles, tokenCallers, config.weights?.graph)
+  return createMetadataIndex(
+    projectRoot,
+    indexedFiles,
+    tokenCallers,
+    config.weights?.graph,
+    parseDiagnostics,
+  )
 }
 
 export async function updateMetadataIndex(
@@ -152,26 +158,32 @@ export async function updateMetadataIndex(
   }
 
   const hashByPath = new Map<string, string>()
+  const hashReadFailedPaths = new Set<string>()
   const changedFiles: typeof files = []
   const updatedFiles: Record<string, IndexedFile> = { ...existing.files }
   let metadataOnlyChange = false
 
   for (const file of files) {
     const indexed = existing.files[file.relativePath]
-    if (!indexed || indexed.mtime !== file.mtime || indexed.size !== file.size) {
-      const hash = await hashFile(file.absolutePath)
-      hashByPath.set(file.relativePath, hash)
-      if (!indexed || indexed.hash !== hash) {
-        changedFiles.push(file)
-      } else {
-        updatedFiles[file.relativePath] = {
-          ...indexed,
-          mtime: file.mtime,
-          size: file.size,
-          hash,
-        }
-        metadataOnlyChange = true
+    let hash: string | undefined
+    try {
+      hash = await hashFile(file.absolutePath)
+    } catch {
+      hashReadFailedPaths.add(file.relativePath)
+      changedFiles.push(file)
+      continue
+    }
+    hashByPath.set(file.relativePath, hash)
+    if (!indexed || indexed.hash !== hash) {
+      changedFiles.push(file)
+    } else if (indexed.mtime !== file.mtime || indexed.size !== file.size) {
+      updatedFiles[file.relativePath] = {
+        ...indexed,
+        mtime: file.mtime,
+        size: file.size,
+        hash,
       }
+      metadataOnlyChange = true
     }
   }
 
@@ -190,7 +202,7 @@ export async function updateMetadataIndex(
   }
 
   const allCodeFilePaths = files
-    .filter((f) => CODE_EXTENSIONS.has(f.ext))
+    .filter((f) => CODE_EXTENSIONS.has(f.ext) && !hashReadFailedPaths.has(f.relativePath))
     .map((f) => f.relativePath)
 
   // Only changed code files need re-parsing; reuse cached parse output for the
@@ -208,6 +220,7 @@ export async function updateMetadataIndex(
 
   let tokenScores: Record<string, Record<string, number>> = {}
   let tokenCallers: Record<string, Record<string, string[]>> = {}
+  let parseDiagnostics: ParseDiagnostic[] = []
   if (allCodeFilePaths.length > 0) {
     try {
       const data = await getFileTokenScores(
@@ -218,9 +231,10 @@ export async function updateMetadataIndex(
       )
       tokenScores = data.tokenScores
       tokenCallers = data.tokenCallers
+      parseDiagnostics = data.diagnostics
       parsedCacheByRoot.set(projectRoot, data.parsed)
-    } catch {
-      // non-fatal
+    } catch (error) {
+      parseDiagnostics = [createParseDiagnostic(projectRoot, error)]
     }
   }
 
@@ -238,7 +252,11 @@ export async function updateMetadataIndex(
       hash: hashByPath.get(file.relativePath),
       tokenScores: tokenScores[file.relativePath] ?? {},
     })
-    if (indexed) updatedFiles[file.relativePath] = indexed
+    if (indexed) {
+      updatedFiles[file.relativePath] = indexed
+    } else {
+      delete updatedFiles[file.relativePath]
+    }
   }
 
   for (const [filePath, scores] of Object.entries(tokenScores)) {
@@ -251,7 +269,13 @@ export async function updateMetadataIndex(
     }
   }
 
-  return createMetadataIndex(projectRoot, updatedFiles, tokenCallers, config.weights?.graph)
+  return createMetadataIndex(
+    projectRoot,
+    updatedFiles,
+    tokenCallers,
+    config.weights?.graph,
+    parseDiagnostics,
+  )
 }
 
 async function indexWalkedFile(params: {
@@ -301,6 +325,7 @@ function createMetadataIndex(
   files: Record<string, IndexedFile>,
   tokenCallers: Record<string, Record<string, string[]>>,
   graphWeights?: GraphWeights,
+  parseDiagnostics: ParseDiagnostic[] = [],
 ): MetadataIndex {
   const aliases = loadTsAliases(projectRoot)
   return {
@@ -310,6 +335,15 @@ function createMetadataIndex(
     fileCount: Object.keys(files).length,
     files,
     graph: buildGraph(files, tokenCallers, aliases, resolveGraphWeights(graphWeights)),
+    parseDiagnostics,
+  }
+}
+
+function createParseDiagnostic(projectRoot: string, error: unknown): ParseDiagnostic {
+  return {
+    filePath: projectRoot,
+    stage: 'parse',
+    message: error instanceof Error ? error.message : String(error),
   }
 }
 

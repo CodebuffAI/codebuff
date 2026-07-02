@@ -184,7 +184,7 @@ page; the high-level wiring is:
 During the transition from the upstream Codebuff codebase, a small set of compatibility aliases are retained so existing tools and projects do not break. Most legacy surfaces were deliberately removed in the "BYOK purge"; only the aliases below remain:
 
 - **CLI Commands:** The CLI binary is named `openbuff`. The `codebuff` command prefix is a legacy alias retained during the transition where the shim is installed; prefer `openbuff`. The `codebuff --local` form is not documented as a supported invocation in current code.
-- **Environment Variables:** `OPENBUFF_*` variables are primary. Only `CODEBUFF_API_KEY` is accepted as a legacy fallback for `OPENBUFF_API_KEY`. Other `CODEBUFF_*` env vars (`CODEBUFF_LOCAL_MODE`, `CODEBUFF_PROVIDER_CONFIG`, etc.) were removed in the BYOK purge and are not read.
+- **Environment Variables:** `OPENBUFF_*` variables are primary. Retained compatibility env names are intentionally narrow and documented in [Environment Variables](./environment-variables.md): for example, `CODEBUFF_API_KEY` is accepted as a fallback for `OPENBUFF_API_KEY`, while removed routing/config aliases such as `CODEBUFF_LOCAL_MODE` and `CODEBUFF_PROVIDER_CONFIG` are not read.
 - **Configuration Files:** Openbuff reads `openbuff.json` only. `codebuff.json` is not parsed.
 - **SDK Package:** The SDK is published as `@openbuff/sdk`. `CodebuffClient` remains a compatibility alias for `OpenbuffClient`.
 

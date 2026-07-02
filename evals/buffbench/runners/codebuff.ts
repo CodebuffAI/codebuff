@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import type { Runner, RunnerResult, AgentStep } from './runner'
+import type { Runner, RunnerResult, AgentStep, RunnerOptions } from './runner'
 import type { OpenbuffClient } from '@openbuff/sdk'
 
 
@@ -38,7 +38,7 @@ export class CodebuffRunner implements Runner {
     this.parentSha = options.parentSha
   }
 
-  async run(prompt: string): Promise<RunnerResult> {
+  async run(prompt: string, options: RunnerOptions = {}): Promise<RunnerResult> {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 
@@ -50,6 +50,7 @@ export class CodebuffRunner implements Runner {
       cwd: this.cwd,
       env: this.env,
       maxAgentSteps,
+      signal: options.signal,
       handleEvent: (event) => {
         if (
           (event.type === 'tool_call' || event.type === 'tool_result') &&

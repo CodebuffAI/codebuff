@@ -2,6 +2,10 @@ import type { ToolName } from '@codebuff/common/tools/constants'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { z } from 'zod/v4'
 
+export type CustomToolExecutionContext = {
+  signal?: AbortSignal
+}
+
 export type CustomToolDefinition<
   N extends string = string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +18,10 @@ export type CustomToolDefinition<
   description: string
   endsAgentStep: boolean
   exampleInputs: Input[]
-  execute: (params: Args) => Promise<ToolResultOutput[]>
+  execute: (
+    params: Args,
+    context?: CustomToolExecutionContext,
+  ) => Promise<ToolResultOutput[]>
 }
 
 /**
@@ -51,7 +58,10 @@ export function getCustomToolDefinition<
   description: string
   endsAgentStep?: boolean
   exampleInputs?: Input[]
-  execute: (params: Args) => Promise<ToolResultOutput[]> | ToolResultOutput[]
+  execute: (
+    params: Args,
+    context?: CustomToolExecutionContext,
+  ) => Promise<ToolResultOutput[]> | ToolResultOutput[]
 }): CustomToolDefinition<TN, Args, Input> {
   return {
     toolName,
@@ -59,8 +69,8 @@ export function getCustomToolDefinition<
     description,
     endsAgentStep,
     exampleInputs,
-    execute: async (params) => {
-      return await execute(params)
+    execute: async (params, context) => {
+      return await execute(params, context)
     },
   }
 }

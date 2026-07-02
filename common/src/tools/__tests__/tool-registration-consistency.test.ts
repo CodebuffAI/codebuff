@@ -4,6 +4,7 @@ import { join } from 'path'
 import { describe, expect, it } from 'bun:test'
 
 import { toolNames } from '../constants'
+import { compileToolDefinitions } from '../compile-tool-definitions'
 import { toolParams } from '../list'
 
 /**
@@ -40,6 +41,26 @@ describe('tool registration consistency', () => {
   it('each toolParams entry self-reports its own tool name', () => {
     for (const name of toolNames) {
       expect(toolParams[name].toolName).toBe(name)
+    }
+  })
+
+  it('read_docs max_tokens default matches its descriptions', () => {
+    const parsed = toolParams.read_docs.inputSchema.parse({
+      libraryTitle: 'React',
+      topic: 'hooks',
+    })
+
+    expect(parsed.max_tokens).toBe(10_000)
+    expect(toolParams.read_docs.description).not.toContain('Defaults to 20000')
+
+    const generatedFiles = [
+      'agents/types/tools.ts',
+      'common/src/templates/initial-agents-dir/types/tools.ts',
+    ]
+    for (const file of generatedFiles) {
+      const source = readFileSync(join(repoRoot, file), 'utf8')
+      expect(source).not.toContain('Defaults to 20000')
+      expect(source).toContain('Defaults to 10000')
     }
   })
 

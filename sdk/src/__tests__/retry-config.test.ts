@@ -6,6 +6,7 @@ import {
   RETRY_BACKOFF_BASE_DELAY_MS,
   RETRY_BACKOFF_MAX_DELAY_MS,
   RETRY_BACKOFF_JITTER_FRACTION,
+  waitForBackoffDelay,
 } from '../retry-config'
 
 describe('retry-config constants', () => {
@@ -14,6 +15,60 @@ describe('retry-config constants', () => {
     expect(RETRY_BACKOFF_BASE_DELAY_MS).toBe(1000)
     expect(RETRY_BACKOFF_MAX_DELAY_MS).toBe(8000)
     expect(RETRY_BACKOFF_JITTER_FRACTION).toBe(0.2)
+  })
+})
+
+describe('waitForBackoffDelay', () => {
+  test('rejects immediately when already aborted', async () => {
+    const abortController = new AbortController()
+    abortController.abort(new Error('user cancelled'))
+
+    await expect(
+      waitForBackoffDelay({
+        delayMs: RETRY_BACKOFF_BASE_DELAY_MS,
+        signal: abortController.signal,
+      }),
+    ).rejects.toThrow('user cancelled')
+  })
+
+  test('rejects promptly when aborted during the delay', async () => {
+    const abortController = new AbortController()
+    const delayPromise = waitForBackoffDelay({
+      delayMs: RETRY_BACKOFF_MAX_DELAY_MS,
+      signal: abortController.signal,
+    })
+
+    abortController.abort('retry cancelled')
+
+    await expect(delayPromise).rejects.toThrow('retry cancelled')
+  })
+
+  test('rejects when aborted after timer creation but before listener registration', async () => {
+    const abortController = new AbortController()
+    const originalSetTimeout = globalThis.setTimeout
+
+    try {
+      globalThis.setTimeout = ((
+        ...args: Parameters<typeof globalThis.setTimeout>
+      ) => {
+        const timeoutId = originalSetTimeout(...args)
+        abortController.abort('setup race cancelled')
+        return timeoutId
+      }) as typeof globalThis.setTimeout
+
+      await expect(
+        waitForBackoffDelay({
+          delayMs: RETRY_BACKOFF_MAX_DELAY_MS,
+          signal: abortController.signal,
+        }),
+      ).rejects.toThrow('setup race cancelled')
+    } finally {
+      globalThis.setTimeout = originalSetTimeout
+    }
+  })
+
+  test('resolves normally when the delay elapses', async () => {
+    await expect(waitForBackoffDelay({ delayMs: 1 })).resolves.toBeUndefined()
   })
 })
 

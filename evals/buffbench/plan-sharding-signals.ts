@@ -59,6 +59,8 @@ export interface PlanShardingSignals {
   totalRequestedAgents: number
   /** Largest single `spawn_agents` batch (max agents in one call). */
   maxBatchSize: number
+  /** All agent types requested across every `spawn_agents` call, preserving duplicates. */
+  requestedAgentTypes: string[]
   /** Distinct agent types requested across all spawn_agents calls. */
   distinctAgentTypes: string[]
   /** Subagent_start records emitted (in trace order). */
@@ -435,21 +437,20 @@ function countTopLevelDirectTools(
 /**
  * Count occurrences of an agent type for the minimum-shard rule (M10.2). Uses
  * the larger of (a) the number of `subagent_start` records of that type and
- * (b) 1 if the type appears in `distinctAgentTypes` — a `spawn_agents` batch
- * may list a type before any `subagent_start` fires, and the rule gates the
- * sharding DECISION, which is visible in spawn_agents requests even before
- * subagent_start fires.
+ * (b) the number of times the type appears in top-level `spawn_agents`
+ * requests. A trace may end before every requested subagent emits a start
+ * event, but the sharding decision is already visible in the request payload.
  */
 function countAgentType(
   subagentStarts: SubagentStartRecord[],
-  distinctAgentTypes: string[],
+  requestedAgentTypes: string[],
   agentType: string,
 ): number {
   const startsCount = subagentStarts.filter(
     (s) => s.agentType === agentType,
   ).length
-  const distinctCount = distinctAgentTypes.includes(agentType) ? 1 : 0
-  return Math.max(startsCount, distinctCount)
+  const requestedCount = requestedAgentTypes.filter((type) => type === agentType).length
+  return Math.max(startsCount, requestedCount)
 }
 
 // ---------------------------------------------------------------------------
@@ -478,21 +479,22 @@ export function computePlanShardingSignals(params: {
     (max, c) => Math.max(max, c.agentCount),
     0,
   )
+  const requestedAgentTypes = spawnCalls.flatMap((c) => c.agentTypes)
   const distinctAgentTypes = Array.from(
     new Set([
-      ...spawnCalls.flatMap((c) => c.agentTypes),
+      ...requestedAgentTypes,
       ...subagentStarts.map((s) => s.agentType),
     ]),
   ).sort()
 
   const filePickerCount = countAgentType(
     subagentStarts,
-    distinctAgentTypes,
+    requestedAgentTypes,
     'file-picker',
   )
   const codeSearcherCount = countAgentType(
     subagentStarts,
-    distinctAgentTypes,
+    requestedAgentTypes,
     'code-searcher',
   )
 
@@ -506,6 +508,7 @@ export function computePlanShardingSignals(params: {
     spawnAgentsCallCount: spawnCalls.length,
     totalRequestedAgents,
     maxBatchSize,
+    requestedAgentTypes,
     distinctAgentTypes,
     subagentStarts,
     peakConcurrency,
@@ -589,6 +592,24 @@ export interface CoverageMatrix {
   allCovered: boolean
 }
 
+/** One row of planner-output domain coverage. */
+export interface PlannerOutputCoverageEntry {
+  /** Domain name (one of `breadth.domains`). */
+  domain: string
+  /** True iff emitted planner text mentions this domain. */
+  covered: boolean
+}
+
+/** Planner-output coverage: verifies synthesis text names audited domains. */
+export interface PlannerOutputCoverage {
+  /** Per-domain entries, sorted alphabetically by domain. */
+  entries: PlannerOutputCoverageEntry[]
+  /** Domains not mentioned in emitted planner text. */
+  uncoveredDomains: string[]
+  /** True iff `uncoveredDomains.length === 0`. */
+  allCovered: boolean
+}
+
 /**
  * Build the domain -> shard coverage matrix (M10.3, SPEC R10.3). Before
  * synthesizing, emit a domain -> shard mapping so unsharded subsystems are
@@ -641,6 +662,44 @@ export function buildCoverageMatrix(params: {
   const uncoveredDomains = entries
     .filter((e) => e.assignedPairs === 0)
     .map((e) => e.domain)
+
+  return {
+    entries,
+    uncoveredDomains,
+    allCovered: uncoveredDomains.length === 0,
+  }
+}
+
+/**
+ * Build planner-output coverage from emitted text events. A domain listed in
+ * the original prompt does not count unless the planner's output names it.
+ */
+export function buildPlannerOutputCoverage(params: {
+  breadth: BreadthClassification
+  events: readonly PrintModeEvent[]
+}): PlannerOutputCoverage {
+  const { breadth, events } = params
+
+  if (breadth.kind !== 'broad-audit') {
+    return { entries: [], uncoveredDomains: [], allCovered: true }
+  }
+
+  const outputText = events
+    .filter((event) => event.type === 'text')
+    .map((event) => event.text)
+    .join('\n')
+    .toLowerCase()
+
+  const entries: PlannerOutputCoverageEntry[] = [...breadth.domains]
+    .sort()
+    .map((domain) => {
+      const re = new RegExp(`(?:^|[^\\w])${domain}(?:[^\\w]|$)`, 'i')
+      return { domain, covered: re.test(outputText) }
+    })
+
+  const uncoveredDomains = entries
+    .filter((entry) => !entry.covered)
+    .map((entry) => entry.domain)
 
   return {
     entries,
@@ -809,4 +868,30 @@ export function evaluateShardingVerdict(
   }
 
   return { verdict, signals, reasons }
+}
+
+/**
+ * Layer planner-output coverage onto a sharding evaluation. This needs the raw
+ * trace, so it is separate from `evaluateShardingVerdict`, which only needs
+ * aggregate signals.
+ */
+export function evaluatePlannerOutputCoverage(params: {
+  evaluation: ShardingEvaluation
+  breadth: BreadthClassification
+  events: readonly PrintModeEvent[]
+}): ShardingEvaluation {
+  const { evaluation, breadth, events } = params
+  const plannerCoverage = buildPlannerOutputCoverage({ breadth, events })
+  if (plannerCoverage.allCovered) {
+    return evaluation
+  }
+
+  return {
+    ...evaluation,
+    verdict: evaluation.verdict === 'skip' ? 'skip' : 'fail',
+    reasons: [
+      ...evaluation.reasons,
+      `Planner-output coverage (M10.3) missing domains: ${plannerCoverage.uncoveredDomains.join(', ')}.`,
+    ],
+  }
 }

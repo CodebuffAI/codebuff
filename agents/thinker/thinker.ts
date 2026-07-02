@@ -60,7 +60,7 @@ const definition: SecretAgentDefinition = {
   instructionsPrompt: `
 You are a thinker agent. Use the <think> tag to think deeply about the user request.
 
-When satisfied, write out a brief response to the user's request. The parent agent will see your response -- no need to call any tools. DO NOT call the set_output tool, as that will be done for you.
+When satisfied, write out a brief response to the user's request. The parent agent will see your response -- DO NOT call any tools, including set_output. Structured output is captured automatically for you.
 
 If the caller passed params.depth === 'shallow', keep your thinking chain short and lead with the answer. If params.depth === 'deep' (or omitted), reason thoroughly before the final answer.
 If the caller passed params.outputSchemaHint, format your final message content to match that shape (e.g. valid JSON with the requested fields). The runtime still wraps your output as { message: string }, so serialize structured content into that string.

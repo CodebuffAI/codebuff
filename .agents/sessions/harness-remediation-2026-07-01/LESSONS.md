@@ -155,3 +155,359 @@ Both contracts are correct, but the asymmetry is subtle: `codeSearch` returns an
 **E. `read-outline.ts` uses an inline `import('@codebuff/common/util/file').ProjectFileContext` type.**
 The rest of the file uses top-of-file `import type` declarations. Recommend moving to a top-of-file import for consistency. Not blocking — works correctly.
 
+
+<!-- update_plan_status:appended -->
+## M2 find-files cancellation lessons — 2026-07-02 — 2026-07-02T07:05:57.893Z
+
+Two reusable lessons from adding `AbortSignal` support to `find_files_matching_content`:
+
+**1. Settle abort results before killing mocked child processes.**
+The child-process mock used in SDK tests emits `close` synchronously from `kill('SIGTERM')`. If an abort handler kills first and settles afterward, the normal close handler can preempt the abort result and make tests flaky or behavior race-prone. Fix: call the shared `settle(...)` helper with the abort-shaped `{ errorMessage }` result before `childProcess.kill('SIGTERM')`, relying on the settle guard to ignore the subsequent close event.
+
+**2. Separate foreground tool cancellation from user-managed long-lived jobs.**
+`find_files_matching_content` and `code_search` are foreground ripgrep tools, so SDK run cancellation should stop their child process. `background-jobs` and browser Chrome helpers intentionally manage long-lived/user-controlled processes and should not be pulled into the same default abort behavior without an explicit contract change. Keep M2 scoped by process ownership.
+
+
+<!-- update_plan_status:appended -->
+## M2 git_status cancellation lessons — 2026-07-02 — 2026-07-02T07:10:25.642Z
+
+Two reusable lessons from adding `AbortSignal` support to `git_status`:
+
+**1. Keep shared git helpers backwards-compatible when adding cancellation.**
+`runGit` is shared by `gitStatus` and `gitBranch`. Adding `signal?: AbortSignal` as an optional third parameter let SDK dispatch pass cancellation to `git_status` without forcing `gitBranch` to adopt a cancellation contract in the same batch.
+
+**2. Abort semantics should match the surrounding tool-result shape.**
+`git_status` reports failures as a JSON tool result with `errorMessage`, so abort also resolves to that shape instead of throwing. This keeps agent tool-result handling consistent with git command failures and mirrors the foreground search tools' resolve-with-error behavior.
+
+
+<!-- update_plan_status:appended -->
+## M2 git_status reviewer blocker lesson — 2026-07-02 — 2026-07-02T07:14:35.982Z
+
+When adding cancellation to child-process helpers, preserve both async child `'error'` handling and synchronous `spawn(...)` throw handling. Tests often mock `spawn` directly, and platform/runtime failures can occur before a child exists. Tool helpers that normally return structured `{ errorMessage }` results should convert synchronous spawn failures into their existing result shape rather than letting a rejected promise leak through dispatch.
+
+
+<!-- update_plan_status:appended -->
+## M2 cancellation lesson — preserve existing child-process error contracts — 2026-07-02T07:26:12.137Z
+
+When adding cancellation or spawn-failure hardening to an existing child-process helper, search for existing `child.on('error')` handlers before adding a new one. `findFilesMatchingContent` already had an actionable ripgrep-specific async error message (`Failed to execute ripgrep... CODEBUFF_RG_PATH`); adding a generic earlier handler made that path unreachable and regressed diagnostics. Preserve one intended error path and make regression tests assert the full intended contract, not just the raw underlying error text.
+
+
+<!-- update_plan_status:appended -->
+## M2 retry-sleep cancellation lesson — 2026-07-02 — 2026-07-02T07:32:52.167Z
+
+When making retry loops abortable, the pre-retry `signal.aborted` check is not enough: an unabortable `setTimeout` backoff can still keep local work alive until the full delay elapses. Put the abort handling in the delay primitive itself (`waitForBackoffDelay`) and test both already-aborted and mid-delay abort paths. Keeping the helper in `retry-config.ts` made the regression cheap and avoided a slow end-to-end LLM stream test.
+
+
+<!-- update_plan_status:appended -->
+## M2 abort-listener race lesson — 2026-07-02 — 2026-07-02T07:38:39.726Z
+
+Abortable delay helpers need a second `signal.aborted` check after registering the abort listener. Checking before timer creation and then adding the listener leaves a race where the signal can abort between those operations and the promise waits the full delay. The safe pattern is: pre-check, create timer, add abort listener, post-check, and route both abort paths through the same cleanup/reject function. Unit tests can simulate the race by aborting from a temporary `setTimeout` wrapper during delay setup.
+
+
+<!-- update_plan_status:appended -->
+## M2 model-discovery cancellation — 2026-07-02T07:44:12.010Z
+
+For injectable SDK network helpers, the safest cancellation surface is often minimal signal forwarding (`RequestInit.signal`) plus tests that assert the injected fetch receives the exact signal and propagates abort errors. Avoid adding local abort wrappers unless the helper owns a non-fetch wait/process lifecycle.
+
+
+<!-- update_plan_status:appended -->
+## CLI send ownership guard — 2026-07-02T07:55:07.879Z
+
+When abort releases the CLI chain lock immediately, a newer send can start before the older `client.run()` resolves. Any late checkpoint/save/finally path must check both a per-run owner token and the per-run `AbortSignal`; shared stream refs can be reset by the newer run and are not a reliable stale-owner discriminator.
+
+
+<!-- update_plan_status:appended -->
+## Queue ownership coverage — 2026-07-02T08:22:08.873Z
+
+For stale-owner queue fixes, primitive owner-token tests are not enough. Add coverage against the real extracted lifecycle path used by the hook (`runQueuedMessage` here), and capture stale timer callbacks before a newer run clears the timer map so the stale watchdog branch actually executes after the newer owner is active.
+
+
+<!-- update_plan_status:appended -->
+## Eval timeout cancellation seam — 2026-07-02T08:34:19.857Z
+
+For eval harness timeout cleanup, test the timeout-to-runner seam itself, not only direct `AbortSignal` consumers. Wrapping runner/final-check work in an exported helper like `runWithTimeoutSignal` makes it possible to prove that the timeout aborts the exact signal passed to runner-like work. Also normalize synchronous setup failures with `Promise.resolve().then(...)` before `withTimeout` so sync throws and async rejections share the same promise-based wrapper semantics.
+
+
+<!-- update_plan_status:appended -->
+## Eval external runner abort testing — 2026-07-02T08:44:54.071Z
+
+For external CLI runner abort coverage, make fake spawned CLIs signal readiness before aborting so tests deterministically exercise an in-flight process. To prove abort skips normal close cleanup, dirty a tracked marker after the initial commit; if close cleanup runs `git add .`, the marker becomes staged and the test catches it. Abort classifiers should key on structured abort properties (`AbortError`/`ABORT_ERR`) rather than message substrings to avoid startup-failure false positives.
+
+
+<!-- update_plan_status:appended -->
+## Residual M2 cancellation signal contract lesson — 2026-07-02T08:59:04.545Z
+
+When closing cancellation surfaces, check both process-level tools and callback contracts. A pre-dispatch `signal.aborted` check is not enough for long-running client/custom tool work: the in-flight callback must receive the same `AbortSignal` so hosts and SDK custom tools can observe cancellation. Keep new cancellation context arguments optional to preserve existing one-argument handlers and add focused tests at both boundaries: runtime request dispatch and SDK handler execution.
+
+
+<!-- update_plan_status:appended -->
+## M2 MCP cancellation coverage — 2026-07-02T09:09:01.444Z
+
+When claiming custom/MCP client-tool cancellation coverage, verify both halves separately: runtime `requestToolCall` signal forwarding and SDK `handleToolCall` execution branches. SDK MCP execution uses `callMCPTool(..., undefined, { signal })`, relying on the MCP SDK `RequestOptions.signal` third argument; tests should cover the `action.mcpConfig` branch directly, not only SDK custom-tool handlers or runtime request forwarding.
+
+
+<!-- update_plan_status:appended -->
+## M2 background-job timeout contract coverage — 2026-07-02T09:28:56.677Z
+
+For `check_job` timeout coverage, exercise the public schema contract: `timeout_seconds` is integer-only. Avoid fractional timeout shortcuts in tests. To keep tests fast, temporarily override `Date.now` so the second follow-loop observes the deadline as elapsed, and always restore the original clock in `finally`.
+
+M2 cancellation contract distinction: run-scoped SDK/runtime/eval/custom/MCP work should receive `AbortSignal`; background jobs are intentionally durable and remain running unless explicitly killed or a `check_job` follow-timeout with `kill_on_timeout` enabled applies.
+
+
+<!-- update_plan_status:appended -->
+## M3 markStale freshness — 2026-07-02T09:33:40.687Z
+
+When `markStale()` is a freshness barrier, query paths must not keep serving an already-loaded ready index while `forceRefresh` is pending. Regression coverage should build a real temporary index, call `markStale()`, assert `query()` returns `ready: false` with no results, then wait for refresh and assert queries become ready again.
+
+
+<!-- update_plan_status:appended -->
+## M3 stale refresh pending barrier — 2026-07-02T09:43:54.245Z
+
+Do not clear a freshness barrier before replacement data is installed. For index refreshes, `forceRefresh` can be consumed to start work, but a separate pending flag must keep `query()`/`waitUntilReady()` from serving the old ready index until the build promise settles. Tests should assert repeated queries during the pending window, not just the first query after `markStale()`.
+
+
+<!-- update_plan_status:appended -->
+## M3 command-mode freshness — 2026-07-02T09:47:12.409Z
+
+Command-mode freshness should be tested through the `IndexManager` path, not only pure `queryIndex()` fixtures: build a real temp `package.json`, update scripts, call `markStale()`, assert command queries return `ready: false` while stale, then assert refreshed snippets contain the new script and exclude removed scripts.
+
+
+<!-- update_plan_status:appended -->
+## M3 same-size same-mtime hashing — 2026-07-02T09:50:15.142Z
+
+Incremental index freshness cannot rely on `(mtime,size)` alone: editors/build steps can preserve both while changing content. `updateMetadataIndex()` should compare stored content hashes against current file hashes before reusing existing indexed entries. Regression tests should force same-size content and restore mtime at filesystem precision, then assert the hash changes.
+
+
+<!-- update_plan_status:appended -->
+## M3 same-size same-mtime coverage — 2026-07-02T09:51:56.950Z
+
+Hash-change tests must also prove behavioral freshness. For metadata indexes, assert reindexed fields change with the new same-size/same-mtime content (for example Markdown headings/concepts removed/added), otherwise a bug could update only the stored hash while retaining stale metadata.
+
+
+<!-- update_plan_status:appended -->
+## M3 metadata hash-read failures — 2026-07-02T13:08:05.184Z
+
+When incremental indexing starts hashing every walked file to catch same-size/same-mtime edits, hash/read failures must be treated as a freshness input, not as a fatal error. Exclude failed paths from token scoring and delete their stale metadata after the walk so unreadable code files cannot poison token refresh for other changed files.
+
+
+<!-- update_plan_status:appended -->
+## M3 extension tables and public exports — 2026-07-02T13:19:22.625Z
+
+When unifying language/extension tables across packages, expose immutable/copy-safe data. A mutable exported `Set` can be changed by any consumer and silently alter indexer behavior; prefer a frozen readonly array as the public contract and build private Sets inside consumers that need membership checks. Normalize extension lookup and user-facing filters by lowercase/dot prefix at the boundary.
+
+
+<!-- update_plan_status:appended -->
+## Provider config fragment cache invalidation — 2026-07-02T13:31:16.804Z
+
+Provider-config cache keys must include every effective dependency, not just top-level config files. For `openbuff.d` expansion, track implicit/explicit fragment directories and discovered fragment files so added or changed fragments invalidate `loadProviderConfigSync()`.
+
+When recursive config loading uses a per-call stack for cycle detection, always remove stack entries in `finally` in both the dependency-discovery path and the actual loader path. Malformed repeated fragments should surface parse errors without poisoning subsequent traversal or being misclassified as cycles.
+
+
+<!-- update_plan_status:appended -->
+## Recovered background job offsets — 2026-07-02T13:47:15.908Z
+
+Recoverable background jobs need their consumed-output cursor persisted alongside status metadata. If recovery rebuilds a job with `readOffset: 0`, `check_job` can replay historical output already returned before registry/session loss.
+
+Persist byte offsets after successful reads, clamp recovered offsets to the current log size, and treat missing or invalid JSON-compatible values (`null`, negative, non-number) as `0` for backward compatibility. Tests should assert the recovered job shape (`jobId`, `status`, and `newOutput`) so error results cannot accidentally satisfy offset assertions.
+
+
+<!-- update_plan_status:appended -->
+## Gate/reviewer reuse freshness — 2026-07-02T13:52:02.959Z
+
+Do not trust conversation `<gate-state>` reuse on matching pending file names alone. Reuse must be tied to the same content/status/validation fingerprint used by durable pass reuse; otherwise a later local content change at the same path can bypass validation/review. Regression coverage should include both unchanged-content reuse and changed-content rerun paths.
+
+
+<!-- update_plan_status:appended -->
+## Static-review-only reviewer join lesson — 2026-07-02T14:01:07.490Z
+
+When joining a background reviewer, do not use a `wait_for` string for only one passing token such as `LOOKS_GOOD`. The reviewer contract accepts `LOOKS_GOOD`, `NON_BLOCKING`, and `BLOCKING`, and the gate needs the complete reviewer result so the shared parser can distinguish passing verdicts from actionable blockers. Waiting for only one token can timeout on valid `NON_BLOCKING` output and delay `BLOCKING` feedback until timeout.
+
+
+<!-- update_plan_status:appended -->
+## M4 scoping lesson — distinguish canonical registry from executable surfaces — 2026-07-02T14:04:18.716Z
+
+For M4 tool/schema/config work, separate the canonical registry from each executable surface. `common/src/tools/constants.ts` and `common/src/tools/list.ts` define names and schemas, but SDK `handleToolCall`, SDK `ToolHelpers`, agent-runtime handlers, generated agent types, CLI renderers, and agent `toolNames` each have different intended subsets. Consistency tests should encode those subset contracts explicitly instead of assuming every canonical tool must be executable in every environment. Also prefer AST/imported maps over substring checks; `scripts/check-tool-registration.ts` can pass on incidental mentions.
+
+
+<!-- update_plan_status:appended -->
+## M4 hasNoValidation serialized handleSteps fallback — 2026-07-02T14:08:59.458Z
+
+`createBase2(..., { hasNoValidation: true })` can safely drive runtime gate behavior through the captured option in normal execution, but `handleSteps.toString()` serialization loses factory closure variables. Keep a fallback for serialized/generated handleSteps that preserves legacy built-in fast ids (`base2-fast`, `base2-fast-no-validation`) so the existing serialization regression remains valid while custom in-process wrappers honor the public option.
+
+
+<!-- update_plan_status:appended -->
+## Config merge checkpoint — 2026-07-02T15:21:58.760Z
+
+For config merge preservation changes, keep focused validation tied to the affected gate files. The latest configured hooks passed for SDK, agents, and indexer typechecks after the `failoverModels` / `maxAgentSteps` preservation checkpoint, so future resumes should not revisit this checkpoint unless source changes again.
+
+
+<!-- update_plan_status:appended -->
+## Reviewer Loop Resolution — 2026-07-02T16:02:36.985Z
+
+When a reviewer blocker references source that has already changed, verify the current lines before retrying the gate. In this checkpoint, the stale static-review-only `LOOKS_GOOD` wait blocker was resolved in source by waiting for the background reviewer result and parsing all accepted verdicts; the successful reviewer pass cleared the loop.
+
+
+<!-- update_plan_status:appended -->
+## Generated tool type drift — 2026-07-02T16:09:43.268Z
+
+Generated agent-facing tool type files can drift from canonical tool params even when `toolParams` and `toolNames` stay consistent. Registry consistency checks should inspect generated declaration text for user-visible defaults/descriptions, especially for docs-visible parameters like `read_docs.max_tokens`.
+
+
+<!-- update_plan_status:appended -->
+## SDK tool override surface — 2026-07-02T16:14:36.893Z
+
+For SDK tool dispatch, distinguish two registries:
+- `clientToolNames` is the subset the SDK can validate and dispatch natively.
+- `publishedTools`/`PublishedToolName` is the public override surface hosts may implement.
+
+Do not validate non-client published tools with `clientToolCallSchema`; doing so prevents `overrideTools` from filling public-but-nonnative SDK gaps such as `read_docs`. Instead, allow an override first, and emit the explicit SDK unsupported-tool error when no override exists.
+
+
+<!-- update_plan_status:appended -->
+## M4 generated tool declarations — 2026-07-02T16:27:38.512Z
+
+Generated agent tool declaration consistency is now covered by the common registry test. Keep `internalOnlyTools` in `common/src/tools/__tests__/tool-registration-consistency.test.ts` explicit and narrow so future public tool additions fail fast if generated agent type surfaces are not regenerated.
+
+
+<!-- update_plan_status:appended -->
+## Broader validation gotcha — 2026-07-02T16:33:33.121Z
+
+Broader validation can pass all workspace typechecks and most package suites while still failing in a focused package. The current remaining failure is isolated to `packages/agent-runtime` structural read tests: `read_outline` now assumes `fileContext.projectRoot`, so tests/handlers that call it without fileContext will throw before returning graceful errors.
+
+
+<!-- update_plan_status:appended -->
+## read_outline direct handler tests — 2026-07-02T16:37:18.295Z
+
+When testing handlers directly, include required runtime context fields instead of casting away newer contracts. `handleReadOutline` depends on `fileContext.projectRoot` for path containment, so focused tests should pass `mockFileContext` or an explicit `ProjectFileContext` whenever invoking the handler outside the tool executor.
+
+
+<!-- update_plan_status:appended -->
+## Set Output Prompt Availability Gotcha — 2026-07-02T16:49:08.846Z
+
+When an agent uses `outputMode: 'structured_output'` but intentionally omits `set_output` from `toolNames`, avoid model-visible prompt text that says to call or not call `set_output`. Programmatic `handleSteps` may still yield `set_output`, but prompts should describe automatic structured-output capture instead. Guard this with focused reachability/prompt-alignment tests rather than broad generated-file scans.
+
+
+<!-- update_plan_status:appended -->
+## M4 env compatibility docs gotcha — 2026-07-02T16:58:09.117Z
+
+When documenting Openbuff-vs-Codebuff env compatibility, do not phrase `CODEBUFF_API_KEY` as the only retained env exception. Source currently also implements `OPENBUFF_CHATGPT_OAUTH_TOKEN` as an alias with legacy-first precedence, and accepts `NEXT_PUBLIC_OPENBUFF_APP_URL` as an optional schema field even though current app URL accessors still require `NEXT_PUBLIC_CODEBUFF_APP_URL`. Keep docs explicit about primary accessor vs schema-only alias to avoid overstating migration completeness.
+
+
+<!-- update_plan_status:appended -->
+## M5 runtime cache-debug snapshot redaction — 2026-07-02T17:22:44.637Z
+
+Runtime cache-debug has a second snapshot writer separate from the common provider-request normalizer. When adding redaction to `common/src/util/cache-debug.ts`, also check `packages/agent-runtime/src/util/cache-debug.ts` because it stores `rawBody` and `normalized` into on-disk debug snapshots after receiving the common-normalized request. Keep data URL summaries and tool-call `arguments` passthrough intact while redacting prompt `content` strings and secret-like header/env keys.
+
+
+<!-- update_plan_status:appended -->
+## Provider discovery auth configurability — 2026-07-02T18:25:45.749Z
+
+Model discovery credential behavior is now explicit rather than blanket-blocked: `auto` preserves same-origin/inferred provider discovery auth while suppressing auth on explicit cross-origin catalog endpoints; users can choose `provider` for trusted cross-origin catalogs or `none` to suppress auth entirely. Tests should assert headers through a mutable object rather than a `let string | null` that TypeScript narrows too aggressively across async callbacks.
+
+
+<!-- update_plan_status:appended -->
+## M5 MCP cache hygiene regression gate — 2026-07-02T18:29:09.960Z
+
+For the M5 MCP cache hygiene follow-up, targeted validation is sufficient when source inspection shows the implementation is already present: common MCP tests cover remote header identity hashing without raw secret exposure, stdio env identity without resolved env leakage, SSE headers, and duplicate header casing normalization; common and agent-runtime cache-debug tests cover prompt/secret redaction and data-URL summarization. Preserve these focused tests as the regression gate for future MCP cache-key or cache-debug sanitizer edits.
+
+
+<!-- update_plan_status:appended -->
+## M6 streamed XML parser error surfacing — 2026-07-02T18:38:40.410Z
+
+When bounding streamed XML tool-call buffers, keep the parser tolerant but observable: return structured parser errors from the low-level parser, clear the unterminated state after the limit trips, and let `processStreamWithTools` emit print-mode errors so malformed tool-call XML is visible to users/tests instead of disappearing into `console.debug`. Focused regression tests should cover both parser-level state reset and stream-level error emission.
+
+
+<!-- update_plan_status:appended -->
+## M6 malformed STEP_TEXT tool calls — 2026-07-02T18:45:23.076Z
+
+For programmatic `STEP_TEXT` XML tool parsing, avoid silently dropping malformed `<codebuff_tool_call>` blocks. Keep the convenience API (`parseToolCallsFromText`) filtered to valid calls, but preserve diagnostics in the richer segment API (`parseTextWithToolCalls`) so callers like `run-programmatic-step` can surface an error event without executing invalid input.
+
+
+<!-- update_plan_status:appended -->
+## M6 parse diagnostics lesson — 2026-07-02T18:55:36.693Z
+
+For code-map/indexer diagnostics, keep parse failures non-fatal and expose them as structured metadata (`filePath`, `stage`, `message`) rather than logging or swallowing them entirely. When adding a type-only import inside an existing `import type { ... }`, do not use nested `type Foo`; TypeScript rejects mixed type modifiers in type-only import declarations.
+
+
+<!-- update_plan_status:appended -->
+## M6 format-value error formatting — 2026-07-02T19:12:48.312Z
+
+For error-message formatting helpers, assume `JSON.stringify` can throw (circular refs, BigInt, exotic objects). Keep formatting best-effort and bounded so validation/error reporting never masks the original tool/schema failure. Tests should cover at least circular object, BigInt, primitive type labels, and truncation of fallback strings.
+
+
+<!-- update_plan_status:appended -->
+## Model Discovery Timeout Composition — 2026-07-02T19:17:27.813Z
+
+For SDK model discovery, compose caller cancellation with a local timeout using a child `AbortController` rather than replacing the caller signal outright. Keep `timeoutMs: 0` as the escape hatch for tests/legacy exact-signal forwarding, and on fetch rejection prefer the composed signal's `reason` when aborted so timeout errors remain clear instead of surfacing generic abort exceptions.
+
+
+<!-- update_plan_status:appended -->
+## InitCommand Shell Semantics — 2026-07-02T19:23:35.985Z
+
+For BuffBench `initCommand`, make the contract explicit instead of pretending a string can be safely parsed into argv. Existing eval data authors already provide shell-like commands; using `execSync` with README wording as a trusted shell command preserves quoted args, redirection, and compound setup semantics. Keep arbitrary eval `initCommand` values scoped to trusted eval definitions only.
+
+
+<!-- update_plan_status:appended -->
+## BuffBench per-agent error summarization — 2026-07-02T19:29:48.465Z
+
+For BuffBench aggregation, do not exclude all agents on a commit just because one agent failed. Store the failed agent's own run with `error` and compute valid averages from runs where that same agent has no error. This preserves sibling agents' valid scores and makes per-agent reliability visible.
+
+
+<!-- update_plan_status:appended -->
+## M7 wording audit classification — 2026-07-02T19:35:21.192Z
+
+For M7 wording cleanup, broad hosted-product searches produce many intentional hits: local/BYOK assertions, legacy/upstream docs, provider-owned subscription wording, test fixtures, generated bundles, and session artifacts. Prefer first fixing active comments/prompts that can mislead agents or users, then rely on `scripts/byok-wording-guard.ts` plus targeted exact-phrase searches rather than deleting compatibility aliases or provider-owned billing/subscription language.
+
+
+<!-- update_plan_status:appended -->
+## M8 repeated spawn_agents counting — 2026-07-02T19:39:08.676Z
+
+For M8 minimum-shard checks, do not collapse requested agent types to distinct values before applying pair-count rules. A `spawn_agents` request with repeated `file-picker`/`code-searcher` entries is the sharding decision even if the trace ends before `subagent_start` events stream, so keep both `requestedAgentTypes` (duplicates) and `distinctAgentTypes` (display/summary).
+
+
+<!-- update_plan_status:appended -->
+## M8 planner-output coverage live gate — 2026-07-02T19:56:46.276Z
+
+Planner-output coverage must be applied in the live runner, not just exposed as a pure helper. Otherwise tests can prove `buildPlannerOutputCoverage` works while `run-plan-sharding-eval` still passes runs whose prompt names domains but planner output never synthesizes them. Keep summary artifacts explicit (`plannerOutputCoverage`) so CI/report consumers can distinguish shard assignment from synthesis coverage.
+
+
+<!-- update_plan_status:appended -->
+## M8 eval validation closure — 2026-07-02T19:58:01.006Z
+
+For M8 plan-sharding eval changes, run both targeted eval coverage and configured package typechecks before closing the checkpoint: `cd evals && bun test buffbench/__tests__/plan-sharding-signals.test.ts && bun run typecheck`, then file-change hooks for touched packages. The configured hooks can cover broader packages than the focused eval command, so record both results separately.
+
+
+<!-- update_plan_status:appended -->
+## M8 judge spec parity — 2026-07-02T20:01:34.738Z
+
+M8 judge parity is not just prompt-token plumbing: the generated eval task `spec` is the durable acceptance target and must be included in judge prompts alongside the user prompt and ground-truth diff. Regression tests can mock `OpenbuffClient.run` and assert both parallel judge prompts include the spec without running real judges.
+
+
+<!-- update_plan_status:appended -->
+## M8 Eval Helper Registry Smoke Coverage — 2026-07-02T20:07:49.330Z
+
+When BuffBench eval-generation uses graveyard exploration agents, their transitive spawnable helper agents are not automatically present unless `generateEvalTask` registers them in the `agentDefinitions` bundle. Smoke-test the registry by stubbing `OpenbuffClient.run` and asserting the helper ids are passed through; this catches silent runtime failures before an LLM tries to spawn `file-picker` or `code-searcher` during task generation. Targeted validation command: `cd evals && bun test buffbench/__tests__/run-buffbench.test.ts && bun run typecheck`.
+
+
+<!-- update_plan_status:appended -->
+## M9 checkpoint decision — 2026-07-02T20:41:42.275Z
+
+After M7/M8 reconciliation, the next incomplete durable checkpoint is M9 final local-model closure, not another feature-fix batch. M9 should focus on evidence and closure artifacts: classify remaining LOW/deferred findings as fixed, downgraded, discarded, deferred, or accepted debt; run native drift/registry guards before broad validation; and produce a final closure report. Avoid reopening completed M1-M8 implementation surfaces unless a guard, validation command, or reviewer points to a concrete regression.
+
+
+<!-- update_plan_status:appended -->
+## M9 final closure lessons — 2026-07-02T20:58:08.012Z
+
+M9 closure should not reopen implementation surfaces when the remaining work is evidence reconciliation. Use the final closure report plus tracker reconciliation to map stale tracker `todo` rows to fixed/downgraded/discarded/deferred/accepted-debt outcomes, and only edit source if a guard or validation failure exposes a concrete regression.
+
+The memory-drift guard can fail because package knowledge files are stale after source changes. Treat that as a closure invariant: refresh the relevant knowledge files, add/keep regression coverage for staleness detection, then rerun all drift guards before writing final closure artifacts.
+
+For final closure artifacts, record accepted debt explicitly rather than silently leaving tracker rows stale. Important accepted/deferred categories are broad deterministic-edit hardening beyond fixed cases, large-file ordinal edit anchor enforcement, gate-path absolute hardening, BYOK cost-accounting namespace cleanup, CDN parser WASM dependency hygiene, eval token-metadata log hygiene, standalone substring-based `check-tool-registration`, and low-priority CLI/runtime/perf/dependency/test/API cleanup rows.
+
+
+<!-- update_plan_status:appended -->
+## M9 memory-drift staleness coverage gotcha — 2026-07-02T21:02:24.313Z
+
+When `checkStaleness` relies on git commit timestamps, cover both no-git and git-repo-but-untracked cases. An untracked `knowledge.md` with committed sibling `src/` has no reliable commit timestamp, so the correct guard behavior is to skip rather than report stale; otherwise local remediation before first commit can be blocked by false positives.
+

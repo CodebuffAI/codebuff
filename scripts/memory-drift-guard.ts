@@ -324,6 +324,13 @@ export function checkStaleness(root: string): Finding[] {
       const srcRelative = toProjectPath(root, siblingSrc)
       const lastCommitSource = lastCommitEpoch(root, srcRelative)
       const lastCommitMd = lastCommitEpoch(root, projectPath)
+      // In local remediation flows, a tracked knowledge file may be updated in
+      // the working tree before the commit that refreshes its git timestamp.
+      // Treat that dirty state as an in-progress freshness signal so the guard
+      // can pass before the commit lands.
+      if (pathHasWorkingTreeChanges(root, projectPath)) {
+        continue
+      }
       // If git is unavailable or the path is untracked, fall back to no-op
       // (skip) rather than a false positive — we cannot reason about
       // freshness without a real signal.
@@ -375,6 +382,19 @@ function lastCommitEpoch(root: string, pathspec: string): number | null {
   }
   const epoch = Number.parseInt(trimmed, 10)
   return Number.isFinite(epoch) ? epoch : null
+}
+
+function pathHasWorkingTreeChanges(root: string, pathspec: string): boolean {
+  try {
+    const stdout = execFileSync('git', ['status', '--porcelain', '--', pathspec], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    return stdout.trim() !== ''
+  } catch {
+    return false
+  }
 }
 
 export function checkCommand(root: string): Finding[] {

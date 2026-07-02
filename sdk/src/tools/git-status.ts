@@ -6,27 +6,86 @@ import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const DEFAULT_MAX_CHARS = 40_000
 
-export function runGit(args: string[], cwd: string): Promise<{
+export function runGit(
+  args: string[],
+  cwd: string,
+  signal?: AbortSignal,
+): Promise<{
   stdout: string
   stderr: string
   exitCode: number
 }> {
+  if (signal?.aborted) {
+    const reason = signal.reason
+    return Promise.resolve({
+      stdout: '',
+      stderr: reason instanceof Error ? reason.message : 'Aborted',
+      exitCode: -1,
+    })
+  }
+
   return new Promise((resolve) => {
-    const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    let child: ReturnType<typeof spawn>
+    try {
+      child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    } catch (error) {
+      resolve({
+        stdout: '',
+        stderr: error instanceof Error ? error.message : String(error),
+        exitCode: -1,
+      })
+      return
+    }
+
     let stdout = ''
     let stderr = ''
-    child.stdout.on('data', (chunk: Buffer) => {
+    let settled = false
+    let removeAbortListener = () => {}
+
+    const settle = (result: {
+      stdout: string
+      stderr: string
+      exitCode: number
+    }) => {
+      if (settled) return
+      settled = true
+      removeAbortListener()
+      resolve(result)
+    }
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      if (settled) return
       stdout += chunk.toString('utf8')
     })
-    child.stderr.on('data', (chunk: Buffer) => {
+    child.stderr?.on('data', (chunk: Buffer) => {
+      if (settled) return
       stderr += chunk.toString('utf8')
     })
     child.on('error', (error) => {
-      resolve({ stdout, stderr: stderr + error.message, exitCode: -1 })
+      settle({ stdout, stderr: stderr + error.message, exitCode: -1 })
     })
     child.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? -1 })
+      settle({ stdout, stderr, exitCode: code ?? -1 })
     })
+
+    if (signal) {
+      const onAbort = () => {
+        if (settled) return
+        const reason = signal.reason
+        settle({
+          stdout,
+          stderr: reason instanceof Error ? reason.message : 'Aborted',
+          exitCode: -1,
+        })
+        try {
+          child.kill('SIGTERM')
+        } catch {}
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      removeAbortListener = () => {
+        signal.removeEventListener('abort', onAbort)
+      }
+    }
   })
 }
 
@@ -36,6 +95,7 @@ export async function gitStatus(params: {
   staged?: boolean
   path?: string
   max_chars?: number
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'git_status'>> {
   const maxChars = Math.min(
     200_000,
@@ -57,7 +117,7 @@ export async function gitStatus(params: {
     statusArgs.push('--', resolvedPath.relativePath)
   }
 
-  const status = await runGit(statusArgs, params.cwd)
+  const status = await runGit(statusArgs, params.cwd, params.signal)
   if (status.exitCode !== 0) {
     return [
       {
@@ -95,7 +155,7 @@ export async function gitStatus(params: {
       }
       diffArgs.push('--', resolvedDiffPath.relativePath)
     }
-    const diffResult = await runGit(diffArgs, params.cwd)
+    const diffResult = await runGit(diffArgs, params.cwd, params.signal)
     if (diffResult.exitCode !== 0 && diffResult.exitCode !== 1) {
       return [
         {

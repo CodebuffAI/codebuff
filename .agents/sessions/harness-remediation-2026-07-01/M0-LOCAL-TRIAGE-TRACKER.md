@@ -24,8 +24,8 @@ Therefore, original audit labels such as `Security`, `API/ABI`, or `auth` are no
 | 2 | #2 | `packages/agent-runtime/.../write-file.ts` — truthy `basedOnRead` bypasses freshness gates | KH-CS | keep | M1 | may overlap dirty tree changes in deterministic edit files | agent-runtime edit-state tests | Stale/invalid edit authorization can cause destructive local edits. |
 | 3 | read-files state finding from audit state section | `read-files.ts` failed reads can clear stale-edit guards/grant sticky authorization | KH-CS | keep | M1 | likely overlaps current dirty tree (`read-files.ts`, edit-state tests) | agent-runtime edit-state tests + SDK read-files tests | Same root cause as #2 and should be handled together before broader work. |
 | 4 | #9 | `packages/indexer/src/index-manager.ts` — `markStale()` does not force next query refresh | KH-CS | keep | M3 | unverified | indexer targeted tests | Stale local index after edits misleads retrieval and planning. |
-| 5 | #6 | `cli/src/hooks/helpers/send-message.ts` — abort releases locks while old stream can mutate run state | KH-CS | keep | M2 | unverified | CLI hook/component tests; tmux only if UI changes | Local CLI state race can corrupt runs after abort. |
-| 6 | #7 | `evals/buffbench/agent-runner.ts` — eval timeout does not abort underlying agents/processes | KH-LS | keep | M2 | unverified | evals targeted tests | Local runaway eval work can mutate repos/logs after timeout. |
+| 5 | #6 | `cli/src/hooks/helpers/send-message.ts` — abort releases locks while old stream can mutate run state | KH-CS | keep | M2 | approved: CLI send/queue ownership checkpoints | CLI helper/hook tests + CLI typecheck + focused review | Local CLI state race can corrupt runs after abort. |
+| 6 | #7 | `evals/buffbench/agent-runner.ts` — eval timeout does not abort underlying agents/processes | KH-LS | keep | M2 | approved: eval timeout and external-runner abort cleanup | evals agent-runner tests + evals typecheck + focused review | Local runaway eval work can mutate repos/logs after timeout. |
 | 7 | #8 | `agents/base2/base2.ts` — stale `<gate-state>` can skip validation/review | KH-CS | keep / rewrite as stale local gate-state correctness | M3 | likely overlaps current dirty tree (`agents/base2/*`, tests) | agents gate lifecycle tests | Relevant as stale local validation state, not hosted trust/security. |
 | 8 | #10 | `common/src/tools/list.ts` — SDK advertises tools SDK cannot execute | KN-CRP | keep | M4 | unverified | registry consistency tests + package typechecks | Local tool contract drift causes runtime failures/confusing agents. |
 | 9 | #3 | `run-programmatic-step.ts` — `new Function` for stringified `handleSteps` | KN-CRP | rewrite / verify trust source before hardening | M6 or M4 | unverified | runtime programmatic-step tests | Potential local template trust hardening, but do not break bundled/local agent templates without migration. |
@@ -67,7 +67,7 @@ This table tracks every audit family from `AUDIT-REPORT.md`. Detailed per-file c
 | COR-H04-H06 / TEST-H01-H02 / ABI-H03 | Plan-sharding eval correctness | `evals/buffbench/plan-sharding-signals.ts`, `run-plan-sharding-eval.ts` | Correctness/Test/API HIGH | KN-CRP | keep | M8 | todo | buffbench plan-sharding tests |
 | COR-M01 | `hasNoValidation` semantics | `agents/base2/base2.ts` | Correctness/API MEDIUM | KN-CRP | keep | M4 | todo | agents gate tests/docs |
 | COR-M02 | Static review join accepted verdicts | `agents/base2/base2.ts` | Correctness/Error MEDIUM | KH-CS/KN-CRP | keep | M3 | partially overlaps dirty tree; verify | reviewer-spawn tests |
-| COR-M03-M07 | CLI queue/history/suggestion/input races | `cli/src/hooks/**` | Correctness MEDIUM | KH-CS/KN-CRP | keep scoped | M2/M6 | todo | CLI tests; tmux if UI behavior changes |
+| COR-M03-M07 | CLI queue/history/suggestion/input races | `cli/src/hooks/**` | Correctness MEDIUM | KH-CS/KN-CRP | keep scoped | M2/M6 | M2 send/queue ownership approved; remaining non-abort CLI lows deferred | CLI send-message and queue-control tests; tmux only if UI behavior changes |
 | COR-M08-M11 | Runtime message/tool stream/trimming robustness | `packages/agent-runtime/src/util/messages.ts`, `tool-executor.ts`, `stream-parser.ts`, `run-agent-step.ts` | Correctness MEDIUM | KN-CRP | keep | M6 | todo | runtime tests |
 | COR-M12 | BYOK cost accounting namespace | `sdk/src/impl/llm.ts` | Correctness MEDIUM | KN-CRP | keep | M4/M5 | todo | SDK tests |
 | COR-M13 / STATE-M07 | Background job offsets | `sdk/src/tools/background-jobs.ts` | Correctness MEDIUM | KH-CS | keep | M3 | todo | background job tests |
@@ -77,17 +77,17 @@ This table tracks every audit family from `AUDIT-REPORT.md`. Detailed per-file c
 | COR-M20 | `occurrenceIndex` freshness anchors | `process-str-replace.ts` | Correctness MEDIUM | KH-CS | keep | M1 | partially overlaps dirty tree; verify | deterministic edit tests |
 | COR-M21 | Tool registration guard substring match | `scripts/check-tool-registration.ts` | Correctness MEDIUM | KN-CRP | keep | M4/M9 | todo | scripts guard tests |
 | COR-L01-L07 | Low CLI/runtime/glob edge cases | `sdk/src/tools/glob.ts`, runtime utils, CLI hooks/components | Correctness LOW | KN-CRP | defer/sweep | M9 | todo | targeted tests if touched |
-| STATE-H02 / STATE-H04 / ERR-M02 | Cancellation propagation | `cli`, `sdk`, `agent-runtime`, `evals` | State/Error HIGH/MEDIUM | KH-LS/KH-CS | keep | M2 | todo | abort/provider/eval tests |
+| STATE-H02 / STATE-H04 / ERR-M02 | Cancellation propagation | `cli`, `sdk`, `agent-runtime`, `evals` | State/Error HIGH/MEDIUM | KH-LS/KH-CS | keep | M2 | approved/closed for M2: SDK child processes, retry sleep, model discovery, runtime/client/custom/MCP tool signals, CLI ownership, eval timeout/external runners, and check_job timeout cleanup | abort/provider/eval/check_job/CLI tests + package typechecks |
 | STATE-M01-M03 | Runtime stream/message state mutation | runtime parser/messages | State MEDIUM | KN-CRP/KH-CS | keep | M6 | todo | runtime stream tests |
 | STATE-L01-L04 | Low generator/test/global state issues | runtime, agents, code-map, cli project files | State LOW | KN-CRP | defer/sweep | M9 | todo | targeted tests if touched |
 | ERR-H01 | Tree-sitter failures swallowed | `metadata-indexer.ts`, `parse.ts` | Error HIGH | KN-CRP | keep | M6 | todo | parser diagnostic tests |
-| ERR-H02 | Eval final check no timeout | `evals/buffbench/agent-runner.ts` | Error HIGH | KH-LS | keep | M2/M6 | todo | eval timeout tests |
+| ERR-H02 | Eval final check no timeout | `evals/buffbench/agent-runner.ts` | Error HIGH | KH-LS | keep | M2/M6 | approved for M2: final checks receive eval timeout abort signal and preserve output shape | eval agent-runner tests + evals typecheck |
 | ERR-M01 | Malformed tool input parse debug-only | `tool-stream-parser.ts` | Error MEDIUM | KN-CRP | keep | M6 | todo | parser validation tests |
-| ERR-M03 | `check_job.kill_on_timeout` dropped | `check-job.ts`, SDK params | Error MEDIUM | KH-LS/KN-CRP | keep | M2 | todo | check_job tests |
-| ERR-M04 | Model discovery no timeout/cancel | `sdk/src/model-discovery.ts` | Error/Perf MEDIUM | D-OLI/KN-CRP | keep without breaking custom endpoints | M5/M6 | todo | model discovery timeout tests |
+| ERR-M03 | `check_job.kill_on_timeout` dropped | `check-job.ts`, SDK params | Error MEDIUM | KH-LS/KN-CRP | keep | M2 | approved | agent-runtime check-job handler tests + typecheck |
+| ERR-M04 | Model discovery no timeout/cancel | `sdk/src/model-discovery.ts` | Error/Perf MEDIUM | D-OLI/KN-CRP | keep without breaking custom endpoints | M5/M6 | M2 cancellation approved for caller-provided `AbortSignal`; timeout policy still belongs to M5/M6 contract work | model discovery abort tests + SDK typecheck |
 | ERR-M05-M08 | Reviewer waits/eval summaries/initCommand aliases | agents/evals/types | Error MEDIUM | KN-CRP | keep | M4/M6/M8 | todo | targeted tests |
 | ERR-L01-L03 | Error formatter/cleanup/timer/clipboard lows | runtime/cli | Error LOW | KN-CRP | defer/sweep | M9 | todo | targeted tests if touched |
-| PERF-H01 | Eval timeout leaves work running | `agent-runner.ts` | Performance HIGH | KH-LS | keep | M2 | todo | eval timeout tests |
+| PERF-H01 | Eval timeout leaves work running | `agent-runner.ts` | Performance HIGH | KH-LS | keep | M2 | approved: timeout aborts runner/final-check signal and external runner abort path | eval agent-runner tests + evals typecheck |
 | PERF-M01 | Unbounded streamed XML buffers | runtime XML parser | Performance MEDIUM | KH-LS/KN-CRP | keep | M6 | todo | bounded buffer tests |
 | PERF-M02 | Model discovery can hang | `model-discovery.ts` | Performance MEDIUM | D-OLI/KN-CRP | keep | M5/M6 | todo | timeout tests |
 | PERF-M03-M07 | CLI render churn/timer/copy recomputation | `cli/src/**` | Performance MEDIUM | KN-CRP | keep scoped | M6/M9 | todo | CLI tests/profiling if touched |
@@ -182,6 +182,24 @@ Use repo-native commands. Per `docs/testing.md`, avoid `bun --cwd <pkg> run <scr
 - `cd scripts && bun run guard:byok-wording`
 - `cd scripts && bun run guard:memory-drift`
 - `cd scripts && bun run guard:sync-agent-config`
+
+## M9 final closure reconciliation
+
+Final closure report: `.agents/sessions/harness-remediation-2026-07-01/M9-FINAL-CLOSURE-REPORT.md`
+
+All finding families in this tracker are now reconciled under the local CLI/BYOK product model. Rows that still show earlier milestone statuses in the original tracker table should be interpreted through the final M9 closure report and the milestone evidence in `STATUS.md`:
+
+- **Fixed:** M1-M8 completed and validated local path/edit safety, cancellation/process cleanup, freshness/index/cache correctness, registry/schema/config contracts, provider/MCP/cache-debug hygiene, parser/diagnostic/resource bounds, local wording cleanup, and eval/plan-sharding correctness.
+- **Downgraded:** Provider/MCP/custom-endpoint and local secret-hygiene findings are treated as optional local integration correctness, not hosted-security exposure.
+- **Discarded:** Hosted backend/web/billing/auth/CORS/cookie/account/tenant assumptions are out of scope for the local-first product model.
+- **Deferred / accepted debt:** residual low-priority or non-blocking items are recorded in the closure report's accepted-debt register, including broad deterministic-edit hardening beyond fixed cases, large-file ordinal edit anchor enforcement, gate-path absolute hardening, BYOK cost-accounting namespace cleanup, CDN parser WASM dependency hygiene, eval token-metadata log hygiene, standalone `check-tool-registration` substring matching, and low-priority CLI/runtime/perf/dependency/test/API cleanup rows.
+
+M9 validation and guard outcome:
+
+- `cd scripts && bun run guard:byok-wording && bun run guard:sync-agent-config && bun run guard:memory-drift` passed after resolving the memory-drift staleness failure.
+- `cd scripts && bun run typecheck && bun run test` passed.
+- `bun run typecheck` passed.
+- Latest configured file-change hooks passed for common, SDK, CLI, agent-runtime, and indexer typechecks.
 
 ## M0 completion checklist
 

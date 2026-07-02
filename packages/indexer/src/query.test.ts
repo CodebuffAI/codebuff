@@ -196,6 +196,15 @@ describe('queryIndex', () => {
     )
   })
 
+  test('normalizes fileTypes filters by dot prefix and casing', () => {
+    const results = queryIndex(index, 'Authentication Flow', {
+      fileTypes: ['.MD'],
+      limit: 5,
+    })
+
+    expect(results.map((result) => result.path)).toEqual(['docs/authentication.md'])
+  })
+
   test('resolveLexicalWeights returns historical defaults with no arg', () => {
     expect(resolveLexicalWeights()).toEqual(DEFAULT_LEXICAL_WEIGHTS)
     expect(resolveLexicalWeights()).toEqual({

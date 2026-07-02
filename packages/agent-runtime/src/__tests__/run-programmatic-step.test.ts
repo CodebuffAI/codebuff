@@ -1835,6 +1835,31 @@ describe('runProgrammaticStep', () => {
       expect(result.agentState.output?.error).toBeUndefined()
     })
 
+    it('should surface malformed STEP_TEXT tool calls as response errors', async () => {
+      const mockGenerator = (function* () {
+        yield {
+          type: 'STEP_TEXT',
+          text: `<codebuff_tool_call>
+{"cb_tool_name": "read_files",
+</codebuff_tool_call>`,
+        }
+        yield { toolName: 'end_turn', input: {} }
+      })() as StepGenerator
+
+      const responseChunks: unknown[] = []
+      mockTemplate.handleSteps = () => mockGenerator
+      mockParams.onResponseChunk = (chunk) => responseChunks.push(chunk)
+
+      const result = await runProgrammaticStep(mockParams)
+
+      expect(result.endTurn).toBe(true)
+      expect(result.agentState.output?.error).toBeUndefined()
+      expect(responseChunks).toContainEqual({
+        type: 'error',
+        message: expect.stringContaining('JSON parsing failed'),
+      })
+    })
+
     it('should accept valid GENERATE_N object', async () => {
       const mockGenerator = (function* () {
         yield { type: 'GENERATE_N', n: 3 }

@@ -79,7 +79,7 @@ export const languageTable: LanguageConfig[] = [
     queryPathOrContent: typescriptQuery,
   },
   {
-    extensions: ['.js', '.jsx'],
+    extensions: ['.js', '.jsx', '.mjs', '.cjs'],
     wasmFile: WASM_FILES['tree-sitter-javascript.wasm'],
     queryPathOrContent: javascriptQuery,
   },
@@ -134,6 +134,10 @@ export const languageTable: LanguageConfig[] = [
     queryPathOrContent: kotlinQuery,
   },
 ]
+
+export const SUPPORTED_CODE_EXTENSIONS = Object.freeze(
+  languageTable.flatMap((config) => config.extensions.map((ext) => ext.toLowerCase())),
+)
 
 /* ------------------------------------------------------------------ */
 /* 5. WASM directory management                                      */
@@ -277,7 +281,7 @@ class UnifiedLanguageLoader implements RuntimeLanguageLoader {
 export function findLanguageConfigByExtension(
   filePath: string,
 ): LanguageConfig | undefined {
-  const ext = path.extname(filePath)
+  const ext = path.extname(filePath).toLowerCase()
   return languageTable.find((c) => c.extensions.includes(ext))
 }
 

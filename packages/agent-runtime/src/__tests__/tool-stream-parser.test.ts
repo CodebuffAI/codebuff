@@ -510,4 +510,38 @@ describe('processStreamWithTags', () => {
     expect(events).toEqual([])
   })
 
+  it('should surface XML parser errors through onResponseChunk', async () => {
+    const streamChunks: StreamChunk[] = [
+      textChunk(`<codebuff_tool_call>
+{"cb_tool_name": "test_tool",
+</codebuff_tool_call>`),
+    ]
+    const stream = createMockStream(streamChunks)
+    const responseChunks: any[] = []
+
+    function defaultProcessor() {
+      return {
+        onTagStart: () => {},
+        onTagEnd: () => {},
+      }
+    }
+
+    for await (const _chunk of processStreamWithTools({
+      ...agentRuntimeImpl,
+      stream,
+      processors: {},
+      defaultProcessor,
+      onResponseChunk: (chunk: any) => responseChunks.push(chunk),
+      executeXmlToolCall: async () => {},
+    })) {
+      // consume stream
+    }
+
+    expect(responseChunks).toHaveLength(1)
+    expect(responseChunks[0]).toMatchObject({
+      type: 'error',
+      message: expect.stringContaining('JSON parsing failed'),
+    })
+  })
+
 })

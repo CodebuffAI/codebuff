@@ -55,6 +55,61 @@ export const resetEarlyReturnState = (
   }
 }
 
+export const createRunOwnership = (
+  activeRunOwnerRef: MutableRefObject<symbol | null>,
+): {
+  isCurrentRunOwner: () => boolean
+  isCurrentRunActive: (signal: AbortSignal) => boolean
+  releaseRunOwner: () => void
+} => {
+  const runOwner = Symbol('sendMessageRun')
+  activeRunOwnerRef.current = runOwner
+  const isCurrentRunOwner = () => activeRunOwnerRef.current === runOwner
+  const isCurrentRunActive = (signal: AbortSignal) =>
+    isCurrentRunOwner() && !signal.aborted
+  const releaseRunOwner = () => {
+    if (isCurrentRunOwner()) {
+      activeRunOwnerRef.current = null
+    }
+  }
+
+  return { isCurrentRunOwner, isCurrentRunActive, releaseRunOwner }
+}
+
+export const cleanupProviderReadinessFailure = (params: {
+  message: string
+  updater: BatchedMessageUpdater
+  timerController: SendMessageTimerController
+  setStreamStatus: (status: StreamStatus) => void
+  setCanProcessQueue: (can: boolean) => void
+  updateChainInProgress: (value: boolean) => void
+  releaseRunOwner: () => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
+}): void => {
+  const {
+    message,
+    updater,
+    timerController,
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    releaseRunOwner,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  } = params
+
+  updater.setError(message)
+  timerController.stop('error')
+  setStreamStatus('idle')
+  setCanProcessQueue(!isQueuePausedRef?.current)
+  if (isProcessingQueueRef) {
+    isProcessingQueueRef.current = false
+  }
+  updateChainInProgress(false)
+  releaseRunOwner()
+}
+
 /** Resets queue state after streaming completes, aborts, or errors. */
 export type FinalizeQueueStateParams = {
   setStreamStatus: (status: StreamStatus) => void
@@ -281,9 +336,9 @@ export const setupStreamingContext = (params: {
     // Release the chain lock immediately so new messages can be sent directly instead
     // of being queued. The minor trade-off is that if the user sends a new message
     // before client.run() resolves, it may use stale previousRunStateRef. This is
-    // acceptable because: (1) the user explicitly cancelled, and (2) client.run()
-    // will update previousRunStateRef when it eventually resolves, so subsequent
-    // runs will have the full state.
+    // acceptable because the user explicitly cancelled; the superseded run's late
+    // persistence is guarded by per-run ownership checks so it cannot clobber the
+    // newer run's state.
     streamRefs.setters.setWasAbortedByUser(true)
     setIsRetrying(false)
     timerController.stop('aborted')

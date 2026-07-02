@@ -253,6 +253,25 @@ type BackgroundJobMetadata = {
   status: BackgroundJobStatus
   exitCode: number | null
   startedAt: number
+  readOffset?: number
+}
+
+function writeBackgroundJobMetadata(job: BackgroundJob): void {
+  const metadata: BackgroundJobMetadata = {
+    jobId: job.jobId,
+    command: job.command,
+    processId: job.child.pid ?? null,
+    logFile: job.logFile,
+    status: job.status,
+    exitCode: job.exitCode,
+    startedAt: job.startedAt,
+    readOffset: job.readOffset,
+  }
+  try {
+    safeWriteJobMetadata(job.metadataFile, metadata)
+  } catch {
+    // best-effort recovery metadata
+  }
 }
 
 function nextJobId(): string {
@@ -334,22 +353,7 @@ export function startBackgroundJob(params: {
       // already closed
     }
   }
-  const writeMetadata = () => {
-    const metadata: BackgroundJobMetadata = {
-      jobId,
-      command,
-      processId: child.pid ?? null,
-      logFile,
-      status: job.status,
-      exitCode: job.exitCode,
-      startedAt: job.startedAt,
-    }
-    try {
-      safeWriteJobMetadata(metadataFile, metadata)
-    } catch {
-      // best-effort recovery metadata
-    }
-  }
+  const writeMetadata = () => writeBackgroundJobMetadata(job)
   writeMetadata()
   child.on('exit', (code) => {
     job.status = code === 0 ? 'completed' : 'error'
@@ -413,6 +417,14 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
       !isProcessAlive(metadata.processId)
         ? 'completed'
         : metadata.status
+    const logSize = fs.statSync(fallbackLogFile).size
+    const readOffset =
+      typeof metadata.readOffset === 'number' &&
+      Number.isFinite(metadata.readOffset)
+        ? Math.min(Math.max(0, Math.floor(metadata.readOffset)), logSize)
+        : 0
+
+    metadataFilesCreatedByThisProcess.add(metadataFile)
 
     return {
       jobId,
@@ -423,7 +435,7 @@ function recoverBackgroundJob(jobId: string): BackgroundJob | undefined {
       status,
       exitCode: metadata.exitCode,
       startedAt: metadata.startedAt,
-      readOffset: 0,
+      readOffset,
     }
   } catch {
     return undefined
@@ -528,6 +540,9 @@ export function readNewJobOutput(job: BackgroundJob): string {
     const buf = Buffer.alloc(length)
     const bytesRead = fs.readSync(fd, buf, 0, length, job.readOffset)
     job.readOffset += bytesRead
+    if (bytesRead > 0) {
+      writeBackgroundJobMetadata(job)
+    }
     return buf.toString('utf8', 0, bytesRead)
   } catch {
     return ''

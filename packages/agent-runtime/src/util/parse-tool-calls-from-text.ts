@@ -15,7 +15,15 @@ export type ParsedTextSegment = {
   text: string
 }
 
-export type ParsedSegment = ParsedToolCallFromText | ParsedTextSegment
+export type ParsedToolCallParseError = {
+  type: 'parse_error'
+  message: string
+}
+
+export type ParsedSegment =
+  | ParsedToolCallFromText
+  | ParsedTextSegment
+  | ParsedToolCallParseError
 
 /**
  * Parses text containing tool calls in the <codebuff_tool_call> XML format,
@@ -60,24 +68,44 @@ export function parseTextWithToolCalls(text: string): ParsedSegment[] {
 
     try {
       const parsed = JSON.parse(jsonContent)
-      const toolName = parsed[toolNameParam]
 
-      if (typeof toolName === 'string') {
-        // Remove the tool name param from the input
-        const input = { ...parsed }
-        delete input[toolNameParam]
-
-        // Also remove cb_easp if present
-        delete input['cb_easp']
-
+      if (!isRecord(parsed)) {
         segments.push({
-          type: 'tool_call',
-          toolName,
-          input,
+          type: 'parse_error',
+          message:
+            'Ignored codebuff_tool_call content because it did not parse to a JSON object.',
         })
+      } else {
+        const toolName = parsed[toolNameParam]
+
+        if (typeof toolName === 'string') {
+          // Remove the tool name param from the input
+          const input = { ...parsed }
+          delete input[toolNameParam]
+
+          // Also remove cb_easp if present
+          delete input['cb_easp']
+
+          segments.push({
+            type: 'tool_call',
+            toolName,
+            input,
+          })
+        } else {
+          segments.push({
+            type: 'parse_error',
+            message:
+              'Ignored codebuff_tool_call content because cb_tool_name was missing or not a string.',
+          })
+        }
       }
-    } catch {
-      // Skip malformed JSON - don't add segment
+    } catch (err) {
+      segments.push({
+        type: 'parse_error',
+        message: `Ignored codebuff_tool_call content because JSON parsing failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      })
     }
 
     // Update lastIndex to after this match
@@ -110,6 +138,10 @@ export function parseToolCallsFromText(
   return parseTextWithToolCalls(text)
     .filter((segment): segment is ParsedToolCallFromText => segment.type === 'tool_call')
     .map(({ toolName, input }) => ({ toolName, input }))
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
 function escapeRegex(string: string): string {

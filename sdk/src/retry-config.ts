@@ -85,6 +85,59 @@ export function computeBackoffDelayMs(params: {
   return Math.round(jittered)
 }
 
+function getAbortReasonError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason
+  }
+  if (typeof signal.reason === 'string') {
+    return new Error(signal.reason)
+  }
+  return new Error('Retry delay aborted')
+}
+
+/**
+ * Wait for a retry backoff delay, rejecting promptly if the caller aborts.
+ */
+export function waitForBackoffDelay(params: {
+  delayMs: number
+  signal?: AbortSignal
+}): Promise<void> {
+  const { delayMs, signal } = params
+
+  if (signal?.aborted) {
+    return Promise.reject(getAbortReasonError(signal))
+  }
+  if (delayMs <= 0) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve, reject) => {
+    let timeout: ReturnType<typeof globalThis.setTimeout> | undefined
+
+    const cleanup = () => {
+      if (timeout !== undefined) {
+        globalThis.clearTimeout(timeout)
+        timeout = undefined
+      }
+      signal?.removeEventListener('abort', onAbort)
+    }
+
+    const onAbort = () => {
+      cleanup()
+      reject(getAbortReasonError(signal!))
+    }
+
+    timeout = globalThis.setTimeout(() => {
+      cleanup()
+      resolve()
+    }, delayMs)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      onAbort()
+    }
+  })
+}
+
 /**
  * Duration in milliseconds to show the reconnection message
  * After this time, the message auto-hides

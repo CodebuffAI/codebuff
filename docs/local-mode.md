@@ -7,7 +7,7 @@ There is absolutely no backend fallback. Every LLM request must resolve to eithe
 1. an OpenAI-compatible or Anthropic-compatible provider in `openbuff.json`, or
 2. a configured ChatGPT/Codex OAuth provider for supported OpenAI models.
 
-Legacy `codebuff.json` / `manicode` config paths and most `CODEBUFF_*` env-var aliases were removed in the BYOK legacy purge; `openbuff.json` and `OPENBUFF_*` are now the primary names. The sole exception is `CODEBUFF_API_KEY`, accepted as a fallback for `OPENBUFF_API_KEY`. See [docs/configuration.md](./configuration.md) for the full config layering and merge semantics.
+Legacy `codebuff.json` / `manicode` config paths and most `CODEBUFF_*` env-var aliases were removed in the BYOK legacy purge; `openbuff.json` and `OPENBUFF_*` are now the primary names. Retained compatibility env names are documented in [Environment Variables](./environment-variables.md), including `CODEBUFF_API_KEY` as a fallback for `OPENBUFF_API_KEY`. See [docs/configuration.md](./configuration.md) for the full config layering and merge semantics.
 
 ## Start Openbuff
 

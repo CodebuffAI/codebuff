@@ -7,6 +7,7 @@ export type RequestToolCallFn = (params: {
   toolName: string
   input: Record<string, any> & { timeout_seconds?: number }
   mcpConfig?: MCPConfig
+  signal?: AbortSignal
 }) => Promise<{
   output: ToolResultOutput[]
 }>

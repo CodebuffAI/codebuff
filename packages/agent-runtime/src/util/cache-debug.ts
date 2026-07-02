@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 
 import {
+  summarizeCacheDebugValue,
   type CacheDebugCorrelation,
 } from '@codebuff/common/util/cache-debug'
 import type { CacheDebugUsageData } from '@codebuff/common/types/contracts/llm'
@@ -95,50 +96,6 @@ function normalizeForJson(value: unknown): SerializableValue {
   }
 
   return String(value)
-}
-
-function summarizeDataUrl(value: string): SerializableValue {
-  const firstComma = value.indexOf(',')
-  const header = firstComma >= 0 ? value.slice(0, firstComma) : value
-  const payload = firstComma >= 0 ? value.slice(firstComma + 1) : ''
-  return {
-    type: 'data-url',
-    mediaType: header.slice(5).split(';')[0] || 'unknown',
-    payloadLength: payload.length,
-    preview: payload.slice(0, 32),
-  }
-}
-
-function summarizeLargeValue(value: SerializableValue): SerializableValue {
-  if (Array.isArray(value)) {
-    return value.map((item) => summarizeLargeValue(item))
-  }
-
-  if (!value || typeof value !== 'object') {
-    if (typeof value === 'string' && value.startsWith('data:')) {
-      return summarizeDataUrl(value)
-    }
-    return value
-  }
-
-  if ('url' in value && typeof value.url === 'string' && value.url.startsWith('data:')) {
-    return {
-      ...value,
-      url: summarizeDataUrl(value.url),
-    }
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, entryValue]) => {
-      if (key === 'file_data' && typeof entryValue === 'string' && entryValue.startsWith('data:')) {
-        return [key, summarizeDataUrl(entryValue)]
-      }
-      if (key === 'arguments' && typeof entryValue === 'string') {
-        return [key, entryValue]
-      }
-      return [key, summarizeLargeValue(entryValue)]
-    }),
-  )
 }
 
 function stableHash(value: unknown): string {
@@ -317,8 +274,8 @@ export function enrichCacheDebugSnapshotWithProviderRequest(params: {
       ...existing,
       providerRequest: {
         provider,
-        rawBody: summarizeLargeValue(normalizeForJson(rawBody)),
-        normalized: summarizeLargeValue(normalizeForJson(normalized)),
+        rawBody: summarizeCacheDebugValue(normalizeForJson(rawBody)),
+        normalized: summarizeCacheDebugValue(normalizeForJson(normalized)),
       },
     }
 

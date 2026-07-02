@@ -1,6 +1,13 @@
 import { execSync, spawn } from 'child_process'
 
-import type { Runner, RunnerResult, AgentStep } from './runner'
+import {
+  createExternalRunnerAbortError,
+  isAbortError,
+  type Runner,
+  type RunnerResult,
+  type AgentStep,
+  type RunnerOptions,
+} from './runner'
 import type {
   PrintModeToolCall,
   PrintModeToolResult,
@@ -15,7 +22,7 @@ export class ClaudeRunner implements Runner {
     this.env = env
   }
 
-  async run(prompt: string): Promise<RunnerResult> {
+  async run(prompt: string, options: RunnerOptions = {}): Promise<RunnerResult> {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 
@@ -44,10 +51,13 @@ export class ClaudeRunner implements Runner {
         },
         // Use 'ignore' for stdin to prevent the CLI from waiting for input
         stdio: ['ignore', 'pipe', 'pipe'],
+        signal: options.signal,
       })
 
       let _stdout = ''
       let stderr = ''
+      let aborted = false
+      let settled = false
       let responseText = ''
       let toolCalls: PrintModeToolCall[] = []
       let toolResults: PrintModeToolResult[] = []
@@ -134,8 +144,30 @@ export class ClaudeRunner implements Runner {
         process.stderr.write(data)
       })
 
+      const rejectOnce = (error: Error) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        reject(error)
+      }
+
+      const resolveOnce = (result: RunnerResult) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        resolve(result)
+      }
+
       child.on('error', (error) => {
-        reject(
+        if (isAbortError(error)) {
+          aborted = true
+          rejectOnce(createExternalRunnerAbortError('Claude'))
+          return
+        }
+
+        rejectOnce(
           new Error(
             `Claude CLI failed to start: ${error.message}. Make sure 'claude' is installed and in PATH.`,
           ),
@@ -143,6 +175,12 @@ export class ClaudeRunner implements Runner {
       })
 
       child.on('close', (code) => {
+        if (aborted || options.signal?.aborted) {
+          aborted = true
+          rejectOnce(createExternalRunnerAbortError('Claude'))
+          return
+        }
+
         flushStep()
 
         // Get git diff after Claude has made changes
@@ -159,13 +197,13 @@ export class ClaudeRunner implements Runner {
         }
 
         if (code !== 0) {
-          reject(
+          rejectOnce(
             new Error(`Claude CLI exited with code ${code}. stderr: ${stderr}`),
           )
           return
         }
 
-        resolve({
+        resolveOnce({
           steps,
           totalCostUsd,
           diff,

@@ -41,6 +41,20 @@ function value(output: Awaited<ReturnType<typeof checkJob>>): any {
   return output[0].value
 }
 
+async function withElapsedFollowTimeout<T>(fn: () => Promise<T>): Promise<T> {
+  const originalNow = Date.now
+  let calls = 0
+  Date.now = () => {
+    calls += 1
+    return calls === 1 ? 1_000 : 2_001
+  }
+  try {
+    return await fn()
+  } finally {
+    Date.now = originalNow
+  }
+}
+
 afterEach(() => {
   __clearJobsForTest()
   for (const f of tempFiles.splice(0)) {
@@ -106,6 +120,71 @@ describe('checkJob', () => {
     )
     expect(result.matched).toBe(true)
     expect(result.newOutput).toContain('Listening on :3000')
+  })
+
+  test('follow timeout kills a still-running job by default', async () => {
+    let killedSignal: NodeJS.Signals | undefined
+    const job = makeJob({
+      child: {
+        pid: 1234,
+        kill: (signal?: NodeJS.Signals | number) => {
+          killedSignal = signal as NodeJS.Signals
+          return true
+        },
+      } as unknown as BackgroundJob['child'],
+    })
+
+    const result = value(
+      await withElapsedFollowTimeout(() =>
+        checkJob({
+          jobId: job.jobId,
+          wait_for: 'never appears',
+          timeout_seconds: 1,
+        }),
+      ),
+    )
+
+    expect(killedSignal).toBe('SIGTERM')
+    expect(result).toMatchObject({
+      jobId: job.jobId,
+      status: 'error',
+      matched: false,
+      killed: true,
+    })
+    expect(job.status).toBe('error')
+  })
+
+  test('follow timeout keeps a running job alive when kill_on_timeout is false', async () => {
+    let killCalled = false
+    const job = makeJob({
+      child: {
+        pid: 1234,
+        kill: () => {
+          killCalled = true
+          return true
+        },
+      } as unknown as BackgroundJob['child'],
+    })
+
+    const result = value(
+      await withElapsedFollowTimeout(() =>
+        checkJob({
+          jobId: job.jobId,
+          wait_for: 'never appears',
+          timeout_seconds: 1,
+          kill_on_timeout: false,
+        }),
+      ),
+    )
+
+    expect(killCalled).toBe(false)
+    expect(result).toMatchObject({
+      jobId: job.jobId,
+      status: 'running',
+      matched: false,
+    })
+    expect(result.killed).toBeUndefined()
+    expect(job.status).toBe('running')
   })
 
   test('reports completed status and exit code', async () => {
@@ -208,6 +287,107 @@ describe('checkJob', () => {
       status: 'running',
       newOutput: 'ready\n',
     })
+  })
+
+  test('recovers persisted read offsets without duplicating historical output', async () => {
+    const jobId = `job-recovered-offset-${++counter}`
+    const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+    const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+    fs.writeFileSync(logFile, 'first\n')
+    fs.writeFileSync(
+      metadataFile,
+      JSON.stringify({
+        jobId,
+        command: 'dev server',
+        processId: null,
+        logFile,
+        status: 'running',
+        exitCode: null,
+        startedAt: 123,
+      }),
+    )
+    tempFiles.push(logFile, metadataFile)
+
+    const first = value(await checkJob({ jobId }))
+    expect(first.newOutput).toBe('first\n')
+    __clearJobsForTest()
+
+    fs.appendFileSync(logFile, 'second\n')
+    const second = value(await checkJob({ jobId }))
+    expect(second).toMatchObject({
+      jobId,
+      status: 'running',
+      newOutput: 'second\n',
+    })
+  })
+
+  test('clamps recovered read offsets beyond the log size', async () => {
+    const jobId = `job-recovered-offset-clamp-${++counter}`
+    const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+    const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+    fs.writeFileSync(logFile, 'short\n')
+    fs.writeFileSync(
+      metadataFile,
+      JSON.stringify({
+        jobId,
+        command: 'dev server',
+        processId: null,
+        logFile,
+        status: 'running',
+        exitCode: null,
+        startedAt: 123,
+        readOffset: 10_000,
+      }),
+    )
+    tempFiles.push(logFile, metadataFile)
+
+    const first = value(await checkJob({ jobId }))
+    expect(first.newOutput).toBe('')
+
+    fs.appendFileSync(logFile, 'next\n')
+    const second = value(await checkJob({ jobId }))
+    expect(second.newOutput).toBe('next\n')
+  })
+
+  test('falls back to the beginning for invalid or missing recovered read offsets', async () => {
+    const cases: Array<{
+      suffix: string
+      metadataPatch?: { readOffset: unknown }
+    }> = [
+      { suffix: 'missing' },
+      { suffix: 'negative', metadataPatch: { readOffset: -1 } },
+      { suffix: 'null', metadataPatch: { readOffset: null } },
+      { suffix: 'non-number', metadataPatch: { readOffset: '6' } },
+    ]
+
+    for (const testCase of cases) {
+      const jobId = `job-recovered-offset-${testCase.suffix}-${++counter}`
+      const logFile = path.join(os.tmpdir(), `openbuff-${jobId}.log`)
+      const metadataFile = path.join(os.tmpdir(), `openbuff-${jobId}.json`)
+      fs.writeFileSync(logFile, `${testCase.suffix}\n`)
+      fs.writeFileSync(
+        metadataFile,
+        JSON.stringify({
+          jobId,
+          command: 'dev server',
+          processId: null,
+          logFile,
+          status: 'running',
+          exitCode: null,
+          startedAt: 123,
+          ...(testCase.metadataPatch ?? {}),
+        }),
+      )
+      tempFiles.push(logFile, metadataFile)
+
+      const result = value(await checkJob({ jobId }))
+      expect(result).toMatchObject({
+        jobId,
+        status: 'running',
+        newOutput: `${testCase.suffix}\n`,
+      })
+      __clearJobsForTest()
+    }
   })
 
   test('does not recover when persisted metadata is a symlink', () => {

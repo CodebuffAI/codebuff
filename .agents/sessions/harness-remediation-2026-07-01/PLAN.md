@@ -1,6 +1,6 @@
 # Local-CLI Harness Remediation Plan
 
-<!-- current-task: M1 — Local filesystem and edit safety -->
+<!-- current-task: M9 final local-model closure -->
 
 Source audit: `.agents/sessions/harness-audit-2026-06-30/AUDIT-REPORT.md`
 Session: `.agents/sessions/harness-remediation-2026-07-01/`
@@ -56,22 +56,24 @@ Validation gate:
 - Symlink/project-boundary tests pass for the surfaces that promise containment.
 - No intended explicit local-path workflow is blocked without a documented migration decision.
 
-### M2 — Local process, cancellation, and async ownership reliability — todo
+### M2 — Local process, cancellation, and async ownership reliability — done
 
 Scope:
 - CLI abort races, SDK/provider cancellation, runtime tool cancellation, background jobs, eval timeouts.
 
 Tasks:
-- [ ] Define the local cancellation contract: what aborts immediately, what is left running unless explicitly killed, and what options control cleanup.
-- [ ] Thread `AbortSignal` through SDK `run`, provider LLM calls, retry sleeps, model discovery, custom tools, and runtime client-tool dispatch where feasible.
-- [ ] Ensure `check_job.kill_on_timeout` schema value reaches runtime behavior without changing default timeout semantics unexpectedly.
-- [ ] Add generation/owner tokens for CLI stream/queue/checkpoint shared ref mutations.
-- [ ] Fix queue/watchdog/streamMessageId abort cleanup paths.
-- [ ] Make eval task timeouts and final checks abort/kill underlying processes where the eval contract requires cleanup.
-- [ ] Add provider abort, retry-sleep abort, CLI stale-stream, background job timeout, and eval timeout regression tests.
+- [x] Define the local cancellation contract: run-scoped SDK/runtime/eval work receives `AbortSignal`; background jobs remain running unless an explicit kill path or `check_job` follow-timeout cleanup applies.
+- [x] Thread `AbortSignal` through verified SDK `run` surfaces, LLM retry sleeps, model discovery, and eval runner/final-check execution.
+- [x] Verified custom tools and runtime client-tool dispatch needed additional `AbortSignal` forwarding; implemented optional signal/context forwarding and focused SDK/runtime coverage.
+- [x] Ensure `check_job.kill_on_timeout` schema value reaches runtime behavior without changing default timeout semantics unexpectedly.
+- [x] Add generation/owner tokens for CLI stream/queue/checkpoint shared ref mutations.
+- [x] Fix queue/watchdog/streamMessageId abort cleanup paths.
+- [x] Make eval task timeouts and final checks abort/kill underlying processes where the eval contract requires cleanup.
+- [x] Add provider/model-discovery abort, retry-sleep abort, CLI stale-stream/queue, `check_job`, SDK child-process, and eval timeout/external-runner abort regression tests.
+- [x] Reconcile remaining background-job timeout contract coverage against M3 background-job offset work; timeout kill/keep-alive behavior is covered, while persisted read-offset recovery remains owned by M3.
 
 Validation gate:
-- Cancellation tests prove underlying work stops when the contract says it should.
+- Cancellation tests prove underlying work stops when the contract says it should for approved SDK, CLI, runtime `check_job`, and eval surfaces.
 - Background job tests preserve expected long-running-job behavior.
 - CLI queue/stream tests cover stale owner rejection.
 
@@ -81,13 +83,13 @@ Scope:
 - Stale index/query results, provider config cache, command concepts, background job offsets, gate/reviewer freshness.
 
 Tasks:
-- [ ] Make `markStale()` force next `query()` refresh.
-- [ ] Add command-file freshness checks for command-mode index queries.
-- [ ] Detect same-size/same-mtime content changes or document/implement a hash strategy.
-- [ ] Normalize extension casing and unify indexer/code-map language tables.
-- [ ] Invalidate provider config cache on expanded `openbuff.d` fragment changes.
-- [ ] Preserve/recover background job read offsets without duplicating historical output.
-- [ ] Rework gate/reviewer reuse only as needed to avoid stale local-file validation; avoid hosted trust framing.
+- [x] Make `markStale()` force next `query()` refresh. (implemented with staleRefreshPending barrier and repeated-query coverage)
+- [x] Add command-file freshness checks for command-mode index queries. (covered package script refresh after markStale)
+- [x] Detect same-size/same-mtime content changes or document/implement a hash strategy. (updateMetadataIndex now verifies content hash with regression coverage)
+- [x] Normalize extension casing and unify indexer/code-map language tables. (code-map exports frozen canonical extension list; indexer uses defensive Set; fileTypes normalize dot/casing)
+- [x] Invalidate provider config cache on expanded `openbuff.d` fragment changes. (fragment dependency cache key + loader/dependency stack cleanup validated/reviewed)
+- [x] Preserve/recover background job read offsets without duplicating historical output. (persisted readOffset recovery with clamp/fallback coverage validated/reviewed)
+- [x] Rework gate/reviewer reuse only as needed to avoid stale local-file validation; avoid hosted trust framing. (conversation gate-state reuse requires matching content/status/validation fingerprint; focused tests/typecheck/hooks/review green)
 
 Validation gate:
 - Indexer/code-map freshness and command-mode tests pass.
@@ -100,14 +102,14 @@ Scope:
 - Tool lists, SDK helper surface, aliases, setup merge, validation toggles, docs-visible env/config contracts.
 
 Tasks:
-- [ ] Generate/verify consistency among `common/src/tools/list.ts`, SDK dispatch, runtime handlers, SDK `ToolHelpers`, agent tool declarations, and programmatic tools.
-- [ ] Remove unsupported SDK-local advertised tools or implement dispatch for them.
-- [ ] Fix stale public tool aliases and unsupported-tool error paths while preserving intentional compatibility aliases.
-- [ ] Align editor/support-agent prompts with actual tool availability, including `set_output` exceptions.
-- [ ] Make `hasNoValidation` public option match runtime gates or update/remove the public contract.
-- [ ] Preserve `/setup` fields such as `failoverModels` and `maxAgentSteps` during config merges.
-- [ ] Fix read-docs default description/schema mismatch.
-- [ ] Update env/config/migration docs for implemented aliases and final local behavior.
+- [x] Generate/verify consistency among `common/src/tools/list.ts`, SDK dispatch, runtime handlers, SDK `ToolHelpers`, agent tool declarations, and programmatic tools. (validated via M4 registry/generated declaration/SDK dispatch checkpoints)
+- [x] Remove unsupported SDK-local advertised tools or implement dispatch for them. (SDK unsupported-tool behavior now explicit unless override supplied)
+- [x] Fix stale public tool aliases and unsupported-tool error paths while preserving intentional compatibility aliases. (intentional compatibility aliases documented; unsupported SDK paths covered)
+- [x] Align editor/support-agent prompts with actual tool availability, including `set_output` exceptions. (set_output prompt/tool availability regression added)
+- [x] Make `hasNoValidation` public option match runtime gates or update/remove the public contract. (runtime gate now uses captured option with serialized fallback; focused base2 tests and agents typecheck passed)
+- [x] Preserve `/setup` fields such as `failoverModels` and `maxAgentSteps` during config merges. (writeProviderConfigFile merge preserves both fields; focused model-provider test and SDK typecheck passed)
+- [x] Fix read-docs default description/schema mismatch. (description/schema regression covered in common tool-registration consistency test)
+- [x] Update env/config/migration docs for implemented aliases and final local behavior. (docs updated and reviewer gate passed)
 
 Validation gate:
 - Registry consistency test fails before/fixes after.
@@ -119,12 +121,12 @@ Scope:
 - Provider discovery, custom endpoints, local API key handling, MCP client cache identity.
 
 Tasks:
-- [ ] Reclassify provider/MCP findings as optional local integration correctness/secret-hygiene, not hosted security.
-- [ ] Do not blanket-block cross-origin/custom provider/model-discovery endpoints.
-- [ ] Verify whether credentials are sent only to user-configured or otherwise expected endpoints.
-- [ ] If automatic discovery can send credentials to ambiguous endpoints, add explicit config/docs or a narrowly scoped opt-in that does not break user-configured provider URLs.
-- [ ] Include non-secret endpoint/header identity in remote MCP cache keys to avoid stale/wrong client reuse.
-- [ ] Redact provider keys, MCP Authorization headers, prompts, and cache snapshots in diagnostics/logs by default.
+- [x] Reclassify provider/MCP findings as optional local integration correctness/secret-hygiene, not hosted security. (reclassified under local/BYOK model in SPEC/M0 tracker and M5 execution notes)
+- [x] Do not blanket-block cross-origin/custom provider/model-discovery endpoints. (custom endpoints remain supported; discovery auth uses auto/provider/none rather than a blanket block)
+- [x] Verify whether credentials are sent only to user-configured or otherwise expected endpoints. (validated discovery auth defaults for inferred, same-origin, cross-origin, opt-in, and opt-out cases)
+- [x] If automatic discovery can send credentials to ambiguous endpoints, add explicit config/docs or a narrowly scoped opt-in that does not break user-configured provider URLs. (added discovery.auth config/docs and SDK regression coverage)
+- [x] Include non-secret endpoint/header identity in remote MCP cache keys to avoid stale/wrong client reuse. (existing MCP cache identity tests validate header/env identity without raw secret exposure)
+- [x] Redact provider keys, MCP Authorization headers, prompts, and cache snapshots in diagnostics/logs by default. (cache-debug sanitizer tests validate provider prompt/secret redaction across common and agent-runtime)
 
 Validation gate:
 - Tests cover intended custom provider endpoint behavior.
@@ -137,13 +139,13 @@ Scope:
 - Parser diagnostics, malformed tool inputs, model discovery/final-check timeouts, unbounded buffers.
 
 Tasks:
-- [ ] Surface tree-sitter parse failures in index/code-map diagnostics without breaking successful partial indexing.
-- [ ] Add timeout/cancellation to model discovery fetches and eval final-check commands where appropriate.
-- [ ] Return structured errors for malformed tool input parse failures instead of debug-only logs.
-- [ ] Harden `format-value` and stream cleanup so error reporting cannot throw/silently swallow important failures.
-- [ ] Bound unterminated streamed XML/tool-call buffers with structured truncation/error behavior.
-- [ ] Fix `initCommand` parsing semantics or make it explicit shell execution with safe docs/tests.
-- [ ] Improve per-agent eval error summarization so one failed agent does not hide all agents for a commit.
+- [x] Surface tree-sitter parse failures in index/code-map diagnostics without breaking successful partial indexing. (completed and validated in code-map/indexer batch)
+- [x] Add timeout/cancellation to model discovery fetches and eval final-check commands where appropriate. (model discovery timeout validated; eval final-check cancellation already validated in M2)
+- [x] Return structured errors for malformed tool input parse failures instead of debug-only logs. (completed and validated in malformed STEP_TEXT batch)
+- [x] Harden `format-value` and stream cleanup so error reporting cannot throw/silently swallow important failures. (completed and validated in format-value hardening batch)
+- [x] Bound unterminated streamed XML/tool-call buffers with structured truncation/error behavior. (first batch: stream XML parser now bounds unterminated buffers and emits structured parser errors; targeted tests/typecheck passed)
+- [x] Fix `initCommand` parsing semantics or make it explicit shell execution with safe docs/tests. (trusted shell semantics documented and covered by focused test)
+- [x] Improve per-agent eval error summarization so one failed agent does not hide all agents for a commit. (completed and validated in BuffBench per-agent error summary batch)
 
 Validation gate:
 - Parser failure, malformed tool input, final-check timeout, bounded-buffer, and eval summary tests pass.
@@ -154,13 +156,13 @@ Scope:
 - Remove unnecessary hosted-product remnants and align docs/code comments with local CLI reality.
 
 Tasks:
-- [ ] Search docs and prompts for hosted-product wording: backend, web app, billing, credits, subscription, auth server, CORS, cookies, accounts/tenants, API gateway.
-- [ ] Classify each hit as: current local behavior, compatibility/migration note, stale/removable, or unrelated.
-- [ ] Update stale docs to consistently say Openbuff is local-first/BYOK/no backend/no billing/no hosted auth/web surface.
-- [ ] Remove unnecessary dead/stale code only after verifying no imports/references and no compatibility purpose.
-- [ ] Keep intentional compatibility aliases documented rather than deleting them casually.
-- [ ] Run existing formatting/lint commands for touched docs/code; do not introduce new format tooling.
-- [ ] Add a lightweight docs drift check if it can avoid blocking legitimate migration references.
+- [x] Search docs and prompts for hosted-product wording: backend, web app, billing, credits, subscription, auth server, CORS, cookies, accounts/tenants, API gateway. (completed in hosted-product wording audit; active misleading CLI wording fixed and guard passed)
+- [x] Classify each hit as: current local behavior, compatibility/migration note, stale/removable, or unrelated. (classified as local/BYOK, compatibility/migration, provider-owned, test fixture, historical artifact, or stale active wording)
+- [x] Update stale docs to consistently say Openbuff is local-first/BYOK/no backend/no billing/no hosted auth/web surface. (focused active docs/CLI wording updated; compatibility and provider-owned references preserved)
+- [x] Remove unnecessary dead/stale code only after verifying no imports/references and no compatibility purpose. (no unnecessary dead/stale code removed; compatibility aliases intentionally preserved)
+- [x] Keep intentional compatibility aliases documented rather than deleting them casually. (intentional compatibility aliases preserved and documented during M4/M7)
+- [x] Run existing formatting/lint commands for touched docs/code; do not introduce new format tooling. (cli typecheck and wording guard passed for touched files)
+- [x] Add a lightweight docs drift check if it can avoid blocking legitimate migration references. (existing BYOK wording guard used; no broader blocking drift check added)
 
 Validation gate:
 - Docs no longer imply a hosted backend/billing/auth model except in clearly marked historical/migration context.
@@ -173,12 +175,12 @@ Scope:
 - Eval harness claims, plan-sharding signal detection, judge/task parity.
 
 Tasks:
-- [ ] Make plan-sharding default prompt exercise broad-audit minimum shard gates.
-- [ ] Count repeated `spawn_agents` agent types correctly in traces.
-- [ ] Validate planner-output coverage rather than prompt-token presence.
-- [ ] Include generated task `spec` in judge rubric and scoring parity tests.
-- [ ] Add registry smoke test for eval helper agents/tools against current local agent registry.
-- [ ] Fix run summary filtering so per-agent outcomes remain visible when one agent errors.
+- [x] Make plan-sharding default prompt exercise broad-audit minimum shard gates. (default broad-audit prompt updated in run-plan-sharding-eval)
+- [x] Count repeated `spawn_agents` agent types correctly in traces. (duplicate requested agent types preserved and counted)
+- [x] Validate planner-output coverage rather than prompt-token presence. (live runner now applies planner-output domain coverage)
+- [x] Include generated task `spec` in judge rubric and scoring parity tests. (judge prompt includes generated task spec with parity coverage)
+- [x] Add registry smoke test for eval helper agents/tools against current local agent registry. (generateEvalTask registers current helper agents with smoke coverage)
+- [x] Fix run summary filtering so per-agent outcomes remain visible when one agent errors. (completed during M6 eval per-agent summarization batch)
 
 Validation gate:
 - Buffbench targeted tests pass.
@@ -257,4 +259,62 @@ M0 tracker created at `.agents/sessions/harness-remediation-2026-07-01/M0-LOCAL-
 ## M1 start — 2026-07-01T06:05:33.124Z
 
 Starting M1 — local filesystem and edit safety. First checkpoint: read the M0 tracker and current dirty-tree-overlapping deterministic edit/source ranges, then choose the smallest safe implementation batch.
+
+
+<!-- update_plan_status:appended -->
+## M4 closure and M5 start — 2026-07-02T17:01:17.616Z
+
+M4 local tool/schema/config contract alignment is now reconciled as complete based on validated checkpoints:
+
+- `read_docs` schema/default/generated declaration drift covered by common consistency tests.
+- `hasNoValidation` runtime gate behavior aligned and covered by agents tests.
+- `/setup` config merge preserves `failoverModels` and `maxAgentSteps` with SDK coverage.
+- SDK override/unsupported-tool behavior covered, including validation boundary for overridden native client tools.
+- Generated agent tool declarations checked against canonical tool names/descriptions.
+- `set_output` model-visible prompt/tool availability drift fixed with reachability coverage.
+- Env/config/migration docs updated for implemented compatibility aliases and current local behavior.
+
+Next checkpoint: begin M5 BYOK provider and MCP integration hygiene by scoping provider discovery/custom endpoint credential behavior, diagnostics redaction, and MCP cache identity without breaking user-configured local/BYOK workflows.
+
+
+<!-- update_plan_status:appended -->
+## M5 complete; M6 next — 2026-07-02T18:30:49.565Z
+
+M5 BYOK provider and MCP integration hygiene is implementation-complete and validated. Provider discovery auth now preserves local custom endpoint workflows while making credential behavior explicit/configurable; remote MCP cache identity/redaction coverage is present and validated; combined configured hooks passed for common, SDK, and agent-runtime. Next milestone: M6 error handling, diagnostics, and bounded local resource use.
+
+
+<!-- update_plan_status:appended -->
+## M6 partial completion — 2026-07-02T18:38:40.413Z
+
+First M6 batch completed and validated: bounded unterminated streamed XML/tool-call buffers with structured error surfacing. Remaining M6 items include tree-sitter/indexer parse diagnostics, model discovery/eval final-check timeouts, malformed tool input structured errors, format-value/stream cleanup hardening, initCommand semantics, and eval error summarization.
+
+
+<!-- update_plan_status:appended -->
+## M6 parse diagnostics checkpoint — 2026-07-02T19:08:02.930Z
+
+M6 parse diagnostics is complete and validated. Continuing M6 from the next incomplete isolated diagnostics/resource-bound surface; completed M5, bounded XML, malformed STEP_TEXT diagnostics, and code-map/indexer parse diagnostics should not be revisited unless validation/review points back there.
+
+
+<!-- update_plan_status:appended -->
+## M6 Timeout Task Completed — 2026-07-02T19:18:03.741Z
+
+Model discovery fetch timeout is now implemented and validated; eval final-check cancellation was previously completed in M2 and referenced in STATUS. Marking the combined M6 timeout/cancellation task complete.
+
+
+<!-- update_plan_status:appended -->
+## M6 InitCommand Task Completed — 2026-07-02T19:23:48.105Z
+
+The `initCommand` semantics task is implemented and validated. Marking it complete after focused BuffBench test/typecheck pass.
+
+
+<!-- update_plan_status:appended -->
+## M6 completion reconciliation — 2026-07-02T19:30:26.383Z
+
+M6 implementation batches now completed and validated: parse diagnostics, model discovery timeout, malformed tool input structured errors, format-value hardening, bounded streamed XML/tool-call buffers, initCommand shell semantics, and per-agent eval error summarization. Remaining PLAN checkboxes for format-value and eval summary should be treated as done based on recorded STATUS validation.
+
+
+<!-- update_plan_status:appended -->
+## M7/M8 reconciliation; M9 next — 2026-07-02T20:40:09.345Z
+
+Reconciled completed M7/M8 checkpoint state against recorded STATUS entries after the automated gate passed. M7 hosted-product wording audit and M8 eval/plan-sharding correctness items are now treated as complete based on prior targeted validations and reviewer gate approval. Next durable checkpoint is M9 final local-model closure: sweep remaining findings/debt, run registry/drift checks and relevant validation, update the tracker, and produce the final closure report.
 

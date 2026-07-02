@@ -101,10 +101,11 @@ common/src/constants/paths.ts
 | `CODEBUFF_RG_PATH` | ⚠️ Only name | `sdk/src/env.ts` | Ripgrep binary path |
 | `CODEBUFF_WASM_DIR` | ⚠️ Only name | `sdk/src/env.ts` | WASM directory |
 | `CODEBUFF_NPM_REGISTRY` | ⚠️ Only name | `cli/scripts/build-binary.ts` | Build flag |
-| `NEXT_PUBLIC_CODEBUFF_APP_URL` | ⚠️ Only name | `common/src/env-schema.ts` | Web app URL |
+| `NEXT_PUBLIC_CODEBUFF_APP_URL` | ⚠️ Required primary field | `common/src/env-schema.ts` | Web app URL |
+| `NEXT_PUBLIC_OPENBUFF_APP_URL` | ✅ Optional alias field | `common/src/env-schema.ts` | Optional public client env field; current primary app URL accessors still read `NEXT_PUBLIC_CODEBUFF_APP_URL` |
 | `NEXT_PUBLIC_CODEBUFF_BACKEND_URL` | ⚠️ Only name | `scripts/cleanup-worktree.ts` | Backend URL |
 
-> ⚠️ **Note about `NEXT_PUBLIC_*` variables:** These are Next.js build-time env vars baked into the client bundle at compile time (via `next.config.js`). Adding an `OPENBUFF_*` alias for these is **not** as simple as adding a runtime fallback — it requires changes to the Next.js build pipeline, the env schema, and the `env-process.ts` accessors in coordination. These should be handled in a separate build-config migration phase.
+> ⚠️ **Note about `NEXT_PUBLIC_*` variables:** These are build-time/client env vars that must stay coordinated across the env schema, env fixtures, and all accessors. `NEXT_PUBLIC_OPENBUFF_APP_URL` is already accepted as an optional schema field, but `NEXT_PUBLIC_CODEBUFF_APP_URL` remains the required primary field used by current app URL accessors. Further `OPENBUFF_*` aliases should be handled in a separate build-config migration phase.
 
 **TODO:** Consider adding `OPENBUFF_*` aliases for the most commonly used ones (at minimum: `OPENBUFF_CLI_VERSION`, `OPENBUFF_IS_BINARY`). <!-- allow-todo -->
 
@@ -361,7 +362,7 @@ The upstream Freebuff/free-mode web product, waiting room, hosted auth, and inst
 - `CODEBUFF_CLI_EDITOR`, `CODEBUFF_EDITOR` — CLI config
 - `CODEBUFF_GITHUB_ACTIONS` — no alias (`IS_CI` check in `common/src/env.ts`); `CODEBUFF_GITHUB_TOKEN` has `OPENBUFF_GITHUB_TOKEN` as primary in the CLI release script (`CODEBUFF_GITHUB_TOKEN` compatibility fallback), though eval/CI scripts still use `CODEBUFF_GITHUB_TOKEN` only
 - `CODEBUFF_FULL_TELEMETRY` — debug telemetry
-- `NEXT_PUBLIC_CODEBUFF_APP_URL` — compatibility app URL used by retained legacy interfaces
+- `NEXT_PUBLIC_CODEBUFF_APP_URL` — required primary app URL used by retained legacy interfaces; `NEXT_PUBLIC_OPENBUFF_APP_URL` exists as an optional schema field but is not the primary app URL accessor
 - Analytics events (`UPDATE_CODEBUFF_FAILED`, `CODEBUFF_REFERRER_ATTRIBUTED`)
 
 ### ⚠️ Package Ecosystem (Non-trivial Migration)

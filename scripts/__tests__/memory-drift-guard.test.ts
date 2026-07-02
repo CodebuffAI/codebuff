@@ -105,6 +105,21 @@ test('staleness checker flags knowledge.md with older last commit than sibling s
   expect(findings.some((f) => f.message.includes('stale'))).toBe(true)
 })
 
+test('staleness checker skips dirty knowledge.md before freshness commit lands', () => {
+  initGitRepo(tmpRoot)
+  mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
+  const knowledgePath = join(tmpRoot, 'packages', 'demo', 'knowledge.md')
+  writeFileSync(knowledgePath, '# demo\n')
+  gitCommit(tmpRoot, ['packages/demo/knowledge.md'], 'add knowledge', '2023-01-01T00:00:00')
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
+  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
+
+  writeFileSync(knowledgePath, '# demo\n\nUpdated local notes.\n')
+
+  const findings = checkStaleness(tmpRoot)
+  expect(findings.some((f) => f.path.includes('knowledge.md'))).toBe(false)
+})
+
 test('staleness checker does NOT flag knowledge.md when its last commit is newer than src/', () => {
   initGitRepo(tmpRoot)
   mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
@@ -124,6 +139,18 @@ test('staleness checker skips untracked knowledge.md (no false positive without 
   writeFileSync(join(tmpRoot, 'packages', 'demo', 'knowledge.md'), '# demo\n')
   const findings = checkStaleness(tmpRoot)
   expect(findings.length).toBe(0)
+})
+
+test('staleness checker skips untracked knowledge.md in a git repo', () => {
+  initGitRepo(tmpRoot)
+  mkdirSync(join(tmpRoot, 'packages', 'demo', 'src'), { recursive: true })
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'src', 'index.ts'), 'export const x = 1\n')
+  gitCommit(tmpRoot, ['packages/demo/src/index.ts'], 'add src', '2024-06-01T00:00:00')
+
+  writeFileSync(join(tmpRoot, 'packages', 'demo', 'knowledge.md'), '# demo\n')
+
+  const findings = checkStaleness(tmpRoot)
+  expect(findings.some((f) => f.path.includes('knowledge.md'))).toBe(false)
 })
 
 test('command checker flags missing script via --cwd subpackage', () => {

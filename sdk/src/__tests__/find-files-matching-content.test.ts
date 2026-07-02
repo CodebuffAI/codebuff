@@ -166,6 +166,38 @@ describe('findFilesMatchingContent', () => {
     expect(value.errorMessage).toContain('regex parse error')
   })
 
+  it('returns an error result when spawning ripgrep throws synchronously', async () => {
+    mockSpawn = mock(() => {
+      throw new Error('spawn rg failed')
+    })
+    await mockModule('child_process', () => ({
+      spawn: mockSpawn,
+    }))
+
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain('spawn rg failed')
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns an error result when the ripgrep child emits an error', async () => {
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+    })
+
+    mockProcess.emit('error', new Error('rg runtime failed'))
+
+    const value = (await searchPromise)[0].value as { errorMessage: string }
+    expect(value.errorMessage).toContain('Failed to execute ripgrep')
+    expect(value.errorMessage).toContain('rg runtime failed')
+    expect(value.errorMessage).toContain('CODEBUFF_RG_PATH')
+  })
+
   it('streams files-with-matches output and caps at maxFiles', async () => {
     const searchPromise = findFilesMatchingContent({
       projectPath,
@@ -196,6 +228,38 @@ describe('findFilesMatchingContent', () => {
     expect(value.truncated).toBe(true)
     expect(value.count).toBe(0)
     expect(value.files).toEqual([])
+  })
+
+  it('short-circuits when called with an already-aborted signal', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('caller cancelled'))
+
+    const result = await findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      signal: controller.signal,
+    })
+
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toBe('caller cancelled')
+    expect(mockSpawn).not.toHaveBeenCalled()
+  })
+
+  it('kills the ripgrep child when the signal aborts mid-flight', async () => {
+    const controller = new AbortController()
+    const searchPromise = findFilesMatchingContent({
+      projectPath,
+      pattern: 'needle',
+      signal: controller.signal,
+    })
+
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    controller.abort(new Error('stop search'))
+
+    const result = await searchPromise
+    const value = result[0].value as { errorMessage: string }
+    expect(value.errorMessage).toBe('stop search')
+    expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
   })
 
   it('optionally groups matches by containing symbols', async () => {

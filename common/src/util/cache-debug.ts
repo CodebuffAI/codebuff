@@ -47,6 +47,24 @@ function normalizeForJson(value: unknown): SerializableValue {
   return String(value)
 }
 
+function summarizePromptText(value: string): SerializableValue {
+  return {
+    type: 'redacted-text',
+    length: value.length,
+  }
+}
+
+function summarizeSecret(value: string): SerializableValue {
+  return {
+    type: 'redacted-secret',
+    length: value.length,
+  }
+}
+
+function isSecretKey(key: string): boolean {
+  return /^(authorization|x-api-key|api[-_]?key|token|secret)$/i.test(key)
+}
+
 function summarizeDataUrl(value: string): SerializableValue {
   const firstComma = value.indexOf(',')
   const header = firstComma >= 0 ? value.slice(0, firstComma) : value
@@ -59,9 +77,13 @@ function summarizeDataUrl(value: string): SerializableValue {
   }
 }
 
-function summarizeLargeValue(value: SerializableValue): SerializableValue {
+export function summarizeCacheDebugValue(value: SerializableValue, keyHint?: string): SerializableValue {
+  if (keyHint && isSecretKey(keyHint) && typeof value === 'string') {
+    return summarizeSecret(value)
+  }
+
   if (Array.isArray(value)) {
-    return value.map((item) => summarizeLargeValue(item))
+    return value.map((item) => summarizeCacheDebugValue(item, keyHint))
   }
 
   if (!value || typeof value !== 'object') {
@@ -86,7 +108,10 @@ function summarizeLargeValue(value: SerializableValue): SerializableValue {
       if (key === 'arguments' && typeof entryValue === 'string') {
         return [key, entryValue]
       }
-      return [key, summarizeLargeValue(entryValue)]
+      if (key === 'content' && typeof entryValue === 'string') {
+        return [key, entryValue.startsWith('data:') ? summarizeDataUrl(entryValue) : summarizePromptText(entryValue)]
+      }
+      return [key, summarizeCacheDebugValue(entryValue, key)]
     }),
   )
 }
@@ -162,14 +187,14 @@ export function normalizeProviderRequestBodyForCacheDebug(params: {
 
   for (const key of ['model', 'messages', 'tools', 'tool_choice', 'response_format', 'reasoning', 'reasoning_effort', 'verbosity', 'provider']) {
     if (key in record) {
-      normalized[key] = summarizeLargeValue(record[key])
+      normalized[key] = summarizeCacheDebugValue(record[key])
     }
   }
 
   if (params.provider === 'openrouter') {
     for (const key of ['models', 'plugins', 'web_search_options', 'include_reasoning']) {
       if (key in record) {
-        normalized[key] = summarizeLargeValue(record[key])
+        normalized[key] = summarizeCacheDebugValue(record[key])
       }
     }
   }

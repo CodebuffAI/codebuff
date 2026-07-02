@@ -21,14 +21,27 @@ const ensureEnv = () => {
 ensureEnv()
 
 const { createStreamController } = await import('../../stream-state')
-const { setupStreamingContext, handleRunCompletion, handleRunError, finalizeQueueState, resetEarlyReturnState } = await import(
-  '../send-message'
-)
+const {
+  cleanupProviderReadinessFailure,
+  createRunOwnership,
+  setupStreamingContext,
+  handleRunCompletion,
+  handleRunError,
+  finalizeQueueState,
+  resetEarlyReturnState,
+} = await import('../send-message')
 const { createBatchedMessageUpdater } = await import(
   '../../../utils/message-updater'
 )
-import { createPaymentRequiredError } from '@openbuff/sdk'
 import type { RunState } from '@openbuff/sdk'
+
+type TestHttpError = Error & { statusCode: number }
+
+const createPaymentRequiredError = (message: string): TestHttpError => {
+  const error = new Error(message) as TestHttpError
+  error.statusCode = 402
+  return error
+}
 
 const createMockTimerController = (): SendMessageTimerController & {
   startCalls: string[]
@@ -62,6 +75,90 @@ const createBaseMessages = (): ChatMessage[] => [
     timestamp: 'now',
   },
 ]
+
+describe('createRunOwnership', () => {
+  test('superseding run owns persistence and stale owner release cannot clear it', () => {
+    const activeRunOwnerRef = { current: null as symbol | null }
+
+    const runA = createRunOwnership(activeRunOwnerRef)
+    expect(runA.isCurrentRunOwner()).toBe(true)
+
+    const runB = createRunOwnership(activeRunOwnerRef)
+    expect(runA.isCurrentRunOwner()).toBe(false)
+    expect(runB.isCurrentRunOwner()).toBe(true)
+
+    runA.releaseRunOwner()
+    expect(runB.isCurrentRunOwner()).toBe(true)
+
+    runB.releaseRunOwner()
+    expect(runB.isCurrentRunOwner()).toBe(false)
+    expect(activeRunOwnerRef.current).toBe(null)
+  })
+
+  test('run is active only while it still owns the ref and has not been aborted', () => {
+    const activeRunOwnerRef = { current: null as symbol | null }
+    const abortController = new AbortController()
+
+    const runA = createRunOwnership(activeRunOwnerRef)
+    expect(runA.isCurrentRunActive(abortController.signal)).toBe(true)
+
+    abortController.abort()
+    expect(runA.isCurrentRunActive(abortController.signal)).toBe(false)
+
+    const runBAbortController = new AbortController()
+    const runB = createRunOwnership(activeRunOwnerRef)
+    expect(runA.isCurrentRunActive(runBAbortController.signal)).toBe(false)
+    expect(runB.isCurrentRunActive(runBAbortController.signal)).toBe(true)
+  })
+
+  test('early-return cleanup releases the current run owner', () => {
+    const activeRunOwnerRef = { current: null as symbol | null }
+    const run = createRunOwnership(activeRunOwnerRef)
+
+    expect(run.isCurrentRunOwner()).toBe(true)
+    run.releaseRunOwner()
+
+    expect(run.isCurrentRunOwner()).toBe(false)
+    expect(activeRunOwnerRef.current).toBe(null)
+  })
+})
+
+describe('cleanupProviderReadinessFailure', () => {
+  test('sets error state, releases queue/chain locks, and releases run ownership', () => {
+    let messages = createBaseMessages()
+    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
+      messages = fn(messages)
+    })
+    const timerController = createMockTimerController()
+    const isProcessingQueueRef = { current: true }
+    const isQueuePausedRef = { current: false }
+    const activeRunOwnerRef = { current: null as symbol | null }
+    const run = createRunOwnership(activeRunOwnerRef)
+    let streamStatus: StreamStatus = 'waiting'
+    let canProcessQueue = false
+    let chainInProgress = true
+
+    cleanupProviderReadinessFailure({
+      message: 'Provider is not ready',
+      updater,
+      timerController,
+      setStreamStatus: (status) => { streamStatus = status },
+      setCanProcessQueue: (can) => { canProcessQueue = can },
+      updateChainInProgress: (value) => { chainInProgress = value },
+      releaseRunOwner: run.releaseRunOwner,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
+
+    expect(messages[0].userError).toBe('Provider is not ready')
+    expect(timerController.stopCalls).toEqual(['error'])
+    expect(streamStatus as StreamStatus).toBe('idle')
+    expect(canProcessQueue).toBe(true)
+    expect(chainInProgress).toBe(false)
+    expect(isProcessingQueueRef.current).toBe(false)
+    expect(activeRunOwnerRef.current).toBe(null)
+  })
+})
 
 describe('setupStreamingContext', () => {
   describe('abort flow', () => {

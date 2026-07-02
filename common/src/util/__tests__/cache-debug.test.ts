@@ -224,6 +224,57 @@ describe('normalizeProviderRequestBodyForCacheDebug', () => {
     expect(fileData['mediaType']).toBe('application/pdf')
   })
 
+  test('redacts prompt text while preserving structure and lengths', () => {
+    const prompt = 'Explain the private implementation detail.'
+    const body = {
+      messages: [{ role: 'user', content: prompt }],
+    }
+    const out = normalizeProviderRequestBodyForCacheDebug({
+      provider: 'x',
+      body,
+    }) as Record<string, unknown>
+    const messages = out['messages'] as Array<Record<string, unknown>>
+    const content = messages[0]['content'] as Record<string, unknown>
+
+    expect(content).toEqual({
+      type: 'redacted-text',
+      length: prompt.length,
+    })
+    expect(JSON.stringify(out)).not.toContain(prompt)
+  })
+
+  test('redacts secret-like nested request fields', () => {
+    const body = {
+      tools: [
+        {
+          type: 'function',
+          headers: {
+            Authorization: 'Bearer provider-secret',
+            'X-Api-Key': 'api-secret',
+          },
+        },
+      ],
+    }
+    const out = normalizeProviderRequestBodyForCacheDebug({
+      provider: 'x',
+      body,
+    }) as Record<string, unknown>
+    const serialized = JSON.stringify(out)
+    const tools = out['tools'] as Array<Record<string, unknown>>
+    const headers = tools[0]['headers'] as Record<string, Record<string, unknown>>
+
+    expect(headers['Authorization']).toEqual({
+      type: 'redacted-secret',
+      length: 'Bearer provider-secret'.length,
+    })
+    expect(headers['X-Api-Key']).toEqual({
+      type: 'redacted-secret',
+      length: 'api-secret'.length,
+    })
+    expect(serialized).not.toContain('provider-secret')
+    expect(serialized).not.toContain('api-secret')
+  })
+
   test('preserves a string arguments field verbatim (does not summarize)', () => {
     const args = '{"key":"value"}'
     const body = { tools: [{ arguments: args }] }

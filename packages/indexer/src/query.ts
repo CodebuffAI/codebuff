@@ -665,8 +665,14 @@ function buildAdjacency(edges: IndexEdge[]): GraphAdjacency {
 function matchesFileType(file: IndexedFile | undefined, fileTypes: string[] | undefined): boolean {
   if (!file) return false
   if (!fileTypes || fileTypes.length === 0) return true
-  const ext = file.ext.replace('.', '')
-  return fileTypes.includes(ext)
+  const ext = normalizeFileType(file.ext)
+  const normalizedFileTypes = new Set(fileTypes.map(normalizeFileType))
+  return normalizedFileTypes.has(ext)
+}
+
+function normalizeFileType(fileType: string): string {
+  const normalized = fileType.trim().toLowerCase()
+  return normalized.startsWith('.') ? normalized.slice(1) : normalized
 }
 
 function isNoisyPath(pathSegments: string[]): boolean {

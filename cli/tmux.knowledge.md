@@ -62,7 +62,7 @@ bun scripts/tmux/tmux-viewer/index.tsx --list
 
 ### CLI Tmux Tester Agent
 
-For automated testing, use the `@cli-tester` agent which wraps all of this with structured output reporting.
+For automated testing, use the `@cli-tester` agent which wraps all of this with structured output reporting. Use it for CLI visual and interaction checks when source changes affect rendered behavior; keep unit/type validation separate for non-visual logic.
 
 See `scripts/tmux/README.md` for comprehensive documentation.
 

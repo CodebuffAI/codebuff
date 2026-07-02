@@ -265,7 +265,7 @@ interface EvalDataV2 {
   repoUrl: string              // Source repository URL
   testRepoName?: string        // Optional repo name override
   generationDate: string       // ISO timestamp of creation
-  initCommand?: string         // Optional setup command
+  initCommand?: string         // Optional trusted shell setup command run from the repo root
   binInstalls?: BinInstall[]   // Binaries to install
   env?: Record<string, string> // Environment variables
   finalCheckCommands?: string[] // Validation commands

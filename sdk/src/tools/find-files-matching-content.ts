@@ -49,6 +49,7 @@ export function findFilesMatchingContent({
   groupBySymbol = false,
   timeoutSeconds = 15,
   logger,
+  signal,
 }: {
   projectPath: string
   pattern: string
@@ -58,6 +59,10 @@ export function findFilesMatchingContent({
   groupBySymbol?: boolean
   timeoutSeconds?: number
   logger?: Logger
+  /** Optional abort signal. When aborted, the ripgrep child is SIGTERMed
+   *  and the promise resolves with the same `{ errorMessage }` shape used for
+   *  other find_files_matching_content errors. */
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'find_files_matching_content'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -155,10 +160,34 @@ export function findFilesMatchingContent({
       )
     }
 
-    const childProcess = spawn(rgPath, args, {
-      cwd: searchCwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    if (signal?.aborted) {
+      const reason = signal.reason
+      return resolve([
+        {
+          type: 'json',
+          value: {
+            errorMessage: reason instanceof Error ? reason.message : 'Aborted',
+          },
+        },
+      ])
+    }
+
+    let childProcess: ReturnType<typeof spawn>
+    try {
+      childProcess = spawn(rgPath, args, {
+        cwd: searchCwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (error) {
+      return resolve([
+        {
+          type: 'json',
+          value: {
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+        },
+      ])
+    }
 
     let stdoutBuf = ''
     let stderrBuf = ''
@@ -171,6 +200,7 @@ export function findFilesMatchingContent({
     let totalMatches = 0
     let truncatedByLimit = false
     let killTimeoutId: ReturnType<typeof setTimeout> | null = null
+    let removeAbortListener = () => {}
 
     const clearKillFallback = () => {
       if (!killTimeoutId) return
@@ -181,8 +211,9 @@ export function findFilesMatchingContent({
     const settle = (payload: any) => {
       if (isResolved) return
       isResolved = true
-      childProcess.stdout.removeAllListeners()
-      childProcess.stderr.removeAllListeners()
+      childProcess.stdout?.removeAllListeners()
+      childProcess.stderr?.removeAllListeners()
+      removeAbortListener()
       clearTimeout(timeoutId)
       resolve([{ type: 'json', value: payload }])
     }
@@ -232,7 +263,22 @@ export function findFilesMatchingContent({
       settle(partial)
     }, timeoutSeconds * 1000)
 
-    childProcess.stdout.on('data', (chunk: Buffer | string) => {
+    if (signal) {
+      const onAbort = () => {
+        if (isResolved) return
+        const reason = signal.reason
+        settle({
+          errorMessage: reason instanceof Error ? reason.message : 'Aborted',
+        })
+        hardKill()
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      removeAbortListener = () => {
+        signal.removeEventListener('abort', onAbort)
+      }
+    }
+
+    childProcess.stdout?.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
       const chunkStr =
         typeof chunk === 'string' ? chunk : chunk.toString('utf8')
@@ -367,7 +413,7 @@ export function findFilesMatchingContent({
       }
     })
 
-    childProcess.stderr.on('data', (chunk: Buffer | string) => {
+    childProcess.stderr?.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
       const chunkStr =
         typeof chunk === 'string' ? chunk : chunk.toString('utf8')

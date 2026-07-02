@@ -44,7 +44,7 @@ export type StatusIndicatorStateArgs = {
  * State priority (highest to lowest):
  * 1. nextCtrlCWillExit - User pressed Ctrl+C once, warn about exit
  * 2. statusMessage - Temporary feedback for clipboard operations
- * 3. connecting - Not connected to backend
+ * 3. connecting - Not connected to the local runtime/provider flow
  * 4. waiting - Waiting for AI response to start
  * 5. streaming - AI is actively responding
  * 6. idle - No activity
@@ -85,7 +85,7 @@ export const getStatusIndicatorState = ({
     return { kind: 'retrying' }
   }
 
-  // Show connecting if service is disconnected OR auth service is unreachable
+  // Show connecting if the local runtime/provider flow is disconnected or unreachable.
   if (!isConnected || authStatus === 'unreachable') {
     return { kind: 'connecting' }
   }

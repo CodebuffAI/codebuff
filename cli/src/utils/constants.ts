@@ -117,7 +117,7 @@ export type AgentMode = keyof typeof AGENT_MODE_TO_ID
 export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]
 
 /**
- * Maps CLI agent mode to cost mode for billing.
+ * Maps CLI agent mode to local cost-display buckets.
  */
 export const AGENT_MODE_TO_COST_MODE = {
   DEFAULT: 'normal',

@@ -107,6 +107,8 @@ export const providerDiscoverySchema = z.object({
     .default('openai-compatible'),
   /** Custom discovery endpoint URL. Defaults to <baseURL>/models. */
   endpoint: z.string().url().optional(),
+  /** Whether discovery sends the provider Authorization header. */
+  auth: z.enum(['auto', 'provider', 'none']).default('auto'),
   /** JSON path to the models array in the response. Defaults vary by strategy ("data" for openai-compatible, "models" for ollama). */
   arrayPath: z.string().min(1).optional(),
   /** JSON path to the model id field within each model object. Defaults vary by strategy ("id" for openai-compatible, "name" for ollama). */
@@ -728,60 +730,63 @@ function readProviderConfigFile(
   }
 
   state.stack.add(resolvedConfigPath)
-  const rawConfig = JSON.parse(fs.readFileSync(resolvedConfigPath, 'utf8'))
-  const fragmentPaths = [
-    ...normalizeConfigFragmentPaths(rawConfig?.extends),
-    ...normalizeConfigFragmentPaths(rawConfig?.include),
-    ...normalizeConfigFragmentPaths(rawConfig?.includes),
-  ]
+  try {
+    const rawConfig = JSON.parse(fs.readFileSync(resolvedConfigPath, 'utf8'))
+    const fragmentPaths = [
+      ...normalizeConfigFragmentPaths(rawConfig?.extends),
+      ...normalizeConfigFragmentPaths(rawConfig?.include),
+      ...normalizeConfigFragmentPaths(rawConfig?.includes),
+    ]
 
-  // Automatically look for openbuff.d next to any config file (like openbuff.json)
-  const configDir = path.dirname(resolvedConfigPath)
-  const implicitDir = path.join(configDir, 'openbuff.d')
-  if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
-    if (!fragmentPaths.includes('openbuff.d') && !fragmentPaths.includes('./openbuff.d')) {
-      fragmentPaths.push('openbuff.d')
+    // Automatically look for openbuff.d next to any config file (like openbuff.json)
+    const configDir = path.dirname(resolvedConfigPath)
+    const implicitDir = path.join(configDir, 'openbuff.d')
+    if (fs.existsSync(implicitDir) && fs.statSync(implicitDir).isDirectory()) {
+      if (!fragmentPaths.includes('openbuff.d') && !fragmentPaths.includes('./openbuff.d')) {
+        fragmentPaths.push('openbuff.d')
+      }
     }
+
+    const expandedPaths = expandFragmentPaths(resolvedConfigPath, fragmentPaths)
+
+    let config = emptyProviderConfig()
+    const sourceFilePaths: string[] = []
+    let sourceFiles: NonNullable<LoadedProviderConfig['sourceFiles']> = {
+      providers: {},
+      routes: {
+        modes: {},
+        agents: {},
+      },
+    }
+
+    for (const resolvedPath of expandedPaths) {
+      const loadedFragment = readProviderConfigFile(resolvedPath, state)
+      config = mergeProviderConfigs(config, loadedFragment.config)
+      sourceFilePaths.push(...loadedFragment.sourceFilePaths)
+      sourceFiles = mergeSourceFiles(sourceFiles, loadedFragment.sourceFiles ?? {})
+    }
+
+    const parseResult = providerConfigFileSchema.safeParse(rawConfig)
+    if (!parseResult.success) {
+      throw new Error(
+        `Invalid provider config at ${resolvedConfigPath}: ${parseResult.error.message}`,
+      )
+    }
+    config = mergeProviderConfigs(config, parseResult.data)
+
+    const currentSourceFiles = getSourceFilesFromRawConfig(rawConfig, resolvedConfigPath)
+    sourceFiles = mergeSourceFiles(sourceFiles, currentSourceFiles)
+
+    const result = {
+      config,
+      sourceFilePaths: Array.from(new Set([...sourceFilePaths, resolvedConfigPath])),
+      sourceFiles,
+    }
+    state.cache.set(resolvedConfigPath, result)
+    return result
+  } finally {
+    state.stack.delete(resolvedConfigPath)
   }
-
-  const expandedPaths = expandFragmentPaths(resolvedConfigPath, fragmentPaths)
-
-  let config = emptyProviderConfig()
-  const sourceFilePaths: string[] = []
-  let sourceFiles: NonNullable<LoadedProviderConfig['sourceFiles']> = {
-    providers: {},
-    routes: {
-      modes: {},
-      agents: {},
-    },
-  }
-
-  for (const resolvedPath of expandedPaths) {
-    const loadedFragment = readProviderConfigFile(resolvedPath, state)
-    config = mergeProviderConfigs(config, loadedFragment.config)
-    sourceFilePaths.push(...loadedFragment.sourceFilePaths)
-    sourceFiles = mergeSourceFiles(sourceFiles, loadedFragment.sourceFiles ?? {})
-  }
-
-  const parseResult = providerConfigFileSchema.safeParse(rawConfig)
-  if (!parseResult.success) {
-    throw new Error(
-      `Invalid provider config at ${resolvedConfigPath}: ${parseResult.error.message}`,
-    )
-  }
-  config = mergeProviderConfigs(config, parseResult.data)
-
-  const currentSourceFiles = getSourceFilesFromRawConfig(rawConfig, resolvedConfigPath)
-  sourceFiles = mergeSourceFiles(sourceFiles, currentSourceFiles)
-
-  const result = {
-    config,
-    sourceFilePaths: Array.from(new Set([...sourceFilePaths, resolvedConfigPath])),
-    sourceFiles,
-  }
-  state.cache.set(resolvedConfigPath, result)
-  state.stack.delete(resolvedConfigPath)
-  return result
 }
 
 export function mergeFileChangeHooks(
@@ -980,26 +985,107 @@ interface ProviderConfigCacheEntry {
 
 let providerConfigCache: ProviderConfigCacheEntry | null = null
 
+function addProviderConfigDependencyPath(
+  paths: string[],
+  seen: Set<string>,
+  dependencyPath: string,
+): void {
+  const resolvedPath = path.resolve(dependencyPath)
+  if (seen.has(resolvedPath)) return
+  seen.add(resolvedPath)
+  paths.push(resolvedPath)
+}
+
+function collectProviderConfigDependencyPaths(
+  configPath: string,
+  state: {
+    stack: Set<string>
+    paths: string[]
+    seen: Set<string>
+  } = { stack: new Set(), paths: [], seen: new Set() },
+): string[] {
+  const resolvedConfigPath = path.resolve(configPath)
+  addProviderConfigDependencyPath(state.paths, state.seen, resolvedConfigPath)
+
+  if (state.stack.has(resolvedConfigPath) || !fs.existsSync(resolvedConfigPath)) {
+    return state.paths
+  }
+
+  let rawConfig: any
+  try {
+    rawConfig = JSON.parse(fs.readFileSync(resolvedConfigPath, 'utf8'))
+  } catch {
+    return state.paths
+  }
+
+  state.stack.add(resolvedConfigPath)
+  try {
+    const fragmentPaths = [
+      ...normalizeConfigFragmentPaths(rawConfig?.extends),
+      ...normalizeConfigFragmentPaths(rawConfig?.include),
+      ...normalizeConfigFragmentPaths(rawConfig?.includes),
+    ]
+
+    const configDir = path.dirname(resolvedConfigPath)
+    const implicitDir = path.join(configDir, 'openbuff.d')
+    addProviderConfigDependencyPath(state.paths, state.seen, implicitDir)
+    if (
+      fs.existsSync(implicitDir) &&
+      fs.statSync(implicitDir).isDirectory() &&
+      !fragmentPaths.includes('openbuff.d') &&
+      !fragmentPaths.includes('./openbuff.d')
+    ) {
+      fragmentPaths.push('openbuff.d')
+    }
+
+    for (const fragmentPath of fragmentPaths) {
+      const resolvedPath = resolveConfigFragmentPath(resolvedConfigPath, fragmentPath)
+      addProviderConfigDependencyPath(state.paths, state.seen, resolvedPath)
+      if (!fs.existsSync(resolvedPath)) continue
+
+      const stat = fs.statSync(resolvedPath)
+      if (stat.isDirectory()) {
+        for (const file of fs.readdirSync(resolvedPath).filter(file => file.endsWith('.json')).sort()) {
+          collectProviderConfigDependencyPaths(path.join(resolvedPath, file), state)
+        }
+      } else {
+        collectProviderConfigDependencyPaths(resolvedPath, state)
+      }
+    }
+  } finally {
+    state.stack.delete(resolvedConfigPath)
+  }
+  return state.paths
+}
+
 /**
  * Build a cache key that changes whenever the set of resolved config paths,
- * any of their mtimes, or the explicit env-var override changes. Missing files
- * contribute a sentinel so that a newly-created config file (path goes from
- * non-existent → exists) invalidates the cache.
+ * expanded fragment paths/directories, any of their mtimes, or the explicit
+ * env-var override changes. Missing files/directories contribute a sentinel so
+ * that newly-created configs or openbuff.d fragments invalidate the cache.
  */
 function buildProviderConfigCacheKey(
   configPaths: string[],
   explicitConfigPath: string | undefined,
 ): string {
   const parts: string[] = explicitConfigPath ? [`env=${explicitConfigPath}`] : []
+  const dependencyPaths: string[] = []
+  const seen = new Set<string>()
   for (const configPath of configPaths) {
+    for (const dependencyPath of collectProviderConfigDependencyPaths(configPath)) {
+      addProviderConfigDependencyPath(dependencyPaths, seen, dependencyPath)
+    }
+  }
+
+  for (const dependencyPath of dependencyPaths) {
     let mtime: string
     try {
-      const stat = fs.statSync(configPath)
+      const stat = fs.statSync(dependencyPath)
       mtime = `${stat.mtimeMs}:${stat.size}`
     } catch {
       mtime = 'missing'
     }
-    parts.push(`${configPath}:${mtime}`)
+    parts.push(`${dependencyPath}:${mtime}`)
   }
   return parts.join('|')
 }
@@ -1994,6 +2080,8 @@ export function writeProviderConfigFile(params: {
       fileChangeHooks: existingConfig.fileChangeHooks?.length
         ? existingConfig.fileChangeHooks
         : newConfig.fileChangeHooks,
+      failoverModels: existingConfig.failoverModels ?? newConfig.failoverModels,
+      maxAgentSteps: existingConfig.maxAgentSteps ?? newConfig.maxAgentSteps,
     }
 
     if (tryWriteFragmentedConfig(configPath, mergedConfig)) {

@@ -95,17 +95,18 @@ const judgeAgentBase: Omit<AgentDefinition, 'id' | 'model'> = {
 
 You will receive:
 1. The user prompt that the coding agent was given
-2. Context files from the codebase
-3. The ground truth changes (expected outcome)
-4. The agent's actual changes
+2. The generated task specification that defines the expected outcome
+3. Context files from the codebase
+4. The ground truth changes (expected outcome)
+5. The agent's actual changes
 
 ## Evaluation Philosophy
 
 **Judge based on what the agent was asked to do, not on perfection.**
 
 - If the prompt is vague or high-level (e.g., "add authentication"), be lenient and accept any reasonable implementation that achieves the goal
-- If the prompt is specific and detailed, expect the implementation to match those details more closely
-- Focus on whether the agent understood and addressed the user's intent
+- If the prompt or task specification is specific and detailed, expect the implementation to match those details more closely
+- Focus on whether the agent understood and addressed the user's intent and the task specification
 - Consider that there are often multiple valid ways to implement the same feature
 
 ## Evaluation Criteria
@@ -234,7 +235,7 @@ export async function judgeCommitResult(
     finalCheckOutputsStructured,
   } = input
 
-  const { prompt, fileDiffs } = commit
+  const { prompt, spec, fileDiffs } = commit
 
   const groundTruthDiffs = fileDiffs
     .map(({ path, diff }) => {
@@ -250,6 +251,9 @@ export async function judgeCommitResult(
 
   const judgePrompt = `## User Prompt (What the agent was asked to do)
 ${prompt}
+
+## Task Specification (Expected observable outcome)
+${spec || '(No task specification)'}
 
 ## Context Files (from parent commit)
 ${contextFilesContent || '(No context files)'}

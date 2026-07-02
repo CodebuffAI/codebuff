@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { formatValidationIssues } from '../format-validation-issues'
+import { formatValueForError } from '../format-value'
 
 describe('formatValidationIssues', () => {
   test('summarizes missing required fields with dotted paths', () => {
@@ -66,5 +67,32 @@ describe('formatValidationIssues', () => {
 
   test('returns raw JSON for empty issue lists', () => {
     expect(formatValidationIssues({ issues: [] })).toBe('[]')
+  })
+})
+
+describe('formatValueForError', () => {
+  test('formats primitives with type information', () => {
+    expect(formatValueForError('hello')).toBe('"hello" (type: string)')
+    expect(formatValueForError(undefined)).toBe('undefined (type: undefined)')
+    expect(formatValueForError(null)).toBe('null (type: null)')
+  })
+
+  test('does not throw for circular objects', () => {
+    const value: { name: string; self?: unknown } = { name: 'loop' }
+    value.self = value
+
+    expect(formatValueForError(value)).toContain('[Unserializable value:')
+  })
+
+  test('does not throw for bigint values', () => {
+    expect(formatValueForError(1n)).toContain('[Unserializable value:')
+    expect(formatValueForError(1n)).toContain('(type: bigint)')
+  })
+
+  test('truncates serialized values after fallback formatting', () => {
+    const value: { self?: unknown } = {}
+    value.self = value
+
+    expect(formatValueForError(value, 10)).toBe('[Unseriali...(truncated)')
   })
 })

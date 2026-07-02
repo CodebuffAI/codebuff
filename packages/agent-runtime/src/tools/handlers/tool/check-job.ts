@@ -24,6 +24,7 @@ export const handleCheckJob = (async ({
       jobId: toolCall.input.jobId,
       wait_for: toolCall.input.wait_for,
       timeout_seconds: toolCall.input.timeout_seconds,
+      kill_on_timeout: toolCall.input.kill_on_timeout,
     },
   }
   await previousToolCallFinished

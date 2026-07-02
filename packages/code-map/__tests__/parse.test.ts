@@ -210,6 +210,40 @@ describe('parse module', () => {
       })
     })
 
+    it('records parse diagnostics when requested', () => {
+      const mockParser = createMockTreeSitterParser({
+        parseImpl: () => {
+          throw new Error('Parse error')
+        },
+      })
+
+      const mockLanguageConfig: LanguageConfig = {
+        extensions: ['.ts'],
+        wasmFile: 'tree-sitter-typescript.wasm',
+        queryText: 'mock query',
+        parser: mockParser,
+        query: createMockTreeSitterQuery(),
+      }
+      const diagnostics: Array<{
+        filePath: string
+        stage: 'language' | 'read' | 'parse'
+        message: string
+      }> = []
+
+      const result = parseTokens('test.ts', mockLanguageConfig, () => 'content', {
+        diagnostics,
+      })
+
+      expect(result).toEqual({
+        numLines: 0,
+        identifiers: [],
+        calls: [],
+      })
+      expect(diagnostics).toEqual([
+        { filePath: 'test.ts', stage: 'parse', message: 'Parse error' },
+      ])
+    })
+
     it('should handle query captures errors', () => {
       const mockTree = createMockTree()
       const mockQuery = createMockTreeSitterQuery({
@@ -635,6 +669,32 @@ console.log('Total:', formatCurrency(total));
 
       expect(result.tokenScores).toBeDefined()
       expect(result.tokenCallers).toBeDefined()
+      expect(result.diagnostics).toEqual(
+        expect.arrayContaining([
+          {
+            filePath: 'src/unreadable.ts',
+            stage: 'read',
+            message: 'permission denied',
+          },
+        ]),
+      )
+    })
+
+    it('records language diagnostics for unsupported file extensions', async () => {
+      const result = await getFileTokenScores(
+        '/tmp/test-project',
+        ['src/unsupported.fake'],
+        () => 'content',
+      )
+
+      expect(result.tokenScores).toEqual({})
+      expect(result.diagnostics).toEqual([
+        {
+          filePath: 'src/unsupported.fake',
+          stage: 'language',
+          message: 'No tree-sitter language configuration available for .fake',
+        },
+      ])
     })
   })
 })

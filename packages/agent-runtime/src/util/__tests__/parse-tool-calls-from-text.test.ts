@@ -320,7 +320,7 @@ Conclusion text`
     expect(result[1]).toEqual({ type: 'text', text: 'Conclusion text' })
   })
 
-  it('should skip malformed tool calls but keep surrounding text', () => {
+  it('should report malformed tool calls while keeping surrounding text', () => {
     const text = `Before text
 
 <codebuff_tool_call>
@@ -334,9 +334,31 @@ After text`
 
     const result = parseTextWithToolCalls(text)
 
-    expect(result).toHaveLength(2)
+    expect(result).toHaveLength(3)
     expect(result[0]).toEqual({ type: 'text', text: 'Before text' })
-    expect(result[1]).toEqual({ type: 'text', text: 'After text' })
+    expect(result[1]).toMatchObject({
+      type: 'parse_error',
+      message: expect.stringContaining('JSON parsing failed'),
+    })
+    expect(result[2]).toEqual({ type: 'text', text: 'After text' })
+  })
+
+  it('should report tool calls without cb_tool_name', () => {
+    const text = `<codebuff_tool_call>
+{
+  "paths": ["test.ts"]
+}
+</codebuff_tool_call>`
+
+    const result = parseTextWithToolCalls(text)
+
+    expect(result).toEqual([
+      {
+        type: 'parse_error',
+        message:
+          'Ignored codebuff_tool_call content because cb_tool_name was missing or not a string.',
+      },
+    ])
   })
 
   it('should trim whitespace from text segments', () => {

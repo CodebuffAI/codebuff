@@ -17,6 +17,7 @@ export class IndexManager {
   private buildPromise: Promise<void> | null = null
   private lastBuildAttempt = 0
   private forceRefresh = false
+  private staleRefreshPending = false
   private embed?: EmbedFn
   private fileVectors: FileVector[] = []
   private readonly MIN_RETRY_INTERVAL_MS = 30_000
@@ -92,9 +93,12 @@ export class IndexManager {
     ) {
       return
     }
+    const staleRefresh = this.forceRefresh
     this.forceRefresh = false
+    this.staleRefreshPending = staleRefresh
     this.buildPromise = this._build().finally(() => {
       this.buildPromise = null
+      this.staleRefreshPending = false
     })
   }
 
@@ -116,7 +120,8 @@ export class IndexManager {
     if (
       isIndexReady(this.index) &&
       !isIndexStale(this.index) &&
-      !this.forceRefresh
+      !this.forceRefresh &&
+      !this.staleRefreshPending
     ) {
       return
     }
@@ -144,6 +149,15 @@ export class IndexManager {
     if (!isIndexReady(this.index)) {
       this.ensureBuilt()
       return { results: [], ready: false, totalIndexed: 0, indexAge: 0 }
+    }
+    if (this.forceRefresh || this.staleRefreshPending) {
+      this.ensureBuilt()
+      return {
+        results: [],
+        ready: false,
+        totalIndexed: this.index.fileCount,
+        indexAge: Date.now() - this.index.builtAt,
+      }
     }
     const results = queryIndex(this.index, query, withConfigLexicalWeights(options, this.config))
     return {

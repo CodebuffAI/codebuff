@@ -35,6 +35,7 @@ import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
   computeBackoffDelayMs,
+  waitForBackoffDelay,
 } from '../retry-config'
 
 import type { ModelRequestParams } from './model-provider'
@@ -1226,7 +1227,7 @@ export async function* promptAiSdkStream(
           ? `Retryable HTTP ${statusCode} during stream, retrying with delay`
           : 'Transient network error during stream, retrying with delay',
       )
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
+      await waitForBackoffDelay({ delayMs, signal: params.signal })
     }
   }
     } catch (error) {

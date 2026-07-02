@@ -1,6 +1,13 @@
 import { execSync, spawn } from 'child_process'
 
-import type { Runner, RunnerResult, AgentStep } from './runner'
+import {
+  createExternalRunnerAbortError,
+  isAbortError,
+  type Runner,
+  type RunnerResult,
+  type AgentStep,
+  type RunnerOptions,
+} from './runner'
 
 export class CodexRunner implements Runner {
   private cwd: string
@@ -11,7 +18,7 @@ export class CodexRunner implements Runner {
     this.env = env
   }
 
-  async run(prompt: string): Promise<RunnerResult> {
+  async run(prompt: string, options: RunnerOptions = {}): Promise<RunnerResult> {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 
@@ -40,10 +47,13 @@ export class CodexRunner implements Runner {
         },
         // Use 'ignore' for stdin to prevent the CLI from waiting for input
         stdio: ['ignore', 'pipe', 'pipe'],
+        signal: options.signal,
       })
 
       let _stdout = ''
       let stderr = ''
+      let aborted = false
+      let settled = false
 
       child.stdout.on('data', (data: Buffer) => {
         const chunk = data.toString()
@@ -103,8 +113,30 @@ export class CodexRunner implements Runner {
         process.stderr.write(data)
       })
 
+      const rejectOnce = (error: Error) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        reject(error)
+      }
+
+      const resolveOnce = (result: RunnerResult) => {
+        if (settled) {
+          return
+        }
+        settled = true
+        resolve(result)
+      }
+
       child.on('error', (error) => {
-        reject(
+        if (isAbortError(error)) {
+          aborted = true
+          rejectOnce(createExternalRunnerAbortError('Codex'))
+          return
+        }
+
+        rejectOnce(
           new Error(
             `Codex CLI failed to start: ${error.message}. Make sure 'codex' is installed and in PATH.`,
           ),
@@ -112,6 +144,12 @@ export class CodexRunner implements Runner {
       })
 
       child.on('close', (code) => {
+        if (aborted || options.signal?.aborted) {
+          aborted = true
+          rejectOnce(createExternalRunnerAbortError('Codex'))
+          return
+        }
+
         // Get git diff after Codex has made changes
         let diff = ''
         try {
@@ -126,13 +164,13 @@ export class CodexRunner implements Runner {
         }
 
         if (code !== 0) {
-          reject(
+          rejectOnce(
             new Error(`Codex CLI exited with code ${code}. stderr: ${stderr}`),
           )
           return
         }
 
-        resolve({
+        resolveOnce({
           steps,
           totalCostUsd, // Codex doesn't report cost in CLI output
           diff,

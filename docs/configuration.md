@@ -94,6 +94,44 @@ There is **no hardcoded per-agent fallback**. The `model:` field on agent
 templates is documentation of intent only — it is never read at runtime. This
 keeps `openbuff.json` / `routes.json` authoritative for BYOK routing.
 
+### Model discovery auth
+
+OpenAI-compatible providers can discover available models from a provider
+endpoint. Inferred discovery endpoints use `<baseURL>/models` (or provider-
+specific auto-detection such as Ollama `/api/tags`). A `discovery.endpoint`
+lets you point model discovery at a custom catalog endpoint without blocking
+local/BYOK workflows.
+
+When a provider has `apiKeyEnv`, discovery auth is controlled by
+`discovery.auth`:
+
+- `auto` (default): send `Authorization: Bearer <apiKeyEnv>` for inferred
+  endpoints and explicit endpoints on the same origin as `baseURL`; omit it for
+  explicit cross-origin endpoints.
+- `provider`: always send the provider Authorization header, including to a
+  cross-origin custom discovery endpoint you explicitly trust.
+- `none`: never send the provider Authorization header for discovery.
+
+```jsonc
+{
+  "providers": {
+    "custom": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.example.com/v1",
+      "apiKeyEnv": "EXAMPLE_API_KEY",
+      "models": [],
+      "discovery": {
+        "strategy": "custom",
+        "endpoint": "https://catalog.example.com/models",
+        "auth": "provider",
+        "arrayPath": "results.models",
+        "idPath": "slug"
+      }
+    }
+  }
+}
+```
+
 ### Failover routing
 
 Failover is a *secondary* layer that sits on top of the model-routing
