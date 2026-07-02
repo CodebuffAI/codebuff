@@ -333,13 +333,19 @@ were backed by such accounts.**
   12-month bar but has **0 public repos AND 0 followers AND 0 `agent_run` rows**
   (`oldest_public_repo_created_at` null). The single strongest tell: these are
   aged-but-unused accounts that exist only to be referred.
-  - Caveat since web-chat activation (2026-07): a referred user whose only
-    product use is the **web chat** legitimately has 0 `agent_run` and 0
-    `free_session` rows (chat runs under the freebuff-web service account and
-    stores no `client_ip_hash`), so check `chat_message`/`chat_usage_event`
-    before reading "no agent runs" as dormant. Chat-only activation is capped
-    at tier `limited` precisely so it can't mint GLM rewards — a full-tier
-    activated referral always has real `free_session` history to investigate.
+  - Caveat since web/chat activation (2026-07): a referred user whose only
+    product use is **freebuff.com/chat or /web** legitimately has 0
+    `agent_run` and 0 `free_session` rows (both surfaces run under the
+    freebuff-web service account), and since 2026-07-02 they CAN activate at
+    tier `full` when their IP passes the same clean-IP/country verification
+    the CLI waiting room uses — i.e. one signed-in chat message or web-app
+    visit from a clean residential IP now feeds the referrer's GLM count.
+    Before reading "no agent runs" as dormant, check `chat_message` /
+    `chat_usage_event` (chat) and Convex activity (web). For IP clustering on
+    these users, `free_mode_country_access_cache` holds their recent
+    `client_ip_hash` + privacy signals (written by every tier check, keyed
+    user+IP, expiring) — group referred users on that instead of
+    `free_session.client_ip_hash`.
 - **Bulk-created identity batch** — many of a referrer's referred GitHub accounts
   share an **identical `github_account_created_at` date** (e.g. 8 accounts all
   created on one day, ~6–18 months prior), with **email mirroring the GitHub

@@ -122,16 +122,25 @@ never permanently unrecoverable.
 
 ### Activation
 
-When the referred user is admitted to a session and uses it, set `activated_at`
-and `activation_access_tier` (the tier of that admit). An accepted signed-in
-web-chat message also activates — web chat is a product, and it is the only
-activation hook a chat-only referred user ever crosses — but always at
-`limited`, never the sender's chat tier: GLM-grade `full` activation requires
-real CLI/desktop product use, so a farmed account can't mint a GLM reward with
-a single chat message (chat also stores no `free_session` IP-hash trail for
-the abuse playbook). The web tier ladder counts `limited + full` alike, so
-legitimate web referrals get full credit. Upgrade the tier `limited → full` if
-they later activate at full; never downgrade.
+Every product surface activates, always at the user's **verified** access tier
+— the same IP/geo/privacy pipeline everywhere, so a VPN/datacenter/unsupported
+-country user activates at `limited` (web-ladder credit, no GLM) and only a
+verified-clean user activates at `full`:
+
+- **CLI / desktop** — on free-session admission, at the admit's tier
+  (`web/src/server/free-session/store.ts`).
+- **Web chat (freebuff.com/chat)** — on each accepted signed-in message, at
+  the sender's chat tier (`freebuff/web/src/app/api/chat/stream/route.ts`).
+- **Web coding agent (freebuff.com/web)** — on convex-token mint (the app
+  being open, refreshed ≤10 min), at the request's web tier; hard-blocked
+  requests never activate (`syncWebReferralState` via the convex-token
+  route). The CLI `/onboard` login hop calls the same sync WITHOUT
+  activation — logging in is not product use.
+
+Upgrade the tier `limited → full` if they later activate at full; never
+downgrade. Chat/web activations leave no `free_session` rows; for
+investigations, the tier checks persist `client_ip_hash` + privacy signals to
+`free_mode_country_access_cache` (recent-window, per user+IP).
 
 ## Benefit policies (read-time, per product)
 

@@ -2,9 +2,12 @@ import {
   evaluateGlmReferralForReferredUser,
   evaluateWebReferralForReferredUser,
   getWebReferralScore,
+  recordReferralV2Activation,
   recordReferralV2Attribution,
   redeemReferralCode,
 } from '@codebuff/billing'
+
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 
 import { clearReferralCode, getReferralCode } from '@/vly/lib/referral-cookies'
 import { logger } from '@/util/logger'
@@ -20,6 +23,7 @@ export interface SyncWebReferralDeps {
   clearReferralCode: typeof clearReferralCode
   redeemReferralCode: typeof redeemReferralCode
   recordReferralV2Attribution: typeof recordReferralV2Attribution
+  recordReferralV2Activation: typeof recordReferralV2Activation
   evaluateWebReferralForReferredUser: typeof evaluateWebReferralForReferredUser
   evaluateGlmReferralForReferredUser: typeof evaluateGlmReferralForReferredUser
   getWebReferralScore: typeof getWebReferralScore
@@ -30,6 +34,7 @@ const defaultSyncWebReferralDeps: SyncWebReferralDeps = {
   clearReferralCode,
   redeemReferralCode,
   recordReferralV2Attribution,
+  recordReferralV2Activation,
   evaluateWebReferralForReferredUser,
   evaluateGlmReferralForReferredUser,
   getWebReferralScore,
@@ -47,16 +52,24 @@ const defaultSyncWebReferralDeps: SyncWebReferralDeps = {
  * 1. If the `vly_referral_code` attribution cookie is set, redeem it
  *    (program 'web') — this is the same `user.referral_code` token + cookie
  *    attribution used by the CLI program.
- * 2. Evaluate the user's own pending web referral (GitHub account age gate +
+ * 2. If the caller supplies `activation` (the convex-token route does; the
+ *    CLI /onboard hop does NOT — logging in is not product use), mark the
+ *    user's own referral as activated at that verified tier. The web app
+ *    being open is the web surface's product-use signal, and the tier comes
+ *    from the request's IP/geo/privacy verification, so a VPN/datacenter
+ *    visitor activates at 'limited' (no GLM credit for the referrer).
+ * 3. Evaluate the user's own pending web referral (GitHub account age gate +
  *    shared burn-once ledger). Pending referrals age in here, since the
  *    token refreshes every <=10 minutes while the user is active.
- * 3. Return the web referral score for the JWT claim.
+ * 4. Return the web referral score for the JWT claim.
  */
 export async function syncWebReferralState(params: {
   userId: string
+  /** When set, activate the user's referral at this verified access tier. */
+  activation?: { accessTier: FreebuffAccessTier }
   deps?: SyncWebReferralDeps
 }): Promise<number> {
-  const { userId, deps = defaultSyncWebReferralDeps } = params
+  const { userId, activation, deps = defaultSyncWebReferralDeps } = params
 
   const cookieCode = await deps.getReferralCode()
   if (cookieCode) {
@@ -111,6 +124,25 @@ export async function syncWebReferralState(params: {
           )
         })
     }
+  }
+
+  // Activation runs after the attribution dual-write so a referred user's
+  // very first hop attributes AND activates in one pass (activation is a
+  // no-op until the referral_v2 row exists), and before the evaluators so a
+  // same-hop completion sees the fresh activated_at. Best-effort: one atomic
+  // guarded UPDATE, idempotent, a no-op for non-referred users.
+  if (activation) {
+    await deps
+      .recordReferralV2Activation({
+        referredId: userId,
+        accessTier: activation.accessTier,
+      })
+      .catch((error) => {
+        logger.warn(
+          { error, userId },
+          'Failed to record referral_v2 activation (web)',
+        )
+      })
   }
 
   await Promise.all([

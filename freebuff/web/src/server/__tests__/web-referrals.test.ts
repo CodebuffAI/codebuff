@@ -15,6 +15,8 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     redeem: number
     clear: number
     attribution: number
+    activation: number
+    activationTiers: string[]
     evalWeb: number
     evalGlm: number
     score: number
@@ -24,6 +26,8 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     redeem: 0,
     clear: 0,
     attribution: 0,
+    activation: 0,
+    activationTiers: [] as string[],
     evalWeb: 0,
     evalGlm: 0,
     score: 0,
@@ -40,6 +44,10 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     recordReferralV2Attribution: async () => {
       calls.attribution++
       return true
+    },
+    recordReferralV2Activation: async ({ accessTier }) => {
+      calls.activation++
+      calls.activationTiers.push(accessTier)
     },
     evaluateWebReferralForReferredUser: async () => {
       calls.evalWeb++
@@ -122,5 +130,50 @@ describe('syncWebReferralState', () => {
 
     expect(calls.redeem).toBe(2)
     expect(calls.clear).toBe(0) // left for the attribution window to expire
+  })
+
+  it('activates the referral at the supplied verified tier (the convex-token hop)', async () => {
+    const { deps, calls } = makeDeps()
+
+    await syncWebReferralState({
+      userId: 'u1',
+      activation: { accessTier: 'full' },
+      deps,
+    })
+
+    expect(calls.activation).toBe(1)
+    expect(calls.activationTiers).toEqual(['full'])
+  })
+
+  it('does not activate when no activation input is supplied (the CLI /onboard hop — logging in is not product use)', async () => {
+    const { deps, calls } = makeDeps()
+
+    await syncWebReferralState({ userId: 'u1', deps })
+
+    expect(calls.activation).toBe(0)
+  })
+
+  it('still evaluates and returns the score when activation throws (best-effort)', async () => {
+    const { deps, calls } = makeDeps({
+      recordReferralV2Activation: async () => {
+        calls.activation++
+        throw new Error('db unavailable')
+      },
+      getWebReferralScore: async () => {
+        calls.score++
+        return 2
+      },
+    })
+
+    const score = await syncWebReferralState({
+      userId: 'u1',
+      activation: { accessTier: 'limited' },
+      deps,
+    })
+
+    expect(calls.activation).toBe(1)
+    expect(calls.evalWeb).toBe(1)
+    expect(calls.evalGlm).toBe(1)
+    expect(score).toBe(2)
   })
 })
