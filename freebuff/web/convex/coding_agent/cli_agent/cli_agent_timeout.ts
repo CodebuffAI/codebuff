@@ -28,12 +28,15 @@ export const sweepTimedOutCliAgentRuns = internalMutation({
     const now = Date.now();
     const cutoff = now - CLI_AGENT_CRON_TIMEOUT_MS;
 
-    // Threads currently flagged as processing. Number of concurrent processing
-    // threads is small in practice (one per active user run), so a filtered
-    // collect is acceptable at the 1-minute cron cadence.
+    // Stale processing threads via the by_processing index: only rows with
+    // isProcessing === true AND last_edited_timestamp < cutoff are read, so the
+    // 1-minute cron touches a handful of docs instead of scanning the table
+    // (the previous .filter() read every agent_thread row on every sweep).
     const processingThreads = await ctx.db
       .query("agent_thread")
-      .filter((q) => q.eq(q.field("isProcessing"), true))
+      .withIndex("by_processing", (q) =>
+        q.eq("isProcessing", true).lt("last_edited_timestamp", cutoff),
+      )
       .collect();
 
     let timedOut = 0;
@@ -42,9 +45,6 @@ export const sweepTimedOutCliAgentRuns = internalMutation({
         thread.agent_type !== "Codex" &&
         thread.agent_type !== "Claude Code"
       ) {
-        continue;
-      }
-      if (thread.last_edited_timestamp >= cutoff) {
         continue;
       }
 

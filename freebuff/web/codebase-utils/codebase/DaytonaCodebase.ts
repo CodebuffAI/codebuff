@@ -1393,7 +1393,22 @@ if (!hasIntegration) {
         const commits = await this.getCommits();
         return commits[0];
       } catch (e) {
-        console.error("[DaytonaCodebase] commit failed:", e);
+        const msg = e instanceof Error ? e.message : String(e);
+        // A clean working tree is a benign no-op for callers that commit
+        // opportunistically (commitIfDirty, pre-run checkpoints) — they catch
+        // this and move on. Don't log it as an error and pollute error views.
+        const isEmptyCommit =
+          !allowEmpty &&
+          (msg.includes("clean working tree") ||
+            msg.includes("nothing to commit") ||
+            msg.includes("empty commit"));
+        if (isEmptyCommit) {
+          console.log(
+            "[DaytonaCodebase] commit skipped: clean working tree (no changes to commit)",
+          );
+        } else {
+          console.error("[DaytonaCodebase] commit failed:", e);
+        }
         throw e;
       }
     } else {
@@ -3632,23 +3647,45 @@ async function openDaytonaSandboxWithRetry(
         } catch (waitError) {
           const waitErrorMessage =
             waitError instanceof Error ? waitError.message : String(waitError);
-          console.warn(
-            `Sandbox ${sandboxId} did not reach started state in 10s (${waitErrorMessage}), forcing restart`,
-          );
 
-          try {
-            await sandbox.stop();
-          } catch (stopError) {
-            console.warn(
-              `Sandbox ${sandboxId} stop during recovery failed: ${stopError instanceof Error ? stopError.message : String(stopError)}`,
-            );
-          }
-
+          // Re-fetch the freshest state before deciding how to recover. A
+          // sandbox mid-transition ("starting"/"stopping") is NOT stoppable,
+          // so forcing a stop() there only fails ("not in a stoppable state" /
+          // "state change in progress") and adds churn — and with several
+          // callers racing the same sandbox that stop→start thrash multiplies.
+          // Only force a stop→start when the sandbox is genuinely wedged in a
+          // non-transitional state; otherwise just wait for the transition.
           sandbox = await sdk.get(sandboxId);
-          if ((sandbox.state as string) !== "started") {
-            await sandbox.start(60);
+          const state = sandbox.state as string;
+
+          if (state === "started") {
+            // Converged while we were re-fetching; nothing to do.
+          } else if (state === "starting" || state === "stopping") {
+            // Don't fight an in-progress state change — wait it out.
+            await sandbox.waitUntilStarted(60);
+          } else {
+            console.warn(
+              `Sandbox ${sandboxId} did not reach started state in 10s (${waitErrorMessage}), restarting from state "${state}"`,
+            );
+
+            // Only a "stopped"-ish sandbox needs no stop; anything else that
+            // isn't transitional gets a best-effort stop before starting.
+            if (state !== "stopped") {
+              try {
+                await sandbox.stop();
+                sandbox = await sdk.get(sandboxId);
+              } catch (stopError) {
+                console.warn(
+                  `Sandbox ${sandboxId} stop during recovery failed: ${stopError instanceof Error ? stopError.message : String(stopError)}`,
+                );
+              }
+            }
+
+            if ((sandbox.state as string) !== "started") {
+              await sandbox.start(60);
+            }
+            await sandbox.waitUntilStarted(60);
           }
-          await sandbox.waitUntilStarted(60);
         }
       }
 

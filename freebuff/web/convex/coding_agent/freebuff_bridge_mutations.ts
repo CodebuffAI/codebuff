@@ -147,13 +147,8 @@ export const recordRunEvent = internalMutation({
     }
 
     const threadId = event.threadId as Id<'agent_thread'>
-    const thread = await ctx.db.get(threadId)
-    if (!thread || message.thread_id !== threadId) {
+    if (message.thread_id !== threadId) {
       throw new Error('Thread/message mismatch')
-    }
-
-    if (thread.project_id !== (event.projectId as Id<'project'>)) {
-      throw new Error('Project/thread mismatch')
     }
 
     // Map the event to a single stream item (a delta) where applicable.
@@ -211,6 +206,9 @@ export const recordRunEvent = internalMutation({
 
     // Non-terminal events: append a tiny delta row (O(1) DB I/O) instead of
     // rewriting the whole stream. `start` only flips the message to streaming.
+    // This is the hot path (one call per ~750ms stream flush), so it must not
+    // read the thread/project docs — validating message.thread_id above is
+    // enough for these internal-only events.
     if (!isTerminal) {
       if (deltaItem) await appendDeltaItems(ctx, messageId, [deltaItem])
       if (event.type === 'start') {
@@ -219,8 +217,18 @@ export const recordRunEvent = internalMutation({
       return
     }
 
-    // Terminal events: coalesce the live deltas (plus this terminal item) into
-    // the immutable body and apply the message/thread/project state patches.
+    // Terminal events (once per run): now read the thread for the full
+    // thread/project validation and the state patches below.
+    const thread = await ctx.db.get(threadId)
+    if (!thread) {
+      throw new Error('Thread/message mismatch')
+    }
+    if (thread.project_id !== (event.projectId as Id<'project'>)) {
+      throw new Error('Project/thread mismatch')
+    }
+
+    // Coalesce the live deltas (plus this terminal item) into the immutable
+    // body and apply the message/thread/project state patches.
     const messagePatch: Record<string, any> = {}
 
     if (event.type === 'final') {

@@ -1237,6 +1237,30 @@ export const setStateProcessing = internalMutation({
   },
 });
 
+/** Mark that a checkpoint revert has begun (see `reverting_since` in schema). */
+export const setReverting = internalMutation({
+  args: {
+    projectId: v.id("project"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.patch(args.projectId, {
+      reverting_since: Date.now(),
+    });
+  },
+});
+
+/** Clear the revert marker once a revert finishes (success or failure). */
+export const clearReverting = internalMutation({
+  args: {
+    projectId: v.id("project"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.patch(args.projectId, {
+      reverting_since: undefined,
+    });
+  },
+});
+
 export const setStateTerminated = internalMutation({
   args: {
     projectId: v.id("project"),

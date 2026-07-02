@@ -1,5 +1,7 @@
 'use node'
 
+import { gzipSync, gunzipSync } from 'node:zlib'
+
 import { run } from '@codebuff/sdk'
 import { applyPatch } from 'diff'
 import { v } from 'convex/values'
@@ -35,6 +37,10 @@ function requireEnv(name: string) {
   return value
 }
 
+// Resume blobs are stored gzipped (the JSON session state compresses ~10x),
+// which cuts both file storage and the Convex data egress billed every time an
+// action/continuation reads the blob back. Older blobs predate compression, so
+// sniff the gzip magic bytes and fall back to plain JSON.
 async function readResumeStateFromStorage(
   ctx: ActionCtx,
   storageId: Id<'_storage'>,
@@ -42,7 +48,10 @@ async function readResumeStateFromStorage(
   const blob = await ctx.storage.get(storageId)
   if (!blob) return undefined
   try {
-    return JSON.parse(await blob.text())
+    const bytes = Buffer.from(await blob.arrayBuffer())
+    const isGzip = bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b
+    const json = isGzip ? gunzipSync(bytes).toString('utf8') : bytes.toString('utf8')
+    return JSON.parse(json)
   } catch (error) {
     console.error('[vly-freebuff-workpool] failed to parse run state', error)
     return undefined
@@ -1058,8 +1067,11 @@ async function persistRunState(
     if (!resumeState) {
       return undefined
     }
-    const blob = new Blob([JSON.stringify(resumeState)], {
-      type: 'application/json',
+    // Gzip before storing: the session-state JSON is highly repetitive and
+    // compresses ~10x, and this blob is re-read (billed as egress) on every
+    // continuation and follow-up turn.
+    const blob = new Blob([gzipSync(Buffer.from(JSON.stringify(resumeState)))], {
+      type: 'application/gzip',
     })
     const storageId = await ctx.storage.store(blob)
     if (supersedesStorageId && supersedesStorageId !== storageId) {
@@ -1267,7 +1279,10 @@ export const runFreebuffAgent = internalAction({
     const checkCancelled = async () => {
       if (abortController.signal.aborted) return
       const now = Date.now()
-      if (now - lastCancelCheck < 1500) return
+      // 5s poll: a user cancel takes at most a few extra seconds to land, and
+      // this runs for the entire (many-minute) action — at 1.5s it was ~400
+      // extra queries per 10-minute run.
+      if (now - lastCancelCheck < 5000) return
       lastCancelCheck = now
       try {
         const status = await ctx.runQuery(

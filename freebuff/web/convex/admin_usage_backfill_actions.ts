@@ -7,18 +7,38 @@ import { internal } from "./_generated/api";
 const self = (internal as any).admin_usage_backfill_actions;
 const helpers = (internal as any).admin_usage_backfill;
 
+// Incremental scan model: each backfill persists its pagination cursor
+// (admin_backfill_state) after every page, and a refresh resumes from the
+// stored cursor — so only rows created since the last refresh are read.
+// The old behavior re-scanned the entire messages / agent_message tables
+// (full docs, including large message bodies) on every admin refresh click,
+// which dominated database bandwidth. A full rebuild (runBackfill with
+// full: true) clears the cursors and stats and rescans from the beginning.
+
 export const backfillCli = internalAction({
   args: {
-    cursor: v.optional(v.string()),
+    cursor: v.optional(v.union(v.string(), v.null())),
     processed: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const processed = args.processed ?? 0;
+    // First invocation of a refresh resumes from the persisted cursor.
+    let cursor = args.cursor;
+    if (cursor === undefined) {
+      const state = await ctx.runQuery(helpers.getBackfillCursor, {
+        key: "cli",
+      });
+      cursor = state?.cursor ?? null;
+    }
     const page: any = await ctx.runQuery(helpers._readCliPage, {
-      cursor: args.cursor,
+      cursor: cursor ?? undefined,
     });
 
     if (page.items.length === 0 && page.isDone) {
+      await ctx.runMutation(helpers.setBackfillCursor, {
+        key: "cli",
+        cursor: page.cursor,
+      });
       console.log(`[Backfill CLI] Done. Total processed: ${processed}`);
       return;
     }
@@ -72,6 +92,13 @@ export const backfillCli = internalAction({
       });
     }
 
+    // Persist progress so an interrupted backfill (or the next refresh)
+    // resumes here instead of re-reading already-counted pages.
+    await ctx.runMutation(helpers.setBackfillCursor, {
+      key: "cli",
+      cursor: page.cursor,
+    });
+
     const newProcessed = processed + page.items.length;
 
     if (!page.isDone) {
@@ -87,16 +114,27 @@ export const backfillCli = internalAction({
 
 export const backfillV2 = internalAction({
   args: {
-    cursor: v.optional(v.string()),
+    cursor: v.optional(v.union(v.string(), v.null())),
     processed: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const processed = args.processed ?? 0;
+    let cursor = args.cursor;
+    if (cursor === undefined) {
+      const state = await ctx.runQuery(helpers.getBackfillCursor, {
+        key: "v2",
+      });
+      cursor = state?.cursor ?? null;
+    }
     const page: any = await ctx.runQuery(helpers._readV2Page, {
-      cursor: args.cursor,
+      cursor: cursor ?? undefined,
     });
 
     if (page.items.length === 0 && page.isDone) {
+      await ctx.runMutation(helpers.setBackfillCursor, {
+        key: "v2",
+        cursor: page.cursor,
+      });
       console.log(`[Backfill V2] Done. Total processed: ${processed}`);
       return;
     }
@@ -140,6 +178,11 @@ export const backfillV2 = internalAction({
       });
     }
 
+    await ctx.runMutation(helpers.setBackfillCursor, {
+      key: "v2",
+      cursor: page.cursor,
+    });
+
     const newProcessed = processed + page.items.length;
 
     if (!page.isDone) {
@@ -154,9 +197,30 @@ export const backfillV2 = internalAction({
 });
 
 export const runBackfill = internalAction({
-  args: {},
-  handler: async (ctx) => {
-    await ctx.runMutation(helpers.clearModelStats, {});
+  args: { full: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    // No persisted cursors yet means the incremental model has never run, so
+    // stats may already include the whole table from the old always-rescan
+    // behavior — force a full rebuild once to avoid double counting.
+    const cliState = await ctx.runQuery(helpers.getBackfillCursor, {
+      key: "cli",
+    });
+    const v2State = await ctx.runQuery(helpers.getBackfillCursor, {
+      key: "v2",
+    });
+    const full = args.full || cliState === null || v2State === null;
+    if (full) {
+      // Full rebuild: wipe stats and rescan both tables from the beginning.
+      await ctx.runMutation(helpers.clearModelStats, {});
+      await ctx.runMutation(helpers.setBackfillCursor, {
+        key: "cli",
+        cursor: null,
+      });
+      await ctx.runMutation(helpers.setBackfillCursor, {
+        key: "v2",
+        cursor: null,
+      });
+    }
     await ctx.scheduler.runAfter(0, self.backfillCli, {});
     await ctx.scheduler.runAfter(0, self.backfillV2, {});
   },

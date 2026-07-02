@@ -15,14 +15,56 @@ export const clearModelStats = internalMutation({
   },
 });
 
+// Persisted backfill cursors ('cli' / 'v2') so a refresh only scans rows added
+// since the previous run. A full rebuild (full: true) clears them and rescans.
+// Returns null when no state exists yet (first run — caller should treat it
+// as a full rebuild so counts aren't added on top of pre-existing stats).
+export const getBackfillCursor = internalQuery({
+  args: { key: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ cursor: string | null } | null> => {
+    const state = await ctx.db
+      .query("admin_backfill_state")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .unique();
+    return state ? { cursor: state.cursor } : null;
+  },
+});
+
+export const setBackfillCursor = internalMutation({
+  args: { key: v.string(), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    const state = await ctx.db
+      .query("admin_backfill_state")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .unique();
+    if (state) {
+      await ctx.db.patch(state._id, {
+        cursor: args.cursor,
+        updated_at: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("admin_backfill_state", {
+        key: args.key,
+        cursor: args.cursor,
+        updated_at: Date.now(),
+      });
+    }
+  },
+});
+
 export const refreshModelStats = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { full: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
     if (!user || (user.role !== "god" && user.role !== "admin")) {
       throw new Error("Not authorized");
     }
-    await ctx.scheduler.runAfter(0, backfillActions.runBackfill, {});
+    await ctx.scheduler.runAfter(0, backfillActions.runBackfill, {
+      full: args.full ?? false,
+    });
   },
 });
 
@@ -183,10 +225,10 @@ export const _getThreadInfo = internalQuery({
   handler: async (ctx, args) => {
     const result: Record<string, { agentType: string; projectId: string }> = {};
     for (const id of args.threadIds) {
-      const thread = await ctx.db
-        .query("agent_thread")
-        .filter((q) => q.eq(q.field("_id"), id))
-        .first();
+      // Point lookup by id. The previous .filter(_id == id) form was a full
+      // table scan of agent_thread PER thread id.
+      const normalized = ctx.db.normalizeId("agent_thread", id);
+      const thread = normalized ? await ctx.db.get(normalized) : null;
       if (thread) {
         result[id] = {
           agentType: thread.agent_type,

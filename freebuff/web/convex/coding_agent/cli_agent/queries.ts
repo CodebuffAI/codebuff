@@ -7,17 +7,29 @@ import { getAuthUser } from "../../users";
 
 // Internal cacheable version for verified project lookup
 // Pagination must stay in main query, but we can cache the project verification
+//
+// IMPORTANT: returns only the stable fields callers actually use (_id and
+// active_agent_thread) instead of the whole project doc. The project doc's
+// volatile fields (state flips processing/active twice per agent turn,
+// preview URLs, timestamps, ...) would otherwise change this query's result on
+// every patch and re-push/re-execute every downstream message-list and
+// message-body subscription — each of which re-reads its full page of docs.
 export const getVerifiedProjectForAgentMessagesInternal = internalQuery({
   args: {
     semanticIdentifier: v.string(),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    return await getVerifiedAccessProject(
+    const project = await getVerifiedAccessProject(
       ctx,
       args.userId,
       args.semanticIdentifier,
     );
+    if (!project) return null;
+    return {
+      _id: project._id,
+      active_agent_thread: project.active_agent_thread,
+    };
   },
 });
 
@@ -232,6 +244,9 @@ export const getStreamedAgentMessagesInternal = internalQuery({
 
 // Internal cacheable version for verified project lookup for streamed messages
 // Must stay separate from getStreamedAgentMessagesInternal to allow caching of verification
+// Like getVerifiedProjectForAgentMessagesInternal above, returns only the
+// stable fields callers use so volatile project-doc patches don't re-push the
+// (heavier) parent subscriptions.
 export const getVerifiedProjectForStreamedAgentMessagesInternal = internalQuery(
   {
     args: {
@@ -239,11 +254,16 @@ export const getVerifiedProjectForStreamedAgentMessagesInternal = internalQuery(
       userId: v.id("users"),
     },
     handler: async (ctx, args) => {
-      return await getVerifiedAccessProject(
+      const project = await getVerifiedAccessProject(
         ctx,
         args.userId,
         args.semanticIdentifier,
       );
+      if (!project) return null;
+      return {
+        _id: project._id,
+        active_agent_thread: project.active_agent_thread,
+      };
     },
   },
 );

@@ -120,6 +120,13 @@ export function capStream(items: StreamItem[]): StreamItem[] {
 
 // Append one or more streamed items as delta rows. O(items) writes; no
 // read-modify-write of the growing message body.
+//
+// The next seq is derived from the newest delta row (one tiny indexed read)
+// instead of a `stream_seq` counter patched onto the message doc. The old
+// counter patch rewrote the whole (much larger) message document on every
+// flush AND invalidated every subscription reading that doc (the live tail,
+// the streaming-message queries), doubling their re-execution rate. Callers
+// are expected to have already verified the message exists.
 export async function appendDeltaItems(
   ctx: MutationCtx,
   messageId: Id<'agent_message'>,
@@ -130,9 +137,12 @@ export async function appendDeltaItems(
   )
   if (filtered.length === 0) return
 
-  const message = await ctx.db.get(messageId)
-  if (!message) return
-  let seq = message.stream_seq ?? 0
+  const newest = await ctx.db
+    .query('agent_message_delta')
+    .withIndex('by_message_seq', (q) => q.eq('message_id', messageId))
+    .order('desc')
+    .first()
+  let seq = (newest?.seq ?? -1) + 1
   for (const item of filtered) {
     await ctx.db.insert('agent_message_delta', {
       message_id: messageId,
@@ -145,7 +155,6 @@ export async function appendDeltaItems(
     })
     seq += 1
   }
-  await ctx.db.patch(messageId, { stream_seq: seq })
 }
 
 export async function readDeltaItems(

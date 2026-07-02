@@ -135,6 +135,10 @@ export default defineSchema(
       template_id: v.optional(v.string()),
       custom_instructions: v.optional(v.string()),
       terminated: v.optional(v.boolean()),
+      // Timestamp set while a checkpoint revert is actively running. Lets the
+      // checkpoint creator distinguish a real revert (must wait) from the
+      // run's own `processing` state (must not wait). Stale-guarded on read.
+      reverting_since: v.optional(v.number()),
       analytics_enabled: v.optional(v.boolean()),
       deleted: v.optional(v.boolean()),
 
@@ -624,7 +628,12 @@ export default defineSchema(
       // bundled base2-free agent runs). Defaults to DEFAULT_FREEBUFF_MODEL_ID
       // when unset. Only meaningful for agent_type === 'Freebuff'.
       selected_freebuff_model: v.optional(v.string()),
-    }).index('by_project', ['project_id']),
+    })
+      .index('by_project', ['project_id'])
+      // Powers the timeout sweep: only threads currently flagged as processing
+      // (a handful at any time) are in the eq(true) range, so the 1-minute cron
+      // reads a few rows instead of scanning the whole table.
+      .index('by_processing', ['isProcessing', 'last_edited_timestamp']),
 
     // New agent message format for Claude Code, Gemini CLI, and Codex
     // Combines user and assistant turns into a single message
@@ -1255,6 +1264,15 @@ export default defineSchema(
       recentDay: v.number(),
       recentDayDate: v.string(),
     }).index('by_agent_model', ['agentType', 'model']),
+
+    // Persisted pagination cursors for the admin usage backfill, so a refresh
+    // resumes from where the last one stopped instead of re-scanning the whole
+    // (large) messages / agent_message tables on every admin click.
+    admin_backfill_state: defineTable({
+      key: v.string(), // 'cli' | 'v2'
+      cursor: v.union(v.string(), v.null()),
+      updated_at: v.number(),
+    }).index('by_key', ['key']),
 
     // tickets table
     tickets: defineTable({

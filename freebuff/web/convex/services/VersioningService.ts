@@ -11,6 +11,9 @@ import { ActionCtx } from "../_generated/server";
  * hiding the complexity of git operations, message management, and error handling.
  */
 export class VersioningService {
+  /** Max age of a `reverting_since` marker we'll still wait on (ms). */
+  private static readonly REVERT_WAIT_STALE_MS = 60_000;
+
   constructor(private ctx: ActionCtx) {}
 
   /**
@@ -35,10 +38,20 @@ export class VersioningService {
           return { success: false, error: "Project not found" };
         }
 
-        // If project is being reverted, wait and retry
-        if (project.state === "processing" && retryCount < maxRetries) {
+        // Only wait when a *revert* is actively running (it rewrites git state
+        // out from under us). A plain `processing` state is just the run's own
+        // agent — the common case — and must not be delayed: the previous code
+        // waited a flat ~6s on every checkpoint and committed anyway, burning
+        // latency and spamming retry logs. The stale guard prevents a crashed
+        // revert from wedging checkpoints forever.
+        const revertInFlight =
+          typeof project.reverting_since === "number" &&
+          Date.now() - project.reverting_since <
+            VersioningService.REVERT_WAIT_STALE_MS;
+
+        if (revertInFlight && retryCount < maxRetries) {
           console.log(
-            `[VersioningService] Project is processing, retry ${retryCount + 1}/${maxRetries}`,
+            `[VersioningService] Revert in progress, retry ${retryCount + 1}/${maxRetries}`,
           );
           await this.delay(2000);
           retryCount++;
@@ -116,6 +129,14 @@ export class VersioningService {
 
     // Validate that the commit exists
     await this.validateCommitExists(semanticIdentifier, commitHash);
+
+    // Mark the project as actively reverting so a concurrently-scheduled
+    // "Before:" checkpoint waits for us instead of racing the git revert.
+    // Cleared in the finally below (and stale-guarded on read) so a crashed
+    // revert can't wedge checkpoints permanently.
+    await this.ctx.runMutation(internal.project.setReverting, {
+      projectId,
+    });
 
     // Terminate any active processing (cancels agent if running)
     await this.ctx.runMutation(internal.project.setStateTerminated, {
@@ -197,7 +218,10 @@ export class VersioningService {
         );
       }
     } finally {
-      // Always mark project as done
+      // Always clear the revert marker and mark project as done.
+      await this.ctx.runMutation(internal.project.clearReverting, {
+        projectId,
+      });
       await this.ctx.runMutation(internal.project.setStateDone, {
         projectId,
       });
