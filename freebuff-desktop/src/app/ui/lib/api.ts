@@ -138,4 +138,10 @@ export const api = {
 
   // Auth
   logout: () => post<{ ok: boolean; error?: string }>('/api/auth/logout'),
+
+  // Ads — fire-and-forget tracking pings for a transcript ad card (see
+  // AdCard.tsx: impression on first display, click on click-through; the card
+  // itself opens the URL). Proxied because the bearer lives with the server.
+  recordAdImpression: (impUrl: string) => post<{ ok: boolean }>('/api/ad/impression', { impUrl }),
+  recordAdClick: (impUrl: string) => post<{ ok: boolean }>('/api/ad/click', { impUrl }),
 }

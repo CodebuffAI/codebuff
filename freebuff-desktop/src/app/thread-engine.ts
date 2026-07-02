@@ -27,6 +27,7 @@ import {
   foldAgentEvent,
   NOTICE_CLAUDE_CODE_AUTH,
   NOTICE_FREEBUFF_AUTH,
+  type AdPayload,
   type AgentEventLike,
   type Part,
 } from '../core/parts'
@@ -61,6 +62,7 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { API_HOST, PROD_API_HOST } from './api-host'
+import type { DesktopAds } from './ads'
 import { trackEvent } from './analytics'
 import { CLAUDE_CODE_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
@@ -172,6 +174,10 @@ export interface EngineOptions {
   /** Inject the thread-title generator (tests). Defaults to the SDK-backed one
    *  that runs a throwaway single-step agent on the hosted client. */
   generateTitle?: TitleGenerator
+  /** Sponsored-ads client (see ads.ts). Interspersed into the transcript as
+   *  persisted `ad` parts on completed turns. Unwired engines (tests,
+   *  standalone embedding) show no ads and touch no ad network. */
+  ads?: DesktopAds
 }
 
 export class ThreadEngine {
@@ -188,6 +194,8 @@ export class ThreadEngine {
   private readonly freebuff: FreebuffSessions
   /** Server-injected sign-out for API 401s (see EngineOptions.onAuthRejected). */
   private readonly authRejectedHandler?: () => void
+  /** Sponsored-ads client, or null when unwired (no ads). */
+  private readonly ads: DesktopAds | null
   /** Thread id currently holding the single premium-bucket concurrency slot, or
    *  null when no tab is on a premium-bucket model. In-memory; recomputed from
    *  persisted thread models on startup. The server is the race-safe source of
@@ -276,6 +284,7 @@ export class ThreadEngine {
         () => this.onFreebuffAuthRejected(),
       )
     this.authRejectedHandler = opts.onAuthRejected
+    this.ads = opts.ads ?? null
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
     // Reads `this.client` lazily so a post-login client swap is picked up.
@@ -1123,6 +1132,16 @@ export class ThreadEngine {
       // turns skip this: they're already recovered by requeueing the claimed item.
       this.store.setPendingPrompt(threadId, prompt)
     }
+    // The turn's abort handle, created before the ad fetch below so the fetch
+    // rides the same signal (a Stop tears the request down with the turn).
+    const aborter = new AbortController()
+    this.aborters.set(threadId, aborter)
+    // Kick off the sponsored-ad fetch alongside the turn: by the time the turn
+    // completes the ad is almost always already here, and completion never
+    // waits on it (see the attach in the try block). Null when this turn
+    // shouldn't carry one (no ads / signed out, or an ad sits too few
+    // messages back).
+    const adPromise = this.startAdFetch(threadId, aborter.signal)
     // Reset the in-memory turn outcome — the running pulse already conveys
     // "in flight", and the prior terminator only matters when the thread goes
     // idle again. Marked without a DB write so a fast turn doesn't churn SQLite.
@@ -1172,8 +1191,6 @@ export class ThreadEngine {
     // idle tabs distinctly (stopped / error). `null` means the turn completed
     // normally (the successor state to "running").
     let turnOutcome: Thread['lastTurnOutcome'] = 'completed'
-    const aborter = new AbortController()
-    this.aborters.set(threadId, aborter)
 
     try {
       thread = await this.ensureWorktree(thread)
@@ -1239,6 +1256,17 @@ export class ThreadEngine {
       if (aborter.signal.aborted) {
         turnOutcome = 'stopped'
         finalize('⏹ Stopped.')
+      } else if (adPromise) {
+        // Completed turn: intersperse the sponsored ad into the transcript (it
+        // persists with this message's parts). Attach ONLY if the concurrent
+        // fetch already settled — racing against an immediately-resolved null
+        // reads the settled value without waiting, so a slow ads endpoint can
+        // never delay persistence, the idle flip, or the queue pump (and a
+        // quit inside an added wait window would lose the whole completed
+        // turn to crash-recovery re-running it). An unresolved fetch is
+        // dropped; the spacing gate lets the next eligible turn retry.
+        const ad = await Promise.race([adPromise, Promise.resolve<AdPayload | null>(null)])
+        if (ad) emitAgent({ type: 'ad', ad })
       }
     } catch (err) {
       // Stop (abort) and failure both end the turn with a live marker so the
@@ -1293,6 +1321,42 @@ export class ThreadEngine {
         responseChars: assistantText.length,
       })
     }
+  }
+
+  // — Sponsored ads (interspersed into the transcript; see ads.ts) —
+
+  /**
+   * Start fetching one sponsored ad for this turn, or null when this turn
+   * shouldn't carry one: ads unwired or signed out, or an ad already sits
+   * within the last {@link MIN_MESSAGES_BETWEEN_ADS} transcript messages. With
+   * user and assistant messages alternating, the spacing works out to an ad
+   * roughly every other exchange — regular enough to notice while scrolling,
+   * spaced enough that ads never stack up against each other. A thread with no
+   * recent ad qualifies immediately, so the first completed exchange carries
+   * one. Reads only the transcript tail (LIMIT query), so the per-turn cost
+   * stays constant on long-lived threads.
+   *
+   * The impression is NOT recorded here (nor at attach): the renderer records
+   * it on first display via /api/ad/impression, so headless turns (queue
+   * autorun with no window open) never bill an impression nobody saw.
+   */
+  private startAdFetch(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<AdPayload | null> | null {
+    if (!this.ads?.enabled()) return null
+    const recent = this.store.getRecentMessages(threadId, AD_CONTEXT_MESSAGES)
+    const adTooRecent = recent
+      .slice(-MIN_MESSAGES_BETWEEN_ADS)
+      .some((m) => m.parts.some((p) => p.kind === 'ad'))
+    if (adTooRecent) return null
+    // Recent conversation context for targeting: roles + truncated text only.
+    const context = recent
+      .map((m) => ({ role: m.role, content: m.text.slice(0, AD_CONTEXT_CHARS) }))
+      .filter((m) => m.content.trim().length > 0)
+    return this.ads
+      .fetchAd({ messages: context, sessionId: threadId, signal })
+      .catch(() => null)
   }
 
   /**
@@ -1540,6 +1604,13 @@ export class ThreadEngine {
     this.emitState()
   }
 }
+
+/** Minimum transcript messages between one ad and the next. With user and
+ *  assistant messages alternating this yields an ad about every other exchange. */
+const MIN_MESSAGES_BETWEEN_ADS = 3
+/** How much conversation context is sent for ad targeting. */
+const AD_CONTEXT_MESSAGES = 6
+const AD_CONTEXT_CHARS = 2_000
 
 /**
  * Pull a shell command string out of a `run_terminal_command` tool input. The

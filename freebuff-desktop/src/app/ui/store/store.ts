@@ -1038,6 +1038,26 @@ function streamAgentEvent(messages: Message[], event: { type: string; [k: string
     return replaceLast(messages, { ...live, parts: foldAgentEvent(live.parts, event, nextId), done: true })
   }
 
+  // A sponsored ad lands AFTER the turn's finish by design (the fetch runs
+  // alongside the turn and attaches only once the turn completed), so the
+  // generic path below would open a phantom new turn for it. Fold it into the
+  // message the engine actually attached it to: the latest assistant message
+  // with content (done, or mid-steer with parts) — NOT simply the trailing
+  // message, which may already be a newer user message or the next turn's
+  // empty placeholder if the user typed during the SSE delivery gap.
+  if (event.type === 'ad') {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role !== 'assistant' || (!m.done && m.parts.length === 0)) continue
+      const parts = foldAgentEvent(m.parts, event, nextId)
+      if (parts === m.parts) return messages
+      const out = messages.slice()
+      out[i] = { ...m, parts }
+      return out
+    }
+    return messages
+  }
+
   // Only stream the part-producing events; ignore the rest (tool_result, etc.).
   if (!FOLDABLE_EVENT_TYPES.has(event.type)) return messages
 

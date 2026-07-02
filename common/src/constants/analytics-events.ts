@@ -265,6 +265,11 @@ export enum AnalyticsEvent {
   DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
   DESKTOP_SKILL_RUN = 'desktop.skill_run',
+  // Sponsored ads interspersed into the transcript (server-side ads_* events
+  // in web/api/v1/ads capture the fetch/impression/click ledger; these are the
+  // desktop-surface funnels).
+  DESKTOP_AD_SHOWN = 'desktop.ad_shown',
+  DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',

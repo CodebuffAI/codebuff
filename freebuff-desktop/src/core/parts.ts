@@ -65,6 +65,39 @@ export const NOTICE_CLAUDE_CODE_AUTH = 'claude-code-auth'
  *  whose action starts the same device-code flow as the tab bar's LoginGate. */
 export const NOTICE_FREEBUFF_AUTH = 'freebuff-auth'
 
+/**
+ * A sponsored ad, normalized by the Freebuff API (`/api/v1/ads`) across
+ * providers (Gravity today). Mirrors the CLI's `AdResponse`; only the fields
+ * the card renders/tracks are kept.
+ */
+export interface AdPayload {
+  title: string
+  /** Body copy — the part banner-style variants drop; we always show it. */
+  adText: string
+  /** Call-to-action label, e.g. "Try it free". */
+  cta: string
+  /** The advertiser's landing URL (shown as the domain hint). */
+  url: string
+  favicon?: string
+  /** Provider tracking redirect — what a click actually opens (falls back to `url`). */
+  clickUrl?: string
+  /** Impression pixel URL; doubles as the ad's identity for impression/click recording. */
+  impUrl?: string
+  provider?: string
+}
+
+/**
+ * A sponsored ad interspersed into the transcript. Attached by the engine to a
+ * completed assistant turn (see ThreadEngine's ad attach) and persisted with the
+ * message's parts, so ads stay in place as the user scrolls back through
+ * history — mirroring the freebuff.com/web chat, not the CLI's rotating slot.
+ */
+export interface AdPart {
+  kind: 'ad'
+  id: string
+  ad: AdPayload
+}
+
 export type Part =
   | { kind: 'text'; text: string }
   | {
@@ -79,6 +112,7 @@ export type Part =
     }
   | { kind: 'tool'; id: string; toolName: string; input: unknown }
   | NoticePart
+  | AdPart
   | AgentPart
 
 /** The minimal shape of the agent events we fold (a subset of the SDK's events). */
@@ -90,6 +124,8 @@ export interface AgentEventLike {
   input?: unknown
   /** For `notice`: the notice kind (see {@link NoticePart}). */
   notice?: string
+  /** For `ad`: the sponsored ad to intersperse (see {@link AdPart}). */
+  ad?: AdPayload
   /** The agent the event belongs to (subagent id, or the root's own type). */
   agentId?: string
   /** For `subagent_start`: the spawning agent's id (root or another subagent). */
@@ -222,6 +258,10 @@ function foldLeaf(parts: Part[], ev: AgentEventLike, id: () => string): Part[] {
       const base = closeReasoning(parts)
       return [...base, { kind: 'notice', id: id(), notice: ev.notice ?? 'generic', text: ev.text ?? '' }]
     }
+    case 'ad': {
+      if (!ev.ad) return parts
+      return [...closeReasoning(parts), { kind: 'ad', id: id(), ad: ev.ad }]
+    }
     default:
       return parts
   }
@@ -246,6 +286,7 @@ export const FOLDABLE_EVENT_TYPES = new Set([
   'reasoning_delta',
   'tool_call',
   'notice',
+  'ad',
   'subagent_start',
   'subagent_finish',
 ])
