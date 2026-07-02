@@ -764,6 +764,22 @@ describe('ThreadEngine — last turn outcome', () => {
       cleanup()
     }
   })
+
+  test('a Freebuff 401 delegates sign-out to the injected onAuthRejected handler', async () => {
+    // The server wires onAuthRejected to its registry-wide sign-out (the logout
+    // route's path); the engine must delegate rather than run its local
+    // fallback (which touches the real persisted auth state).
+    let called = 0
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      onAuthRejected: () => called++,
+    })
+    try {
+      ;(engine as any).onFreebuffAuthRejected()
+      expect(called).toBe(1)
+    } finally {
+      cleanup()
+    }
+  })
 })
 
 describe('ThreadEngine — close + rehydrate', () => {

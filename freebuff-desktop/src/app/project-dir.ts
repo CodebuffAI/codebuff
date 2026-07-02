@@ -267,29 +267,75 @@ export interface DesktopAuthUser {
   email?: string
 }
 
-/** The persisted Freebuff auth token (the user's API key / authToken). Absent
- *  when not signed in; callers fall back to the env CODEBUFF_API_KEY for dev. */
-export function readAuthToken(): string | undefined {
-  const v = readState().authToken
-  return typeof v === 'string' && v.length ? v : undefined
+/** One persisted sign-in: the bearer plus the user it belongs to. */
+export interface DesktopAuthEntry {
+  token: string
+  user?: DesktopAuthUser
 }
 
-export function writeAuthToken(token: string): void {
-  writeState({ authToken: token })
+/**
+ * Sign-ins are stored PER API HOST (`authSessions: {[host]: {token, user}}`):
+ * the state file is shared across launches while the API host is per-launch
+ * (repo/dev launches target the local dev stack), so a single slot would let
+ * one host's login or sign-out destroy another host's session. Legacy
+ * single-slot fields (`authToken`/`authHost`/`authUser`, host defaulting to
+ * prod — packaged installs only ever signed into prod) are read as one map
+ * entry and folded into the map on the next write.
+ */
+const LEGACY_AUTH_HOST_DEFAULT = 'https://www.codebuff.com'
+
+/** Pure map extraction (exported for tests): current per-host entries with the
+ *  legacy single-slot fields folded in (an explicit `authSessions` entry for
+ *  the same host wins over the legacy one). */
+export function extractAuthSessions(state: Record<string, unknown>): Record<string, DesktopAuthEntry> {
+  const sessions: Record<string, DesktopAuthEntry> = {}
+  const legacyToken = state.authToken
+  if (typeof legacyToken === 'string' && legacyToken.length) {
+    const legacyHost =
+      typeof state.authHost === 'string' && state.authHost.length
+        ? state.authHost
+        : LEGACY_AUTH_HOST_DEFAULT
+    const user = state.authUser
+    sessions[legacyHost] = {
+      token: legacyToken,
+      ...(user && typeof user === 'object' ? { user: user as DesktopAuthUser } : {}),
+    }
+  }
+  const raw = state.authSessions
+  if (raw && typeof raw === 'object') {
+    for (const [host, entry] of Object.entries(raw as Record<string, unknown>)) {
+      if (!entry || typeof entry !== 'object') continue
+      const token = (entry as Record<string, unknown>).token
+      if (typeof token !== 'string' || !token.length) continue
+      const user = (entry as Record<string, unknown>).user
+      sessions[host] = {
+        token,
+        ...(user && typeof user === 'object' ? { user: user as DesktopAuthUser } : {}),
+      }
+    }
+  }
+  return sessions
 }
 
-export function readAuthUser(): DesktopAuthUser | undefined {
-  const v = readState().authUser
-  return v && typeof v === 'object' ? (v as DesktopAuthUser) : undefined
+/** The persisted sign-in for `host`, if any. One state read. */
+export function readAuth(host: string): DesktopAuthEntry | undefined {
+  return extractAuthSessions(readState())[host]
 }
 
-export function writeAuthUser(user: DesktopAuthUser): void {
-  writeState({ authUser: user })
+/** Persist a sign-in for `host`, migrating any legacy single-slot fields into
+ *  the per-host map (other hosts' entries are preserved). */
+export function writeAuth(host: string, entry: DesktopAuthEntry): void {
+  const sessions = extractAuthSessions(readState())
+  sessions[host] = entry
+  writeState({ authSessions: sessions, authToken: undefined, authHost: undefined, authUser: undefined })
 }
 
-/** Clear the persisted auth token + user (logout). */
-export function clearAuth(): void {
-  writeState({ authToken: undefined, authUser: undefined })
+/** Clear the persisted sign-in for `host` only (logout / revoked token).
+ *  Other hosts' sessions are untouched. */
+export function clearAuth(host: string): void {
+  const sessions = extractAuthSessions(readState())
+  delete sessions[host]
+  writeState({ authSessions: sessions, authToken: undefined, authHost: undefined, authUser: undefined })
 }
 
 /**

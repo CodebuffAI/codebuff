@@ -19,8 +19,8 @@
 import { useState } from 'react'
 
 import { useCopied } from '../hooks/useCopied'
-import { api } from '../lib/api'
 import { bridge } from '../lib/bridge'
+import { startLoginInBrowser } from '../lib/login'
 import { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH, type NoticePart } from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
@@ -64,19 +64,17 @@ function ClaudeCodeAuthActions() {
   )
 }
 
-/** Kicks off the device-code sign-in (same server flow as the header's
- *  LoginGate); on success the server broadcasts a state event that flips
- *  `authed`, which unmounts this action row. The button stays clickable while
- *  waiting so a lost browser tab can be reopened. */
+/** Kicks off the device-code sign-in (startLoginInBrowser — the same flow the
+ *  header's LoginGate drives); on success the server broadcasts a state event
+ *  that flips `authed`, which unmounts this action row. The button stays
+ *  clickable while waiting so a lost browser tab can be reopened. */
 function FreebuffAuthActions() {
   const pushToast = useStore((s) => s.pushToast)
   const [phase, setPhase] = useState<'idle' | 'starting' | 'waiting'>('idle')
   const start = async () => {
     setPhase('starting')
     try {
-      const res = await api.startLogin()
-      if (!res.ok || !res.loginUrl) throw new Error(res.error ?? 'Could not start sign-in.')
-      window.open(res.loginUrl, '_blank')
+      await startLoginInBrowser()
       setPhase('waiting')
     } catch (err) {
       pushToast((err as Error).message, 'error')
@@ -109,7 +107,10 @@ export function NoticeCard({ part }: { part: NoticePart }) {
         <Markdown text={part.text} />
       </div>
       {part.notice === NOTICE_CLAUDE_CODE_AUTH && <ClaudeCodeAuthActions />}
-      {part.notice === NOTICE_FREEBUFF_AUTH && !authed && <FreebuffAuthActions />}
+      {/* `authed === false`, not `!authed`: store.freebuff is null until the
+          first SSE state event, and a signed-in user reloading a transcript
+          with an old card shouldn't flash an actionable sign-in button. */}
+      {part.notice === NOTICE_FREEBUFF_AUTH && authed === false && <FreebuffAuthActions />}
     </div>
   )
 }

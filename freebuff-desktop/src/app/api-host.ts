@@ -20,9 +20,19 @@
 
 export const PROD_API_HOST = 'https://www.codebuff.com'
 
-export const API_HOST = (
-  process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || PROD_API_HOST
-).replace(/\/+$/, '')
+/** One canonical spelling per origin (lowercased scheme+host, no path/slash),
+ *  so host-scoped auth (login-store) can compare hosts by string equality —
+ *  `HTTP://LOCALHOST:3000/` and `http://localhost:3000` are the same sign-in. */
+function canonicalizeHost(raw: string): string {
+  try {
+    const url = new URL(raw)
+    return `${url.protocol}//${url.host}`
+  } catch {
+    return raw.replace(/\/+$/, '')
+  }
+}
+
+export const API_HOST = canonicalizeHost(process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || PROD_API_HOST)
 
 if (API_HOST !== PROD_API_HOST) {
   console.log(`Freebuff API host: ${API_HOST} (non-default)`)

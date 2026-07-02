@@ -95,6 +95,8 @@ class EngineRegistry {
         harnessId: currentHarness,
         // browser_check loads a thread's preview from this same server.
         previewBaseUrl: `http://127.0.0.1:${PORT}`,
+        // A 401 signs the whole app out, not just this engine.
+        onAuthRejected: signOutOnAuthRejected,
       })
       engine.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
       this.engines.set(path, engine)
@@ -206,6 +208,30 @@ class EngineRegistry {
 }
 
 const registry = new EngineRegistry()
+
+/** Shared local sign-out: reset the analytics identity, clear this host's
+ *  persisted token/user, swap every open project's client off the dead bearer,
+ *  and broadcast so the UI flips to the sign-in gate. Used by the logout route
+ *  AND by the 401 auto sign-out — one path, so the two can't drift. Runs
+ *  unconditionally (an explicit logout must clean up identity/clients even if
+ *  another instance already cleared the shared token file); loop protection
+ *  for the 401 path lives in its caller below. */
+function signOutLocally(): void {
+  resetIdentity()
+  logoutAuth()
+  registry.setAuthTokenAll(undefined)
+  const de = registry.defaultEngine()
+  if (de) broadcast({ type: 'state', snapshot: de.snapshot() })
+}
+
+/** The 401 auto sign-out. Guarded on isAuthed(): only a real persisted
+ *  sign-in for THIS host gets cleared, and the guard breaks the loop where
+ *  the post-sign-out tier re-probes 401 again under the env-key fallback
+ *  (never "signed in") and would re-enter here forever. */
+function signOutOnAuthRejected(): void {
+  if (!isAuthed()) return
+  signOutLocally()
+}
 
 // Drives the device-code login flow. On success we rebuild every engine's hosted
 // client with the new token, re-probe the tier, and broadcast so the UI updates.
@@ -475,15 +501,12 @@ const server = Bun.serve({
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
       // Attribute the logout to the user before clearing identity.
       trackEvent(AnalyticsEvent.DESKTOP_LOGOUT)
-      resetIdentity()
       // Release the user's per-tab free-mode sessions (across every project) while
       // the token is still valid (the DELETE needs auth) so they don't linger
-      // server-side until they expire/sweep. Best-effort.
+      // server-side until they expire/sweep. Best-effort. The auto sign-out
+      // path skips this — a 401'd token couldn't authorize the DELETE anyway.
       await registry.releaseFreebuffAll()
-      logoutAuth()
-      registry.setAuthTokenAll(undefined)
-      const de = registry.defaultEngine()
-      if (de) broadcast({ type: 'state', snapshot: de.snapshot() })
+      signOutLocally()
       return json({ ok: true })
     }
 

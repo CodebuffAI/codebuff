@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../lib/api'
+import { startLoginInBrowser } from '../lib/login'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 
@@ -71,21 +72,13 @@ export function LoginGate() {
     if (timer.current) clearTimeout(timer.current)
     setPhase('starting')
     try {
-      const res = await api.startLogin()
-      if (!res.ok || !res.loginUrl) {
-        pushToast(res.error ?? 'Could not start sign-in.', 'error')
-        // A failed retry doesn't kill the server-side attempt — stay in
-        // 'waiting' so the cancel affordance remains reachable.
-        setPhase(prevPhase === 'waiting' ? 'waiting' : 'idle')
-        return
-      }
-      // Electron routes external URLs to the system browser via its
-      // window-open handler; in a plain browser this just opens a tab.
-      window.open(res.loginUrl, '_blank')
+      const { expiresAt } = await startLoginInBrowser()
       setPhase('waiting')
-      armExpiryTimer(res.expiresAt)
+      armExpiryTimer(expiresAt)
     } catch (err) {
       pushToast((err as Error).message, 'error')
+      // A failed retry doesn't kill the server-side attempt — stay in
+      // 'waiting' so the cancel affordance remains reachable.
       setPhase(prevPhase === 'waiting' ? 'waiting' : 'idle')
     }
   }
