@@ -28,6 +28,9 @@ export * from './referral-program'
 // Unified referral read model + per-product benefit math (docs/referrals.md)
 export * from './referral-stats'
 
+// Referral link click tracking + funnel stats (clicks -> signups -> valid)
+export * from './referral-clicks'
+
 // Unified referral write side: attribution + activation dual-write (Phase 2)
 export * from './referral-v2'
 

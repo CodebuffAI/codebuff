@@ -533,6 +533,13 @@
       "when": 1782975049587,
       "tag": "0075_confused_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1783015259520,
+      "tag": "0076_furry_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

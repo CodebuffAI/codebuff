@@ -36,6 +36,12 @@ interface ReferralStatus {
   /** Share code - the user's Postgres referral_code, shared with the CLI program. */
   code: string | null;
   qualifiedReferralCount: number;
+  /** Unique clicks on the share link (deduped per browser). */
+  clickCount: number;
+  /** All signups attributed to this referrer, qualified or not. */
+  totalSignups: number;
+  /** Signups that count (activated + GitHub age gate) — same as qualified. */
+  validSignups: number;
   currentTier: FreebuffReferralTier;
   nextTier: FreebuffReferralTier | null;
   tiers: FreebuffReferralTier[];
@@ -138,8 +144,11 @@ export default function ReferralsPage() {
     };
   }, [user]);
 
+  // Point at the landing page (freebuff.com/?ref=CODE), not the app: the root
+  // layout's ReferralCodeCapture stamps the attribution cookie + records the
+  // click on any page, so a visitor lands on marketing first, then converts.
   const shareUrl = status?.code
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/web/?ref=${status.code}`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/?ref=${status.code}`
     : null;
 
   const handleCopy = () => {
@@ -214,15 +223,35 @@ export default function ReferralsPage() {
           )}
         </section>
 
-        {/* Stats */}
+        {/* Funnel: clicks -> total signups -> valid signups */}
         <section className="mt-10 grid grid-cols-1 gap-6 border-t border-border/60 pt-6 sm:grid-cols-3">
           <Stat
-            label="Qualified referrals"
+            label="Link clicks"
+            value={
+              status ? numberFormatter.format(status.clickCount ?? 0) : null
+            }
+            detail="Unique visitors from your link"
+          />
+          <Stat
+            label="Total signups"
+            value={
+              status ? numberFormatter.format(status.totalSignups ?? 0) : null
+            }
+            detail="Everyone who signed up via your link"
+          />
+          <Stat
+            label="Valid signups"
             value={status ? numberFormatter.format(qualifiedCount) : null}
             detail={
-              currentTier ? `Tier ${currentTier.tier} unlocked` : "Loading tier"
+              currentTier
+                ? `Qualified · Tier ${currentTier.tier} unlocked`
+                : "GitHub age + used Freebuff"
             }
           />
+        </section>
+
+        {/* Tier progress */}
+        <section className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
           <Stat
             label={nextTier ? `Next: Tier ${nextTier.tier}` : "Max tier"}
             value={nextTier ? `${referralsNeeded} more` : "Complete"}

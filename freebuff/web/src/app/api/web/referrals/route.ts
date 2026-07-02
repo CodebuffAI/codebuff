@@ -4,7 +4,11 @@ import {
   getNextReferralTier,
   getReferralTier,
 } from '@codebuff/common/constants/freebuff-referral-tiers'
-import { getWebReferralScore, referredGithubIdSql } from '@codebuff/billing'
+import {
+  getReferralFunnelStats,
+  getWebReferralScore,
+  referredGithubIdSql,
+} from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
@@ -29,13 +33,17 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const [[user], score, recentReferrals, leaderboard] = await Promise.all([
-    db
-      .select({ referralCode: schema.user.referral_code })
-      .from(schema.user)
-      .where(eq(schema.user.id, userId))
-      .limit(1),
-    getWebReferralScore({ userId }),
+  const [[user], score, funnel, recentReferrals, leaderboard] =
+    await Promise.all([
+      db
+        .select({ referralCode: schema.user.referral_code })
+        .from(schema.user)
+        .where(eq(schema.user.id, userId))
+        .limit(1),
+      getWebReferralScore({ userId }),
+      // Top of the funnel: unique link clicks + all attributed signups. The
+      // "valid" figure is `score` (activated + GitHub-age qualified) below.
+      getReferralFunnelStats({ referrerId: userId }),
     // Each signup attributed to this referrer (unified referral_v2 model: one
     // row per referred friend), with just enough GitHub + activation state
     // joined in to explain WHY a row hasn't counted yet — never their identity
@@ -85,6 +93,12 @@ export async function GET() {
   return NextResponse.json({
     code: user.referralCode,
     qualifiedReferralCount: score,
+    // Referrer funnel: unique clicks -> total signups -> valid (qualified)
+    // signups. `validSignups` mirrors `qualifiedReferralCount` so the funnel
+    // and the tier progress never disagree.
+    clickCount: funnel.clicks,
+    totalSignups: funnel.totalSignups,
+    validSignups: score,
     currentTier: getReferralTier(score),
     nextTier: getNextReferralTier(score),
     tiers: FREEBUFF_REFERRAL_TIERS,

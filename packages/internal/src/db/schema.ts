@@ -312,6 +312,41 @@ export const referralV2 = pgTable(
 )
 
 /**
+ * Referral link clicks, deduped per (referral_code, device_id) so the count is
+ * unique visitors who landed via a share link — not raw page loads. Written
+ * best-effort from the client capture hop (ReferralCodeCapture ->
+ * storeReferralCookie), the same hop that sets the attribution cookie, so a
+ * click is recorded exactly when a browser is first stamped for a code. Powers
+ * the referrer funnel (clicks -> signups -> valid signups) on /web/referrals.
+ *
+ * `referrer_id` is resolved from `user.referral_code` at write time so funnel
+ * reads filter by referrer without a join. Rows for unknown/legacy codes are
+ * never inserted (the resolver returns null and the write is skipped).
+ */
+export const referralClick = pgTable(
+  'referral_click',
+  {
+    // The share code from the URL (`user.referral_code`, `ref-<uuid>`).
+    referral_code: text('referral_code').notNull(),
+    // The owner of that code — resolved at write time so reads skip the join.
+    referrer_id: text('referrer_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // The landing browser's vly_device_id cookie; the dedup key with the code.
+    device_id: text('device_id').notNull(),
+    // HMAC of the landing request IP (optional; forensics only, never gates).
+    ip_hash: text('ip_hash'),
+    created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One click per browser per code: reloads/return visits don't re-count.
+    primaryKey({ columns: [table.referral_code, table.device_id] }),
+    // Funnel reads filter by referrer.
+    index('idx_referral_click_referrer').on(table.referrer_id),
+  ],
+)
+
+/**
  * Which browsers (vly_device_id cookie) each signed-in user has been seen on.
  * Written from the freebuff web authed hops (convex-token refresh, the
  * /get-started referral-eligibility check) — the same hops that redeem
