@@ -6,7 +6,8 @@
  * which reads the same credentials the user established with `claude` / `claude login`
  * (Anthropic subscription/OAuth token, stored in the OS keychain or ~/.claude). So
  * "switch the agent to Claude Code" literally reuses the terminal session's auth —
- * provided no `ANTHROPIC_API_KEY` is set to override it. Model is Opus 4.8.
+ * provided no `ANTHROPIC_API_KEY` is set to override it. The model is the thread's
+ * pick (see core/claude-models.ts), defaulting to Opus 4.8.
  *
  * Streaming: we ask for partial messages and drive everything off the raw Anthropic
  * stream events so order is preserved (text → tool → text interleaves correctly):
@@ -26,6 +27,7 @@
 
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk'
 
+import { NOTICE_CLAUDE_CODE_AUTH } from '../../core/parts'
 import { CLAUDE_CODE_MODEL } from '../models'
 import type { AgentHarness, HarnessCallbacks, HarnessResult, HarnessTurn } from './harness'
 import {
@@ -36,6 +38,55 @@ import {
 
 interface ClaudeState {
   sessionId?: string
+}
+
+/**
+ * The local Claude Code CLI refused the turn because it isn't authenticated
+ * (signed out, expired/revoked OAuth token, or a broken API-key override). The
+ * raw SDK error quotes Claude Code's terminal-oriented advice ("Please run
+ * /login") which is meaningless inside Freebuff — so the engine treats this
+ * class specially: the message below is user-facing, and the UI renders it as
+ * a recovery card (see NOTICE_CLAUDE_CODE_AUTH) instead of a bare turn failure.
+ */
+export class ClaudeCodeAuthError extends Error {
+  /** The SDK's original error text, kept for logs/diagnosis. */
+  readonly causeMessage: string
+
+  constructor(causeMessage: string) {
+    super(
+      'This agent runs your local Claude Code, which is signed out. To fix it, sign in from ' +
+        'a terminal: run `claude /login`, finish the sign-in in your browser, then resend ' +
+        'your message here. Or switch this thread to a Freebuff agent from the selector in ' +
+        'the title bar.',
+    )
+    this.name = 'ClaudeCodeAuthError'
+    this.causeMessage = causeMessage
+  }
+}
+
+/**
+ * Does the CLI's error text mean "the CLI isn't authenticated"? Matched against
+ * the error-result string (in-band `is_error` results and the SDK's thrown
+ * "Claude Code returned an error result: …" wrapper carry the same text). The
+ * phrases are the CLI's exact auth failure copy: signed out ("Not logged in ·
+ * Please run /login"), expired/revoked OAuth token, and the external-API-key
+ * override ("Invalid API key · Fix external API key" — an env key claudeCodeEnv
+ * missed). Deliberately NOT a bare "invalid api key": the result text can quote
+ * arbitrary tool/model output (a third-party key error in the user's project),
+ * and misclassifying that would hide the real error behind a bogus sign-in card.
+ */
+function isClaudeCodeAuthErrorMessage(message: string): boolean {
+  return /not logged in|please run \/login|fix external api key|oauth token (has |was |been )?(expired|revoked)/i.test(
+    message,
+  )
+}
+
+/** Map a stream/spawn error to {@link ClaudeCodeAuthError} when it's an auth
+ *  failure; return anything else (and already-translated errors) unchanged. */
+export function translateClaudeCodeError(err: unknown): unknown {
+  if (err instanceof ClaudeCodeAuthError) return err
+  const message = err instanceof Error ? err.message : String(err)
+  return isClaudeCodeAuthErrorMessage(message) ? new ClaudeCodeAuthError(message) : err
 }
 
 /** Narrow an opaque {@link HarnessTurn.previousState} to this harness's own state
@@ -144,6 +195,10 @@ export async function consumeClaudeStream(
 ): Promise<ClaudeState> {
   let sessionId = startSessionId
   let resultSubtype = 'success'
+  // Error text from an `is_error` result message, if one arrived. Non-null even
+  // when the CLI exits 0 — the SDK only throws its "returned an error result"
+  // wrapper on a NONZERO exit, so in-band failures must be classified here.
+  let resultError: string | null = null
   // Tool-use block currently streaming its JSON input (one at a time per turn).
   let curTool: { id: string; name: string; buf: string } | null = null
 
@@ -180,13 +235,31 @@ export async function consumeClaudeStream(
       case 'result':
         if (msg.session_id) sessionId = msg.session_id
         resultSubtype = msg.subtype ?? 'success'
+        if (msg.is_error) {
+          // Subtype 'success' carries the error in `result`; other subtypes in
+          // `errors`. Fall back to the subtype so the note is never blank.
+          const text =
+            resultSubtype === 'success'
+              ? msg.result
+              : Array.isArray(msg.errors)
+                ? msg.errors.filter(Boolean).join('; ')
+                : ''
+          resultError = (typeof text === 'string' && text) || resultSubtype
+        }
         break
     }
   }
 
-  // A non-success terminal result (max_turns, error, …) may leave nothing in the
-  // transcript — surface a short note so the turn isn't silently empty.
-  if (resultSubtype !== 'success') {
+  // Only reached on a clean process exit — a nonzero exit makes the SDK throw
+  // out of the loop above, and runTurn's catch classifies that path instead.
+  if (resultError !== null) {
+    // An in-band error result: recognize auth failures (recovery card), and
+    // surface anything else verbatim so the turn isn't a silent empty message.
+    if (isClaudeCodeAuthErrorMessage(resultError)) throw new ClaudeCodeAuthError(resultError)
+    cb.onText(`\n\n⚠️ Claude Code error: ${resultError}`)
+  } else if (resultSubtype !== 'success') {
+    // A non-success terminal result (max_turns, …) may leave nothing in the
+    // transcript — surface a short note so the turn isn't silently empty.
     cb.onText(`\n\n⚠️ Claude Code ended: ${resultSubtype}`)
   }
 
@@ -215,7 +288,7 @@ export class ClaudeCodeHarness implements AgentHarness {
     const stream = query({
       prompt: turn.prompt,
       options: {
-        model: CLAUDE_CODE_MODEL,
+        model: turn.model ?? CLAUDE_CODE_MODEL,
         cwd: turn.cwd,
         env: claudeCodeEnv(),
         // Keep Claude Code's full default behaviour, but append our follow-up
@@ -240,7 +313,15 @@ export class ClaudeCodeHarness implements AgentHarness {
       },
     })
 
-    const state = await consumeClaudeStream(stream as AsyncIterable<any>, cb, sessionId)
-    return { state }
+    try {
+      const state = await consumeClaudeStream(stream as AsyncIterable<any>, cb, sessionId)
+      return { state }
+    } catch (err) {
+      // Recognize the CLI's auth failures and rethrow them typed, so the engine
+      // shows a sign-in recovery card instead of the raw terminal-speak error
+      // ("Please run /login" means nothing inside the desktop app). Aborts are
+      // handled upstream (the engine checks its own signal before the error).
+      throw translateClaudeCodeError(err)
+    }
   }
 }

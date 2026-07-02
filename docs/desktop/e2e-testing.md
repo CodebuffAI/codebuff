@@ -195,8 +195,7 @@ sends no `Origin` header — non-browser clients are allowed.
 | `POST /api/thread/{id}/close` | close (keeps worktree + history for reopen) |
 | `POST /api/thread/{id}/rehydrate` | restore a closed thread's file tree |
 | `POST /api/thread/{id}/delete` | delete the thread |
-| `POST /api/thread/{id}/harness` `{harnessId}` | pin this tab's agent (`codebuff`/`claude-code`) |
-| `POST /api/thread/{id}/model` `{model}` | pin this tab's Freebuff model (may be downgraded; returns resolved) |
+| `POST /api/thread/{id}/agent` `{harnessId, model?}` | pin this tab's agent (`codebuff`/`claude-code`) + its model in one call (a premium Freebuff pick may be downgraded; returns resolved) |
 | `POST /api/thread/{id}/auto-queue-suggestions` `{on}` | auto-run assistant suggestions instead of parking them |
 
 ### Queue
@@ -223,7 +222,7 @@ sends no `Origin` header — non-browser clients are allowed.
 | `GET·POST /api/settings` `{settings}` | `.freebuff/settings.json` (e.g. `preview.entry`) |
 | `POST /api/settings/agent` `{harnessId}` | set the **project-wide default** harness for new threads |
 | `GET /api/auth/status` · `POST /api/auth/login/start` · `POST /api/auth/logout` | device-code auth |
-| `GET /api/project/recents` · `POST /api/project/open` `{path}` · `GET /api/fs/list?path=` | project picker |
+| `GET /api/project/recents` · `POST /api/project/open` `{path}` · `GET /api/project/validate?path=` · `POST /api/project/init` `{path}` | open a project (folder choice itself is the native OS dialog; `validate` reports `needsInit` for non-repos, `init` runs `git init`) |
 | `POST /api/run` `{command}` | run a shell command in the repo (utility) |
 
 ### Send a build like a human typing into a tab

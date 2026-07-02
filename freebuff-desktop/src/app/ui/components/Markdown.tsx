@@ -1,9 +1,9 @@
-import { memo, useState, type ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import { copyText } from '../lib/clipboard'
+import { useCopied } from '../hooks/useCopied'
 
 /**
  * Renders assistant output as GitHub-flavored markdown. Custom renderers give us
@@ -51,20 +51,13 @@ const COMPONENTS: Components = {
 }
 
 function CodeBlock({ lang, code }: { lang?: string; code: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    void copyText(code).then((ok) => {
-      if (!ok) return
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1400)
-    })
-  }
+  const { copied, copy } = useCopied()
   const isDiff = lang === 'diff'
   return (
     <div className="md-code">
       <div className="md-code-head">
         <span className="md-code-lang">{lang || 'text'}</span>
-        <button className="md-copy" onClick={copy} title="Copy code">
+        <button className="md-copy" onClick={() => copy(code)} title="Copy code">
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>

@@ -31,7 +31,7 @@ export interface FreebuffDesktopBridge {
   getPathForFile: (file: File) => string
   /** Native open dialog (files AND folders, multi-select). */
   pickAttachments: () => Promise<PickedAttachment[]>
-  /** Native folder chooser for the project picker; resolves to the chosen
+  /** Native folder chooser for opening a project; resolves to the chosen
    *  absolute path, or null when the user cancels. */
   pickDirectory: () => Promise<string | null>
   /** Write pasted image bytes to a temp file so they attach like any other file. */
@@ -39,6 +39,10 @@ export interface FreebuffDesktopBridge {
     bytes: Uint8Array,
     ext: string,
   ) => Promise<{ path: string; name: string } | null>
+  /** Bring up the system terminal (recovery flows, e.g. `claude /login`).
+   *  mac-only today; resolves false where unsupported. Optional so an older
+   *  packaged preload doesn't break a newer renderer. */
+  openTerminal?: () => Promise<boolean>
 }
 
 declare global {

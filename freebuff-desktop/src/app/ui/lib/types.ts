@@ -11,7 +11,8 @@ import type { AttachmentKind } from '../../../core/attachments'
 import type { Part } from '../../../core/parts'
 import type { HarnessId, QueueItem, Thread } from '../../../core/types'
 
-export type { AgentPart, AgentStatus, Part, ReasoningCollapse } from '../../../core/parts'
+export type { AgentPart, AgentStatus, NoticePart, Part, ReasoningCollapse } from '../../../core/parts'
+export { NOTICE_CLAUDE_CODE_AUTH } from '../../../core/parts'
 export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
 export type {
   HarnessId,
@@ -55,8 +56,6 @@ export interface Message {
 export interface AgentOption {
   id: HarnessId
   label: string
-  model: string
-  modelLabel: string
   description: string
 }
 
@@ -74,19 +73,6 @@ export interface FreebuffModelOption {
   premium: boolean
   multimodal: boolean
   premiumBucket: boolean
-}
-
-/** Folder-picker listing from /api/fs/list (mirrors server BrowseResult). */
-export interface BrowseEntry {
-  name: string
-  path: string
-  isRepo: boolean
-}
-export interface BrowseResult {
-  path: string
-  parent: string | null
-  isRepo: boolean
-  entries: BrowseEntry[]
 }
 
 /** Mirror of the engine's ProjectSettings (see core/settings.ts). v1 is

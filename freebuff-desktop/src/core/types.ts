@@ -74,6 +74,10 @@ export interface Thread {
    *  parallel. Null while using the engine's recommended default for the user's
    *  access tier. Ignored by the Claude Code harness. */
   freebuffModel: string | null
+  /** Which Claude model this thread's `claude-code` harness turns run on (see
+   *  core/claude-models.ts). Null while using the default (Opus 4.8). Ignored
+   *  by the hosted (`codebuff`) harness. */
+  claudeModel: string | null
   /** When on, assistant-suggested prompts are dropped straight into the queue
    *  (which always auto-drains) instead of parking in the suggested lane. */
   autoQueueSuggestions: boolean

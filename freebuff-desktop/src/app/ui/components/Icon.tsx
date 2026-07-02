@@ -22,7 +22,6 @@ const PATHS: Record<string, string> = {
   copy: 'M5 5.5h6.5V12H5zM3.5 9.5V3h6',
   menu: 'M3 4.5h9M3 7.5h9M3 10.5h9',
   down: 'M4 6l3.5 3.5L11 6',
-  left: 'M9.5 3.5l-4 4 4 4',
   search: 'M6.75 11a4.25 4.25 0 100-8.5 4.25 4.25 0 000 8.5zM10 10l2.5 2.5',
   download: 'M7.5 2.5v6.5M4.5 6.5l3 3 3-3M3 12.5h9',
   paperclip:

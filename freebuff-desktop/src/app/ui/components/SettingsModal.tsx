@@ -42,16 +42,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal picker" onClick={(e) => e.stopPropagation()}>
-        <div className="picker-head">
-          <span className="picker-title">Project settings</span>
+      <div className="modal modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="modal-title">Project settings</span>
           <button className="head-btn" onClick={onClose} title="Close">
             <Icon name="x" />
           </button>
         </div>
 
         {loadError && (
-          <div className="picker-foot" style={{ color: 'var(--danger)' }}>
+          <div className="modal-foot" style={{ color: 'var(--danger)' }}>
             {loadError}
           </div>
         )}
@@ -121,7 +121,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <div className="picker-foot" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+        <div className="modal-foot" style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <code title={settingsPath ?? ''}>{settingsPath ?? 'in-memory defaults (file absent)'}</code>
           </div>

@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { bridge } from './lib/bridge'
 import freebuffLogo from './components/freebuff-logo.svg'
-import { ProjectPicker } from './components/ProjectPicker'
+import { Icon } from './components/Icon'
+import { useDismissable } from './hooks/useDismissable'
 import { SettingsModal } from './components/SettingsModal'
 import { TabBar } from './components/TabBar'
 import { Workspace } from './components/Workspace'
@@ -15,9 +16,8 @@ export function App() {
   const activeId = useStore((s) => s.activeId)
   const toasts = useStore((s) => s.toasts)
   const dismissToast = useStore((s) => s.dismissToast)
-  const pickerOpen = useStore((s) => s.pickerOpen)
-  const pickerThreadId = useStore((s) => s.pickerThreadId)
-  const setPickerOpen = useStore((s) => s.setPickerOpen)
+  const pickProject = useStore((s) => s.pickProject)
+  const pendingInit = useStore((s) => s.pendingInit)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   useSSE()
@@ -63,18 +63,19 @@ export function App() {
       ) : (
         <div className="workspace empty">
           {/* No open tab (first launch, or every tab closed). Show the wordmark
-              plus an explicit way to open a folder — the ProjectPicker is
+              plus an explicit way to open a folder — the folder chooser is
               otherwise only reachable from a tab's header, which doesn't exist
               yet, so without this the app dead-ends on a cold start. */}
           <div className="welcome">
             <img className="welcome-logo" src={freebuffLogo} alt="" />
-            <button className="btn" onClick={() => setPickerOpen(true)}>
+            <button className="btn welcome-open" onClick={() => void pickProject()}>
+              <Icon name="folder" />
               Open a project folder
             </button>
           </div>
         </div>
       )}
-      {pickerOpen && <ProjectPicker threadId={pickerThreadId} onClose={() => setPickerOpen(false)} />}
+      {pendingInit && <InitRepoConfirm path={pendingInit.path} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <div className="toasts">
         {toasts.map((t) => (
@@ -82,6 +83,42 @@ export function App() {
             {t.text}
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/** Confirm dialog for a native-dialog pick that isn't a git repo yet: only git
+ *  repositories can be opened, so offer to `git init` (+ initial commit) it. */
+function InitRepoConfirm({ path }: { path: string }) {
+  const confirmPendingInit = useStore((s) => s.confirmPendingInit)
+  const cancelPendingInit = useStore((s) => s.cancelPendingInit)
+  const [initing, setIniting] = useState(false)
+  // Escape cancels (disabled while initializing); the backdrop handles clicks.
+  useDismissable(!initing, null, cancelPendingInit, { escapeOnly: true })
+
+  const confirm = async () => {
+    setIniting(true)
+    await confirmPendingInit() // clears pendingInit, unmounting this modal
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={() => !initing && cancelPendingInit()}>
+      <div className="modal init-confirm" onClick={(e) => e.stopPropagation()}>
+        <div className="init-confirm-title">Initialize a git repository?</div>
+        <p className="init-confirm-body">
+          <code>{path}</code> isn’t a git repository yet. Freebuff will run{' '}
+          <code>git init</code> and make an initial commit so it can open the
+          folder.
+        </p>
+        <div className="init-confirm-actions">
+          <button className="btn" disabled={initing} onClick={cancelPendingInit}>
+            Cancel
+          </button>
+          <button className="btn save" disabled={initing} onClick={confirm}>
+            {initing ? 'Initializing…' : 'Initialize with git'}
+          </button>
+        </div>
       </div>
     </div>
   )

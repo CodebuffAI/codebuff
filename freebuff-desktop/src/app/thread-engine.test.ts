@@ -4,6 +4,8 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { bunRunner } from '../core/exec'
+import { NOTICE_CLAUDE_CODE_AUTH, type Part } from '../core/parts'
+import { ClaudeCodeAuthError } from './agents/claude-code-harness'
 import { ThreadEngine } from './thread-engine'
 
 /** A fake SDK client: records prompts + multimodal content, optionally drives
@@ -622,6 +624,47 @@ describe('ThreadEngine — last turn outcome', () => {
       expect(stopApplied).toBe(true)
       const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
       expect(lastThreadEvent.thread.lastTurnOutcome).toBe('stopped')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('Claude Code auth failure: persists a recovery notice part, not raw error text', async () => {
+    // The default (codebuff) harness slot is swapped for a stub that fails the
+    // way ClaudeCodeHarness does when the local CLI is signed out.
+    const { engine, cleanup } = await gitEngine()
+    try {
+      ;(engine as any).harnesses.set('codebuff', {
+        id: 'codebuff',
+        runTurn: async () => {
+          throw new ClaudeCodeAuthError(
+            'Claude Code returned an error result: Not logged in · Please run /login',
+          )
+        },
+      })
+      const thread = engine.createThread()
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+
+      // The persisted assistant turn carries a structured notice (the UI's
+      // sign-in recovery card), with the Freebuff-worded instructions.
+      const data = engine.threadData(thread.id)!
+      const assistant = data.messages.at(-1)!
+      expect(assistant.role).toBe('assistant')
+      const notice = assistant.parts?.find((p) => p.kind === 'notice') as
+        | Extract<Part, { kind: 'notice' }>
+        | undefined
+      expect(notice?.notice).toBe(NOTICE_CLAUDE_CODE_AUTH)
+      expect(notice?.text).toContain('claude /login')
+      // The raw SDK phrasing never reaches the transcript…
+      expect(JSON.stringify(assistant.parts)).not.toContain('Please run /login')
+      // …and never a `log` event either (the client renders those as toasts).
+      expect(events.some((e) => e.type === 'log' && /\/login/.test(e.message))).toBe(false)
+
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('error')
     } finally {
       cleanup()
     }

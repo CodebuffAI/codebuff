@@ -26,16 +26,19 @@ import { LoginManager } from './auth/login-flow'
 import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
-  browseDir,
   initProjectRepo,
   readAgentHarness,
   readRecentProjects,
+  readUiPrefs,
   validateProjectDir,
   writeAgentHarness,
+  writeUiPrefs,
 } from './project-dir'
 import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
 import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+
+import { isClaudeModelId } from '../core/claude-models'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -380,11 +383,7 @@ const server = Bun.serve({
       return e ? json(e.snapshot()) : json({ error: 'no project' }, 404)
     }
 
-    if (pathname === '/api/fs/list') {
-      return json(browseDir(url.searchParams.get('path') ?? undefined))
-    }
-
-    // Validate a directory (for the folder picker) without opening it.
+    // Validate a directory (for the native folder chooser) without opening it.
     if (pathname === '/api/project/validate') {
       const dir = url.searchParams.get('path')
       if (!dir) return json({ error: 'path required' }, 400)
@@ -399,8 +398,8 @@ const server = Bun.serve({
       return json(await initProjectRepo(String(dir)))
     }
 
-    // List the MRU of recently-opened projects so the picker can offer
-    // one-click return to a previous workspace.
+    // List the MRU of recently-opened projects — the renderer uses it to know
+    // whether the server has a default project to fall back on for new tabs.
     if (pathname === '/api/project/recents') {
       const recents = readRecentProjects()
       const current = registry.defaultPath()
@@ -431,6 +430,22 @@ const server = Bun.serve({
       writeAgentHarness(harnessId)
       trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId, scope: 'default' })
       return json({ ok: true, harnessId })
+    }
+
+    // Per-user UI preferences (queue-panel width, …). Persisted in the app
+    // state file, not renderer localStorage: the packaged app serves the UI
+    // from a random localhost port each launch, so origin-keyed storage
+    // resets on every restart.
+    if (pathname === '/api/settings/ui' && req.method === 'GET') {
+      return json(readUiPrefs())
+    }
+    if (pathname === '/api/settings/ui' && req.method === 'POST') {
+      const b = await body(req)
+      const w = Number(b.queueWidth)
+      if (!Number.isFinite(w)) return json({ error: 'queueWidth must be a number' }, 400)
+      // Broad sanity clamp only — the renderer enforces its own layout min/max.
+      writeUiPrefs({ queueWidth: Math.min(2000, Math.max(200, Math.round(w))) })
+      return json({ ok: true })
     }
 
     // — Freebuff auth (device-code login) —
@@ -550,27 +565,25 @@ const server = Bun.serve({
         case 'auto-queue-suggestions':
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
-        case 'harness': {
-          // Per-thread agent pick — flips which harness runs that tab's turns.
-          // /api/settings/agent (above) keeps doing the project-wide default.
+        case 'agent': {
+          // Combined per-tab agent + model pick (the header's single menu): sets
+          // the harness and — when given — the model for that harness in one
+          // call, so one click never needs two round-trips. Returns the resolved
+          // model (a Freebuff premium pick may be downgraded — see 'model').
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
-          engine.setThreadHarness(threadId, id)
-          trackEvent(AnalyticsEvent.DESKTOP_HARNESS_CHANGED, { harnessId: id, scope: 'thread' })
-          return json({ ok: true })
-        }
-        case 'model': {
-          // Per-thread Freebuff model pick. Returns the resolved model (it may be
-          // downgraded to an unlimited model if another tab holds the premium
-          // slot) so the optimistic UI can reconcile.
-          const model = b.model
-          if (typeof model !== 'string' || !isSupportedFreebuffModelId(model)) {
-            return json({ error: 'invalid model' }, 400)
+          const model = b.model == null ? undefined : String(b.model)
+          if (model !== undefined) {
+            const valid =
+              id === 'codebuff' ? isSupportedFreebuffModelId(model) : isClaudeModelId(model)
+            if (!valid) return json({ error: 'invalid model' }, 400)
           }
-          const result = engine.setThreadFreebuffModel(threadId, model)
+          const result = engine.setThreadAgent(threadId, id, model)
           trackEvent(AnalyticsEvent.DESKTOP_MODEL_CHANGED, {
-            requested: model,
-            resolved: result.model,
+            harnessId: id,
+            requested: model ?? null,
+            resolved: result.model ?? null,
+            scope: 'thread',
           })
           return json({ ok: true, ...result })
         }
