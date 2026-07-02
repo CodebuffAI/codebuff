@@ -6,7 +6,7 @@ import { Input } from "@/vly/components/ui/input";
 import { cn } from "@/vly/lib/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Check, ExternalLink, Loader, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader, Trash2 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -289,8 +289,14 @@ export function CliAgentConfigurationPanel({
   const startCodexDeviceAuth = useAction(
     api.coding_agent.cli_agent.execute.startCodexDeviceAuth,
   );
+  const getCodexDeviceAuthStatus = useAction(
+    api.coding_agent.cli_agent.execute.getCodexDeviceAuthStatus,
+  );
 
   const [isStartingOauthConnect, setIsStartingOauthConnect] = useState(false);
+  const [isVerifyingOauth, setIsVerifyingOauth] = useState(false);
+  const [hasStartedOauthConnect, setHasStartedOauthConnect] = useState(false);
+  const [copiedOneTimeCode, setCopiedOneTimeCode] = useState(false);
   const [codexOauthAuthUrl, setCodexOauthAuthUrl] = useState<string | null>(
     null,
   );
@@ -324,11 +330,13 @@ export function CliAgentConfigurationPanel({
       setCodexOauthOneTimeCode(result.oneTimeCode ?? null);
 
       if (result.alreadyAuthenticated && result.isAuthenticated) {
+        setHasStartedOauthConnect(false);
         toast.success("Codex OAuth already connected");
         return;
       }
 
       if (result.authUrl || result.oneTimeCode) {
+        setHasStartedOauthConnect(true);
         toast.success("Codex OAuth started. Use the code to connect.");
       } else {
         toast.success(result.message || "Codex OAuth started");
@@ -339,6 +347,48 @@ export function CliAgentConfigurationPanel({
       );
     } finally {
       setIsStartingOauthConnect(false);
+    }
+  };
+
+  const handleVerifyCodexOauth = async () => {
+    if (!effectiveProjectSemanticIdentifier) {
+      toast.error("Open a project first, then verify Codex OAuth.");
+      return;
+    }
+
+    setIsVerifyingOauth(true);
+    try {
+      const status = await getCodexDeviceAuthStatus({
+        projectSemanticIdentifier: effectiveProjectSemanticIdentifier,
+      });
+      if (status.success && status.isAuthenticated) {
+        setHasStartedOauthConnect(false);
+        setCodexOauthAuthUrl(null);
+        setCodexOauthOneTimeCode(null);
+        toast.success("ChatGPT connected");
+      } else {
+        toast.error(
+          status.message ||
+            "Not connected yet. Finish the steps above, then verify again.",
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to verify Codex OAuth",
+      );
+    } finally {
+      setIsVerifyingOauth(false);
+    }
+  };
+
+  const handleCopyOneTimeCode = async () => {
+    if (!codexOauthOneTimeCode) return;
+    try {
+      await navigator.clipboard.writeText(codexOauthOneTimeCode);
+      setCopiedOneTimeCode(true);
+      setTimeout(() => setCopiedOneTimeCode(false), 2000);
+    } catch {
+      toast.error("Failed to copy code");
     }
   };
 
@@ -430,43 +480,125 @@ export function CliAgentConfigurationPanel({
             </div>
           </div>
           {gptAuthMethod === "oauth" ? (
-            <div className="mt-3 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    void handleConnectCodexOauth(
-                      settings?.hasCodexOauth === true,
-                    )
-                  }
-                  disabled={isStartingOauthConnect}
-                  className="h-8 gap-2 text-xs"
-                >
-                  {isStartingOauthConnect && (
-                    <Loader className="h-3.5 w-3.5 animate-spin" />
-                  )}
-                  {settings?.hasCodexOauth
-                    ? "Reconnect ChatGPT"
-                    : "Connect ChatGPT"}
-                </Button>
-                {codexOauthAuthUrl && (
+            <div className="mt-3 space-y-3">
+              {hasStartedOauthConnect &&
+                (codexOauthOneTimeCode || codexOauthAuthUrl) && (
+                  <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-3">
+                    <ol className="list-decimal space-y-1.5 pl-4 text-xs text-muted-foreground">
+                      <li>Open the ChatGPT authorization page.</li>
+                      <li>Paste this code when prompted.</li>
+                      <li>
+                        In ChatGPT, enable{" "}
+                        <span className="font-medium text-foreground">
+                          Codex device auth
+                        </span>{" "}
+                        under{" "}
+                        <span className="font-medium text-foreground">
+                          Settings → Security
+                        </span>
+                        .
+                      </li>
+                      <li>
+                        Come back here and press{" "}
+                        <span className="font-medium text-foreground">
+                          Verify
+                        </span>
+                        .
+                      </li>
+                    </ol>
+                    {codexOauthOneTimeCode && (
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm font-semibold tracking-widest text-foreground">
+                          {codexOauthOneTimeCode}
+                        </code>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleCopyOneTimeCode()}
+                          className="h-8 gap-1.5 text-xs"
+                        >
+                          {copiedOneTimeCode ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                          {copiedOneTimeCode ? "Copied" : "Copy"}
+                        </Button>
+                      </div>
+                    )}
+                    {codexOauthAuthUrl && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          window.open(
+                            codexOauthAuthUrl,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                        className="h-8 gap-2 text-xs"
+                      >
+                        Open auth page
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {hasStartedOauthConnect ? (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => void handleVerifyCodexOauth()}
+                      disabled={isVerifyingOauth}
+                      className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
+                    >
+                      {isVerifyingOauth ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      Verify
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void handleConnectCodexOauth(
+                          settings?.hasCodexOauth === true,
+                        )
+                      }
+                      disabled={isStartingOauthConnect}
+                      className="h-8 gap-1.5 text-xs text-muted-foreground"
+                    >
+                      {isStartingOauthConnect && (
+                        <Loader className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Get new code
+                    </Button>
+                  </>
+                ) : (
                   <Button
                     type="button"
-                    size="sm"
-                    variant="outline"
                     onClick={() =>
-                      window.open(
-                        codexOauthAuthUrl,
-                        "_blank",
-                        "noopener,noreferrer",
+                      void handleConnectCodexOauth(
+                        settings?.hasCodexOauth === true,
                       )
                     }
-                    className="h-8 gap-2 text-xs"
+                    disabled={isStartingOauthConnect}
+                    className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
                   >
-                    Open auth page
-                    <ExternalLink className="h-3.5 w-3.5" />
+                    {isStartingOauthConnect && (
+                      <Loader className="h-4 w-4 animate-spin" />
+                    )}
+                    {settings?.hasCodexOauth
+                      ? "Reconnect ChatGPT"
+                      : "Connect ChatGPT"}
                   </Button>
                 )}
                 {settings?.hasCodexOauth && (
@@ -477,6 +609,7 @@ export function CliAgentConfigurationPanel({
                     onClick={async () => {
                       try {
                         await clearCodexOauthAuth({});
+                        setHasStartedOauthConnect(false);
                         setCodexOauthAuthUrl(null);
                         setCodexOauthOneTimeCode(null);
                         toast.success("Codex OAuth disconnected");
@@ -491,14 +624,6 @@ export function CliAgentConfigurationPanel({
                   </Button>
                 )}
               </div>
-              {codexOauthOneTimeCode && (
-                <p className="text-xs text-muted-foreground">
-                  One-time code:{" "}
-                  <span className="font-semibold text-foreground">
-                    {codexOauthOneTimeCode}
-                  </span>
-                </p>
-              )}
             </div>
           ) : (
             <ByokSecretField
