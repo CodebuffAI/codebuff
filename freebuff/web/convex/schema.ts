@@ -1294,10 +1294,15 @@ export default defineSchema(
       // Daytona snapshot name/id (unique on the Daytona side).
       snapshot_id: v.string(),
       name: v.string(),
+      // "small" = limited; "large" = Cloud standard (6 GB, promotable);
+      // "web_standard" = Web standard (4 GB, used via DAYTONA_SNAPSHOT_ID env);
+      // "medium" = 8 GB storage-upgrade snapshot. Legacy rows may still be
+      // "medium"/"large".
       tier: v.union(
         v.literal('small'),
         v.literal('medium'),
         v.literal('large'),
+        v.literal('web_standard'),
       ),
       specs: v.object({
         cpu: v.string(),

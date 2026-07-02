@@ -11,7 +11,7 @@ import type { Resources } from "@daytonaio/sdk";
  * admin dashboard (`/web/admin/snapshots`) via the Daytona declarative Image
  * builder, NOT baked outside the repo.
  *
- * Keep the toolchain lean: the smallest (limited-country) tier only gets 2 GB
+ * Keep the toolchain lean: the smallest (limited-country) tier only gets 4 GB
  * of disk, so avoid pulling large unused runtimes.
  */
 
@@ -37,25 +37,33 @@ export const GOLDEN_TOOL_VERSIONS = {
 } as const;
 
 /**
- * Daytona resource tiers. Default ("full", primary countries) = 2 vCPU / 4 GB /
- * 6 GB; the limited-country ("small") tier shrinks to 1 vCPU / 2 GB / 2 GB. The
- * "xl" tier (2 vCPU / 4 GB / 8 GB) backs the user-requested storage upgrade and
- * is migrated to via `migrateDaytonaWorkspace` (not part of the warm pool).
+ * Daytona resource tiers. Standard sandboxes differ by product:
+ *  - "web_standard" (Freebuff Web template pool)  = 2 vCPU / 4 GB / 4 GB disk
+ *  - "cloud_standard" (Freebuff Cloud connect-repo) = 2 vCPU / 4 GB / 6 GB disk
+ * Limited-country users on BOTH products run "small" = 1 vCPU / 2 GB / 4 GB disk.
+ * The "xl" tier (2 vCPU / 4 GB / 8 GB) backs the user-requested storage upgrade
+ * and is migrated to via `migrateDaytonaWorkspace` (not part of the warm pool).
+ *
+ * NOTE: sandboxes inherit the snapshot's baked CPU/RAM/disk — there are no
+ * per-create resource overrides, so each tier is a separately-built snapshot.
  */
 export const GOLDEN_RESOURCE_TIERS: Record<
-  "full" | "small" | "xl",
+  "web_standard" | "cloud_standard" | "small" | "xl",
   Resources & { label: string }
 > = {
-  full: { label: "Standard", cpu: 2, memory: 4, disk: 6 },
-  small: { label: "Limited", cpu: 1, memory: 2, disk: 2 },
-  xl: { label: "Large", cpu: 2, memory: 4, disk: 8 },
+  web_standard: { label: "Web Standard", cpu: 2, memory: 4, disk: 4 },
+  cloud_standard: { label: "Cloud Standard", cpu: 2, memory: 4, disk: 6 },
+  small: { label: "Limited", cpu: 1, memory: 2, disk: 4 },
+  xl: { label: "Large (storage upgrade)", cpu: 2, memory: 4, disk: 8 },
 };
 
-/** Auto-archive minutes by size class (full/xl=3h, small=1h). */
+/**
+ * Auto-archive minutes by size class (standard=3h, small=1h). Keyed by the
+ * "small" vs "standard" split used at sandbox-create time, not by build tier.
+ */
 export const GOLDEN_AUTO_ARCHIVE_MINUTES = {
-  full: 180,
+  standard: 180,
   small: 60,
-  xl: 180,
 } as const;
 
 /**

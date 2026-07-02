@@ -19,6 +19,7 @@ const tierValidator = v.union(
   v.literal("small"),
   v.literal("medium"),
   v.literal("large"),
+  v.literal("web_standard"),
 );
 
 const statusValidator = v.union(
@@ -76,9 +77,20 @@ export const updateSnapshotStatus = internalMutation({
   },
 });
 
-/** Standard (large) vs limited-country (small) size class for a snapshot. */
-function sizeClassOf(tier: "small" | "medium" | "large"): "small" | "standard" {
-  return tier === "small" ? "small" : "standard";
+/**
+ * Size class a snapshot belongs to for primary selection:
+ *  - "small"    => limited-country tier (Cloud small primary)
+ *  - "standard" => Cloud standard primary (6 GB; DB tier "large"/"medium")
+ *  - "web"      => Freebuff Web standard (4 GB); used via DAYTONA_SNAPSHOT_ID
+ *    env, never returned as a Cloud primary, so it can never clobber the
+ *    Cloud standard primary on promotion.
+ */
+function sizeClassOf(
+  tier: "small" | "medium" | "large" | "web_standard",
+): "small" | "standard" | "web" {
+  if (tier === "small") return "small";
+  if (tier === "web_standard") return "web";
+  return "standard";
 }
 
 /**

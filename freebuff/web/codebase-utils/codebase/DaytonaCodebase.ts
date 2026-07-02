@@ -345,15 +345,17 @@ export class DaytonaCodebase
         await this.sandbox.setAutostopInterval(desiredAutostopInterval);
       }
 
-      // Configure auto-archive interval by resource size.
-      const diskSize = Number(
-        (this.sandbox as { resources?: { disk?: number | string } }).resources
-          ?.disk,
+      // Configure auto-archive interval by resource size. Small (limited) and
+      // web-standard sandboxes now share a 4 GB disk, so key off RAM instead:
+      // only the limited tier runs on 2 GB of memory.
+      const ramSize = Number(
+        (this.sandbox as { resources?: { memory?: number | string } })
+          .resources?.memory,
       );
       const desiredAutoArchiveInterval =
-        diskSize <= 2
+        ramSize <= 2
           ? GOLDEN_AUTO_ARCHIVE_MINUTES.small
-          : GOLDEN_AUTO_ARCHIVE_MINUTES.full;
+          : GOLDEN_AUTO_ARCHIVE_MINUTES.standard;
       if (this.sandbox.autoArchiveInterval !== desiredAutoArchiveInterval) {
         await this.sandbox.setAutoArchiveInterval(desiredAutoArchiveInterval);
       }

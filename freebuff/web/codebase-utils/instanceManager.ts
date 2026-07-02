@@ -241,7 +241,7 @@ export async function createDaytonaSandbox(
     const autoArchiveInterval =
       options?.sizeClass === "small"
         ? GOLDEN_AUTO_ARCHIVE_MINUTES.small
-        : GOLDEN_AUTO_ARCHIVE_MINUTES.full;
+        : GOLDEN_AUTO_ARCHIVE_MINUTES.standard;
 
     const sandbox = await withDaytonaRateLimitRetry(
       () =>
