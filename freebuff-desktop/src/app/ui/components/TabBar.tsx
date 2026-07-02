@@ -4,6 +4,7 @@ import freebuffLogo from './freebuff-logo.svg'
 import { useDismissable } from '../hooks/useDismissable'
 import { bridge } from '../lib/bridge'
 import { useStore } from '../store/store'
+import { AccountMenu } from './AccountMenu'
 import { Icon } from './Icon'
 
 const isMac = bridge()?.platform === 'darwin'
@@ -128,6 +129,10 @@ export function TabBar() {
         <span className="conn-dot" />
         {connection !== 'open' && <span className="conn-label">{CONN_LABEL[connection]}</span>}
       </div>
+
+      {/* Account is window-global (unlike the folder/agent picks in each
+          thread's header below), so it sits on this row, far right. */}
+      <AccountMenu />
     </div>
   )
 }
