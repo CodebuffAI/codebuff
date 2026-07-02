@@ -27,6 +27,8 @@ export type CreateRunConfigParams = {
   signal: AbortSignal
   costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
   extraCodebuffMetadata?: Record<string, string>
+  /** Periodic in-flight RunState checkpoints (see RunOptions.onStateSnapshot). */
+  onStateSnapshot?: (runState: RunState) => void
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -104,6 +106,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     eventHandlerState,
     costMode,
     extraCodebuffMetadata,
+    onStateSnapshot,
   } = params
 
   return {
@@ -119,6 +122,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     signal: params.signal,
     costMode,
     extraCodebuffMetadata,
+    onStateSnapshot,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

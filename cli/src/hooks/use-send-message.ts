@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { useCallback, useEffect, useRef } from 'react'
 
 import { setCurrentChatId } from '../project-files'
@@ -12,14 +14,17 @@ import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import {
+  clearLiveChatStateProvider,
   loadMostRecentChatState,
   saveChatState,
+  setLiveChatStateProvider,
 } from '../utils/run-state-storage'
 import {
   autoCollapsePreviousMessages,
   createAiMessageShell,
   createErrorMessage as createErrorChatMessage,
   generateAiMessageId,
+  sanitizeRestoredMessages,
 } from '../utils/send-message-helpers'
 import { createSendMessageTimerController } from '../utils/send-message-timer'
 import {
@@ -39,6 +44,8 @@ import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
+import { STATE_SNAPSHOT_INTERRUPTION_MESSAGE } from '@codebuff/sdk'
+
 import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
 import { isCoveredBySubscription } from '../utils/subscription'
 
@@ -153,7 +160,7 @@ export const useSendMessage = ({
       if (loadedState) {
         previousRunStateRef.current = loadedState.runState
         setRunState(loadedState.runState)
-        setMessages(loadedState.messages)
+        setMessages(sanitizeRestoredMessages(loadedState.messages))
         if (loadedState.chatId) {
           setCurrentChatId(loadedState.chatId)
         }
@@ -414,6 +421,23 @@ export const useSendMessage = ({
       // before any async work, so the router can correctly detect busy state.
       let actualCredits: number | undefined
 
+      // Checkpoint the turn to disk immediately so that killing the process
+      // (closed terminal, crash) can't lose the user's prompt, then keep the
+      // checkpoint fresh from SDK run-state snapshots while the run streams.
+      // The completion save below overwrites this with the final state.
+      let latestRunStateSnapshot: RunState = previousRunStateRef.current ?? {
+        traceSessionId: randomUUID(),
+        output: {
+          type: 'error',
+          message: STATE_SNAPSHOT_INTERRUPTION_MESSAGE,
+        },
+      }
+      setLiveChatStateProvider(aiMessageId, () => ({
+        runState: latestRunStateSnapshot,
+        messages: useChatStore.getState().messages,
+      }))
+      saveChatState(latestRunStateSnapshot, useChatStore.getState().messages)
+
       // Execute SDK run with streaming handlers
       try {
         const agentDefinitions = loadAgentDefinitions()
@@ -465,6 +489,10 @@ export const useSendMessage = ({
             IS_FREEBUFF && freebuffInstanceId
               ? { freebuff_instance_id: freebuffInstanceId }
               : undefined,
+          onStateSnapshot: (snapshot) => {
+            latestRunStateSnapshot = snapshot
+            saveChatState(snapshot, useChatStore.getState().messages)
+          },
         })
 
         // Log a summary only: the full run config contains the entire
@@ -532,10 +560,20 @@ export const useSendMessage = ({
             isProcessingQueueRef,
             isQueuePausedRef,
           })
+          // Persist the last checkpoint plus the error banner so a restart
+          // after a failed run still shows this turn.
+          saveChatState(
+            latestRunStateSnapshot,
+            useChatStore.getState().messages,
+          )
         } else {
           logger.debug({ error }, '[send-message] Ignoring error after abort')
         }
       } finally {
+        // Stop exit-flushing this run's checkpoint; the final state (or last
+        // checkpoint, on error) has been saved above. Owner-guarded so an
+        // aborted run resolving late can't clear a newer run's provider.
+        clearLiveChatStateProvider(aiMessageId)
         // If this run was aborted, the abort handler already released the chain lock
         // and queue processing state. Don't touch shared state here to avoid
         // interfering with any new run that may have started after the abort.

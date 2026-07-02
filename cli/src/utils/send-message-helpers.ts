@@ -6,9 +6,14 @@
 
 import { has } from 'lodash'
 
+import { markRunningAgentsAsCancelled } from './block-operations'
 import { shouldHideAgent } from './constants'
 import { formatTimestamp } from './helpers'
-import { autoCollapseBlocks , createAgentBlock } from './message-block-helpers'
+import {
+  appendInterruptionNotice,
+  autoCollapseBlocks,
+  createAgentBlock,
+} from './message-block-helpers'
 
 import type { AgentMode } from './constants'
 import type {
@@ -48,8 +53,46 @@ export const createErrorMessage = (content: string): ChatMessage => ({
   timestamp: formatTimestamp(),
 })
 
+/** Id prefix identifying streamed AI response shells; shared with
+ * sanitizeRestoredMessages so the two can't silently drift apart. */
+export const AI_MESSAGE_ID_PREFIX = 'ai-'
+
 export const generateAiMessageId = (): string =>
-  `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  `${AI_MESSAGE_ID_PREFIX}${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+/**
+ * A restored chat may contain an AI response that was still streaming when the
+ * process died (checkpoint saves persist in-flight turns). Mark it complete
+ * with an interruption notice so it doesn't render as still in progress.
+ * Only touches streamed response shells (ids from generateAiMessageId) —
+ * other 'ai'-variant messages (mode dividers, system notices, bash results)
+ * are never marked complete by design.
+ */
+export const sanitizeRestoredMessages = (
+  messages: ChatMessage[],
+): ChatMessage[] =>
+  messages.map((message) => {
+    if (
+      message.variant !== 'ai' ||
+      !message.id.startsWith(AI_MESSAGE_ID_PREFIX) ||
+      message.isComplete
+    ) {
+      return message
+    }
+    try {
+      return {
+        ...message,
+        isComplete: true,
+        blocks: appendInterruptionNotice(
+          markRunningAgentsAsCancelled(message.blocks ?? []),
+        ),
+      }
+    } catch {
+      // Corrupted persisted blocks (e.g. null entries) must not prevent the
+      // chat from restoring; keep the message as-is.
+      return { ...message, isComplete: true }
+    }
+  })
 
 // -----------------------------------------------------------------------------
 // Auto-Collapse Logic
