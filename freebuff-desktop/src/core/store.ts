@@ -665,6 +665,14 @@ export class Store {
       })
   }
 
+  /** Whether any transcript rows exist for a thread (cheap LIMIT-1 probe —
+   *  used for the "thread has started" check without loading the transcript). */
+  hasMessages(threadId: ThreadId): boolean {
+    return !!this.db
+      .query('SELECT 1 FROM messages WHERE thread_id = $t LIMIT 1')
+      .get({ $t: threadId })
+  }
+
   getMessages(threadId: ThreadId): { role: string; text: string; acts: unknown[]; parts: Part[] }[] {
     const rows = this.db
       .query(

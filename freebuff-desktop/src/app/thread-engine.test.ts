@@ -328,6 +328,38 @@ describe('ThreadEngine — turns', () => {
 
 })
 
+describe('ThreadEngine — agent/model lock after start', () => {
+  test('setThreadAgent works on a fresh thread, then locks once the thread starts', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+
+      // Fresh thread: picks apply and persist (claude pick remembered, then the
+      // tab is put back on the faked codebuff harness so the turn below runs
+      // against the FakeClient rather than a real Claude Code).
+      const claudePick = engine.setThreadAgent(thread.id, 'claude-code', 'claude-sonnet-5')
+      expect(claudePick.locked).toBeUndefined()
+      expect(engine.getThread(thread.id)!.claudeModel).toBe('claude-sonnet-5')
+      engine.setThreadAgent(thread.id, 'codebuff')
+      expect(engine.harnessForThread(thread.id)).toBe('codebuff')
+      expect(engine.threadStarted(thread.id)).toBe(false)
+
+      // First message starts the thread — from here the pick is fixed.
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      expect(engine.threadStarted(thread.id)).toBe(true)
+
+      const after = engine.setThreadAgent(thread.id, 'claude-code', 'claude-fable-5')
+      expect(after.locked).toBe(true)
+      const t = engine.getThread(thread.id)!
+      expect(engine.harnessForThread(thread.id)).toBe('codebuff')
+      expect(t.claudeModel).toBe('claude-sonnet-5')
+    } finally {
+      cleanup()
+    }
+  })
+})
+
 describe('ThreadEngine — workflows & suggestions', () => {
   test('enqueueWorkflow expands "ship" into one queued prompt per skill', async () => {
     const { engine, cleanup } = await gitEngine()

@@ -450,7 +450,15 @@ const server = Bun.serve({
 
     // — Freebuff auth (device-code login) —
     if (pathname === '/api/auth/status' && req.method === 'GET') {
-      return json({ authed: isAuthed(), user: getAuthUser() ?? null })
+      return json({
+        authed: isAuthed(),
+        user: getAuthUser() ?? null,
+        // Surface the in-flight login attempt so a reloaded renderer can
+        // restore its "waiting" state (and the cancel affordance) instead of
+        // showing an idle button while the server is still polling.
+        loginPending: loginManager.isPending(),
+        loginExpiresAt: loginManager.pendingExpiresAt(),
+      })
     }
     if (pathname === '/api/auth/login/start' && req.method === 'POST') {
       try {
@@ -459,6 +467,10 @@ const server = Bun.serve({
       } catch (err) {
         return json({ ok: false, error: (err as Error).message }, 502)
       }
+    }
+    if (pathname === '/api/auth/login/cancel' && req.method === 'POST') {
+      loginManager.cancel()
+      return json({ ok: true })
     }
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
       // Attribute the logout to the user before clearing identity.
@@ -566,10 +578,11 @@ const server = Bun.serve({
           engine.setAutoQueueSuggestions(threadId, !!b.on)
           return json({ ok: true })
         case 'agent': {
-          // Combined per-tab agent + model pick (the header's single menu): sets
-          // the harness and — when given — the model for that harness in one
-          // call, so one click never needs two round-trips. Returns the resolved
-          // model (a Freebuff premium pick may be downgraded — see 'model').
+          // Combined per-tab agent + model pick (the setup picker on a fresh
+          // tab): sets the harness and — when given — the model for that harness
+          // in one call, so one click never needs two round-trips. Returns the
+          // resolved model (a Freebuff premium pick may be downgraded). Only
+          // valid before the thread starts — after that the pick is locked.
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
           const model = b.model == null ? undefined : String(b.model)
@@ -579,6 +592,11 @@ const server = Bun.serve({
             if (!valid) return json({ error: 'invalid model' }, 400)
           }
           const result = engine.setThreadAgent(threadId, id, model)
+          // A started thread's agent/model is fixed (ThreadEngine.threadStarted):
+          // surface the lock instead of silently succeeding so a stale client learns.
+          if (result.locked) {
+            return json({ error: 'thread already started — its agent/model is locked' }, 409)
+          }
           trackEvent(AnalyticsEvent.DESKTOP_MODEL_CHANGED, {
             harnessId: id,
             requested: model ?? null,

@@ -1,3 +1,4 @@
+import { recordReferralV2Activation } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { NextResponse } from 'next/server'
@@ -250,6 +251,23 @@ export async function POST(request: NextRequest) {
     content,
     images,
     attachments,
+  })
+
+  // An accepted chat message is a product use: mark the sender's unified
+  // referral as activated (docs/referrals.md) — the only activation hook on
+  // the chat-only path; without it web referrals of chat-only users never
+  // count. Deliberately 'limited', never the sender's chat tier: GLM-grade
+  // 'full' activation requires real CLI/desktop product use, so a farmed sock
+  // can't mint a GLM reward with one chat message (chat also leaves no
+  // free_session forensic trail). The web tier ladder counts limited + full
+  // alike, so this fully credits legitimate web referrals. Fire-and-forget,
+  // mirroring the free-session admit call sites: idempotent, a no-op for
+  // non-referred users, never delays the stream.
+  void recordReferralV2Activation({
+    referredId: userId,
+    accessTier: 'limited',
+  }).catch((error) => {
+    logger.warn({ error, userId }, 'Failed to record referral_v2 activation (chat)')
   })
 
   // DAU signal: one event per user-submitted chat message. userId is the

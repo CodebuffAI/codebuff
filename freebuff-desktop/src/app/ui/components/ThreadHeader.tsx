@@ -1,13 +1,16 @@
 import { useStore } from '../store/store'
-import { AgentModelPicker } from './AgentSelector'
+import { AgentModelLabel, AgentModelPicker } from './AgentSelector'
 import { Icon } from './Icon'
 import { LoginGate } from './LoginGate'
 
 /**
- * The thread's top bar: project switcher, the combined per-thread agent+model
- * picker, sign-in gate, and the Preview controls. Reads thread/project/agent
- * state from the store; `preview` is owned by ThreadView (shared with the
- * preview iframe in the body), so it arrives as props.
+ * The thread's top bar. On a FRESH tab it carries the setup choices — project
+ * folder + agent/model pickers (the same picks the welcome card offers). Once
+ * the thread starts (first message / a turn ran) those become plain labels:
+ * a thread's folder, agent, and model are fixed for its lifetime, and a
+ * different pick means a new tab. Also hosts the sign-in gate and the Preview
+ * controls. `preview` is owned by ThreadView (shared with the preview iframe
+ * in the body), so it arrives as props.
  */
 export function ThreadHeader({
   threadId,
@@ -34,7 +37,8 @@ export function ThreadHeader({
 
   if (!slice) return null
   // Each tab runs in its own repo (see Thread.projectPath); the chip changes THIS
-  // tab's directory. A started tab (worktree/messages) re-targets in a new tab.
+  // tab's directory — but only until the thread starts. After that the folder is
+  // fixed (a different repo means a new tab), so the chip renders as a label.
   const projectPath = slice.thread.projectPath
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const started = !!slice.thread.branch || slice.messages.length > 0
@@ -43,32 +47,51 @@ export function ThreadHeader({
 
   return (
     <div className="thread-head">
-      <button
-        className="thread-head-project"
-        onClick={() => void pickProject(threadId)}
-        title={
-          projectPath
-            ? `${projectPath}${started ? ' — choose a folder for a new tab' : ' — click to change this tab’s folder'}`
-            : 'Choose a project folder'
-        }
-      >
-        <Icon name="folder" /> {projectName || 'Choose folder'}
-        <Icon name="down" className="caret" />
-      </button>
-      {agentOptions.length > 0 && (
-        <AgentModelPicker
-          harnessId={slice.thread.harnessId}
-          fallbackId={agentHarness ?? undefined}
-          agents={agentOptions}
-          claudeModel={slice.thread.claudeModel}
-          freebuffModel={slice.thread.freebuffModel}
-          freebuffModels={freebuff?.models ?? []}
-          premiumLocked={
-            !!freebuff?.premiumSlotHolder && freebuff.premiumSlotHolder !== threadId
+      {started ? (
+        <span
+          className="thread-head-project static"
+          title={`${projectPath} — this thread's folder is locked; open a new tab to work elsewhere`}
+        >
+          <Icon name="folder" /> {projectName}
+        </span>
+      ) : (
+        <button
+          className="thread-head-project"
+          onClick={() => void pickProject(threadId)}
+          title={
+            projectPath
+              ? `${projectPath} — click to change this tab’s folder`
+              : 'Choose a project folder'
           }
-          onSelect={(h, m) => setThreadAgent(threadId, h, m)}
-        />
+        >
+          <Icon name="folder" /> {projectName || 'Choose folder'}
+          <Icon name="down" className="caret" />
+        </button>
       )}
+      {agentOptions.length > 0 &&
+        (started ? (
+          <AgentModelLabel
+            harnessId={slice.thread.harnessId}
+            fallbackId={agentHarness ?? undefined}
+            agents={agentOptions}
+            claudeModel={slice.thread.claudeModel}
+            freebuffModel={slice.thread.freebuffModel}
+            freebuffModels={freebuff?.models ?? []}
+          />
+        ) : (
+          <AgentModelPicker
+            harnessId={slice.thread.harnessId}
+            fallbackId={agentHarness ?? undefined}
+            agents={agentOptions}
+            claudeModel={slice.thread.claudeModel}
+            freebuffModel={slice.thread.freebuffModel}
+            freebuffModels={freebuff?.models ?? []}
+            premiumLocked={
+              !!freebuff?.premiumSlotHolder && freebuff.premiumSlotHolder !== threadId
+            }
+            onSelect={(h, m) => setThreadAgent(threadId, h, m)}
+          />
+        ))}
       {isHostedAgent && freebuff && !freebuff.authed && <LoginGate />}
       {/* The thread title already lives in the tab above; no need to repeat it
           next to the folder name. */}

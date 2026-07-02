@@ -429,20 +429,33 @@ export class ThreadEngine {
     return this.store.getThread(threadId)?.claudeModel ?? CLAUDE_CODE_MODEL
   }
 
+  /** A thread is "started" once it has any transcript or a branch/worktree (a
+   *  turn ran). From then on its project folder and agent/model are FIXED —
+   *  a different pick means a new tab, so mid-thread context/model identity
+   *  never silently changes. */
+  threadStarted(threadId: string): boolean {
+    const t = this.store.getThread(threadId)
+    if (!t) return false
+    return !!t.branch || this.store.hasMessages(threadId)
+  }
+
   /**
-   * Set a thread's agent + model in one step (the combined header picker).
-   * Switching harness drops the carried context (state from the other harness is
-   * foreign — see `runTurn`); a Claude model switch KEEPS it (Claude Code
-   * sessions resume fine on a different model), and a Freebuff model switch goes
-   * through {@link setThreadFreebuffModel} for the premium gate + session release.
+   * Set a thread's agent + model in one step (the setup picker on a fresh tab).
+   * Locked once the thread has started (`locked: true` comes back and nothing
+   * changes). Switching harness drops the carried context (state from the other
+   * harness is foreign — see `runTurn`); a Claude model switch KEEPS it (Claude
+   * Code sessions resume fine on a different model), and a Freebuff model switch
+   * goes through {@link setThreadFreebuffModel} for the premium gate + session
+   * release.
    */
   setThreadAgent(
     threadId: string,
     harnessId: HarnessId,
     model?: string,
-  ): { model?: string; rejected: boolean } {
+  ): { model?: string; rejected: boolean; locked?: boolean } {
     const thread = this.store.getThread(threadId)
     if (!thread) return { model, rejected: false }
+    if (this.threadStarted(threadId)) return { model, rejected: false, locked: true }
     if ((thread.harnessId ?? this.defaultHarness) !== harnessId) {
       // Null means default (matching harnessForThread) so a tab set to the
       // default keeps following later default changes.

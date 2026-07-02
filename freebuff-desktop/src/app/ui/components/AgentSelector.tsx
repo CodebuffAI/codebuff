@@ -45,6 +45,61 @@ export interface AgentModelPickerProps {
   onSelect: (harnessId: HarnessId, model: string) => void
 }
 
+/** What a tab's (harness, model) picks resolve to for display: agent label +
+ *  model label (+ premium flag). Shared by the picker trigger and the static
+ *  header label a started thread shows. */
+export function resolveAgentModel(sel: {
+  harnessId: HarnessId | null
+  fallbackId?: HarnessId
+  agents: readonly AgentOption[]
+  claudeModel: string | null
+  freebuffModel: string | null
+  freebuffModels: readonly FreebuffModelOption[]
+}): { agent: AgentOption; isClaude: boolean; modelLabel?: string; premium: boolean } | null {
+  const { agents, freebuffModels } = sel
+  if (!agents.length) return null
+  const resolvedId: HarnessId = sel.harnessId ?? sel.fallbackId ?? agents[0].id
+  const agent = agents.find((o) => o.id === resolvedId) ?? agents[0]
+  const activeClaude =
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === sel.claudeModel) ??
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
+    CLAUDE_MODEL_OPTIONS[0]
+  const activeFreebuff =
+    freebuffModels.find((m) => m.id === sel.freebuffModel) ?? freebuffModels[0]
+  const isClaude = resolvedId === 'claude-code'
+  return {
+    agent,
+    isClaude,
+    modelLabel: isClaude ? activeClaude.label : activeFreebuff?.displayName,
+    premium: !isClaude && !!activeFreebuff?.premiumBucket,
+  }
+}
+
+/** Read-only agent + model chip for a STARTED thread — same content as the
+ *  picker trigger, but a plain label: the pick is locked once a thread starts
+ *  (a different agent/model means a new tab). */
+export function AgentModelLabel(props: {
+  harnessId: HarnessId | null
+  fallbackId?: HarnessId
+  agents: readonly AgentOption[]
+  claudeModel: string | null
+  freebuffModel: string | null
+  freebuffModels: readonly FreebuffModelOption[]
+}) {
+  const active = resolveAgentModel(props)
+  if (!active) return null
+  return (
+    <span
+      className="agent-label"
+      title="This thread's agent & model are locked — open a new tab to use a different one"
+    >
+      <span className="agent-name">{active.agent.label}</span>
+      {active.modelLabel && <span className="agent-model">{active.modelLabel}</span>}
+      {active.premium && <span className="model-badge">Premium</span>}
+    </span>
+  )
+}
+
 export function AgentModelPicker({
   harnessId,
   fallbackId,
@@ -59,16 +114,22 @@ export function AgentModelPicker({
   const ref = useRef<HTMLDivElement>(null)
   useDismissable(open, ref, () => setOpen(false))
 
-  if (!agents.length) return null
-  const resolvedId: HarnessId = harnessId ?? fallbackId ?? agents[0].id
-  const activeAgent = agents.find((o) => o.id === resolvedId) ?? agents[0]
+  const active = resolveAgentModel({
+    harnessId,
+    fallbackId,
+    agents,
+    claudeModel,
+    freebuffModel,
+    freebuffModels,
+  })
+  if (!active) return null
+  const { agent: activeAgent, isClaude } = active
   const activeClaude =
     CLAUDE_MODEL_OPTIONS.find((m) => m.id === claudeModel) ??
     CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
     CLAUDE_MODEL_OPTIONS[0]
   const activeFreebuff = freebuffModels.find((m) => m.id === freebuffModel) ?? freebuffModels[0]
-  const isClaude = resolvedId === 'claude-code'
-  const triggerModel = isClaude ? activeClaude.label : activeFreebuff?.displayName
+  const triggerModel = active.modelLabel
 
   const pick = (agent: HarnessId, model: string) => {
     onSelect(agent, model)

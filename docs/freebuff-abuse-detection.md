@@ -333,6 +333,13 @@ were backed by such accounts.**
   12-month bar but has **0 public repos AND 0 followers AND 0 `agent_run` rows**
   (`oldest_public_repo_created_at` null). The single strongest tell: these are
   aged-but-unused accounts that exist only to be referred.
+  - Caveat since web-chat activation (2026-07): a referred user whose only
+    product use is the **web chat** legitimately has 0 `agent_run` and 0
+    `free_session` rows (chat runs under the freebuff-web service account and
+    stores no `client_ip_hash`), so check `chat_message`/`chat_usage_event`
+    before reading "no agent runs" as dormant. Chat-only activation is capped
+    at tier `limited` precisely so it can't mint GLM rewards — a full-tier
+    activated referral always has real `free_session` history to investigate.
 - **Bulk-created identity batch** — many of a referrer's referred GitHub accounts
   share an **identical `github_account_created_at` date** (e.g. 8 accounts all
   created on one day, ~6–18 months prior), with **email mirroring the GitHub
