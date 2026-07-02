@@ -31,6 +31,7 @@ import {
   CardContent,
 } from '@/components/ui/card'
 import { OnboardConversionTracker } from '@/components/onboard-conversion-tracker'
+import { clientIpHashFromHeaders } from '@/server/geo'
 import { syncWebReferralState } from '@/server/web-referrals'
 import { logger } from '@/util/logger'
 
@@ -110,13 +111,22 @@ const Onboard = async ({ searchParams }: PageProps) => {
   // Deliberately invoked AFTER the CLI session is created (below) on the login
   // path, so a cold qualification fetch (GitHub API) never delays the session
   // the CLI is polling for. Best-effort: a failure must never block onboarding.
-  const redeemPendingReferral = () =>
-    syncWebReferralState({ userId: user.id }).catch((error) => {
+  // The try wraps the WHOLE body (headers() + hashing included), preserving
+  // the original guarantee: no referral hiccup may ever block onboarding.
+  const redeemPendingReferral = async () => {
+    try {
+      const requestHeaders = await headers()
+      await syncWebReferralState({
+        userId: user.id,
+        clientIpHash: clientIpHashFromHeaders(requestHeaders),
+      })
+    } catch (error) {
       logger.warn(
         { error, userId: user.id },
         'Failed to sync referral state during CLI onboard',
       )
-    })
+    }
+  }
 
   if (!authCode) {
     // No CLI session to create here, so redeem inline before the welcome card.

@@ -193,6 +193,22 @@ export enum AnalyticsEvent {
   // ingest; it rides on `sweep`, which aggregates outcomes across the whole
   // pending population once per run (see ReferralSweepResult.outcomes).
   FREEBUFF_REFERRAL_REDEEMED = 'freebuff.referral.redeemed',
+  // A redemption attempt that hit one of the one-shot eligibility guards
+  // (signup_too_old, user_banned, referrer_limit_reached, reverse_referral,
+  // self_referral). Deliberately EXCLUDES the two repeat-prone errors —
+  // invalid_code (cookie intentionally kept for legacy codes) and
+  // already_referred (cookie can outlive redemption on the /onboard RSC hop)
+  // — which would otherwise re-fire on every <=10-min token mint; those log
+  // at debug only. Without this event, a "my friend's invite didn't count"
+  // support case is undiagnosable — the guards otherwise return silently.
+  FREEBUFF_REFERRAL_REDEEM_FAILED = 'freebuff.referral.redeem_failed',
+  // Attribution went through and the referred user redeemed from an IP or
+  // browser the REFERRER was recently seen on. Evidence, NOT a verdict: this
+  // is also exactly what a genuine in-person referral looks like ("try it,
+  // here's my laptop" — a sibling on the family computer shares both). Only
+  // suspicious when corroborated by real farm signals (dormant GitHub, burst
+  // velocity, no product use); the sweep + scripts do that weighing.
+  FREEBUFF_REFERRAL_SOCK_SIGNAL = 'freebuff.referral.sock_signal',
   FREEBUFF_REFERRAL_COMPLETED = 'freebuff.referral.completed',
   FREEBUFF_REFERRAL_SWEEP = 'freebuff.referral.sweep',
 

@@ -23,6 +23,7 @@ import {
 } from './lib'
 
 const REDEEMED = 'freebuff.referral.redeemed'
+const REDEEM_FAILED = 'freebuff.referral.redeem_failed'
 const COMPLETED = 'freebuff.referral.completed'
 const SWEEP = 'freebuff.referral.sweep'
 
@@ -59,6 +60,16 @@ async function main() {
       PARSE_DATA,
       `summarize n = count() by event = tostring(event), program = tostring(d['program'])`,
       `sort by event asc, n desc`,
+    ]),
+  )
+
+  console.log('\n=== failed redemptions by error (guards hit) ===')
+  console.table(
+    await summarize(dataset, from, [
+      `where event == '${REDEEM_FAILED}'`,
+      PARSE_DATA,
+      `summarize n = count() by error = tostring(d['error']), program = tostring(d['program'])`,
+      `sort by n desc`,
     ]),
   )
 

@@ -15,8 +15,10 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     redeem: number
     clear: number
     attribution: number
+    attributionSignals: unknown[]
     activation: number
     activationTiers: string[]
+    userDevices: string[]
     evalWeb: number
     evalGlm: number
     score: number
@@ -26,8 +28,10 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     redeem: 0,
     clear: 0,
     attribution: 0,
+    attributionSignals: [] as unknown[],
     activation: 0,
     activationTiers: [] as string[],
+    userDevices: [] as string[],
     evalWeb: 0,
     evalGlm: 0,
     score: 0,
@@ -37,13 +41,18 @@ function makeDeps(overrides: Partial<SyncWebReferralDeps> = {}): {
     clearReferralCode: async () => {
       calls.clear++
     },
+    ensureDeviceId: async () => 'device-1',
     redeemReferralCode: async () => {
       calls.redeem++
       return { ok: true as const, referrerId: 'referrer-1' }
     },
-    recordReferralV2Attribution: async () => {
+    recordReferralV2Attribution: async ({ signals }) => {
       calls.attribution++
+      calls.attributionSignals.push(signals)
       return true
+    },
+    recordUserDevice: async ({ deviceId }) => {
+      calls.userDevices.push(deviceId)
     },
     recordReferralV2Activation: async ({ accessTier }) => {
       calls.activation++
@@ -151,6 +160,48 @@ describe('syncWebReferralState', () => {
     await syncWebReferralState({ userId: 'u1', deps })
 
     expect(calls.activation).toBe(0)
+  })
+
+  it('records the device for the signed-in user and passes signals to attribution', async () => {
+    const { deps, calls } = makeDeps()
+
+    await syncWebReferralState({
+      userId: 'u1',
+      clientIpHash: 'iphash-1',
+      deps,
+    })
+
+    expect(calls.userDevices).toEqual(['device-1'])
+    expect(calls.attributionSignals).toEqual([
+      { ipHash: 'iphash-1', deviceId: 'device-1' },
+    ])
+  })
+
+  it('degrades to null signals when the device cookie is unavailable (read-only store)', async () => {
+    const { deps, calls } = makeDeps({
+      ensureDeviceId: async () => undefined,
+    })
+
+    await syncWebReferralState({ userId: 'u1', deps })
+
+    expect(calls.userDevices).toEqual([]) // nothing to record
+    expect(calls.attributionSignals).toEqual([
+      { ipHash: null, deviceId: null },
+    ])
+  })
+
+  it('still redeems when device recording throws (best-effort)', async () => {
+    const { deps, calls } = makeDeps({
+      recordUserDevice: async () => {
+        throw new Error('db unavailable')
+      },
+    })
+
+    const score = await syncWebReferralState({ userId: 'u1', deps })
+
+    expect(calls.redeem).toBe(2)
+    expect(calls.attribution).toBe(1)
+    expect(score).toBe(0)
   })
 
   it('still evaluates and returns the score when activation throws (best-effort)', async () => {

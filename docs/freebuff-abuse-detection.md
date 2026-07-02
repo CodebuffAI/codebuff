@@ -391,6 +391,34 @@ referral reward they already earned. To strip the inflated entitlement:
 | `glm-referral-clawback.ts` | Ironclad dormant-account farms: ban operator + socks, clawback, revoke v2. `--commit` to apply. |
 | `glm-referral-burst-ban.ts` | Bursty operators: ban **operator only** (referreds spared) + clawback. `--commit` to apply. |
 | `glm-referral-stuck.ts` / `referral-health.ts` | Pipeline diagnostics (why pending, counts by program/status). |
+| `referral-sock-signals.ts` | Attribution-evidence sweep over `referral_v2`: referrals redeemed from an IP/browser the **referrer** was seen on (re-derived live, plus the attribution-time `referrer_ip_overlap` / `referrer_device_overlap` flags), and the same device/IP appearing on multiple referral rows. |
+
+Since migration 0075, freebuff-web attributions record `referred_ip_hash`
+(joinable with `free_session` / `free_mode_country_access_cache` hashes) and
+`referred_device_id` (the browser's `vly_device_id` cookie), and the authed
+freebuff-web hops record which browsers each signed-in user has used
+(`user_device`). Overlap with the referrer fires a
+`freebuff.referral.sock_signal` Axiom event at attribution time. Scope caveat:
+signals are captured only on the freebuff-web hops (convex-token,
+referral-eligibility, /onboard) — the legacy CLI-program redemption route
+(`web/src/app/api/referrals/route.ts`) writes no referral_v2 row and records
+no signals, so CLI-only referrals are invisible to this sweep. Redemptions
+that hit a one-shot eligibility guard now log
+`freebuff.referral.redeem_failed` with the error (repeat-prone
+`invalid_code`/`already_referred` log at debug only — see
+`scripts/logs/referral-funnel.ts`).
+
+**Interpreting overlap — do not treat it as a verdict.** A genuine in-person
+referral shares BOTH the IP and the device: "try it, here's my laptop", a
+sibling on the family computer, coworkers on office wifi. That is the most
+organic referral pattern there is, and it fires both flags. Overlap means
+"look closer", never "sock confirmed" — action only when corroborated by real
+farm signals (dormant/aged-burner GitHub accounts, burst velocity, zero
+product use, MANY referreds on one device across referrers). Cautionary tale
+(2026-07): a referrer + same-device "friend" + rapid double signup looked like
+a textbook ring and was actually a genuine user, his brother, and a buggy
+redemption flow — the double signup was one person accidentally creating
+Google and GitHub accounts while retrying a referral that silently failed.
 
 **Open follow-up (root cause):** tighten the GLM gate so a referred friend must
 actually **run the agent** (or have a non-dormant GitHub profile) before the

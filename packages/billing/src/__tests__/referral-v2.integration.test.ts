@@ -23,6 +23,7 @@ import {
   linkReferralV2GithubId,
   recordReferralV2Activation,
   recordReferralV2Attribution,
+  recordUserDevice,
 } from '../referral-v2'
 
 const DEFAULT_TEST_DATABASE_URL =
@@ -45,6 +46,11 @@ const RV1 = `${P}rv1` // reverse-referral pair
 const RV2 = `${P}rv2`
 const OLDUSER = `${P}old` // signup outside the 30-day attribution window
 const LIMITER = `${P}limiter` // referrer at the signup cap
+const SOCKDEV = `${P}sockdev` // redeems from the referrer's own browser
+const SOCKIP = `${P}sockip` // redeems from an IP the referrer used
+const CLEANSIG = `${P}cleansig` // signals present, no referrer overlap
+const SHARED_DEVICE = `${P}device-shared`
+const SHARED_IP_HASH = `${P}iphash-shared`
 
 const ALL_USERS = [
   REFERRER,
@@ -62,6 +68,9 @@ const ALL_USERS = [
   RV2,
   OLDUSER,
   LIMITER,
+  SOCKDEV,
+  SOCKIP,
+  CLEANSIG,
 ]
 const GH_A = `${P}ghA`
 const GH_SHARED = `${P}ghShared`
@@ -91,6 +100,12 @@ describe('referral-v2 write side (real DB)', () => {
     await testDb
       .delete(schema.referralV2)
       .where(inArray(schema.referralV2.referred_id, ALL_USERS))
+    await testDb
+      .delete(schema.userDevice)
+      .where(inArray(schema.userDevice.user_id, ALL_USERS))
+    await testDb
+      .delete(schema.freeModeCountryAccessCache)
+      .where(inArray(schema.freeModeCountryAccessCache.user_id, ALL_USERS))
 
     await testDb
       .insert(schema.user)
@@ -132,6 +147,12 @@ describe('referral-v2 write side (real DB)', () => {
     await testDb
       .delete(schema.referralV2)
       .where(inArray(schema.referralV2.referred_id, ALL_USERS))
+    await testDb
+      .delete(schema.userDevice)
+      .where(inArray(schema.userDevice.user_id, ALL_USERS))
+    await testDb
+      .delete(schema.freeModeCountryAccessCache)
+      .where(inArray(schema.freeModeCountryAccessCache.user_id, ALL_USERS))
     await testDb
       .delete(schema.account)
       .where(inArray(schema.account.userId, ALL_USERS))
@@ -336,5 +357,91 @@ describe('referral-v2 write side (real DB)', () => {
         .where(inArray(schema.referralV2.referred_id, extra))
       await testDb.delete(schema.user).where(inArray(schema.user.id, extra))
     }
+  })
+
+  it('records signals and flags overlap when the referred redeems from the referrer\'s browser', async () => {
+    // The referrer was seen on SHARED_DEVICE before the "friend" redeems.
+    await recordUserDevice({
+      userId: REFERRER2,
+      deviceId: SHARED_DEVICE,
+      conn: testDb,
+    })
+
+    const created = await recordReferralV2Attribution({
+      referrerId: REFERRER2,
+      referredId: SOCKDEV,
+      signals: { ipHash: `${P}iphash-unrelated`, deviceId: SHARED_DEVICE },
+      conn: testDb,
+    })
+    expect(created).toBe(true)
+    const row = await rowFor(SOCKDEV)
+    expect(row.referred_device_id).toBe(SHARED_DEVICE)
+    expect(row.referred_ip_hash).toBe(`${P}iphash-unrelated`)
+    expect(row.referrer_device_overlap).toBe(true)
+    // IP was checked (referrer has no cache row on it) → false, not null.
+    expect(row.referrer_ip_overlap).toBe(false)
+  })
+
+  it('flags IP overlap when the referred redeems from an IP the referrer used', async () => {
+    const now = new Date()
+    await testDb.insert(schema.freeModeCountryAccessCache).values({
+      user_id: REFERRER2,
+      client_ip_hash: SHARED_IP_HASH,
+      allowed: true,
+      checked_at: now,
+      expires_at: new Date(now.getTime() + 60 * 60 * 1000),
+    })
+
+    const created = await recordReferralV2Attribution({
+      referrerId: REFERRER2,
+      referredId: SOCKIP,
+      signals: { ipHash: SHARED_IP_HASH, deviceId: null },
+      conn: testDb,
+    })
+    expect(created).toBe(true)
+    const row = await rowFor(SOCKIP)
+    expect(row.referred_ip_hash).toBe(SHARED_IP_HASH)
+    expect(row.referrer_ip_overlap).toBe(true)
+    // No device signal on this hop → unknown, not false.
+    expect(row.referred_device_id).toBeNull()
+    expect(row.referrer_device_overlap).toBeNull()
+  })
+
+  it('stores nulls (signal unavailable) when attribution runs without signals', async () => {
+    const created = await recordReferralV2Attribution({
+      referrerId: REFERRER2,
+      referredId: CLEANSIG,
+      conn: testDb,
+    })
+    expect(created).toBe(true)
+    const row = await rowFor(CLEANSIG)
+    expect(row.referred_ip_hash).toBeNull()
+    expect(row.referred_device_id).toBeNull()
+    expect(row.referrer_ip_overlap).toBeNull()
+    expect(row.referrer_device_overlap).toBeNull()
+  })
+
+  it('recordUserDevice upserts: same (user, device) refreshes last_seen, keeps first_seen', async () => {
+    const t1 = new Date('2026-01-01T00:00:00Z')
+    const t2 = new Date('2026-02-01T00:00:00Z')
+    await recordUserDevice({
+      userId: REFERRER2,
+      deviceId: `${P}device-upsert`,
+      now: t1,
+      conn: testDb,
+    })
+    await recordUserDevice({
+      userId: REFERRER2,
+      deviceId: `${P}device-upsert`,
+      now: t2,
+      conn: testDb,
+    })
+    const [row] = await testDb
+      .select()
+      .from(schema.userDevice)
+      .where(eq(schema.userDevice.device_id, `${P}device-upsert`))
+    expect(row.user_id).toBe(REFERRER2)
+    expect(row.first_seen.getTime()).toBe(t1.getTime())
+    expect(row.last_seen.getTime()).toBe(t2.getTime())
   })
 })

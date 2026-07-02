@@ -4,12 +4,17 @@ import {
   getWebReferralScore,
   recordReferralV2Activation,
   recordReferralV2Attribution,
+  recordUserDevice,
   redeemReferralCode,
 } from '@codebuff/billing'
 
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 
-import { clearReferralCode, getReferralCode } from '@/vly/lib/referral-cookies'
+import {
+  clearReferralCode,
+  ensureDeviceId,
+  getReferralCode,
+} from '@/vly/lib/referral-cookies'
 import { logger } from '@/util/logger'
 
 /**
@@ -21,9 +26,11 @@ import { logger } from '@/util/logger'
 export interface SyncWebReferralDeps {
   getReferralCode: typeof getReferralCode
   clearReferralCode: typeof clearReferralCode
+  ensureDeviceId: typeof ensureDeviceId
   redeemReferralCode: typeof redeemReferralCode
   recordReferralV2Attribution: typeof recordReferralV2Attribution
   recordReferralV2Activation: typeof recordReferralV2Activation
+  recordUserDevice: typeof recordUserDevice
   evaluateWebReferralForReferredUser: typeof evaluateWebReferralForReferredUser
   evaluateGlmReferralForReferredUser: typeof evaluateGlmReferralForReferredUser
   getWebReferralScore: typeof getWebReferralScore
@@ -32,9 +39,11 @@ export interface SyncWebReferralDeps {
 const defaultSyncWebReferralDeps: SyncWebReferralDeps = {
   getReferralCode,
   clearReferralCode,
+  ensureDeviceId,
   redeemReferralCode,
   recordReferralV2Attribution,
   recordReferralV2Activation,
+  recordUserDevice,
   evaluateWebReferralForReferredUser,
   evaluateGlmReferralForReferredUser,
   getWebReferralScore,
@@ -67,9 +76,30 @@ export async function syncWebReferralState(params: {
   userId: string
   /** When set, activate the user's referral at this verified access tier. */
   activation?: { accessTier: FreebuffAccessTier }
+  /**
+   * hashClientIp of the calling request's IP, when the caller has request
+   * headers. Recorded on the attribution row (with the browser's device id)
+   * as sock-puppet evidence — see referral_v2's signal columns.
+   */
+  clientIpHash?: string | null
   deps?: SyncWebReferralDeps
 }): Promise<number> {
-  const { userId, activation, deps = defaultSyncWebReferralDeps } = params
+  const {
+    userId,
+    activation,
+    clientIpHash = null,
+    deps = defaultSyncWebReferralDeps,
+  } = params
+
+  // Which browser is this? Read (and on writable hops, mint/refresh) the
+  // long-lived device cookie, and remember that this signed-in user was seen
+  // on it — the referrer half of the device-overlap sock check. Best-effort.
+  const deviceId = (await deps.ensureDeviceId().catch(() => undefined)) ?? null
+  if (deviceId) {
+    await deps.recordUserDevice({ userId, deviceId }).catch((error) => {
+      logger.warn({ error, userId }, 'Failed to record user device')
+    })
+  }
 
   const cookieCode = await deps.getReferralCode()
   if (cookieCode) {
@@ -116,7 +146,12 @@ export async function syncWebReferralState(params: {
         : null
     if (referrerId) {
       await deps
-        .recordReferralV2Attribution({ referrerId, referredId: userId, logger })
+        .recordReferralV2Attribution({
+          referrerId,
+          referredId: userId,
+          signals: { ipHash: clientIpHash, deviceId },
+          logger,
+        })
         .catch((error) => {
           logger.warn(
             { error, userId, referrerId },
