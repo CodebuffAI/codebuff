@@ -27,7 +27,7 @@ const PRODUCT_LINKS = [
 ]
 
 const ITEM_CLASS =
-  'cursor-pointer rounded-md px-2.5 py-2 text-sm text-white/80 focus:bg-white/10 focus:text-white'
+  'cursor-pointer rounded-none px-2.5 py-2 text-sm text-white/80 outline-none transition-colors focus:!bg-white/10 focus:!text-white data-[highlighted]:!bg-white/10 data-[highlighted]:!text-white'
 
 /**
  * Logged-in account menu. Renders nothing when signed out, so it can be dropped
@@ -73,13 +73,13 @@ export function AccountMenu({
       <DropdownMenuContent
         align={align}
         sideOffset={8}
-        className="w-56 rounded-xl border border-white/10 bg-[#0c0c0f] p-1 text-white shadow-2xl shadow-black/50"
+        className="w-56 rounded-xl border border-white/10 bg-[#0c0c0f] p-0 text-white shadow-2xl shadow-black/50"
       >
         <div className="px-2.5 py-2">
           <p className="truncate text-sm font-medium text-white">{name}</p>
           {email && <p className="truncate text-xs text-white/45">{email}</p>}
         </div>
-        <DropdownMenuSeparator className="bg-white/10" />
+        <DropdownMenuSeparator className="mx-0 my-1 bg-white/10" />
         {PRODUCT_LINKS.map((l) => (
           <DropdownMenuItem
             key={l.href}
@@ -95,7 +95,7 @@ export function AccountMenu({
             )}
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator className="bg-white/10" />
+        <DropdownMenuSeparator className="mx-0 my-1 bg-white/10" />
         <DropdownMenuItem
           className={ITEM_CLASS}
           onClick={() => router.push('/web/settings')}
