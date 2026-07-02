@@ -18,6 +18,9 @@
  * adds a redirect round-trip to every poll (see scripts/smoke-sdk.ts).
  */
 
+import { env } from '@codebuff/common/env'
+import { FREEBUFF_WEB_URL_PROD } from '@codebuff/common/constants/hosts'
+
 export const PROD_API_HOST = 'https://www.codebuff.com'
 
 /** One canonical spelling per origin (lowercased scheme+host, no path/slash),
@@ -33,6 +36,22 @@ function canonicalizeHost(raw: string): string {
 }
 
 export const API_HOST = canonicalizeHost(process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || PROD_API_HOST)
+
+/**
+ * Where the browser-facing sign-in happens (device-code mint + poll + the
+ * /login page the user lands on). Mirrors the freebuff CLI's LOGIN_WEBSITE_URL
+ * split (cli/src/login/constants.ts): users sign in on freebuff.com, not
+ * codebuff.com, while API traffic stays on API_HOST — both web apps share the
+ * DB, so a token minted by freebuff.com works against the codebuff.com API.
+ *
+ * Non-prod launches keep auth on API_HOST (the one local dev stack at
+ * localhost:3000) so repo-launch sign-in doesn't also require the freebuff web
+ * app on :3002.
+ */
+export const AUTH_HOST =
+  API_HOST === PROD_API_HOST
+    ? canonicalizeHost(env.NEXT_PUBLIC_FREEBUFF_APP_URL || FREEBUFF_WEB_URL_PROD)
+    : API_HOST
 
 if (API_HOST !== PROD_API_HOST) {
   console.log(`Freebuff API host: ${API_HOST} (non-default)`)

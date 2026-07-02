@@ -14,7 +14,8 @@
     "preserveSymlinks": false,
     "baseUrl": ".",
     "paths": {
-      "@codebuff/sdk": ["../sdk/src/index.ts"]
+      "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@codebuff/common/*": ["../common/src/*"]
     }
   },
   "include": ["src/**/*"],
