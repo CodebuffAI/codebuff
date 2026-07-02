@@ -265,6 +265,7 @@ export enum AnalyticsEvent {
   DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
   DESKTOP_SKILL_RUN = 'desktop.skill_run',
+  DESKTOP_QUEUE_SEND_NOW = 'desktop.queue_send_now',
   // Sponsored ads interspersed into the transcript (server-side ads_* events
   // in web/api/v1/ads capture the fetch/impression/click ledger; these are the
   // desktop-surface funnels).
