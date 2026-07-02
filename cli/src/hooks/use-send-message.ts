@@ -523,10 +523,11 @@ export const useSendMessage = ({
         setRunState(runState)
         setIsRetrying(false)
 
-        setMessages((currentMessages) => {
-          saveChatState(runState, currentMessages)
-          return currentMessages
-        })
+        // Read committed state rather than saving inside a setMessages
+        // updater: the store uses immer, so the updater sees a draft proxy
+        // and JSON.stringify of the (unbounded) transcript through proxy
+        // traps is several times slower.
+        saveChatState(runState, useChatStore.getState().messages)
         handleRunCompletion({
           runState,
           actualCredits,
