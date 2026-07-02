@@ -64,8 +64,21 @@ export class LoginManager {
   constructor(private readonly onAuthenticated?: (user: DesktopAuthUser) => void) {}
 
   /** Begin a login attempt: request a code and return the URL for the user to
-   *  open. Polling for completion runs in the background. */
+   *  open. Polling for completion runs in the background.
+   *
+   *  A retry while an attempt is still live returns the SAME pending code
+   *  instead of minting a fresh one — otherwise each retry click would open a
+   *  new tab with a new code and silently invalidate the older tabs, so
+   *  completing any tab but the newest would never be picked up. A fresh code
+   *  is minted only when there's no attempt or it's about to expire. */
   async start(): Promise<{ loginUrl: string; expiresAt: number | string }> {
+    const existing = this.pending
+    if (existing) {
+      const expMs = Number(existing.expiresAt)
+      if (!Number.isFinite(expMs) || Date.now() < expMs - 60_000) {
+        return { loginUrl: existing.loginUrl, expiresAt: existing.expiresAt }
+      }
+    }
     const fingerprintId = crypto.randomUUID()
     const res = await fetch(`${apiBaseUrl()}/api/auth/cli/code`, {
       method: 'POST',
@@ -90,6 +103,19 @@ export class LoginManager {
   /** Whether a login attempt is currently waiting for the user. */
   isPending(): boolean {
     return this.pending !== null
+  }
+
+  /** Expiry of the pending attempt (epoch ms as returned by the server), or
+   *  null when nothing is pending. Lets the UI rehydrate its waiting state. */
+  pendingExpiresAt(): number | string | null {
+    return this.pending?.expiresAt ?? null
+  }
+
+  /** Abandon the current attempt (user hit cancel in the UI). The poll loop
+   *  notices `pending` changed and winds down; a completed browser sign-in for
+   *  the dropped code is simply never picked up. */
+  cancel(): void {
+    this.pending = null
   }
 
   private async poll(): Promise<void> {
@@ -125,7 +151,11 @@ export class LoginManager {
           } catch {
             // Transient network error — keep polling until the deadline.
           }
-          if (user?.authToken) {
+          // Re-check identity after the awaits: cancel() or a replacing start()
+          // may have dropped this attempt while the sleep/fetch was in flight —
+          // completing a cancelled or superseded attempt must not sign us in
+          // (nor abandon the replacement, which the outer loop picks up).
+          if (user?.authToken && this.pending === pending) {
             const saved: DesktopAuthUser = {
               id: user.id,
               email: user.email,

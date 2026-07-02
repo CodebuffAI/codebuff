@@ -112,6 +112,14 @@ export const api = {
       expiresAt?: number | string
       error?: string
     }>('/api/auth/login/start'),
+  cancelLogin: () => post<{ ok: boolean }>('/api/auth/login/cancel'),
+  authStatus: () =>
+    get<{
+      authed: boolean
+      user: { id?: string; email?: string; name?: string } | null
+      loginPending: boolean
+      loginExpiresAt: number | string | null
+    }>('/api/auth/status'),
   /** Per-user UI prefs (queue-panel width). Server-persisted because the
    *  packaged app's origin (random localhost port) changes every launch,
    *  which resets localStorage. */

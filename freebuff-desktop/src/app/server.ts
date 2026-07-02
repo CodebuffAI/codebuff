@@ -450,7 +450,15 @@ const server = Bun.serve({
 
     // — Freebuff auth (device-code login) —
     if (pathname === '/api/auth/status' && req.method === 'GET') {
-      return json({ authed: isAuthed(), user: getAuthUser() ?? null })
+      return json({
+        authed: isAuthed(),
+        user: getAuthUser() ?? null,
+        // Surface the in-flight login attempt so a reloaded renderer can
+        // restore its "waiting" state (and the cancel affordance) instead of
+        // showing an idle button while the server is still polling.
+        loginPending: loginManager.isPending(),
+        loginExpiresAt: loginManager.pendingExpiresAt(),
+      })
     }
     if (pathname === '/api/auth/login/start' && req.method === 'POST') {
       try {
@@ -459,6 +467,10 @@ const server = Bun.serve({
       } catch (err) {
         return json({ ok: false, error: (err as Error).message }, 502)
       }
+    }
+    if (pathname === '/api/auth/login/cancel' && req.method === 'POST') {
+      loginManager.cancel()
+      return json({ ok: true })
     }
     if (pathname === '/api/auth/logout' && req.method === 'POST') {
       // Attribute the logout to the user before clearing identity.
