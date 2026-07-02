@@ -12,6 +12,7 @@ import { handleUsageCommand } from './usage'
 import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
 import { useThemeStore } from '../hooks/use-theme'
 import { WEBSITE_URL } from '../login/constants'
+import { startNewChat } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
@@ -305,9 +306,11 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: (params, args) => {
       const trimmedArgs = args.trim()
 
-      // Clear the conversation
+      // Clear the conversation and rotate to a fresh chat directory, so the
+      // next message doesn't overwrite the previous conversation's history
       params.setMessages(() => [])
       params.clearMessages()
+      startNewChat()
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       params.stopStreaming()
