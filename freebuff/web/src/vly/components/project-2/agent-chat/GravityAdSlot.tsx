@@ -100,8 +100,13 @@ export async function buildGravityContext(params: {
 const PLACEMENT_CENTER = 'project-center'
 const PLACEMENT_SIDEBAR = 'project-sidebar'
 const PLACEMENT_ABOVE_IFRAME = 'Above-iFrame'
+const PLACEMENT_INSIDE_INPUT_BOX = 'Web-Inside-Input-Box'
 
-type GravityPlacement = 'center' | 'sidebar' | 'above-iframe'
+type GravityPlacement =
+  | 'center'
+  | 'sidebar'
+  | 'above-iframe'
+  | 'inside-input-box'
 
 function getPlacementId(placement?: GravityPlacement) {
   switch (placement) {
@@ -111,6 +116,8 @@ function getPlacementId(placement?: GravityPlacement) {
       return PLACEMENT_SIDEBAR
     case 'above-iframe':
       return PLACEMENT_ABOVE_IFRAME
+    case 'inside-input-box':
+      return PLACEMENT_INSIDE_INPUT_BOX
     default:
       return undefined
   }
@@ -234,9 +241,9 @@ type GravityAdSlotProps = {
   sessionId: string
   /** Stable id for this slot (e.g. message._id) so we only fetch once per message */
   slotKey?: string
-  /** "featured" = larger (e.g. in chat); "compact" = smaller (sidebar); "nav" = full-width iframe chrome. */
-  variant?: 'default' | 'featured' | 'compact' | 'nav'
-  /** Placement for Gravity: "center" | "sidebar" | "above-iframe"; omit for chat. */
+  /** "featured" = larger (e.g. in chat); "compact" = smaller (sidebar); "nav" = full-width iframe chrome; "input" = inline composer row. */
+  variant?: 'default' | 'featured' | 'compact' | 'nav' | 'input'
+  /** Placement for Gravity: "center" | "sidebar" | "above-iframe" | "inside-input-box"; omit for chat. */
   placement?: GravityPlacement
   /** Optional house ad shown when Gravity returns no paid inventory. */
   fallbackAd?: GravityAd
@@ -312,6 +319,58 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
         </span>
       </a>
     </div>
+  )
+}
+
+/**
+ * Minimal composer ad. It intentionally has no container background, border,
+ * or card chrome so it reads as one quiet line between the input and controls.
+ */
+function InputAd({ ad, className }: { ad: GravityAd; className?: string }) {
+  const { containerRef, handleClick } = useAdTracking({ ad })
+  const href = ad.clickUrl || ad.url || undefined
+  const brand = ad.brandName?.trim() || ad.title?.trim() || 'Sponsored'
+  const description = ad.adText?.trim() || ad.title?.trim() || ad.cta?.trim()
+
+  if (!description) return null
+
+  return (
+    <a
+      ref={containerRef as unknown as RefObject<HTMLAnchorElement>}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      onClick={(e) => {
+        handleClick()
+        trackRedditGravityAdClick('web')
+        if (!href) e.preventDefault()
+      }}
+      data-gravity-ad
+      className={cn(
+        'flex min-w-0 items-center gap-1.5 px-0 py-1 text-[11px] no-underline',
+        'text-muted-foreground transition hover:text-foreground',
+        className,
+      )}
+    >
+      {ad.favicon ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={ad.favicon}
+          alt=""
+          loading="lazy"
+          className="h-3.5 w-3.5 shrink-0 rounded-sm object-contain"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      ) : null}
+      <span className="shrink-0 font-medium text-foreground/70">{brand}</span>
+      <span className="shrink-0 text-muted-foreground/45">AD</span>
+      <span className="min-w-0 flex-1 truncate">{description}</span>
+      {ad.cta ? (
+        <span className="shrink-0 font-medium text-primary">{ad.cta}</span>
+      ) : null}
+    </a>
   )
 }
 
@@ -498,6 +557,10 @@ export function GravityAdSlot({
 
   if (variant === 'nav') {
     return <NavAd ad={ad} className={className} />
+  }
+
+  if (variant === 'input') {
+    return <InputAd ad={ad} className={className} />
   }
 
   const isCompact = variant === 'compact'

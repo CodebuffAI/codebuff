@@ -22,6 +22,7 @@ import React, {
   forwardRef,
   useState,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from 'react'
 import { useStickToBottom } from 'use-stick-to-bottom'
@@ -867,9 +868,11 @@ const LIVE_REASONING_TAIL_CHARS = 500
 // One collapsible group rendering a consecutive run of non-text stream items.
 // Collapsed by default; shows a compact status icon, a one-line summary, and a
 // chevron. Expanding lists every step on its own faded line (reasoning in
-// full, rich outputs still independently expandable). While the run is
-// actively reasoning, the streamed reasoning tail shows live under the
-// summary without needing a click.
+// full, rich outputs still independently expandable). While reasoning is
+// streaming in the active group, auto-expand so later tool/status steps append
+// below without collapsing the reasoning away. Auto-collapse only when a new
+// stream row (text or activity group) appears after this one — not when another
+// step lands in the same group.
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
   isStreaming?: boolean
@@ -878,8 +881,16 @@ const ActivityGroup: React.FC<{
   isLastGroup?: boolean
 }> = ({ items, isStreaming = false, isLastGroup = false }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const userCollapsedRef = useRef(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
   const hasDetails = items.length > 0
+  const hasReasoning = useMemo(
+    () =>
+      items.some(
+        (item) => item.type === 'reasoning' || item.type === 'thinking',
+      ),
+    [items],
+  )
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
     (item) => item.type === 'tool_use' || item.type === 'tool_result',
@@ -888,27 +899,54 @@ const ActivityGroup: React.FC<{
   // generic clock icon was noisy, so it's intentionally omitted.
   const Icon = hasError ? TriangleAlert : usesTools ? Wrench : null
 
-  // Live reasoning preview: when the newest streamed item of the active run
-  // is reasoning, show its tail (the freshest text) inline. Hidden once the
-  // group is expanded — the full text is in the timeline there.
+  // A new top-level row appeared below this group — collapse and reset manual
+  // override so the next reasoning burst can auto-open again.
+  useLayoutEffect(() => {
+    if (!isLastGroup) {
+      setIsExpanded(false)
+      userCollapsedRef.current = false
+    }
+  }, [isLastGroup])
+
+  // Auto-open while reasoning streams in the active group; keep open as tool
+  // steps arrive in the same group. Respect an explicit user collapse.
+  useLayoutEffect(() => {
+    if (!isStreaming || !isLastGroup || userCollapsedRef.current || !hasReasoning) {
+      return
+    }
+    setIsExpanded(true)
+  }, [isStreaming, isLastGroup, hasReasoning, items])
+
+  // Live reasoning preview (collapsed fallback): tail of the latest reasoning
+  // blob in this group. Stays visible while reasoning is still the active step;
+  // once expanded, the full timeline (reasoning + later steps) renders below.
   const liveReasoningTail = useMemo(() => {
-    if (!isStreaming || !isLastGroup || isExpanded) return ''
-    const last = items[items.length - 1]
-    if (!last || (last.type !== 'reasoning' && last.type !== 'thinking')) {
+    if (!isStreaming || !isLastGroup || isExpanded || userCollapsedRef.current) {
       return ''
     }
-    const content = (last.content ?? '').trim()
-    if (!content) return ''
-    return content.length > LIVE_REASONING_TAIL_CHARS
-      ? `…${content.slice(-LIVE_REASONING_TAIL_CHARS)}`
-      : content
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i]
+      if (item.type !== 'reasoning' && item.type !== 'thinking') continue
+      const content = (item.content ?? '').trim()
+      if (!content) return ''
+      return content.length > LIVE_REASONING_TAIL_CHARS
+        ? `…${content.slice(-LIVE_REASONING_TAIL_CHARS)}`
+        : content
+    }
+    return ''
   }, [isStreaming, isLastGroup, isExpanded, items])
+
+  const handleOpenChange = (open: boolean) => {
+    if (!hasDetails) return
+    setIsExpanded(open)
+    userCollapsedRef.current = !open
+  }
 
   return (
     <div>
       <Collapsible
         open={hasDetails && isExpanded}
-        onOpenChange={(open) => hasDetails && setIsExpanded(open)}
+        onOpenChange={handleOpenChange}
       >
         <CollapsibleTrigger
           disabled={!hasDetails}

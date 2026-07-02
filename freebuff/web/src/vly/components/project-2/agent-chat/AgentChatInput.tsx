@@ -39,6 +39,7 @@ export function AgentChatInput({
       onAgentModeChange={() => {}}
       syncStatus={undefined}
       activeEntryPointId={undefined}
+      showInputAd
     />
   );
 }

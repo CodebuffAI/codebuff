@@ -60,6 +60,7 @@ import { DEFAULT_CONTEXT_LENGTH } from "@/vly/lib/coding-agent/contextLengthPres
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { IssueReportButton } from "@/vly/components/IssueReportButton";
+import { GravityAdSlot } from "./agent-chat/GravityAdSlot";
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -126,6 +127,8 @@ interface ChatInputProps {
   /** When set, renders the inline "Report issue" trigger in the toolbar. */
   issueReportSource?: "chat" | "cloud";
   issueReportThreadId?: string | null;
+  /** Render the sponsored composer line between the editor and toolbar. */
+  showInputAd?: boolean;
 }
 
 // Add new interface for pending images
@@ -189,6 +192,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     restoreMessage,
     compactMode = false,
     hideElementSelector = false,
+    showInputAd = false,
   }) => {
     // Use chat storage context for persistent state
     const {
@@ -218,6 +222,21 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
     const [isInputFocused, setIsInputFocused] = useState(false);
     const { resolvedTheme } = useTheme();
     const isProjectDark = resolvedTheme === "dark";
+    const draftText = useMemo(
+      () => (editorValue ? serializeToText(editorValue).trim() : ""),
+      [editorValue],
+    );
+    const inputAdMessages = useMemo(
+      () => [
+        {
+          role: "user",
+          content: draftText
+            ? `Drafting a Freebuff Web prompt: ${draftText.slice(0, 500)}`
+            : `Using Freebuff Web chat for project ${projectSemanticIdentifier}`,
+        },
+      ],
+      [draftText, projectSemanticIdentifier],
+    );
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -1001,6 +1020,18 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                       />
                     </EditorErrorBoundary>
                   </div>
+
+                  {showInputAd && (
+                    <div className={compactMode ? "px-2" : "px-3"}>
+                      <GravityAdSlot
+                        messages={inputAdMessages}
+                        sessionId={`${projectSemanticIdentifier}-inside-input-box`}
+                        slotKey={`Web-Inside-Input-Box-${projectSemanticIdentifier}`}
+                        placement="inside-input-box"
+                        variant="input"
+                      />
+                    </div>
+                  )}
 
                   {/* Bottom button row - separate from text area */}
                   <div
