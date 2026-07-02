@@ -38,4 +38,7 @@ contextBridge.exposeInMainWorld('freebuffDesktop', {
   // Write pasted image bytes (a screenshot has no path) to a temp file so it can be
   // attached like any other file. Resolves to { path, name } or null on failure.
   saveClipboardImage: (bytes, ext) => ipcRenderer.invoke('clipboard:saveImage', { bytes, ext }),
+  // Bring up the system terminal for recovery flows the app can't drive itself
+  // (e.g. re-running `claude /login`). mac-only; resolves false elsewhere.
+  openTerminal: () => ipcRenderer.invoke('shell:openTerminal'),
 })

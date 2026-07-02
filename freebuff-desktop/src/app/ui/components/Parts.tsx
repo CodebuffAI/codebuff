@@ -15,10 +15,11 @@
 import { Fragment, memo, useMemo, useState } from 'react'
 
 import { toolArg, toolLabel } from '../lib/formatTool'
-import type { AgentPart, Part, ToolCall } from '../lib/types'
+import type { AgentPart, NoticePart, Part, ToolCall } from '../lib/types'
 import { useStore } from '../store/store'
 import { LoadingDots } from './LoadingDots'
 import { Markdown } from './Markdown'
+import { NoticeCard } from './NoticeCard'
 import { Thinking } from './Thinking'
 
 /** A single tool call rendered as a flat row — used both inline while a turn
@@ -138,6 +139,7 @@ type Group =
   | { kind: 'items'; parts: ItemPart[]; key: string }
   | { kind: 'text'; text: string; key: string }
   | { kind: 'agent'; agent: AgentPart; key: string }
+  | { kind: 'notice'; notice: NoticePart; key: string }
 
 /** Turn the flat parts into render groups. Agent parts are always their own
  *  group (never folded); reasoning + tool parts fold into one summary when
@@ -153,6 +155,12 @@ function groupParts(parts: Part[], fold: boolean): Group[] {
     }
     if (p.kind === 'agent') {
       out.push({ kind: 'agent', agent: p, key: `a${p.id}` })
+      return
+    }
+    // Notices are first-class like agent boxes — never folded into "Worked ·
+    // N steps", since they carry the turn's recovery instructions.
+    if (p.kind === 'notice') {
+      out.push({ kind: 'notice', notice: p, key: `n${p.id}` })
       return
     }
     if (fold) {
@@ -200,6 +208,7 @@ export function PartsView(props: {
     <div className={`parts ${props.nested ? 'nested' : ''}`}>
       {groups.map((g) => {
         if (g.kind === 'fold') return <FoldedActivity key={g.key} parts={g.parts} />
+        if (g.kind === 'notice') return <NoticeCard key={g.key} part={g.notice} />
         if (g.kind === 'agent') {
           return (
             <AgentBox

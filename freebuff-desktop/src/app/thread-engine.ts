@@ -23,7 +23,12 @@ import { appendBlock, type AttachmentImage } from '../core/attachments'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
 import { bunRunner, type ExecResult } from '../core/exec'
-import { foldAgentEvent, type AgentEventLike, type Part } from '../core/parts'
+import {
+  foldAgentEvent,
+  NOTICE_CLAUDE_CODE_AUTH,
+  type AgentEventLike,
+  type Part,
+} from '../core/parts'
 import { positionAfter } from '../core/queue-order'
 import { searchRegistry, downloadSkill } from '../core/skill-registry'
 import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
@@ -59,7 +64,7 @@ import { CLAUDE_CODE_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
 import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
-import { ClaudeCodeHarness } from './agents/claude-code-harness'
+import { ClaudeCodeAuthError, ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
   FreebuffSessionError,
@@ -1062,11 +1067,17 @@ export class ThreadEngine {
       parts = foldAgentEvent(parts, event, partId)
       this.emit({ type: 'agent', threadId, event: event as unknown as PrintModeEvent })
     }
-    // End a turn with a terminal marker (Stopped / failed): stream it + fold it into
-    // `parts`, then emit a finish so the message leaves the working state (the
-    // harness emits none on abort/error). Used for both endings so they stay symmetric.
-    const finalize = (marker: string) => {
-      emitAgent({ type: 'text', text: parts.length ? `\n\n${marker}` : marker })
+    // End a turn with a terminal marker — plain text (Stopped / failed) or a
+    // structured notice (a recovery card, see NoticeCard.tsx): stream it + fold
+    // it into `parts`, then emit a finish so the message leaves the working
+    // state (the harness emits none on abort/error). Every ending funnels
+    // through here so they stay symmetric.
+    const finalize = (ending: string | { notice: string; text: string }) => {
+      emitAgent(
+        typeof ending === 'string'
+          ? { type: 'text', text: parts.length ? `\n\n${ending}` : ending }
+          : { type: 'notice', notice: ending.notice, text: ending.text },
+      )
       emitAgent({ type: 'finish' })
     }
     // `turnOutcome` is finalized in the finally block — the UI uses it to mark
@@ -1148,6 +1159,15 @@ export class ThreadEngine {
         // needed, …) — the error message is already user-facing.
         turnOutcome = 'error'
         finalize(`⚠️ ${err.message}`)
+      } else if (err instanceof ClaudeCodeAuthError) {
+        // The local Claude Code is signed out — the notice renders as a sign-in
+        // recovery card. The raw SDK text stays out of the transcript AND out
+        // of `log` events (the client shows those as user-facing toasts, which
+        // would re-expose the "run /login" terminal-speak the card replaces);
+        // it goes to the orchestrator log only.
+        turnOutcome = 'error'
+        finalize({ notice: NOTICE_CLAUDE_CODE_AUTH, text: err.message })
+        console.error(`Thread ${threadId} Claude Code auth error: ${err.causeMessage}`)
       } else {
         turnOutcome = 'error'
         const msg = (err as Error).message

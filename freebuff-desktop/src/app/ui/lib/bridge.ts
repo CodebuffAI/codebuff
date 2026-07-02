@@ -39,6 +39,10 @@ export interface FreebuffDesktopBridge {
     bytes: Uint8Array,
     ext: string,
   ) => Promise<{ path: string; name: string } | null>
+  /** Bring up the system terminal (recovery flows, e.g. `claude /login`).
+   *  mac-only today; resolves false where unsupported. Optional so an older
+   *  packaged preload doesn't break a newer renderer. */
+  openTerminal?: () => Promise<boolean>
 }
 
 declare global {

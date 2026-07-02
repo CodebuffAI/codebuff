@@ -1,24 +1,18 @@
-import { memo, useState } from 'react'
+import { memo } from 'react'
 
-import { copyText } from '../lib/clipboard'
+import { useCopied } from '../hooks/useCopied'
 import type { Message as Msg } from '../lib/types'
 import { Icon } from './Icon'
 import { PartsView } from './Parts'
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useCopied()
   if (!text) return null
   return (
     <button
       className="msg-copy"
       title={copied ? 'Copied' : 'Copy message'}
-      onClick={() => {
-        void copyText(text).then((ok) => {
-          if (!ok) return
-          setCopied(true)
-          setTimeout(() => setCopied(false), 1200)
-        })
-      }}
+      onClick={() => copy(text)}
     >
       <Icon name={copied ? 'check' : 'copy'} />
     </button>
