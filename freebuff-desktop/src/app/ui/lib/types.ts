@@ -12,7 +12,7 @@ import type { Part } from '../../../core/parts'
 import type { HarnessId, QueueItem, Thread } from '../../../core/types'
 
 export type { AgentPart, AgentStatus, NoticePart, Part, ReasoningCollapse } from '../../../core/parts'
-export { NOTICE_CLAUDE_CODE_AUTH } from '../../../core/parts'
+export { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH } from '../../../core/parts'
 export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
 export type {
   HarnessId,

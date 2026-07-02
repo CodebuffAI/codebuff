@@ -64,7 +64,13 @@ export class FreebuffSessionManager implements FreebuffSessions {
   private readonly instanceByThread = new Map<string, string>()
   private accessTier: FreebuffAccessTier = 'full'
 
-  constructor(private readonly getToken: () => string | undefined) {}
+  /** `onAuthRejected` fires when the API answers 401 — the bearer we hold is
+   *  expired/revoked, so the owner should treat it as a sign-out (clear the
+   *  persisted identity and flip the header to the sign-in gate). */
+  constructor(
+    private readonly getToken: () => string | undefined,
+    private readonly onAuthRejected?: () => void,
+  ) {}
 
   /** The most recently observed access tier (default 'full' until first probe). */
   getAccessTier(): FreebuffAccessTier {
@@ -107,6 +113,10 @@ export class FreebuffSessionManager implements FreebuffSessions {
           [MULTI_SESSION_HEADER]: '1',
         },
       })
+      if (res.status === 401) {
+        this.onAuthRejected?.()
+        return { accessTier: this.accessTier }
+      }
       const body = (await res.json()) as FreebuffSessionServerResponse
       if ('accessTier' in body && body.accessTier) {
         this.accessTier = body.accessTier
@@ -134,6 +144,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
       },
     })
     if (res.status === 401) {
+      this.onAuthRejected?.()
       throw new FreebuffSessionError(
         'unauthenticated',
         'Your Freebuff sign-in expired. Sign in again.',

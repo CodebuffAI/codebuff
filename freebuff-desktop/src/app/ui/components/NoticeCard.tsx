@@ -9,13 +9,20 @@
  * interactive OAuth flow owned by the CLI (nothing we can drive headlessly), so
  * the card makes the terminal hand-off one-click: open Terminal (mac) and copy
  * the `claude /login` command.
+ *
+ * `freebuff-auth`: the Freebuff API rejected our sign-in (expired/revoked token,
+ * or never signed in). The action starts the same device-code flow as the
+ * header's LoginGate; it hides once `authed` flips so a card in an old
+ * transcript doesn't keep offering a sign-in that already happened.
  */
 
 import { useState } from 'react'
 
 import { useCopied } from '../hooks/useCopied'
+import { api } from '../lib/api'
 import { bridge } from '../lib/bridge'
-import { NOTICE_CLAUDE_CODE_AUTH, type NoticePart } from '../lib/types'
+import { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH, type NoticePart } from '../lib/types'
+import { useStore } from '../store/store'
 import { Icon } from './Icon'
 import { Markdown } from './Markdown'
 
@@ -57,18 +64,52 @@ function ClaudeCodeAuthActions() {
   )
 }
 
+/** Kicks off the device-code sign-in (same server flow as the header's
+ *  LoginGate); on success the server broadcasts a state event that flips
+ *  `authed`, which unmounts this action row. The button stays clickable while
+ *  waiting so a lost browser tab can be reopened. */
+function FreebuffAuthActions() {
+  const pushToast = useStore((s) => s.pushToast)
+  const [phase, setPhase] = useState<'idle' | 'starting' | 'waiting'>('idle')
+  const start = async () => {
+    setPhase('starting')
+    try {
+      const res = await api.startLogin()
+      if (!res.ok || !res.loginUrl) throw new Error(res.error ?? 'Could not start sign-in.')
+      window.open(res.loginUrl, '_blank')
+      setPhase('waiting')
+    } catch (err) {
+      pushToast((err as Error).message, 'error')
+      setPhase('idle')
+    }
+  }
+  return (
+    <div className="notice-actions">
+      <button className="btn notice-action" onClick={start} disabled={phase === 'starting'}>
+        {phase === 'waiting' ? 'Waiting for sign-in… (retry)' : 'Sign in to Freebuff'}
+      </button>
+    </div>
+  )
+}
+
+const NOTICE_TITLES: Record<string, string> = {
+  [NOTICE_CLAUDE_CODE_AUTH]: 'Claude Code is signed out',
+  [NOTICE_FREEBUFF_AUTH]: 'Freebuff sign-in needed',
+}
+
 export function NoticeCard({ part }: { part: NoticePart }) {
-  const isClaudeAuth = part.notice === NOTICE_CLAUDE_CODE_AUTH
+  const authed = useStore((s) => s.freebuff?.authed)
   return (
     <div className="notice-card">
       <div className="notice-title">
         <Icon name="alert" />
-        {isClaudeAuth ? 'Claude Code is signed out' : 'Something needs your attention'}
+        {NOTICE_TITLES[part.notice] ?? 'Something needs your attention'}
       </div>
       <div className="notice-body">
         <Markdown text={part.text} />
       </div>
-      {isClaudeAuth && <ClaudeCodeAuthActions />}
+      {part.notice === NOTICE_CLAUDE_CODE_AUTH && <ClaudeCodeAuthActions />}
+      {part.notice === NOTICE_FREEBUFF_AUTH && !authed && <FreebuffAuthActions />}
     </div>
   )
 }

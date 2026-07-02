@@ -35,9 +35,13 @@ const HIDDEN_TOOL_NAMES = new Set([
 export class CodebuffHarness implements AgentHarness {
   readonly id = 'codebuff' as const
 
-  constructor(private readonly client: CodebuffClient) {}
+  /** `client` is null while signed out with no dev-key fallback; runTurn is
+   *  unreachable then (the engine's freebuff.ensure() rejects the turn first),
+   *  so the guard below is a belt-and-braces invariant, not a user-facing path. */
+  constructor(private readonly client: CodebuffClient | null) {}
 
   async runTurn(turn: HarnessTurn, cb: HarnessCallbacks): Promise<HarnessResult> {
+    if (!this.client) throw new Error('Signed out of Freebuff — sign in to use the hosted agent.')
     const tools = buildThreadTools(turn.toolDeps)
     const toolNames = [...THREAD_AGENT_TOOLS, ...tools.map((t) => t.toolName)]
 

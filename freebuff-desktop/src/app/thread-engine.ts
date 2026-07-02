@@ -26,6 +26,7 @@ import { bunRunner, type ExecResult } from '../core/exec'
 import {
   foldAgentEvent,
   NOTICE_CLAUDE_CODE_AUTH,
+  NOTICE_FREEBUFF_AUTH,
   type AgentEventLike,
   type Part,
 } from '../core/parts'
@@ -64,7 +65,7 @@ import { trackEvent } from './analytics'
 import { CLAUDE_CODE_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
-import { getAuthToken, getAuthUser, isAuthed } from './auth/login-store'
+import { getAuthToken, getAuthUser, isAuthed, logout as clearPersistedAuth } from './auth/login-store'
 import { ClaudeCodeAuthError, ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
@@ -174,7 +175,10 @@ export class ThreadEngine {
   readonly docs: DocStore
   readonly skills: SkillStore
   readonly settings: SettingsStore
-  private client: CodebuffClient
+  /** Hosted-agent SDK client. Null while signed out with no dev-key fallback —
+   *  hosted turns can't reach it then (freebuff.ensure() rejects first), and
+   *  sign-in rebuilds it via setAuthToken. */
+  private client: CodebuffClient | null
   /** Per-tab Freebuff free-mode session lifecycle (admission + release). */
   private readonly freebuff: FreebuffSessions
   /** Thread id currently holding the single premium-bucket concurrency slot, or
@@ -254,14 +258,23 @@ export class ThreadEngine {
       globalSkillsDir: opts.globalSkillsDir ?? join(homedir(), '.freebuff', 'skills'),
     })
     this.skills.seedDefaults()
-    this.client = opts.client ?? new CodebuffClient({ apiKey: opts.apiKey ?? getAuthToken() })
+    // CodebuffClient refuses to construct without an apiKey; signed out with no
+    // dev key we boot clientless (the sign-in gate is the only hosted surface).
+    const bootKey = opts.apiKey ?? getAuthToken()
+    this.client = opts.client ?? (bootKey ? new CodebuffClient({ apiKey: bootKey }) : null)
     this.freebuff =
       opts.freebuffSessions ??
-      new FreebuffSessionManager(() => opts.apiKey ?? getAuthToken())
+      new FreebuffSessionManager(
+        () => opts.apiKey ?? getAuthToken(),
+        () => this.onFreebuffAuthRejected(),
+      )
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
     // Reads `this.client` lazily so a post-login client swap is picked up.
-    this.titleGenerator = opts.generateTitle ?? ((req) => runTitleCompletion(this.client, req))
+    // Signed out (null client) titles keep their placeholder.
+    this.titleGenerator =
+      opts.generateTitle ??
+      ((req) => (this.client ? runTitleCompletion(this.client, req) : Promise.resolve(null)))
 
     if (!this.store.getProject(this.projectId)) {
       this.store.insertProject({
@@ -569,10 +582,26 @@ export class ThreadEngine {
   /** Swap the Freebuff auth token (after login/logout): rebuild the hosted-agent
    *  client so it carries the new bearer, then refresh the access tier. */
   setAuthToken(token: string | undefined): void {
-    this.client = new CodebuffClient({ apiKey: token ?? getAuthToken() })
+    const key = token ?? getAuthToken()
+    // CodebuffClient refuses to construct without an apiKey, so on a sign-out
+    // with no dev-key fallback keep the old client. Its stale bearer can't run
+    // a hosted turn anyway — every turn re-admits via freebuff.ensure() first,
+    // which fails unauthenticated before the client is used.
+    if (key) this.client = new CodebuffClient({ apiKey: key })
     // Drop the cached codebuff harness so it picks up the new client.
     this.harnesses.delete('codebuff')
     void this.refreshTier()
+  }
+
+  /** The Freebuff API answered 401: the persisted sign-in is expired/revoked.
+   *  Treat it as a sign-out — clear the stored identity so the header swaps the
+   *  account chip for the sign-in gate instead of insisting we're signed in.
+   *  Guarded on isAuthed() so the dev env-key path (never "signed in") and the
+   *  tier re-probe inside setAuthToken can't loop back here. */
+  private onFreebuffAuthRejected(): void {
+    if (!isAuthed()) return
+    clearPersistedAuth()
+    this.setAuthToken(undefined)
   }
 
   /** Probe the Freebuff access tier (GET /freebuff/session) and broadcast it so
@@ -1202,9 +1231,15 @@ export class ThreadEngine {
         finalize('⏹ Stopped.')
       } else if (err instanceof FreebuffSessionError) {
         // Session admission failed (premium slot taken, rate limited, sign-in
-        // needed, …) — the error message is already user-facing.
+        // needed, …) — the error message is already user-facing. The
+        // unauthenticated case renders as a sign-in recovery card (the 401
+        // already cleared the stale identity via onFreebuffAuthRejected).
         turnOutcome = 'error'
-        finalize(`⚠️ ${err.message}`)
+        if (err.status === 'unauthenticated') {
+          finalize({ notice: NOTICE_FREEBUFF_AUTH, text: err.message })
+        } else {
+          finalize(`⚠️ ${err.message}`)
+        }
       } else if (err instanceof ClaudeCodeAuthError) {
         // The local Claude Code is signed out — the notice renders as a sign-in
         // recovery card. The raw SDK text stays out of the transcript AND out

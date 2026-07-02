@@ -4,8 +4,9 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { bunRunner } from '../core/exec'
-import { NOTICE_CLAUDE_CODE_AUTH, type Part } from '../core/parts'
+import { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH, type Part } from '../core/parts'
 import { ClaudeCodeAuthError } from './agents/claude-code-harness'
+import { FreebuffSessionError } from './agents/freebuff-session-manager'
 import { ThreadEngine } from './thread-engine'
 
 /** A fake SDK client: records prompts + multimodal content, optionally drives
@@ -697,6 +698,68 @@ describe('ThreadEngine — last turn outcome', () => {
 
       const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
       expect(lastThreadEvent.thread.lastTurnOutcome).toBe('error')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('Freebuff auth failure: persists a sign-in recovery notice part', async () => {
+    // Session admission rejects the way FreebuffSessionManager does on a 401
+    // (expired/revoked token) — the turn should end in the freebuff-auth
+    // recovery card, not a bare "Turn failed" line.
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      freebuffSessions: {
+        ...fakeFreebuffSessions(),
+        ensure: async () => {
+          throw new FreebuffSessionError(
+            'unauthenticated',
+            'Your Freebuff sign-in expired. Sign in again.',
+          )
+        },
+      },
+    })
+    try {
+      const thread = engine.createThread()
+      const events: any[] = []
+      engine.on((e) => events.push(e))
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+
+      const data = engine.threadData(thread.id)!
+      const assistant = data.messages.at(-1)!
+      expect(assistant.role).toBe('assistant')
+      const notice = assistant.parts?.find((p) => p.kind === 'notice') as
+        | Extract<Part, { kind: 'notice' }>
+        | undefined
+      expect(notice?.notice).toBe(NOTICE_FREEBUFF_AUTH)
+      expect(notice?.text).toContain('sign-in expired')
+
+      const lastThreadEvent = [...events].reverse().find((e) => e.type === 'thread')
+      expect(lastThreadEvent.thread.lastTurnOutcome).toBe('error')
+    } finally {
+      cleanup()
+    }
+  })
+
+  test('non-auth session failures still end as plain turn-failure text', async () => {
+    const { engine, cleanup } = await gitEngine(new FakeClient(), {
+      freebuffSessions: {
+        ...fakeFreebuffSessions(),
+        ensure: async () => {
+          throw new FreebuffSessionError('rate_limited', 'Daily limit reached for model-x.')
+        },
+      },
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+
+      const assistant = engine.threadData(thread.id)!.messages.at(-1)!
+      expect(assistant.parts?.some((p) => p.kind === 'notice')).toBe(false)
+      // The failure line lands as a plain text part (the ⚠️ turn-failure ending).
+      const textParts = (assistant.parts ?? []).filter((p) => p.kind === 'text')
+      expect(JSON.stringify(textParts)).toContain('Daily limit reached')
     } finally {
       cleanup()
     }

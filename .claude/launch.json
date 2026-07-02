@@ -42,6 +42,16 @@
       ],
       "port": 5174,
       "autoPort": false
+    },
+    {
+      "name": "freebuff-desktop-ui-only",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd freebuff-desktop && exec bun run ui:dev"
+      ],
+      "port": 5174,
+      "autoPort": false
     }
   ]
 }
