@@ -3,7 +3,7 @@ import {
   type DynamicAgentValidationError,
 } from '@codebuff/common/templates/agent-validation'
 
-import { WEBSITE_URL } from './constants'
+import { getWebsiteUrl } from './constants'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
@@ -85,7 +85,7 @@ export async function validateAgents(
   if (options?.remote) {
     // Remote validation: call the web API
     // Use provided websiteUrl or fall back to the default from environment
-    const websiteUrl = options.websiteUrl || WEBSITE_URL
+    const websiteUrl = options.websiteUrl || getWebsiteUrl()
 
     try {
       const response = await fetch(`${websiteUrl}/api/agents/validate`, {

@@ -4,6 +4,8 @@ import { getCiEnv } from '@codebuff/common/env-ci'
 import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
 import { success } from '@codebuff/common/util/error'
 
+import { getWebsiteUrl } from '../constants'
+
 import {
   addAgentStep,
   fetchAgentFromDatabase,
@@ -65,7 +67,7 @@ export function getAgentRuntimeImpl(
     logger,
     traceWriter,
     apiKey,
-    clientEnv = clientEnvDefault,
+    clientEnv: clientEnvInput,
     handleStepsLogChunk,
     requestToolCall,
     requestMcpToolData,
@@ -74,6 +76,11 @@ export function getAgentRuntimeImpl(
     sendAction,
     sendSubagentChunk,
   } = params
+
+  const clientEnv: ClientEnv = {
+    ...(clientEnvInput ?? clientEnvDefault),
+    NEXT_PUBLIC_CODEBUFF_APP_URL: getWebsiteUrl(),
+  }
 
   const trackSdkRuntimeEvent: TrackEventFn = (eventParams) => {
     if (

@@ -1,6 +1,6 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 
-import { WEBSITE_URL } from './constants'
+import { getWebsiteUrl } from './constants'
 import { getCodebuffApiKeyFromEnv } from './env'
 import { run } from './run'
 
@@ -66,7 +66,7 @@ export class CodebuffClient {
    */
   public async checkConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${WEBSITE_URL}/api/healthz`, {
+      const response = await fetch(`${getWebsiteUrl()}/api/healthz`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000), // 5 second timeout
       })

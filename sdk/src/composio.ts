@@ -1,4 +1,4 @@
-import { WEBSITE_URL } from './constants'
+import { getWebsiteUrl } from './constants'
 
 import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
@@ -26,7 +26,7 @@ export async function executeComposioToolViaServer(params: {
 }): Promise<ToolResultOutput[]> {
   try {
     const response = await fetch(
-      new URL('/api/v1/composio/execute', WEBSITE_URL),
+      new URL('/api/v1/composio/execute', getWebsiteUrl()),
       {
         method: 'POST',
         headers: {
