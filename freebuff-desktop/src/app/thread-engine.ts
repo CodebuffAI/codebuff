@@ -65,7 +65,7 @@ import { trackEvent } from './analytics'
 import { CLAUDE_CODE_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
-import { getAuthToken, getAuthUser, isAuthed, logout as clearPersistedAuth } from './auth/login-store'
+import { getAuth, getAuthToken } from './auth/login-store'
 import { ClaudeCodeAuthError, ClaudeCodeHarness } from './agents/claude-code-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
@@ -152,6 +152,11 @@ export interface EngineOptions {
   /** Inject the free-mode session manager (tests). Defaults to a real one that
    *  talks to /api/v1/freebuff/session. */
   freebuffSessions?: FreebuffSessions
+  /** Called when the Freebuff API rejects our bearer (401). The server wires
+   *  this to its shared sign-out (identity reset + every engine's client swap
+   *  + broadcast); unwired engines do nothing — library code must never wipe
+   *  the real persisted sign-in as a side effect. */
+  onAuthRejected?: () => void
   defaultBranch?: string
   /** Inject a worktree manager (tests). Defaults to a real git-backed one. */
   worktrees?: WorktreeManager
@@ -181,6 +186,8 @@ export class ThreadEngine {
   private client: CodebuffClient | null
   /** Per-tab Freebuff free-mode session lifecycle (admission + release). */
   private readonly freebuff: FreebuffSessions
+  /** Server-injected sign-out for API 401s (see EngineOptions.onAuthRejected). */
+  private readonly authRejectedHandler?: () => void
   /** Thread id currently holding the single premium-bucket concurrency slot, or
    *  null when no tab is on a premium-bucket model. In-memory; recomputed from
    *  persisted thread models on startup. The server is the race-safe source of
@@ -268,6 +275,7 @@ export class ThreadEngine {
         () => opts.apiKey ?? getAuthToken(),
         () => this.onFreebuffAuthRejected(),
       )
+    this.authRejectedHandler = opts.onAuthRejected
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
     // Reads `this.client` lazily so a post-login client swap is picked up.
@@ -580,28 +588,27 @@ export class ThreadEngine {
   }
 
   /** Swap the Freebuff auth token (after login/logout): rebuild the hosted-agent
-   *  client so it carries the new bearer, then refresh the access tier. */
+   *  client so it carries the new bearer, then refresh the access tier. Signed
+   *  out with no dev-key fallback the client goes null — the ONE representation
+   *  of "no usable bearer" (title generation skips on it, and hosted turns are
+   *  gated by freebuff.ensure(), which rejects unauthenticated first) — so a
+   *  revoked token can never ride along on a later request. */
   setAuthToken(token: string | undefined): void {
     const key = token ?? getAuthToken()
-    // CodebuffClient refuses to construct without an apiKey, so on a sign-out
-    // with no dev-key fallback keep the old client. Its stale bearer can't run
-    // a hosted turn anyway — every turn re-admits via freebuff.ensure() first,
-    // which fails unauthenticated before the client is used.
-    if (key) this.client = new CodebuffClient({ apiKey: key })
+    this.client = key ? new CodebuffClient({ apiKey: key }) : null
     // Drop the cached codebuff harness so it picks up the new client.
     this.harnesses.delete('codebuff')
     void this.refreshTier()
   }
 
   /** The Freebuff API answered 401: the persisted sign-in is expired/revoked.
-   *  Treat it as a sign-out — clear the stored identity so the header swaps the
-   *  account chip for the sign-in gate instead of insisting we're signed in.
-   *  Guarded on isAuthed() so the dev env-key path (never "signed in") and the
-   *  tier re-probe inside setAuthToken can't loop back here. */
+   *  Sign-out policy lives with the server (EngineOptions.onAuthRejected →
+   *  signOutLocally: identity reset + every open project's client swap +
+   *  broadcast — the same path the logout route uses). Unwired engines
+   *  (tests, standalone embedding) deliberately do NOTHING: library code must
+   *  not wipe the real ~/.config/freebuff-desktop sign-in as a side effect. */
   private onFreebuffAuthRejected(): void {
-    if (!isAuthed()) return
-    clearPersistedAuth()
-    this.setAuthToken(undefined)
+    this.authRejectedHandler?.()
   }
 
   /** Probe the Freebuff access tier (GET /freebuff/session) and broadcast it so
@@ -638,7 +645,8 @@ export class ThreadEngine {
     // on the next state event (the file is small; this is free).
     const { settings } = this.settings.read()
     const accessTier = this.freebuff.getAccessTier()
-    const user = getAuthUser()
+    // One state-file read for token+user+authed (snapshots run per emitState).
+    const auth = getAuth()
     return {
       project,
       threads,
@@ -650,8 +658,8 @@ export class ThreadEngine {
           premiumBucket: isFreebuffDesktopPremiumBucketModelId(m.id),
         })),
         premiumSlotHolder: this.premiumSlotHolder,
-        authed: isAuthed(),
-        user: user ?? null,
+        authed: auth.authed,
+        user: auth.user ?? null,
         ...(API_HOST !== PROD_API_HOST ? { apiHost: API_HOST } : {}),
       },
       previewReady: this.detectPreviewReady(settings),
@@ -1123,6 +1131,15 @@ export class ThreadEngine {
     this.emitThread(threadId)
     this.emitState()
 
+    // A sign-in can land from OUTSIDE this process (the state file is shared;
+    // e.g. a second app instance completes the device-code flow): if we booted
+    // clientless but a token now exists, pick it up before the harness is
+    // resolved — otherwise ensure() would admit the turn and the harness's
+    // null-client guard would fail it. No-op when a client exists or no key
+    // has appeared.
+    if (!this.client && this.harnessForThread(threadId) === 'codebuff' && getAuthToken()) {
+      this.setAuthToken(undefined)
+    }
     const harness = this.harnessInstanceFor(threadId)
     // Hoisted above the try so the catch/finally can finalize partial output when
     // a Stop aborts the run or it throws.

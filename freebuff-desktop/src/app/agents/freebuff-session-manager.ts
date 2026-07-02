@@ -45,6 +45,17 @@ export class FreebuffSessionError extends Error {
   }
 }
 
+/** The "no usable sign-in" rejection. One constructor shared by the admission
+ *  path (authHeader below) and CodebuffHarness's null-client guard, so every
+ *  signed-out surface throws the identical error and renders the same sign-in
+ *  recovery card. */
+export function unauthenticatedError(): FreebuffSessionError {
+  return new FreebuffSessionError(
+    'unauthenticated',
+    'Sign in to Freebuff to use the hosted agent.',
+  )
+}
+
 export interface FreebuffTierInfo {
   accessTier: FreebuffAccessTier
 }
@@ -92,12 +103,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
 
   private authHeader(): string {
     const token = this.getToken()
-    if (!token) {
-      throw new FreebuffSessionError(
-        'unauthenticated',
-        'Sign in to Freebuff to use the hosted agent.',
-      )
-    }
+    if (!token) throw unauthenticatedError()
     return `Bearer ${token}`
   }
 

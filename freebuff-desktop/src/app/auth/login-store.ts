@@ -7,45 +7,55 @@
  * persisted in the desktop state file (project-dir.ts), exactly like the CLI's
  * saved credentials.
  *
- * For local dev convenience, when no token is persisted we fall back to the
- * `CODEBUFF_API_KEY` env var so an unauthenticated dev build still works.
+ * Sign-ins are HOST-SCOPED and stored per host (project-dir `authSessions`):
+ * the state file is shared across launches while API_HOST is per-launch —
+ * repo/dev launches default to the local dev stack — so a prod session and a
+ * dev session must coexist. A token for another host is simply invisible here:
+ * not sent, not cleared by a 401, not overwritten by signing in to this host.
+ *
+ * For local dev convenience, when no sign-in exists for this host we fall back
+ * to the `CODEBUFF_API_KEY` env var so an unauthenticated dev build still works.
  */
 
-import {
-  clearAuth,
-  readAuthToken,
-  readAuthUser,
-  writeAuthToken,
-  writeAuthUser,
-  type DesktopAuthUser,
-} from '../project-dir'
+import { API_HOST } from '../api-host'
+import { clearAuth, readAuth, writeAuth, type DesktopAuthUser } from '../project-dir'
 
 export type { DesktopAuthUser } from '../project-dir'
 
-/** The bearer token the desktop sends to the Freebuff API. Persisted token
- *  first, then the dev env key. Undefined → not signed in and no dev key. */
+/** This host's persisted sign-in + the derived authed flag, in ONE state-file
+ *  read. Prefer this over separate getAuthToken()/isAuthed()/getAuthUser()
+ *  calls when you need more than one of them (e.g. per snapshot). */
+export function getAuth(): { token?: string; user?: DesktopAuthUser; authed: boolean } {
+  const entry = readAuth(API_HOST)
+  return { token: entry?.token, user: entry?.user, authed: Boolean(entry?.token) }
+}
+
+/** The bearer token the desktop sends to the Freebuff API. This host's
+ *  persisted sign-in first, then the dev env key. Undefined → not signed in
+ *  to this host and no dev key. */
 export function getAuthToken(): string | undefined {
-  return readAuthToken() ?? process.env.CODEBUFF_API_KEY ?? undefined
+  return readAuth(API_HOST)?.token ?? process.env.CODEBUFF_API_KEY ?? undefined
 }
 
-/** The logged-in user summary, if signed in via the login flow. */
+/** The logged-in user summary, if signed in via the login flow to THIS host. */
 export function getAuthUser(): DesktopAuthUser | undefined {
-  return readAuthUser()
+  return readAuth(API_HOST)?.user
 }
 
-/** True when the user signed in through the login flow (a real persisted token,
- *  not just the dev env key). The picker / LoginGate keys off this. */
+/** True when the user signed in through the login flow against this API host
+ *  (a real persisted token, not just the dev env key). The picker / LoginGate
+ *  key off this. */
 export function isAuthed(): boolean {
-  return Boolean(readAuthToken())
+  return Boolean(readAuth(API_HOST)?.token)
 }
 
-/** Persist a freshly-obtained token + user (called by the login flow). */
+/** Persist a freshly-obtained token + user (called by the login flow) under
+ *  the API host that issued it. Other hosts' sessions are untouched. */
 export function saveAuth(token: string, user: DesktopAuthUser): void {
-  writeAuthToken(token)
-  writeAuthUser(user)
+  writeAuth(API_HOST, { token, user })
 }
 
-/** Clear persisted credentials (logout). */
+/** Clear THIS host's persisted credentials (logout / revoked token). */
 export function logout(): void {
-  clearAuth()
+  clearAuth(API_HOST)
 }
