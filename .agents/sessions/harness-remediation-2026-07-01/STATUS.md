@@ -1305,3 +1305,15 @@ Resolved the M9 reviewer blocker for memory-drift untracked `knowledge.md` behav
 
 CI verification after pushing `7e1470851` exposed generated tool declaration drift in the `CI` workflow: `bun run generate-tool-definitions` changed `.agents/types/tools.ts` for the `read_docs.max_tokens` default description from 20000 to 10000. Regenerated the declaration locally. Validation for the follow-up fix: `.agents` typecheck passed via configured hook `typecheck-.agents`; the generated-definition diff now consists only of the intended `.agents/types/tools.ts` update to be committed, matching the CI-generated output. Next checkpoint: commit the generated declaration follow-up, push, and re-check GitHub Actions.
 
+
+<!-- update_plan_status:appended -->
+## CI verification resume — 2026-07-02T23:23:17.053Z
+
+Resuming push/CI verification. Latest CI run `28627223646` on `main` completed with CI failure in `build-and-check` Typecheck. Failure is in `@codebuff/cli`: TypeScript cannot find declarations for `react-dom/server` in multiple CLI component tests. Next action: add the missing CLI workspace dev dependency / type visibility fix, validate `@codebuff/cli` typecheck, then push and re-check CI.
+
+
+<!-- update_plan_status:appended -->
+## CI typecheck fix validation — 2026-07-02T23:26:33.236Z
+
+Applied the CI typecheck fix by adding `@types/react-dom@19.2.3` to `cli/package.json` devDependencies via Bun, updating `bun.lock`. Validation passed locally: `cd cli && bun run typecheck` and root `bun run typecheck` both exit 0. Next checkpoint: commit/push the fix and verify the new GitHub Actions run completes successfully.
+
