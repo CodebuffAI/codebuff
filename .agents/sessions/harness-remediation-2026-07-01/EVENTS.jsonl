@@ -373,3 +373,5 @@
 {"ts":"2026-07-02T21:02:09.660Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
 {"ts":"2026-07-02T21:02:24.314Z","kind":"append_lesson","summary":"Appended entry \"M9 memory-drift staleness coverage gotcha\" to LESSONS.md","payload":{"heading":"M9 memory-drift staleness coverage gotcha","artifact":"LESSONS.md"}}
 {"ts":"2026-07-02T21:02:24.314Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-02T23:04:21.029Z","kind":"append_lesson","summary":"Appended entry \"Post-push CI drift fix — generated .agents tool declaration\" to STATUS.md","payload":{"heading":"Post-push CI drift fix — generated .agents tool declaration","artifact":"STATUS.md"}}
+{"ts":"2026-07-02T23:04:21.029Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

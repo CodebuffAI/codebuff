@@ -1299,3 +1299,9 @@ Current phase: awaiting the automated validation/reviewer gate for the M9 closur
 
 Resolved the M9 reviewer blocker for memory-drift untracked `knowledge.md` behavior. Added regression coverage for an untracked `knowledge.md` inside an initialized git repo with committed sibling `src/`, confirming `checkStaleness` skips when git history cannot provide a real freshness signal. Targeted validation passed: `cd scripts && bun run guard:memory-drift && bun test __tests__/memory-drift-guard.test.ts && bun run typecheck` (memory drift guard 0 findings; 29 tests passing; scripts typecheck passing). Follow-up review returned `LOOKS_GOOD` and confirmed the coverage addresses the blocker. Next checkpoint: await final validation/reviewer gate for the M9 closure file set.
 
+
+<!-- update_plan_status:appended -->
+## Post-push CI drift fix — generated .agents tool declaration — 2026-07-02T23:04:21.027Z
+
+CI verification after pushing `7e1470851` exposed generated tool declaration drift in the `CI` workflow: `bun run generate-tool-definitions` changed `.agents/types/tools.ts` for the `read_docs.max_tokens` default description from 20000 to 10000. Regenerated the declaration locally. Validation for the follow-up fix: `.agents` typecheck passed via configured hook `typecheck-.agents`; the generated-definition diff now consists only of the intended `.agents/types/tools.ts` update to be committed, matching the CI-generated output. Next checkpoint: commit the generated declaration follow-up, push, and re-check GitHub Actions.
+
