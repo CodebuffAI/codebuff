@@ -401,6 +401,26 @@ export class ThreadEngine {
     this.store.clearHarnessState(threadId)
   }
 
+  /** Stable Freebuff desktop session id for this tab. Persisted before the
+   *  network call so a relaunched app can reclaim the same backend row rather
+   *  than colliding with its own stale premium-bucket session. */
+  private freebuffInstanceForThread(threadId: string): string {
+    let id = this.store.getFreebuffInstanceId(threadId)
+    if (!id) {
+      id = crypto.randomUUID()
+      this.store.setFreebuffInstanceId(threadId, id)
+    }
+    return id
+  }
+
+  /** End this tab's server-side Freebuff session and rotate its instance id.
+   *  Best-effort: if the DELETE fails, the backend row expires/sweeps. */
+  private async releaseThreadFreebuffSession(threadId: string): Promise<void> {
+    const instanceId = this.store.getFreebuffInstanceId(threadId)
+    this.store.setFreebuffInstanceId(threadId, null)
+    await this.freebuff.release(threadId, instanceId ?? undefined)
+  }
+
   /**
    * Set the default agent for NEW threads. Existing threads keep whatever
    * they've been pinned to via {@link setThreadAgent}; null rows (including
@@ -521,7 +541,7 @@ export class ThreadEngine {
     if (changed) {
       // Release the old session so the next turn re-admits on the new model, and
       // drop cached run state (a model switch starts the thread fresh).
-      void this.freebuff.release(threadId)
+      void this.releaseThreadFreebuffSession(threadId)
       this.dropThreadState(threadId)
     }
     this.store.updateThread(threadId, { freebuffModel: resolved }, this.now())
@@ -536,6 +556,8 @@ export class ThreadEngine {
   /** End every per-tab free-mode session server-side (best-effort). Called on
    *  logout so a user's desktop sessions don't linger until they expire/sweep. */
   async releaseFreebuffSessions(): Promise<void> {
+    const threadIds = this.store.listThreads(this.projectId).map((t) => t.id)
+    await Promise.all(threadIds.map((id) => this.releaseThreadFreebuffSession(id)))
     await this.freebuff.releaseAll()
   }
 
@@ -729,7 +751,7 @@ export class ThreadEngine {
         this.store.updateThread(id, { status: 'closed', turnState: 'idle' }, this.now())
       }
       this.dropThreadState(id)
-      void this.freebuff.release(id)
+      void this.releaseThreadFreebuffSession(id)
       this.recomputePremiumSlotHolder()
       this.emitState()
     } finally {
@@ -768,11 +790,12 @@ export class ThreadEngine {
   async deleteThread(id: string): Promise<void> {
     const thread = this.store.getThread(id)
     if (!thread) return
+    const instanceId = this.store.getFreebuffInstanceId(id)
     if (thread.branch) await this.worktrees.remove(id).catch(() => {})
     this.store.deleteThread(id)
     this.threadState.delete(id)
     // (No clearHarnessState — the row is already gone via deleteThread's cascade.)
-    void this.freebuff.release(id)
+    void this.freebuff.release(id, instanceId ?? undefined)
     this.recomputePremiumSlotHolder()
     this.emitState()
   }
@@ -1117,7 +1140,11 @@ export class ThreadEngine {
       let freeMode: { instanceId: string } | undefined
       if (harness.id === 'codebuff') {
         model = this.freebuffModelForThread(threadId)
-        freeMode = { instanceId: await this.freebuff.ensure(threadId, model) }
+        const instanceId = this.freebuffInstanceForThread(threadId)
+        freeMode = { instanceId: await this.freebuff.ensure(threadId, model, instanceId) }
+        if (freeMode.instanceId !== instanceId) {
+          this.store.setFreebuffInstanceId(threadId, freeMode.instanceId)
+        }
       } else {
         model = this.claudeModelForThread(threadId)
       }

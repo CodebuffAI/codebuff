@@ -56,8 +56,8 @@ export interface FreebuffTierInfo {
 export interface FreebuffSessions {
   getAccessTier(): FreebuffAccessTier
   fetchTier(): Promise<FreebuffTierInfo>
-  ensure(threadId: string, model: string): Promise<string>
-  release(threadId: string): Promise<void>
+  ensure(threadId: string, model: string, instanceId?: string): Promise<string>
+  release(threadId: string, instanceId?: string): Promise<void>
   releaseAll(): Promise<void>
 }
 
@@ -72,7 +72,11 @@ export class FreebuffSessionManager implements FreebuffSessions {
     return this.accessTier
   }
 
-  private instanceFor(threadId: string): string {
+  private instanceFor(threadId: string, preferred?: string): string {
+    if (preferred) {
+      this.instanceByThread.set(threadId, preferred)
+      return preferred
+    }
     let id = this.instanceByThread.get(threadId)
     if (!id) {
       id = crypto.randomUUID()
@@ -119,8 +123,8 @@ export class FreebuffSessionManager implements FreebuffSessions {
    * id to forward as `freebuff_instance_id`. Throws FreebuffSessionError on a
    * non-active outcome so the engine can surface a friendly message.
    */
-  async ensure(threadId: string, model: string): Promise<string> {
-    const instanceId = this.instanceFor(threadId)
+  async ensure(threadId: string, model: string, preferredInstanceId?: string): Promise<string> {
+    const instanceId = this.instanceFor(threadId, preferredInstanceId)
     const res = await fetch(sessionEndpoint(), {
       method: 'POST',
       headers: {
@@ -147,8 +151,8 @@ export class FreebuffSessionManager implements FreebuffSessions {
   }
 
   /** End this tab's session (best-effort). Frees the premium slot if held. */
-  async release(threadId: string): Promise<void> {
-    const instanceId = this.instanceByThread.get(threadId)
+  async release(threadId: string, knownInstanceId?: string): Promise<void> {
+    const instanceId = knownInstanceId ?? this.instanceByThread.get(threadId)
     if (!instanceId) return
     this.instanceByThread.delete(threadId)
     try {

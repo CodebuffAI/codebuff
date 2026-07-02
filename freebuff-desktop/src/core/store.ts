@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 13
+const SCHEMA_VERSION = 14
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -311,10 +311,12 @@ export class Store {
         -- Engine-internal recovery columns (not part of the Thread domain type):
         -- the agent's carried context (Codebuff RunState / Claude session id) so
         -- a turn after an app restart keeps the conversation, plus the prompt of a
-        -- typed turn that was in flight at quit so it can be re-run on relaunch.
+        -- typed turn that was in flight at quit so it can be re-run on relaunch,
+        -- plus the server-side Freebuff desktop instance id for this tab.
         harness_state    TEXT,
         harness_state_id TEXT,
         pending_prompt   TEXT,
+        freebuff_instance_id TEXT,
         created_at    INTEGER NOT NULL,
         updated_at    INTEGER NOT NULL
       );
@@ -458,6 +460,13 @@ export class Store {
     // Opus). Additive + nullable so legacy threads fall back to the default.
     if (!this.hasColumn('threads', 'claude_model')) {
       this.db.exec('ALTER TABLE threads ADD COLUMN claude_model TEXT')
+    }
+
+    // v14: stable Freebuff desktop instance id per tab. The backend uses this
+    // to reclaim an existing session after app restart instead of treating the
+    // tab as a second premium-bucket holder.
+    if (!this.hasColumn('threads', 'freebuff_instance_id')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN freebuff_instance_id TEXT')
     }
 
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -641,6 +650,22 @@ export class Store {
       .query('SELECT pending_prompt FROM threads WHERE id = $id')
       .get({ $id: threadId }) as { pending_prompt: string | null } | null
     return row?.pending_prompt ?? null
+  }
+
+  /** Stable server-side Freebuff desktop session id for this tab. Kept off the
+   *  public Thread type because it is an implementation detail, but persisted so
+   *  a relaunched app can reclaim the same backend row. */
+  setFreebuffInstanceId(threadId: ThreadId, instanceId: string | null): void {
+    this.db
+      .query('UPDATE threads SET freebuff_instance_id = $i WHERE id = $id')
+      .run({ $id: threadId, $i: instanceId })
+  }
+
+  getFreebuffInstanceId(threadId: ThreadId): string | null {
+    const row = this.db
+      .query('SELECT freebuff_instance_id FROM threads WHERE id = $id')
+      .get({ $id: threadId }) as { freebuff_instance_id: string | null } | null
+    return row?.freebuff_instance_id ?? null
   }
 
   // — Messages —

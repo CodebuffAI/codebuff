@@ -952,6 +952,58 @@ describe('ThreadEngine — app restart recovery', () => {
     }
   })
 
+  test('reuses the Freebuff desktop instance id after relaunch', async () => {
+    const sessions = () => {
+      const calls: { threadId: string; model: string; instanceId?: string }[] = []
+      return {
+        calls,
+        getAccessTier: () => 'full' as const,
+        fetchTier: async () => ({ accessTier: 'full' as const }),
+        ensure: async (threadId: string, model: string, instanceId?: string) => {
+          calls.push({ threadId, model, instanceId })
+          return instanceId ?? 'inst-generated'
+        },
+        release: async () => {},
+        releaseAll: async () => {},
+      }
+    }
+
+    const firstSessions = sessions()
+    const { engine, root, cleanup } = await gitEngine(new RecordingClient({}) as any, {
+      freebuffSessions: firstSessions,
+    })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'first message')
+      await settle(engine, thread.id)
+
+      const persisted = engine.store.getFreebuffInstanceId(thread.id)
+      expect(persisted).toBeTruthy()
+      const persistedId = persisted!
+      expect(firstSessions.calls[0].instanceId).toBe(persistedId)
+
+      const secondSessions = sessions()
+      const engine2 = new ThreadEngine({
+        repoRoot: root,
+        client: new RecordingClient({}) as any,
+        freebuffSessions: secondSessions,
+        globalSkillsDir: join(root, '.global-skills'),
+      })
+      try {
+        engine2.postMessage(thread.id, 'after relaunch')
+        await settle(engine2, thread.id)
+
+        expect(secondSessions.calls[0].threadId).toBe(thread.id)
+        expect(secondSessions.calls[0].instanceId).toBe(persistedId)
+        expect(engine2.store.getFreebuffInstanceId(thread.id)).toBe(persistedId)
+      } finally {
+        engine2.close()
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
   test('auto-resumes a typed turn that was in flight at quit', async () => {
     // Drive the first session to a completed turn (persists context), then forge
     // the "killed mid-turn" row state: turnState=running + a pending typed prompt.
