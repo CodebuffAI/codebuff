@@ -22,7 +22,7 @@ import {
   VERSION,
 } from '@codebuff/llm-providers/openai-compatible'
 
-import { WEBSITE_URL } from '../constants'
+import { getWebsiteUrl } from '../constants'
 import { getValidChatGptOAuthCredentials } from '../credentials'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
 import {
@@ -211,7 +211,7 @@ function createCodebuffBackendModel(
   return new OpenAICompatibleChatLanguageModel(model, {
     provider: 'codebuff',
     url: ({ path: endpoint }) =>
-      new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
+      new URL(path.join('/api/v1', endpoint), getWebsiteUrl()).toString(),
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,

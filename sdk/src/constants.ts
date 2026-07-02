@@ -4,4 +4,21 @@ export { IS_DEV, IS_TEST, IS_PROD }
 
 export const CODEBUFF_BINARY = 'codebuff'
 
-export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+/** URL baked in at bundle time (CLI / local dev shell). */
+const bundledWebsiteUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+
+/**
+ * Resolve the Codebuff backend base URL at call time. Remote hosts that bundle
+ * the SDK (Convex Node actions, Next server routes) must not rely on the
+ * bundle-time value: esbuild can inline a dev-machine localhost URL that the
+ * remote runtime cannot reach. Deployment `process.env` wins when present.
+ */
+export function getWebsiteUrl(): string {
+  const runtime =
+    process.env['NEXT_PUBLIC_CODEBUFF_APP_URL'] ??
+    process.env['CODEBUFF_APP_URL']
+  return (runtime ?? bundledWebsiteUrl).replace(/\/$/, '')
+}
+
+/** @deprecated Prefer {@link getWebsiteUrl} for runtime resolution. */
+export const WEBSITE_URL = bundledWebsiteUrl

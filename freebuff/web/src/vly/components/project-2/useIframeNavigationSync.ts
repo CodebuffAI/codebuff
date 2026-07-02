@@ -1,7 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { FunctionReturnType } from "convex/server";
 import { Id } from "@/convex/_generated/dataModel";
-import { getExternalPreviewUrl } from "@/vly/lib/project-preview-url";
+import {
+  getDirectPreviewUrl,
+  getExternalPreviewUrl,
+} from "@/vly/lib/project-preview-url";
 
 export interface UseIframeNavigationSyncProps {
   project: FunctionReturnType<any> | null;
@@ -21,7 +24,14 @@ export function useIframeNavigationSync({
       return null;
     }
 
-    const baseUrl = getExternalPreviewUrl(project);
+    // The embedded builder preview should prefer the direct sandbox URL.
+    // The pretty *.freebuff.dev URL is great for sharing/open-in-new-tab, but
+    // when the dev server is not ready it serves a wrapper + fallback iframe
+    // that has repeatedly diverged from the live styled preview when embedded
+    // inside Freebuff. Use the direct URL here when available, and leave the
+    // pretty URL for external navigation.
+    const baseUrl =
+      getDirectPreviewUrl(project) ?? getExternalPreviewUrl(project);
     if (!baseUrl) {
       return null;
     }
