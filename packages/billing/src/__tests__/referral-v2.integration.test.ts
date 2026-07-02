@@ -37,6 +37,7 @@ const G = `${P}google` // no github
 const SEED = `${P}seed` // pre-seeds a burn-once github
 const BURN = `${P}burn` // re-signup of the seed github → burn-once blocks it
 const ACT = `${P}act` // activation tier transitions
+const EDGE = `${P}edge` // activated row with a NULL tier (legacy/backfill shape)
 const NOREF = `${P}noref` // activation no-op (no referral row)
 const LINK = `${P}link` // null-github referral → backfilled on github link
 const LINK2 = `${P}link2` // burn-once: can't claim a github another row holds
@@ -53,6 +54,7 @@ const ALL_USERS = [
   SEED,
   BURN,
   ACT,
+  EDGE,
   NOREF,
   LINK,
   LINK2,
@@ -82,6 +84,13 @@ describe('referral-v2 write side (real DB)', () => {
   beforeAll(async () => {
     client = postgres(TEST_DATABASE_URL)
     testDb = drizzle(client, { schema })
+
+    // Reset first: a prior run hard-killed between a write and afterAll (e.g.
+    // the CI retry wrapper's timeout) would otherwise leave activated/linked
+    // rows that onConflictDoNothing preserves, failing every retry attempt.
+    await testDb
+      .delete(schema.referralV2)
+      .where(inArray(schema.referralV2.referred_id, ALL_USERS))
 
     await testDb
       .insert(schema.user)
@@ -205,6 +214,21 @@ describe('referral-v2 write side (real DB)', () => {
 
     await recordReferralV2Activation({ referredId: ACT, accessTier: 'limited', conn: testDb })
     expect((await rowFor(ACT)).activation_access_tier).toBe('full') // no downgrade
+  })
+
+  it('fills in the tier on an activated row whose tier is NULL, keeping the stamp', async () => {
+    // Legacy/backfill shape: activated_at set but no tier recorded.
+    const stamped = new Date('2026-01-02T03:04:05.000Z')
+    await testDb.insert(schema.referralV2).values({
+      referred_id: EDGE,
+      referrer_id: REFERRER,
+      activated_at: stamped,
+    })
+
+    await recordReferralV2Activation({ referredId: EDGE, accessTier: 'limited', conn: testDb })
+    const row = await rowFor(EDGE)
+    expect(row.activation_access_tier).toBe('limited')
+    expect(row.activated_at!.getTime()).toBe(stamped.getTime())
   })
 
   it('activation is a no-op for a user with no referral row', async () => {

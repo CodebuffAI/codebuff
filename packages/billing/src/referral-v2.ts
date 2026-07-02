@@ -171,12 +171,15 @@ export async function recordReferralV2Attribution(params: {
 /**
  * Record that the referred user activated (used a product) at `accessTier`.
  * Stamps `activated_at` the first time and upgrades `activation_access_tier`
- * per {@link nextActivationTier}. A no-op (zero rows) for users with no
- * referral row. Idempotent.
+ * per {@link nextActivationTier} ('full' wins; never downgrades). A no-op
+ * (zero rows) for users with no referral row, and for rows the write would
+ * not change. Idempotent.
  *
- * The read + write should share a transaction for atomicity; pass the admit
- * transaction as `conn`. Outside a transaction the worst case is a benign tier
- * flap that self-corrects on the next activation.
+ * A single guarded UPDATE, not read-modify-write: the tier upgrade is
+ * computed in SQL so concurrent activations (a session admit racing a chat
+ * message) can't lose the stronger tier, and the WHERE guard skips the write
+ * entirely when nothing would change — call sites now include per-message hot
+ * paths (web chat), not just rare session admits.
  */
 export async function recordReferralV2Activation(params: {
   referredId: string
@@ -186,23 +189,28 @@ export async function recordReferralV2Activation(params: {
 }): Promise<void> {
   const { referredId, accessTier, now = new Date(), conn = db } = params
 
-  const [existing] = await conn
-    .select({
-      activatedAt: schema.referralV2.activated_at,
-      tier: schema.referralV2.activation_access_tier,
-    })
-    .from(schema.referralV2)
-    .where(eq(schema.referralV2.referred_id, referredId))
-    .limit(1)
-  if (!existing) return
-
+  const activatedAt = schema.referralV2.activated_at
+  const tier = schema.referralV2.activation_access_tier
   await conn
     .update(schema.referralV2)
     .set({
-      activated_at: existing.activatedAt ?? now,
-      activation_access_tier: nextActivationTier(existing.tier, accessTier),
+      activated_at: sql`COALESCE(${activatedAt}, ${now.toISOString()}::timestamp)`,
+      // SQL mirror of nextActivationTier: 'full' is absorbing.
+      activation_access_tier:
+        accessTier === 'full'
+          ? 'full'
+          : sql`CASE WHEN ${tier} = 'full' THEN ${tier} ELSE 'limited' END`,
     })
-    .where(eq(schema.referralV2.referred_id, referredId))
+    .where(
+      and(
+        eq(schema.referralV2.referred_id, referredId),
+        // Skip the write when it can't change anything: an unactivated row
+        // always updates; an activated row only when the tier can still move.
+        accessTier === 'full'
+          ? sql`(${activatedAt} IS NULL OR ${tier} IS DISTINCT FROM 'full')`
+          : sql`(${activatedAt} IS NULL OR ${tier} IS NULL)`,
+      ),
+    )
 }
 
 /**
