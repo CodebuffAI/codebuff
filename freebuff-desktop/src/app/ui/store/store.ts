@@ -236,6 +236,16 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   setThreadAgent(id, harnessId, model) {
+    // Locked once the thread has started (the server enforces this too with a
+    // 409): the pickers are hidden then, but guard against stale UI anyway.
+    const slice = get().threads[id]
+    if (slice && (slice.thread.branch || slice.messages.length > 0)) {
+      get().pushToast(
+        'This thread has started — open a new tab to use a different agent or model.',
+        'info',
+      )
+      return
+    }
     // Optimistic: flip the local slice immediately so the tab's pill updates
     // without waiting for the SSE round-trip; the server's `thread`/`state`
     // events reconcile (and may downgrade a premium Freebuff pick if the slot
