@@ -7,6 +7,11 @@ import {
   getMostRecentChatDir,
   getProjectDataDir,
 } from '../project-files'
+import {
+  CHAT_MESSAGES_FILENAME,
+  CHAT_META_FILENAME,
+  writeChatMeta,
+} from './chat-meta'
 import { logger } from './logger'
 import { writeFileAtomic } from './write-file-atomic'
 
@@ -14,7 +19,6 @@ import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { RunState } from '@codebuff/sdk'
 
 const RUN_STATE_FILENAME = 'run-state.json'
-const CHAT_MESSAGES_FILENAME = 'chat-messages.json'
 
 type SavedChatState = {
   runState: RunState
@@ -150,6 +154,10 @@ export function saveChatState(
     // multiple MB; pretty-printing roughly doubles the write.
     writeFileAtomic(runStatePath, JSON.stringify(runState))
     writeFileAtomic(messagesPath, JSON.stringify(messages))
+    // Sidecar summary so /history can list this chat without parsing the
+    // (unbounded) chat-messages.json. Must be written after the messages
+    // file: it records the file's size/mtime to detect staleness.
+    writeChatMeta(resolveCurrentChatDir(), messages)
   } catch (error) {
     logger.error(
       {
@@ -281,15 +289,16 @@ export function clearChatState(): void {
   try {
     const runStatePath = getRunStatePath()
     const messagesPath = getChatMessagesPath()
+    const metaPath = path.join(resolveCurrentChatDir(), CHAT_META_FILENAME)
 
-    if (fs.existsSync(runStatePath)) {
-      fs.unlinkSync(runStatePath)
-    }
-    if (fs.existsSync(messagesPath)) {
-      fs.unlinkSync(messagesPath)
+    for (const filePath of [runStatePath, messagesPath, metaPath]) {
+      fs.rmSync(filePath, { force: true })
     }
 
-    logger.debug({ runStatePath, messagesPath }, 'Cleared chat state files')
+    logger.debug(
+      { runStatePath, messagesPath, metaPath },
+      'Cleared chat state files',
+    )
   } catch (error) {
     logger.error(
       {
