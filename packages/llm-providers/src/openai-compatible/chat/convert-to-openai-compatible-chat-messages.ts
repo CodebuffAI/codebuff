@@ -98,6 +98,34 @@ export function convertToOpenAICompatibleChatMessages(
           }
         }
 
+        // Emit one wire message per run of assistant messages. Thinking models
+        // that validate tool-call replay (e.g. DeepSeek V4) require the step's
+        // reasoning_content to sit ON the message carrying tool_calls — a
+        // separate adjacent assistant message fails the request — so merge
+        // instead of pushing a second assistant message.
+        const previous = messages[messages.length - 1]
+        if (previous?.role === 'assistant') {
+          if (text.length > 0) {
+            previous.content =
+              typeof previous.content === 'string'
+                ? previous.content + text
+                : text
+          }
+          if (reasoningContent.length > 0) {
+            previous.reasoning_content =
+              typeof previous.reasoning_content === 'string'
+                ? previous.reasoning_content + reasoningContent
+                : reasoningContent
+          }
+          if (toolCalls.length > 0) {
+            previous.tool_calls = [...(previous.tool_calls ?? []), ...toolCalls]
+          }
+          // Metadata unions with later-wins precedence — the same key
+          // precedence the push path gets from spreading metadata last.
+          Object.assign(previous, metadata)
+          break
+        }
+
         messages.push({
           role: 'assistant',
           content: text,
