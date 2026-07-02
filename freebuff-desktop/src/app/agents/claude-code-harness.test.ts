@@ -7,6 +7,7 @@ import {
   ClaudeCodeAuthError,
   consumeClaudeStream,
   FREEBUFF_MCP_TOOL_NAMES,
+  resolveClaudeCodeExecutable,
   translateClaudeCodeError,
 } from './claude-code-harness'
 import type { HarnessCallbacks } from './harness'
@@ -221,6 +222,48 @@ describe('translateClaudeCodeError', () => {
       new Error('Claude Code returned an error result: Not logged in · Please run /login'),
     )
     expect(translateClaudeCodeError(auth)).toBe(auth)
+  })
+
+  // The packaged app has no node_modules, so if no installed claude is resolved
+  // the SDK errors that it can't find its native CLI binary. That terminal-speak
+  // ("Reinstall @anthropic-ai/claude-agent-sdk without --omit=optional") is
+  // meaningless in the app — map it to actionable install guidance.
+  test.each([
+    'Native CLI binary for darwin-arm64 not found. Reinstall @anthropic-ai/claude-agent-sdk without --omit=optional, or set options.pathToClaudeCodeExecutable.',
+    'Could not find Claude Code executable',
+  ])('maps missing-CLI error %s to an install message', (raw) => {
+    const out = translateClaudeCodeError(new Error(raw)) as Error
+    expect(out).toBeInstanceOf(Error)
+    expect(out).not.toBeInstanceOf(ClaudeCodeAuthError)
+    expect(out.message).toContain('Claude Code CLI not found')
+    expect(out.message).toContain('claude.ai/download')
+  })
+})
+
+describe('resolveClaudeCodeExecutable', () => {
+  const orig = process.env.FREEBUFF_CLAUDE_PATH
+  const restore = () => {
+    if (orig === undefined) delete process.env.FREEBUFF_CLAUDE_PATH
+    else process.env.FREEBUFF_CLAUDE_PATH = orig
+  }
+
+  test('FREEBUFF_CLAUDE_PATH override wins when it points at a real file', () => {
+    // process.execPath (the bun binary) is guaranteed to exist + be executable.
+    process.env.FREEBUFF_CLAUDE_PATH = process.execPath
+    try {
+      expect(resolveClaudeCodeExecutable()).toBe(process.execPath)
+    } finally {
+      restore()
+    }
+  })
+
+  test('a non-existent override is ignored (does not short-circuit)', () => {
+    process.env.FREEBUFF_CLAUDE_PATH = '/no/such/claude-binary-xyz'
+    try {
+      expect(resolveClaudeCodeExecutable()).not.toBe('/no/such/claude-binary-xyz')
+    } finally {
+      restore()
+    }
   })
 })
 

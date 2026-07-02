@@ -25,6 +25,10 @@
  * aren't injected here; the engine's pump runs them as the next turn instead.
  */
 
+import { accessSync, constants as fsConstants, existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { delimiter, join } from 'node:path'
+
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk'
 
 import { NOTICE_CLAUDE_CODE_AUTH } from '../../core/parts'
@@ -81,12 +85,15 @@ function isClaudeCodeAuthErrorMessage(message: string): boolean {
   )
 }
 
-/** Map a stream/spawn error to {@link ClaudeCodeAuthError} when it's an auth
- *  failure; return anything else (and already-translated errors) unchanged. */
+/** Map a stream/spawn error to a typed/actionable error: {@link ClaudeCodeAuthError}
+ *  for auth failures, a clear "install Claude Code" message when the SDK can't find
+ *  its CLI binary (packaged app, no installed claude); anything else unchanged. */
 export function translateClaudeCodeError(err: unknown): unknown {
   if (err instanceof ClaudeCodeAuthError) return err
   const message = err instanceof Error ? err.message : String(err)
-  return isClaudeCodeAuthErrorMessage(message) ? new ClaudeCodeAuthError(message) : err
+  if (isClaudeCodeAuthErrorMessage(message)) return new ClaudeCodeAuthError(message)
+  if (isClaudeCodeMissingCliMessage(message)) return new Error(CLAUDE_CODE_NOT_INSTALLED_MESSAGE)
+  return err
 }
 
 /** Narrow an opaque {@link HarnessTurn.previousState} to this harness's own state
@@ -163,6 +170,81 @@ export function claudeCodeEnv(): Record<string, string | undefined> {
   delete env.ANTHROPIC_AUTH_TOKEN
   return env
 }
+
+/**
+ * Locate the Claude Code CLI the SDK should spawn.
+ *
+ * In dev the SDK finds its own version-matched native binary from node_modules.
+ * The PACKAGED app has no node_modules (the orchestrator is a single Bun bundle),
+ * so `query()` fails with "Native CLI binary for <platform> not found" unless we
+ * point `pathToClaudeCodeExecutable` at a `claude` on disk. We reuse the user's
+ * INSTALLED Claude Code — which matches this harness's reuse-your-subscription
+ * design (same `~/.claude` creds).
+ *
+ * GOTCHA: a macOS app launched from Finder inherits a MINIMAL `PATH` (no
+ * `~/.local/bin`, no Homebrew), so a plain PATH scan misses a claude the user
+ * clearly has. We check well-known install locations explicitly first, then fall
+ * back to PATH (dev / terminal-launched). Returns undefined if none found — the
+ * caller then lets the SDK try its own binary (dev) or surfaces a friendly
+ * "install Claude Code" error (packaged; see {@link isClaudeCodeMissingCliMessage}).
+ */
+export function resolveClaudeCodeExecutable(): string | undefined {
+  // Explicit override always wins.
+  const override = process.env.FREEBUFF_CLAUDE_PATH
+  if (override && existsSync(override)) return override
+
+  const isExec = (p: string): boolean => {
+    try {
+      accessSync(p, fsConstants.X_OK)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const home = homedir()
+  const win = process.platform === 'win32'
+  const bin = win ? 'claude.exe' : 'claude'
+
+  const candidates = win
+    ? [
+        join(process.env.LOCALAPPDATA ?? join(home, 'AppData', 'Local'), 'Programs', 'claude', bin),
+        join(home, '.local', 'bin', bin),
+        join(home, '.bun', 'bin', bin),
+      ]
+    : [
+        join(home, '.local', 'bin', 'claude'), // official installer / migrate-installer
+        join(home, '.claude', 'local', 'claude'), // `claude` local install
+        '/opt/homebrew/bin/claude', // Apple-silicon Homebrew
+        '/usr/local/bin/claude', // Intel Homebrew / manual
+        join(home, '.bun', 'bin', 'claude'), // bun global
+        join(home, '.npm-global', 'bin', 'claude'), // npm global prefix
+      ]
+  for (const c of candidates) if (existsSync(c) && isExec(c)) return c
+
+  // Fall back to a PATH scan (populated in dev / terminal-launched runs).
+  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
+    if (!dir) continue
+    const p = join(dir, bin)
+    if (existsSync(p) && isExec(p)) return p
+  }
+  return undefined
+}
+
+/** The SDK couldn't find its bundled native CLI (packaged app, no installed
+ *  claude resolved). Detected so we can rethrow actionable install guidance
+ *  instead of the raw "Reinstall @anthropic-ai/claude-agent-sdk" terminal-speak. */
+function isClaudeCodeMissingCliMessage(message: string): boolean {
+  return /native cli binary|pathToClaudeCodeExecutable|claude code executable|--omit=optional/i.test(
+    message,
+  )
+}
+
+const CLAUDE_CODE_NOT_INSTALLED_MESSAGE =
+  'Claude Code CLI not found. The Claude Code (Fable/Opus) agent reuses your ' +
+  'installed Claude Code and its subscription login. Install it (https://claude.ai/download ' +
+  'or `npm i -g @anthropic-ai/claude-code`), run `claude` once to sign in, then restart ' +
+  'Freebuff — or switch to the Codebuff (free) agent.'
 
 /**
  * Claude Code adapter: wrap each shared {@link THREAD_TOOL_SPECS} entry as an
@@ -285,35 +367,39 @@ export class ClaudeCodeHarness implements AgentHarness {
       tools: buildFreebuffMcpTools(turn.toolDeps),
     })
 
-    const stream = query({
-      prompt: turn.prompt,
-      options: {
-        model: turn.model ?? CLAUDE_CODE_MODEL,
-        cwd: turn.cwd,
-        env: claudeCodeEnv(),
-        // Keep Claude Code's full default behaviour, but append our follow-up
-        // guidance so it ends finished work with suggest_prompts.
-        systemPrompt: {
-          type: 'preset',
-          preset: 'claude_code',
-          append: CLAUDE_CODE_SYSTEM_APPEND,
-        },
-        abortController: turn.abort,
-        ...(sessionId ? { resume: sessionId } : {}),
-        permissionMode: 'bypassPermissions',
-        allowDangerouslySkipPermissions: true,
-        includePartialMessages: true,
-        mcpServers: { [FREEBUFF_MCP_SERVER]: freebuffServer },
-        allowedTools: [...ALLOWED_TOOLS, ...FREEBUFF_MCP_TOOL_NAMES],
-        // Allow pointing at a specific Claude Code binary if the bundled one isn't
-        // wanted (e.g. to match the user's installed version / auth).
-        ...(process.env.FREEBUFF_CLAUDE_PATH
-          ? { pathToClaudeCodeExecutable: process.env.FREEBUFF_CLAUDE_PATH }
-          : {}),
-      },
-    })
+    const claudePath = resolveClaudeCodeExecutable()
 
     try {
+      // query() inside the try so a synchronous spawn/resolve failure (e.g. the
+      // SDK can't find its CLI binary) is translated too, not just stream errors.
+      const stream = query({
+        prompt: turn.prompt,
+        options: {
+          model: turn.model ?? CLAUDE_CODE_MODEL,
+          cwd: turn.cwd,
+          env: claudeCodeEnv(),
+          // Keep Claude Code's full default behaviour, but append our follow-up
+          // guidance so it ends finished work with suggest_prompts.
+          systemPrompt: {
+            type: 'preset',
+            preset: 'claude_code',
+            append: CLAUDE_CODE_SYSTEM_APPEND,
+          },
+          abortController: turn.abort,
+          ...(sessionId ? { resume: sessionId } : {}),
+          permissionMode: 'bypassPermissions',
+          allowDangerouslySkipPermissions: true,
+          includePartialMessages: true,
+          mcpServers: { [FREEBUFF_MCP_SERVER]: freebuffServer },
+          allowedTools: [...ALLOWED_TOOLS, ...FREEBUFF_MCP_TOOL_NAMES],
+          // Point the SDK at a resolved Claude Code CLI. In dev the SDK finds its
+          // own version-matched binary from node_modules (resolver may also find an
+          // installed one — fine); the packaged app has no node_modules, so we reuse
+          // the user's installed Claude Code. Undefined → let the SDK try its own.
+          ...(claudePath ? { pathToClaudeCodeExecutable: claudePath } : {}),
+        },
+      })
+
       const state = await consumeClaudeStream(stream as AsyncIterable<any>, cb, sessionId)
       return { state }
     } catch (err) {
