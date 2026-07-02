@@ -10,6 +10,18 @@ import { action } from "../_generated/server";
 async function detectDaytonaServerForSandboxId(
   sandboxId: string,
 ): Promise<DaytonaServer> {
+  // Single-server setups (local/dev with only DAYTONA_API_KEY, or any
+  // deployment that hasn't split legacy/new) point both SDKs at the same
+  // backend, so the dual-get below would always find the sandbox on "both" and
+  // throw "ambiguous". Resolve to the fallback server instead.
+  if (!DaytonaSdkManager.areServersDistinct()) {
+    const server = DaytonaSdkManager.getFallbackServer();
+    console.log(
+      `[DaytonaResolve] single-server config; resolving sandboxId=${sandboxId} to ${server}`,
+    );
+    return server;
+  }
+
   const legacySdk = DaytonaSdkManager.getDaytonaSDK("legacy");
   const newSdk = DaytonaSdkManager.getDaytonaSDK("new");
 

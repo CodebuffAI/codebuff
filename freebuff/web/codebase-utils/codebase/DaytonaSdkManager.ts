@@ -26,25 +26,52 @@ class DaytonaSdkManager {
    * @returns The shared Daytona SDK instance
    * @throws Error if DAYTONA_API_KEY environment variable is not set
    */
+  /**
+   * The effective (apiKey, apiUrl) for a server, applying the shared
+   * `DAYTONA_API_KEY` fallback. Used both to build SDKs and to tell whether the
+   * two logical servers are actually distinct (see {@link areServersDistinct}).
+   */
+  private static resolveConfig(server: DaytonaServer): {
+    apiKey: string | undefined;
+    apiUrl: string | undefined;
+  } {
+    const apiKeyEnvName =
+      server === "new" ? "DAYTONA_API_KEY_NEW" : "DAYTONA_API_KEY_LEGACY";
+    const apiUrlEnvName =
+      server === "new" ? "DAYTONA_API_URL_NEW" : "DAYTONA_API_URL_LEGACY";
+    return {
+      apiKey: process.env[apiKeyEnvName] ?? process.env.DAYTONA_API_KEY,
+      apiUrl: process.env[apiUrlEnvName],
+    };
+  }
+
+  /**
+   * Whether the legacy and new servers are configured as genuinely different
+   * Daytona backends. False in single-server setups (e.g. local/dev with only
+   * `DAYTONA_API_KEY` set), where both SDKs resolve to the same key + URL — in
+   * that case a "found on both servers" result is expected, not ambiguous.
+   */
+  public static areServersDistinct(): boolean {
+    const legacy = DaytonaSdkManager.resolveConfig("legacy");
+    const next = DaytonaSdkManager.resolveConfig("new");
+    return legacy.apiKey !== next.apiKey || legacy.apiUrl !== next.apiUrl;
+  }
+
   public static getDaytonaSDK(server: DaytonaServer = "legacy"): Daytona {
     const existing = DaytonaSdkManager.instances[server];
     if (existing) {
       return existing;
     }
 
-    const apiKeyEnvName =
-      server === "new" ? "DAYTONA_API_KEY_NEW" : "DAYTONA_API_KEY_LEGACY";
-    const apiUrlEnvName =
-      server === "new" ? "DAYTONA_API_URL_NEW" : "DAYTONA_API_URL_LEGACY";
-
-    const apiKey = process.env[apiKeyEnvName] ?? process.env.DAYTONA_API_KEY;
+    const { apiKey, apiUrl } = DaytonaSdkManager.resolveConfig(server);
     if (!apiKey) {
+      const apiKeyEnvName =
+        server === "new" ? "DAYTONA_API_KEY_NEW" : "DAYTONA_API_KEY_LEGACY";
       throw new Error(
         `${apiKeyEnvName} (or DAYTONA_API_KEY fallback) is not set. Cannot initialize Daytona SDK for ${server}.`,
       );
     }
 
-    const apiUrl = process.env[apiUrlEnvName];
     const sdk = apiUrl
       ? new Daytona({ apiKey, serverUrl: apiUrl })
       : new Daytona({ apiKey });

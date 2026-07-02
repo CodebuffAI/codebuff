@@ -1412,7 +1412,7 @@ export const AgentChatMessages = forwardRef<
     cursorSeq: number
   }>({ messageId: null, deltas: [], cursorSeq: -1 })
 
-  const streamData = useQuery(
+  const liveStreamData = useQuery(
     api.coding_agent.cli_agent.queries.getStreamingMessageDeltas,
     hasActiveThread
       ? {
@@ -1424,6 +1424,17 @@ export const AgentChatMessages = forwardRef<
         }
       : 'skip',
   )
+
+  // Advancing the delta cursor changes the query args, which Convex treats as
+  // a brand-new subscription: useQuery returns undefined until it resolves.
+  // Latch the last snapshot across those swaps so `undefined` only ever means
+  // "never loaded" — otherwise the whole chat flickers to a spinner on every
+  // streamed chunk.
+  const lastStreamDataRef = useRef<typeof liveStreamData>(undefined)
+  if (liveStreamData !== undefined) {
+    lastStreamDataRef.current = liveStreamData
+  }
+  const streamData = liveStreamData ?? lastStreamDataRef.current
 
   useEffect(() => {
     if (streamData === undefined) return
@@ -1549,8 +1560,14 @@ export const AgentChatMessages = forwardRef<
 
   const filteredStreamedMessages = useMemo(() => {
     if (!streamingMessage) return []
-    return streamingMessage.deactivated === true ? [] : [streamingMessage]
-  }, [streamingMessage])
+    if (streamingMessage.deactivated === true) return []
+    // The latched stream snapshot can briefly lag the message list (e.g. right
+    // after a run finalizes); drop it if the same message already landed there.
+    const alreadyInList = hydratedThreadMessages.some(
+      (msg: any) => msg._id === streamingMessage._id,
+    )
+    return alreadyInList ? [] : [streamingMessage]
+  }, [streamingMessage, hydratedThreadMessages])
 
   // Combine and sort messages (oldest first for rendering)
   const sortedMessages = useMemo(() => {
