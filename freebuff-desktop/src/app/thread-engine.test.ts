@@ -1177,3 +1177,128 @@ describe('ThreadEngine — app restart recovery', () => {
     }
   })
 })
+
+describe('ThreadEngine — sponsored ads', () => {
+  const AD = {
+    title: 'Acme Cloud',
+    adText: 'Deploy in seconds.',
+    cta: 'Try free',
+    url: 'https://acme.dev',
+    impUrl: 'https://gravity.example/imp/1',
+  }
+
+  /** A fake ads client recording fetch contexts. `fill: false` → signed-out
+   *  shape (enabled() false, fetchAd must never run); `resolve: false` → the
+   *  fetch never settles (slow endpoint), exercising the zero-wait attach. */
+  function fakeAds(opts: { fill?: boolean; resolve?: boolean } = {}) {
+    const fetches: { messages: { role: string; content: string }[]; sessionId: string }[] = []
+    const impressions: string[] = []
+    return {
+      fetches,
+      impressions,
+      client: {
+        enabled: () => opts.fill !== false,
+        fetchAd: async (ctx: (typeof fetches)[number]) => {
+          fetches.push(ctx)
+          if (opts.resolve === false) return new Promise<never>(() => {})
+          return { ...AD }
+        },
+        recordImpression: async (impUrl: string) => {
+          impressions.push(impUrl)
+          return true
+        },
+        recordClick: async () => true,
+      },
+    }
+  }
+
+  test('a completed turn persists an ad part; the impression is NOT engine-recorded', async () => {
+    const ads = fakeAds()
+    const { engine, cleanup } = await gitEngine(new FakeClient(), { ads: ads.client })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'build me a game')
+      await settle(engine, thread.id)
+
+      const parts = engine.threadData(thread.id)!.messages[1].parts ?? []
+      const adPart = parts.find((p) => p.kind === 'ad')
+      expect(adPart && adPart.kind === 'ad' ? adPart.ad.title : null).toBe('Acme Cloud')
+      // Impressions are renderer-driven (first display via /api/ad/impression),
+      // so a headless turn must not have recorded one.
+      expect(ads.impressions).toEqual([])
+      // The conversation went along (roles + text) for targeting.
+      expect(ads.fetches[0].messages[0]).toEqual({ role: 'user', content: 'build me a game' })
+      expect(ads.fetches[0].sessionId).toBe(thread.id)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('an unresolved ad fetch is dropped — the turn completes without waiting', async () => {
+    const ads = fakeAds({ resolve: false })
+    const { engine, cleanup } = await gitEngine(new FakeClient(), { ads: ads.client })
+    try {
+      const thread = engine.createThread()
+      const start = Date.now()
+      engine.postMessage(thread.id, 'quick one')
+      await settle(engine, thread.id)
+
+      // No ad attached, and the turn didn't sit in any attach grace window.
+      const parts = engine.threadData(thread.id)!.messages[1].parts ?? []
+      expect(parts.some((p) => p.kind === 'ad')).toBe(false)
+      expect(ads.fetches.length).toBe(1)
+      expect(Date.now() - start).toBeLessThan(2000)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('a signed-out ads client (enabled() false) is never asked to fetch', async () => {
+    const ads = fakeAds({ fill: false })
+    const { engine, cleanup } = await gitEngine(new FakeClient(), { ads: ads.client })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      expect(ads.fetches.length).toBe(0)
+      const parts = engine.threadData(thread.id)!.messages[1].parts ?? []
+      expect(parts.some((p) => p.kind === 'ad')).toBe(false)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('ads are spaced out: the exchange right after an ad skips the fetch', async () => {
+    const ads = fakeAds()
+    const { engine, cleanup } = await gitEngine(new FakeClient(), { ads: ads.client })
+    try {
+      const thread = engine.createThread()
+      for (const text of ['one', 'two', 'three']) {
+        engine.postMessage(thread.id, text)
+        await settle(engine, thread.id)
+      }
+
+      const messages = engine.threadData(thread.id)!.messages
+      const hasAd = (i: number) => (messages[i].parts ?? []).some((p) => p.kind === 'ad')
+      // Assistant turns land at [1], [3], [5]: first exchange carries an ad, the
+      // next is too close (< MIN_MESSAGES_BETWEEN_ADS), the third qualifies again.
+      expect([hasAd(1), hasAd(3), hasAd(5)]).toEqual([true, false, true])
+      expect(ads.fetches.length).toBe(2)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('an unwired engine (no ads client) attaches nothing', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      const parts = engine.threadData(thread.id)!.messages[1].parts ?? []
+      expect(parts.some((p) => p.kind === 'ad')).toBe(false)
+    } finally {
+      await cleanup()
+    }
+  })
+})

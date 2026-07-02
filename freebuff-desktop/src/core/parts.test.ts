@@ -63,6 +63,23 @@ describe('foldAgentEvent', () => {
     ])
   })
 
+  it('appends an ad as its own part, even after finish', () => {
+    const ad = { title: 'Acme', adText: 'Ship faster.', cta: 'Try it', url: 'https://acme.dev' }
+    // The engine attaches the ad after the harness's finish (the fetch runs
+    // alongside the turn) — the fold must accept it there.
+    const parts = fold([
+      { type: 'text', text: 'Done.' },
+      { type: 'finish' },
+      { type: 'ad', ad },
+    ])
+    expect(parts).toEqual([
+      { kind: 'text', text: 'Done.' },
+      { kind: 'ad', id: 'p1', ad },
+    ])
+    // An ad event without a payload is ignored rather than rendering an empty card.
+    expect(fold([{ type: 'ad' }])).toEqual([])
+  })
+
   it('closes an open reasoning block when text or a tool arrives', () => {
     const afterText = fold([
       { type: 'reasoning_delta', text: 'x' },

@@ -717,6 +717,31 @@ export class Store {
     }))
   }
 
+  /** The last `limit` messages in transcript order. A cheap LIMIT query for
+   *  tail-only readers (the per-turn ad gate/targeting) so they don't load and
+   *  JSON-parse the whole transcript; `acts_json` is skipped for the same
+   *  reason. */
+  getRecentMessages(
+    threadId: ThreadId,
+    limit: number,
+  ): { role: string; text: string; parts: Part[] }[] {
+    const rows = this.db
+      .query(
+        `SELECT role, text, parts_json FROM messages WHERE thread_id = $t
+         ORDER BY seq DESC LIMIT $n`,
+      )
+      .all({ $t: threadId, $n: limit }) as {
+      role: string
+      text: string
+      parts_json: string
+    }[]
+    return rows.reverse().map((r) => ({
+      role: r.role,
+      text: r.text,
+      parts: safeParse<Part[]>(r.parts_json, []),
+    }))
+  }
+
   // — Queue items (unified queue + suggestions) —
 
   insertQueueItem(input: NewQueueItemInput): QueueItem {

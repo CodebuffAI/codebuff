@@ -19,6 +19,7 @@ import { join } from 'path'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
+import { createDesktopAds } from './ads'
 import { isHarnessId, type HarnessId } from './agents/harness'
 import { isAllowedApiOrigin } from './origin-guard'
 import { flushAnalytics, identifyOnLogin, initAnalytics, resetIdentity, trackEvent } from './analytics'
@@ -59,6 +60,11 @@ const broadcast = (e: EngineEvent) => {
   for (const s of subscribers) s(e)
 }
 
+// One ads client for the app: engines intersperse sponsored ads into completed
+// turns with it, and the /api/ad/click route records clicks through it. Reads
+// the auth token per request, so sign-in/out is picked up automatically.
+const desktopAds = createDesktopAds()
+
 // The agent harness is an app-wide choice; persist it so it survives restarts and
 // apply it to every engine we stand up.
 const persistedHarness = readAgentHarness()
@@ -97,6 +103,7 @@ class EngineRegistry {
         previewBaseUrl: `http://127.0.0.1:${PORT}`,
         // A 401 signs the whole app out, not just this engine.
         onAuthRejected: signOutOnAuthRejected,
+        ads: desktopAds,
       })
       engine.store.updateProjectRunConfig('project', { test: process.env.TEST_CMD ?? 'node --test' })
       this.engines.set(path, engine)
@@ -472,6 +479,28 @@ const server = Bun.serve({
       // Broad sanity clamp only — the renderer enforces its own layout min/max.
       writeUiPrefs({ queueWidth: Math.min(2000, Math.max(200, Math.round(w))) })
       return json({ ok: true })
+    }
+
+    // Ad tracking proxies. The renderer drives both (impression on first
+    // display of a card, click on click-through — it opens the clickUrl
+    // itself); they're proxied here because the bearer lives with the
+    // orchestrator, not the renderer. Best-effort by design, and the desktop
+    // funnel events fire only when the upstream call actually recorded, so
+    // they reconcile with the server-side ads_* ledger.
+    const adTrackMatch = pathname.match(/^\/api\/ad\/(impression|click)$/)
+    if (adTrackMatch && req.method === 'POST') {
+      const { impUrl } = await body(req)
+      if (typeof impUrl !== 'string' || !impUrl) return json({ error: 'impUrl required' }, 400)
+      const kind = adTrackMatch[1] as 'impression' | 'click'
+      const ok = await (kind === 'impression'
+        ? desktopAds.recordImpression(impUrl)
+        : desktopAds.recordClick(impUrl))
+      if (ok) {
+        trackEvent(
+          kind === 'impression' ? AnalyticsEvent.DESKTOP_AD_SHOWN : AnalyticsEvent.DESKTOP_AD_CLICKED,
+        )
+      }
+      return json({ ok })
     }
 
     // — Freebuff auth (device-code login) —

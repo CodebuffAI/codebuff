@@ -1270,6 +1270,82 @@ body.col-resizing {
   font-size: 11.5px;
   color: var(--muted);
 }
+
+/* A sponsored ad interspersed into the transcript (see AdCard.tsx). Clearly a
+   card — bordered, labeled "Sponsored", accent-tinted CTA — but compact enough
+   (capped width, quiet body copy) that it doesn't crowd out the conversation. */
+.ad-card {
+  display: block;
+  margin: 8px 0 2px;
+  padding: 11px 13px;
+  max-width: 560px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-dim);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+.ad-card:hover {
+  border-color: var(--accent-dim);
+  background: var(--raised);
+}
+.ad-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ad-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.ad-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ad-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.ad-text {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.ad-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ad-cta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.ad-domain {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--faint);
+}
 .agent-box.running {
   border-color: var(--accent-dim);
 }

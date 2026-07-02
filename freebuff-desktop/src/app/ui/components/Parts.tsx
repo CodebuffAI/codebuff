@@ -15,8 +15,9 @@
 import { Fragment, memo, useMemo, useState } from 'react'
 
 import { toolArg, toolLabel } from '../lib/formatTool'
-import type { AgentPart, NoticePart, Part, ToolCall } from '../lib/types'
+import type { AdPart, AgentPart, NoticePart, Part, ToolCall } from '../lib/types'
 import { useStore } from '../store/store'
+import { AdCard } from './AdCard'
 import { LoadingDots } from './LoadingDots'
 import { Markdown } from './Markdown'
 import { NoticeCard } from './NoticeCard'
@@ -140,6 +141,7 @@ type Group =
   | { kind: 'text'; text: string; key: string }
   | { kind: 'agent'; agent: AgentPart; key: string }
   | { kind: 'notice'; notice: NoticePart; key: string }
+  | { kind: 'ad'; ad: AdPart; key: string }
 
 /** Turn the flat parts into render groups. Agent parts are always their own
  *  group (never folded); reasoning + tool parts fold into one summary when
@@ -161,6 +163,12 @@ function groupParts(parts: Part[], fold: boolean): Group[] {
     // N steps", since they carry the turn's recovery instructions.
     if (p.kind === 'notice') {
       out.push({ kind: 'notice', notice: p, key: `n${p.id}` })
+      return
+    }
+    // Sponsored ads are first-class too — the whole point is staying visible
+    // in the scrolled-back transcript, so they must never fold away.
+    if (p.kind === 'ad') {
+      out.push({ kind: 'ad', ad: p, key: `ad${p.id}` })
       return
     }
     if (fold) {
@@ -209,6 +217,7 @@ export function PartsView(props: {
       {groups.map((g) => {
         if (g.kind === 'fold') return <FoldedActivity key={g.key} parts={g.parts} />
         if (g.kind === 'notice') return <NoticeCard key={g.key} part={g.notice} />
+        if (g.kind === 'ad') return <AdCard key={g.key} part={g.ad} />
         if (g.kind === 'agent') {
           return (
             <AgentBox
