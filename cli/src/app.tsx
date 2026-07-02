@@ -17,7 +17,7 @@ import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot, startNewChat } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
@@ -195,6 +195,9 @@ export const App = ({
   const handleNewChat = useCallback(() => {
     closeChatHistory()
     resetChatStore()
+    // Rotate the chat id so the new conversation saves to its own directory
+    // instead of overwriting the current (possibly resumed) chat's history
+    startNewChat()
     setResumeChatId(null)
   }, [closeChatHistory, resetChatStore])
 

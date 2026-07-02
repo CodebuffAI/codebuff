@@ -9,11 +9,16 @@
  *        → { user } once the browser side completes; `user.authToken` is the
  *          bearer we persist and send to the Freebuff API.
  *
+ * The whole device-code exchange runs against AUTH_HOST (freebuff.com in
+ * prod), so the browser sign-in is Freebuff-branded — mirroring the CLI's
+ * LOGIN_WEBSITE_URL split. The resulting token is stored under and used
+ * against API_HOST (see login-store.ts); the two hosts share the DB.
+ *
  * Kept dependency-light (plain fetch) so the desktop doesn't pull in the CLI's
  * React/analytics-coupled modules.
  */
 
-import { API_HOST } from '../api-host'
+import { AUTH_HOST } from '../api-host'
 import { saveAuth, type DesktopAuthUser } from './login-store'
 
 const POLL_INTERVAL_MS = 2_000
@@ -72,7 +77,7 @@ export class LoginManager {
       }
     }
     const fingerprintId = crypto.randomUUID()
-    const res = await fetch(`${API_HOST}/api/auth/cli/code`, {
+    const res = await fetch(`${AUTH_HOST}/api/auth/cli/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ fingerprintId }),
@@ -132,7 +137,7 @@ export class LoginManager {
           await sleep(POLL_INTERVAL_MS)
           let user: LoginStatusResponse['user']
           try {
-            const url = new URL(`${API_HOST}/api/auth/cli/status`)
+            const url = new URL(`${AUTH_HOST}/api/auth/cli/status`)
             url.searchParams.set('fingerprintId', pending.fingerprintId)
             url.searchParams.set('fingerprintHash', pending.fingerprintHash)
             url.searchParams.set('expiresAt', String(pending.expiresAt))

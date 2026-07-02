@@ -54,8 +54,12 @@ the assistant can PROPOSE follow-up prompts ──► park in the queue's "sugge
 ## 2. Prerequisites (the easy-to-miss ones)
 
 1. **For the `codebuff` harness: a Codebuff backend the SDK can reach.** The desktop's
-   API host (sign-in, sessions, SDK) is `NEXT_PUBLIC_CODEBUFF_APP_URL`, defaulting to
-   prod (`freebuff-desktop/src/app/api-host.ts`). Launched from the repo
+   API host (sessions, SDK) is `NEXT_PUBLIC_CODEBUFF_APP_URL`, defaulting to
+   prod (`freebuff-desktop/src/app/api-host.ts`). Device-code **sign-in** runs against
+   the separate `AUTH_HOST` from the same file: freebuff.com when the API host is the
+   prod default (override via `NEXT_PUBLIC_FREEBUFF_APP_URL`), and equal to the API
+   host on non-prod launches — so dev sign-in still needs only the one local web app
+   below. Launched from the repo
    (`bun run app` / `dev` / `dev:web`), the direnv bun wrapper injects `.env.local`,
    so **repo launches target the LOCAL dev stack (localhost:3000)** — start the web
    app (`bun --filter @codebuff/web dev` or the repo's normal dev flow) and confirm

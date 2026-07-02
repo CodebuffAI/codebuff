@@ -71,4 +71,51 @@ describe('chat-history', () => {
   test('deleteChatSession returns false when the chat does not exist', () => {
     expect(deleteChatSession('missing-chat')).toBe(false)
   })
+
+  test('getAllChats lists corrupt chats as unreadable instead of hiding them', () => {
+    writeChat('chat-good', 'hello from a healthy chat')
+
+    // Simulate a chat-messages.json truncated by a crash mid-write
+    const corruptDir = path.join(tempDataDir, 'chats', 'chat-corrupt')
+    fs.mkdirSync(corruptDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(corruptDir, 'chat-messages.json'),
+      '[{"id":"msg-1","variant":"user","content":"truncat',
+    )
+
+    const chats = getAllChats()
+
+    const good = chats.find((chat) => chat.chatId === 'chat-good')
+    expect(good).toBeDefined()
+    expect(good?.unreadable).toBeUndefined()
+    expect(good?.lastPrompt).toBe('hello from a healthy chat')
+
+    const corrupt = chats.find((chat) => chat.chatId === 'chat-corrupt')
+    expect(corrupt).toBeDefined()
+    expect(corrupt?.unreadable).toBe(true)
+    expect(corrupt?.lastPrompt).toBe('(unreadable chat)')
+  })
+
+  test('getAllChats lists non-array chat-messages.json as unreadable', () => {
+    const badDir = path.join(tempDataDir, 'chats', 'chat-not-array')
+    fs.mkdirSync(badDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(badDir, 'chat-messages.json'),
+      '{"not":"an array"}',
+    )
+
+    const chats = getAllChats()
+
+    expect(chats).toHaveLength(1)
+    expect(chats[0].chatId).toBe('chat-not-array')
+    expect(chats[0].unreadable).toBe(true)
+  })
+
+  test('getAllChats still hides empty chats', () => {
+    const emptyDir = path.join(tempDataDir, 'chats', 'chat-empty')
+    fs.mkdirSync(emptyDir, { recursive: true })
+    fs.writeFileSync(path.join(emptyDir, 'chat-messages.json'), '[]')
+
+    expect(getAllChats()).toHaveLength(0)
+  })
 })

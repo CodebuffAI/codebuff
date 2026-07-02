@@ -108,7 +108,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
           LAYOUT.TIME_COL_WIDTH,
         )
         const msgs = padRight(
-          `${chat.messageCount} msgs`,
+          chat.unreadable ? '—' : `${chat.messageCount} msgs`,
           LAYOUT.MSGS_COL_WIDTH,
         )
         const prompt = padRight(
@@ -154,12 +154,29 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
 
   // No need to calculate listHeight - let flexbox handle it naturally
 
+  // Unreadable chats (corrupt chat-messages.json) can be deleted but not resumed
+  const unreadableChatIds = useMemo(
+    () => new Set(chats.filter((chat) => chat.unreadable).map((c) => c.chatId)),
+    [chats],
+  )
+
   // Handle chat selection
+  const selectChat = useCallback(
+    (chatId: string) => {
+      if (unreadableChatIds.has(chatId)) {
+        setStatusMessage("Chat file is corrupted and can't be opened")
+        return
+      }
+      onSelectChat(chatId)
+    },
+    [onSelectChat, unreadableChatIds],
+  )
+
   const handleChatSelect = useCallback(
     (item: SelectableListItem) => {
-      onSelectChat(item.id)
+      selectChat(item.id)
     },
-    [onSelectChat],
+    [selectChat],
   )
 
   const handleChatDelete = useCallback(
@@ -200,7 +217,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
       if (isPlainEnterKey(key)) {
         const focused = filteredItems[focusedIndex]
         if (focused) {
-          onSelectChat(focused.id)
+          selectChat(focused.id)
         }
         return true
       }
@@ -216,7 +233,7 @@ export const ChatHistoryScreen: React.FC<ChatHistoryScreenProps> = ({
       setFocusedIndex,
       filteredItems,
       focusedIndex,
-      onSelectChat,
+      selectChat,
       onCancel,
     ],
   )

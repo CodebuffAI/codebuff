@@ -8,6 +8,7 @@ import {
   getProjectDataDir,
 } from '../project-files'
 import { logger } from './logger'
+import { writeFileAtomic } from './write-file-atomic'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { RunState } from '@codebuff/sdk'
@@ -82,8 +83,8 @@ export function saveChatState(
     const runStatePath = getRunStatePath()
     const messagesPath = getChatMessagesPath()
 
-    fs.writeFileSync(runStatePath, JSON.stringify(runState, null, 2))
-    fs.writeFileSync(messagesPath, JSON.stringify(messages, null, 2))
+    writeFileAtomic(runStatePath, JSON.stringify(runState, null, 2))
+    writeFileAtomic(messagesPath, JSON.stringify(messages, null, 2))
   } catch (error) {
     logger.error(
       {

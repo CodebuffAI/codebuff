@@ -11,6 +11,10 @@ export interface ChatHistoryEntry {
   lastPrompt: string
   timestamp: Date
   messageCount: number
+  /** True when chat-messages.json exists but can't be parsed (e.g. truncated
+   * by a crash mid-write). Shown in /history so the chat doesn't silently
+   * vanish; can be deleted but not resumed. */
+  unreadable?: boolean
 }
 
 function getChatsDir(): string {
@@ -89,6 +93,9 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
         if (fs.existsSync(info.messagesPath)) {
           const content = fs.readFileSync(info.messagesPath, 'utf8')
           const messages = JSON.parse(content) as ChatMessage[]
+          if (!Array.isArray(messages)) {
+            throw new Error('chat-messages.json is not an array')
+          }
           messageCount = messages.length
           lastPrompt = getFirstUserPrompt(messages)
         }
@@ -110,6 +117,15 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
           },
           'Failed to read chat messages',
         )
+        // Don't silently hide the chat: list it as unreadable so the user
+        // knows it exists (and can delete it) instead of thinking it was lost
+        chats.push({
+          chatId: info.chatId,
+          lastPrompt: '(unreadable chat)',
+          timestamp: info.mtime,
+          messageCount: 0,
+          unreadable: true,
+        })
       }
     }
 
