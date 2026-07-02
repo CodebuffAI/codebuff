@@ -25,11 +25,10 @@ import {
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 
+import { API_HOST } from '../api-host'
+
 function sessionEndpoint(): string {
-  const base = (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
-  ).replace(/\/$/, '')
-  return `${base}/api/v1/freebuff/session`
+  return `${API_HOST}/api/v1/freebuff/session`
 }
 
 /** Thrown by `ensure` when a session can't be admitted. `status` mirrors the

@@ -93,6 +93,16 @@ export function ThreadHeader({
           />
         ))}
       {isHostedAgent && freebuff && !freebuff.authed && <LoginGate />}
+      {/* Non-prod API host (a repo launch's dev stack) — keep it visible so a
+          sign-in pointed at localhost is never a surprise. */}
+      {isHostedAgent && freebuff?.apiHost && (
+        <span
+          className="head-api-host"
+          title={`Freebuff API host: ${freebuff.apiHost} — sign-in and free-mode sessions target this dev stack; make sure it's running (repo launches inherit it from .env.local)`}
+        >
+          API: {freebuff.apiHost.replace(/^https?:\/\//, '')}
+        </span>
+      )}
       {/* The thread title already lives in the tab above; no need to repeat it
           next to the folder name. */}
       {/* Push the preview controls to the far right — they're a secondary action

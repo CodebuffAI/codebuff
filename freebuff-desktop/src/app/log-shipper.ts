@@ -12,6 +12,7 @@
  * any app logger (which would recurse).
  */
 
+import { API_HOST } from './api-host'
 import { getAuthToken } from './auth/login-store'
 
 import type { LogRecordInput } from '@codebuff/common/schemas/logs'
@@ -23,12 +24,6 @@ const MAX_BUFFER = 1_000
 let buffer: LogRecordInput[] = []
 let timer: ReturnType<typeof setInterval> | null = null
 let flushing = false
-
-function apiBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
-  ).replace(/\/$/, '')
-}
 
 /** Off in dev/test (no token locally, avoids ingest cost); on otherwise.
  *  Honors an explicit FREEBUFF_SHIP_LOGS override either way. */
@@ -66,7 +61,7 @@ export async function flushClientLogs(): Promise<void> {
   const batch = buffer.splice(0, MAX_BATCH)
   try {
     const token = getAuthToken()
-    await fetch(`${apiBaseUrl()}/api/logs`, {
+    await fetch(`${API_HOST}/api/logs`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

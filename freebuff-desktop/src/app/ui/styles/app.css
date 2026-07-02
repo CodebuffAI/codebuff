@@ -629,6 +629,22 @@ body.col-resizing {
   border-color: var(--accent);
   color: var(--accent);
 }
+/* Non-prod API host badge (a repo launch's dev stack) — warning-tinted so a
+   sign-in pointed at localhost is unmistakable. Shrinks with an ellipsis in
+   narrow panes (the title tooltip carries the full host). */
+.head-api-host {
+  border: 1px solid var(--warn, #b58900);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 11px;
+  color: var(--warn, #b58900);
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 96px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .head-btn.icon-only {
   justify-content: center;
   width: 28px;

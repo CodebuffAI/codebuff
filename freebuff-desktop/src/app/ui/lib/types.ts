@@ -89,6 +89,9 @@ export interface FreebuffSnapshot {
   premiumSlotHolder: string | null
   authed: boolean
   user: { id?: string; name?: string; email?: string } | null
+  /** Present only when the desktop targets a non-prod API host (a repo
+   *  launch's dev stack) — surfaced so sign-in against localhost is visible. */
+  apiHost?: string
 }
 
 export interface Snapshot {

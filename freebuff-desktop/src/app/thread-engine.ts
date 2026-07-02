@@ -59,6 +59,7 @@ import {
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
+import { API_HOST, PROD_API_HOST } from './api-host'
 import { trackEvent } from './analytics'
 import { CLAUDE_CODE_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
@@ -111,6 +112,10 @@ export interface Snapshot {
     premiumSlotHolder: string | null
     authed: boolean
     user: { id?: string; name?: string; email?: string } | null
+    /** Set only when the desktop targets a non-prod API host (a repo launch's
+     *  dev stack from .env.local) so the UI can surface where sign-in and
+     *  sessions actually go. Absent → prod. */
+    apiHost?: string
   }
   /**
    * Whether the project has a previewable entry — derived from settings
@@ -618,6 +623,7 @@ export class ThreadEngine {
         premiumSlotHolder: this.premiumSlotHolder,
         authed: isAuthed(),
         user: user ?? null,
+        ...(API_HOST !== PROD_API_HOST ? { apiHost: API_HOST } : {}),
       },
       previewReady: this.detectPreviewReady(settings),
       settings,

@@ -97,8 +97,19 @@ open — passed to the orchestrator as `TARGET_REPO`), `FREEBUFF_BUN_PATH` (over
 orchestrator (`src/app/server.ts`) reads `PORT` (default `8787`), `TARGET_REPO`
 (default `~/freebuff-desktop-demo`, seeds a sample repo if absent), `TEST_CMD` (default
 `node --test`, the `test` skill's command), `FREEBUFF_UI_DIR` (built SPA dir), and —
-for the hosted `codebuff` harness — `NEXT_PUBLIC_CODEBUFF_APP_URL` (LLM backend) and
-`CODEBUFF_API_KEY` (fallback auth when not logged in via the in-app device-code flow).
+for the hosted `codebuff` harness — `CODEBUFF_API_KEY` (fallback auth when not logged
+in via the in-app device-code flow).
+
+**API host.** `src/app/api-host.ts` exposes the one host used for sign-in, free-mode
+sessions, log shipping, and the SDK: `NEXT_PUBLIC_CODEBUFF_APP_URL`, defaulting to
+prod (`https://www.codebuff.com`). Launched from the repo (`bun run app` / `dev` /
+`dev:web`), the direnv bun wrapper injects the dev `.env.local`, so repo launches
+target the **local dev stack (localhost:3000)** — make sure the web app is running,
+or sign-in and turns will fail. A non-prod host is surfaced as a yellow `API: …`
+badge in the thread header so this is never a silent surprise. Shell env beats the
+wrapper's env file, so force prod from a repo launch with
+`NEXT_PUBLIC_CODEBUFF_APP_URL=https://www.codebuff.com bun run app`. Packaged builds
+bake the prod host at bundle time.
 
 ## Packaging (distributable app)
 

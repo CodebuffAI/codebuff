@@ -13,18 +13,10 @@
  * React/analytics-coupled modules.
  */
 
+import { API_HOST } from '../api-host'
 import { saveAuth, type DesktopAuthUser } from './login-store'
 
 const POLL_INTERVAL_MS = 2_000
-
-function apiBaseUrl(): string {
-  // Default to the canonical www host: the apex `codebuff.com` 301/307-redirects
-  // every request to `www.codebuff.com`, so polling the apex adds a redirect
-  // round-trip every 2s. Match the rest of the codebase (see scripts/smoke-sdk.ts).
-  return (
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://www.codebuff.com'
-  ).replace(/\/$/, '')
-}
 
 interface PendingLogin {
   fingerprintId: string
@@ -80,7 +72,7 @@ export class LoginManager {
       }
     }
     const fingerprintId = crypto.randomUUID()
-    const res = await fetch(`${apiBaseUrl()}/api/auth/cli/code`, {
+    const res = await fetch(`${API_HOST}/api/auth/cli/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ fingerprintId }),
@@ -140,7 +132,7 @@ export class LoginManager {
           await sleep(POLL_INTERVAL_MS)
           let user: LoginStatusResponse['user']
           try {
-            const url = new URL(`${apiBaseUrl()}/api/auth/cli/status`)
+            const url = new URL(`${API_HOST}/api/auth/cli/status`)
             url.searchParams.set('fingerprintId', pending.fingerprintId)
             url.searchParams.set('fingerprintHash', pending.fingerprintHash)
             url.searchParams.set('expiresAt', String(pending.expiresAt))
