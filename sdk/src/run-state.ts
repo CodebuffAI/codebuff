@@ -93,6 +93,11 @@ function processAgentDefinitions(
       processedConfig.handleSteps &&
       typeof processedConfig.handleSteps === 'function'
     ) {
+      // Keep the live function for in-process execution: the stringified form
+      // of a bundled function can reference out-of-scope bundler helpers
+      // (e.g. esbuild keepNames' `__name`) and fail the runtime's eval.
+      // JSON serialization of the session state drops it harmlessly.
+      processedConfig.handleStepsFn = processedConfig.handleSteps
       processedConfig.handleSteps = processedConfig.handleSteps.toString()
     }
     if (processedConfig.id) {

@@ -174,11 +174,17 @@ export function validateSingleAgent(params: {
     try {
       const typedAgentDefinition = DynamicAgentDefinitionSchema.parse(template)
 
-      // Convert handleSteps function to string if present
+      // Convert handleSteps function to string if present, but keep the live
+      // function too: the stringified form of a bundled function can reference
+      // out-of-scope bundler helpers and fail the runtime's eval round-trip.
       let handleStepsString: string | undefined
       if (template.handleSteps) {
         handleStepsString = template.handleSteps.toString()
       }
+      const handleStepsFn =
+        typeof template.handleSteps === 'function'
+          ? template.handleSteps
+          : template.handleStepsFn
 
       validatedConfig = DynamicAgentTemplateSchema.parse({
         ...typedAgentDefinition,
@@ -186,6 +192,7 @@ export function validateSingleAgent(params: {
         instructionsPrompt: typedAgentDefinition.instructionsPrompt || '',
         stepPrompt: typedAgentDefinition.stepPrompt || '',
         handleSteps: handleStepsString,
+        handleStepsFn,
       })
     } catch (error: any) {
       // Try to extract agent context for better error messages
