@@ -80,21 +80,89 @@ describe('read_files edit-state recovery', () => {
 
     expect(result.output[0]?.type).toBe('json')
     if (result.output[0]?.type === 'json') {
-      expect(result.output[0].value).toEqual([
-        {
-          summary: {
-            ok: 1,
-            failed: 0,
-            requested: 1,
-          },
-        },
-        {
-          path,
-          content: diskContent,
-          referencedBy: {},
-        },
-      ])
+      const value = result.output[0].value as Array<Record<string, unknown>>
+      expect(value[0]).toEqual({
+        summary: { ok: 1, failed: 0, requested: 1 },
+      })
+      // Empty referencedBy is omitted from the rendered file entry now (M7c).
+      // The file content carries the M4 "changed since last read" prefix
+      // because there was a stale promisesByPath entry simulating a prior edit.
+      expect(value[1]).toMatchObject({ path })
+      expect(value[1].referencedBy).toBeUndefined()
+      expect(value[1].content).toContain('changed since last read')
+      expect(value[1].content).toContain(diskContent)
     }
+  })
+
+  it('does not clear failed-edit gate or grant authorization when read_files cannot load the file', async () => {
+    const path = 'src/missing.ts'
+    const fileProcessingState = createFileProcessingState()
+    fileProcessingState.strictReadBeforeEdit = true
+    fileProcessingState.failedEditRequiresReadByPath[path] = true
+    fileProcessingState.promisesByPath[path] = [
+      Promise.resolve({
+        tool: 'str_replace' as const,
+        path,
+        toolCallId: 'failed-edit',
+        error: 'previous failed edit',
+      }),
+    ]
+
+    const result = await handleReadFiles({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'read-missing-file',
+        toolName: 'read_files',
+        input: { paths: [path] },
+      },
+      fileContext: mockFileContext,
+      fileProcessingState,
+      requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+        Object.fromEntries(filePaths.map((filePath) => [filePath, null])),
+      logger,
+    } as any)
+
+    expect(result.output[0]?.type).toBe('json')
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBe(true)
+    expect(fileProcessingState.promisesByPath[path]).toHaveLength(1)
+    expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBeUndefined()
+  })
+
+  it('symbol-only read clears failed-edit gate and grants strict read authorization when the file loads', async () => {
+    const path = 'src/symbols.ts'
+    const diskContent = 'export function target() {\n  return 1\n}\n'
+    const fileProcessingState = createFileProcessingState()
+    fileProcessingState.strictReadBeforeEdit = true
+    fileProcessingState.failedEditRequiresReadByPath[path] = true
+    fileProcessingState.promisesByPath[path] = [
+      Promise.resolve({
+        tool: 'str_replace' as const,
+        path,
+        toolCallId: 'failed-edit',
+        error: 'previous failed edit',
+      }),
+    ]
+
+    const result = await handleReadFiles({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: {
+        toolCallId: 'read-symbol-only',
+        toolName: 'read_files',
+        input: { symbols: [{ path, names: ['target'] }] },
+      },
+      fileContext: mockFileContext,
+      fileProcessingState,
+      requestFiles: async ({ filePaths }: { filePaths: string[] }) =>
+        Object.fromEntries(filePaths.map((filePath) => [filePath, null])),
+      requestOptionalFile: async ({ filePath }: { filePath: string }) =>
+        filePath === path ? diskContent : null,
+      logger,
+    } as any)
+
+    expect(result.output[0]?.type).toBe('json')
+    expect(fileProcessingState.failedEditRequiresReadByPath[path]).toBeUndefined()
+    expect(fileProcessingState.promisesByPath[path]).toBeUndefined()
+    expect(fileProcessingState.readAuthorizationsByPath?.[path]).toBe(true)
   })
 
   it('does not crash when str_replace client returns an empty result', async () => {
@@ -1864,6 +1932,48 @@ describe('read_files edit-state recovery', () => {
       if (output.type === 'json') {
         expect(output.value).not.toHaveProperty('errorMessage')
       }
+    })
+
+    it('write_file blocks traversal paths before reading or applying', async () => {
+      const fileProcessingState = createFileProcessingState()
+
+      const result = await handleWriteFile({
+        previousToolCallFinished: Promise.resolve(),
+        toolCall: {
+          toolCallId: 'write-traversal-blocked',
+          toolName: 'write_file',
+          input: {
+            path: '../outside.ts',
+            instructions: 'Attempt outside write',
+            content: 'export const value = 1\n',
+          },
+        },
+        agentState: { messageHistory: [] },
+        clientSessionId: 'test-session',
+        fileProcessingState,
+        fingerprintId: 'test-fingerprint',
+        logger,
+        prompt: undefined,
+        userId: undefined,
+        userInputId: 'test-input',
+        requestOptionalFile: async () => {
+          throw new Error('requestOptionalFile must not be called for blocked traversal')
+        },
+        requestClientToolCall: async () => {
+          throw new Error('client apply must not be called for blocked traversal')
+        },
+        writeToClient: () => {},
+      } as any)
+
+      const output = result.output[0]
+      expect(output.type).toBe('json')
+      if (output.type === 'json') {
+        const value = output.value as { file?: string; errorMessage?: string }
+        expect(value.file).toBe('../outside.ts')
+        expect(String(value.errorMessage)).toContain('path traversal blocked')
+      }
+      expect(fileProcessingState.promisesByPath['']).toBeUndefined()
+      expect(fileProcessingState.allPromises).toHaveLength(0)
     })
 
     it('strict write_file blocks existing-file overwrites without prior read and does not call client apply', async () => {

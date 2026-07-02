@@ -45,6 +45,7 @@ const myArrow = (y: string) => {
         },
       },
       requestOptionalFile,
+      fileContext: { projectRoot: '/repo' },
     } as any)
 
     const result = output[0].value
@@ -71,6 +72,7 @@ const myArrow = (y: string) => {
         },
       },
       requestOptionalFile,
+      fileContext: { projectRoot: '/repo' },
     } as any)
 
     const result = output[0].value
@@ -146,5 +148,56 @@ class AnotherSymbol {
 
     const result = output[0].value
     expect(result.slices).toHaveLength(0)
+  })
+})
+
+describe('read_outline path containment', () => {
+  const makeParams = (path: string, requestOptionalFile: (p: { filePath: string }) => Promise<string | null>) =>
+    ({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path } },
+      requestOptionalFile,
+      // Anchor containment to a synthetic project root so the rejection
+      // cases (`/etc/passwd`, `../outside.ts`) resolve as outside the
+      // project and the acceptance case (`src/file.ts`) resolves as
+      // inside, regardless of `process.cwd()` at test time.
+      fileContext: { projectRoot: '/repo' },
+    }) as any
+
+  it('rejects absolute paths outside the project with the legacy error message', async () => {
+    let called = false
+    const requestOptionalFile = async (_p: { filePath: string }) => {
+      called = true
+      return 'content'
+    }
+    const { output } = await handleReadOutline(makeParams('/etc/passwd', requestOptionalFile))
+    const result = output[0].value
+    expect(result.outline).toBe('Error: File does not exist.')
+    expect(called).toBe(false)
+  })
+
+  it('rejects parent-traversal paths with the legacy error message', async () => {
+    let called = false
+    const requestOptionalFile = async (_p: { filePath: string }) => {
+      called = true
+      return 'content'
+    }
+    const { output } = await handleReadOutline(makeParams('../outside.ts', requestOptionalFile))
+    const result = output[0].value
+    expect(result.outline).toBe('Error: File does not exist.')
+    expect(called).toBe(false)
+  })
+
+  it('still loads project-relative paths', async () => {
+    const requestOptionalFile = async (p: { filePath: string }) => {
+      if (p.filePath === 'src/file.ts') {
+        return 'export const x = 1\n'
+      }
+      return null
+    }
+    const { output } = await handleReadOutline(makeParams('src/file.ts', requestOptionalFile))
+    const result = output[0].value
+    // AST outline surfaces `export const x = 1` as a variable on line 1.
+    expect(result.outline).toContain('variable x')
   })
 })

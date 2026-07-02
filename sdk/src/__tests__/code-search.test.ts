@@ -8,6 +8,9 @@ import {
   createRgJsonMatch,
   createRgJsonContext,
 } from '@codebuff/common/testing/mocks'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 
 import { getBundledRgPath } from '../native/ripgrep'
@@ -906,6 +909,88 @@ describe('codeSearch', () => {
       const value = asCodeSearchResult(result[0])
 
       expect(value.errorMessage).toContain('outside the project directory')
+    })
+  })
+
+  describe('cwd symlink containment', () => {
+    let tmpDir: string
+    let outsideDir: string
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-search-'))
+      outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'outside-'))
+      // In-project symlink that escapes: tmpDir/evil -> outsideDir
+      fs.symlinkSync(outsideDir, path.join(tmpDir, 'evil'))
+      // Legit in-project symlink: tmpDir/link -> tmpDir/real
+      fs.mkdirSync(path.join(tmpDir, 'real'))
+      fs.symlinkSync(path.join(tmpDir, 'real'), path.join(tmpDir, 'link'))
+    })
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+      fs.rmSync(outsideDir, { recursive: true, force: true })
+    })
+
+    it('rejects a cwd symlink that points outside the project', async () => {
+      const result = await codeSearch({
+        projectPath: tmpDir,
+        pattern: 'test',
+        cwd: 'evil',
+      })
+      const value = asCodeSearchResult(result[0])
+      expect(value.errorMessage).toContain('outside the project directory')
+    })
+
+    it('allows a cwd symlink that stays inside the project', async () => {
+      const searchPromise = codeSearch({
+        projectPath: tmpDir,
+        pattern: 'test',
+        cwd: 'link',
+      })
+      const output = createRgJsonMatch('file.ts', 1, 'test content')
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+      const result = await searchPromise
+      const value = asCodeSearchResult(result[0])
+      expect(value.errorMessage).toBeUndefined()
+      expect(value.stdout).toContain('test content')
+      const spawnOptions = mockSpawn.mock.calls[0]![2] as { cwd: string }
+      expect(spawnOptions.cwd).toBe(path.join(tmpDir, 'link'))
+    })
+  })
+
+  describe('AbortSignal handling', () => {
+    it('short-circuits when called with an already-aborted signal', async () => {
+      const controller = new AbortController()
+      controller.abort(new Error('caller cancelled'))
+      const result = await codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        signal: controller.signal,
+      })
+      const value = asCodeSearchResult(result[0])
+      expect(value.errorMessage).toBe('caller cancelled')
+      // Should not have spawned a child at all.
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
+
+    it('kills the ripgrep child when the signal aborts mid-flight', async () => {
+      const controller = new AbortController()
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        signal: controller.signal,
+      })
+      // Verify a child was spawned.
+      expect(mockSpawn).toHaveBeenCalledTimes(1)
+      // Abort mid-flight. `controller.abort()` with no reason defaults to a
+      // DOMException whose message is "The operation was aborted."; the
+      // tool propagates that as the errorMessage verbatim.
+      controller.abort()
+      const result = await searchPromise
+      const value = asCodeSearchResult(result[0])
+      expect(value.errorMessage).toBe('The operation was aborted.')
+      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
     })
   })
 })

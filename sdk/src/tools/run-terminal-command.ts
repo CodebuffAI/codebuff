@@ -9,6 +9,7 @@ import {
 } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
 import { startBackgroundJob } from './background-jobs'
+import { resolveFilePathWithinProject } from './path-utils'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -123,13 +124,38 @@ export function runTerminalCommand({
   cwd,
   timeout_seconds,
   env,
+  signal,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
   timeout_seconds: number
   env?: Record<string, string | undefined>
+  /** Optional abort signal. When aborted, an in-flight SYNC child is
+   *  SIGTERMed (with SIGKILL fallback) and the promise rejects with the
+   *  signal's reason (or a generic `AbortError`). Background jobs are
+   *  unaffected — the caller can still use `kill_job` against `jobId`. */
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
+  // The contract for `cwd` is "project root or a subdirectory of it". A
+  // caller-supplied absolute path like `/etc` or a traversal like
+  // `../../outside` must be rejected before we spawn a child process so the
+  // tool cannot be used to read or mutate state outside the project.
+  // The shared helper enforces lexical + realpath/symlink containment.
+  const resolvedCwd = resolveFilePathWithinProject(cwd, '.')
+  if (resolvedCwd === null) {
+    return Promise.resolve([
+      {
+        type: 'json',
+        value: {
+          command,
+          errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
+        },
+      },
+    ])
+  }
+  const containedCwd = resolvedCwd.fullPath
+
   if (process_type === 'BACKGROUND') {
     const isWindows = os.platform() === 'win32'
     const processEnv = {
@@ -155,7 +181,7 @@ export function runTerminalCommand({
       command,
       shell,
       shellArgs,
-      cwd: path.resolve(cwd),
+      cwd: containedCwd,
       env: processEnv,
     })
 
@@ -196,8 +222,8 @@ export function runTerminalCommand({
       shellArgs = ['-c']
     }
 
-    // Resolve cwd to absolute path
-    const resolvedCwd = path.resolve(cwd)
+    // Use the already-resolved, project-contained cwd from the entry guard.
+    const resolvedCwd = containedCwd
 
     const childProcess = spawn(shell, [...shellArgs, command], {
       cwd: resolvedCwd,
@@ -205,10 +231,55 @@ export function runTerminalCommand({
       stdio: 'pipe',
     })
 
-    let stdout = ''
-    let stderr = ''
+    // These mutable bookkeeping fields are read by `onAbort`, the timeout
+    // callback, and the close/error handlers below. Declare them BEFORE
+    // wiring the abort listener so `onAbort` never references a binding
+    // that is still in the temporal dead zone (the JS engine hoists `let`
+    // but throws on access until the declaration line runs).
     let timer: NodeJS.Timeout | null = null
     let processFinished = false
+    let stdout = ''
+    let stderr = ''
+
+    // Honor an external AbortSignal: SIGTERM the child on abort, with a
+    // SIGKILL fallback if it doesn't exit promptly. The promise rejects
+    // with the signal's reason (or a generic `AbortError`). Only applies
+    // to SYNC runs — background jobs keep running and can be cleaned up
+    // via `kill_job` against the returned `jobId`.
+    let abortKillTimer: NodeJS.Timeout | null = null
+    const onAbort = () => {
+      if (processFinished) return
+      processFinished = true
+      const success = childProcess.kill('SIGTERM')
+      if (!success) {
+        childProcess.kill('SIGKILL')
+      } else {
+        // Belt-and-suspenders: if SIGTERM doesn't take effect within 5s,
+        // escalate to SIGKILL so a stuck shell can't wedge the run.
+        abortKillTimer = setTimeout(() => {
+          if (!childProcess.killed) {
+            childProcess.kill('SIGKILL')
+          }
+        }, 5_000)
+        abortKillTimer.unref?.()
+      }
+      if (timer) clearTimeout(timer)
+      const reason = signal?.reason
+      if (reason instanceof Error) {
+        reject(reason)
+      } else {
+        const err = new Error('Aborted')
+        err.name = 'AbortError'
+        reject(err)
+      }
+    }
+    if (signal) {
+      if (signal.aborted) {
+        onAbort()
+        return
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+    }
 
     // Set up timeout if timeout_seconds >= 0 (infinite timeout when < 0)
     if (timeout_seconds >= 0) {
@@ -262,6 +333,13 @@ export function runTerminalCommand({
       if (timer) {
         clearTimeout(timer)
       }
+      if (abortKillTimer) {
+        clearTimeout(abortKillTimer)
+        abortKillTimer = null
+      }
+      if (signal) {
+        signal.removeEventListener('abort', onAbort)
+      }
 
       // Truncate stdout to prevent excessive output
       const truncatedStdout = truncateStringWithMessage({
@@ -294,6 +372,13 @@ export function runTerminalCommand({
 
       if (timer) {
         clearTimeout(timer)
+      }
+      if (abortKillTimer) {
+        clearTimeout(abortKillTimer)
+        abortKillTimer = null
+      }
+      if (signal) {
+        signal.removeEventListener('abort', onAbort)
       }
 
       reject(new Error(`Failed to spawn command: ${error.message}`))

@@ -55,11 +55,6 @@
         "supportsRequiredToolChoice": true,
         "supportsStopSequences": false,
         "stripProviderMetadata": true
-      },
-      "defaultCapabilities": {
-        "context": {
-          "windowTokens": 500000
-        }
       }
     },
     "local": {
@@ -138,6 +133,7 @@
       "apiKeyEnv": "AGENT_ROUTER_TOKEN",
       "models": [
         "glm-5.2",
+        "gpt-5.5",
         "claude-opus-4-6",
         "deepseek-v4-pro",
         "deepseek-v4-flash"
@@ -584,6 +580,57 @@
         "context": {
           "windowTokens": 500000
         }
+      }
+    },
+    "cavoti": {
+      "type": "openai-compatible",
+      "baseURL": "https://cavoti.com/v1",
+      "apiKeyEnv": "CAVOTI_API_KEY",
+      "models": [
+        "gpt-5.5"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
+    },
+    "navyai": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.navy/v1",
+      "apiKeyEnv": "NAVYAI_API_KEY",
+      "models": [
+        "glm-5.2"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
+    },
+    "babel": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.babel.town/v1",
+      "apiKeyEnv": "BABEL_API_KEY",
+      "models": [
+        "glm-5.2"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
       }
     }
   }

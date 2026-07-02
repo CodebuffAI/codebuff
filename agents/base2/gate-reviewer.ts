@@ -62,6 +62,61 @@ export function collectReviewerBlockers(toolResult: unknown): string[] {
     .filter((text) => hasReviewerLineVerdict(text, 'BLOCKING'))
 }
 
+/**
+ * Detects whether the reviewer agent itself crashed (returned an `errorMessage`
+ * field, threw, or otherwise produced no usable output) as opposed to running
+ * successfully but failing to emit a recognizable LOOKS_GOOD/NON_BLOCKING/
+ * BLOCKING verdict. The two cases warrant very different operator messages:
+ *   - crash    → "reviewer agent crashed; verdict cannot be trusted" (retry or escalate)
+ *   - no-verdict → "reviewer ran but didn't start with a verdict label" (re-prompt for format)
+ *
+ * Heuristic: walks the tool-result tree looking for any object that carries an
+ * `errorMessage` string or whose `type === 'error'`. Returns the first such
+ * message so callers can surface it verbatim. Returns `null` when the result
+ * looks like a normal (possibly malformed) reviewer reply.
+ */
+export function detectReviewerCrash(toolResult: unknown): string | null {
+  return findReviewerCrash(toolResult)
+}
+
+function findReviewerCrash(value: unknown, depth: number = 0): string | null {
+  // Depth cap: reviewer tool results can carry deeply nested tool-call trees
+  // (the reviewer itself may have invoked other tools). 8 is well past any
+  // realistic agent-result envelope but stops pathological recursion.
+  if (depth > 8) return null
+  if (!value) return null
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findReviewerCrash(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  if (typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  // NOTE: an unrelated nested `errorMessage` (e.g. a failed inner tool call
+  // the reviewer made) will also be classified as a reviewer-agent crash.
+  // This is acceptable because the caller only consults detectReviewerCrash
+  // when the reviewer also failed to emit a recognizable verdict — a
+  // reviewer whose inner tool call errored AND who produced no verdict is
+  // effectively crashed from the operator's perspective.
+  if (typeof record.errorMessage === 'string' && record.errorMessage.trim()) {
+    return record.errorMessage.trim()
+  }
+  if (record.type === 'error' && typeof record.message === 'string') {
+    return record.message.trim() || 'reviewer agent reported an unspecified error'
+  }
+  if (record.type === 'json' && 'value' in record) {
+    const nested = findReviewerCrash(record.value, depth + 1)
+    if (nested) return nested
+  }
+  for (const nested of Object.values(record)) {
+    const found = findReviewerCrash(nested, depth + 1)
+    if (found) return found
+  }
+  return null
+}
+
 export function getReviewerFinalizationVerdict(
   toolResult: unknown,
 ): ReviewerFinalizationVerdict {

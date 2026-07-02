@@ -1,3 +1,4 @@
+import { isPathInsideProject } from '@codebuff/common/util/project-path-containment'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import {
@@ -19,12 +20,35 @@ export const handleReadOutline = (async (
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
     requestOptionalFile: RequestOptionalFileFn
+    fileContext: import('@codebuff/common/util/file').ProjectFileContext
   },
 ): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
-  const { previousToolCallFinished, toolCall, requestOptionalFile } = params
+  const { previousToolCallFinished, toolCall, requestOptionalFile, fileContext } =
+    params
   const { path } = toolCall.input
 
   await previousToolCallFinished
+
+  // The schema promises `path` is "relative to the project root". Reject
+  // absolute paths and `..` traversal up front using the shared containment
+  // helper so the tool can't exfiltrate structure of files outside the
+  // project. The legacy "Error: File does not exist." message keeps the
+  // tool-call contract stable for the runtime.
+  //
+  // We use `fileContext.projectRoot` rather than `process.cwd()` because
+  // the runtime can be invoked from a different working directory than the
+  // project root (e.g. when run as a background worker, in a test harness,
+  // or when the CLI is launched from a parent repo). The agent session
+  // carries the canonical project root in `fileContext`, so the containment
+  // check stays anchored to that regardless of `process.cwd()`.
+  if (!isPathInsideProject(fileContext.projectRoot, path)) {
+    return {
+      output: jsonToolResult({
+        path,
+        outline: 'Error: File does not exist.',
+      }),
+    }
+  }
 
   const rawContent = await requestOptionalFile({ ...params, filePath: path })
   if (rawContent === null) {
@@ -107,6 +131,33 @@ function regexOutline(rawContent: string): string {
 
   let inCommentBlock = false
 
+  // Statements/keywords that look like method declarations to the loose
+  // `^\s*name(args)` regex but are actually control-flow / statement keywords.
+  // Expanded beyond the original {if, for, while, switch, catch} list because
+  // these previously appeared as bogus "method ..." entries in heuristic
+  // outlines, which the model then mistook for callable symbols.
+  const STATEMENT_DENYLIST = new Set([
+    'if',
+    'for',
+    'while',
+    'switch',
+    'catch',
+    'return',
+    'throw',
+    'new',
+    'do',
+    'try',
+    'else',
+    'yield',
+    'await',
+    'typeof',
+    'delete',
+    'void',
+    'in',
+    'of',
+    'with',
+  ])
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const trimmed = line.trim()
@@ -152,14 +203,20 @@ function regexOutline(rawContent: string): string {
       outlineLines.push(`Line ${i + 1}: function ${functionMatch[3]}(...)`)
     } else if (arrowFuncMatch) {
       outlineLines.push(`Line ${i + 1}: const ${arrowFuncMatch[2]} = (...) =>`)
-    } else if (
-      methodMatch &&
-      !['if', 'for', 'while', 'switch', 'catch'].includes(methodMatch[2])
-    ) {
+    } else if (methodMatch && !STATEMENT_DENYLIST.has(methodMatch[2])) {
       const indent = ' '.repeat(line.length - trimmed.length)
       outlineLines.push(`${indent}Line ${i + 1}: method ${methodMatch[2]}(...)`)
     }
   }
 
-  return outlineLines.join('\n') || '[No structural components found in this file]'
+  // Loud marker so the model knows this outline came from a brittle regex
+  // (no tree-sitter grammar available for the file). Tells it to verify any
+  // surfaced symbol against an actual ranged read before relying on it.
+  const HEURISTIC_WARNING =
+    '[heuristic outline: tree-sitter grammar unavailable for this file. Symbol kinds and line numbers may be approximate; verify before editing by reading the exact range with read_files.ranges.]'
+
+  if (outlineLines.length === 0) {
+    return `${HEURISTIC_WARNING}\n[No structural components found in this file]`
+  }
+  return `${HEURISTIC_WARNING}\n${outlineLines.join('\n')}`
 }

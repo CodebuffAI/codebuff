@@ -2,69 +2,26 @@ import { createPatch, diffLines } from 'diff'
 
 import { tryToDoStringReplacementWithExtraIndentation } from './generate-diffs-prompt'
 
-import { getContentHash, normalizeLineEndings } from '@codebuff/common/util/content-hash'
+import {
+  getContentHash,
+  normalizeLineEndings,
+  encodeReadCapabilityToken,
+  decodeReadCapabilityToken,
+  READ_CAPABILITY_TOKEN_PREFIX,
+  type ReplacementReadCapability,
+} from '@codebuff/common/util/content-hash'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Re-export so existing importers (structural-read, propose-* handlers, tests)
 // keep working from a single source of truth.
-export { getContentHash } from '@codebuff/common/util/content-hash'
-
-export type ReplacementReadCapability = {
-  startLine: number
-  endLine: number
-  hash: string
-}
-
-const READ_CAPABILITY_TOKEN_PREFIX = 'cap.'
-
-/**
- * Encodes a read capability as a single self-contained opaque token. The token
- * embeds {startLine, endLine, rangeHash} so the model only ever copies ONE
- * value from a read_files header instead of three coupled fields it could
- * mispair. read_files mints these tokens; str_replace decodes and re-validates
- * them statelessly against the current file (the hash is still the authority).
- */
-export function encodeReadCapabilityToken(params: {
-  startLine: number
-  endLine: number
-  hash: string
-}): string {
-  const { startLine, endLine, hash } = params
-  return (
-    READ_CAPABILITY_TOKEN_PREFIX +
-    Buffer.from(`${startLine}:${endLine}:${hash}`).toString('base64url')
-  )
-}
-
-function decodeReadCapabilityToken(
-  token: string,
-): ReplacementReadCapability | string {
-  if (!token.startsWith(READ_CAPABILITY_TOKEN_PREFIX)) {
-    return `Invalid basedOnRead: expected a read capability token ("${READ_CAPABILITY_TOKEN_PREFIX}..." from a read_files header) or a { startLine, endLine, hash } object, but received ${JSON.stringify(token)}.`
-  }
-  let decoded: string
-  try {
-    decoded = Buffer.from(
-      token.slice(READ_CAPABILITY_TOKEN_PREFIX.length),
-      'base64url',
-    ).toString('utf8')
-  } catch {
-    return `Invalid basedOnRead capability token: could not decode ${JSON.stringify(token)}. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-  }
-  const firstSep = decoded.indexOf(':')
-  const secondSep = decoded.indexOf(':', firstSep + 1)
-  if (firstSep === -1 || secondSep === -1) {
-    return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-  }
-  const startLine = Number(decoded.slice(0, firstSep))
-  const endLine = Number(decoded.slice(firstSep + 1, secondSep))
-  const hash = decoded.slice(secondSep + 1)
-  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || !hash) {
-    return `Invalid basedOnRead capability token: malformed payload. Re-read the target range with read_files and copy the readCapability from the fresh header.`
-  }
-  return { startLine, endLine, hash }
-}
+export {
+  getContentHash,
+  encodeReadCapabilityToken,
+  decodeReadCapabilityToken,
+  READ_CAPABILITY_TOKEN_PREFIX,
+  type ReplacementReadCapability,
+} from '@codebuff/common/util/content-hash'
 
 /**
  * Normalizes a supplied basedOnRead into a concrete capability object. Accepts
@@ -1584,9 +1541,10 @@ const tryMatchOldStr = (params: {
       success: true,
       oldStr: nearMatch.oldStr,
       message: [
-        `Note: auto-corrected a near-match edit (${Math.round(nearMatch.similarity * 100)}% similar) at lines ${nearMatch.startLine}-${nearMatch.endLine}.`,
-        'Your oldString did not match exactly, but exactly one high-confidence block matched, so it was edited there.',
-        'If this is the wrong location, re-read the exact range with read_files and resend a precise oldString.',
+        `⚠ WARNING: auto-corrected a near-match edit (${Math.round(nearMatch.similarity * 100)}% similar) at lines ${nearMatch.startLine}-${nearMatch.endLine}.`,
+        `Your oldString did not exactly match the file. The closest unique block at lines ${nearMatch.startLine}-${nearMatch.endLine} was edited as a best-effort recovery, but this is INHERENTLY RISKY — the edit may have landed in the wrong place, or written subtly-wrong content (whitespace, quote style, missing comments).`,
+        `Required next step: VERIFY the result. Re-read lines ${nearMatch.startLine}-${nearMatch.endLine} with read_files.ranges to confirm the change is correct. If it is wrong, revert/fix it before continuing.`,
+        'To avoid this in future edits: copy oldString verbatim from a fresh read_files output (including exact indentation, quotes, and comments), or pass a basedOnRead capability so the matcher can anchor to the exact range.',
       ].join('\n'),
     }
   }

@@ -4,6 +4,7 @@ import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
+import { resolveFilePathWithinProject } from './path-utils'
 import { parseSafeRipgrepFlags } from './find-files-matching-content'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
@@ -43,6 +44,7 @@ export function codeSearch({
   maxOutputStringLength = 20_000,
   timeoutSeconds = 10,
   logger,
+  signal,
 }: {
   projectPath: string
   pattern: string
@@ -53,24 +55,41 @@ export function codeSearch({
   maxOutputStringLength?: number
   timeoutSeconds?: number
   logger?: Logger
+  /** Optional abort signal. When aborted, the ripgrep child is SIGTERMed
+   *  and the promise resolves with an `{ errorMessage }` result (the
+   *  same shape used for every other code_search error, so the agent's
+   *  tool-result-handling pipeline doesn't need a special case). If the
+   *  signal is already aborted when called, the function short-circuits
+   *  without spawning a child. */
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
 
-    // Guard paths robustly
+    // Guard paths robustly. Use the shared realpath-aware containment helper
+    // so an in-project symlink that points outside the project root is also
+    // rejected (lexical `startsWith` alone would let it through). The helper
+    // returns null for the project root itself (empty relative path), so
+    // accept that case explicitly before delegating.
     const projectRoot = path.resolve(projectPath)
-    const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
-
-    // Ensure the resolved path is within the project directory
-    if (
-      !searchCwd.startsWith(projectRoot + path.sep) &&
-      searchCwd !== projectRoot
-    ) {
+    const searchCwd = (() => {
+      const requested = cwd ?? '.'
+      const resolvedFull = path.isAbsolute(requested)
+        ? path.resolve(requested)
+        : path.resolve(projectRoot, requested)
+      // Fast allow: cwd is the project root itself.
+      if (resolvedFull === projectRoot) {
+        return projectRoot
+      }
+      const resolved = resolveFilePathWithinProject(projectRoot, requested)
+      return resolved?.fullPath ?? null
+    })()
+    if (searchCwd === null) {
       return resolve([
         {
           type: 'json',
           value: {
-            errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
+            errorMessage: `Invalid cwd: Path '${cwd ?? '.'}' is outside the project directory.`,
           },
         },
       ])
@@ -135,10 +154,62 @@ export function codeSearch({
         'code-search: Spawning ripgrep process',
       )
     }
+
+    // Short-circuit on already-aborted signal — don't waste a ripgrep spawn.
+    if (signal?.aborted) {
+      const reason = signal.reason
+      if (reason instanceof Error) {
+        return resolve([
+          {
+            type: 'json',
+            value: { errorMessage: reason.message },
+          },
+        ])
+      }
+      return resolve([
+        {
+          type: 'json',
+          value: { errorMessage: 'Aborted' },
+        },
+      ])
+    }
+
     const childProcess = spawn(rgPath, args, {
       cwd: searchCwd,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
+
+    // Honor an external AbortSignal: SIGTERM ripgrep on abort so the run
+    // can cancel long-running searches. The promise rejects with the
+    // signal's reason (or a generic `AbortError`) instead of resolving
+    // with partial results.
+    if (signal) {
+      const onAbort = () => {
+        if (isResolved) return
+        isResolved = true
+        childProcess.kill('SIGTERM')
+        const reason = signal.reason
+        if (reason instanceof Error) {
+          resolve([
+            {
+              type: 'json',
+              value: { errorMessage: reason.message },
+            },
+          ])
+        } else {
+          resolve([
+            {
+              type: 'json',
+              value: { errorMessage: 'Aborted' },
+            },
+          ])
+        }
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      childProcess.once('close', () => {
+        signal.removeEventListener('abort', onAbort)
+      })
+    }
 
     let jsonRemainder = ''
     let stderrBuf = ''

@@ -247,6 +247,11 @@ export async function extractSlices(
  * Heuristic single-symbol slicer used only when tree-sitter cannot provide a
  * range. Returns a 1-indexed inclusive line span or null. Brace-based for
  * C-family languages, indentation-based for Python.
+ *
+ * Brace counting is done over a string/comment-stripped projection so braces
+ * inside `"…{ }…"`, `'…'`, template literals, `/* … *\/`, and `// …` comments
+ * do not skew the count. Without this, code like `console.log("}")` or block
+ * comments containing `{` could close the symbol body early (or never).
  */
 function regexSlice(
   rawContent: string,
@@ -298,10 +303,15 @@ function regexSlice(
       endLine = j
     }
   } else {
+    // Project each line onto a brace-only view by stripping strings, template
+    // literals, and comments so quoted/commented braces don't move the count.
     let braceCount = 0
     let foundBrace = false
+    let inBlockComment = false
     for (let j = startLine; j < lines.length; j++) {
-      for (const char of lines[j]) {
+      const stripped = stripStringsAndComments(lines[j], inBlockComment)
+      inBlockComment = stripped.endedInBlockComment
+      for (const char of stripped.text) {
         if (char === '{') {
           braceCount++
           foundBrace = true
@@ -315,4 +325,69 @@ function regexSlice(
   }
 
   return { startLine: startLine + 1, endLine: endLine + 1 }
+}
+
+/**
+ * Project a source line onto a string/comment-free view used for brace
+ * counting in `regexSlice`. Tracks whether the line ends still inside a
+ * `/* … *\/` block comment so the caller can carry that state forward.
+ *
+ * Handled lexical contexts:
+ *  - double-quoted strings (with `\"` escape)
+ *  - single-quoted strings (with `\'` escape)
+ *  - template literals (backtick, with `\`` escape; does NOT recurse into
+ *    `${…}` interpolations, which is a conservative approximation but still
+ *    drops the literal text correctly)
+ *  - line comments `// …` (rest of line is dropped)
+ *  - block comments `/* … *\/` (across lines via `startsInBlockComment`)
+ */
+function stripStringsAndComments(
+  line: string,
+  startsInBlockComment: boolean,
+): { text: string; endedInBlockComment: boolean } {
+  let out = ''
+  let inBlock = startsInBlockComment
+  let i = 0
+  while (i < line.length) {
+    if (inBlock) {
+      const close = line.indexOf('*/', i)
+      if (close === -1) {
+        return { text: out, endedInBlockComment: true }
+      }
+      i = close + 2
+      inBlock = false
+      continue
+    }
+    const ch = line[i]
+    const next = line[i + 1]
+    if (ch === '/' && next === '*') {
+      inBlock = true
+      i += 2
+      continue
+    }
+    if (ch === '/' && next === '/') {
+      // Rest of line is a comment.
+      return { text: out, endedInBlockComment: false }
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch
+      i++
+      while (i < line.length) {
+        const c = line[i]
+        if (c === '\\') {
+          i += 2
+          continue
+        }
+        if (c === quote) {
+          i++
+          break
+        }
+        i++
+      }
+      continue
+    }
+    out += ch
+    i++
+  }
+  return { text: out, endedInBlockComment: inBlock }
 }

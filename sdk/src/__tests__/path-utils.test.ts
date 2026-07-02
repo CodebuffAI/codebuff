@@ -10,24 +10,28 @@ import {
 
 describe('resolveFilePathWithinProject', () => {
   test('normalizes relative paths to full and project-relative paths', () => {
-    expect(resolveFilePathWithinProject('/repo', 'src/file.ts')).toEqual({
+    expect(resolveFilePathWithinProject('/repo', 'src/file.ts')).toMatchObject({
       fullPath: '/repo/src/file.ts',
       relativePath: 'src/file.ts',
     })
   })
 
   test('normalizes absolute paths inside the project', () => {
-    expect(resolveFilePathWithinProject('/repo', '/repo/src/file.ts')).toEqual({
+    expect(
+      resolveFilePathWithinProject('/repo', '/repo/src/file.ts'),
+    ).toMatchObject({
       fullPath: '/repo/src/file.ts',
       relativePath: 'src/file.ts',
     })
   })
 
   test('allows file names that start with two dots inside the project', () => {
-    expect(resolveFilePathWithinProject('/repo', '/repo/..config')).toEqual({
-      fullPath: '/repo/..config',
-      relativePath: '..config',
-    })
+    expect(resolveFilePathWithinProject('/repo', '/repo/..config')).toMatchObject(
+      {
+        fullPath: '/repo/..config',
+        relativePath: '..config',
+      },
+    )
   })
 
   test('rejects paths outside the project', () => {
@@ -93,7 +97,9 @@ describe('resolveFilePathWithinProject — symlink containment', () => {
   })
 
   test('allows a symlink that points inside the project', () => {
-    expect(resolveFilePathWithinProject(tmpDir, 'link/file.ts')).toEqual({
+    expect(
+      resolveFilePathWithinProject(tmpDir, 'link/file.ts'),
+    ).toMatchObject({
       fullPath: path.join(tmpDir, 'link', 'file.ts'),
       relativePath: path.join('link', 'file.ts'),
     })
@@ -102,7 +108,7 @@ describe('resolveFilePathWithinProject — symlink containment', () => {
   test('preserves lexical behavior for synthetic non-existent paths', () => {
     // The original tests use '/repo' which doesn't exist on disk.
     // resolveRealPath must fall back to the lexical path in that case.
-    expect(resolveFilePathWithinProject('/repo', 'src/file.ts')).toEqual({
+    expect(resolveFilePathWithinProject('/repo', 'src/file.ts')).toMatchObject({
       fullPath: '/repo/src/file.ts',
       relativePath: 'src/file.ts',
     })

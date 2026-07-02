@@ -1120,22 +1120,52 @@ ${securityReviewSection}
           reviewerFinalizationVerdict =
             getReviewerFinalizationVerdict(reviewerToolResult)
           if (!reviewerFinalizationVerdict) {
-            activeWorkState.nextRequiredAction =
-              'Clarify or resolve the reviewer gate result; reviewer did not return LOOKS_GOOD or NON_BLOCKING.'
+            // Distinguish a reviewer CRASH (agent itself errored / produced no
+            // output) from a reviewer that ran successfully but failed to
+            // begin its reply with LOOKS_GOOD/NON_BLOCKING/BLOCKING. The
+            // operator-facing message differs because the recovery action
+            // differs: a crash means "retry or escalate; the verdict is
+            // unknown" whereas a no-verdict means "re-prompt for the
+            // contract; the reviewer ran fine, it just used the wrong
+            // format". Conflating them caused reviewer-loop bugs where the
+            // model kept retrying the same prompt against a crashing agent.
+            const reviewerCrash = detectReviewerCrash(reviewerToolResult)
             activeWorkState.currentPhase = 'blocked'
-            markActiveWorkStateChanged()
-            yield {
-              toolName: 'add_message',
-              input: {
-                role: 'user',
-                content: [
-                  `Reviewer gate: ${reviewerAgentType} did not return LOOKS_GOOD or NON_BLOCKING. Resolve or clarify before ending your turn:`,
-                  '',
-                  'The reviewer must start with LOOKS_GOOD, BLOCKING, or NON_BLOCKING.',
-                ].join('\n'),
-              },
-              includeToolCall: false,
-            } as any
+            if (reviewerCrash) {
+              activeWorkState.nextRequiredAction =
+                'Reviewer agent crashed; do NOT retry the same prompt blindly. Either retry once, escalate to a different reviewer, or proceed without the reviewer gate after recording the crash in STATUS.md.'
+              markActiveWorkStateChanged()
+              yield {
+                toolName: 'add_message',
+                input: {
+                  role: 'user',
+                  content: [
+                    `Reviewer gate: ${reviewerAgentType} CRASHED (no usable verdict). The reviewer agent itself errored; its output cannot be trusted.`,
+                    '',
+                    `Crash detail: ${reviewerCrash}`,
+                    '',
+                    'Recovery: retry the reviewer once if the error looks transient (network/timeout). If it recurs, switch to a different reviewer agent or proceed without the reviewer gate and record the crash in STATUS.md. Do not silently loop on the same crashing prompt.',
+                  ].join('\n'),
+                },
+                includeToolCall: false,
+              } as any
+            } else {
+              activeWorkState.nextRequiredAction =
+                'Clarify or resolve the reviewer gate result; reviewer did not return LOOKS_GOOD or NON_BLOCKING.'
+              markActiveWorkStateChanged()
+              yield {
+                toolName: 'add_message',
+                input: {
+                  role: 'user',
+                  content: [
+                    `Reviewer gate: ${reviewerAgentType} ran but did not start with LOOKS_GOOD, NON_BLOCKING, or BLOCKING. Resolve or clarify before ending your turn:`,
+                    '',
+                    'The reviewer must begin its reply with one of those labels (text mode) or emit a {"verdict": ...} JSON object. Re-spawn the reviewer with that contract reminder.',
+                  ].join('\n'),
+                },
+                includeToolCall: false,
+              } as any
+            }
             continue
           }
         }
@@ -2221,6 +2251,49 @@ ${securityReviewSection}
         return texts
           .map((text) => stripReviewerPreamble(text))
           .filter((text) => hasReviewerLineVerdict(text, 'BLOCKING'))
+      }
+
+      // Distinguishes reviewer-agent crashes (errorMessage / type === 'error')
+      // from a reviewer that ran but emitted no recognizable verdict. Inline
+      // mirror of detectReviewerCrash in agents/base2/gate-reviewer.ts.
+      function detectReviewerCrash(toolResult: unknown): string | null {
+        return findReviewerCrash(toolResult)
+      }
+      function findReviewerCrash(value: unknown, depth: number = 0): string | null {
+        // Depth cap (matches gate-reviewer.ts): reviewer tool results can
+        // carry deeply nested tool-call trees; 8 is well past any realistic
+        // envelope but stops pathological recursion.
+        if (depth > 8) return null
+        if (!value) return null
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const found = findReviewerCrash(item, depth + 1)
+            if (found) return found
+          }
+          return null
+        }
+        if (typeof value !== 'object') return null
+        const record = value as Record<string, unknown>
+        // NOTE: nested errorMessage from an inner tool call the reviewer made
+        // will also classify as a reviewer crash. Acceptable because callers
+        // only consult this when no verdict was emitted — a reviewer whose
+        // inner tool errored AND who produced no verdict is effectively
+        // crashed from the operator's perspective.
+        if (typeof record.errorMessage === 'string' && record.errorMessage.trim()) {
+          return record.errorMessage.trim()
+        }
+        if (record.type === 'error' && typeof record.message === 'string') {
+          return record.message.trim() || 'reviewer agent reported an unspecified error'
+        }
+        if (record.type === 'json' && 'value' in record) {
+          const nested = findReviewerCrash((record as any).value, depth + 1)
+          if (nested) return nested
+        }
+        for (const nested of Object.values(record)) {
+          const found = findReviewerCrash(nested, depth + 1)
+          if (found) return found
+        }
+        return null
       }
 
       function getReviewerFinalizationVerdict(

@@ -455,6 +455,7 @@ async function runOnce({
         cwd,
         fs,
         env,
+        signal,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -704,6 +705,7 @@ async function handleToolCall({
   fs,
   env,
   onFilesChanged,
+  signal,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<OpenbuffClientOptions['overrideTools']>
@@ -712,6 +714,7 @@ async function handleToolCall({
   fs: CodebuffFileSystem
   env?: Record<string, string>
   onFilesChanged?: () => void
+  signal?: AbortSignal
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -830,6 +833,7 @@ async function handleToolCall({
         ...terminalInput,
         cwd: path.resolve(resolvedCwd, terminalInput.cwd ?? '.'),
         env,
+        signal,
       })
     } else if (toolName === 'read_image') {
       result = await readImages({
@@ -847,6 +851,7 @@ async function handleToolCall({
       result = await codeSearch({
         ...codeSearchInput,
         projectPath: requireCwd(cwd, 'code_search'),
+        signal,
       })
     } else if (toolName === 'find_files_matching_content') {
       const findFilesInput = input as Omit<

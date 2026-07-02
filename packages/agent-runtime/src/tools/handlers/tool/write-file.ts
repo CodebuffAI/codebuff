@@ -156,6 +156,20 @@ export const handleWriteFile = (async (
   const { basedOnRead } = toolCall.input
   const hasBasedOnRead = Boolean(basedOnRead)
 
+  if (!path) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            file: toolCall.input.path,
+            errorMessage: `write_file path traversal blocked: "${toolCall.input.path}" resolves outside the project root.`,
+          },
+        },
+      ],
+    }
+  }
+
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
   const fileProcessingPromises = fileProcessingState.allPromises
 

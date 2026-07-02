@@ -4,6 +4,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   collectReviewerBlockers,
+  detectReviewerCrash,
   getReviewerFinalizationVerdict,
   stripReviewerPreamble,
 } from '../base2/gate-reviewer'
@@ -16,6 +17,7 @@ type GateReviewerHelpers = {
   getReviewerFinalizationVerdict: (
     toolResult: unknown,
   ) => ReviewerFinalizationVerdict
+  detectReviewerCrash: (toolResult: unknown) => string | null
 }
 
 type GateReviewerFunctionName = keyof GateReviewerHelpers
@@ -25,6 +27,7 @@ const INLINE_HELPER_NAMES: GateReviewerFunctionName[] = [
   'stripReviewerPreamble',
   'collectReviewerBlockers',
   'getReviewerFinalizationVerdict',
+  'detectReviewerCrash',
 ]
 
 const INLINE_DEPENDENCY_NAMES = [
@@ -32,6 +35,7 @@ const INLINE_DEPENDENCY_NAMES = [
   'visitForStructuredVerdict',
   'hasReviewerLineVerdict',
   'collectStrings',
+  'findReviewerCrash',
 ] as const
 
 function extractInlineFunctionSource(
@@ -77,7 +81,7 @@ function loadInlineGateReviewerHelpers(): GateReviewerHelpers {
     )
     .join('\n\n')
   const buildHelpers = new Function(
-    `"use strict";\n${helperSource}\nreturn { stripReviewerPreamble, collectReviewerBlockers, getReviewerFinalizationVerdict }`,
+    `"use strict";\n${helperSource}\nreturn { stripReviewerPreamble, collectReviewerBlockers, getReviewerFinalizationVerdict, detectReviewerCrash }`,
   ) as InlineHelperFactory
 
   return buildHelpers()
@@ -215,6 +219,48 @@ describe('gate-reviewer helpers', () => {
     ).toBe('NON_BLOCKING')
   })
 
+  test('detectReviewerCrash identifies errorMessage / type:error / json-wrapped crashes and ignores normal results', () => {
+    expect(detectReviewerCrash({ errorMessage: '  spawn failed  ' })).toBe(
+      'spawn failed',
+    )
+    expect(
+      detectReviewerCrash({ type: 'error', message: '  boom  ' }),
+    ).toBe('boom')
+    expect(detectReviewerCrash({ type: 'error', message: '' })).toBe(
+      'reviewer agent reported an unspecified error',
+    )
+    expect(
+      detectReviewerCrash({
+        type: 'json',
+        value: [{ nested: { errorMessage: 'inner crash' } }],
+      }),
+    ).toBe('inner crash')
+    // Deeply nested but within the depth cap.
+    expect(
+      detectReviewerCrash({
+        a: { b: { c: { d: { e: { errorMessage: 'deep' } } } } },
+      }),
+    ).toBe('deep')
+    // Normal reviewer outputs (string, structured verdict, null, empty) → null.
+    expect(detectReviewerCrash('LOOKS_GOOD: ok')).toBeNull()
+    expect(
+      detectReviewerCrash({
+        type: 'json',
+        value: [{ verdict: 'BLOCKING', findings: ['x'] }],
+      }),
+    ).toBeNull()
+    expect(detectReviewerCrash(null)).toBeNull()
+    expect(detectReviewerCrash({})).toBeNull()
+    expect(detectReviewerCrash({ errorMessage: '   ' })).toBeNull()
+  })
+
+  test('detectReviewerCrash respects depth cap to avoid pathological recursion', () => {
+    // Build a chain deeper than the cap (8). At depth >8, nested crash is ignored.
+    let deep: any = { errorMessage: 'unreachable' }
+    for (let i = 0; i < 12; i += 1) deep = { next: deep }
+    expect(detectReviewerCrash(deep)).toBeNull()
+  })
+
   test('exported helpers match inline base2 mirror behavior', () => {
     const inlineHelpers = loadInlineGateReviewerHelpers()
 
@@ -266,12 +312,27 @@ describe('gate-reviewer helpers', () => {
       null,
     ]
 
-    for (const toolResult of toolResults) {
+    const crashResults: unknown[] = [
+      { errorMessage: 'spawn failed' },
+      { type: 'error', message: 'boom' },
+      { type: 'error', message: '' },
+      { type: 'json', value: [{ nested: { errorMessage: 'inner crash' } }] },
+      'LOOKS_GOOD: ok',
+      { type: 'json', value: [{ verdict: 'BLOCKING', findings: ['x'] }] },
+      null,
+      {},
+      { errorMessage: '   ' },
+    ]
+
+    for (const toolResult of [...toolResults, ...crashResults]) {
       expect(inlineHelpers.collectReviewerBlockers(toolResult)).toEqual(
         collectReviewerBlockers(toolResult),
       )
       expect(inlineHelpers.getReviewerFinalizationVerdict(toolResult)).toBe(
         getReviewerFinalizationVerdict(toolResult),
+      )
+      expect(inlineHelpers.detectReviewerCrash(toolResult)).toBe(
+        detectReviewerCrash(toolResult),
       )
     }
   })

@@ -5,25 +5,6 @@
     "exclude": [],
     "semantic": {
       "enabled": false
-    },
-    "weights": {
-      "lexical": {
-        "symbol": 2.5,
-        "heading": 2,
-        "concept": 1.5,
-        "import": 1.2,
-        "fileName": 1,
-        "path": 0.6
-      },
-      "graph": {
-        "defines": 3,
-        "imports": 2.5,
-        "references": 1.5,
-        "containsHeading": 1,
-        "mentions": 0.8,
-        "calls": 2
-      },
-      "semanticBlend": 0.6
     }
   }
 }

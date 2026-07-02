@@ -19,7 +19,8 @@ export async function getFileReadingUpdates(params: {
 
   const allFilePaths = uniq(requestedFiles)
   const rangePaths = (ranges ?? []).map((r) => r.path)
-  const loadedFiles = await requestFiles({ filePaths: allFilePaths, ranges })
+  const requestPaths = uniq([...allFilePaths, ...rangePaths])
+  const loadedFiles = await requestFiles({ filePaths: requestPaths, ranges })
 
   // Include both whole-file reads and ranged reads in the output, deduped by
   // path. Ranged reads share the same result key as whole-file reads, so a
