@@ -175,10 +175,15 @@ export async function runProgrammaticStep(
       error: createLogMethod('error'),
     }
 
+    // Prefer the live function when present: the stringified form of a
+    // bundled function can reference out-of-scope bundler helpers (esbuild
+    // keepNames' `__name`, minified to a bare identifier), which makes the
+    // eval'd generator throw ReferenceError on its first step.
     const generatorFn =
-      typeof template.handleSteps === 'string'
+      template.handleStepsFn ??
+      (typeof template.handleSteps === 'string'
         ? deserializeHandleSteps(template.handleSteps)
-        : template.handleSteps
+        : template.handleSteps)
 
     // Initialize native generator
     generator = generatorFn({
@@ -354,9 +359,19 @@ export async function runProgrammaticStep(
   } catch (error) {
     endTurn = true
 
+    // A ReferenceError from an eval'd handleSteps string almost always means
+    // the source was serialized from a bundled/minified function and
+    // references an out-of-scope bundler helper. Call it out so the failure
+    // is diagnosable from the message alone.
+    const minifiedSourceHint =
+      error instanceof ReferenceError &&
+      !template.handleStepsFn &&
+      typeof template.handleSteps === 'string'
+        ? ' (handleSteps was deserialized from a string that references an out-of-scope identifier — likely a minified bundle serialized the function; ship the live function or unminified source)'
+        : ''
     const errorMessage = `Error executing handleSteps for agent ${template.id}: ${
       error instanceof Error ? error.message : 'Unknown error'
-    }`
+    }${minifiedSourceHint}`
     logger.error(
       { error: getErrorObject(error), template: template.id },
       errorMessage,

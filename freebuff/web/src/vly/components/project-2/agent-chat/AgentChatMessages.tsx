@@ -828,21 +828,58 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
   return false
 }
 
+// One row inside an expanded activity group. Rich items (subagent output,
+// tool results, errors) stay independently expandable via
+// <AssistantStreamItem>; reasoning shows its full text inline as faded prose;
+// simple status rows render as a single faded label line, so the expanded
+// view reads as a timeline of everything that happened during the run.
+const ActivityDetailRow: React.FC<{ item: AssistantStreamItemType }> = ({
+  item,
+}) => {
+  if (item.type === 'reasoning' || item.type === 'thinking') {
+    const content = (item.content ?? '').trim()
+    return (
+      <div>
+        <div className="text-[11px] font-medium text-muted-foreground/80">
+          Reasoning
+        </div>
+        {content && (
+          <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/70">
+            {content}
+          </p>
+        )}
+      </div>
+    )
+  }
+  if (isDetailedActivityItem(item)) {
+    return <AssistantStreamItem item={item} />
+  }
+  return (
+    <div className="text-xs text-muted-foreground/70">
+      {getActivityItemLabel(item)}
+    </div>
+  )
+}
+
+/** Tail of a streaming reasoning blob, sized for a compact live preview. */
+const LIVE_REASONING_TAIL_CHARS = 500
+
 // One collapsible group rendering a consecutive run of non-text stream items.
 // Collapsed by default; shows a compact status icon, a one-line summary, and a
-// chevron. When expanded, falls back to <AssistantStreamItem> per child so
-// individual entries remain independently expandable.
+// chevron. Expanding lists every step on its own faded line (reasoning in
+// full, rich outputs still independently expandable). While the run is
+// actively reasoning, the streamed reasoning tail shows live under the
+// summary without needing a click.
 const ActivityGroup: React.FC<{
   items: AssistantStreamItemType[]
   isStreaming?: boolean
-}> = ({ items, isStreaming = false }) => {
+  /** Whether this is the newest group of the streaming message (the one
+   * currently receiving deltas) — enables the live reasoning preview. */
+  isLastGroup?: boolean
+}> = ({ items, isStreaming = false, isLastGroup = false }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const summary = useMemo(() => buildActivitySummary(items), [items])
-  const detailedItems = useMemo(
-    () => items.filter(isDetailedActivityItem),
-    [items],
-  )
-  const hasDetails = detailedItems.length > 0
+  const hasDetails = items.length > 0
   const hasError = items.some((item) => item.type === 'error')
   const usesTools = items.some(
     (item) => item.type === 'tool_use' || item.type === 'tool_result',
@@ -850,6 +887,22 @@ const ActivityGroup: React.FC<{
   // Only surface an icon for meaningful states (errors / tool runs). The
   // generic clock icon was noisy, so it's intentionally omitted.
   const Icon = hasError ? TriangleAlert : usesTools ? Wrench : null
+
+  // Live reasoning preview: when the newest streamed item of the active run
+  // is reasoning, show its tail (the freshest text) inline. Hidden once the
+  // group is expanded — the full text is in the timeline there.
+  const liveReasoningTail = useMemo(() => {
+    if (!isStreaming || !isLastGroup || isExpanded) return ''
+    const last = items[items.length - 1]
+    if (!last || (last.type !== 'reasoning' && last.type !== 'thinking')) {
+      return ''
+    }
+    const content = (last.content ?? '').trim()
+    if (!content) return ''
+    return content.length > LIVE_REASONING_TAIL_CHARS
+      ? `…${content.slice(-LIVE_REASONING_TAIL_CHARS)}`
+      : content
+  }, [isStreaming, isLastGroup, isExpanded, items])
 
   return (
     <div>
@@ -881,11 +934,16 @@ const ActivityGroup: React.FC<{
             />
           )}
         </CollapsibleTrigger>
+        {liveReasoningTail && (
+          <p className="ml-1 mt-1 whitespace-pre-wrap border-l-2 border-border/60 pl-3 text-xs leading-relaxed text-muted-foreground/60">
+            {liveReasoningTail}
+          </p>
+        )}
         {hasDetails && (
           <CollapsibleContent>
-            <div className="ml-1 mt-2 space-y-2 border-l-2 border-border/60 pl-3 opacity-45">
-              {detailedItems.map((item, index) => (
-                <AssistantStreamItem key={index} item={item} />
+            <div className="ml-1 mt-2 space-y-2 border-l-2 border-border/60 pl-3">
+              {items.map((item, index) => (
+                <ActivityDetailRow key={index} item={item} />
               ))}
             </div>
           </CollapsibleContent>
@@ -1292,6 +1350,9 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
                 key={index}
                 items={group.items}
                 isStreaming={isStreaming}
+                isLastGroup={
+                  index === renderedAssistantStreamGroups.length - 1
+                }
               />
             ),
           )}
@@ -1314,7 +1375,9 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
         <TimeLimitContinuePanel onContinue={onContinueAfterTimeout} />
       )}
 
-      {/* Inline error card for failed runs */}
+      {/* Inline error card for failed runs. Always explain *something*: a
+          failed run with no state_message previously showed a bare title,
+          which is exactly the "it stopped and I can't tell why" complaint. */}
       {message.state === 'Error' && (
         <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-3">
           <div className="flex items-start gap-2.5">
@@ -1323,11 +1386,40 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
               <div className="text-sm font-medium text-foreground">
                 This run failed
               </div>
-              {message.state_message && (
-                <div className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground">
-                  {message.state_message}
-                </div>
+              <div className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground">
+                {message.state_message ||
+                  'The agent stopped unexpectedly without reporting a reason. Retrying usually resumes from the last checkpoint.'}
+              </div>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <Undo className="h-3 w-3" />
+                  Retry
+                </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancelled runs that aren't the 10-minute time limit (that case shows
+          the continue panel above) previously rendered nothing — the message
+          just stopped silently. Say the run was stopped and why, if known. */}
+      {String(message.state) === 'Cancelled' && !isPromptTimeLimit && (
+        <div className="mt-3 rounded-lg border border-border bg-muted/40 px-3.5 py-3">
+          <div className="flex items-start gap-2.5">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-foreground">
+                This run was stopped before it finished
+              </div>
+              <div className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground">
+                {message.state_message ||
+                  'The run was cancelled — either manually or because the server ended it. Send a new message to continue.'}
+              </div>
               {onRetry && (
                 <button
                   type="button"

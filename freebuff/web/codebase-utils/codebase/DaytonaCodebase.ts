@@ -3590,6 +3590,26 @@ const DISK_PRESSURE_HINT =
   "Your cloud VM ran out of storage (this usually happens after installing large dependencies). " +
   "Free up space (e.g. clear node_modules / build caches) or increase the VM storage to keep building.";
 
+/** Stable marker for the "sandbox missing from every configured server" throw. */
+const SANDBOX_NOT_FOUND_PREFIX = "[SandboxNotFound]";
+
+/**
+ * Does this error mean the sandbox simply doesn't exist on the Daytona server
+ * we're pointed at? This is permanent (not transient), so callers must fail
+ * fast rather than retry with backoff.
+ */
+function isSandboxNotFoundError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes(SANDBOX_NOT_FOUND_PREFIX.toLowerCase()) ||
+    m.includes("not found on any configured daytona server") ||
+    // Daytona REST 404 for a sandbox id/name.
+    (m.includes("not found") &&
+      (m.includes("sandbox") || m.includes("workspace")))
+  );
+}
+
 async function openDaytonaSandboxWithRetry(
   sandboxId: string,
   daytonaServer: DaytonaServer = "legacy",
@@ -3619,7 +3639,9 @@ async function openDaytonaSandboxWithRetry(
       }
 
       if (!sandbox || !sdk) {
-        throw new Error(`Sandbox ${sandboxId} not found in any Daytona server`);
+        throw new Error(
+          `${SANDBOX_NOT_FOUND_PREFIX} ${sandboxId} not found on any configured Daytona server`,
+        );
       }
 
       if (sandbox.state === "error") {
@@ -3725,6 +3747,21 @@ async function openDaytonaSandboxWithRetry(
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       lastError = error as Error;
+
+      // A sandbox that doesn't exist on any configured server is a permanent
+      // failure, not a transient one. Retrying with exponential backoff up to
+      // maxRetries burns ~17 min while the UI spins "waiting to boot" — fail
+      // fast with an actionable message instead. This happens when a sandbox
+      // was created on a Daytona server the deployment no longer points to
+      // (e.g. mid-migration key/URL switch).
+      if (isSandboxNotFoundError(errorMessage)) {
+        throw new Error(
+          `Sandbox ${sandboxId} was not found on the current Daytona server. ` +
+            `It may have been created on a different server (check DAYTONA_API_KEY / ` +
+            `DAYTONA_API_URL config) or deleted.`,
+        );
+      }
+
       retryCount++;
 
       if (isDiskPressureFailure(errorMessage)) {

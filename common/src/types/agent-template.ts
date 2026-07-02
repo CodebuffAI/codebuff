@@ -137,6 +137,14 @@ export type AgentTemplate<
   outputSchema?: z.ZodSchema<any>
 
   handleSteps?: StepHandler<P, T> | string // Function or string of the generator code for running in a sandbox
+  /**
+   * Live copy of handleSteps kept alongside the serialized string. The string
+   * form of a bundled function can reference out-of-scope bundler helpers
+   * (esbuild keepNames injects `__name(...)`, minified to a bare identifier),
+   * which breaks the eval path. When the runtime is in-process, prefer this
+   * function. Dropped automatically by JSON serialization (resume blobs, DB).
+   */
+  handleStepsFn?: StepHandler<P, T>
 }
 
 export type StepText = { type: 'STEP_TEXT'; text: string }

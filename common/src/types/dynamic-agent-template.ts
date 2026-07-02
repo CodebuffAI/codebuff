@@ -212,6 +212,13 @@ export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
   instructionsPrompt: z.string(),
   stepPrompt: z.string(),
   handleSteps: z.string().optional(), // Converted to string after processing
+  // Live copy of handleSteps preserved for in-process execution (the string
+  // form of a bundled/minified function may not survive an eval round-trip).
+  // Never serialized: JSON.stringify drops function values. Typed loosely so
+  // the zod-inferred signature doesn't fight the StepHandler type.
+  handleStepsFn: z
+    .custom<(...args: any[]) => any>((v) => typeof v === 'function')
+    .optional(),
 })
   .refine(
     (data) => {

@@ -13,6 +13,9 @@ import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-
 export type LoadedAgentDefinition = AgentDefinition & {
   /** The file path this agent was loaded from */
   _sourceFilePath: string
+  /** Live copy of handleSteps kept alongside its stringified form (see
+   * processedAgentDefinition below). */
+  handleStepsFn?: AgentDefinition['handleSteps']
 }
 
 /**
@@ -249,6 +252,11 @@ export async function loadLocalAgents({
         _sourceFilePath: fullPath,
       }
       if (agentDefinition.handleSteps) {
+        if (typeof agentDefinition.handleSteps === 'function') {
+          // Keep the live function: the stringified form of a bundled function
+          // can reference out-of-scope bundler helpers and fail eval later.
+          processedAgentDefinition.handleStepsFn = agentDefinition.handleSteps
+        }
         processedAgentDefinition.handleSteps =
           agentDefinition.handleSteps.toString()
       }

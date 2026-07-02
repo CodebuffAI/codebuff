@@ -30,6 +30,18 @@ import { toast } from 'sonner'
 /** Disk usage at/above this percent shows the "almost full" warning + upgrade. */
 const DISK_WARNING_THRESHOLD = 80
 
+/**
+ * Friendly size label derived from the VM's real provisioned RAM. Thresholds
+ * account for cgroup limits reading slightly under nominal (e.g. 4 GB ≈ 3.9).
+ * Matches the provisioning taxonomy: small (≈2-3 GB), standard (≈4-6 GB),
+ * large (≈8 GB+).
+ */
+function sizeLabelFromRamGb(ramGb: number): string {
+  if (ramGb < 3.5) return 'Small'
+  if (ramGb < 7) return 'Standard'
+  return 'Large'
+}
+
 /** Client mirror of the server disk-pressure classifier (see DaytonaCodebase). */
 function isDiskPressureText(message: string | null | undefined): boolean {
   if (!message) return false
@@ -82,12 +94,34 @@ export function VmStatusPopover({
   const specs = getSpecsBySize(sandboxSize)
   const stats = statsQuery.data
   const disk = stats?.disk
+  const cpu = stats?.cpu
+  const memory = stats?.memory
   const diskPercent = disk?.usage_percent ?? null
-  // Prefer the VM's real provisioned disk over the static tier spec, which can
-  // lag behind snapshot resizes.
+  // Prefer the VM's real provisioned specs over the static tier lookup. The
+  // stored `sandbox_size` is unreliable: new Daytona projects boot from a
+  // "standard" snapshot but the project record still hardcodes "small", so the
+  // tier table misreports vCPU/RAM/disk. Live cgroup limits are ground truth.
+  const provisionedRamGb =
+    typeof memory?.limit_bytes === 'number'
+      ? memory.limit_bytes / 1024 ** 3
+      : null
+  const vcpuLabel = cpu?.limit_cores
+    ? `${Math.round(cpu.limit_cores)}`
+    : `${specs.vcpu}`
+  const ramGbLabel =
+    provisionedRamGb !== null
+      ? `${Math.round(provisionedRamGb)} GB`
+      : `${specs.ram_gb} GB`
   const diskGbLabel = disk?.size_bytes
     ? `${Math.round(disk.size_bytes / 1024 ** 3)} GB`
     : `${specs.disk_gb} GB`
+  // Label from the real provisioned RAM once stats load, so it can't insist
+  // "Small" while the VM is actually a standard box. Falls back to the stored
+  // tier name until the (open-only) stats query resolves.
+  const sizeLabel =
+    provisionedRamGb !== null
+      ? sizeLabelFromRamGb(provisionedRamGb)
+      : getSizeDisplayName(sandboxSize)
   const nearFull = diskPercent !== null && diskPercent >= DISK_WARNING_THRESHOLD
   // Already at/above the 8GB tier — nothing larger to offer.
   const canUpgrade = sandboxSize !== 'large' && (sandboxSize ?? 'small') !== 'medium'
@@ -160,20 +194,18 @@ export function VmStatusPopover({
               <span className="text-xs font-medium text-muted-foreground">
                 Size
               </span>
-              <span className="text-xs font-semibold">
-                {getSizeDisplayName(sandboxSize)}
-              </span>
+              <span className="text-xs font-semibold">{sizeLabel}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <SpecCell
                 icon={<Cpu className="h-3.5 w-3.5" />}
                 label="vCPU"
-                value={`${specs.vcpu}`}
+                value={vcpuLabel}
               />
               <SpecCell
                 icon={<MemoryStick className="h-3.5 w-3.5" />}
                 label="RAM"
-                value={`${specs.ram_gb} GB`}
+                value={ramGbLabel}
               />
               <SpecCell
                 icon={<HardDrive className="h-3.5 w-3.5" />}
