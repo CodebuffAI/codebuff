@@ -1,16 +1,16 @@
 import { useStore } from '../store/store'
 import { AgentModelLabel, AgentModelPicker } from './AgentSelector'
 import { Icon } from './Icon'
-import { LoginGate } from './LoginGate'
 
 /**
  * The thread's top bar. On a FRESH tab it carries the setup choices — project
  * folder + agent/model pickers (the same picks the welcome card offers). Once
  * the thread starts (first message / a turn ran) those become plain labels:
  * a thread's folder, agent, and model are fixed for its lifetime, and a
- * different pick means a new tab. Also hosts the sign-in gate and the Preview
- * controls. `preview` is owned by ThreadView (shared with the preview iframe
- * in the body), so it arrives as props.
+ * different pick means a new tab. Also hosts the Preview controls (the
+ * sign-in gate is window-global and lives in the tab bar's account slot).
+ * `preview` is owned by ThreadView (shared with the preview iframe in the
+ * body), so it arrives as props.
  */
 export function ThreadHeader({
   threadId,
@@ -39,7 +39,7 @@ export function ThreadHeader({
   const projectPath = slice.thread.projectPath
   const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
   const started = !!slice.thread.branch || slice.messages.length > 0
-  // The hosted Freebuff agent (model picker + sign-in gate apply to it only).
+  // The hosted Freebuff agent (the API-host badge applies to it only).
   const isHostedAgent = (slice.thread.harnessId ?? agentHarness ?? 'codebuff') === 'codebuff'
 
   return (
@@ -89,7 +89,6 @@ export function ThreadHeader({
             onSelect={(h, m) => setThreadAgent(threadId, h, m)}
           />
         ))}
-      {isHostedAgent && freebuff && !freebuff.authed && <LoginGate />}
       {/* Non-prod API host (a repo launch's dev stack) — keep it visible so a
           sign-in pointed at localhost is never a surprise. */}
       {isHostedAgent && freebuff?.apiHost && (

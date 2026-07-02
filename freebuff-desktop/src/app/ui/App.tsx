@@ -4,6 +4,7 @@ import { bridge } from './lib/bridge'
 import freebuffLogo from './components/freebuff-logo.svg'
 import { Icon } from './components/Icon'
 import { useDismissable } from './hooks/useDismissable'
+import { LoginGate } from './components/LoginGate'
 import { SettingsModal } from './components/SettingsModal'
 import { TabBar } from './components/TabBar'
 import { Workspace } from './components/Workspace'
@@ -17,6 +18,9 @@ export function App() {
   const toasts = useStore((s) => s.toasts)
   const dismissToast = useStore((s) => s.dismissToast)
   const pickProject = useStore((s) => s.pickProject)
+  // Boolean selector, not the whole freebuff object — the snapshot's identity
+  // changes on every state event; this only re-renders when auth flips.
+  const signedOut = useStore((s) => !!s.freebuff && !s.freebuff.authed)
   const pendingInit = useStore((s) => s.pendingInit)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
@@ -62,16 +66,25 @@ export function App() {
         <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
-          {/* No open tab (first launch, or every tab closed). Show the wordmark
-              plus an explicit way to open a folder — the folder chooser is
-              otherwise only reachable from a tab's header, which doesn't exist
-              yet, so without this the app dead-ends on a cold start. */}
+          {/* No open tab (first launch, or every tab closed). Signed out, the
+              screen is a single CTA: sign in (the hosted agent needs it before
+              any folder pick matters — and the tab bar hides its own gate here
+              so exactly one sign-in button shows). Signed in, show an explicit
+              way to open a folder — the folder chooser is otherwise only
+              reachable from a tab's header, which doesn't exist yet, so
+              without this the app dead-ends on a cold start. */}
           <div className="welcome">
             <img className="welcome-logo" src={freebuffLogo} alt="" />
-            <button className="btn welcome-open" onClick={() => void pickProject()}>
-              <Icon name="folder" />
-              Open a project folder
-            </button>
+            <div className="welcome-actions">
+              {signedOut ? (
+                <LoginGate variant="welcome" />
+              ) : (
+                <button className="btn welcome-open" onClick={() => void pickProject()}>
+                  <Icon name="folder" />
+                  Open a project folder
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

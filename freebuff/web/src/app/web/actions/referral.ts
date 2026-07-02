@@ -3,6 +3,7 @@
 import {
   getReferralCode,
   clearReferralCode,
+  ensureDeviceId,
   setReferralCode,
 } from "@/vly/lib/referral-cookies";
 
@@ -21,4 +22,7 @@ export async function storeReferralCookie(code: string) {
   // because the Postgres lookup is exact.
   if (!/^[A-Za-z0-9-]{3,64}$/.test(trimmed)) return;
   await setReferralCode(trimmed);
+  // Stamp the browser alongside the referral cookie so attribution can record
+  // which device the invite was redeemed from (sock-puppet forensics).
+  await ensureDeviceId();
 }

@@ -665,6 +665,19 @@ body.col-resizing {
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
+/* Signed-out stand-in for the account icon. Must opt out of the tab bar's
+   drag region to stay clickable (same as .account-menu above). */
+.tabbar-login {
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+/* LoginGate's own row: the main pill plus, while waiting, a cancel ✕ — kept on
+   one line no matter what layout the mount point uses. */
+.login-gate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .account-trigger {
   background: var(--surface);
 }
@@ -748,10 +761,18 @@ body.col-resizing {
   margin: 0 auto;
   opacity: 0.18;
 }
-/* Cold-start CTA: clear air below the wordmark, and a touch larger than the
-   stock .btn so it reads as the primary action on an otherwise empty screen. */
-.btn.welcome-open {
+/* Cold-start CTA row: clear air below the wordmark. One primary action at a
+   time — sign-in while signed out, the folder picker once signed in. */
+.welcome-actions {
   margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+/* A touch larger than the stock .btn so it reads as the primary action on an
+   otherwise empty screen. */
+.btn.welcome-open {
   padding: 8px 16px;
   gap: 8px;
   font-size: 13px;

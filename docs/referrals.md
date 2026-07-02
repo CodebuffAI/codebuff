@@ -218,6 +218,16 @@ dedup (one row per `referred_id` from the start).
   enforced in `recordReferralV2Attribution` (and the legacy redeem path).
 - GLM requires the *referred* user to be a real **full-access** user (approved
   country, no VPN/proxy) — the strongest anti-farming gate.
+- **Attribution records sock evidence** (migration 0075): the redeeming
+  request's `referred_ip_hash` + browser `referred_device_id`, checked inline
+  against the referrer's known IPs (`free_mode_country_access_cache`) and
+  browsers (`user_device`) into `referrer_ip_overlap` /
+  `referrer_device_overlap`. Strictly flag-only, never a gate: a genuine
+  in-person referral ("try it, here's my laptop") shares both the IP and the
+  browser, so overlap alone is expected for the most organic referrals.
+  Surfaced via `scripts/referral-sock-signals.ts` and the
+  `freebuff.referral.sock_signal` event; actionable only with corroborating
+  farm signals (see `docs/freebuff-abuse-detection.md`).
 - **Revocation is a process, not just a column.** A periodic abuse sweep sets
   `revoked_at` on suspicious clusters (shared-IP bursts, disposable-domain /
   email-alias farms, display-name farms — see `docs/freebuff-abuse-detection.md`).

@@ -1,10 +1,11 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   FREEBUFF_REFERRAL_SIGNUP_LIMIT,
   REFERRAL_SIGNUP_WINDOW_DAYS,
 } from '@codebuff/common/constants/freebuff-referral-tiers'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, count, eq, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, gt, isNull, sql } from 'drizzle-orm'
 
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -68,11 +69,25 @@ export function nextActivationTier(
 export async function recordReferralV2Attribution(params: {
   referrerId: string
   referredId: string
+  /**
+   * Sock-puppet evidence from the redeeming request, stored on the row and
+   * checked against the referrer's known IPs/browsers (see
+   * {@link computeReferrerOverlap}). Optional: hops without request context
+   * simply record nothing.
+   */
+  signals?: AttributionSignals
   now?: Date
   conn?: DbConn
   logger?: Logger
 }): Promise<boolean> {
-  const { referrerId, referredId, now = new Date(), conn = db, logger } = params
+  const {
+    referrerId,
+    referredId,
+    signals,
+    now = new Date(),
+    conn = db,
+    logger,
+  } = params
 
   // No same-user self-referral.
   if (referrerId === referredId) return false
@@ -154,6 +169,8 @@ export async function recordReferralV2Attribution(params: {
     .orderBy(schema.account.providerAccountId)
     .limit(1)
 
+  const overlap = await computeReferrerOverlap({ referrerId, signals, conn })
+
   const inserted = await conn
     .insert(schema.referralV2)
     .values({
@@ -161,11 +178,151 @@ export async function recordReferralV2Attribution(params: {
       referrer_id: referrerId,
       referred_github_user_id: github?.providerAccountId ?? null,
       created_at: now,
+      referred_ip_hash: signals?.ipHash ?? null,
+      referred_device_id: signals?.deviceId ?? null,
+      referrer_ip_overlap: overlap.ipOverlap,
+      referrer_device_overlap: overlap.deviceOverlap,
     })
     .onConflictDoNothing()
     .returning({ referredId: schema.referralV2.referred_id })
 
+  // Evidence, not an alarm (info, not warn): overlap is also what a genuine
+  // in-person referral looks like — "try it, here's my laptop" shares both
+  // the IP and the browser. It only means something alongside real farm
+  // signals, which the sweep/scripts weigh.
+  if (inserted.length > 0 && (overlap.ipOverlap || overlap.deviceOverlap)) {
+    logger?.info(
+      {
+        eventId: AnalyticsEvent.FREEBUFF_REFERRAL_SOCK_SIGNAL,
+        referrerId,
+        referredId,
+        ipOverlap: overlap.ipOverlap,
+        deviceOverlap: overlap.deviceOverlap,
+      },
+      'Referral attributed from an IP/browser the referrer was recently seen on',
+    )
+  }
+
   return inserted.length > 0
+}
+
+/** Evidence from the request that redeemed a referral. */
+export type AttributionSignals = {
+  /** hashClientIp of the redeeming request's IP (null when unavailable). */
+  ipHash?: string | null
+  /** The redeeming browser's vly_device_id cookie (null when unset). */
+  deviceId?: string | null
+}
+
+/**
+ * Was the REFERRER recently seen on the same IP / browser the referred user
+ * is redeeming from? IP side checks `free_mode_country_access_cache` (written
+ * by every surface's tier check, per user+IP, recent-window); device side
+ * checks `user_device` (written on the freebuff web authed hops). `null`
+ * means "signal unavailable" — distinct from a checked-and-clean `false`.
+ *
+ * Point-in-time by nature: the referrer's matching row may only appear AFTER
+ * the attribution (cache expiry, or they hadn't hit an authed hop yet), so
+ * the abuse sweep re-derives overlap from the stored raw signals rather than
+ * trusting these flags alone.
+ */
+async function computeReferrerOverlap(params: {
+  referrerId: string
+  signals: AttributionSignals | undefined
+  conn: DbConn
+}): Promise<{ ipOverlap: boolean | null; deviceOverlap: boolean | null }> {
+  const { referrerId, signals, conn } = params
+
+  const ipHash = signals?.ipHash ?? null
+  const deviceId = signals?.deviceId ?? null
+
+  const [ipOverlap, deviceOverlap] = await Promise.all([
+    ipHash
+      ? conn
+          .select({ n: schema.freeModeCountryAccessCache.user_id })
+          .from(schema.freeModeCountryAccessCache)
+          .where(
+            and(
+              eq(schema.freeModeCountryAccessCache.user_id, referrerId),
+              eq(schema.freeModeCountryAccessCache.client_ip_hash, ipHash),
+              // Live rows only, matching the cache's canonical reader:
+              // expired rows are superseded, never deleted, so without this
+              // "recently seen" silently becomes "ever seen" — a referrer who
+              // touched a shared CGNAT/campus IP months ago would flag every
+              // later signup from that network.
+              gt(schema.freeModeCountryAccessCache.expires_at, new Date()),
+            ),
+          )
+          .limit(1)
+          .then((rows) => rows.length > 0)
+      : Promise.resolve(null),
+    deviceId
+      ? conn
+          .select({ n: schema.userDevice.user_id })
+          .from(schema.userDevice)
+          .where(
+            and(
+              eq(schema.userDevice.user_id, referrerId),
+              eq(schema.userDevice.device_id, deviceId),
+            ),
+          )
+          .limit(1)
+          .then((rows) => rows.length > 0)
+      : Promise.resolve(null),
+  ])
+
+  return { ipOverlap, deviceOverlap }
+}
+
+// last_seen only needs coarse recency for sock forensics; refreshing at most
+// hourly keeps the <=10-min convex-token loop from rewriting the row forever.
+const USER_DEVICE_REFRESH_MS = 60 * 60 * 1000
+// A client rotating the cookie (or a cookie-blocked browser minting a fresh
+// UUID per hop) must not grow the table unboundedly. Real users have a
+// handful of browsers; past the cap we keep the earliest-seen devices.
+const MAX_DEVICES_PER_USER = 100
+
+/**
+ * Record that `userId` was seen on browser `deviceId` (the vly_device_id
+ * cookie). Called from the freebuff web authed hops — the same hops that
+ * redeem referral cookies — so referrer↔referred device overlap is
+ * detectable. Best-effort and idempotent; the steady state (known device,
+ * fresh last_seen) is a single read with no write.
+ */
+export async function recordUserDevice(params: {
+  userId: string
+  deviceId: string
+  now?: Date
+  conn?: DbConn
+}): Promise<void> {
+  const { userId, deviceId, now = new Date(), conn = db } = params
+
+  const pairWhere = and(
+    eq(schema.userDevice.user_id, userId),
+    eq(schema.userDevice.device_id, deviceId),
+  )
+  const [existing] = await conn
+    .select({ lastSeen: schema.userDevice.last_seen })
+    .from(schema.userDevice)
+    .where(pairWhere)
+    .limit(1)
+  if (existing) {
+    if (now.getTime() - existing.lastSeen.getTime() < USER_DEVICE_REFRESH_MS) {
+      return
+    }
+    await conn.update(schema.userDevice).set({ last_seen: now }).where(pairWhere)
+    return
+  }
+
+  // Capped insert in one statement so concurrent hops can't overshoot by
+  // more than the race width; the PK conflict handles a concurrent insert of
+  // the same pair.
+  await conn.execute(sql`
+    INSERT INTO user_device (user_id, device_id, first_seen, last_seen)
+    SELECT ${userId}, ${deviceId}, ${now.toISOString()}::timestamptz, ${now.toISOString()}::timestamptz
+    WHERE (SELECT count(*) FROM user_device WHERE user_id = ${userId}) < ${MAX_DEVICES_PER_USER}
+    ON CONFLICT (user_id, device_id) DO NOTHING
+  `)
 }
 
 /**

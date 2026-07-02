@@ -285,10 +285,58 @@ export const referralV2 = pgTable(
     activation_access_tier: freebuffAccessTierEnum('activation_access_tier'),
     // Clawback: a revoked referral is excluded from every count.
     revoked_at: timestamp('revoked_at', { mode: 'date' }),
+    // Sock-puppet evidence, captured from the request that attributed the
+    // referral. Signals only — they never gate the reward (a shared IP or
+    // even a shared browser is what a genuine in-person referral looks like:
+    // "try it, here's my laptop"). Meaningful only when corroborated by real
+    // farm signals; the abuse sweep + scripts do that weighing (see
+    // docs/referrals.md "Anti-abuse invariants").
+    // HMAC-SHA256 of the redeeming request's IP (same hashClientIp secret as
+    // free_session / free_mode_country_access_cache, so hashes are joinable).
+    referred_ip_hash: text('referred_ip_hash'),
+    // The redeeming browser's vly_device_id cookie — survives IP rotation.
+    referred_device_id: text('referred_device_id'),
+    // Computed at attribution: the referrer was recently seen on the same
+    // IP (free_mode_country_access_cache) / browser (user_device). NULL when
+    // the signal was unavailable, false when checked and clean.
+    referrer_ip_overlap: boolean('referrer_ip_overlap'),
+    referrer_device_overlap: boolean('referrer_device_overlap'),
   },
   (table) => [
     // Stats reads filter by referrer.
     index('idx_referral_v2_referrer').on(table.referrer_id),
+    // Farm forensics cluster referred users by shared device / IP.
+    index('idx_referral_v2_referred_device').on(table.referred_device_id),
+    index('idx_referral_v2_referred_ip').on(table.referred_ip_hash),
+  ],
+)
+
+/**
+ * Which browsers (vly_device_id cookie) each signed-in user has been seen on.
+ * Written from the freebuff web authed hops (convex-token refresh, the
+ * /get-started referral-eligibility check) — the same hops that redeem
+ * referral cookies. Purpose-built for sock-puppet detection: a referral whose
+ * `referred_device_id` matches one of the referrer's rows here means the
+ * "friend" signed up from the referrer's own browser.
+ */
+export const userDevice = pgTable(
+  'user_device',
+  {
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    device_id: text('device_id').notNull(),
+    first_seen: timestamp('first_seen', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    last_seen: timestamp('last_seen', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.user_id, table.device_id] }),
+    // Overlap checks and farm clustering look up by device.
+    index('idx_user_device_device').on(table.device_id),
   ],
 )
 

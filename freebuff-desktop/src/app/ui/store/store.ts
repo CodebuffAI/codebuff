@@ -12,6 +12,7 @@ import {
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
 import { bridge } from '../lib/bridge'
+import { startLoginInBrowser } from '../lib/login'
 import type {
   AgentOption,
   FreebuffSnapshot,
@@ -30,6 +31,38 @@ const nextId = () => `m${++msgSeq}`
 // Monotonic toast id — collision-free, unlike Date.now()+random (two toasts in
 // the same millisecond could collide on the random suffix and clash as React keys).
 let toastSeq = 0
+
+// Single expiry timer for the global sign-in wait (StoreState.login). Module-
+// level — there is exactly one attempt server-side, so there is exactly one
+// timer, no matter how many sign-in buttons are mounted.
+let loginTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearLoginTimer() {
+  if (loginTimer) {
+    clearTimeout(loginTimer)
+    loginTimer = null
+  }
+}
+
+/** Last-resort reset if sign-in never completes: when the auth code expires
+ *  (~1h) drop back to idle with a toast. On success the server's state event
+ *  flips `authed`, which clears this timer (see applyEvent); only the
+ *  abandoned path lands here. Recovery doesn't depend on this — the sign-in
+ *  button stays clickable throughout. */
+function armLoginExpiry(expiresAt: number | string | null | undefined) {
+  // The server's auth code lives ~1h; cap the wait a little under that,
+  // falling back to 1h if `expiresAt` is missing/odd.
+  const expiresAtMs = Number(expiresAt)
+  const waitMs = Number.isFinite(expiresAtMs)
+    ? Math.max(60_000, expiresAtMs - Date.now())
+    : 60 * 60_000
+  clearLoginTimer()
+  loginTimer = setTimeout(() => {
+    loginTimer = null
+    useStore.setState({ login: { phase: 'idle' } })
+    useStore.getState().pushToast('Sign-in timed out — please try again.', 'error')
+  }, waitMs)
+}
 
 // `init()` runs from App's mount effect, which React StrictMode invokes twice in
 // dev (and any future remount could repeat). Two concurrent inits both see an
@@ -128,6 +161,18 @@ interface StoreState {
   /** Freebuff free-mode state for the model picker (tier, models, premium slot,
    *  auth). Null until the first state event. */
   freebuff: FreebuffSnapshot | null
+  /** The device-code sign-in flow. One global slice — the tab-bar gate, the
+   *  welcome CTA, and notice-card actions all render from (and drive) the same
+   *  attempt, so two mounted sign-in buttons can never show different states.
+   *  idle → starting (a request is in flight; buttons disabled) → waiting
+   *  (browser step pending). */
+  login: { phase: 'idle' | 'starting' | 'waiting' }
+  /** Start (or re-open) the device-code sign-in in the system browser. While
+   *  'waiting', another call re-opens the pending attempt's login URL (the
+   *  server reuses a still-valid code). */
+  startLogin: () => Promise<void>
+  /** Cancel the pending sign-in attempt outright. */
+  cancelLogin: () => Promise<void>
   /** Whether the project has a previewable entry. Drives the Preview button. */
   previewReady: boolean
   /** Project settings (preview.entry, plus validation errors on read). */
@@ -220,6 +265,7 @@ export const useStore = create<StoreState>((set, get) => ({
   agentHarness: null,
   agentOptions: [],
   freebuff: null,
+  login: { phase: 'idle' },
   previewReady: false,
   settings: { version: 1, preview: { entry: 'index.html' } },
   settingsPath: null,
@@ -268,6 +314,37 @@ export const useStore = create<StoreState>((set, get) => ({
         )
       }
     })
+  },
+
+  async startLogin() {
+    const prevPhase = get().login.phase
+    // Drop any armed timer up front so a failed retry can't leave the previous
+    // attempt's timer firing a spurious "timed out" toast later.
+    clearLoginTimer()
+    set({ login: { phase: 'starting' } })
+    try {
+      const { expiresAt } = await startLoginInBrowser()
+      set({ login: { phase: 'waiting' } })
+      armLoginExpiry(expiresAt)
+    } catch (err) {
+      get().pushToast((err as Error).message, 'error')
+      // A failed retry doesn't kill the server-side attempt — stay in
+      // 'waiting' so the cancel affordance remains reachable.
+      set({ login: { phase: prevPhase === 'waiting' ? 'waiting' : 'idle' } })
+    }
+  },
+
+  async cancelLogin() {
+    clearLoginTimer()
+    // Hold the buttons disabled until the cancel settles so a quick
+    // cancel-then-retry can't interleave the two requests server-side.
+    set({ login: { phase: 'starting' } })
+    try {
+      await api.cancelLogin()
+    } catch {
+      // The stray poll just runs out at the code's expiry; nothing to surface.
+    }
+    set({ login: { phase: 'idle' } })
   },
 
   async pickProject(threadId = null) {
@@ -355,6 +432,18 @@ export const useStore = create<StoreState>((set, get) => ({
   async init() {
     if (initStarted) return
     initStarted = true
+    // Rehydrate a pending device-code sign-in: the server keeps polling an
+    // attempt across renderer reloads, so pick its waiting state back up. Once
+    // per load, not per gate mount — every sign-in surface renders from the
+    // shared slice this sets.
+    void api
+      .authStatus()
+      .then((s) => {
+        if (!s.loginPending || get().login.phase !== 'idle') return
+        set({ login: { phase: 'waiting' } })
+        armLoginExpiry(s.loginExpiresAt)
+      })
+      .catch(() => {})
     try {
       const [threads, skills] = await Promise.all([
         api.listThreads(),
@@ -437,6 +526,13 @@ export const useStore = create<StoreState>((set, get) => ({
           settings: snapshot.settings ?? s.settings,
         }
       })
+      // A successful sign-in ends the device-code wait: reset the shared login
+      // slice and its expiry timer so the abandoned-attempt toast can't fire
+      // after the attempt actually succeeded.
+      if (snapshot.freebuff?.authed && get().login.phase !== 'idle') {
+        clearLoginTimer()
+        set({ login: { phase: 'idle' } })
+      }
       // Load the active thread's messages if needed.
       const active = get().activeId
       if (active && !get().threads[active]?.loaded) get().ensureLoaded(active)

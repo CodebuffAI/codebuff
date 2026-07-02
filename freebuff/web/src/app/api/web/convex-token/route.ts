@@ -40,6 +40,10 @@ export async function GET(req: NextRequest) {
   // verified tier. Hard-blocked requests never activate.
   const webReferralScore = await syncWebReferralState({
     userId: user.id,
+    // The geo pipeline's own hash (not re-derived from headers) so the value
+    // is byte-identical to the free_mode_country_access_cache row it must
+    // join against, including paths where the pipeline nulls it.
+    clientIpHash: geoAccess.clientIpHash,
     ...(geoAccess.accessTier === 'blocked'
       ? {}
       : { activation: { accessTier: geoAccess.accessTier } }),

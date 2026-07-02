@@ -62,7 +62,7 @@ export const NOTICE_CLAUDE_CODE_AUTH = 'claude-code-auth'
 
 /** Notice kind for "the Freebuff API rejected our sign-in" (never signed in, or
  *  the stored token expired/was revoked) — rendered as a sign-in recovery card
- *  whose action starts the same device-code flow as the header's LoginGate. */
+ *  whose action starts the same device-code flow as the tab bar's LoginGate. */
 export const NOTICE_FREEBUFF_AUTH = 'freebuff-auth'
 
 export type Part =

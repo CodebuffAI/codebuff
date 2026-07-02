@@ -56,6 +56,14 @@ async function dumpRow(label: string, r: typeof schema.referralV2.$inferSelect) 
   console.log(
     `      github_age_months=${ageMonths === null ? 'UNKNOWN (no qualification row)' : ageMonths.toFixed(1)} age_qualified(>=${MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL}mo)=${qualified}`,
   )
+  // Attribution evidence (null on pre-signal rows). Overlap with the referrer
+  // is NOT a verdict — it's also what an in-person referral looks like.
+  const overlaps: string[] = []
+  if (r.referrer_ip_overlap) overlaps.push('same-ip-as-referrer')
+  if (r.referrer_device_overlap) overlaps.push('same-browser-as-referrer')
+  console.log(
+    `      ip_hash=${r.referred_ip_hash ? r.referred_ip_hash.slice(0, 12) + '…' : 'null'} device_id=${r.referred_device_id ?? 'null'}${overlaps.length ? ` [${overlaps.join(' + ')} — expected for in-person referrals; corroborate before acting]` : ''}`,
+  )
 }
 
 async function main() {
