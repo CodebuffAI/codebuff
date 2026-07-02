@@ -16,7 +16,6 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-import { api } from '../lib/api'
 import { useStore } from '../store/store'
 import type { QueueItem } from '../lib/types'
 import { Icon } from './Icon'
@@ -38,45 +37,7 @@ export function QueuePanel({ threadId }: { threadId: string }) {
   const setAutoQueueSuggestions = useStore((s) => s.setAutoQueueSuggestions)
   const reorderItem = useStore((s) => s.reorderItem)
 
-  const freebuff = useStore((s) => s.freebuff)
-  const agentHarness = useStore((s) => s.agentHarness)
-  const threadHarnessId = useStore((s) => s.threads[threadId]?.thread.harnessId)
-  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
-  const pushToast = useStore((s) => s.pushToast)
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  // The hosted Freebuff agent (sign-out only applies to it).
-  const isHostedAgent = (threadHarnessId ?? agentHarness ?? 'codebuff') === 'codebuff'
-
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
-
-  // Close the overflow menu when clicking outside
-  const closeMenu = () => setMenuOpen(false)
-  const toggleMenu = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setMenuOpen((v) => !v)
-  }
-
-  const handleSettings = () => {
-    setMenuOpen(false)
-    setSettingsOpen(true)
-  }
-
-  const handleSignOut = async () => {
-    setMenuOpen(false)
-    // Optimistically clear auth state so the UI responds immediately;
-    // the server broadcasts a state event that reconciles a moment later.
-    const fb = useStore.getState().freebuff
-    if (fb?.authed) {
-      useStore.setState({ freebuff: { ...fb, authed: false, user: null } })
-    }
-    try {
-      await api.logout()
-      pushToast('Signed out')
-    } catch {
-      pushToast('Could not sign out', 'error')
-    }
-  }
 
   // Search mode lives here (not in SkillsPanel) because it also hides the queue
   // lanes below, giving the registry results the full column.
@@ -144,26 +105,6 @@ export function QueuePanel({ threadId }: { threadId: string }) {
       {/* Queue (at the bottom); run lane grows, compose bar pinned to the column bottom */}
       <div className="queue-head">
         <span className="queue-title">Queue</span>
-        <div className="queue-overflow">
-          <button className="queue-overflow-btn" onClick={toggleMenu} title="More…">
-            <Icon name="menu" />
-          </button>
-          {menuOpen && (
-            <>
-              <div className="queue-menu-backdrop" onClick={closeMenu} />
-              <div className="queue-menu">
-                <button className="queue-menu-item" onClick={handleSettings}>
-                  <Icon name="settings" /> Settings
-                </button>
-                {freebuff?.authed && isHostedAgent && (
-                  <button className="queue-menu-item" onClick={handleSignOut}>
-                    <Icon name="x" /> Sign out
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       <div className="lane">

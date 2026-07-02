@@ -1,3 +1,6 @@
+import { useState } from 'react'
+
+import { api } from '../lib/api'
 import { useStore } from '../store/store'
 import { AgentModelLabel, AgentModelPicker } from './AgentSelector'
 import { Icon } from './Icon'
@@ -26,6 +29,7 @@ export function ThreadHeader({
   const slice = useStore((s) => s.threads[threadId])
   const pickProject = useStore((s) => s.pickProject)
   const previewReady = useStore((s) => s.previewReady)
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const agentOptions = useStore((s) => s.agentOptions)
   const agentHarness = useStore((s) => s.agentHarness)
   const freebuff = useStore((s) => s.freebuff)
@@ -99,14 +103,83 @@ export function ThreadHeader({
           <Icon name="dot" /> Reload
         </button>
       )}
-      {previewReady && (
+      {previewReady ? (
         <button
-          className={`head-btn ${preview ? 'on' : ''}`}
+          className={`head-btn preview-btn ${preview ? 'on' : 'icon-only'}`}
           onClick={onTogglePreview}
           title="Preview this thread's work in a browser"
+          aria-label={preview ? 'Hide preview' : 'Preview'}
         >
-          <Icon name="play" /> {preview ? 'Hide preview' : 'Preview'}
+          <Icon name="play" />
+          {preview && 'Hide preview'}
         </button>
+      ) : (
+        <button
+          className="head-btn icon-only"
+          onClick={() => setSettingsOpen(true)}
+          title="Set up preview"
+          aria-label="Set up preview"
+        >
+          <Icon name="settings" />
+        </button>
+      )}
+      {freebuff?.authed && <AccountMenu />}
+    </div>
+  )
+}
+
+function AccountMenu() {
+  const freebuff = useStore((s) => s.freebuff)
+  const pushToast = useStore((s) => s.pushToast)
+  const [open, setOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
+  if (!freebuff?.authed) return null
+
+  const label =
+    freebuff.user?.name?.trim() ||
+    freebuff.user?.email?.split('@')[0] ||
+    'Account'
+
+  const signOut = async () => {
+    setSigningOut(true)
+    try {
+      const res = await api.logout()
+      if (!res.ok) throw new Error(res.error ?? 'Could not sign out')
+      const fb = useStore.getState().freebuff
+      if (fb) useStore.setState({ freebuff: { ...fb, authed: false, user: null } })
+      setOpen(false)
+      pushToast('Signed out')
+    } catch (err) {
+      pushToast((err as Error).message, 'error')
+    } finally {
+      setSigningOut(false)
+    }
+  }
+
+  return (
+    <div className="account-menu">
+      <button
+        className={`head-btn account-trigger ${open ? 'on' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        title={freebuff.user?.email ?? 'Freebuff account'}
+        aria-label="Freebuff account"
+        aria-expanded={open}
+      >
+        <span className="account-dot" />
+        <span className="account-label">{label}</span>
+        <Icon name="down" className="caret" />
+      </button>
+      {open && (
+        <>
+          <button className="menu-scrim" aria-label="Close account menu" onClick={() => setOpen(false)} />
+          <div className="header-menu account-popover">
+            {freebuff.user?.email && <div className="header-menu-note">{freebuff.user.email}</div>}
+            <button className="header-menu-item" onClick={signOut} disabled={signingOut}>
+              <Icon name="x" /> {signingOut ? 'Signing out...' : 'Sign out'}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

@@ -621,9 +621,104 @@ body.col-resizing {
 .head-btn:hover {
   border-color: var(--accent-dim);
 }
+.head-btn:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
 .head-btn.on {
   border-color: var(--accent);
   color: var(--accent);
+}
+.head-btn.icon-only {
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+}
+.head-btn.icon-only:hover {
+  color: var(--text);
+}
+.preview-btn:not(.on) {
+  background: var(--surface);
+}
+.account-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.account-trigger {
+  max-width: 190px;
+  background: var(--surface);
+}
+.account-trigger .caret {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.account-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.account-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.header-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 180px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+}
+.header-menu-note {
+  max-width: 240px;
+  padding: 6px 8px 7px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  color: var(--faint);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+}
+.header-menu-item:hover:not(:disabled) {
+  background: var(--raised);
+}
+.header-menu-item:disabled {
+  cursor: default;
+  color: var(--faint);
 }
 .thread-preview {
   flex: 1;
@@ -1521,59 +1616,6 @@ body.col-resizing {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px 8px;
-}
-/* Overflow menu ("…" button) in the queue header — triggers a small dropdown
-   with secondary actions like Settings and Sign out. */
-.queue-overflow {
-  position: relative;
-}
-.queue-overflow-btn {
-  display: flex;
-  background: none;
-  border: none;
-  color: var(--faint);
-  padding: 3px;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.queue-overflow-btn:hover {
-  color: var(--text);
-  background: var(--raised);
-}
-.queue-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 39;
-}
-.queue-menu {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 4px;
-  min-width: 160px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px;
-  z-index: 40;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-}
-.queue-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  background: none;
-  border: none;
-  color: var(--muted);
-  text-align: left;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 12.5px;
-}
-.queue-menu-item:hover {
-  background: var(--raised);
-  color: var(--text);
 }
 .queue-title {
   font-size: 12px;

@@ -137,5 +137,5 @@ export const api = {
     post<{ ok: boolean; error?: string }>('/api/settings', { settings }),
 
   // Auth
-  logout: () => post<{ ok: boolean }>('/api/auth/logout'),
+  logout: () => post<{ ok: boolean; error?: string }>('/api/auth/logout'),
 }
