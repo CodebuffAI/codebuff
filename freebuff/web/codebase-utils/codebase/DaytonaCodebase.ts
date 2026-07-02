@@ -35,6 +35,23 @@ const ANSI_ESCAPE_REGEX =
   /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
 const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g;
 
+export type GitCloneOptions = {
+  branch?: string;
+  depth?: number;
+  /** Default `blob:none` for faster Cloud clones; pass `false` to omit. */
+  filter?: "blob:none" | "tree:0" | false;
+  singleBranch?: boolean;
+};
+
+function normalizeGitCloneOptions(
+  branchOrOptions?: string | GitCloneOptions,
+): GitCloneOptions {
+  if (typeof branchOrOptions === "string") {
+    return { branch: branchOrOptions };
+  }
+  return branchOrOptions ?? {};
+}
+
 function isSandboxIpResolutionError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? "");
   const normalizedMessage = message.toLowerCase();
@@ -2169,12 +2186,27 @@ if (!hasIntegration) {
   /**
    * Clone a git repository into the project path. Replaces any existing
    * contents. `cloneUrl` should already include credentials when needed.
+   *
+   * Defaults to a shallow, blobless, single-branch clone for faster Cloud setup.
    */
   async cloneRepo(
     cloneUrl: string,
-    branch?: string,
+    branchOrOptions?: string | GitCloneOptions,
   ): Promise<{ output: string; exitCode?: number }> {
-    const branchFlag = branch ? `--branch ${branch}` : "";
+    const options = normalizeGitCloneOptions(branchOrOptions);
+    const depth = options.depth ?? 1;
+    const filterFlag =
+      options.filter === false
+        ? ""
+        : `--filter=${options.filter ?? "blob:none"}`;
+    const flags = [
+      `--depth ${depth}`,
+      filterFlag,
+      options.singleBranch !== false ? "--single-branch" : "",
+      options.branch ? `--branch ${options.branch}` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     // NOTE: keep the FIRST segment a non-git command (`rm -rf`). runCommand()
     // calls ensureGitRepository() when isGitCommand() is true, which would both
     // recurse infinitely (stack overflow) and `git init` before the clone.
@@ -2188,9 +2220,22 @@ if (!hasIntegration) {
       // Trust the target dir so the clone + later git ops don't hit git's
       // "dubious ownership" guard inside the sandbox.
       "git config --global --add safe.directory '*' >/dev/null 2>&1 || true",
-      `git clone --depth 1 ${branchFlag} "${cloneUrl}" ${this.projectPath}`,
+      `git clone ${flags} "${cloneUrl}" ${this.projectPath}`,
     ].join(" && ");
     return this.runCommand(command, 300_000);
+  }
+
+  /** Remove large reproducible build outputs from the workspace. */
+  async pruneBuildArtifacts(): Promise<{ output: string; exitCode?: number }> {
+    const root = this.projectPath;
+    const command = [
+      `rm -rf ${root}/freebuff/web/.next`,
+      `rm -rf ${root}/web/.next`,
+      `rm -rf ${root}/node_modules/.cache`,
+      `rm -rf ${root}/.turbo`,
+      `find ${root} -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete 2>/dev/null || true`,
+    ].join(" && ");
+    return this.runCommand(command, 60_000);
   }
 
   /**

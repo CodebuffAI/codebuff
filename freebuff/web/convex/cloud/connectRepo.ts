@@ -254,7 +254,12 @@ export const connectRepo = action({
       const token = await getInstallationToken(effectiveInstallationId);
       const cloneUrl = `https://x-access-token:${token}@github.com/${args.repoFullName}.git`;
       const defaultBranch = args.defaultBranch ?? "main";
-      const cloneResult = await codebase.cloneRepo(cloneUrl, undefined);
+      const cloneResult = await codebase.cloneRepo(cloneUrl, {
+        branch: defaultBranch,
+        depth: 1,
+        filter: "blob:none",
+        singleBranch: true,
+      });
       if (cloneResult.exitCode && cloneResult.exitCode !== 0) {
         throw new Error(`git clone failed: ${cloneResult.output.slice(-500)}`);
       }
