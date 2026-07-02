@@ -138,11 +138,15 @@ export function TabBar() {
 
       {/* Account is window-global (unlike the folder/agent picks in each
           thread's header below), so it sits on this row, far right — the
-          sign-in pill while signed out, the profile icon once signed in. */}
+          sign-in pill while signed out, the profile icon once signed in.
+          With no tab open the welcome screen shows its own (sole) sign-in
+          CTA, so the pill hides there to keep exactly one on screen. */}
       {signedOut ? (
-        <div className="tabbar-login">
-          <LoginGate />
-        </div>
+        activeId && (
+          <div className="tabbar-login">
+            <LoginGate />
+          </div>
+        )
       ) : (
         <AccountMenu />
       )}

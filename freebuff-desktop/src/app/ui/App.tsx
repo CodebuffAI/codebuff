@@ -66,23 +66,24 @@ export function App() {
         <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
-          {/* No open tab (first launch, or every tab closed). Show the wordmark
-              plus an explicit way to open a folder — the folder chooser is
-              otherwise only reachable from a tab's header, which doesn't exist
-              yet, so without this the app dead-ends on a cold start. While
-              signed out, sign-in leads (the hosted agent needs it before any
-              folder pick matters) and the folder button drops to secondary. */}
+          {/* No open tab (first launch, or every tab closed). Signed out, the
+              screen is a single CTA: sign in (the hosted agent needs it before
+              any folder pick matters — and the tab bar hides its own gate here
+              so exactly one sign-in button shows). Signed in, show an explicit
+              way to open a folder — the folder chooser is otherwise only
+              reachable from a tab's header, which doesn't exist yet, so
+              without this the app dead-ends on a cold start. */}
           <div className="welcome">
             <img className="welcome-logo" src={freebuffLogo} alt="" />
             <div className="welcome-actions">
-              {signedOut && <LoginGate variant="welcome" />}
-              <button
-                className={signedOut ? 'btn welcome-secondary' : 'btn welcome-open'}
-                onClick={() => void pickProject()}
-              >
-                <Icon name="folder" />
-                Open a project folder
-              </button>
+              {signedOut ? (
+                <LoginGate variant="welcome" />
+              ) : (
+                <button className="btn welcome-open" onClick={() => void pickProject()}>
+                  <Icon name="folder" />
+                  Open a project folder
+                </button>
+              )}
             </div>
           </div>
         </div>

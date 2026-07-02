@@ -761,8 +761,8 @@ body.col-resizing {
   margin: 0 auto;
   opacity: 0.18;
 }
-/* Cold-start CTAs: clear air below the wordmark; signed out, the sign-in gate
-   leads and the folder picker sits beneath it as a quieter secondary. */
+/* Cold-start CTA row: clear air below the wordmark. One primary action at a
+   time — sign-in while signed out, the folder picker once signed in. */
 .welcome-actions {
   margin-top: 30px;
   display: flex;
@@ -783,19 +783,6 @@ body.col-resizing {
 }
 .btn.welcome-open:hover svg {
   color: var(--accent);
-}
-/* The folder button's quiet form when sign-in leads: its own class rather
-   than a welcome-open override, so primary-CTA polish can't leak into it. */
-.btn.welcome-secondary {
-  padding: 6px 12px;
-  font-size: 12px;
-  background: transparent;
-  border-color: transparent;
-  color: var(--muted);
-}
-.btn.welcome-secondary:hover {
-  border-color: var(--accent-dim);
-  color: var(--text);
 }
 .welcome-title {
   margin-top: 14px;
