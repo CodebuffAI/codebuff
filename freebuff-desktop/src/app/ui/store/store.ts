@@ -9,6 +9,7 @@ import {
   type Part,
   type ReasoningCollapse,
 } from '../../../core/parts'
+import { queueItemChatText } from '../../../core/queue-display'
 import { positionAfter } from '../../../core/queue-order'
 import { api } from '../lib/api'
 import { bridge } from '../lib/bridge'
@@ -80,17 +81,16 @@ export interface ThreadSlice {
 }
 
 /** Per-tab pending-input state. Hoisted into the store so each tab keeps its
- *  own typed composer message and queue draft — switching tabs no longer leaks
- *  one tab's draft into another's composer/queue. Attachments stay per-thread
- *  in the parent (ThreadView): enough to fix the user's reported bleed without
+ *  own typed composer message — switching tabs no longer leaks one tab's draft
+ *  into another's composer. Attachments stay per-thread in the parent
+ *  (ThreadView): enough to fix the user's reported bleed without
  *  re-choreographing the parent-prop ownership introduced in compose-less. */
 export interface ThreadDrafts {
   composerText: string
-  queueDraft: string
 }
 
 /** Stable fallback so `useStore` keeps returning the same `''` until a real edit lands. */
-const EMPTY_DRAFT: ThreadDrafts = Object.freeze({ composerText: '', queueDraft: '' }) as ThreadDrafts
+const EMPTY_DRAFT: ThreadDrafts = Object.freeze({ composerText: '' }) as ThreadDrafts
 
 /** localStorage key under which we keep per-tab composer + queue drafts across
  *  reloads / app restarts. Best-effort only — corrupted JSON falls back to an
@@ -115,8 +115,7 @@ function loadDrafts(): Record<string, ThreadDrafts> {
       if (typeof id !== 'string' || !id) continue
       if (!v || typeof v !== 'object') continue
       const composerText = typeof (v as any).composerText === 'string' ? (v as any).composerText : ''
-      const queueDraft = typeof (v as any).queueDraft === 'string' ? (v as any).queueDraft : ''
-      out[id] = { composerText, queueDraft }
+      out[id] = { composerText }
     }
     return out
   } catch {
@@ -134,7 +133,7 @@ function persistDrafts(drafts: Record<string, ThreadDrafts>): void {
     // entries for every tab the user has ever opened.
     const cleaned: Record<string, ThreadDrafts> = {}
     for (const [id, d] of Object.entries(drafts)) {
-      if (d.composerText || d.queueDraft) cleaned[id] = d
+      if (d.composerText) cleaned[id] = d
     }
     localStorage.setItem(DRAFTS_KEY, JSON.stringify(cleaned))
   } catch {
@@ -227,14 +226,18 @@ interface StoreState {
 
   // per-tab pending input (see ThreadDrafts)
   setComposerText: (id: string, text: string) => void
-  setQueueDraft: (id: string, text: string) => void
 
   // messaging + queue
   send: (id: string, text: string, attachments?: PendingAttachment[]) => void
+  /** Composer submit while a turn is running: park the message in the queue
+   *  (it runs after the current work) instead of steering. Clears the draft. */
+  queueMessage: (id: string, text: string, attachments?: PendingAttachment[]) => void
   stopTurn: (id: string) => void
   runSkill: (id: string, skill: string) => void
-  enqueuePrompt: (id: string, prompt: string) => void
   enqueueSkill: (id: string, skill: string) => void
+  /** Deliver a queued item like a typed message: steers a running turn at its
+   *  next step boundary, or runs as the next turn when idle (jumps the queue). */
+  sendNow: (id: string, itemId: string) => void
   /** Acquire a registry skill into the user-home skills dir; resolves to its name. */
   installSkill: (source: string, slug: string, name: string) => Promise<string | null>
   editItem: (id: string, itemId: string, prompt: string) => void
@@ -741,10 +744,6 @@ export const useStore = create<StoreState>((set, get) => ({
   setComposerText(id, text) {
     set((s) => draftPatch(s, id, { composerText: text }))
   },
-  setQueueDraft(id, text) {
-    set((s) => draftPatch(s, id, { queueDraft: text }))
-  },
-
   send(id, text, attachments = []) {
     // The transcript shows the typed text plus a compact `📎 …` line; the agent gets
     // the attachments' contents server-side (see ThreadEngine.postMessage). `appendBlock`
@@ -753,6 +752,14 @@ export const useStore = create<StoreState>((set, get) => ({
     api.sendMessage(id, text, attachments.map((a) => a.path))
     // Clear the per-tab composer draft so a later return to this tab doesn't
     // resurrect the message we just sent.
+    set((s) => draftPatch(s, id, { composerText: '' }))
+  },
+
+  queueMessage(id, text, attachments = []) {
+    // No optimistic transcript append — the message lands in the queue panel
+    // via the server's `thread` event (local round-trip, milliseconds). The
+    // attachment contents are inlined server-side at enqueue time.
+    api.enqueuePrompt(id, text, attachments.map((a) => a.path))
     set((s) => draftPatch(s, id, { composerText: '' }))
   },
 
@@ -772,14 +779,9 @@ export const useStore = create<StoreState>((set, get) => ({
     api.runSkill(id, skill)
   },
 
-  enqueuePrompt(id, prompt) {
-    api.enqueuePrompt(id, prompt)
-    set((s) => draftPatch(s, id, { queueDraft: '' }))
-  },
   enqueueSkill(id, skill) {
     bumpSkillTally(set, skill)
     api.enqueueSkill(id, skill)
-    set((s) => draftPatch(s, id, { queueDraft: '' }))
   },
   async installSkill(source, slug, name) {
     const res = await api
@@ -808,6 +810,27 @@ export const useStore = create<StoreState>((set, get) => ({
       items.map((i) => (i.id === itemId ? { ...i, state: 'suggested' } : i)),
     )
     api.demoteItem(itemId)
+  },
+  sendNow(id, itemId) {
+    const item = get().threads[id]?.items.find((i) => i.id === itemId)
+    if (!item) return
+    // Mirror the server's transcript record optimistically, the way
+    // `send`/`runSkill` do for typed input (queueItemChatText is shared with
+    // the engine, so the append can't drift from what gets persisted).
+    optimisticItems(set, id, (items) => items.filter((i) => i.id !== itemId))
+    appendMessage(set, id, queueItemChatText(item))
+    void api.sendNowItem(itemId).catch(() => ({}) as { ok?: boolean }).then((res) => {
+      if (res?.ok) return
+      // The server refused (e.g. the item started running just before the
+      // click). The optimistic removal + transcript append are both wrong now —
+      // re-fetch the thread snapshot to reconcile rather than patching blind.
+      get().pushToast("Couldn't send that item — it already started or was removed.", 'error')
+      set((s) => {
+        const slice = s.threads[id]
+        return slice ? { threads: { ...s.threads, [id]: { ...slice, loaded: false } } } : {}
+      })
+      void get().ensureLoaded(id)
+    })
   },
   reorderItem(id, itemId, afterItemId) {
     optimisticItems(set, id, (items) => reorderLocal(items, itemId, afterItemId))
@@ -879,11 +902,8 @@ function draftPatch(
   patch: Partial<ThreadDrafts>,
 ): Partial<StoreState> {
   const prev = state.drafts[id] ?? EMPTY_DRAFT
-  // Coalesce into one entry so a composer edit materializes an entry the queue
-  // panel can also read (otherwise the queue draft disappears after the user
-  // types into the composer).
   const next: ThreadDrafts = { ...prev, ...patch }
-  if (prev.composerText === next.composerText && prev.queueDraft === next.queueDraft) {
+  if (prev.composerText === next.composerText) {
     return {}
   }
   const drafts = { ...state.drafts, [id]: next }

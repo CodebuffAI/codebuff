@@ -660,9 +660,14 @@ const server = Bun.serve({
         case 'reorder':
           engine.reorder(threadId, String(b.itemId), b.afterItemId ? String(b.afterItemId) : null)
           return json({ ok: true })
-        case 'queue':
-          if (!b.prompt) return json({ error: 'prompt required' }, 400)
-          return json(engine.enqueuePrompt(threadId, String(b.prompt), { label: b.label }))
+        case 'queue': {
+          const prompt = b.prompt == null ? '' : String(b.prompt)
+          const attachmentPaths = Array.isArray(b.attachments) ? b.attachments.map(String) : []
+          if (!prompt.trim() && attachmentPaths.length === 0) {
+            return json({ error: 'prompt or attachments required' }, 400)
+          }
+          return json(engine.enqueuePrompt(threadId, prompt, { label: b.label, attachmentPaths }))
+        }
         case 'queue/skill':
           return json(engine.enqueueSkill(threadId, String(b.skill)) ?? { error: 'unknown skill' })
         case 'skill':
@@ -702,6 +707,10 @@ const server = Bun.serve({
         case 'demote':
           engine.moveToSuggestions(itemId)
           return json({ ok: true })
+        case 'send-now':
+          return engine.sendNow(itemId)
+            ? json({ ok: true })
+            : json({ error: 'item is not queued' }, 409)
         default:
           return json({ error: `unknown action ${action}` }, 400)
       }

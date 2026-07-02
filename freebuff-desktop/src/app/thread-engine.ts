@@ -31,6 +31,7 @@ import {
   type AgentEventLike,
   type Part,
 } from '../core/parts'
+import { queueItemChatText } from '../core/queue-display'
 import { positionAfter } from '../core/queue-order'
 import { searchRegistry, downloadSkill } from '../core/skill-registry'
 import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
@@ -1118,10 +1119,7 @@ export class ThreadEngine {
       // Queue-driven turns have no client-side optimistic
       // user message the way typed prompts do, so persist + broadcast the prompt
       // here. Otherwise the queued prompt runs invisibly with no chat record.
-      // Skill/workflow prompts are long instruction blocks, so show them as a
-      // compact command label (e.g. `/review`) rather than the whole body.
-      const isCommand = item?.source === 'skill' || item?.source === 'workflow'
-      const chatText = isCommand ? `/${item!.label ?? item!.skillName ?? 'skill'}` : prompt
+      const chatText = item ? queueItemChatText(item) : prompt
       this.store.appendMessage(threadId, { role: 'user', text: chatText }, this.now())
       this.emit({ type: 'prompt', threadId, text: chatText })
     } else {
@@ -1405,8 +1403,32 @@ export class ThreadEngine {
     })
   }
 
-  enqueuePrompt(threadId: string, prompt: string, opts: { label?: string } = {}): QueueItem {
-    const item = this.appendItem({ threadId, prompt, label: opts.label ?? null, state: 'queued', source: 'user' })
+  enqueuePrompt(
+    threadId: string,
+    prompt: string,
+    opts: { label?: string; attachmentPaths?: readonly string[] } = {},
+  ): QueueItem {
+    // Attachments inline into the stored prompt at enqueue time (the item may
+    // run much later, after the current turn — snapshot the contents now). The
+    // compact 📎 summary becomes the label so the queue row and the eventual
+    // chat record show the typed text, not the inlined block. Queue rows are
+    // text-only, so image bytes aren't carried (same as the steering path).
+    let label = opts.label ?? null
+    if (opts.attachmentPaths?.length) {
+      const att = buildAttachmentBlock(opts.attachmentPaths)
+      label = appendBlock(prompt, att.summary)
+      prompt = appendBlock(prompt, att.promptBlock)
+    }
+    // The composer is the only prompt-enqueue surface, so this is a
+    // user-submitted message — count it toward DAU like postMessage does.
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, {
+      ...this.turnTelemetry(threadId),
+      kind: 'message',
+      queued: true,
+      hasAttachments: Boolean(opts.attachmentPaths?.length),
+      inputLength: prompt.trim().length,
+    })
+    const item = this.appendItem({ threadId, prompt, label, state: 'queued', source: 'user' })
     this.emitThread(threadId)
     void this.pump(threadId)
     return item
@@ -1415,10 +1437,41 @@ export class ThreadEngine {
   enqueueSkill(threadId: string, skillName: string): QueueItem | null {
     const skill = this.skills.read(skillName)
     if (!skill) return null
+    // A queued /skill is a user-submitted prompt too (composer while a turn is
+    // running, or a skills-panel click) — count it like runSkill does.
+    trackEvent(AnalyticsEvent.MESSAGE_SENT, {
+      ...this.turnTelemetry(threadId),
+      kind: 'skill',
+      queued: true,
+      skill: skillName,
+    })
     const item = this.appendItem({ threadId, prompt: skill.prompt, label: skillName, state: 'queued', source: 'skill', skillName })
     this.emitThread(threadId)
     void this.pump(threadId)
     return item
+  }
+
+  /**
+   * Pull a queued item out of the queue and deliver it like a typed message:
+   * it steers a running turn at the agent's next step boundary, or runs as the
+   * next turn when the thread is idle — jumping ahead of everything else in
+   * the queue (see `startUserTurn` / `pump`). The item row is consumed; the
+   * transcript records it the way the queue pump would have (compact `/label`
+   * for skills, the display label for attachment prompts).
+   */
+  sendNow(itemId: string): boolean {
+    const item = this.store.getQueueItem(itemId)
+    if (!item || item.state !== 'queued') return false
+    const thread = this.store.getThread(item.threadId)
+    if (!thread || thread.status === 'closed') return false
+    this.store.deleteQueueItem(itemId)
+    trackEvent(AnalyticsEvent.DESKTOP_QUEUE_SEND_NOW, {
+      ...this.turnTelemetry(item.threadId),
+      source: item.source,
+      whileRunning: thread.turnState === 'running',
+    })
+    this.startUserTurn(item.threadId, item.prompt, queueItemChatText(item))
+    return true
   }
 
   /** Expand a workflow into one queued prompt per skill, grouped by a run id. */

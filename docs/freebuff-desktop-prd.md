@@ -306,8 +306,9 @@ auto-scrolling while pinned to the bottom. The header toggles the per-thread
 - A **Run lane** showing the `running` item (spinner) and the `queued` items in
   run order, **drag-to-reorder** via dnd-kit; workflow-expanded items show a group
   header. Each queued item can be edited inline, deleted, or demoted to Suggestions.
-- A **compose box** to queue an ad-hoc prompt, plus **+ Workflow…** and **+ Skill…**
-  pickers and a **PR** button.
+- Items are queued from the **main composer** (messages typed while a turn is
+  running park here) and the **Skills** panel — the queue panel has no compose
+  box of its own.
 - A **done** list (history) and a **Suggestions** lane at the bottom, each suggestion
   promotable (↑) into the queue or dismissable.
 - An **Autorun** checkbox (per thread). Off → a **Run next** button steps one item;
@@ -317,9 +318,12 @@ auto-scrolling while pinned to the bottom. The header toggles the per-thread
 **Toasts.** A lightweight toast surfaces otherwise-invisible action results — e.g.
 `open_pr` reports "Opening PR…", the resulting URL, or a failure (`pushToast`).
 
-**Talking to a thread.** Typed messages in the composer **jump ahead of the queue**
-(they run before queued items), so you can interrupt a draining queue with a
-correction without clearing it.
+**Talking to a thread.** One composer, queue-by-default: typed messages run
+immediately when the thread is idle, and **join the queue** while a turn is
+running. Each queued item carries a **Send now** action that delivers it like a
+typed message — steering the running turn at its next step boundary (or running
+next when idle, ahead of the rest of the queue) — so you can interrupt a
+draining queue with a correction without clearing it.
 
 ## 12. Human-in-the-Loop & Safety
 
@@ -420,8 +424,8 @@ new pillars:
   everything. *Mitigation: behavioral `test` skill + browser-in-the-loop; per-thread
   preview so the human can also see it run.*
 - **Unattended drift over a long Autorun.** A long drain can wander off-intent.
-  *Mitigation: typed messages jump the queue to correct course; suggestions are
-  opt-in; Autorun toggles off instantly; prompt-cache continuity keeps turns coherent.*
+  *Mitigation: Send now on any queued item steers mid-run to correct course;
+  suggestions are opt-in; Autorun toggles off instantly; prompt-cache continuity keeps turns coherent.*
 - **Suggestion noise.** Low-value suggestions clutter the lane. *Mitigation: the
   prompt tells the agent to suggest only genuinely useful follow-ups and nothing if
   the work feels complete; suggestions never auto-run.*
