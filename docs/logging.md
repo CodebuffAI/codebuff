@@ -57,6 +57,19 @@ bun scripts/logs/logs-volume.ts --since 24h
   (`user_id=null`, rate-limited), so pre-auth events like `cli.app_launched`
   reach Axiom and **install→login funnels are queryable**. Correlate pre/post
   login on `client_session_id` (the anonymous run id) or `fingerprint_id`.
+- **Convex (freebuff builder backend)**: Convex functions can't use the shared
+  sink (it assumes a long-lived Node process — background batching, shutdown
+  flush, `@codebuff/common/env`), so `freebuff/web/convex/lib/axiom_log.ts`
+  ingests directly against Axiom's REST API — one awaited POST per call,
+  `service: 'freebuff-convex'` — while importing the shared contract pieces
+  (`serializeLogData`, level order, the mirror denylist, eventId promotion)
+  from `@codebuff/common` so rows and cost guards can't drift from the sink.
+  Call `logToAxiom(...)` from any action (schedule an action via
+  `runAfter(0, ...)` to log from a mutation). Needs `AXIOM_API_TOKEN` in the
+  **Convex deployment env** with ingest permission on the `freebuff` dataset
+  (same naming convention as the services; note the Convex monitoring queries
+  also read this var). Used by `convex/analytics.ts` for the web
+  `message_sent` DAU mirror (PostHog still goes direct from Convex).
 - **Browser events**: a PostHog `before_send` tap mirrors captured events via
   same-origin `POST /api/logs`. No call-site changes. High-volume auto-events
   (session replay `$snapshot`, `$autocapture`, heatmaps, `$web_vitals`,
@@ -82,7 +95,7 @@ populated. Each ingested event has these fields (`LogRow` →
 | `id` | UUID |
 | `level` | `debug`/`info`/`warn`/`error`/`fatal` |
 | `source` | `server`/`cli`/`browser` |
-| `service` | `web`/`agent-runtime`/`freebuff-web`/`cli` |
+| `service` | `web`/`agent-runtime`/`freebuff-web`/`freebuff-convex`/`cli` |
 | `env` | `dev`/`test`/`prod` |
 | `event` | AnalyticsEvent name, else null |
 | `message` | formatted log message |

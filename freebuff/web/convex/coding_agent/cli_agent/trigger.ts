@@ -1,4 +1,5 @@
 import { internalAction, mutation, MutationCtx } from "!/_generated/server";
+import { AnalyticsEvent } from "@codebuff/common/constants/analytics-events";
 import { v } from "convex/values";
 import { Doc, Id } from "!/_generated/dataModel";
 import { internal } from "../../_generated/api";
@@ -513,12 +514,13 @@ export const saveMessageAndStartWorkflow = mutation({
       { agentType: args.agentType },
     );
 
-    // DAU signal in PostHog: one event per user-submitted message. Keyed by the
-    // canonical codebuff user id (users.freebuff_user_id = the JWT subject = the
+    // DAU signal: one event per user-submitted message, captured to PostHog
+    // and mirrored to the Axiom `freebuff` dataset (convex/analytics.ts,
+    // which ingests via lib/axiom_log.ts). Keyed by the canonical
+    // codebuff user id (users.freebuff_user_id = the JWT subject = the
     // Postgres user id) so it unions with the cli and chat surfaces. Legacy
-    // users without a freebuff_user_id are skipped here; they still count toward
-    // the Convex `recordActivity` DAU above. The event name mirrors
-    // AnalyticsEvent.MESSAGE_SENT in @codebuff/common.
+    // users without a freebuff_user_id are skipped here; they still count
+    // toward the Convex `recordActivity` DAU above.
     //
     // `surface` distinguishes Freebuff Web (template / sandbox projects) from
     // Freebuff Cloud (connected_repo projects) so the cross-product DAU
@@ -526,7 +528,7 @@ export const saveMessageAndStartWorkflow = mutation({
     // surface must be derived from the project type — not hardcoded.
     if (user.freebuff_user_id) {
       await ctx.scheduler.runAfter(0, internal.analytics.captureEvent, {
-        event: "message_sent",
+        event: AnalyticsEvent.MESSAGE_SENT,
         distinctId: user.freebuff_user_id,
         properties: {
           surface:

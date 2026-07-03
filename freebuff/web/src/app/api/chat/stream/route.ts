@@ -1,5 +1,4 @@
 import { recordReferralV2Activation } from '@codebuff/billing'
-import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { NextResponse } from 'next/server'
 
@@ -32,6 +31,7 @@ import {
   touchThread,
 } from '@/server/chat/store'
 import { generateThreadTitle } from '@/server/chat/title'
+import { trackServerEvent } from '@/util/analytics'
 import { logger } from '@/util/logger'
 
 import type { ChatDocumentRef, ChatImageRef } from '@/server/chat/store'
@@ -271,10 +271,11 @@ export async function POST(request: NextRequest) {
     logger.warn({ error, userId }, 'Failed to record referral_v2 activation (chat)')
   })
 
-  // DAU signal: one event per user-submitted chat message. userId is the
-  // canonical codebuff Postgres user id (next-auth session.user.id), matching
-  // the cli and web surfaces so combined DAU is a single unique-users query.
-  trackEvent({
+  // DAU signal: one event per user-submitted chat message, emitted to both
+  // PostHog and Axiom. userId is the canonical codebuff Postgres user id
+  // (next-auth session.user.id), matching the cli and web surfaces so
+  // combined DAU is a single unique-users query.
+  trackServerEvent({
     event: AnalyticsEvent.MESSAGE_SENT,
     userId,
     properties: {
@@ -284,7 +285,6 @@ export async function POST(request: NextRequest) {
       isNewThread: !claimedThread,
       contentLength: content.length,
     },
-    logger,
   })
 
   const stream = new ReadableStream<Uint8Array>({
