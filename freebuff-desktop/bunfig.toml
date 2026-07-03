@@ -1,0 +1,7 @@
+[test]
+# bun test run from this package doesn't read the repo-root bunfig.toml, so the
+# .scm loader plugin (needed by @codebuff/code-map, pulled in via @codebuff/sdk)
+# must be preloaded here too. Without it the whole suite crashes: the failed
+# .scm import leaves bun's test runner in a bad state and the next test file
+# segfaults (bun 1.3.14).
+preload = ["../test/setup-scm-loader.ts"]
