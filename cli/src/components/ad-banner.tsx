@@ -64,7 +64,7 @@ function columnWidths(count: number, availableWidth: number): number[] {
 
 /**
  * A single ad card. Used full-width by {@link SingleAdBanner} (chat) and in a
- * row of columns by {@link ChoiceAdBanner} (waiting room). Manages its own
+ * row of columns by {@link ChoiceAdBanner} (landing screen). Manages its own
  * hover state so each card highlights independently.
  */
 const AdCard: React.FC<{
@@ -162,8 +162,8 @@ export const SingleAdBanner: React.FC<{
 }
 
 /**
- * Up to four ads shown in a row. Still used by the freebuff waiting room, which
- * intentionally fills the space with multiple ads.
+ * Up to four ads shown in a row. Still used by the freebuff landing screen,
+ * which intentionally fills the space with multiple ads.
  */
 export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
   ads,

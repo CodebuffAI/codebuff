@@ -552,9 +552,9 @@ export const handleRunError = (params: {
 }
 
 /**
- * Surface + recover from a waiting-room gate rejection. The server rejected
- * the request because our seat is no longer valid; update local state so the
- * UI reflects reality and we stop sending requests until we re-admit.
+ * Surface + recover from a session gate rejection. The server rejected
+ * the request because our session is no longer valid; update local state so
+ * the UI reflects reality and we stop sending requests until we re-admit.
  */
 function handleFreebuffGateError(
   kind: ReturnType<typeof getFreebuffGateErrorKind>,
