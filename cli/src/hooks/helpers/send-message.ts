@@ -238,9 +238,9 @@ export const prepareUserMessage = async (params: {
     if (postUserMessage) {
       next = postUserMessage(next)
     }
-    if (next.length > 100) {
-      next = next.slice(-100)
-    }
+    // Keep the full transcript: this array is what saveChatState persists to
+    // chat-messages.json, so trimming here would permanently lose history.
+    // Rendering stays cheap because useChatMessages paginates what's shown.
     return next
   })
 

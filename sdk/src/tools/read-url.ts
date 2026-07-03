@@ -328,6 +328,7 @@ export async function readUrl({
   fetch: fetchImpl = globalThis.fetch,
   lookupHost,
   resolveDns = fetchImpl === globalThis.fetch,
+  signal,
 }: {
   url: string
   max_chars?: number
@@ -340,7 +341,13 @@ export async function readUrl({
    * stub) skips resolution but IP-literal hosts are still rejected.
    */
   resolveDns?: boolean
+  /** External abort (e.g. user interrupt); cancels the fetch mid-flight. */
+  signal?: AbortSignal
 }): Promise<ReadUrlOutput> {
+  if (signal?.aborted) {
+    return errorResult(url, 'Cancelled: the run was aborted by the user.')
+  }
+
   let parsedUrl: URL
   try {
     parsedUrl = new URL(url)
@@ -350,6 +357,8 @@ export async function readUrl({
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const onExternalAbort = () => controller.abort()
+  signal?.addEventListener('abort', onExternalAbort, { once: true })
 
   try {
     // Follow redirects manually so every hop is re-validated against the SSRF
@@ -446,12 +455,15 @@ export async function readUrl({
     return errorResult(
       url,
       isAbort
-        ? `Timed out after ${FETCH_TIMEOUT_MS} ms`
+        ? signal?.aborted
+          ? 'Cancelled: the run was aborted by the user.'
+          : `Timed out after ${FETCH_TIMEOUT_MS} ms`
         : error instanceof Error
           ? error.message
           : 'Unknown error',
     )
   } finally {
     clearTimeout(timeout)
+    signal?.removeEventListener('abort', onExternalAbort)
   }
 }

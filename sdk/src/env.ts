@@ -34,6 +34,19 @@ export const getCodebuffApiKeyFromEnv = (): string | undefined => {
   return process.env[API_KEY_ENV_VAR]
 }
 
+/**
+ * Runtime override for the Codebuff backend base URL. Remote hosts that bundle
+ * the SDK (Convex Node actions, Next server routes) set this at deploy time;
+ * the bundle-time value can inline a dev-machine localhost URL the remote
+ * runtime cannot reach.
+ */
+export const getRuntimeAppUrlFromEnv = (): string | undefined => {
+  return (
+    process.env['NEXT_PUBLIC_CODEBUFF_APP_URL'] ??
+    process.env['CODEBUFF_APP_URL']
+  )
+}
+
 export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {
   return process.env
 }

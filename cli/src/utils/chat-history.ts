@@ -1,6 +1,11 @@
 import * as fs from 'fs'
 import path from 'path'
 
+import {
+  CHAT_MESSAGES_FILENAME,
+  getFirstUserPrompt,
+  readChatMeta,
+} from './chat-meta'
 import { CHAT_LOG_FILENAME, logger } from './logger'
 import { getProjectDataDir } from '../project-files'
 
@@ -19,23 +24,6 @@ export interface ChatHistoryEntry {
 
 function getChatsDir(): string {
   return path.join(getProjectDataDir(), 'chats')
-}
-
-/**
- * Get the first user message from a list of chat messages
- */
-function getFirstUserPrompt(messages: ChatMessage[]): string {
-  for (const msg of messages) {
-    if (msg?.variant === 'user' && msg.content) {
-      // Truncate long prompts
-      const content = msg.content.trim()
-      if (content.length > 100) {
-        return content.slice(0, 97) + '...'
-      }
-      return content
-    }
-  }
-  return '(empty chat)'
 }
 
 interface ChatDirInfo {
@@ -70,7 +58,7 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
         chatDirInfos.push({
           chatId,
           chatPath,
-          messagesPath: path.join(chatPath, 'chat-messages.json'),
+          messagesPath: path.join(chatPath, CHAT_MESSAGES_FILENAME),
           mtime: stat.mtime,
         })
       } catch {
@@ -91,13 +79,24 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
         let lastPrompt = '(empty chat)'
 
         if (fs.existsSync(info.messagesPath)) {
-          const content = fs.readFileSync(info.messagesPath, 'utf8')
-          const messages = JSON.parse(content) as ChatMessage[]
-          if (!Array.isArray(messages)) {
-            throw new Error('chat-messages.json is not an array')
+          // Prefer the sidecar summary: transcripts are unbounded, so parsing
+          // every full chat-messages.json here can make /history slow.
+          const meta = readChatMeta(info.chatPath)
+          if (meta) {
+            messageCount = meta.messageCount
+            lastPrompt = meta.firstPrompt
+          } else {
+            // Pre-sidecar chats, or a sidecar that no longer matches the
+            // messages file (rewritten by an older CLI, crash between the
+            // two writes): parse the full file.
+            const content = fs.readFileSync(info.messagesPath, 'utf8')
+            const messages = JSON.parse(content) as ChatMessage[]
+            if (!Array.isArray(messages)) {
+              throw new Error('chat-messages.json is not an array')
+            }
+            messageCount = messages.length
+            lastPrompt = getFirstUserPrompt(messages)
           }
-          messageCount = messages.length
-          lastPrompt = getFirstUserPrompt(messages)
         }
 
         // Skip empty chats (no messages)

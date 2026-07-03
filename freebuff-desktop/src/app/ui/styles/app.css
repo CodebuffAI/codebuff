@@ -297,21 +297,15 @@ select {
   font-size: 11.5px;
   color: var(--muted);
 }
-.conn-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.conn-icon {
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
-.conn-open .conn-dot {
-  background: var(--green);
-}
-.conn-reconnecting .conn-dot {
-  background: #c8a93f;
+.conn-reconnecting .conn-icon {
   animation: pulse 1s infinite;
 }
-.conn-connecting .conn-dot {
-  background: var(--faint);
+.conn-connecting .conn-icon {
   animation: pulse 1.3s infinite;
 }
 .conn-reconnecting,
