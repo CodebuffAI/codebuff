@@ -181,6 +181,15 @@ async function loadImageContents(
       const blob = await ctx.storage.get(imageId)
       if (!blob) continue
       const arrayBuffer = await blob.arrayBuffer()
+      if (arrayBuffer.byteLength === 0) {
+        // A zero-byte upload (e.g. a screenshot capture that produced no
+        // bytes) would make the provider reject the whole request with a 400.
+        console.warn('[vly-freebuff-workpool] skipping zero-byte image', {
+          imageId,
+          mediaType: blob.type,
+        })
+        continue
+      }
       const base64 = Buffer.from(arrayBuffer).toString('base64')
       contents.push({
         type: 'image',

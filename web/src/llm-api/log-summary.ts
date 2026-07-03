@@ -33,12 +33,12 @@ export interface MessagesLogSummary {
 }
 
 // data:[<mediatype>][;base64],<payload>
-const DATA_URL_RE = /^data:([^;,]*)?(?:;base64)?,(.*)$/s
+export const DATA_URL_RE = /^data:([^;,]*)?(?:;base64)?,(.*)$/s
 
 /** Read an image part's URL, tolerating both the `string` and `{ url }` shapes.
  *  Loose typing on purpose: the content-part union has a catch-all member, so
  *  field access after a `type` check isn't cleanly narrowable. */
-function imageUrlOf(part: { image_url?: unknown }): string | undefined {
+export function imageUrlOf(part: { image_url?: unknown }): string | undefined {
   const u = part.image_url
   if (typeof u === 'string') return u
   if (u && typeof u === 'object') {

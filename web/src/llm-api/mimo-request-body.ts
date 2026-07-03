@@ -1,5 +1,7 @@
 import { mimoModels } from '@codebuff/common/constants/model-config'
 
+import { DATA_URL_RE } from './log-summary'
+
 import type {
   ChatCompletionContentPart,
   ChatCompletionRequestBody,
@@ -43,10 +45,18 @@ function unsupportedAttachmentNotice(kind: string, count: number): string {
   return `[${count} ${noun} ${verb} omitted because the MiMo API does not support ${kind} input.]`
 }
 
+/** A data URL with no payload (`data:image/png;base64,`) is as unsendable as
+ *  an empty string — MiMo 400s on it — so treat both as missing. */
+function isSendableImageUrl(url: string): boolean {
+  if (url.length === 0) return false
+  const m = DATA_URL_RE.exec(url)
+  return !m || (m[2]?.length ?? 0) > 0
+}
+
 function getImageUrl(part: ChatCompletionContentPart): string | undefined {
   const imageUrl = (part as Record<string, unknown>).image_url
   if (typeof imageUrl === 'string') {
-    return imageUrl.length > 0 ? imageUrl : undefined
+    return isSendableImageUrl(imageUrl) ? imageUrl : undefined
   }
   if (
     imageUrl &&
@@ -54,7 +64,7 @@ function getImageUrl(part: ChatCompletionContentPart): string | undefined {
     typeof (imageUrl as Record<string, unknown>).url === 'string'
   ) {
     const url = (imageUrl as Record<string, unknown>).url as string
-    return url.length > 0 ? url : undefined
+    return isSendableImageUrl(url) ? url : undefined
   }
 
   return undefined

@@ -102,15 +102,29 @@ async function buildImageContent(
   images: ChatImageRef[],
   signal: AbortSignal,
 ): Promise<MessageContent[]> {
-  const resolved = await loadBlobs(
-    images,
-    signal,
-    async (res, img): Promise<MessageContent> => ({
-      type: 'image',
-      image: Buffer.from(await res.arrayBuffer()).toString('base64'),
-      mediaType: img.mediaType,
-    }),
-  )
+  const resolved = (
+    await loadBlobs(
+      images,
+      signal,
+      async (res, img): Promise<MessageContent | null> => {
+        const bytes = await res.arrayBuffer()
+        if (bytes.byteLength === 0) {
+          // A zero-byte blob (e.g. a failed capture at upload time) would make
+          // the provider reject the whole request with a 400.
+          logger.warn(
+            { storageId: img.storageId, mediaType: img.mediaType },
+            'Chat image attachment is empty; dropping it',
+          )
+          return null
+        }
+        return {
+          type: 'image',
+          image: Buffer.from(bytes).toString('base64'),
+          mediaType: img.mediaType,
+        }
+      },
+    )
+  ).filter((p): p is MessageContent => p !== null)
   // Make the happy path observable: how many images actually made it into the
   // request, their byte sizes and media types. A 78-byte image here next to a
   // downstream "failed to decode image" provider error means the image is

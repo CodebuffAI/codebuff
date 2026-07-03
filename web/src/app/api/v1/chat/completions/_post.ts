@@ -55,6 +55,7 @@ import type { ChatCompletionRequestBody } from '@/llm-api/types'
 import { recordChatCompletionTrace } from '@/llm-api/chat-completion-trace'
 import { createRequestAuditRecord } from '@/llm-api/helpers'
 import { summarizeMessagesForLog } from '@/llm-api/log-summary'
+import { dropEmptyImageParts } from '@/llm-api/sanitize-images'
 import { normalizeToolSchemas } from '@/llm-api/tool-schema'
 import {
   CanopyWaveError,
@@ -1086,6 +1087,27 @@ export async function postChatCompletions(params: {
           'Failed to record freebuff usage day',
         )
       }
+    }
+
+    // Zero-byte image parts (e.g. `data:image/png;base64,` with no payload,
+    // from a failed screenshot/upload capture upstream) make providers reject
+    // the whole request — MiMo 400s with "Param Incorrect". Drop them for
+    // every provider and warn with the calling surface (codebuff_metadata) so
+    // the producer can be traced and fixed at the source.
+    const imageSanitation = dropEmptyImageParts(typedBody.messages)
+    if (imageSanitation.dropped.length > 0) {
+      typedBody.messages = imageSanitation.messages
+      logger.warn(
+        {
+          userId,
+          agentId,
+          runId: runIdFromBody,
+          model: typedBody.model,
+          droppedImages: imageSanitation.dropped,
+          codebuffMetadata: typedBody.codebuff_metadata,
+        },
+        'Dropped empty image parts before provider request',
+      )
     }
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)

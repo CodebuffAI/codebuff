@@ -67,6 +67,31 @@ describe('normalizeMiMoRequestBody', () => {
     ])
   })
 
+  it('drops zero-byte data-URL images even for vision models', () => {
+    const body: ChatCompletionRequestBody = {
+      model: 'mimo/mimo-v2.5',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Summarize this image.' },
+            // Empty payload — MiMo 400s ("Param Incorrect") if this is sent.
+            {
+              type: 'image_url',
+              image_url: { url: 'data:image/png;base64,' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const normalized = normalizeMiMoRequestBody(body)
+
+    expect(normalized.messages[0].content).toBe(
+      'Summarize this image.\n\n[1 image was omitted because the MiMo API does not support image input.]',
+    )
+  })
+
   it('strips images for MiMo 2.5 Pro and leaves a note instead of failing', () => {
     const body: ChatCompletionRequestBody = {
       model: 'mimo/mimo-v2.5-pro',
