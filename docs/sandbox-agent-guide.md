@@ -29,7 +29,13 @@ bash freebuff/web/scripts/cloud-typecheck-setup.sh
 Under the hood:
 
 ```bash
-bun install --filter '@codebuff/freebuff-web'   # only this workspace + its deps
+# @codebuff/sdk source-imports agent-runtime/llm-providers/code-map via tsconfig path
+# aliases, not package.json deps, so they must be filtered in explicitly too.
+bun install \
+  --filter '@codebuff/freebuff-web' \
+  --filter '@codebuff/agent-runtime' \
+  --filter '@codebuff/llm-providers' \
+  --filter '@codebuff/code-map'
 cd sdk && bun run build                          # @codebuff/sdk dist
 cd freebuff/web && bun run typecheck             # tsc --noEmit, no next build
 ```

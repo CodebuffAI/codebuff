@@ -34,6 +34,11 @@ import {
 } from '@/vly/lib/project-preview-url'
 import { ConnectedRepoEnvPanel } from '../ConnectedRepoEnvPanel'
 import { CloudCustomLinksPanel } from './CloudCustomLinksPanel'
+import { useWorkspaceReadiness } from '../useWorkspaceReadiness'
+import {
+  WorkspaceWakingPanel,
+  WorkspaceErrorPanel,
+} from '../WorkspaceStatePanels'
 import { GravityAdSlot } from '../agent-chat/GravityAdSlot'
 import {
   Tooltip,
@@ -82,7 +87,7 @@ const connectionStatusMeta: Record<
     pingClassName: 'bg-muted-foreground/50',
   },
   booting: {
-    label: 'Booting preview',
+    label: 'Booting',
     dotClassName: 'bg-amber-300',
     pingClassName: 'bg-amber-300/50',
   },
@@ -141,6 +146,17 @@ export function CloudCenterContent({
   const isWorkspaceView = viewMode === 'code' || viewMode === 'terminal'
   const workspaceUrl =
     viewMode === 'code' ? editorUrl : viewMode === 'terminal' ? terminalUrl : null
+
+  // Wake the sandbox and wait for VS Code / ttyd to answer before mounting
+  // the workspace iframe — otherwise a paused/archived sandbox iframes the
+  // Daytona proxy's raw JSON error instead of a loading state.
+  const workspaceService =
+    viewMode === 'code' ? 'code' : viewMode === 'terminal' ? 'terminal' : null
+  const workspaceReadiness = useWorkspaceReadiness({
+    enabled: isWorkspaceView && !!workspaceUrl,
+    semanticIdentifier,
+    service: workspaceService,
+  })
 
   const iframeContainerRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -332,6 +348,11 @@ export function CloudCenterContent({
   const connectionStatus: PreviewConnectionStatus = (() => {
     if (!project) return 'loading'
     if (isRestarting) return 'restarting'
+    // Waking the sandbox for the Code/Terminal workspace is a boot, not idle —
+    // reflect it in the VM status pill instead of showing a stale "Idle".
+    if (isWorkspaceView && workspaceReadiness.phase === 'waking') {
+      return 'booting'
+    }
     if (isConnectionError) return 'error'
     if (phase === 'starting') return 'booting'
     if (phase === 'connected') {
@@ -638,7 +659,7 @@ export function CloudCenterContent({
                 />
               </div>
             ) : isWorkspaceView ? (
-              workspaceUrl ? (
+              workspaceUrl && workspaceReadiness.phase === 'ready' ? (
                 <iframe
                   key={`${viewMode}-${project?.sandbox_id ?? ''}`}
                   className="absolute inset-0 h-full w-full border-0"
@@ -648,6 +669,17 @@ export function CloudCenterContent({
                   sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
                   suppressHydrationWarning
                   onLoad={() => setWorkspaceIframeLoaded(true)}
+                />
+              ) : workspaceUrl && workspaceReadiness.phase !== 'error' ? (
+                <WorkspaceWakingPanel
+                  service={viewMode === 'code' ? 'code' : 'terminal'}
+                  elapsedSeconds={workspaceReadiness.elapsedSeconds}
+                />
+              ) : workspaceUrl ? (
+                <WorkspaceErrorPanel
+                  service={viewMode === 'code' ? 'code' : 'terminal'}
+                  error={workspaceReadiness.error}
+                  onRetry={workspaceReadiness.retry}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-background">
@@ -688,7 +720,10 @@ export function CloudCenterContent({
             )}
 
             <AnimatePresence>
-              {isWorkspaceView && workspaceUrl && !workspaceIframeLoaded && (
+              {isWorkspaceView &&
+                workspaceUrl &&
+                workspaceReadiness.phase === 'ready' &&
+                !workspaceIframeLoaded && (
                 <motion.div
                   className="absolute inset-0 z-40 flex items-center justify-center bg-background/90 backdrop-blur-sm"
                   initial={{ opacity: 0 }}

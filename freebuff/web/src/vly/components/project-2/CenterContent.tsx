@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { useIframeNavigationSync } from "./useIframeNavigationSync";
+import { useWorkspaceReadiness } from "./useWorkspaceReadiness";
+import {
+  WorkspaceWakingPanel,
+  WorkspaceErrorPanel,
+} from "./WorkspaceStatePanels";
 import { useIsMobile } from "@/vly/hooks/use-mobile";
 import { Spinner3D } from "./Spinner3D";
 import styles from "./CenterContent.module.css";
@@ -300,6 +305,16 @@ export function CenterContent({
   const isWorkspaceView = viewMode === "code" || viewMode === "terminal";
   const workspaceUrl =
     viewMode === "code" ? editorUrl : viewMode === "terminal" ? terminalUrl : null;
+  // Wake the sandbox and wait for VS Code / ttyd to answer before mounting
+  // the workspace iframe — a paused/archived sandbox otherwise iframes the
+  // Daytona proxy's raw JSON error instead of a loading state.
+  const workspaceService =
+    viewMode === "code" ? "code" : viewMode === "terminal" ? "terminal" : null;
+  const workspaceReadiness = useWorkspaceReadiness({
+    enabled: isConnectedRepo && isWorkspaceView && !!workspaceUrl,
+    semanticIdentifier: project?.semantic_identifier ?? "",
+    service: workspaceService as "code" | "terminal" | null,
+  });
   const isMobile = useIsMobile();
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -1134,7 +1149,7 @@ export function CenterContent({
                 />
               </div>
             ) : isConnectedRepo && isWorkspaceView ? (
-              workspaceUrl ? (
+              workspaceUrl && workspaceReadiness.phase === "ready" ? (
                 <iframe
                   key={`${viewMode}-${project?.sandbox_id ?? ""}`}
                   className="absolute inset-0 h-full w-full border-0"
@@ -1144,6 +1159,17 @@ export function CenterContent({
                   sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"
                   suppressHydrationWarning
                   onLoad={() => setWorkspaceIframeLoaded(true)}
+                />
+              ) : workspaceUrl && workspaceReadiness.phase !== "error" ? (
+                <WorkspaceWakingPanel
+                  service={viewMode === "code" ? "code" : "terminal"}
+                  elapsedSeconds={workspaceReadiness.elapsedSeconds}
+                />
+              ) : workspaceUrl ? (
+                <WorkspaceErrorPanel
+                  service={viewMode === "code" ? "code" : "terminal"}
+                  error={workspaceReadiness.error}
+                  onRetry={workspaceReadiness.retry}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-slate-50">
@@ -1175,6 +1201,7 @@ export function CenterContent({
               {isConnectedRepo &&
                 isWorkspaceView &&
                 workspaceUrl &&
+                workspaceReadiness.phase === "ready" &&
                 !workspaceIframeLoaded && (
                   <motion.div
                     className="absolute inset-0 z-40 flex items-center justify-center bg-background/90 backdrop-blur-sm"

@@ -23,8 +23,18 @@ if ! command -v bun >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "[cloud-typecheck-setup] installing @codebuff/freebuff-web workspace deps only..."
-bun install --filter '@codebuff/freebuff-web'
+echo "[cloud-typecheck-setup] installing @codebuff/freebuff-web workspace deps..."
+# @codebuff/sdk source-imports @codebuff/agent-runtime, @codebuff/llm-providers, and
+# @codebuff/code-map via tsconfig path aliases (baseUrl mapping to their src/), not as
+# package.json dependencies. bun's --filter dependency graph only follows declared
+# package.json deps, so those three workspaces must be filtered in explicitly or their
+# own node_modules (e.g. gpt-tokenizer for agent-runtime) never get installed and the
+# sdk build fails with "Could not resolve" errors.
+bun install \
+  --filter '@codebuff/freebuff-web' \
+  --filter '@codebuff/agent-runtime' \
+  --filter '@codebuff/llm-providers' \
+  --filter '@codebuff/code-map'
 
 echo "[cloud-typecheck-setup] building @codebuff/sdk..."
 (cd sdk && bun run build)
@@ -35,7 +45,18 @@ if [[ ! -f "$NEXT_ENV" ]]; then
 fi
 
 echo "[cloud-typecheck-setup] typechecking freebuff/web..."
-(cd freebuff/web && node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc --noEmit -p .)
+# A filtered/hoisted install does not always create the local
+# freebuff/web/node_modules/typescript symlink even though typescript is a declared
+# devDependency there — fall back to the hoisted root copy if the local one is missing.
+TSC_BIN="$ROOT/freebuff/web/node_modules/typescript/bin/tsc"
+if [[ ! -f "$TSC_BIN" ]]; then
+  TSC_BIN="$ROOT/node_modules/typescript/bin/tsc"
+fi
+if [[ ! -f "$TSC_BIN" ]]; then
+  echo "error: could not find the typescript binary in freebuff/web/node_modules or root node_modules" >&2
+  exit 1
+fi
+(cd freebuff/web && node --max-old-space-size=4096 "$TSC_BIN" --noEmit -p .)
 
 echo "[cloud-typecheck-setup] done."
 du -sh node_modules sdk/dist freebuff/web 2>/dev/null || true

@@ -7,6 +7,8 @@ import type { ActionCtx } from "../_generated/server";
 import { getAuthUser } from "../users";
 import { initializeCodebase } from "../../codebase-utils/codebase/initializeCodebase";
 import { DaytonaCodebase } from "../../codebase-utils/codebase/DaytonaCodebase";
+import { OPENVSCODE_PORT, TTYD_PORT } from "../../codebase-utils/golden-image";
+import { DaytonaConnectionStrategy } from "./runtime/strategies/daytona/DaytonaConnectionStrategy";
 
 /**
  * User-controlled preview (dev server) lifecycle for Freebuff Cloud
@@ -188,6 +190,56 @@ export const setRuntimeConfig = action({
     );
 
     return { success: true, message: "Saved configuration" };
+  },
+});
+
+/**
+ * Wake the sandbox (initializeCodebase starts a stopped/archived sandbox and
+ * waits for it) and make sure the requested workspace service — VS Code or the
+ * ttyd web terminal — is actually answering on its port before the client
+ * mounts the workspace iframe. Without this gate, opening Code/Terminal on a
+ * paused sandbox iframes the Daytona proxy's raw JSON error ("failed to get
+ * runner info: Sandbox not found") instead of a loading state.
+ */
+export const ensureWorkspaceService = action({
+  args: {
+    semanticIdentifier: v.string(),
+    service: v.union(v.literal("code"), v.literal("terminal")),
+  },
+  returns: v.object({
+    ready: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ready: boolean; message: string }> => {
+    // Waking a stopped/archived sandbox happens inside initializeCodebase
+    // (start + waitUntilStarted + recovery), so this call alone can take a
+    // minute for cold sandboxes.
+    const { codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    // Restart VS Code / ttyd if they died with the sandbox pause.
+    const strategy = new DaytonaConnectionStrategy();
+    await strategy.ensureSandboxServices(codebase);
+
+    const port = args.service === "code" ? OPENVSCODE_PORT : TTYD_PORT;
+    const probe = await codebase.runCommand(
+      `curl -s -o /dev/null -w '%{http_code}' --max-time 4 "http://localhost:${port}" 2>/dev/null || echo 000`,
+      12000,
+    );
+    const match = probe.output.trim().match(/(\d{3})\s*$/);
+    const statusCode = match ? match[1] : null;
+    const ready = !!statusCode && statusCode !== "000";
+    return {
+      ready,
+      message: ready
+        ? "Workspace ready"
+        : `The ${args.service === "code" ? "editor" : "terminal"} service is not answering yet on port ${port}${statusCode ? ` (status ${statusCode})` : ""}.`,
+    };
   },
 });
 

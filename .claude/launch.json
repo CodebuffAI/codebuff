@@ -2,18 +2,6 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "iframe-harness",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8877",
-        "--directory",
-        "/private/tmp/claude-501/-Users-v-freebuff-private/c5d31333-c1e1-46fa-a61c-6469009eab4f/scratchpad/iframe-harness"
-      ],
-      "port": 8877
-    },
-    {
       "name": "freebuff-web",
       "runtimeExecutable": "bun",
       "runtimeArgs": [
