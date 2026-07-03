@@ -36,6 +36,14 @@ the assistant can PROPOSE follow-up prompts ──► park in the queue's "sugge
 - **One Bun process** (`src/app/server.ts`) is the orchestrator + HTTP/SSE server, and
   in a packaged build also serves the built React UI. In dev the Vite server owns the
   UI and proxies `/api` + `/preview` to this process.
+- **The orchestrator is multi-project, and which repos are open is runtime state —
+  there is NO "target repo" env var.** It keeps one `ThreadEngine` per opened repo
+  (server.ts `EngineRegistry`; each engine owns that repo's `.freebuff/desktop.db` +
+  worktrees) and at boot it **restores every repo in the MRU** at
+  `$HOME/.config/freebuff-desktop/state.json` (empty MRU → zero engines, the UI's
+  welcome state). More repos open via `POST /api/project/open`, and `/api/threads`
+  spans all of them. This is why test instances must run with a fresh `HOME` — see
+  the warning in §3a.
 - **The harness** is pluggable, chosen per-thread (and a project-wide default):
   - `codebuff` — the hosted Codebuff agent via `@codebuff/sdk`. Needs a working
     Codebuff backend + auth (see §2).
@@ -76,6 +84,8 @@ the assistant can PROPOSE follow-up prompts ──► park in the queue's "sugge
    - the in-app device-code login (`POST /api/auth/login/start`), which stores a token in
      `~/.config/freebuff-desktop`.
    The engine prefers the persisted login token, then falls back to `CODEBUFF_API_KEY`.
+   A fresh-`HOME` test run (§3a) can't see a previously persisted token, so headless
+   runs use the env key.
 3. **For the `claude-code` harness: a logged-in local Claude Code.** It reuses your
    terminal subscription auth; no Codebuff key required for the turn. Sanity-check with
    `scripts/claude-smoke.ts` (§12).
@@ -88,26 +98,53 @@ the assistant can PROPOSE follow-up prompts ──► park in the queue's "sugge
 
 ## 3. Start it
 
-Three ways, fastest-iteration last. All read `PORT` (default `8787`) and `TARGET_REPO`
-for the orchestrator.
+Three ways, fastest-iteration last. All read `PORT` (default `8787`) for the
+orchestrator. There is no repo env var — you attach repos at runtime (§4).
 
 > ⚠️ **`bun --cwd freebuff-desktop run …` is broken in this repo.** Run the script
 > path directly from the repo root, **or** `cd freebuff-desktop && bun run <script>`.
 
 ### a. Orchestrator + API only (best for headless / curl-driving)
 
+> ⚠️ **A fresh `HOME` is REQUIRED for test runs.** Boot restores **every repo in
+> `$HOME`'s MRU** (§1) — with your real `HOME`, your "test" server opens engines
+> (and `.freebuff/desktop.db` files) in your REAL projects, `/api/threads` returns
+> their threads, and the run pushes test paths into your real
+> `~/.config/freebuff-desktop/state.json`. A past test instance **deleted a live
+> worktree** this way. A fresh `HOME` is the one true isolation lever (the server
+> tests use exactly this recipe). macOS/Linux only: `os.homedir()` follows `$HOME`
+> there but ignores it on Windows, where this recipe does not isolate.
+
 ```bash
 # from the repo root (the bun wrapper's .env.local already targets localhost:3000)
+HOME=$(mktemp -d) \
 CODEBUFF_API_KEY=<dev-key> \
-TARGET_REPO=/Users/<you>/freebuff-projects/active \
 PORT=8787 \
   bun freebuff-desktop/src/app/server.ts
 ```
 
-Prints `Freebuff Desktop orchestrator on http://localhost:8787` and the target repo.
-This serves the API immediately; it only serves the *built* UI if you've run
-`bun run ui:build` first (not needed for curl-driving). Confirm readiness with the
-dependency-free probe: `curl -s localhost:8787/healthz` → `ok`.
+With an empty MRU the server boots with **zero engines** (project-scoped endpoints
+return `no project` until a repo is opened). Once `curl -s localhost:8787/healthz`
+→ `ok`, attach your throwaway repo at runtime — this is the only way to point the
+server at a repo:
+
+```bash
+curl -s -X POST localhost:8787/api/project/open \
+  -H 'content-type: application/json' -d '{"path":"/tmp/<scratch-repo>"}'
+```
+
+Fresh-`HOME` consequences to plan for:
+- **Auth:** the device-code sign-in lives in `$HOME/.config/freebuff-desktop`, so the
+  run can't see (or clobber) your real token — pass `CODEBUFF_API_KEY` for the
+  `codebuff` harness (the documented env fallback, §2). For the `claude-code`
+  harness, note local Claude Code's config also lives under `HOME`; on macOS
+  keychain-backed auth usually still works, but verify with `scripts/claude-smoke.ts`
+  run under the same `HOME` before relying on it.
+- **Git identity:** `~/.gitconfig` is hidden too, so give scratch repos a repo-local
+  `user.email`/`user.name` (§4) or agent commits inside worktrees fail.
+
+The server serves the API immediately; it only serves the *built* UI if you've run
+`bun run ui:build` first (not needed for curl-driving).
 
 ### b. Full web stack in a normal browser (no Electron)
 
@@ -125,9 +162,6 @@ stuck on "No threads open".
 cd freebuff-desktop
 bun run app          # builds UI + icons, launches Electron
 bun run dev          # Vite + Electron, hot UI iteration
-# open a specific repo at launch (otherwise: most-recent project, or the
-# welcome screen's sign-in → folder-pick flow on a fresh profile):
-FREEBUFF_TARGET_REPO=/path/to/repo bun run app
 ```
 
 Electron picks a free loopback port, spawns the orchestrator on it, waits for
@@ -138,16 +172,16 @@ Electron picks a free loopback port, spawns the orchestrator on it, waits for
 | Var | Default | Meaning |
 |-----|---------|---------|
 | `PORT` | `8787` | HTTP/SSE port |
-| `TARGET_REPO` | — | project repo to open at launch (unset → the MRU recent projects; none on a fresh profile → the server starts with **zero engines** and project-scoped endpoints return 404/400 `no project` until one is opened) |
+| `HOME` | your home | where the MRU/state (`$HOME/.config/freebuff-desktop/state.json`) lives — a temp dir here is the test-isolation lever (§3a) |
 | `TEST_CMD` | `node --test` | the project's test command (run-config used by the `test` skill) |
 | `NEXT_PUBLIC_CODEBUFF_APP_URL` | prod | API host for sign-in, sessions, SDK (repo launches inherit localhost:3000 from `.env.local`; shell env wins) |
 | `CODEBUFF_API_KEY` | — | fallback auth for the `codebuff` harness |
 | `FREEBUFF_UI_DIR` | `…/dist-ui` | built SPA dir (set by the shell in packaged builds) |
 
-There is no demo-repo fallback: always set `TARGET_REPO` to a real git repo for
-headless e2e (create a throwaway one under /tmp — see §4). A fresh profile with no
-`TARGET_REPO` boots to the welcome screen with no project open, and `POST /api/threads`
-400s with `no project` until `POST /api/project/open` (or the UI's folder pick) runs.
+There is no `TARGET_REPO` (removed) and no demo-repo fallback: boot restores the
+`$HOME` MRU — none on a fresh profile, so the server starts with **zero engines**
+and project-scoped endpoints return 404/400 `no project` until
+`POST /api/project/open` (or the UI's folder pick) runs.
 
 ---
 
@@ -157,24 +191,21 @@ Each project is its own git repo. The engine creates per-thread worktrees under
 `<repo>/.freebuff/`, so start from a clean repo on its default branch:
 
 ```bash
-mkdir -p ~/freebuff-projects && cd ~/freebuff-projects
-P=piano && mkdir -p "$P" && cd "$P"
-printf '# %s\n\nOne-line spec.\n' "$P" > README.md
-git init -q && git add -A && git commit -q -m init && git branch -M main
+P=$(mktemp -d /tmp/fb-piano-XXXX) && cd "$P"
+printf '# piano\n\nOne-line spec.\n' > README.md
+git init -q -b main
+# repo-local identity: a fresh-HOME server (§3a) can't see ~/.gitconfig, and
+# agent commits inside worktrees fail without one
+git config user.email test@freebuff.local && git config user.name 'FB Test'
+git add -A && git commit -q -m init
 ```
 
-**Tip — use a symlink as `TARGET_REPO`** (`~/freebuff-projects/active`) so you can
-repoint it between runs without changing the launch command:
-
-```bash
-ln -sfn ~/freebuff-projects/$P ~/freebuff-projects/active
-```
-
-You don't have to restart for a repo switch — the running server can open any repo:
+Attach it to the running server (no restart — this is how ALL repos are opened, and
+it also becomes the default project for new tabs):
 
 ```bash
 curl -s -X POST localhost:8787/api/project/open \
-  -H 'content-type: application/json' -d '{"path":"'"$PWD"'"}'
+  -H 'content-type: application/json' -d '{"path":"'"$P"'"}'
 ```
 
 ---
@@ -393,6 +424,14 @@ For UI behavior, do a real smoke instead of eyeballing source:
 
 ## 11. Failure modes seen in practice (check these first)
 
+- **`/api/threads` returns threads from repos you never opened / real projects show
+  up in a test run.** You started the server with your real `HOME` — boot restored
+  every repo in your real MRU (§1, §3a). Kill it, prune any test entries from
+  `~/.config/freebuff-desktop/state.json`, and relaunch with `HOME=$(mktemp -d)`.
+  (Scripts setting `TARGET_REPO` predate its removal — the env var is ignored now;
+  use `POST /api/project/open`.)
+- **Agent turns fail to commit in a fresh-`HOME` run.** No `~/.gitconfig` visible —
+  give the scratch repo a repo-local `user.email`/`user.name` (§4).
 - **Stale docs/scripts referencing the old task model.** Anything mentioning
   `decompose`, `tasks`, `awaiting-approval`, `approve/squash-merge`, Scout proposals,
   `/api/chat`, `buildStageExecutors`, or `store.insertTask` predates the thread-model
@@ -442,9 +481,11 @@ Run scripts from the repo root (so workspace resolution + env apply):
 1. Pick a harness. For `codebuff`: local backend up on `:3000` (repo launches target
    it via `.env.local` — confirm with the yellow `API:` badge), `CODEBUFF_API_KEY` set
    (or logged in). For `claude-code`: local `claude` is logged in.
-2. Fresh project repo on its default branch; `active` symlink repointed (§4).
-3. Start the orchestrator (§3a) → `curl localhost:8787/healthz` returns `ok`;
-   `GET /api/state` shows the repo and no threads.
+2. Fresh throwaway repo on its default branch **with repo-local git identity** (§4).
+3. Start the orchestrator (§3a) **with a fresh `HOME`** — never your real one (boot
+   restores every real MRU project; §1, §11) and never pointed at a real project →
+   `curl localhost:8787/healthz` returns `ok`, then `POST /api/project/open` the
+   throwaway repo; `GET /api/state` shows it and no threads.
 4. `POST /api/threads` to create a tab, then `POST …/message` with a clear
    one-paragraph prompt (§5).
 5. Drive/watch via SSE or the poller (§7–8), backgrounded.

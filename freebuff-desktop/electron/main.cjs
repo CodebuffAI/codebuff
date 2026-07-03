@@ -16,7 +16,6 @@
  *     user needs no system Bun.
  *
  *   bun --cwd freebuff-desktop run app        # launch from source (dev)
- *   FREEBUFF_TARGET_REPO=/path/to/repo bun --cwd freebuff-desktop run app
  */
 
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron')
@@ -151,9 +150,6 @@ function startOrchestrator(port) {
 
     const env = { ...process.env, PORT: String(port) }
     if (uiDir) env.FREEBUFF_UI_DIR = uiDir
-    if (process.env.FREEBUFF_TARGET_REPO) {
-      env.TARGET_REPO = process.env.FREEBUFF_TARGET_REPO
-    }
 
     serverProc = spawn(bun, args, {
       cwd,

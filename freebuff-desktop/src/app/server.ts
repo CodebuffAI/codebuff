@@ -45,12 +45,6 @@ const PORT = Number(process.env.PORT ?? 8787)
 // the packaged app. In dev this is unset — Vite serves the UI and proxies here.
 const UI_DIR = process.env.FREEBUFF_UI_DIR ?? join(import.meta.dir, '..', '..', 'dist-ui')
 
-// The project to open at launch: an explicit TARGET_REPO (dev/e2e), else the
-// most-recent project. On a fresh install there is NONE — the server starts
-// with zero engines and the UI shows the welcome screen (sign in, then pick a
-// folder). We deliberately do not scaffold a demo repo into the user's home.
-const initialRepo = process.env.TARGET_REPO ?? readRecentProjects()[0]
-
 // — Engine lifecycle —
 // SSE subscribers live at the server level (not on a single engine), so events
 // from every project's engine fan out to all connected clients over one stream.
@@ -276,9 +270,11 @@ const loginManager = new LoginManager((user) => {
 // reopens all the tabs. Validation spawns git per repo, so open them
 // concurrently; the new-tab default is set explicitly afterward. First install
 // has nothing to open — the registry starts empty and the UI's welcome screen
-// drives the first folder pick.
+// drives the first folder pick. There is deliberately NO env override (the old
+// TARGET_REPO): repos are opened at runtime (`POST /api/project/open`), and
+// test instances isolate with a fresh HOME — see docs/desktop/e2e-testing.md §3a.
 const toOpen = readRecentProjects()
-if (initialRepo && !toOpen.includes(initialRepo)) toOpen.unshift(initialRepo)
+const initialRepo = toOpen[0]
 const opened = await Promise.all(
   toOpen.map(async (dir) => {
     const r = await registry.ensure(dir)
@@ -286,8 +282,8 @@ const opened = await Promise.all(
     return { dir, ok: r.ok }
   }),
 )
-// Make the initial repo the new-tab default + MRU head — but only if it
-// actually opened. Persisting a bad TARGET_REPO would haunt the MRU (and the
+// Re-pin the most-recent project as the new-tab default + MRU head — but only
+// if it actually opened. Persisting a dead path would haunt the MRU (and the
 // welcome screen's recents list) on every later launch.
 if (initialRepo && opened.some((o) => o.dir === initialRepo && o.ok)) {
   registry.markRecent(initialRepo)

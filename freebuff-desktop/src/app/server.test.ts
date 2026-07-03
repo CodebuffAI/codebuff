@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -12,6 +12,7 @@ import { join } from 'path'
 const PORT = 8912
 const BASE = `http://127.0.0.1:${PORT}`
 let repoDir: string
+let decoyDir: string
 let homeDir: string
 let proc: ReturnType<typeof Bun.spawn>
 
@@ -29,33 +30,53 @@ async function waitForReady(timeoutMs = 15_000): Promise<void> {
   throw new Error('server did not become ready')
 }
 
-beforeAll(async () => {
-  repoDir = mkdtempSync(join(tmpdir(), 'fb-srv-'))
-  const git = (args: string[]) => Bun.spawnSync(['git', '-C', repoDir, ...args])
-  Bun.spawnSync(['git', 'init', '-b', 'main', repoDir])
+/** A throwaway git repo with one commit and repo-local identity. */
+function makeRepo(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix))
+  const git = (args: string[]) => Bun.spawnSync(['git', '-C', dir, ...args])
+  Bun.spawnSync(['git', 'init', '-b', 'main', dir])
   git(['config', 'user.email', 't@t.co'])
   git(['config', 'user.name', 'T'])
-  writeFileSync(join(repoDir, 'f.txt'), 'hi\n')
+  writeFileSync(join(dir, 'f.txt'), 'hi\n')
   git(['add', '-A'])
   git(['commit', '-m', 'init'])
+  return dir
+}
 
-  // Isolate HOME: the server boots an engine for EVERY project in the real
-  // ~/.config/freebuff-desktop/state.json recents (restoring their tabs, some
-  // mid-turn), which leaks the developer's live projects into /api/activity —
-  // and each run would push this throwaway repo into their real MRU.
+beforeAll(async () => {
+  repoDir = makeRepo('fb-srv-')
+  // A perfectly openable repo named ONLY by a TARGET_REPO env var: the removed
+  // knob. If someone reintroduces an env target, the regression test below fails.
+  decoyDir = makeRepo('fb-decoy-')
+
+  // Fresh HOME is THE test-isolation lever (docs/desktop/e2e-testing.md §3a): the
+  // server boots an engine for EVERY project in $HOME's state.json MRU (restoring
+  // their tabs, some mid-turn), so a real HOME would leak the developer's live
+  // projects into /api/activity — and each run would push this throwaway repo
+  // into their real MRU. There is deliberately no target-repo env var; opening a
+  // project is a runtime action, same as the UI.
   homeDir = mkdtempSync(join(tmpdir(), 'fb-home-'))
   proc = Bun.spawn(['bun', join(import.meta.dir, 'server.ts')], {
-    env: { ...process.env, PORT: String(PORT), TARGET_REPO: repoDir, HOME: homeDir },
+    env: { ...process.env, PORT: String(PORT), HOME: homeDir, TARGET_REPO: decoyDir },
     stdout: 'ignore',
     stderr: 'ignore',
   })
   await waitForReady()
+  // Attach the throwaway repo the blessed way: POST /api/project/open. This also
+  // makes it the most-recent project, so /api/state and new tabs default to it.
+  const opened = await fetch(`${BASE}/api/project/open`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: repoDir }),
+  })
+  if (!opened.ok) throw new Error(`project/open failed: ${await opened.text()}`)
 })
 
 afterAll(() => {
   proc?.kill()
-  if (repoDir) rmSync(repoDir, { recursive: true, force: true })
-  if (homeDir) rmSync(homeDir, { recursive: true, force: true })
+  for (const d of [repoDir, decoyDir, homeDir]) {
+    if (d) rmSync(d, { recursive: true, force: true })
+  }
 })
 
 describe('server (integration)', () => {
@@ -121,5 +142,19 @@ describe('server (integration)', () => {
     const chunk = new TextDecoder().decode(value)
     expect(chunk).toContain('"type":"state"')
     await reader.cancel()
+  })
+
+  // Regression: the removed TARGET_REPO knob must stay removed. It only
+  // pretended to scope the server (boot restores the whole MRU regardless),
+  // which once let a "scratch repo" test instance open — and act on — the
+  // user's real projects. The boot env above names decoyDir via TARGET_REPO;
+  // the server must not have touched it.
+  test('a TARGET_REPO env var is ignored', async () => {
+    const { recents } = (await (await fetch(`${BASE}/api/project/recents`)).json()) as {
+      recents: string[]
+    }
+    expect(recents).not.toContain(decoyDir)
+    // An opened engine would have created `.freebuff/desktop.db` inside the repo.
+    expect(existsSync(join(decoyDir, '.freebuff'))).toBe(false)
   })
 })
