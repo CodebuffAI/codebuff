@@ -337,6 +337,10 @@ export const handleRunCompletion = (params: {
   updater: BatchedMessageUpdater
   aiMessageId: string
   wasAbortedByUser: boolean
+  /** Whether the run streamed any content before finishing. A freebuff gate
+   *  rejection with no content means the prompt was consumed unprocessed —
+   *  surfaced as an inline error instead of silently looking sent. */
+  hasReceivedContent?: boolean
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   updateChainInProgress: (value: boolean) => void
@@ -413,7 +417,9 @@ export const handleRunCompletion = (params: {
 
     const gateKind = getFreebuffGateErrorKind(output)
     if (gateKind) {
-      handleFreebuffGateError(gateKind, updater)
+      handleFreebuffGateError(gateKind, updater, {
+        messageWasDropped: params.hasReceivedContent === false,
+      })
       finalizeAfterError()
       return
     }
@@ -476,6 +482,8 @@ export const handleRunError = (params: {
   updateChainInProgress: (value: boolean) => void
   isProcessingQueueRef?: MutableRefObject<boolean>
   isQueuePausedRef?: MutableRefObject<boolean>
+  /** See handleRunCompletion — flags an unprocessed prompt on gate errors. */
+  hasReceivedContent?: boolean
 }) => {
   const {
     error,
@@ -487,6 +495,7 @@ export const handleRunError = (params: {
     updateChainInProgress,
     isProcessingQueueRef,
     isQueuePausedRef,
+    hasReceivedContent,
   } = params
 
   const errorInfo = getErrorObject(error, { includeRawError: true })
@@ -523,7 +532,9 @@ export const handleRunError = (params: {
 
   const gateKind = getFreebuffGateErrorKind(error)
   if (gateKind) {
-    handleFreebuffGateError(gateKind, updater)
+    handleFreebuffGateError(gateKind, updater, {
+      messageWasDropped: hasReceivedContent === false,
+    })
     return
   }
 
@@ -548,6 +559,7 @@ export const handleRunError = (params: {
 function handleFreebuffGateError(
   kind: ReturnType<typeof getFreebuffGateErrorKind>,
   updater: BatchedMessageUpdater,
+  opts: { messageWasDropped?: boolean } = {},
 ) {
   switch (kind) {
     case 'session_expired':
@@ -559,6 +571,15 @@ function handleFreebuffGateError(
       // agent is still working even though the SessionEndedBanner is visible
       // and actionable. Also disposes the batched-updater flush interval.
       updater.markComplete()
+      // Rejected before producing anything (the run-start guard missed
+      // because only the server knew the slot was gone): the prompt won't be
+      // processed and isn't re-queued, so say so instead of leaving it
+      // looking sent. Runs that got partway keep the quieter banner-only UX.
+      if (opts.messageWasDropped) {
+        updater.setError(
+          'Your free session ended before this message was processed. Send it again after starting a new session.',
+        )
+      }
       // Flip to `ended` instead of auto re-queuing: the Chat surface stays
       // mounted so any in-flight agent work can finish under the server-side
       // grace period, and the session-ended banner prompts the user to press

@@ -187,7 +187,9 @@ export const getFreeModeUnavailableErrorMessage = (
  * Freebuff waiting-room gate errors returned by /api/v1/chat/completions.
  *
  * Contract (see docs/freebuff-waiting-room.md):
- *   - 428 `waiting_room_required`   — no session row exists; POST /session to join.
+ *   - 428 `waiting_room_required`   — no session row exists, or the request
+ *                                     carried no instance id (client isn't
+ *                                     holding a session); POST /session to join.
  *   - 429 `waiting_room_queued`     — row exists but still queued.
  *   - 409 `session_superseded`      — another CLI rotated our instance id.
  *   - 409 `session_model_mismatch`  — session tier/model no longer matches.
