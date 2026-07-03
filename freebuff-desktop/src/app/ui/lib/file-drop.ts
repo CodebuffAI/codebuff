@@ -4,7 +4,11 @@ import type { AttachmentKind } from '../../../core/attachments'
 // Keep in sync with IMAGE_EXTS in app/attachments.ts.
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i
 
-export const baseName = (p: string) => p.split(/[\\/]/).pop() || p
+/** Last path segment (either separator), tolerating trailing slashes. The one
+ *  basename helper for the UI — attachment chips, the thread-header folder
+ *  pill, and the welcome screen's recents all use it, so folder names can't
+ *  render differently across surfaces. */
+export const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() || p
 
 export function kindFor(name: string, isDirectory: boolean, mime?: string): AttachmentKind {
   if (isDirectory) return 'directory'

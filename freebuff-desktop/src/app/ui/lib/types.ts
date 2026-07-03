@@ -132,13 +132,16 @@ export interface Snapshot {
   settings?: ProjectSettings
 }
 
-/** SSE event shapes emitted by the server (see EngineEvent). */
+/** SSE event shapes emitted by the server (see EngineEvent). The `auth` event
+ *  is app-level, not engine-level: it carries sign-in state even when no
+ *  project is open (fresh install), where no snapshot exists to carry it. */
 export type ServerEvent =
   | { type: 'state'; snapshot: Snapshot }
   | { type: 'thread'; threadId: string; thread: Thread; items: QueueItem[] }
   | { type: 'agent'; threadId: string; event: AgentEvent }
   | { type: 'prompt'; threadId: string; text: string }
   | { type: 'log'; level: 'info' | 'error'; message: string }
+  | { type: 'auth'; authed: boolean; user: { id?: string; name?: string; email?: string } | null }
 
 /** A subset of the SDK PrintModeEvent we render. Text/reasoning/tool events may
  *  carry an `agentId` attributing them to a spawned subagent (see core/parts). */

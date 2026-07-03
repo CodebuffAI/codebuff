@@ -24,11 +24,9 @@ export function TabBar() {
   const closeTab = useStore((s) => s.closeTab)
   const newThread = useStore((s) => s.newThread)
   const connection = useStore((s) => s.connection)
-  // Boolean selector (not the whole freebuff object): the snapshot is rebuilt
-  // with fresh identity on every state event, but this only changes when auth
-  // actually flips. Null (state not loaded yet) counts as signed in — the
+  // Tri-state auth: null (not known yet) counts as signed in — the
   // AccountMenu branch renders nothing then, so neither control flashes.
-  const signedOut = useStore((s) => !!s.freebuff && !s.freebuff.authed)
+  const signedOut = useStore((s) => s.authed === false)
 
   // Overflow menu: jump to any open tab when there are too many to scan.
   const [menuOpen, setMenuOpen] = useState(false)

@@ -24,7 +24,7 @@ import { isHarnessId, type HarnessId } from './agents/harness'
 import { isAllowedApiOrigin } from './origin-guard'
 import { flushAnalytics, identifyOnLogin, initAnalytics, resetIdentity, trackEvent } from './analytics'
 import { LoginManager } from './auth/login-flow'
-import { getAuthToken, getAuthUser, isAuthed, logout as logoutAuth } from './auth/login-store'
+import { getAuth, getAuthToken, isAuthed, logout as logoutAuth } from './auth/login-store'
 import { ThreadEngine, type EngineEvent } from './thread-engine'
 import {
   initProjectRepo,
@@ -35,7 +35,6 @@ import {
   writeAgentHarness,
   writeUiPrefs,
 } from './project-dir'
-import { ensureSampleRepo } from './sample-repo'
 import { pushRecentProject } from './project-dir'
 import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
@@ -46,17 +45,29 @@ const PORT = Number(process.env.PORT ?? 8787)
 // the packaged app. In dev this is unset — Vite serves the UI and proxies here.
 const UI_DIR = process.env.FREEBUFF_UI_DIR ?? join(import.meta.dir, '..', '..', 'dist-ui')
 
-function defaultRepo(): string {
-  return join(process.env.HOME ?? '/tmp', 'freebuff-desktop-demo')
-}
-const initialRepo = process.env.TARGET_REPO ?? readRecentProjects()[0] ?? defaultRepo()
-if (initialRepo === defaultRepo()) await ensureSampleRepo(initialRepo)
+// The project to open at launch: an explicit TARGET_REPO (dev/e2e), else the
+// most-recent project. On a fresh install there is NONE — the server starts
+// with zero engines and the UI shows the welcome screen (sign in, then pick a
+// folder). We deliberately do not scaffold a demo repo into the user's home.
+const initialRepo = process.env.TARGET_REPO ?? readRecentProjects()[0]
 
 // — Engine lifecycle —
 // SSE subscribers live at the server level (not on a single engine), so events
 // from every project's engine fan out to all connected clients over one stream.
-const subscribers = new Set<(e: EngineEvent) => void>()
-const broadcast = (e: EngineEvent) => {
+// The stream also carries an app-level `auth` event: auth state normally rides
+// on engine snapshots, but with zero projects open (fresh install) there is no
+// engine to snapshot — the welcome screen still needs to know whether to show
+// the sign-in CTA, and to flip when the device-code flow completes.
+type OutboundEvent =
+  | EngineEvent
+  | { type: 'auth'; authed: boolean; user: ReturnType<typeof getAuth>['user'] | null }
+const authEvent = (): OutboundEvent => {
+  // getAuth: one state-file read for authed+user (vs separate helper calls).
+  const { authed, user } = getAuth()
+  return { type: 'auth', authed, user: user ?? null }
+}
+const subscribers = new Set<(e: OutboundEvent) => void>()
+const broadcast = (e: OutboundEvent) => {
   for (const s of subscribers) s(e)
 }
 
@@ -229,6 +240,9 @@ function signOutLocally(): void {
   registry.setAuthTokenAll(undefined)
   const de = registry.defaultEngine()
   if (de) broadcast({ type: 'state', snapshot: de.snapshot() })
+  // Engine-independent auth flip — with zero projects open there is no
+  // snapshot to broadcast, but the welcome screen must still swap to sign-in.
+  broadcast(authEvent())
 }
 
 /** The 401 auto sign-out. Guarded on isAuthed(): only a real persisted
@@ -253,21 +267,31 @@ const loginManager = new LoginManager((user) => {
   })
   const e = registry.defaultEngine()
   if (e) broadcast({ type: 'state', snapshot: e.snapshot() })
+  // Fresh install signs in from the welcome screen before any project exists:
+  // no engine, no snapshot — the auth event is what unblocks the folder pick.
+  broadcast(authEvent())
 })
 
 // Restore every recently-open project (each its own tab set), so a relaunch
 // reopens all the tabs. Validation spawns git per repo, so open them
-// concurrently; the new-tab default is set explicitly afterward.
+// concurrently; the new-tab default is set explicitly afterward. First install
+// has nothing to open — the registry starts empty and the UI's welcome screen
+// drives the first folder pick.
 const toOpen = readRecentProjects()
-if (!toOpen.includes(initialRepo)) toOpen.unshift(initialRepo)
-await Promise.all(
+if (initialRepo && !toOpen.includes(initialRepo)) toOpen.unshift(initialRepo)
+const opened = await Promise.all(
   toOpen.map(async (dir) => {
     const r = await registry.ensure(dir)
     if (!r.ok) console.warn(`Skipping project ${dir}: ${r.error}`)
+    return { dir, ok: r.ok }
   }),
 )
-// Make the initial repo the new-tab default + MRU head.
-registry.markRecent(initialRepo)
+// Make the initial repo the new-tab default + MRU head — but only if it
+// actually opened. Persisting a bad TARGET_REPO would haunt the MRU (and the
+// welcome screen's recents list) on every later launch.
+if (initialRepo && opened.some((o) => o.dir === initialRepo && o.ok)) {
+  registry.markRecent(initialRepo)
+}
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
@@ -349,7 +373,7 @@ const server = Bun.serve({
 
     // — Server-Sent Events: live engine + thread state + agent activity —
     if (pathname === '/api/events') {
-      let send: (e: EngineEvent) => void = () => {}
+      let send: (e: OutboundEvent) => void = () => {}
       let heartbeat: ReturnType<typeof setInterval> | undefined
       const stream = new ReadableStream({
         start(controller) {
@@ -357,7 +381,7 @@ const server = Bun.serve({
             subscribers.delete(send)
             if (heartbeat) clearInterval(heartbeat)
           }
-          send = (e: EngineEvent) => {
+          send = (e: OutboundEvent) => {
             try {
               controller.enqueue(`data: ${JSON.stringify(e)}\n\n`)
             } catch {
@@ -365,8 +389,10 @@ const server = Bun.serve({
             }
           }
           // Initial state + a thread event per open thread (across every project)
-          // so a (re)connecting client backfills everything it missed.
+          // so a (re)connecting client backfills everything it missed. The auth
+          // event covers the zero-project case, where no snapshot carries it.
           registry.replay(send)
+          send(authEvent())
           subscribers.add(send)
           // Heartbeat: an SSE comment frame (ignored by EventSource) every 25s.
           // Without traffic a half-open socket (laptop sleep, proxy drop) would
@@ -402,12 +428,14 @@ const server = Bun.serve({
     if (tpMatch) {
       const [, threadId, sub] = tpMatch
       const owner = registry.forThread(threadId)
-      return servePreview(owner?.engine.getThread(threadId)?.worktreePath ?? owner?.path ?? defaultRepo(), sub ?? '/')
+      if (!owner) return new Response('Not found', { status: 404 })
+      return servePreview(owner.engine.getThread(threadId)?.worktreePath ?? owner.path, sub ?? '/')
     }
 
     // Live preview of the default project's own files (web projects).
     if (pathname === '/preview' || pathname.startsWith('/preview/')) {
-      const root = registry.defaultPath() ?? defaultRepo()
+      const root = registry.defaultPath()
+      if (!root) return new Response('Not found', { status: 404 })
       return servePreview(root, pathname === '/preview' ? '/' : pathname.slice('/preview'.length))
     }
 
@@ -505,9 +533,10 @@ const server = Bun.serve({
 
     // — Freebuff auth (device-code login) —
     if (pathname === '/api/auth/status' && req.method === 'GET') {
+      const { authed, user } = getAuth()
       return json({
-        authed: isAuthed(),
-        user: getAuthUser() ?? null,
+        authed,
+        user: user ?? null,
         // Surface the in-flight login attempt so a reloaded renderer can
         // restore its "waiting" state (and the cancel affordance) instead of
         // showing an idle button while the server is still polling.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { bridge } from './lib/bridge'
+import { baseName } from './lib/file-drop'
 import freebuffLogo from './components/freebuff-logo.svg'
 import { Icon } from './components/Icon'
 import { useDismissable } from './hooks/useDismissable'
@@ -18,9 +19,11 @@ export function App() {
   const toasts = useStore((s) => s.toasts)
   const dismissToast = useStore((s) => s.dismissToast)
   const pickProject = useStore((s) => s.pickProject)
-  // Boolean selector, not the whole freebuff object — the snapshot's identity
-  // changes on every state event; this only re-renders when auth flips.
-  const signedOut = useStore((s) => !!s.freebuff && !s.freebuff.authed)
+  const openProjectPath = useStore((s) => s.openProjectPath)
+  const recentProjects = useStore((s) => s.recentProjects)
+  // Tri-state: null until the first auth signal lands (auth-status fetch or
+  // SSE), so the welcome screen doesn't flash the wrong CTA on a cold start.
+  const authed = useStore((s) => s.authed)
   const pendingInit = useStore((s) => s.pendingInit)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
@@ -66,25 +69,45 @@ export function App() {
         <Workspace activeId={activeId} />
       ) : (
         <div className="workspace empty">
-          {/* No open tab (first launch, or every tab closed). Signed out, the
-              screen is a single CTA: sign in (the hosted agent needs it before
+          {/* No open tab (first launch, or every tab closed). The first-run
+              flow is ordered: sign in FIRST (the hosted agent needs it before
               any folder pick matters — and the tab bar hides its own gate here
-              so exactly one sign-in button shows). Signed in, show an explicit
-              way to open a folder — the folder chooser is otherwise only
-              reachable from a tab's header, which doesn't exist yet, so
-              without this the app dead-ends on a cold start. */}
+              so exactly one sign-in button shows), THEN pick a project folder,
+              which creates the first tab (see openPickedPath → newThread).
+              While auth is still unknown (cold start, one round-trip) show
+              neither CTA rather than flashing the wrong one. */}
           <div className="welcome">
             <img className="welcome-logo" src={freebuffLogo} alt="" />
             <div className="welcome-actions">
-              {signedOut ? (
-                <LoginGate variant="welcome" />
-              ) : (
+              {authed === false && <LoginGate variant="welcome" />}
+              {authed === true && (
                 <button className="btn welcome-open" onClick={() => void pickProject()}>
                   <Icon name="folder" />
                   Open a project folder
                 </button>
               )}
             </div>
+            {/* Signed in with history (e.g. every tab closed): one click back
+                into a recent project — validated like a fresh pick (see
+                openProjectPath), so a recent whose .git vanished gets the
+                git-init recovery and a moved/deleted one a specific error. */}
+            {authed === true && recentProjects.length > 0 && (
+              <div className="welcome-recents">
+                <div className="welcome-recents-title">Recent projects</div>
+                {recentProjects.slice(0, 5).map((path) => (
+                  <button
+                    key={path}
+                    className="welcome-recent"
+                    onClick={() => void openProjectPath(path)}
+                    title={path}
+                  >
+                    <Icon name="folder" />
+                    <span className="welcome-recent-name">{baseName(path)}</span>
+                    <span className="welcome-recent-path">{path}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

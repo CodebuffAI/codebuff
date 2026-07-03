@@ -1,3 +1,4 @@
+import { baseName } from '../lib/file-drop'
 import { useStore } from '../store/store'
 import { activeFreebuffModelOption, AgentModelLabel, AgentModelPicker } from './AgentSelector'
 import { Icon } from './Icon'
@@ -42,7 +43,7 @@ export function ThreadHeader({
   // tab's directory — but only until the thread starts. After that the folder is
   // fixed (a different repo means a new tab), so the chip renders as a label.
   const projectPath = slice.thread.projectPath
-  const projectName = projectPath.split(/[/\\]+/).filter(Boolean).pop() ?? ''
+  const projectName = baseName(projectPath)
   const started = !!slice.thread.branch || slice.messages.length > 0
   // The hosted Freebuff agent (the API-host badge applies to it only).
   const isHostedAgent = (slice.thread.harnessId ?? agentHarness ?? 'codebuff') === 'codebuff'
