@@ -1,4 +1,4 @@
-import { access, cp, mkdir, realpath } from 'fs/promises'
+import { access, cp, mkdir, realpath, rm } from 'fs/promises'
 import { join } from 'path'
 
 const webRoot = join(import.meta.dir, '..')
@@ -151,3 +151,46 @@ await runStep(
   'deploying Convex preview and building Next.js',
   getConvexDeployCommand(convexDeployKey),
 )
+
+await pruneArtifactForStandalone()
+
+/**
+ * Shrink the Render deploy artifact by deleting the hoisted monorepo
+ * `node_modules` (~3.9GB of electron/react-native/expo siblings the web server
+ * never loads). Safe because `next build` emitted `output: 'standalone'` and
+ * assemble-standalone.mjs made `.next/standalone` self-contained (verified: it
+ * boots and serves with zero access to the root node_modules).
+ *
+ * Runs only on Render, only after the Convex deploy + Next build above have
+ * finished (nothing left in the build needs node_modules), and only when the
+ * standalone server actually exists — otherwise we leave node_modules in place
+ * so the `next start` fallback in start-standalone.mjs still works.
+ */
+async function pruneArtifactForStandalone() {
+  if (!process.env.RENDER) {
+    console.log('[render-preview] not on Render; skipping artifact prune')
+    return
+  }
+
+  const standaloneServer = join(
+    webRoot,
+    '.next',
+    'standalone',
+    'freebuff',
+    'web',
+    'server.js',
+  )
+  if (!(await pathExists(standaloneServer))) {
+    console.log(
+      `[render-preview] standalone server missing at ${standaloneServer}; ` +
+        'leaving node_modules in place (next start fallback)',
+    )
+    return
+  }
+
+  const rootNodeModules = join(repoRoot, 'node_modules')
+  await rm(rootNodeModules, { recursive: true, force: true })
+  console.log(
+    `[render-preview] pruned ${rootNodeModules} from deploy artifact`,
+  )
+}

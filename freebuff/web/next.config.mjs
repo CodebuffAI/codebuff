@@ -19,6 +19,12 @@ const monorepoRoot = resolve(import.meta.dirname, '../../')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Emit a self-contained server bundle under `.next/standalone` so the Render
+  // deploy artifact can ship without the 3.9GB hoisted monorepo `node_modules`
+  // (electron/react-native/expo siblings the web server never loads). The
+  // assemble-standalone.mjs post-build step copies in static/public and the
+  // runtime assets Next's file tracer can't follow (see that script).
+  output: 'standalone',
   outputFileTracingRoot: monorepoRoot,
   env: {
     // In development, point Freebuff-specific URLs at the Freebuff dev server.
