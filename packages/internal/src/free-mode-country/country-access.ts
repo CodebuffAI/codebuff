@@ -131,6 +131,9 @@ type ResolvedCountryAccess = Omit<
 }
 
 export const IPINFO_PRIVACY_CACHE_TTL_MS = 30 * 60 * 1000
+// These lookups run sequentially on the session hot path; a stalled provider
+// must fail fast (degrade to null) rather than hang the request.
+export const PRIVACY_PROVIDER_FETCH_TIMEOUT_MS = 5_000
 const IPINFO_PRIVACY_CACHE_MAX_ENTRIES = 5000
 const ipinfoPrivacyCache = new Map<
   string,
@@ -909,14 +912,19 @@ export async function lookupIpinfoPrivacy(params: {
     return cached.privacy
   }
 
-  const response = await params.fetch(
-    `https://api.ipinfo.io/lookup/${encodeURIComponent(params.ip)}?token=${encodeURIComponent(params.token)}`,
-  )
-  if (!response.ok) {
+  let data: Record<string, unknown>
+  try {
+    const response = await params.fetch(
+      `https://api.ipinfo.io/lookup/${encodeURIComponent(params.ip)}?token=${encodeURIComponent(params.token)}`,
+      { signal: AbortSignal.timeout(PRIVACY_PROVIDER_FETCH_TIMEOUT_MS) },
+    )
+    if (!response.ok) {
+      return null
+    }
+    data = (await response.json()) as Record<string, unknown>
+  } catch {
     return null
   }
-
-  const data = (await response.json()) as Record<string, unknown>
   const signals = privacySignalsFromIpinfo(data)
   const privacy = {
     signals,
@@ -936,19 +944,24 @@ export async function lookupSpurIpPrivacy(params: {
     return cached.privacy
   }
 
-  const response = await params.fetch(
-    `https://api.spur.us/v2/context/${encodeURIComponent(params.ip)}`,
-    {
-      headers: {
-        Token: params.token,
+  let data: Record<string, unknown>
+  try {
+    const response = await params.fetch(
+      `https://api.spur.us/v2/context/${encodeURIComponent(params.ip)}`,
+      {
+        headers: {
+          Token: params.token,
+        },
+        signal: AbortSignal.timeout(PRIVACY_PROVIDER_FETCH_TIMEOUT_MS),
       },
-    },
-  )
-  if (!response.ok) {
+    )
+    if (!response.ok) {
+      return null
+    }
+    data = (await response.json()) as Record<string, unknown>
+  } catch {
     return null
   }
-
-  const data = (await response.json()) as Record<string, unknown>
   const privacy = {
     signals: privacySignalsFromSpur(data),
   }
@@ -970,18 +983,23 @@ export async function lookupScamalyticsIpRisk(params: {
   if (!params.apiKey) return null
 
   const user = params.user ?? SCAMALYTICS_DEFAULT_USER
-  const response = await params.fetch(
-    `https://api11.scamalytics.com/v3/${encodeURIComponent(
-      user,
-    )}/?key=${encodeURIComponent(params.apiKey)}&ip=${encodeURIComponent(
-      params.ip,
-    )}`,
-  )
-  if (!response.ok) {
+  let data: Record<string, unknown>
+  try {
+    const response = await params.fetch(
+      `https://api11.scamalytics.com/v3/${encodeURIComponent(
+        user,
+      )}/?key=${encodeURIComponent(params.apiKey)}&ip=${encodeURIComponent(
+        params.ip,
+      )}`,
+      { signal: AbortSignal.timeout(PRIVACY_PROVIDER_FETCH_TIMEOUT_MS) },
+    )
+    if (!response.ok) {
+      return null
+    }
+    data = (await response.json()) as Record<string, unknown>
+  } catch {
     return null
   }
-
-  const data = (await response.json()) as Record<string, unknown>
   const root = scamalyticsRoot(data)
   if (root.status && root.status !== 'ok') {
     return null
