@@ -2,6 +2,8 @@ import postgres from 'postgres'
 
 import { env } from '@codebuff/internal/env'
 
+import { DB_CONNECT_TIMEOUT_SECONDS } from './timeouts'
+
 /**
  * Lock IDs for different singleton processes.
  * These are arbitrary integers that must be unique per process type.
@@ -64,7 +66,7 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
   const connection = postgres(env.DATABASE_URL, {
     max: 1,
     idle_timeout: 0,
-    connect_timeout: 10,
+    connect_timeout: DB_CONNECT_TIMEOUT_SECONDS,
     max_lifetime: 0, // Disable connection recycling - must keep session alive for advisory lock
   })
 

@@ -1,6 +1,7 @@
 import { recordReferralV2Activation } from '@codebuff/billing'
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { withRetriedTransaction } from '@codebuff/internal/db/transaction'
 import { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 
 import { logger } from '@/util/logger'
@@ -267,19 +268,26 @@ export async function endSession(params: {
   sessionLengthMs: number
 }): Promise<void> {
   const { userId, now, sessionLengthMs } = params
-  await db.transaction(async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(schema.freeSession)
-      .where(eq(schema.freeSession.user_id, userId))
-      .for('update')
-      .limit(1)
+  // Retried: the FOR UPDATE wait can hit the pooled client's lock_timeout
+  // (55P03) when a dead peer holds this user's row; retrying outlasts the
+  // server's idle-in-transaction reaper instead of surfacing a 500.
+  await withRetriedTransaction({
+    callback: async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(schema.freeSession)
+        .where(eq(schema.freeSession.user_id, userId))
+        .for('update')
+        .limit(1)
 
-    if (row) await finalizeLatestAdmit(tx, row, userId, now, sessionLengthMs)
+      if (row) await finalizeLatestAdmit(tx, row, userId, now, sessionLengthMs)
 
-    await tx
-      .delete(schema.freeSession)
-      .where(eq(schema.freeSession.user_id, userId))
+      await tx
+        .delete(schema.freeSession)
+        .where(eq(schema.freeSession.user_id, userId))
+    },
+    context: { userId, operation: 'endSession' },
+    logger,
   })
 }
 
@@ -377,32 +385,40 @@ export async function promoteQueuedUser(params: {
 }): Promise<InternalSessionRow | null> {
   const { userId, model, sessionLengthMs, now, fireworksRoute } = params
   const expiresAt = new Date(now.getTime() + sessionLengthMs)
-  const session = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(schema.freeSession)
-      .set({
-        status: 'active',
+  // Retried: the UPDATE can hit the pooled client's lock_timeout (55P03) if a
+  // dead peer holds this user's row; a failed attempt rolls back wholesale, so
+  // re-running is safe (the queued-status guard makes the UPDATE a no-op once
+  // a prior attempt committed).
+  const session = await withRetriedTransaction({
+    callback: async (tx) => {
+      const [row] = await tx
+        .update(schema.freeSession)
+        .set({
+          status: 'active',
+          admitted_at: now,
+          expires_at: expiresAt,
+          fireworks_route: fireworksRoute ?? null,
+          updated_at: now,
+        })
+        .where(
+          and(
+            eq(schema.freeSession.user_id, userId),
+            eq(schema.freeSession.status, 'queued'),
+            eq(schema.freeSession.model, model),
+          ),
+        )
+        .returning()
+      if (!row) return null
+      await tx.insert(schema.freeSessionAdmit).values({
+        user_id: userId,
+        model,
+        access_tier: row.access_tier ?? 'full',
         admitted_at: now,
-        expires_at: expiresAt,
-        fireworks_route: fireworksRoute ?? null,
-        updated_at: now,
       })
-      .where(
-        and(
-          eq(schema.freeSession.user_id, userId),
-          eq(schema.freeSession.status, 'queued'),
-          eq(schema.freeSession.model, model),
-        ),
-      )
-      .returning()
-    if (!row) return null
-    await tx.insert(schema.freeSessionAdmit).values({
-      user_id: userId,
-      model,
-      access_tier: row.access_tier ?? 'full',
-      admitted_at: now,
-    })
-    return row as InternalSessionRow
+      return row as InternalSessionRow
+    },
+    context: { userId, model, operation: 'promoteQueuedUser' },
+    logger,
   })
 
   if (session) {
@@ -721,29 +737,34 @@ export async function endDesktopSession(params: {
   sessionLengthMs: number
 }): Promise<void> {
   const { userId, instanceId, now, sessionLengthMs } = params
-  await db.transaction(async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(schema.freeSessionDesktop)
-      .where(
-        and(
-          eq(schema.freeSessionDesktop.user_id, userId),
-          eq(schema.freeSessionDesktop.active_instance_id, instanceId),
-        ),
-      )
-      .for('update')
-      .limit(1)
+  // Retried for the same reason as endSession above.
+  await withRetriedTransaction({
+    callback: async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(schema.freeSessionDesktop)
+        .where(
+          and(
+            eq(schema.freeSessionDesktop.user_id, userId),
+            eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+          ),
+        )
+        .for('update')
+        .limit(1)
 
-    if (row) await finalizeLatestAdmit(tx, row, userId, now, sessionLengthMs)
+      if (row) await finalizeLatestAdmit(tx, row, userId, now, sessionLengthMs)
 
-    await tx
-      .delete(schema.freeSessionDesktop)
-      .where(
-        and(
-          eq(schema.freeSessionDesktop.user_id, userId),
-          eq(schema.freeSessionDesktop.active_instance_id, instanceId),
-        ),
-      )
+      await tx
+        .delete(schema.freeSessionDesktop)
+        .where(
+          and(
+            eq(schema.freeSessionDesktop.user_id, userId),
+            eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+          ),
+        )
+    },
+    context: { userId, instanceId, operation: 'endDesktopSession' },
+    logger,
   })
 }
 
