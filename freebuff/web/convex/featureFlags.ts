@@ -15,8 +15,22 @@ export const FEATURE_FLAGS = {
   USAGE_TAB: "usage_tab_enabled",
   STATS_MONITORING_ENABLED: "stats_monitoring_enabled",
   BILLING_ENFORCEMENT: "billing_enforcement",
+  // Gates the WebContainer-backed project creation path (in-browser
+  // sandboxing) as a replacement for Daytona pooled sandboxes. Defaults to
+  // DISABLED so production /web keeps creating Daytona projects. Admins can
+  // test WebContainer via /web/test (explicit opt-in in codesandbox.create),
+  // or the flag can be enabled later via a DB record / env var for rollout.
+  WEBCONTAINER_PROJECTS: "webcontainer_projects_enabled",
   // Add more feature flags as needed
 } as const;
+
+/**
+ * Flags that are enabled by default when no DB record or env var is present.
+ * Everything not listed here defaults to false (safe/off).
+ */
+const FEATURE_DEFAULTS: Record<string, boolean> = {
+  [FEATURE_FLAGS.WEBCONTAINER_PROJECTS]: false,
+};
 
 /**
  * Simple deterministic hash function for percentage-based rollouts
@@ -113,8 +127,9 @@ export const isEnabled = internalQuery({
     const envKey = `FEATURE_${args.key.toUpperCase()}`;
     const envValue = process.env[envKey];
 
-    // Default to false if not set anywhere
-    return envValue === "true";
+    // Explicit env var wins; otherwise fall back to per-flag default.
+    if (envValue !== undefined) return envValue === "true";
+    return FEATURE_DEFAULTS[args.key] ?? false;
   },
 });
 
@@ -157,10 +172,13 @@ export const batchIsEnabled = internalQuery({
         // Use database flag
         result[key] = evaluateFeatureAccess(user, flag);
       } else {
-        // Fallback to environment variable (legacy support)
+        // Fallback to environment variable, then per-flag default.
         const envKey = `FEATURE_${key.toUpperCase()}`;
         const envValue = process.env[envKey];
-        result[key] = envValue === "true";
+        result[key] =
+          envValue !== undefined
+            ? envValue === "true"
+            : (FEATURE_DEFAULTS[key] ?? false);
       }
     }
 
@@ -219,15 +237,23 @@ export const checkFeatureInternal = internalQuery({
       };
     }
 
-    // Fallback to environment variable (legacy support)
+    // Fallback to environment variable, then per-flag default.
     const envKey = `FEATURE_${args.key.toUpperCase()}`;
     const envValue = process.env[envKey];
+    const effectiveEnabled =
+      envValue !== undefined
+        ? envValue === "true"
+        : (FEATURE_DEFAULTS[args.key] ?? false);
 
     return {
-      enabled: envValue === "true",
-      description: `Controlled by ${envKey} environment variable`,
-      rollout_strategy:
-        envValue === "true" ? ("enabled" as const) : ("disabled" as const),
+      enabled: effectiveEnabled,
+      description:
+        envValue !== undefined
+          ? `Controlled by ${envKey} environment variable`
+          : `Default value for ${args.key}`,
+      rollout_strategy: effectiveEnabled
+        ? ("enabled" as const)
+        : ("disabled" as const),
       rollout_percentage: undefined,
     };
   },

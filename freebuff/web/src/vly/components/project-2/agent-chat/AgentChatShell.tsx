@@ -464,6 +464,7 @@ export function AgentChatShell({
   onRegisterSendMessage,
 }: AgentChatShellProps) {
   const vlyAgentDisplayName = "freebuff agent 2.0";
+  const isWebContainerProject = project?.sandbox_id?.startsWith("webcontainer:") === true;
   // All hooks must be called unconditionally before any early returns
   const chatMessagesRef = useRef<AgentChatMessagesRef>(null);
   const [showThreadList, setShowThreadList] = useState(false);
@@ -1239,15 +1240,18 @@ export function AgentChatShell({
             <button
               type="button"
               onClick={() => void handleSelectAgentAndCreateThread("Codex")}
-              disabled={isProcessing}
-              className={getAgentButtonClasses(isProcessing)}
+              disabled={isProcessing || isWebContainerProject}
+              className={getAgentButtonClasses(isProcessing || isWebContainerProject)}
+              title={isWebContainerProject ? "Codex requires a Daytona sandbox. Use Freebuff for WebContainer projects." : undefined}
             >
               <div className="flex items-center gap-2 text-sm font-medium">
                 <AgentLogo agentType="Codex" />
                 Codex
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Runs OpenAI Codex with your ChatGPT OAuth or OpenAI key.
+                {isWebContainerProject
+                  ? "Requires Daytona sandbox — not available for in-browser projects."
+                  : "Runs OpenAI Codex with your ChatGPT OAuth or OpenAI key."}
               </p>
             </button>
 
@@ -1256,15 +1260,18 @@ export function AgentChatShell({
               onClick={() =>
                 void handleSelectAgentAndCreateThread("Claude Code")
               }
-              disabled={isProcessing}
-              className={getAgentButtonClasses(isProcessing)}
+              disabled={isProcessing || isWebContainerProject}
+              className={getAgentButtonClasses(isProcessing || isWebContainerProject)}
+              title={isWebContainerProject ? "Claude Code requires a Daytona sandbox. Use Freebuff for WebContainer projects." : undefined}
             >
               <div className="flex items-center gap-2 text-sm font-medium">
                 <AgentLogo agentType="Claude Code" />
                 Claude Code
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Runs Claude Code with your Anthropic or Bedrock credential.
+                {isWebContainerProject
+                  ? "Requires Daytona sandbox — not available for in-browser projects."
+                  : "Runs Claude Code with your Anthropic or Bedrock credential."}
               </p>
             </button>
           </div>
@@ -1394,11 +1401,15 @@ export function AgentChatShell({
                                 onClick={() =>
                                   void handleSwitchAgentOnCurrentThread("Codex")
                                 }
+                                disabled={isWebContainerProject}
                                 className="flex items-center justify-between gap-2"
                               >
                                 <span className="flex items-center gap-2">
                                   <AgentLogo agentType="Codex" />
                                   Codex
+                                  {isWebContainerProject && (
+                                    <span className="text-[10px] text-muted-foreground">(Daytona only)</span>
+                                  )}
                                 </span>
                                 {activeThread.agent_type === "Codex" && (
                                   <Check className="h-3.5 w-3.5" />
@@ -1410,11 +1421,15 @@ export function AgentChatShell({
                                     "Claude Code",
                                   )
                                 }
+                                disabled={isWebContainerProject}
                                 className="flex items-center justify-between gap-2"
                               >
                                 <span className="flex items-center gap-2">
                                   <AgentLogo agentType="Claude Code" />
                                   Claude Code
+                                  {isWebContainerProject && (
+                                    <span className="text-[10px] text-muted-foreground">(Daytona only)</span>
+                                  )}
                                 </span>
                                 {activeThread.agent_type === "Claude Code" && (
                                   <Check className="h-3.5 w-3.5" />

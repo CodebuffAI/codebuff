@@ -8,6 +8,13 @@ import { getGitCodebase } from "../../../../codebase-utils/codebase/codebaseHelp
 import type { SyncResult } from "../types";
 import { runCronValidationWithLogging } from "../cronPostSyncValidator";
 import { getProjectPackageManager } from "../../../../codebase-utils/packageManager";
+import * as fs from "node:fs";
+import { promises as fsPromises } from "node:fs";
+import { randomUUID } from "node:crypto";
+import os from "node:os";
+import path from "node:path";
+import git from "isomorphic-git";
+import http from "isomorphic-git/http/node";
 
 /**
  * Sync Executor Service
@@ -19,6 +26,16 @@ import { getProjectPackageManager } from "../../../../codebase-utils/packageMana
  * This consolidates the core sync execution logic that was previously
  * scattered throughout the engine.ts file.
  */
+
+const WEBCONTAINER_TOOL_TIMEOUT_MS = 120_000;
+const WEBCONTAINER_READ_BATCH_SIZE = 100;
+
+type PendingToolCall = {
+  _id: string;
+  status: "pending" | "done" | "error";
+  output?: unknown;
+  error?: string;
+};
 
 /**
  * Keep agent unblocked even when sync hits conflicts.
@@ -64,6 +81,313 @@ function getGitHubReauthMessageIfNeeded(
 }
 
 export { getGitHubReauthMessageIfNeeded };
+
+async function waitForWebContainerToolCall(
+  ctx: any,
+  callId: string,
+  timeoutMs: number,
+): Promise<unknown> {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const call = (await ctx.runQuery(
+      internal.codesandbox.pendingToolCalls.getToolCallById,
+      { callId },
+    )) as PendingToolCall | null;
+
+    if (!call) {
+      throw new Error("WebContainer tool call disappeared before completion.");
+    }
+
+    if (call.status === "done") {
+      return call.output;
+    }
+
+    if (call.status === "error") {
+      throw new Error(call.error ?? "WebContainer tool execution failed.");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  await ctx.runMutation(internal.codesandbox.pendingToolCalls.failToolCall, {
+    callId,
+    error: "Timed out waiting for WebContainer tool execution.",
+  });
+
+  throw new Error("Timed out waiting for WebContainer tool execution.");
+}
+
+async function runWebContainerTool(
+  ctx: any,
+  args: {
+    projectId: string;
+    runId: string;
+    toolName: string;
+    input: unknown;
+    timeoutMs?: number;
+  },
+): Promise<unknown> {
+  const callId = await ctx.runMutation(
+    internal.codesandbox.pendingToolCalls.enqueueToolCall,
+    {
+      runId: args.runId,
+      projectId: args.projectId,
+      toolName: args.toolName,
+      input: args.input,
+    },
+  );
+
+  return await waitForWebContainerToolCall(
+    ctx,
+    callId,
+    args.timeoutMs ?? WEBCONTAINER_TOOL_TIMEOUT_MS,
+  );
+}
+
+function normalizeSyncPath(filePath: string): string | null {
+  const normalized = filePath.replace(/\\/g, "/").replace(/^\.?\//, "");
+  if (!normalized) return null;
+  if (normalized.startsWith("../") || normalized.includes("/../")) return null;
+  if (normalized === ".git" || normalized.startsWith(".git/")) return null;
+  return normalized;
+}
+
+async function listWebContainerFiles(
+  ctx: any,
+  projectId: string,
+  runId: string,
+): Promise<string[]> {
+  const raw = (await runWebContainerTool(ctx, {
+    projectId,
+    runId,
+    toolName: "list_directory",
+    input: { path: "." },
+  })) as { files?: unknown; truncated?: unknown };
+
+  const files = Array.isArray(raw?.files)
+    ? raw.files.filter((value): value is string => typeof value === "string")
+    : [];
+
+  if (typeof raw?.truncated === "number" && raw.truncated > 0) {
+    throw new Error(
+      `WebContainer returned only a partial file listing (${raw.truncated} files truncated).`,
+    );
+  }
+
+  const normalized = files
+    .map((file) => normalizeSyncPath(file))
+    .filter((file): file is string => !!file);
+
+  return Array.from(new Set(normalized)).sort();
+}
+
+async function readWebContainerFiles(
+  ctx: any,
+  projectId: string,
+  runId: string,
+  filePaths: string[],
+): Promise<Map<string, string>> {
+  const fileMap = new Map<string, string>();
+
+  for (let i = 0; i < filePaths.length; i += WEBCONTAINER_READ_BATCH_SIZE) {
+    const batch = filePaths.slice(i, i + WEBCONTAINER_READ_BATCH_SIZE);
+    const rawResult = (await runWebContainerTool(ctx, {
+      projectId,
+      runId,
+      toolName: "read_files",
+      input: { filePaths: batch },
+    })) as Record<string, unknown> | null;
+
+    if (!rawResult || typeof rawResult !== "object") {
+      continue;
+    }
+
+    for (const filePath of batch) {
+      const value = rawResult[filePath];
+      if (typeof value === "string") {
+        fileMap.set(filePath, value);
+      }
+    }
+  }
+
+  return fileMap;
+}
+
+async function cloneOrInitRepo(
+  dir: string,
+  repoUrl: string,
+  token: string,
+): Promise<void> {
+  const auth = () => ({ username: "x-access-token", password: token });
+
+  try {
+    await git.clone({
+      fs,
+      http,
+      dir,
+      url: repoUrl,
+      singleBranch: true,
+      depth: 1,
+      ref: "main",
+      onAuth: auth,
+    });
+    return;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalized = message.toLowerCase();
+    const isEmptyRepoError =
+      normalized.includes("remote branch main not found") ||
+      normalized.includes("could not find remote ref") ||
+      normalized.includes("empty repository");
+
+    if (!isEmptyRepoError) {
+      throw error;
+    }
+  }
+
+  await git.init({ fs, dir, defaultBranch: "main" });
+  await git.addRemote({ fs, dir, remote: "origin", url: repoUrl });
+}
+
+async function syncWebContainerProjectToGitHub(
+  ctx: any,
+  args: {
+    projectId: string;
+    repoOwner: string;
+    repoName: string;
+    githubToken: string;
+    githubTokenType: "installation" | "oauth";
+    installationId?: number;
+  },
+): Promise<SyncResult> {
+  const runId = `github-sync-webcontainer:${args.projectId}:${randomUUID()}`;
+  const repoUrl = `https://github.com/${args.repoOwner}/${args.repoName}.git`;
+  const tempDir = await fsPromises.mkdtemp(
+    path.join(os.tmpdir(), "freebuff-wc-sync-"),
+  );
+
+  try {
+    const files = await listWebContainerFiles(ctx, args.projectId, runId);
+    const fileContents = await readWebContainerFiles(
+      ctx,
+      args.projectId,
+      runId,
+      files,
+    );
+
+    await cloneOrInitRepo(tempDir, repoUrl, args.githubToken);
+
+    const trackedFiles = await git.listFiles({ fs, dir: tempDir });
+    const desiredFiles = new Set(fileContents.keys());
+    const filesToDelete = trackedFiles.filter((file) => !desiredFiles.has(file));
+
+    for (const file of filesToDelete) {
+      await fsPromises.rm(path.join(tempDir, file), { force: true });
+    }
+
+    for (const [file, contents] of fileContents.entries()) {
+      const absolutePath = path.join(tempDir, file);
+      await fsPromises.mkdir(path.dirname(absolutePath), { recursive: true });
+      await fsPromises.writeFile(absolutePath, contents, "utf8");
+    }
+
+    for (const file of filesToDelete) {
+      await git.remove({ fs, dir: tempDir, filepath: file }).catch(() => {});
+    }
+
+    for (const file of fileContents.keys()) {
+      await git.add({ fs, dir: tempDir, filepath: file });
+    }
+
+    const statusMatrix = await git.statusMatrix({ fs, dir: tempDir });
+    const hasChanges = statusMatrix.some((row) => row[1] !== row[3]);
+
+    if (!hasChanges) {
+      return {
+        success: true,
+        operation: "project_to_github",
+        projectId: args.projectId,
+        status: "synced",
+        message: "Already up to date with GitHub.",
+      };
+    }
+
+    await git.commit({
+      fs,
+      dir: tempDir,
+      message: "Sync from Freebuff WebContainer",
+      author: {
+        name: "Freebuff WebContainer",
+        email: "agent@mail.freebuff.app",
+      },
+    });
+
+    await git.push({
+      fs,
+      http,
+      dir: tempDir,
+      remote: "origin",
+      ref: "main",
+      onAuth: () => ({ username: "x-access-token", password: args.githubToken }),
+    });
+
+    logTokenUsage({
+      operation: "sync_executor_webcontainer_push",
+      tokenType: args.githubTokenType,
+      success: true,
+      installationId:
+        args.githubTokenType === "installation" ? args.installationId : undefined,
+    });
+
+    return {
+      success: true,
+      operation: "project_to_github",
+      projectId: args.projectId,
+      status: "synced",
+      message: "WebContainer project pushed to GitHub successfully.",
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const normalizedError = errorMessage.toLowerCase();
+    const isConflictLikeError =
+      normalizedError.includes("non-fast-forward") ||
+      normalizedError.includes("fetch first") ||
+      normalizedError.includes("failed to push some refs") ||
+      normalizedError.includes("[rejected]");
+
+    if (isConflictLikeError) {
+      return {
+        success: false,
+        operation: "project_to_github",
+        projectId: args.projectId,
+        status: "conflict",
+        message: `Push was rejected because GitHub has newer commits. ${errorMessage}`,
+        conflicts: {
+          files: [],
+          resolutionOptions: [
+            "use_github_version",
+            "use_local_version",
+            "retry_push",
+          ],
+        },
+      };
+    }
+
+    const reauthMessage = getGitHubReauthMessageIfNeeded(errorMessage);
+    return {
+      success: false,
+      operation: "project_to_github",
+      projectId: args.projectId,
+      status: "error",
+      message: reauthMessage
+        ? `${reauthMessage} (${errorMessage})`
+        : `WebContainer GitHub push failed: ${errorMessage}`,
+    };
+  } finally {
+    await fsPromises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
 
 /**
  * Handle conflict scenario with unified logic
@@ -610,6 +934,42 @@ export const executeProjectToGitHubSync = internalAction({
         status: "pending",
         lastSyncTime: Date.now(),
       });
+
+      if (args.sandboxId.startsWith("webcontainer:")) {
+        const webContainerResult = await syncWebContainerProjectToGitHub(ctx, {
+          projectId: args.projectId,
+          repoOwner: args.repoOwner,
+          repoName: args.repoName,
+          githubToken: args.githubToken,
+          githubTokenType: args.githubTokenType,
+          installationId: args.installationId,
+        });
+
+        await ctx.runMutation(internal.github.sync.status.updateSyncStatus, {
+          projectId: args.projectId,
+          status: webContainerResult.status as any,
+          lastSyncTime: Date.now(),
+          errorMessage: webContainerResult.success
+            ? undefined
+            : webContainerResult.message,
+        });
+
+        if (webContainerResult.status === "conflict") {
+          await keepAgentActive(
+            ctx,
+            args.projectId,
+            "webcontainer push conflict - user intervention required",
+          );
+        }
+
+        if (webContainerResult.success && webContainerResult.status === "synced") {
+          await ctx.runMutation(internal.project.setStateDone, {
+            projectId: args.projectId,
+          });
+        }
+
+        return webContainerResult;
+      }
 
       // Step 2: Resolve package manager (use provided or detect for legacy projects)
       let packageManager = args.packageManager;

@@ -391,7 +391,7 @@ class ArtifactDeploymentBuildStrategy extends BaseDeploymentBuildStrategy {
   }
 }
 
-async function uploadFilesToVercel(
+export async function uploadFilesToVercel(
   files: VercelDeploymentFile[],
 ): Promise<void> {
   const vercelToken = process.env.VERCEL_API_TOKEN;
@@ -423,7 +423,7 @@ async function uploadFilesToVercel(
   );
 }
 
-async function getOrCreateVercelProject(
+export async function getOrCreateVercelProject(
   slug: string,
   existingVercelProjectId?: string,
 ): Promise<string> {
@@ -498,7 +498,7 @@ async function getOrCreateVercelProject(
   return created.id;
 }
 
-async function createVercelDeployment(
+export async function createVercelDeployment(
   slug: string,
   vercelProjectId: string,
   files: VercelDeploymentFile[],
@@ -546,7 +546,7 @@ async function createVercelDeployment(
   return await response.json();
 }
 
-async function assignVercelDomain(
+export async function assignVercelDomain(
   vercelProjectId: string,
   domain: string,
 ): Promise<void> {

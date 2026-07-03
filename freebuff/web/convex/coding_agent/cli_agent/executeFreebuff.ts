@@ -1,7 +1,5 @@
 'use node'
 
-import { gzipSync, gunzipSync } from 'node:zlib'
-
 import { run } from '@codebuff/sdk'
 import { applyPatch } from 'diff'
 import { v } from 'convex/values'
@@ -23,13 +21,9 @@ import {
   bundledAgentDefinitions,
   resolveFreebuffAgentId,
   CONNECTED_REPO_AGENT_GUIDANCE,
+  WEBCONTAINER_AGENT_GUIDANCE,
 } from './freebuff_bundled_agents'
-import {
-  PER_ACTION_ABORT_MS,
-  CLOUD_PER_ACTION_ABORT_MS,
-  CLOUD_TURN_BUDGET_MS,
-  MAX_TURN_CONTINUATIONS,
-} from './timeLimits'
+import { buildWebContainerOverrideTools } from './webcontainerOverrideTools'
 
 function requireEnv(name: string) {
   const value = process.env[name]
@@ -37,10 +31,6 @@ function requireEnv(name: string) {
   return value
 }
 
-// Resume blobs are stored gzipped (the JSON session state compresses ~10x),
-// which cuts both file storage and the Convex data egress billed every time an
-// action/continuation reads the blob back. Older blobs predate compression, so
-// sniff the gzip magic bytes and fall back to plain JSON.
 async function readResumeStateFromStorage(
   ctx: ActionCtx,
   storageId: Id<'_storage'>,
@@ -48,10 +38,7 @@ async function readResumeStateFromStorage(
   const blob = await ctx.storage.get(storageId)
   if (!blob) return undefined
   try {
-    const bytes = Buffer.from(await blob.arrayBuffer())
-    const isGzip = bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b
-    const json = isGzip ? gunzipSync(bytes).toString('utf8') : bytes.toString('utf8')
-    return JSON.parse(json)
+    return JSON.parse(await blob.text())
   } catch (error) {
     console.error('[vly-freebuff-workpool] failed to parse run state', error)
     return undefined
@@ -102,6 +89,40 @@ function trimOutput(output: unknown) {
 // MAX_FREEBUFF_CONTINUATIONS times per long task. That file store/read is billed
 // as Convex data egress and was a primary driver of this action's egress cost.
 type ResumeMode = 'continuation' | 'full'
+
+/**
+ * Repairs tool messages in a stored run state whose content was saved as a
+ * plain object instead of ToolResultOutput[]. This happened for WebContainer
+ * projects before the override tools were fixed to return the correct array
+ * format. Without this, convertCbToModelMessages throws "e.content.map is not
+ * a function" when resuming any session that contains those old messages.
+ */
+function sanitizeRunState(runState: any): any {
+  const history =
+    runState?.sessionState?.mainAgentState?.messageHistory
+  if (!Array.isArray(history)) return runState
+
+  const sanitized = history.map((msg: any) => {
+    if (msg.role === 'tool' && !Array.isArray(msg.content)) {
+      return {
+        ...msg,
+        content: [{ type: 'json', value: msg.content ?? null }],
+      }
+    }
+    return msg
+  })
+
+  return {
+    ...runState,
+    sessionState: {
+      ...runState.sessionState,
+      mainAgentState: {
+        ...runState.sessionState.mainAgentState,
+        messageHistory: sanitized,
+      },
+    },
+  }
+}
 
 function buildResumeState(runState: unknown, mode: ResumeMode) {
   const typed = runState as {
@@ -181,15 +202,6 @@ async function loadImageContents(
       const blob = await ctx.storage.get(imageId)
       if (!blob) continue
       const arrayBuffer = await blob.arrayBuffer()
-      if (arrayBuffer.byteLength === 0) {
-        // A zero-byte upload (e.g. a screenshot capture that produced no
-        // bytes) would make the provider reject the whole request with a 400.
-        console.warn('[vly-freebuff-workpool] skipping zero-byte image', {
-          imageId,
-          mediaType: blob.type,
-        })
-        continue
-      }
       const base64 = Buffer.from(arrayBuffer).toString('base64')
       contents.push({
         type: 'image',
@@ -585,7 +597,6 @@ function shouldIncludeProjectIndexContent(filePath: string) {
 
 async function buildDaytonaProjectFiles(
   codebase: DaytonaCodebase,
-  options?: { includeContent?: boolean },
 ): Promise<Record<string, string>> {
   const filePaths = (await codebase.getAllFilePaths()).filter(
     (filePath) => !isSensitiveProjectPath(filePath),
@@ -593,15 +604,6 @@ async function buildDaytonaProjectFiles(
   const projectFiles: Record<string, string> = Object.fromEntries(
     filePaths.map((filePath) => [filePath, '']),
   )
-
-  // On continuations (same turn, same agent session) the model already saw the
-  // seed file contents in the resumed history and can re-read anything via its
-  // tools. Re-sending up to ~750KB of file bodies to the LLM on every chained
-  // continuation is pure egress, so we ship only the file tree (empty content)
-  // and keep the full content seed for the first action of a turn.
-  if (options?.includeContent === false) {
-    return projectFiles
-  }
 
   let contentBudget = PROJECT_INDEX_CONTENT_LIMIT
   let contentFiles = 0
@@ -1045,16 +1047,16 @@ function gravityIndexStatusEvent(input: unknown): {
 
 // In-action time limit. We abort ~1 minute before the 10-minute cron sweep so
 // the handler can persist state and schedule a continuation before Convex (or
-// the sweep) reclaims the run. A single user turn crosses this by chaining
-// continuations (cloud only) up to CLOUD_TURN_BUDGET_MS.
-const FREEBUFF_RUN_TIMEOUT_MS = PER_ACTION_ABORT_MS
+// the sweep) reclaims the run.
+const FREEBUFF_RUN_TIMEOUT_MS = 9 * 60 * 1000
 
-// Defensive backstop on the number of chained continuations for a single user
-// turn. The binding limit for cloud turns is the wall-clock CLOUD_TURN_BUDGET_MS
-// checked in attemptContinuation; this only guards against a pathological loop
-// that somehow stays under the wall-clock budget. Each continuation resumes from
-// the FULL persisted session state, so the agent always keeps complete context.
-const MAX_FREEBUFF_CONTINUATIONS = MAX_TURN_CONTINUATIONS
+// How many times a single user turn may auto-continue across the in-action time
+// limit before we stop and ask the user to resume manually. Each continuation
+// resumes from the FULL persisted session state, so the agent always keeps
+// complete context. The agent's own step budget (`stepsRemaining`, persisted in
+// sessionState) is the primary bound on total work; this is a wall-clock safety
+// ceiling so a pathological loop can't run forever.
+const MAX_FREEBUFF_CONTINUATIONS = 10
 
 const CONTINUATION_PROMPT =
   'Continue working on the current task from exactly where you left off. ' +
@@ -1077,11 +1079,8 @@ async function persistRunState(
     if (!resumeState) {
       return undefined
     }
-    // Gzip before storing: the session-state JSON is highly repetitive and
-    // compresses ~10x, and this blob is re-read (billed as egress) on every
-    // continuation and follow-up turn.
-    const blob = new Blob([gzipSync(Buffer.from(JSON.stringify(resumeState)))], {
-      type: 'application/gzip',
+    const blob = new Blob([JSON.stringify(resumeState)], {
+      type: 'application/json',
     })
     const storageId = await ctx.storage.store(blob)
     if (supersedesStorageId && supersedesStorageId !== storageId) {
@@ -1151,29 +1150,10 @@ export const runFreebuffAgent = internalAction({
     // bounds how many times we may transparently continue.
     continuationCount: v.optional(v.number()),
     resumeFromStorageId: v.optional(v.id('_storage')),
-    // Wall-clock timestamp (ms) of when this user turn first started, carried
-    // across continuations. The cloud turn budget (CLOUD_TURN_BUDGET_MS) is
-    // measured against this so chained continuations share one budget rather
-    // than each getting a fresh per-action window. Absent on the first run.
-    turnStartedAtMs: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const isContinuation = !!args.resumeFromStorageId
-    // Wall-clock start of THIS user turn, shared across all chained
-    // continuations. On the first run we stamp it now; continuations carry it
-    // forward so CLOUD_TURN_BUDGET_MS bounds the whole turn, not each action.
-    const turnStartedAtMs = args.turnStartedAtMs ?? Date.now()
-
-    // Detect cloud (connected_repo) once, up front: it selects the (shorter)
-    // per-action abort so the chained continuation has a larger finalization
-    // margin, and is reused below for the connected-repo agent guidance.
-    const connectedRepoProject = await ctx.runQuery(
-      internal.cloud.connectRepoMutations.getConnectedRepoProject,
-      { projectId: args.projectId },
-    )
-    const isConnectedRepoProject =
-      connectedRepoProject?.project_type === 'connected_repo'
 
     await ctx.runMutation(
       (internal as any).coding_agent.cli_agent.freebuff_agent_run_mutations
@@ -1212,25 +1192,11 @@ export const runFreebuffAgent = internalAction({
 
     const abortController = new AbortController()
     const runStartedAtMs = Date.now()
-    // Cloud (connected_repo) caps the per-action abort at the remaining turn
-    // budget so the final chained action lands at CLOUD_TURN_BUDGET_MS instead
-    // of overshooting by a full per-action window. Web/template uses the flat
-    // per-action limit and pauses for a manual continue.
-    const MIN_CLOUD_ACTION_MS = 30 * 1000
-    const perActionAbortMs = isConnectedRepoProject
-      ? Math.max(
-          MIN_CLOUD_ACTION_MS,
-          Math.min(
-            CLOUD_PER_ACTION_ABORT_MS,
-            CLOUD_TURN_BUDGET_MS - (Date.now() - turnStartedAtMs),
-          ),
-        )
-      : FREEBUFF_RUN_TIMEOUT_MS
     const timeoutHandle = setTimeout(() => {
       abortController.abort(
-        new Error('Freebuff run exceeded per-action time limit'),
+        new Error('Freebuff run exceeded 9-minute time limit'),
       )
-    }, perActionAbortMs)
+    }, FREEBUFF_RUN_TIMEOUT_MS)
 
     // Review-phase instrumentation. The code reviewer runs as a spawned subagent
     // (kept inline by design). We track whether a reviewer was streaming and how
@@ -1289,10 +1255,7 @@ export const runFreebuffAgent = internalAction({
     const checkCancelled = async () => {
       if (abortController.signal.aborted) return
       const now = Date.now()
-      // 5s poll: a user cancel takes at most a few extra seconds to land, and
-      // this runs for the entire (many-minute) action — at 1.5s it was ~400
-      // extra queries per 10-minute run.
-      if (now - lastCancelCheck < 5000) return
+      if (now - lastCancelCheck < 1500) return
       lastCancelCheck = now
       try {
         const status = await ctx.runQuery(
@@ -1315,15 +1278,9 @@ export const runFreebuffAgent = internalAction({
     // to type "continue". Returns true when a continuation was scheduled (the
     // caller should then exit without recording a terminal/pause event so the
     // message keeps streaming seamlessly).
-    //
-    // The binding limit is the wall-clock CLOUD_TURN_BUDGET_MS measured from the
-    // turn's first start (shared across continuations). MAX_FREEBUFF_CONTINUATIONS
-    // is only a defensive backstop. Once the turn budget is exhausted we fall
-    // through to a normal time-limit pause so the user can resume manually.
     const attemptContinuation = async (runState: any): Promise<boolean> => {
       const nextCount = (args.continuationCount ?? 0) + 1
       if (nextCount > MAX_FREEBUFF_CONTINUATIONS) return false
-      if (Date.now() - turnStartedAtMs >= CLOUD_TURN_BUDGET_MS) return false
       if (!runState?.sessionState) return false
 
       const resumeStorageId = await persistRunState(
@@ -1373,7 +1330,6 @@ export const runFreebuffAgent = internalAction({
           packageManager: args.packageManager,
           continuationCount: nextCount,
           resumeFromStorageId: resumeStorageId,
-          turnStartedAtMs,
         },
       )
 
@@ -1390,6 +1346,8 @@ export const runFreebuffAgent = internalAction({
 
     try {
       installPromiseWithResolversPolyfill()
+
+      const isWebContainerProject = args.sandboxId.startsWith('webcontainer:')
 
       let codebasePromise: Promise<DaytonaCodebase> | undefined
       const getCodebase = async () => {
@@ -1409,11 +1367,16 @@ export const runFreebuffAgent = internalAction({
       }
 
       // Connected-repo (Freebuff Cloud) projects manage their own git and
-      // preview process; we detected the project type up front (see
-      // isConnectedRepoProject) so the override tools can adjust behavior.
-      const connectedRepoContext = isConnectedRepoProject
-        ? { projectType: 'connected_repo' as const }
-        : undefined
+      // preview process; detect the project type once so the override tools
+      // can adjust behavior.
+      const connectedRepoProject = await ctx.runQuery(
+        internal.cloud.connectRepoMutations.getConnectedRepoProject,
+        { projectId: args.projectId },
+      )
+      const connectedRepoContext =
+        connectedRepoProject?.project_type === 'connected_repo'
+          ? { projectType: 'connected_repo' as const }
+          : undefined
 
       const agentId = resolveFreebuffAgentId(args.freebuffModel)
       const supportsImages = isFreebuffMultimodalModelId(args.freebuffModel)
@@ -1423,12 +1386,14 @@ export const runFreebuffAgent = internalAction({
       const baseUserMessage = supportsImages
         ? args.userMessage
         : await appendImageUrlsToMessage(ctx, args.userMessage, args.images)
-      // Connected-repo guidance is injected per-run here (rather than in the
-      // shared system-prompt appendix) so default template projects are
-      // completely unaffected.
+      // Connected-repo / WebContainer guidance is injected per-run here
+      // (rather than in the shared system-prompt appendix) so default Daytona
+      // template projects are completely unaffected.
       const userMessage = connectedRepoContext
         ? `${CONNECTED_REPO_AGENT_GUIDANCE}\n\n---\n\n${baseUserMessage}`
-        : baseUserMessage
+        : isWebContainerProject
+          ? `${WEBCONTAINER_AGENT_GUIDANCE}\n\n---\n\n${baseUserMessage}`
+          : baseUserMessage
 
       // On a continuation we resume the same turn: send the internal continue
       // directive, skip re-injecting images/guidance (already in history), and
@@ -1450,24 +1415,24 @@ export const runFreebuffAgent = internalAction({
       let previousRun: any | undefined
       if (isContinuation) {
         priorResumeStorageId = args.resumeFromStorageId
-        previousRun = await readResumeStateFromStorage(
+        previousRun = sanitizeRunState(await readResumeStateFromStorage(
           ctx,
           args.resumeFromStorageId!,
-        )
+        ))
       } else {
         const stored = await readStoredRunState(ctx, args.threadId)
         priorResumeStorageId = stored.storageId
-        previousRun = stored.state
+        previousRun = sanitizeRunState(stored.state)
       }
-      const codebase = await getCodebase()
-      const projectFiles = await buildDaytonaProjectFiles(codebase, {
-        includeContent: !isContinuation,
-      })
+      const codebase = isWebContainerProject ? undefined : await getCodebase()
+      const projectFiles = isWebContainerProject
+        ? {}
+        : await buildDaytonaProjectFiles(codebase!)
 
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
         fingerprintId: args.projectId,
-        cwd: SANDBOX_PROJECT_ROOT,
+        cwd: isWebContainerProject ? '/' : SANDBOX_PROJECT_ROOT,
         agent: agentId,
         // Cast bypasses a cross-package AgentDefinition type drift between
         // `agents/types` and `sdk/dist` (e.g. the gravity_index tool param
@@ -1479,7 +1444,12 @@ export const runFreebuffAgent = internalAction({
         previousRun,
         costMode: 'normal',
         signal: abortController.signal,
-        overrideTools: buildFreebuffOverrideTools(getCodebase, {
+        overrideTools: (isWebContainerProject
+          ? buildWebContainerOverrideTools(ctx, {
+              runId: args.runId,
+              projectId: args.projectId,
+            })
+          : buildFreebuffOverrideTools(getCodebase, {
           onAskUser: (input) => {
             pendingAskUserQuestions = sanitizeAskUserQuestions(input)
             throw createAskUserPauseError(input)
@@ -1505,7 +1475,7 @@ export const runFreebuffAgent = internalAction({
               { projectId: args.projectId, preview_url: url },
             )
           },
-        }) as any,
+        })) as any,
         handleEvent: async (event: any) => {
           await checkCancelled()
           if (event.type === 'tool_call') {
@@ -1738,21 +1708,9 @@ export const runFreebuffAgent = internalAction({
       }
 
       if (abortController.signal.aborted) {
-        // The SDK's `run()` normally resolves gracefully on abort (with
-        // sessionState intact) so the happy path above can persist full state
-        // and attach a fresh runStateStorageId. This branch only fires when
-        // something threw instead (e.g. a failure before/outside `run()`
-        // itself), so there's no fresh state to persist. Without a fallback,
-        // `runStateStorageId` would be omitted entirely — and downstream
-        // (`freebuff_bridge_mutations`) that means the thread's resume
-        // pointer is left stale, or unset on a user's very first message —
-        // so "Continue" would restart the agent with no prior context at all.
-        // Reuse the blob this run resumed FROM so at minimum the context up
-        // to the start of this action isn't lost.
         await recordRunEvent({
           ctx,
           ...args,
-          runStateStorageId: priorResumeStorageId,
           event: {
             type: 'time_limit_pause',
             message:
@@ -1765,7 +1723,6 @@ export const runFreebuffAgent = internalAction({
       await recordRunEvent({
         ctx,
         ...args,
-        runStateStorageId: priorResumeStorageId,
         event: {
           type: 'error',
           message: getErrorMessage(error),

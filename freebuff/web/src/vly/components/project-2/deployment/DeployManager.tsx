@@ -2,7 +2,8 @@ import { Button } from "@/vly/components/ui/button";
 import { Input } from "@/vly/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useConvex, useMutation, useQuery } from "convex/react";
+import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { FunctionReturnType } from "convex/server";
 import {
   AlertTriangle,
@@ -20,6 +21,56 @@ import { UpdateDeploymentSlugDialog } from "./UpdateDeploymentSlugDialog";
 import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { getActivePlan } from "@/vly/lib/billing";
 import { freePlan } from "@/autumn.config";
+
+/**
+ * Client-side driver for WebContainer deployments. `createDeployment` returns
+ * `mode: "webcontainer"` for WebContainer-backed projects (the server can't
+ * build them — the codebase only exists in this tab); this hook runs the
+ * in-container build + artifact upload + server finalize. For `mode:
+ * "server"` (Daytona/cloud) it's a no-op — the existing server pipeline runs.
+ */
+function useWebContainerDeployDriver(projectId: string) {
+  const prepare = useAction(
+    api.codesandbox.webcontainerPublish.prepareWebContainerProdDeploy,
+  );
+  const finalize = useAction(
+    api.codesandbox.webcontainerPublish.finalizeWebContainerDeployment,
+  );
+  const reportProgress = useMutation(
+    api.deployment.reportWebContainerDeployProgress,
+  );
+
+  return useCallback(
+    async (result: {
+      deploymentId: Id<"deployments">;
+      mode: "webcontainer" | "server";
+    }) => {
+      if (result.mode !== "webcontainer") return;
+      const { runWebContainerPublish } = await import(
+        "@/vly/lib/webcontainer/publish"
+      );
+      try {
+        const { domain } = await runWebContainerPublish(projectId, {
+          prepare: () => prepare({ projectId: projectId as Id<"project"> }),
+          finalize: ({ distStorageId }) =>
+            finalize({
+              projectId: projectId as Id<"project">,
+              deploymentId: result.deploymentId,
+              distStorageId: distStorageId as Id<"_storage">,
+            }),
+          reportProgress: (args) =>
+            reportProgress({ deploymentId: result.deploymentId, ...args }),
+        });
+        toast.success(`Deployed to ${domain}`);
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Deployment failed",
+        );
+      }
+    },
+    [projectId, prepare, finalize, reportProgress],
+  );
+}
 
 export const DeployManager = ({
   projectId,
@@ -100,23 +151,30 @@ const FirstDeploymentView = ({
   };
 
   const deploy = useMutation(api.deployment.createDeployment);
+  const driveWebContainerDeploy = useWebContainerDeployDriver(projectId);
 
   const [isDeploying, setIsDeploying] = useState(false);
 
   const handleDeploy = useCallback(async () => {
     setIsDeploying(true);
-    const result = await deploy({
-      projectId: projectId as Id<"project">,
-      slug: slug,
-    });
-    console.log("deploy result", result);
-    setIsDeploying(false);
+    try {
+      const result = await deploy({
+        projectId: projectId as Id<"project">,
+        slug: slug,
+      });
+      console.log("deploy result", result);
 
-    // Notify parent that deploy was triggered (for community publishing)
-    if (onDeployTriggered) {
-      onDeployTriggered();
+      // Notify parent that deploy was triggered (for community publishing)
+      if (onDeployTriggered) {
+        onDeployTriggered();
+      }
+
+      // WebContainer projects: the build runs here in the browser.
+      await driveWebContainerDeploy(result);
+    } finally {
+      setIsDeploying(false);
     }
-  }, [deploy, projectId, slug, onDeployTriggered]);
+  }, [deploy, projectId, slug, onDeployTriggered, driveWebContainerDeploy]);
 
   return (
     <div className="space-y-3">
@@ -253,6 +311,7 @@ const DeploymentManager = ({
     }
   });
   const [isRedeploying, setIsRedeploying] = useState(false);
+  const driveWebContainerDeploy = useWebContainerDeployDriver(projectId);
 
   const cancelDeployment = useMutation(
     api.deployment.cancelDeployment,
@@ -291,7 +350,7 @@ const DeploymentManager = ({
 
     setIsRedeploying(true);
     try {
-      await redeploy({
+      const result = await redeploy({
         projectId: projectId as Id<"project">,
         slug: prodSlug,
       });
@@ -300,10 +359,20 @@ const DeploymentManager = ({
       if (onDeployTriggered) {
         onDeployTriggered();
       }
+
+      // WebContainer projects: the build runs here in the browser.
+      await driveWebContainerDeploy(result);
     } finally {
       setIsRedeploying(false);
     }
-  }, [isRedeploying, onDeployTriggered, prodSlug, projectId, redeploy]);
+  }, [
+    isRedeploying,
+    onDeployTriggered,
+    prodSlug,
+    projectId,
+    redeploy,
+    driveWebContainerDeploy,
+  ]);
 
   const isAnotherDeploymentRunning = deployments.some(
     (deployment) =>

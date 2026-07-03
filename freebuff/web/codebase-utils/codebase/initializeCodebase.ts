@@ -52,6 +52,20 @@ export async function initializeCodebase(
     );
   }
 
+  // WebContainer-backed projects have no remote sandbox for the server to
+  // reach — the container only exists in the user's open browser tab. Server
+  // actions that need to read/write project files or run commands (the AI
+  // agent tool-call bridge) must instead delegate to the client; that bridge
+  // isn't wired up yet, so fail loudly here rather than mysteriously trying
+  // (and failing) to treat this as a CodeSandbox id.
+  if (sandboxId.startsWith("webcontainer:")) {
+    throw new Error(
+      `initializeCodebase: "${sandboxId}" is a WebContainer-backed project. Server-side ` +
+        "Codebase operations aren't supported for these yet — file/command execution must " +
+        "be relayed to the client's open WebContainer instance instead.",
+    );
+  }
+
   // Default to CSBCodebase for unprefixed IDs
   return await CSBCodebase.create(sandboxId, packageManager);
 }

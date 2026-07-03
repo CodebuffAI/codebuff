@@ -162,6 +162,17 @@ export const getConvexDeploymentNameAndAdminKey = action({
       );
     }
 
+    // WebContainer projects have no server-side sandbox to cache the admin
+    // key in — mint a fresh deploy key directly (same as the provision flow).
+    if (project.sandbox_id?.startsWith("webcontainer:")) {
+      const adminKey = await createDeployKey(deploymentName);
+      return {
+        deploymentName,
+        adminKey,
+        deploymentUrl: `https://${deploymentName}.convex.cloud`,
+      };
+    }
+
     const codebase = await initializeCodebase(
       project.sandbox_id,
       project.packageManager,

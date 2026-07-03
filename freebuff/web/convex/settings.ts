@@ -26,7 +26,7 @@ export const get = query({
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
     if (!user) {
-      throw new Error("Unauthorized");
+      return args.defaultValue ?? false;
     }
 
     const setting = await ctx.db

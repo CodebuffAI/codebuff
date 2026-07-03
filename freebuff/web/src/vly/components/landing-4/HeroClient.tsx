@@ -21,6 +21,7 @@ import { InputArea } from "./InputArea";
 import Image from "next/image";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleProjectCreationResult } from "@/vly/lib/project-creation-handler";
+import { useWebContainerOptIn } from "@/vly/hooks/useWebContainerOptIn";
 
 // Preload critical icons
 const ICONS = {
@@ -70,6 +71,7 @@ export function HeroClient({ setIsThemePickerOpen }: HeroClientProps) {
   const user = useSignedInUser();
   const router = useRouter();
   const createProject = useMutation(api.codesandbox.create.create);
+  const webContainerOptIn = useWebContainerOptIn();
 
   // Check rate limit status proactively
   const { status } = useRateLimit(api.coding_agent.rateLimiter.getRateLimit, {
@@ -217,6 +219,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
           displayMessage: userInput,
           agentMode: "POWERFUL",
           ...(uploadedImageIds.length > 0 ? { images: uploadedImageIds } : {}),
+          ...(webContainerOptIn ? { useWebContainer: true } : {}),
         });
         console.timeEnd("createProject");
 

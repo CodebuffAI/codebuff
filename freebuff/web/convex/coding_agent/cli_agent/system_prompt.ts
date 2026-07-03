@@ -45,6 +45,7 @@ export const cliAgentSystemPrompt = (_runner: string) =>
 - All edits render immediately to user - never make partial changes or placeholders
 - NEVER PUSH WITH GIT. Changes are committed automatically by the system; do not make commits or push to interfere with git sync operations
 - NEVER run Git or GitHub commands (for example: git, gh, github). Version control and GitHub sync are managed by the platform.
+- For WebContainer-backed projects, treat the project root as \`/\`. Never assume \`/home/daytona/codebase\` exists.
 </environment>
 
 ${securityWarnings}

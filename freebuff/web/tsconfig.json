@@ -86,5 +86,12 @@
     "**/*.mjs",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Standalone vly project template mounted into WebContainer at runtime —
+    // it's its own self-contained app with its own dependencies (react-router,
+    // @convex-dev/auth, etc.) that aren't installed in this workspace, and
+    // isn't built/typechecked as part of the freebuff/web platform app.
+    "webcontainer-template"
+  ]
 }

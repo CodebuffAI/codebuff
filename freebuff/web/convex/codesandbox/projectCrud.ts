@@ -79,6 +79,83 @@ export const createUnassignedProject = internalMutation({
   },
 });
 
+/**
+ * Creates a project backed by an in-browser WebContainer instead of a Daytona
+ * sandbox. Unlike `createUnassignedProject`, this is created directly in the
+ * `active` state and assigned to `userId` immediately — there's no pool to
+ * pre-warm, since booting a WebContainer is a fast, client-side operation
+ * triggered when the user opens the project page (see
+ * `src/vly/lib/webcontainer/`).
+ *
+ * The `sandbox_id` is `"webcontainer:" + <project doc id>` — there's no
+ * remote sandbox identifier, so the project's own id doubles as the
+ * "sandbox" identifier. Server-side code paths that still assume a Daytona
+ * or CodeSandbox-backed `Codebase` (see `initializeCodebase.ts`) will throw
+ * a clear error for this prefix until the AI agent tool-call bridge (which
+ * relays file/command operations to the client's WebContainer) is wired up.
+ */
+export const createWebContainerProject = internalMutation({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.optional(v.string()),
+  },
+  returns: v.object({
+    id: v.id("project"),
+    semanticIdentifier: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const semanticIdentifier = await getUniqueProjectIdentifier(ctx);
+
+    const projectId = await ctx.db.insert("project", {
+      semantic_identifier: semanticIdentifier,
+      // Patched immediately below once the project id is known.
+      sandbox_id: "",
+      state: "active",
+      project_type: "template",
+      sandbox_size: "small",
+      last_opened: Date.now(),
+      last_dist_build_at: 0,
+      ...(args.organizationId ? { organization_id: args.organizationId } : {}),
+    });
+
+    await ctx.db.patch(projectId, {
+      sandbox_id: `webcontainer:${projectId}`,
+    });
+
+    await ctx.db.insert("project_member", {
+      project: projectId,
+      user: args.userId,
+      project_role: "owner",
+    });
+
+    const newProject = await ctx.db.get(projectId);
+    if (newProject) {
+      await allProjects.insert(ctx, newProject);
+      await projectsByDay.insert(ctx, newProject);
+      await cloudProjectsByTypeDay.insert(ctx, newProject);
+    }
+
+    await createNewThread(ctx, projectId);
+
+    await ctx.db.insert("entry_point", {
+      project: projectId,
+      type: "page",
+      associated_files: ["src/pages/Landing.tsx"],
+      abstraction: "",
+      page: {
+        page_title: "Home",
+        page_display_url: "/",
+        page_file: "src/pages/Landing.tsx",
+        has_dynamic_params: false,
+        navigation_paths: [],
+      },
+      status: "active",
+    });
+
+    return { id: projectId, semanticIdentifier };
+  },
+});
+
 export const assignProjectToUser = internalMutation({
   args: {
     userId: v.id("users"),

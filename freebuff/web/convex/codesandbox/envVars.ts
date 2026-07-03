@@ -15,6 +15,8 @@ import {
   setConvexEnvironmentVariables,
 } from "../convex_management";
 
+const WEBCONTAINER_SANDBOX_PREFIX = "webcontainer:";
+
 export const getEnvVars = action({
   args: {
     semanticIdentifier: v.string(),
@@ -31,17 +33,30 @@ export const getEnvVars = action({
       throw new Error("Project not found");
     }
 
-    const codebase = await initializeCodebase(
-      project.sandbox_id,
-      project.packageManager,
-    );
+    // WebContainer projects: frontend vars come from the durable
+    // webcontainer_env_vars table (the container's .env.local is rebuilt on
+    // every boot); backend vars come from the Convex Management API. There's
+    // no server-side sandbox to touch.
+    let codebaseEnvVars: { frontend: Record<string, string>; backend: Record<string, string> };
+    if (project.sandbox_id.startsWith(WEBCONTAINER_SANDBOX_PREFIX)) {
+      const frontend = await ctx.runQuery(
+        internal.codesandbox.webcontainerEnvVars.getForProject,
+        { projectId: project._id },
+      );
+      codebaseEnvVars = { frontend, backend: {} };
+    } else {
+      const codebase = await initializeCodebase(
+        project.sandbox_id,
+        project.packageManager,
+      );
 
-    if (!hasEnvironmentVariables(codebase)) {
-      throw new Error("Codebase does not support environment variables");
+      if (!hasEnvironmentVariables(codebase)) {
+        throw new Error("Codebase does not support environment variables");
+      }
+
+      // Get frontend env vars from the codebase (sandbox)
+      codebaseEnvVars = await codebase.getEnvVars();
     }
-
-    // Get frontend env vars from the codebase (sandbox)
-    const codebaseEnvVars = await codebase.getEnvVars();
 
     // Get backend env vars using the Convex Management API
     // This is more reliable than running `convex env list` in the sandbox
@@ -129,13 +144,20 @@ export const setEnvVars = action({
       throw new Error("Project not found");
     }
 
-    const codebase = await initializeCodebase(
-      project.sandbox_id,
-      project.packageManager,
+    const isWebContainer = project.sandbox_id.startsWith(
+      WEBCONTAINER_SANDBOX_PREFIX,
     );
 
-    if (!hasEnvironmentVariables(codebase)) {
-      throw new Error("Codebase does not support environment variables");
+    let codebase: Awaited<ReturnType<typeof initializeCodebase>> | null = null;
+    if (!isWebContainer) {
+      codebase = await initializeCodebase(
+        project.sandbox_id,
+        project.packageManager,
+      );
+
+      if (!hasEnvironmentVariables(codebase)) {
+        throw new Error("Codebase does not support environment variables");
+      }
     }
 
     let frontendSet = false;
@@ -143,12 +165,22 @@ export const setEnvVars = action({
     let message = "";
 
     try {
-      // Set frontend vars using codebase (no auth required)
+      // Set frontend vars
       if (Object.keys(args.envVars.frontend).length > 0) {
-        await codebase.setEnvVars({
-          frontend: args.envVars.frontend,
-          backend: {}, // Don't set backend vars via CLI
-        });
+        if (isWebContainer) {
+          // Persist in the webcontainer_env_vars table; the client's open
+          // container syncs them into .env.local reactively. Rejects
+          // CONVEX_DEPLOY_KEY (platform-managed credential).
+          await ctx.runMutation(
+            internal.codesandbox.webcontainerEnvVars.setForProject,
+            { projectId: project._id, vars: args.envVars.frontend },
+          );
+        } else if (codebase && hasEnvironmentVariables(codebase)) {
+          await codebase.setEnvVars({
+            frontend: args.envVars.frontend,
+            backend: {}, // Don't set backend vars via CLI
+          });
+        }
         frontendSet = true;
       }
 
@@ -266,13 +298,20 @@ export const deleteEnvVar = action({
     }
 
     if (args.type === "frontend") {
-      const codebase = await initializeCodebase(
-        project.sandbox_id,
-        project.packageManager,
-      );
-      await codebase.runCommandThrow(
-        `[ -f .env.local ] && sed -i '/^${args.key}=/d' .env.local || true`,
-      );
+      if (project.sandbox_id.startsWith(WEBCONTAINER_SANDBOX_PREFIX)) {
+        await ctx.runMutation(
+          internal.codesandbox.webcontainerEnvVars.deleteKeyForProject,
+          { projectId: project._id, key: args.key },
+        );
+      } else {
+        const codebase = await initializeCodebase(
+          project.sandbox_id,
+          project.packageManager,
+        );
+        await codebase.runCommandThrow(
+          `[ -f .env.local ] && sed -i '/^${args.key}=/d' .env.local || true`,
+        );
+      }
     } else {
       const selfHostedConnection = await ctx.runQuery(
         internal.convex_oauth.connections.getConnectionByProjectId,

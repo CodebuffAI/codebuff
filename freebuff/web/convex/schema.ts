@@ -1240,6 +1240,54 @@ export default defineSchema(
       .index('by_dev_deployment_name', ['devDeploymentName'])
       .index('by_prod_deployment_name', ['prodDeploymentName']),
 
+    // Latest exported filesystem snapshot for a WebContainer-backed project
+    // (LZ4-compressed binary blob in `_storage`). Mounted back into the
+    // WebContainer when the user reopens the project. One row per project —
+    // each new export overwrites the previous storageId (old blob deleted
+    // best-effort) rather than keeping full history.
+    project_snapshots: defineTable({
+      projectId: v.id('project'),
+      storageId: v.id('_storage'),
+      sizeBytes: v.optional(v.number()),
+    })
+      .index('by_project', ['projectId']),
+
+    // User-defined FRONTEND env vars for WebContainer-backed projects. The
+    // container's `.env.local` is regenerated on every boot (and intentionally
+    // excluded from filesystem snapshots because it contains a deploy key), so
+    // this table is the durable source of truth. The client merges these into
+    // `.env.local` on boot and whenever they change (see
+    // `src/vly/lib/webcontainer/env.ts`). Backend env vars are NOT stored
+    // here — they live on the project's Convex deployment and are managed via
+    // the Convex Management API. CONVEX_DEPLOY_KEY is never allowed in here.
+    webcontainer_env_vars: defineTable({
+      projectId: v.id('project'),
+      vars: v.record(v.string(), v.string()),
+    }).index('by_project', ['projectId']),
+
+    // Server-to-client RPC bridge for AI agent tool calls against
+    // WebContainer-backed projects. The agent's LLM loop runs server-side as
+    // usual, but actual file/command execution can only happen inside the
+    // user's open browser tab (where the WebContainer lives), so each tool
+    // call is queued here, picked up by the client via a reactive query,
+    // executed locally, and written back.
+    pending_tool_calls: defineTable({
+      runId: v.string(),
+      projectId: v.id('project'),
+      toolName: v.string(),
+      input: v.any(),
+      status: v.union(
+        v.literal('pending'),
+        v.literal('done'),
+        v.literal('error'),
+      ),
+      output: v.optional(v.any()),
+      error: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index('by_project_status', ['projectId', 'status'])
+      .index('by_run', ['runId']),
+
     // Stats table for tracking overall statistics
     stats: defineTable({
       name: v.string(), // Stat name (e.g., "users", "projects")

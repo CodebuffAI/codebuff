@@ -263,25 +263,6 @@ async function main() {
     'https://www.codebuff.com',
   ])
 
-  const optionalConvexEnvNames = ['CODEBUFF_API_KEY']
-
-  for (const name of optionalConvexEnvNames) {
-    const value = process.env[name]
-    if (!value) {
-      warn(`${name} is missing; skipping Convex env set for it`)
-      continue
-    }
-    runCommand(`setting Convex ${name}`, BUN_PATH, [
-      '--cwd',
-      'freebuff/web',
-      'convex',
-      'env',
-      'set',
-      name,
-      value,
-    ])
-  }
-
   requireEnv('NEXT_PUBLIC_CONVEX_URL')
   requireEnv('CONVEX_DEPLOYMENT')
 

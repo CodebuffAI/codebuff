@@ -45,6 +45,8 @@ import {
   ProjectIframeArea,
   type IframeTab,
 } from "../project-2/ProjectIframeArea";
+import { useWebContainerProject } from "@/vly/hooks/useWebContainerProject";
+import { WebContainerUnsupported } from "../project-2/WebContainerUnsupported";
 import { SandboxTierNotice } from "../project-2/SandboxTierNotice";
 import { ActiveSessionTakeoverOverlay } from "../project-2/ActiveSessionTakeoverOverlay";
 import { useActiveSession } from "@/vly/hooks/useActiveSession";
@@ -192,6 +194,11 @@ function ProjectWrapper({
   const { projectTheme, toggleProjectTheme } = useProjectPageTheme();
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
+  const webContainer = useWebContainerProject({
+    projectId: project?._id,
+    semanticIdentifier: project?.semantic_identifier,
+    sandboxId: project?.sandbox_id,
+  });
 
   // One active project/agent at a time per user — seamless take-over prompt.
   const activeSession = useActiveSession({
@@ -301,8 +308,11 @@ function ProjectWrapper({
     }
 
     // Call allow_project endpoint to trigger migration/env restoration
-    // This replicates what the middleware was doing
-    if (!allowProjectCalled && semanticIdentifier) {
+    // This replicates what the middleware was doing.
+    // Skip for WebContainer projects — this is a legacy Daytona/CodeSandbox
+    // migration endpoint and does not apply to in-browser sandboxes.
+    const isWebContainerProject = project.sandbox_id?.startsWith("webcontainer:");
+    if (!allowProjectCalled && semanticIdentifier && !isWebContainerProject) {
       const checkProjectAccess = async () => {
         try {
           const response = await fetch(
@@ -330,8 +340,10 @@ function ProjectWrapper({
 
     // The legacy "Security Migration in Progress" dialog is only for old
     // CodeSandbox-backed projects waiting on convex instance migration.
-    // Daytona-backed projects use a different migration flow/UI.
-    const isLegacyCodeSandbox = !project.sandbox_id.startsWith("daytona:");
+    // Daytona-backed and WebContainer projects use a different migration flow/UI.
+    const isLegacyCodeSandbox =
+      !project.sandbox_id.startsWith("daytona:") &&
+      !project.sandbox_id.startsWith("webcontainer:");
     if (!isLegacyCodeSandbox) {
       setTimeout(() => setProjectStatus(null), 0);
       return;
@@ -728,6 +740,14 @@ function ProjectWrapper({
         />
       </>
     );
+  }
+
+  if (
+    webContainer.isWebContainer &&
+    webContainer.support &&
+    !webContainer.support.supported
+  ) {
+    return <WebContainerUnsupported support={webContainer.support} />;
   }
 
   // Check workspace quota using Autumn's check function

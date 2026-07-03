@@ -13,7 +13,7 @@ const PACIFIC_TIMEZONE = "America/Los_Angeles";
 const PACIFIC_FALLBACK_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LIMITED_PROJECT_DAILY_LIMIT_MESSAGE =
-  "Due to usage spikes, you are limited to one project per day.";
+"your region is limited to 1 project per day";
 
 /**
  * Reads the geo-derived access tier from the Convex JWT. The claim is set by

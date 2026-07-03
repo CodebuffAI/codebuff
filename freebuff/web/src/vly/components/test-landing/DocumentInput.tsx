@@ -20,6 +20,7 @@ import { preloadFont } from "@/vly/lib/googleFonts";
 import ThemeConfirmationModal from "../ThemeConfirmationModal";
 import { checkRateLimitAndNotify } from "@/vly/lib/rateLimitHelpers";
 import { handleProjectCreationResult } from "@/vly/lib/project-creation-handler";
+import { useWebContainerOptIn } from "@/vly/hooks/useWebContainerOptIn";
 import {
   FreebuffModelSelector,
   FREEBUFF_MODEL_STORAGE_KEY,
@@ -62,7 +63,7 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
 ]);
 const IMAGE_TYPE_ERROR_MESSAGE = "Please upload a JPG, PNG, WebP, or GIF image";
 const OUTER_REGION_PROJECT_LIMIT_MESSAGE =
-  "Due to usage spikes, you are limited to one project per day.";
+  "your region is limited to 1 project per day";
 
 function isAllowedImageFile(file: File): boolean {
   return ALLOWED_IMAGE_MIME_TYPES.has(file.type);
@@ -174,6 +175,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
   const user = useSignedInUser();
   const router = useRouter();
   const createProject = useMutation(api.codesandbox.create.create);
+  const webContainerOptIn = useWebContainerOptIn();
   const webAccessStatus = useQuery(api.webAccess.getWebAccessStatus, {});
 
   const limitedProjectDailyLimit =
@@ -338,6 +340,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
           agentMode: "POWERFUL",
           freebuffModel: selectedFreebuffModelRef.current,
           ...(uploadedImageIds.length > 0 ? { images: uploadedImageIds } : {}),
+          ...(webContainerOptIn ? { useWebContainer: true } : {}),
         });
 
         const success = handleProjectCreationResult(
@@ -575,7 +578,7 @@ export const DocumentInput: React.FC<DocumentInputProps> = ({
             <div className="mx-3 mb-2 rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 sm:mx-4">
               <div className="flex items-start justify-between gap-3 text-[11px] leading-relaxed">
                 <span className="font-medium text-amber-100">
-                  Due to usage spikes, you are limited to one project per day.
+                  your region is limited to 1 project per day
                 </span>
                 <span className="shrink-0 tabular-nums text-amber-200">
                   {limitedProjectUsageCount}/{limitedProjectDailyLimit}

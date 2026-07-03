@@ -466,7 +466,7 @@ export const ExportDevToProdDataInternal = internalAction({
 
     // STEP 1: Export dev database
     console.log("\n--- STEP 1: Exporting dev database ---");
-    const exportCommand = "npx convex export --path ./snapshot.zip";
+    const exportCommand = `CONVEX_DEPLOY_KEY='${convexProdDeployKey}' npx convex export --path ./snapshot.zip`;
     const exportResult = await codebase.runCommandThrow(exportCommand, 60000);
     if (exportResult.exitCode !== 0) {
       console.error("Export command failed!");

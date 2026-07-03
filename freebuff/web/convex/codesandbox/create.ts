@@ -20,6 +20,10 @@ export const create = mutation({
     /** Selected open-source Freebuff model id for the initial generation.
      *  Persisted on the new thread; defaults server-side when omitted. */
     freebuffModel: v.optional(v.string()),
+    /** Explicit opt-in to the WebContainer sandbox path (used by the
+     *  admin-only /web/test page). Honored ONLY for god/admin users —
+     *  everyone else silently falls back to the normal Daytona path. */
+    useWebContainer: v.optional(v.boolean()),
   },
   returns: v.union(
     v.object({ success: v.literal(true), semanticIdentifier: v.string() }),
@@ -103,6 +107,65 @@ export const create = mutation({
             },
           };
         }
+      }
+
+      // WebContainer rollout: when enabled, skip the Daytona pool entirely
+      // and create an in-browser-sandboxed project instead. Two ways in:
+      //  1. The rollout feature flag (defaults to disabled — prod /web keeps
+      //     Daytona until the flag is explicitly enabled).
+      //  2. Explicit `useWebContainer` opt-in from the admin-only /web/test
+      //     page — honored server-side only for god/admin users so a crafted
+      //     mutation call from a regular user can't reach this path.
+      const webContainerFlag = await ctx.runQuery(
+        internal.featureFlags.checkFeatureInternal,
+        { key: FEATURE_FLAGS.WEBCONTAINER_PROJECTS, clerkId: user?.clerk_id },
+      );
+      const isAdminUser = user?.role === "god" || user?.role === "admin";
+      const useWebContainer =
+        webContainerFlag.enabled || (args.useWebContainer === true && isAdminUser);
+      if (useWebContainer) {
+        const { semanticIdentifier } = await ctx.runMutation(
+          internal.codesandbox.projectCrud.createWebContainerProject,
+          {
+            userId,
+            ...(orgContext?.organizationId
+              ? { organizationId: orgContext.organizationId }
+              : {}),
+          },
+        );
+
+        const workflowResult = await ctx.runMutation(
+          api.coding_agent.cli_agent.trigger.saveMessageAndStartWorkflow,
+          {
+            projectSemanticIdentifier: semanticIdentifier,
+            message: args.initialDocumentContent,
+            ...(args.images && { images: args.images }),
+            ...(args.freebuffModel && { freebuffModel: args.freebuffModel }),
+            agentType: "Freebuff" as any,
+            _skipRateLimitCheck: true,
+          },
+        );
+
+        if (!workflowResult.success) {
+          console.error(
+            "Initial Freebuff workflow failed to start (webcontainer):",
+            workflowResult.error,
+          );
+          return {
+            success: false as const,
+            error: {
+              kind: workflowResult.error.kind,
+              ...(workflowResult.error.retryAfter !== undefined && {
+                retryAfter: workflowResult.error.retryAfter,
+              }),
+              message:
+                workflowResult.error.message ||
+                "Project setup could not start the first build. Please try again.",
+            },
+          };
+        }
+
+        return { success: true as const, semanticIdentifier };
       }
 
       // summarize and get name

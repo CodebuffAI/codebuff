@@ -46,6 +46,10 @@ export const getCommits = action({
       throw new Error("Project not found");
     }
 
+    if (project.sandbox_id?.startsWith("webcontainer:")) {
+      return [];
+    }
+
     const codebase = await initializeCodebase(
       project.sandbox_id,
       project.packageManager,
@@ -82,6 +86,13 @@ export const revertToCommit = internalAction({
 
       if (!project) {
         throw new Error("Project not found");
+      }
+
+      if (project.sandbox_id?.startsWith("webcontainer:")) {
+        return {
+          success: false,
+          message: "Version control checkpoints are not supported for WebContainer projects.",
+        };
       }
 
       const codebase = await initializeCodebase(
@@ -241,6 +252,16 @@ export const commit = internalAction({
       throw new Error("Project not found");
     }
 
+    if (project.sandbox_id?.startsWith("webcontainer:")) {
+      console.log("[VersionControl] Skipping checkpoint commit for WebContainer project:", args.projectId);
+      return {
+        hash: "no-changes",
+        message: args.message,
+        author: "vly.ai",
+        timestamp: Date.now(),
+      };
+    }
+
     const codebase = await initializeCodebase(
       project.sandbox_id,
       project.packageManager,
@@ -354,6 +375,9 @@ export const runConvexDev = internalAction({
   },
   handler: async (ctx, args) => {
     try {
+      if (args.sandboxId.startsWith("webcontainer:")) {
+        return;
+      }
       const codebase = await initializeCodebase(
         args.sandboxId,
         args.packageManager,
