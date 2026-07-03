@@ -57,6 +57,10 @@ const nextConfig = {
     'exceljs',
     'turndown',
     'turndown-plugin-gfm',
+    // Ships a .wasm binary (lz4_wasm_bg.wasm) that webpack can't parse without
+    // asyncWebAssembly enabled. Used only in client-side WebContainer code;
+    // excluding it from the server bundle avoids the server-side parse error.
+    'lz4-wasm',
   ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
@@ -75,6 +79,12 @@ const nextConfig = {
         : import.meta.dirname,
   },
   webpack: (config) => {
+    // Enable WebAssembly for the client bundle so lz4-wasm (used in
+    // WebContainer snapshot compression) can load its .wasm binary.
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    }
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
