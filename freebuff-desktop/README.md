@@ -71,10 +71,6 @@ cd freebuff-desktop
 # Full desktop app: Electron shell + Bun orchestrator (builds the UI first)
 bun run app
 
-# Open a specific repo at launch (otherwise: most-recent project, or the
-# welcome screen's folder pick on a fresh profile)
-FREEBUFF_TARGET_REPO=/path/to/repo bun run app
-
 # Hot UI iteration in Electron: Vite (renderer) + Electron + orchestrator
 bun run dev
 
@@ -92,16 +88,16 @@ bun run typecheck
 To drive the app end-to-end without clicking the UI (the HTTP/SSE API, headless build
 loop, verification), see [`../docs/desktop/e2e-testing.md`](../docs/desktop/e2e-testing.md).
 
-**Env vars.** The Electron shell (`main.cjs`) reads `FREEBUFF_TARGET_REPO` (repo to
-open — passed to the orchestrator as `TARGET_REPO`), `FREEBUFF_BUN_PATH` (override the
-`bun` binary if it isn't on `PATH`), and `FREEBUFF_DEV_UI` (set by `bun run dev`). The
-orchestrator (`src/app/server.ts`) reads `PORT` (default `8787`), `TARGET_REPO`
-(project to open at launch; unset → the most-recent project, or none on a fresh
-profile — the UI's welcome screen then walks through sign-in and the first
-folder pick), `TEST_CMD` (default
+**Env vars.** The Electron shell (`main.cjs`) reads `FREEBUFF_BUN_PATH` (override the
+`bun` binary if it isn't on `PATH`) and `FREEBUFF_DEV_UI` (set by `bun run dev`). The
+orchestrator (`src/app/server.ts`) reads `PORT` (default `8787`), `TEST_CMD` (default
 `node --test`, the `test` skill's command), `FREEBUFF_UI_DIR` (built SPA dir), and —
 for the hosted `codebuff` harness — `CODEBUFF_API_KEY` (fallback auth when not logged
-in via the in-app device-code flow).
+in via the in-app device-code flow). There is no "target repo" env var: which repos
+are open is runtime state — boot restores the MRU in
+`~/.config/freebuff-desktop/state.json` (none on a fresh profile: the welcome
+screen walks through sign-in and the first folder pick), and
+`POST /api/project/open` opens more.
 
 **API host.** `src/app/api-host.ts` exposes the one host used for sign-in, free-mode
 sessions, log shipping, and the SDK: `NEXT_PUBLIC_CODEBUFF_APP_URL`, defaulting to

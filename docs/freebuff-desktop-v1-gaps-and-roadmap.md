@@ -160,6 +160,11 @@ What exists is the **Bun orchestrator + a browser-served UI** (`server.ts` servi
 
 ## 4. The other elephant: single-project only
 
+> **RESOLVED since this was written:** the server is multi-project (an
+> `EngineRegistry` keyed by repo, one engine per opened project), projects open at
+> runtime via the in-app folder pick / `POST /api/project/open`, and the
+> `TARGET_REPO` env var has been **removed** (it is ignored if set).
+
 `Engine` is hardcoded to one project (one repo, one SQLite db, `projectId:'project'`,
 `TARGET_REPO` env). There is **no way to open, switch, or manage projects in the
 app** — the PRD wants "one window = one project, multiple windows." Today you set an
