@@ -10,6 +10,17 @@ const IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i
  *  render differently across surfaces. */
 export const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() || p
 
+/** Everything before the last path segment (either separator), tolerating
+ *  trailing slashes — the parent directory shown muted next to a baseName so
+ *  the folder name isn't repeated. Root-level paths keep their root ("/" or
+ *  "C:\"); a bare name returns ''. */
+export const dirName = (p: string) => {
+  const trimmed = p.replace(/[\\/]+$/, '')
+  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  if (idx < 0) return ''
+  return trimmed.slice(0, idx) || trimmed[0]
+}
+
 export function kindFor(name: string, isDirectory: boolean, mime?: string): AttachmentKind {
   if (isDirectory) return 'directory'
   if (mime?.startsWith('image/') || IMAGE_RE.test(name)) return 'image'

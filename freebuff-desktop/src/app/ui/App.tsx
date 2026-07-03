@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { bridge } from './lib/bridge'
-import { baseName } from './lib/file-drop'
+import { baseName, dirName } from './lib/file-drop'
 import freebuffLogo from './components/freebuff-logo.svg'
 import { Icon } from './components/Icon'
 import { useDismissable } from './hooks/useDismissable'
@@ -103,7 +103,7 @@ export function App() {
                   >
                     <Icon name="folder" />
                     <span className="welcome-recent-name">{baseName(path)}</span>
-                    <span className="welcome-recent-path">{path}</span>
+                    <span className="welcome-recent-path">{dirName(path)}</span>
                   </button>
                 ))}
               </div>
