@@ -64,7 +64,16 @@ const compactPrompt = `
 User has typed "compact". Summarize the current conversation and prepare it to replace the existing message history.
 
 1. Summarize the entire conversation up to this point (excluding this 'compact' command).
-2. The summary should be detailed and must capture the key decisions, analysis, changes, and outcomes.
+2. The summary must use this exact structured schema and include every heading, even when the value is "None":
+   - Goal:
+   - Decisions:
+   - Files Inspected:
+   - Edits Made:
+   - Validation Results:
+   - Blockers:
+   - Next Action:
+3. Preserve concrete facts: file paths, tool names, commands run, validation outcomes, blockers, and the next required action.
+4. Keep prose concise, but do not omit operational details needed to resume the task after compaction.
 `.trim()
 
 const exportPrompt = `

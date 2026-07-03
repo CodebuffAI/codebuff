@@ -16,6 +16,7 @@ import {
 
 import {
   trimMessagesToFitTokenLimit,
+  COMPACTED_CONTEXT_POINTER,
   messagesWithSystem,
   expireMessages,
   getPreviouslyReadFiles,
@@ -386,18 +387,15 @@ describe('trimMessagesToFitTokenLimit', () => {
       logger,
     })
 
-    // Should have replacement message for omitted content
+    // Should have replacement message for compacted context
     expect(result.length).toBeGreaterThan(0)
 
-    // Should contain a replacement message for omitted content
-    const hasReplacementMessage = result.some(
+    const hasCompactedContextPointer = result.some(
       (msg) =>
         msg.content[0].type === 'text' &&
-        msg.content[0].text.includes(
-          'Previous message(s) omitted due to length',
-        ),
+        msg.content[0].text.includes(COMPACTED_CONTEXT_POINTER),
     )
-    expect(hasReplacementMessage).toBe(true)
+    expect(hasCompactedContextPointer).toBe(true)
 
     // Verify total tokens are under limit
     const finalTokens = tokenCounter.countTokensJson(result)
@@ -414,18 +412,15 @@ describe('trimMessagesToFitTokenLimit', () => {
       logger,
     })
 
-    // Should have replacement message for omitted content
+    // Should have replacement message for compacted context
     expect(result.length).toBeGreaterThan(0)
 
-    // Should contain a replacement message for omitted content
-    const hasReplacementMessage = result.some(
+    const hasCompactedContextPointer = result.some(
       (msg) =>
         msg.content[0].type === 'text' &&
-        msg.content[0].text.includes(
-          'Previous message(s) omitted due to length',
-        ),
+        msg.content[0].text.includes(COMPACTED_CONTEXT_POINTER),
     )
-    expect(hasReplacementMessage).toBe(true)
+    expect(hasCompactedContextPointer).toBe(true)
 
     // Verify total tokens are under limit
     const finalTokens = tokenCounter.countTokensJson(result)
@@ -874,15 +869,12 @@ describe('trimMessagesToFitTokenLimit', () => {
       )
       expect(keptMessages).toHaveLength(2)
 
-      // Should have replacement message for omitted content
-      const hasReplacementMessage = result.some(
+      const hasCompactedContextPointer = result.some(
         (msg) =>
           msg.content[0].type === 'text' &&
-          msg.content[0].text.includes(
-            'Previous message(s) omitted due to length',
-          ),
+          msg.content[0].text.includes(COMPACTED_CONTEXT_POINTER),
       )
-      expect(hasReplacementMessage).toBe(true)
+      expect(hasCompactedContextPointer).toBe(true)
     })
 
     it('does not add replacement message when no messages are removed', () => {
@@ -927,14 +919,12 @@ describe('trimMessagesToFitTokenLimit', () => {
       })
 
       // Should only have one replacement message for consecutive removals
-      const replacementMessages = result.filter(
+      const compactedContextPointers = result.filter(
         (msg) =>
           msg.content[0].type === 'text' &&
-          msg.content[0].text.includes(
-            'Previous message(s) omitted due to length',
-          ),
+          msg.content[0].text.includes(COMPACTED_CONTEXT_POINTER),
       )
-      expect(replacementMessages).toHaveLength(1)
+      expect(compactedContextPointers).toHaveLength(1)
 
       // Should keep the marked message
       const keptMessage = result.find(
@@ -1001,15 +991,12 @@ describe('trimMessagesToFitTokenLimit', () => {
       )
       expect(keptMessages).toHaveLength(2)
 
-      // Should have replacement messages for removed content
-      const replacementMessages = result.filter(
+      const compactedContextPointers = result.filter(
         (msg) =>
           msg.content[0].type === 'text' &&
-          msg.content[0].text.includes(
-            'Previous message(s) omitted due to length',
-          ),
+          msg.content[0].text.includes(COMPACTED_CONTEXT_POINTER),
       )
-      expect(replacementMessages.length).toBeGreaterThan(0)
+      expect(compactedContextPointers.length).toBeGreaterThan(0)
     })
   })
 })

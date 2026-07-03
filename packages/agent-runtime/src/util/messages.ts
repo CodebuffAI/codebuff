@@ -168,9 +168,9 @@ function simplifyToolResultHelper(params: {
 
 // Factor to reduce token count target by, to leave room for new messages
 const shortenedMessageTokenFactor = 0.5
-const replacementMessage = userMessage(
-  withSystemTags('Previous message(s) omitted due to length'),
-)
+export const COMPACTED_CONTEXT_POINTER =
+  'Previous context compacted into <knowledge_memory>; see the current conversation summary for older details.'
+const replacementMessage = userMessage(withSystemTags(COMPACTED_CONTEXT_POINTER))
 
 type ContextCategory =
   | 'toolResults'

@@ -18,8 +18,8 @@
  * Detection strategy: We detect pruning by checking for significant message
  * count reduction and token count reduction. The context-pruner may produce
  * a <conversation_summary> message, OR the fallback trimMessagesToFitTokenLimit
- * may produce <system>Previous message(s) omitted due to length</system>.
- * Both count as successful pruning for our purposes.
+ * may produce a compacted-context pointer. Both count as successful pruning for
+ * our purposes.
  */
 
 import {
@@ -223,7 +223,7 @@ function buildMessageHistory(targetApproxTokens: number): Message[] {
 /**
  * Detects whether context pruning occurred by checking for:
  * 1. <conversation_summary> tag (context-pruner's output)
- * 2. <system>Previous message(s) omitted due to length</system> (trimMessagesToFitTokenLimit fallback)
+ * 2. A compacted-context pointer (trimMessagesToFitTokenLimit fallback)
  * 3. Significant message count reduction (>50% fewer messages than original)
  */
 function detectPruning(
@@ -255,7 +255,7 @@ function detectPruning(
         'type' in part &&
         part.type === 'text' &&
         typeof (part as any).text === 'string' &&
-        (part as any).text.includes('Previous message(s) omitted'),
+        (part as any).text.includes('Previous context compacted'),
     )
   })
 

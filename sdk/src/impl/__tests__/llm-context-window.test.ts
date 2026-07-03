@@ -1,5 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { userMessage } from '@codebuff/common/util/messages'
+import { COMPACTED_CONTEXT_POINTER } from '@codebuff/agent-runtime/util/messages'
 import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import { describe, expect, mock, spyOn, test } from 'bun:test'
 
@@ -50,9 +51,7 @@ describe('getMessagesForModelContext', () => {
     expect(largeContextResult).toHaveLength(messages.length)
     expect(largeContextResult).toBe(messages)
     expect(smallContextResult).not.toEqual(messages)
-    expect(smallContextJson).toContain(
-      'Previous message(s) omitted due to length',
-    )
+    expect(smallContextJson).toContain(COMPACTED_CONTEXT_POINTER)
     expect(smallContextJson).not.toContain('old context old context')
   })
 
@@ -67,9 +66,7 @@ describe('getMessagesForModelContext', () => {
     })
 
     expect(result).not.toEqual(messages)
-    expect(JSON.stringify(result)).toContain(
-      'Previous message(s) omitted due to length',
-    )
+    expect(JSON.stringify(result)).toContain(COMPACTED_CONTEXT_POINTER)
   })
 
   test('emits cache_emergency_trim telemetry when request-time trim drops messages (M4.3)', () => {

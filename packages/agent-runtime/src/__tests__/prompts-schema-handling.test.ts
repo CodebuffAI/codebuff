@@ -4,6 +4,7 @@ import { describe, test, expect, mock } from 'bun:test'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 import { z } from 'zod/v4'
 
+import { additionalSystemPrompts } from '../system-prompt/prompts'
 import {
   buildAgentToolInputSchema,
   buildAgentToolSet,
@@ -27,6 +28,22 @@ const createMockLogger = () => ({
 })
 
 describe('Schema handling error recovery', () => {
+  describe('/compact prompt schema', () => {
+    test('prescribes the structured knowledge-memory fields (M8 regression)', () => {
+      const prompt = additionalSystemPrompts['/compact']
+
+      expect(prompt).toContain('Goal:')
+      expect(prompt).toContain('Decisions:')
+      expect(prompt).toContain('Files Inspected:')
+      expect(prompt).toContain('Edits Made:')
+      expect(prompt).toContain('Validation Results:')
+      expect(prompt).toContain('Blockers:')
+      expect(prompt).toContain('Next Action:')
+      expect(prompt).toContain('file paths')
+      expect(prompt).toContain('commands run')
+    })
+  })
+
   describe('ensureJsonSchemaCompatible in templates/prompts.ts', () => {
     test('handles schema that cannot be converted to JSON Schema', async () => {
       // Create a schema that will fail JSON Schema conversion
