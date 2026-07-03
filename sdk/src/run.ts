@@ -845,11 +845,12 @@ async function handleToolCall({
         fs,
       })
     } else if (toolName === 'run_terminal_command') {
-      const resolvedCwd = requireCwd(cwd, 'run_terminal_command')
+      const projectRoot = requireCwd(cwd, 'run_terminal_command')
       const terminalInput = input as Parameters<typeof runTerminalCommand>[0]
       result = await runTerminalCommand({
         ...terminalInput,
-        cwd: path.resolve(resolvedCwd, terminalInput.cwd ?? '.'),
+        cwd: path.resolve(projectRoot, terminalInput.cwd ?? '.'),
+        projectRoot,
         env,
         signal,
       })

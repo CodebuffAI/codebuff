@@ -122,6 +122,7 @@ export function runTerminalCommand({
   command,
   process_type,
   cwd,
+  projectRoot,
   timeout_seconds,
   env,
   signal,
@@ -129,6 +130,7 @@ export function runTerminalCommand({
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
+  projectRoot?: string
   timeout_seconds: number
   env?: Record<string, string | undefined>
   /** Optional abort signal. When aborted, an in-flight SYNC child is
@@ -142,7 +144,10 @@ export function runTerminalCommand({
   // `../../outside` must be rejected before we spawn a child process so the
   // tool cannot be used to read or mutate state outside the project.
   // The shared helper enforces lexical + realpath/symlink containment.
-  const resolvedCwd = resolveFilePathWithinProject(cwd, '.')
+  const resolvedCwd = resolveFilePathWithinProject(
+    projectRoot ?? process.cwd(),
+    cwd,
+  )
   if (resolvedCwd === null) {
     return Promise.resolve([
       {

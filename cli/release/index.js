@@ -8,7 +8,6 @@ const os = require('os')
 const path = require('path')
 const zlib = require('zlib')
 
-const tar = require('tar')
 const { createReleaseHttpClient } = require('./http')
 
 // npm package name — used for registry version checks (auto-update).
@@ -182,6 +181,45 @@ async function getLatestVersion() {
   }
 }
 
+function getLocalPackageVersion() {
+  const packageJsonPaths = [
+    path.join(__dirname, '..', 'package.json'),
+    path.join(__dirname, 'package.json'),
+  ]
+
+  for (const packageJsonPath of packageJsonPaths) {
+    try {
+      if (!fs.existsSync(packageJsonPath)) continue
+      const packageData = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+      if (packageData.version) return packageData.version
+    } catch (error) {
+      // Try the next local source.
+    }
+  }
+
+  return null
+}
+
+function getMetadataVersion() {
+  try {
+    if (!fs.existsSync(CONFIG.metadataPath)) {
+      return null
+    }
+    const metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+    return metadata.version || null
+  } catch (error) {
+    return null
+  }
+}
+
+function getWrapperVersion() {
+  return getLocalPackageVersion() || getMetadataVersion() || getCurrentVersion() || 'dev'
+}
+
+function isVersionFlag(args) {
+  return args.length === 1 && (args[0] === '--version' || args[0] === '-v')
+}
+
 function streamToString(stream) {
   return new Promise((resolve, reject) => {
     let data = ''
@@ -347,6 +385,8 @@ async function downloadBinary(version) {
   })
 
   // Extract to temp directory
+  const tar = require('tar')
+
   await new Promise((resolve, reject) => {
     res
       .pipe(zlib.createGunzip())
@@ -573,9 +613,16 @@ function printCrashDiagnostics(code, signal) {
 }
 
 async function main() {
+  const args = process.argv.slice(2)
+
+  if (isVersionFlag(args)) {
+    console.log(getWrapperVersion())
+    return
+  }
+
   await ensureBinaryExists()
 
-  const child = spawn(CONFIG.binaryPath, process.argv.slice(2), {
+  const child = spawn(CONFIG.binaryPath, args, {
     stdio: 'inherit',
   })
 

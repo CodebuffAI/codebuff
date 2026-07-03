@@ -18,6 +18,11 @@ describe('isPathInsideProject', () => {
     expect(isPathInsideProject('/repo', '/repo/src/file.ts')).toBe(true)
   })
 
+  test('accepts the project root itself', () => {
+    expect(isPathInsideProject('/repo', '/repo')).toBe(true)
+    expect(isPathInsideProject('/repo', '.')).toBe(true)
+  })
+
   test('rejects empty input', () => {
     expect(isPathInsideProject('/repo', '')).toBe(false)
   })
@@ -58,6 +63,18 @@ describe('resolveProjectPath', () => {
     const result = resolveProjectPath('/repo', '/repo/src/file.ts')
     expect(result).not.toBeNull()
     expect(result!.relativePath).toBe('src/file.ts')
+  })
+
+  test('accepts the project root itself', () => {
+    const absoluteResult = resolveProjectPath('/repo', '/repo')
+    expect(absoluteResult).not.toBeNull()
+    expect(absoluteResult!.relativePath).toBe('')
+    expect(absoluteResult!.fullPath).toBe(path.resolve('/repo'))
+
+    const relativeResult = resolveProjectPath('/repo', '.')
+    expect(relativeResult).not.toBeNull()
+    expect(relativeResult!.relativePath).toBe('')
+    expect(relativeResult!.fullPath).toBe(path.resolve('/repo'))
   })
 
   test('returns null for traversal payloads', () => {

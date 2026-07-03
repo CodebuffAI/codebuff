@@ -3,6 +3,19 @@ import { describe, expect, it } from 'bun:test'
 import { runTerminalCommand } from '../tools/run-terminal-command'
 
 describe('runTerminalCommand cwd containment', () => {
+  it('accepts the project root itself as cwd', async () => {
+    const result = await runTerminalCommand({
+      command: 'pwd',
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      projectRoot: process.cwd(),
+      timeout_seconds: 5,
+    })
+    const value = result[0].value as { errorMessage?: string; stdout?: string }
+    expect(value.errorMessage).toBeUndefined()
+    expect(value.stdout).toContain(process.cwd())
+  })
+
   it('rejects an absolute cwd outside the project with a structured error', async () => {
     const result = await runTerminalCommand({
       command: 'echo hello',
@@ -33,6 +46,19 @@ describe('runTerminalCommand cwd containment', () => {
       command: 'echo hello',
       process_type: 'BACKGROUND',
       cwd: '/etc',
+      timeout_seconds: 5,
+    })
+    const value = result[0].value as { errorMessage?: string }
+    expect(value.errorMessage).toContain('Invalid cwd')
+    expect(value.errorMessage).toContain('outside the project directory')
+  })
+
+  it('rejects a BACKGROUND process whose cwd escapes the explicit project root', async () => {
+    const result = await runTerminalCommand({
+      command: 'echo hello',
+      process_type: 'BACKGROUND',
+      cwd: '/etc',
+      projectRoot: process.cwd(),
       timeout_seconds: 5,
     })
     const value = result[0].value as { errorMessage?: string }

@@ -88,7 +88,6 @@ export function resolveProjectPath(
   // start with two dots (e.g. `..config`) are still allowed.
   const relativeLexical = path.relative(resolvedRoot, fullPath)
   if (
-    relativeLexical === '' ||
     relativeLexical === '..' ||
     relativeLexical.startsWith('..' + path.sep) ||
     path.isAbsolute(relativeLexical) ||
@@ -106,7 +105,6 @@ export function resolveProjectPath(
   const realFullPath = realpathOrLexical(fullPath)
   const realRelative = path.relative(realRoot, realFullPath)
   if (
-    realRelative === '' ||
     realRelative === '..' ||
     realRelative.startsWith('..' + path.sep) ||
     path.isAbsolute(realRelative)

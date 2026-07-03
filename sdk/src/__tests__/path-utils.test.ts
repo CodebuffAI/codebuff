@@ -25,6 +25,17 @@ describe('resolveFilePathWithinProject', () => {
     })
   })
 
+  test('accepts the project root itself', () => {
+    expect(resolveFilePathWithinProject('/repo', '/repo')).toMatchObject({
+      fullPath: '/repo',
+      relativePath: '',
+    })
+    expect(resolveFilePathWithinProject('/repo', '.')).toMatchObject({
+      fullPath: '/repo',
+      relativePath: '',
+    })
+  })
+
   test('allows file names that start with two dots inside the project', () => {
     expect(resolveFilePathWithinProject('/repo', '/repo/..config')).toMatchObject(
       {
