@@ -1317,3 +1317,9 @@ Resuming push/CI verification. Latest CI run `28627223646` on `main` completed w
 
 Applied the CI typecheck fix by adding `@types/react-dom@19.2.3` to `cli/package.json` devDependencies via Bun, updating `bun.lock`. Validation passed locally: `cd cli && bun run typecheck` and root `bun run typecheck` both exit 0. Next checkpoint: commit/push the fix and verify the new GitHub Actions run completes successfully.
 
+
+<!-- update_plan_status:appended -->
+## CI verification complete — 2026-07-02T23:35:35.649Z
+
+Pushed commit `a7d4b4501` (`fix(cli): add react-dom types for server rendering tests`) to `main`. GitHub Actions for the pushed commit completed: `CI` success, `Evals` success, `CLI Release Staging` skipped as expected. Local validation before push: `cd cli && bun run typecheck` and root `bun run typecheck` both passed. CI URL: https://github.com/AnzoBenjamin/openbuff/actions/runs/28628133624. Evals URL: https://github.com/AnzoBenjamin/openbuff/actions/runs/28628133618.
+

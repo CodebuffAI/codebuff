@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "slug": "harness-remediation-2026-07-01",
-  "status": "active",
+  "status": "completed",
   "currentTask": "M9 final local-model closure",
   "createdAt": "2026-07-01T05:43:54.546Z",
-  "updatedAt": "2026-07-02T23:26:33.236Z"
+  "updatedAt": "2026-07-02T23:35:35.650Z"
 }

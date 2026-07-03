@@ -94,6 +94,7 @@ export async function runFileChangeHooks(params: {
         command: hook.command,
         process_type: 'SYNC',
         cwd,
+        projectRoot: cwd,
         timeout_seconds: hook.timeoutSeconds ?? HOOK_TIMEOUT_SECONDS,
         env,
       })
