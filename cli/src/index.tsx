@@ -40,7 +40,9 @@ import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
 import { startEngagementTracking } from './utils/engagement'
-import { installProcessCleanupHandlers, TERMINAL_RESET_SEQUENCES } from './utils/renderer-cleanup'
+import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
+import { TERMINAL_RESET_SEQUENCES } from './utils/terminal-reset-sequences'
+import { startTerminalWatchdog, stopTerminalWatchdog } from './utils/terminal-watchdog'
 import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -345,6 +347,7 @@ async function main(): Promise<void> {
   // If the renderer crashes during init, these ensure the error is visible
   // by exiting the alternate screen buffer before printing the error.
   const earlyFatalHandler = (error: unknown) => {
+    stopTerminalWatchdog() // we reset the terminal ourselves below
     try {
       if (process.stdin.isTTY && process.stdin.setRawMode) {
         process.stdin.setRawMode(false)
@@ -368,6 +371,13 @@ async function main(): Promise<void> {
   }
   process.on('uncaughtException', earlyFatalHandler)
   process.on('unhandledRejection', earlyFatalHandler)
+
+  // Last line of defense for uncatchable deaths (SIGKILL, native crashes,
+  // kill sweeps that also take out the npm wrapper): a detached sh process
+  // that resets the terminal when this process disappears. Started before the
+  // renderer begins enabling terminal modes; the clean-shutdown path
+  // (renderer-cleanup) disarms it.
+  startTerminalWatchdog()
 
   const renderer = await createCliRenderer({
     backgroundColor: 'transparent',
