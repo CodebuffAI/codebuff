@@ -1,5 +1,7 @@
 "use node";
 
+import { createHash, createHmac } from "node:crypto";
+
 import type { Codebase, VercelDeploymentFile } from "../codebase-utils/codebase/Codebase";
 import {
   hasPackageManager,
@@ -31,6 +33,8 @@ async function detectFramework(codebase: Codebase): Promise<FrameworkType> {
 
 const DIST_REFRESH_WINDOW_MS = 10 * 60 * 1000;
 const DIST_BUILD_ROOT_PREFIX = "distBuild";
+const UPLOAD_SCRIPT_PATH = ".vly-dist-upload.sh";
+const PRESIGN_EXPIRY_SECONDS = 15 * 60;
 
 type R2Config = {
   accountId: string;
@@ -50,6 +54,26 @@ function getR2Config(): R2Config {
   }
 
   return { accountId, apiToken, bucketName };
+}
+
+type R2S3Credentials = {
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+/**
+ * S3-style credentials used only to presign PUT URLs so the sandbox can
+ * upload the dist directly to R2. The master Cloudflare API token must never
+ * enter the sandbox (user code runs there); presigned URLs are scoped to a
+ * single object key and expire after a few minutes.
+ */
+function getR2S3Credentials(): R2S3Credentials | null {
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    return null;
+  }
+  return { accessKeyId, secretAccessKey };
 }
 
 function getR2ObjectsBaseUrl(config: R2Config): string {
@@ -140,8 +164,7 @@ async function listR2KeysByPrefix(config: R2Config, prefix: string) {
   return keys;
 }
 
-async function deleteR2Prefix(config: R2Config, prefix: string) {
-  const keys = await listR2KeysByPrefix(config, prefix);
+async function deleteR2Keys(config: R2Config, keys: string[]) {
   if (keys.length === 0) {
     return;
   }
@@ -165,13 +188,208 @@ async function deleteR2Prefix(config: R2Config, prefix: string) {
   }
 }
 
-async function uploadDistFiles(
+async function deleteR2Prefix(config: R2Config, prefix: string) {
+  const keys = await listR2KeysByPrefix(config, prefix);
+  await deleteR2Keys(config, keys);
+}
+
+// --- SigV4 presigning (query-string auth) for R2's S3 API -------------------
+
+function sha256Hex(data: string): string {
+  return createHash("sha256").update(data, "utf8").digest("hex");
+}
+
+function hmac(key: Buffer | string, data: string): Buffer {
+  return createHmac("sha256", key).update(data, "utf8").digest();
+}
+
+/** RFC 3986 encoding as required by SigV4 canonical URIs/query strings. */
+function awsUriEncode(value: string, encodeSlash: boolean): string {
+  let out = "";
+  for (const char of value) {
+    if (/[A-Za-z0-9\-._~]/.test(char)) {
+      out += char;
+    } else if (char === "/" && !encodeSlash) {
+      out += char;
+    } else {
+      out += Array.from(Buffer.from(char, "utf8"))
+        .map((b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`)
+        .join("");
+    }
+  }
+  return out;
+}
+
+function presignR2PutUrl(opts: {
+  accountId: string;
+  bucketName: string;
+  credentials: R2S3Credentials;
+  key: string;
+  expiresSeconds: number;
+  now?: Date;
+}): string {
+  const { accountId, bucketName, credentials, key, expiresSeconds } = opts;
+  const host = `${accountId}.r2.cloudflarestorage.com`;
+  const region = "auto";
+  const service = "s3";
+
+  const now = opts.now ?? new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, ""); // YYYYMMDDTHHMMSSZ
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+
+  const canonicalUri = `/${awsUriEncode(bucketName, false)}/${awsUriEncode(key, false)}`;
+
+  const queryParams: Array<[string, string]> = [
+    ["X-Amz-Algorithm", "AWS4-HMAC-SHA256"],
+    ["X-Amz-Credential", `${credentials.accessKeyId}/${credentialScope}`],
+    ["X-Amz-Date", amzDate],
+    ["X-Amz-Expires", String(expiresSeconds)],
+    ["X-Amz-SignedHeaders", "host"],
+  ];
+  const canonicalQueryString = queryParams
+    .map(([k, v2]) => `${awsUriEncode(k, true)}=${awsUriEncode(v2, true)}`)
+    .sort()
+    .join("&");
+
+  const canonicalRequest = [
+    "PUT",
+    canonicalUri,
+    canonicalQueryString,
+    `host:${host}\n`,
+    "host",
+    "UNSIGNED-PAYLOAD",
+  ].join("\n");
+
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    sha256Hex(canonicalRequest),
+  ].join("\n");
+
+  const kDate = hmac(`AWS4${credentials.secretAccessKey}`, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, service);
+  const kSigning = hmac(kService, "aws4_request");
+  const signature = createHmac("sha256", kSigning)
+    .update(stringToSign, "utf8")
+    .digest("hex");
+
+  return `https://${host}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+}
+
+// --- Sandbox-side upload ----------------------------------------------------
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Build a shell script that uploads each dist file from inside the sandbox
+ * directly to R2 via presigned PUT URLs. The dist bytes never transit the
+ * Convex action, which previously accounted for the bulk of this function's
+ * data egress.
+ */
+function buildUploadScript(
+  uploads: Array<{ relativePath: string; url: string; contentType: string }>,
+): string {
+  const lines = [
+    "#!/bin/bash",
+    "set -u",
+    "cd isolate",
+    "fail=0",
+    "upload() {",
+    '  local p="$1"; local u="$2"; local ct="$3"',
+    "  for attempt in 1 2 3; do",
+    '    if curl --fail --silent --show-error -X PUT -H "Content-Type: $ct" --upload-file "$p" "$u"; then',
+    "      return 0",
+    "    fi",
+    "    sleep 1",
+    "  done",
+    '  echo "UPLOAD FAILED: $p" >&2',
+    "  return 1",
+    "}",
+  ];
+  for (const upload of uploads) {
+    lines.push(
+      `upload ${shellQuote(upload.relativePath)} ${shellQuote(upload.url)} ${shellQuote(upload.contentType)} || fail=1`,
+    );
+  }
+  lines.push('exit "$fail"');
+  return lines.join("\n") + "\n";
+}
+
+async function listDistFiles(codebase: Codebase): Promise<string[]> {
+  const result = await codebase.runCommandThrow(
+    `cd isolate && find . -type f | sed 's|^\\./||'`,
+    30_000,
+  );
+  return result.output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/** Upload directly from the sandbox to R2 using presigned URLs. */
+async function uploadDistFromSandbox(
+  codebase: Codebase,
+  config: R2Config,
+  s3Credentials: R2S3Credentials,
+  semanticIdentifier: string,
+): Promise<{ fileCount: number; uploadedKeys: string[] }> {
+  const relativePaths = await listDistFiles(codebase);
+  if (relativePaths.length === 0) {
+    throw new Error("Dist build produced no files to upload");
+  }
+
+  const prefix = getFallbackPrefix(semanticIdentifier);
+  const uploads = relativePaths.map((relativePath) => ({
+    relativePath,
+    url: presignR2PutUrl({
+      accountId: config.accountId,
+      bucketName: config.bucketName,
+      credentials: s3Credentials,
+      key: `${prefix}${relativePath}`,
+      expiresSeconds: PRESIGN_EXPIRY_SECONDS,
+    }),
+    contentType: getContentType(relativePath),
+  }));
+
+  await codebase.writeFile(UPLOAD_SCRIPT_PATH, buildUploadScript(uploads));
+  try {
+    // Timeout scales with file count; uploads run sequentially with retries.
+    const timeoutMs = Math.max(120_000, uploads.length * 5_000);
+    await codebase.runCommandThrow(`bash ${UPLOAD_SCRIPT_PATH}`, timeoutMs);
+  } finally {
+    try {
+      await codebase.deleteFile(UPLOAD_SCRIPT_PATH);
+    } catch {
+      // Best effort cleanup; a leftover script contains only expired URLs.
+    }
+  }
+
+  return {
+    fileCount: uploads.length,
+    uploadedKeys: uploads.map((u) => `${prefix}${u.relativePath}`),
+  };
+}
+
+/**
+ * Legacy path: download every dist file into the action and PUT it to R2.
+ * Only used when R2 S3 credentials are not configured. Expensive — the whole
+ * dist transits the Convex action (egress + compute).
+ */
+async function uploadDistThroughAction(
+  codebase: Codebase & { prepareForDeployment: () => Promise<VercelDeploymentFile[]> },
   config: R2Config,
   semanticIdentifier: string,
-  files: VercelDeploymentFile[],
-) {
+): Promise<{ fileCount: number }> {
+  const files = await codebase.prepareForDeployment();
   const baseUrl = getR2ObjectsBaseUrl(config);
   const prefix = getFallbackPrefix(semanticIdentifier);
+
+  await deleteR2Prefix(config, prefix);
 
   for (const file of files) {
     const key = `${prefix}${file.file}`;
@@ -191,6 +409,8 @@ async function uploadDistFiles(
       );
     }
   }
+
+  return { fileCount: files.length };
 }
 
 export const publishFallbackDist = internalAction({
@@ -276,12 +496,37 @@ export const publishFallbackDist = internalAction({
       20_000,
     );
 
-    const files = await codebase.prepareForDeployment();
     const config = getR2Config();
     const prefix = getFallbackPrefix(project.semantic_identifier);
+    const s3Credentials = getR2S3Credentials();
 
-    await deleteR2Prefix(config, prefix);
-    await uploadDistFiles(config, project.semantic_identifier, files);
+    let fileCount: number;
+    if (s3Credentials) {
+      // Upload new files first, then delete only stale keys, so a failed
+      // upload never leaves the fallback prefix empty.
+      const existingKeys = await listR2KeysByPrefix(config, prefix);
+      const result = await uploadDistFromSandbox(
+        codebase,
+        config,
+        s3Credentials,
+        project.semantic_identifier,
+      );
+      fileCount = result.fileCount;
+
+      const uploadedKeySet = new Set(result.uploadedKeys);
+      const staleKeys = existingKeys.filter((key) => !uploadedKeySet.has(key));
+      await deleteR2Keys(config, staleKeys);
+    } else {
+      console.warn(
+        "[FallbackDist] R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY not set; falling back to uploading through the Convex action (expensive egress). Configure R2 S3 credentials to enable direct sandbox-to-R2 uploads.",
+      );
+      const result = await uploadDistThroughAction(
+        codebase as any,
+        config,
+        project.semantic_identifier,
+      );
+      fileCount = result.fileCount;
+    }
 
     await ctx.runMutation(internal.project.setLastDistBuildAt, {
       projectId: project._id,
@@ -291,7 +536,8 @@ export const publishFallbackDist = internalAction({
     console.log("[FallbackDist] Dist publish complete", {
       projectId: project._id,
       semanticIdentifier: project.semantic_identifier,
-      fileCount: files.length,
+      fileCount,
+      directUpload: !!s3Credentials,
     });
 
     return null;
