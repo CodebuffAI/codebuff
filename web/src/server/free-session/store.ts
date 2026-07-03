@@ -1,7 +1,7 @@
 import { recordReferralV2Activation } from '@codebuff/billing'
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 
 import { logger } from '@/util/logger'
 
@@ -66,6 +66,9 @@ export class FreeSessionPremiumSlotTakenError extends Error {
   constructor(
     public readonly currentModel: string,
     public readonly currentInstanceId: string,
+    /** When the holding session expires. Lets the admission path evict an
+     *  expired-but-unswept holder instead of bouncing the new tab. */
+    public readonly currentExpiresAt: Date | null = null,
   ) {
     super(
       `A premium-bucket session is already active (${currentModel}); only one is allowed per user.`,
@@ -518,10 +521,17 @@ export async function listDesktopSessionRows(
   return rows as InternalSessionRow[]
 }
 
-/** Count active desktop sessions for a user — bounds desktop fan-out against
- *  FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS. */
+/** Count desktop sessions for a user that can still reach the completions
+ *  gate — bounds desktop fan-out against
+ *  FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS. `liveCutoff` is `now - graceMs`:
+ *  the gate serves a row until `expires_at + grace` ("draining"), so the
+ *  backstop must count draining rows too or 8 draining + 8 fresh could
+ *  generate concurrently. Rows past the cutoff are sweep fodder and don't
+ *  count — otherwise a day of abandoned tabs would block a user who only ever
+ *  ran a few at once. */
 export async function getActiveDesktopSessionCount(
   userId: string,
+  liveCutoff: Date,
 ): Promise<number> {
   const rows = await db
     .select({ n: count() })
@@ -530,9 +540,35 @@ export async function getActiveDesktopSessionCount(
       and(
         eq(schema.freeSessionDesktop.user_id, userId),
         eq(schema.freeSessionDesktop.status, 'active'),
+        gt(schema.freeSessionDesktop.expires_at, liveCutoff),
       ),
     )
   return Number(rows[0]?.n ?? 0)
+}
+
+/** Best-effort eviction of a DEAD slot holder: deletes the (user, instance)
+ *  row only when its `expires_at` is at or before `cutoff` (the caller passes
+ *  `now - graceMs`, mirroring the sweep). The expiry guard is INSIDE the
+ *  DELETE so a holder that reclaimed (refreshed `expires_at`) between the
+ *  caller's check and this call is left alone — no TOCTOU on a live session.
+ *  Returns whether a row was deleted. No admit finalization: a row past
+ *  expiry+grace was already fully charged at admit time. */
+export async function deleteExpiredDesktopSession(
+  userId: string,
+  instanceId: string,
+  cutoff: Date,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(schema.freeSessionDesktop)
+    .where(
+      and(
+        eq(schema.freeSessionDesktop.user_id, userId),
+        eq(schema.freeSessionDesktop.active_instance_id, instanceId),
+        lte(schema.freeSessionDesktop.expires_at, cutoff),
+      ),
+    )
+    .returning({ user_id: schema.freeSessionDesktop.user_id })
+  return deleted.length > 0
 }
 
 /** The user's currently-active premium-bucket desktop session, if any. Used to
@@ -669,6 +705,7 @@ export async function admitDesktopSession(params: {
         throw new FreeSessionPremiumSlotTakenError(
           premium.model,
           premium.active_instance_id,
+          premium.expires_at ?? null,
         )
       }
     }

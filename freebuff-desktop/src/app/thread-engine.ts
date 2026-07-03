@@ -53,6 +53,7 @@ import {
   getRecommendedFreebuffModelId,
   isFreebuffDesktopPremiumBucketModelId,
   isFreebuffMultimodalModelId,
+  occupiesFreebuffDesktopSlot,
   resolveFreebuffModelForAccessTier,
   FALLBACK_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -61,6 +62,7 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import type { FreebuffSessionRateLimitByModel } from '@codebuff/common/types/freebuff-session'
 
 import { API_HOST, PROD_API_HOST } from './api-host'
 import type { DesktopAds } from './ads'
@@ -110,10 +112,16 @@ export interface Snapshot {
    */
   freebuff: {
     accessTier: FreebuffAccessTier
-    /** Pickable models for the tier, each tagged with whether it occupies the
-     *  one-per-user premium concurrency slot (premium models + MiniMax M3). */
-    models: (FreebuffModelOption & { premiumBucket: boolean })[]
+    /** Pickable models for the tier. `premiumBucket` is the model-intrinsic
+     *  premium flag (drives the "Premium" badge); `slotBound` is whether a tab
+     *  on this model occupies the single concurrency slot under the current
+     *  tier (drives the picker lock — on limited tier it's true for all). */
+    models: (FreebuffModelOption & { premiumBucket: boolean; slotBound: boolean })[]
     premiumSlotHolder: string | null
+    /** Latest per-model session-quota snapshot ("N of M sessions") — only
+     *  quota-metered models appear (premium pool on full tier; every model on
+     *  limited tier). Absent until the first session probe answers. */
+    rateLimitsByModel?: FreebuffSessionRateLimitByModel
     authed: boolean
     user: { id?: string; name?: string; email?: string } | null
     /** Set only when the desktop targets a non-prod API host (a repo launch's
@@ -374,12 +382,15 @@ export class ThreadEngine {
   }
 
   /** Rebuild the in-memory premium-slot holder from persisted thread models.
-   *  The first open thread on a premium-bucket model wins the slot; the server
-   *  still enforces one-per-user, so this is only the UX gate. */
+   *  The first open thread on a slot-occupying model wins (premium bucket on
+   *  the full tier; EVERY model on the limited tier — the shared
+   *  occupiesFreebuffDesktopSlot predicate, so this UX gate matches what the
+   *  server enforces). The server is still the authority. */
   private recomputePremiumSlotHolder(): void {
+    const tier = this.freebuff.getAccessTier()
     this.premiumSlotHolder = null
     for (const t of this.store.listThreads(this.projectId, { status: 'open' })) {
-      if (t.freebuffModel && isFreebuffDesktopPremiumBucketModelId(t.freebuffModel)) {
+      if (t.freebuffModel && occupiesFreebuffDesktopSlot(t.freebuffModel, tier)) {
         this.premiumSlotHolder = t.id
         break
       }
@@ -625,6 +636,9 @@ export class ThreadEngine {
    *  the model picker reflects full vs limited access. Fire-and-forget safe. */
   async refreshTier(): Promise<void> {
     await this.freebuff.fetchTier()
+    // Slot occupancy is tier-dependent (limited = every model), so a tier flip
+    // must re-derive the holder before the snapshot goes out.
+    this.recomputePremiumSlotHolder()
     this.emitState()
   }
 
@@ -666,8 +680,16 @@ export class ThreadEngine {
         models: freebuffModelOptions(accessTier).map((m) => ({
           ...m,
           premiumBucket: isFreebuffDesktopPremiumBucketModelId(m.id),
+          // Whether a tab on this model occupies the single concurrency slot
+          // under the CURRENT tier — drives the picker's "in use" lock. On the
+          // limited tier this is true for every model (one-tab rule).
+          slotBound: occupiesFreebuffDesktopSlot(m.id, accessTier),
         })),
         premiumSlotHolder: this.premiumSlotHolder,
+        // Per-model session-quota snapshot for the header badge ("N of M
+        // sessions"). Only quota-metered models appear (premium pool on full
+        // tier; every model on limited tier).
+        rateLimitsByModel: this.freebuff.getRateLimits() ?? undefined,
         authed: auth.authed,
         user: auth.user ?? null,
         ...(API_HOST !== PROD_API_HOST ? { apiHost: API_HOST } : {}),
@@ -1208,10 +1230,15 @@ export class ThreadEngine {
       if (harness.id === 'codebuff') {
         model = this.freebuffModelForThread(threadId)
         const instanceId = this.freebuffInstanceForThread(threadId)
+        // The manager swaps its cached quota map only on a content change, so a
+        // reference compare tells us whether this admission moved the count —
+        // reclaim turns (the common case) skip the extra snapshot broadcast.
+        const quotaBefore = this.freebuff.getRateLimits()
         freeMode = { instanceId: await this.freebuff.ensure(threadId, model, instanceId) }
         if (freeMode.instanceId !== instanceId) {
           this.store.setFreebuffInstanceId(threadId, freeMode.instanceId)
         }
+        if (this.freebuff.getRateLimits() !== quotaBefore) this.emitState()
       } else {
         model = this.claudeModelForThread(threadId)
       }

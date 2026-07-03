@@ -1208,9 +1208,11 @@ export const freeSession = pgTable(
  * The one hard limit is the `premium_bucket` concurrency cap, enforced as a DB
  * invariant by `uniq_free_session_desktop_premium_active`: at most one active
  * premium-bucket session (premium models + MiniMax M3 + GLM 5.2, see
- * isFreebuffDesktopPremiumBucketModelId) per user. A racing second premium admit
- * hits a unique violation (23505), which the store maps to `premium_slot_taken`.
- * Unlimited-bucket rows are outside the partial index → unbounded concurrency.
+ * isFreebuffDesktopPremiumBucketModelId — plus EVERY model on the limited
+ * access tier, which is capped to one freebuff tab at a time) per user. A
+ * racing second premium admit hits a unique violation (23505), which the store
+ * maps to `premium_slot_taken`. Unlimited-bucket rows are outside the partial
+ * index → unbounded concurrency.
  */
 export const freeSessionDesktop = pgTable(
   'free_session_desktop',

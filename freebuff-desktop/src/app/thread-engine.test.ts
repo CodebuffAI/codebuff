@@ -28,6 +28,7 @@ class FakeClient {
  *  fixed instance id; the rest are no-ops. */
 const fakeFreebuffSessions = () => ({
   getAccessTier: () => 'full' as const,
+  getRateLimits: () => null,
   fetchTier: async () => ({ accessTier: 'full' as const }),
   ensure: async () => 'inst-test',
   release: async () => {},
@@ -1137,6 +1138,7 @@ describe('ThreadEngine — app restart recovery', () => {
       return {
         calls,
         getAccessTier: () => 'full' as const,
+        getRateLimits: () => null,
         fetchTier: async () => ({ accessTier: 'full' as const }),
         ensure: async (threadId: string, model: string, instanceId?: string) => {
           calls.push({ threadId, model, instanceId })

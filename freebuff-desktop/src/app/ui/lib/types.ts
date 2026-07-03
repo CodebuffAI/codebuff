@@ -70,8 +70,10 @@ export interface AgentOption {
 export type FreebuffAccessTier = 'full' | 'limited'
 
 /** Mirror of @codebuff/common FreebuffModelOption — the picker's per-model row.
- *  `premiumBucket` is added by the engine: true for models that occupy the
- *  one-per-user premium concurrency slot (premium models + MiniMax M3). */
+ *  `premiumBucket` (model-intrinsic premium flag, drives the "Premium" badge)
+ *  and `slotBound` (occupies the one-per-user concurrency slot under the
+ *  CURRENT tier — true for every model on the limited tier; drives the picker
+ *  lock) are added by the engine. */
 export interface FreebuffModelOption {
   id: string
   displayName: string
@@ -81,6 +83,7 @@ export interface FreebuffModelOption {
   premium: boolean
   multimodal: boolean
   premiumBucket: boolean
+  slotBound: boolean
 }
 
 /** Mirror of the engine's ProjectSettings (see core/settings.ts). v1 is
@@ -90,11 +93,26 @@ export interface ProjectSettings {
   preview: { entry?: string }
 }
 
+/** Mirror of @codebuff/common FreebuffSessionRateLimit — one model's session
+ *  quota ("recentCount of limit used", resetting at resetAt). */
+export interface FreebuffModelQuota {
+  model: string
+  limit: number
+  period: 'pacific_day' | 'pacific_week'
+  resetTimeZone: string
+  resetAt: string
+  recentCount: number
+}
+
 export interface FreebuffSnapshot {
   accessTier: FreebuffAccessTier
   models: FreebuffModelOption[]
   /** Thread id holding the single premium concurrency slot, or null. */
   premiumSlotHolder: string | null
+  /** Per-model session-quota snapshot for the header badge. Only quota-metered
+   *  models appear (premium pool on full tier; every model on limited tier);
+   *  absent until the first session probe answers. */
+  rateLimitsByModel?: Record<string, FreebuffModelQuota>
   authed: boolean
   user: { id?: string; name?: string; email?: string } | null
   /** Present only when the desktop targets a non-prod API host (a repo

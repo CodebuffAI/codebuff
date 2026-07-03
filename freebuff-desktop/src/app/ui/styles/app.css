@@ -639,6 +639,25 @@ body.col-resizing {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Session-quota badge next to the agent/model pill: "N/M sessions" for the
+   tab's model when it draws from a metered pool (premium on full tier, every
+   model on limited tier). Warning-tinted once the pool is exhausted. */
+.head-quota {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: default;
+}
+.head-quota.exhausted {
+  color: var(--warn, #b58900);
+  border: 1px solid var(--warn, #b58900);
+}
 .head-btn.icon-only {
   justify-content: center;
   width: 28px;

@@ -23,7 +23,11 @@ import {
   FREEBUFF_MULTI_SESSION_HEADER as MULTI_SESSION_HEADER,
 } from '@codebuff/common/constants/freebuff-models'
 import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
-import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
+import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import type {
+  FreebuffSessionRateLimitByModel,
+  FreebuffSessionServerResponse,
+} from '@codebuff/common/types/freebuff-session'
 
 import { API_HOST } from '../api-host'
 
@@ -65,6 +69,10 @@ export interface FreebuffTierInfo {
  *  network. */
 export interface FreebuffSessions {
   getAccessTier(): FreebuffAccessTier
+  /** Latest per-model session-quota snapshot (limit + used) observed on any
+   *  session response, or null before the first probe. Only quota-metered
+   *  models appear (premium pool on full tier; every model on limited tier). */
+  getRateLimits(): FreebuffSessionRateLimitByModel | null
   fetchTier(): Promise<FreebuffTierInfo>
   ensure(threadId: string, model: string, instanceId?: string): Promise<string>
   release(threadId: string, instanceId?: string): Promise<void>
@@ -74,6 +82,7 @@ export interface FreebuffSessions {
 export class FreebuffSessionManager implements FreebuffSessions {
   private readonly instanceByThread = new Map<string, string>()
   private accessTier: FreebuffAccessTier = 'full'
+  private rateLimits: FreebuffSessionRateLimitByModel | null = null
 
   /** `onAuthRejected` fires when the API answers 401 — the bearer we hold is
    *  expired/revoked, so the owner should treat it as a sign-out (clear the
@@ -86,6 +95,48 @@ export class FreebuffSessionManager implements FreebuffSessions {
   /** The most recently observed access tier (default 'full' until first probe). */
   getAccessTier(): FreebuffAccessTier {
     return this.accessTier
+  }
+
+  /** The most recently observed per-model quota snapshot (see interface doc). */
+  getRateLimits(): FreebuffSessionRateLimitByModel | null {
+    return this.rateLimits
+  }
+
+  /** Fold tier + quota off any session response body. Every GET/POST lands
+   *  here so the header badge stays live without a dedicated poll: the daily
+   *  count only changes on admission (POST) or day rollover (refreshed by the
+   *  next GET probe / turn). The cached map is replaced only when its content
+   *  actually changed, so callers can cheaply detect "quota moved" by
+   *  reference comparison (the engine skips a snapshot broadcast otherwise). */
+  private absorb(body: FreebuffSessionServerResponse | undefined): void {
+    if (!body) return
+    if ('accessTier' in body && body.accessTier) {
+      this.accessTier = body.accessTier
+    }
+    const incoming = getRateLimitsByModel(body)
+    if (incoming && JSON.stringify(incoming) !== JSON.stringify(this.rateLimits)) {
+      this.rateLimits = incoming
+    }
+    // A daily-pool reject carries the freshest count. All models in the cached
+    // map share ONE pool per tier (the server builds every entry from the same
+    // snapshot), so the fold updates every entry — a sibling tab's badge on
+    // another premium model flips to exhausted too. Gated on the rejected model
+    // already being cached: a reject for an unmetered model (e.g. an old
+    // server's concurrency backstop, which predates `reason`) must not invent
+    // a bogus quota entry for a model that has no daily pool.
+    if (
+      body.status === 'rate_limited' &&
+      !body.reason &&
+      this.rateLimits?.[body.model]
+    ) {
+      const { limit, period, resetTimeZone, resetAt, windowHours, recentCount } = body
+      this.rateLimits = Object.fromEntries(
+        Object.keys(this.rateLimits).map((model) => [
+          model,
+          { model, limit, period, resetTimeZone, resetAt, windowHours, recentCount },
+        ]),
+      )
+    }
   }
 
   private instanceFor(threadId: string, preferred?: string): string {
@@ -124,9 +175,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
         return { accessTier: this.accessTier }
       }
       const body = (await res.json()) as FreebuffSessionServerResponse
-      if ('accessTier' in body && body.accessTier) {
-        this.accessTier = body.accessTier
-      }
+      this.absorb(body)
       return { accessTier: this.accessTier }
     } catch {
       return { accessTier: this.accessTier }
@@ -157,9 +206,7 @@ export class FreebuffSessionManager implements FreebuffSessions {
       )
     }
     const body = (await res.json().catch(() => ({}))) as FreebuffSessionServerResponse
-    if (body && 'accessTier' in body && body.accessTier) {
-      this.accessTier = body.accessTier
-    }
+    this.absorb(body)
     if (body?.status === 'active') {
       return instanceId
     }
@@ -196,20 +243,39 @@ export class FreebuffSessionManager implements FreebuffSessions {
     model: string,
   ): FreebuffSessionError {
     const status = body?.status ?? 'error'
+    // ensure() runs absorb(body) before building the error, so the manager's
+    // tier already reflects this response — one source of truth, no re-derive.
+    const tier = this.accessTier
     switch (body?.status) {
       case 'premium_slot_taken':
         return new FreebuffSessionError(
           status,
-          `Another tab is using a premium model (${body.currentModel}). Switch this tab to an unlimited model, or change the other tab.`,
+          // On the limited tier every model shares the single slot, so "switch
+          // to an unlimited model" would point at models the tier doesn't have.
+          tier === 'limited'
+            ? `Freebuff is limited to one tab at a time on your network. Another tab is running ${body.currentModel} — use that tab, or close it and try again.`
+            : `Another tab is using a premium model (${body.currentModel}). Switch this tab to an unlimited model, or change the other tab.`,
           {
             currentModel: body.currentModel,
             currentInstanceId: body.currentInstanceId,
           },
         )
       case 'rate_limited':
+        // Any `reason`-tagged reject is NOT a daily quota (today the only value
+        // is the concurrent-tab backstop; a future reason must at least not be
+        // misreported as "come back tomorrow" — closing tabs fixes it now).
+        if (body.reason) {
+          return new FreebuffSessionError(
+            status,
+            `Too many tabs are running Freebuff models at once (max ${body.limit}). Close a tab and try again.`,
+            { reason: body.reason, limit: body.limit },
+          )
+        }
         return new FreebuffSessionError(
           status,
-          `Daily limit reached for ${body.model}. Try an unlimited model or come back after the reset.`,
+          tier === 'limited'
+            ? `Daily free limit reached for ${body.model}. Come back after the daily reset.`
+            : `Daily limit reached for ${body.model}. Try an unlimited model or come back after the reset.`,
           { resetAt: body.resetAt },
         )
       case 'model_unavailable':

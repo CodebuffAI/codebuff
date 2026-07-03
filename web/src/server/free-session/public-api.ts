@@ -16,7 +16,7 @@ import {
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
   FREEBUFF_PREMIUM_SESSION_WINDOW_HOURS,
   FREEBUFF_WEEKLY_SESSION_PERIOD,
-  isFreebuffDesktopPremiumBucketModelId,
+  occupiesFreebuffDesktopSlot,
   isFreebuffGeminiProModelId,
   isFreebuffGlmV52ModelId,
   isFreebuffModelAllowedForAccessTier,
@@ -45,6 +45,7 @@ import {
 import {
   admitDesktopSession,
   countActiveSessionsForIpHash,
+  deleteExpiredDesktopSession,
   endAllDesktopSessions,
   endDesktopSession,
   endSession,
@@ -298,6 +299,20 @@ function onlyUsedRateLimitsByModel(
   )
 }
 
+/** THE per-surface quota-visibility policy, in one place: desktop
+ *  (multi-session) keeps unused 0-count models so its header badge can render
+ *  "0 of N" before the first admission; the CLI stays used-only so its status
+ *  bar doesn't enumerate every premium model. Both attachRateLimit and the
+ *  GET `none` response route through this. */
+function rateLimitsForSurface(
+  rateLimitsByModel: Record<string, FreebuffSessionRateLimit>,
+  includeUnused: boolean,
+): Record<string, FreebuffSessionRateLimit> {
+  return includeUnused
+    ? rateLimitsByModel
+    : onlyUsedRateLimitsByModel(rateLimitsByModel)
+}
+
 function nonEmptyRateLimitsByModel(
   rateLimitsByModel: Record<string, FreebuffSessionRateLimit>,
 ): { rateLimitsByModel: Record<string, FreebuffSessionRateLimit> } | {} {
@@ -390,7 +405,19 @@ export interface SessionDeps {
     sessionLengthMs: number
   }) => Promise<void>
   endAllDesktopSessions?: (userId: string) => Promise<void>
-  getActiveDesktopSessionCount?: (userId: string) => Promise<number>
+  /** Active desktop sessions with `expires_at > liveCutoff` (`now - graceMs`,
+   *  mirroring the completions gate's draining window). */
+  getActiveDesktopSessionCount?: (
+    userId: string,
+    liveCutoff: Date,
+  ) => Promise<number>
+  /** Delete a (user, instance) desktop row only if `expires_at <= cutoff`.
+   *  Expiry guard inside the DELETE — safe against a concurrent reclaim. */
+  deleteExpiredDesktopSession?: (
+    userId: string,
+    instanceId: string,
+    cutoff: Date,
+  ) => Promise<boolean>
   /** Instance-scoped MiniMax pin for a desktop session. */
   pinDesktopMinimaxUpstream?: (params: {
     userId: string
@@ -450,6 +477,7 @@ const defaultDeps: SessionDeps = {
   endDesktopSession,
   endAllDesktopSessions,
   getActiveDesktopSessionCount,
+  deleteExpiredDesktopSession,
   pinDesktopMinimaxUpstream: pinDesktopMinimaxUpstreamToMinimax,
   getFleetHealth,
   getDeploymentTtftP90Ms: deploymentTtftP90Ms,
@@ -588,6 +616,9 @@ export type RequestSessionResult =
       /** User has hit the premium-model admission quota for the current Pacific
        *  day. See `FreebuffSessionServerResponse`'s `rate_limited` variant. */
       status: 'rate_limited'
+      /** Set when the reject is the desktop concurrent-session backstop rather
+       *  than a daily/weekly session pool. */
+      reason?: 'concurrent_sessions'
       accessTier?: FreebuffAccessTier
       model: string
       limit: number
@@ -922,8 +953,15 @@ async function requestDesktopSession(
       }
     }
     // Per-user total concurrent-session backstop (abuse). Rare for real use;
-    // reuse the rate_limited shape so the client already knows how to surface it.
-    const activeCount = await deps.getActiveDesktopSessionCount!(params.userId)
+    // reuse the rate_limited shape so the client already knows how to surface
+    // it, with `reason` so newer clients don't misreport it as a daily quota.
+    // The cutoff mirrors the completions gate: a row can generate until
+    // expires_at + grace ("draining"), so draining rows still count — only
+    // sweep-fodder rows past the grace window are ignored.
+    const activeCount = await deps.getActiveDesktopSessionCount!(
+      params.userId,
+      new Date(now.getTime() - deps.graceMs),
+    )
     if (activeCount >= FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS) {
       const bounds = getZonedDayBounds(
         now,
@@ -931,6 +969,7 @@ async function requestDesktopSession(
       )
       return {
         status: 'rate_limited',
+        reason: 'concurrent_sessions',
         accessTier,
         model,
         limit: FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS,
@@ -946,14 +985,18 @@ async function requestDesktopSession(
 
   const route = await resolveFireworksRouteForAdmission(model, deps)
 
-  let row: InternalSessionRow
-  try {
-    row = await deps.admitDesktopSession!({
+  // Limited tier gets exactly ONE concurrent freebuff tab: every limited-tier
+  // admission occupies the single-slot bucket (the same DB partial-unique-index
+  // invariant that caps premium models to one tab on the full tier). Shared
+  // predicate so the desktop's picker soft-gate can't drift from this.
+  const premiumBucket = occupiesFreebuffDesktopSlot(model, accessTier)
+  const admit = () =>
+    deps.admitDesktopSession!({
       userId: params.userId,
       instanceId,
       model,
       accessTier,
-      premiumBucket: isFreebuffDesktopPremiumBucketModelId(model),
+      premiumBucket,
       now,
       sessionLengthMs: deps.sessionLengthMs,
       fireworksRoute: route.fireworksRoute,
@@ -961,18 +1004,45 @@ async function requestDesktopSession(
       // Pass the row already fetched above so the store skips a duplicate read.
       existing,
     })
-  } catch (err) {
-    if (err instanceof FreeSessionPremiumSlotTakenError) {
-      return {
-        status: 'premium_slot_taken',
-        accessTier,
-        requestedModel: model,
-        currentModel: err.currentModel,
-        currentInstanceId: err.currentInstanceId,
+
+  // Two attempts: if the slot is held by a DEAD row (past expiry + grace — the
+  // same cutoff the sweep uses, so an in-flight turn still draining its grace
+  // window is never killed), evict it and retry once. The expiry guard lives
+  // inside the store's conditional DELETE, so a holder that reclaimed between
+  // the throw and the eviction survives and the retry rejects normally. This
+  // only covers the gap before the throttled sweep runs; without it a dead tab
+  // would hold the (only, on limited tier) slot until the next sweep pass.
+  let row: InternalSessionRow | undefined
+  for (const attempt of ['first', 'retry'] as const) {
+    try {
+      row = await admit()
+      break
+    } catch (err) {
+      if (!(err instanceof FreeSessionPremiumSlotTakenError)) throw err
+      const holderDead =
+        !!err.currentExpiresAt &&
+        err.currentExpiresAt.getTime() + deps.graceMs <= now.getTime()
+      const evicted =
+        attempt === 'first' && holderDead
+          ? await deps.deleteExpiredDesktopSession!(
+              params.userId,
+              err.currentInstanceId,
+              new Date(now.getTime() - deps.graceMs),
+            )
+          : false
+      if (!evicted) {
+        return {
+          status: 'premium_slot_taken',
+          accessTier,
+          requestedModel: model,
+          currentModel: err.currentModel,
+          currentInstanceId: err.currentInstanceId,
+        }
       }
     }
-    throw err
   }
+  // The loop always breaks with a row or returns; this satisfies the compiler.
+  if (!row) throw new Error('unreachable: desktop admit loop exited without a row')
 
   if (!isReclaim) {
     logFireworksRoute(params.userId, model, route)
@@ -985,17 +1055,23 @@ async function requestDesktopSession(
       `admitDesktopSession returned a row that maps to no view (user=${params.userId})`,
     )
   }
-  return attachRateLimit(params.userId, view, deps)
+  return attachRateLimit(params.userId, view, deps, { includeUnused: true })
 }
 
 /** Thread the current quota snapshot onto active/ended views so the
  *  CLI can render "N of M sessions used" — both during the session and on
  *  the post-session banner. Other statuses pass through unchanged. Called on
- *  both POST and GET so the line stays live across polls. */
+ *  both POST and GET so the line stays live across polls.
+ *
+ *  `includeUnused` (desktop multi-session) keeps 0-used models in the map so
+ *  the header quota badge can render "0 of 5" before the first admission; the
+ *  CLI keeps the used-only filter so its status bar doesn't enumerate every
+ *  premium model. */
 async function attachRateLimit(
   userId: string,
   view: SessionStateResponse,
   deps: SessionDeps,
+  opts: { includeUnused?: boolean } = {},
 ): Promise<SessionStateResponse> {
   if (view.status !== 'active' && view.status !== 'ended') {
     return view
@@ -1029,7 +1105,7 @@ async function attachRateLimit(
     ...view,
     ...(rateLimit ? { rateLimit } : {}),
     ...nonEmptyRateLimitsByModel(
-      onlyUsedRateLimitsByModel(allRateLimitsByModel),
+      rateLimitsForSurface(allRateLimitsByModel, opts.includeUnused ?? false),
     ),
   }
 }
@@ -1068,6 +1144,8 @@ export async function getSessionState(params: {
 
   // Build a `none` response with per-user quota snapshots so exhausted models
   // are visible in the picker before POST. Also the desktop tier-probe response.
+  // Desktop keeps unused (0-count) models so its quota badge can show
+  // "0 of N" before the first admission; the CLI stays used-only.
   const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
     const rateLimitsByModel = await fetchRateLimitsByModel(
       params.userId,
@@ -1078,7 +1156,7 @@ export async function getSessionState(params: {
       status: 'none',
       accessTier,
       ...nonEmptyRateLimitsByModel(
-        onlyUsedRateLimitsByModel(rateLimitsByModel),
+        rateLimitsForSurface(rateLimitsByModel, params.multiSession ?? false),
       ),
     }
   }
@@ -1123,7 +1201,9 @@ export async function getSessionState(params: {
 
   const view = await viewForRow(params.userId, deps, row)
   if (!view) return noneResponse()
-  return attachRateLimit(params.userId, view, deps)
+  return attachRateLimit(params.userId, view, deps, {
+    includeUnused: params.multiSession,
+  })
 }
 
 export async function endUserSession(params: {

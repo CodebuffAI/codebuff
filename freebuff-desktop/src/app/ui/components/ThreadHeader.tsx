@@ -1,6 +1,11 @@
 import { useStore } from '../store/store'
-import { AgentModelLabel, AgentModelPicker } from './AgentSelector'
+import { activeFreebuffModelOption, AgentModelLabel, AgentModelPicker } from './AgentSelector'
 import { Icon } from './Icon'
+
+/** Session units for the badge: whole numbers plain, fractional to one
+ *  decimal (units are charged in 0.1 steps server-side). */
+const formatUnits = (n: number): string =>
+  Number.isInteger(n) ? String(n) : n.toFixed(1)
 
 /**
  * The thread's top bar. On a FRESH tab it carries the setup choices — project
@@ -41,6 +46,18 @@ export function ThreadHeader({
   const started = !!slice.thread.branch || slice.messages.length > 0
   // The hosted Freebuff agent (the API-host badge applies to it only).
   const isHostedAgent = (slice.thread.harnessId ?? agentHarness ?? 'codebuff') === 'codebuff'
+  // Session-quota badge for the tab's model — resolved via the picker's own
+  // helper so badge and pill can never describe different models. Only
+  // quota-metered models have an entry: the premium pool on full tier, every
+  // model on limited tier.
+  const selectedFreebuffModel = activeFreebuffModelOption(
+    freebuff?.models ?? [],
+    slice.thread.freebuffModel,
+  )
+  const quota =
+    isHostedAgent && selectedFreebuffModel
+      ? freebuff?.rateLimitsByModel?.[selectedFreebuffModel.id]
+      : undefined
 
   return (
     <div className="thread-head">
@@ -89,6 +106,20 @@ export function ThreadHeader({
             onSelect={(h, m) => setThreadAgent(threadId, h, m)}
           />
         ))}
+      {quota && (
+        <span
+          className={`head-quota ${quota.recentCount >= quota.limit ? 'exhausted' : ''}`}
+          title={`Free sessions used on this model's ${
+            quota.period === 'pacific_week' ? 'weekly' : 'daily'
+          } pool — resets ${new Date(quota.resetAt).toLocaleString([], {
+            weekday: 'short',
+            hour: 'numeric',
+            minute: '2-digit',
+          })}`}
+        >
+          {formatUnits(Math.min(quota.recentCount, quota.limit))}/{formatUnits(quota.limit)} sessions
+        </span>
+      )}
       {/* Non-prod API host (a repo launch's dev stack) — keep it visible so a
           sign-in pointed at localhost is never a surprise. */}
       {isHostedAgent && freebuff?.apiHost && (

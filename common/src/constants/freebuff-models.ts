@@ -289,7 +289,10 @@ export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 /** Models that occupy the single per-user "premium-bucket" CONCURRENCY slot in
  *  Freebuff Desktop's multi-session mode: at most one of these may have an
  *  active session per user at a time, while unlimited-bucket models (DeepSeek V4
- *  Flash, MiMo 2.5) may run in any number of concurrent tabs.
+ *  Flash, MiMo 2.5) may run in any number of concurrent tabs. (On the LIMITED
+ *  access tier the admission path puts EVERY model in the slot regardless of
+ *  this list — limited users get one freebuff tab at a time; see
+ *  `requestDesktopSession`.)
  *
  *  This is strictly a CONCURRENCY bucket, NOT a quota bucket. It is intentionally
  *  a SUPERSET of FREEBUFF_PREMIUM_MODEL_IDS: it also includes MiniMax M3 and GLM
@@ -302,6 +305,21 @@ export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
 ] as const
+
+/** True when a desktop tab running `model` under `accessTier` occupies the
+ *  single per-user concurrency slot. On the full tier that's the premium
+ *  bucket; on the LIMITED tier EVERY model occupies it — limited users get one
+ *  freebuff tab at a time. THE shared definition of the one-tab rule: the
+ *  server's admission path and the desktop's picker/soft-gate must both call
+ *  this so the client can't drift from what the server enforces. */
+export function occupiesFreebuffDesktopSlot(
+  model: string,
+  accessTier: FreebuffAccessTier | null | undefined,
+): boolean {
+  return (
+    accessTier === 'limited' || isFreebuffDesktopPremiumBucketModelId(model)
+  )
+}
 
 /** Wire headers for the free-mode session endpoints
  *  (/api/v1/freebuff/session). Shared so the server handlers and every client

@@ -260,6 +260,11 @@ export type FreebuffSessionServerResponse =
        *  reset. Terminal for the CLI's current poll session; the user can exit
        *  and come back later. */
       status: 'rate_limited'
+      /** Desktop multi-session only: set to 'concurrent_sessions' when the
+       *  reject is the per-user concurrent-tab backstop rather than a
+       *  daily/weekly session pool — clients should say "close a tab", not
+       *  "daily limit". Absent on quota rejects. */
+      reason?: 'concurrent_sessions'
       accessTier?: FreebuffAccessTier
       /** The freebuff model the user tried to join. */
       model: string
@@ -280,10 +285,12 @@ export type FreebuffSessionServerResponse =
       /** Freebuff Desktop multi-session only: the user already holds an active
        *  premium-bucket session and tried to admit a second one. Only one
        *  premium-bucket model (DeepSeek V4 Pro / MiMo 2.5 Pro / Kimi / MiniMax
-       *  M3 / GLM 5.2) may run at a time per user; unlimited models (DeepSeek V4
-       *  Flash, MiMo 2.5) have no such cap. The desktop client surfaces this and
-       *  steers the tab to an unlimited model (or closes the holding tab). Never
-       *  returned to CLI/web, which run one session per user. */
+       *  M3 / GLM 5.2) may run at a time per user; on the full tier unlimited
+       *  models (DeepSeek V4 Flash, MiMo 2.5) have no such cap. On the LIMITED
+       *  tier every model occupies the slot — one freebuff tab at a time. The
+       *  desktop client surfaces this and steers the tab to an unlimited model
+       *  (or closes the holding tab). Never returned to CLI/web, which run one
+       *  session per user. */
       status: 'premium_slot_taken'
       accessTier?: FreebuffAccessTier
       /** Model this tab tried to start. */
