@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "functions": "src/convex/",
+  "aiFiles": {
+    "enabled": false
+  }
+}

@@ -1,0 +1,6 @@
+# Ignore artifacts:
+build
+coverage
+
+
+bun.lock

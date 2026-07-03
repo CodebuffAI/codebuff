@@ -43,6 +43,7 @@ import { useAction, useQuery } from 'convex/react'
 import { signOut } from 'next-auth/react'
 import type { ProjectPageTheme } from '@/vly/hooks/useProjectPageTheme'
 import { getExternalPreviewUrl } from '@/vly/lib/project-preview-url'
+import { getWebContainerPreviewUrl } from '@/vly/lib/webcontainer/previewUrl'
 import type { ProjectRuntimeSurface } from '@/vly/hooks/useProjectConnection'
 
 /**
@@ -90,13 +91,25 @@ export function TopBar({
 
   const currentUserId = useQuery(api.community.getCurrentUserId)
 
+  // WebContainer preview URLs are minted per boot session — the DB copy can
+  // go stale if the container rebooted, and a stale URL shows "The editor
+  // took too long to respond". Prefer the live in-memory URL from the
+  // current boot when this tab is running the container.
+  const resolvePreviewUrl = () => {
+    if (project?.sandbox_id?.startsWith('webcontainer:')) {
+      const liveUrl = getWebContainerPreviewUrl()
+      if (liveUrl) return liveUrl
+    }
+    return getExternalPreviewUrl(project) ?? ''
+  }
+
   const openPreviewInNewTab = () => {
-    const url = getExternalPreviewUrl(project) ?? ''
+    const url = resolvePreviewUrl()
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const copyPreviewUrl = async () => {
-    const url = getExternalPreviewUrl(project) ?? ''
+    const url = resolvePreviewUrl()
     if (!url) {
       toast.error('No preview URL available yet.')
       return

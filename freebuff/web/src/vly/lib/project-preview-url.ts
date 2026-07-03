@@ -50,6 +50,15 @@ export function getDirectPreviewUrl(
   );
 }
 
+export function getWebContainerPreviewUrlFromProject(
+  project: ProjectPreviewLike | null | undefined,
+) {
+  if (!project?.sandbox_id?.startsWith("webcontainer:")) {
+    return null;
+  }
+  return project.preview_url ?? null;
+}
+
 export function getExternalPreviewUrl(
   project: ProjectPreviewLike | null | undefined,
 ) {
@@ -57,6 +66,13 @@ export function getExternalPreviewUrl(
   // dynamic port, so use the direct preview URL.
   if (project?.project_type === "connected_repo") {
     return getDirectPreviewUrl(project);
+  }
+  // WebContainer projects have no server behind the pretty proxy URL — the
+  // dev server lives inside the user's browser. The live webcontainer-api.io
+  // preview URL works in a new tab of the same browser as long as the
+  // project editor tab stays open.
+  if (project?.sandbox_id?.startsWith("webcontainer:")) {
+    return getWebContainerPreviewUrlFromProject(project);
   }
   return project?.pretty_preview_url ?? getDirectPreviewUrl(project);
 }

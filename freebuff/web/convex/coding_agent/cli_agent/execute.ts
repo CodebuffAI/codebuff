@@ -66,6 +66,16 @@ export const execute = internalAction({
     timedOut: v.optional(v.boolean()),
   }),
   handler: async (ctx, args): Promise<ExecuteResult> => {
+    // WebContainer-backed projects can't run CLI agents server-side — there is
+    // no remote sandbox to SSH into. Freebuff is the only supported agent for
+    // WebContainer projects (it uses the pending_tool_calls browser bridge).
+    if (args.sandboxId?.startsWith("webcontainer:")) {
+      return {
+        success: false,
+        error: `${args.agentType} requires a Daytona sandbox and cannot run on in-browser (WebContainer) projects. Please use the Freebuff agent instead — it runs natively in your browser tab.`,
+      };
+    }
+
     // Extract Daytona sandbox ID from sandbox_id (format: "daytona:xxx")
     if (!args.sandboxId || !args.sandboxId.startsWith("daytona:")) {
       throw new Error("Project does not have a Daytona sandbox");

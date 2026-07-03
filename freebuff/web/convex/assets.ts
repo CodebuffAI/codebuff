@@ -12,6 +12,11 @@ import {
 } from "../codebase-utils/codebase/Codebase";
 import { DaytonaCodebase } from "../codebase-utils/codebase/DaytonaCodebase";
 
+/** Returns true when the sandbox is WebContainer-backed (in-browser). */
+function isWebContainerSandbox(sandboxId: string | null | undefined): boolean {
+  return !!sandboxId?.startsWith("webcontainer:");
+}
+
 // Zod schema for asset metadata validation
 const AssetMetadataSchema = z.object({
   id: z.string(),
@@ -98,6 +103,10 @@ export const getAssetsContext = action({
 
     if (!project || !project.sandbox_id) {
       throw new Error("Project not found or no sandbox associated");
+    }
+
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      return "# Project Assets\n\nAssets are not yet supported for WebContainer projects.";
     }
 
     try {
@@ -214,6 +223,10 @@ export const uploadAsset = action({
       throw new Error("Project not found or no sandbox associated");
     }
 
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      throw new Error("Asset uploads are not yet supported for WebContainer projects.");
+    }
+
     try {
       const codebase = await initializeCodebase(
         project.sandbox_id,
@@ -292,6 +305,10 @@ export const getAssets = action({
 
     if (!project || !project.sandbox_id) {
       throw new Error("Project not found or no sandbox associated");
+    }
+
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      return [];
     }
 
     try {
@@ -396,6 +413,10 @@ export const deleteAsset = action({
 
     if (!project || !project.sandbox_id) {
       throw new Error("Project not found or no sandbox associated");
+    }
+
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      throw new Error("Asset deletion is not yet supported for WebContainer projects.");
     }
 
     try {
@@ -504,6 +525,10 @@ export const updateAsset = action({
 
     if (!project || !project.sandbox_id) {
       throw new Error("Project not found or no sandbox associated");
+    }
+
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      throw new Error("Asset updates are not yet supported for WebContainer projects.");
     }
 
     try {
@@ -635,6 +660,10 @@ export const downloadAsset = action({
       throw new Error("Project not found or no sandbox associated");
     }
 
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      throw new Error("Asset downloads are not yet supported for WebContainer projects.");
+    }
+
     try {
       const codebase = await initializeCodebase(
         project.sandbox_id,
@@ -718,6 +747,10 @@ export const previewAsset = action({
 
     if (!project || !project.sandbox_id) {
       throw new Error("Project not found or no sandbox associated");
+    }
+
+    if (isWebContainerSandbox(project.sandbox_id)) {
+      throw new Error("Asset preview is not yet supported for WebContainer projects.");
     }
 
     try {

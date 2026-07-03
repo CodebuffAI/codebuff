@@ -41,8 +41,10 @@ const FREEBUFF_WEB_SYSTEM_PROMPT_APPENDIX = `
 
 These instructions are specific to Freebuff Web projects and override generic CLI assumptions when they conflict.
 
-- All user codebase files live in \`/home/daytona/codebase/\`. Read and write project files from that directory.
-- Ensure terminal commands run from \`/home/daytona/codebase/\` before inspecting, installing, typechecking, or editing project files.
+- The user's project files live at the project root of the active environment.
+  - For WebContainer-backed projects, the root is \`/\` (for example \`src/main.tsx\`), not \`/home/daytona/codebase/\`.
+  - Do not hardcode Daytona paths when operating in Freebuff WebContainer projects.
+- Ensure terminal commands run from the project root of the current environment before inspecting, installing, typechecking, or editing project files.
 - The default project template uses TypeScript, React, Vite, Convex for the backend/database, Convex Auth, shadcn/ui components, Tailwind CSS, Framer Motion, and Bun.
 - Use Bun commands for installs and scripts unless the project clearly establishes another package manager.
 - Convex is the backend and database. Use Convex queries/mutations/actions instead of adding another backend unless the user explicitly asks.
@@ -64,7 +66,7 @@ Freebuff Web projects are Vite + React + Convex apps. After changing files, you 
 - If you changed any Convex backend files (anything under \`src/convex/\`), run the Convex type generation/check first, then the TypeScript build:
   \`bun convex dev --once && bun tsc -b --noEmit\`
 - Never run interactive \`bun convex dev\`, \`npx convex dev\`, or \`convex dev\` without \`--once\`. Freebuff Web runs in a non-interactive terminal; commands without \`--once\` can hang, fail auth, or leave codegen incomplete.
-- Never hand-edit \`src/convex/_generated/*\` files to "fix" type errors. If generated Convex types are stale or missing, run \`bun convex dev --once\` from \`/home/daytona/codebase/\`, then fix the real Convex source errors it reports.
+- Never hand-edit \`src/convex/_generated/*\` files to "fix" type errors. If generated Convex types are stale or missing, run \`bun convex dev --once\` from the current project root, then fix the real Convex source errors it reports.
 - Do not skip these checks after file edits. These commands are the required final verification step.
 - If either command reports errors, fix the errors and rerun the same command until it passes.
 - If \`bun convex dev --once\` cannot authenticate, stop and tell the user that Convex codegen could not be verified. Do not pretend typecheck passed and do not patch generated files by hand.
@@ -133,6 +135,32 @@ This project is NOT the default Vly template — it is an existing GitHub reposi
   - \`freebuff-preview logs\` — read recent preview/dev-server logs (use this to debug a broken preview).
   - \`freebuff-preview status\` — check whether the preview is running and what command/port it uses.
 - The preview is NOT auto-started when the repo is connected. When first opening a repo (or when asked to set things up), inspect \`package.json\`/lockfiles, then SAVE the correct install, preview, and build commands with \`freebuff-preview set-install\`, \`freebuff-preview set\`, and \`freebuff-preview set-build\`. Run the install command yourself if dependencies are missing. Do NOT start the dev server yourself unless the user explicitly asks you to — tell them they can start the preview from the UI.
+`.trim()
+
+/**
+ * Extra guidance injected ONLY for WebContainer-backed projects. Kept out of
+ * the shared system-prompt appendix so Daytona projects are completely
+ * unaffected. Prepended to the user prompt at runtime in executeFreebuff when
+ * the project's sandbox id starts with `webcontainer:`.
+ */
+export const WEBCONTAINER_AGENT_GUIDANCE = `
+# WebContainer Project Environment
+
+This project runs inside an in-browser WebContainer, NOT a Daytona VM. Adjust accordingly:
+- The project root is \`/\` (for example \`src/main.tsx\`). \`/home/daytona/codebase\` does not exist.
+- Bun is NOT available. Use \`npm\` for installs and \`npx\` to run package binaries.
+
+## Mandatory Convex check after finishing changes
+
+After you complete your changes (and before telling the user you are done), verify the code compiles and the Convex functions push cleanly:
+- If you changed any Convex backend files (anything under \`src/convex/\`), run:
+  \`npx convex dev --once && npx tsc -b --noEmit\`
+- If you changed only frontend files, run:
+  \`npx tsc -b --noEmit\`
+- \`CONVEX_DEPLOY_KEY\` and \`CONVEX_DEPLOYMENT\` are already set in your terminal environment, so \`npx convex dev --once\` authenticates non-interactively and performs codegen, typechecking, and a function push against the project's dev deployment. Never run \`convex dev\` without \`--once\` (it never exits and will time out).
+- These checks run inside the browser and are slower than on a VM. Pass a generous timeout (e.g. \`timeout_seconds: 120\`) when running them so they are not killed mid-check.
+- Exit code 0 with no errors in the output means the check passed. If it reports errors, fix them and rerun the same command until it passes — do not report the task as complete while the check is failing.
+- Never hand-edit \`src/convex/_generated/*\` files; rerun \`npx convex dev --once\` to regenerate them instead.
 `.trim()
 
 function withFreebuffWebSystemPromptAppendix(

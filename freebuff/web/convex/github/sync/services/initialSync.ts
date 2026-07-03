@@ -207,6 +207,56 @@ export const executeInitialSyncService = internalAction({
       const sandboxId = project.sandbox_id;
       operations.push(`Connecting to sandbox ${sandboxId}`);
 
+      // WebContainer projects do not support server-side Codebase git operations.
+      // Reuse the WebContainer sync executor path (pending tool calls + isomorphic-git).
+      if (sandboxId.startsWith("webcontainer:")) {
+        operations.push("Detected WebContainer project");
+        operations.push("Preparing authenticated GitHub token");
+
+        const tokenResult = await ctx.runAction(
+          internal.github.tokens.service.getGitHubToken,
+          {
+            operation: {
+              type: "initial",
+              projectId: args.projectId,
+              accessToken: args.accessToken,
+              installationId: args.installationId,
+            },
+            operationName: "initial_sync_webcontainer_push",
+          },
+        );
+
+        operations.push("Running WebContainer initial push");
+        const syncResult = await ctx.runAction(
+          internal.github.sync.services.syncExecutorService
+            .executeProjectToGitHubSync,
+          {
+            sandboxId,
+            projectId: args.projectId,
+            repoOwner: args.repoOwner,
+            repoName: args.repoName,
+            accessToken: args.accessToken,
+            installationId: args.installationId,
+            githubToken: tokenResult.token,
+            githubTokenType: tokenResult.tokenType,
+            packageManager: project.packageManager,
+          },
+        );
+
+        if (!syncResult.success) {
+          throw new Error(syncResult.message);
+        }
+
+        operations.push("WebContainer initial push completed");
+        return {
+          success: true,
+          status: "synced",
+          message: "Initial sync completed successfully",
+          operations,
+          errors: errors.length > 0 ? errors : undefined,
+        };
+      }
+
       // Step 2: Get package manager
       const packageManager = await getProjectPackageManager(ctx, project);
 

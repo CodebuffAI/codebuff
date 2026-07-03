@@ -742,4 +742,142 @@ http.route({
   }),
 })
 
+// WebContainer filesystem snapshot upload (binary, lz4-compressed tarball).
+// Trust model mirrors /api/screenshot/upload: gated on a valid projectId
+// rather than a bearer token, since this is invoked directly from the
+// browser tab that owns the WebContainer.
+http.route({
+  path: '/api/webcontainer/snapshot',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const { searchParams } = new URL(request.url)
+    const projectId = searchParams.get('projectId')
+    const origin = getAllowedOrigin(request)
+
+    const createResponse = (body: string | null, status: number) =>
+      new Response(body, {
+        status,
+        headers: {
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      })
+
+    try {
+      if (!projectId) {
+        return createResponse('Missing required query parameter: projectId', 400)
+      }
+
+      const project = await ctx.runQuery(internal.project.getProject, {
+        projectId: projectId as any,
+      })
+      if (!project || !project.sandbox_id.startsWith('webcontainer:')) {
+        return createResponse('Project not found', 404)
+      }
+
+      const blob = await request.blob()
+      if (!blob || blob.size === 0) {
+        return createResponse('Invalid snapshot data', 400)
+      }
+
+      const storageId = await ctx.storage.store(blob)
+      await ctx.runMutation(internal.codesandbox.webcontainerSnapshot.saveSnapshotRecord, {
+        projectId: project._id,
+        storageId,
+        sizeBytes: blob.size,
+      })
+
+      return createResponse(JSON.stringify({ ok: true }), 200)
+    } catch (error) {
+      console.error('[WebContainer snapshot] upload error:', error)
+      return createResponse('Internal server error', 500)
+    }
+  }),
+})
+
+http.route({
+  path: '/api/webcontainer/snapshot',
+  method: 'OPTIONS',
+  handler: httpAction(async (_, request) => {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': getAllowedOrigin(request),
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    })
+  }),
+})
+
+// WebContainer publish: built `dist/` artifacts uploaded from the browser
+// (JSON payload of base64 files) ahead of the server-side Vercel deploy (see
+// codesandbox/webcontainerPublish.finalizeWebContainerDeployment). Trust
+// model mirrors /api/webcontainer/snapshot: the blob is inert until an
+// authenticated, project-owning user references its storageId in the
+// finalize action.
+http.route({
+  path: '/api/webcontainer/dist',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const { searchParams } = new URL(request.url)
+    const projectId = searchParams.get('projectId')
+    const origin = getAllowedOrigin(request)
+
+    const createResponse = (body: string | null, status: number) =>
+      new Response(body, {
+        status,
+        headers: {
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Credentials': 'true',
+          'Content-Type': 'application/json',
+        },
+      })
+
+    try {
+      if (!projectId) {
+        return createResponse(
+          JSON.stringify({ error: 'Missing required query parameter: projectId' }),
+          400,
+        )
+      }
+
+      const project = await ctx.runQuery(internal.project.getProject, {
+        projectId: projectId as any,
+      })
+      if (!project || !project.sandbox_id.startsWith('webcontainer:')) {
+        return createResponse(JSON.stringify({ error: 'Project not found' }), 404)
+      }
+
+      const blob = await request.blob()
+      if (!blob || blob.size === 0) {
+        return createResponse(JSON.stringify({ error: 'Invalid dist data' }), 400)
+      }
+
+      const storageId = await ctx.storage.store(blob)
+      return createResponse(JSON.stringify({ storageId }), 200)
+    } catch (error) {
+      console.error('[WebContainer dist] upload error:', error)
+      return createResponse(JSON.stringify({ error: 'Internal server error' }), 500)
+    }
+  }),
+})
+
+http.route({
+  path: '/api/webcontainer/dist',
+  method: 'OPTIONS',
+  handler: httpAction(async (_, request) => {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': getAllowedOrigin(request),
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    })
+  }),
+})
+
 export default http

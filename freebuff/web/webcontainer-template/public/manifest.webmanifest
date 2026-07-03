@@ -1,0 +1,17 @@
+{
+  "name": "freebuff.com application",
+  "short_name": "freebuff.com",
+  "description": "freebuff.com application",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

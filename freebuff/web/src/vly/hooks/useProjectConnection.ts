@@ -11,6 +11,8 @@ interface UseProjectConnectionParams {
   semanticIdentifier: string | undefined;
   onSuccess?: () => void;
   runtimeSurface?: ProjectRuntimeSurface;
+  /** When false, skips the Daytona/cloud warm-up action (e.g. WebContainer projects). */
+  enabled?: boolean;
 }
 
 interface CheckProjectConnectionOptions {
@@ -49,6 +51,7 @@ export function useProjectConnection({
   semanticIdentifier,
   onSuccess,
   runtimeSurface = "web",
+  enabled = true,
 }: UseProjectConnectionParams) {
   const pathname = usePathname();
   const verifyProjectAccessAndConnectWebAction = useAction(
@@ -112,7 +115,7 @@ export function useProjectConnection({
         semanticIdentifier,
       });
     },
-    enabled: !!semanticIdentifier, // Only run when we have a semantic identifier
+    enabled: !!semanticIdentifier && enabled, // Only run when we have a semantic identifier
     staleTime: Infinity, // Never goes stale - connection is one-time setup
     gcTime: Infinity, // Keep in cache indefinitely (was cacheTime in v4)
     refetchOnWindowFocus: false, // Don't refetch on tab switch
@@ -134,7 +137,10 @@ export function useProjectConnection({
   }, [query.isSuccess, query.isError, query.error, onSuccess]);
 
   return {
-    isConnecting: query.isPending,
+    // In React Query v5, isPending is true even when enabled:false (no cached
+    // data yet but query is idle). Guard so WebContainer projects — where the
+    // Daytona connection check is skipped — are never stuck in "connecting".
+    isConnecting: enabled ? query.isPending : false,
     isError: query.isError,
     error: query.error,
     isSuccess: query.isSuccess,

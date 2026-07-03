@@ -102,6 +102,9 @@ const nextConfig = {
         '../../web/.next/**',
         '../../cli/release/**',
         '../../cli/release-staging/**',
+        // Standalone template mounted into WebContainer at runtime, read from
+        // disk by an API route — not part of this app's module graph.
+        '**/webcontainer-template/**',
       ],
     }
     return config
@@ -131,6 +134,23 @@ const nextConfig = {
           {
             key: 'Access-Control-Allow-Headers',
             value: 'Content-Type',
+          },
+        ],
+      },
+      {
+        // WebContainer requires the page to be cross-origin isolated. Scoped to
+        // the project workspace routes only (not site-wide) because COOP
+        // same-origin can break window.opener-based flows (e.g. OAuth popups)
+        // on other pages.
+        source: '/web/project/:path*',
+        headers: [
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'credentialless',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
           },
         ],
       },

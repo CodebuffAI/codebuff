@@ -38,6 +38,7 @@ import {
   getDefaultSuggestions,
 } from "./suggestions";
 import { useSharedHeroStorage } from "@/vly/hooks/useSharedHeroStorage";
+import { useWebContainerOptIn } from "@/vly/hooks/useWebContainerOptIn";
 
 // Optimized typing animation component with reduced re-renders
 const TypingAnimation = memo(() => {
@@ -446,6 +447,7 @@ export default function Hero({ setIsThemePickerOpen }: HeroProps) {
   const user = useSignedInUser();
   const router = useRouter();
   const createProject = useMutation(api.codesandbox.create.create);
+  const webContainerOptIn = useWebContainerOptIn();
   const generateUploadUrl = useMutation(api.messages.generateUploadUrl);
 
   // Fetch real stats
@@ -579,6 +581,7 @@ Please style this project with a ${effectiveTheme} theme. Apply the following de
           displayMessage: userInput,
           agentMode: "POWERFUL",
           ...(uploadedImageIds.length > 0 ? { images: uploadedImageIds } : {}),
+          ...(webContainerOptIn ? { useWebContainer: true } : {}),
         });
         console.timeEnd("createProject");
 

@@ -87,6 +87,18 @@ export const createDeployment = mutation({
       prod_deployment_slug: slug,
     });
 
+    // WebContainer-backed projects can't be built server-side — the codebase
+    // only exists inside the user's open browser tab. The client drives the
+    // build (convex deploy + vite build in the container), uploads dist/, and
+    // calls codesandbox.webcontainerPublish.finalizeWebContainerDeployment.
+    // Daytona/cloud projects keep the existing server-side pipeline.
+    if (project.sandbox_id?.startsWith("webcontainer:")) {
+      await ctx.db.patch(deploymentId, {
+        deploy_status_text: "Building in your browser...",
+      });
+      return { deploymentId, mode: "webcontainer" as const };
+    }
+
     await ctx.scheduler.runAfter(
       0,
       internal.codesandbox.export.deployOnFreestyle,
@@ -97,7 +109,62 @@ export const createDeployment = mutation({
       },
     );
 
-    return deploymentId;
+    return { deploymentId, mode: "server" as const };
+  },
+});
+
+/**
+ * Progress/failure reporting for client-driven WebContainer deployments.
+ * The browser (which runs the build) has no access to the internal
+ * setDeployStatusText/update mutations, so this authenticated wrapper lets
+ * the project owner's tab report build progress and mark the deployment
+ * failed if the in-container build dies.
+ */
+export const reportWebContainerDeployProgress = mutation({
+  args: {
+    deploymentId: v.id("deployments"),
+    statusText: v.optional(v.string()),
+    failed: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (!user) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const deployment = await ctx.db.get(args.deploymentId);
+    if (!deployment) {
+      throw new ConvexError("Deployment not found");
+    }
+
+    const project = await ctx.db.get(deployment.project);
+    if (!project || !project.sandbox_id?.startsWith("webcontainer:")) {
+      throw new ConvexError("Not a WebContainer deployment");
+    }
+
+    const membership = await ctx.db
+      .query("project_member")
+      .withIndex("by_project_and_user", (q) =>
+        q.eq("project", project._id).eq("user", user._id),
+      )
+      .first();
+    if (!membership) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    if (args.failed) {
+      await ctx.db.patch(args.deploymentId, {
+        state: "error",
+        deploy_status_text: args.statusText ?? "Deployment failed",
+      });
+      return;
+    }
+
+    if (args.statusText !== undefined) {
+      await ctx.db.patch(args.deploymentId, {
+        deploy_status_text: args.statusText,
+      });
+    }
   },
 });
 

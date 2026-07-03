@@ -83,13 +83,16 @@ export async function startFreebuffRunCore(args: {
     }
 
     // Fail fast before creating any thread/message state: the agent runs
-    // inside the project's Daytona sandbox.
-    if (!project.sandbox_id || !project.sandbox_id.startsWith("daytona:")) {
+    // inside the project's Daytona sandbox or a WebContainer.
+    const hasSandbox =
+      project.sandbox_id?.startsWith("daytona:") ||
+      project.sandbox_id?.startsWith("webcontainer:");
+    if (!hasSandbox) {
       return {
         success: false as const,
         error: {
           kind: "NO_SANDBOX",
-          message: "Project does not have a Daytona sandbox",
+          message: "Project does not have a sandbox",
         },
       };
     }

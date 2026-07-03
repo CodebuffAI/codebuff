@@ -11,7 +11,7 @@ import {
   MonitorCog,
   CloudUpload,
 } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useSyncExternalStore } from "react";
 import { useIframeNavigationSync } from "./useIframeNavigationSync";
 import { useWorkspaceReadiness } from "./useWorkspaceReadiness";
 import {
@@ -23,6 +23,15 @@ import { Spinner3D } from "./Spinner3D";
 import styles from "./CenterContent.module.css";
 import { useProjectConnection } from "@/vly/hooks/useProjectConnection";
 import type { ProjectRuntimeSurface } from "@/vly/hooks/useProjectConnection";
+import { useWebContainerBoot } from "@/vly/hooks/useWebContainerBoot";
+import {
+  ContainerBootState,
+} from "@/vly/lib/webcontainer/bootState";
+import { isWebContainerSandboxId } from "@/vly/lib/webcontainer/constants";
+import {
+  getWebContainerPreviewUrl,
+  subscribeToWebContainerPreviewUrl,
+} from "@/vly/lib/webcontainer/previewUrl";
 import { toast } from "sonner";
 import { useSignedInUser } from "@/vly/hooks/use-user";
 import {
@@ -372,6 +381,25 @@ export function CenterContent({
     setActiveEntryPoint: () => {},
   });
   const isDaytonaProject = project?.sandbox_id?.startsWith("daytona:") === true;
+  const isWebContainerProject = isWebContainerSandboxId(project?.sandbox_id);
+  const { state: webContainerBootState, error: webContainerBootError } = useWebContainerBoot({
+    enabled: isWebContainerProject,
+  });
+
+  // For WebContainer projects: subscribe to the live preview URL from the current
+  // browser session. The URL that @webcontainer/api issues changes on every boot,
+  // so the Convex-stored preview_url is always stale after a page reload. Using the
+  // local store means the iframe updates the moment server-ready fires.
+  const liveWebContainerUrl = useSyncExternalStore(
+    subscribeToWebContainerPreviewUrl,
+    getWebContainerPreviewUrl,
+    () => null,
+  );
+  // Override navState.iframeSrc with the live URL for WebContainer projects.
+  // Fall back to navState.iframeSrc (e.g., from Convex) for non-WC projects.
+  const effectiveIframeSrc = isWebContainerProject
+    ? (liveWebContainerUrl ?? undefined)
+    : navState.iframeSrc;
 
   React.useEffect(() => {
     clearActiveScreenshotRequest({
@@ -420,7 +448,7 @@ export function CenterContent({
     setIsIframeReactReady(false);
     setHasIframeLoaded(false);
 
-    if (!isDaytonaProject || !navState.iframeSrc) {
+    if (!isDaytonaProject || !effectiveIframeSrc) {
       return;
     }
 
@@ -432,7 +460,7 @@ export function CenterContent({
     }, 1200);
 
     return () => window.clearTimeout(timeoutId);
-  }, [isDaytonaProject, navState.iframeKey, navState.iframeSrc]);
+  }, [isDaytonaProject, navState.iframeKey, effectiveIframeSrc]);
 
   React.useEffect(() => {
     if (!(isConnectedRepo && isWorkspaceView)) {
@@ -462,11 +490,11 @@ export function CenterContent({
   React.useEffect(() => {
     if (refreshTrigger === lastRefreshTriggerRef.current) return;
     lastRefreshTriggerRef.current = refreshTrigger;
-    if (!navState.iframeSrc) return;
+    if (!effectiveIframeSrc) return;
     // Small delay so any in-flight nav settles first.
     const id = window.setTimeout(() => handleRefresh(), 250);
     return () => window.clearTimeout(id);
-  }, [refreshTrigger, handleRefresh, navState.iframeSrc]);
+  }, [refreshTrigger, handleRefresh, effectiveIframeSrc]);
 
   // Parent-driven "show overlay": when the chat is expanded the iframe is
   // visually secondary, so we surface the click-to-test affordance and
@@ -498,6 +526,7 @@ export function CenterContent({
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
     runtimeSurface: effectiveRuntimeSurface,
+    enabled: !isWebContainerProject,
     onSuccess: () => {
       // Force refresh the iframe content after successful connection. Only
       // skip pretty-domain previews because programmatic reloads break styles.
@@ -507,21 +536,26 @@ export function CenterContent({
       }, 1000); // Small delay to ensure connection is fully established
     },
   });
+  const shouldShowWebContainerOverlay =
+    isWebContainerProject &&
+    webContainerBootState !== ContainerBootState.READY &&
+    webContainerBootState !== ContainerBootState.UNSUPPORTED;
   const shouldShowConnectionOverlay =
-    isConnecting &&
-    !(isDaytonaProject && (hasIframeLoaded || isIframeReactReady));
+    shouldShowWebContainerOverlay ||
+    (isConnecting &&
+      !(isDaytonaProject && (hasIframeLoaded || isIframeReactReady)));
   const isPreviewLoaded = hasIframeLoaded || isIframeReactReady;
   const connectionStatus: PreviewConnectionStatus = (() => {
     if (!project) return "loading";
     if (isRestarting) return "restarting";
     if (isConnectionError) return "error";
-    if (isConnecting) return navState.iframeSrc ? "booting" : "loading";
+    if (isConnecting) return effectiveIframeSrc ? "booting" : "loading";
     if (isConnectionSuccess) return "connected";
     if (project.state === "processing" || project.state === "initializing") {
       return "booting";
     }
     if (isDaytonaProject && isPreviewLoaded) return "connected";
-    if (!project.semantic_identifier || !navState.iframeSrc) return "idle";
+    if (!project.semantic_identifier || !effectiveIframeSrc) return "idle";
     return "idle";
   })();
   const connectionStatusInfo = connectionStatusMeta[connectionStatus];
@@ -540,6 +574,9 @@ export function CenterContent({
       return;
     }
     if (!project?.semantic_identifier) {
+      return;
+    }
+    if (isWebContainerProject) {
       return;
     }
     if (isPostApplyConnectionCheckRunningRef.current) {
@@ -878,7 +915,7 @@ export function CenterContent({
     };
   }, [isIframeActive]);
 
-  if (!activeEntryPoint && !isConnectedRepo && !navState.iframeSrc) {
+  if (!activeEntryPoint && !isConnectedRepo && !effectiveIframeSrc) {
     return (
       <div className="flex h-full w-full items-center justify-center p-4 text-muted-foreground">
         <p>Select a page to view its content.</p>
@@ -947,7 +984,7 @@ export function CenterContent({
                       e.stopPropagation();
                       handleRefresh();
                     }}
-                    disabled={!navState.iframeSrc}
+                    disabled={!effectiveIframeSrc}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Refresh"
                   >
@@ -1090,7 +1127,7 @@ export function CenterContent({
                       }}
                       disabled={
                         isCapturingScreenshot ||
-                        !navState.iframeSrc ||
+                        !effectiveIframeSrc ||
                         !projectId ||
                         isScreenshotUnsupported
                       }
@@ -1120,7 +1157,7 @@ export function CenterContent({
                 <ToolbarTooltip label="Open preview in new tab">
                   <button
                     onClick={handleOpenInNewTab}
-                    disabled={!navState.iframeSrc}
+                    disabled={!effectiveIframeSrc}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Open in new tab"
                   >
@@ -1179,12 +1216,12 @@ export function CenterContent({
                   </p>
                 </div>
               )
-            ) : navState.iframeSrc ? (
+            ) : effectiveIframeSrc ? (
               <iframe
-                key={navState.iframeKey}
+                key={isWebContainerProject ? effectiveIframeSrc : navState.iframeKey}
                 ref={iframeRef}
                 className={`${styles.scaledIframe} absolute inset-0 border-0`}
-                src={navState.iframeSrc}
+                src={effectiveIframeSrc}
                 title={`${activeEntryPointByPath?.page?.page_title ?? "Preview"}`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 referrerPolicy="no-referrer"
@@ -1252,12 +1289,37 @@ export function CenterContent({
                   >
                     <Spinner3D size={36} />
                     <div className="text-center">
-                      <p className="text-sm font-medium text-foreground">
-                        Project connected, booting up preview…
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Spinning up your sandbox — this only takes a moment.
-                      </p>
+                      {webContainerBootState === ContainerBootState.ERROR ? (
+                        <>
+                          <p className="text-sm font-medium text-destructive">
+                            Boot failed
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground max-w-xs">
+                            {webContainerBootError instanceof Error
+                              ? webContainerBootError.message
+                              : "An unexpected error occurred. Check the browser console for details."}
+                          </p>
+                          <button
+                            className="mt-3 text-xs underline text-muted-foreground hover:text-foreground"
+                            onClick={() => window.location.reload()}
+                          >
+                            Reload page
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium text-foreground">
+                            {shouldShowWebContainerOverlay
+                              ? "Booting WebContainer environment…"
+                              : "Project connected, booting up preview…"}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {shouldShowWebContainerOverlay
+                              ? "Installing dependencies and starting the dev server in your browser."
+                              : "Spinning up your sandbox — this only takes a moment."}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 </motion.div>
@@ -1265,7 +1327,7 @@ export function CenterContent({
             </AnimatePresence>
             <AnimatePresence>
               {!isIframeActive &&
-                navState.iframeSrc &&
+                effectiveIframeSrc &&
                 !isSelectingElement &&
                 !(isConnectedRepo && viewMode !== "preview") && (
                 <motion.div

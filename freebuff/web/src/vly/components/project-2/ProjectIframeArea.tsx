@@ -39,6 +39,7 @@ import type { Id } from '@/convex/_generated/dataModel'
 import { api } from '@/convex/_generated/api'
 import { useIsPlatformAdmin } from '@/vly/hooks/useIsPlatformAdmin'
 import type { ProjectRuntimeSurface } from '@/vly/hooks/useProjectConnection'
+import { isWebContainerSandboxId } from '@/vly/lib/webcontainer/constants'
 import { CenterContent } from './CenterContent'
 import { GodModeActions } from './GodModeActions'
 import {
@@ -54,6 +55,9 @@ import {
 
 const DatabaseView = lazy(() => import('./DatabaseView'))
 const EditorView = lazy(() => import('./EditorView'))
+const WebContainerEditorView = lazy(() =>
+  import('./WebContainerEditorView').then((m) => ({ default: m.WebContainerEditorView })),
+)
 const EnvVarsView = lazy(() => import('./EnvVarsView'))
 const IntegrationsView = lazy(() => import('./IntegrationsView'))
 const UiIntegrationView = lazy(() => import('./UiIntegrationView'))
@@ -500,17 +504,23 @@ function ActiveSurface({
 
       {activeTab === 'editor' && (
         <ViewSurface>
-          <FeatureGate
-            featureId="project_code_editor"
-            fallback={
-              <UpgradePrompt
-                featureId="project_code_editor"
-                variant="compact"
-              />
-            }
-          >
-            <EditorView projectId={project._id} />
-          </FeatureGate>
+          {isWebContainerSandboxId(project.sandbox_id) ? (
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading editor…</div>}>
+              <WebContainerEditorView />
+            </Suspense>
+          ) : (
+            <FeatureGate
+              featureId="project_code_editor"
+              fallback={
+                <UpgradePrompt
+                  featureId="project_code_editor"
+                  variant="compact"
+                />
+              }
+            >
+              <EditorView projectId={project._id} />
+            </FeatureGate>
+          )}
         </ViewSurface>
       )}
 
