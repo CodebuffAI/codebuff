@@ -1,5 +1,7 @@
 # Freebuff/Vly Local Dev
 
+> **Bare minimum (auth + Convex, no tunnel, no Docker):** see [LOCAL_DEV_MINIMAL.md](./LOCAL_DEV_MINIMAL.md).
+
 Normal Vly testing runs only the Freebuff/Vly Next app on `localhost:3000`,
 Convex dev, and one Cloudflare tunnel for JWKS. Freebuff agent completions call
 the live Codebuff API at `https://codebuff.com`; the local Codebuff web server

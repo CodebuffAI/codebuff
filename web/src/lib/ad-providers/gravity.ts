@@ -165,9 +165,10 @@ export function createGravityProvider(config: { apiKey: string }): AdProvider {
         input.placementId === 'Above-iFrame'
           ? 'top_page'
           : input.surface === 'freebuff_web_chat' ||
-              input.surface === 'chat_assistant'
-          ? 'inline_response'
-          : 'below_response'
+              input.surface === 'chat_assistant' ||
+              input.placementId === 'Web-Inside-Input-Box'
+            ? 'inline_response'
+            : 'below_response'
       const placements = placementIds.map((id) => ({
         placement: placementType,
         placement_id: id,

@@ -1022,7 +1022,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(
                   </div>
 
                   {showInputAd && (
-                    <div className={compactMode ? "px-2" : "px-3"}>
+                    <div className={compactMode ? 'px-2 py-2.5' : 'px-3 py-3'}>
                       <GravityAdSlot
                         messages={inputAdMessages}
                         sessionId={`${projectSemanticIdentifier}-inside-input-box`}

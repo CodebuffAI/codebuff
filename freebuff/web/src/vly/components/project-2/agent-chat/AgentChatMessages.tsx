@@ -1074,7 +1074,7 @@ const AgentAdMessage: React.FC<{
 }> = ({ ad, className }) => {
   return (
     <div
-      className={cn('my-3 w-full max-w-[min(100%,760px)] text-sm', className)}
+      className={cn('my-8 w-full max-w-[min(100%,760px)] text-sm', className)}
     >
       <GravityReactAd
         ad={{
@@ -1099,6 +1099,7 @@ const AgentAdMessage: React.FC<{
               borderColor: 'hsl(var(--border) / 0.6)',
               borderRadius: 12,
               boxShadow: 'none',
+              padding: '18px 20px',
             },
           },
           brand: { style: { color: 'hsl(var(--foreground))' } },
@@ -1365,10 +1366,7 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
       )}
 
       {persistentAds?.['agent-chat-after-user'] && (
-        <AgentAdMessage
-          ad={persistentAds['agent-chat-after-user']}
-          className="my-3"
-        />
+        <AgentAdMessage ad={persistentAds['agent-chat-after-user']} />
       )}
 
       {/* Assistant Stream Content - text rendered inline; tool calls /
@@ -1474,10 +1472,7 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
       )}
 
       {persistentAds?.['agent-chat-after-assistant'] && (
-        <AgentAdMessage
-          ad={persistentAds['agent-chat-after-assistant']}
-          className="my-5"
-        />
+        <AgentAdMessage ad={persistentAds['agent-chat-after-assistant']} />
       )}
     </div>
   )

@@ -18,8 +18,8 @@ import type { AdResponse } from '@gravity-ai/react'
 
 const AD_COOLDOWN_MS = 60_000
 const AD_DEBOUNCE_MS = 2_000
-/** How long the above-iframe nav ad stays pinned before we allow a refresh. */
-const NAV_AD_TTL_MS = 30 * 60 * 1000
+/** How long pinned toolbar/composer ads stay before we allow a refresh. */
+const PINNED_AD_TTL_MS = 30 * 60 * 1000
 
 export type GravityAdMessage = { role: string; content: string }
 
@@ -37,11 +37,11 @@ export type GravityAd = AdResponse & {
   provider?: string
 }
 
-function navAdCacheKey(slotKey: string, sessionId: string) {
-  return `freebuff-gravity-nav-ad:${slotKey || sessionId}`
+function pinnedAdCacheKey(slotKey: string, sessionId: string) {
+  return `freebuff-gravity-pinned-ad:${slotKey || sessionId}`
 }
 
-function readNavAdCache(key: string): GravityAd | null {
+function readPinnedAdCache(key: string): GravityAd | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.sessionStorage.getItem(key)
@@ -50,7 +50,7 @@ function readNavAdCache(key: string): GravityAd | null {
     if (
       !parsed.ad ||
       typeof parsed.fetchedAt !== 'number' ||
-      Date.now() - parsed.fetchedAt > NAV_AD_TTL_MS
+      Date.now() - parsed.fetchedAt > PINNED_AD_TTL_MS
     ) {
       window.sessionStorage.removeItem(key)
       return null
@@ -61,7 +61,7 @@ function readNavAdCache(key: string): GravityAd | null {
   }
 }
 
-function writeNavAdCache(key: string, ad: GravityAd) {
+function writePinnedAdCache(key: string, ad: GravityAd) {
   if (typeof window === 'undefined') return
   try {
     window.sessionStorage.setItem(
@@ -273,9 +273,11 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
     brand && rawDescription.toLowerCase().startsWith(brand.toLowerCase())
       ? rawDescription.slice(brand.length).trim()
       : rawDescription
+  const displayText =
+    description || ad.cta?.trim() || ad.title?.trim() || brand
   const href = ad.clickUrl || ad.url || undefined
 
-  if (!description) return null
+  if (!displayText) return null
 
   return (
     <div
@@ -315,7 +317,7 @@ function NavAd({ ad, className }: { ad: GravityAd; className?: string }) {
           </span>
         ) : null}
         <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground transition group-hover:text-foreground/80">
-          {description}
+          {displayText}
         </span>
       </a>
     </div>
@@ -347,7 +349,7 @@ function InputAd({ ad, className }: { ad: GravityAd; className?: string }) {
       }}
       data-gravity-ad
       className={cn(
-        'flex min-w-0 items-center gap-1.5 px-0 py-1 text-[11px] no-underline',
+        'flex min-w-0 items-center gap-1.5 px-0 py-2 text-[11px] no-underline',
         'text-muted-foreground transition hover:text-foreground',
         className,
       )}
@@ -385,10 +387,13 @@ export function GravityAdSlot({
   showDisclaimer = false,
   className,
 }: GravityAdSlotProps) {
-  const isStickyNav = variant === 'nav'
-  const navCacheKey = useMemo(
-    () => (isStickyNav ? navAdCacheKey(slotKey ?? '', sessionId) : ''),
-    [isStickyNav, slotKey, sessionId],
+  // Toolbar (above iframe) and composer ads pin for PINNED_AD_TTL_MS: one fetch
+  // per project slot, cached in sessionStorage. They ignore draft/message churn
+  // and the 60s chat cooldown so inventory doesn't flicker away mid-session.
+  const isPinnedSlot = variant === 'nav' || variant === 'input'
+  const pinnedCacheKey = useMemo(
+    () => (isPinnedSlot ? pinnedAdCacheKey(slotKey ?? '', sessionId) : ''),
+    [isPinnedSlot, slotKey, sessionId],
   )
 
   const [ad, setAd] = useState<GravityAd | null>(null)
@@ -465,7 +470,11 @@ export function GravityAdSlot({
             ),
           )
           .then((result) => {
-            if (mountedRef.current) setAd(result ?? fallbackAd ?? null)
+            if (!mountedRef.current) return
+            const next = result ?? fallbackAd ?? null
+            if (next) {
+              setAd(next)
+            }
           })
           .catch(() => {})
           .finally(() => {
@@ -493,13 +502,13 @@ export function GravityAdSlot({
 
   const isInitialFetch = useRef(true)
 
-  // Sticky nav ad: one fetch per project slot, cached in sessionStorage for
-  // NAV_AD_TTL_MS. Ignores message edits, tab visibility, and the 60s chat
-  // cooldown so the toolbar ad doesn't rotate every minute.
+  // Pinned slots: one fetch per project slot, cached in sessionStorage for
+  // PINNED_AD_TTL_MS. Ignores message edits, tab visibility, and the 60s chat
+  // cooldown so toolbar/composer ads don't rotate or disappear mid-session.
   useEffect(() => {
-    if (!isStickyNav || !navCacheKey) return
+    if (!isPinnedSlot || !pinnedCacheKey) return
 
-    const cached = readNavAdCache(navCacheKey)
+    const cached = readPinnedAdCache(pinnedCacheKey)
     if (cached) {
       setAd(cached)
       setHasFetched(true)
@@ -523,8 +532,10 @@ export function GravityAdSlot({
       .then((result) => {
         if (cancelled || !mountedRef.current) return
         const next = result ?? fallbackAd ?? null
-        setAd(next)
-        if (next) writeNavAdCache(navCacheKey, next)
+        if (next) {
+          setAd(next)
+          writePinnedAdCache(pinnedCacheKey, next)
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -534,12 +545,12 @@ export function GravityAdSlot({
     return () => {
       cancelled = true
     }
-    // Only re-pin when the project slot changes — not on message/tab churn.
+    // Only re-pin when the project slot changes — not on message/draft churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStickyNav, navCacheKey, sessionId, placement])
+  }, [isPinnedSlot, pinnedCacheKey, sessionId, placement])
 
   useEffect(() => {
-    if (isStickyNav) return
+    if (isPinnedSlot) return
 
     if (isInitialFetch.current) {
       isInitialFetch.current = false
@@ -551,7 +562,7 @@ export function GravityAdSlot({
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, placement, slotKey, stableMessagesKey, isTabVisible, isStickyNav])
+  }, [sessionId, placement, slotKey, stableMessagesKey, isTabVisible, isPinnedSlot])
 
   if (!hasFetched || !ad) return null
 
@@ -572,6 +583,7 @@ export function GravityAdSlot({
         background: 'hsl(var(--card))',
         color: 'hsl(var(--foreground))',
         borderColor: 'hsl(var(--border))',
+        padding: '18px 20px',
       },
     },
     brand: { style: { color: 'hsl(var(--foreground))' } },
@@ -602,9 +614,9 @@ export function GravityAdSlot({
         variant={adVariant}
         className={cn(
           'relative rounded-lg',
-          variant === 'featured' && 'mt-2.5',
-          isCompact && 'mt-2',
-          variant === 'default' && 'mt-3',
+          variant === 'featured' && 'my-4',
+          isCompact && 'my-3',
+          variant === 'default' && 'my-5',
           className,
         )}
         slotProps={slotProps}

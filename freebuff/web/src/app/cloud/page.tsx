@@ -1,7 +1,8 @@
 'use client'
 
 import { api } from '@/convex/_generated/api'
-import { useQuery } from 'convex/react'
+import type { FunctionReturnType } from 'convex/server'
+import { useMutation, useQuery } from 'convex/react'
 import { useSession } from 'next-auth/react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -28,7 +29,18 @@ import {
   AlertTriangle,
   Cloud,
   MonitorPlay,
+  Clock,
 } from 'lucide-react'
+import {
+  categorizeProjectsByLastOpened,
+  formatProjectLastOpened,
+  getProjectLastOpenedTime,
+  PROJECT_RECENCY_SECTIONS,
+} from '@/vly/lib/project-recency'
+
+type ConnectedProject = NonNullable<
+  FunctionReturnType<typeof api.project.getUserProjects>
+>[number]
 
 function jsonLd(data: object): string {
   return JSON.stringify(data).replace(/</g, '\\u003c')
@@ -83,9 +95,14 @@ export default function CloudHome() {
   const router = useRouter()
 
   const projects = useQuery(api.project.getUserProjects, isAuthed ? {} : 'skip')
-  const connectedProjects = (projects ?? []).filter(
-    (p) => (p as any).project_type === 'connected_repo',
-  )
+  const updateLastOpened = useMutation(api.project.updateLastOpened)
+  const connectedProjects = (projects ?? [])
+    .filter((p) => (p as ConnectedProject & { project_type?: string }).project_type === 'connected_repo')
+    .sort(
+      (a, b) => getProjectLastOpenedTime(b) - getProjectLastOpenedTime(a),
+    )
+  const connectedProjectsByRecency =
+    categorizeProjectsByLastOpened(connectedProjects)
   const webAccessStatus = useQuery(
     api.webAccess.getWebAccessStatus,
     isAuthed ? {} : 'skip',
@@ -93,6 +110,15 @@ export default function CloudHome() {
   const isCloudRegionLimited = webAccessStatus?.accessTier === 'limited'
 
   const [isConnectOpen, setIsConnectOpen] = useState(false)
+
+  const openProject = (project: ConnectedProject) => {
+    updateLastOpened({
+      semanticIdentifier: project.semantic_identifier,
+    }).catch((error) => {
+      console.error('Failed to update last opened timestamp:', error)
+    })
+    router.push(`/cloud/project/${project.semantic_identifier}`)
+  }
 
   // Re-open the dialog after returning from the GitHub OAuth/install redirect.
   useEffect(() => {
@@ -225,33 +251,58 @@ export default function CloudHome() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {connectedProjects.map((project) => (
-                  <button
-                    key={project._id}
-                    type="button"
-                    onClick={() =>
-                      router.push(
-                        `/cloud/project/${project.semantic_identifier}`,
-                      )
-                    }
-                    className="group flex flex-col items-start gap-2 rounded-md border border-border bg-[#202020] p-4 text-left transition-all hover:border-primary/30 hover:bg-muted"
-                  >
-                    <div className="flex w-full items-center gap-2">
-                      <Github className="h-4 w-4 shrink-0 text-white/55" />
-                      <span className="min-w-0 flex-1 truncate font-medium text-white">
-                        {(project as any).repo_full_name ||
-                          project.name ||
-                          project.semantic_identifier}
-                      </span>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 text-white/30 transition-colors group-hover:text-primary" />
-                    </div>
-                    <span className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-white/50">
-                      <GitBranch className="h-3 w-3" />
-                      {(project as any).current_branch ?? 'main'}
-                    </span>
-                  </button>
-                ))}
+              <div className="space-y-8">
+                {PROJECT_RECENCY_SECTIONS.map(({ key, label }) => {
+                  const sectionProjects = connectedProjectsByRecency[key]
+                  if (sectionProjects.length === 0) return null
+
+                  return (
+                    <section key={key} className="space-y-3">
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-white/35">
+                        {label}
+                      </h3>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {sectionProjects.map((project) => {
+                          const connectedProject = project as ConnectedProject & {
+                            repo_full_name?: string
+                            current_branch?: string
+                          }
+                          const lastOpenedTime =
+                            getProjectLastOpenedTime(connectedProject)
+
+                          return (
+                            <button
+                              key={project._id}
+                              type="button"
+                              onClick={() => openProject(connectedProject)}
+                              className="group flex flex-col items-start gap-2 rounded-md border border-border bg-[#202020] p-4 text-left transition-all hover:border-primary/30 hover:bg-muted"
+                            >
+                              <div className="flex w-full items-center gap-2">
+                                <Github className="h-4 w-4 shrink-0 text-white/55" />
+                                <span className="min-w-0 flex-1 truncate font-medium text-white">
+                                  {connectedProject.repo_full_name ||
+                                    connectedProject.name ||
+                                    connectedProject.semantic_identifier}
+                                </span>
+                                <ArrowUpRight className="h-4 w-4 shrink-0 text-white/30 transition-colors group-hover:text-primary" />
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-white/50">
+                                  <GitBranch className="h-3 w-3" />
+                                  {connectedProject.current_branch ?? 'main'}
+                                </span>
+                                <span className="flex items-center gap-1 text-[11px] text-white/40">
+                                  <Clock className="h-3 w-3" />
+                                  {formatProjectLastOpened(lastOpenedTime)}
+                                </span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </section>
+                  )
+                })}
               </div>
             </div>
           )}

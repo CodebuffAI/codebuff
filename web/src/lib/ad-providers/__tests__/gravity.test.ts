@@ -132,6 +132,20 @@ describe('Gravity ad provider', () => {
     ])
   })
 
+  test('requests inline composer placement for Web-Inside-Input-Box', async () => {
+    const body = await fetchGravityRequestBody({
+      userId: 'b',
+      placementId: 'Web-Inside-Input-Box',
+    })
+
+    expect(body.placements).toEqual([
+      {
+        placement: 'inline_response',
+        placement_id: 'Web-Inside-Input-Box',
+      },
+    ])
+  })
+
   test('passes browser Gravity context with server-trusted user and device data', async () => {
     const body = await fetchGravityRequestBody({
       userId: 'server-user-id',

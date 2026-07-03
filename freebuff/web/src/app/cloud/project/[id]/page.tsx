@@ -10,7 +10,7 @@ import {
   useRouter,
 } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { MigrationOverlay } from '@/vly/components/project-2/MigrationOverlay'
 
@@ -53,6 +53,7 @@ function ProjectPageContent({
   const shouldShowPublicModel = searchParams.get('publish') === 'true'
 
   const project = useQuery(api.project.getProjectData, { semanticIdentifier })
+  const updateLastOpened = useMutation(api.project.updateLastOpened)
   const daytonaMigrationEnabled = useQuery(api.settings.get, {
     key: 'daytona_migration_enabled',
     defaultValue: true,
@@ -63,6 +64,13 @@ function ProjectPageContent({
   const resolveProjectDaytonaServer = useAction(
     api.daytona_migration.resolve.resolveProjectDaytonaServer,
   )
+
+  useEffect(() => {
+    if (!semanticIdentifier) return
+    updateLastOpened({ semanticIdentifier }).catch((error) => {
+      console.error('Failed to update last opened timestamp:', error)
+    })
+  }, [semanticIdentifier, updateLastOpened])
 
   useEffect(() => {
     if (!project || resolveAttempted) {

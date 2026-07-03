@@ -32,6 +32,15 @@ function getPlacements(data: z.infer<typeof bodySchema>): PlacementObject[] {
     return [{ placement: 'top_page', placement_id: 'Above-iFrame' }]
   }
 
+  if (data.placementId === 'Web-Inside-Input-Box') {
+    return [
+      {
+        placement: 'inline_response',
+        placement_id: 'Web-Inside-Input-Box',
+      },
+    ]
+  }
+
   if (data.surface === 'chat_assistant') {
     return [
       {
