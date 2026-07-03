@@ -1,3 +1,5 @@
+import os from 'os'
+
 import { NextResponse } from 'next/server'
 import {
   FREEBUFF_FORCE_LIMITED_MODE,
@@ -22,6 +24,7 @@ import {
 } from '@/server/free-mode-country'
 import { getCachedFreeModeCountryAccess } from '@/server/free-mode-country-access-cache'
 import { extractApiKeyFromHeader } from '@/util/auth'
+import { queueTimeMsFromHeaders } from '@/util/request-queue-time'
 
 import type { FreeModeCountryAccess } from '@/server/free-mode-country'
 import type { FreeSessionCountryAccessMetadata } from '@/server/free-session/types'
@@ -222,9 +225,69 @@ function serverError(
   )
 }
 
+const HOSTNAME = os.hostname()
+
+/** Threshold above which a session request (or its ingress queue wait) is
+ *  logged as slow. */
+const SESSION_SLOW_MS = 2_000
+
+/**
+ * Duration + ingress-queue-time logging for the session endpoints. The
+ * 2026-07 "Starting… hangs for minutes" incident was undiagnosable in
+ * retrospect because nothing recorded how long these requests took. POST and
+ * DELETE are low-volume and always logged; GET is a high-volume poll
+ * (~100k/hr) and only logged when slow, so the metric stays cheap while the
+ * tail — the only part that matters — is never sampled away.
+ */
+async function withSessionTiming(
+  route: 'GET' | 'POST' | 'DELETE',
+  req: NextRequest,
+  deps: FreebuffSessionDeps,
+  handler: () => Promise<NextResponse>,
+): Promise<NextResponse> {
+  const queueMs = queueTimeMsFromHeaders(req.headers)
+  const startedAt = Date.now()
+  let status: number | undefined
+  try {
+    const res = await handler()
+    status = res.status
+    return res
+  } finally {
+    const durationMs = Date.now() - startedAt
+    const slow =
+      durationMs >= SESSION_SLOW_MS || (queueMs ?? 0) >= SESSION_SLOW_MS
+    if (route !== 'GET' || slow) {
+      deps.logger.info(
+        {
+          metric: 'freebuff_session_timing',
+          route,
+          status,
+          durationMs,
+          ...(queueMs !== undefined && { queueMs }),
+          slow,
+          // Ties a slow request to the specific instance (join against the
+          // per-host event_loop_lag metric).
+          host: HOSTNAME,
+          pid: process.pid,
+        },
+        '[freebuff/session] request timing',
+      )
+    }
+  }
+}
+
 /** POST /api/v1/freebuff/session — start a session / take over as this
  *  instance. */
 export async function postFreebuffSession(
+  req: NextRequest,
+  deps: FreebuffSessionDeps,
+): Promise<NextResponse> {
+  return withSessionTiming('POST', req, deps, () =>
+    postFreebuffSessionImpl(req, deps),
+  )
+}
+
+async function postFreebuffSessionImpl(
   req: NextRequest,
   deps: FreebuffSessionDeps,
 ): Promise<NextResponse> {
@@ -282,6 +345,15 @@ export async function postFreebuffSession(
  *  caller's instance id (via X-Freebuff-Instance-Id) is used to detect
  *  takeover by another CLI on the same account. */
 export async function getFreebuffSession(
+  req: NextRequest,
+  deps: FreebuffSessionDeps,
+): Promise<NextResponse> {
+  return withSessionTiming('GET', req, deps, () =>
+    getFreebuffSessionImpl(req, deps),
+  )
+}
+
+async function getFreebuffSessionImpl(
   req: NextRequest,
   deps: FreebuffSessionDeps,
 ): Promise<NextResponse> {
@@ -346,6 +418,15 @@ export async function getFreebuffSession(
 
 /** DELETE /api/v1/freebuff/session — end session / leave queue immediately. */
 export async function deleteFreebuffSession(
+  req: NextRequest,
+  deps: FreebuffSessionDeps,
+): Promise<NextResponse> {
+  return withSessionTiming('DELETE', req, deps, () =>
+    deleteFreebuffSessionImpl(req, deps),
+  )
+}
+
+async function deleteFreebuffSessionImpl(
   req: NextRequest,
   deps: FreebuffSessionDeps,
 ): Promise<NextResponse> {

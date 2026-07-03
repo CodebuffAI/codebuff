@@ -148,6 +148,7 @@ import type {
   FreeModeCountryAccessOptions,
 } from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
+import { queueTimeMsFromHeaders } from '@/util/request-queue-time'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import {
   checkConfiguredFreeModeRateLimit,
@@ -1141,6 +1142,7 @@ export async function postChatCompletions(params: {
       model: typedBody.model,
       streaming: bodyStream,
       costMode,
+      queueMs: queueTimeMsFromHeaders(req.headers),
     })
 
     // Handle streaming vs non-streaming

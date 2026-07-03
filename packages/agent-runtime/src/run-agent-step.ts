@@ -1,5 +1,8 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { shouldUseLocalTokenCountForFreebuffDeepseekFlash } from '@codebuff/common/constants/free-agents'
+import {
+  isFreeMode,
+  shouldUseLocalTokenCountForFreebuffDeepseekFlash,
+} from '@codebuff/common/constants/free-agents'
 import {
   supportsAssistantPrefill,
   supportsCacheControl,
@@ -931,7 +934,14 @@ export async function loopAgentSteps(
         countTokensJson(system) +
         countTokensJson(toolsForTokenCount)
 
+      // Free (freebuff) runs never call the token-count web API: the awaited
+      // per-step round-trip (full history + tools shipped to the server, which
+      // relays to Anthropic) adds seconds of serial overhead to every step and
+      // ~1M+ requests/day of web-service load, and free-mode context limits
+      // don't need Anthropic-exact counts. Paid Codebuff runs keep the
+      // accurate API count.
       if (
+        isFreeMode(params.costMode) ||
         shouldUseLocalTokenCountForFreebuffDeepseekFlash({
           agentId: agentTemplate.id,
           model: agentTemplate.model,
