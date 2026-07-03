@@ -53,9 +53,13 @@ export function trackRedditFirstPromptOnce() {
   trackReddit('Custom', { customEventName: 'FirstPrompt' })
 }
 
-export function trackRedditGravityAdClick(surface: 'chat' | 'web') {
+export function trackRedditGravityAdClick(
+  surface: 'chat' | 'web',
+  properties?: Record<string, unknown>,
+) {
   captureFunnel(AnalyticsEvent.FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK, {
     surface,
+    ...properties,
   })
   trackReddit('Custom', { customEventName: 'GravityAdClick', surface })
 }

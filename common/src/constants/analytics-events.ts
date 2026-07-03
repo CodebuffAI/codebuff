@@ -254,6 +254,13 @@ export enum AnalyticsEvent {
   FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT = 'freebuff.reddit_funnel.first_prompt',
   FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'freebuff.reddit_funnel.gravity_ad_click',
 
+  // Freebuff web /chat ads experiment (server-rendered Gravity ads vs the
+  // existing @gravity-ai/react inline slot; bucketed by user id — see
+  // freebuff/web/src/app/chat/_components/ad-experiment.ts). Both events carry
+  // `experiment` + `variant` so PostHog can break down exposure and CTR by arm.
+  FREEBUFF_CHAT_ADS_EXPERIMENT_EXPOSED = 'freebuff.chat_ads.experiment_exposed',
+  FREEBUFF_CHAT_ADS_AD_SHOWN = 'freebuff.chat_ads.ad_shown',
+
   // Freebuff Desktop (Electron app)
   // Mirrors the CLI's surface events so the desktop shows up in the same DAU /
   // login funnels. `message_sent` (above) is reused with `surface: 'desktop'`;
