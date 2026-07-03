@@ -131,10 +131,14 @@ export function TabBar() {
         </div>
       )}
 
-      <div className={`conn-status conn-${connection}`} title={CONN_LABEL[connection]}>
-        <span className="conn-dot" />
-        {connection !== 'open' && <span className="conn-label">{CONN_LABEL[connection]}</span>}
-      </div>
+      {/* Connected is the normal state and gets no chrome; only surface a
+          warning while the connection is down. */}
+      {connection !== 'open' && (
+        <div className={`conn-status conn-${connection}`} title={CONN_LABEL[connection]}>
+          <Icon name="alert" className="conn-icon" />
+          <span className="conn-label">{CONN_LABEL[connection]}</span>
+        </div>
+      )}
 
       {/* Account is window-global (unlike the folder/agent picks in each
           thread's header below), so it sits on this row, far right — the
