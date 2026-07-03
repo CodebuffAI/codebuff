@@ -5,7 +5,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
-import { getFreebuffInstanceId } from './use-freebuff-session'
+import {
+  getFreebuffInstanceId,
+  markFreebuffSessionEnded,
+} from './use-freebuff-session'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
@@ -69,6 +72,13 @@ interface UseSendMessageOptions {
   isQueuePausedRef?: React.MutableRefObject<boolean>
   isProcessingQueueRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
+  /** Put a message back at the head of the queue. Used by the freebuff
+   *  run-start guard so a message that can't be sent (session fully over)
+   *  is held for the next session instead of consumed. */
+  requeueMessageAtFront?: (message: {
+    content: string
+    attachments: PendingAttachment[]
+  }) => void
   continueChat: boolean
   continueChatId?: string
   subscriptionData?: SubscriptionResponse | null
@@ -120,6 +130,7 @@ export const useSendMessage = ({
   isQueuePausedRef,
   isProcessingQueueRef,
   resumeQueue,
+  requeueMessageAtFront,
   continueChat,
   continueChatId,
   subscriptionData,
@@ -244,6 +255,24 @@ export const useSendMessage = ({
       isChainInProgressRef.current = true
       updateChainInProgress(true)
       setCanProcessQueue(false)
+
+      // Freebuff run-start guard: without a live session slot the server
+      // rejects the request outright, consuming the message. Hold it at the
+      // head of the queue instead; it resumes when the user rejoins from the
+      // session-ended banner. Catches sends that bypass the queue's
+      // sendBlocked hold (direct review-screen answers) and the dequeue race
+      // where the slot expires between the queue's check and this call.
+      if (IS_FREEBUFF && !getFreebuffInstanceId()) {
+        markFreebuffSessionEnded()
+        requeueMessageAtFront?.({ content, attachments: attachments ?? [] })
+        resetEarlyReturnState({
+          setCanProcessQueue,
+          updateChainInProgress,
+          isProcessingQueueRef,
+          isQueuePausedRef,
+        })
+        return
+      }
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -536,6 +565,7 @@ export const useSendMessage = ({
           updater,
           aiMessageId,
           wasAbortedByUser: abortController.signal.aborted,
+          hasReceivedContent: hasReceivedContentRef.current,
           setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
@@ -560,6 +590,7 @@ export const useSendMessage = ({
             updateChainInProgress,
             isProcessingQueueRef,
             isQueuePausedRef,
+            hasReceivedContent: hasReceivedContentRef.current,
           })
           // Persist the last checkpoint plus the error banner so a restart
           // after a failed run still shows this turn.
@@ -612,6 +643,7 @@ export const useSendMessage = ({
       onTimerEvent,
       prepareUserMessage,
       removeActiveSubagent,
+      requeueMessageAtFront,
       resumeQueue,
       scrollToLatest,
       setCanProcessQueue,

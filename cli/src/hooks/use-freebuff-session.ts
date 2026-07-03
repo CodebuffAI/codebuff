@@ -191,19 +191,14 @@ interface PollController {
 
 let controller: PollController | null = null
 
-/** Read the current instance id for outgoing chat requests. Includes `ended`
- *  so in-flight agent work can keep streaming during the server-side grace
- *  window (server keeps the row alive until `expires_at + grace`). */
+/** Read the current instance id for outgoing chat requests. Defined via
+ *  `holdsLiveFreebuffSlot` so the two can't drift: an id exists exactly while
+ *  we hold a live slot (active, or `ended` inside the server-side grace
+ *  window where the row stays alive until `expires_at + grace`). */
 export function getFreebuffInstanceId(): string | undefined {
   const current = useFreebuffSessionStore.getState().session
-  if (!current) return undefined
-  switch (current.status) {
-    case 'active':
-    case 'ended':
-      return current.instanceId
-    default:
-      return undefined
-  }
+  if (!current || !holdsLiveFreebuffSlot(current)) return undefined
+  return 'instanceId' in current ? current.instanceId : undefined
 }
 
 /** True when the session represents a server-side slot the caller is

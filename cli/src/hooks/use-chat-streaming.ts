@@ -19,6 +19,7 @@ import { useTimeout } from './use-timeout'
 import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { IS_FREEBUFF } from '../utils/constants'
+import { logger } from '../utils/logger'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { PendingAttachment } from '../types/store'
@@ -57,6 +58,7 @@ export interface UseChatStreamingReturn {
   queuePaused: boolean
   streamMessageIdRef: MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
+  addToQueueFront: (message: QueuedMessage) => void
   stopStreaming: () => void
   setCanProcessQueue: (value: boolean | ((prev: boolean) => boolean)) => void
   pauseQueue: () => void
@@ -144,6 +146,15 @@ export function useChatStreaming({
   // so queued work resumes in the new session.
   const freebuffSession = useFreebuffSessionStore((s) => s.session)
   const sendBlocked = IS_FREEBUFF && !holdsLiveFreebuffSlot(freebuffSession)
+  // Log the transition once, not per render — the hold can last indefinitely.
+  useEffect(() => {
+    if (sendBlocked) {
+      logger.info(
+        {},
+        '[chat-streaming] Freebuff session over; holding queued messages until rejoin',
+      )
+    }
+  }, [sendBlocked])
 
   // Message queue
   const {
@@ -152,6 +163,7 @@ export function useChatStreaming({
     queuePaused,
     streamMessageIdRef,
     addToQueue,
+    addToQueueFront,
     stopStreaming,
     setStreamStatus,
     setCanProcessQueue,
@@ -226,6 +238,7 @@ export function useChatStreaming({
     queuePaused,
     streamMessageIdRef,
     addToQueue,
+    addToQueueFront,
     stopStreaming,
     setCanProcessQueue,
     pauseQueue,

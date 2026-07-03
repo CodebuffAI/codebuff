@@ -93,11 +93,10 @@ export const useMessageQueue = (
     // External hold: sending is currently pointless (e.g. freebuff session
     // fully ended — requests without a live session are rejected). Leave the
     // messages queued; the effect below re-runs when sendBlocked flips false.
+    // No log here: unlike the transient busy branches above, this state can
+    // persist for the whole hold, and this path re-runs on every render —
+    // the transition is logged once by the caller instead.
     if (sendBlocked) {
-      logger.debug(
-        { queueLength },
-        '[message-queue] Queue blocked: sending unavailable',
-      )
       return
     }
 
@@ -233,6 +232,18 @@ export const useMessageQueue = (
     [],
   )
 
+  /** Put a message back at the HEAD of the queue. Used when a send was
+   *  aborted before it did anything (e.g. the freebuff session ended between
+   *  dequeue and run start) so the message keeps its place instead of being
+   *  consumed. */
+  const addToQueueFront = useCallback((message: QueuedMessage) => {
+    setQueuedMessages((prev) => {
+      const newQueue = [message, ...prev]
+      queuedMessagesRef.current = newQueue
+      return newQueue
+    })
+  }, [])
+
   const pauseQueue = useCallback(() => {
     isQueuePausedRef.current = true
     setQueuePausedState(true)
@@ -269,6 +280,7 @@ export const useMessageQueue = (
     queuePaused,
     streamMessageIdRef,
     addToQueue,
+    addToQueueFront,
     startStreaming,
     stopStreaming,
     setStreamStatus,
