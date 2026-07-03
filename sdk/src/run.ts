@@ -465,6 +465,7 @@ async function runOnce({
         fs,
         env,
         apiKey,
+        signal,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -720,6 +721,7 @@ async function handleToolCall({
   fs,
   env,
   apiKey,
+  signal,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -728,18 +730,37 @@ async function handleToolCall({
   fs: CodebuffFileSystem
   env?: Record<string, string>
   apiKey: string
+  signal?: AbortSignal
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
+
+  if (signal?.aborted) {
+    return {
+      output: [
+        {
+          type: 'json',
+          value: {
+            message: 'Tool call cancelled: the run was aborted by the user.',
+          },
+        },
+      ],
+    }
+  }
 
   // Handle MCP tool calls when mcpConfig is present
   if (action.mcpConfig) {
     try {
       const mcpClientId = await getMCPClient(action.mcpConfig)
-      const result = await callMCPTool(mcpClientId, {
-        name: toolName,
-        arguments: input,
-      })
+      const result = await callMCPTool(
+        mcpClientId,
+        {
+          name: toolName,
+          arguments: input,
+        },
+        undefined,
+        signal ? { signal } : undefined,
+      )
       return { output: result }
     } catch (error) {
       return {
@@ -807,13 +828,18 @@ async function handleToolCall({
         ...input,
         cwd: path.resolve(resolvedCwd, input.cwd ?? '.'),
         env,
+        signal,
       } as Parameters<typeof runTerminalCommand>[0])
     } else if (toolName === 'read_url') {
-      result = await readUrl(input as Parameters<typeof readUrl>[0])
+      result = await readUrl({
+        ...(input as Parameters<typeof readUrl>[0]),
+        signal,
+      })
     } else if (toolName === 'code_search') {
       result = await codeSearch({
         projectPath: requireCwd(cwd, 'code_search'),
         ...input,
+        signal,
       } as Parameters<typeof codeSearch>[0])
     } else if (toolName === 'list_directory') {
       result = await listDirectory({
