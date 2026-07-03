@@ -1,6 +1,6 @@
 import { Axiom } from '@axiomhq/js'
 import { IS_PROD } from '@codebuff/common/env'
-import { MAX_LOG_DATA_BYTES } from '@codebuff/common/schemas/logs'
+import { LOG_LEVEL_ORDER, serializeLogData } from '@codebuff/common/util/log-data'
 import { shouldMirrorAnalyticsEvent } from '@codebuff/common/util/log-mirror'
 
 import type { LogLevel, LogRow } from '@codebuff/common/types/contracts/logs'
@@ -25,28 +25,20 @@ import type { LogLevel, LogRow } from '@codebuff/common/types/contracts/logs'
  *   AXIOM_LOGS_MIN_LEVEL debug|info|warn|error|fatal (default: info)
  */
 
-const LEVEL_ORDER: Record<LogLevel, number> = {
-  debug: 10,
-  info: 20,
-  warn: 30,
-  error: 40,
-  fatal: 50,
-}
-
 let minLevelWarned = false
 function minLevel(): number {
   const configured = process.env.AXIOM_LOGS_MIN_LEVEL
-  if (!configured) return LEVEL_ORDER.info
-  const level = LEVEL_ORDER[configured as LogLevel]
+  if (!configured) return LOG_LEVEL_ORDER.info
+  const level = LOG_LEVEL_ORDER[configured as LogLevel]
   if (level === undefined) {
     if (!minLevelWarned) {
       minLevelWarned = true
       console.error(
         `[axiom-log-sink] invalid AXIOM_LOGS_MIN_LEVEL="${configured}"; ` +
-          `expected one of ${Object.keys(LEVEL_ORDER).join('|')}. Defaulting to info.`,
+          `expected one of ${Object.keys(LOG_LEVEL_ORDER).join('|')}. Defaulting to info.`,
       )
     }
-    return LEVEL_ORDER.info
+    return LOG_LEVEL_ORDER.info
   }
   return level
 }
@@ -94,42 +86,6 @@ function getClient(): Axiom | null {
   }
 }
 
-/**
- * Serialize a payload to a single string field, tolerating circular refs and
- * capping size. The cap applies to ALL sources (server + client) so a large
- * server-side `data` payload can't inflate Axiom ingest cost — the client path
- * truncates too, but doing it here guarantees symmetry. The truncated form is
- * still valid JSON so query scripts can `parse_json(data)`.
- */
-function serializeData(data: unknown): string | null {
-  if (data == null) return null
-  let serialized: string
-  if (typeof data === 'string') {
-    serialized = data
-  } else {
-    try {
-      const seen = new WeakSet()
-      serialized = JSON.stringify(data, (_k, v) => {
-        if (typeof v === 'object' && v !== null) {
-          if (seen.has(v)) return '[Circular]'
-          seen.add(v)
-        }
-        return v
-      })
-    } catch {
-      return null
-    }
-  }
-  if (serialized.length > MAX_LOG_DATA_BYTES) {
-    return JSON.stringify({
-      _truncated: true,
-      original_bytes: serialized.length,
-      preview: serialized.slice(0, MAX_LOG_DATA_BYTES),
-    })
-  }
-  return serialized
-}
-
 function toEvent(row: LogRow): Record<string, unknown> {
   const ts =
     row.timestamp instanceof Date ? row.timestamp.toISOString() : row.timestamp
@@ -146,7 +102,7 @@ function toEvent(row: LogRow): Record<string, unknown> {
     client_session_id: row.client_session_id ?? null,
     client_request_id: row.client_request_id ?? null,
     fingerprint_id: row.fingerprint_id ?? null,
-    data: serializeData(row.data),
+    data: serializeLogData(row.data),
   }
 }
 
@@ -167,7 +123,7 @@ function registerShutdown(): void {
  */
 export function enqueueLogRow(row: LogRow): void {
   if (!enabled()) return
-  if ((LEVEL_ORDER[row.level] ?? 0) < minLevel()) return
+  if ((LOG_LEVEL_ORDER[row.level] ?? 0) < minLevel()) return
   // Authoritative cost guard: drop high-volume, low-query-value analytics events
   // (session replay, autocapture, …) regardless of which producer enqueued them.
   // Producers also filter early to avoid the network hop; this is the safety net

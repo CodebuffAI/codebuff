@@ -3,12 +3,15 @@
  */
 export enum AnalyticsEvent {
   // Cross-surface — DAU
-  // Emitted exactly once per user-submitted message/prompt, on each surface
-  // (cli / web / chat), and never sampled. `distinct_id` is the canonical
-  // codebuff Postgres user id on every surface, so unique-users of this event
-  // gives accurate per-surface DAU (filter on the `surface` property) and a
-  // combined DAU (no filter). The `surface` property is one of: cli, web, chat,
-  // desktop.
+  // Emitted exactly once per user-submitted message/prompt, on each surface,
+  // and never sampled. `distinct_id` is the canonical codebuff Postgres user
+  // id on every surface, so unique-users of this event gives accurate
+  // per-surface DAU (filter on the `surface` property) and a combined DAU (no
+  // filter). The `surface` property is one of: cli, web, chat, desktop, cloud
+  // (web = the freebuff.com builder, cloud = connected-repo builder projects).
+  // Emission points: cli client analytics; chat's stream route (server-side);
+  // desktop's analytics module; web/cloud via the Convex send mutation
+  // (PostHog + Axiom, both direct from Convex — see convex/analytics.ts).
   MESSAGE_SENT = 'message_sent',
 
   // Cross-surface — engaged time

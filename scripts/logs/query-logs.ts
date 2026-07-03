@@ -19,7 +19,7 @@
  *   --since 30m|6h|7d         time window (or --from <ISO> [--to <ISO>])  [required]
  *   --level <lvl>            debug|info|warn|error|fatal
  *   --source <src>           server|cli|browser
- *   --service <name>         web|agent-runtime|freebuff-web|cli
+ *   --service <name>         web|agent-runtime|freebuff-web|freebuff-convex|cli
  *   --event <name>           AnalyticsEvent name (exact)
  *   --has-event             only rows where event is non-empty
  *   --user <id>             user_id
