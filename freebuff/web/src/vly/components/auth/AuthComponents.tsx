@@ -1,9 +1,32 @@
 'use client'
 
 import React from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 
 import { Button } from '@/vly/components/ui/button'
+
+/**
+ * Where to send the user after they authenticate. On the product surfaces we
+ * return them to the exact page they were on; on marketing/landing pages we
+ * drop them into the web app. Kept in one place so every sign-in entry point
+ * routes through the real `/login` page (Google + GitHub) instead of forcing a
+ * single OAuth provider.
+ */
+function resolveDefaultCallbackUrl(): string {
+  if (typeof window === 'undefined') return '/web'
+  const { pathname, search } = window.location
+  if (pathname.startsWith('/web') || pathname.startsWith('/cloud')) {
+    return `${pathname}${search}`
+  }
+  return '/web'
+}
+
+/** Navigate to the shared login page, preserving the post-auth destination. */
+function goToLogin(callbackUrl?: string) {
+  if (typeof window === 'undefined') return
+  const target = callbackUrl ?? resolveDefaultCallbackUrl()
+  window.location.href = `/login?callbackUrl=${encodeURIComponent(target)}`
+}
 
 interface AuthVisibilityProps {
   children: React.ReactNode
@@ -34,6 +57,8 @@ interface SignInButtonProps {
     | 'link'
   size?: 'default' | 'sm' | 'lg' | 'icon'
   asChild?: boolean
+  /** Post-auth destination; defaults to the current surface (web/cloud) or /web. */
+  callbackUrl?: string
 }
 
 export function SignInButton({
@@ -42,8 +67,11 @@ export function SignInButton({
   variant = 'default',
   size = 'default',
   asChild = false,
+  callbackUrl,
 }: SignInButtonProps) {
-  const handleClick = () => signIn('github', { callbackUrl: '/web' })
+  // Route through the real login page (Google + GitHub) rather than forcing a
+  // single provider, matching the Chat sign-in flow (/login?callbackUrl=…).
+  const handleClick = () => goToLogin(callbackUrl)
 
   if (asChild && React.isValidElement(children)) {
     return React.cloneElement(children as React.ReactElement<any>, {
@@ -91,7 +119,7 @@ export function useRequireAuth() {
         typeof window !== 'undefined'
           ? `${window.location.pathname}${window.location.search}`
           : '/web'
-      signIn('github', { callbackUrl })
+      goToLogin(callbackUrl)
       return false
     },
     [isAuthed],

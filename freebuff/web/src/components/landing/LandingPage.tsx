@@ -19,7 +19,7 @@ import { Testimonial } from './sections/Testimonial'
 export function LandingPage({ posts }: { posts: BlogPostPreview[] }) {
   return (
     <div className="dark relative min-h-screen bg-black font-paragraph font-light text-white">
-      <LandingNavbar />
+      <LandingNavbar showSignIn />
       <main>
         <Hero />
         {/* Everything below the hero lives on pure black for a seamless seam. */}

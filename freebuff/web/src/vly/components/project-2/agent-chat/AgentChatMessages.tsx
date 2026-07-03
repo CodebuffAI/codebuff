@@ -908,14 +908,23 @@ const ActivityGroup: React.FC<{
     }
   }, [isLastGroup])
 
-  // Auto-open while reasoning streams in the active group; keep open as tool
-  // steps arrive in the same group. Respect an explicit user collapse.
+  // Auto-open the active (last) group while it streams — for reasoning AND
+  // tool-call runs. Freebuff groups usually lead with reasoning so they opened
+  // via `hasReasoning`; Codex/Claude often stream tool-only groups (no
+  // reasoning item), which previously stayed collapsed. Opening on either keeps
+  // the latest work visible across all models. Respect an explicit user
+  // collapse, and keep it open as more steps append to the same group.
   useLayoutEffect(() => {
-    if (!isStreaming || !isLastGroup || userCollapsedRef.current || !hasReasoning) {
+    if (
+      !isStreaming ||
+      !isLastGroup ||
+      userCollapsedRef.current ||
+      !(hasReasoning || usesTools)
+    ) {
       return
     }
     setIsExpanded(true)
-  }, [isStreaming, isLastGroup, hasReasoning, items])
+  }, [isStreaming, isLastGroup, hasReasoning, usesTools, items])
 
   // Live reasoning preview (collapsed fallback): tail of the latest reasoning
   // blob in this group. Stays visible while reasoning is still the active step;
@@ -1822,6 +1831,20 @@ export const AgentChatMessages = forwardRef<
 
     const gravityMessages = buildGravityMessagesForAgentAd(sourceMessageForAd)
     if (gravityMessages.length === 0) return
+
+    // Wait for the turn's assistant answer before requesting ads. Codex/Claude
+    // stream reasoning + tool calls first and only emit their answer text at
+    // the very end, so firing on the user prompt alone hands Gravity no answer
+    // context to target — those tool-heavy turns then get no fill and, because
+    // the attempt is cached, never refetch once the answer lands. Freebuff
+    // streams text early so it was unaffected; gating on the answer (or a
+    // finished turn) fixes the missing ads uniformly across models.
+    const hasAssistantAnswer = gravityMessages.some(
+      (m) => m.role === 'assistant' && m.content.trim().length > 0,
+    )
+    const stillStreaming =
+      (sourceMessageForAd as { isStreaming?: boolean }).isStreaming === true
+    if (stillStreaming && !hasAssistantAnswer) return
 
     const existingAds = adsBySourceMessageId.get(sourceMessageId) ?? {}
     const placements: AgentAdPlacement[] = [

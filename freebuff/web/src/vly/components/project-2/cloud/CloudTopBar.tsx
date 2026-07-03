@@ -200,6 +200,7 @@ export function CloudTopBar({
                 fallbackBranch={project.current_branch}
                 defaultBranch={project.repo_default_branch}
                 repoFullName={project.repo_full_name}
+                projectState={project.state}
               />
             </>
           )}

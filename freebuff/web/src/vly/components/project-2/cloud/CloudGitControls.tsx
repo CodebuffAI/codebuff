@@ -64,11 +64,15 @@ export function CloudGitControls({
   fallbackBranch,
   defaultBranch: defaultBranchProp,
   repoFullName,
+  projectState,
 }: {
   semanticIdentifier: string
   fallbackBranch?: string | null
   defaultBranch?: string | null
   repoFullName?: string | null
+  /** Live project run state; a transition out of an active run auto-refreshes
+   * git status (the agent just wrote/committed files in the sandbox). */
+  projectState?: string | null
 }) {
   const cached = useQuery(api.cloud.connectRepoMutations.getCachedGitStatus, {
     semanticIdentifier,
@@ -124,6 +128,21 @@ export function CloudGitControls({
     const stale = cached === null || Date.now() - cached.updatedAt > STALE_MS
     if (stale) void refresh()
   }, [cached, refresh])
+
+  // Auto-refresh when an agent run finishes. Runs write/commit files in the
+  // sandbox, so the cached status is stale the moment the run ends; refreshing
+  // on the active→idle transition keeps the top-bar counts current without
+  // polling the sandbox while nothing is happening.
+  const runActive =
+    projectState === 'processing' || projectState === 'initializing'
+  const prevRunActiveRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    const wasActive = prevRunActiveRef.current
+    prevRunActiveRef.current = runActive
+    if (wasActive === true && !runActive) {
+      void refresh()
+    }
+  }, [runActive, refresh])
 
   const runAction = useCallback(
     async (
@@ -433,6 +452,15 @@ export function CloudGitControls({
 
       {/* Action icon buttons */}
       <div className="flex items-center gap-0.5">
+        {/* Refresh git status from the sandbox */}
+        <GitIconButton
+          label="Refresh git status"
+          onClick={() => void refresh()}
+          loading={refreshing}
+        >
+          <RotateCw className="h-4 w-4" />
+        </GitIconButton>
+
         {/* Commit + push (single combined action) */}
         <DropdownMenu open={commitOpen} onOpenChange={setCommitOpen}>
           <DropdownMenuTrigger asChild>
