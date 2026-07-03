@@ -14,7 +14,7 @@ function extractSemanticIdentifier(input: string): string {
 
 export const WorkflowInspector: React.FC = () => {
   // Fetch all projects for the user
-  const projects = useQuery(api.project.getUserProjects);
+  const projects = useQuery(api.project.getUserProjects, {});
 
   const [projectIdInput, setProjectIdInput] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);

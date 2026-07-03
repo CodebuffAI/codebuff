@@ -36,7 +36,7 @@ export function DowngradeCancelDialog({
   const [confirmationText, setConfirmationText] = useState("");
 
   // Fetch user's projects
-  const projects = useQuery(api.project.getUserProjects);
+  const projects = useQuery(api.project.getUserProjects, {});
 
   // Handle dialog open/close with state reset
   const handleOpenChange = (newOpen: boolean) => {

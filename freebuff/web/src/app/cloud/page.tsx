@@ -94,13 +94,11 @@ export default function CloudHome() {
   const isAuthLoading = status === 'loading'
   const router = useRouter()
 
-  const projects = useQuery(api.project.getUserProjects, isAuthed ? {} : 'skip')
+  const projects = useQuery(api.project.getUserProjects, isAuthed ? { surface: 'cloud' } : 'skip')
   const updateLastOpened = useMutation(api.project.updateLastOpened)
-  const connectedProjects = (projects ?? [])
-    .filter((p) => (p as ConnectedProject & { project_type?: string }).project_type === 'connected_repo')
-    .sort(
-      (a, b) => getProjectLastOpenedTime(b) - getProjectLastOpenedTime(a),
-    )
+  const connectedProjects = (projects ?? []).sort(
+    (a, b) => getProjectLastOpenedTime(b) - getProjectLastOpenedTime(a),
+  )
   const connectedProjectsByRecency =
     categorizeProjectsByLastOpened(connectedProjects)
   const webAccessStatus = useQuery(

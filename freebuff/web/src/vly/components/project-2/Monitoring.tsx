@@ -34,7 +34,7 @@ export default function Monitoring({ project }: MonitoringProps) {
   const { customer } = useCustomer();
 
   // Fetch all user projects to calculate workspace quota usage
-  const allProjects = useQuery(api.project.getUserProjects);
+  const allProjects = useQuery(api.project.getUserProjects, {});
 
   // Custom hooks for data fetching and business logic
   const timeRangeHook = useTimeRange("billing_cycle", { customer });

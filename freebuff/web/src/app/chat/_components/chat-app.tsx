@@ -509,7 +509,9 @@ export function ChatApp() {
 
   const sidebar = (
     <div className="flex h-full w-64 flex-col bg-white/[0.025]">
-      <div className="px-2.5 pt-4">
+      {/* pt-16 clears the fixed, overlaying nav bar above so "New chat" and
+          the brand logo never collide. */}
+      <div className="px-2.5 pt-16">
         <button
           type="button"
           onClick={() => openThread(null)}
@@ -640,7 +642,6 @@ export function ChatApp() {
     <div className="relative flex h-full flex-col">
       <ChatBackdrop />
       <UnifiedNavbar
-        sticky={false}
         hideRightOnMobile
         containerClassName="px-3 py-2.5 sm:px-5"
         mobileTrigger={
@@ -655,6 +656,10 @@ export function ChatApp() {
         }
       />
 
+      {/* Extends all the way to the top, behind the fixed nav above, so the
+          sidebar/composer content runs edge-to-edge and the nav overlays on
+          top of it (transparent at rest, fading in its own gradient mask on
+          scroll) instead of leaving a reserved gap. */}
       <div className="flex min-h-0 flex-1">
         {/* Desktop sidebar */}
         <aside className="hidden border-r border-white/5 md:block">

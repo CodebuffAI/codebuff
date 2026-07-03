@@ -43,9 +43,10 @@ const PRODUCT_LINKS: ProductLink[] = [
  * The single site-wide nav bar. The right cluster (CLI · Web · Chat · GitHub ·
  * Discord · blog · account) is identical on every page so the chrome feels unified;
  * left cluster is a brand mark (always linking home) plus an optional
- * page-specific tab group (`leftNav`). It scrubs with scroll exactly like the
- * landing hero: compacts + reveals a shadow gradient on the way down, restores
- * on the way up. All scroll-linked properties are transform/opacity only so it
+ * page-specific tab group (`leftNav`). It always overlays the content as a
+ * `fixed` bar — transparent at the top of the page/scroll container, fading in
+ * a shadow-gradient mask *within its own bounds* as you scroll, restoring on
+ * the way up. All scroll-linked properties are transform/opacity only so it
  * stays on the compositor.
  *
  * `scrollContainerRef` lets surfaces whose content scrolls inside an inner
@@ -57,7 +58,6 @@ export function UnifiedNavbar({
   leftNav,
   rightExtras,
   mobileTrigger,
-  sticky = true,
   showSignIn = false,
   hideRightOnMobile = false,
   scrollContainerRef,
@@ -69,8 +69,6 @@ export function UnifiedNavbar({
   rightExtras?: ReactNode
   /** Mobile-only control (e.g. a hamburger) shown at the far right under sm. */
   mobileTrigger?: ReactNode
-  /** When true the bar is `fixed` and overlays content (landing/cli/chat). */
-  sticky?: boolean
   /** Render a Sign in button (right cluster) when signed out. */
   showSignIn?: boolean
   /**
@@ -89,6 +87,9 @@ export function UnifiedNavbar({
 
   const y = useTransform(scrollY, [0, 90], [0, -7])
   const scale = useTransform(scrollY, [0, 90], [1, 0.9])
+  // Fully transparent at the top so content shows through, then fade the
+  // gradient mask in on scroll — the mask lives entirely inside the bar's own
+  // bounds (`inset-0`), it never extends past its bottom edge.
   const bgOpacity = useTransform(scrollY, [0, 90], [0, 1])
 
   return (
@@ -96,12 +97,11 @@ export function UnifiedNavbar({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
-      className={cn(
-        'lp-gpu z-50',
-        sticky ? 'fixed inset-x-0 top-0' : 'relative flex-shrink-0',
-      )}
+      className="lp-gpu fixed inset-x-0 top-0 z-50"
     >
-      {/* Shadow gradient mask only — no blur/glass, no border */}
+      {/* Shadow gradient mask only — no blur/glass, no border. Confined to
+          the header's own box (`inset-0`) so it never bleeds into the
+          content below; content scrolls underneath the fixed bar instead. */}
       <motion.div
         aria-hidden
         style={{ opacity: bgOpacity }}

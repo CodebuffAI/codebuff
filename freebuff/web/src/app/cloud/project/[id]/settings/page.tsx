@@ -17,6 +17,7 @@ import {
 import { CloudBranchSwitcher } from "@/vly/components/project-2/cloud/CloudBranchSwitcher";
 import { DEFAULT_FREEBUFF_MODEL_ID } from "@codebuff/common/constants/freebuff-models";
 import { toast } from "sonner";
+import { useProjectSurfaceGuard } from "@/vly/lib/project-surface";
 
 type Section = "general" | "preview" | "env" | "deploys" | "agent" | "git";
 
@@ -47,6 +48,7 @@ export default function CloudProjectSettingsPage() {
   const semanticIdentifier = typeof params.id === "string" ? params.id : "";
 
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
+  const isSurfaceBlocked = useProjectSurfaceGuard(project, "cloud");
 
   const sectionParam = searchParams.get("section");
   const section: Section = isSection(sectionParam) ? sectionParam : "general";
@@ -57,7 +59,7 @@ export default function CloudProjectSettingsPage() {
     router.replace(`/cloud/project/${semanticIdentifier}/settings?${sp.toString()}`);
   };
 
-  if (project === undefined) {
+  if (project === undefined || isSurfaceBlocked) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader className="h-5 w-5 animate-spin text-primary" />

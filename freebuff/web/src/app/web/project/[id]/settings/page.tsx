@@ -12,6 +12,7 @@ import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { TopBar } from "@/vly/components/project-2/TopBar";
 import { getDirectPreviewUrl } from "@/vly/lib/project-preview-url";
+import { useProjectSurfaceGuard } from "@/vly/lib/project-surface";
 
 const Monitoring = lazy(() => import("@/vly/components/project-2/Monitoring"));
 const EnvVarsView = lazy(() => import("@/vly/components/project-2/EnvVarsView"));
@@ -71,6 +72,7 @@ export default function ProjectSettingsPage() {
   const semanticIdentifier = typeof params.id === "string" ? params.id : "";
 
   const project = useQuery(api.project.getProjectData, { semanticIdentifier });
+  const isSurfaceBlocked = useProjectSurfaceGuard(project, "web");
 
   const sectionParam = searchParams.get("section");
   const section: Section = isSection(sectionParam) ? sectionParam : "general";
@@ -85,7 +87,7 @@ export default function ProjectSettingsPage() {
     router.push(`/web/project/${semanticIdentifier}`);
   };
 
-  if (project === undefined) {
+  if (project === undefined || isSurfaceBlocked) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader className="h-5 w-5 animate-spin text-primary" />

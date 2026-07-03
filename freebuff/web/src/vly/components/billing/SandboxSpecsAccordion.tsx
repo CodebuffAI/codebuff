@@ -41,7 +41,7 @@ export function SandboxSpecsAccordion({}: SandboxSpecsAccordionProps) {
   );
 
   // Get all user's projects to count by sandbox size
-  const projects = useQuery(api.project.getUserProjects);
+  const projects = useQuery(api.project.getUserProjects, {});
 
   // Count projects by sandbox size (including legacy projects)
   const projectsBySizeMap = new Map<SandboxSize | "legacy", any[]>();

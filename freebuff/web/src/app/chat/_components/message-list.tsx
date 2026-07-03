@@ -158,7 +158,7 @@ export function MessageList(props: {
     >
       <div
         aria-live="polite"
-        className="mx-auto w-full max-w-3xl px-4 py-8 space-y-7"
+        className="mx-auto w-full max-w-3xl space-y-7 px-4 pb-8 pt-16"
       >
         {props.messages.map((message, i) =>
           message.role === 'user' ? (

@@ -171,23 +171,24 @@ export function AppShell({
         </div>
       )}
       {/* ── Top navigation bar (shared, unified) ─────────────────────── */}
-      <div className="relative z-30 flex-shrink-0">
-        <UnifiedNavbar
-          sticky={false}
-          showSignIn
-          hideRightOnMobile
-          scrollContainerRef={mainRef}
-          containerClassName="px-3 py-2.5 sm:px-5"
-          brand={brand}
-          leftNav={desktopTabs}
-          rightExtras={actions}
-          mobileTrigger={mobileTrigger}
-        />
-      </div>
+      {/* Overlays the content as a fixed bar (see UnifiedNavbar) — it takes
+          no flow space here, so `main` extends underneath it and scrolled
+          content fades in/out through its gradient mask, exactly like the
+          landing page. */}
+      <UnifiedNavbar
+        showSignIn
+        hideRightOnMobile
+        scrollContainerRef={mainRef}
+        containerClassName="px-3 py-2.5 sm:px-5"
+        brand={brand}
+        leftNav={desktopTabs}
+        rightExtras={actions}
+        mobileTrigger={mobileTrigger}
+      />
 
       {/* ── Mobile nav menu ──────────────────────────────────────────── */}
       {menuOpen && (
-        <div className="relative z-30 flex flex-col gap-0.5 px-3 pb-2 md:hidden">
+        <div className="relative z-30 flex flex-col gap-0.5 px-3 pb-2 pt-14 md:hidden">
           {navItems.map((item) => {
             const active = isActive(item)
             return (
@@ -237,15 +238,27 @@ export function AppShell({
         </div>
       )}
 
-      {/* Optional sub-navigation (e.g. Community tabs) */}
-      {subnav && <div className="relative z-20 flex-shrink-0 px-3 sm:px-5">{subnav}</div>}
+      {/* Optional sub-navigation (e.g. Community tabs) — sits in normal flow
+          right under the (fixed, overlaying) nav, so it needs its own
+          top clearance since the nav no longer reserves flow space. */}
+      {subnav && (
+        <div className="relative z-20 flex-shrink-0 px-3 pt-14 sm:px-5">
+          {subnav}
+        </div>
+      )}
 
-      {/* Body */}
+      {/* Body — spans from the very top of the shell (behind the fixed nav)
+          so content scrolls underneath it, revealed/hidden by its gradient
+          mask exactly like the landing page. A small baseline top padding
+          keeps content clear of the bar at rest for pages that don't already
+          reserve their own hero spacing; pages that do (e.g. the /web
+          composer) can override it via `contentClassName`. */}
       <main
         ref={mainRef}
         className={cn(
           'relative z-10 min-h-0 flex-1',
           scroll ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden',
+          !subnav && !contentClassName.includes('pt-') && 'pt-14',
           contentClassName,
         )}
       >

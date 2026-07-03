@@ -200,7 +200,7 @@ function TweetCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.45, delay: index * 0.08 }}
-      className="block rounded-2xl border border-white/10 bg-white/[0.02] p-5 transition-colors hover:bg-white/[0.04]"
+      className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-5 transition-colors hover:bg-white/[0.04]"
     >
       <div className="flex gap-3">
         {avatarOk ? (
@@ -235,23 +235,23 @@ function TweetCard({
           </p>
 
           <p className="mt-3 text-[13px] text-white/40">{tweet.time}</p>
-
-          <div className="mt-3 flex items-center justify-between border-t border-white/[0.08] pt-3 text-white/45">
-            <TweetAction icon={MessageCircle} count={tweet.replies} />
-            <TweetAction
-              icon={Repeat2}
-              count={tweet.reposts}
-              className="hover:text-emerald-400"
-            />
-            <TweetAction
-              icon={Heart}
-              count={tweet.likes}
-              className="hover:text-pink-500"
-            />
-            <TweetAction icon={BarChart3} count={tweet.views} />
-            <Bookmark className="h-[18px] w-[18px]" />
-          </div>
         </div>
+      </div>
+
+      <div className="mt-auto flex items-center justify-between border-t border-white/[0.08] pt-3 text-white/45">
+        <TweetAction icon={MessageCircle} count={tweet.replies} />
+        <TweetAction
+          icon={Repeat2}
+          count={tweet.reposts}
+          className="hover:text-emerald-400"
+        />
+        <TweetAction
+          icon={Heart}
+          count={tweet.likes}
+          className="hover:text-pink-500"
+        />
+        <TweetAction icon={BarChart3} count={tweet.views} />
+        <Bookmark className="h-[18px] w-[18px]" />
       </div>
     </motion.a>
   )

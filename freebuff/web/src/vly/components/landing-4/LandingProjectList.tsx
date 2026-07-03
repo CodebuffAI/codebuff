@@ -92,7 +92,7 @@ const ProjectItem = React.memo(
 ProjectItem.displayName = "ProjectItem";
 
 export function LandingProjectList() {
-  const projects = useQuery(api.project.getUserProjects);
+  const projects = useQuery(api.project.getUserProjects, { surface: "web" });
   const updateLastOpened = useMutation(api.project.updateLastOpened);
   const [showAll, setShowAll] = useState(false);
   const [visibleCount, setVisibleCount] = useState(6); // Start with 6 projects

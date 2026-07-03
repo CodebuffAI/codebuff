@@ -220,7 +220,7 @@ export const FeaturedProjects: React.FC = () => {
   const trendingPosts = useQuery(api.community.getTrendingPosts, { limit: 6 })
 
   // Get user's recent projects (only for signed-in users)
-  const userProjects = useQuery(api.project.getUserProjects)
+  const userProjects = useQuery(api.project.getUserProjects, { surface: 'web' })
 
   const isLoadingCommunity = trendingPosts === undefined
   const isLoadingUserProjects = userProjects === undefined

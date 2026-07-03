@@ -874,7 +874,10 @@ export const getProjectFromIdentifier = internalQuery({
 });
 
 export const getUserProjects = query({
-  handler: async (ctx) => {
+  args: {
+    surface: v.optional(v.union(v.literal("web"), v.literal("cloud"))),
+  },
+  handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
     if (!user) {
       return null;
@@ -900,6 +903,13 @@ export const getUserProjects = query({
         if (!project) return null;
 
         if (hideConnectedRepoProjects && project.project_type === "connected_repo") {
+          return null;
+        }
+
+        if (args.surface === "web" && project.project_type === "connected_repo") {
+          return null;
+        }
+        if (args.surface === "cloud" && project.project_type !== "connected_repo") {
           return null;
         }
 

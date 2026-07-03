@@ -13,6 +13,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { MigrationOverlay } from '@/vly/components/project-2/MigrationOverlay'
+import { useProjectSurfaceGuard } from '@/vly/lib/project-surface'
 
 function useParentRouteSync() {
   const pathname = usePathname()
@@ -53,6 +54,7 @@ function ProjectPageContent({
   const shouldShowPublicModel = searchParams.get('publish') === 'true'
 
   const project = useQuery(api.project.getProjectData, { semanticIdentifier })
+  const isSurfaceBlocked = useProjectSurfaceGuard(project, 'cloud')
   const updateLastOpened = useMutation(api.project.updateLastOpened)
   const daytonaMigrationEnabled = useQuery(api.settings.get, {
     key: 'daytona_migration_enabled',
@@ -114,6 +116,10 @@ function ProjectPageContent({
       router.replace(newUrl)
     }
   }, [shouldShowPublicModel, searchParams, router])
+
+  if (isSurfaceBlocked) {
+    return <ProjectLoadingScreen />
+  }
 
   return (
     <>

@@ -283,7 +283,7 @@ export function CliAgentConfigurationPanel({
   className?: string;
 }) {
   const settings = useQuery(api.users.getCliByokSettings);
-  const userProjects = useQuery(api.project.getUserProjects);
+  const userProjects = useQuery(api.project.getUserProjects, {});
   const setCliPreference = useMutation(api.users.setCliPreference);
   const clearCodexOauthAuth = useMutation(api.users.clearCodexOauthAuth);
   const startCodexDeviceAuth = useAction(

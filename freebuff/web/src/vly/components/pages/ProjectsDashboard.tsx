@@ -66,7 +66,7 @@ export default function ProjectsDashboard() {
   // logged-out visitors, who see marketing content instead of a project list.
   const projects = useQuery(
     api.project.getUserProjects,
-    isAuthed ? {} : 'skip',
+    isAuthed ? { surface: 'web' } : 'skip',
   )
   const isLoadingProjects = isAuthLoading || (isAuthed && projects === undefined)
   const router = useRouter()

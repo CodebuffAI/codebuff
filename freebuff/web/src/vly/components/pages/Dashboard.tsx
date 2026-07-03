@@ -49,7 +49,7 @@ export default function Dashboard() {
   const userName = session?.user?.name ?? ''
   const userImage = session?.user?.image ?? undefined
   const userBio = ''
-  const projects = useQuery(api.project.getUserProjects);
+  const projects = useQuery(api.project.getUserProjects, { surface: "web" });
   // Treat both "session loading" and "convex query in flight" as loading,
   // so we never flash the empty state before data has actually arrived.
   const isLoadingProjects = sessionStatus === "loading" || projects === undefined;
