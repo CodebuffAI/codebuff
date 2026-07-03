@@ -127,28 +127,56 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     getGlmReferralEntitlement: async () => 0,
     getLimitedReferralSessionBonus: async () => 0,
     getStreakBonusUnits: async () => 0,
-    promoteQueuedUser: async ({
+    // Mirrors the store's atomic admitOrTakeOver: upsert + promote + admit
+    // accounting as one step. `queued` never persists past a call.
+    admitOrTakeOver: async ({
       userId,
       model,
-      sessionLengthMs,
+      accessTier,
       now,
+      sessionLengthMs,
       fireworksRoute,
     }) => {
-      const row = rows.get(userId)
-      if (!row || row.status !== 'queued' || row.model !== model) return null
-      row.status = 'active'
-      row.admitted_at = now
-      row.expires_at = new Date(now.getTime() + sessionLengthMs)
-      row.fireworks_route = fireworksRoute ?? null
-      row.updated_at = now
+      const existing = rows.get(userId)
+      const nextInstance = newInstanceId()
+      if (
+        existing &&
+        existing.status === 'active' &&
+        existing.expires_at &&
+        existing.expires_at.getTime() > now.getTime()
+      ) {
+        if (existing.model !== model) {
+          throw new FreeSessionModelLockedError(existing.model)
+        }
+        // Takeover: rotate the instance id, keep the window + upstream pins.
+        existing.active_instance_id = nextInstance
+        existing.updated_at = now
+        return { row: existing, freshlyAdmitted: false }
+      }
+      // Fresh admission (no row, expired row, or stranded queued row).
+      const row: InternalSessionRow = {
+        user_id: userId,
+        status: 'active',
+        active_instance_id: nextInstance,
+        model,
+        access_tier: accessTier,
+        fireworks_route: fireworksRoute ?? null,
+        minimax_upstream: existing?.minimax_upstream ?? null,
+        queued_at: now,
+        admitted_at: now,
+        expires_at: new Date(now.getTime() + sessionLengthMs),
+        created_at: existing?.created_at ?? now,
+        updated_at: now,
+      }
+      rows.set(userId, row)
       admits.push({
         user_id: userId,
         model,
-        access_tier: row.access_tier ?? 'full',
+        access_tier: accessTier,
         admitted_at: now,
         session_units: 1,
       })
-      return row
+      return { row, freshlyAdmitted: true }
     },
     pinMinimaxUpstream: async ({ userId, now }) => {
       const row = rows.get(userId)
@@ -181,57 +209,6 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
         }
       }
       rows.delete(userId)
-    },
-    joinOrTakeOver: async ({ userId, model, accessTier, now }) => {
-      const existing = rows.get(userId)
-      const nextInstance = newInstanceId()
-      if (!existing) {
-        const r: InternalSessionRow = {
-          user_id: userId,
-          status: 'queued',
-          active_instance_id: nextInstance,
-          model,
-          access_tier: accessTier,
-          queued_at: now,
-          admitted_at: null,
-          expires_at: null,
-          created_at: now,
-          updated_at: now,
-        }
-        rows.set(userId, r)
-        return r
-      }
-      if (
-        existing.status === 'active' &&
-        existing.expires_at &&
-        existing.expires_at.getTime() > now.getTime()
-      ) {
-        if (existing.model !== model) {
-          throw new FreeSessionModelLockedError(existing.model)
-        }
-        existing.active_instance_id = nextInstance
-        existing.updated_at = now
-        return existing
-      }
-      if (existing.status === 'queued') {
-        existing.active_instance_id = nextInstance
-        if (existing.model !== model) {
-          existing.model = model
-          existing.queued_at = now
-        }
-        existing.access_tier = accessTier
-        existing.updated_at = now
-        return existing
-      }
-      existing.status = 'queued'
-      existing.active_instance_id = nextInstance
-      existing.model = model
-      existing.access_tier = accessTier
-      existing.queued_at = now
-      existing.admitted_at = null
-      existing.expires_at = null
-      existing.updated_at = now
-      return existing
     },
     // — Desktop multi-session in-memory store, keyed by `${userId}::${instanceId}`.
     getDesktopSessionRow: async (userId, instanceId) =>
@@ -340,7 +317,7 @@ describe('requestSession', () => {
     deps = makeDeps()
   })
 
-  test('banned user is rejected before joinOrTakeOver runs', async () => {
+  test('banned user is rejected before admitOrTakeOver runs', async () => {
     const state = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
@@ -348,7 +325,7 @@ describe('requestSession', () => {
       deps,
     })
     expect(state).toEqual({ status: 'banned' })
-    // No row should be created — banned bots never reach joinOrTakeOver.
+    // No row should be created — banned bots never reach admitOrTakeOver.
     expect(deps.rows.size).toBe(0)
   })
 
@@ -365,77 +342,34 @@ describe('requestSession', () => {
     expect(deps.rows.get('u1')?.status).toBe('active')
   })
 
-  test('concurrent admit: promote no-op falls back to the active row, not queued', async () => {
-    // Simulate a racing request that already flipped the row to active: this
-    // request's promote matches nothing (returns null), but a re-read finds the
-    // active row. We must surface `active`, never a phantom `queued` view.
-    deps.promoteQueuedUser = async ({ userId, now }) => {
-      const row = deps.rows.get(userId)!
-      row.status = 'active'
-      row.admitted_at = now
-      row.expires_at = new Date(now.getTime() + SESSION_LEN)
-      return null // our UPDATE matched nothing because the row was already active
+  test('broken admit contract (row maps to no view) returns `none`, never throws', async () => {
+    // Defensive path: admitOrTakeOver must return an active, unexpired row; if
+    // that contract is ever broken (e.g. a store regression hands back a
+    // transient queued row), requestSession answers with the GET-shaped `none`
+    // instead of a 500 — the CLI lands on the picker rather than the generic
+    // error path.
+    deps.admitOrTakeOver = async ({ userId, model, accessTier, now }) => {
+      const row: InternalSessionRow = {
+        user_id: userId,
+        status: 'queued',
+        active_instance_id: 'inst-broken',
+        model,
+        access_tier: accessTier,
+        queued_at: now,
+        admitted_at: null,
+        expires_at: null,
+        created_at: now,
+        updated_at: now,
+      }
+      deps.rows.set(userId, row)
+      return { row, freshlyAdmitted: false }
     }
     const state = await requestSession({
       userId: 'u1',
       model: DEFAULT_MODEL,
       deps,
     })
-    expect(state.status).toBe('active')
-  })
-
-  test('concurrent model-switch race: loser recovers and admits the switched model', async () => {
-    // Real race: our model-scoped promote matches nothing because a concurrent
-    // request switched the queued row to another model. The recovery re-reads
-    // and promotes whatever queued row now exists — no throw, ends active.
-    const SWITCHED = 'minimax/minimax-m3'
-    let calls = 0
-    deps.promoteQueuedUser = async ({
-      userId,
-      model,
-      now,
-      sessionLengthMs,
-    }) => {
-      calls++
-      const row = deps.rows.get(userId)!
-      if (calls === 1) {
-        // a concurrent switch flipped the queued row to a different model
-        row.model = SWITCHED
-        return null
-      }
-      if (row.status === 'queued' && row.model === model) {
-        row.status = 'active'
-        row.admitted_at = now
-        row.expires_at = new Date(now.getTime() + sessionLengthMs)
-        return row
-      }
-      return null
-    }
-    const state = await requestSession({
-      userId: 'u1',
-      model: DEFAULT_MODEL,
-      deps,
-    })
-    expect(state.status).toBe('active')
-    if (state.status !== 'active') throw new Error('unreachable')
-    expect(state.model).toBe(SWITCHED)
-    expect(calls).toBe(2)
-  })
-
-  test('promote that never succeeds throws (transient queued maps to no view)', async () => {
-    // Pathological: promotion can never flip the row (cannot happen against the
-    // real DB, where a fresh queued row always matches). A queued row is never
-    // surfaced to the wire — it maps to no view — so requestSession throws
-    // rather than returning a `queued` response. A GET poll then self-heals to
-    // `none`.
-    deps.promoteQueuedUser = async () => null
-    await expect(
-      requestSession({
-        userId: 'u1',
-        model: DEFAULT_MODEL,
-        deps,
-      }),
-    ).rejects.toThrow(/maps to no view/)
+    expect(state.status).toBe('none')
   })
 
   test('removed GLM 5.1 request falls back to the default model', async () => {

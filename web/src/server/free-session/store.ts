@@ -28,22 +28,25 @@ export async function getSessionRow(
 }
 
 /**
- * Join the queue (or take over an existing row with a new instance_id).
+ * Atomically admit (or take over) the user's single free session in ONE
+ * transaction — the upsert, the promotion to active, and the quota-accounting
+ * admit row all commit together under the upserted row's lock, so concurrent
+ * same-account requests (parallel POSTs, DELETE /session, the expiry sweep)
+ * serialize instead of interleaving. `status=queued` exists only transiently
+ * inside this transaction and is never observable from outside it.
  *
  * Semantics:
- *   - If no row exists: insert status=queued for `model`, fresh instance_id,
- *     queued_at=now.
+ *   - If no row exists: insert + admit an active session for `model`
+ *     (freshlyAdmitted=true).
  *   - If row exists and active+unexpired and model matches: rotate
- *     instance_id (takeover), preserve status/admitted_at/expires_at.
+ *     instance_id (takeover), preserve admitted_at/expires_at and upstream
+ *     pins (freshlyAdmitted=false).
  *   - If row exists and active+unexpired but the user picked a different
- *     model: reject with `model_locked` — the active session is bound to the
- *     model it was admitted with. The CLI should end the session first.
- *   - If row exists and expired: reset to queued with fresh instance_id,
- *     fresh queued_at, and the requested model — effectively re-queue at
- *     the back of the new model's queue.
- *   - If row exists and already queued: if model matches, rotate
- *     instance_id and preserve queued_at; if model differs, switch model
- *     and reset queued_at to now (move to back of the new queue).
+ *     model: throw FreeSessionModelLockedError — the active session is bound
+ *     to the model it was admitted with. The CLI should end the session
+ *     first. The transaction aborts, leaving the row untouched.
+ *   - If row exists and expired (or is a stranded pre-deploy `queued` row):
+ *     re-admit a fresh active session for `model` (freshlyAdmitted=true).
  *
  * Never trusts client-supplied timestamps or instance ids.
  */
@@ -93,16 +96,36 @@ function countryAccessColumns(
   }
 }
 
-export async function joinOrTakeOver(params: {
+export interface AdmitOrTakeOverResult {
+  row: InternalSessionRow
+  /** True when this call started a new session (and wrote its quota-accounting
+   *  admit row); false for a takeover of an active+unexpired same-model row. */
+  freshlyAdmitted: boolean
+}
+
+export async function admitOrTakeOver(params: {
   userId: string
   model: string
   accessTier: FreebuffAccessTier
   now: Date
+  sessionLengthMs: number
+  /** Sticky upstream pin for a fresh admission (see `routeForAdmission`).
+   *  Ignored on takeover, which keeps the row's existing pin. */
+  fireworksRoute?: FireworksRoute | null
   countryAccess?: FreeSessionCountryAccessMetadata
-}): Promise<InternalSessionRow> {
-  const { userId, model, accessTier, now, countryAccess } = params
+}): Promise<AdmitOrTakeOverResult> {
+  const {
+    userId,
+    model,
+    accessTier,
+    now,
+    sessionLengthMs,
+    fireworksRoute,
+    countryAccess,
+  } = params
   const nextInstanceId = newInstanceId()
   const countryAccessUpdate = countryAccessColumns(countryAccess)
+  const expiresAt = new Date(now.getTime() + sessionLengthMs)
 
   // postgres-js does NOT coerce raw JS Date values when they're interpolated
   // inside a `sql\`...\`` fragment (the column-type hint that Drizzle's
@@ -112,83 +135,142 @@ export async function joinOrTakeOver(params: {
   // Single UPSERT that encodes every case in one round-trip, race-safe
   // against concurrent POSTs for the same user (the PK would otherwise turn
   // two parallel INSERTs into a 500). Inside ON CONFLICT DO UPDATE, bare
-  // column references resolve to the existing row.
+  // column references resolve to the existing row. Any branch that lands on
+  // `queued` is promoted to active further down in the SAME transaction —
+  // `queued` never escapes this function.
   //
-  // Decision table (pre-update state → post-update state):
-  //   no row                     → INSERT: status=queued, queued_at=now,
-  //                                model=$model
+  // Decision table (pre-update state → post-upsert state):
+  //   no row                     → INSERT: transient queued for $model
   //   active & expires_at > now  →
   //     same model: rotate instance_id only (takeover)
   //     diff model: throw FreeSessionModelLockedError post-fetch (we can't
   //       easily express the reject-without-update branch in a single UPSERT;
   //       see below)
-  //   queued, same model         → rotate instance_id, preserve queued_at
-  //   queued, diff model         → switch model, reset queued_at=now
-  //                                (move to back of new queue)
-  //   active & expired           → re-queue at back: status=queued,
-  //                                queued_at=now, model=$model,
-  //                                admitted_at/expires_at=null
+  //   queued (stranded) or       → transient queued for $model,
+  //   active & expired             admitted_at/expires_at reset
   const activeUnexpired = sql`${schema.freeSession.status} = 'active' AND ${schema.freeSession.expires_at} > ${nowIso}`
   const sameModel = sql`${schema.freeSession.model} = ${model}`
 
-  const [row] = await db
-    .insert(schema.freeSession)
-    .values({
-      user_id: userId,
-      status: 'queued',
-      active_instance_id: nextInstanceId,
-      model,
-      access_tier: accessTier,
-      ...countryAccessUpdate,
-      queued_at: now,
-      created_at: now,
-      updated_at: now,
+  // Retried: the upsert takes this user's row lock and the promote UPDATE
+  // extends it, so a dead peer holding the row can trip the pooled client's
+  // lock_timeout (55P03). A failed attempt rolls back wholesale — no partial
+  // writes — and `now`/`nextInstanceId` are captured outside the callback, so
+  // re-running is deterministic and safe. FreeSessionModelLockedError carries
+  // no PG code, so `retryIf` never retries it — the locked path fails fast.
+  const result = await withRetriedTransaction({
+    callback: async (tx): Promise<AdmitOrTakeOverResult> => {
+      const [row] = await tx
+        .insert(schema.freeSession)
+        .values({
+          user_id: userId,
+          status: 'queued',
+          active_instance_id: nextInstanceId,
+          model,
+          access_tier: accessTier,
+          ...countryAccessUpdate,
+          queued_at: now,
+          created_at: now,
+          updated_at: now,
+        })
+        .onConflictDoUpdate({
+          target: schema.freeSession.user_id,
+          set: {
+            // For active+unexpired rows the instance_id only rotates if the model
+            // matches; otherwise we keep the existing id so the active session
+            // stays valid for the other CLI/tab. We then detect the mismatch
+            // post-update and throw, so the caller can return a clean error.
+            active_instance_id: sql`CASE
+              WHEN ${activeUnexpired} AND NOT (${sameModel}) THEN ${schema.freeSession.active_instance_id}
+              ELSE ${nextInstanceId}
+            END`,
+            ...countryAccessUpdate,
+            updated_at: now,
+            status: sql`CASE WHEN ${activeUnexpired} THEN 'active'::free_session_status ELSE 'queued'::free_session_status END`,
+            // Keep model when active+unexpired (locked); switch otherwise.
+            model: sql`CASE
+              WHEN ${activeUnexpired} THEN ${schema.freeSession.model}
+              ELSE ${model}
+            END`,
+            access_tier: sql`CASE
+              WHEN ${activeUnexpired} THEN ${schema.freeSession.access_tier}
+              ELSE ${accessTier}::freebuff_access_tier
+            END`,
+            queued_at: sql`CASE
+              WHEN ${activeUnexpired} THEN ${schema.freeSession.queued_at}
+              WHEN ${schema.freeSession.status} = 'queued' AND ${sameModel} THEN ${schema.freeSession.queued_at}
+              ELSE ${nowIso}
+            END`,
+            admitted_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.admitted_at} ELSE NULL END`,
+            expires_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.expires_at} ELSE NULL END`,
+          },
+        })
+        .returning()
+
+      if (!row) {
+        throw new Error(`admitOrTakeOver returned no row for user=${userId}`)
+      }
+
+      // Active sessions are locked to their original model — surface a typed
+      // error so the public API can translate it into a structured response.
+      // (Throwing aborts the transaction, so the locked path leaves the row
+      // untouched.)
+      if (row.status === 'active' && row.model !== model) {
+        throw new FreeSessionModelLockedError(row.model)
+      }
+
+      // Takeover: the existing active session survives as-is (instance id
+      // rotated by the upsert), keeping its upstream pins. No admit accounting.
+      if (row.status === 'active') {
+        return { row: row as InternalSessionRow, freshlyAdmitted: false }
+      }
+
+      // Fresh admission: the upsert left a transient `queued` row that this
+      // transaction holds the row lock on — concurrent same-account requests
+      // (POST upserts, DELETE /session's SELECT FOR UPDATE, the expiry sweep)
+      // block until we commit, so the promote below can never miss. Flipping
+      // to active and writing the quota-accounting admit row in the same
+      // transaction is what closes the old joinOrTakeOver→promoteQueuedUser
+      // race (a promote that matched nothing left a row that maps to no view).
+      const [admitted] = await tx
+        .update(schema.freeSession)
+        .set({
+          status: 'active',
+          admitted_at: now,
+          expires_at: expiresAt,
+          fireworks_route: fireworksRoute ?? null,
+          updated_at: now,
+        })
+        .where(eq(schema.freeSession.user_id, userId))
+        .returning()
+      if (!admitted) {
+        // Unreachable: we hold the row lock from the upsert above.
+        throw new Error(`admitOrTakeOver lost its locked row (user=${userId})`)
+      }
+      await tx.insert(schema.freeSessionAdmit).values({
+        user_id: userId,
+        model,
+        access_tier: admitted.access_tier ?? 'full',
+        admitted_at: now,
+      })
+      return { row: admitted as InternalSessionRow, freshlyAdmitted: true }
+    },
+    context: { userId, model, operation: 'admitOrTakeOver' },
+    logger,
+  })
+
+  if (result.freshlyAdmitted) {
+    // Mark the referred user's unified referral as activated at this admit's
+    // tier (docs/referrals.md). Best-effort and idempotent — a no-op for users
+    // with no referral row; never blocks or fails the admission.
+    await recordReferralV2Activation({
+      referredId: userId,
+      accessTier: result.row.access_tier ?? 'full',
+      now,
+    }).catch((error) => {
+      logger.warn({ error, userId }, 'Failed to record referral_v2 activation')
     })
-    .onConflictDoUpdate({
-      target: schema.freeSession.user_id,
-      set: {
-        // For active+unexpired rows the instance_id only rotates if the model
-        // matches; otherwise we keep the existing id so the active session
-        // stays valid for the other CLI/tab. We then detect the mismatch
-        // post-update and throw, so the caller can return a clean error.
-        active_instance_id: sql`CASE
-          WHEN ${activeUnexpired} AND NOT (${sameModel}) THEN ${schema.freeSession.active_instance_id}
-          ELSE ${nextInstanceId}
-        END`,
-        ...countryAccessUpdate,
-        updated_at: now,
-        status: sql`CASE WHEN ${activeUnexpired} THEN 'active'::free_session_status ELSE 'queued'::free_session_status END`,
-        // Keep model when active+unexpired (locked); switch otherwise.
-        model: sql`CASE
-          WHEN ${activeUnexpired} THEN ${schema.freeSession.model}
-          ELSE ${model}
-        END`,
-        access_tier: sql`CASE
-          WHEN ${activeUnexpired} THEN ${schema.freeSession.access_tier}
-          ELSE ${accessTier}::freebuff_access_tier
-        END`,
-        queued_at: sql`CASE
-          WHEN ${activeUnexpired} THEN ${schema.freeSession.queued_at}
-          WHEN ${schema.freeSession.status} = 'queued' AND ${sameModel} THEN ${schema.freeSession.queued_at}
-          ELSE ${nowIso}
-        END`,
-        admitted_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.admitted_at} ELSE NULL END`,
-        expires_at: sql`CASE WHEN ${activeUnexpired} THEN ${schema.freeSession.expires_at} ELSE NULL END`,
-      },
-    })
-    .returning()
-
-  if (!row) {
-    throw new Error(`joinOrTakeOver returned no row for user=${userId}`)
   }
-
-  // Active sessions are locked to their original model — surface a typed
-  // error so the public API can translate it into a structured response.
-  if (row.status === 'active' && row.model !== model) {
-    throw new FreeSessionModelLockedError(row.model)
-  }
-
-  return row as InternalSessionRow
+  return result
 }
 
 export function getRoundedSessionUnits(params: {
@@ -361,79 +443,6 @@ export async function sweepExpired(
       .returning({ user_id: schema.freeSessionDesktop.user_id }),
   ])
   return deleted.length + deletedDesktop.length
-}
-
-/**
- * Promote a specific queued user to active. Used by the instant-admit path
- * in `requestSession` when the model's active-session count is below its
- * configured capacity — skips the FIFO advisory-lock dance because each
- * call targets a distinct (user_id, model) and the UPDATE is a no-op if
- * the row isn't queued any more.
- *
- * Returns the updated row or null if the row was not in the expected
- * (queued, same-model) state.
- */
-export async function promoteQueuedUser(params: {
-  userId: string
-  model: string
-  sessionLengthMs: number
-  now: Date
-  /** Sticky upstream pin for the admitted session (see `routeForAdmission`).
-   *  Decided from the deployment's health at admission and frozen for the
-   *  session's life; null for models with no serverless backup. */
-  fireworksRoute?: FireworksRoute | null
-}): Promise<InternalSessionRow | null> {
-  const { userId, model, sessionLengthMs, now, fireworksRoute } = params
-  const expiresAt = new Date(now.getTime() + sessionLengthMs)
-  // Retried: the UPDATE can hit the pooled client's lock_timeout (55P03) if a
-  // dead peer holds this user's row; a failed attempt rolls back wholesale, so
-  // re-running is safe (the queued-status guard makes the UPDATE a no-op once
-  // a prior attempt committed).
-  const session = await withRetriedTransaction({
-    callback: async (tx) => {
-      const [row] = await tx
-        .update(schema.freeSession)
-        .set({
-          status: 'active',
-          admitted_at: now,
-          expires_at: expiresAt,
-          fireworks_route: fireworksRoute ?? null,
-          updated_at: now,
-        })
-        .where(
-          and(
-            eq(schema.freeSession.user_id, userId),
-            eq(schema.freeSession.status, 'queued'),
-            eq(schema.freeSession.model, model),
-          ),
-        )
-        .returning()
-      if (!row) return null
-      await tx.insert(schema.freeSessionAdmit).values({
-        user_id: userId,
-        model,
-        access_tier: row.access_tier ?? 'full',
-        admitted_at: now,
-      })
-      return row as InternalSessionRow
-    },
-    context: { userId, model, operation: 'promoteQueuedUser' },
-    logger,
-  })
-
-  if (session) {
-    // Mark the referred user's unified referral as activated at this admit's
-    // tier (docs/referrals.md). Best-effort and idempotent — a no-op for users
-    // with no referral row; never blocks or fails the admission.
-    await recordReferralV2Activation({
-      referredId: userId,
-      accessTier: session.access_tier ?? 'full',
-      now,
-    }).catch((error) => {
-      logger.warn({ error, userId }, 'Failed to record referral_v2 activation')
-    })
-  }
-  return session
 }
 
 /**
@@ -670,7 +679,12 @@ export async function admitDesktopSession(params: {
           ),
         )
         .returning()
-      return row as InternalSessionRow
+      // The row can vanish between the caller's `existing` read and this
+      // UPDATE (a concurrent DELETE for the tab, or the expiry sweep past
+      // grace). Matching zero rows used to bubble up as a 500 from
+      // requestDesktopSession's "unreachable" guard; for a live tab that is
+      // simply a fresh admission — fall through to the quota-accounted INSERT.
+      if (row) return row as InternalSessionRow
     }
 
     const inserted = await db.transaction(async (tx) => {
