@@ -19,7 +19,7 @@ export async function importFilesystemSnapshot(
   container: WebContainer,
   compressed: Uint8Array,
 ): Promise<void> {
-  const decompressed = decompressWithLz4(compressed);
+  const decompressed = await decompressWithLz4(compressed);
   await container.mount(decompressed);
 }
 

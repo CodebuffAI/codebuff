@@ -104,7 +104,7 @@ export async function restoreNodeModulesFromCache(
   if (!compressed) return false;
 
   try {
-    const binary = decompressWithLz4(compressed);
+    const binary = await decompressWithLz4(compressed);
     // Mount under node_modules explicitly. Without mountPoint, a binary export
     // of "node_modules" can leak package folders at project root.
     await container.mount(
@@ -131,7 +131,7 @@ export function cacheNodeModulesInBackground(
     try {
       console.log("[WebContainer] caching node_modules to IndexedDB…");
       const binary = await container.export("node_modules", { format: "binary" });
-      const compressed = compressWithLz4(binary as Uint8Array);
+      const compressed = await compressWithLz4(binary as Uint8Array);
       await setCache(packageJsonHash, compressed);
       console.log(
         `[WebContainer] node_modules cached (${(compressed.byteLength / 1024 / 1024).toFixed(1)} MB compressed)`,

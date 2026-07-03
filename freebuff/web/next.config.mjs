@@ -57,10 +57,12 @@ const nextConfig = {
     'exceljs',
     'turndown',
     'turndown-plugin-gfm',
-    // Ships a .wasm binary (lz4_wasm_bg.wasm) that webpack can't parse without
-    // asyncWebAssembly enabled. Used only in client-side WebContainer code;
-    // excluding it from the server bundle avoids the server-side parse error.
-    'lz4-wasm',
+    // NOTE: lz4-wasm is intentionally NOT listed here. serverExternalPackages
+    // only works for packages Node can require() at runtime; lz4-wasm is an
+    // ESM-only wasm-pack bundler build, so Next bundles it into the SSR layer
+    // anyway and the server then tries to read the emitted wasm chunk during
+    // SSR (ENOENT in prod). It's aliased to `false` in the server webpack
+    // config below instead.
   ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
@@ -78,12 +80,21 @@ const nextConfig = {
         ? monorepoRoot
         : import.meta.dirname,
   },
-  webpack: (config) => {
-    // Enable WebAssembly for the client bundle so lz4-wasm (used in
-    // WebContainer snapshot compression) can load its .wasm binary.
-    config.experiments = {
-      ...config.experiments,
-      asyncWebAssembly: true,
+  webpack: (config, { isServer }) => {
+    // lz4-wasm is browser-only (WebContainer snapshot compression). Client
+    // components still compile into the server's SSR bundle, where the wasm
+    // chunk gets emitted but can't be read at runtime — so stub the package
+    // out of the server build entirely and enable wasm only for the client.
+    if (isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'lz4-wasm': false,
+      }
+    } else {
+      config.experiments = {
+        ...config.experiments,
+        asyncWebAssembly: true,
+      }
     }
     config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     config.externals.push(
