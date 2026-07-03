@@ -485,9 +485,16 @@ export async function executeClaudeCode(
     }
 
     const runClaudeCommandAndProcessOutput = async (command: string) => {
-      // Run command via PTY following Daytona documentation pattern
-      // Note: Working directory is set to /home/daytona/codebase via codebase.runPtyCommand
-      const ptyPromise = codebase.runPtyCommand(command, processOutputLines);
+      // Run via a script file rather than typing the whole command into the
+      // PTY. Daytona's PTY input intermittently drops/doubles characters on
+      // long commands, which can silently corrupt credential env vars/flags.
+      // Uploading the command via the fs API and running `bash <path>` removes
+      // that class of transit corruption while preserving streaming + exit code.
+      const ptyPromise = codebase.runPtyCommandViaScript(
+        command,
+        processOutputLines,
+        { scriptPath: `/home/daytona/.vly-claude-run-${args.messageId}.sh` },
+      );
 
       // Terminate early once we've received final usage/result info.
       // This prevents Claude CLI sessions from hanging after work is complete.

@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from '@/vly/components/ui/tooltip'
 import { toast } from 'sonner'
+import { CloudGitDiffDialog } from './CloudGitDiffDialog'
 
 // Auto-refresh the sandbox-backed status at most once per mount, and only when
 // the cached snapshot is missing or older than this. Steady-state cost is zero
@@ -85,6 +86,7 @@ export function CloudGitControls({
   const [branchOpen, setBranchOpen] = useState(false)
   const [commitOpen, setCommitOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [diffOpen, setDiffOpen] = useState(false)
   const [newBranch, setNewBranch] = useState('')
   const [commitMessage, setCommitMessage] = useState('')
 
@@ -333,7 +335,12 @@ export function CloudGitControls({
         {isDirty ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex cursor-default items-center gap-1 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setDiffOpen(true)}
+                aria-label="View diff of uncommitted changes"
+                className="flex items-center gap-1 rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
                 <span className="font-medium text-foreground/80">
                   {changedFiles}
                 </span>
@@ -343,7 +350,7 @@ export function CloudGitControls({
                     <span className="text-rose-400">-{deletions}</span>
                   </span>
                 )}
-              </span>
+              </button>
             </TooltipTrigger>
             <StatusTooltip>
               <span className="font-medium">
@@ -357,6 +364,7 @@ export function CloudGitControls({
                   <span className="text-rose-400">-{deletions}</span> removed
                 </span>
               )}
+              <span className="text-muted-foreground"> · click to view diff</span>
             </StatusTooltip>
           </Tooltip>
         ) : (
@@ -531,6 +539,13 @@ export function CloudGitControls({
           </GitIconButton>
         </span>
       </div>
+
+      <CloudGitDiffDialog
+        open={diffOpen}
+        onOpenChange={setDiffOpen}
+        semanticIdentifier={semanticIdentifier}
+        currentBranch={currentBranch}
+      />
     </div>
   )
 }

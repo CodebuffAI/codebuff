@@ -636,10 +636,16 @@ export async function executeGemini(
       // SECURITY: Don't log error details - may contain sensitive data
     }
 
-    // Run command via PTY following Daytona documentation pattern
-    // Note: Working directory is set to /home/daytona/codebase via codebase.runPtyCommand
-    // We'll use a Promise.race to allow early termination when result is received
-    const ptyPromise = codebase.runPtyCommand(fullCommand, processOutputLines);
+    // Run via a script file rather than typing the whole command into the PTY.
+    // Daytona's PTY input intermittently drops/doubles characters on long
+    // commands, which can silently corrupt credential env vars/flags. Uploading
+    // the command via the fs API and running `bash <path>` removes that class
+    // of transit corruption while preserving output streaming + exit code.
+    const ptyPromise = codebase.runPtyCommandViaScript(
+      fullCommand,
+      processOutputLines,
+      { scriptPath: `/home/daytona/.vly-gemini-run-${args.messageId}.sh` },
+    );
 
     // Create a promise that resolves when we should terminate
     const terminationPromise = new Promise<{ exitCode: number | null }>(

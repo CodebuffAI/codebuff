@@ -3563,6 +3563,48 @@ if (!hasIntegration) {
       }
     });
   }
+
+  /**
+   * Run a shell command through a PTY *without* typing the full command over
+   * the wire. Daytona's PTY `sendInput()` intermittently drops or doubles
+   * characters on long inputs — observed in the wild as `npm-gllobal`,
+   * `VLY_CCODEX_USE_STORED_CREDENTIALS`, `.vly-coonvex`, etc. A single mangled
+   * character silently corrupts an env-var name or flag (e.g. codex then never
+   * enables stored-credential mode and exits non-zero with no output), and the
+   * per-pattern sanitizer can only patch corruptions we've already seen.
+   *
+   * Instead we upload the command to a script file via the reliable fs API and
+   * type only a short, corruption-resistant `bash <path>` into the PTY. This
+   * eliminates the entire class of transit corruption while preserving output
+   * streaming and the command's exit code. A rare corruption in the short
+   * `bash <path>` line now fails cleanly (file-not-found) rather than silently
+   * mangling the real command.
+   */
+  async runPtyCommandViaScript(
+    command: string,
+    onStdout: (data: string) => void | Promise<void>,
+    options?: { scriptPath?: string; ptyId?: string },
+  ): Promise<{ exitCode: number | null; error?: string }> {
+    const scriptPath = options?.scriptPath ?? "/home/daytona/.vly-run.sh";
+
+    await this.withRetry(async () => {
+      if (!this.sandbox) {
+        throw new Error("SANDBOX NOT ACTIVE");
+      }
+      // Trailing newline so a shell reading the last line still sees it.
+      await this.sandbox.fs.uploadFile(
+        Buffer.from(`${command}\n`),
+        scriptPath,
+        10,
+      );
+    });
+
+    return this.runPtyCommand(
+      `bash ${scriptPath}`,
+      onStdout,
+      options?.ptyId,
+    );
+  }
 }
 
 /**

@@ -1043,9 +1043,17 @@ export async function executeCodex(
     // still hydrate from the local state after the run as a fallback.
 
     const runCodexCommandAndProcessOutput = async (command: string) => {
-      // Run command via PTY following Daytona documentation pattern
-      // Note: Working directory is set to /home/daytona/codebase via codebase.runPtyCommand
-      const ptyPromise = codebase.runPtyCommand(command, processOutputLines);
+      // Run via a script file rather than typing the whole command into the
+      // PTY. Daytona's PTY input intermittently drops/doubles characters on
+      // long commands (e.g. `VLY_CCODEX_USE_STORED_CREDENTIALS`, `npm-gllobal`),
+      // which silently corrupts the stored-credential env var so codex runs
+      // with no auth and exits non-zero. Uploading the command via the fs API
+      // and running `bash <path>` removes that corruption class entirely.
+      const ptyPromise = codebase.runPtyCommandViaScript(
+        command,
+        processOutputLines,
+        { scriptPath: `/home/daytona/.vly-codex-run-${args.messageId}.sh` },
+      );
 
       // Terminate early once Codex emits final turn usage.
       // This prevents the workflow from waiting on lingering CLI sessions.

@@ -180,10 +180,10 @@ async function computeGitStatus(
     "git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null",
     "printf '##PORC##\\n'",
     "git status --porcelain 2>/dev/null",
-    "printf '##UNSTAGED##\\n'",
-    "git diff --shortstat 2>/dev/null",
-    "printf '##STAGED##\\n'",
-    "git diff --cached --shortstat 2>/dev/null",
+    // vs HEAD so staged + unstaged edits to the same line count once; this is
+    // the same diff the "view changes" dialog renders, so the numbers agree.
+    "printf '##TRACKED##\\n'",
+    "git diff HEAD --shortstat 2>/dev/null",
     "printf '##UP##\\n'",
     "git rev-list --left-right --count @{upstream}...HEAD 2>/dev/null",
     "printf '##DEF##\\n'",
@@ -209,8 +209,7 @@ async function computeGitStatus(
     .split(/\r?\n/)
     .filter((l) => l.trim().length > 0).length;
 
-  const unstaged = parseShortstat(s.UNSTAGED || "");
-  const staged = parseShortstat(s.STAGED || "");
+  const tracked = parseShortstat(s.TRACKED || "");
 
   const upstream = parseLeftRight(s.UP || "");
   const fromDefault = parseLeftRight(s.DEF || "");
@@ -221,8 +220,8 @@ async function computeGitStatus(
     branches: branches.length > 0 ? branches : [currentBranch],
     isDirty: changedFiles > 0,
     changedFiles,
-    insertions: unstaged.insertions + staged.insertions,
-    deletions: unstaged.deletions + staged.deletions,
+    insertions: tracked.insertions,
+    deletions: tracked.deletions,
     ahead: upstream?.right ?? 0,
     behind: upstream?.left ?? 0,
     hasUpstream: upstream != null,
@@ -346,9 +345,10 @@ export const getGitDiff = action({
       args.semanticIdentifier,
     );
 
+    // quotepath=false keeps non-ASCII paths readable instead of octal-quoted.
     const command = [
-      "git --no-pager diff HEAD 2>/dev/null",
-      "git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 -r -I{} git --no-pager diff --no-index -- /dev/null {} 2>/dev/null",
+      "git -c core.quotepath=false --no-pager diff HEAD 2>/dev/null",
+      "git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 -r -I{} git -c core.quotepath=false --no-pager diff --no-index -- /dev/null {} 2>/dev/null",
       // xargs exits non-zero because --no-index diffs exit 1 on differences;
       // the output is still what we want.
       "true",

@@ -8,6 +8,7 @@ import {
   Settings,
   Home,
   LogOut,
+  Loader2,
   Rocket,
   Github,
   User,
@@ -255,7 +256,11 @@ export function CloudTopBar({
             className="ml-0.5 flex h-7 flex-shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 sm:ml-1"
             aria-label="Publish"
           >
-            <Rocket className="h-3.5 w-3.5" />
+            {isCloudPublishing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Rocket className="h-3.5 w-3.5" />
+            )}
             <span className="hidden sm:inline">
               {isCloudPublishing ? 'Publishing...' : 'Publish'}
             </span>
