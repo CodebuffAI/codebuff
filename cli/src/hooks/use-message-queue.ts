@@ -18,7 +18,14 @@ export const useMessageQueue = (
   sendMessage: (message: QueuedMessage) => Promise<void>,
   isChainInProgressRef: React.MutableRefObject<boolean>,
   activeAgentStreamsRef: React.MutableRefObject<number>,
+  opts: {
+    /** External hold on dequeuing (e.g. the freebuff session ended and new
+     *  requests would be rejected). Queued messages are kept, not dropped;
+     *  processing resumes automatically when this flips back to false. */
+    sendBlocked?: boolean
+  } = {},
 ) => {
+  const sendBlocked = opts.sendBlocked ?? false
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([])
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle')
   const [canProcessQueue, setCanProcessQueue] = useState<boolean>(true)
@@ -79,6 +86,17 @@ export const useMessageQueue = (
       logger.debug(
         { queueLength },
         '[message-queue] Queue blocked: user paused',
+      )
+      return
+    }
+
+    // External hold: sending is currently pointless (e.g. freebuff session
+    // fully ended — requests without a live session are rejected). Leave the
+    // messages queued; the effect below re-runs when sendBlocked flips false.
+    if (sendBlocked) {
+      logger.debug(
+        { queueLength },
+        '[message-queue] Queue blocked: sending unavailable',
       )
       return
     }
@@ -193,6 +211,7 @@ export const useMessageQueue = (
     canProcessQueue,
     streamStatus,
     sendMessage,
+    sendBlocked,
     isChainInProgressRef,
     activeAgentStreamsRef,
   ])

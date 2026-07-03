@@ -206,11 +206,16 @@ export function getFreebuffInstanceId(): string | undefined {
   }
 }
 
-/** True when the session row represents a server-side slot the caller is
+/** True when the session represents a server-side slot the caller is
  *  holding (active, or in the post-expiry grace window with a live
- *  instance id). DELETE only matters in those states; otherwise we'd fire a
- *  spurious request the server has nothing to act on. */
-function shouldReleaseSlot(current: FreebuffSessionResponse | null): boolean {
+ *  instance id). Chat requests are only admissible in these states — once
+ *  the slot is gone, `getFreebuffInstanceId` returns undefined and the
+ *  server rejects the request — so the message queue gates on this before
+ *  firing queued work. Same predicate gates DELETE on exit: outside these
+ *  states there is no server row to release. */
+export function holdsLiveFreebuffSlot(
+  current: FreebuffSessionResponse | null,
+): boolean {
   if (!current) return false
   return (
     current.status === 'active' ||
@@ -253,7 +258,7 @@ function toLandingSession(
  *  server-side sweep is the backstop. */
 async function releaseFreebuffSlot(): Promise<void> {
   const current = useFreebuffSessionStore.getState().session
-  if (!shouldReleaseSlot(current)) return
+  if (!holdsLiveFreebuffSlot(current)) return
   const { token } = getAuthTokenDetails()
   if (!token) return
   try {
@@ -687,7 +692,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
       // Fire-and-forget DELETE. Only release if we actually held a slot so
       // we don't generate spurious DELETEs (e.g. HMR before POST completes).
-      if (shouldReleaseSlot(current)) {
+      if (holdsLiveFreebuffSlot(current)) {
         callSession('DELETE', token).catch(() => {})
       }
       setSession(null)

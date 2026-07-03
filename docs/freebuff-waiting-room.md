@@ -293,8 +293,7 @@ For free-mode requests (`codebuff_metadata.cost_mode === 'free'`), `_post.ts` ca
 
 | HTTP | `error`                    | When                                                                                                                                           |
 | ---- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 426  | `freebuff_update_required` | Request did not include a `freebuff_instance_id` — the client is a pre-waiting-room build. The CLI shows the server-supplied message verbatim. |
-| 428  | `waiting_room_required`    | No session row exists. Client should call POST /session.                                                                                       |
+| 428  | `waiting_room_required`    | No session row exists, or the request carried no `freebuff_instance_id` (client isn't holding a session). Client should call POST /session.    |
 | 429  | `waiting_room_queued`      | Row exists with `status='queued'`. Client should keep polling GET.                                                                             |
 | 409  | `session_superseded`       | Claimed `instance_id` does not match stored one — another CLI took over.                                                                       |
 | 410  | `session_expired`          | `expires_at + grace < now()` (past the hard cutoff). Client should POST /session to re-queue.                                                  |

@@ -1517,7 +1517,7 @@ describe('checkSessionAdmissible', () => {
     deps = makeDeps()
   })
 
-  test('missing instance id always requires an update, even with requireActiveSession', async () => {
+  test('missing instance id → waiting_room_required, even with requireActiveSession', async () => {
     const result = await checkSessionAdmissible({
       userId: 'u1',
       claimedInstanceId: undefined,
@@ -1527,7 +1527,7 @@ describe('checkSessionAdmissible', () => {
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('unreachable')
-    expect(result.code).toBe('freebuff_update_required')
+    expect(result.code).toBe('waiting_room_required')
   })
 
   test('instance id but no row → waiting_room_required', async () => {
@@ -1750,9 +1750,11 @@ describe('checkSessionAdmissible', () => {
     expect(result.code).toBe('session_superseded')
   })
 
-  test('missing instance id → freebuff_update_required (pre-waiting-room CLI)', async () => {
-    // Classified up front regardless of row state: old clients never send an
-    // id, so we surface a distinct code that maps to 426 Upgrade Required.
+  test('missing instance id → waiting_room_required regardless of row state', async () => {
+    // Classified up front: a request with no instance id isn't presenting a
+    // session, even if a row happens to exist for the user. Returning
+    // session_superseded here (via the id-mismatch check) would mislead —
+    // there is no "other instance", the client just isn't holding a seat.
     await requestSession({ userId: 'u1', model: DEFAULT_MODEL, deps })
     const row = deps.rows.get('u1')!
     row.status = 'active'
@@ -1765,7 +1767,7 @@ describe('checkSessionAdmissible', () => {
       deps,
     })
     if (result.ok) throw new Error('unreachable')
-    expect(result.code).toBe('freebuff_update_required')
+    expect(result.code).toBe('waiting_room_required')
   })
 
   test('active inside grace window → ok with reason=draining', async () => {

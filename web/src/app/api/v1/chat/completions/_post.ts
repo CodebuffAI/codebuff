@@ -301,7 +301,6 @@ const STATUS_BY_GATE_CODE = {
   session_superseded: 409,
   session_expired: 410,
   session_model_mismatch: 409,
-  freebuff_update_required: 426,
 } satisfies Record<GateRejectCode, number>
 
 function getHardBlockedFreeModeMessage(

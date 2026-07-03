@@ -1297,9 +1297,6 @@ export type SessionGateResult =
   /** Active session locked to a different model than the one requested. The
    *  CLI should restart its session (DELETE then POST) to switch models. */
   | { ok: false; code: 'session_model_mismatch'; message: string }
-  /** Pre-waiting-room CLI that never sends an instance id. Surfaced as a
-   *  distinct code so the caller can prompt the user to restart. */
-  | { ok: false; code: 'freebuff_update_required'; message: string }
 
 /**
  * Called from the chat/completions hot path for free-mode requests. Either
@@ -1333,16 +1330,19 @@ export async function checkSessionAdmissible(params: {
   const deps = params.deps ?? defaultDeps
   const accessTier = params.accessTier ?? 'full'
 
-  // Pre-waiting-room CLIs never send a freebuff_instance_id. Classify that up
-  // front so the caller gets a distinct code (→ 426 Upgrade Required) and the
-  // user sees a clear "please restart" message instead of a gate reject they
-  // can't interpret.
+  // No freebuff_instance_id means the client isn't holding a session at all —
+  // in practice a CLI whose session fully expired (post-grace) but that still
+  // had queued work to send. Classify as waiting_room_required so the client
+  // surfaces its standard session-ended/rejoin flow. (This used to be a
+  // distinct "please upgrade" code targeting pre-waiting-room CLIs, but those
+  // builds are gone and the message misled current users into thinking their
+  // install was broken.)
   if (!params.claimedInstanceId) {
     return {
       ok: false,
-      code: 'freebuff_update_required',
+      code: 'waiting_room_required',
       message:
-        'This version of freebuff is out of date. Please restart freebuff to upgrade and continue using free mode.',
+        'No active free session. Call POST /api/v1/freebuff/session first.',
     }
   }
 
