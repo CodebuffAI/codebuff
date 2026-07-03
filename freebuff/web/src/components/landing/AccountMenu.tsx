@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Cloud, LogOut, Settings } from 'lucide-react'
+import { Cloud, Gift, LogOut, Settings } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -96,6 +96,13 @@ export function AccountMenu({
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator className="mx-0 my-1 bg-white/10" />
+        <DropdownMenuItem
+          className={ITEM_CLASS}
+          onClick={() => router.push('/web/referrals')}
+        >
+          <Gift className="mr-2.5 h-4 w-4 text-white/45" />
+          Referral link
+        </DropdownMenuItem>
         <DropdownMenuItem
           className={ITEM_CLASS}
           onClick={() => router.push('/web/settings')}
