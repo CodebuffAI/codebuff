@@ -196,6 +196,13 @@ export interface AgentDefinition {
    */
   includeMessageHistory?: boolean
 
+  /** Whether to append model reasoning chunks to this agent's message history.
+   *
+   * Defaults to false for better prompt-cache stability. Enable only when an
+   * agent explicitly needs its hidden reasoning replayed on later turns.
+   */
+  includeReasoningInMessageHistory?: boolean
+
   /** Whether to inherit the parent agent's system prompt instead of using this agent's own systemPrompt.
    *
    * Defaults to false.

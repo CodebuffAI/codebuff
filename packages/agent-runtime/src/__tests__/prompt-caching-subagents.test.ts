@@ -231,6 +231,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ...sessionState.mainAgentState,
       agentId: 'child-agent',
       agentType: 'standalone-child' as const,
+      systemPrompt: '',
       messageHistory: [],
     }
 
@@ -293,6 +294,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ...sessionState.mainAgentState,
       agentId: 'child-agent',
       agentType: 'message-history-child' as const,
+      systemPrompt: '',
       messageHistory: [
         userMessage('Previous message'),
         assistantMessage('Previous response'),

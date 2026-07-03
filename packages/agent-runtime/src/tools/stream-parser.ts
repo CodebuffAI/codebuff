@@ -8,7 +8,7 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 
 import { processStreamWithTools } from '../tool-stream-parser'
-import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
+import { DEFAULT_INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
 import {
   executeCustomToolCall,
   executeToolCall,
@@ -112,6 +112,9 @@ export async function processStream(
     userId,
   } = params
   const fullResponseChunks: string[] = [fullResponse]
+  const includeReasoningInMessageHistory =
+    agentTemplate.includeReasoningInMessageHistory ??
+    DEFAULT_INCLUDE_REASONING_IN_MESSAGE_HISTORY
 
   // === MUTABLE STATE ===
   const toolResults: ToolMessage[] = []
@@ -505,7 +508,7 @@ export async function processStream(
       }
 
       if (chunk.type === 'reasoning') {
-        if (INCLUDE_REASONING_IN_MESSAGE_HISTORY && chunk.text) {
+        if (includeReasoningInMessageHistory && chunk.text) {
           const last = assistantMessages[assistantMessages.length - 1]
           const lastPart =
             last?.role === 'assistant' && Array.isArray(last.content)

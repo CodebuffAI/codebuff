@@ -1,7 +1,0 @@
-{
-    "name": "@posthog/react-surveys",
-    "private": true,
-    "main": "../dist/umd/surveys/index.js",
-    "module": "../dist/esm/surveys/index.js",
-    "types": "../dist/types/surveys/index.d.ts"
-}

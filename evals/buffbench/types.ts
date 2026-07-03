@@ -44,6 +44,26 @@ export interface BinInstall {
   binPath: string
 }
 
+export interface CacheRecallEvalConfig {
+  /** Minimum cumulative prompt-cache hit ratio required for the eval run. */
+  minCacheHitRatio?: number
+  /** Substrings that must survive in final message history after compaction. */
+  requiredRecallSubstrings?: string[]
+}
+
+export interface CacheRecallEvalResult {
+  passed: boolean
+  cachedInputTokens: number
+  inputTokens: number
+  cacheHitRatio?: number
+  minCacheHitRatio?: number
+  cacheHitRatioPassed: boolean
+  requiredRecallSubstrings: string[]
+  missingRecallSubstrings: string[]
+  recallPassed: boolean
+  failureReason?: string
+}
+
 export interface EvalDataV2 {
   repoUrl: string
   testRepoName?: string
@@ -52,6 +72,7 @@ export interface EvalDataV2 {
   binInstalls?: BinInstall[]
   env?: Record<string, string>
   finalCheckCommands?: string[]
+  cacheRecallEval?: CacheRecallEvalConfig
   evalCommits: EvalCommitV2[]
 }
 
@@ -71,6 +92,7 @@ export interface EvalRun {
   durationMs: number
   error?: string
   finalCheckOutputs?: FinalCheckOutput[]
+  cacheRecallEval?: CacheRecallEvalResult
 }
 
 export interface AgentEvalResults {

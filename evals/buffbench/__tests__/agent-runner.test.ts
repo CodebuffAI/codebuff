@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -10,7 +11,11 @@ import { join } from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
 
-import { runFinalCheckCommands, runWithTimeoutSignal } from '../agent-runner'
+import {
+  runAgentOnCommit,
+  runFinalCheckCommands,
+  runWithTimeoutSignal,
+} from '../agent-runner'
 import { executeInitCommand } from '../setup-test-repo'
 import { ClaudeRunner } from '../runners/claude'
 import { isAbortError } from '../runners/runner'
@@ -119,6 +124,92 @@ describe('external runner abort handling', () => {
       await expect(runPromise).rejects.not.toThrow('failed to start')
       const stagedMarker = await Bun.$`git diff --cached --name-only`.cwd(tmpRoot).text()
       expect(stagedMarker).not.toContain('git-cleanup-marker')
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('runAgentOnCommit', () => {
+  test('computes cache recall eval and appends deterministic final-check output', async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'buffbench-cache-recall-runner-'))
+
+    try {
+      writeFileSync(join(tmpRoot, 'README.md'), 'initial\n')
+      await Bun.$`git init`.cwd(tmpRoot).quiet()
+      await Bun.$`git config user.email test@example.com`.cwd(tmpRoot).quiet()
+      await Bun.$`git config user.name Test`.cwd(tmpRoot).quiet()
+      await Bun.$`git add .`.cwd(tmpRoot).quiet()
+      await Bun.$`git commit -m initial`.cwd(tmpRoot).quiet()
+      const parentSha = execSync('git rev-parse HEAD', {
+        cwd: tmpRoot,
+        encoding: 'utf-8',
+      }).trim()
+
+      const client = {
+        run: async (input: { cwd: string }) => {
+          writeFileSync(join(input.cwd, 'cache-result.txt'), 'changed\n')
+          return {
+            output: { type: 'text' as const, value: 'done' },
+            sessionState: {
+              mainAgentState: {
+                creditsUsed: 25,
+                cacheInputTokens: 750,
+                cacheTotalInputTokens: 1000,
+                messageHistory: [
+                  {
+                    role: 'assistant',
+                    content:
+                      '<knowledge_memory>Validated: typecheck clean</knowledge_memory>',
+                  },
+                ],
+              },
+            },
+          }
+        },
+      }
+
+      const result = await runAgentOnCommit({
+        client: client as any,
+        agentId: 'test-agent',
+        commit: {
+          id: 'cache-recall-task',
+          sha: parentSha,
+          parentSha,
+          spec: 'Verify cache recall metrics.',
+          prompt: 'write a file',
+          supplementalFiles: [],
+          fileDiffs: [],
+        },
+        repoUrl: tmpRoot,
+        localAgentDefinitions: [],
+        printEvents: false,
+        cacheRecallEval: {
+          minCacheHitRatio: 0.7,
+          requiredRecallSubstrings: ['<knowledge_memory>', 'typecheck clean'],
+        },
+      })
+
+      expect(result.error).toBeUndefined()
+      expect(result.cacheRecallEval).toMatchObject({
+        passed: true,
+        cachedInputTokens: 750,
+        inputTokens: 1000,
+        cacheHitRatio: 0.75,
+        cacheHitRatioPassed: true,
+        recallPassed: true,
+      })
+      expect(result.finalCheckOutputs).toHaveLength(1)
+      expect(result.finalCheckOutputs![0]).toMatchObject({
+        command: 'buffbench cache-recall eval',
+        exitCode: 0,
+        stderr: '',
+      })
+      expect(JSON.parse(result.finalCheckOutputs![0]!.stdout)).toMatchObject({
+        passed: true,
+        cacheHitRatio: 0.75,
+      })
+      expect(result.diff).toContain('cache-result.txt')
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true })
     }

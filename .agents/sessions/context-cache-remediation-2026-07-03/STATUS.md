@@ -176,3 +176,107 @@ Gate status:
 Next:
 - Continue to M9 (configurable `INCLUDE_REASONING_IN_MESSAGE_HISTORY`) after confirming OQ2, unless priorities change.
 
+
+<!-- update_plan_status:appended -->
+## M9 complete and validated — 2026-07-03T19:40:48.076Z
+
+M9 is complete and validated.
+
+Changes:
+- `packages/agent-runtime/src/constants.ts`: replaced the hard-coded `INCLUDE_REASONING_IN_MESSAGE_HISTORY = true` with `DEFAULT_INCLUDE_REASONING_IN_MESSAGE_HISTORY = false`.
+- `packages/agent-runtime/src/tools/stream-parser.ts`: reads `agentTemplate.includeReasoningInMessageHistory ?? DEFAULT_INCLUDE_REASONING_IN_MESSAGE_HISTORY` before appending reasoning chunks to assistant message history.
+- `common/src/types/agent-template.ts`, `common/src/types/dynamic-agent-template.ts`, `agents/types/agent-definition.ts`, and `common/src/templates/initial-agents-dir/types/agent-definition.ts`: added the opt-in `includeReasoningInMessageHistory` agent config field with a false default for dynamic agents.
+- `packages/agent-runtime/src/__tests__/stream-parser-reasoning.test.ts`: added default-off coverage and converted existing reasoning-history tests to explicit opt-in coverage.
+- `common/src/__tests__/agent-validation.test.ts` and `common/src/__tests__/handlesteps-parsing.test.ts`: updated typed mock templates for the new parsed default.
+
+Validation:
+- `cd packages/agent-runtime && bun test src/__tests__/stream-parser-reasoning.test.ts && bun run typecheck` -> 4 pass / 0 fail / 6 expect(); typecheck clean.
+- `cd common && bun run typecheck && bun test src/__tests__/agent-validation.test.ts src/__tests__/handlesteps-parsing.test.ts src/types/__tests__/dynamic-agent-template.test.ts` -> typecheck clean; 24 pass / 0 fail / 76 expect().
+- `cd agents && bun run typecheck` -> clean.
+- Configured file-change hooks also passed earlier: typecheck-sdk, typecheck-agents, typecheck-agent-runtime.
+
+Gate status:
+- AC7 met: reasoning replay is now configurable and defaults off, while agents can opt in per template when they need reasoning in later turns.
+
+Next:
+- Continue to M10 (telemetry, evals, validation gates) unless priorities change.
+
+
+<!-- update_plan_status:appended -->
+## M10 telemetry validation checkpoint — 2026-07-03T20:10:32.459Z
+
+M10 telemetry subset is validated and ready to continue.
+
+Completed in this checkpoint:
+- M10.1 cache-efficiency snapshot metric: `cacheEfficiency.cachedInputTokenRatio`, `inputTokens`, and `cachedInputTokens` are written during usage enrichment.
+- M10.3 emergency-trim telemetry surface: SDK request-time trim forwards `CACHE_EMERGENCY_TRIM` to `trackEvent` with context-window, token, message-count, user-input, and model properties.
+
+Validation passed:
+- `cd packages/agent-runtime && bun test src/util/__tests__/cache-debug.test.ts && bun run typecheck` -> 15 pass / 0 fail / 55 expect(); typecheck clean.
+- `cd sdk && bun test src/impl/__tests__/llm-context-window.test.ts && bun run typecheck` -> 5 pass / 0 fail / 17 expect(); typecheck clean.
+
+Pending:
+- M10.2 add/define buffbench cache-hit + post-compaction recall eval scenario.
+- M10.4 run final/full validation after M10.2 or after deciding M10.2 is deferred/out-of-scope for this pass.
+
+Next action: inspect buffbench fixture/eval entry points and decide the smallest maintainable scenario for cache-hit ratio + recall assertions.
+
+
+<!-- update_plan_status:appended -->
+## M10.2 cache recall eval validated — 2026-07-03T20:22:27.591Z
+
+M10.2 cache/recall eval scenario is implemented and focused validation is green.
+
+Completed:
+- Added `evals/buffbench/cache-recall-eval.ts` with deterministic cache usage metric computation and recall evaluation.
+- Threaded optional cache-recall eval config/result types through buffbench runner interfaces and Codebuff runner step collection.
+- Added deterministic final-check output conversion so cache recall failures surface through existing final-check reporting.
+- Added run-buffbench coverage for passing/failing cache recall checks and final-check output.
+
+Validation passed:
+- `cd evals && bun test buffbench/__tests__/run-buffbench.test.ts && bun run typecheck` -> 7 pass / 0 fail / 25 expect(); typecheck clean.
+- `cd packages/agent-runtime && bun test src/util/__tests__/cache-debug.test.ts && bun run typecheck && cd ../../sdk && bun test src/impl/__tests__/llm-context-window.test.ts && bun run typecheck` -> cache-debug 15 pass / 0 fail / 55 expect(); SDK llm-context-window 5 pass / 0 fail / 17 expect(); both typechecks clean.
+
+Pending:
+- M10.4 remains pending for final/full-suite validation and any automated reviewer gate resolution.
+
+
+<!-- update_plan_status:appended -->
+## M10.4 full validation complete — 2026-07-03T20:34:31.328Z
+
+M10.4 full validation completed after resolving two pre-existing full-suite blockers surfaced by the run.
+
+Validation results:
+- `cd sdk && bun test && bun run typecheck` -> passed (full SDK suite/typecheck clean; prompt-caching integration tests skipped as designed without `OPENBUFF_API_KEY`).
+- `cd common && bun test && bun run typecheck` -> passed (full common suite/typecheck clean).
+- `cd evals && bun test && bun run typecheck` -> passed (full evals suite/typecheck clean, including cache-recall eval coverage).
+- `cd packages/agent-runtime && bun test && bun run typecheck` -> passed after fixing the prompt-caching subagent test harness state.
+- `cd agents && bun run test && bun run test:e2e && bun run typecheck` -> passed after fixing thinker tool reachability/test expectations.
+
+Fixes made during M10.4 validation:
+- `agents/thinker/thinker.ts`: added `set_output` to `toolNames` because the thinker handleSteps actually yields `set_output`; this resolves the prompt/tool availability alignment guard.
+- `agents/__tests__/thinker.test.ts`: updated the thinker definition expectation to assert `set_output` is exposed.
+- `packages/agent-runtime/src/__tests__/prompt-caching-subagents.test.ts`: child-agent test states now use an empty `systemPrompt` rather than inheriting the parent's cached system prompt, matching the production fresh-subagent state shape while satisfying the required `AgentState.systemPrompt: string` type.
+
+Notes:
+- Raw `cd agents && bun test` intentionally picks up `browser-use/browser-use.test.ts`, which is a manual browser trace script and exits when the local browser-use agent is not present under `agents/`. The package validation scripts are authoritative here: `bun run test` (unit), `bun run test:e2e`, and `bun run typecheck` all passed.
+- M10.4 validation is complete; all M10 tasks are now done at focused and full-suite levels.
+
+
+<!-- update_plan_status:appended -->
+## Reviewer blocker resolved — 2026-07-03T20:42:37.259Z
+
+Resolved reviewer blocker for M10.2/M10.4 cache-recall runner coverage.
+
+Blocker addressed:
+- Reviewer required coverage that exercises the actual buffbench runner path, not only pure cache-recall helpers.
+
+Change:
+- `evals/buffbench/__tests__/agent-runner.test.ts`: added `runAgentOnCommit` test using a temporary git repo and mock Codebuff client. The test verifies runner-collected cache metrics/message history produce `cacheRecallEval`, append the deterministic `buffbench cache-recall eval` final-check output, and still produce a real diff from the runner path.
+
+Validation passed:
+- `cd evals && bun test buffbench/__tests__/agent-runner.test.ts buffbench/__tests__/run-buffbench.test.ts && bun run typecheck` -> 14 pass / 0 fail / 49 expect(); typecheck clean.
+
+Next:
+- Automated reviewer gate can rerun against the added runner-path coverage.
+

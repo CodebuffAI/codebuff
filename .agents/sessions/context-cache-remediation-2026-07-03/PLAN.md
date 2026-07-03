@@ -22,7 +22,7 @@ Milestones are ordered by leverage. **M1 is the highest-leverage single change**
 
 > **Dependency note on M1 ↔ M4:** M1's gate references the pruning threshold, and M4 unifies that threshold. To avoid a blocking cycle, M1 may use the current `maxContextLength` default (`context-pruner.ts:83`) as a stand-in until M4 lands; M4 then swaps in the unified constant without changing M1's gate logic. M4 does not depend on M1 behaviorally — only M1 references M4's constant.
 
-<!-- current-task: M7 — Semantic trim fallback (no "omitted" placeholder) -->
+<!-- current-task: none -->
 
 ## M1 — Decouple cache-TTL refresh from compaction (P0)
 
@@ -157,9 +157,9 @@ Milestones are ordered by leverage. **M1 is the highest-leverage single change**
 **Root cause:** `packages/agent-runtime/src/constants.ts` hard-codes the flag to `true`; reasoning chunks are large and per-turn-unique, shifting the `LAST_ASSISTANT_MESSAGE` anchor every step.
 
 **Tasks:**
-- [ ] M9.1 Confirm OQ2 (which agents are cache-stability-sensitive). (owner: planner)
-- [ ] M9.2 Make the flag configurable via agent config / provider options, defaulting off for cache-stability-sensitive agents. (owner: editor)
-- [ ] M9.3 Update tests and any agent definitions that hard-depend on reasoning in history. (owner: test-writer)
+- [x] M9.1 Confirm OQ2 (which agents are cache-stability-sensitive). (owner: planner) (resolved by default-off with per-agent opt-in)
+- [x] M9.2 Make the flag configurable via agent config / provider options, defaulting off for cache-stability-sensitive agents. (owner: editor) (complete and validated)
+- [x] M9.3 Update tests and any agent definitions that hard-depend on reasoning in history. (owner: test-writer) (runtime tests updated; no hard-dependent agents found)
 
 **Dependencies:** M2 (anchor policy) so reasoning, when kept, does not sit under a tail anchor.
 **Validation gate:** `bun test` passes; AC7 met.
@@ -169,10 +169,10 @@ Milestones are ordered by leverage. **M1 is the highest-leverage single change**
 **Fixes:** R10, N1–N3.
 
 **Tasks:**
-- [ ] M10.1 Add a cache-efficiency metric to the existing cache-debug snapshot: cached-vs-input token ratio per request. (owner: editor)
-- [ ] M10.2 Add a buffbench eval scenario that runs a long fixture conversation and asserts cache-hit ratio + post-compaction recall. (owner: test-writer)
-- [ ] M10.3 Wire the `cache_emergency_trim` event (from M4) into the telemetry surface. (owner: editor)
-- [ ] M10.4 Run the full validation suite (`bun test` per package + harness hooks) and confirm no regressions. (owner: basher)
+- [x] M10.1 Add a cache-efficiency metric to the existing cache-debug snapshot: cached-vs-input token ratio per request. (owner: editor) (cacheEfficiency added and validated)
+- [x] M10.2 Add a buffbench eval scenario that runs a long fixture conversation and asserts cache-hit ratio + post-compaction recall. (owner: test-writer) (next) (cache recall eval implemented and focused validation passed)
+- [x] M10.3 Wire the `cache_emergency_trim` event (from M4) into the telemetry surface. (owner: editor) (trackEvent wiring validated)
+- [x] M10.4 Run the full validation suite (`bun test` per package + harness hooks) and confirm no regressions. (owner: basher) (pending final/full validation) (next) (full package validation passed)
 
 **Dependencies:** M1, M2, M4, M5.
 **Validation gate:** eval passes; full test suite green.
@@ -207,4 +207,58 @@ Milestones are ordered by leverage. **M1 is the highest-leverage single change**
 - Added regression coverage in `packages/agent-runtime/src/__tests__/main-prompt.test.ts` that hashes the first 4096 bytes of the system prompt across two same-agent turns after mutating dynamic file-context input.
 - Validation passed: `bun test src/__tests__/main-prompt.test.ts` -> 6 pass / 0 fail; `bun run typecheck` in `packages/agent-runtime` -> clean.
 - Next milestone: M4 — Unify pruning thresholds; emergency-trim telemetry.
+
+
+<!-- update_plan_status:appended -->
+## M9 plan checkpoint — 2026-07-03T19:41:50.293Z
+
+M9 shipped: reasoning chunks are excluded from assistant message history by default and can be enabled per agent with `includeReasoningInMessageHistory: true`. Targeted runtime/common/agents validation passed. Next current task is M10 telemetry/evals/validation gates.
+
+
+<!-- update_plan_status:appended -->
+## M10 telemetry validation — 2026-07-03T20:10:16.333Z
+
+M10 telemetry validation completed.
+
+Changes validated:
+- `packages/agent-runtime/src/util/cache-debug.ts`: cache-debug snapshots now include `cacheEfficiency` with `cachedInputTokenRatio`, `inputTokens`, and `cachedInputTokens` when usage enrichment runs.
+- `packages/agent-runtime/src/util/__tests__/cache-debug.test.ts`: usage enrichment test asserts the new cache-efficiency metric.
+- `sdk/src/impl/llm.ts`: request-time emergency trim now forwards `CACHE_EMERGENCY_TRIM` through `trackEvent` with user/model/request properties, in addition to the logger warning.
+
+Validation:
+- `cd packages/agent-runtime && bun test src/util/__tests__/cache-debug.test.ts && bun run typecheck` -> 15 pass / 0 fail / 55 expect(); typecheck clean.
+- `cd sdk && bun test src/impl/__tests__/llm-context-window.test.ts && bun run typecheck` -> 5 pass / 0 fail / 17 expect(); typecheck clean.
+
+M10 status:
+- M10.1 complete (cache-efficiency metric in cache-debug snapshot).
+- M10.3 complete (emergency-trim event wired into telemetry surface).
+- M10.2 remains pending (buffbench eval scenario).
+- M10.4 remains pending for full-suite validation after M10.2 or final scope decision.
+
+
+<!-- update_plan_status:appended -->
+## M10.2 completion checkpoint — 2026-07-03T20:22:55.714Z
+
+M10.2 cache/recall eval scenario completed and validated.
+
+- Added deterministic buffbench cache/recall evaluation for cached-input ratio and post-compaction recall substrings.
+- Integrated results into existing final-check reporting.
+- Focused validation passed for evals plus pending telemetry packages.
+
+Next: M10.4 full validation suite.
+
+
+<!-- update_plan_status:appended -->
+## M10.4 PLAN closure — 2026-07-03T20:35:20.728Z
+
+M10.4 full validation is complete; final Gate G4 is met at package-script level.
+
+Validation passed:
+- SDK full tests + typecheck.
+- Common full tests + typecheck.
+- Evals full tests + typecheck, including cache-recall eval tests.
+- Agent-runtime full tests + typecheck after prompt-caching subagent test-state fix.
+- Agents package unit script + e2e script + typecheck after thinker set_output reachability fix.
+
+Final M10 status: M10.1, M10.2, M10.3, and M10.4 are complete.
 

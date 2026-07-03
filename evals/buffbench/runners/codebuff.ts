@@ -116,7 +116,13 @@ export class CodebuffRunner implements Runner {
       }
     }
 
-    totalCostUsd = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
+    const mainAgentState = result.sessionState?.mainAgentState
+    totalCostUsd = (mainAgentState?.creditsUsed ?? 0) / 100
+    const cachedInputTokens = mainAgentState?.cacheInputTokens
+    const inputTokens = mainAgentState?.cacheTotalInputTokens
+    const finalMessageHistoryText = mainAgentState?.messageHistory
+      ? JSON.stringify(mainAgentState.messageHistory)
+      : undefined
 
     // Get git diff after Codebuff has made changes
     let diff = ''
@@ -135,6 +141,9 @@ export class CodebuffRunner implements Runner {
       steps,
       totalCostUsd,
       diff,
+      cachedInputTokens,
+      inputTokens,
+      finalMessageHistoryText,
     }
   }
 }

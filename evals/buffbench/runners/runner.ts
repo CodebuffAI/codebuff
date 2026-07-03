@@ -6,6 +6,9 @@ export type RunnerResult = {
   steps: AgentStep[]
   totalCostUsd: number
   diff: string
+  cachedInputTokens?: number
+  inputTokens?: number
+  finalMessageHistoryText?: string
 }
 
 export type RunnerOptions = {

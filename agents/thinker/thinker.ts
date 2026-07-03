@@ -55,7 +55,7 @@ const definition: SecretAgentDefinition = {
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
   spawnableAgents: [],
-  toolNames: [],
+  toolNames: ['set_output'],
 
   instructionsPrompt: `
 You are a thinker agent. Use the <think> tag to think deeply about the user request.

@@ -388,6 +388,10 @@ export function getMessagesForModelContext(params: {
   messages: Message[]
   contextWindowTokens?: number
   logger: ParamsOf<PromptAiSdkStreamFn>['logger']
+  trackEvent?: ParamsOf<PromptAiSdkStreamFn>['trackEvent']
+  userId?: string
+  userInputId?: string
+  model?: string
 }): Message[] {
   const maxTotalTokens = getModelContextMessageLimit(params.contextWindowTokens)
   const trimmed = trimMessagesToFitTokenLimit({
@@ -404,21 +408,34 @@ export function getMessagesForModelContext(params: {
   if (trimmed !== params.messages) {
     const inputTokens = countTokensJson(params.messages)
     const outputTokens = countTokensJson(trimmed)
+    const telemetryProperties = {
+      contextWindowTokens: params.contextWindowTokens,
+      maxTotalTokens,
+      inputTokens,
+      outputTokens,
+      tokensDropped: Math.max(0, inputTokens - outputTokens),
+      inputMessageCount: params.messages.length,
+      outputMessageCount: trimmed.length,
+      userInputId: params.userInputId,
+      model: params.model,
+    }
+
     params.logger.warn(
       {
         eventId: AnalyticsEvent.CACHE_EMERGENCY_TRIM,
-        contextWindowTokens: params.contextWindowTokens,
-        maxTotalTokens,
-        inputTokens,
-        outputTokens,
-        tokensDropped: Math.max(0, inputTokens - outputTokens),
-        inputMessageCount: params.messages.length,
-        outputMessageCount: trimmed.length,
+        ...telemetryProperties,
       },
       'Emergency request-time context trim fired (cache_emergency_trim). ' +
         'This indicates the unified pruning threshold was exceeded before ' +
         'the SDK fallback; expected ~0 in steady state.',
     )
+
+    params.trackEvent?.({
+      event: AnalyticsEvent.CACHE_EMERGENCY_TRIM,
+      userId: params.userId ?? '',
+      properties: telemetryProperties,
+      logger: params.logger,
+    })
   }
 
   return trimmed
@@ -773,6 +790,10 @@ export async function* promptAiSdkStream(
             messages: params.messages,
             contextWindowTokens: contextWindowTokens ?? undefined,
             logger,
+            trackEvent,
+            userId,
+            userInputId,
+            model: effectiveModel,
           }),
           includeCacheControl:
             isChatGptOAuth && compatibility.stripCacheControl === false,
@@ -1357,6 +1378,10 @@ export async function promptAiSdk(
         messages: params.messages,
         contextWindowTokens,
         logger,
+        trackEvent: params.trackEvent,
+        userId: params.userId,
+        userInputId: params.userInputId,
+        model: effectiveModelSdk,
       }),
       includeCacheControl: compatibility.stripCacheControl === false,
     }),
@@ -1470,6 +1495,10 @@ export async function promptAiSdkStructured<T>(
         messages: params.messages,
         contextWindowTokens,
         logger,
+        trackEvent: params.trackEvent,
+        userId: params.userId,
+        userInputId: params.userInputId,
+        model: effectiveModelStructured,
       }),
       includeCacheControl: compatibility.stripCacheControl === false,
     }),

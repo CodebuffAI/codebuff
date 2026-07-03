@@ -33,6 +33,7 @@ describe('Agent Validation', () => {
       toolNames: ['set_output'],
       spawnableAgents: [],
       includeMessageHistory: true,
+      includeReasoningInMessageHistory: false,
       inheritParentSystemPrompt: false,
       systemPrompt: 'Test system prompt',
       instructionsPrompt: 'Test user prompt',

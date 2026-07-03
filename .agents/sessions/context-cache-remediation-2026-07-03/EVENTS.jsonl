@@ -36,3 +36,39 @@
 {"ts":"2026-07-03T19:20:30.571Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
 {"ts":"2026-07-03T19:20:44.723Z","kind":"append_lesson","summary":"Appended entry \"M8 structured compact schema\" to LESSONS.md","payload":{"heading":"M8 structured compact schema","artifact":"LESSONS.md"}}
 {"ts":"2026-07-03T19:20:44.723Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T19:40:48.076Z","kind":"append_lesson","summary":"Appended entry \"M9 complete and validated\" to STATUS.md","payload":{"heading":"M9 complete and validated","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T19:40:48.076Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T19:41:02.409Z","kind":"append_lesson","summary":"Appended entry \"M9 lessons\" to LESSONS.md","payload":{"heading":"M9 lessons","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T19:41:02.409Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T19:41:50.294Z","kind":"task_update","summary":"Updated 3 task line(s): M9.2 Make the flag configurable, M9.3 Update tests, M9.1 Confirm OQ2","payload":{"matched":["M9.2 Make the flag configurable","M9.3 Update tests","M9.1 Confirm OQ2"]}}
+{"ts":"2026-07-03T19:41:50.294Z","kind":"append_lesson","summary":"Appended entry \"M9 plan checkpoint\" to PLAN.md","payload":{"heading":"M9 plan checkpoint","artifact":"PLAN.md"}}
+{"ts":"2026-07-03T19:41:50.294Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T19:41:50.294Z","kind":"current_task","summary":"Current task -> \"M10 — Telemetry, evals, validation gates\"","payload":{"currentTask":"M10 — Telemetry, evals, validation gates"}}
+{"ts":"2026-07-03T20:10:16.335Z","kind":"task_update","summary":"Updated 4 task line(s): M10.1 Add a cache-efficiency metric, M10.3 Wire the `cache_emergency_trim` event, M10.2 Add a buffbench eval scenario, M10.4 Run the full validation suite","payload":{"matched":["M10.1 Add a cache-efficiency metric","M10.3 Wire the `cache_emergency_trim` event","M10.2 Add a buffbench eval scenario","M10.4 Run the full validation suite"]}}
+{"ts":"2026-07-03T20:10:16.335Z","kind":"append_lesson","summary":"Appended entry \"M10 telemetry validation\" to PLAN.md","payload":{"heading":"M10 telemetry validation","artifact":"PLAN.md"}}
+{"ts":"2026-07-03T20:10:16.335Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:10:16.335Z","kind":"current_task","summary":"Current task -> \"M10.2 Add buffbench cache/recall eval scenario\"","payload":{"currentTask":"M10.2 Add buffbench cache/recall eval scenario"}}
+{"ts":"2026-07-03T20:10:32.460Z","kind":"append_lesson","summary":"Appended entry \"M10 telemetry validation checkpoint\" to STATUS.md","payload":{"heading":"M10 telemetry validation checkpoint","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T20:10:32.460Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:10:45.639Z","kind":"append_lesson","summary":"Appended entry \"M10 telemetry lessons\" to LESSONS.md","payload":{"heading":"M10 telemetry lessons","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T20:10:45.639Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:22:27.591Z","kind":"append_lesson","summary":"Appended entry \"M10.2 cache recall eval validated\" to STATUS.md","payload":{"heading":"M10.2 cache recall eval validated","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T20:22:27.591Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:22:40.564Z","kind":"append_lesson","summary":"Appended entry \"M10 cache recall eval lessons\" to LESSONS.md","payload":{"heading":"M10 cache recall eval lessons","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T20:22:40.564Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:22:55.719Z","kind":"task_update","summary":"Updated 2 task line(s): M10.2 Add a buffbench eval scenario, M10.4 Run the full validation suite","payload":{"matched":["M10.2 Add a buffbench eval scenario","M10.4 Run the full validation suite"]}}
+{"ts":"2026-07-03T20:22:55.719Z","kind":"append_lesson","summary":"Appended entry \"M10.2 completion checkpoint\" to PLAN.md","payload":{"heading":"M10.2 completion checkpoint","artifact":"PLAN.md"}}
+{"ts":"2026-07-03T20:22:55.719Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:22:55.719Z","kind":"current_task","summary":"Current task -> \"M10.4 Run full validation suite\"","payload":{"currentTask":"M10.4 Run full validation suite"}}
+{"ts":"2026-07-03T20:34:31.329Z","kind":"append_lesson","summary":"Appended entry \"M10.4 full validation complete\" to STATUS.md","payload":{"heading":"M10.4 full validation complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T20:34:31.329Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
+{"ts":"2026-07-03T20:34:59.954Z","kind":"append_lesson","summary":"Appended entry \"M10.4 validation lessons\" to LESSONS.md","payload":{"heading":"M10.4 validation lessons","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T20:34:59.954Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
+{"ts":"2026-07-03T20:35:20.729Z","kind":"task_update","summary":"Updated 1 task line(s): M10.4","payload":{"matched":["M10.4"]}}
+{"ts":"2026-07-03T20:35:20.729Z","kind":"append_lesson","summary":"Appended entry \"M10.4 PLAN closure\" to PLAN.md","payload":{"heading":"M10.4 PLAN closure","artifact":"PLAN.md"}}
+{"ts":"2026-07-03T20:35:20.729Z","kind":"session_status","summary":"Session status -> completed","payload":{"status":"completed"}}
+{"ts":"2026-07-03T20:35:20.729Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
+{"ts":"2026-07-03T20:42:37.260Z","kind":"append_lesson","summary":"Appended entry \"Reviewer blocker resolved\" to STATUS.md","payload":{"heading":"Reviewer blocker resolved","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T20:42:37.260Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T20:42:51.960Z","kind":"append_lesson","summary":"Appended entry \"Cache recall runner coverage\" to LESSONS.md","payload":{"heading":"Cache recall runner coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T20:42:51.960Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

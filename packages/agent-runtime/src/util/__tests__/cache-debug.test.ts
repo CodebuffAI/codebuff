@@ -244,6 +244,11 @@ describe('enrichCacheDebugSnapshotWithUsage', () => {
 
     const snapshot = readSnapshot(projectRoot, correlation)
     expect(snapshot.usage).toEqual(usage)
+    expect(snapshot.cacheEfficiency).toEqual({
+      cachedInputTokenRatio: 0.2,
+      inputTokens: 100,
+      cachedInputTokens: 20,
+    })
   })
 
   test('warns when the snapshot file does not exist', () => {

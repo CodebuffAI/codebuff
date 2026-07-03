@@ -6,13 +6,22 @@ const execAsync = promisify(exec)
 import { withTimeout } from '@codebuff/common/util/promise'
 
 import { withTestRepo } from '../subagents/test-repo-utils'
+import {
+  computeCacheUsageMetrics,
+  evaluateCacheRecall,
+} from './cache-recall-eval'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { CodexRunner } from './runners/codex'
 import { OpenCodeRunner } from './runners/opencode'
 
 import type { Runner, AgentStep } from './runners/runner'
-import type { EvalCommitV2, FinalCheckOutput } from './types'
+import type {
+  CacheRecallEvalConfig,
+  CacheRecallEvalResult,
+  EvalCommitV2,
+  FinalCheckOutput,
+} from './types'
 import type { OpenbuffClient } from '@openbuff/sdk'
 
 export type { AgentStep }
@@ -43,6 +52,7 @@ export async function runAgentOnCommit({
   localAgentDefinitions,
   printEvents,
   finalCheckCommands,
+  cacheRecallEval,
   externalAgentType,
 }: {
   client: OpenbuffClient
@@ -54,6 +64,7 @@ export async function runAgentOnCommit({
   localAgentDefinitions: any[]
   printEvents: boolean
   finalCheckCommands?: string[]
+  cacheRecallEval?: CacheRecallEvalConfig
   externalAgentType?: ExternalAgentType
 }): Promise<{
   diff: string
@@ -63,6 +74,7 @@ export async function runAgentOnCommit({
   error?: string
   trace: AgentStep[]
   finalCheckOutputs?: FinalCheckOutput[]
+  cacheRecallEval?: CacheRecallEvalResult
 }> {
   console.log(`[${commit.id}] Running agent ${agentId}...`)
   const startTime = Date.now()
@@ -72,6 +84,7 @@ export async function runAgentOnCommit({
   let cost = 0
   const trace: AgentStep[] = []
   let finalCheckOutputs: FinalCheckOutput[] | undefined
+  let cacheRecallEvalResult: CacheRecallEvalResult | undefined
 
   try {
     const timeoutMs = 60 * 60 * 1000 // 60 minutes
@@ -116,6 +129,21 @@ export async function runAgentOnCommit({
           cost = result.totalCostUsd
           diff = result.diff
 
+          if (cacheRecallEval) {
+            cacheRecallEvalResult = evaluateCacheRecall({
+              config: cacheRecallEval,
+              cacheUsage:
+                result.cachedInputTokens !== undefined &&
+                result.inputTokens !== undefined
+                  ? computeCacheUsageMetrics({
+                      cachedInputTokens: result.cachedInputTokens,
+                      inputTokens: result.inputTokens,
+                    })
+                  : undefined,
+              finalMessageHistoryText: result.finalMessageHistoryText,
+            })
+          }
+
           const contextFilePaths = new Set<string>([
             ...commit.supplementalFiles,
             ...commit.fileDiffs.map((fd) => fd.path),
@@ -154,6 +182,13 @@ export async function runAgentOnCommit({
               timeoutSignal,
             )
           }
+
+          if (cacheRecallEvalResult) {
+            finalCheckOutputs = [
+              ...(finalCheckOutputs ?? []),
+              cacheRecallEvalToFinalCheckOutput(cacheRecallEvalResult),
+            ]
+          }
         },
       ),
       timeoutMs,
@@ -173,6 +208,18 @@ export async function runAgentOnCommit({
     error,
     trace,
     finalCheckOutputs,
+    cacheRecallEval: cacheRecallEvalResult,
+  }
+}
+
+export function cacheRecallEvalToFinalCheckOutput(
+  result: CacheRecallEvalResult,
+): FinalCheckOutput {
+  return {
+    command: 'buffbench cache-recall eval',
+    exitCode: result.passed ? 0 : 1,
+    stdout: JSON.stringify(result, null, 2),
+    stderr: result.failureReason ?? '',
   }
 }
 

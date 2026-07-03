@@ -3,7 +3,7 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { mockFileContext } from './test-utils'
-import { INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
+import { DEFAULT_INCLUDE_REASONING_IN_MESSAGE_HISTORY } from '../constants'
 import { processStream } from '../tools/stream-parser'
 
 import type { AgentTemplate } from '../templates/types'
@@ -18,7 +18,7 @@ import type {
 } from '@codebuff/common/types/messages/codebuff-message'
 import type { PromptResult } from '@codebuff/common/util/error'
 
-describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning history', () => {
+describe('stream parser reasoning history', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
@@ -52,6 +52,7 @@ describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning 
 
   async function runStream(
     stream: AsyncGenerator<StreamChunk, PromptResult<string | null>>,
+    templateOverrides: Partial<AgentTemplate> = {},
   ) {
     const abortController = new AbortController()
     const sessionState = getInitialSessionState(mockFileContext)
@@ -62,13 +63,15 @@ describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning 
       agentContext: {},
       agentState,
       agentStepId: 'test-step-id',
-      agentTemplate: testAgentTemplate,
+      agentTemplate: { ...testAgentTemplate, ...templateOverrides },
       ancestorRunIds: [],
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
       fullResponse: '',
-      localAgentTemplates: { 'test-agent': testAgentTemplate },
+      localAgentTemplates: {
+        'test-agent': { ...testAgentTemplate, ...templateOverrides },
+      },
       messages: [],
       prompt: 'test prompt',
       repoId: undefined,
@@ -87,7 +90,31 @@ describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning 
     return agentState.messageHistory
   }
 
-  it('consolidates consecutive reasoning chunks into a single message', async () => {
+  it('omits reasoning chunks from message history by default', async () => {
+    expect(DEFAULT_INCLUDE_REASONING_IN_MESSAGE_HISTORY).toBe(false)
+
+    async function* mockStream(): AsyncGenerator<
+      StreamChunk,
+      PromptResult<string | null>
+    > {
+      yield { type: 'reasoning' as const, text: 'Hidden thought.' }
+      yield { type: 'text' as const, text: 'Visible answer.' }
+      return { aborted: false, value: 'msg-id' }
+    }
+
+    const history = await runStream(mockStream())
+    const reasoningParts = getReasoningParts(history)
+    const textParts = history
+      .filter((m): m is AssistantMessage => m.role === 'assistant')
+      .flatMap((m) => m.content)
+      .filter((c) => c.type === 'text')
+      .map((c) => ('text' in c ? c.text : ''))
+
+    expect(reasoningParts).toEqual([])
+    expect(textParts).toEqual(['Visible answer.'])
+  })
+
+  it('consolidates consecutive reasoning chunks into a single message when enabled', async () => {
     async function* mockStream(): AsyncGenerator<
       StreamChunk,
       PromptResult<string | null>
@@ -99,13 +126,15 @@ describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning 
       return { aborted: false, value: 'msg-id' }
     }
 
-    const history = await runStream(mockStream())
+    const history = await runStream(mockStream(), {
+      includeReasoningInMessageHistory: true,
+    })
     const reasoningParts = getReasoningParts(history)
 
     expect(reasoningParts).toEqual(['Let me think about this. I should...'])
   })
 
-  it('separates reasoning chunks split by a text chunk into distinct messages', async () => {
+  it('separates reasoning chunks split by a text chunk into distinct messages when enabled', async () => {
     async function* mockStream(): AsyncGenerator<
       StreamChunk,
       PromptResult<string | null>
@@ -117,13 +146,15 @@ describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning 
       return { aborted: false, value: 'msg-id' }
     }
 
-    const history = await runStream(mockStream())
+    const history = await runStream(mockStream(), {
+      includeReasoningInMessageHistory: true,
+    })
     const reasoningParts = getReasoningParts(history)
 
     expect(reasoningParts).toEqual(['First thought.', 'Second thought.'])
   })
 
-  it('drops empty reasoning chunks', async () => {
+  it('drops empty reasoning chunks when enabled', async () => {
     async function* mockStream(): AsyncGenerator<
       StreamChunk,
       PromptResult<string | null>
@@ -134,7 +165,9 @@ describe.skipIf(!INCLUDE_REASONING_IN_MESSAGE_HISTORY)('stream parser reasoning 
       return { aborted: false, value: 'msg-id' }
     }
 
-    const history = await runStream(mockStream())
+    const history = await runStream(mockStream(), {
+      includeReasoningInMessageHistory: true,
+    })
     const reasoningParts = getReasoningParts(history)
 
     expect(reasoningParts).toEqual(['real thought'])

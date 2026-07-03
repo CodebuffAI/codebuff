@@ -41,6 +41,12 @@ type CacheDebugProviderRequestSnapshot = {
   normalized: SerializableValue
 }
 
+export type CacheDebugEfficiencySnapshot = {
+  cachedInputTokenRatio: number
+  inputTokens: number
+  cachedInputTokens: number
+}
+
 export type CacheDebugSnapshot = {
   id: string
   index: number
@@ -62,6 +68,8 @@ export type CacheDebugSnapshot = {
    * anchors are staying stable (cache hits) or moving every turn (churn).
    */
   cacheAnchors?: CacheAnchorInfo[]
+  /** M10 telemetry: per-request prompt-cache efficiency. */
+  cacheEfficiency?: CacheDebugEfficiencySnapshot
   preConversion: CacheDebugPreConversionSnapshot
   providerRequest?: CacheDebugProviderRequestSnapshot
   usage?: CacheDebugUsageData
@@ -248,9 +256,17 @@ export function enrichCacheDebugSnapshotWithUsage(params: {
       return
     }
 
+    const cachedInputTokenRatio =
+      usage.inputTokens > 0 ? usage.cachedInputTokens / usage.inputTokens : 0
+
     const updated: CacheDebugSnapshot = {
       ...existing,
       usage,
+      cacheEfficiency: {
+        cachedInputTokenRatio,
+        inputTokens: usage.inputTokens,
+        cachedInputTokens: usage.cachedInputTokens,
+      },
     }
 
     writeSnapshot({ snapshot: updated, logger })

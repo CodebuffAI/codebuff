@@ -1,1 +1,0 @@
-{"version":3,"file":"internals.js","sourceRoot":"","sources":["internals.ts"],"names":[],"mappings":";;;AA0CA,gDAAgD;AAChD,MAAM,OAAO,GAAG,mBAAmB,CAAC;AAEvB,QAAA,iBAAiB,GAAG;IAChC,IAAI,CAAC,KAAa;QACjB,MAAM,MAAM,GAAG,OAAO,CAAC,IAAI,CAAC,KAAK,CAAC,CAAC;QAEnC,OAAO,CAAC,SAAS,GAAG,CAAC,CAAC;QAEtB,OAAO,MAAM,CAAC;IACf,CAAC;CACD,CAAC"}

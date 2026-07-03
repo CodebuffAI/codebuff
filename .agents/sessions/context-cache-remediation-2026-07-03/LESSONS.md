@@ -196,3 +196,41 @@ GOTCHA — validation-hook gap: The M1–M5 commit (b3240ef44) passed the automa
 - **Gotcha:** No existing tests imported `additionalSystemPrompts`, so the M8 regression was added to `prompts-schema-handling.test.ts` rather than a new test file. This keeps prompt-contract coverage near other prompt/schema resilience tests.
 - **Reusable fact:** The `/compact` schema fields are now asserted directly from `additionalSystemPrompts['/compact']`: Goal, Decisions, Files Inspected, Edits Made, Validation Results, Blockers, Next Action.
 
+
+<!-- update_plan_status:appended -->
+## M9 lessons — 2026-07-03T19:41:02.408Z
+
+- `includeReasoningInMessageHistory` must be present in both public agent-definition copies: `agents/types/agent-definition.ts` and `common/src/templates/initial-agents-dir/types/agent-definition.ts`. The common type-compatibility test checks key parity and will fail if only one copy is updated.
+- `DynamicAgentDefinitionSchema.default(false)` makes `includeReasoningInMessageHistory` required on the parsed `DynamicAgentTemplate` type, so typed test fixtures using `DynamicAgentTemplate` need the defaulted property explicitly.
+- Reasoning-history behavior is now opt-in per agent template; default-off protects prompt-cache stability while retaining prior consolidation semantics when enabled.
+
+
+<!-- update_plan_status:appended -->
+## M10 telemetry lessons — 2026-07-03T20:10:45.638Z
+
+- M10.1 cache-efficiency telemetry is implemented at usage-enrichment time rather than snapshot-creation time because provider usage is only known after the request completes. This keeps the initial snapshot cheap and makes the metric available once `enrichCacheDebugSnapshotWithUsage` runs.
+- M10.3 emergency-trim telemetry now uses both logger warnings and `trackEvent`. The logger carries the same event id for local diagnosis, while `trackEvent` makes non-zero emergency trims visible in analytics.
+- Targeted validation for telemetry should cover both packages touched by the contract: agent-runtime cache-debug snapshot tests/typecheck and SDK context-window tests/typecheck.
+
+
+<!-- update_plan_status:appended -->
+## M10 cache recall eval lessons — 2026-07-03T20:22:40.563Z
+
+- M10.2 is implemented as a deterministic buffbench extension rather than a costly live long-conversation fixture by default. The eval plumbing can now assert cached-input ratio and required recall substrings from captured runner steps/message history, while existing final-check reporting surfaces failures in the same path as command checks.
+- Validation should cover both sides of M10: evals (`buffbench/__tests__/run-buffbench.test.ts` + typecheck) and telemetry packages (agent-runtime cache-debug test/typecheck + SDK llm context-window test/typecheck).
+- Cache ratio can be unavailable when providers/runners do not emit usage; the evaluator treats that as a failure when `minCacheHitRatio` is configured, so eval configs should set thresholds only for runners that collect usage data.
+
+
+<!-- update_plan_status:appended -->
+## M10.4 validation lessons — 2026-07-03T20:34:59.953Z
+
+- Full package validation should use package scripts where present. In `agents`, raw `bun test` picks up `browser-use/browser-use.test.ts`, which is a manual trace runner, not part of the package script suite. Use `bun run test && bun run test:e2e && bun run typecheck` for authoritative agents validation.
+- Structured-output agents whose `handleSteps` yields `set_output` must list `set_output` in `toolNames`; otherwise prompt/tool reachability tests correctly catch drift.
+- Prompt-caching subagent tests that spread `sessionState.mainAgentState` after a parent run must clear the cached system prompt with `systemPrompt: ''` to model fresh production subagent state while satisfying the required string type.
+
+
+<!-- update_plan_status:appended -->
+## Cache recall runner coverage — 2026-07-03T20:42:51.959Z
+
+Reviewer gate may require integration-style coverage through the orchestration path, not just pure helper tests. For buffbench runner behavior, `runAgentOnCommit` can be tested cheaply with a temp local git repo and a mock Openbuff client; this exercises `CodebuffRunner`, cache metric extraction from `sessionState.mainAgentState`, deterministic cache-recall final-check output, and diff generation without hitting external services.
+

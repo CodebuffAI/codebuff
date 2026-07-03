@@ -301,3 +301,7 @@ The `.bin/bun` wrapper automatically detects tmux requirements for files matchin
 - `*e2e*.test.ts`
 
 Name your test files accordingly to get automatic tmux availability checking.
+
+### Propagating Environment to tmux
+
+Tests that need CLI environment variables call `tmux set-environment -g` before creating sessions so an already-running server passes those values to new panes. That command fails when no tmux server exists yet (`no server running ...`). Treat this propagation as best-effort only; `tmux new-session` starts a server on demand and inherits the current process environment, and actual session creation/capture commands should still fail normally.

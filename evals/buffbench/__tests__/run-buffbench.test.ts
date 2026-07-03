@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
+import {
+  computeCacheUsageMetrics,
+  evaluateCacheRecall,
+} from '../cache-recall-eval'
 import { generateEvalTask } from '../eval-task-generator'
+import { cacheRecallEvalToFinalCheckOutput } from '../agent-runner'
 import { judgeCommitResult } from '../judge'
 import { summarizeAgentRuns } from '../run-buffbench'
 
@@ -140,6 +145,78 @@ describe('judgeCommitResult', () => {
         'The implementation must update the cache and expose a new status line.',
       )
     }
+  })
+})
+
+describe('cache recall eval', () => {
+  test('passes when cache ratio and required recall substrings meet thresholds', () => {
+    const result = evaluateCacheRecall({
+      config: {
+        minCacheHitRatio: 0.5,
+        requiredRecallSubstrings: ['<knowledge_memory>', 'Validated: typecheck clean'],
+      },
+      cacheUsage: computeCacheUsageMetrics({
+        cachedInputTokens: 600,
+        inputTokens: 1000,
+      }),
+      finalMessageHistoryText:
+        '<knowledge_memory>Validated: typecheck clean</knowledge_memory>',
+    })
+
+    expect(result).toEqual({
+      passed: true,
+      cachedInputTokens: 600,
+      inputTokens: 1000,
+      cacheHitRatio: 0.6,
+      minCacheHitRatio: 0.5,
+      cacheHitRatioPassed: true,
+      requiredRecallSubstrings: [
+        '<knowledge_memory>',
+        'Validated: typecheck clean',
+      ],
+      missingRecallSubstrings: [],
+      recallPassed: true,
+      failureReason: undefined,
+    })
+  })
+
+  test('fails when cache ratio is unavailable or recall substrings are missing', () => {
+    const result = evaluateCacheRecall({
+      config: {
+        minCacheHitRatio: 0.25,
+        requiredRecallSubstrings: ['Decision: keep the cache anchor stable'],
+      },
+      finalMessageHistoryText: '<knowledge_memory></knowledge_memory>',
+    })
+
+    expect(result.passed).toBe(false)
+    expect(result.cacheHitRatioPassed).toBe(false)
+    expect(result.recallPassed).toBe(false)
+    expect(result.missingRecallSubstrings).toEqual([
+      'Decision: keep the cache anchor stable',
+    ])
+    expect(result.failureReason).toContain('cache hit ratio unavailable')
+    expect(result.failureReason).toContain('missing recall substrings')
+  })
+
+  test('exposes cache recall as a deterministic final check output', () => {
+    const output = cacheRecallEvalToFinalCheckOutput(
+      evaluateCacheRecall({
+        config: { minCacheHitRatio: 0.9 },
+        cacheUsage: computeCacheUsageMetrics({
+          cachedInputTokens: 1,
+          inputTokens: 10,
+        }),
+      }),
+    )
+
+    expect(output.command).toBe('buffbench cache-recall eval')
+    expect(output.exitCode).toBe(1)
+    expect(output.stderr).toContain('cache hit ratio 0.100 below required 0.9')
+    expect(JSON.parse(output.stdout)).toMatchObject({
+      passed: false,
+      cacheHitRatio: 0.1,
+    })
   })
 })
 

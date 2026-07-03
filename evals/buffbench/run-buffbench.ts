@@ -86,6 +86,7 @@ async function runTask(options: {
   extractLessons: boolean
   printEvents: boolean
   finalCheckCommands?: string[]
+  cacheRecallEval?: EvalDataV2['cacheRecallEval']
   disableAnalysis?: boolean
   saveTraces?: boolean
 }) {
@@ -104,6 +105,7 @@ async function runTask(options: {
     extractLessons,
     printEvents,
     finalCheckCommands,
+    cacheRecallEval,
     disableAnalysis,
     saveTraces = false,
   } = options
@@ -131,6 +133,7 @@ async function runTask(options: {
         localAgentDefinitions,
         printEvents,
         finalCheckCommands,
+        cacheRecallEval,
         externalAgentType,
       })
 
@@ -185,6 +188,7 @@ async function runTask(options: {
         durationMs: agentResult.durationMs,
         error: agentResult.error,
         finalCheckOutputs: agentResult.finalCheckOutputs,
+        cacheRecallEval: agentResult.cacheRecallEval,
       }
 
       // Save trace to logs directory
@@ -207,6 +211,7 @@ async function runTask(options: {
         error: agentResult.error,
         timestamp: new Date().toISOString(),
         finalCheckOutputs: agentResult.finalCheckOutputs,
+        cacheRecallEval: agentResult.cacheRecallEval,
       })
 
       // Save judge traces to separate files if saveTraces is enabled
@@ -534,6 +539,7 @@ export async function runBuffBench(options: {
         extractLessons,
         printEvents: agents.length === 1 && taskConcurrency === 1,
         finalCheckCommands: evalData.finalCheckCommands,
+        cacheRecallEval: evalData.cacheRecallEval,
         disableAnalysis,
         saveTraces,
       }),

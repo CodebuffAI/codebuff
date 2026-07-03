@@ -650,6 +650,28 @@
         "supportsStopSequences": false,
         "stripProviderMetadata": true
       }
+    },
+    "hyper": {
+      "type": "openai-compatible",
+      "baseURL": "https://hyper.charm.land/v1",
+      "apiKeyEnv": "HYPER_API_KEY",
+      "models": [
+        "glm-5.2"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      },
+      "defaultCapabilities": {
+        "context": {
+          "windowTokens": 500000
+        }
+      }
     }
   }
 }

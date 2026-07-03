@@ -44,8 +44,8 @@ describe('thinker agent', () => {
       expect(thinker.inheritParentSystemPrompt).toBe(true)
     })
 
-    test('has empty tool names', () => {
-      expect(thinker.toolNames).toHaveLength(0)
+    test('exposes set_output for structured output', () => {
+      expect(thinker.toolNames).toEqual(['set_output'])
     })
 
     test('has empty spawnable agents', () => {

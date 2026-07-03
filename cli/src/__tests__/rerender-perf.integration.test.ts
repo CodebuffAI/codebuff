@@ -20,6 +20,8 @@ const TIMEOUT_MS = 45000
 const tmuxAvailable = isTmuxAvailable()
 const sdkBuilt = isSDKBuilt()
 
+type TmuxCommand = (args: string[]) => Promise<string>
+
 ensureCliTestEnv()
 
 /**
@@ -77,6 +79,30 @@ function tmux(args: string[]): Promise<string> {
   })
 }
 
+async function propagateTmuxEnvironment(
+  tmuxCommand: TmuxCommand,
+  envVars: Record<string, string>,
+): Promise<void> {
+  const entries = Object.entries(envVars)
+  // Propagate environment into tmux server when one already exists.
+  await Promise.all(
+    entries.map(([key, value]) =>
+      tmuxCommand(['set-environment', '-g', key, value]).catch(() => {
+        // Ignore failures; new-session will start a server that inherits this process env.
+      }),
+    ),
+  )
+  // Enable performance testing when a tmux server is already running.
+  await tmuxCommand([
+    'set-environment',
+    '-g',
+    'CODEBUFF_PERF_TEST',
+    'true',
+  ]).catch(() => {
+    // Ignore failures; each test also prefixes the session command with this env var.
+  })
+}
+
 /**
  * Send input to the CLI using bracketed paste mode.
  * Standard send-keys doesn't work with OpenTUI - see tmux.knowledge.md
@@ -90,6 +116,31 @@ async function sendCliInput(sessionName: string, text: string): Promise<void> {
     `\x1b[200~${text}\x1b[201~`,
   ])
 }
+
+describe('tmux environment propagation', () => {
+  test('swallows set-environment failures without changing session command behavior', async () => {
+    const calls: string[][] = []
+    const tmuxCommand: TmuxCommand = (args) => {
+      calls.push(args)
+      if (args[0] === 'set-environment') {
+        return Promise.reject(new Error('no server running'))
+      }
+      return Promise.reject(new Error('session failed'))
+    }
+
+    await expect(
+      propagateTmuxEnvironment(tmuxCommand, { OPENAI_API_KEY: 'test-key' }),
+    ).resolves.toBeUndefined()
+
+    expect(calls).toEqual([
+      ['set-environment', '-g', 'OPENAI_API_KEY', 'test-key'],
+      ['set-environment', '-g', 'CODEBUFF_PERF_TEST', 'true'],
+    ])
+    await expect(tmuxCommand(['new-session', '-d'])).rejects.toThrow(
+      'session failed',
+    )
+  })
+})
 
 describe.skipIf(!tmuxAvailable || !sdkBuilt)(
   'Re-render Performance Tests',
@@ -106,16 +157,7 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
         console.log('🔨 Build SDK: cd sdk && bun run build\n')
       }
       if (tmuxAvailable && sdkBuilt) {
-        const envVars = getDefaultCliEnv()
-        const entries = Object.entries(envVars)
-        // Propagate environment into tmux server
-        await Promise.all(
-          entries.map(([key, value]) =>
-            tmux(['set-environment', '-g', key, value]),
-          ),
-        )
-        // Enable performance testing
-        await tmux(['set-environment', '-g', 'CODEBUFF_PERF_TEST', 'true'])
+        await propagateTmuxEnvironment(tmux, getDefaultCliEnv())
       }
     })
 

@@ -171,6 +171,11 @@ export type AgentTemplate<
     params?: z.ZodSchema<T>
   }
   includeMessageHistory: boolean
+  /**
+   * Whether to append model reasoning chunks to this agent's message history.
+   * Defaults to false to keep cache-sensitive histories stable.
+   */
+  includeReasoningInMessageHistory?: boolean
   inheritParentSystemPrompt: boolean
   outputMode: 'last_message' | 'all_messages' | 'structured_output'
   outputSchema?: z.ZodSchema<any>
