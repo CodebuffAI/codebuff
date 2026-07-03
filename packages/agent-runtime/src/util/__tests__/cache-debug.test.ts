@@ -8,6 +8,10 @@ import {
   enrichCacheDebugSnapshotWithUsage,
   enrichCacheDebugSnapshotWithProviderRequest,
 } from '../cache-debug'
+import {
+  systemMessage,
+  userMessage,
+} from '@codebuff/common/util/messages'
 import type { CacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -141,6 +145,68 @@ describe('createCacheDebugSnapshot', () => {
       type: 'Uint8Array',
       byteLength: 4,
     })
+  })
+
+  // M2: cache-debug snapshots now include per-anchor cache-control telemetry
+  // (message index + content hash + anchor type) so snapshots can be diffed
+  // across requests to detect anchor churn. Placed after filename-index tests
+  // so the global cacheDebugCounter doesn't shift their expected indices.
+  // Uses the real systemMessage/userMessage helpers so messages are
+  // well-formed (system content is an array of text parts, not a raw string).
+  test('M2: includes cacheAnchors telemetry with per-anchor attribution', () => {
+    const messages: Message[] = [
+      systemMessage('You are helpful'),
+      userMessage('Context'),
+      userMessage({
+        content: 'User prompt',
+        tags: ['USER_PROMPT'],
+      }),
+    ]
+
+    const correlation = createCacheDebugSnapshot({
+      agentType: 'base',
+      system: 'system prompt',
+      toolDefinitions: {},
+      messages,
+      logger: noopLogger,
+      projectRoot,
+    })
+
+    const filePath = join(projectRoot, 'debug', 'cache-debug', correlation.filename)
+    const snapshot = JSON.parse(readFileSync(filePath, 'utf8'))
+
+    expect(Array.isArray(snapshot.cacheAnchors)).toBe(true)
+    expect(snapshot.cacheAnchors.length).toBeGreaterThanOrEqual(1)
+    // Each anchor has type, index, contentHash, reason
+    for (const anchor of snapshot.cacheAnchors) {
+      expect(['system', 'stable-history', 'tail']).toContain(anchor.type)
+      expect(typeof anchor.index).toBe('number')
+      expect(typeof anchor.contentHash).toBe('string')
+      expect(anchor.contentHash).toMatch(/^[0-9a-f]{8}$/)
+      expect(typeof anchor.reason).toBe('string')
+    }
+    // System anchor should be present at index 0
+    const systemAnchor = snapshot.cacheAnchors.find(
+      (a: { type: string }) => a.type === 'system',
+    )
+    expect(systemAnchor).toBeDefined()
+    expect(systemAnchor.index).toBe(0)
+  })
+
+  test('M2: cacheAnchors is an empty array for empty messages', () => {
+    const correlation = createCacheDebugSnapshot({
+      agentType: 'base',
+      system: 's',
+      toolDefinitions: {},
+      messages: [],
+      logger: noopLogger,
+      projectRoot,
+    })
+
+    const filePath = join(projectRoot, 'debug', 'cache-debug', correlation.filename)
+    const snapshot = JSON.parse(readFileSync(filePath, 'utf8'))
+    expect(Array.isArray(snapshot.cacheAnchors)).toBe(true)
+    expect(snapshot.cacheAnchors).toHaveLength(0)
   })
 })
 

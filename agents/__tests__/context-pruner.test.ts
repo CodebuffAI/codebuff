@@ -270,6 +270,50 @@ describe('context-pruner handleSteps', () => {
     )
   })
 
+  test('does not summarize on cache-TTL expiry alone when under token threshold (M1 regression)', () => {
+    // M1: cache-TTL expiry (cacheWillMiss) must no longer trigger
+    // summarization. Only token-pressure triggers summarization. This
+    // preserves stable cache prefixes instead of destroying them on every
+    // 5-min idle gap — the root cause of the "cache fills up fast" symptom.
+    const now = Date.now()
+    const messages = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Earlier turn' }],
+        sentAt: now - 10 * 60 * 1000,
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Earlier response' }],
+        sentAt: now - 9 * 60 * 1000,
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'User message after a long pause' },
+        ],
+        tags: ['USER_PROMPT'],
+        sentAt: now,
+      },
+    ] as Message[]
+
+    // Token count well under threshold (1000 << 140000 default). The 9-min
+    // gap between the USER_PROMPT and the preceding assistant message makes
+    // cacheWillMiss true. Don't pass maxContextLength so STEP 0 doesn't strip
+    // the USER_PROMPT (params would be empty, not removing any tags).
+    const results = runHandleSteps(messages, 1000)
+
+    expect(results).toHaveLength(1)
+    expect(results[0].toolName).toBe('set_messages')
+
+    // History is preserved — NOT collapsed into a single summary blob.
+    const resultMessages = results[0].input.messages
+    expect(resultMessages.length).toBeGreaterThan(1)
+    expect(resultMessages[0].content[0].text).not.toContain(
+      '<conversation_summary>',
+    )
+  })
+
   test('summarizes conversation when context exceeds max limit', () => {
     const messages = [
       createMessage('user', 'Please help me with this task'),
@@ -840,6 +884,85 @@ describe('context-pruner handleSteps', () => {
     expect(secondContent).toContain(
       'Next required action: Resolve Q2 with the user before starting Milestone 4.',
     )
+  })
+
+  test('pins structured <knowledge_memory> block verbatim across repeated compaction (M5 regression)', () => {
+    // M5: A structured <knowledge_memory> block (Goal, Decisions, Files
+    // Inspected, Edits Made, Validation Results, Blockers, Next Action) must be
+    // emitted on compaction and preserved verbatim across a second compaction.
+    // This is the root-cause fix for post-compaction amnesia: the extractive
+    // summary dropped file bodies and evidence, leaving only path stubs.
+    const firstMessages = [
+      createMessage('user', 'Refactor the cache-control anchors in messages.ts'),
+      createMessage(
+        'assistant',
+        [
+          'Decision: use a 3-anchor stable-prefix strategy instead of 4 volatile-tail anchors.',
+          'I will read the current anchor code, then rewrite the loop.',
+        ].join('\n'),
+      ),
+      createToolCallMessage('call-1', 'read_files', {
+        paths: ['common/src/util/messages.ts'],
+      }),
+      createToolResultMessage('call-1', 'read_files', {
+        ok: 1,
+      }),
+      createToolCallMessage('call-2', 'str_replace', {
+        path: 'common/src/util/messages.ts',
+        replacements: [],
+      }),
+      createToolResultMessage('call-2', 'str_replace', {
+        file: 'common/src/util/messages.ts',
+        success: true,
+      }),
+      createToolCallMessage('call-3', 'run_terminal_command', {
+        command: 'bun test util/__tests__/messages.test.ts',
+      }),
+      createToolResultMessage('call-3', 'run_terminal_command', {
+        exitCode: 0,
+        command: 'bun test util/__tests__/messages.test.ts',
+      }),
+      createMessage('assistant', 'x'.repeat(2000)),
+    ]
+
+    const firstResults = runHandleSteps(firstMessages, 250000, 200000, {
+      assistantToolBudget: 1,
+      userBudget: 1,
+    })
+    const firstContent = firstResults[0].input.messages[0].content[0].text
+
+    // The <knowledge_memory> block is emitted.
+    expect(firstContent).toContain('<knowledge_memory>')
+    expect(firstContent).toContain('</knowledge_memory>')
+    // Structured fields are populated from the tool calls above.
+    expect(firstContent).toContain('Goal:')
+    expect(firstContent).toMatch(
+      /Decision:.*stable-prefix strategy/,
+    )
+    expect(firstContent).toContain('Files Inspected:')
+    expect(firstContent).toContain('common/src/util/messages.ts')
+    expect(firstContent).toContain('Edits Made:')
+    expect(firstContent).toContain('Validation Results:')
+    expect(firstContent).toContain('exit 0')
+
+    // Second compaction: feed the first summary back in. The structured
+    // block must survive verbatim (parsed and re-emitted), not be lost.
+    const secondResults = runHandleSteps(
+      [firstResults[0].input.messages[0], createMessage('assistant', 'more work')],
+      250000,
+      200000,
+      { assistantToolBudget: 1, userBudget: 1 },
+    )
+    const secondContent = secondResults[0].input.messages[0].content[0].text
+    expect(secondContent).toContain('<knowledge_memory>')
+    expect(secondContent).toContain('Goal:')
+    expect(secondContent).toMatch(/Decision:.*stable-prefix strategy/)
+    expect(secondContent).toContain('common/src/util/messages.ts')
+    expect(secondContent).toContain('exit 0')
+    // No duplicate emission of the block (RISK2: rolling eviction keeps one).
+    expect(
+      secondContent.match(/<knowledge_memory>/g),
+    ).toHaveLength(1)
   })
 
   test('does not pin edited file and task ledger entries without active harness blockers', () => {
@@ -1626,9 +1749,15 @@ First assistant response
     // Most recent entries should survive
     expect(summary1Text).toContain('Cycle1-Request-C')
     expect(summary1Text).toContain('Cycle1-Response-C')
-    // Oldest entries should be dropped
-    expect(summary1Text).not.toContain('Cycle1-Request-A')
-    expect(summary1Text).not.toContain('Cycle1-Response-A')
+    // Oldest entries should be dropped from the entry walk. M5 may pin the
+    // earliest user message as the Goal in <knowledge_memory>; strip that
+    // pinned block before asserting entry-level drops.
+    const summary1Body = summary1Text.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(summary1Body).not.toContain('Cycle1-Request-A')
+    expect(summary1Body).not.toContain('Cycle1-Response-A')
 
     // === CYCLE 2: Add new messages, compact again ===
     const cycle2Messages = [
@@ -1643,9 +1772,15 @@ First assistant response
     // Newest entries from cycle 2 should survive
     expect(summary2Text).toContain('Cycle2-Request-D')
     expect(summary2Text).toContain('Cycle2-Response-D')
-    // Cycle 1's oldest survivors should now be dropped
-    expect(summary2Text).not.toContain('Cycle1-Request-A')
-    expect(summary2Text).not.toContain('Cycle1-Response-A')
+    // Cycle 1's oldest survivors should now be dropped from the entry walk.
+    // Strip the M5 pinned <knowledge_memory> block (which may retain the
+    // original Goal) before asserting entry-level drops.
+    const summary2Body = summary2Text.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(summary2Body).not.toContain('Cycle1-Request-A')
+    expect(summary2Body).not.toContain('Cycle1-Response-A')
 
     // === CYCLE 3: Add more, compact again ===
     const cycle3Messages = [
@@ -1660,9 +1795,15 @@ First assistant response
     // Newest entries from cycle 3 should survive
     expect(summary3Text).toContain('Cycle3-Request-E')
     expect(summary3Text).toContain('Cycle3-Response-E')
-    // Very old entries should definitely be gone
-    expect(summary3Text).not.toContain('Cycle1-Request-A')
-    expect(summary3Text).not.toContain('Cycle1-Response-A')
+    // Very old entries should definitely be gone from the entry walk. Strip
+    // the M5 pinned <knowledge_memory> block (which may retain the original
+    // Goal) before asserting entry-level drops.
+    const summary3Body = summary3Text.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(summary3Body).not.toContain('Cycle1-Request-A')
+    expect(summary3Body).not.toContain('Cycle1-Response-A')
 
     // Verify only one conversation_summary tag (no nesting)
     const summaryTagCount = (
@@ -2256,11 +2397,17 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Recent user message')
     expect(content).toContain('Recent assistant response')
 
-    // Older messages should be dropped entirely (not in summary)
-    expect(content).not.toContain('Old user message 1')
-    expect(content).not.toContain('Old assistant response 1')
-    expect(content).not.toContain('Old user message 2')
-    expect(content).not.toContain('Old assistant response 2')
+    // Older messages should be dropped from the entry walk. M5 may pin the
+    // earliest user message as Goal in <knowledge_memory>; strip that block
+    // before asserting entry-level drops.
+    const entryBody = content.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(entryBody).not.toContain('Old user message 1')
+    expect(entryBody).not.toContain('Old assistant response 1')
+    expect(entryBody).not.toContain('Old user message 2')
+    expect(entryBody).not.toContain('Old assistant response 2')
   })
 
   test('summarizes all messages when they fit within budgets', () => {
@@ -2310,8 +2457,14 @@ describe('context-pruner dual-budget behavior', () => {
 
     const content = (resultMessages[0].content[0] as { text: string }).text
     expect(content).toContain('<conversation_summary>')
-    // The large user message should be dropped (not in summary)
-    expect(content).not.toContain(largeUserText)
+    // The large user message should be dropped from the entry walk. M5 may
+    // pin the earliest user message as Goal in <knowledge_memory>; strip that
+    // block before asserting entry-level drops.
+    const entryBody2 = content.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(entryBody2).not.toContain(largeUserText)
     // Recent messages should be in the summary
     expect(content).toContain('Recent short question')
     expect(content).toContain('Recent short answer')
@@ -2341,8 +2494,14 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Recent message')
     expect(content).toContain('Recent response')
 
-    // Tool call summary should be dropped (beyond budget)
-    expect(content).not.toContain('old.ts')
+    // Tool call summary should be dropped (beyond budget). M5 may pin the
+    // earliest user message as Goal in <knowledge_memory>; strip that block
+    // before asserting entry-level drops.
+    const entryBody3 = content.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(entryBody3).not.toContain('old.ts')
   })
 
   test('counts tool result summaries against assistant+tool budget', () => {
@@ -2405,9 +2564,15 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Second request about feature B')
     expect(content).toContain('Working on feature B')
 
-    // Older messages should be dropped
-    expect(content).not.toContain('First request about feature A')
-    expect(content).not.toContain('Working on feature A')
+    // Older messages should be dropped from the entry walk. M5 may pin the
+    // earliest user message as Goal in <knowledge_memory>; strip that block
+    // before asserting entry-level drops.
+    const entryBody4 = content.replace(
+      /<knowledge_memory>[\s\S]*?<\/knowledge_memory>/g,
+      '',
+    )
+    expect(entryBody4).not.toContain('First request about feature A')
+    expect(entryBody4).not.toContain('Working on feature A')
   })
 
   test('excludes STEP_PROMPT tagged messages from budget calculation', () => {

@@ -79,7 +79,24 @@ const definition: AgentDefinition = {
     /** Fudge factor for token count threshold to trigger pruning earlier */
     const TOKEN_COUNT_FUDGE_FACTOR = 1_000
 
-    /** Default pruning threshold. Keep below provider hard limits because tool schemas and step prompts are added after history. */
+    /**
+     * Default pruning threshold for the LLM-based context-pruner agent. Keep
+     * below provider hard limits because tool schemas and step prompts are
+     * added after history.
+     *
+     * M4 (SPEC R4) unifies the pruning threshold around
+     * `DEFAULT_MAX_CONTEXT_TOKENS = 190_000` (exported from
+     * `packages/agent-runtime/src/util/context-pruning.ts`), shared by the
+     * runtime fallback (`maybePruneContext`) and the SDK request-time
+     * emergency brake (`getMessagesForModelContext`). This agent's inline
+     * default is intentionally lower (140k) because it performs semantic
+     * summarization (lossier but higher-fidelity) rather than mechanical
+     * trimming, so it should fire earlier. This constant is inlined (not
+     * imported) because `handleSteps` is serialized to a string at build time
+     * and cannot reference external modules — keep the value in sync with the
+     * `DEFAULT_MAX_CONTEXT_TOKENS` policy when adjusting the unified
+     * threshold.
+     */
     const DEFAULT_MAX_CONTEXT_LENGTH = 140_000
 
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
@@ -94,6 +111,41 @@ const definition: AgentDefinition = {
 
     const CONTINUATION_PROMPT_TEXT =
       'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.'
+
+    /** Knowledge memory block budgets (RISK2: bounded with rolling eviction of oldest) */
+    const KNOWLEDGE_MEMORY_MAX_GOAL_CHARS = 600
+    const KNOWLEDGE_MEMORY_MAX_DECISIONS = 8
+    const KNOWLEDGE_MEMORY_MAX_FILES_INSPECTED = 25
+    const KNOWLEDGE_MEMORY_MAX_EDITS = 25
+    const KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS = 12
+    const KNOWLEDGE_MEMORY_MAX_BLOCKERS = 8
+    const KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS = 300
+    const KNOWLEDGE_MEMORY_ENTRY_CHARS = 240
+    const KNOWLEDGE_MEMORY_FILE_FINDING_CHARS = 160
+
+    /** Tool categories for knowledge memory extraction */
+    const FILE_INSPECTION_TOOLS = [
+      'read_files',
+      'read_outline',
+      'read_subtree',
+      'read_image',
+      'code_search',
+      'code_searcher',
+      'query_index',
+      'glob',
+      'list_directory',
+      'file_picker',
+    ]
+    const EDIT_TOOLS = [
+      'str_replace',
+      'propose_str_replace',
+      'write_file',
+      'propose_write_file',
+      'rewrite_symbol',
+      'edit_transaction',
+      'replace_range',
+    ]
+    const VALIDATION_TOOLS = ['run_terminal_command', 'basher']
 
     // =============================================================================
     // Helper Functions (must be inside handleSteps since it's serialized to a string)
@@ -424,15 +476,21 @@ const definition: AgentDefinition = {
       }
     }
 
-    // Check if we need to prune at all:
-    // - Prune when context exceeds max, OR
-    // - Prune when prompt cache will miss (>5 min gap) to take advantage of fresh context
-    // If not, return messages with just the subagent-specific tags removed
+    // Check if we need to prune at all.
+    // Prune ONLY when context exceeds the token threshold.
+    // Cache-TTL expiry (cacheWillMiss) no longer triggers summarization —
+    // summarizing on every 5-min gap destroys stable cache prefixes and
+    // causes rapid cache refill (the "cache fills up fast" symptom).
+    // The provider simply re-writes the cache, which is cheaper than
+    // regenerating a summary blob. M2 will add explicit cache-marker
+    // re-stamping here via the stable-anchor policy.
     if (
       agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <=
-        maxContextLength &&
-      !cacheWillMiss
+      maxContextLength
     ) {
+      // cacheWillMiss is computed for M2's cache-marker refresh path;
+      // referenced here to avoid dead-code elimination until M2 lands.
+      void cacheWillMiss
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
@@ -509,6 +567,10 @@ const definition: AgentDefinition = {
           /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
           '',
         )
+        .replace(
+          /<knowledge_memory>[\s\S]*?<\/knowledge_memory>\n*/g,
+          '',
+        )
         .trim()
       if (!withoutPinnedState) return []
 
@@ -547,6 +609,302 @@ const definition: AgentDefinition = {
         }
       }
       return pinned
+    }
+
+    // =========================================================================
+    // Knowledge Memory (M5): structured operational memory pinned verbatim
+    // across compaction, parallel to <pinned_active_work_state>. Preserves
+    // Goal, Decisions, Files Inspected, Edits Made, Validation Results,
+    // Blockers, Next Action — the facts the extractive summary loses.
+    // =========================================================================
+
+    interface KnowledgeMemory {
+      goal: string
+      decisions: string[]
+      filesInspected: string[] // "path: finding"
+      editsMade: string[] // "path: summary"
+      validationResults: string[]
+      blockers: string[]
+      nextAction: string
+    }
+
+    function createEmptyKnowledgeMemory(): KnowledgeMemory {
+      return {
+        goal: '',
+        decisions: [],
+        filesInspected: [],
+        editsMade: [],
+        validationResults: [],
+        blockers: [],
+        nextAction: '',
+      }
+    }
+
+    function addUniqueEntry(lines: string[], entry: string): void {
+      const trimmed = entry.trim()
+      if (trimmed && !lines.includes(trimmed)) {
+        lines.push(trimmed)
+      }
+    }
+
+    /** Parse a previous <knowledge_memory> block back into the accumulator. */
+    function extractKnowledgeMemoryFromText(text: string): KnowledgeMemory {
+      const km = createEmptyKnowledgeMemory()
+      const blockMatch = text.match(
+        /<knowledge_memory>([\s\S]*?)<\/knowledge_memory>/,
+      )
+      if (!blockMatch) return km
+      const block = blockMatch[1]
+
+      const goalMatch = block.match(/Goal:\s*([\s\S]*?)(?=\nDecisions:|\nFiles Inspected:|\nEdits Made:|\nValidation Results:|\nBlockers:|\nNext Action:|$)/)
+      if (goalMatch) km.goal = goalMatch[1].trim()
+
+        // Capture every "Header:\n  - entry" list section in one pass.
+      // NOTE: must use a regex literal (not `new RegExp(template)`) so that
+      // \s/\S are interpreted as regex whitespace classes. In a template
+      // literal, `\s` becomes a literal `s`, which silently breaks parsing
+      // and causes structured fields to be lost on re-compaction.
+      const SECTION_RE =
+        /^(Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):\s*([\s\S]*?)(?=\n(?:Goal|Decisions|Files Inspected|Edits Made|Validation Results|Blockers|Next Action):|$)/gm
+      let sectionMatch: RegExpExecArray | null
+      while ((sectionMatch = SECTION_RE.exec(block)) !== null) {
+        const header = sectionMatch[1]
+        const rawBody = sectionMatch[2]
+        const items = rawBody
+          .split('\n')
+          .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+          .filter((l) => l.length > 0)
+        if (header === 'Goal') {
+          km.goal = items.join(' ').trim()
+        } else if (header === 'Next Action') {
+          km.nextAction = rawBody.trim()
+        } else if (header === 'Decisions') {
+          km.decisions = items
+        } else if (header === 'Files Inspected') {
+          km.filesInspected = items
+        } else if (header === 'Edits Made') {
+          km.editsMade = items
+        } else if (header === 'Validation Results') {
+          km.validationResults = items
+        } else if (header === 'Blockers') {
+          km.blockers = items
+        }
+      }
+
+      return km
+    }
+
+    function extractPreviousKnowledgeMemory(): KnowledgeMemory {
+      let km = createEmptyKnowledgeMemory()
+      for (const message of currentMessages) {
+        if (isConversationSummary(message)) {
+          const text = getTextContent(message)
+          km = extractKnowledgeMemoryFromText(text)
+        }
+      }
+      return km
+    }
+
+    /** Extract a path-like string from a tool input, normalizing common shapes. */
+    function extractPathFromInput(input: Record<string, unknown>): string {
+      const pathRaw =
+        (input.path as string | undefined) ||
+        (input.filePath as string | undefined) ||
+        (input.targetFile as string | undefined) ||
+        (Array.isArray(input.paths) && input.paths.length > 0
+          ? (input.paths[0] as string)
+          : undefined)
+      if (!pathRaw || typeof pathRaw !== 'string') return ''
+      // For arrays of paths (read_files), include the first; others handled by repeated calls
+      return pathRaw.replace(/^['"]|['"]$/g, '').trim()
+    }
+
+    function extractFindingsSummary(text: string): string {
+      // Pull a one-line finding from tool result text: look for the first
+      // non-empty line that looks like a finding, or truncate the whole thing.
+      const lines = text
+        .replace(/<think>[\s\S]*?<\/think>/g, '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('---') && !l.startsWith('```'))
+      if (lines.length === 0) return ''
+      const first = lines[0]
+      if (first.length <= KNOWLEDGE_MEMORY_FILE_FINDING_CHARS) return first
+      return first.slice(0, KNOWLEDGE_MEMORY_FILE_FINDING_CHARS - 3) + '...'
+    }
+
+    /** Apply per-field budgets with rolling eviction of oldest entries (RISK2). */
+    function enforceKnowledgeMemoryBudgets(km: KnowledgeMemory): void {
+      if (km.goal.length > KNOWLEDGE_MEMORY_MAX_GOAL_CHARS) {
+        km.goal = km.goal.slice(0, KNOWLEDGE_MEMORY_MAX_GOAL_CHARS - 3) + '...'
+      }
+      if (km.nextAction.length > KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS) {
+        km.nextAction =
+          km.nextAction.slice(0, KNOWLEDGE_MEMORY_MAX_NEXT_ACTION_CHARS - 3) +
+          '...'
+      }
+      if (km.decisions.length > KNOWLEDGE_MEMORY_MAX_DECISIONS) {
+        km.decisions = km.decisions.slice(-KNOWLEDGE_MEMORY_MAX_DECISIONS)
+      }
+      if (km.filesInspected.length > KNOWLEDGE_MEMORY_MAX_FILES_INSPECTED) {
+        km.filesInspected = km.filesInspected.slice(
+          -KNOWLEDGE_MEMORY_MAX_FILES_INSPECTED,
+        )
+      }
+      if (km.editsMade.length > KNOWLEDGE_MEMORY_MAX_EDITS) {
+        km.editsMade = km.editsMade.slice(-KNOWLEDGE_MEMORY_MAX_EDITS)
+      }
+      if (km.validationResults.length > KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS) {
+        km.validationResults = km.validationResults.slice(
+          -KNOWLEDGE_MEMORY_MAX_VALIDATION_RESULTS,
+        )
+      }
+      if (km.blockers.length > KNOWLEDGE_MEMORY_MAX_BLOCKERS) {
+        km.blockers = km.blockers.slice(-KNOWLEDGE_MEMORY_MAX_BLOCKERS)
+      }
+      // Per-entry length caps
+      const capEntry = (entry: string, max: number): string => {
+        if (entry.length <= max) return entry
+        return entry.slice(0, max - 3) + '...'
+      }
+      km.decisions = km.decisions.map((e) =>
+        capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
+      )
+      km.filesInspected = km.filesInspected.map((e) =>
+        capEntry(e, KNOWLEDGE_MEMORY_FILE_FINDING_CHARS + 200),
+      )
+      km.editsMade = km.editsMade.map((e) =>
+        capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
+      )
+      km.validationResults = km.validationResults.map((e) =>
+        capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
+      )
+      km.blockers = km.blockers.map((e) =>
+        capEntry(e, KNOWLEDGE_MEMORY_ENTRY_CHARS),
+      )
+    }
+
+    /** Detect goal from the earliest substantive user message. */
+    function extractGoalFromMessages(): string {
+      for (const message of messagesToSummarize) {
+        if (message.role !== 'user') continue
+        const text = sanitizeOperationalStateText(getTextContent(message))
+        if (!text) continue
+        // Skip tool-result-style user messages and system tags
+        if (text.startsWith('[USER]')) continue
+        if (text.startsWith('<')) continue
+        const truncated = truncateLongText(
+          text,
+          KNOWLEDGE_MEMORY_MAX_GOAL_CHARS * CHARS_PER_TOKEN,
+        )
+        return truncated.replace(/\[\.\.\.truncated \d+ chars\.\.\.\]\n*/g, ' ').trim()
+      }
+      return ''
+    }
+
+    /** Detect decision lines from assistant text (heuristic: lines starting with decision markers). */
+    function extractDecisionsFromAssistantText(text: string): string[] {
+      const decisions: string[] = []
+      const withoutThink = text.replace(/<think>[\s\S]*?<\/think>/g, '')
+      const lines = withoutThink.split('\n')
+      for (const line of lines) {
+        const trimmed = line.trim()
+        // Match common decision markers in agent output
+        if (
+          /^(?:Decision|Decided|Chose|Using|Selected|Will use|Opted)[:)]?\s/i.test(
+            trimmed,
+        ) ||
+          /^[-*]\s*(?:Decision|Decided|Chose|Using|Selected)[:)]?\s/i.test(
+            trimmed,
+          )
+        ) {
+          const cleaned = trimmed.replace(/^[-*]\s*/, '').trim()
+          if (cleaned.length > 0) {
+            addUniqueEntry(decisions, cleaned)
+          }
+        }
+      }
+      return decisions
+    }
+
+    function extractBlockersFromText(text: string): string[] {
+      const blockers: string[] = []
+      const withoutThink = text.replace(/<think>[\s\S]*?<\/think>/g, '')
+      const lines = withoutThink.split('\n')
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (
+          /^(?:Blocker|BLOCKING|Stuck|Cannot|Failed to)[:)]?\s/i.test(trimmed) ||
+          /^[-*]\s*(?:Blocker|BLOCKING|Stuck|Cannot|Failed to)[:)]?\s/i.test(
+            trimmed,
+          )
+        ) {
+          const cleaned = trimmed.replace(/^[-*]\s*/, '').trim()
+          if (cleaned.length > 0) {
+            addUniqueEntry(blockers, cleaned)
+          }
+        }
+      }
+      return blockers
+    }
+
+    /** Build the final <knowledge_memory> block string. */
+    function buildKnowledgeMemoryBlock(km: KnowledgeMemory): string {
+      const sections: string[] = []
+      if (km.goal) {
+        sections.push(`Goal:\n  ${km.goal}`)
+      }
+      if (km.decisions.length > 0) {
+        sections.push(
+          `Decisions:\n${km.decisions.map((d) => `  - ${d}`).join('\n')}`,
+        )
+      }
+      if (km.filesInspected.length > 0) {
+        sections.push(
+          `Files Inspected:\n${km.filesInspected
+            .map((f) => `  - ${f}`)
+            .join('\n')}`,
+        )
+      }
+      if (km.editsMade.length > 0) {
+        sections.push(
+          `Edits Made:\n${km.editsMade.map((e) => `  - ${e}`).join('\n')}`,
+        )
+      }
+      if (km.validationResults.length > 0) {
+        sections.push(
+          `Validation Results:\n${km.validationResults
+            .map((v) => `  - ${v}`)
+            .join('\n')}`,
+        )
+      }
+      if (km.blockers.length > 0) {
+        sections.push(
+          `Blockers:\n${km.blockers.map((b) => `  - ${b}`).join('\n')}`,
+        )
+      }
+      if (km.nextAction) {
+        sections.push(`Next Action:\n  ${km.nextAction}`)
+      }
+      if (sections.length === 0) return ''
+      return [
+        '<knowledge_memory>',
+        'Pinned structured knowledge memory. Preserve verbatim across compaction; this section is not subject to normal budget cutoff.',
+        ...sections,
+        '</knowledge_memory>',
+      ].join('\n')
+    }
+
+    function hasSubstantiveKnowledgeMemory(km: KnowledgeMemory): boolean {
+      return (
+        km.goal.length > 0 ||
+        km.decisions.length > 0 ||
+        km.filesInspected.length > 0 ||
+        km.editsMade.length > 0 ||
+        km.validationResults.length > 0 ||
+        km.blockers.length > 0 ||
+        km.nextAction.length > 0
+      )
     }
 
     function extractActiveWorkLines(text: string): string[] {
@@ -647,10 +1005,15 @@ const definition: AgentDefinition = {
     }
 
     function sanitizeOperationalStateText(text: string): string {
-      const withoutPinnedState = text.replace(
-        /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
-        '',
-      )
+      const withoutPinnedState = text
+        .replace(
+          /<pinned_active_work_state>[\s\S]*?<\/pinned_active_work_state>\n*/g,
+          '',
+        )
+        .replace(
+          /<knowledge_memory>[\s\S]*?<\/knowledge_memory>\n*/g,
+          '',
+        )
       const withoutSystemReminders = withoutPinnedState.replace(
         /<system_reminder>[\s\S]*?<\/system_reminder>\n*/g,
         '',
@@ -780,6 +1143,12 @@ const definition: AgentDefinition = {
       previousSummaryContent,
     )
 
+    // M5: Initialize structured knowledge memory from previous summary
+    const knowledgeMemory = extractPreviousKnowledgeMemory()
+    if (!knowledgeMemory.goal) {
+      knowledgeMemory.goal = extractGoalFromMessages()
+    }
+
     for (const message of messagesToSummarize) {
       if (message.role === 'user') {
         let text = getTextContent(message).trim()
@@ -817,6 +1186,13 @@ const definition: AgentDefinition = {
               for (const line of extractActiveWorkLines(rawTextWithoutThinkTags)) {
                 addUniqueLine(pinnedActiveWorkLines, line)
               }
+              // M5: Extract decisions and blockers from assistant text
+              for (const decision of extractDecisionsFromAssistantText(rawTextWithoutThinkTags)) {
+                addUniqueEntry(knowledgeMemory.decisions, decision)
+              }
+              for (const blocker of extractBlockersFromText(rawTextWithoutThinkTags)) {
+                addUniqueEntry(knowledgeMemory.blockers, blocker)
+              }
               const textWithoutThinkTags = sanitizeOperationalStateText(
                 rawTextWithoutThinkTags,
               )
@@ -827,6 +1203,38 @@ const definition: AgentDefinition = {
               const toolName = part.toolName as string
               const input = (part.input as Record<string, unknown>) || {}
               toolSummaries.push(summarizeToolCall(toolName, input))
+              // M5: Extract files inspected from tool-call input
+              if (FILE_INSPECTION_TOOLS.includes(toolName)) {
+                const paths = Array.isArray(input.paths)
+                  ? (input.paths as string[])
+                  : input.path
+                    ? [input.path as string]
+                    : input.pattern
+                      ? [`glob: ${input.pattern}`]
+                      : input.query
+                        ? [`index: ${input.query}`]
+                        : []
+                for (const p of paths) {
+                  if (typeof p === 'string' && p.trim()) {
+                    addUniqueEntry(knowledgeMemory.filesInspected, p.trim())
+                  }
+                }
+              }
+              // M5: Extract edits made from tool-call input
+              if (EDIT_TOOLS.includes(toolName)) {
+                const path = extractPathFromInput(input)
+                if (path) {
+                  addUniqueEntry(knowledgeMemory.editsMade, `${path}: ${toolName}`)
+                }
+                if (toolName === 'edit_transaction' && Array.isArray(input.edits)) {
+                  for (const edit of input.edits as Array<Record<string, unknown>>) {
+                    const editPath = extractPathFromInput(edit)
+                    if (editPath) {
+                      addUniqueEntry(knowledgeMemory.editsMade, `${editPath}: edit_transaction`)
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -877,6 +1285,15 @@ const definition: AgentDefinition = {
                 if (exitCode !== 0) {
                   entryParts.push(`Command failed with exit code: ${exitCode}`)
                 }
+                // M5: Record validation result
+                const command = typeof value.command === 'string' ? value.command : ''
+                const commandSummary = command.length > 80
+                  ? command.slice(0, 77) + '...'
+                  : command
+                addUniqueEntry(
+                  knowledgeMemory.validationResults,
+                  `${commandSummary || toolMessage.toolName}: exit ${exitCode}`,
+                )
               }
 
               if (toolMessage.toolName === 'ask_user') {
@@ -1042,6 +1459,13 @@ const definition: AgentDefinition = {
           '</pinned_active_work_state>',
         ].join('\n'),
       )
+    }
+
+    // M5: Emit structured knowledge memory block, pinned verbatim across compaction
+    enforceKnowledgeMemoryBudgets(knowledgeMemory)
+    const knowledgeMemoryBlock = buildKnowledgeMemoryBlock(knowledgeMemory)
+    if (knowledgeMemoryBlock) {
+      summaryParts.push(knowledgeMemoryBlock)
     }
 
     for (let i = cutoffIndex; i < allEntries.length; i++) {

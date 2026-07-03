@@ -1,4 +1,5 @@
 import * as analytics from '@codebuff/common/analytics'
+import { createHash } from 'node:crypto'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { promptSuccess } from '@codebuff/common/util/error'
@@ -425,27 +426,60 @@ describe('mainPrompt', () => {
     expect(newSessionState.mainAgentState.stepsRemaining).toBe(initialCount - 1)
   })
 
-  it('should return no tool calls when LLM response is empty', async () => {
-    // Mock the LLM stream to return nothing
-    mockAgentStream([])
-
+  it('reuses the session system prompt across consecutive same-agent turns', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
-    const action = {
+    const capturedSystemPrompts: string[] = []
+
+    mainPromptBaseParams.promptAiSdkStream = async function* ({
+      system,
+    }: Parameters<typeof mainPromptBaseParams.promptAiSdkStream>[0]) {
+      capturedSystemPrompts.push(system ?? '')
+      yield { type: 'text' as const, text: 'Test response' }
+      return 'mock-message-id'
+    }
+
+    const firstAction = {
       type: 'prompt' as const,
-      prompt: 'Test prompt leading to empty response',
+      prompt: 'First prompt',
       sessionState,
       fingerprintId: 'test',
       costMode: 'normal' as const,
-      promptId: 'test',
+      promptId: 'test-1',
       toolResults: [],
     }
 
-    const { output } = await mainPrompt({
+    await mainPrompt({
       ...mainPromptBaseParams,
-      action,
+      action: firstAction,
       localAgentTemplates: mockLocalAgentTemplates,
     })
 
-    expect(output.type).toBeDefined() // Output should exist even for empty response
+    const firstSystemPrompt = sessionState.mainAgentState.systemPrompt
+    expect(firstSystemPrompt).not.toBe('')
+
+    sessionState.fileContext.knowledgeFiles = {
+      'knowledge.md': 'This file changed after the first turn.',
+    }
+
+    const secondAction = {
+      ...firstAction,
+      prompt: 'Second prompt',
+      promptId: 'test-2',
+    }
+
+    await mainPrompt({
+      ...mainPromptBaseParams,
+      action: secondAction,
+      localAgentTemplates: mockLocalAgentTemplates,
+    })
+
+    const hashPromptPrefix = (value: string) =>
+      createHash('sha256').update(value.slice(0, 4096)).digest('hex')
+
+    expect(capturedSystemPrompts).toHaveLength(2)
+    expect(sessionState.mainAgentState.systemPrompt).toBe(firstSystemPrompt)
+    expect(hashPromptPrefix(capturedSystemPrompts[1])).toBe(
+      hashPromptPrefix(capturedSystemPrompts[0]),
+    )
   })
 })

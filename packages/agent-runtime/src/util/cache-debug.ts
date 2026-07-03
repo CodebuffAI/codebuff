@@ -6,6 +6,10 @@ import {
   summarizeCacheDebugValue,
   type CacheDebugCorrelation,
 } from '@codebuff/common/util/cache-debug'
+import {
+  getCacheAnchorSummary,
+  type CacheAnchorInfo,
+} from '@codebuff/common/util/messages'
 import type { CacheDebugUsageData } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
@@ -50,6 +54,14 @@ export type CacheDebugSnapshot = {
   model?: string
   systemHash?: string
   toolsHash?: string
+  /**
+   * M2 telemetry: per-anchor cache-control attribution. Records which
+   * aggregated message index received a cache-control breakpoint, a short
+   * content hash for churn detection, and the anchor type (system /
+   * stable-history / tail). Diffing this across snapshots reveals whether
+   * anchors are staying stable (cache hits) or moving every turn (churn).
+   */
+  cacheAnchors?: CacheAnchorInfo[]
   preConversion: CacheDebugPreConversionSnapshot
   providerRequest?: CacheDebugProviderRequestSnapshot
   usage?: CacheDebugUsageData
@@ -195,6 +207,10 @@ export function createCacheDebugSnapshot(params: {
     model,
     systemHash: stableHash(system),
     toolsHash: stableHash(toolDefinitions),
+    // M2: record which message indices receive cache-control breakpoints and
+    // a content hash for each, so cache-debug snapshots can be diffed to
+    // detect anchor churn across requests.
+    cacheAnchors: getCacheAnchorSummary(messages),
     preConversion: {
       systemPrompt: system,
       toolDefinitions,

@@ -5,6 +5,7 @@ import {
   withCacheControl,
   withoutCacheControl,
   convertCbToModelMessages,
+  getCacheAnchorSummary,
   systemMessage,
   userMessage,
   assistantMessage,
@@ -702,7 +703,11 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
-    test('should add cache control before LAST_ASSISTANT_MESSAGE tag', () => {
+    // M2: LAST_ASSISTANT_MESSAGE tag no longer receives its own anchor.
+    // The stable-prefix strategy anchors on system + stable-history + tail
+    // instead. This test verifies the new behavior: with no live-prompt tag,
+    // the system message and the last message (tail) receive cache control.
+    test('M2: LAST_ASSISTANT_MESSAGE tag no longer drives anchoring — system + tail anchor instead', () => {
       const messages: Message[] = [
         systemMessage('System'),
         userMessage('Context'),
@@ -719,29 +724,139 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: true,
       })
 
-      expect(result).toEqual([
-        expect.objectContaining({ role: 'system' }),
-        expect.objectContaining({ role: 'user' }),
-        expect.objectContaining({ role: 'assistant' }),
-        {
+      // System message (index 0) gets cache control
+      expect(result[0].providerOptions).toEqual(
+        expect.objectContaining({
+          openaiCompatible: { cache_control: { type: 'ephemeral' } },
+        }),
+      )
+
+      // Last message (tail, index 4) gets cache control on its last content part
+      const lastMessage = result[4]
+      expect(lastMessage.role).toBe('assistant')
+      if (typeof lastMessage.content !== 'string') {
+        const lastPart = lastMessage.content[lastMessage.content.length - 1] as {
+          providerOptions?: Record<string, ProviderWithCacheControl>
+        }
+        expect(lastPart.providerOptions?.openaiCompatible?.cache_control).toEqual({
+          type: 'ephemeral',
+        })
+      }
+
+      // No anchor before the LAST_ASSISTANT_MESSAGE tag (the 'Instructions' user message stays clean)
+      const instructionsMsg = result[3]
+      if (typeof instructionsMsg.content !== 'string') {
+        const part = instructionsMsg.content[0] as {
+          providerOptions?: Record<string, ProviderWithCacheControl>
+        }
+        expect(part.providerOptions?.openaiCompatible?.cache_control).toBeUndefined()
+      }
+    })
+
+    // M2: stable-history boundary anchor. With a USER_PROMPT tag, the message
+    // before it (stable history) gets cache control, plus system + tail.
+    test('M2: stable-history anchor before earliest live-prompt tag + system + tail', () => {
+      const messages: Message[] = [
+        systemMessage('System'),
+        userMessage('Context'),
+        assistantMessage('Response'),
+        userMessage('More context'),
+        userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // System (index 0): cache control
+      expect(result[0].providerOptions).toEqual(
+        expect.objectContaining({
+          openaiCompatible: { cache_control: { type: 'ephemeral' } },
+        }),
+      )
+
+      // Stable-history boundary (index 3, 'More context'): cache control
+      expect(result[3]).toEqual(
+        expect.objectContaining({
           role: 'user',
-          sentAt: expect.any(Number),
           content: [
             {
               type: 'text',
-              text: 'Instructions',
+              text: 'More context',
               providerOptions: expect.objectContaining({
-                openaiCompatible: {
-                  cache_control: {
-                    type: 'ephemeral',
-                  },
-                },
+                openaiCompatible: { cache_control: { type: 'ephemeral' } },
               }),
             },
           ],
-        },
-        expect.objectContaining({ role: 'assistant' }),
-      ])
+        }),
+      )
+
+      // Tail (index 4, 'User prompt'): cache control
+      expect(result[4]).toEqual(
+        expect.objectContaining({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'User prompt',
+              providerOptions: expect.objectContaining({
+                openaiCompatible: { cache_control: { type: 'ephemeral' } },
+              }),
+            },
+          ],
+        }),
+      )
+    })
+
+    // M2: earliest live-prompt wins. If both STEP_PROMPT and USER_PROMPT
+    // exist, the stable-history anchor goes before the earliest one.
+    test('M2: earliest live-prompt tag wins for stable-history boundary', () => {
+      const messages: Message[] = [
+        systemMessage('System'),
+        userMessage('Context'),
+        userMessage({ content: 'Step', tags: ['STEP_PROMPT'] }),
+        assistantMessage('Response'),
+        userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      // Stable-history boundary is before STEP_PROMPT (index 1, 'Context')
+      expect(result[1]).toEqual(
+        expect.objectContaining({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Context',
+              providerOptions: expect.objectContaining({
+                openaiCompatible: { cache_control: { type: 'ephemeral' } },
+              }),
+            },
+          ],
+        }),
+      )
+    })
+
+    // M2: set-dedup — if system is also the tail (single message), only one anchor
+    test('M2: set-dedup prevents double anchoring when system is also tail', () => {
+      const messages: Message[] = [systemMessage('Lonely system')]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: true,
+      })
+
+      expect(result).toHaveLength(1)
+      expect(result[0].providerOptions).toEqual(
+        expect.objectContaining({
+          openaiCompatible: { cache_control: { type: 'ephemeral' } },
+        }),
+      )
     })
 
     test('should add cache control before STEP_PROMPT tag', () => {
@@ -853,6 +968,67 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'user' }),
       ])
     })
+
+  // M2 telemetry: getCacheAnchorSummary returns per-anchor metadata without
+  // modifying messages. Used by cache-debug snapshots to detect anchor churn.
+  describe('getCacheAnchorSummary (M2 telemetry)', () => {
+    it('returns system + stable-history + tail anchors with content hashes', () => {
+      const messages: Message[] = [
+        systemMessage('System'),
+        userMessage('Context'),
+        assistantMessage('Response'),
+        userMessage('More context'),
+        userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
+      ]
+
+      const anchors = getCacheAnchorSummary(messages)
+
+      expect(anchors).toHaveLength(3)
+      expect(anchors.map((a) => a.type)).toEqual([
+        'system',
+        'stable-history',
+        'tail',
+      ])
+      // system anchor at index 0
+      expect(anchors[0].index).toBe(0)
+      expect(anchors[0].contentHash).toMatch(/^[0-9a-f]{8}$/)
+      // stable-history anchor before USER_PROMPT (index 3)
+      expect(anchors[1].index).toBe(3)
+      // tail anchor at last index (4)
+      expect(anchors[2].index).toBe(4)
+      // each anchor has a reason string
+      for (const anchor of anchors) {
+        expect(anchor.reason).toBeTruthy()
+        expect(typeof anchor.reason).toBe('string')
+      }
+    })
+
+    it('does not modify the original messages', () => {
+      const messages: Message[] = [
+        systemMessage('System'),
+        userMessage('Context'),
+        userMessage({ content: 'User prompt', tags: ['USER_PROMPT'] }),
+      ]
+
+      const before = cloneDeep(messages)
+      getCacheAnchorSummary(messages)
+      expect(messages).toEqual(before)
+    })
+
+    it('dedupes when system is also the tail (single message)', () => {
+      const messages: Message[] = [systemMessage('Lonely system')]
+
+      const anchors = getCacheAnchorSummary(messages)
+
+      expect(anchors).toHaveLength(1)
+      expect(anchors[0].type).toBe('system')
+      expect(anchors[0].index).toBe(0)
+    })
+
+    it('returns empty for empty messages', () => {
+      expect(getCacheAnchorSummary([])).toEqual([])
+    })
+  })
 
     it('should handle array content with cache control on non-text parts', () => {
       const messages: Message[] = [

@@ -293,15 +293,162 @@ function filterOrphanModelToolMessages(
   return filteredMessages
 }
 
-export function convertCbToModelMessages({
-  messages,
-  includeCacheControl = true,
-  logger,
-}: {
-  messages: Message[]
-  includeCacheControl?: boolean
-  logger?: Logger
-}): ModelMessage[] {
+/**
+ * M2 telemetry: per-anchor cache-control attribution. Each entry records
+ * which aggregated message index received a cache-control breakpoint, a short
+ * content hash for churn detection, and a human-readable reason. This lets
+ * developers diff cache-debug snapshots across requests to see whether anchors
+ * are staying stable (cache hits) or moving every turn (cache churn).
+ */
+export type CacheAnchorInfo = {
+  type: 'system' | 'stable-history' | 'tail'
+  index: number
+  contentHash: string
+  reason: string
+}
+
+/** Quick djb2 hash for content fingerprinting (not cryptographic). */
+function quickHash(s: string): string {
+  let hash = 5381
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) + hash + s.charCodeAt(i)) | 0
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+function messageContentHash(message: ModelMessageWithAuxiliaryData): string {
+  const { content } = message
+  if (typeof content === 'string') return quickHash(content)
+  return quickHash(
+    content
+      .map((p) =>
+        'text' in p && typeof p.text === 'string' ? p.text : p.type,
+      )
+      .join('\n'),
+  )
+}
+
+/**
+ * M2: Find cache-control anchor indices on the *aggregated* message array.
+ *
+ * Anthropic prompt caching is prefix-based — a cache hit requires the bytes
+ * before the breakpoint to be byte-identical to a prior request. The previous
+ * implementation anchored on the volatile tail (LAST_ASSISTANT_MESSAGE,
+ * USER_PROMPT, STEP_PROMPT, last message), which moved every breakpoint each
+ * turn and busted the cache.
+ *
+ * The new strategy places up to 3 anchors on stable prefix boundaries:
+ *   1. **System** — the system message (index 0), byte-stable across the
+ *      whole session.
+ *   2. **Stable-history** — the last message before the earliest live-prompt
+ *      tag (USER_PROMPT or STEP_PROMPT). Everything before that tag is
+ *      history that won't change on subsequent turns.
+ *   3. **Tail** — the last message. Pre-caches the current response so the
+ *      next turn's stable-history anchor hits.
+ *
+ * Set-based dedup ensures we never place two breakpoints on the same message,
+ * staying within Anthropic's 4-breakpoint limit.
+ */
+function findCacheAnchorIndices(
+  aggregated: ModelMessageWithAuxiliaryData[],
+): Array<{ type: 'system' | 'stable-history' | 'tail'; index: number; reason: string }> {
+  const anchors: Array<{
+    type: 'system' | 'stable-history' | 'tail'
+    index: number
+    reason: string
+  }> = []
+  const anchoredIndices = new Set<number>()
+
+  // Anchor 1: system message (byte-stable across the whole session)
+  if (aggregated.length > 0 && aggregated[0].role === 'system') {
+    anchors.push({
+      type: 'system',
+      index: 0,
+      reason: 'system message (session-stable prefix)',
+    })
+    anchoredIndices.add(0)
+  }
+
+  // Anchor 2: stable-history boundary — just before the earliest live-prompt
+  // tag. The earliest tag marks the start of the current turn; everything
+  // before it is stable history that won't change on subsequent turns.
+  let firstLivePromptIndex = aggregated.length
+  for (const tag of ['USER_PROMPT', 'STEP_PROMPT'] as const) {
+    const idx = aggregated.findIndex((m) => m.tags?.includes(tag))
+    if (idx >= 0 && idx < firstLivePromptIndex) {
+      firstLivePromptIndex = idx
+    }
+  }
+  if (firstLivePromptIndex > 0 && firstLivePromptIndex < aggregated.length) {
+    const anchorIndex = firstLivePromptIndex - 1
+    if (!anchoredIndices.has(anchorIndex)) {
+      anchors.push({
+        type: 'stable-history',
+        index: anchorIndex,
+        reason: `before live prompt at index ${firstLivePromptIndex} (stable-history boundary)`,
+      })
+      anchoredIndices.add(anchorIndex)
+    }
+  }
+
+  // Anchor 3: tail (last message) — pre-caches the current response so the
+  // next turn's stable-history anchor hits.
+  const tailIndex = aggregated.length - 1
+  if (tailIndex >= 0 && !anchoredIndices.has(tailIndex)) {
+    anchors.push({
+      type: 'tail',
+      index: tailIndex,
+      reason: 'last message (pre-cache current response)',
+    })
+    anchoredIndices.add(tailIndex)
+  }
+
+  return anchors
+}
+
+/**
+ * Apply cache control to the last content part of the message at the given
+ * index. For system messages (string content), applies to the message itself.
+ * For array content, applies to the last content part (text or non-text).
+ */
+function applyCacheControlToLastContentPart(
+  aggregated: ModelMessageWithAuxiliaryData[],
+  index: number,
+): void {
+  const message = aggregated[index]
+  const contentBlock = message.content
+
+  if (typeof contentBlock === 'string') {
+    aggregated[index] = withCacheControl(message)
+    return
+  }
+
+  const lastContentIndex = contentBlock.length - 1
+  if (lastContentIndex < 0) return
+
+  const lastContentPart = contentBlock[lastContentIndex]
+  if (lastContentPart.type !== 'text') {
+    contentBlock[lastContentIndex] = withCacheControl(lastContentPart)
+    return
+  }
+
+  message.content = [
+    ...contentBlock.slice(0, lastContentIndex),
+    withCacheControl(lastContentPart),
+    ...contentBlock.slice(lastContentIndex + 1),
+  ] as typeof contentBlock
+}
+
+/**
+ * Aggregate messages into the form used for model requests (consecutive
+ * same-role messages merged, orphan tool results filtered). Extracted so
+ * telemetry (`getCacheAnchorSummary`) can compute anchor positions without
+ * running the full cache-control + schema-validation pipeline.
+ */
+function aggregateMessages(
+  messages: Message[],
+  logger?: Logger,
+): ModelMessageWithAuxiliaryData[] {
   const toolMessagesConverted: ModelMessageWithAuxiliaryData[] =
     filterOrphanModelToolMessages(convertToolMessages(messages), logger)
 
@@ -336,79 +483,51 @@ export function convertCbToModelMessages({
 
     aggregated.push(message)
   }
+  return aggregated
+}
+
+/**
+ * M2 telemetry: compute cache-anchor metadata for a set of messages without
+ * modifying them. Crash-safe — returns [] on any conversion error so
+ * telemetry never disrupts the request flow. Used by cache-debug snapshots
+ * so developers can observe which message indices receive cache control and
+ * whether they stay stable across requests.
+ */
+export function getCacheAnchorSummary(messages: Message[]): CacheAnchorInfo[] {
+  try {
+    const aggregated = aggregateMessages(messages)
+    const anchors = findCacheAnchorIndices(aggregated)
+    return anchors.map((a) => ({
+      ...a,
+      contentHash: messageContentHash(aggregated[a.index]),
+    }))
+  } catch {
+    return []
+  }
+}
+
+export function convertCbToModelMessages({
+  messages,
+  includeCacheControl = true,
+  logger,
+}: {
+  messages: Message[]
+  includeCacheControl?: boolean
+  logger?: Logger
+}): ModelMessage[] {
+  const aggregated = aggregateMessages(messages, logger)
 
   if (!includeCacheControl) {
     return aggregated
   }
 
-  // Add cache control to specific messages (max of 4 can be marked for caching!):
-  // - The message right before the three tagged messages
-  // - Last message
-  for (const tag of [
-    'LAST_ASSISTANT_MESSAGE',
-    'USER_PROMPT',
-    'STEP_PROMPT',
-    undefined, // Last message
-  ] as const) {
-    let index =
-      tag === 'LAST_ASSISTANT_MESSAGE'
-        ? aggregated.findLastIndex((m) => m.role === 'assistant')
-        : tag
-          ? aggregated.findLastIndex((m) => m.tags?.includes(tag))
-          : aggregated.length
-    if (index <= 0) {
-      continue
-    }
-
-    // Iterate to find the last "valid" message that we can cache control
-    let prevMessage: (typeof aggregated)[number]
-    let contentBlock: (typeof prevMessage)['content']
-    addCacheControlLoop: while (true) {
-      index--
-
-      // No message found
-      if (index < 0) {
-        break
-      }
-
-      prevMessage = aggregated[index]
-      contentBlock = prevMessage.content
-
-      if (typeof contentBlock === 'string') {
-        // This must be a system message
-        aggregated[index] = withCacheControl(aggregated[index])
-        break
-      }
-
-      // Iterate to find the last valid content part (not a very short string)
-      let lastContentIndex = contentBlock.length
-      let lastContentPart: (typeof contentBlock)[number]
-      while (true) {
-        lastContentIndex--
-        lastContentPart = contentBlock[lastContentIndex]
-
-        if (lastContentIndex < 0) {
-          // Continue searching in next message
-          break
-        }
-
-        if (lastContentPart.type !== 'text') {
-          contentBlock[lastContentIndex] = withCacheControl(
-            contentBlock[lastContentIndex],
-          )
-          break addCacheControlLoop
-        }
-
-        prevMessage.content = [
-          ...contentBlock.slice(0, lastContentIndex),
-          withCacheControl(lastContentPart),
-          ...contentBlock.slice(lastContentIndex + 1),
-        ] as typeof contentBlock
-
-        break addCacheControlLoop
-      }
-      break
-    }
+  // M2: Place cache-control anchors on stable prefix boundaries instead of
+  // the volatile conversation tail. See `findCacheAnchorIndices` for the full
+  // rationale. We apply at most 3 anchors (system + stable-history + tail),
+  // well within Anthropic's 4-breakpoint limit.
+  const anchorIndices = findCacheAnchorIndices(aggregated)
+  for (const { index } of anchorIndices) {
+    applyCacheControlToLastContentPart(aggregated, index)
   }
 
   // Validate each message against the AI SDK schema

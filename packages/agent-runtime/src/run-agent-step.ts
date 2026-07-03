@@ -606,12 +606,35 @@ export const runAgentStep = async (
     prompt &&
     (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
   if (wasCompacted) {
+    // M5: Preserve any existing <knowledge_memory> block across manual /compact
+    // so structured knowledge memory survives both automatic pruner compaction
+    // and the user-initiated /compact path.
+    let preservedKnowledgeMemory = ''
+    for (const msg of agentState.messageHistory) {
+      if (msg.role !== 'user') continue
+      const text =
+        typeof msg.content === 'string'
+          ? msg.content
+          : Array.isArray(msg.content)
+            ? msg.content
+                .filter(
+                  (p: Record<string, unknown>) =>
+                    p.type === 'text' && typeof p.text === 'string',
+                )
+                .map((p: Record<string, unknown>) => p.text as string)
+                .join('\n')
+            : ''
+      const match = text.match(/<knowledge_memory>[\s\S]*?<\/knowledge_memory>/)
+      if (match) {
+        preservedKnowledgeMemory = match[0]
+        break
+      }
+    }
+    const summaryText = preservedKnowledgeMemory
+      ? `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}\n\n${preservedKnowledgeMemory}`
+      : `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`
     agentState.messageHistory = [
-      userMessage(
-        withSystemTags(
-          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
-        ),
-      ),
+      userMessage(withSystemTags(summaryText)),
     ]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
@@ -957,6 +980,19 @@ export async function loopAgentSteps(
   let system: string
   if (agentTemplate.inheritParentSystemPrompt && parentSystemPrompt) {
     system = parentSystemPrompt
+  } else if (
+    // Reuse the session-cached system prompt to keep the system prefix
+    // byte-stable across turns (enables provider prompt-cache hits). All
+    // placeholders (CURRENT_DATE, FILE_TREE_PROMPT, SYSTEM_INFO_PROMPT,
+    // GIT_CHANGES_PROMPT, KNOWLEDGE_FILES_CONTENTS, ROUTED_KNOWLEDGE_FILES,
+    // PATTERNS_INDEX) are session-stable or day-granularity, so rebuilding
+    // every turn only risks byte drift from disk re-reads / object key
+    // ordering without picking up meaningful changes. The cache is
+    // invalidated by mainPrompt clearing systemPrompt on agent-type change.
+    initialAgentState.systemPrompt &&
+    initialAgentState.agentType === agentType
+  ) {
+    system = initialAgentState.systemPrompt
   } else {
     const systemPrompt = await getAgentPrompt({
       ...params,

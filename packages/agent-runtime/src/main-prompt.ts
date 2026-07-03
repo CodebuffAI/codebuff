@@ -114,6 +114,17 @@ export async function mainPrompt(
     )[costMode ?? 'normal'] ?? 'base2'
   }
 
+  // Clear the session-cached system prompt when the agent type changes so
+  // the next loopAgentSteps call rebuilds it fresh (different agent templates
+  // have different system prompts). On the first turn agentType is null, so
+  // this only matters for mid-session type switches (e.g. ask -> base2).
+  // Without this, loopAgentSteps would reuse the previous type's cached
+  // system prompt because the type-match guard alone can't detect a change
+  // once we've already overwritten agentType.
+  if (mainAgentState.agentType && mainAgentState.agentType !== agentType) {
+    mainAgentState.systemPrompt = ''
+  }
+
   mainAgentState.agentType = agentType
 
   let mainAgentTemplate = await getAgentTemplate({

@@ -52,6 +52,11 @@ import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai
 import type { LanguageModel } from 'ai'
 import type z from 'zod/v4'
 import { trimMessagesToFitTokenLimit } from '@codebuff/agent-runtime/util/messages'
+import {
+  DEFAULT_MAX_CONTEXT_TOKENS,
+  getModelContextMessageLimit,
+} from '@codebuff/agent-runtime/util/context-pruning'
+import { countTokensJson } from '@codebuff/agent-runtime/util/token-counter'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
@@ -363,38 +368,60 @@ function emitCacheDebugUsage(params: {
 }
 
 const POST_STREAM_METADATA_TIMEOUT_MS = 500
-const MODEL_CONTEXT_MIN_RESERVED_TOKENS = 1_024
-const MODEL_CONTEXT_MAX_RESERVED_TOKENS = 16_000
-const MODEL_CONTEXT_RESERVED_FRACTION = 0.1
 
-function getMessageContextWindowTokens(
-  contextWindowTokens: number | undefined,
-): number | undefined {
-  if (contextWindowTokens === undefined) {
-    return undefined
-  }
-
-  const reservedTokens = Math.min(
-    MODEL_CONTEXT_MAX_RESERVED_TOKENS,
-    Math.max(
-      MODEL_CONTEXT_MIN_RESERVED_TOKENS,
-      Math.floor(contextWindowTokens * MODEL_CONTEXT_RESERVED_FRACTION),
-    ),
-  )
-  return Math.max(1, contextWindowTokens - reservedTokens)
-}
-
+/**
+ * Request-time emergency-brake trim (M4.3, SPEC R4/AC4).
+ *
+ * Trims the message array to fit the active model's context window using the
+ * unified reserved-token policy from `@codebuff/agent-runtime/util/context-pruning`
+ * (`getModelContextMessageLimit`). When the model window is unknown, falls
+ * back to the flat `DEFAULT_MAX_CONTEXT_TOKENS` so the SDK and runtime share
+ * one threshold.
+ *
+ * This is the *last line of defense*: the runtime `maybePruneContext` and the
+ * LLM-based context-pruner agent are expected to keep the conversation under
+ * the unified threshold in steady state. When this function actually has to
+ * drop messages, it emits a `CACHE_EMERGENCY_TRIM` telemetry event so any
+ * threshold regression is directly observable.
+ */
 export function getMessagesForModelContext(params: {
   messages: Message[]
   contextWindowTokens?: number
   logger: ParamsOf<PromptAiSdkStreamFn>['logger']
 }): Message[] {
-  return trimMessagesToFitTokenLimit({
+  const maxTotalTokens = getModelContextMessageLimit(params.contextWindowTokens)
+  const trimmed = trimMessagesToFitTokenLimit({
     messages: params.messages,
     systemTokens: 0,
-    maxTotalTokens: getMessageContextWindowTokens(params.contextWindowTokens),
+    maxTotalTokens,
     logger: params.logger,
   })
+
+  // Emergency-brake telemetry: only emit when the request-time trim actually
+  // dropped messages (trimMessagesToFitTokenLimit returns the same ref when
+  // under the limit). A non-zero count here means the unified threshold was
+  // exceeded downstream and the SDK fallback caught it.
+  if (trimmed !== params.messages) {
+    const inputTokens = countTokensJson(params.messages)
+    const outputTokens = countTokensJson(trimmed)
+    params.logger.warn(
+      {
+        eventId: AnalyticsEvent.CACHE_EMERGENCY_TRIM,
+        contextWindowTokens: params.contextWindowTokens,
+        maxTotalTokens,
+        inputTokens,
+        outputTokens,
+        tokensDropped: Math.max(0, inputTokens - outputTokens),
+        inputMessageCount: params.messages.length,
+        outputMessageCount: trimmed.length,
+      },
+      'Emergency request-time context trim fired (cache_emergency_trim). ' +
+        'This indicates the unified pruning threshold was exceeded before ' +
+        'the SDK fallback; expected ~0 in steady state.',
+    )
+  }
+
+  return trimmed
 }
 
 async function awaitOptionalPostStreamMetadata<T>(params: {
@@ -744,7 +771,7 @@ export async function* promptAiSdkStream(
           ...params,
           messages: getMessagesForModelContext({
             messages: params.messages,
-            contextWindowTokens,
+            contextWindowTokens: contextWindowTokens ?? undefined,
             logger,
           }),
           includeCacheControl:

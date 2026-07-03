@@ -145,6 +145,13 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
   PROVIDER_FAILOVER = 'sdk.provider_failover',
 
+  // SDK - Context management
+  // Emitted when the SDK request-time message trim (emergency brake) fires,
+  // i.e. when getMessagesForModelContext actually had to drop messages to fit
+  // the model context window. Should be ~0 in steady state after M1/M4; any
+  // non-zero frequency indicates the unified threshold is not catching
+  // overflow before the SDK fallback. (M4.3, SPEC R4/AC4.)
+  CACHE_EMERGENCY_TRIM = 'sdk.cache_emergency_trim',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
