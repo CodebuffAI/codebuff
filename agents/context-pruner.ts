@@ -30,6 +30,9 @@ const definition: AgentDefinition = {
         userBudget: {
           type: 'number',
         },
+        toolFactsBudget: {
+          type: 'number',
+        },
         cacheExpiryMs: {
           type: 'number',
         },
@@ -70,11 +73,29 @@ const definition: AgentDefinition = {
     /** Approximate characters per token (matches estimateTokens heuristic) */
     const CHARS_PER_TOKEN = 3
 
-    /** Token budget for assistant + tool content in the conversation summary */
-    const ASSISTANT_TOOL_BUDGET = 20_000
+    /**
+     * Token budget for assistant text + tool-call summaries in the conversation
+     * summary. M6 (SPEC R7) rebalanced budgets so tool/assistant evidence gets
+     * at least as much protected space as user text. Tool *results* are tracked
+     * separately under TOOL_FACTS_BUDGET.
+     */
+    const ASSISTANT_TOOL_BUDGET = 40_000
 
-    /** Token budget for user content in the conversation summary */
-    const USER_BUDGET = 50_000
+    /**
+     * Token budget for user content in the conversation summary. M6 (SPEC R7)
+     * lowered this from 50k because user goals are now protected verbatim in
+     * the structured <knowledge_memory> block (M5), reducing reliance on the
+     * free-text user budget.
+     */
+    const USER_BUDGET = 30_000
+
+    /**
+     * Reserved token budget for tool-result entries ("facts learned from
+     * tools"), independent of conversational role. M6 (SPEC R7): operational
+     * memory lives in tool results, so they get a protected slice that does
+     * not compete with assistant text or user text.
+     */
+    const TOOL_FACTS_BUDGET = 30_000
 
     /** Fudge factor for token count threshold to trigger pruning earlier */
     const TOKEN_COUNT_FUDGE_FACTOR = 1_000
@@ -520,6 +541,8 @@ const definition: AgentDefinition = {
     const assistantToolBudget: number =
       params?.assistantToolBudget ?? ASSISTANT_TOOL_BUDGET
     const userBudget: number = params?.userBudget ?? USER_BUDGET
+    const toolFactsBudget: number =
+      params?.toolFactsBudget ?? TOOL_FACTS_BUDGET
 
     function shouldExcludeMessage(message: Message): boolean {
       if (message.tags?.includes('INSTRUCTIONS_PROMPT')) return true
@@ -559,7 +582,10 @@ const definition: AgentDefinition = {
      */
     function parseSummaryIntoEntries(
       summaryText: string,
-    ): Array<{ role: 'user' | 'assistant_tool'; parts: string[] }> {
+    ): Array<{
+      role: 'user' | 'assistant_tool' | 'tool_facts'
+      parts: string[]
+    }> {
       if (!summaryText.trim()) return []
 
       const withoutPinnedState = summaryText
@@ -584,8 +610,21 @@ const definition: AgentDefinition = {
           trimmed.startsWith('User request') ||
           trimmed.startsWith('User message') ||
           trimmed.startsWith('Current unresolved user request')
+        // M6 (SPEC R7): classify tool-facts entries by their known prefixes so
+        // they consume the reserved tool-facts budget on re-pruning.
+        const isToolFacts =
+          trimmed.startsWith('Edit result from ') ||
+          trimmed.startsWith('Tool error from ') ||
+          trimmed.startsWith('Command failed with exit code:') ||
+          trimmed.startsWith('User answered:') ||
+          trimmed.startsWith('User skipped question') ||
+          trimmed.startsWith('Agent results:')
         return {
-          role: isUser ? ('user' as const) : ('assistant_tool' as const),
+          role: isUser
+            ? ('user' as const)
+            : isToolFacts
+              ? ('tool_facts' as const)
+              : ('assistant_tool' as const),
           parts: [trimmed],
         }
       })
@@ -1136,7 +1175,7 @@ const definition: AgentDefinition = {
 
     // Phase 1: Summarize ALL messages into tagged entries
     const summarizedEntries: Array<{
-      role: 'user' | 'assistant_tool'
+      role: 'user' | 'assistant_tool' | 'tool_facts'
       parts: string[]
     }> = []
     const pinnedActiveWorkLines = extractPinnedActiveWorkState(
@@ -1403,8 +1442,10 @@ const definition: AgentDefinition = {
           for (const line of extractActiveWorkLines(joinedToolEntry)) {
             addUniqueLine(pinnedActiveWorkLines, line)
           }
+          // M6 (SPEC R7): tool results get a reserved 'tool_facts' budget
+          // independent of role, so operational memory survives compaction.
           summarizedEntries.push({
-            role: 'assistant_tool',
+            role: 'tool_facts',
             parts: [joinedToolEntry],
           })
         }
@@ -1417,9 +1458,12 @@ const definition: AgentDefinition = {
       ...summarizedEntries,
     ]
 
-    // Phase 2: Walk backwards through all entries to apply token budgets
+    // Phase 2: Walk backwards through all entries to apply token budgets.
+    // M6 (SPEC R7): three independent budgets — user text, assistant text +
+    // tool-call summaries, and a reserved tool-facts slice for tool results.
     let assistantToolTokens = 0
     let userTokens = 0
+    let toolFactsTokens = 0
     let cutoffIndex = 0
 
     for (let i = allEntries.length - 1; i >= 0; i--) {
@@ -1433,6 +1477,12 @@ const definition: AgentDefinition = {
           break
         }
         userTokens += entryTokens
+      } else if (entry.role === 'tool_facts') {
+        if (toolFactsTokens + entryTokens > toolFactsBudget) {
+          cutoffIndex = i + 1
+          break
+        }
+        toolFactsTokens += entryTokens
       } else {
         if (assistantToolTokens + entryTokens > assistantToolBudget) {
           cutoffIndex = i + 1

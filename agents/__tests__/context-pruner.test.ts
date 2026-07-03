@@ -219,7 +219,11 @@ describe('context-pruner handleSteps', () => {
     messages: Message[],
     contextTokenCount?: number,
     maxContextLength?: number,
-    budgets?: { assistantToolBudget?: number; userBudget?: number },
+    budgets?: {
+      assistantToolBudget?: number
+      userBudget?: number
+      toolFactsBudget?: number
+    },
   ) => {
     mockAgentState.messageHistory = messages
     // If contextTokenCount not provided, estimate from messages
@@ -1009,7 +1013,11 @@ describe('context-pruner long message truncation', () => {
     messages: Message[],
     contextTokenCount: number,
     maxContextLength: number,
-    budgets?: { assistantToolBudget?: number; userBudget?: number },
+    budgets?: {
+      assistantToolBudget?: number
+      userBudget?: number
+      toolFactsBudget?: number
+    },
   ) => {
     mockAgentState.messageHistory = messages
     mockAgentState.contextTokenCount = contextTokenCount
@@ -1334,7 +1342,11 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     messages: Message[],
     contextTokenCount = 250000,
     maxContextLength = 200000,
-    budgets?: { assistantToolBudget?: number; userBudget?: number },
+    budgets?: {
+      assistantToolBudget?: number
+      userBudget?: number
+      toolFactsBudget?: number
+    },
   ) => {
     mockAgentState.messageHistory = messages
     mockAgentState.contextTokenCount = contextTokenCount
@@ -1631,7 +1643,11 @@ describe('context-pruner repeated compaction', () => {
     messages: Message[],
     contextTokenCount: number,
     maxContextLength: number,
-    budgets?: { assistantToolBudget?: number; userBudget?: number },
+    budgets?: {
+      assistantToolBudget?: number
+      userBudget?: number
+      toolFactsBudget?: number
+    },
   ) => {
     mockAgentState.messageHistory = messages
     mockAgentState.contextTokenCount = contextTokenCount
@@ -1725,7 +1741,11 @@ First assistant response
   test('drops old entries each cycle when budgets are tight', () => {
     const simulateCompaction = (
       inputMessages: Message[],
-      budgets: { assistantToolBudget: number; userBudget: number },
+      budgets: {
+        assistantToolBudget: number
+        userBudget: number
+        toolFactsBudget?: number
+      },
     ): Message => {
       const result = runHandleSteps(inputMessages, 250000, 200000, budgets)
       return result[0].input.messages[0]
@@ -2018,7 +2038,11 @@ describe('context-pruner threshold behavior', () => {
     messages: Message[],
     contextTokenCount: number,
     maxContextLength: number,
-    budgets?: { assistantToolBudget?: number; userBudget?: number },
+    budgets?: {
+      assistantToolBudget?: number
+      userBudget?: number
+      toolFactsBudget?: number
+    },
   ) => {
     mockAgentState.messageHistory = messages
     mockAgentState.contextTokenCount = contextTokenCount
@@ -2343,7 +2367,11 @@ describe('context-pruner dual-budget behavior', () => {
     messages: Message[],
     contextTokenCount: number,
     maxContextLength: number,
-    budgets?: { assistantToolBudget?: number; userBudget?: number },
+    budgets?: {
+      assistantToolBudget?: number
+      userBudget?: number
+      toolFactsBudget?: number
+    },
   ) => {
     mockAgentState.messageHistory = messages
     mockAgentState.contextTokenCount = contextTokenCount
@@ -2504,8 +2532,10 @@ describe('context-pruner dual-budget behavior', () => {
     expect(entryBody3).not.toContain('old.ts')
   })
 
-  test('counts tool result summaries against assistant+tool budget', () => {
-    // Use str_replace with a large result — this produces a summarized edit-result entry
+  test('reserves tool-facts budget independent of assistant budget (SPEC R7)', () => {
+    // Use str_replace with a large result — M6 routes edit results to the
+    // reserved tool_facts budget so they survive even when the assistant
+    // budget is tiny.
     const largeDiff = 'LARGE_DIFF_CONTENT_' + 'X'.repeat(900)
     const messages = [
       createMessage('user', 'Do something'),
@@ -2522,10 +2552,12 @@ describe('context-pruner dual-budget behavior', () => {
       createMessage('assistant', 'Recent answer'),
     ]
 
-    // Assistant budget too small for the large edit-result summary entry
+    // Assistant budget is tiny, but the tool result is charged to the reserved
+    // toolFactsBudget — so the large edit result survives compaction.
     const results = runHandleSteps(messages, 250000, 200000, {
       assistantToolBudget: 100,
       userBudget: 5000,
+      toolFactsBudget: 5000,
     })
 
     const resultMessages = results[0].input.messages
@@ -2536,7 +2568,44 @@ describe('context-pruner dual-budget behavior', () => {
     // Recent messages should be in the summary
     expect(content).toContain('Recent question')
     expect(content).toContain('Recent answer')
-    // Large edit result entry should be dropped (exceeds assistant+tool budget)
+    // M6: the large edit result survives because it is charged to the reserved
+    // tool_facts budget, not the assistant budget.
+    expect(content).toContain('LARGE_DIFF_CONTENT_')
+  })
+
+  test('drops tool-facts entries when the reserved tool-facts budget is exceeded', () => {
+    const largeDiff = 'LARGE_DIFF_CONTENT_' + 'X'.repeat(900)
+    const messages = [
+      createMessage('user', 'Do something'),
+      createToolCallMessage('call-1', 'str_replace', {
+        path: 'big.ts',
+        replacements: [],
+      }),
+      createToolResultMessage('call-1', 'str_replace', {
+        file: 'big.ts',
+        message: 'Updated',
+        unifiedDiff: largeDiff,
+      }),
+      createMessage('user', 'Recent question'),
+      createMessage('assistant', 'Recent answer'),
+    ]
+
+    // Both assistant and tool-facts budgets are tiny — the edit result is
+    // dropped by the reserved tool-facts budget.
+    const results = runHandleSteps(messages, 250000, 200000, {
+      assistantToolBudget: 100,
+      userBudget: 5000,
+      toolFactsBudget: 100,
+    })
+
+    const resultMessages = results[0].input.messages
+    expect(resultMessages).toHaveLength(1)
+
+    const content = (resultMessages[0].content[0] as { text: string }).text
+    expect(content).toContain('<conversation_summary>')
+    expect(content).toContain('Recent question')
+    expect(content).toContain('Recent answer')
+    // Large edit result entry is dropped (exceeds reserved tool-facts budget)
     expect(content).not.toContain('LARGE_DIFF_CONTENT_')
   })
 
