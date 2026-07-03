@@ -795,7 +795,8 @@ body.col-resizing {
 }
 .msg.user {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .msg.user .bubble {
   background: var(--raised);
@@ -1663,7 +1664,7 @@ body.col-resizing {
   opacity: 0;
   transition: opacity 0.12s;
 }
-.msg.assistant:hover .msg-actions {
+.msg.user:hover .msg-actions {
   opacity: 1;
 }
 .msg-copy {

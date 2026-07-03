@@ -27,25 +27,18 @@ export const Message = memo(function Message({ msg, threadId }: { msg: Msg; thre
     return (
       <div className="msg user">
         <div className="bubble">{text}</div>
+        <div className="msg-actions">
+          <CopyButton text={text} />
+        </div>
       </div>
     )
   }
 
-  // The assistant's prose (top-level text parts only) — what the copy button
-  // copies. Subagent prose lives inside agent boxes and is deliberately excluded.
-  const proseText = msg.parts
-    .flatMap((p) => (p.kind === 'text' ? [p.text] : []))
-    .join('')
-    .trim()
-
+  // No copy button on assistant messages: code blocks carry their own copy
+  // button (Markdown.tsx), and whole-response copying isn't a real need.
   return (
     <div className="msg assistant">
       <PartsView parts={msg.parts} done={msg.done} threadId={threadId} messageId={msg.id} />
-      {msg.done && proseText && (
-        <div className="msg-actions">
-          <CopyButton text={proseText} />
-        </div>
-      )}
     </div>
   )
 })
