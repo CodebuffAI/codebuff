@@ -48,7 +48,7 @@ import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
 import type { KeyEvent } from '@opentui/core'
 
-interface WaitingRoomScreenProps {
+interface FreebuffLandingScreenProps {
   session: FreebuffSessionResponse | null
   error: string | null
 }
@@ -302,7 +302,7 @@ const StreakInlineLine: React.FC<{
   )
 }
 
-export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
+export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   session,
   error,
 }) => {
@@ -368,7 +368,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     maxHeight: logoMode === 'full' ? undefined : 1,
   })
 
-  // Always enable ads in the waiting room — this is where monetization lives.
+  // Always enable ads on the landing screen — this is where monetization lives.
   // forceStart bypasses the "wait for first user message" gate inside the hook,
   // which would otherwise block ads here since no conversation exists yet.
   // The server tries Gravity first, then falls back to ZeroClick and Carbon.
@@ -376,6 +376,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     enabled: true,
     forceStart: true,
     provider: 'gravity',
+    // Legacy wire name for this surface — the ads API maps it to placements,
+    // so it must not change with the component rename.
     surface: 'waiting_room',
   })
 
@@ -391,7 +393,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
     accessTier === 'limited' && !compact ? getLimitedModeNotice(session) : null
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers
-  // joinFreebuffQueue, which POSTs and transitions straight to 'active' (chat).
+  // startFreebuffSession, which POSTs and transitions straight to 'active' (chat).
   const isLanding = session?.status === 'none'
   const streakQuery = useFreebuffStreakQuery({
     enabled: FREEBUFF_ENABLE_STREAK_IN_UI && isLanding,
@@ -799,7 +801,7 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
       </box>
 
       {/* Reserve the ad banner slot before the async ad fetch resolves so the
-          waiting-room content does not jump when the banner fills. On very
+          landing content does not jump when the banner fills. On very
           short terminals the banner is dropped entirely to give the picker
           back its 5 rows. */}
       {showAds && (

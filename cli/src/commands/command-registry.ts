@@ -577,8 +577,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
   }),
   // /end-session (freebuff-only) — end the active session early and drop back
   // to the model picker. The hook flips status to 'none', which unmounts
-  // <Chat> and mounts <WaitingRoomScreen> on the landing view, where the
-  // user picks a model and hits Enter to rejoin the queue.
+  // <Chat> and mounts <FreebuffLandingScreen>, where the user picks a model
+  // and hits Enter to start a new session.
   defineCommand({
     name: 'end-session',
     aliases: ['model'],

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
 /**
- * Shared state for the freebuff waiting-room session.
+ * Shared state for the freebuff free session.
  *
  * The hook in `use-freebuff-session.ts` owns the poll loop and writes into
  * this store; React components subscribe via selectors, and non-React code

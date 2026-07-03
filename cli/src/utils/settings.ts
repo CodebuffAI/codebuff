@@ -184,7 +184,7 @@ export const loadFreebuffModelPreference = (): string | undefined => {
 
 /**
  * Save the freebuff model preference. Called whenever the user picks a model
- * in the waiting room so the next launch defaults to it.
+ * on the landing screen so the next launch defaults to it.
  */
 export const saveFreebuffModelPreference = (model: string): void => {
   saveSettings({ freebuffModel: model })

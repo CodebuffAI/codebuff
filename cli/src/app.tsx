@@ -8,7 +8,7 @@ import { FreebuffSupersededScreen } from './components/freebuff-superseded-scree
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
-import { WaitingRoomScreen } from './components/waiting-room-screen'
+import { FreebuffLandingScreen } from './components/freebuff-landing-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useFreebuffSession } from './hooks/use-freebuff-session'
@@ -264,7 +264,7 @@ export const App = ({
   }
 
   // Render project picker FIRST when at home directory or outside a project.
-  // This deliberately precedes the login/auth and waiting-room gates so the
+  // This deliberately precedes the login/auth and free-session gates so the
   // user always gets to pick a working directory before anything else — auth
   // failures or a banned freebuff session would otherwise replace the
   // picker mid-flash and look like being kicked out of the app.
@@ -343,7 +343,7 @@ interface AuthedSurfaceProps {
 }
 
 /**
- * Rendered only after auth is confirmed. Owns the freebuff waiting-room gate
+ * Rendered only after auth is confirmed. Owns the freebuff session gate
  * so `useFreebuffSession` runs exactly once per authed session (not before
  * we have a token).
  */
@@ -397,12 +397,12 @@ const AuthedSurface = ({
       session.status === 'rate_limited' ||
       session.status === 'takeover_prompt')
   ) {
-    return <WaitingRoomScreen session={session} error={sessionError} />
+    return <FreebuffLandingScreen session={session} error={sessionError} />
   }
 
   // Chat history renders inside AuthedSurface so the freebuff session stays
   // mounted while the user browses history. Unmounting this surface would
-  // DELETE the session row and drop the user back into the waiting room on
+  // DELETE the session row and drop the user back onto the landing screen on
   // return.
   if (showChatHistory) {
     return (

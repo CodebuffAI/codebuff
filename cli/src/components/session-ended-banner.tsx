@@ -33,7 +33,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
 }) => {
   const theme = useTheme()
   const [pendingAction, setPendingAction] = useState<
-    'waiting-room' | 'same-chat' | null
+    'landing' | 'same-chat' | null
   >(null)
 
   // All premium models share one daily pool; the server replicates the same
@@ -62,10 +62,10 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const canRestart = !isStreaming && pendingAction === null
   const pickNewModel = useCallback(() => {
     if (!canRestart) return
-    setPendingAction('waiting-room')
+    setPendingAction('landing')
     // Drop back to the landing picker (status: 'none') so the user picks a
-    // model and hits Enter again to commit, instead of being silently
-    // re-queued. app.tsx swaps us into <WaitingRoomScreen> on the
+    // model and hits Enter again to commit, instead of silently starting a
+    // new session. app.tsx swaps us into <FreebuffLandingScreen> on the
     // transition, unmounting this banner — no need to clear the pending state on
     // success.
     returnToFreebuffLanding({ resetChat: true }).catch(() =>
@@ -153,7 +153,7 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             style={{
               borderStyle: 'single',
               borderColor:
-                pendingAction === 'waiting-room' ? theme.muted : theme.border,
+                pendingAction === 'landing' ? theme.muted : theme.border,
               customBorderChars: BORDER_CHARS,
               paddingLeft: 1,
               paddingRight: 1,
@@ -163,12 +163,12 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
             <text
               style={{
                 fg:
-                  pendingAction === 'waiting-room'
+                  pendingAction === 'landing'
                     ? theme.muted
                     : theme.foreground,
               }}
             >
-              {pendingAction === 'waiting-room' ? (
+              {pendingAction === 'landing' ? (
                 landingPendingLabel
               ) : (
                 <>
