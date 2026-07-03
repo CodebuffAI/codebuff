@@ -4,9 +4,32 @@ import {
   countTokens,
   countTokensJson,
   countTokensMessages,
+  safeJsonStringify,
 } from '../token-counter'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+
+describe('safeJsonStringify', () => {
+  test('handles circular references and drops function properties', () => {
+    const schema: { name: string; self?: unknown; transform?: () => void } = {
+      name: 'tool input',
+      transform: () => {},
+    }
+    schema.self = schema
+
+    expect(safeJsonStringify(schema)).toBe(
+      '{"name":"tool input","self":"[Circular]"}',
+    )
+    expect(() => countTokensJson(schema)).not.toThrow()
+    expect(countTokensJson(schema)).toBeGreaterThan(0)
+  })
+
+  test('preserves JSON string serialization when counting strings', () => {
+    expect(countTokensJson('tool input')).toBe(
+      countTokens(JSON.stringify('tool input')),
+    )
+  })
+})
 
 describe('countTokensMessages', () => {
   test('counts text content plus per-message overhead', () => {

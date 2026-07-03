@@ -38,10 +38,27 @@ export function countTokens(text: string): number {
   }
 }
 
+/**
+ * Serialize arbitrary values for token counting and persisted tool metadata.
+ * Circular references are represented explicitly; functions follow
+ * JSON.stringify semantics and are omitted from object properties.
+ */
+export function safeJsonStringify(value: unknown): string | undefined {
+  const seen = new WeakSet<object>()
+  return JSON.stringify(value, (_key, nestedValue) => {
+    if (typeof nestedValue === 'function') return undefined
+    if (typeof nestedValue === 'object' && nestedValue !== null) {
+      if (seen.has(nestedValue)) return '[Circular]'
+      seen.add(nestedValue)
+    }
+    return nestedValue
+  })
+}
+
 export function countTokensJson(value: unknown): number {
   // JSON.stringify(undefined) returns undefined; fall back to '' so countTokens
   // always gets a string.
-  return countTokens(JSON.stringify(value) ?? '')
+  return countTokens(safeJsonStringify(value) ?? '')
 }
 
 /**
@@ -94,6 +111,7 @@ export function countTokensMessages(messages: Message[]): number {
   }
   return total
 }
+
 
 export function countTokensForFiles(
   files: Record<string, string | null>,

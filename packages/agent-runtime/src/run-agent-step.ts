@@ -57,6 +57,7 @@ import {
   countTokens,
   countTokensJson,
   countTokensMessages,
+  safeJsonStringify,
 } from './util/token-counter'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
@@ -940,7 +941,7 @@ export async function loopAgentSteps(
   const toolDefinitions = mapValues(tools, (tool) => ({
     description:
       typeof tool.description === 'string' ? tool.description : undefined,
-    inputSchema: tool.inputSchema as {},
+    inputSchema: JSON.parse(safeJsonStringify(tool.inputSchema) ?? 'null'),
   }))
 
   const additionalToolDefinitionsWithCache = async () => {
