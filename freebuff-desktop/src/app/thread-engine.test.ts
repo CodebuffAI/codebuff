@@ -51,6 +51,10 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
     client: client as any,
     freebuffSessions: fakeFreebuffSessions(),
     globalSkillsDir: join(root, '.global-skills'),
+    // The post-turn PR refresh shells out to `gh pr view`; default to a failing
+    // runner so tests never spawn the developer's real gh (a temp repo has no
+    // remote/PR anyway). Refresh tests override this with a canned response.
+    exec: { run: async () => ({ stdout: '', stderr: '', exitCode: 1 }) },
     // Default to no LLM title (keeps the prompt-prefix placeholder) so the shared
     // turn tests don't see the title agent's run on the fake client. Individual
     // tests override this to exercise the swap.
@@ -63,14 +67,27 @@ async function gitEngine(client = new FakeClient(), extra: Record<string, unknow
     root,
     cleanup: async () => {
       // Several tests kick off async pumps via enqueuePrompt / postMessage
-      // without awaiting them — if we just rmSync the dir, the next test's
-      // engine can race with a still-in-flight appendMessage against the now-
-      // deleted SQLite db and crash with disk-I/O / closed-database errors.
-      // Halt every open thread's pump, then yield a tick so the aborts and
-      // finally-block writes settle before we delete the directory.
-      const openIds = engine.store.listThreads('project', { status: 'open' }).map((t) => t.id)
-      for (const id of openIds) engine.stopTurn(id)
-      await new Promise((r) => setTimeout(r, 50))
+      // without awaiting them — if we just rmSync the dir, a still-in-flight
+      // turn's finally-block write (appendMessage / updateThread) races the
+      // deleted SQLite db and throws "database is closed" as an unhandled
+      // rejection, failing whichever test happens to be running.
+      //
+      // Abort every open thread's turn, then WAIT for turnState to flip back to
+      // 'idle' — the turn sets that in its finally AFTER its last write lands,
+      // so once no thread is 'running' there is no pending write to race. A
+      // fixed sleep was flaky under load (the finally hadn't finished in 50ms);
+      // polling the observable state is deterministic.
+      const openThreads = () => engine.store.listThreads('project', { status: 'open' })
+      for (const t of openThreads()) engine.stopTurn(t.id)
+      for (let i = 0; i < 300; i++) {
+        if (!openThreads().some((t) => t.turnState === 'running')) break
+        await new Promise((r) => setTimeout(r, 10))
+      }
+      // Close the engine (stops its PR-poll timer + closes the db handle) before
+      // deleting the dir. Any fired-and-forgotten post-turn refresh that lands
+      // after this hits the closed store, but refreshPrStatus swallows its own
+      // errors, so it can't surface as an unhandled rejection.
+      engine.close()
       rmSync(root, { recursive: true, force: true })
     },
   }
@@ -702,6 +719,299 @@ describe('ThreadEngine — queue editing & PR', () => {
       expect(engine.store.getThread(thread.id)!.prState).toBe('none')
     } finally {
       cleanup()
+    }
+  })
+})
+
+describe('ThreadEngine — PR status refresh (`gh pr view`)', () => {
+  /** A canned `gh` runner: answers `gh pr view --json …` with the given PR
+   *  facts, fails anything else. Records calls for assertions. */
+  const fakeGh = (pr: { number?: number; state?: string; mergeable?: string; url?: string }) => {
+    const calls: { command: string; args: string[] }[] = []
+    return {
+      calls,
+      run: async (command: string, args: string[]) => {
+        calls.push({ command, args })
+        if (command !== 'gh') return { stdout: '', stderr: '', exitCode: 1 }
+        return { stdout: JSON.stringify(pr), stderr: '', exitCode: 0 }
+      },
+    }
+  }
+
+  /** Like fakeGh but returns a different PR payload per `gh` call, in order
+   *  (the last entry sticks) — for exercising successive refreshes that see
+   *  changing GitHub state. */
+  const fakeGhSeq = (prs: { number?: number; state?: string; mergeable?: string; url?: string }[]) => {
+    const calls: { command: string; args: string[] }[] = []
+    let i = 0
+    return {
+      calls,
+      run: async (command: string, args: string[]) => {
+        calls.push({ command, args })
+        if (command !== 'gh') return { stdout: '', stderr: '', exitCode: 1 }
+        const pr = prs[Math.min(i, prs.length - 1)]
+        i++
+        return { stdout: JSON.stringify(pr), stderr: '', exitCode: 0 }
+      },
+    }
+  }
+
+  /** The refresh is fired-and-forgotten from the turn's finally block; give its
+   *  (immediately-resolving fake) exec a few ticks to land its store write. */
+  const refreshTick = () => new Promise((r) => setTimeout(r, 30))
+
+  test('post-turn refresh fills number/url and detects merge conflicts', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      opts.handleEvent({
+        type: 'tool_call',
+        toolName: 'run_terminal_command',
+        input: { command: 'gh pr create --fill' },
+      })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const gh = fakeGh({
+      number: 42,
+      state: 'OPEN',
+      mergeable: 'CONFLICTING',
+      url: 'https://github.com/o/r/pull/42',
+    })
+    const { engine, cleanup } = await gitEngine(client, { exec: gh })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'ship it')
+      await settle(engine, thread.id)
+      await refreshTick()
+
+      const t = engine.store.getThread(thread.id)!
+      // Command inference said 'open'; GitHub's mergeability check refines it.
+      expect(t.prState).toBe('conflict')
+      expect(t.prNumber).toBe(42)
+      expect(t.prUrl).toBe('https://github.com/o/r/pull/42')
+      const view = gh.calls.find((c) => c.command === 'gh')
+      expect(view?.args.slice(0, 2)).toEqual(['pr', 'view'])
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('an out-of-band merge (done on github.com) upgrades open → merged', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      opts.handleEvent({
+        type: 'tool_call',
+        toolName: 'run_terminal_command',
+        input: { command: 'gh pr create --fill' },
+      })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const gh = fakeGh({ number: 7, state: 'MERGED', url: 'https://github.com/o/r/pull/7' })
+    const { engine, cleanup } = await gitEngine(client, { exec: gh })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'ship it')
+      await settle(engine, thread.id)
+      await refreshTick()
+
+      const t = engine.store.getThread(thread.id)!
+      expect(t.prState).toBe('merged')
+      expect(t.prNumber).toBe(7)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('a failing `gh` (no remote / not installed) keeps the inferred state', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      opts.handleEvent({
+        type: 'tool_call',
+        toolName: 'run_terminal_command',
+        input: { command: 'gh pr create --fill' },
+      })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    // gitEngine's default exec always fails — exactly the gh-less machine case.
+    const { engine, cleanup } = await gitEngine(client)
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'ship it')
+      await settle(engine, thread.id)
+      await refreshTick()
+
+      const t = engine.store.getThread(thread.id)!
+      expect(t.prState).toBe('open')
+      expect(t.prNumber).toBeNull()
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('turns without PR activity never invoke gh', async () => {
+    const gh = fakeGh({ number: 1, state: 'OPEN', url: 'https://github.com/o/r/pull/1' })
+    const { engine, cleanup } = await gitEngine(new FakeClient(), { exec: gh })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hello')
+      await settle(engine, thread.id)
+      await refreshTick()
+
+      expect(gh.calls.filter((c) => c.command === 'gh')).toEqual([])
+      expect(engine.store.getThread(thread.id)!.prState).toBe('none')
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('read-only `gh pr` subcommands do not trigger a refresh', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      opts.handleEvent({
+        type: 'tool_call',
+        toolName: 'run_terminal_command',
+        input: { command: 'gh pr list --state open' },
+      })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const gh = fakeGh({ number: 9, state: 'OPEN', url: 'https://github.com/o/r/pull/9' })
+    const { engine, cleanup } = await gitEngine(client, { exec: gh })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'whats open')
+      await settle(engine, thread.id)
+      await refreshTick()
+
+      // `gh pr list` is read-only and prState is still 'none' — nothing to refresh.
+      expect(gh.calls.filter((c) => c.command === 'gh')).toEqual([])
+      expect(engine.store.getThread(thread.id)!.prState).toBe('none')
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('a post-merge refresh that briefly sees OPEN does NOT downgrade merged', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      // Inference sets 'merged'; the post-turn refresh fires because 'merge' is
+      // a mutating verb — and GitHub still reports the PR OPEN for a beat.
+      opts.handleEvent({
+        type: 'tool_call',
+        toolName: 'run_terminal_command',
+        input: { command: 'gh pr merge --squash' },
+      })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    const gh = fakeGh({
+      number: 5,
+      state: 'OPEN',
+      mergeable: 'MERGEABLE',
+      url: 'https://github.com/o/r/pull/5',
+    })
+    const { engine, cleanup } = await gitEngine(client, { exec: gh })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'ship it')
+      await settle(engine, thread.id)
+      await refreshTick()
+
+      const t = engine.store.getThread(thread.id)!
+      // The terminal 'merged' state survives the transient OPEN; number/url still update.
+      expect(t.prState).toBe('merged')
+      expect(t.prNumber).toBe(5)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('UNKNOWN mergeability does not flicker a known conflict back to open', async () => {
+    const client = new FakeClient()
+    client.onRun = async (opts) => {
+      // Each turn runs a mutating verb so the first refresh fires; the second
+      // turn is a plain poke — the refresh there fires because prState is the
+      // still-live 'conflict'.
+      opts.handleEvent({
+        type: 'tool_call',
+        toolName: 'run_terminal_command',
+        input: { command: opts.prompt === 'make pr' ? 'gh pr create --fill' : 'echo hi' },
+      })
+      opts.handleEvent?.({ type: 'finish' })
+    }
+    // First `gh pr view` reports CONFLICTING; the next reports OPEN + UNKNOWN
+    // (GitHub recomputing) — which must be treated as "don't know", not "clean".
+    const gh = fakeGhSeq([
+      { number: 3, state: 'OPEN', mergeable: 'CONFLICTING', url: 'https://github.com/o/r/pull/3' },
+      { number: 3, state: 'OPEN', mergeable: 'UNKNOWN', url: 'https://github.com/o/r/pull/3' },
+    ])
+    const { engine, cleanup } = await gitEngine(client, { exec: gh })
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'make pr')
+      await settle(engine, thread.id)
+      await refreshTick()
+      expect(engine.store.getThread(thread.id)!.prState).toBe('conflict')
+
+      engine.postMessage(thread.id, 'poke')
+      await settle(engine, thread.id)
+      await refreshTick()
+      // The UNKNOWN read left the conflict badge in place.
+      expect(engine.store.getThread(thread.id)!.prState).toBe('conflict')
+    } finally {
+      await cleanup()
+    }
+  })
+})
+
+describe('ThreadEngine — lastPromptAt', () => {
+  test('a turn stamps lastPromptAt with its start time', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      expect(thread.lastPromptAt).toBeNull()
+      const before = Date.now()
+      engine.postMessage(thread.id, 'hi')
+      await settle(engine, thread.id)
+
+      const t = engine.store.getThread(thread.id)!
+      expect(t.lastPromptAt).not.toBeNull()
+      expect(t.lastPromptAt!).toBeGreaterThanOrEqual(before)
+      expect(t.lastPromptAt!).toBeLessThanOrEqual(Date.now())
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('a queued item stamps lastPromptAt when it starts running', async () => {
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      const before = Date.now()
+      engine.enqueuePrompt(thread.id, 'do the thing')
+      await settle(engine, thread.id)
+
+      const t = engine.store.getThread(thread.id)!
+      expect(t.lastPromptAt).not.toBeNull()
+      expect(t.lastPromptAt!).toBeGreaterThanOrEqual(before)
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('a typed prompt is stamped once (runTurn does not re-stamp it)', async () => {
+    // Guards the restart-resume behavior: runTurn must not overwrite a typed
+    // turn's lastPromptAt, or a turn resurrected after a restart (recovery
+    // re-pumps into runTurn, bypassing startUserTurn) would reset its elapsed
+    // clock. postMessage stamps synchronously at accept time; after the turn
+    // fully runs, that exact value must remain.
+    const { engine, cleanup } = await gitEngine()
+    try {
+      const thread = engine.createThread()
+      engine.postMessage(thread.id, 'hi')
+      const acceptStamp = engine.store.getThread(thread.id)!.lastPromptAt!
+      expect(acceptStamp).not.toBeNull()
+      await settle(engine, thread.id)
+      expect(engine.store.getThread(thread.id)!.lastPromptAt).toBe(acceptStamp)
+    } finally {
+      await cleanup()
     }
   })
 })

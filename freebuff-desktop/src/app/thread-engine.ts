@@ -22,7 +22,7 @@ import type { PrintModeEvent } from '@codebuff/sdk'
 import { appendBlock, type AttachmentImage } from '../core/attachments'
 import { runBrowserCheck, type BrowserCheckResult } from '../core/browser-check'
 import { DocStore } from '../core/docs'
-import { bunRunner, type ExecResult } from '../core/exec'
+import { bunRunner, type CommandRunner, type ExecResult } from '../core/exec'
 import {
   foldAgentEvent,
   NOTICE_CLAUDE_CODE_AUTH,
@@ -36,7 +36,7 @@ import { positionAfter } from '../core/queue-order'
 import { searchRegistry, downloadSkill } from '../core/skill-registry'
 import { SkillStore, DEFAULT_WORKFLOWS, sanitizeSkillName } from '../core/skills'
 import { SettingsStore, type ProjectSettings } from '../core/settings'
-import { Store } from '../core/store'
+import { Store, type ThreadPatch } from '../core/store'
 import { DOC_NAMES, type DocName } from '../core/types'
 import type {
   Message,
@@ -187,6 +187,9 @@ export interface EngineOptions {
    *  persisted `ad` parts on completed turns. Unwired engines (tests,
    *  standalone embedding) show no ads and touch no ad network. */
   ads?: DesktopAds
+  /** Inject the process runner used for `gh pr view` PR-status refreshes
+   *  (tests). Defaults to the real Bun.spawn-backed runner. */
+  exec?: CommandRunner
 }
 
 export class ThreadEngine {
@@ -266,6 +269,14 @@ export class ThreadEngine {
    * tab bar wants — and it should reset to null the moment a new turn starts.
    */
   private lastTurnOutcome = new Map<string, Thread['lastTurnOutcome']>()
+  /** Runner for `gh pr view` refreshes (injectable for tests). */
+  private readonly exec: CommandRunner
+  /** Threads with a `gh pr view` refresh in flight, so the post-turn kick and
+   *  the periodic poll never stack concurrent `gh` processes per thread. */
+  private prRefreshing = new Set<string>()
+  /** Periodic re-check of open PRs (merges done on github.com, conflicts that
+   *  appear when another branch lands). Cleared in close(). */
+  private prPollTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(opts: EngineOptions) {
     const fbDir = join(opts.repoRoot, '.freebuff')
@@ -294,6 +305,12 @@ export class ThreadEngine {
       )
     this.authRejectedHandler = opts.onAuthRejected
     this.ads = opts.ads ?? null
+    this.exec = opts.exec ?? bunRunner
+    // Keep open-PR tabs honest even when the change happens outside the agent
+    // (merged on github.com, conflicts appearing as other branches land).
+    // unref'd so an idle engine never keeps the process alive on its own.
+    this.prPollTimer = setInterval(() => this.refreshOpenPrs(), PR_POLL_MS)
+    this.prPollTimer.unref?.()
     this.previewBaseUrl = opts.previewBaseUrl ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`
     this.browserCheckFn = opts.runBrowserCheck ?? runBrowserCheck
     // Reads `this.client` lazily so a post-login client swap is picked up.
@@ -737,6 +754,8 @@ export class ThreadEngine {
   }
 
   close() {
+    if (this.prPollTimer) clearInterval(this.prPollTimer)
+    this.prPollTimer = null
     this.listeners.clear()
     this.store.close()
   }
@@ -1056,6 +1075,11 @@ export class ThreadEngine {
     const list = this.userInbox.get(threadId) ?? []
     list.push({ text: steeringText, images })
     this.userInbox.set(threadId, list)
+    // Stamp the tab's elapsed clock here — this is the one place a typed prompt
+    // is accepted, whether it starts a fresh turn or steers a running one (the
+    // latter never reaches runTurn). runTurn deliberately does NOT re-stamp a
+    // typed turn, so this single write also survives an app restart.
+    this.store.updateThread(threadId, { lastPromptAt: this.now() }, this.now())
     this.emitThread(threadId)
     void this.pump(threadId)
   }
@@ -1166,7 +1190,17 @@ export class ThreadEngine {
     // "in flight", and the prior terminator only matters when the thread goes
     // idle again. Marked without a DB write so a fast turn doesn't churn SQLite.
     this.lastTurnOutcome.set(threadId, null)
-    this.store.updateThread(threadId, { turnState: 'running' }, this.now())
+    // Stamp the prompt time (drives the tab's "how long since I asked" readout)
+    // exactly once per prompt, at the single point it's accepted:
+    //   • typed / steering messages are stamped in startUserTurn (so steering a
+    //     running turn resets the clock even though no new runTurn starts);
+    //   • a queued item is stamped here, as it begins running.
+    // Notably we do NOT re-stamp a typed turn here — that would reset the clock
+    // for a turn resurrected after an app restart (recovery re-pumps straight
+    // into runTurn, bypassing startUserTurn), defeating the persisted timestamp.
+    const startPatch: ThreadPatch = { turnState: 'running' }
+    if (meta.queueItemId) startPatch.lastPromptAt = turnStartedAt
+    this.store.updateThread(threadId, startPatch, this.now())
     this.emitThread(threadId)
     this.emitState()
 
@@ -1184,6 +1218,9 @@ export class ThreadEngine {
     // a Stop aborts the run or it throws.
     let assistantText = ''
     const acts: { toolName: string; input: unknown }[] = []
+    // Whether any `gh pr …` command ran this turn — schedules a post-turn
+    // `gh pr view` refresh so the tab badge learns the PR's number/real state.
+    let sawPrCommand = false
     // Build the ordered parts array as events arrive so the persisted turn matches
     // what the client streamed live (same fold — see core/parts.ts).
     let parts: Part[] = []
@@ -1268,7 +1305,9 @@ export class ThreadEngine {
             emitAgent(event)
             if (event.type === 'tool_call') {
               acts.push({ toolName: event.toolName as string, input: event.input })
-              this.observePrIntent(threadId, event.toolName, event.input)
+              if (this.observePrIntent(threadId, event.toolName, event.input)) {
+                sawPrCommand = true
+              }
             }
           },
           drainSteering: () => this.drainSteering(threadId),
@@ -1338,6 +1377,17 @@ export class ThreadEngine {
       this.store.updateThread(threadId, { turnState: 'idle' }, this.now())
       this.emitThread(threadId)
       this.emitState()
+      // Post-turn is when PR facts change: refresh from GitHub if this turn ran
+      // a PR-mutating `gh pr` command, or the thread carries a still-live PR
+      // (open/conflict) whose state could have moved out-of-band. Terminal PRs
+      // (merged/closed) are skipped — they can't change, so re-querying `gh`
+      // after every future turn would just burn rate limit. Fire-and-forget;
+      // the refresh broadcasts its own thread event.
+      const settled = this.store.getThread(threadId)
+      const liveP = settled?.prState === 'open' || settled?.prState === 'conflict'
+      if (sawPrCommand || liveP) {
+        void this.refreshPrStatus(threadId)
+      }
       trackEvent(AnalyticsEvent.DESKTOP_TURN_COMPLETED, {
         ...this.turnTelemetry(threadId),
         outcome: turnOutcome ?? 'completed',
@@ -1392,18 +1442,86 @@ export class ThreadEngine {
    * and an over-eager flip would be worse than a slightly delayed one. The
    * transition is monotonic: `gh pr merge` upgrades `open` → `merged`, but never
    * re-opens a closed or merged PR.
+   *
+   * Returns whether the command ran a PR-MUTATING `gh pr` subcommand — the
+   * caller uses that to schedule a post-turn `gh pr view` refresh (which learns
+   * the PR number, canonical URL, and conflict state; see refreshPrStatus).
+   * Read-only subcommands (`gh pr view|list|status|checks|diff`) deliberately
+   * don't count: they change nothing, so triggering a refresh off them just
+   * spends a rate-limited GitHub round-trip on every exploratory turn.
    */
-  private observePrIntent(threadId: string, toolName: string | undefined, input: unknown): void {
-    if (toolName !== 'run_terminal_command') return
+  private observePrIntent(threadId: string, toolName: string | undefined, input: unknown): boolean {
+    if (toolName !== 'run_terminal_command') return false
     const cmd = extractCommand(input)
-    if (!cmd) return
+    if (!cmd) return false
+    const sawPr = /\bgh\s+pr\s+(create|merge|close|edit|ready|reopen)\b/.test(cmd)
     const thread = this.store.getThread(threadId)
-    if (!thread) return
+    if (!thread) return sawPr
     const next = inferPrStateChange(thread.prState, cmd)
-    if (!next) return
-    this.store.updateThread(threadId, { prState: next }, this.now())
-    // `emitThread` is deferred to the finally-block in `runTurn` (next state event),
-    // so no extra broadcast here — the SSE carries the updated row to the renderer.
+    if (next && next !== thread.prState) {
+      this.store.updateThread(threadId, { prState: next }, this.now())
+      // `emitThread` is deferred to the finally-block in `runTurn` (next state event),
+      // so no extra broadcast here — the SSE carries the updated row to the renderer.
+    }
+    return sawPr
+  }
+
+  /**
+   * Refresh a thread's PR facts from GitHub via `gh pr view` in its worktree:
+   * the number (for the tab's `#123` badge), the canonical URL, and the real
+   * lifecycle state — including `conflict`, which command inference can never
+   * see (GitHub computes mergeability server-side), and merges/closes done on
+   * github.com rather than by the agent. Best-effort by design: no `gh`
+   * installed, no remote, no PR for the branch, or a slow network just leaves
+   * the inferred state in place.
+   */
+  private async refreshPrStatus(threadId: string): Promise<void> {
+    if (this.prRefreshing.has(threadId)) return
+    const thread = this.store.getThread(threadId)
+    if (!thread?.worktreePath) return
+    this.prRefreshing.add(threadId)
+    try {
+      const res = await this.exec.run(
+        'gh',
+        ['pr', 'view', '--json', 'number,state,mergeable,url'],
+        { cwd: thread.worktreePath, timeoutMs: 15_000, outputCapBytes: 20_000 },
+      )
+      if (res.exitCode !== 0 || res.timedOut) return
+      const pr = JSON.parse(res.stdout) as {
+        number?: number
+        state?: string
+        mergeable?: string
+        url?: string
+      }
+      // Re-read after the (up-to-15s) `gh` round-trip: a turn could have run
+      // `gh pr merge` in the meantime, so compare/patch against the CURRENT row,
+      // not the pre-await snapshot — otherwise a stale 'open' clobbers a fresh
+      // 'merged'.
+      const current = this.store.getThread(threadId)
+      if (!current) return
+      const patch: ThreadPatch = {}
+      const nextState = prStateFromGh(pr.state, pr.mergeable)
+      if (nextState && applyPrState(current.prState, nextState)) patch.prState = nextState
+      if (typeof pr.number === 'number' && pr.number !== current.prNumber) patch.prNumber = pr.number
+      if (typeof pr.url === 'string' && pr.url !== current.prUrl) patch.prUrl = pr.url
+      if (Object.keys(patch).length === 0) return
+      this.store.updateThread(threadId, patch, this.now())
+      this.emitThread(threadId)
+    } catch {
+      // Spawn failure / non-JSON output — keep the inferred state.
+    } finally {
+      this.prRefreshing.delete(threadId)
+    }
+  }
+
+  /** Periodic sweep behind {@link prPollTimer}: re-check every open tab whose
+   *  PR is (believed) open, so out-of-band merges and fresh conflicts surface
+   *  without waiting for the thread's next turn. */
+  private refreshOpenPrs(): void {
+    for (const t of this.store.listThreads(this.projectId, { status: 'open' })) {
+      if (t.prState !== 'open' && t.prState !== 'conflict') continue
+      void this.refreshPrStatus(t.id)
+    }
   }
 
   // — Queue CRUD —
@@ -1685,6 +1803,50 @@ export class ThreadEngine {
   }
 }
 
+/** How often the engine re-checks open PRs against GitHub (see refreshOpenPrs).
+ *  Generous on purpose: `gh` round-trips are cheap but rate-limited, and the
+ *  post-turn refresh already covers the agent-driven transitions promptly. */
+const PR_POLL_MS = 3 * 60_000
+
+/** Map `gh pr view --json state,mergeable` onto the thread's prState, or null
+ *  when `gh` doesn't tell us enough to change anything. GitHub computes
+ *  mergeability server-side, so this is the only source that can say "open but
+ *  conflicting". Crucially, for an OPEN PR whose mergeability is still UNKNOWN
+ *  (GitHub recomputes it asynchronously after every push, and reports UNKNOWN
+ *  in the meantime) we return null rather than 'open' — otherwise every refresh
+ *  during that window would flip a known 'conflict' tab back to a clean 'open'
+ *  and back again. We only assert open/conflict once GitHub has actually
+ *  decided (MERGEABLE / CONFLICTING). */
+function prStateFromGh(state?: string, mergeable?: string): Thread['prState'] | null {
+  switch (state) {
+    case 'MERGED':
+      return 'merged'
+    case 'CLOSED':
+      return 'closed'
+    case 'OPEN':
+      if (mergeable === 'CONFLICTING') return 'conflict'
+      if (mergeable === 'MERGEABLE') return 'open'
+      return null // UNKNOWN / unset — leave the existing state until GitHub decides.
+    default:
+      return null
+  }
+}
+
+/** Whether a `gh pr view`-derived state should replace the current one. It's a
+ *  no-op when unchanged, and — matching inferPrStateChange's "never re-opens a
+ *  merged/closed PR" invariant — refuses to walk a terminal state (merged /
+ *  closed) BACK to open/conflict. That guards the brief window right after
+ *  `gh pr merge` where `gh pr view` can still report the PR as OPEN before the
+ *  merge propagates; without it the tab would flicker merged → open. Forward
+ *  moves (open → conflict, open → merged, conflict cleared → open, …) all pass. */
+function applyPrState(current: Thread['prState'], next: Thread['prState']): boolean {
+  if (next === current) return false
+  const currentIsTerminal = current === 'merged' || current === 'closed'
+  const nextReopens = next === 'open' || next === 'conflict'
+  if (currentIsTerminal && nextReopens) return false
+  return true
+}
+
 /** Minimum transcript messages between one ad and the next. With user and
  *  assistant messages alternating this yields an ad about every other exchange. */
 const MIN_MESSAGES_BETWEEN_ADS = 3
@@ -1729,8 +1891,10 @@ function inferPrStateChange(
   if (/\bgh\s+pr\s+create\b/.test(command)) return 'open'
   // `gh pr merge ...` — squashing, rebasing, or auto-merging all collapse to merged.
   if (/\bgh\s+pr\s+merge\b/.test(command)) return 'merged'
-  // `gh pr close ...` (no merge). Only overrides `open`; once merged a later
-  // close on a different branch shouldn't undo that.
-  if (/\bgh\s+pr\s+close\b/.test(command) && current === 'open') return 'closed'
+  // `gh pr close ...` (no merge). Only overrides an open PR (conflicting or
+  // not); once merged a later close on a different branch shouldn't undo that.
+  if (/\bgh\s+pr\s+close\b/.test(command) && (current === 'open' || current === 'conflict')) {
+    return 'closed'
+  }
   return null
 }

@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 14
+const SCHEMA_VERSION = 15
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -142,8 +142,10 @@ export type ThreadPatch = Partial<
     | 'baseRef'
     | 'lastSeenHead'
     | 'prUrl'
+    | 'prNumber'
     | 'prState'
     | 'turnState'
+    | 'lastPromptAt'
   >
 >
 
@@ -168,8 +170,10 @@ const THREAD_PATCH_KEYS = [
   'baseRef',
   'lastSeenHead',
   'prUrl',
+  'prNumber',
   'prState',
   'turnState',
+  'lastPromptAt',
 ] as const satisfies readonly (keyof ThreadPatch)[]
 
 const QUEUE_PATCH_KEYS = [
@@ -210,8 +214,10 @@ type ThreadRow = {
   base_ref: string | null
   last_seen_head: string | null
   pr_url: string | null
+  pr_number: number | null
   pr_state: Thread['prState']
   turn_state: TurnState
+  last_prompt_at: number | null
   created_at: number
   updated_at: number
 }
@@ -306,8 +312,10 @@ export class Store {
         base_ref      TEXT,
         last_seen_head TEXT,
         pr_url        TEXT,
+        pr_number     INTEGER,
         pr_state      TEXT NOT NULL DEFAULT 'none',
         turn_state    TEXT NOT NULL DEFAULT 'idle',
+        last_prompt_at INTEGER,
         -- Engine-internal recovery columns (not part of the Thread domain type):
         -- the agent's carried context (Codebuff RunState / Claude session id) so
         -- a turn after an app restart keeps the conversation, plus the prompt of a
@@ -469,6 +477,17 @@ export class Store {
       this.db.exec('ALTER TABLE threads ADD COLUMN freebuff_instance_id TEXT')
     }
 
+    // v15: richer tab-status data. `pr_number` + `last_prompt_at` are additive +
+    // nullable (legacy rows show a bare PR icon / no elapsed readout until the
+    // next `gh pr view` refresh / turn fills them in). `pr_state` also gains a
+    // 'conflict' value — no column change, old rows keep their 4-state values.
+    if (!this.hasColumn('threads', 'pr_number')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN pr_number INTEGER')
+    }
+    if (!this.hasColumn('threads', 'last_prompt_at')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN last_prompt_at INTEGER')
+    }
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
 
@@ -534,8 +553,10 @@ export class Store {
       baseRef: null,
       lastSeenHead: null,
       prUrl: null,
+      prNumber: null,
       prState: 'none',
       turnState: 'idle',
+      lastPromptAt: null,
       lastTurnOutcome: null,
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
@@ -892,8 +913,10 @@ function rowToThread(row: ThreadRow): Thread {
     baseRef: row.base_ref,
     lastSeenHead: row.last_seen_head,
     prUrl: row.pr_url,
+    prNumber: row.pr_number ?? null,
     prState: row.pr_state ?? 'none',
     turnState: row.turn_state,
+    lastPromptAt: row.last_prompt_at ?? null,
     lastTurnOutcome: null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

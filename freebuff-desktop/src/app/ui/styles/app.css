@@ -80,14 +80,24 @@ select {
      interactive children opt out with no-drag below. */
   -webkit-app-region: drag;
 }
+/* The strip scrolls (trackpad/wheel) once tabs hit their minimum width, but a
+   visible scrollbar under the tab row reads as broken chrome — hide it. */
+.tabs::-webkit-scrollbar {
+  display: none;
+}
 .tab {
   display: flex;
   align-items: center;
   gap: 7px;
-  /* Per-tab model picker now lives inside the tab (Codebuff · M3 ▼), so the
-     tab needs to fit a small trigger next to the title without clipping. */
-  max-width: 240px;
-  min-width: 120px;
+  /* Tabs are deliberately roomy ("chonky"): besides the title they carry the
+     at-a-glance chips — elapsed time, queued count, PR badge — without
+     immediately crushing the title into ellipsis. */
+  /* Tabs size to their content and never squeeze (the title is clamped to
+     64–240px below; chips add what they need). A crowded strip scrolls and the
+     overflow menu lists everything — squeezing instead would crush titles to a
+     letter behind the chips, losing the tab's identity exactly when scanning
+     many tabs matters most. */
+  flex-shrink: 0;
   padding: 5px 9px;
   border-radius: 8px 8px 0 0;
   background: transparent;
@@ -115,7 +125,11 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
-  min-width: 0;
+  /* Title width band: the floor keeps untitled tabs from collapsing to the
+     bare wordmark; the ceiling (~34 chars) is where long titles ellipsize,
+     bounding total tab width since the tab itself sizes to content. */
+  min-width: 64px;
+  max-width: 240px;
   /* Tabs are buttons, not text — selecting their title reads as a UI bug.
      Apply to the whole tab so the close x and the new model pill can't be
      accidentally dragged into a selection either. */
@@ -169,20 +183,66 @@ select {
 }
 /* Color tokens per state. The running pulse inherits `--accent`; idle marks
    are quieter so a row of done tabs doesn't look like a wall of neon. */
-.tab-icon-pr-open {
-  color: #c4a6ff;
-}
-.tab-icon-pr-merged {
-  color: #b08bf2;
-}
-.tab-icon-pr-closed {
-  color: var(--faint);
-}
 .tab-icon-stopped {
   color: #d8a14a;
 }
 .tab-icon-error {
   color: var(--danger);
+}
+/* — Tab chips (elapsed / queued / PR) — small trailing badges that survive the
+   title's ellipsis (flex-shrink: 0) so the at-a-glance facts never clip. */
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--raised);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  -webkit-app-region: no-drag;
+}
+.tab-badge svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  stroke-width: 1.6;
+}
+/* The elapsed readout is ambient, not an alert: bare tabular digits right
+   after the running pulse (the pair reads "running for 4m"), no chip chrome.
+   Margin pulls it toward the pulse so the pair reads as one unit. */
+.tab-elapsed {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: -3px;
+}
+/* PR lifecycle colors: green = freshly open, orange = merge conflicts,
+   purple = merged, grey = closed unmerged. */
+.tab-pr-open {
+  color: #5ecb7b;
+  background: rgba(94, 203, 123, 0.12);
+}
+.tab-pr-conflict {
+  color: #e0954a;
+  background: rgba(224, 149, 74, 0.14);
+}
+.tab-pr-merged {
+  color: #b08bf2;
+  background: rgba(176, 139, 242, 0.14);
+}
+.tab-pr-closed {
+  color: var(--faint);
+}
+.tab-pr.linked {
+  cursor: pointer;
+}
+.tab-pr.linked:hover {
+  filter: brightness(1.25);
 }
 .tab-close {
   display: flex;

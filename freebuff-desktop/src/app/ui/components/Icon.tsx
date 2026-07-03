@@ -1,5 +1,16 @@
 /** Small inline-SVG icon set (15×15, inherits currentColor). */
 
+// Shared skeleton for the three PR glyphs: the left trunk (dot · line · dot).
+// The variants differ only in what hangs off it (an open ring, a solid head, or
+// an exclamation), so keeping the trunk in one place means a geometry tweak
+// can't leave one glyph's trunk misaligned with the others'.
+const PR_TRUNK =
+  'M4 2.2a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8z' + // top trunk dot
+  'M4 5v5.2' + // trunk
+  'M4 10.2a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8z' // bottom trunk dot
+// Open head: an arm curving from the trunk into the head column, ending in a ring.
+const PR_OPEN_HEAD = 'M5.4 3.6h3.1A2.5 2.5 0 0111 6.1v4.1M11 10.2a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8z'
+
 const PATHS: Record<string, string> = {
   plus: 'M7.5 2.5v10M2.5 7.5h10',
   x: 'M3.5 3.5l8 8M11.5 3.5l-8 8',
@@ -28,25 +39,19 @@ const PATHS: Record<string, string> = {
     'M11.5 6.5l-5 5a2.5 2.5 0 01-3.5-3.5l5.5-5.5a1.6 1.6 0 012.3 2.3l-5.2 5.2a0.7 0.7 0 01-1-1l4.7-4.7',
   image: 'M2.5 3.5h10v8h-10zM5.6 6.3a0.9 0.9 0 100-1.8 0.9 0.9 0 000 1.8M3 11l2.7-2.7 2 2 2-2 2.3 2.3',
   file: 'M4 2.5h4l3 3v7H4zM8 2.5v3h3',
-  // GitHub-style "pull request open" — a small fork off the trunk with an
-  // open ring (the PR head awaiting review). Drawn for a 15×15 viewBox;
-  // the tab container scales it down.
-  'pr-open':
-    'M3.5 3.5a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2z' + // top trunk dot
-    'M3.5 5.7v6' + // trunk
-    'M3.5 10.6a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2z' + // bottom trunk dot
-    'M3.5 8h4a3 3 0 013 3v0a3 3 0 003 3' + // branch arm into head
-    'M11.5 13.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z', // open head (ring)
-  // Merged variant — same skeleton, but the head ring carries a small inner dot
-  // (drawn as a circle of zero radius at the center, rendered as a round point
-  // by the stroke-linecap) so the merged state reads as "the head is solid".
-  'pr-merged':
-    'M3.5 3.5a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2z' +
-    'M3.5 5.7v6' +
-    'M3.5 10.6a1.1 1.1 0 100 2.2 1.1 1.1 0 000-2.2z' +
-    'M3.5 8h4a3 3 0 013 3v0a3 3 0 003 3' +
-    'M11.5 13.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5z' +
-    'M11.5 14.75h0.01',
+  // GitHub-style "pull request open" — the trunk plus an arm into the head
+  // column ending in an open ring. All coords sit inside 2–13.5 of the 15×15
+  // box so nothing clips when the tab chip scales it down to 11px.
+  'pr-open': PR_TRUNK + PR_OPEN_HEAD,
+  // Merged variant — the open head, plus a small inner dot (a zero-length
+  // segment rendered as a round point by the stroke-linecap) so the head reads
+  // as solid / "merged".
+  'pr-merged': PR_TRUNK + PR_OPEN_HEAD + 'M11 11.6h.01',
+  // Conflict variant — trunk intact, but the head column becomes an exclamation
+  // (stem + dot): "the PR's head has a problem" (merge conflicts).
+  'pr-conflict': PR_TRUNK + 'M11 2.5v6' + 'M11 12.4h.01',
+  // Queued-prompts list: full lines with a shorter last one, "more to come".
+  list: 'M3 4.5h9M3 7.5h9M3 10.5h5',
   // Person silhouette: head circle over a shoulders arc.
   user: 'M7.5 2.9a2.1 2.1 0 100 4.2 2.1 2.1 0 000-4.2zM3.2 12.5a4.3 4.3 0 018.6 0',
   // 8-toothed gear, slightly stylized. ~15x15 viewBox.
