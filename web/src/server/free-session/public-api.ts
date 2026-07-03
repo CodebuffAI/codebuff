@@ -1298,6 +1298,15 @@ export type SessionGateResult =
    *  CLI should restart its session (DELETE then POST) to switch models. */
   | { ok: false; code: 'session_model_mismatch'; message: string }
 
+/** Shared reject for "the caller isn't holding a session": no row exists, or
+ *  the request carried no instance id at all. One constant so both branches
+ *  stay in lockstep. */
+const WAITING_ROOM_REQUIRED_RESULT = {
+  ok: false,
+  code: 'waiting_room_required',
+  message: 'No active free session. Call POST /api/v1/freebuff/session first.',
+} as const satisfies SessionGateResult
+
 /**
  * Called from the chat/completions hot path for free-mode requests. Either
  * returns `{ ok: true }` (request may proceed) or a structured rejection
@@ -1338,12 +1347,7 @@ export async function checkSessionAdmissible(params: {
   // builds are gone and the message misled current users into thinking their
   // install was broken.)
   if (!params.claimedInstanceId) {
-    return {
-      ok: false,
-      code: 'waiting_room_required',
-      message:
-        'No active free session. Call POST /api/v1/freebuff/session first.',
-    }
+    return WAITING_ROOM_REQUIRED_RESULT
   }
 
   // Desktop rows are keyed by (user, instance); single-session by user.
@@ -1352,12 +1356,7 @@ export async function checkSessionAdmissible(params: {
     : await deps.getSessionRow(params.userId)
 
   if (!row) {
-    return {
-      ok: false,
-      code: 'waiting_room_required',
-      message:
-        'No active free session. Call POST /api/v1/freebuff/session first.',
-    }
+    return WAITING_ROOM_REQUIRED_RESULT
   }
 
   if (row.status === 'queued') {

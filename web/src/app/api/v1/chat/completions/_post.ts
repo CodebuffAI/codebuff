@@ -873,7 +873,13 @@ export async function postChatCompletions(params: {
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
           userId,
-          properties: { error: freeModeSessionGate.code },
+          properties: {
+            error: freeModeSessionGate.code,
+            // Distinguishes "client sent no instance id" (a client-side
+            // plumbing regression if it spikes) from ordinary no-row
+            // waiting_room_required churn — both return the same code.
+            hadInstanceId: Boolean(claimedInstanceId),
+          },
           logger,
         })
         return NextResponse.json(
