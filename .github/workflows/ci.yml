@@ -32,7 +32,8 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
+            freebuff/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -114,7 +115,8 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
+            freebuff/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -211,7 +213,8 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
+            freebuff/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
@@ -301,7 +304,8 @@ jobs:
             node_modules
             */node_modules
             packages/*/node_modules
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
+            freebuff/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
