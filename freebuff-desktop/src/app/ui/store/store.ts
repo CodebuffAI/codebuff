@@ -72,6 +72,11 @@ function armLoginExpiry(expiresAt: number | string | null | undefined) {
 // the module outlives the component. Reset on failure so a retry can proceed.
 let initStarted = false
 
+// In-flight latch for openProjectPath: prevents a double-click on a recents row
+// (or any racing pair of open actions) from creating two duplicate tabs. Module-
+// level for the same reason as initStarted.
+let openingProject = false
+
 export interface ThreadSlice {
   thread: Thread
   messages: Message[]
@@ -160,6 +165,13 @@ interface StoreState {
   /** Freebuff free-mode state for the model picker (tier, models, premium slot,
    *  auth). Null until the first state event. */
   freebuff: FreebuffSnapshot | null
+  /** Whether the user is signed in, and who. Null until known. Written ONLY by
+   *  the app-level SSE `auth` event (sent on connect and on every auth flip)
+   *  plus a one-shot /api/auth/status seed for the pre-SSE window — NOT by
+   *  engine snapshots, so there's a single writer and it works on a fresh
+   *  install where no project (hence no engine/snapshot) exists. */
+  authed: boolean | null
+  authUser: { id?: string; name?: string; email?: string } | null
   /** The device-code sign-in flow. One global slice — the tab-bar gate, the
    *  welcome CTA, and notice-card actions all render from (and drive) the same
    *  attempt, so two mounted sign-in buttons can never show different states.
@@ -188,6 +200,10 @@ interface StoreState {
    *  else opening a new tab), otherwise opening a new tab in the chosen
    *  project. A non-repo pick parks in `pendingInit` for git-init confirmation. */
   pickProject: (threadId?: string | null) => Promise<void>
+  /** Validate `path` and open it (new tab, or re-home `threadId`) — the shared
+   *  tail of the native folder pick and the welcome screen's recents rows, so
+   *  both get the same git-init recovery and error surfacing. */
+  openProjectPath: (path: string, threadId?: string | null) => Promise<void>
   /** A native-picked folder that isn't a git repo yet, awaiting the user's
    *  confirmation to `git init` it (null = nothing pending). */
   pendingInit: { path: string; threadId: string | null } | null
@@ -268,6 +284,8 @@ export const useStore = create<StoreState>((set, get) => ({
   agentHarness: null,
   agentOptions: [],
   freebuff: null,
+  authed: null,
+  authUser: null,
   login: { phase: 'idle' },
   previewReady: false,
   settings: { version: 1, preview: { entry: 'index.html' } },
@@ -360,24 +378,38 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     const picked = await pickDirectory()
     if (!picked) return // canceled
+    await get().openProjectPath(picked, threadId)
+  },
+
+  async openProjectPath(path, threadId = null) {
+    // In-flight latch: a double-click on a welcome-screen recents row (the
+    // natural gesture for recents lists) would otherwise create two threads
+    // and open two duplicate tabs. The picker path is naturally serialized by
+    // its modal dialog, but sharing the latch costs nothing.
+    if (openingProject) return
+    openingProject = true
     try {
-      const info = await api.validateProject(picked)
+      const info = await api.validateProject(path)
       if (info.needsInit) {
-        // Not a git repo yet — offer to initialize it rather than failing.
-        set({ pendingInit: { path: picked, threadId } })
+        // Not a git repo (yet, or anymore — a recent whose .git was deleted
+        // lands here too) — offer to initialize it rather than failing.
+        set({ pendingInit: { path, threadId } })
         return
       }
       if (!info.ok) {
-        // Unusable for another reason (inside an existing repo, unreadable, …)
-        // — git init wouldn't help, so surface the server's error instead.
+        // Unusable for another reason (inside an existing repo, unreadable,
+        // moved/deleted, …) — git init wouldn't help, so surface the server's
+        // error instead.
         get().pushToast(info.error ?? 'Cannot open this folder.', 'error')
         return
       }
-      await openPickedPath(get, picked, threadId)
+      await openPickedPath(get, path, threadId)
     } catch (e) {
-      // A rejected fetch (server restarting) must not swallow the pick silently
-      // — every call site fires this action as `void pickProject()`.
+      // A rejected fetch (server restarting) must not swallow the open silently
+      // — call sites fire this action as `void openProjectPath()`.
       get().pushToast(`Couldn't open folder: ${(e as Error).message}`, 'error')
+    } finally {
+      openingProject = false
     }
   },
 
@@ -438,10 +470,12 @@ export const useStore = create<StoreState>((set, get) => ({
     // Rehydrate a pending device-code sign-in: the server keeps polling an
     // attempt across renderer reloads, so pick its waiting state back up. Once
     // per load, not per gate mount — every sign-in surface renders from the
-    // shared slice this sets.
+    // shared slice this sets. Also seeds `authed` (only while still unknown —
+    // an SSE auth/state event that raced ahead of this response is fresher).
     void api
       .authStatus()
       .then((s) => {
+        if (get().authed === null) set({ authed: s.authed, authUser: s.user ?? null })
         if (!s.loginPending || get().login.phase !== 'idle') return
         set({ login: { phase: 'waiting' } })
         armLoginExpiry(s.loginExpiresAt)
@@ -478,7 +512,10 @@ export const useStore = create<StoreState>((set, get) => ({
         activeId: threads[0]?.id ?? null,
       })
       if (threads[0]) get().ensureLoaded(threads[0].id)
-      if (threads.length === 0) get().newThread()
+      // No open tabs → the welcome screen. It walks a fresh install through
+      // sign-in and the first folder pick, and offers returning users their
+      // recent projects — tabs are only ever created by an explicit action
+      // (folder pick, recent-project click, ⌘T), never auto-opened.
     } catch (e) {
       initStarted = false
       throw e
@@ -529,16 +566,27 @@ export const useStore = create<StoreState>((set, get) => ({
           settings: snapshot.settings ?? s.settings,
         }
       })
-      // A successful sign-in ends the device-code wait: reset the shared login
-      // slice and its expiry timer so the abandoned-attempt toast can't fire
-      // after the attempt actually succeeded.
-      if (snapshot.freebuff?.authed && get().login.phase !== 'idle') {
-        clearLoginTimer()
-        set({ login: { phase: 'idle' } })
-      }
+      // (Sign-in completion is handled by the `auth` event below — the server
+      // broadcasts it on every auth flip, so snapshots don't write auth state.)
       // Load the active thread's messages if needed.
       const active = get().activeId
       if (active && !get().threads[active]?.loaded) get().ensureLoaded(active)
+      return
+    }
+
+    if (ev.type === 'auth') {
+      // App-level auth flip, independent of any project engine — the single
+      // writer for `authed`/`authUser` (see their declaration). On a fresh
+      // install (no engine → no state snapshots) this is the only auth signal:
+      // it swaps the welcome screen's sign-in CTA for the folder pick.
+      set({ authed: ev.authed, authUser: ev.user ?? null })
+      // A successful sign-in ends the device-code wait: reset the shared login
+      // slice and its expiry timer so the abandoned-attempt toast can't fire
+      // after the attempt actually succeeded.
+      if (ev.authed && get().login.phase !== 'idle') {
+        clearLoginTimer()
+        set({ login: { phase: 'idle' } })
+      }
       return
     }
 
@@ -600,6 +648,14 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     const t = await api.createThread(path ? { projectPath: path } : {})
     if (!t?.id) {
+      // Pathless create can 400 with 'no project' even when recents exist:
+      // every recent may have failed to open server-side (folders deleted or
+      // moved between sessions). Fall back to the folder picker — the same
+      // recovery a truly-empty MRU gets above — instead of a dead-end toast.
+      if (!path && t?.error === 'no project' && bridge()?.pickDirectory) {
+        void get().pickProject()
+        return
+      }
       get().pushToast(`Couldn't open folder: ${t?.error ?? 'unknown error'}`, 'error')
       return
     }
@@ -845,11 +901,18 @@ export const useStore = create<StoreState>((set, get) => ({
   async loadSettings() {
     try {
       const res = await api.getSettings()
+      // Zero projects open: the server 404s with {error:'no project'} (no
+      // settings/errors fields). Keep the defaults quietly — the settings
+      // modal is only reachable once a project is open anyway.
+      if (!res.settings) {
+        set({ settingsPath: null, settingsLoadError: null })
+        return
+      }
       set({
         settings: res.settings,
         settingsPath: res.path,
         // First error is enough to surface in a toast; the full list shows in the modal.
-        settingsLoadError: res.errors[0]?.message ?? null,
+        settingsLoadError: res.errors?.[0]?.message ?? null,
       })
     } catch (e) {
       set({ settingsLoadError: (e as Error).message })

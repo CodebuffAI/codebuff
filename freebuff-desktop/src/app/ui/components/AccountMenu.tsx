@@ -12,20 +12,25 @@ import { Icon } from './Icon'
  * over the same tab-bar slot (see TabBar).
  */
 export function AccountMenu() {
-  const freebuff = useStore((s) => s.freebuff)
+  // App-level auth slice, not the engine snapshot: on a fresh install with no
+  // project open there is no snapshot, but a signed-in user still needs the
+  // account menu (to see who they are / sign out) on the welcome screen.
+  const authed = useStore((s) => s.authed)
+  const user = useStore((s) => s.authUser)
   const pushToast = useStore((s) => s.pushToast)
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
-  if (!freebuff?.authed) return null
+  if (!authed) return null
 
   const signOut = async () => {
     setSigningOut(true)
     try {
       const res = await api.logout()
       if (!res.ok) throw new Error(res.error ?? 'Could not sign out')
-      const fb = useStore.getState().freebuff
-      if (fb) useStore.setState({ freebuff: { ...fb, authed: false, user: null } })
+      // No local state patch: the server's signOutLocally broadcasts the
+      // app-level `auth` event (plus a state snapshot when a project is open)
+      // before this response resolves — the store's one writer handles it.
       setOpen(false)
       pushToast('Signed out')
     } catch (err) {
@@ -40,7 +45,7 @@ export function AccountMenu() {
       <button
         className={`head-btn icon-only account-trigger ${open ? 'on' : ''}`}
         onClick={() => setOpen((v) => !v)}
-        title={freebuff.user?.email ?? 'Freebuff account'}
+        title={user?.email ?? 'Freebuff account'}
         aria-label="Freebuff account"
         aria-expanded={open}
       >
@@ -50,7 +55,7 @@ export function AccountMenu() {
         <>
           <button className="menu-scrim" aria-label="Close account menu" onClick={() => setOpen(false)} />
           <div className="header-menu account-popover">
-            {freebuff.user?.email && <div className="header-menu-note">{freebuff.user.email}</div>}
+            {user?.email && <div className="header-menu-note">{user.email}</div>}
             <button className="header-menu-item" onClick={signOut} disabled={signingOut}>
               <Icon name="x" /> {signingOut ? 'Signing out...' : 'Sign out'}
             </button>

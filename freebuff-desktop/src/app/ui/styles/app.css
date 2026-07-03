@@ -639,6 +639,25 @@ body.col-resizing {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Session-quota badge next to the agent/model pill: "N/M sessions" for the
+   tab's model when it draws from a metered pool (premium on full tier, every
+   model on limited tier). Warning-tinted once the pool is exhausted. */
+.head-quota {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: default;
+}
+.head-quota.exhausted {
+  color: var(--warn, #b58900);
+  border: 1px solid var(--warn, #b58900);
+}
 .head-btn.icon-only {
   justify-content: center;
   width: 28px;
@@ -778,6 +797,70 @@ body.col-resizing {
 .btn.welcome-open:hover svg {
   color: var(--accent);
 }
+/* Recent-projects list under the folder CTA (signed in only): quiet rows —
+   the primary action stays the button above; these are shortcuts back into
+   known projects. */
+.welcome-recents {
+  margin: 22px auto 0;
+  width: min(420px, 90%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.welcome-recents-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.7;
+  margin: 0 0 6px 10px;
+}
+.welcome-recent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 0;
+}
+.welcome-recent:hover {
+  background: var(--raised);
+}
+.welcome-recent svg {
+  flex: none;
+  color: var(--muted);
+}
+.welcome-recent-name {
+  flex: none;
+  font-weight: 500;
+}
+.welcome-recent-path {
+  color: var(--muted);
+  opacity: 0.8;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  /* Keep the tail (project name end) visible — the interesting part of a
+     long absolute path is the end, not the /Users/... prefix. */
+  direction: rtl;
+  text-align: left;
+}
+/* Strong-LTR anchor for the RTL ellipsis trick: without it the path's leading
+   "/" (a bidi-neutral char) gets reordered to the visual end ("…/side-quest/").
+   Generated content so it never pollutes a copied/selected path. */
+.welcome-recent-path::before {
+  content: '\200E';
+}
+
 .welcome-title {
   margin-top: 14px;
   font-size: 14px;
@@ -795,7 +878,8 @@ body.col-resizing {
 }
 .msg.user {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .msg.user .bubble {
   background: var(--raised);
@@ -1663,7 +1747,7 @@ body.col-resizing {
   opacity: 0;
   transition: opacity 0.12s;
 }
-.msg.assistant:hover .msg-actions {
+.msg.user:hover .msg-actions {
   opacity: 1;
 }
 .msg-copy {

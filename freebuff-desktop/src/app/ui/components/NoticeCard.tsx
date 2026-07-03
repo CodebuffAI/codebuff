@@ -66,9 +66,9 @@ function ClaudeCodeAuthActions() {
 /** Kicks off the device-code sign-in. A thin view over the store's shared
  *  login slice — the same flow the tab bar's LoginGate drives — so this button
  *  and the gate always show the same phase (and a reload rehydrates both). On
- *  success the server broadcasts a state event that flips `authed`, which
- *  unmounts this action row. The button stays clickable while waiting so a
- *  lost browser tab can be reopened. */
+ *  success the server broadcasts the app-level `auth` SSE event that flips
+ *  `store.authed`, which unmounts this action row. The button stays clickable
+ *  while waiting so a lost browser tab can be reopened. */
 function FreebuffAuthActions() {
   const phase = useStore((s) => s.login.phase)
   const startLogin = useStore((s) => s.startLogin)
@@ -91,7 +91,7 @@ const NOTICE_TITLES: Record<string, string> = {
 }
 
 export function NoticeCard({ part }: { part: NoticePart }) {
-  const authed = useStore((s) => s.freebuff?.authed)
+  const authed = useStore((s) => s.authed)
   return (
     <div className="notice-card">
       <div className="notice-title">
@@ -102,8 +102,8 @@ export function NoticeCard({ part }: { part: NoticePart }) {
         <Markdown text={part.text} />
       </div>
       {part.notice === NOTICE_CLAUDE_CODE_AUTH && <ClaudeCodeAuthActions />}
-      {/* `authed === false`, not `!authed`: store.freebuff is null until the
-          first SSE state event, and a signed-in user reloading a transcript
+      {/* `authed === false`, not `!authed`: auth is null until the first
+          auth signal lands, and a signed-in user reloading a transcript
           with an old card shouldn't flash an actionable sign-in button. */}
       {part.notice === NOTICE_FREEBUFF_AUTH && authed === false && <FreebuffAuthActions />}
     </div>

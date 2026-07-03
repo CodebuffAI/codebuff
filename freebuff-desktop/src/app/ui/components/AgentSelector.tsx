@@ -45,6 +45,18 @@ export interface AgentModelPickerProps {
   onSelect: (harnessId: HarnessId, model: string) => void
 }
 
+/** The freebuff model option a tab's pick resolves to: the explicit pick when
+ *  it's in the tier's list, else the first listed model. THE single definition
+ *  of "which model is this tab on" for display — the picker trigger, the
+ *  locked label, and the header quota badge all resolve through this so they
+ *  can never disagree about the model they describe. */
+export function activeFreebuffModelOption(
+  models: readonly FreebuffModelOption[],
+  pick: string | null,
+): FreebuffModelOption | undefined {
+  return models.find((m) => m.id === pick) ?? models[0]
+}
+
 /** What a tab's (harness, model) picks resolve to for display: agent label +
  *  model label (+ premium flag). Shared by the picker trigger and the static
  *  header label a started thread shows. */
@@ -64,8 +76,7 @@ export function resolveAgentModel(sel: {
     CLAUDE_MODEL_OPTIONS.find((m) => m.id === sel.claudeModel) ??
     CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
     CLAUDE_MODEL_OPTIONS[0]
-  const activeFreebuff =
-    freebuffModels.find((m) => m.id === sel.freebuffModel) ?? freebuffModels[0]
+  const activeFreebuff = activeFreebuffModelOption(freebuffModels, sel.freebuffModel)
   const isClaude = resolvedId === 'claude-code'
   return {
     agent,
@@ -128,7 +139,7 @@ export function AgentModelPicker({
     CLAUDE_MODEL_OPTIONS.find((m) => m.id === claudeModel) ??
     CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
     CLAUDE_MODEL_OPTIONS[0]
-  const activeFreebuff = freebuffModels.find((m) => m.id === freebuffModel) ?? freebuffModels[0]
+  const activeFreebuff = activeFreebuffModelOption(freebuffModels, freebuffModel)
   const triggerModel = active.modelLabel
 
   const pick = (agent: HarnessId, model: string) => {
@@ -191,7 +202,10 @@ export function AgentModelPicker({
                   })
                 : freebuffModels.map((m) => {
                     const selected = !isClaude && m.id === activeFreebuff?.id
-                    const disabled = m.premiumBucket && premiumLocked && !selected
+                    // slotBound (tier-aware) drives the lock: on the limited
+                    // tier every model is slot-bound, so a second tab sees all
+                    // options locked while another tab holds the slot.
+                    const disabled = m.slotBound && premiumLocked && !selected
                     return (
                       <button
                         key={m.id}

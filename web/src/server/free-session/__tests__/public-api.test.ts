@@ -236,10 +236,23 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     // — Desktop multi-session in-memory store, keyed by `${userId}::${instanceId}`.
     getDesktopSessionRow: async (userId, instanceId) =>
       desktopRows.get(`${userId}::${instanceId}`) ?? null,
-    getActiveDesktopSessionCount: async (userId) =>
+    getActiveDesktopSessionCount: async (userId, liveCutoff) =>
       [...desktopRows.values()].filter(
-        (r) => r.user_id === userId && r.status === 'active',
+        (r) =>
+          r.user_id === userId &&
+          r.status === 'active' &&
+          !!r.expires_at &&
+          r.expires_at.getTime() > liveCutoff.getTime(),
       ).length,
+    deleteExpiredDesktopSession: async (userId, instanceId, cutoff) => {
+      const key = `${userId}::${instanceId}`
+      const row = desktopRows.get(key)
+      if (!row?.expires_at || row.expires_at.getTime() > cutoff.getTime()) {
+        return false
+      }
+      desktopRows.delete(key)
+      return true
+    },
     admitDesktopSession: async ({
       userId,
       instanceId,
@@ -274,6 +287,7 @@ function makeDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
           throw new FreeSessionPremiumSlotTakenError(
             other.model,
             other.active_instance_id,
+            other.expires_at ?? null,
           )
         }
       }
@@ -1964,7 +1978,7 @@ describe('requestSession — desktop multi-session', () => {
     expect(a.status).toBe('active')
     expect(b.status).toBe('active')
     expect(c.status).toBe('active')
-    expect(await deps.getActiveDesktopSessionCount!('u1')).toBe(3)
+    expect(await deps.getActiveDesktopSessionCount!('u1', deps._now())).toBe(3)
     // Single-session table is untouched in multi-session mode.
     expect(deps.rows.size).toBe(0)
   })
@@ -2004,7 +2018,7 @@ describe('requestSession — desktop multi-session', () => {
     expect(deps.desktopRows.size).toBe(0)
   })
 
-  test('per-user total concurrent cap rejects beyond the limit', async () => {
+  test('per-user total concurrent cap rejects beyond the limit, tagged as concurrent_sessions', async () => {
     for (let i = 0; i < FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS; i++) {
       const r = await requestSession({
         userId: 'u1', model: FLASH, multiSession: true, instanceId: `i${i}`, deps,
@@ -2014,7 +2028,208 @@ describe('requestSession — desktop multi-session', () => {
     const over = await requestSession({
       userId: 'u1', model: FLASH, multiSession: true, instanceId: 'over', deps,
     })
-    expect(over.status).toBe('rate_limited')
+    expect(over).toMatchObject({
+      status: 'rate_limited',
+      reason: 'concurrent_sessions',
+      retryAfterMs: 0,
+    })
+  })
+
+  test('per-user concurrent cap ignores sessions past expiry + grace (unswept)', async () => {
+    for (let i = 0; i < FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS; i++) {
+      await requestSession({
+        userId: 'u1', model: FLASH, multiSession: true, instanceId: `i${i}`, deps,
+      })
+    }
+    // All rows pass expiry + grace but stay status='active' until the sweep;
+    // they must not count against a fresh tab.
+    deps._tick(new Date(deps._now().getTime() + SESSION_LEN + GRACE_MS + 1))
+    const fresh = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'fresh', deps,
+    })
+    expect(fresh.status).toBe('active')
+  })
+
+  test('per-user concurrent cap still counts expired-but-draining sessions', async () => {
+    // The completions gate serves a row until expires_at + grace, so draining
+    // rows can still generate — 8 draining + 8 fresh must NOT be possible.
+    for (let i = 0; i < FREEBUFF_DESKTOP_MAX_CONCURRENT_SESSIONS; i++) {
+      await requestSession({
+        userId: 'u1', model: FLASH, multiSession: true, instanceId: `i${i}`, deps,
+      })
+    }
+    deps._tick(new Date(deps._now().getTime() + SESSION_LEN + 1)) // in grace
+    const over = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'over', deps,
+    })
+    expect(over).toMatchObject({ status: 'rate_limited', reason: 'concurrent_sessions' })
+  })
+
+  test('a DEAD premium-bucket holder (past expiry + grace) is evicted so a new tab can take the slot', async () => {
+    await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    deps._tick(new Date(deps._now().getTime() + SESSION_LEN + GRACE_MS + 1))
+    const b = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(b.status).toBe('active')
+    // The dead holder's row is gone, not just superseded.
+    expect(deps.desktopRows.has('u1::A')).toBe(false)
+  })
+
+  test('an expired-but-DRAINING holder is NOT evicted (its in-flight turn may still finish)', async () => {
+    await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    deps._tick(new Date(deps._now().getTime() + SESSION_LEN + 1)) // in grace
+    const b = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(b.status).toBe('premium_slot_taken')
+    expect(deps.desktopRows.has('u1::A')).toBe(true)
+  })
+
+  test('a live premium-bucket holder is NOT evicted', async () => {
+    await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    const b = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(b.status).toBe('premium_slot_taken')
+    expect(deps.desktopRows.has('u1::A')).toBe(true)
+  })
+
+  test('eviction race: holder reclaimed after the slot error → conditional delete no-ops, new tab rejects', async () => {
+    await requestSession({ userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps })
+    deps._tick(new Date(deps._now().getTime() + SESSION_LEN + GRACE_MS + 1))
+    // Simulate A reclaiming between B's failed admit and the eviction: the
+    // conditional delete sees a refreshed expires_at and must leave A alone.
+    const stockDelete = deps.deleteExpiredDesktopSession!
+    deps.deleteExpiredDesktopSession = async (userId, instanceId, cutoff) => {
+      const row = deps.desktopRows.get(`${userId}::${instanceId}`)
+      if (row) row.expires_at = new Date(deps._now().getTime() + SESSION_LEN)
+      return stockDelete(userId, instanceId, cutoff)
+    }
+    const b = await requestSession({ userId: 'u1', model: M3, multiSession: true, instanceId: 'B', deps })
+    expect(b.status).toBe('premium_slot_taken')
+    expect(deps.desktopRows.has('u1::A')).toBe(true)
+  })
+})
+
+describe('requestSession — desktop multi-session, limited tier', () => {
+  let deps: ReturnType<typeof makeDeps>
+  beforeEach(() => {
+    deps = makeDeps()
+  })
+
+  const FLASH = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  const MIMO = FREEBUFF_MIMO_V25_MODEL_ID
+
+  test('limited tier is capped to ONE concurrent freebuff tab', async () => {
+    const a = await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'A', deps,
+    })
+    expect(a.status).toBe('active')
+    // Any second tab — same or different limited model — hits the single slot.
+    const b = await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'B', deps,
+    })
+    expect(b).toMatchObject({
+      status: 'premium_slot_taken',
+      currentModel: FLASH,
+      currentInstanceId: 'A',
+    })
+    const c = await requestSession({
+      userId: 'u1', model: MIMO, accessTier: 'limited', multiSession: true, instanceId: 'C', deps,
+    })
+    expect(c.status).toBe('premium_slot_taken')
+  })
+
+  test('limited tier slot frees when the holding tab ends its session', async () => {
+    await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'A', deps,
+    })
+    await endUserSession({ userId: 'u1', multiSession: true, instanceId: 'A', deps })
+    const b = await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'B', deps,
+    })
+    expect(b.status).toBe('active')
+  })
+
+  test('limited tier re-admit of the same tab (reclaim) keeps the slot and quota', async () => {
+    await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'A', deps,
+    })
+    const again = await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'A', deps,
+    })
+    expect(again.status).toBe('active')
+    // Reclaim writes no second admit row: the daily pool is charged once.
+    expect(deps.admits.length).toBe(1)
+  })
+
+  test('a dead limited-tier holder (past expiry + grace) is evicted so the next tab can start', async () => {
+    await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'A', deps,
+    })
+    deps._tick(new Date(deps._now().getTime() + SESSION_LEN + GRACE_MS + 1))
+    const b = await requestSession({
+      userId: 'u1', model: FLASH, accessTier: 'limited', multiSession: true, instanceId: 'B', deps,
+    })
+    expect(b.status).toBe('active')
+    expect(deps.desktopRows.has('u1::A')).toBe(false)
+  })
+
+  test('full-tier unlimited models are unaffected by the limited one-tab rule', async () => {
+    const a = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'A', deps,
+    })
+    const b = await requestSession({
+      userId: 'u1', model: FLASH, multiSession: true, instanceId: 'B', deps,
+    })
+    expect(a.status).toBe('active')
+    expect(b.status).toBe('active')
+  })
+})
+
+describe('desktop multi-session — quota snapshot for the header badge', () => {
+  let deps: ReturnType<typeof makeDeps>
+  beforeEach(() => {
+    deps = makeDeps()
+  })
+
+  const PRO = FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID
+  const FLASH = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+
+  test('desktop tier probe (GET, no instance) includes UNUSED models so 0/N renders', async () => {
+    const state = await getSessionState({ userId: 'u1', multiSession: true, deps })
+    expect(state.status).toBe('none')
+    const limits = (state as { rateLimitsByModel?: Record<string, { recentCount: number }> })
+      .rateLimitsByModel
+    expect(limits?.[PRO]?.recentCount).toBe(0)
+  })
+
+  test('desktop POST admission response includes the full quota map', async () => {
+    const state = await requestSession({
+      userId: 'u1', model: PRO, multiSession: true, instanceId: 'A', deps,
+    })
+    expect(state.status).toBe('active')
+    const limits = (state as { rateLimitsByModel?: Record<string, { recentCount: number }> })
+      .rateLimitsByModel
+    expect(limits?.[PRO]?.recentCount).toBe(1)
+    // Unused premium models stay visible at 0 (the CLI filter doesn't apply).
+    for (const model of FREEBUFF_PREMIUM_MODEL_IDS) {
+      expect(limits?.[model]).toBeDefined()
+    }
+  })
+
+  test('limited-tier probe carries the limited pool for every limited model', async () => {
+    const state = await getSessionState({
+      userId: 'u1', accessTier: 'limited', multiSession: true, deps,
+    })
+    const limits = (state as {
+      rateLimitsByModel?: Record<string, { limit: number; recentCount: number }>
+    }).rateLimitsByModel
+    expect(limits?.[FLASH]?.limit).toBe(FREEBUFF_LIMITED_SESSION_LIMIT)
+    expect(limits?.[FREEBUFF_MIMO_V25_MODEL_ID]?.recentCount).toBe(0)
+  })
+
+  test('CLI (single-session) GET keeps the used-only filter', async () => {
+    const state = await getSessionState({ userId: 'u1', deps })
+    expect(state.status).toBe('none')
+    expect(
+      (state as { rateLimitsByModel?: unknown }).rateLimitsByModel,
+    ).toBeUndefined()
   })
 })
 

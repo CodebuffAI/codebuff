@@ -312,16 +312,17 @@ function createRunEventBuffer(params: {
 
   const enqueueFlush = () => {
     if (flushTimer) return
-    // Each flush is one `recordRunEvent` mutation, and that mutation does a
-    // read-modify-write of the entire (growing) `assistant_stream` array on the
-    // message doc. Fewer flushes => fewer full-array rewrites => quadratically
-    // less Convex DB I/O over a long message. 750ms keeps streaming visibly
-    // live while roughly halving the mutation count vs the old 350ms.
+    // Each flush is one `recordRunEvent` mutation (message read + delta-row
+    // insert), and every flush also invalidates the client streaming
+    // subscription, which re-reads data. Fewer flushes => proportionally less
+    // Convex DB I/O and fewer function calls over a long message. 1500ms keeps
+    // streaming visibly live while halving the mutation count vs the previous
+    // 750ms (which itself halved the original 350ms).
     flushTimer = setTimeout(() => {
       flushPromise = flushPromise.then(flushNow).catch((error) => {
         console.error('[vly-freebuff-workpool] stream flush failed', error)
       })
-    }, 750)
+    }, 1500)
   }
 
   const append = (event: BufferedDelta) => {

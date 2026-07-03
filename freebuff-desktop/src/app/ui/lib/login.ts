@@ -6,7 +6,8 @@
  * every sign-in surface — the tab bar's LoginGate, the welcome CTA, the
  * freebuff-auth NoticeCard action — runs the one flow and can't drift.
  * Completion is out-of-band either way: the server polls the attempt and
- * broadcasts a state event that flips `authed`.
+ * broadcasts the app-level `auth` SSE event that flips `store.authed` (it
+ * doesn't ride on engine snapshots, so it works with no project open).
  *
  * Throws with a user-facing message when the attempt can't start; returns the
  * auth code's expiry for callers that arm a timeout. LoginManager.start()

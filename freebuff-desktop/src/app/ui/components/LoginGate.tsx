@@ -4,9 +4,9 @@
  * we surface a "Sign in" pill in the tab bar's account slot (where the profile
  * icon lives once signed in) — plus a larger variant on the no-tabs welcome
  * screen. Clicking starts the device-code flow (server /api/auth/login/start),
- * opens the login URL in the system browser, and waits — the server broadcasts
- * a fresh state event once the browser side completes, which flips
- * `freebuff.authed` and unmounts this gate.
+ * opens the login URL in the system browser, and waits — once the browser side
+ * completes, the server broadcasts the app-level `auth` SSE event (works even
+ * with no project open), which flips `store.authed` and unmounts this gate.
  *
  * The flow itself (phase, expiry timer, reload rehydrate) lives in the store
  * (StoreState.login): there is one attempt server-side, so every mounted

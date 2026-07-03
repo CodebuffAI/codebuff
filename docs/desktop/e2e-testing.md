@@ -125,7 +125,8 @@ stuck on "No threads open".
 cd freebuff-desktop
 bun run app          # builds UI + icons, launches Electron
 bun run dev          # Vite + Electron, hot UI iteration
-# point at a real repo instead of the bundled demo:
+# open a specific repo at launch (otherwise: most-recent project, or the
+# welcome screen's sign-in → folder-pick flow on a fresh profile):
 FREEBUFF_TARGET_REPO=/path/to/repo bun run app
 ```
 
@@ -137,14 +138,16 @@ Electron picks a free loopback port, spawns the orchestrator on it, waits for
 | Var | Default | Meaning |
 |-----|---------|---------|
 | `PORT` | `8787` | HTTP/SSE port |
-| `TARGET_REPO` | `~/freebuff-desktop-demo` | project repo to open at launch (falls back to the MRU recent project) |
+| `TARGET_REPO` | — | project repo to open at launch (unset → the MRU recent projects; none on a fresh profile → the server starts with **zero engines** and project-scoped endpoints return 404/400 `no project` until one is opened) |
 | `TEST_CMD` | `node --test` | the project's test command (run-config used by the `test` skill) |
 | `NEXT_PUBLIC_CODEBUFF_APP_URL` | prod | API host for sign-in, sessions, SDK (repo launches inherit localhost:3000 from `.env.local`; shell env wins) |
 | `CODEBUFF_API_KEY` | — | fallback auth for the `codebuff` harness |
 | `FREEBUFF_UI_DIR` | `…/dist-ui` | built SPA dir (set by the shell in packaged builds) |
 
-If `$TARGET_REPO` has no `.git` **and** it's the default demo path, the server seeds a
-tiny sample repo; a real repo is left alone.
+There is no demo-repo fallback: always set `TARGET_REPO` to a real git repo for
+headless e2e (create a throwaway one under /tmp — see §4). A fresh profile with no
+`TARGET_REPO` boots to the welcome screen with no project open, and `POST /api/threads`
+400s with `no project` until `POST /api/project/open` (or the UI's folder pick) runs.
 
 ---
 
