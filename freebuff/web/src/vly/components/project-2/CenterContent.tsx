@@ -523,6 +523,7 @@ export function CenterContent({
     isSuccess: isConnectionSuccess,
     error: connectionError,
     checkProjectConnection,
+    refreshConnection,
   } = useProjectConnection({
     semanticIdentifier: project?.semantic_identifier,
     runtimeSurface: effectiveRuntimeSurface,
@@ -1046,6 +1047,9 @@ export function CenterContent({
                     isConnectionError && connectionError instanceof Error
                       ? connectionError.message
                       : null
+                  }
+                  onRequestStatusRefresh={
+                    isConnectedRepo ? refreshConnection : undefined
                   }
                 />
                 <ToolbarTooltip

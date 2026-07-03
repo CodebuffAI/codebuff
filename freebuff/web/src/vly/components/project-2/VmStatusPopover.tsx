@@ -64,6 +64,7 @@ export function VmStatusPopover({
   dotClassName,
   pingClassName,
   connectionErrorMessage,
+  onRequestStatusRefresh,
 }: {
   projectId: Id<'project'> | undefined
   sandboxSize: SandboxSize | undefined
@@ -72,6 +73,13 @@ export function VmStatusPopover({
   pingClassName?: string
   /** Raw error from the connection/boot path, surfaced verbatim in the popover. */
   connectionErrorMessage?: string | null
+  /**
+   * Re-run the live connection check so the status label reflects reality. The
+   * status query never auto-refetches, so the dot can read "Idle" while the VM
+   * is actually running — clicking the icon (opening this popover) fires a fresh
+   * check to correct it.
+   */
+  onRequestStatusRefresh?: () => void | Promise<unknown>
 }) {
   const [open, setOpen] = useState(false)
   const [upgrading, setUpgrading] = useState(false)
@@ -155,8 +163,17 @@ export function VmStatusPopover({
     }
   }
 
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    // Fire a fresh status check the moment the popover opens so a stale "Idle"
+    // dot gets corrected. Stats refetch on their own (query re-enables here).
+    if (next) {
+      void onRequestStatusRefresh?.()
+    }
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"

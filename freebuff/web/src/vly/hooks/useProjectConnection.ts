@@ -146,5 +146,11 @@ export function useProjectConnection({
     isSuccess: query.isSuccess,
     fetchStatus: query.fetchStatus,
     checkProjectConnection,
+    // Re-run the underlying connection verification and update the query state
+    // (isSuccess/isError) that drives the status label. The query is otherwise
+    // configured to never refetch (staleTime: Infinity), so the status dot can
+    // go stale — e.g. read "Idle" while the VM is actually running. Callers use
+    // this to force a fresh check on demand (opening the VM status popover).
+    refreshConnection: query.refetch,
   };
 }
