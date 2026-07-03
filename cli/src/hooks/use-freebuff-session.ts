@@ -38,6 +38,23 @@ import type {
 const POLL_INTERVAL_ACTIVE_MS = 30_000
 const POLL_INTERVAL_ERROR_MS = 10_000
 
+/** Cap on any single session API call. Without it the only abort is the
+ *  poll-loop restart controller, so a hung request (overloaded server, dead
+ *  LB connection) pins the landing screen's "Starting…" spinner until Bun's
+ *  ~300s idle fetch timeout. On timeout the tick loop's catch sees a
+ *  non-restart abort, logs, and reschedules on POLL_INTERVAL_ERROR_MS. */
+const SESSION_FETCH_TIMEOUT_MS = 20_000
+
+/** Combine the caller's abort signal (poll-loop restart / unmount) with the
+ *  per-request timeout. Exported for tests. */
+export function sessionFetchSignal(
+  signal: AbortSignal | undefined,
+  timeoutMs: number = SESSION_FETCH_TIMEOUT_MS,
+): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
 /** Header sent on GET so the server can detect when another CLI on the same
  *  account has rotated the id and respond with `{ status: 'superseded' }`. */
 const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
@@ -76,7 +93,7 @@ async function callSession(
   const resp = await fetch(sessionEndpoint(), {
     method,
     headers,
-    signal: opts.signal,
+    signal: sessionFetchSignal(opts.signal),
   })
   // 404 = endpoint not deployed on this server (older web build). Treat as
   // "no session" so a newer CLI against an older server drops to the model
