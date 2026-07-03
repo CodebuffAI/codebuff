@@ -144,6 +144,80 @@ describe('normalizeDeepSeekAssistantReasoning', () => {
   })
 })
 
+describe('buildDeepSeekRequestBody tool_choice', () => {
+  const baseBody = (
+    overrides: Partial<ChatCompletionRequestBody>,
+  ): ChatCompletionRequestBody => ({
+    model: 'deepseek/deepseek-v4-flash',
+    messages: [{ role: 'user', content: 'Go' }],
+    ...overrides,
+  })
+
+  it('drops tool_choice when thinking is explicitly enabled', () => {
+    const sentBody = buildDeepSeekRequestBody(
+      baseBody({
+        tool_choice: 'required',
+        reasoning: { enabled: true, effort: 'high' },
+      }),
+    )
+
+    expect(sentBody).not.toHaveProperty('tool_choice')
+  })
+
+  it('drops tool_choice when thinking is on by default (no reasoning field)', () => {
+    const sentBody = buildDeepSeekRequestBody(
+      baseBody({ tool_choice: { type: 'auto' } }),
+    )
+
+    expect(sentBody).not.toHaveProperty('tool_choice')
+  })
+
+  it('converts the object form {type: "auto"} to a string when thinking is disabled', () => {
+    const sentBody = buildDeepSeekRequestBody(
+      baseBody({
+        tool_choice: { type: 'auto' },
+        reasoning: { enabled: false },
+      }),
+    )
+
+    expect(sentBody.tool_choice).toBe('auto')
+  })
+
+  it('keeps valid string and named-function forms when thinking is disabled', () => {
+    const stringBody = buildDeepSeekRequestBody(
+      baseBody({ tool_choice: 'none', reasoning: { enabled: false } }),
+    )
+    expect(stringBody.tool_choice).toBe('none')
+
+    const namedChoice = {
+      type: 'function',
+      function: { name: 'read_files' },
+    }
+    const namedBody = buildDeepSeekRequestBody(
+      baseBody({ tool_choice: namedChoice, reasoning: { enabled: false } }),
+    )
+    expect(namedBody.tool_choice).toEqual(namedChoice)
+  })
+
+  it('drops unrecognized tool_choice shapes when thinking is disabled', () => {
+    const sentBody = buildDeepSeekRequestBody(
+      baseBody({
+        tool_choice: { type: 'tool', toolName: 'read_files' },
+        reasoning: { enabled: false },
+      }),
+    )
+
+    expect(sentBody).not.toHaveProperty('tool_choice')
+  })
+
+  it('leaves bodies without tool_choice untouched', () => {
+    const sentBody = buildDeepSeekRequestBody(baseBody({}))
+
+    expect(sentBody).not.toHaveProperty('tool_choice')
+    expect(sentBody.model).toBeDefined()
+  })
+})
+
 describe('buildDeepSeekRequestBody reasoning replay', () => {
   it('produces a replay-valid body from a split-reasoning history', () => {
     const body: ChatCompletionRequestBody = {

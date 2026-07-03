@@ -27,7 +27,11 @@ interface MockDb {
     }
   }
   insert: () => {
-    values: () => Promise<void>
+    values: () => {
+      onConflictDoNothing: () => {
+        returning: () => Promise<{ id: string }[]>
+      }
+    }
   }
 }
 
@@ -82,7 +86,11 @@ describe('agentRunsStepsPost', () => {
         }),
       }),
       insert: () => ({
-        values: async () => {},
+        values: () => ({
+          onConflictDoNothing: () => ({
+            returning: async () => [{ id: 'inserted-step-id' }],
+          }),
+        }),
       }),
     }
   })
@@ -315,6 +323,59 @@ describe('agentRunsStepsPost', () => {
     expect(typeof json.stepId).toBe('string')
   })
 
+  test('returns existing step when insert conflicts on step number', async () => {
+    // First select resolves the run-ownership check; the second looks up the
+    // step that already holds this (run, step_number) slot.
+    let selectCalls = 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbWithConflict: any = {
+      select: () => {
+        selectCalls++
+        const rows =
+          selectCalls === 1
+            ? [{ user_id: 'user-123' }]
+            : [{ id: 'existing-step-id' }]
+        return {
+          from: () => ({
+            where: () => ({
+              limit: () => rows,
+            }),
+          }),
+        }
+      },
+      insert: () => ({
+        values: () => ({
+          onConflictDoNothing: () => ({
+            returning: async () => [],
+          }),
+        }),
+      }),
+    }
+
+    const req = new NextRequest(
+      'http://localhost/api/v1/agent-runs/run-123/steps',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-key' },
+        body: JSON.stringify({ stepNumber: 1 }),
+      },
+    )
+
+    const response = await postAgentRunsSteps({
+      req,
+      runId: 'run-123',
+      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+      logger: mockLogger,
+      loggerWithContext: mockLoggerWithContext,
+      trackEvent: mockTrackEvent,
+      db: dbWithConflict,
+    })
+
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.stepId).toBe('existing-step-id')
+  })
+
   test('handles database errors gracefully', async () => {
     const dbWithError = {
       ...mockDb,
@@ -326,9 +387,13 @@ describe('agentRunsStepsPost', () => {
         }),
       }),
       insert: () => ({
-        values: async () => {
-          throw new Error('DB error')
-        },
+        values: () => ({
+          onConflictDoNothing: () => ({
+            returning: async () => {
+              throw new Error('DB error')
+            },
+          }),
+        }),
       }),
     }
 

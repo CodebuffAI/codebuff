@@ -70,6 +70,11 @@ export interface ChatCompletionRequestBody {
   model: string
   messages: ChatMessage[]
   tools?: ChatCompletionTool[]
+  tool_choice?:
+    | 'none'
+    | 'auto'
+    | 'required'
+    | { type: string; function?: { name?: string }; [key: string]: unknown }
   stream?: boolean
   temperature?: number
   max_tokens?: number

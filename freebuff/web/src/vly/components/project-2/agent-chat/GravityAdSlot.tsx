@@ -583,7 +583,6 @@ export function GravityAdSlot({
         background: 'hsl(var(--card))',
         color: 'hsl(var(--foreground))',
         borderColor: 'hsl(var(--border))',
-        padding: '18px 20px',
       },
     },
     brand: { style: { color: 'hsl(var(--foreground))' } },

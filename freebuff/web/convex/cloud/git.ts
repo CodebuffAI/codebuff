@@ -324,6 +324,46 @@ export const getGitStatus = action({
   },
 });
 
+/** Cap the returned diff so huge working trees don't blow up the action
+ *  return size or the dialog that renders it. */
+const MAX_DIFF_CHARS = 400_000;
+
+/**
+ * Full uncommitted diff for the working tree in a SINGLE sandbox exec:
+ * staged + unstaged changes vs HEAD, plus untracked files rendered as
+ * additions (via --no-index against /dev/null). Read-only — backs the
+ * "lines changed" chip in the Cloud top bar.
+ */
+export const getGitDiff = action({
+  args: { semanticIdentifier: v.string() },
+  returns: v.object({ diff: v.string(), truncated: v.boolean() }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ diff: string; truncated: boolean }> => {
+    const { codebase } = await getMemberProjectCodebase(
+      ctx,
+      args.semanticIdentifier,
+    );
+
+    const command = [
+      "git --no-pager diff HEAD 2>/dev/null",
+      "git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 -r -I{} git --no-pager diff --no-index -- /dev/null {} 2>/dev/null",
+      // xargs exits non-zero because --no-index diffs exit 1 on differences;
+      // the output is still what we want.
+      "true",
+    ].join("; ");
+
+    const result = await codebase.runCommand(command, 30_000);
+    const output = result.output ?? "";
+    const truncated = output.length > MAX_DIFF_CHARS;
+    return {
+      diff: truncated ? output.slice(0, MAX_DIFF_CHARS) : output,
+      truncated,
+    };
+  },
+});
+
 export const switchBranch = action({
   args: { semanticIdentifier: v.string(), branch: v.string() },
   returns: v.object({ success: v.boolean(), currentBranch: v.string(), message: v.string() }),

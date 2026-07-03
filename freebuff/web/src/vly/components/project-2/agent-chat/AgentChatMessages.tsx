@@ -1099,7 +1099,6 @@ const AgentAdMessage: React.FC<{
               borderColor: 'hsl(var(--border) / 0.6)',
               borderRadius: 12,
               boxShadow: 'none',
-              padding: '18px 20px',
             },
           },
           brand: { style: { color: 'hsl(var(--foreground))' } },

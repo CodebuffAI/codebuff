@@ -1758,6 +1758,7 @@ export function AgentChatShell({
                     restoreMessage={messageToRestore}
                     compactMode={true}
                     hideElementSelector={hideElementSelector}
+                    showInputAd
                     issueReportSource="cloud"
                     issueReportThreadId={
                       project.active_agent_thread

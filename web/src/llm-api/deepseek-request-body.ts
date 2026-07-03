@@ -17,6 +17,52 @@ function toDeepSeekReasoningEffort(effort: unknown): 'high' | 'max' {
   return effort === 'max' || effort === 'xhigh' ? 'max' : 'high'
 }
 
+const DEEPSEEK_TOOL_CHOICE_STRINGS = new Set(['none', 'auto', 'required'])
+
+/**
+ * DeepSeek's `tool_choice` only accepts the strings "none" | "auto" |
+ * "required" or `{"type": "function", "function": {"name": ...}}`. The
+ * OpenRouter-style object form `{"type": "auto"}` fails deserialization with a
+ * 400 ("unknown variant `auto`, expected `function`"), and thinking mode
+ * rejects any explicit tool_choice ("Thinking mode does not support this
+ * tool_choice"). Thinking is ON by default for the V4 models, so the field is
+ * dropped unless `thinking` is explicitly disabled.
+ */
+function normalizeDeepSeekToolChoice(
+  deepseekBody: Record<string, unknown>,
+): void {
+  const toolChoice = deepseekBody.tool_choice
+  if (toolChoice === undefined) {
+    return
+  }
+
+  const thinking = deepseekBody.thinking as { type?: string } | undefined
+  if (thinking?.type !== 'disabled') {
+    delete deepseekBody.tool_choice
+    return
+  }
+
+  if (typeof toolChoice === 'string') {
+    if (!DEEPSEEK_TOOL_CHOICE_STRINGS.has(toolChoice)) {
+      delete deepseekBody.tool_choice
+    }
+    return
+  }
+
+  if (toolChoice !== null && typeof toolChoice === 'object') {
+    const type = (toolChoice as { type?: unknown }).type
+    if (type === 'function') {
+      return
+    }
+    if (typeof type === 'string' && DEEPSEEK_TOOL_CHOICE_STRINGS.has(type)) {
+      deepseekBody.tool_choice = type
+      return
+    }
+  }
+
+  delete deepseekBody.tool_choice
+}
+
 function unsupportedAttachmentNotice(kind: string, count: number): string {
   const noun = count === 1 ? kind : `${kind}s`
   const verb = count === 1 ? 'was' : 'were'
@@ -201,6 +247,8 @@ export function buildDeepSeekRequestBody(
   }
   delete deepseekBody.reasoning
   delete deepseekBody.reasoning_effort
+
+  normalizeDeepSeekToolChoice(deepseekBody)
 
   // Strip OpenRouter-specific / internal fields.
   delete deepseekBody.provider

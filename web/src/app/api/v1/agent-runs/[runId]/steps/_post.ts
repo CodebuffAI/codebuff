@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import * as schema from '@codebuff/internal/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -134,18 +134,44 @@ export async function postAgentRunsSteps(params: {
   const stepId = crypto.randomUUID()
 
   try {
-    await db.insert(schema.agentStep).values({
-      id: stepId,
-      agent_run_id: runId,
-      step_number: stepNumber,
-      status,
-      credits: credits?.toString(),
-      child_run_ids: childRunIds,
-      message_id: messageId,
-      error_message: errorMessage,
-      created_at: startTime ? new Date(startTime) : new Date(),
-      completed_at: new Date(),
-    })
+    const inserted = await db
+      .insert(schema.agentStep)
+      .values({
+        id: stepId,
+        agent_run_id: runId,
+        step_number: stepNumber,
+        status,
+        credits: credits?.toString(),
+        child_run_ids: childRunIds,
+        message_id: messageId,
+        error_message: errorMessage,
+        created_at: startTime ? new Date(startTime) : new Date(),
+        completed_at: new Date(),
+      })
+      .onConflictDoNothing({
+        target: [schema.agentStep.agent_run_id, schema.agentStep.step_number],
+      })
+      .returning({ id: schema.agentStep.id })
+
+    if (inserted.length === 0) {
+      // Duplicate delivery: the SDK retries this POST when the response is
+      // lost, and a 500 is retryable to it — so a unique violation here must
+      // be answered with the existing step, not an error.
+      const existing = await db
+        .select({ id: schema.agentStep.id })
+        .from(schema.agentStep)
+        .where(
+          and(
+            eq(schema.agentStep.agent_run_id, runId),
+            eq(schema.agentStep.step_number, stepNumber),
+          ),
+        )
+        .limit(1)
+
+      logger.warn({ runId, stepNumber }, 'Ignored duplicate agent step insert')
+
+      return NextResponse.json({ stepId: existing[0]?.id ?? stepId })
+    }
 
     trackEvent({
       event: AnalyticsEvent.AGENT_RUN_API_REQUEST,
