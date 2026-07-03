@@ -37,6 +37,8 @@ describe('Store — threads', () => {
     expect(a.status).toBe('open')
     expect(a.autoQueueSuggestions).toBe(false)
     expect(a.prState).toBe('none')
+    expect(a.prNumber).toBeNull()
+    expect(a.lastPromptAt).toBeNull()
     expect(a.lastTurnOutcome).toBeNull()
     store.insertThread({ id: 'th2', projectId: 'project', projectPath: '/tmp/r', title: 'Two', createdAt: 2 })
 
@@ -68,6 +70,20 @@ describe('Store — threads', () => {
     expect(store.getThread('th1')!.prState).toBe('closed')
     store.updateThread('th1', { prState: 'none' }, 5)
     expect(store.getThread('th1')!.prState).toBe('none')
+    // v15: the `gh pr view`-backed refresh adds 'conflict' plus number/URL.
+    store.updateThread('th1', { prState: 'conflict', prNumber: 471, prUrl: 'https://github.com/o/r/pull/471' }, 6)
+    const t = store.getThread('th1')!
+    expect(t.prState).toBe('conflict')
+    expect(t.prNumber).toBe(471)
+    expect(t.prUrl).toBe('https://github.com/o/r/pull/471')
+  })
+
+  test('last_prompt_at round-trips (default null, epoch-ms updates)', () => {
+    const store = seeded()
+    store.insertThread({ id: 'th1', projectId: 'project', projectPath: '/tmp/r', createdAt: 1 })
+    expect(store.getThread('th1')!.lastPromptAt).toBeNull()
+    store.updateThread('th1', { lastPromptAt: 1_720_000_000_000 }, 2)
+    expect(store.getThread('th1')!.lastPromptAt).toBe(1_720_000_000_000)
   })
 
   test('updateThread rejects an unknown column key', () => {

@@ -92,16 +92,29 @@ export interface Thread {
   lastSeenHead: string | null
   /** The commit the branch was cut from. Null until the worktree is created. */
   baseRef: string | null
-  /** Set by the `open-pr` skill / openPr(). `local://<branch>` when no remote. */
+  /** GitHub URL of the thread's PR, learned from `gh pr view` (see the engine's
+   *  refreshPrStatus). Null until a PR is observed. */
   prUrl: string | null
+  /** The PR's number (e.g. 471 for #471), learned from `gh pr view` alongside
+   *  `prUrl`. Null until known — the tab badge renders the bare icon then. */
+  prNumber: number | null
   /**
-   * Inferred PR lifecycle, derived from observed tool calls (e.g. `gh pr create`,
-   * `gh pr merge`). Drives the tab icon's PR shape so users can tell at a glance
-   * whether a thread has an open PR, has merged, or was closed without a merge.
+   * PR lifecycle, first inferred from observed tool calls (e.g. `gh pr create`,
+   * `gh pr merge`) and then confirmed/refined by `gh pr view` (which is also
+   * what can detect `conflict` — an open PR whose head can't merge cleanly).
+   * Drives the tab badge's shape + color so users can tell at a glance whether
+   * a thread has an open PR, has merged, has conflicts, or closed unmerged.
    * Persisted so the indicator survives reload and rehydrate.
    */
-  prState: 'none' | 'open' | 'merged' | 'closed'
+  prState: 'none' | 'open' | 'conflict' | 'merged' | 'closed'
   turnState: TurnState
+  /**
+   * When the most recent user prompt reached this thread (a typed message,
+   * steering, or a queued item starting its turn), epoch ms. Drives the tab's
+   * elapsed-time readout while a turn is running. Persisted so a turn that
+   * auto-resumes after an app restart keeps an honest clock.
+   */
+  lastPromptAt: number | null
   /**
    * Outcome of the most recent turn, so the tab can mark a stopped or errored
    * turn distinctly from one that completed cleanly. Reset to `null` while a
