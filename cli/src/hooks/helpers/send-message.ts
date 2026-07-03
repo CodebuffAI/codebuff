@@ -587,8 +587,10 @@ function handleFreebuffGateError(
       markFreebuffSessionEnded()
       return
     case 'waiting_room_queued':
+      // Legacy error code: sessions are admitted immediately now, so this is
+      // only reachable in a transient race with a concurrent session request.
       updater.setError(
-        "You're still in the waiting room. Please wait for admission before sending messages.",
+        'Your free session is still being set up. Try again in a moment.',
       )
       // Re-sync without resetting chat — this is a "we'll wait", not a
       // "let's start fresh".

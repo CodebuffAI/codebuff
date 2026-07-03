@@ -184,13 +184,16 @@ export const getFreeModeUnavailableErrorMessage = (
 }
 
 /**
- * Freebuff waiting-room gate errors returned by /api/v1/chat/completions.
+ * Freebuff session gate errors returned by /api/v1/chat/completions. The
+ * error codes keep their legacy waiting-room names for wire compatibility.
  *
- * Contract (see docs/freebuff-waiting-room.md):
+ * Contract (see docs/freebuff-session-admission.md):
  *   - 428 `waiting_room_required`   — no session row exists, or the request
  *                                     carried no instance id (client isn't
- *                                     holding a session); POST /session to join.
- *   - 429 `waiting_room_queued`     — row exists but still queued.
+ *                                     holding a session); POST /session to
+ *                                     start a session.
+ *   - 429 `waiting_room_queued`     — transient admission race (row caught
+ *                                     mid-admit); retry via the normal poll.
  *   - 409 `session_superseded`      — another CLI rotated our instance id.
  *   - 409 `session_model_mismatch`  — session tier/model no longer matches.
  *   - 410 `session_expired`         — active session's expires_at has passed.
