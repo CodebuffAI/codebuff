@@ -159,8 +159,8 @@ function CloudProjectWorkspaceInner({
       ? '34%'
       : '26%'
     : isChatExpanded
-      ? '50%'
-      : '42%'
+      ? '46%'
+      : '38%'
 
   return (
     <>

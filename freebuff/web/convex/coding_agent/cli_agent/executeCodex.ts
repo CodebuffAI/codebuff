@@ -60,6 +60,12 @@ const CODEX_MODEL_PREFERENCE_SET = new Set<string>([
   "gpt-5.4-mini",
 ]);
 
+// ChatGPT-account (OAuth) runs must always pass an explicit --model: with no
+// flag, codex-cli falls back to its own default (gpt-5.3-codex as of 0.128.0),
+// which OpenAI rejects with 400 "not supported when using Codex with a ChatGPT
+// account". BYOK/API-key runs keep the CLI default.
+const DEFAULT_CHATGPT_CODEX_MODEL = "gpt-5.5";
+
 const resolveCodexModelPreference = (
   preference: string | undefined,
 ): string | undefined => {
@@ -222,7 +228,9 @@ export async function executeCodex(
     resumeMode: ResumeCommandMode = "subcommand",
   ) => {
     const escapedSessionId = sessionId ? escapeShellArg(sessionId) : undefined;
-    const selectedModel = resolveCodexModelPreference(args.gptModelPreference);
+    const selectedModel =
+      resolveCodexModelPreference(args.gptModelPreference) ??
+      (authSource === "stored_chatgpt" ? DEFAULT_CHATGPT_CODEX_MODEL : undefined);
     const modelFlag = selectedModel
       ? ` --model ${escapeShellArg(selectedModel)}`
       : "";
@@ -323,6 +331,11 @@ export async function executeCodex(
   let lineBuffer = "";
   let invalidResumeSessionCleared = false;
   const rawCliOutputLines: string[] = [];
+  // Last structured error emitted on the codex --json stream ("error" /
+  // "turn.failed" events). These are the CLI's real failure reason (e.g.
+  // "model not supported with a ChatGPT account") — without capturing them the
+  // final exit-1 throw only contains shell prompt echoes.
+  let lastStreamErrorMessage: string | undefined;
   const stripAnsi = (value: string) =>
     value
       // OSC (window title, hyperlinks): ESC ] ... BEL or ESC \\
@@ -541,6 +554,31 @@ export async function executeCodex(
       return; // Don't save thread.started events
     }
 
+    // Capture stream-level failures. The message is often JSON-in-JSON
+    // (payload from the API wrapped in a string); unwrap the innermost
+    // human-readable message when possible.
+    if (type === "error" || type === "turn.failed") {
+      const rawMessage =
+        type === "turn.failed" ? parsed.error?.message : parsed.message;
+      if (typeof rawMessage === "string" && rawMessage.trim()) {
+        let message = rawMessage.trim();
+        try {
+          const inner = JSON.parse(message);
+          const innerMessage = inner?.error?.message ?? inner?.message;
+          if (typeof innerMessage === "string" && innerMessage.trim()) {
+            message = innerMessage.trim();
+          }
+        } catch {
+          // Not nested JSON — use as-is.
+        }
+        lastStreamErrorMessage = message;
+        // Feed the detectors (OAuth invalidation, stale session) and the
+        // error tail, which all read rawCliOutputLines.
+        rememberRawCliLine(message);
+      }
+      return;
+    }
+
     // Handle turn.completed - extract usage information
     if (type === "turn.completed" && parsed.usage) {
       const usage = parsed.usage;
@@ -694,9 +732,13 @@ export async function executeCodex(
         return;
       }
 
-      // Filter out error logs (non-JSON lines starting with timestamps like "2026-01-15T10:14:22.335606Z")
+      // Timestamped lines (e.g. "2026-01-15T10:14:22.335606Z ERROR ...") are
+      // codex's tracing/stderr output, not stream JSON. Keep them out of the
+      // JSON parser but remember them — they're often the only record of why
+      // the CLI died, and the OAuth/stale-session detectors read them.
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(normalizedLine)) {
-        continue; // Skip error log lines
+        rememberRawCliLine(normalizedLine);
+        continue;
       }
 
       // Check if this is a stale session/conversation error from Codex.
@@ -1290,7 +1332,7 @@ export async function executeCodex(
 
       const errorTail = rawCliOutputLines.slice(-6).join(" | ");
       throw new Error(
-        `Command failed with exit code ${result.exitCode}: ${result.error || "Unknown error"}${errorTail ? `. CLI output: ${errorTail}` : ""}`,
+        `Command failed with exit code ${result.exitCode}: ${lastStreamErrorMessage || result.error || "Unknown error"}${errorTail ? `. CLI output: ${errorTail}` : ""}`,
       );
     }
 
