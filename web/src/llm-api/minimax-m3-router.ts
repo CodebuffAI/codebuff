@@ -9,8 +9,9 @@
  * them cold-starts the cache every switch.
  *
  * The pin lives on the per-user free_session row (see `pinFreeSessionToMinimax`
- * in the free-session layer). When there is no session row (waiting room off),
- * the pin write is a no-op and each request independently tries Fireworks first.
+ * in the free-session layer). When there is no session row (already ended or
+ * swept), the pin write is a no-op and each request independently tries
+ * Fireworks first.
  */
 import {
   FireworksError,

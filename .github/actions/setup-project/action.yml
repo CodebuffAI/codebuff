@@ -21,9 +21,10 @@ runs:
         path: |
           node_modules
           */node_modules
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*', '**/package.json') }}
+          packages/*/node_modules
+          freebuff/*/node_modules
+        key: ${{ runner.os }}-deps-${{ hashFiles('bun.lock') }}
         restore-keys: |
-          ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
           ${{ runner.os }}-deps-
 
     - name: Install dependencies

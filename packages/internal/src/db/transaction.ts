@@ -4,6 +4,7 @@ import { INITIAL_RETRY_DELAY, withRetry } from '@codebuff/common/util/promise'
 import { sql } from 'drizzle-orm'
 
 import db from './index'
+import { ADVISORY_LOCK_TIMEOUT_MS } from './timeouts'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -40,6 +41,13 @@ const RETRYABLE_PG_ERROR_CODES: Record<string, string> = {
   '53100': 'disk_full',
   '53200': 'out_of_memory',
   '53300': 'too_many_connections',
+
+  // Class 55 — Object Not In Prerequisite State (exact code only, not the class:
+  // other 55xxx codes are not transient). Raised when the connection-level
+  // lock_timeout (see db/index.ts) cancels a lock wait; retrying with backoff
+  // lets waiters outlast a dead lock holder until the server's
+  // idle_in_transaction_session_timeout reaps it.
+  '55P03': 'lock_not_available',
 }
 
 /**
@@ -160,6 +168,65 @@ export function isRetryablePostgresError(error: unknown): boolean {
 }
 
 /**
+ * Builds the shared onRetry handler for the transaction wrappers: logs (and
+ * tracks) a retry only once its cumulative backoff is significant.
+ */
+function createRetryHandler(params: {
+  transactionType: 'serializable' | 'advisory_lock' | 'default'
+  label: string
+  context: Record<string, unknown>
+  logger: Logger
+  lockKey?: string
+}): (error: unknown, attempt: number) => void {
+  const { transactionType, label, context, logger, lockKey } = params
+  return (error, attempt) => {
+    const errorCode = getPostgresErrorCode(error) ?? 'unknown'
+    const errorDescription = getRetryableErrorDescription(error) ?? 'unknown'
+    // Calculate cumulative retry delay: 1s + 2s + 4s + ... (geometric series)
+    const cumulativeDelayMs = INITIAL_RETRY_DELAY * (Math.pow(2, attempt) - 1)
+
+    // Only log at WARN level after significant cumulative delay to avoid
+    // excessive logging: first few quick retries are expected behavior;
+    // extended retries indicate real issues
+    if (cumulativeDelayMs < SIGNIFICANT_RETRY_DELAY_MS) {
+      return
+    }
+
+    const lockKeyProps = lockKey
+      ? { lockKey, lockKeyType: lockKey.split(':')[0] }
+      : {}
+
+    logger.warn(
+      {
+        ...context,
+        ...(lockKey ? { lockKey } : {}),
+        attempt,
+        pgErrorCode: errorCode,
+        pgErrorDescription: errorDescription,
+        cumulativeDelayMs,
+      },
+      `${label} transaction retry ${attempt}: ${errorDescription} (${errorCode}), cumulative delay ${(cumulativeDelayMs / 1000).toFixed(1)}s`,
+    )
+
+    // Track in PostHog for analytics
+    trackEvent({
+      event: AnalyticsEvent.TRANSACTION_RETRY_THRESHOLD_EXCEEDED,
+      userId: getUserIdForAnalytics(context, lockKey),
+      properties: {
+        ...context,
+        transactionType,
+        ...lockKeyProps,
+        attempt,
+        pgErrorCode: errorCode,
+        pgErrorDescription: errorDescription,
+        cumulativeDelayMs,
+      },
+      logger,
+    })
+  }
+}
+
+/**
  * Executes a database transaction with SERIALIZABLE isolation level and automatic
  * retries on transient failures.
  *
@@ -193,49 +260,58 @@ export async function withSerializableTransaction<T>({
         // Only determine if error is retryable; logging happens in onRetry
         return getRetryableErrorDescription(error) !== null
       },
-      onRetry: (error, attempt) => {
-        const errorCode = getPostgresErrorCode(error) ?? 'unknown'
-        const errorDescription =
-          getRetryableErrorDescription(error) ?? 'unknown'
-        // Calculate cumulative retry delay: 1s + 2s + 4s + ... (geometric series)
-        const cumulativeDelayMs = INITIAL_RETRY_DELAY * (Math.pow(2, attempt) - 1)
-
-        // Only log at WARN level after significant cumulative delay to avoid excessive logging
-        // First few quick retries are expected behavior; extended retries indicate real issues
-        if (cumulativeDelayMs >= SIGNIFICANT_RETRY_DELAY_MS) {
-          logger.warn(
-            {
-              ...context,
-              attempt,
-              pgErrorCode: errorCode,
-              pgErrorDescription: errorDescription,
-              cumulativeDelayMs,
-            },
-            `Serializable transaction retry ${attempt}: ${errorDescription} (${errorCode}), cumulative delay ${(cumulativeDelayMs / 1000).toFixed(1)}s`,
-          )
-
-          // Track in PostHog for analytics
-          trackEvent({
-            event: AnalyticsEvent.TRANSACTION_RETRY_THRESHOLD_EXCEEDED,
-            userId: getUserIdForAnalytics(context),
-            properties: {
-              ...context,
-              transactionType: 'serializable',
-              attempt,
-              pgErrorCode: errorCode,
-              pgErrorDescription: errorDescription,
-              cumulativeDelayMs,
-            },
-            logger,
-          })
-        }
-      },
+      onRetry: createRetryHandler({
+        transactionType: 'serializable',
+        label: 'Serializable',
+        context,
+        logger,
+      }),
     },
   )
 }
 
-/** Default timeout for advisory lock acquisition (30 seconds) */
-const ADVISORY_LOCK_TIMEOUT_MS = 30000
+/**
+ * Executes a plain (default isolation) transaction with automatic retries on
+ * transient failures — the same retry policy as the wrappers below, for
+ * callers that need neither SERIALIZABLE nor an advisory lock but can still
+ * hit transient errors. In particular, the pooled client's connection-level
+ * lock_timeout (see ./timeouts.ts) turns a row-lock wait blocked by a dead
+ * peer into 55P03; retrying rides out the ~60s window until the server's
+ * idle-in-transaction reaper frees the lock.
+ *
+ * maxRetries is lower than the other wrappers: these run on user-facing
+ * request paths where each lock-timeout attempt can burn up to
+ * DB_LOCK_TIMEOUT_MS holding a pool connection, so we bound the worst case
+ * rather than maximize persistence.
+ *
+ * The callback re-executes wholesale on retry, so it must be safe to re-run.
+ */
+export async function withRetriedTransaction<T>({
+  callback,
+  context = {},
+  logger,
+}: {
+  callback: TransactionCallback<T>
+  context: Record<string, unknown>
+  logger: Logger
+}): Promise<T> {
+  return withRetry(
+    async () => {
+      return await db.transaction(callback)
+    },
+    {
+      maxRetries: 3,
+      retryDelayMs: INITIAL_RETRY_DELAY,
+      retryIf: (error) => getRetryableErrorDescription(error) !== null,
+      onRetry: createRetryHandler({
+        transactionType: 'default',
+        label: 'Plain',
+        context,
+        logger,
+      }),
+    },
+  )
+}
 
 /** Result of withAdvisoryLockTransaction including timing metadata */
 export interface AdvisoryLockTransactionResult<T> {
@@ -282,14 +358,26 @@ export async function withAdvisoryLockTransaction<T>({
     throw new Error('lockKey must be a non-empty string')
   }
 
+  // Validate before interpolating into set_config below: a NaN/Infinity/
+  // non-positive value would silently disable or break both timeouts.
+  if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
+    throw new Error('lockTimeoutMs must be a positive finite number')
+  }
+  const lockTimeoutValue = Math.floor(lockTimeoutMs).toString()
+
   return await withRetry(
     async () => {
       return await db.transaction(
         async (tx) => {
-          // Set a statement timeout to prevent indefinite blocking if a lock holder hangs.
-          // This timeout applies to the lock acquisition and subsequent statements.
+          // Bound the whole transaction (statement_timeout, prevents
+          // indefinite blocking if a lock holder hangs) and raise lock_timeout
+          // — which also applies to pg_advisory_xact_lock() waits — above the
+          // pooled client's connection-level default (see ./timeouts.ts) so
+          // the advisory-lock wait gets its full window. set_config with
+          // is_local=true is equivalent to SET LOCAL; one call = one
+          // round-trip on this hot path, and takes bound parameters.
           await tx.execute(
-            sql`SET LOCAL statement_timeout = ${sql.raw(lockTimeoutMs.toString())}`,
+            sql`SELECT set_config('statement_timeout', ${lockTimeoutValue}, true), set_config('lock_timeout', ${lockTimeoutValue}, true)`,
           )
 
           // Acquire advisory lock - blocks until lock is available (or timeout).
@@ -342,47 +430,13 @@ export async function withAdvisoryLockTransaction<T>({
         }
         return description !== null
       },
-      onRetry: (error, attempt) => {
-        const errorCode = getPostgresErrorCode(error) ?? 'unknown'
-        const errorDescription =
-          getRetryableErrorDescription(error) ?? 'unknown'
-        const _baseDelayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1)
-        // Calculate cumulative retry delay: 1s + 2s + 4s + ... (geometric series)
-        const cumulativeDelayMs = INITIAL_RETRY_DELAY * (Math.pow(2, attempt) - 1)
-
-        // Only log at WARN level after significant cumulative delay to avoid excessive logging
-        // First few quick retries are expected behavior; extended retries indicate real issues
-        if (cumulativeDelayMs >= SIGNIFICANT_RETRY_DELAY_MS) {
-          logger.warn(
-            {
-              ...context,
-              lockKey,
-              attempt,
-              pgErrorCode: errorCode,
-              pgErrorDescription: errorDescription,
-              cumulativeDelayMs,
-            },
-            `Advisory lock transaction retry ${attempt}: ${errorDescription} (${errorCode}), cumulative delay ${(cumulativeDelayMs / 1000).toFixed(1)}s`,
-          )
-
-          // Track in PostHog for analytics
-          trackEvent({
-            event: AnalyticsEvent.TRANSACTION_RETRY_THRESHOLD_EXCEEDED,
-            userId: getUserIdForAnalytics(context, lockKey),
-            properties: {
-              ...context,
-              transactionType: 'advisory_lock',
-              lockKey,
-              lockKeyType: lockKey.split(':')[0],
-              attempt,
-              pgErrorCode: errorCode,
-              pgErrorDescription: errorDescription,
-              cumulativeDelayMs,
-            },
-            logger,
-          })
-        }
-      },
+      onRetry: createRetryHandler({
+        transactionType: 'advisory_lock',
+        label: 'Advisory lock',
+        context,
+        logger,
+        lockKey,
+      }),
     },
   )
 }

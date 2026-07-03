@@ -1114,9 +1114,9 @@ export const freeSession = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     status: freeSessionStatusEnum('status').notNull(),
     active_instance_id: text('active_instance_id').notNull(),
-    /** Which freebuff model this row is queued for / locked to. Each model has
-     *  its own queue (admission picks one queued user per model per tick) and
-     *  the model is fixed for the life of an active session. */
+    /** Which freebuff model this session is locked to. Fixed for the life of
+     *  an active session — switching requires ending the session first
+     *  (`model_locked` otherwise). */
     model: text('model').notNull(),
     access_tier: freebuffAccessTierEnum('access_tier')
       .notNull()
@@ -1183,7 +1183,8 @@ export const freeSession = pgTable(
       .defaultNow(),
   },
   (table) => [
-    // Per-model dequeue: WHERE status='queued' AND model=$1 ORDER BY queued_at
+    // Legacy index from the removed FIFO waiting room (per-model dequeue).
+    // No current query uses it; kept to avoid a migration.
     index('idx_free_session_queue').on(
       table.status,
       table.model,

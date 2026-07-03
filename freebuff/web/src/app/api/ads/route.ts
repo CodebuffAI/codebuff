@@ -23,7 +23,9 @@ const bodySchema = z.object({
   messages: z.array(messageSchema).optional().default([]),
   sessionId: z.string().optional(),
   gravity_context: z.record(z.string(), z.unknown()).optional(),
-  surface: z.enum(['freebuff_web_chat', 'chat_assistant']).optional(),
+  surface: z
+    .enum(['freebuff_web_chat', 'chat_assistant', 'chat_assistant_sr'])
+    .optional(),
   placementId: z.string().optional(),
 })
 
@@ -46,6 +48,20 @@ function getPlacements(data: z.infer<typeof bodySchema>): PlacementObject[] {
       {
         placement: 'inline_response',
         placement_id: 'Chat-Assistant-Above-Input',
+      },
+    ]
+  }
+
+  // Server-rendered-ads experiment arm (see chat/_components/ad-experiment.ts):
+  // same slot above the composer, but a distinct placement id so Gravity can
+  // attach a `renderer_spec` to responses and dashboard breakdowns separate
+  // the arms. Any `renderer_spec` on the ad passes through normalizeGravityAd
+  // untouched.
+  if (data.surface === 'chat_assistant_sr') {
+    return [
+      {
+        placement: 'inline_response',
+        placement_id: 'Chat-Assistant-Above-Input-SR',
       },
     ]
   }

@@ -18,6 +18,10 @@ type RequestMetricsParams = {
   model: string
   streaming: boolean
   costMode: string | undefined
+  /** Ingress→handler wait (from X-Request-Start), when the proxy provides it.
+   *  See util/request-queue-time.ts — this is the only place instance-level
+   *  backpressure is visible; handler timers start after dequeue. */
+  queueMs?: number
   logSampleRate?: number
 }
 
@@ -31,6 +35,7 @@ export function beginChatCompletionRequestMetrics({
   model,
   streaming,
   costMode,
+  queueMs,
   logSampleRate = DEFAULT_LOG_SAMPLE_RATE,
 }: RequestMetricsParams) {
   const requestSequence = ++nextRequestSequence
@@ -38,7 +43,11 @@ export function beginChatCompletionRequestMetrics({
   activeChatCompletionRequests += 1
   const activeRequestsAtStart = activeChatCompletionRequests
   const normalizedLogSampleRate = Math.max(0, Math.min(1, logSampleRate))
-  const shouldLog = Math.random() < normalizedLogSampleRate
+  // Long queue waits are the saturation signal we're hunting; never let the
+  // sample rate drop them.
+  const shouldLog =
+    Math.random() < normalizedLogSampleRate ||
+    (queueMs !== undefined && queueMs >= 5_000)
 
   const baseFields = {
     metric: 'chat_completion_concurrency',
@@ -51,6 +60,7 @@ export function beginChatCompletionRequestMetrics({
     model,
     streaming,
     costMode,
+    ...(queueMs !== undefined && { queueMs }),
     logSampleRate: normalizedLogSampleRate,
   }
 

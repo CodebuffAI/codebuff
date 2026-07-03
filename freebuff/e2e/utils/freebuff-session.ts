@@ -10,8 +10,6 @@ export const FREEBUFF_BOOT_SIGNALS = [
   'Start coding for free',
   'Enter a coding task',
   'Pick a model to start',
-  "You're in the waiting room",
-  "You're next in line",
   "Free mode isn't available",
   'Press ENTER to login',
   'Open this URL',

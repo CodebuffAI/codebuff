@@ -1022,6 +1022,78 @@ describe('free mode country access', () => {
     })
   })
 
+  test('provider lookups pass a timeout AbortSignal to fetch', async () => {
+    const seenSignals: Array<AbortSignal | null | undefined> = []
+    const fetch = (async (
+      _url: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      seenSignals.push(init?.signal)
+      return Response.json({})
+    }) as unknown as typeof globalThis.fetch
+
+    await lookupIpinfoPrivacy({
+      ip: '198.51.100.120',
+      token: 'test-token',
+      fetch,
+    })
+    await lookupSpurIpPrivacy({
+      ip: '198.51.100.121',
+      token: 'spur-token',
+      fetch,
+    })
+    await lookupScamalyticsIpRisk({
+      ip: '198.51.100.122',
+      apiKey: 'scamalytics-token',
+      fetch,
+    })
+
+    expect(seenSignals).toHaveLength(3)
+    for (const signal of seenSignals) {
+      expect(signal).toBeInstanceOf(AbortSignal)
+    }
+  })
+
+  test('a timed-out provider fetch degrades to null instead of throwing', async () => {
+    // AbortSignal.timeout aborts the fetch with a TimeoutError DOMException.
+    const fetch = (async () => {
+      throw new DOMException('The operation timed out.', 'TimeoutError')
+    }) as unknown as typeof globalThis.fetch
+
+    await expect(
+      lookupIpinfoPrivacy({ ip: '198.51.100.123', token: 'test-token', fetch }),
+    ).resolves.toBe(null)
+    await expect(
+      lookupSpurIpPrivacy({ ip: '198.51.100.124', token: 'spur-token', fetch }),
+    ).resolves.toBe(null)
+    await expect(
+      lookupScamalyticsIpRisk({
+        ip: '198.51.100.125',
+        apiKey: 'scamalytics-token',
+        fetch,
+      }),
+    ).resolves.toBe(null)
+  })
+
+  test('a provider body that fails mid-read degrades to null', async () => {
+    // A timeout can also fire while streaming the body, throwing from json().
+    const fetch = (async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.error(
+              new DOMException('The operation timed out.', 'TimeoutError'),
+            )
+          },
+        }),
+        { status: 200 },
+      )) as unknown as typeof globalThis.fetch
+
+    await expect(
+      lookupIpinfoPrivacy({ ip: '198.51.100.126', token: 'test-token', fetch }),
+    ).resolves.toBe(null)
+  })
+
   test('classifies Scamalytics Apple iCloud Private Relay as benign relay', () => {
     // Real Scamalytics shape for Apple Private Relay: it tags the IP is_vpn +
     // is_datacenter (and external sources say DCH) because the relay rides on

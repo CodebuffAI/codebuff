@@ -1,10 +1,15 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { gravityContext, hashPii } from '@gravity-ai/api'
 import { GravityAd as GravityReactAd } from '@gravity-ai/react'
 import { useSession } from 'next-auth/react'
-import { memo, useEffect, useState } from 'react'
+import posthog from 'posthog-js'
+import { memo, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
+
+import { CHAT_AD_EXPERIMENT, chatAdVariantForUser } from './ad-experiment'
+import { GravityServerAd } from './gravity-server-ad'
 
 import type { GravityContext } from '@gravity-ai/api'
 
@@ -24,6 +29,9 @@ const adSchema = z.object({
   favicon: z.string().optional().catch(undefined),
   impUrl: z.string(),
   clickUrl: z.string(),
+  // Server-rendered layout tree, when Gravity attaches one; validated in
+  // gravity-ad-spec.ts before rendering.
+  renderer_spec: z.unknown().optional(),
 })
 
 type ChatAd = z.infer<typeof adSchema>
@@ -76,6 +84,21 @@ export const ChatAds = memo(function ChatAds({
   )
   const [ad, setAd] = useState<ChatAd | null>(null)
   const { data: session } = useSession()
+  // Keyed by user id (not a boolean) so a session swap without a remount
+  // (e.g. account switch in another tab) still records the new user's
+  // exposure under their own variant.
+  const exposureTrackedFor = useRef<string | null>(null)
+
+  // Randomized experiment: server-rendered Gravity ads vs the existing
+  // inline unit, split 50/50 on the signed-in user id (stable across
+  // sessions and devices). See ad-experiment.ts.
+  const variant = chatAdVariantForUser(session?.user?.id)
+
+  const handleAdClick = () =>
+    trackRedditGravityAdClick('chat', {
+      experiment: CHAT_AD_EXPERIMENT,
+      variant,
+    })
 
   useEffect(() => {
     if (!seed) return
@@ -87,6 +110,17 @@ export const ChatAds = memo(function ChatAds({
       const thisController = new AbortController()
       controller = thisController
       const timeout = setTimeout(() => thisController.abort(), FETCH_TIMEOUT_MS)
+
+      // Only signed-in users get ads (/api/ads rejects the rest), so the
+      // bucketing input is stable by the time we get here. One exposure
+      // event per user per pageload keeps the PostHog denominators clean.
+      if (session?.user?.id && exposureTrackedFor.current !== session.user.id) {
+        exposureTrackedFor.current = session.user.id
+        posthog.capture(AnalyticsEvent.FREEBUFF_CHAT_ADS_EXPERIMENT_EXPOSED, {
+          experiment: CHAT_AD_EXPERIMENT,
+          variant,
+        })
+      }
 
       try {
         const gravityContextPayload = await buildChatGravityContext({
@@ -101,12 +135,24 @@ export const ChatAds = memo(function ChatAds({
             messages: [{ role: 'user', content: seed.content }],
             sessionId,
             gravity_context: gravityContextPayload,
-            surface: 'chat_assistant',
+            surface:
+              variant === 'server_rendered'
+                ? 'chat_assistant_sr'
+                : 'chat_assistant',
           }),
           signal: thisController.signal,
         })
         const next = res.ok ? parseAds(await res.json())[0] : undefined
-        if (next) setAd(next)
+        if (next) {
+          setAd(next)
+          posthog.capture(AnalyticsEvent.FREEBUFF_CHAT_ADS_AD_SHOWN, {
+            experiment: CHAT_AD_EXPERIMENT,
+            variant,
+            brand_name: next.brandName,
+            title: next.title,
+            has_renderer_spec: next.renderer_spec != null,
+          })
+        }
       } catch {
       } finally {
         clearTimeout(timeout)
@@ -133,9 +179,15 @@ export const ChatAds = memo(function ChatAds({
       clearInterval(interval)
       controller?.abort()
     }
-  }, [seed, sessionId, session?.user?.id, session?.user?.email])
+  }, [seed, sessionId, session?.user?.id, session?.user?.email, variant])
 
   if (!ad) return null
+
+  if (variant === 'server_rendered') {
+    return (
+      <GravityServerAd ad={ad} className="mb-2 w-full" onClick={handleAdClick} />
+    )
+  }
 
   return (
     <GravityReactAd
@@ -146,7 +198,7 @@ export const ChatAds = memo(function ChatAds({
       // matches the proven coding-agent ad slot (see GravityAdSlot's compact path).
       variant="inline"
       className="mb-2 w-full"
-      onClick={() => trackRedditGravityAdClick('chat')}
+      onClick={handleAdClick}
       slotProps={{
         container: {
           style: {

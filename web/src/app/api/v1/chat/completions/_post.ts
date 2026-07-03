@@ -148,6 +148,7 @@ import type {
   FreeModeCountryAccessOptions,
 } from '@/server/free-mode-country'
 import { extractApiKeyFromHeader } from '@/util/auth'
+import { queueTimeMsFromHeaders } from '@/util/request-queue-time'
 import { withDefaultProperties } from '@codebuff/common/analytics'
 import {
   checkConfiguredFreeModeRateLimit,
@@ -325,7 +326,7 @@ export async function postChatCompletions(params: {
     logger: Logger
   }) => Promise<BlockGrantResult | null>
   getUserPreferences?: GetUserPreferencesFn
-  /** Optional override for the freebuff waiting-room gate. Defaults to the
+  /** Optional override for the freebuff session gate. Defaults to the
    *  real check backed by Postgres; tests inject a no-op. */
   checkSessionAdmissible?: CheckSessionAdmissibleFn
   /** Optional override for the free-mode rate limiter. Tests inject this to
@@ -334,7 +335,7 @@ export async function postChatCompletions(params: {
   /** Optional override for country/cache checks. Tests inject this to avoid
    *  coupling to Postgres-backed cache state. */
   resolveFreeModeCountryAccess?: ResolveFreeModeCountryAccessFn
-  /** Optional override for releasing stale waiting-room rows on hard blocks. */
+  /** Optional override for releasing stale free-session rows on hard blocks. */
   endFreebuffSession?: EndUserSessionFn
   /** Optional recorder for successful freebuff chat-completion ingress. */
   recordFreebuffUsageDay?: RecordFreebuffUsageDayFn
@@ -863,8 +864,8 @@ export async function postChatCompletions(params: {
         multiSession: freebuffMultiSession,
         requestedModel: typedBody.model,
         // GLM 5.2 always requires a live session row so its weekly referral
-        // entitlement is enforced even if the waiting room is globally off
-        // (fail closed — never hand out un-metered GLM time).
+        // entitlement is enforced (fail closed — never hand out un-metered
+        // GLM time).
         requireActiveSession:
           isFreebuffGeminiThinkerAgent(agentId) ||
           isFreebuffGlmV52ModelId(typedBody.model),
@@ -1141,6 +1142,7 @@ export async function postChatCompletions(params: {
       model: typedBody.model,
       streaming: bodyStream,
       costMode,
+      queueMs: queueTimeMsFromHeaders(req.headers),
     })
 
     // Handle streaming vs non-streaming

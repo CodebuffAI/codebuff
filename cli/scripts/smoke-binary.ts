@@ -38,7 +38,7 @@ import { existsSync } from 'fs'
 //     header (authed + session ready)
 //   - "Press ENTER to login" / "Open this URL" — login modal (no cached
 //     creds — typical CI smoke)
-//   - "Pick a model to start" / waiting-room copy — freebuff queue gate
+//   - "Pick a model to start" — freebuff model-picker landing screen
 //   - "Free mode isn't available" — freebuff country-block screen (CI
 //     runners with anonymized-network egress like GitHub Actions land here)
 //   - "Enter a coding task" — chat input prompt
@@ -51,8 +51,6 @@ import { existsSync } from 'fs'
 const BOOT_SIGNAL_PATTERNS = [
   /will run commands on your behalf/,
   /Pick a model to start/,
-  /You're in the waiting room/,
-  /You're next in line/,
   /Free mode isn't available/,
   /Press ENTER to login/,
   /Open this URL/,
