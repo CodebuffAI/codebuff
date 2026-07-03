@@ -8,7 +8,7 @@ import type {
 } from 'child_process'
 import type { Readable } from 'stream'
 
-import { stripColors } from '../../../common/src/util/string'
+import { stripAnsi } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
 import {
   createWindowsBashNotFoundError,
@@ -92,7 +92,7 @@ export class BoundedOutputBuffer {
       this.pendingColorSequence = incompleteColorSequence
       normalized = normalized.slice(0, -incompleteColorSequence.length)
     }
-    normalized = stripColors(normalized)
+    normalized = stripAnsi(normalized)
     if (!normalized) return
 
     if (!this.truncated) {

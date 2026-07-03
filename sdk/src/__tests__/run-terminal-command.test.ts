@@ -69,12 +69,19 @@ describe('rewriteWindowsNulRedirects', () => {
 })
 
 describe('BoundedOutputBuffer', () => {
-  test('preserves output below the limit and strips terminal colors', () => {
+  test('preserves output below the limit and strips terminal escape sequences', () => {
     const output = new BoundedOutputBuffer(100)
     output.append('\u001b[31')
     output.append('mhello\u001b[0m world')
 
     expect(output.format()).toBe('hello world')
+  })
+
+  test('strips cursor-control sequences', () => {
+    const output = new BoundedOutputBuffer(100)
+    output.append('before\u001b[2J\u001b[Hafter')
+
+    expect(output.format()).toBe('beforeafter')
   })
 
   test('keeps a bounded prefix and suffix for oversized output', () => {
