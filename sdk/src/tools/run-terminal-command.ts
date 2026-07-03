@@ -3,6 +3,8 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
+import type { ChildProcess } from 'child_process'
+
 import {
   stripColors,
   truncateStringWithMessage,
@@ -12,6 +14,39 @@ import { getSystemProcessEnv } from '../env'
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const COMMAND_OUTPUT_LIMIT = 50_000
+// Grace period between SIGTERM and SIGKILL for commands that trap or ignore
+// SIGTERM.
+const KILL_ESCALATION_MS = 1500
+
+function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals) {
+  if (os.platform() !== 'win32' && child.pid) {
+    try {
+      // Negative pid signals the whole process group.
+      process.kill(-child.pid, signal)
+      return
+    } catch {
+      // Process group may already be gone; fall back to a direct kill.
+    }
+  }
+  try {
+    child.kill(signal)
+  } catch {}
+}
+
+// Children are spawned detached on POSIX (own process group) so that abort and
+// timeout can kill the whole tree. That also detaches them from this process's
+// lifetime, so sweep any still-running children when this process exits.
+const liveChildren = new Set<ChildProcess>()
+let exitSweepInstalled = false
+function installExitSweep() {
+  if (exitSweepInstalled) return
+  exitSweepInstalled = true
+  process.on('exit', () => {
+    for (const child of liveChildren) {
+      killProcessGroup(child, 'SIGKILL')
+    }
+  })
+}
 
 // Common locations where Git Bash might be installed on Windows
 const GIT_BASH_COMMON_PATHS = [
@@ -122,12 +157,14 @@ export function runTerminalCommand({
   cwd,
   timeout_seconds,
   env,
+  signal,
 }: {
   command: string
   process_type: 'SYNC' | 'BACKGROUND'
   cwd: string
   timeout_seconds: number
   env?: NodeJS.ProcessEnv
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'run_terminal_command'>> {
   if (process_type === 'BACKGROUND') {
     throw new Error('BACKGROUND process_type not implemented')
@@ -139,6 +176,19 @@ export function runTerminalCommand({
       ...getSystemProcessEnv(),
       ...(env ?? {}),
     } as NodeJS.ProcessEnv
+
+    if (signal?.aborted) {
+      resolve([
+        {
+          type: 'json',
+          value: {
+            command,
+            message: 'Command cancelled: the run was aborted by the user.',
+          },
+        },
+      ])
+      return
+    }
 
     let shell: string
     let shellArgs: string[]
@@ -163,22 +213,75 @@ export function runTerminalCommand({
       cwd: resolvedCwd,
       env: processEnv,
       stdio: 'pipe',
+      // On POSIX, give the command its own process group so that killing it
+      // (timeout or user abort) also kills any grandchild processes.
+      detached: !isWindows,
     })
+
+    liveChildren.add(childProcess)
+    installExitSweep()
 
     let stdout = ''
     let stderr = ''
     let timer: NodeJS.Timeout | null = null
+    let sigkillTimer: NodeJS.Timeout | null = null
     let processFinished = false
+
+    const killChildProcess = () => {
+      killProcessGroup(childProcess, 'SIGTERM')
+      // Escalate in case the command traps or ignores SIGTERM.
+      sigkillTimer = setTimeout(() => {
+        sigkillTimer = null
+        if (childProcess.exitCode === null && childProcess.signalCode === null) {
+          killProcessGroup(childProcess, 'SIGKILL')
+        }
+      }, KILL_ESCALATION_MS)
+      sigkillTimer.unref?.()
+    }
+
+    const truncateOutput = (str: string) =>
+      truncateStringWithMessage({
+        str: stripColors(str),
+        maxLength: COMMAND_OUTPUT_LIMIT,
+        remove: 'MIDDLE',
+      })
+
+    const onAbort = () => {
+      if (processFinished) return
+      processFinished = true
+
+      if (timer) {
+        clearTimeout(timer)
+      }
+      killChildProcess()
+
+      resolve([
+        {
+          type: 'json',
+          value: {
+            command,
+            stdout: truncateOutput(stdout),
+            ...(stderr ? { stderr: truncateOutput(stderr) } : {}),
+            message:
+              'Command interrupted: the run was aborted by the user and the process was killed before it completed.',
+          },
+        },
+      ])
+
+      // The result is already settled; stop buffering output from a child
+      // that may linger through the SIGTERM grace period.
+      childProcess.stdout.destroy()
+      childProcess.stderr.destroy()
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
 
     // Set up timeout if timeout_seconds >= 0 (infinite timeout when < 0)
     if (timeout_seconds >= 0) {
       timer = setTimeout(() => {
         if (!processFinished) {
           processFinished = true
-          const success = childProcess.kill('SIGTERM')
-          if (!success) {
-            childProcess.kill('SIGKILL')
-          }
+          signal?.removeEventListener('abort', onAbort)
+          killChildProcess()
           reject(
             new Error(`Command timed out after ${timeout_seconds} seconds`),
           )
@@ -198,25 +301,23 @@ export function runTerminalCommand({
 
     // Handle process completion
     childProcess.on('close', (exitCode) => {
+      liveChildren.delete(childProcess)
+      if (sigkillTimer) {
+        clearTimeout(sigkillTimer)
+        sigkillTimer = null
+      }
+
       if (processFinished) return
       processFinished = true
 
       if (timer) {
         clearTimeout(timer)
       }
+      signal?.removeEventListener('abort', onAbort)
 
       // Truncate stdout to prevent excessive output
-      const truncatedStdout = truncateStringWithMessage({
-        str: stripColors(stdout),
-        maxLength: COMMAND_OUTPUT_LIMIT,
-        remove: 'MIDDLE',
-      })
-
-      const truncatedStderr = truncateStringWithMessage({
-        str: stripColors(stderr),
-        maxLength: COMMAND_OUTPUT_LIMIT,
-        remove: 'MIDDLE',
-      })
+      const truncatedStdout = truncateOutput(stdout)
+      const truncatedStderr = truncateOutput(stderr)
 
       // Include stderr in stdout for compatibility with existing behavior
       const combinedOutput = {
@@ -231,12 +332,15 @@ export function runTerminalCommand({
 
     // Handle spawn errors
     childProcess.on('error', (error) => {
+      liveChildren.delete(childProcess)
+
       if (processFinished) return
       processFinished = true
 
       if (timer) {
         clearTimeout(timer)
       }
+      signal?.removeEventListener('abort', onAbort)
 
       reject(new Error(`Failed to spawn command: ${error.message}`))
     })

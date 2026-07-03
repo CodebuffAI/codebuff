@@ -29,6 +29,7 @@ export function codeSearch({
   maxOutputStringLength = 20_000,
   timeoutSeconds = 10,
   logger,
+  signal,
 }: {
   projectPath: string
   pattern: string
@@ -39,6 +40,8 @@ export function codeSearch({
   maxOutputStringLength?: number
   timeoutSeconds?: number
   logger?: Logger
+  /** External abort (e.g. user interrupt); kills the ripgrep process. */
+  signal?: AbortSignal
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -96,6 +99,18 @@ export function codeSearch({
       ...searchPaths,
     ]
 
+    if (signal?.aborted) {
+      return resolve([
+        {
+          type: 'json',
+          value: {
+            stdout: '',
+            message: 'Code search cancelled: the run was aborted by the user.',
+          },
+        },
+      ])
+    }
+
     const rgPath = getBundledRgPath(import.meta.url)
     if (logger) {
       logger.info(
@@ -130,6 +145,7 @@ export function codeSearch({
       childProcess.stdout.removeAllListeners()
       childProcess.stderr.removeAllListeners()
       childProcess.removeAllListeners()
+      signal?.removeEventListener('abort', onAbort)
 
       // Clear both the main timeout and the kill timeout to prevent late callbacks
       clearTimeout(timeoutId)
@@ -167,6 +183,23 @@ export function codeSearch({
       output.length > maxLength
         ? output.substring(0, maxLength) + '\n\n[Output truncated]'
         : output
+
+    const onAbort = () => {
+      if (isResolved) return
+      hardKill()
+
+      const collectedLines: string[] = []
+      for (const fileLines of fileGroups.values()) {
+        collectedLines.push(...fileLines)
+      }
+      const partialOutput = collectedLines.join('\n')
+
+      settle({
+        stdout: truncateOutput(formatCollectedOutput(partialOutput), 1000),
+        message: 'Code search cancelled: the run was aborted by the user.',
+      })
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
 
     const timeoutId = setTimeout(() => {
       if (isResolved) return
