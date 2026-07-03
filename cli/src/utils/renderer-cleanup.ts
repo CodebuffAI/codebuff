@@ -1,5 +1,7 @@
 import { resetTerminalTitle } from './terminal-title'
 import { flushLiveChatState } from './run-state-storage'
+import { TERMINAL_RESET_SEQUENCES } from './terminal-reset-sequences'
+import { stopTerminalWatchdog } from './terminal-watchdog'
 
 import type { CliRenderer } from '@opentui/core'
 
@@ -7,30 +9,6 @@ import type { CliRenderer } from '@opentui/core'
 let renderer: CliRenderer | null = null
 let handlersInstalled = false
 let terminalStateReset = false
-
-/**
- * Terminal escape sequences to reset terminal state.
- * These are written directly to stdout to ensure they're sent even if the renderer is in a bad state.
- *
- * Sequences:
- * - \x1b[?1049l: Exit alternate screen buffer (restores main screen)
- * - \x1b[?1000l: Disable X10 mouse mode
- * - \x1b[?1002l: Disable button event mouse mode
- * - \x1b[?1003l: Disable any-event mouse mode (all motion tracking)
- * - \x1b[?1006l: Disable SGR extended mouse mode
- * - \x1b[?1004l: Disable focus reporting
- * - \x1b[?2004l: Disable bracketed paste mode
- * - \x1b[?25h: Show cursor (safety measure)
- */
-export const TERMINAL_RESET_SEQUENCES =
-  '\x1b[?1049l' + // Exit alternate screen buffer
-  '\x1b[?1000l' + // Disable X10 mouse mode
-  '\x1b[?1002l' + // Disable button event mouse mode
-  '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
-  '\x1b[?1006l' + // Disable SGR extended mouse mode
-  '\x1b[?1004l' + // Disable focus reporting
-  '\x1b[?2004l' + // Disable bracketed paste mode
-  '\x1b[?25h' // Show cursor
 
 /**
  * Reset terminal state by writing escape sequences directly to stdout.
@@ -69,6 +47,10 @@ function resetTerminalState(): void {
  * This resets terminal state to prevent garbled output after exit.
  */
 function cleanup(): void {
+  // We're on the clean-shutdown path, so the watchdog must not fire — kill it
+  // before anything else (synchronous, so no race with our own exit).
+  stopTerminalWatchdog()
+
   // Persist any in-flight chat state first (synchronous, best-effort) so
   // closing the terminal or killing the process mid-run doesn't lose the turn.
   flushLiveChatState()

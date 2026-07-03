@@ -22,7 +22,7 @@ import {
 } from '@codebuff/common/constants/freebuff-models'
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 
-import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
+import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
 import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
@@ -106,7 +106,7 @@ interface FreebuffModelSelectorProps {
    *  this, the list scrolls (scrollbar shown, focused row kept in view);
    *  otherwise the scrollbox shrinks to fit and no scrollbar appears. */
   maxHeight: number
-  /** Notifies the parent whenever the picker expands/collapses. The waiting-room
+  /** Notifies the parent whenever the picker expands/collapses. The landing
    *  screen uses it to promote the wordmark to the full ASCII logo while the
    *  picker is collapsed (the freed rows make room). */
   onExpandedChange?: (expanded: boolean) => void
@@ -118,7 +118,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
 }) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
-  // waiting-room screen wraps this picker in a `maxWidth: contentMaxWidth`
+  // landing screen wraps this picker in a `maxWidth: contentMaxWidth`
   // box (capped at 80 cols), so a wide terminal doesn't actually let us
   // sprawl the buttons across it.
   const { contentMaxWidth } = useTerminalDimensions()
@@ -164,7 +164,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [expanded, setExpanded] = useState(
     () => !canCollapse || !isLanding || selectedModel !== recommendedModel.id,
   )
-  // Mirror the expanded state up to the waiting-room screen (collapsed → it
+  // Mirror the expanded state up to the landing screen (collapsed → it
   // promotes the wordmark to the full ASCII logo). useLayoutEffect so the
   // parent's logo decision settles before paint, both on mount and on toggle.
   useLayoutEffect(() => {
@@ -463,7 +463,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       if (modelId === committedModelId) return
       if (!isJoinable(modelId)) return
       setPending(modelId)
-      joinFreebuffQueue(modelId).finally(() => setPending(null))
+      startFreebuffSession(modelId).finally(() => setPending(null))
     },
     [pending, committedModelId, isJoinable],
   )

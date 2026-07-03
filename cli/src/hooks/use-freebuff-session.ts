@@ -341,18 +341,18 @@ export function refreshFreebuffLandingMetadata(): Promise<void> {
 }
 
 /**
- * Join (or re-queue for) `model`. Dual-purpose:
- *   - First join: called from the pre-chat landing picker. The session starts
+ * Start a session on `model` (admitted immediately server-side). Dual-purpose:
+ *   - First start: called from the pre-chat landing picker. The session starts
  *     at `none` (GET-only); this is the user's explicit commitment to enter.
- *   - Switch: called when the user picks a different model from within the
- *     waiting room. Server moves them to the back of the new model's queue.
+ *   - Switch: called when the user picks a different model from the landing
+ *     screen. The server admits them on the new model right away.
  *
  * If the server has already admitted them on a different model, it responds
  * with `model_locked`; the tick loop silently reverts the local selection to
  * the locked model so the active session stays intact. Users who really want
  * to switch can /end-session deliberately.
  */
-export function joinFreebuffQueue(model: string): Promise<void> {
+export function startFreebuffSession(model: string): Promise<void> {
   if (!IS_FREEBUFF) return Promise.resolve()
   // This is the only explicit user-pick path (called from the picker on
   // click / Enter), so persistence belongs here — and ONLY here. Server-
@@ -395,7 +395,7 @@ export function markFreebuffSessionSuperseded(): void {
  *  Used when the chat-completions gate rejects on country even though the
  *  session-level country check did not catch the request first.
  *  Transitioning the session state here unmounts the Chat surface in favor of
- *  the waiting-room's country_blocked message, so the user can't keep typing
+ *  the landing screen's country_blocked message, so the user can't keep typing
  *  and sending doomed requests. */
 export function markFreebuffSessionCountryBlocked(params: {
   countryCode: string
@@ -405,8 +405,8 @@ export function markFreebuffSessionCountryBlocked(params: {
   if (!IS_FREEBUFF) return
   controller?.abort()
   controller?.apply({ status: 'country_blocked', ...params })
-  // Best-effort DELETE so we don't hold a waiting-room seat on a session the
-  // server is already refusing to serve at chat time.
+  // Best-effort DELETE so we don't hold a session row the server is already
+  // refusing to serve at chat time.
   releaseFreebuffSlot().catch(() => {})
 }
 
@@ -435,7 +435,7 @@ interface UseFreebuffSessionResult {
 /**
  * Manages the freebuff session lifecycle:
  *   - GET on mount to probe state (no auto-join; the user picks a model in
- *     the landing screen, which calls joinFreebuffQueue)
+ *     the landing screen, which calls startFreebuffSession)
  *   - if the probe sees an existing seat, auto-takes-over when the prior
  *     local owner process is gone; otherwise asks before POSTing to rotate
  *     the instance id so any other CLI on the same account is superseded
@@ -525,7 +525,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // need another POST.
         nextMethod = 'GET'
 
-        // Race recovery: user picked a different model in the waiting room at
+        // Race recovery: user picked a different model on the landing screen at
         // the exact moment the server admitted them with the original model.
         // Silently revert the local selection and re-tick so the next call
         // (a GET) lands the actual active session. Users who really want to
@@ -579,7 +579,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
         // Bell on admission: the user committed to a model on the landing
         // screen (status 'none'), which POSTs and lands them straight on an
-        // active session now that there's no waiting room.
+        // active session (admission is immediate).
         if (previousStatus === 'none' && next.status === 'active') {
           playAdmissionSound()
         }
@@ -587,7 +587,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         // active|ended → none means we've passed the server's hard cutoff.
         // Synthesize a no-instanceId ended state so the chat surface stays
         // mounted with the Enter-to-rejoin banner instead of looping back
-        // through the waiting room. Carry forward whichever rate-limit
+        // through the landing screen. Carry forward whichever rate-limit
         // snapshot we have — preferring the fresh `none` snapshot, falling
         // back to whatever was on the prior active/ended row — so the
         // banner's "N of M used today" line stays populated.
@@ -642,7 +642,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           // prevent. But the picker still needs live quota snapshots, so kick
           // off a fire-and-forget GET and extract only picker metadata from
           // the response, ignoring whatever status it claims. Polling resumes
-          // when the user commits to a model via joinFreebuffQueue.
+          // when the user commits to a model via startFreebuffSession.
           const landingSession = toLandingSession(
             useFreebuffSessionStore.getState().session,
           )

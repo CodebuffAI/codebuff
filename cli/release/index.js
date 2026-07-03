@@ -26,6 +26,8 @@ const SAFE_TERMINAL_RESET_SEQUENCES =
   '\x1b[?1006l' + // Disable SGR extended mouse mode
   '\x1b[?1004l' + // Disable focus reporting
   '\x1b[?2004l' + // Disable bracketed paste mode
+  '\x1b[<u' + // Pop kitty keyboard protocol flags
+  '\x1b[>4;0m' + // Reset modifyOtherKeys
   '\x1b[?25h' // Show cursor
 
 const FULL_TERMINAL_RESET_SEQUENCES =

@@ -144,9 +144,9 @@ export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]
 /**
  * Maps CLI agent mode to cost mode for billing.
  *
- * Freebuff's LITE maps to 'free' cost mode (waiting room, rate limits, 0 credits
+ * Freebuff's LITE maps to 'free' cost mode (session gate, rate limits, 0 credits
  * for allowlisted agent+model combos). Regular Codebuff's LITE maps to 'lite' —
- * a normal paid mode (charges credits, no waiting room, no country restrictions).
+ * a normal paid mode (charges credits, no session gate, no country restrictions).
  */
 export const AGENT_MODE_TO_COST_MODE = {
   DEFAULT: 'normal',

@@ -44,6 +44,7 @@ import {
 } from './config'
 import {
   admitDesktopSession,
+  admitOrTakeOver,
   countActiveSessionsForIpHash,
   deleteExpiredDesktopSession,
   endAllDesktopSessions,
@@ -54,12 +55,10 @@ import {
   getActiveDesktopSessionCount,
   getDesktopSessionRow,
   getSessionRow,
-  joinOrTakeOver,
   listRecentFreeSessionAdmits,
   newInstanceId,
   pinDesktopMinimaxUpstreamToMinimax,
   pinMinimaxUpstreamToMinimax,
-  promoteQueuedUser,
 } from './store'
 import { maybeSweepExpired } from './admission'
 import { getFleetHealth, routeForAdmission } from './fireworks-health'
@@ -319,15 +318,47 @@ function nonEmptyRateLimitsByModel(
   return Object.keys(rateLimitsByModel).length > 0 ? { rateLimitsByModel } : {}
 }
 
+/** THE `none` response builder, shared by GET (`getSessionState`) and the
+ *  defensive fallback in `requestSession` so the two shapes cannot drift.
+ *  Carries per-user quota snapshots so exhausted models are visible in the
+ *  picker before the next POST. */
+async function buildNoneResponse(
+  userId: string,
+  accessTier: FreebuffAccessTier,
+  includeUnused: boolean,
+  deps: SessionDeps,
+): Promise<Extract<FreebuffSessionServerResponse, { status: 'none' }>> {
+  const rateLimitsByModel = await fetchRateLimitsByModel(
+    userId,
+    accessTier,
+    deps,
+  )
+  return {
+    status: 'none',
+    accessTier,
+    ...nonEmptyRateLimitsByModel(
+      rateLimitsForSurface(rateLimitsByModel, includeUnused),
+    ),
+  }
+}
+
 export interface SessionDeps {
   getSessionRow: (userId: string) => Promise<InternalSessionRow | null>
-  joinOrTakeOver: (params: {
+  /** Atomic single-session admission: upsert, promotion to active, and the
+   *  quota-accounting admit row commit in ONE store transaction under the
+   *  row's lock, so concurrent same-account requests serialize (no
+   *  join-vs-promote race to recover from). Returns the active row plus
+   *  whether this call started a fresh (quota-accounted) session; throws
+   *  FreeSessionModelLockedError when an active session holds another model. */
+  admitOrTakeOver: (params: {
     userId: string
     model: string
     accessTier: FreebuffAccessTier
     now: Date
+    sessionLengthMs: number
+    fireworksRoute?: FireworksRoute | null
     countryAccess?: FreeSessionCountryAccessMetadata
-  }) => Promise<InternalSessionRow>
+  }) => Promise<{ row: InternalSessionRow; freshlyAdmitted: boolean }>
   endSession: (params: {
     userId: string
     now: Date
@@ -364,16 +395,6 @@ export interface SessionDeps {
     pool: FreebuffStreakRewardPool
     since: Date
   }) => Promise<number>
-  /** Admission: flips a freshly-joined queued row to active in the same
-   *  request (every free session is admitted immediately — there is no queue).
-   *  Returns the updated row or null if the row wasn't in a queued state. */
-  promoteQueuedUser: (params: {
-    userId: string
-    model: string
-    sessionLengthMs: number
-    now: Date
-    fireworksRoute?: FireworksRoute | null
-  }) => Promise<InternalSessionRow | null>
   /** Reactively pin a session to the official MiniMax API after Fireworks
    *  rate-limited it. Sticky for the session's life so the prompt cache stays
    *  warm. No-op when the session row is absent (already ended/swept). */
@@ -452,7 +473,7 @@ export interface SessionDeps {
 
 const defaultDeps: SessionDeps = {
   getSessionRow,
-  joinOrTakeOver,
+  admitOrTakeOver,
   endSession,
   countActiveSessionsForIpHash,
   listRecentFreeSessionAdmits,
@@ -471,7 +492,6 @@ const defaultDeps: SessionDeps = {
         return 0
       }),
   getStreakBonusUnits: (params) => sumStreakBonusUnits(params),
-  promoteQueuedUser,
   pinMinimaxUpstream: pinMinimaxUpstreamToMinimax,
   getDesktopSessionRow,
   admitDesktopSession,
@@ -645,17 +665,13 @@ export type RequestSessionResult =
       currentModel: string
       currentInstanceId: string
     }
+  // Defensive fallback only: `admitOrTakeOver` returns an active unexpired row
+  // by construction, so this should be unreachable — but if the contract is
+  // ever broken we return the GET path's `none` (via the shared
+  // `buildNoneResponse`) instead of a 500, and log loudly. Reuses the wire
+  // variant so the shape can't drift from the canonical one in common.
+  | Extract<FreebuffSessionServerResponse, { status: 'none' }>
 
-/**
- * Promote the caller's freshly-joined queued row to active, pinning the
- * Fireworks upstream from current deployment health. Returns the active row, or
- * null if the model-scoped `promoteQueuedUser` matched nothing (a concurrent
- * same-account request changed the row first — see the recovery in
- * `requestSession`). Only backup-capable models (e.g. minimax/minimax-m3) need
- * the health probe; it's cached (~25s) so this is a cheap map read on the hot
- * path. The pin is decided once here and frozen for the session — see
- * `routeForAdmission`.
- */
 /** Decide the sticky Fireworks upstream pin for a fresh admission from current
  *  fleet health. Only backup-capable models (e.g. MiniMax M3) get a pin; others
  *  return a null route (default deployment routing). Shared by the single-session
@@ -701,39 +717,21 @@ function logFireworksRoute(
   )
 }
 
-async function admitQueuedRow(
-  params: { userId: string; countryAccess?: FreeSessionCountryAccessMetadata },
-  model: string,
-  now: Date,
-  deps: SessionDeps,
-): Promise<InternalSessionRow | null> {
-  const route = await resolveFireworksRouteForAdmission(model, deps)
-  const promoted = await deps.promoteQueuedUser({
-    userId: params.userId,
-    model,
-    sessionLengthMs: deps.sessionLengthMs,
-    now,
-    fireworksRoute: route.fireworksRoute,
-  })
-  if (!promoted) return null
-  logFireworksRoute(params.userId, model, route)
-  await logIpSessionConcurrency(params, model, deps)
-  return promoted
-}
-
 /**
  * Client calls this on CLI startup with the model they want to use. Every
  * caller is admitted immediately — there is no waiting room, FIFO queue, or
- * capacity cap; a freshly created row is `queued` only transiently within this
- * call and is promoted to `active` before returning. Semantics:
+ * capacity cap. Semantics:
  *   - No existing session → create + admit an active session for `model`
  *   - Existing active (unexpired), same model → rotate instance_id (takeover)
  *   - Existing active (unexpired), different model → { status: 'model_locked' }
  *   - Existing expired / different model → re-admit a fresh active session
  *   - Banned / rate-limited / model unavailable → corresponding status
  *
- * `joinOrTakeOver` (when it doesn't throw) always returns a row that maps to
- * a non-null view, so the cast below is sound.
+ * Admission is a single atomic store transaction (`admitOrTakeOver`), so
+ * concurrent same-account requests serialize on the row lock instead of
+ * interleaving — the old join-then-promote race (a transient `queued` row that
+ * maps to no view) cannot occur. A logged, GET-shaped `none` fallback guards
+ * the contract anyway; this function never throws for state reasons.
  */
 export async function requestSession(params: {
   userId: string
@@ -769,8 +767,8 @@ export async function requestSession(params: {
   // background tick. Throttled and fire-and-forget — never blocks the request.
   void deps.maybeSweepExpired?.()
 
-  // Rate-limit check runs before joinOrTakeOver so heavy users never even
-  // create a queued row. Premium models share one daily Pacific-time
+  // Rate-limit check runs before admitOrTakeOver so heavy users never even
+  // create a session row. Premium models share one daily Pacific-time
   // session-unit pool; Unlimited models fall through unchanged (no session
   // quota — only the Redis free-mode limiter, which spans all models, gates
   // them).
@@ -828,15 +826,27 @@ export async function requestSession(params: {
     }
   }
 
+  // Resolve the sticky Fireworks upstream pin before the admission
+  // transaction — it depends only on the model (cached ~25s fleet-health map
+  // read, and only for backup-capable models). A takeover ignores it and keeps
+  // the row's existing pin.
+  const route = await resolveFireworksRouteForAdmission(model, deps)
+
+  // Admission is one atomic store transaction: upsert, promotion to active,
+  // and the quota-accounting admit row commit together under the row lock, so
+  // concurrent same-account POSTs/DELETEs serialize instead of interleaving.
   let row: InternalSessionRow
+  let freshlyAdmitted: boolean
   try {
-    row = await deps.joinOrTakeOver({
+    ;({ row, freshlyAdmitted } = await deps.admitOrTakeOver({
       userId: params.userId,
       model,
       accessTier,
       now,
+      sessionLengthMs: deps.sessionLengthMs,
+      fireworksRoute: route.fireworksRoute,
       countryAccess: params.countryAccess,
-    })
+    }))
   } catch (err) {
     if (err instanceof FreeSessionModelLockedError) {
       return {
@@ -848,37 +858,30 @@ export async function requestSession(params: {
     }
     throw err
   }
-
-  // Admit immediately. There is no waiting room or capacity cap — a freshly
-  // joined row is `queued` only transiently within this request; we flip it to
-  // active right here. (Takeover/reclaim of an already-active row stays active
-  // and skips this block, preserving its existing upstream pin.)
-  if (row.status === 'queued') {
-    let admitted = await admitQueuedRow(params, model, now, deps)
-    if (!admitted) {
-      // Our model-scoped `promoteQueuedUser` matched nothing: a concurrent
-      // request for this same account changed the row between `joinOrTakeOver`
-      // and the promote — e.g. a near-simultaneous model switch flipped the
-      // queued row to the other model (and likely admitted it). Recover without
-      // failing: if a concurrent request already made the row active, use it;
-      // otherwise promote whatever queued row now exists. We never throw — every
-      // queued row is promoted by some request, and a GET poll self-heals any
-      // residual transient `queued`, so a 500 here would be strictly worse.
-      const current = await deps.getSessionRow(params.userId)
-      if (current?.status === 'active') {
-        admitted = current
-      } else if (current?.status === 'queued') {
-        admitted = await admitQueuedRow(params, current.model, now, deps)
-      }
-    }
-    if (admitted) row = admitted
+  if (freshlyAdmitted) {
+    logFireworksRoute(params.userId, model, route)
+    await logIpSessionConcurrency(params, model, deps)
   }
 
   const view = await viewForRow(params.userId, deps, row)
   if (!view) {
-    throw new Error(
-      `joinOrTakeOver returned a row that maps to no view (user=${params.userId})`,
+    // Defensive: `admitOrTakeOver` returns an active, unexpired row by
+    // construction, so this should be unreachable. If the contract is ever
+    // broken, a 500 is still strictly worse than `none` — the CLI's generic
+    // error path just backs off, while `none` lands it on the picker to
+    // re-request — but it must be LOUD here: without the log line a systemic
+    // admission bug would be an invisible outage (every POST quietly bouncing
+    // users to the picker with no error signal anywhere).
+    logger.error(
+      {
+        userId: params.userId,
+        model: row.model,
+        rowStatus: row.status,
+        expiresAt: row.expires_at?.toISOString() ?? null,
+      },
+      '[FreeSession] admitted row maps to no view; returning `none` instead of a 500',
     )
+    return buildNoneResponse(params.userId, accessTier, false, deps)
   }
   return attachRateLimit(params.userId, view, deps)
 }
@@ -1147,20 +1150,13 @@ export async function getSessionState(params: {
   // are visible in the picker before POST. Also the desktop tier-probe response.
   // Desktop keeps unused (0-count) models so its quota badge can show
   // "0 of N" before the first admission; the CLI stays used-only.
-  const noneResponse = async (): Promise<FreebuffSessionServerResponse> => {
-    const rateLimitsByModel = await fetchRateLimitsByModel(
+  const noneResponse = () =>
+    buildNoneResponse(
       params.userId,
       accessTier,
+      params.multiSession ?? false,
       deps,
     )
-    return {
-      status: 'none',
-      accessTier,
-      ...nonEmptyRateLimitsByModel(
-        rateLimitsForSurface(rateLimitsByModel, params.multiSession ?? false),
-      ),
-    }
-  }
 
   // Desktop tier probe: GET without an instance id just wants accessTier + quota.
   if (params.multiSession && !params.claimedInstanceId) return noneResponse()

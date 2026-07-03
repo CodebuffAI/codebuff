@@ -37,6 +37,8 @@ export type AdResponse = {
  * same normalized response shape, so the rest of the hook is provider-agnostic.
  */
 export type AdProvider = 'gravity' | 'carbon' | 'zeroclick'
+// 'waiting_room' is the legacy wire name for the freebuff landing screen —
+// the ads API maps it to placements, so the value must not change.
 export type AdSurface = 'waiting_room'
 
 export type GravityAdState = {
@@ -90,7 +92,7 @@ function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
 export const useGravityAd = (options?: {
   enabled?: boolean
   /** Skip the "wait for first user message" gate. Used by the freebuff
-   *  waiting room, which has no conversation but still needs ads. */
+   *  landing screen, which has no conversation but still needs ads. */
   forceStart?: boolean
   /** Ad network to request first. The server owns fallback ordering. */
   provider?: AdProvider
@@ -119,7 +121,7 @@ export const useGravityAd = (options?: {
   const hasUserMessagedStore = useChatStore((s) =>
     s.messages.some((m) => m.variant === 'user'),
   )
-  // forceStart lets callers (e.g. the waiting room) opt out of the
+  // forceStart lets callers (e.g. the landing screen) opt out of the
   // "wait for the first user message" gate.
   const shouldStart = forceStart || hasUserMessagedStore
 

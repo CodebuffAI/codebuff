@@ -132,18 +132,6 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     // satisfied; handler tests don't assert on the concurrency log.
     countActiveSessionsForIpHash: async () => 0,
     ipSessionCap: 30,
-    // Every free session is admitted immediately: flip the freshly-joined
-    // queued row to active in the same request so handler responses reflect
-    // the new no-waiting-room contract.
-    promoteQueuedUser: async ({ userId, model, sessionLengthMs, now }) => {
-      const row = rows.get(userId)
-      if (!row || row.status !== 'queued' || row.model !== model) return null
-      row.status = 'active'
-      row.admitted_at = now
-      row.expires_at = new Date(now.getTime() + sessionLengthMs)
-      row.updated_at = now
-      return row
-    },
     pinMinimaxUpstream: async () => {},
     // No admits in handler tests — the rate-limit check reads empty so every
     // request is admitted.
@@ -156,16 +144,19 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
     endSession: async ({ userId }) => {
       rows.delete(userId)
     },
-    joinOrTakeOver: async ({
+    // Every free session is admitted immediately and atomically — mirror the
+    // store's admitOrTakeOver contract by inserting an active row in one step.
+    admitOrTakeOver: async ({
       userId,
       model,
       accessTier,
       now,
+      sessionLengthMs,
       countryAccess,
     }) => {
       const r: InternalSessionRow = {
         user_id: userId,
-        status: 'queued',
+        status: 'active',
         active_instance_id: `inst-${++instanceCounter}`,
         model,
         access_tier: accessTier,
@@ -177,13 +168,13 @@ function makeSessionDeps(overrides: Partial<SessionDeps> = {}): SessionDeps & {
         client_ip_hash: countryAccess?.clientIpHash ?? null,
         country_checked_at: countryAccess?.checkedAt ?? null,
         queued_at: now,
-        admitted_at: null,
-        expires_at: null,
+        admitted_at: now,
+        expires_at: new Date(now.getTime() + sessionLengthMs),
         created_at: now,
         updated_at: now,
       }
       rows.set(userId, r)
-      return r
+      return { row: r, freshlyAdmitted: true }
     },
     ...overrides,
   }

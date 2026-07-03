@@ -11,7 +11,7 @@ import { REFERRAL_CLI_DAILY_SESSION_BONUS_CAP } from '@codebuff/common/constants
 import { getReferralInfo } from '@codebuff/common/types/freebuff-session'
 import { pluralize } from '@codebuff/common/util/string'
 
-import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
+import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
 import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
@@ -96,7 +96,7 @@ const CopyInviteLinkButton: React.FC<{
 }
 
 /**
- * Advertises the "invite friends" reward on the waiting-room model screen. The
+ * Advertises the "invite friends" reward on the landing model screen. The
  * reward — and the presentation — depends on the session's access tier:
  *
  *   - LIMITED tier: referrals earn a daily free-session bonus (not GLM). One
@@ -132,7 +132,7 @@ export const FreebuffReferralBanner: React.FC = () => {
   const useGlm = useCallback(() => {
     setJoining((wasJoining) => {
       if (wasJoining) return wasJoining
-      joinFreebuffQueue(FREEBUFF_GLM_V52_MODEL_ID).finally(() =>
+      startFreebuffSession(FREEBUFF_GLM_V52_MODEL_ID).finally(() =>
         setJoining(false),
       )
       return true
