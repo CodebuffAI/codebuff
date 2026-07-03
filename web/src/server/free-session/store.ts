@@ -441,8 +441,8 @@ export async function promoteQueuedUser(params: {
  * Fireworks serverless API rate-limited it. Sticky for the rest of the session
  * so we never re-pay the prompt-cache miss of switching upstreams. Idempotent:
  * re-pinning an already-pinned session is a harmless no-op. When no session row
- * exists (waiting room off), this updates zero rows and the hot path falls back
- * per-request instead.
+ * exists (already ended/swept), this updates zero rows and the hot path falls
+ * back per-request instead.
  */
 export async function pinMinimaxUpstreamToMinimax(params: {
   userId: string

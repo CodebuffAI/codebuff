@@ -1,7 +1,7 @@
 # Freebuff Abuse Detection
 
 How to find, judge, and action accounts abusing free mode. Companion to
-[`freebuff-waiting-room.md`](./freebuff-waiting-room.md) (sessions, admission,
+[`freebuff-session-admission.md`](./freebuff-session-admission.md) (sessions, admission,
 quotas) — this doc is the **operational playbook** for free-mode abuse. It covers
 four abuse classes:
 

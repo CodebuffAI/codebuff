@@ -102,7 +102,7 @@ export type { FireworksRoute }
  *
  * `ttftP90Ms` is the deployment's recent measured time-to-first-token p90 (from
  * `deploymentTtftP90Ms`), or undefined when there aren't enough samples to
- * judge. When present and over `TTFT_SERVERLESS_THRESHOLD_MS` (1.5s), it diverts
+ * judge. When present and over `TTFT_SERVERLESS_THRESHOLD_MS`, it diverts
  * new sessions to serverless even while the coarse Prometheus health still
  * reads `healthy` — TTFT degrades in real user experience before the KV/error
  * counters move. The Prometheus signal stays as the always-available backstop.

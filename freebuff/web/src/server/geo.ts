@@ -64,7 +64,7 @@ function tierFromAccess(access: FreeModeCountryAccess): FreebuffWebAccessTier {
 
 /**
  * Resolves the Freebuff Web access tier for a request. Same decision
- * pipeline (and same Postgres cache) as the CLI waiting room: Cloudflare
+ * pipeline (and same Postgres cache) as the CLI free-session gate: Cloudflare
  * country -> geoip fallback -> allowlist -> IPinfo -> Spur/Scamalytics, plus
  * browser hints as a downgrade-only escalation signal.
  *

@@ -162,7 +162,7 @@ isOutOfCreditsError(output)       → shows OUT_OF_CREDITS_MESSAGE
 // Checks statusCode === 403 && error === 'free_mode_unavailable'
 isFreeModeUnavailableError(output) → shows FREE_MODE_UNAVAILABLE_MESSAGE
 
-// Freebuff only: checks statusCode === 429 after waiting-room errors
+// Freebuff only: checks statusCode === 429 after session-gate errors
 getFreebuffRateLimitErrorMessage(output)
   → preserves typed quota messages or shows FREEBUFF_RATE_LIMIT_MESSAGE
 ```

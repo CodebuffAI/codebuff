@@ -376,7 +376,7 @@ export interface SessionDeps {
   }) => Promise<InternalSessionRow | null>
   /** Reactively pin a session to the official MiniMax API after Fireworks
    *  rate-limited it. Sticky for the session's life so the prompt cache stays
-   *  warm. No-op when the session row is absent (waiting room off). */
+   *  warm. No-op when the session row is absent (already ended/swept). */
   pinMinimaxUpstream: (params: { userId: string; now: Date }) => Promise<void>
   // --- Desktop multi-session deps (optional: only used when multiSession is
   // set, which only the desktop route does; defaultDeps provides them). ---
@@ -429,8 +429,9 @@ export interface SessionDeps {
    *  (degraded/unhealthy) for its whole life. */
   getFleetHealth: () => Promise<FleetHealth>
   /** Recent measured p90 TTFT (ms) for the model's dedicated deployment, or
-   *  undefined when there aren't enough samples. Over 2s pins new sessions to
-   *  serverless even while Prometheus health still reads healthy. */
+   *  undefined when there aren't enough samples. Over TTFT_SERVERLESS_THRESHOLD_MS
+   *  pins new sessions to serverless even while Prometheus health still reads
+   *  healthy. */
   getDeploymentTtftP90Ms: (model: string) => number | undefined
   /** Plain values, not getters: these never change at runtime. The deps
    *  interface uses values rather than thunks so tests can pass numbers
@@ -1243,7 +1244,7 @@ export async function endUserSession(params: {
  * a MiniMax-family fallback model (e.g. M3) gets a 429 from Fireworks. The pin
  * is sticky for the session's life so we never re-pay the prompt-cache miss of
  * switching upstreams. Best-effort and idempotent; a no-op when no session row
- * exists (waiting room off).
+ * exists (already ended/swept).
  */
 export async function pinFreeSessionToMinimax(
   userId: string,
@@ -1323,9 +1324,9 @@ export async function checkSessionAdmissible(params: {
   accessTier?: FreebuffAccessTier
   userEmail?: string | null | undefined
   claimedInstanceId: string | null | undefined
-  /** Forces a real active session row check even when the waiting room is
-   *  globally disabled or the user email normally bypasses it. Use for
-   *  subagent/model combinations that must be bound to trusted session state. */
+  /** Marks subagent/model combinations that must be bound to trusted session
+   *  state (e.g. gemini-thinker, GLM); enables the smart-session
+   *  gemini-thinker allowance below. */
   requireActiveSession?: boolean
   /** Model the chat-completions request is for. When provided, the gate
    *  rejects requests whose model doesn't match the active session's model
@@ -1364,7 +1365,7 @@ export async function checkSessionAdmissible(params: {
       ok: false,
       code: 'waiting_room_queued',
       message:
-        'You are in the waiting room. Poll GET /api/v1/freebuff/session for your position.',
+        'Your free session is still being set up. Retry in a moment, or poll GET /api/v1/freebuff/session.',
     }
   }
 
@@ -1380,7 +1381,7 @@ export async function checkSessionAdmissible(params: {
       ok: false,
       code: 'session_expired',
       message:
-        'Your free session has expired. Re-join the waiting room via POST /api/v1/freebuff/session.',
+        'Your free session has expired. Start a new session via POST /api/v1/freebuff/session.',
     }
   }
 

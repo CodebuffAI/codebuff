@@ -1763,7 +1763,7 @@ describe('freebuff gate errors', () => {
     expect(messages[0].userError).toBeUndefined()
   })
 
-  test('handleRunError maps 429 waiting_room_queued to the still-queued message', () => {
+  test('handleRunError maps 429 waiting_room_queued to the session-pending message', () => {
     const messages = baseMessage()
     const updater = makeUpdater(messages)
     handleRunError({
@@ -1776,7 +1776,7 @@ describe('freebuff gate errors', () => {
       updateChainInProgress: () => {},
     })
     updater.flush()
-    expect(messages[0].userError).toContain('still in the waiting room')
+    expect(messages[0].userError).toContain('still being set up')
   })
 
   test('handleRunError ignores gate-shaped errors with non-matching status code', () => {

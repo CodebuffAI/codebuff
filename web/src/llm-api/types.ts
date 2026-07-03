@@ -9,9 +9,8 @@ export interface CodebuffMetadata {
   n?: number
   cost_mode?: string
   /** Server-issued session instance id (see /api/v1/freebuff/session). Required
-   *  on free-mode requests when the waiting room is enabled; stale values are
-   *  rejected so a second CLI on the same account cannot keep serving traffic
-   *  after the first one re-admitted. */
+   *  on free-mode requests; stale values are rejected so a second CLI on the
+   *  same account cannot keep serving traffic after the first one re-admitted. */
   freebuff_instance_id?: string
   /** Set to '1' by Freebuff Desktop so the gate validates `freebuff_instance_id`
    *  against the desktop multi-session table (per-tab rows) instead of the
