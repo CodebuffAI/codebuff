@@ -177,19 +177,30 @@ describe('changeFile', () => {
     )
   })
 
-  test('rejects absolute paths outside the project', async () => {
+  test('writes absolute paths outside the project', async () => {
     const fs = createMockFs()
 
-    await expect(
-      changeFile({
-        parameters: {
-          type: 'file',
-          path: '/outside/file.ts',
-          content: 'const value = 1\n',
+    const result = await changeFile({
+      parameters: {
+        type: 'file',
+        path: '/outside/file.ts',
+        content: 'const value = 1\n',
+      },
+      cwd: '/repo',
+      fs,
+    })
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          file: '/outside/file.ts',
+          message: 'Created file successfully.',
         },
-        cwd: '/repo',
-        fs,
-      }),
-    ).rejects.toThrow('file path is outside the project directory')
+      },
+    ])
+    expect(await fs.readFile('/outside/file.ts', 'utf-8')).toBe(
+      'const value = 1\n',
+    )
   })
 })

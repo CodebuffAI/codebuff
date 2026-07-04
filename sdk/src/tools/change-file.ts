@@ -4,7 +4,7 @@ import { fileExists } from '@codebuff/common/util/file'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
-import { resolveFilePathWithinProject } from './path-utils'
+import { resolveFilePath } from './path-utils'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
@@ -31,10 +31,7 @@ export async function changeFile(params: {
   const { parameters, cwd, fs } = params
 
   const fileChange = FileChangeSchema.parse(parameters)
-  const resolvedPath = resolveFilePathWithinProject(cwd, fileChange.path)
-  if (!resolvedPath) {
-    throw new Error('file path is outside the project directory')
-  }
+  const resolvedPath = resolveFilePath(cwd, fileChange.path)
 
   const result = await applyChange({ change: fileChange, resolvedPath, fs })
 

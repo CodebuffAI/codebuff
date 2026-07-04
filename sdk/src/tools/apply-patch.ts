@@ -1,5 +1,7 @@
 import path from 'path'
 
+import { resolveFilePath } from './path-utils'
+
 import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
@@ -43,11 +45,6 @@ const SECTION_TERMINATORS = [
   '*** Delete File:',
   '*** Add File:',
 ]
-
-function hasTraversal(targetPath: string): boolean {
-  const normalized = path.normalize(targetPath)
-  return path.isAbsolute(normalized) || normalized.startsWith('..')
-}
 
 function normalizeLineEndings(input: string): string {
   return input.replace(/\r\n/g, '\n')
@@ -611,11 +608,7 @@ export async function applyPatchTool(params: {
   }
 
   try {
-    if (hasTraversal(operation.path)) {
-      throw new Error(`Invalid path: ${operation.path}`)
-    }
-
-    const fullPath = path.join(cwd, operation.path)
+    const { fullPath } = resolveFilePath(cwd, operation.path)
 
     if (operation.type === 'create_file') {
       const sanitizedDiff = sanitizeUnifiedDiff(operation.diff)

@@ -153,23 +153,27 @@ describe('getFiles', () => {
   })
 
   describe('file outside project', () => {
-    test('should return OUTSIDE_PROJECT for absolute paths outside project', async () => {
+    test('should read absolute paths outside project', async () => {
       const mockFs = createMockFs({
-        files: {},
+        files: {
+          '/etc/hosts': { content: '127.0.0.1 localhost' },
+        },
       })
 
       const result = await getFiles({
-        filePaths: ['/etc/passwd'],
+        filePaths: ['/etc/hosts'],
         cwd: '/project',
         fs: mockFs,
       })
 
-      expect(result['/etc/passwd']).toBe(FILE_READ_STATUS.OUTSIDE_PROJECT)
+      expect(result['/etc/hosts']).toBe('127.0.0.1 localhost')
     })
 
-    test('should return OUTSIDE_PROJECT for relative paths that escape project', async () => {
+    test('should read relative paths that escape project', async () => {
       const mockFs = createMockFs({
-        files: {},
+        files: {
+          '/outside/secret.txt': { content: 'secret' },
+        },
       })
 
       const result = await getFiles({
@@ -178,9 +182,29 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      expect(result['../outside/secret.txt']).toBe(
-        FILE_READ_STATUS.OUTSIDE_PROJECT,
+      expect(result['/outside/secret.txt']).toBe('secret')
+    })
+
+    test('should not apply project gitignore to files outside the project', async () => {
+      // An out-of-project path that contains a default-ignored segment
+      // (node_modules) must still be readable — gitignore is project-scoped.
+      const mockFs = createMockFs({
+        files: {
+          '/other/node_modules/pkg/index.js': { content: 'module.exports = 1' },
+        },
+      })
+
+      const result = await getFiles({
+        filePaths: ['/other/node_modules/pkg/index.js'],
+        cwd: '/project',
+        fs: mockFs,
+      })
+
+      expect(result['/other/node_modules/pkg/index.js']).toBe(
+        'module.exports = 1',
       )
+      // The project-scoped gitignore check must be skipped entirely.
+      expect(isFileIgnoredSpy).not.toHaveBeenCalled()
     })
   })
 
@@ -424,7 +448,7 @@ describe('getFiles', () => {
       expect(result['src/index.ts']).toBe('content')
     })
 
-    test('should reject absolute paths in sibling directories with matching prefixes', async () => {
+    test('should read absolute paths in sibling directories with matching prefixes', async () => {
       const mockFs = createMockFs({
         files: {
           '/project-other/src/index.ts': { content: 'outside' },
@@ -437,9 +461,7 @@ describe('getFiles', () => {
         fs: mockFs,
       })
 
-      expect(result['/project-other/src/index.ts']).toBe(
-        FILE_READ_STATUS.OUTSIDE_PROJECT,
-      )
+      expect(result['/project-other/src/index.ts']).toBe('outside')
     })
   })
 
@@ -542,8 +564,8 @@ describe('getFiles', () => {
         fileFilter: () => ({ status: 'allow-example' }),
       })
 
-      // Should still block files outside project
-      expect(result['/etc/passwd']).toBe(FILE_READ_STATUS.OUTSIDE_PROJECT)
+      // Missing files outside the project are reported as missing, not blocked
+      expect(result['/etc/passwd']).toBe(FILE_READ_STATUS.DOES_NOT_EXIST)
       // Should still report missing files
       expect(result['nonexistent.txt']).toBe(FILE_READ_STATUS.DOES_NOT_EXIST)
     })

@@ -13,17 +13,6 @@ export async function listDirectory(params: {
   try {
     const resolvedPath = path.resolve(projectPath, directoryPath)
 
-    if (!resolvedPath.startsWith(projectPath)) {
-      return [
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Invalid path: Path '${directoryPath}' is outside the project directory.`,
-          },
-        },
-      ]
-    }
-
     const entries = await fs.readdir(resolvedPath, {
       withFileTypes: true,
     })
