@@ -11,10 +11,12 @@ export async function revalidateAgents() {
   revalidatePath('/store')
   revalidatePath('/api/agents')
 
-  // Revalidate by tags (affects all cached data with these tags)
-  revalidateTag('agents')
-  revalidateTag('store')
-  revalidateTag('api')
+  // Revalidate by tags (affects all cached data with these tags).
+  // Next 16 requires a second argument; { expire: 0 } preserves the pre-16
+  // behavior of expiring immediately (admin actions/webhooks need fresh data).
+  revalidateTag('agents', { expire: 0 })
+  revalidateTag('store', { expire: 0 })
+  revalidateTag('api', { expire: 0 })
 }
 
 /**
@@ -28,7 +30,7 @@ export async function revalidateAgent(publisherId: string, agentId: string) {
 
   // Also revalidate the store to reflect changes
   revalidatePath('/store')
-  revalidateTag('agents')
+  revalidateTag('agents', { expire: 0 })
 }
 
 /**
@@ -38,8 +40,8 @@ export async function revalidateAgent(publisherId: string, agentId: string) {
 export async function revalidatePublisher(publisherId: string) {
   revalidatePath(`/publishers/${publisherId}`)
   revalidatePath('/publishers')
-  revalidateTag('publishers')
+  revalidateTag('publishers', { expire: 0 })
 
   // Also revalidate agents since publisher info appears in agent cards
-  revalidateTag('agents')
+  revalidateTag('agents', { expire: 0 })
 }

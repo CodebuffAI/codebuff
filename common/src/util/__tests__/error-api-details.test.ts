@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 
-import { extractApiErrorDetails, isFetchIdleTimeoutError } from '../error'
+import {
+  extractApiErrorDetails,
+  isFetchIdleTimeoutError,
+  isTransientNetworkError,
+} from '../error'
 
 describe('extractApiErrorDetails', () => {
   it('extracts structured details from nested retry errors', () => {
@@ -123,5 +127,64 @@ describe('isFetchIdleTimeoutError', () => {
     )
     expect(isFetchIdleTimeoutError(undefined)).toBe(false)
     expect(isFetchIdleTimeoutError('The operation timed out.')).toBe(false)
+  })
+})
+
+describe('isTransientNetworkError', () => {
+  it('detects the Bun socket-close message', () => {
+    expect(
+      isTransientNetworkError(
+        new Error(
+          'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',
+        ),
+      ),
+    ).toBe(true)
+  })
+
+  it('detects transient network error codes', () => {
+    const error = new Error('request failed') as Error & { code: string }
+    error.code = 'ECONNRESET'
+    expect(isTransientNetworkError(error)).toBe(true)
+
+    const bunError = new Error('request failed') as Error & { code: string }
+    bunError.code = 'ConnectionClosed'
+    expect(isTransientNetworkError(bunError)).toBe(true)
+  })
+
+  it('detects the undici "fetch failed" TypeError', () => {
+    expect(isTransientNetworkError(new TypeError('fetch failed'))).toBe(true)
+  })
+
+  it('detects a socket error nested inside an AI SDK RetryError wrapper', () => {
+    const socketError = new Error(
+      'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',
+    ) as Error & { code: string }
+    socketError.code = 'ECONNRESET'
+    const retryError = new Error('Failed after 3 attempts.') as Error & {
+      errors: unknown[]
+    }
+    retryError.errors = [socketError]
+    expect(isTransientNetworkError(retryError)).toBe(true)
+  })
+
+  it('detects a socket error in a cause chain', () => {
+    const inner = new Error('read ECONNRESET') as Error & { code: string }
+    inner.code = 'ECONNRESET'
+    const outer = new Error('Cannot connect to API')
+    ;(outer as Error & { cause: unknown }).cause = inner
+    expect(isTransientNetworkError(outer)).toBe(true)
+  })
+
+  it('returns false for unrelated errors', () => {
+    expect(isTransientNetworkError(new Error('Internal Server Error'))).toBe(
+      false,
+    )
+    expect(isTransientNetworkError(undefined)).toBe(false)
+    expect(isTransientNetworkError('fetch failed')).toBe(false)
+    const serverError = new Error('Bad Request') as Error & {
+      statusCode: number
+    }
+    serverError.statusCode = 400
+    expect(isTransientNetworkError(serverError)).toBe(false)
   })
 })
