@@ -7,15 +7,18 @@ import type { RouterParams } from '../command-registry'
 const saveToHistory = mock(() => {})
 const setInputValue = mock(() => {})
 const setMessages = mock(() => {})
+// Injected in place of the real `handleChatGptAuthCode` (see
+// `routeUserPrompt`'s `exchangeChatGptAuthCode` param) so this test doesn't
+// need to mock the `chatgpt-connect-banner` module — mock.module() is
+// process-global in Bun and leaks into unrelated test files run later in the
+// same process.
 const handleChatGptAuthCode = mock(async () => ({
   success: true,
   message: 'ok',
 }))
 
-mock.module('../../components/chatgpt-connect-banner', () => ({
-  handleChatGptAuthCode,
-}))
-
+// CHATGPT_OAUTH_ENABLED is a constant, not a function, so mocking it is
+// within the project's documented convention (docs/testing.md).
 mock.module('@codebuff/common/constants/chatgpt-oauth', () => ({
   CHATGPT_OAUTH_ENABLED: true,
 }))
@@ -60,7 +63,7 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
       stopStreaming: () => {},
     } satisfies RouterParams
 
-    await routeUserPrompt(params)
+    await routeUserPrompt(params, handleChatGptAuthCode)
 
     expect(handleChatGptAuthCode).toHaveBeenCalledWith('auth-code-123')
     expect(setMessages).toHaveBeenCalled()
