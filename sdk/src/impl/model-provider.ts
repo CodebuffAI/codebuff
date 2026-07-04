@@ -17,10 +17,12 @@ import {
   isOpenAIProviderModel,
   toOpenAIModelId,
 } from '@codebuff/common/constants/chatgpt-oauth'
+import { isTransientNetworkError } from '@codebuff/common/util/error'
 import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@codebuff/llm-providers/openai-compatible'
+import { APICallError } from 'ai'
 
 import { getWebsiteUrl } from '../constants'
 import { getValidChatGptOAuthCredentials } from '../credentials'
@@ -192,6 +194,41 @@ function createOpenAIOAuthModel(
 }
 
 /**
+ * Wrap global fetch so transient connection failures (socket closed/reset,
+ * connection refused) are rethrown as retryable APICallErrors.
+ *
+ * Bun's fetch throws these as plain Errors ("The socket connection was closed
+ * unexpectedly...", code ECONNRESET/ConnectionClosed), which the AI SDK does
+ * not recognize as retryable — it only auto-retries APICallError with
+ * isRetryable=true. Marking them retryable lets streamText's built-in
+ * exponential backoff (default 2 retries) absorb brief server/network blips
+ * instead of failing the whole agent run.
+ */
+function fetchWithRetryableNetworkErrors(
+  ...args: Parameters<typeof globalThis.fetch>
+): ReturnType<typeof globalThis.fetch> {
+  return globalThis.fetch(...args).catch((error: unknown) => {
+    if (isTransientNetworkError(error)) {
+      const input = args[0]
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+      throw new APICallError({
+        message: error instanceof Error ? error.message : String(error),
+        cause: error,
+        url,
+        requestBodyValues: {},
+        isRetryable: true,
+      })
+    }
+    throw error
+  })
+}
+
+/**
  * Create a model that routes through the Codebuff backend.
  * This is the existing behavior - requests go to Codebuff backend which forwards to OpenRouter.
  */
@@ -257,7 +294,9 @@ function createCodebuffBackendModel(
         },
       }),
     },
-    fetch: undefined,
+    // Cast: Bun's fetch type also declares a `preconnect` helper, but the AI
+    // SDK only ever invokes fetch as a plain function.
+    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
     includeUsage: undefined,
     supportsStructuredOutputs: true,
   })
