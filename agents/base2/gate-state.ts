@@ -88,4 +88,31 @@ export type Base2ActiveWorkState = Base2GateState & {
    * passes. Backward-compatible: older serialized state lacks this field.
    */
   staticReviewerJobId?: string
+  /**
+   * M3 (R1a) — true after the automated pre-edit security-reviewer gate has
+   * fired for the current pending gate file set. Reset to false whenever the
+   * pending gate file set changes (detected via auxGatesLastPendingFiles vs
+   * gateFileSetsEqual). Backward-compatible: older serialized state lacks
+   * this field (treated as false).
+   */
+  preEditSecurityReviewDone?: boolean
+  /**
+   * M3 (R1b) — true after the automated post-edit test-writer gate has fired
+   * for the current pending gate file set. Reset on pending-file-set change.
+   * Backward-compatible.
+   */
+  testWriterGateDone?: boolean
+  /**
+   * M3 (R1c) — true after the automated post-edit doc-writer gate has fired
+   * for the current pending gate file set. Reset on pending-file-set change.
+   * Backward-compatible.
+   */
+  docWriterGateDone?: boolean
+  /**
+   * M3 (R1d) — snapshot of the pendingGateFiles used to detect that the
+   * pending gate file set has changed, so the three aux-gate done-flags above
+   * can be reset via gateFileSetsEqual. Backward-compatible: older serialized
+   * state lacks this field (treated as empty).
+   */
+  auxGatesLastPendingFiles?: string[]
 }

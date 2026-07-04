@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "slug": "agent-trigger-gates-and-git-branch-2026-07-05",
+  "status": "completed",
+  "currentTask": "VG3 — write agents/__tests__/gate-aux-triggers.test.ts (P4.1) + run typecheck",
+  "createdAt": "2026-07-04T22:18:06.333Z",
+  "updatedAt": "2026-07-04T22:56:07.998Z"
+}

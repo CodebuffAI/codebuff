@@ -14,6 +14,7 @@ export type ToolName =
   | 'find_files'
   | 'find_files_matching_content'
   | 'git_status'
+  | 'git_branch'
   | 'glob'
   | 'kill_job'
   | 'list_directory'
@@ -64,6 +65,7 @@ export interface ToolParamsMap {
   find_files: FindFilesParams
   find_files_matching_content: FindFilesMatchingContentParams
   git_status: GitStatusParams
+  git_branch: GitBranchParams
   glob: GlobParams
   kill_job: KillJobParams
   list_directory: ListDirectoryParams
@@ -334,6 +336,19 @@ export interface FindFilesMatchingContentParams {
   groupBySymbol?: boolean
   /** Maximum seconds to let ripgrep run before returning partial results. Defaults to 15. */
   timeoutSeconds?: number
+}
+
+/**
+ * Create a new git branch, optionally switching to it. Refuses to branch when
+ * the working tree is dirty unless `allow_dirty` is true.
+ */
+export interface GitBranchParams {
+  /** Name of the branch to create. Must start with an alphanumeric character and contain only [a-zA-Z0-9._/-]. */
+  branch_name: string
+  /** When true (default), create AND switch to the branch (`git checkout -b`). When false, only create the branch (`git branch`). */
+  switch?: boolean
+  /** When true, skip the dirty-tree refusal check. Defaults to false. */
+  allow_dirty?: boolean
 }
 
 /**

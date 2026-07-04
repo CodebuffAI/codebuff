@@ -38,6 +38,7 @@ import { checkJob } from './tools/check-job'
 import { killJob } from './tools/kill-job'
 import { readLogs } from './tools/read-logs'
 import { gitStatus } from './tools/git-status'
+import { gitBranch } from './tools/git-branch'
 import { runFileChangeHooks } from './tools/file-change-hooks'
 
 import type { CustomToolDefinition } from './custom-tool'
@@ -924,6 +925,39 @@ async function handleToolCall({
         cwd: requireCwd(cwd, 'git_status'),
         signal,
       })
+    } else if (toolName === 'git_branch') {
+      // The Zod schema (`common/src/tools/params/tool/git-branch.ts`) exposes
+      // snake_case input: `{ branch_name, switch, allow_dirty }`. The SDK
+      // `gitBranch()` function (`sdk/src/tools/git-branch.ts`) expects
+      // camelCase: `{ branchName, switch, allowDirty }`. Map the keys
+      // explicitly here — an unsafe `...gitBranchInput` spread would pass
+      // `branch_name`/`allow_dirty` through verbatim, leaving `branchName`
+      // as `undefined` (fails the name regex → every dispatch call errors).
+      // `switch` is the same key in both shapes; it is forwarded as-is.
+      const branchInput = input as {
+        branch_name: string
+        switch?: boolean
+        allow_dirty?: boolean
+      }
+      const branchResult = await gitBranch({
+        branchName: branchInput.branch_name,
+        switch: branchInput.switch,
+        allowDirty: branchInput.allow_dirty,
+        cwd: requireCwd(cwd, 'git_branch'),
+      })
+      // gitBranch returns a single GitBranchResult object; the dispatcher
+      // expects a ToolResultOutput[] (array of { type: 'json', value }).
+      // Mirror the shape gitStatus returns by wrapping the value in a tuple.
+      const { errorMessage, ...successValue } = branchResult
+      result = [
+        {
+          type: 'json',
+          value:
+            errorMessage !== undefined
+              ? { errorMessage }
+              : successValue,
+        },
+      ]
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,

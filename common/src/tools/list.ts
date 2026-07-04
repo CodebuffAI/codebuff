@@ -10,6 +10,7 @@ import { browserLogsParams } from './params/tool/browser-logs'
 import { checkBackgroundAgentParams } from './params/tool/check-background-agent'
 import { checkJobParams } from './params/tool/check-job'
 import { codeSearchParams } from './params/tool/code-search'
+import { gitBranchParams } from './params/tool/git-branch'
 import { gitStatusParams } from './params/tool/git-status'
 import { killJobParams } from './params/tool/kill-job'
 import { readLogsParams } from './params/tool/read-logs'
@@ -67,6 +68,7 @@ export const toolParams = {
   check_job: checkJobParams,
   code_search: codeSearchParams,
   git_status: gitStatusParams,
+  git_branch: gitBranchParams,
   kill_job: killJobParams,
   read_logs: readLogsParams,
   create_plan: createPlanParams,
@@ -170,6 +172,10 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('git_status'),
     input: toolParams.git_status.inputSchema,
+  }),
+  z.object({
+    toolName: z.literal('git_branch'),
+    input: toolParams.git_branch.inputSchema,
   }),
   z.object({
     toolName: z.literal('create_plan'),

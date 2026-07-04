@@ -57,6 +57,18 @@ base2 "fix this bug"
 
 For backward compatibility, the `codebuff` command prefix may still work as a compatibility alias where the shim is installed; prefer `openbuff`.
 
+## Automated phase-gates
+
+The orchestrator (`base2` / `base-deep`, via the shared `createBase2` generator) runs three automated phase-gates around the existing validation + code-reviewer gate. Each gate is idempotent per pending gate-file set: it fires exactly once for a given set of edited files, and its done-flag resets only when the pending file set changes (order-insensitive). All three gates are guarded by the `runValidationGate` flag, so `base2-fast` / `base2-fast-no-validation` skip them.
+
+The gate predicates are self-contained string/regex matchers defined inline inside `createBase2.handleSteps`. They intentionally do NOT import `micromatch` or any module-scope binding, because `handleSteps` is serialized via `.toString()` and reconstructed with `new Function(...)`; module-scope imports would be `undefined` at reconstruction time. The glob list mirrors the advisory `securityReviewSection` in `agents/base2/quality-prompt-section.ts` so the automated gate and the advisory prompt agree on what counts as security-sensitive.
+
+1. **`securityReviewerGate` (pre-edit, R1a)** — fires BEFORE the validation/reviewer gate when any pending gate file matches a security-sensitive pattern: `.env*` files; basenames containing `secret`, `token`, or `apikey`; or any path segment equal to `auth`, `oauth`, `credentials`, `session`, `crypto`, `keys`, `secrets`, `vault`, `billing`, `payment`, `stripe`, `permissions`, `rbac`, or `policy`. Spawns `security-reviewer` with the changed files. The review is advisory (non-blocking) — it informs the orchestrator's approach but does not gate the edit.
+2. **`testWriterGate` (post-edit, R1b)** — fires AFTER the validation/reviewer gate passes, when any pending gate file is a non-test source file in a package with a known test command. Maps file paths to per-package test commands: `packages/<name>/(src|__tests__)/` → `cd packages/<name> && bun run typecheck && bun test`; `agents/` (non-test) → `cd agents && bun run typecheck && bun test`; `common/src/` → `cd common && bun run typecheck && bun test`; `cli/src/` → `cd cli && bun run typecheck && bun test`. Files under `__tests__/`, `*.test.ts(x)`, `*.spec.ts(x)`, `*.generated.*`, docs/JSON/YAML/TOML, `.env*`, `docs/`, `evals/`, and `.agents/` are excluded. Spawns `test-writer` with the target files and inferred `test_command`.
+3. **`docWriterGate` (post-edit, R1c)** — fires AFTER the validation/reviewer gate passes, when any pending gate file is a public-API source file: `packages/<name>/src/`, `agents/` (non-test), `common/src/`, or `cli/src/`. Spawns `doc-writer` with the source files and `docs/agents-and-tools.md` as the default target doc.
+
+Ordering inside `handleSteps`: security-reviewer fires first (pre-edit, before validation); then the existing `[validation → code-reviewer]` gate runs; then test-writer + doc-writer fire after that gate passes. The three done-flags (`preEditSecurityReviewDone`, `testWriterGateDone`, `docWriterGateDone`) and the `auxGatesLastPendingFiles` snapshot live on `Base2ActiveWorkState` (`agents/base2/gate-state.ts`). `detectPendingGateFileSetChange` + `resetAuxGateFlags` reset the flags when the pending file set changes (compared via `gateFileSetsEqual`, order-insensitive).
+
 ## Tools
 
 Tools represent the capabilities given to agents to interact with your system.
@@ -158,6 +170,29 @@ dedicated tools:
 These tools back the PlanLink slash commands (`/resume-plan`,
 `/update-plan`, `/plan-status`, `/lessons`). See
 [Local Mode](./local-mode.md) for the user-facing command list.
+
+### `git_branch`
+
+`git_branch` creates a new git branch in the current project, optionally switching to it. It is the first-class agent-side branch-creation tool (no `run_terminal_command` needed). Branch creation is a first-class agent operation that does NOT require `run_terminal_command`.
+
+By default the tool refuses to branch when the working tree is dirty (uncommitted changes) — pass `allow_dirty: true` to override (useful when intentionally moving uncommitted work to a new branch). Branch names must start with an alphanumeric character and contain only `[a-zA-Z0-9._/-]` (intentionally stricter than git's own rules, to keep names predictable and shell-safe).
+
+Input fields:
+
+- `branch_name` (string, required) — name of the branch to create.
+- `switch` (boolean, default `true`) — when `true`, create AND switch to the branch (`git checkout -b`); when `false`, only create the branch (`git branch`), leaving the current branch checked out.
+- `allow_dirty` (boolean, default `false`) — when `true`, skip the dirty-tree refusal check.
+
+Example:
+
+```json
+{
+  "branch_name": "feat/my-feature",
+  "switch": true
+}
+```
+
+On success the result carries `branch`, `created: true`, `switched`, and (when switching) `previousBranch`. On failure it carries an `errorMessage` (invalid name, dirty tree, or non-zero git exit). `git_branch` is registered as an orchestrator tool and is available to `git-committer` (which yields a `git_branch` step before its `git status --short` step when `branch_name` is supplied via its input schema).
 
 ### `apply_smart_patch`
 

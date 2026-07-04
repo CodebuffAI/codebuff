@@ -12,6 +12,7 @@ import { handleEditTransaction } from './tool/edit-transaction'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
 import { handleFindFilesMatchingContent } from './tool/find-files-matching-content'
+import { handleGitBranch } from './tool/git-branch'
 import { handleGitStatus } from './tool/git-status'
 import { handleGlob } from './tool/glob'
 import { handleKillJob } from './tool/kill-job'
@@ -77,6 +78,7 @@ export const codebuffToolHandlers = {
   find_files: handleFindFiles,
   find_files_matching_content: handleFindFilesMatchingContent,
   git_status: handleGitStatus,
+  git_branch: handleGitBranch,
   glob: handleGlob,
   kill_job: handleKillJob,
   read_logs: handleReadLogs,

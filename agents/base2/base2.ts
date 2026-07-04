@@ -395,6 +395,10 @@ ${securityReviewSection}
           gatePassedValidationSummary: '',
           gatePassedFingerprint: '',
           lastReviewerGateSkipReason: '',
+          preEditSecurityReviewDone: false,
+          testWriterGateDone: false,
+          docWriterGateDone: false,
+          auxGatesLastPendingFiles: [],
         }
       activeWorkState.touchedFiles ??= []
       activeWorkState.changedFiles ??= []
@@ -410,6 +414,10 @@ ${securityReviewSection}
       activeWorkState.lastValidationSummary ??= ''
       activeWorkState.nextRequiredAction ??= ''
       activeWorkState.lastPinnedStateMessage ??= ''
+      activeWorkState.preEditSecurityReviewDone ??= false
+      activeWorkState.testWriterGateDone ??= false
+      activeWorkState.docWriterGateDone ??= false
+      activeWorkState.auxGatesLastPendingFiles ??= []
       activeWorkState.workflowTodoProgress = normalizeWorkflowTodoProgress(
         activeWorkState.workflowTodoProgress,
       )
@@ -608,6 +616,44 @@ ${securityReviewSection}
         if (finalResponseGateOpen && !editsThisStep) break
 
         const currentPendingGateFiles = Array.from(pendingGateFiles)
+        // M3 (R1d) — reset the aux-gate done-flags when the pending gate
+        // file set changes, so security-reviewer / test-writer / doc-writer
+        // each get exactly one spawn per distinct edited file set.
+        if (
+          detectPendingGateFileSetChange(activeWorkState, currentPendingGateFiles)
+        ) {
+          resetAuxGateFlags(activeWorkState, currentPendingGateFiles)
+          markActiveWorkStateChanged()
+        }
+        // M3 (R1a) — security-reviewer gate: pre-edit advisory review, fires
+        // BEFORE the validation/reviewer gate when the pending gate files
+        // match security-sensitive patterns. Idempotent per file set.
+        if (
+          runValidationGate &&
+          editsHappened &&
+          currentPendingGateFiles.length > 0 &&
+          !activeWorkState.preEditSecurityReviewDone &&
+          matchesSecuritySensitiveGlob(currentPendingGateFiles)
+        ) {
+          activeWorkState.preEditSecurityReviewDone = true
+          emitGateTelemetry({
+            currentPhase: 'awaiting_validation',
+            pendingFileCount: currentPendingGateFiles.length,
+            pendingFiles: currentPendingGateFiles,
+            reviewerStatus: 'pending',
+            validationStatus: 'pending',
+            reuseReason: 'aux-gate:security-reviewer',
+          })
+          markActiveWorkStateChanged()
+          yield {
+            toolName: 'spawn_agent_inline',
+            input: {
+              agent_type: 'security-reviewer',
+              params: { changed_files: currentPendingGateFiles },
+            },
+            includeToolCall: false,
+          } as any
+        }
         if (
           runValidationGate &&
           editsHappened &&
@@ -1283,6 +1329,83 @@ ${securityReviewSection}
             },
             includeToolCall: false,
           } as any
+          // M3 (R1b/R1c) — test-writer + doc-writer gates: post-edit coverage,
+          // fire AFTER the validation/reviewer gate passes
+          // (finalResponseGateOpen). Idempotent per pending gate file set; the
+          // done-flags are reset by detectPendingGateFileSetChange when the
+          // set changes. They run before `continue` so the loop re-enters and
+          // breaks on the next iteration with finalResponseGateOpen=true.
+          if (
+            currentPendingGateFiles.length > 0 &&
+            !activeWorkState.testWriterGateDone
+          ) {
+            const testWriterSelection = selectTestWriterTargets(
+              currentPendingGateFiles,
+            )
+            if (
+              testWriterSelection.targetFiles.length > 0 &&
+              testWriterSelection.testCommand
+            ) {
+              activeWorkState.testWriterGateDone = true
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'final_response_allowed',
+                pendingFileCount: currentPendingGateFiles.length,
+                pendingFiles: currentPendingGateFiles,
+                reviewerStatus: 'passed',
+                validationStatus: 'passed',
+                reuseReason: 'aux-gate:test-writer',
+              })
+              yield {
+                toolName: 'spawn_agent_inline',
+                input: {
+                  agent_type: 'test-writer',
+                  params: {
+                    target_files: testWriterSelection.targetFiles,
+                    test_command: testWriterSelection.testCommand,
+                  },
+                },
+                includeToolCall: false,
+              } as any
+            } else {
+              activeWorkState.testWriterGateDone = true
+              markActiveWorkStateChanged()
+            }
+          }
+          if (
+            currentPendingGateFiles.length > 0 &&
+            !activeWorkState.docWriterGateDone
+          ) {
+            const docTargets = selectDocWriterTargets(
+              currentPendingGateFiles,
+            )
+            if (docTargets.length > 0) {
+              activeWorkState.docWriterGateDone = true
+              markActiveWorkStateChanged()
+              emitGateTelemetry({
+                currentPhase: 'final_response_allowed',
+                pendingFileCount: currentPendingGateFiles.length,
+                pendingFiles: currentPendingGateFiles,
+                reviewerStatus: 'passed',
+                validationStatus: 'passed',
+                reuseReason: 'aux-gate:doc-writer',
+              })
+              yield {
+                toolName: 'spawn_agent_inline',
+                input: {
+                  agent_type: 'doc-writer',
+                  params: {
+                    source_files: docTargets,
+                    target_doc_files: ['docs/agents-and-tools.md'],
+                  },
+                },
+                includeToolCall: false,
+              } as any
+            } else {
+              activeWorkState.docWriterGateDone = true
+              markActiveWorkStateChanged()
+            }
+          }
           continue
         }
         if (editsHappened) {
@@ -1475,6 +1598,158 @@ ${securityReviewSection}
         if (left.length !== right.length) return false
         const rightFiles = new Set(right)
         return left.every((file) => rightFiles.has(file))
+      }
+
+      // M3 (R1a–R1d) automated phase-gate predicates. These mirror the
+      // advisory glob list in securityReviewSection (quality-prompt-section.ts)
+      // so the automated gate and the advisory prompt agree on what is
+      // security-sensitive. Self-contained string/regex matching (no
+      // module-scope imports) because handleSteps is serialized via
+      // .toString() and reconstructed with new Function(...): module-scope
+      // bindings such as an imported `micromatch` would be undefined at
+      // reconstruction time.
+      const SECURITY_SENSITIVE_GLOBS = [
+        'auth',
+        'oauth',
+        'credentials',
+        'session',
+        'crypto',
+        'keys',
+        'secrets',
+        'vault',
+        'billing',
+        'payment',
+        'stripe',
+        'permissions',
+        'rbac',
+        'policy',
+      ]
+      const SECURITY_SENSITIVE_NAME_SUBSTRINGS = [
+        'secret',
+        'token',
+        'apikey',
+      ]
+
+      function matchesSecuritySensitiveGlob(files: string[]): boolean {
+        if (!files.length) return false
+        for (const file of files) {
+          const normalized = normalizeGateFilePath(file)
+          if (!normalized) continue
+          const segments = normalized.split('/')
+          const basename = segments[segments.length - 1] || ''
+          const lowerBase = basename.toLowerCase()
+          // .env files at any depth.
+          if (basename.startsWith('.env')) {
+            return true
+          }
+          for (const name of SECURITY_SENSITIVE_NAME_SUBSTRINGS) {
+            if (lowerBase.includes(name)) {
+              return true
+            }
+          }
+          // Directory segment matches (any path segment equals a sensitive dir).
+          for (const segment of segments) {
+            const lower = segment.toLowerCase()
+            if (SECURITY_SENSITIVE_GLOBS.includes(lower)) {
+              return true
+            }
+          }
+        }
+        return false
+      }
+
+      function inferPackageTestCommand(filePath: string): string | null {
+        // Map a source file path to its package test command. Returns null
+        // if not in a known package (gate then skips for that file).
+        const pkgMatch = filePath.match(
+          /^packages\/([^/]+)\/(?:src|__tests__)\//,
+        )
+        if (pkgMatch) {
+          return `cd packages/${pkgMatch[1]} && bun run typecheck && bun test`
+        }
+        if (
+          filePath.startsWith('agents/') &&
+          !filePath.startsWith('agents/__tests__/')
+        ) {
+          return 'cd agents && bun run typecheck && bun test'
+        }
+        if (filePath.startsWith('common/src/')) {
+          return 'cd common && bun run typecheck && bun test'
+        }
+        if (filePath.startsWith('cli/src/')) {
+          return 'cd cli && bun run typecheck && bun test'
+        }
+        return null
+      }
+
+      function isNonTestSourceFile(filePath: string): boolean {
+        if (/__tests__\//.test(filePath)) return false
+        if (/\.(test|spec)\.tsx?$/.test(filePath)) return false
+        if (/\.generated\.tsx?$/.test(filePath)) return false
+        if (/\.(md|json|mdx)$/.test(filePath)) return false
+        if (/\.(yml|yaml|toml)$/.test(filePath)) return false
+        if (/^\.env($|\.)/.test(filePath)) return false
+        if (filePath.startsWith('docs/')) return false
+        if (filePath.startsWith('evals/') || filePath.startsWith('.agents/')) {
+          return false
+        }
+        return !!inferPackageTestCommand(filePath)
+      }
+
+      function selectTestWriterTargets(files: string[]): {
+        targetFiles: string[]
+        testCommand: string | null
+      } {
+        const targetFiles = files.filter(isNonTestSourceFile)
+        if (!targetFiles.length) {
+          return { targetFiles: [], testCommand: null }
+        }
+        // Per file-set: use the first target file's package command.
+        const testCommand = inferPackageTestCommand(targetFiles[0])
+        return { targetFiles, testCommand }
+      }
+
+      function isPublicApiSourceFile(filePath: string): boolean {
+        if (/__tests__\//.test(filePath)) return false
+        if (/\.(test|spec)\.tsx?$/.test(filePath)) return false
+        if (/\.generated\.tsx?$/.test(filePath)) return false
+        if (/\.(md|json|mdx|yml|yaml|toml)$/.test(filePath)) return false
+        if (filePath.startsWith('docs/')) return false
+        if (filePath.startsWith('evals/') || filePath.startsWith('.agents/')) {
+          return false
+        }
+        if (/^packages\/[^/]+\/src\//.test(filePath)) return true
+        if (
+          filePath.startsWith('agents/') &&
+          !filePath.startsWith('agents/__tests__/')
+        ) {
+          return true
+        }
+        if (filePath.startsWith('common/src/')) return true
+        if (filePath.startsWith('cli/src/')) return true
+        return false
+      }
+
+      function selectDocWriterTargets(files: string[]): string[] {
+        return files.filter(isPublicApiSourceFile)
+      }
+
+      function detectPendingGateFileSetChange(
+        activeWorkState: Base2ActiveWorkState,
+        currentFiles: string[],
+      ): boolean {
+        const last = activeWorkState.auxGatesLastPendingFiles ?? []
+        return !gateFileSetsEqual(last, currentFiles)
+      }
+
+      function resetAuxGateFlags(
+        activeWorkState: Base2ActiveWorkState,
+        currentFiles: string[],
+      ): void {
+        activeWorkState.preEditSecurityReviewDone = false
+        activeWorkState.testWriterGateDone = false
+        activeWorkState.docWriterGateDone = false
+        activeWorkState.auxGatesLastPendingFiles = currentFiles
       }
 
       function getConversationGatePassForPendingFiles(
