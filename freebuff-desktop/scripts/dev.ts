@@ -7,7 +7,13 @@
  */
 
 import { brandDevElectron } from './brand-dev-electron'
+import { killStaleInstances } from './kill-stale-instances'
 import { run } from './_procs'
+
+// Kill a previous instance first: Electron's single-instance lock would
+// otherwise make a rerun re-focus the old window (old renderer + orchestrator)
+// instead of loading the latest code.
+await killStaleInstances()
 
 // Make the dev Electron bundle show "Freebuff" + our icon in the Dock/Cmd+Tab
 // (macOS-only, idempotent, best-effort — never blocks launch).
