@@ -251,7 +251,12 @@ export enum AnalyticsEvent {
   FREEBUFF_REDDIT_FUNNEL_CLI_INSTALLED = 'freebuff.reddit_funnel.cli_installed',
   FREEBUFF_REDDIT_FUNNEL_LOGIN = 'freebuff.reddit_funnel.login',
   FREEBUFF_REDDIT_FUNNEL_SIGN_UP = 'freebuff.reddit_funnel.sign_up',
-  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT = 'freebuff.reddit_funnel.first_prompt',
+  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT_CLI = 'freebuff.reddit_funnel.first_prompt_cli',
+  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT_WEB = 'freebuff.reddit_funnel.first_prompt_web',
+  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT_CHAT = 'freebuff.reddit_funnel.first_prompt_chat',
+  FREEBUFF_REDDIT_FUNNEL_RETENTION_1D_CLI = 'freebuff.reddit_funnel.retention_1d_cli',
+  FREEBUFF_REDDIT_FUNNEL_RETENTION_7D_CLI = 'freebuff.reddit_funnel.retention_7d_cli',
+  FREEBUFF_REDDIT_FUNNEL_RETENTION_24D_CLI = 'freebuff.reddit_funnel.retention_24d_cli',
   FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'freebuff.reddit_funnel.gravity_ad_click',
 
   // Freebuff web /chat ads experiment (server-rendered Gravity ads vs the
