@@ -249,6 +249,7 @@ export function addBashMessageToHistory(params: {
 
 export async function routeUserPrompt(
   params: RouterParams,
+  exchangeChatGptAuthCode: typeof handleChatGptAuthCode = handleChatGptAuthCode,
 ): Promise<CommandResult> {
   const {
     agentMode,
@@ -419,7 +420,7 @@ export async function routeUserPrompt(
 
     const code = trimmed
     if (code) {
-      const result = await handleChatGptAuthCode(code)
+      const result = await exchangeChatGptAuthCode(code)
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),

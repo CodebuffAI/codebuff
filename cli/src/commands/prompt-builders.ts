@@ -11,23 +11,33 @@ import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 
 // Pick the GPT-delegating variant when a ChatGPT account is connected;
 // otherwise the user's selected model does the work directly.
-function gptOrSelectedModelPrompt(gptVariant: string, selectedModelVariant: string): string {
-  return getChatGptOAuthStatus().connected ? gptVariant : selectedModelVariant
+function gptOrSelectedModelPrompt(
+  gptVariant: string,
+  selectedModelVariant: string,
+  isChatGptConnected: () => boolean = () => getChatGptOAuthStatus().connected,
+): string {
+  return isChatGptConnected() ? gptVariant : selectedModelVariant
 }
 
 // Base prompt for plan command - always gathers context first.
-export function buildPlanBasePrompt(): string {
+export function buildPlanBasePrompt(
+  isChatGptConnected?: () => boolean,
+): string {
   return gptOrSelectedModelPrompt(
     'Gather all the relevant context and then spawn @thinker-gpt Think about how to implement the following:',
     'Gather all the relevant context and then think carefully about how to implement the following:',
+    isChatGptConnected,
   )
 }
 
 // Base prompt for review command - always gathers context first.
-export function buildReviewBasePrompt(): string {
+export function buildReviewBasePrompt(
+  isChatGptConnected?: () => boolean,
+): string {
   return gptOrSelectedModelPrompt(
     'Please gather all relevant context and then spawn @thinker-gpt to review:',
     'Please gather all relevant context and then carefully review:',
+    isChatGptConnected,
   )
 }
 
@@ -36,8 +46,11 @@ export function buildReviewBasePrompt(): string {
  * @param input - The user's plan request (e.g., "add OAuth login")
  * @returns The full prompt to send to the agent
  */
-export function buildPlanPrompt(input: string): string {
-  const basePrompt = buildPlanBasePrompt()
+export function buildPlanPrompt(
+  input: string,
+  isChatGptConnected?: () => boolean,
+): string {
+  const basePrompt = buildPlanBasePrompt(isChatGptConnected)
   const trimmedInput = input.trim()
   if (!trimmedInput) {
     return basePrompt
@@ -88,8 +101,12 @@ function getReviewScopeText(scope: ReviewScope): string {
  * @param customInput - Optional custom review focus (when scope is 'custom')
  * @returns The full prompt to send to the agent
  */
-export function buildReviewPrompt(scope: ReviewScope, customInput?: string): string {
-  const basePrompt = buildReviewBasePrompt()
+export function buildReviewPrompt(
+  scope: ReviewScope,
+  customInput?: string,
+  isChatGptConnected?: () => boolean,
+): string {
+  const basePrompt = buildReviewBasePrompt(isChatGptConnected)
   const scopeText = getReviewScopeText(scope)
 
   // For custom input, append the user's specific focus
@@ -112,9 +129,12 @@ export function buildReviewPrompt(scope: ReviewScope, customInput?: string): str
  * @param input - The user's review request
  * @returns The full prompt to send to the agent
  */
-export function buildReviewPromptFromArgs(input: string): string {
+export function buildReviewPromptFromArgs(
+  input: string,
+  isChatGptConnected?: () => boolean,
+): string {
   const trimmedInput = input.trim()
   // Use the same format as preset scopes for consistency
-  return `${buildReviewBasePrompt()} ${trimmedInput}`
+  return `${buildReviewBasePrompt(isChatGptConnected)} ${trimmedInput}`
 }
 
