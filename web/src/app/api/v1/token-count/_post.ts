@@ -64,13 +64,13 @@ export function normalizeToolSchemasForAnthropic(
   if (!tools) return tools
   return tools.map((tool) => {
     const schema = tool.input_schema
-    if (
-      schema != null &&
-      typeof schema === 'object' &&
-      !Array.isArray(schema) &&
-      (schema as Record<string, unknown>).type === undefined
-    ) {
-      return { ...tool, input_schema: { ...schema, type: 'object' } }
+    if (schema != null && typeof schema === 'object' && !Array.isArray(schema)) {
+      const type = (schema as Record<string, unknown>).type
+      // Treat missing / null / empty-string `type` as needing a backfill; a
+      // valid JSON Schema `type` is always a non-empty string (or array).
+      if (type == null || type === '') {
+        return { ...tool, input_schema: { ...schema, type: 'object' } }
+      }
     }
     return tool
   })
@@ -158,18 +158,17 @@ export async function postTokenCount(params: {
       'Failed to count tokens',
     )
 
-    // Map a deterministic upstream 4xx (e.g. a malformed tool schema the
-    // provider rejects) to a client 4xx so callers treat it as non-retryable
-    // instead of hammering the endpoint on every step. Everything else stays a
-    // 500 (retryable transient failure).
+    // Map a deterministic malformed-request upstream status (400/422, e.g. a
+    // bad tool schema) to a client 422 so callers treat it as non-retryable.
+    // Deliberately keep everything else — transient 5xx, rate-limit 429, auth
+    // 401/403 — as 500 (the retryable/opaque bucket); labeling a 429 or 401 as
+    // a client 422 would be wrong.
     const upstreamStatus =
       error instanceof UpstreamTokenCountError
         ? error.upstreamStatus
         : undefined
     const status =
-      upstreamStatus !== undefined && upstreamStatus >= 400 && upstreamStatus < 500
-        ? 422
-        : 500
+      upstreamStatus === 400 || upstreamStatus === 422 ? 422 : 500
 
     return NextResponse.json(
       { error: 'Failed to count tokens' },

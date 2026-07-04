@@ -960,6 +960,18 @@ describe('normalizeToolSchemasForAnthropic', () => {
     expect(result![0].input_schema.type).toBe('object')
   })
 
+  it('backfills type when it is null or an empty string', () => {
+    const tools = [
+      { name: 'null_type', input_schema: { type: null, properties: {} } },
+      { name: 'empty_type', input_schema: { type: '', properties: {} } },
+    ]
+
+    const result = normalizeToolSchemasForAnthropic(tools)
+
+    expect(result![0].input_schema).toEqual({ type: 'object', properties: {} })
+    expect(result![1].input_schema).toEqual({ type: 'object', properties: {} })
+  })
+
   it('does not overwrite a non-object top-level type', () => {
     const tools = [
       {

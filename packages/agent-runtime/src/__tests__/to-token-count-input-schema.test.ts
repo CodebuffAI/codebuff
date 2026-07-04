@@ -60,6 +60,17 @@ describe('toTokenCountInputSchema', () => {
     expect(result).not.toBe(schema)
   })
 
+  it('backfills a null or empty-string top-level type on a plain object', () => {
+    expect(toTokenCountInputSchema({ type: null, properties: {} })).toEqual({
+      type: 'object',
+      properties: {},
+    })
+    expect(toTokenCountInputSchema({ type: '', properties: {} })).toEqual({
+      type: 'object',
+      properties: {},
+    })
+  })
+
   it('returns undefined for null/undefined input', () => {
     expect(toTokenCountInputSchema(null)).toBeUndefined()
     expect(toTokenCountInputSchema(undefined)).toBeUndefined()
