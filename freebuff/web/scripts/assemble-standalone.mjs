@@ -106,7 +106,77 @@ await copyDir(
   { required: true },
 )
 
-// 4. Packages whose data/worker files the tracer misses — copy wholesale into
+// 4. Workspace packages in serverExternalPackages that Turbopack's standalone
+//    copier misses: it skips symlinked (workspace) externals entirely, so the
+//    runtime `import("@codebuff/sdk")` in the chat stream route has nothing to
+//    resolve once Render prunes the root node_modules (ERR_MODULE_NOT_FOUND in
+//    prod). Copy each package plus its transitive npm dependency closure.
+const WORKSPACE_EXTERNALS = ['@codebuff/sdk']
+
+async function readPkgJson(dir) {
+  try {
+    const { readFile } = await import('fs/promises')
+    return JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/** Resolve a dependency's package dir: nested node_modules first, then root. */
+async function resolveDepDir(fromDir, dep) {
+  const nested = join(fromDir, 'node_modules', dep)
+  if (await exists(join(nested, 'package.json'))) return nested
+  const hoisted = join(rootNodeModules, dep)
+  if (await exists(join(hoisted, 'package.json'))) return hoisted
+  return null
+}
+
+async function copyWithDependencyClosure(rootPkgs) {
+  const seen = new Set()
+  // queue of [packageName, sourceDir]
+  const queue = []
+  for (const name of rootPkgs) {
+    const dir = join(rootNodeModules, name)
+    if (!(await exists(join(dir, 'package.json')))) {
+      fail(`workspace external missing from root node_modules: ${name}`)
+    }
+    queue.push([name, dir])
+  }
+  while (queue.length) {
+    const [name, dir] = queue.shift()
+    if (seen.has(name)) continue
+    seen.add(name)
+    // dereference: true resolves workspace symlinks into real copies.
+    await cp(dir, join(standaloneNodeModules, name), {
+      recursive: true,
+      force: true,
+      dereference: true,
+    })
+    const pkg = await readPkgJson(dir)
+    for (const dep of Object.keys(pkg?.dependencies ?? {})) {
+      if (seen.has(dep)) continue
+      const depDir = await resolveDepDir(dir, dep)
+      if (!depDir) {
+        console.log(
+          `[assemble-standalone] warn: dep ${dep} of ${name} not found; skipping`,
+        )
+        continue
+      }
+      queue.push([dep, depDir])
+    }
+    // Optional deps: copy when present, skip silently otherwise.
+    for (const dep of Object.keys(pkg?.optionalDependencies ?? {})) {
+      if (seen.has(dep)) continue
+      const depDir = await resolveDepDir(dir, dep)
+      if (depDir) queue.push([dep, depDir])
+    }
+  }
+  console.log(
+    `[assemble-standalone] copied workspace externals + deps (${seen.size} packages)`,
+  )
+}
+
+// 5. Packages whose data/worker files the tracer misses — copy wholesale into
 //    the standalone node_modules so runtime __dirname resolution finds them.
 const WHOLESALE_PACKAGES = [
   'geoip-country',
@@ -125,16 +195,46 @@ for (const pkg of WHOLESALE_PACKAGES) {
   await copyDir(join(rootNodeModules, pkg), join(standaloneNodeModules, pkg))
 }
 
-// 5. Verify the assets that would otherwise 500 at runtime actually landed.
+await copyWithDependencyClosure(WORKSPACE_EXTERNALS)
+
+// 6. Verify the assets that would otherwise 500 at runtime actually landed.
 const REQUIRED = [
   join(WASM_DEST, 'tree-sitter.wasm'),
   join(WASM_DEST, 'tree-sitter-typescript.wasm'),
   join(RIPGREP_DEST, 'x64-linux', 'rg'),
   join(RIPGREP_DEST, 'arm64-linux', 'rg'),
   join(standaloneNodeModules, 'geoip-country', 'data', 'geoip-country.dat'),
+  join(standaloneNodeModules, '@codebuff', 'sdk', 'dist', 'index.mjs'),
 ]
 const missing = REQUIRED.filter((p) => !existsSync(p))
 if (missing.length) fail(`required runtime assets missing after copy:\n  ${missing.join('\n  ')}`)
+
+// 7. Prove the runtime `import("@codebuff/sdk")` actually resolves from inside
+//    the standalone tree (catches missing transitive deps, not just the entry
+//    file), using a child Node process rooted at the server's location.
+const { execFileSync } = await import('child_process')
+const verifySrc = `
+  import { createRequire } from 'module'
+  const req = createRequire(process.cwd() + '/server.js')
+  const resolved = req.resolve('@codebuff/sdk/package.json')
+  if (!resolved.startsWith(${JSON.stringify(standaloneRoot)})) {
+    console.error('resolved OUTSIDE standalone tree: ' + resolved)
+    process.exit(1)
+  }
+  await import('@codebuff/sdk')
+`
+try {
+  execFileSync(process.execPath, ['--input-type=module', '-e', verifySrc], {
+    cwd: standaloneApp,
+    stdio: 'pipe',
+  })
+  console.log('[assemble-standalone] verified: @codebuff/sdk imports from standalone')
+} catch (err) {
+  fail(
+    `@codebuff/sdk failed to import from the standalone tree:\n` +
+      String(err.stderr ?? err),
+  )
+}
 
 const sizeMb = ((await dirSize(standaloneRoot)) / 1024 / 1024).toFixed(0)
 console.log(

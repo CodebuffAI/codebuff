@@ -22,7 +22,10 @@ const projectCache = join(webRoot, '.next/cache')
 // Drop the stash if it balloons past this — a huge bundler cache (Turbopack
 // filesystem cache, `.next/cache/turbopack`) slows Render's build-cache
 // download/extraction more than it saves in compile time.
-const MAX_STASH_BYTES = 3 * 1024 * 1024 * 1024
+// Turbopack's filesystem cache runs ~3-5GB for this app (vs ~1.5GB webpack);
+// it turns a full recompile into a sub-second warm hit, so allow it. Revisit
+// if Render's cache download/extract cost outgrows the compile savings.
+const MAX_STASH_BYTES = 8 * 1024 * 1024 * 1024
 
 async function exists(path) {
   try {
