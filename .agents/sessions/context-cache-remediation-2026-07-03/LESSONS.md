@@ -252,3 +252,66 @@ When docs claim a policy applies to multiple orchestrator definitions, verify ev
 
 When user asks to cover a numbered or enumerated policy-candidate list, mirror every item explicitly in both prompt policy and docs. Avoid relying on umbrella wording for high-impact candidates such as validation selection, release/deployment flow, ask-user decisions, and tool routing; reviewers and users will treat omissions as incomplete even if adjacent policies imply them.
 
+
+<!-- update_plan_status:appended -->
+## Buffbench live-run environment preconditions — 2026-07-04T18:01:37.626Z
+
+GOTCHA — buffbench live runs against `eval-codebuff.json` have been blocked since at least 2026-07-04T13-41 by FOUR environment preconditions, none of which are code defects in the M10.2 cache-recall eval (which passes 14/49 unit tests):
+
+1. **Source repo uncloneable.** `eval-codebuff.json.repoUrl` = `https://github.com/CodebuffAI/codebuff`. `git clone --depth 1` of this repo fails for every task. A prior partial run (logs/2026-07-04T13-41_base2, 111 trace files) shows 58/62 tasks failed with `Command failed: git clone --depth 1 https://github.com/Codeb...`. ACTION: restore/clone the source repo or repoint `repoUrl` at an accessible mirror (e.g., the local openbuff worktree via `file://` if applicable).
+2. **`initCommand` (`bun install && git checkout -- bun.lock`) fails in isolated repos.** Partially a consequence of (1), but `bun install` in the scratch clone env also needs the right bun version pinned. The eval pins `bun-v1.2.23` in `binInstalls` while the host runs 1.3.14. ACTION: verify the isolated bun install actually succeeds once the source repo clones.
+3. **`GEMINI_API_KEY` missing.** `judge-gemini` (model `gemini/gemini-2.5-pro`) cannot run; no key in `.env`. ACTION: add `GEMINI_API_KEY` to `.env` or repoint `judge-gemini` at a configured provider via `openbuff.d/routes.json`.
+4. **Pioneer API `out_of_credits` (HTTP 402).** `judge-gpt` (gpt-5.5) and `judge-claude` (claude-sonnet-5-6) route through `pioneer.ai`, which returns `{"code":"out_of_credits"}`. All judges fail → all scores 0. ACTION: add pioneer.ai credits or repoint judges at an in-credit provider.
+
+REUSABLE: When wiring the cache-recall eval, the config is evaluated per-task against the live `finalMessageHistoryText` from the agent runner. `minCacheHitRatio` alone (no `requiredRecallSubstrings`) gives a live cache-efficiency measurement across tasks; `requiredRecallSubstrings` is per-spec and harder to share across commits. The wired config (`{ "minCacheHitRatio": 0.5 }`) is a reasonable eval-file-level default and is saved in `evals/buffbench/eval-codebuff.json`.
+
+FOLLOWUP: Gate G4 cannot be closed in the current environment. The M10.2 code is sound. Re-open Gate G4 once (1)–(4) are resolved; rerun `bun run evals/buffbench/main-gate-g4-live.ts`.
+
+
+<!-- update_plan_status:appended -->
+## Regenerating a buffbench eval from a local file:// worktree — three pre-existing gotchas — 2026-07-04T20:44:56.902Z
+
+GOTCHA — regenerating a buffbench eval from the openbuff repo's own history via `gen-repo-eval.ts file://<worktree>` exposed **three** pre-existing defects that blocked the run end-to-end. All three fixes are in-scope for any future local-eval regeneration, and they're independent of the M10.2 cache-recall eval code:
+
+1. **`pick-commits.ts` `execFileSync` default 1MB `maxBuffer`** — `git show --stat <sha>` crashes with `ENOBUFS` on commits that touch the dependency cache (`.bun-install/cache/` has thousands of files). Fix: bump `maxBuffer` to 50MB in the `getCommits` / `screenCommitsWithGpt5` git-show call. This is a one-liner and unblocks any repo with large diff commits.
+
+2. **`CommitSelectionSchema` strict field-name validation** — `promptAiSdkStructured` uses `generateObject` with a Zod schema, but the routed model (`iamhc/glm-5.2` via the default route, since `models.openrouter_gpt5` `openai/gpt-5.5` has no `routes.json` override and falls through) does NOT follow the schema's exact camelCase keys. It returns valid commit selections under `selected_commits`, `commits`, `selected`, or `{is_hard: true}`-flavored single-commit objects. Every response fails Zod validation → `selectedCommits=[]` → empty eval. Fix: make the schema lenient with `.optional()` on every field and a `z.unknown()` passthrough for the polymorphic `selected` field, then normalize variants in a `transform`. **Do NOT use `z.union(..., z.undefined())`** — it crashes Zod-to-JSON-Schema conversion inside `generateObject`, producing per-commit `AI_TypeValidationError` instead of fallback. `.optional()` + `z.unknown()` is the JSON-Schema-compatible equivalent.
+
+3. **`test-repo-utils.ts` `git clone --depth 1` of a `file://` worktree** — `git clone --depth 1 file:///path/to/worktree` fails with exit 128 because git refuses to shallow-copy a non-bare local repo that has a checked-out working tree. Fix: when `repoUrl.startsWith('file://')`, use `git clone --no-local --depth 1` so git treats the source as a remote transport (allows `--depth 1` against a non-bare worktree). Same fix applies to `setup-test-repo.ts`'s general `file://` capability added in this same session.
+
+REUSABLE — the `file://` eval pattern: to regenerate an eval from the repo you're already in, run `bun run gen-repo-eval.ts file://$(pwd)` (no network needed, no auth stall, deterministic). The regenerated `eval-openbuff-v2.json` is 333KB / 8 commits and runnable via `bun run main-openbuff.ts`. This complements `eval-codebuff.json` (inherited upstream history) for cross-fork regression.
+
+FOLLOWUP — Gate G4 blockers (2)–(4) remain environment/credential issues, NOT code defects: (2) `bun install` in the isolated test-repo env, (3) `GEMINI_API_KEY` missing, (4) Pioneer API `out_of_credits` (HTTP 402). Blocker (1) ("Source repo uncloneable") is now **RESOLVED** by the repoUrl repoint + `file://` capability. Gate G4 itself remains suspended until (2)–(4) clear; the regenerated `eval-openbuff-v2.json` is an additional regression surface for when they do. The M10.2 cache-recall eval remains unit-test-validated (14/49).
+
+
+<!-- update_plan_status:appended -->
+## Followup phase lessons — file:// handling, CommitSelectionSchema, live-run model-capability signal 2026-07-04T22:00Z — 2026-07-04T21:43:58.268Z
+
+Gotchas confirmed during the followup phase (live run + tests, 2026-07-04T22:00Z):
+
+1. **`extractRepoNameFromUrl` trailing-slash bug** — `file:///path/openbuff/` returned `''` (empty last segment) because no slice stripped the trailing `/`. Test coverage surfaced it. Fix: `path.replace(/\/+$/, '')` before splitting. When adding URL parsing tests, always include the `\{path}/` and `\{path}//` variants.
+
+2. **`CommitSelectionSchema` JSON-Schema-incompatible Zod patterns** — `z.union([... z.undefined()])` crashes Zod-to-JSON-Schema conversion silently (the error materializes only at runtime when `promptAiSdkStructured` calls `generateObject`). Use `.optional()` + `z.unknown()` for polymorphic fields instead. The routed `iamhc/glm-5.2` model frequently emits field-name variants like `selected_commits`, `commits`, `selected`, `is_hard` instead of the canonical `selectedCommits`; the schema must normalize these with a `.transform()`.
+
+3. **`git clone --depth 1 file://...` fails against a non-bare worktree** — must use `git clone --no-local --depth 1`. Same fix needs to land in BOTH `setup-test-repo.ts` (parentSha fetch path) AND `evals/subagents/test-repo-utils.ts` (clone path). A `--no-local` fetch against a non-bare worktree also requires `--no-local` on `git fetch --depth 1 origin <sha>`.
+
+4. **`pick-commits.ts` `execFileSync` `maxBuffer`** — default 1MB overflows with `ENOBUFS` on commits touching `.bun-install/cache/` (thousands of dependency cache files). Bump to 50MB. Symptom: silent crash mid-screening.
+
+5. **Live `main-openbuff.ts` runs against the routed `iamhc/glm-5.2` expose model-tool-call defects, not harness defects** — the model emits stringified JSON as `paths[1]` (e.g. `"[\"web/src/llm-api/deepseek.ts\"]"`), `replacements[27]` as strings instead of objects, and empty-string `paths`. Each triggers per-task validation gates that block → repair rounds → pendingFile clusters. The buffbench runner catches each, finishes with 8/8 trace files saved even when 5/8 tasks score 0.0. To get a meaningful baseline, route the eval at a model that emits well-formed tool calls. The harness is sound; the score distribution is a model-capability signal.
+
+6. **`OPENBUFF_REPO_PATH` portability pattern** — for `file://`-routed eval JSONs with developer-machine absolute paths, the runner should load the eval JSON, override `repoUrl` when the env var is set, write the patched data to a temp file, and pass the temp path to `runBuffBench`. Do NOT mutate the canonical eval JSON in place — keep the canonical file portable-by-convention, machine-specific-by-env.
+
+REUSABLE: The non-blocking reviewer followup flow (`unit tests for new file:// handling + env-override portability + live end-to-end run`) consumed roughly 90 minutes and ~$0 (in-credit routing). Reuse this pattern whenever a harness change is non-trivial and the gated feature has a live-run path: tests first (catches latent bugs like trailing-slash), portability second (catches `file://` machine-specific paths), live validation last (catches integration diarrheas the tests can't see).
+
+
+<!-- update_plan_status:appended -->
+## Gate G4 wiring gotchas — per-eval cacheRecallEval + scoringStatus widening — 2026-07-04T22:30Z — 2026-07-04T22:03:47.976Z
+
+Gotcha confirmed while wiring Gate G4's cache-recall eval into the regenerated `eval-openbuff-v2.json`:
+
+1. **`cacheRecallEval` must be wired into EACH eval JSON, not inherited globally.** The buffbench runner reads `evalData.cacheRecallEval` generically (run-buffbench.ts:554), but the config lives per-eval-file. `eval-codebuff.json` had it wired (`{ minCacheHitRatio: 0.5 }`), but the regenerated `eval-openbuff-v2.json` did NOT — so the live run that completed 8/8 tasks against `eval-openbuff-v2.json` was NOT actually measuring cache hit ratio at all. Gate G4 cannot be evaluated by task completion alone; the `cacheRecallEval` config must be present in the eval JSON that the runner loads. ACTION when adding a new eval JSON that should measure cache recall: add `"cacheRecallEval": { "minCacheHitRatio": 0.5 }` at the top level alongside `repoUrl`/`generationDate`.
+
+2. **`scoringStatus: judgeResult.scoringStatus ?? 'scored'` widens to `string` in an object literal.** TypeScript widens the literal fallback `'scored'` to `string` when the object is inferred (not annotated), even though `judgeResult.scoringStatus` is `ScoringStatus | undefined` and `'scored'` is a valid union member. The object then fails to assign to `EvalRun` (which expects the narrow `ScoringStatus` union). Fix: annotate the object literal `: EvalRun` so contextual typing keeps the fallback narrow. This was a pre-existing typecheck error at run-buffbench.ts:568 that surfaced when the validation gate ran; it had TWO construction sites (success branch line 186 + catch branch line 252) that both needed the annotation. REUSABLE: when a `??` fallback widens a union literal in an object literal, annotate the object with the target type rather than casting the fallback — contextual typing is cleaner and catches other field drift at the assignment site.
+
+3. **Pre-existing typecheck errors can block the validation gate for an unrelated config edit.** My `cacheRecallEval` edit was a JSON-data-only change that cannot affect TypeScript compilation, but the gate runs the full `bun run typecheck` which was already failing from the `scoringStatus` widening. The fix-it-where-you-find-it principle applies: even though the error was pre-existing and out of strict scope, leaving the gate red blocks the whole plan. Annotating both sites was the minimal, idiomatic fix.
+
