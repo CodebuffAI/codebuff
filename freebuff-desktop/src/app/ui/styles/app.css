@@ -512,7 +512,11 @@ select {
   margin-top: 4px;
 }
 
-/* "Premium" / "In use" pills on the Freebuff model picker. */
+/* "Premium" / "In use" pills on the Freebuff model picker. Both are grayscale
+   so the chip doesn't compete with the model title — the previous green tint
+   pulled the eye to the chip instead of the row's main label. "In use" uses
+   the fainter --faint token, leaving "Premium" slightly more readable while
+   still quiet. */
 .model-badge {
   display: inline-block;
   margin-left: 6px;
@@ -521,13 +525,13 @@ select {
   font-weight: 600;
   line-height: 16px;
   border-radius: 8px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
   vertical-align: middle;
 }
 .model-badge.muted {
-  color: var(--muted);
-  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  color: var(--faint);
+  background: color-mix(in srgb, var(--faint) 16%, transparent);
 }
 .agent-option.disabled,
 .agent-option:disabled {
