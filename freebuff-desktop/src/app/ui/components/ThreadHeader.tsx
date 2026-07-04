@@ -90,6 +90,7 @@ export function ThreadHeader({
             fallbackId={agentHarness ?? undefined}
             agents={agentOptions}
             claudeModel={slice.thread.claudeModel}
+            codexModel={slice.thread.codexModel}
             freebuffModel={slice.thread.freebuffModel}
             freebuffModels={freebuff?.models ?? []}
           />
@@ -99,6 +100,7 @@ export function ThreadHeader({
             fallbackId={agentHarness ?? undefined}
             agents={agentOptions}
             claudeModel={slice.thread.claudeModel}
+            codexModel={slice.thread.codexModel}
             freebuffModel={slice.thread.freebuffModel}
             freebuffModels={freebuff?.models ?? []}
             premiumLocked={

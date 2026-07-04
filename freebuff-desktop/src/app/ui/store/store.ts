@@ -331,7 +331,9 @@ export const useStore = create<StoreState>((set, get) => ({
       id,
       harnessId === 'codebuff'
         ? { harnessId: value, freebuffModel: model }
-        : { harnessId: value, claudeModel: model },
+        : harnessId === 'codex'
+          ? { harnessId: value, codexModel: model }
+          : { harnessId: value, claudeModel: model },
     )
     void api.setThreadAgent(id, harnessId, model).then((res) => {
       if (res?.rejected) {

@@ -18,6 +18,7 @@
 import { useRef, useState } from 'react'
 
 import { CLAUDE_MODEL_OPTIONS, DEFAULT_CLAUDE_MODEL } from '../../../core/claude-models'
+import { CODEX_MODEL_OPTIONS, DEFAULT_CODEX_MODEL } from '../../../core/codex-models'
 import { useDismissable } from '../hooks/useDismissable'
 import type { AgentOption, FreebuffModelOption, HarnessId } from '../lib/types'
 import { Icon } from './Icon'
@@ -34,6 +35,8 @@ export interface AgentModelPickerProps {
   agents: readonly AgentOption[]
   /** The tab's Claude model pick (null → the default, Opus 4.8). */
   claudeModel: string | null
+  /** The tab's Codex model pick (null → the default, GPT-5.5 Codex). */
+  codexModel: string | null
   /** The tab's Freebuff model pick (null → falls back to the first listed). */
   freebuffModel: string | null
   /** Freebuff models the user's access tier may pick, tagged `premiumBucket`. */
@@ -60,29 +63,60 @@ export function activeFreebuffModelOption(
 /** What a tab's (harness, model) picks resolve to for display: agent label +
  *  model label (+ premium flag). Shared by the picker trigger and the static
  *  header label a started thread shows. */
+/** The Claude model option a tab's pick resolves to (explicit pick → default →
+ *  first). Mirrors {@link activeFreebuffModelOption} for the local Claude catalog. */
+export function activeClaudeModelOption(pick: string | null) {
+  return (
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === pick) ??
+    CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
+    CLAUDE_MODEL_OPTIONS[0]
+  )
+}
+
+/** The Codex model option a tab's pick resolves to (explicit pick → default →
+ *  first). */
+export function activeCodexModelOption(pick: string | null) {
+  return (
+    CODEX_MODEL_OPTIONS.find((m) => m.id === pick) ??
+    CODEX_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CODEX_MODEL) ??
+    CODEX_MODEL_OPTIONS[0]
+  )
+}
+
 export function resolveAgentModel(sel: {
   harnessId: HarnessId | null
   fallbackId?: HarnessId
   agents: readonly AgentOption[]
   claudeModel: string | null
+  codexModel: string | null
   freebuffModel: string | null
   freebuffModels: readonly FreebuffModelOption[]
-}): { agent: AgentOption; isClaude: boolean; modelLabel?: string; premium: boolean } | null {
+}): {
+  agent: AgentOption
+  isClaude: boolean
+  isCodex: boolean
+  modelLabel?: string
+  premium: boolean
+} | null {
   const { agents, freebuffModels } = sel
   if (!agents.length) return null
   const resolvedId: HarnessId = sel.harnessId ?? sel.fallbackId ?? agents[0].id
   const agent = agents.find((o) => o.id === resolvedId) ?? agents[0]
-  const activeClaude =
-    CLAUDE_MODEL_OPTIONS.find((m) => m.id === sel.claudeModel) ??
-    CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
-    CLAUDE_MODEL_OPTIONS[0]
+  const activeClaude = activeClaudeModelOption(sel.claudeModel)
+  const activeCodex = activeCodexModelOption(sel.codexModel)
   const activeFreebuff = activeFreebuffModelOption(freebuffModels, sel.freebuffModel)
   const isClaude = resolvedId === 'claude-code'
+  const isCodex = resolvedId === 'codex'
   return {
     agent,
     isClaude,
-    modelLabel: isClaude ? activeClaude.label : activeFreebuff?.displayName,
-    premium: !isClaude && !!activeFreebuff?.premiumBucket,
+    isCodex,
+    modelLabel: isClaude
+      ? activeClaude.label
+      : isCodex
+        ? activeCodex.label
+        : activeFreebuff?.displayName,
+    premium: !isClaude && !isCodex && !!activeFreebuff?.premiumBucket,
   }
 }
 
@@ -94,6 +128,7 @@ export function AgentModelLabel(props: {
   fallbackId?: HarnessId
   agents: readonly AgentOption[]
   claudeModel: string | null
+  codexModel: string | null
   freebuffModel: string | null
   freebuffModels: readonly FreebuffModelOption[]
 }) {
@@ -116,6 +151,7 @@ export function AgentModelPicker({
   fallbackId,
   agents,
   claudeModel,
+  codexModel,
   freebuffModel,
   freebuffModels,
   premiumLocked,
@@ -130,15 +166,14 @@ export function AgentModelPicker({
     fallbackId,
     agents,
     claudeModel,
+    codexModel,
     freebuffModel,
     freebuffModels,
   })
   if (!active) return null
-  const { agent: activeAgent, isClaude } = active
-  const activeClaude =
-    CLAUDE_MODEL_OPTIONS.find((m) => m.id === claudeModel) ??
-    CLAUDE_MODEL_OPTIONS.find((m) => m.id === DEFAULT_CLAUDE_MODEL) ??
-    CLAUDE_MODEL_OPTIONS[0]
+  const { agent: activeAgent, isClaude, isCodex } = active
+  const activeClaude = activeClaudeModelOption(claudeModel)
+  const activeCodex = activeCodexModelOption(codexModel)
   const activeFreebuff = activeFreebuffModelOption(freebuffModels, freebuffModel)
   const triggerModel = active.modelLabel
 
@@ -162,7 +197,7 @@ export function AgentModelPicker({
       >
         <span className="agent-name">{activeAgent.label}</span>
         {triggerModel && <span className="agent-model">{triggerModel}</span>}
-        {!isClaude && activeFreebuff?.premiumBucket && (
+        {!isClaude && !isCodex && activeFreebuff?.premiumBucket && (
           <span className="model-badge">Premium</span>
         )}
         <Icon name="chevron-down" />
@@ -174,6 +209,16 @@ export function AgentModelPicker({
             // the first state snapshot, so until then this group would render as
             // an empty header (the old ModelPicker was likewise gated on models).
             if (agent.id === 'codebuff' && freebuffModels.length === 0) return null
+            // Claude Code and Codex are local-CLI agents sharing a {id,label,tagline}
+            // catalog; Freebuff renders the tier's hosted models instead.
+            const localCatalog =
+              agent.id === 'claude-code'
+                ? CLAUDE_MODEL_OPTIONS
+                : agent.id === 'codex'
+                  ? CODEX_MODEL_OPTIONS
+                  : null
+            const localActiveId = agent.id === 'codex' ? activeCodex.id : activeClaude.id
+            const onLocalAgent = agent.id === 'codex' ? isCodex : isClaude
             return (
             <div key={agent.id} className="agent-menu-group">
               <div className="agent-menu-header">
@@ -181,20 +226,33 @@ export function AgentModelPicker({
                 <span className="agent-menu-title">{agent.label}</span>
                 <span className="agent-menu-desc">{agent.description}</span>
               </div>
-              {agent.id === 'claude-code'
-                ? CLAUDE_MODEL_OPTIONS.map((m) => {
-                    const selected = isClaude && m.id === activeClaude.id
+              {localCatalog
+                ? localCatalog.map((m) => {
+                    const selected = onLocalAgent && m.id === localActiveId
+                    // A local agent whose CLI is unavailable (e.g. Codex not
+                    // installed) comes back `disabled` in the snapshot.
+                    const disabled = !!agent.disabled && !selected
                     return (
                       <button
                         key={m.id}
-                        className={`agent-option ${selected ? 'active' : ''}`}
+                        className={`agent-option ${selected ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
                         role="option"
                         aria-selected={selected}
-                        onClick={() => pick(agent.id, m.id)}
+                        disabled={disabled}
+                        title={disabled ? agent.disabledReason : undefined}
+                        onClick={() => {
+                          if (disabled) return
+                          pick(agent.id, m.id)
+                        }}
                       >
                         <span className="agent-option-body">
-                          <span className="agent-option-title">{m.label}</span>
-                          <span className="agent-option-desc">{m.tagline}</span>
+                          <span className="agent-option-title">
+                            {m.label}
+                            {disabled && <span className="model-badge muted">Not installed</span>}
+                          </span>
+                          <span className="agent-option-desc">
+                            {disabled ? agent.disabledReason : m.tagline}
+                          </span>
                         </span>
                         {selected && <Icon name="check" />}
                       </button>

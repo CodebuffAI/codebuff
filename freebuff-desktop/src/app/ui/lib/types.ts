@@ -20,7 +20,7 @@ export type {
   Part,
   ReasoningCollapse,
 } from '../../../core/parts'
-export { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH } from '../../../core/parts'
+export { NOTICE_CLAUDE_CODE_AUTH, NOTICE_CODEX_AUTH, NOTICE_FREEBUFF_AUTH } from '../../../core/parts'
 export type { AttachmentKind, AttachmentMeta } from '../../../core/attachments'
 export type {
   HarnessId,
@@ -65,6 +65,11 @@ export interface AgentOption {
   id: HarnessId
   label: string
   description: string
+  /** When true, this agent can't run on this machine (e.g. Codex CLI missing) —
+   *  the picker greys it out and blocks selection. */
+  disabled?: boolean
+  /** Tooltip explaining why it's disabled. */
+  disabledReason?: string
 }
 
 export type FreebuffAccessTier = 'full' | 'limited'

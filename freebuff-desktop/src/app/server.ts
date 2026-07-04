@@ -39,6 +39,8 @@ import { pushRecentProject } from './project-dir'
 import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
 
 import { isClaudeModelId } from '../core/claude-models'
+import { isCodexModelId } from '../core/codex-models'
+import { isCodexAvailable } from './agents/codex-harness'
 
 const PORT = Number(process.env.PORT ?? 8787)
 // The built React SPA directory (index.html + hashed assets). Set by the shell in
@@ -662,10 +664,19 @@ const server = Bun.serve({
           // valid before the thread starts — after that the pick is locked.
           const id = b.harnessId
           if (!isHarnessId(id)) return json({ error: 'invalid harnessId' }, 400)
+          // Codex runs the user's local codex CLI; refuse it when none is
+          // available (the picker also disables it, but guard stale clients).
+          if (id === 'codex' && !isCodexAvailable()) {
+            return json({ error: 'codex not available' }, 400)
+          }
           const model = b.model == null ? undefined : String(b.model)
           if (model !== undefined) {
             const valid =
-              id === 'codebuff' ? isSupportedFreebuffModelId(model) : isClaudeModelId(model)
+              id === 'codebuff'
+                ? isSupportedFreebuffModelId(model)
+                : id === 'codex'
+                  ? isCodexModelId(model)
+                  : isClaudeModelId(model)
             if (!valid) return json({ error: 'invalid model' }, 400)
           }
           const result = engine.setThreadAgent(threadId, id, model)

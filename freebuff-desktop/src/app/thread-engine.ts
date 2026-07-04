@@ -26,6 +26,7 @@ import { bunRunner, type CommandRunner, type ExecResult } from '../core/exec'
 import {
   foldAgentEvent,
   NOTICE_CLAUDE_CODE_AUTH,
+  NOTICE_CODEX_AUTH,
   NOTICE_FREEBUFF_AUTH,
   type AdPayload,
   type AgentEventLike,
@@ -67,11 +68,17 @@ import type { FreebuffSessionRateLimitByModel } from '@codebuff/common/types/fre
 import { API_HOST, PROD_API_HOST } from './api-host'
 import type { DesktopAds } from './ads'
 import { trackEvent } from './analytics'
-import { CLAUDE_CODE_MODEL } from './models'
+import { CLAUDE_CODE_MODEL, CODEX_MODEL } from './models'
 import { runTitleCompletion, TITLE_MAX_CHARS, type TitleGenerator } from './title'
 import { buildAttachmentBlock } from './attachments'
 import { getAuth, getAuthToken } from './auth/login-store'
 import { ClaudeCodeAuthError, ClaudeCodeHarness } from './agents/claude-code-harness'
+import {
+  CODEX_UNAVAILABLE_REASON,
+  CodexAuthError,
+  CodexHarness,
+  isCodexAvailable,
+} from './agents/codex-harness'
 import { CodebuffHarness } from './agents/codebuff-harness'
 import {
   FreebuffSessionError,
@@ -87,6 +94,23 @@ import {
   type AgentOption,
   type HarnessId,
 } from './agents/harness'
+
+/**
+ * The agent catalog for the picker, with per-agent availability filled in. Codex
+ * runs the user's LOCAL codex CLI, which we no longer bundle — so on a machine
+ * without codex installed we mark it `disabled` (the picker greys it out and
+ * blocks selection) rather than offering an agent whose every turn would fail.
+ * Lives here (not on the static AGENT_OPTIONS) because availability is a runtime
+ * fact; kept a plain function so it re-reads per snapshot.
+ */
+function buildAgentOptions(): AgentOption[] {
+  const codexOk = isCodexAvailable()
+  return AGENT_OPTIONS.map((o) =>
+    o.id === 'codex' && !codexOk
+      ? { ...o, disabled: true, disabledReason: CODEX_UNAVAILABLE_REASON }
+      : o,
+  )
+}
 
 export type EngineEvent =
   | { type: 'state'; snapshot: Snapshot }
@@ -434,7 +458,9 @@ export class ThreadEngine {
       h =
         id === 'claude-code'
           ? new ClaudeCodeHarness()
-          : new CodebuffHarness(this.client)
+          : id === 'codex'
+            ? new CodexHarness()
+            : new CodebuffHarness(this.client)
       this.harnesses.set(id, h)
     }
     return h
@@ -513,6 +539,12 @@ export class ThreadEngine {
     return this.store.getThread(threadId)?.claudeModel ?? CLAUDE_CODE_MODEL
   }
 
+  /** The Codex model a thread's Codex turns run on — its explicit pick, else the
+   *  default (GPT-5.5 Codex). */
+  codexModelForThread(threadId: string): string {
+    return this.store.getThread(threadId)?.codexModel ?? CODEX_MODEL
+  }
+
   /** A thread is "started" once it has any transcript or a branch/worktree (a
    *  turn ran). From then on its project folder and agent/model are FIXED —
    *  a different pick means a new tab, so mid-thread context/model identity
@@ -552,6 +584,9 @@ export class ThreadEngine {
     }
     if (harnessId === 'claude-code' && model && (thread.claudeModel ?? null) !== model) {
       this.store.updateThread(threadId, { claudeModel: model }, this.now())
+    }
+    if (harnessId === 'codex' && model && (thread.codexModel ?? null) !== model) {
+      this.store.updateThread(threadId, { codexModel: model }, this.now())
     }
     this.emitThread(threadId)
     return { model, rejected: false }
@@ -691,7 +726,7 @@ export class ThreadEngine {
     return {
       project,
       threads,
-      agent: { harnessId: this.defaultHarness, options: AGENT_OPTIONS },
+      agent: { harnessId: this.defaultHarness, options: buildAgentOptions() },
       freebuff: {
         accessTier,
         models: freebuffModelOptions(accessTier).map((m) => ({
@@ -988,7 +1023,9 @@ export class ThreadEngine {
       model:
         harness === 'codebuff'
           ? this.freebuffModelForThread(threadId)
-          : this.claudeModelForThread(threadId),
+          : harness === 'codex'
+            ? this.codexModelForThread(threadId)
+            : this.claudeModelForThread(threadId),
       accessTier: this.freebuff.getAccessTier(),
     }
   }
@@ -1276,6 +1313,8 @@ export class ThreadEngine {
           this.store.setFreebuffInstanceId(threadId, freeMode.instanceId)
         }
         if (this.freebuff.getRateLimits() !== quotaBefore) this.emitState()
+      } else if (harness.id === 'codex') {
+        model = this.codexModelForThread(threadId)
       } else {
         model = this.claudeModelForThread(threadId)
       }
@@ -1358,6 +1397,13 @@ export class ThreadEngine {
         turnOutcome = 'error'
         finalize({ notice: NOTICE_CLAUDE_CODE_AUTH, text: err.message })
         console.error(`Thread ${threadId} Claude Code auth error: ${err.causeMessage}`)
+      } else if (err instanceof CodexAuthError) {
+        // The local Codex CLI is signed out — same handling as Claude Code: the
+        // notice renders as a sign-in recovery card, and the raw terminal-speak
+        // stays out of the transcript and `log` toasts (orchestrator log only).
+        turnOutcome = 'error'
+        finalize({ notice: NOTICE_CODEX_AUTH, text: err.message })
+        console.error(`Thread ${threadId} Codex auth error: ${err.causeMessage}`)
       } else {
         turnOutcome = 'error'
         const msg = (err as Error).message

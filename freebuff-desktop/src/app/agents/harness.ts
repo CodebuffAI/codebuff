@@ -30,7 +30,7 @@ import type {
   FreebuffModelOption,
 } from '@codebuff/common/constants/freebuff-models'
 
-export type HarnessId = 'codebuff' | 'claude-code'
+export type HarnessId = 'codebuff' | 'claude-code' | 'codex'
 
 /** Display metadata for the agent picker (surfaced in /api/state). The
  *  per-thread MODEL is not here — the combined picker renders it from the
@@ -41,6 +41,12 @@ export interface AgentOption {
   label: string
   /** One-line description shown in the picker. */
   description: string
+  /** When true, this agent can't run on this machine (e.g. the Codex CLI isn't
+   *  installed) — the picker shows it greyed out and unselectable. Computed at
+   *  snapshot time (the static {@link AGENT_OPTIONS} never sets it). */
+  disabled?: boolean
+  /** Why it's disabled, shown as the picker tooltip (paired with `disabled`). */
+  disabledReason?: string
 }
 
 export const AGENT_OPTIONS: readonly AgentOption[] = [
@@ -48,6 +54,11 @@ export const AGENT_OPTIONS: readonly AgentOption[] = [
     id: 'claude-code',
     label: 'Claude Code',
     description: 'Your local, authenticated Claude Code (Anthropic subscription)',
+  },
+  {
+    id: 'codex',
+    label: 'Codex',
+    description: 'Your local, authenticated Codex CLI (ChatGPT subscription)',
   },
   {
     id: 'codebuff',
@@ -59,7 +70,7 @@ export const AGENT_OPTIONS: readonly AgentOption[] = [
 export const DEFAULT_HARNESS: HarnessId = 'codebuff'
 
 export function isHarnessId(v: unknown): v is HarnessId {
-  return v === 'codebuff' || v === 'claude-code'
+  return v === 'codebuff' || v === 'claude-code' || v === 'codex'
 }
 
 /** The Freebuff models a given access tier may pick from, for the model picker.

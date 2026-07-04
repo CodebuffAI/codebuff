@@ -29,7 +29,7 @@ import type {
 } from './types'
 
 /** Bump when the schema changes; `migrate()` recreates dropped tables. */
-const SCHEMA_VERSION = 15
+const SCHEMA_VERSION = 16
 
 const toSnake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
 
@@ -104,6 +104,8 @@ export interface NewThreadInput {
   freebuffModel?: string | null
   /** Per-thread Claude model. Null means "use the default (Opus 4.8)". */
   claudeModel?: string | null
+  /** Per-thread Codex model. Null means "use the default (GPT-5.5 Codex)". */
+  codexModel?: string | null
   autoQueueSuggestions?: boolean
   createdAt: number
 }
@@ -136,6 +138,7 @@ export type ThreadPatch = Partial<
     | 'harnessId'
     | 'freebuffModel'
     | 'claudeModel'
+    | 'codexModel'
     | 'autoQueueSuggestions'
     | 'branch'
     | 'worktreePath'
@@ -164,6 +167,7 @@ const THREAD_PATCH_KEYS = [
   'harnessId',
   'freebuffModel',
   'claudeModel',
+  'codexModel',
   'autoQueueSuggestions',
   'branch',
   'worktreePath',
@@ -208,6 +212,7 @@ type ThreadRow = {
   harness_id: HarnessId | null
   freebuff_model: string | null
   claude_model: string | null
+  codex_model: string | null
   auto_queue_suggestions: number
   branch: string | null
   worktree_path: string | null
@@ -306,6 +311,7 @@ export class Store {
         harness_id    TEXT,
         freebuff_model TEXT,
         claude_model  TEXT,
+        codex_model   TEXT,
         auto_queue_suggestions INTEGER NOT NULL DEFAULT 0,
         branch        TEXT,
         worktree_path TEXT,
@@ -488,6 +494,13 @@ export class Store {
       this.db.exec('ALTER TABLE threads ADD COLUMN last_prompt_at INTEGER')
     }
 
+    // v16: per-thread Codex model (the Codex harness runs the user's local Codex
+    // CLI on GPT-5.5). Additive + nullable so legacy threads fall back to the
+    // default.
+    if (!this.hasColumn('threads', 'codex_model')) {
+      this.db.exec('ALTER TABLE threads ADD COLUMN codex_model TEXT')
+    }
+
     this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
   }
 
@@ -547,6 +560,7 @@ export class Store {
       harnessId: input.harnessId ?? null,
       freebuffModel: input.freebuffModel ?? null,
       claudeModel: input.claudeModel ?? null,
+      codexModel: input.codexModel ?? null,
       autoQueueSuggestions: input.autoQueueSuggestions ?? false,
       branch: null,
       worktreePath: null,
@@ -564,8 +578,8 @@ export class Store {
     this.db
       .query(
         `INSERT INTO threads
-          (id, project_id, project_path, title, status, harness_id, freebuff_model, claude_model, auto_queue_suggestions, turn_state, created_at, updated_at)
-         VALUES ($id, $project, $projectPath, $title, $status, $harness, $freebuffModel, $claudeModel, $autoQueue, 'idle', $created, $updated)`,
+          (id, project_id, project_path, title, status, harness_id, freebuff_model, claude_model, codex_model, auto_queue_suggestions, turn_state, created_at, updated_at)
+         VALUES ($id, $project, $projectPath, $title, $status, $harness, $freebuffModel, $claudeModel, $codexModel, $autoQueue, 'idle', $created, $updated)`,
       )
       .run({
         $id: thread.id,
@@ -576,6 +590,7 @@ export class Store {
         $harness: thread.harnessId,
         $freebuffModel: thread.freebuffModel,
         $claudeModel: thread.claudeModel,
+        $codexModel: thread.codexModel,
         $autoQueue: thread.autoQueueSuggestions ? 1 : 0,
         $created: thread.createdAt,
         $updated: thread.updatedAt,
@@ -907,6 +922,7 @@ function rowToThread(row: ThreadRow): Thread {
     harnessId: row.harness_id,
     freebuffModel: row.freebuff_model ?? null,
     claudeModel: row.claude_model ?? null,
+    codexModel: row.codex_model ?? null,
     autoQueueSuggestions: row.auto_queue_suggestions === 1,
     branch: row.branch,
     worktreePath: row.worktree_path,

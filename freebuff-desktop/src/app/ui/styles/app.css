@@ -435,6 +435,9 @@ select {
 .agent-dot-claude-code {
   background: #d97757;
 }
+.agent-dot-codex {
+  background: #10a37f;
+}
 .agent-dot-codebuff {
   background: var(--accent);
 }

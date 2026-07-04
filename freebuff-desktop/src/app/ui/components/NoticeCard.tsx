@@ -5,10 +5,11 @@
  * unknown kinds fall back to the text alone so old transcripts stay readable
  * even after a notice kind is retired.
  *
- * `claude-code-auth`: the local Claude Code CLI is signed out. Sign-in is an
- * interactive OAuth flow owned by the CLI (nothing we can drive headlessly), so
- * the card makes the terminal hand-off one-click: open Terminal (mac) and copy
- * the `claude /login` command.
+ * `claude-code-auth` / `codex-auth`: the local Claude Code / Codex CLI is signed
+ * out. Sign-in is an interactive OAuth flow owned by the CLI (nothing we can
+ * drive headlessly), so the card makes the terminal hand-off one-click: open
+ * Terminal (mac) and copy the `claude /login` / `codex login` command (both go
+ * through the shared TerminalAuthActions).
  *
  * `freebuff-auth`: the Freebuff API rejected our sign-in (expired/revoked token,
  * or never signed in). The action starts the same device-code flow as the
@@ -20,13 +21,20 @@ import { useState } from 'react'
 
 import { useCopied } from '../hooks/useCopied'
 import { bridge } from '../lib/bridge'
-import { NOTICE_CLAUDE_CODE_AUTH, NOTICE_FREEBUFF_AUTH, type NoticePart } from '../lib/types'
+import {
+  NOTICE_CLAUDE_CODE_AUTH,
+  NOTICE_CODEX_AUTH,
+  NOTICE_FREEBUFF_AUTH,
+  type NoticePart,
+} from '../lib/types'
 import { useStore } from '../store/store'
 import { Icon } from './Icon'
 import { Markdown } from './Markdown'
 
-/** The command the user runs in their terminal to re-authenticate Claude Code. */
+/** The commands the user runs in their terminal to re-authenticate each local
+ *  agent whose login the harness reuses. */
 const CLAUDE_LOGIN_COMMAND = 'claude /login'
+const CODEX_LOGIN_COMMAND = 'codex login'
 
 /** A pill button that copies `command` and flips to a checkmark on success. */
 function CopyCommandButton({ command }: { command: string }) {
@@ -39,7 +47,10 @@ function CopyCommandButton({ command }: { command: string }) {
   )
 }
 
-function ClaudeCodeAuthActions() {
+/** Recovery actions for a signed-out LOCAL agent whose login lives in a terminal
+ *  (Claude Code / Codex): open Terminal (mac) + copy the sign-in command. Shared
+ *  because both flows are identical apart from the command. */
+function TerminalAuthActions({ command }: { command: string }) {
   const b = bridge()
   // Opening Terminal.app is a mac affordance; elsewhere the copyable command
   // (plus the instructions in the body text) is the whole flow.
@@ -58,7 +69,7 @@ function ClaudeCodeAuthActions() {
           {failed ? "Couldn't open Terminal" : 'Open Terminal'}
         </button>
       )}
-      <CopyCommandButton command={CLAUDE_LOGIN_COMMAND} />
+      <CopyCommandButton command={command} />
     </div>
   )
 }
@@ -87,6 +98,7 @@ function FreebuffAuthActions() {
 
 const NOTICE_TITLES: Record<string, string> = {
   [NOTICE_CLAUDE_CODE_AUTH]: 'Claude Code is signed out',
+  [NOTICE_CODEX_AUTH]: 'Codex is signed out',
   [NOTICE_FREEBUFF_AUTH]: 'Freebuff sign-in needed',
 }
 
@@ -101,7 +113,10 @@ export function NoticeCard({ part }: { part: NoticePart }) {
       <div className="notice-body">
         <Markdown text={part.text} />
       </div>
-      {part.notice === NOTICE_CLAUDE_CODE_AUTH && <ClaudeCodeAuthActions />}
+      {part.notice === NOTICE_CLAUDE_CODE_AUTH && (
+        <TerminalAuthActions command={CLAUDE_LOGIN_COMMAND} />
+      )}
+      {part.notice === NOTICE_CODEX_AUTH && <TerminalAuthActions command={CODEX_LOGIN_COMMAND} />}
       {/* `authed === false`, not `!authed`: auth is null until the first
           auth signal lands, and a signed-in user reloading a transcript
           with an old card shouldn't flash an actionable sign-in button. */}

@@ -13,7 +13,7 @@ import type { Part } from './parts'
 
 export type ThreadId = string
 export type ProjectId = string
-export type HarnessId = 'codebuff' | 'claude-code'
+export type HarnessId = 'codebuff' | 'claude-code' | 'codex'
 
 /** Governing-doc identities (§10.1). Files live under `.freebuff/docs/`. The
  * `reflect` skill appends durable learnings to `learning`. */
@@ -78,6 +78,10 @@ export interface Thread {
    *  core/claude-models.ts). Null while using the default (Opus 4.8). Ignored
    *  by the hosted (`codebuff`) harness. */
   claudeModel: string | null
+  /** Which Codex model this thread's `codex` harness turns run on (see
+   *  core/codex-models.ts). Null while using the default (GPT-5.5 Codex).
+   *  Ignored by the other harnesses. */
+  codexModel: string | null
   /** When on, assistant-suggested prompts are dropped straight into the queue
    *  (which always auto-drains) instead of parking in the suggested lane. */
   autoQueueSuggestions: boolean

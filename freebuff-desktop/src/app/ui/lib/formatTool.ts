@@ -33,6 +33,10 @@ const NAMES: Record<string, string> = {
   WebFetch: 'Fetch',
   WebSearch: 'Search web',
   Task: 'Subagent',
+  // Codex tools (item types from the codex-sdk stream)
+  command_execution: 'Run',
+  file_change: 'Edit',
+  todo_list: 'Plan',
 }
 
 /** SDK MCP tools come through as `mcp__server__name` — reduce to the bare name. */
@@ -91,6 +95,15 @@ export function toolArg(toolName: string, input: unknown): string {
       return i.query ?? ''
     case 'Task':
       return i.description ?? ''
+    // Codex tools
+    case 'command_execution':
+      return i.command ?? ''
+    case 'file_change':
+      return Array.isArray(i.changes)
+        ? i.changes.map((c: { path?: string }) => c?.path).filter(Boolean).join(', ')
+        : ''
+    case 'todo_list':
+      return Array.isArray(i.items) ? `${i.items.length} step(s)` : ''
     default: {
       const first = Object.values(i)[0]
       return typeof first === 'string' ? first.slice(0, 60) : ''
