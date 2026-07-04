@@ -3,12 +3,6 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-let tempDataDir = ''
-
-mock.module('../../project-files', () => ({
-  getProjectDataDir: () => tempDataDir,
-}))
-
 mock.module('../logger', () => ({
   logger: {
     debug: () => {},
@@ -20,6 +14,8 @@ mock.module('../logger', () => ({
 }))
 
 import { deleteChatSession, getAllChats } from '../chat-history'
+
+let tempDataDir = ''
 
 function writeChat(chatId: string, prompt: string) {
   const chatDir = path.join(tempDataDir, 'chats', chatId)
@@ -51,25 +47,27 @@ describe('chat-history', () => {
     writeChat('chat-a', 'hello from chat a')
     writeChat('chat-b', 'hello from chat b')
 
-    expect(deleteChatSession('chat-a')).toBe(true)
+    expect(deleteChatSession('chat-a', tempDataDir)).toBe(true)
 
     expect(fs.existsSync(path.join(tempDataDir, 'chats', 'chat-a'))).toBe(false)
     expect(fs.existsSync(path.join(tempDataDir, 'chats', 'chat-b'))).toBe(true)
-    expect(getAllChats().map((chat) => chat.chatId)).toEqual(['chat-b'])
+    expect(
+      getAllChats(500, tempDataDir).map((chat) => chat.chatId),
+    ).toEqual(['chat-b'])
   })
 
   test('deleteChatSession rejects invalid chat ids', () => {
     const outsideDir = path.join(tempDataDir, 'outside')
     fs.mkdirSync(outsideDir, { recursive: true })
 
-    expect(deleteChatSession('../outside')).toBe(false)
-    expect(deleteChatSession('..')).toBe(false)
+    expect(deleteChatSession('../outside', tempDataDir)).toBe(false)
+    expect(deleteChatSession('..', tempDataDir)).toBe(false)
 
     expect(fs.existsSync(outsideDir)).toBe(true)
   })
 
   test('deleteChatSession returns false when the chat does not exist', () => {
-    expect(deleteChatSession('missing-chat')).toBe(false)
+    expect(deleteChatSession('missing-chat', tempDataDir)).toBe(false)
   })
 
   test('getAllChats lists corrupt chats as unreadable instead of hiding them', () => {
@@ -83,7 +81,7 @@ describe('chat-history', () => {
       '[{"id":"msg-1","variant":"user","content":"truncat',
     )
 
-    const chats = getAllChats()
+    const chats = getAllChats(500, tempDataDir)
 
     const good = chats.find((chat) => chat.chatId === 'chat-good')
     expect(good).toBeDefined()
@@ -104,7 +102,7 @@ describe('chat-history', () => {
       '{"not":"an array"}',
     )
 
-    const chats = getAllChats()
+    const chats = getAllChats(500, tempDataDir)
 
     expect(chats).toHaveLength(1)
     expect(chats[0].chatId).toBe('chat-not-array')
@@ -125,7 +123,7 @@ describe('chat-history', () => {
       }),
     )
 
-    const chats = getAllChats()
+    const chats = getAllChats(500, tempDataDir)
 
     expect(chats).toHaveLength(1)
     expect(chats[0].lastPrompt).toBe('prompt from meta')
@@ -147,7 +145,7 @@ describe('chat-history', () => {
       }),
     )
 
-    const chats = getAllChats()
+    const chats = getAllChats(500, tempDataDir)
 
     expect(chats).toHaveLength(1)
     expect(chats[0].lastPrompt).toBe('prompt from messages file')
@@ -173,7 +171,7 @@ describe('chat-history', () => {
     // masked by it
     fs.writeFileSync(messagesPath, '[{"id":"msg-1","variant":"user","con')
 
-    const chats = getAllChats()
+    const chats = getAllChats(500, tempDataDir)
 
     expect(chats).toHaveLength(1)
     expect(chats[0].unreadable).toBe(true)
@@ -187,7 +185,7 @@ describe('chat-history', () => {
       '{"messageCount": tru',
     )
 
-    const chats = getAllChats()
+    const chats = getAllChats(500, tempDataDir)
 
     expect(chats).toHaveLength(1)
     expect(chats[0].lastPrompt).toBe('prompt from messages file')
@@ -200,6 +198,6 @@ describe('chat-history', () => {
     fs.mkdirSync(emptyDir, { recursive: true })
     fs.writeFileSync(path.join(emptyDir, 'chat-messages.json'), '[]')
 
-    expect(getAllChats()).toHaveLength(0)
+    expect(getAllChats(500, tempDataDir)).toHaveLength(0)
   })
 })

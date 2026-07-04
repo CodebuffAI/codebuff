@@ -3,14 +3,6 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-let tempDataDir = ''
-
-mock.module('../../project-files', () => ({
-  getProjectDataDir: () => tempDataDir,
-  getProjectRoot: () => tempDataDir,
-  getCurrentChatDir: () => path.join(tempDataDir, 'chats', 'current'),
-}))
-
 mock.module('../logger', () => ({
   CHAT_LOG_FILENAME: 'log.jsonl',
   logger: {
@@ -23,6 +15,8 @@ mock.module('../logger', () => ({
 }))
 
 import { trimOversizedChatLogs } from '../chat-history'
+
+let tempDataDir = ''
 
 function writeLog(
   chatId: string,
@@ -60,7 +54,7 @@ describe('trimOversizedChatLogs', () => {
     )
     fs.writeFileSync(messagesFile, '[]')
 
-    trimOversizedChatLogs()
+    trimOversizedChatLogs(tempDataDir)
 
     expect(fs.existsSync(bigOldLog)).toBe(false)
     expect(fs.existsSync(smallOldLog)).toBe(true)
@@ -73,12 +67,12 @@ describe('trimOversizedChatLogs', () => {
       ageDays: 5,
     })
 
-    trimOversizedChatLogs()
+    trimOversizedChatLogs(tempDataDir)
 
     expect(fs.existsSync(bigRecentLog)).toBe(true)
   })
 
   test('does nothing when chats directory does not exist', () => {
-    expect(() => trimOversizedChatLogs()).not.toThrow()
+    expect(() => trimOversizedChatLogs(tempDataDir)).not.toThrow()
   })
 })
