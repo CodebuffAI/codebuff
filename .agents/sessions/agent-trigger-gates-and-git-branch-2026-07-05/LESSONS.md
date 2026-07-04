@@ -123,3 +123,33 @@ Resumption gotchas confirmed when picking this session up after compaction:
 
 5. **Pinned active-work state can lag the durable plan state.** The harness pinned state listed M1/M2 files as "pending validation" and pointed at `M3 P3.1` as the next action, but the durable STATUS.md said M1+M2 done and M3 source already implemented. Per EXECUTE_PLAN guidance, the durable artifacts are authoritative — confirmed by reading source. When the pinned state and STATUS.md disagree, trust STATUS.md and verify with a quick source grep.
 
+
+<!-- update_plan_status:appended -->
+## Regenerate derived tools.ts after adding a new agent tool — 2026-07-05T00:30Z — 2026-07-04T23:20:48.166Z
+
+GOTCHA — adding a new agent tool (e.g. `git_branch`) to `common/src/tools/params/tool/<name>.ts` + wiring it through `common/src/tools/list.ts`, `common/src/tools/constants.ts`, `agents/types/tools.ts`, `packages/agent-runtime/.../handlers/list.ts`, `packages/agent-runtime/.../handlers/tool/<name>.ts`, and `sdk/src/run.ts` is NOT sufficient. The CI workflow `.github/workflows/ci.yml` step `Check generated tool definitions are current` runs `bun run generate-tool-definitions && git diff --exit-code -- .agents/types/tools.ts agents/types/tools.ts common/src/templates/initial-agents-dir/types/tools.ts`. The three derived `tools.ts` files are GENERATED from the Zod schemas by `scripts/generate-tool-definitions.ts`; they include the `ToolName` union, `ToolParamsMap`, and per-tool `*Params` interfaces. Committing the tool plumbing without regenerating these derived artifacts fails CI at the drift check, BEFORE typecheck/tests even run (the matrix `test-*` and `test-integration-*` jobs have `needs: [build-and-check]` and are skipped).
+
+ACTION after any change that adds/removes/renames a tool or alters its Zod params: run `bun run generate-tool-definitions` locally, stage the regenerated `.agents/types/tools.ts` + `agents/types/tools.ts` + `common/src/templates/initial-agents-dir/types/tools.ts` files, and commit them in the SAME commit as the tool plumbing (or a follow-up `fix(ci)` commit). Verify locally with `git diff --exit-code -- .agents/types/tools.ts agents/types/tools.ts common/src/templates/initial-agents-dir/types/tools.ts` before pushing.
+
+The regeneration is idempotent and fast (~250ms total for the 3 files). The diff for a new tool is small (~14 insertions per generated file: one `ToolName` union entry, one `ToolParamsMap` entry, one `*Params` interface). A `feat(agents): ...` commit that adds a tool WITHOUT the regenerated files will fail CI on the next push to main.
+
+
+<!-- update_plan_status:appended -->
+## Post-push CI remediation — regenerated tools.ts + memory-drift guard findings — 2026-07-05T00:30Z — 2026-07-04T23:29:42.117Z
+
+Two follow-up CI failures surfaced after pushing the completed M1–M5 plan work to `origin/main`. Both were artifacts of the plan's deliverables not being fully synced with repo-wide guards, NOT new code defects:
+
+1. **`Check generated tool definitions are current` (CI step)** — adding a new `git_branch` Zod schema at `common/src/tools/params/tool/git-branch.ts` did NOT auto-regenerate the derived tool-definition catalogs at `.agents/types/tools.ts`, `agents/types/tools.ts`, and `common/src/templates/initial-agents-dir/types/tools.ts`. CI runs `bun run generate-tool-definitions && git diff --exit-code` and the drift failed the gate. Fix: run `bun run generate-tool-definitions` locally, commit only the 3 regenerated files (commit `b15d685b5` `fix(ci): regenerate tool definitions for git_branch`). REUSABLE: whenever you add a new entry to `common/src/tools/params/tool/*` or `common/src/tools/params/agent-tool/*`, run `bun run generate-tool-definitions` and commit the regenerated `.agents/types/tools.ts` + `agents/types/tools.ts` + `common/src/templates/initial-agents-dir/types/tools.ts` together with the schema.
+
+2. **`Memory drift + config sync` (CI step)** — `bun --cwd=scripts run guard:memory-drift` flagged 6 `command` findings from my plan-shipped docs/README content:
+   - `docs/agents-and-tools.md:67` ×4 — the `testWriterGate` description used the literal pattern `cd packages/<name> && bun run typecheck && bun test`. The guard's COMMAND_REGEX captured `typecheck` as the script and `packages/<name>` as the cwd, then `loadPackageJson('packages/<name>')` returned `undefined` → `scriptMissingInPkg` → finding (×4 because the line had 4 path-to-command mappings). Fix: reword to prose (`For each package, the orchestrator runs that package's own `typecheck` and `test` scripts (for example, in `packages/agent-runtime`, `packages/internal`, `common`, `agents`, or `cli`)`) so the regex no longer parses a literal `cd packages/<name> && bun run ...`.
+   - `evals/buffbench/README.md:436-437` ×2 — said `Use `bun run main.ts`` and `Use `bun run main-openbuff.ts`` but `evals/package.json` had neither script. Fix: add `main` and `main-openbuff` to `evals/package.json` `scripts` mapping to the existing runner files.
+
+   Commit `a49499ad1` `fix(ci): resolve memory-drift guard findings in docs/agents-and-tools.md + evals/package.json`. After the fix, local `guard:memory-drift` retained only 1 pre-existing finding in `evals/test-repos/openbuff-HEAD/...` (a scratch-clone directory CI's checkout excludes), confirming the 6 CI-reported findings were all resolved.
+
+   REUSABLE: when writing docs that quote `bun run <script>` commands, the `scripts/memory-drift-guard.ts` `COMMAND_REGEX` will try to resolve the script against the cwd inferred from any preceding `cd <dir> &&`. Avoid literal `cd packages/<name> && ...` placeholders (the guard expands against package.json lookups and reports `script missing` for the unresolved `<name>` path). Either point at concrete packages (`cd packages/agent-runtime && bun run typecheck`) or phrase the command in prose without a literal `cd ... && bun run` shape.
+
+Final CI verdict on commit `a49499ad1` (run `28723028259`): `completed / success` across all 11 jobs (build-and-check + 10 test matrix jobs). Evals workflow also success. CLI Release Staging correctly skipped (no `[codecane]` marker in commit messages). Working tree is clean and `origin/main` matches local.
+
+PRE-EXISTING (NOT my fix's responsibility): the `Mirror subdir to dot-agents` workflow failed on commit `b15d685b5` and again on `a49499ad1` at the `Push subtree` step (exit 128). It's a separate subtree-mirror workflow unrelated to the M1–M5 work and was failing before this session — surfaced only because the push triggered it. Not blocking the user's CI/CD-pipeline-clean request as-stated (the CI + Evals workflows are clean), but flagged for awareness.
+
