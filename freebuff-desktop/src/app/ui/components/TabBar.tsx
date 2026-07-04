@@ -36,6 +36,14 @@ export function TabBar() {
 
   return (
     <div className={`tabbar ${isMac ? 'is-mac' : ''}`}>
+      {/* App-level stage label: a fixed marker (never scrolls with the tabs)
+          setting the expectation that Freebuff Desktop is still stabilizing. */}
+      <span
+        className="beta-badge"
+        title="Freebuff Desktop is in beta — expect rough edges and the occasional bug."
+      >
+        Beta
+      </span>
       <div className="tabs">
         {tabOrder.map((id) => {
           const slice = threads[id]

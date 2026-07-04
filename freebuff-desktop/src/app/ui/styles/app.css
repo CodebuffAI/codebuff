@@ -70,6 +70,27 @@ select {
 .tabbar.is-mac {
   padding-left: 78px;
 }
+/* Product-stage marker pinned to the left of the tab strip. Amber (not the red
+   error tone) reads as "caution / in progress" rather than "something broke",
+   and it sits outside `.tabs` so it never scrolls away. */
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(216, 161, 74, 0.14);
+  color: #d8a14a;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-app-region: no-drag;
+}
 .tabs {
   display: flex;
   align-items: center;
