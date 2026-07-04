@@ -12,10 +12,12 @@ import { buildArray } from '@codebuff/common/util/array'
 import {
   AbortError,
   FETCH_IDLE_TIMEOUT_USER_MESSAGE,
+  TRANSIENT_NETWORK_ERROR_USER_MESSAGE,
   extractApiErrorDetails,
   getErrorObject,
   isAbortError,
   isFetchIdleTimeoutError,
+  isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
@@ -1200,10 +1202,13 @@ export async function loopAgentSteps(
 
     const apiErrorDetails = extractApiErrorDetails(error)
     const isIdleTimeout = isFetchIdleTimeoutError(error)
+    const isNetworkError = !isIdleTimeout && isTransientNetworkError(error)
     const hasServerMessage = apiErrorDetails.message !== undefined
     let fallbackMessage: string
     if (isIdleTimeout) {
       fallbackMessage = FETCH_IDLE_TIMEOUT_USER_MESSAGE
+    } else if (isNetworkError) {
+      fallbackMessage = TRANSIENT_NETWORK_ERROR_USER_MESSAGE
     } else if (error instanceof Error) {
       const includeStack =
         apiErrorDetails.statusCode === undefined && error.stack
@@ -1236,7 +1241,7 @@ export async function loopAgentSteps(
       output: {
         type: 'error',
         message:
-          hasServerMessage || isIdleTimeout
+          hasServerMessage || isIdleTimeout || isNetworkError
             ? errorMessage
             : 'Agent run error: ' + errorMessage,
         ...(statusCode !== undefined && { statusCode }),

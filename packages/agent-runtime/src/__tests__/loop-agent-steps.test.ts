@@ -1136,6 +1136,42 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         expect(result.output.message).not.toBe('The operation timed out.')
       }
     })
+
+    it('should explain dropped socket connections instead of showing the raw runtime message', async () => {
+      const llmOnlyTemplate = {
+        ...mockTemplate,
+        handleSteps: undefined,
+      }
+
+      const localAgentTemplates = {
+        'test-agent': llmOnlyTemplate,
+      }
+
+      // Bun's fetch throws a plain Error with this message (and code
+      // ECONNRESET/ConnectionClosed) when the TCP connection is dropped.
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        const socketError = new Error(
+          'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',
+        ) as Error & { code: string }
+        socketError.code = 'ECONNRESET'
+        throw socketError
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        localAgentTemplates,
+      })
+
+      expect(result.output.type).toBe('error')
+      if (result.output.type === 'error') {
+        expect(result.output.message).toContain('Connection interrupted')
+        expect(result.output.message).not.toContain('Agent run error:')
+        expect(result.output.message).not.toContain(
+          'pass `verbose: true` in the second argument to fetch()',
+        )
+      }
+    })
   })
 
   describe('steering (drainSteeringMessages)', () => {

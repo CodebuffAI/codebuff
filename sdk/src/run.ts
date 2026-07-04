@@ -21,8 +21,10 @@ import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import {
   FETCH_IDLE_TIMEOUT_USER_MESSAGE,
+  TRANSIENT_NETWORK_ERROR_USER_MESSAGE,
   extractApiErrorDetails,
   isFetchIdleTimeoutError,
+  isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
@@ -644,9 +646,11 @@ async function runOnce({
   }).catch((error) => {
     let errorMessage = isFetchIdleTimeoutError(error)
       ? FETCH_IDLE_TIMEOUT_USER_MESSAGE
-      : error instanceof Error
-        ? error.message
-        : String(error ?? '')
+      : isTransientNetworkError(error)
+        ? TRANSIENT_NETWORK_ERROR_USER_MESSAGE
+        : error instanceof Error
+          ? error.message
+          : String(error ?? '')
     const apiErrorDetails = extractApiErrorDetails(error)
     const statusCode = apiErrorDetails.statusCode ?? getErrorStatusCode(error)
     const {
