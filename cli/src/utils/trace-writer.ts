@@ -54,7 +54,9 @@ function getTraceFilePath(): string | null {
  * history. Content-only edits that preserve the role sequence are not
  * re-traced — acceptable for a debug trace.
  */
-export function createTraceWriter(): TraceWriter | undefined {
+export function createTraceWriter(
+  resolveTraceFilePath: () => string | null = getTraceFilePath,
+): TraceWriter | undefined {
   if (!isTraceEnabled()) {
     return undefined
   }
@@ -117,7 +119,7 @@ export function createTraceWriter(): TraceWriter | undefined {
       if (lines.length === 0) return
       // Resolve the path per step (not cached for the writer's lifetime: the
       // current chat directory changes when the user starts a new chat).
-      const filePath = getTraceFilePath()
+      const filePath = resolveTraceFilePath()
       if (!filePath) return
       try {
         const dir = dirname(filePath)
