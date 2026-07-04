@@ -4,7 +4,7 @@ import { Button } from './button'
 import { TerminalLink } from './terminal-link'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import type { TopBannerType } from '../types/store'
 import { formatCwd } from '../utils/path-helpers'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -56,7 +56,7 @@ const TOP_BANNER_REGISTRY: Record<NonNullable<TopBannerType>, BannerConfig> = {
       return (
         <>
           <text style={{ wrapMode: 'word', fg: textColor }}>
-            You started {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} in a subdirectory of a git repo.
+            You started {IS_CODEBIRDS ? 'Freebuff' : 'Codebirds'} in a subdirectory of a git repo.
           </text>
           {gitRoot && onSwitchToGitRoot ? (
             <TerminalLink

@@ -2,20 +2,20 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
+import { API_KEY_ENV_VAR } from '@codebirds/common/constants/paths'
 import {
-  CodebuffClient,
+  CodebirdsClient,
   initialSessionState,
   withMessageHistory,
   type AgentDefinition,
   type Message,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 
 import base2Free from '../base2/base2-free'
 import contextPruner from '../context-pruner'
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
 /**
  * Patterns that indicate the model is imitating the summarized tool call format
@@ -311,7 +311,7 @@ describe('Base2-Free Summary Format Compliance', () => {
           await fs.promises.writeFile(fullPath, content, 'utf-8')
         }
 
-        const client = new CodebuffClient({
+        const client = new CodebirdsClient({
           apiKey,
           cwd: tmpDir,
           projectFiles: PROJECT_FILES,
@@ -449,7 +449,7 @@ describe('Base2-Free Summary Format Compliance', () => {
           await fs.promises.writeFile(fullPath, content, 'utf-8')
         }
 
-        const client = new CodebuffClient({
+        const client = new CodebirdsClient({
           apiKey,
           cwd: tmpDir,
           projectFiles: PROJECT_FILES,

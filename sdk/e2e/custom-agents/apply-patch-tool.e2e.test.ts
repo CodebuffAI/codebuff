@@ -4,7 +4,7 @@ import path from 'path'
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 
-import { CodebuffClient } from '../../src'
+import { CodebirdsClient } from '../../src'
 import {
   DEFAULT_TIMEOUT,
   EventCollector,
@@ -15,7 +15,7 @@ import {
 import type { AgentDefinition } from '../../src'
 
 describe('Custom Agents: apply_patch tool', () => {
-  let client: CodebuffClient
+  let client: CodebirdsClient
 
   const patchAgent: AgentDefinition = {
     id: 'apply-patch-agent',
@@ -27,7 +27,7 @@ describe('Custom Agents: apply_patch tool', () => {
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new CodebirdsClient({ apiKey: getApiKey() })
   })
 
   test(
@@ -36,7 +36,7 @@ describe('Custom Agents: apply_patch tool', () => {
       if (skipIfNoApiKey()) return
 
       const tmpDir = await fs.promises.mkdtemp(
-        path.join(os.tmpdir(), 'codebuff-apply-patch-'),
+        path.join(os.tmpdir(), 'codebirds-apply-patch-'),
       )
       const collector = new EventCollector()
 

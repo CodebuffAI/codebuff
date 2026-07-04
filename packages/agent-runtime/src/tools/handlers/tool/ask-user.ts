@@ -1,17 +1,17 @@
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
 
 type ToolName = 'ask_user'
 
 // Handler for ask_user - delegates to client
 export const handleAskUser = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<ToolName>
+  toolCall: CodebirdsToolCall<ToolName>
   requestClientToolCall: (toolCall: any) => Promise<any>
-}): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+}): Promise<{ output: CodebirdsToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
   await previousToolCallFinished
@@ -20,4 +20,4 @@ export const handleAskUser = (async (params: {
   return {
     output: result,
   }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebirdsToolHandlerFunction<ToolName>

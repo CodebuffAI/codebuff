@@ -1,6 +1,6 @@
 # Testing Patterns Guide
 
-This guide documents best practices for writing tests in the Codebuff codebase, based on lessons learned from buffbench runs and production issues.
+This guide documents best practices for writing tests in the Codebirds codebase, based on lessons learned from buffbench runs and production issues.
 
 ## Table of Contents
 
@@ -51,7 +51,7 @@ spyOn(db, 'insert').mockReturnValue({
 
 ```typescript
 // GOOD: Type-safe, reusable, documented
-import { setupDbSpies } from '@codebuff/common/testing/mocks'
+import { setupDbSpies } from '@codebirds/common/testing/mocks'
 
 const dbSpies = setupDbSpies(db, { defaultInsertId: 'test-id' })
 // dbSpies.insert is properly typed
@@ -80,7 +80,7 @@ import {
   // Stream mocks
   createToolCallChunk,
   createMockStream,
-} from '@codebuff/common/testing/mocks'
+} from '@codebirds/common/testing/mocks'
 ```
 
 ---
@@ -165,7 +165,7 @@ it('test 2', () => {
 ### Testing with Mock Logger
 
 ```typescript
-import { createMockLoggerWithCapture } from '@codebuff/common/testing/mocks'
+import { createMockLoggerWithCapture } from '@codebirds/common/testing/mocks'
 
 describe('myFunction', () => {
   it('logs errors appropriately', async () => {
@@ -182,8 +182,8 @@ describe('myFunction', () => {
 ### Testing with Mock Analytics
 
 ```typescript
-import { setupAnalyticsMocks } from '@codebuff/common/testing/mocks'
-import * as analytics from '@codebuff/common/analytics'
+import { setupAnalyticsMocks } from '@codebirds/common/testing/mocks'
+import * as analytics from '@codebirds/common/analytics'
 
 describe('tracking', () => {
   let analyticsSpy: AnalyticsSpies
@@ -208,7 +208,7 @@ describe('tracking', () => {
 ### Testing with Deterministic UUIDs
 
 ```typescript
-import { setupCryptoMocks } from '@codebuff/common/testing/mocks'
+import { setupCryptoMocks } from '@codebirds/common/testing/mocks'
 
 describe('ID generation', () => {
   let cryptoSpies: CryptoMockSpies
@@ -239,7 +239,7 @@ import {
   createTextChunk,
   createToolCallChunk,
   collectStreamChunks,
-} from '@codebuff/common/testing/mocks'
+} from '@codebirds/common/testing/mocks'
 
 describe('stream processing', () => {
   it('handles tool calls', async () => {
@@ -262,8 +262,8 @@ describe('stream processing', () => {
 ### Testing Database Operations
 
 ```typescript
-import { setupDbSpies } from '@codebuff/common/testing/mocks'
-import db from '@codebuff/internal/db'
+import { setupDbSpies } from '@codebirds/common/testing/mocks'
+import db from '@codebirds/internal/db'
 
 describe('data layer', () => {
   let dbSpies: DbSpies
@@ -318,7 +318,7 @@ rg "filterOutSystemRole\|filterSystem" --type ts
 Don't duplicate mock file context creators. Use the shared one:
 
 ```typescript
-import { mockFileContext } from '@codebuff/common/testing/fixtures/agent-runtime'
+import { mockFileContext } from '@codebirds/common/testing/fixtures/agent-runtime'
 
 // Don't create a new one in each test file
 ```

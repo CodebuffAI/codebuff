@@ -54,7 +54,7 @@ function setupRepoForValidation(
   repoUrl: string,
   parentShas: string[],
 ): string {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-filter-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebirds-filter-'))
   const repoDir = path.join(tempDir, 'repo')
 
   console.log(`Cloning ${repoUrl}...`)

@@ -1,4 +1,4 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 
 import {
   createStreamParserState,
@@ -6,15 +6,15 @@ import {
 } from './util/stream-xml-parser'
 
 import type { StreamParserState } from './util/stream-xml-parser'
-import type { Model } from '@codebuff/common/old-constants'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Model } from '@codebirds/common/old-constants'
+import type { TrackEventFn } from '@codebirds/common/types/contracts/analytics'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 import type {
   PrintModeError,
   PrintModeText,
-} from '@codebuff/common/types/print-mode'
-import type { PromptResult } from '@codebuff/common/util/error'
+} from '@codebirds/common/types/print-mode'
+import type { PromptResult } from '@codebirds/common/util/error'
 
 function summarizeToolInput(input: unknown): Record<string, unknown> {
   if (typeof input === 'string') {

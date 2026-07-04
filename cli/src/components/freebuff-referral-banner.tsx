@@ -4,19 +4,19 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Button } from './button'
 import { useCopyToClipboard } from './copy-button'
 import {
-  FREEBUFF_GLM_V52_MODEL_ID,
-  FREEBUFF_GLM_V52_REFERRAL_CAP,
-} from '@codebuff/common/constants/freebuff-models'
-import { getReferralInfo } from '@codebuff/common/types/freebuff-session'
-import { pluralize } from '@codebuff/common/util/string'
+  CODEBIRDS_GLM_V52_MODEL_ID,
+  CODEBIRDS_GLM_V52_REFERRAL_CAP,
+} from '@codebirds/common/constants/codebirds-models'
+import { getReferralInfo } from '@codebirds/common/types/codebirds-session'
+import { pluralize } from '@codebirds/common/util/string'
 
-import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
+import { joinFreebuffQueue } from '../hooks/use-codebirds-session'
 import { useNow } from '../hooks/use-now'
-import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { useFreebuffLandingFocusStore } from '../state/codebirds-landing-focus-store'
+import { useFreebuffSessionStore } from '../state/codebirds-session-store'
 import { useTheme } from '../hooks/use-theme'
 import { LOGIN_WEBSITE_URL } from '../login/constants'
-import { formatFreebuffPremiumResetCountdown } from '../utils/freebuff-premium-reset'
+import { formatFreebuffPremiumResetCountdown } from '../utils/codebirds-premium-reset'
 import { safeOpen } from '../utils/open-url'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -35,8 +35,8 @@ function referralLink(code: string, referrerName: string | null): string {
 // Navigation ids for the banner's keyboard-focusable buttons. The model
 // selector owns the landing keyboard handler and reaches these via the shared
 // landing-focus store (arrow down past "see all models" → these buttons).
-const COPY_FOCUS_ID = '__freebuff_referral_copy__'
-const GLM_FOCUS_ID = '__freebuff_referral_glm__'
+const COPY_FOCUS_ID = '__codebirds_referral_copy__'
+const GLM_FOCUS_ID = '__codebirds_referral_glm__'
 
 /**
  * A bordered, button-styled "copy invite link" control. Reads as clickable
@@ -128,7 +128,7 @@ export const FreebuffReferralBanner: React.FC = () => {
   const useGlm = useCallback(() => {
     setJoining((wasJoining) => {
       if (wasJoining) return wasJoining
-      joinFreebuffQueue(FREEBUFF_GLM_V52_MODEL_ID).finally(() =>
+      joinFreebuffQueue(CODEBIRDS_GLM_V52_MODEL_ID).finally(() =>
         setJoining(false),
       )
       return true
@@ -197,7 +197,7 @@ export const FreebuffReferralBanner: React.FC = () => {
               <span fg={theme.muted}>
                 {' '}
                 — weekly sessions used, resets in {resetsIn}. Refer more (
-                {qualifiedCount}/{FREEBUFF_GLM_V52_REFERRAL_CAP}):
+                {qualifiedCount}/{CODEBIRDS_GLM_V52_REFERRAL_CAP}):
               </span>
             </>
           ) : (
@@ -290,9 +290,9 @@ export const FreebuffReferralBanner: React.FC = () => {
           focused={copyFocused}
           onCopy={copy}
           label={
-            qualifiedCount >= FREEBUFF_GLM_V52_REFERRAL_CAP
-              ? `✔ Max sessions earned (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`
-              : `⎘ Invite for +1/wk (${qualifiedCount}/${FREEBUFF_GLM_V52_REFERRAL_CAP})`
+            qualifiedCount >= CODEBIRDS_GLM_V52_REFERRAL_CAP
+              ? `✔ Max sessions earned (${qualifiedCount}/${CODEBIRDS_GLM_V52_REFERRAL_CAP})`
+              : `⎘ Invite for +1/wk (${qualifiedCount}/${CODEBIRDS_GLM_V52_REFERRAL_CAP})`
           }
         />
       </box>

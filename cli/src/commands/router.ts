@@ -1,6 +1,6 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { runTerminalCommand } from '@codebuff/sdk'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { CHATGPT_OAUTH_ENABLED } from '@codebirds/common/constants/chatgpt-oauth'
+import { runTerminalCommand } from '@codebirds/sdk'
 
 
 import {
@@ -16,14 +16,14 @@ import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { useFreebuffSessionStore } from '../state/codebirds-session-store'
 import { trackEvent } from '../utils/analytics'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
 } from '../utils/bash-messages'
 import { showClipboardMessage } from '../utils/clipboard'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import {
@@ -297,17 +297,17 @@ export async function routeUserPrompt(
   })
 
   // DAU signal: one un-sampled event per user-submitted prompt. The CLI's
-  // distinct id resolves to the canonical codebuff user id (anonymous id is
+  // distinct id resolves to the canonical codebirds user id (anonymous id is
   // aliased to the real user id on login), matching the web and chat surfaces
-  // so combined DAU is a single unique-users query. Freebuff-only: codebuff
+  // so combined DAU is a single unique-users query. Freebuff-only: codebirds
   // CLI usage is intentionally excluded.
-  if (IS_FREEBUFF) {
-    const freebuffSession = useFreebuffSessionStore.getState().session
+  if (IS_CODEBIRDS) {
+    const codebirdsSession = useFreebuffSessionStore.getState().session
     trackEvent(AnalyticsEvent.MESSAGE_SENT, {
       surface: 'cli',
       accessTier:
-        freebuffSession && 'accessTier' in freebuffSession
-          ? freebuffSession.accessTier
+        codebirdsSession && 'accessTier' in codebirdsSession
+          ? codebirdsSession.accessTier
           : 'unknown',
       mode: agentMode,
       inputMode,

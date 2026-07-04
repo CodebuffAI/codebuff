@@ -84,7 +84,7 @@ ${$getNativeToolCallExampleString({
       },
       {
         oldString:
-          '\n\t\t// @codebuff delete this log line please\n\t\tconsole.log("Hello, world!");\n',
+          '\n\t\t// @codebirds delete this log line please\n\t\tconsole.log("Hello, world!");\n',
         newString: '\n',
       },
       {

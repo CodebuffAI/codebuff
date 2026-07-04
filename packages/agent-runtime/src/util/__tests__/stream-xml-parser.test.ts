@@ -17,9 +17,9 @@ describe('stream-xml-parser', () => {
 
     it('should extract a complete tool call in a single chunk', () => {
       const state = createStreamParserState()
-      const chunk = `<codebuff_tool_call>
+      const chunk = `<codebirds_tool_call>
 {"cb_tool_name": "test_tool", "path": "foo.ts"}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
       const result = parseStreamChunk(chunk, state)
 
@@ -32,9 +32,9 @@ describe('stream-xml-parser', () => {
     it('should extract tool call and preserve text before and after', () => {
       const state = createStreamParserState()
       const chunk = `Before text
-<codebuff_tool_call>
+<codebirds_tool_call>
 {"cb_tool_name": "test_tool"}
-</codebuff_tool_call>
+</codebirds_tool_call>
 After text`
 
       const result = parseStreamChunk(chunk, state)
@@ -48,12 +48,12 @@ After text`
       const state = createStreamParserState()
 
       // First chunk: start tag and partial content
-      const result1 = parseStreamChunk('<codebuff_tool_call>\n{"cb_tool', state)
+      const result1 = parseStreamChunk('<codebirds_tool_call>\n{"cb_tool', state)
       expect(result1.filteredText).toBe('')
       expect(result1.toolCalls).toEqual([])
 
       // Second chunk: rest of content and end tag
-      const result2 = parseStreamChunk('_name": "test_tool"}\n</codebuff_tool_call>', state)
+      const result2 = parseStreamChunk('_name": "test_tool"}\n</codebirds_tool_call>', state)
       expect(result2.filteredText).toBe('')
       expect(result2.toolCalls).toHaveLength(1)
       expect(result2.toolCalls[0].toolName).toBe('test_tool')
@@ -63,25 +63,25 @@ After text`
       const state = createStreamParserState()
 
       // First chunk ends with partial start tag
-      const result1 = parseStreamChunk('Some text<codebuff', state)
+      const result1 = parseStreamChunk('Some text<codebirds', state)
       expect(result1.filteredText).toBe('Some text')
       expect(result1.toolCalls).toEqual([])
 
       // Second chunk completes the start tag
-      const result2 = parseStreamChunk('_tool_call>\n{"cb_tool_name": "test"}\n</codebuff_tool_call>', state)
+      const result2 = parseStreamChunk('_tool_call>\n{"cb_tool_name": "test"}\n</codebirds_tool_call>', state)
       expect(result2.filteredText).toBe('')
       expect(result2.toolCalls).toHaveLength(1)
     })
 
     it('should handle multiple tool calls in sequence', () => {
       const state = createStreamParserState()
-      const chunk = `<codebuff_tool_call>
+      const chunk = `<codebirds_tool_call>
 {"cb_tool_name": "tool_a"}
-</codebuff_tool_call>
+</codebirds_tool_call>
 Middle text
-<codebuff_tool_call>
+<codebirds_tool_call>
 {"cb_tool_name": "tool_b"}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
       const result = parseStreamChunk(chunk, state)
 
@@ -101,9 +101,9 @@ Middle text
 
     it('should remove cb_easp from input', () => {
       const state = createStreamParserState()
-      const chunk = `<codebuff_tool_call>
+      const chunk = `<codebirds_tool_call>
 {"cb_tool_name": "test", "cb_easp": true, "path": "foo.ts"}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
       const result = parseStreamChunk(chunk, state)
 
@@ -115,7 +115,7 @@ Middle text
     it('should handle tool call without newlines after/before tags', () => {
       const state = createStreamParserState()
       // No newline after start tag or before end tag
-      const chunk = `<codebuff_tool_call>{"cb_tool_name": "test_tool"}</codebuff_tool_call>`
+      const chunk = `<codebirds_tool_call>{"cb_tool_name": "test_tool"}</codebirds_tool_call>`
 
       const result = parseStreamChunk(chunk, state)
 
@@ -126,7 +126,7 @@ Middle text
 
     it('should handle tool call with CRLF line endings', () => {
       const state = createStreamParserState()
-      const chunk = `<codebuff_tool_call>\r\n{"cb_tool_name": "test_tool"}\r\n</codebuff_tool_call>`
+      const chunk = `<codebirds_tool_call>\r\n{"cb_tool_name": "test_tool"}\r\n</codebirds_tool_call>`
 
       const result = parseStreamChunk(chunk, state)
 
@@ -137,9 +137,9 @@ Middle text
 
     it('should handle tool call with extra whitespace', () => {
       const state = createStreamParserState()
-      const chunk = `<codebuff_tool_call>  
+      const chunk = `<codebirds_tool_call>  
   {"cb_tool_name": "test_tool"}  
-  </codebuff_tool_call>`
+  </codebirds_tool_call>`
 
       const result = parseStreamChunk(chunk, state)
 
@@ -158,9 +158,9 @@ Middle text
 Thinking about the task...
 </think>
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {"cb_tool_name": "propose_str_replace", "path": "test.ts"}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
       // Stream in ~10 char chunks
       for (let i = 0; i < fullText.length; i += 10) {
@@ -183,12 +183,12 @@ Thinking about the task...
       const allToolCalls: any[] = []
 
       // Send start tag and content
-      let result = parseStreamChunk('<codebuff_tool_call>\n{"cb_tool_name": "test"}\n</', state)
+      let result = parseStreamChunk('<codebirds_tool_call>\n{"cb_tool_name": "test"}\n</', state)
       allChunks.push(result.filteredText)
       allToolCalls.push(...result.toolCalls)
 
       // Send rest of end tag
-      result = parseStreamChunk('codebuff_tool_call>', state)
+      result = parseStreamChunk('codebirds_tool_call>', state)
       allChunks.push(result.filteredText)
       allToolCalls.push(...result.toolCalls)
 
@@ -201,9 +201,9 @@ Thinking about the task...
       const allChunks: string[] = []
       const allToolCalls: any[] = []
 
-      const fullText = `Hi<codebuff_tool_call>
+      const fullText = `Hi<codebirds_tool_call>
 {"cb_tool_name": "x"}
-</codebuff_tool_call>Bye`
+</codebirds_tool_call>Bye`
 
       // Stream 2 chars at a time
       for (let i = 0; i < fullText.length; i += 2) {

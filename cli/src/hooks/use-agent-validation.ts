@@ -1,4 +1,4 @@
-import { validateAgents } from '@codebuff/sdk'
+import { validateAgents } from '@codebirds/sdk'
 import { useCallback, useState } from 'react'
 
 import { loadAgentDefinitions } from '../utils/local-agent-registry'

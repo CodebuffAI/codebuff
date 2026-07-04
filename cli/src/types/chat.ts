@@ -1,5 +1,5 @@
 import type { ChatTheme } from './theme-system'
-import type { ToolName } from '@codebuff/sdk'
+import type { ToolName } from '@codebirds/sdk'
 import type { ReactNode } from 'react'
 
 /**

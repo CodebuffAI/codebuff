@@ -18,7 +18,7 @@ import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
 import { formatUrl, calculateResponsiveLayout } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { copyTextToClipboard, isRemoteSession } from '../utils/clipboard'
 import { getFingerprintId } from '../utils/fingerprint'
 import { logger } from '../utils/logger'
@@ -290,7 +290,7 @@ export const LoginModal = ({
       >
         {/* Header - Logo rendered by useLogo hook */}
         <box
-          key="codebuff-logo"
+          key="codebirds-logo"
           style={{
             flexDirection: 'column',
             alignItems: contentMaxWidth < 40 ? 'center' : 'flex-start',
@@ -460,7 +460,7 @@ export const LoginModal = ({
                   <span fg={theme.secondary}>
                     Tip: Can't copy? Exit and run{' '}
                   </span>
-                  <span fg={theme.primary}>{IS_FREEBUFF ? 'freebuff' : 'codebuff'} login</span>
+                  <span fg={theme.primary}>{IS_CODEBIRDS ? 'codebirds' : 'codebirds'} login</span>
                   <span fg={theme.secondary}>
                     {' '}instead.
                   </span>

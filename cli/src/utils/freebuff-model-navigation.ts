@@ -24,7 +24,7 @@ export function nextFreebuffModelId(params: {
   return modelIds[(currentIdx + step + modelIds.length) % modelIds.length]
 }
 
-export function freebuffModelNavigationDirectionForKey(key: {
+export function codebirdsModelNavigationDirectionForKey(key: {
   name?: string
   shift?: boolean
   sequence?: string

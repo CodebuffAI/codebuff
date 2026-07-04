@@ -3,19 +3,19 @@ import path from 'path'
 
 import { describe, expect, it } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { CodebirdsClient } from '../client'
 import { EventCollector, DEFAULT_TIMEOUT } from '../../e2e/utils'
 
-import type { AgentOutput } from '@codebuff/common/types/session-state'
+import type { AgentOutput } from '@codebirds/common/types/session-state'
 
-const apiKey = process.env.CODEBUFF_API_KEY
-const RUN_LIVE_INTEGRATION = process.env.RUN_CODEBUFF_E2E === 'true'
+const apiKey = process.env.CODEBIRDS_API_KEY
+const RUN_LIVE_INTEGRATION = process.env.RUN_CODEBIRDS_E2E === 'true'
 
 function getLiveApiKey(): string | null {
   if (!RUN_LIVE_INTEGRATION || !apiKey) {
     console.log(
-      'Skipping prompt caching integration test: set RUN_CODEBUFF_E2E=true and CODEBUFF_API_KEY to run.\n' +
-        'Example: RUN_CODEBUFF_E2E=true CODEBUFF_API_KEY=your-key bun test src/__tests__/run.integration.test.ts',
+      'Skipping prompt caching integration test: set RUN_CODEBIRDS_E2E=true and CODEBIRDS_API_KEY to run.\n' +
+        'Example: RUN_CODEBIRDS_E2E=true CODEBIRDS_API_KEY=your-key bun test src/__tests__/run.integration.test.ts',
     )
     return null
   }
@@ -55,7 +55,7 @@ describe('Prompt Caching', () => {
         return
       }
 
-      const client = new CodebuffClient({ apiKey: liveApiKey })
+      const client = new CodebirdsClient({ apiKey: liveApiKey })
 
       const filler =
         `Run UUID: ${crypto.randomUUID()} ` +
@@ -117,7 +117,7 @@ describe('Prompt Caching', () => {
       try {
         fs.writeFileSync(tempFile1, `MAGIC_NUMBER=${magic1}`)
 
-        const client = new CodebuffClient({
+        const client = new CodebirdsClient({
           apiKey: liveApiKey,
           cwd: process.cwd(),
         })

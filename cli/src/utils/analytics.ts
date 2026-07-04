@@ -2,23 +2,23 @@ import {
   createPostHogClient,
   type AnalyticsClientWithIdentify,
   type PostHogClientOptions,
-} from '@codebuff/common/analytics-core'
+} from '@codebirds/common/analytics-core'
 import {
   env as defaultEnv,
   IS_PROD as defaultIsProd,
   DEBUG_ANALYTICS,
-} from '@codebuff/common/env'
-import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
-import { shouldMirrorAnalyticsEvent } from '@codebuff/common/util/log-mirror'
+} from '@codebirds/common/env'
+import { shouldTrackAnalyticsEvent } from '@codebirds/common/util/analytics-sampling'
+import { shouldMirrorAnalyticsEvent } from '@codebirds/common/util/log-mirror'
 
 import { getOrCreatePersistentAnonymousId } from './anonymous-id'
 import { enqueueClientLog } from './log-shipper'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 
 
 // Re-export types from core for backwards compatibility
-export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics-core'
+export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebirds/common/analytics-core'
 
 export enum AnalyticsErrorStage {
   Init = 'init',

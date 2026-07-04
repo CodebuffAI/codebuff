@@ -11,8 +11,8 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getProjectFileTree } from '@codebuff/common/project-file-tree'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { getProjectFileTree } from '@codebirds/common/project-file-tree'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import {
@@ -31,9 +31,9 @@ import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
 import { getAuthToken, getAuthTokenDetails } from './utils/auth'
-import { resetCodebuffClient } from './utils/codebuff-client'
-import { setApiClientAuthToken } from './utils/codebuff-api'
-import { IS_FREEBUFF } from './utils/constants'
+import { resetCodebirdsClient } from './utils/codebirds-client'
+import { setApiClientAuthToken } from './utils/codebirds-api'
+import { IS_CODEBIRDS } from './utils/constants'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { trimOversizedChatLogs } from './utils/chat-history'
 import { clearLogFile, logger } from './utils/logger'
@@ -45,7 +45,7 @@ import { initializeSkillRegistry } from './utils/skill-registry'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
 
-import type { FileTreeNode } from '@codebuff/common/util/file'
+import type { FileTreeNode } from '@codebirds/common/util/file'
 
 // Configure TanStack Query's focusManager for terminal environments
 // This is required because there's no browser visibility API in terminal apps
@@ -82,11 +82,11 @@ async function main(): Promise<void> {
   // still ran first and rejected the unknown flag).
   if (process.argv.includes('--smoke-tree-sitter')) {
     const wasmBinary = (
-      globalThis as { __CODEBUFF_TREE_SITTER_WASM_BINARY__?: Uint8Array }
-    ).__CODEBUFF_TREE_SITTER_WASM_BINARY__
+      globalThis as { __CODEBIRDS_TREE_SITTER_WASM_BINARY__?: Uint8Array }
+    ).__CODEBIRDS_TREE_SITTER_WASM_BINARY__
     const wasmPath = (
-      globalThis as { __CODEBUFF_TREE_SITTER_WASM_PATH__?: string }
-    ).__CODEBUFF_TREE_SITTER_WASM_PATH__
+      globalThis as { __CODEBIRDS_TREE_SITTER_WASM_PATH__?: string }
+    ).__CODEBIRDS_TREE_SITTER_WASM_PATH__
 
     // Diagnostic dump so CI logs (and bug reports) show exactly what
     // the runtime saw when smoke fails. process.execPath, the
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
     hasAgentOverride: hasAgentOverride,
     continueChat,
     initialMode: initialMode ?? 'DEFAULT',
-    isFreeBuff: IS_FREEBUFF,
+    isFreeBuff: IS_CODEBIRDS,
   })
 
   // Initialize agent registry (loads user agents via SDK).
@@ -312,7 +312,7 @@ async function main(): Promise<void> {
         // Update the project root in the module state
         setProjectRoot(newProjectPath)
         // Reset client to ensure tools use the updated project root
-        resetCodebuffClient()
+        resetCodebirdsClient()
         // Save to recent projects list
         saveRecentProject(newProjectPath)
         // Update local state
@@ -384,7 +384,7 @@ async function main(): Promise<void> {
   // live — reaching renderer creation means this is a real session (the
   // login/publish/smoke-test commands all exit earlier). Freebuff-only, matching
   // the MESSAGE_SENT DAU signal. Stopped in exitFreebuffCleanly().
-  if (IS_FREEBUFF) {
+  if (IS_CODEBIRDS) {
     startEngagementTracking()
   }
 

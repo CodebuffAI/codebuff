@@ -117,14 +117,14 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
           ),
         )
         // Enable performance testing
-        await tmux(['set-environment', '-g', 'CODEBUFF_PERF_TEST', 'true'])
+        await tmux(['set-environment', '-g', 'CODEBIRDS_PERF_TEST', 'true'])
       }
     })
 
     test(
       'MessageBlock re-renders stay within acceptable limits',
       async () => {
-        const sessionName = 'codebuff-perf-test-' + Date.now()
+        const sessionName = 'codebirds-perf-test-' + Date.now()
 
         // Clear the debug log before test
         clearCliDebugLog(DEBUG_LOG_PATH)
@@ -140,7 +140,7 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
             '120',
             '-y',
             '30',
-            `CODEBUFF_PERF_TEST=true bun run ${CLI_PATH}`,
+            `CODEBIRDS_PERF_TEST=true bun run ${CLI_PATH}`,
           ])
 
           // Wait for CLI to initialize
@@ -215,7 +215,7 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
     test(
       'Forbidden callback props are properly memoized',
       async () => {
-        const sessionName = 'codebuff-memo-test-' + Date.now()
+        const sessionName = 'codebirds-memo-test-' + Date.now()
 
         clearCliDebugLog(DEBUG_LOG_PATH)
 
@@ -229,7 +229,7 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
             '120',
             '-y',
             '30',
-            `CODEBUFF_PERF_TEST=true bun run ${CLI_PATH}`,
+            `CODEBIRDS_PERF_TEST=true bun run ${CLI_PATH}`,
           ])
 
           await sleep(5000)

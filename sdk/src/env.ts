@@ -5,10 +5,10 @@
  * process env with SDK-specific vars for binary paths and WASM.
  */
 
-import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
-import { CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/chatgpt-oauth'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
-import { getBaseEnv } from '@codebuff/common/env-process'
+import { BYOK_OPENROUTER_ENV_VAR } from '@codebirds/common/constants/byok'
+import { CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebirds/common/constants/chatgpt-oauth'
+import { API_KEY_ENV_VAR } from '@codebirds/common/constants/paths'
+import { getBaseEnv } from '@codebirds/common/env-process'
 
 import type { SdkEnv } from './types/env'
 
@@ -20,8 +20,8 @@ export const getSdkEnv = (): SdkEnv => ({
   ...getBaseEnv(),
 
   // SDK-specific paths
-  CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
-  CODEBUFF_WASM_DIR: process.env.CODEBUFF_WASM_DIR,
+  CODEBIRDS_RG_PATH: process.env.CODEBIRDS_RG_PATH,
+  CODEBIRDS_WASM_DIR: process.env.CODEBIRDS_WASM_DIR,
 
   // Build flags
   VERBOSE: process.env.VERBOSE,
@@ -30,7 +30,7 @@ export const getSdkEnv = (): SdkEnv => ({
   OVERRIDE_ARCH: process.env.OVERRIDE_ARCH,
 })
 
-export const getCodebuffApiKeyFromEnv = (): string | undefined => {
+export const getCodebirdsApiKeyFromEnv = (): string | undefined => {
   return process.env[API_KEY_ENV_VAR]
 }
 

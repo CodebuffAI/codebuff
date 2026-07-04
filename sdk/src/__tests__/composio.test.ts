@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
 
-import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
-import { clientToolNames, toolParams } from '@codebuff/common/tools/list'
+import { COMPOSIO_META_TOOL_NAMES } from '@codebirds/common/constants/composio'
+import { clientToolNames, toolParams } from '@codebirds/common/tools/list'
 
 import { executeComposioToolViaServer } from '../composio'
 
@@ -28,7 +28,7 @@ describe('Composio SDK tools', () => {
       async (_url: string | URL | Request, init?: RequestInit) => {
         expect(init?.method).toBe('POST')
         expect(init?.headers).toEqual({
-          Authorization: 'Bearer codebuff-api-key',
+          Authorization: 'Bearer codebirds-api-key',
           'Content-Type': 'application/json',
         })
         expect(JSON.parse(String(init?.body))).toEqual({
@@ -49,7 +49,7 @@ describe('Composio SDK tools', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const output = await executeComposioToolViaServer({
-      apiKey: 'codebuff-api-key',
+      apiKey: 'codebirds-api-key',
       toolName: 'composio_search_tools',
       input: {
         queries: ['find gmail tools'],
@@ -67,7 +67,7 @@ describe('Composio SDK tools', () => {
     ) as unknown as typeof fetch
 
     const output = await executeComposioToolViaServer({
-      apiKey: 'codebuff-api-key',
+      apiKey: 'codebirds-api-key',
       toolName: 'composio_search_tools',
       input: {
         queries: ['find gmail tools'],

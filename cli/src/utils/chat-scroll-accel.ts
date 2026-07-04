@@ -33,7 +33,7 @@ type ScrollEnvironment = {
 const resolveScrollEnvironment = (
   env: CliEnv = getCliEnv(),
 ): ScrollEnvironment => {
-  let multiplier = parseFloat(env.CODEBUFF_SCROLL_MULTIPLIER ?? '')
+  let multiplier = parseFloat(env.CODEBIRDS_SCROLL_MULTIPLIER ?? '')
 
   if (Number.isNaN(multiplier)) {
     multiplier = 1

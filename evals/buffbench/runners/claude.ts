@@ -4,7 +4,7 @@ import type { Runner, RunnerResult, AgentStep } from './runner'
 import type {
   PrintModeToolCall,
   PrintModeToolResult,
-} from '@codebuff/common/types/print-mode'
+} from '@codebirds/common/types/print-mode'
 
 export class ClaudeRunner implements Runner {
   private cwd: string

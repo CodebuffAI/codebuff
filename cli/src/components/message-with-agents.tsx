@@ -23,7 +23,7 @@ import {
 } from '../utils/markdown-renderer'
 
 import type { ChatMessage } from '../types/chat'
-import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+import type { FeedbackCategory } from '@codebirds/common/constants/feedback'
 
 interface AgentChildrenGridProps {
   agentChildren: ChatMessage[]

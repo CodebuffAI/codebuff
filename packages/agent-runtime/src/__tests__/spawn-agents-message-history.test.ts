@@ -1,11 +1,11 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
 import {
   assistantMessage,
   systemMessage,
   userMessage,
-} from '@codebuff/common/util/messages'
+} from '@codebirds/common/util/messages'
 import {
   describe,
   expect,
@@ -20,9 +20,9 @@ import { mockFileContext } from './test-utils'
 import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { CodebirdsToolCall } from '@codebirds/common/tools/list'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
@@ -107,7 +107,7 @@ describe('Spawn Agents Message History', () => {
   const createSpawnToolCall = (
     agentType: string,
     prompt = 'test prompt',
-  ): CodebuffToolCall<'spawn_agents'> => ({
+  ): CodebirdsToolCall<'spawn_agents'> => ({
     toolName: 'spawn_agents' as const,
     toolCallId: 'test-tool-call-id',
     input: {

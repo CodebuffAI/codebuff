@@ -7,11 +7,11 @@
 
 ### Shell Shims
 
-Direct commands without `codebuff` prefix:
+Direct commands without `codebirds` prefix:
 
 ```bash
-codebuff shims install codebuff/base-lite@1.0.0
-eval "$(codebuff shims env)"
+codebirds shims install codebirds/base-lite@1.0.0
+eval "$(codebirds shims env)"
 base-lite "fix this bug"
 ```
 

@@ -1,20 +1,20 @@
-import { buildArray } from '@codebuff/common/util/array'
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { buildArray } from '@codebirds/common/util/array'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { Subgoal } from '@codebuff/common/types/session-state'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { Subgoal } from '@codebirds/common/types/session-state'
 
 export const handleAddSubgoal = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'add_subgoal'>
+  toolCall: CodebirdsToolCall<'add_subgoal'>
 
   agentContext: Record<string, Subgoal>
 }): Promise<{
-  output: CodebuffToolOutput<'add_subgoal'>
+  output: CodebirdsToolOutput<'add_subgoal'>
 }> => {
   const { previousToolCallFinished, toolCall, agentContext } = params
 
@@ -27,4 +27,4 @@ export const handleAddSubgoal = (async (params: {
 
   await previousToolCallFinished
   return { output: jsonToolResult({ message: 'Successfully added subgoal' }) }
-}) satisfies CodebuffToolHandlerFunction<'add_subgoal'>
+}) satisfies CodebirdsToolHandlerFunction<'add_subgoal'>

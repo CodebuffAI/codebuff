@@ -15,11 +15,11 @@
     "types": ["node", "bun-types"],
     "baseUrl": ".",
     "paths": {
-      "@codebuff/common/*": ["../common/src/*"],
-      "@codebuff/agent-runtime/*": ["../packages/agent-runtime/src/*"],
-      "@codebuff/code-map": ["../packages/code-map/src/index.ts"],
-      "@codebuff/code-map/*": ["../packages/code-map/src/*"],
-      "@codebuff/llm-providers/*": ["../packages/llm-providers/src/*"]
+      "@codebirds/common/*": ["../common/src/*"],
+      "@codebirds/agent-runtime/*": ["../packages/agent-runtime/src/*"],
+      "@codebirds/code-map": ["../packages/code-map/src/index.ts"],
+      "@codebirds/code-map/*": ["../packages/code-map/src/*"],
+      "@codebirds/llm-providers/*": ["../packages/llm-providers/src/*"]
     }
   },
   "include": ["src/**/*.ts"],

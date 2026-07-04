@@ -165,13 +165,13 @@ async function main() {
 
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
-    ['process.env.CODEBUFF_IS_BINARY', '"true"'],
-    ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
+    ['process.env.CODEBIRDS_IS_BINARY', '"true"'],
+    ['process.env.CODEBIRDS_CLI_VERSION', `"${version}"`],
     [
-      'process.env.CODEBUFF_CLI_TARGET',
+      'process.env.CODEBIRDS_CLI_TARGET',
       `"${getCliTargetLabel(targetInfo)}"`,
     ],
-    ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
+    ['process.env.CODEBIRDS_MODE', `"${process.env.CODEBIRDS_MODE ?? 'false'}"`],
     ...nextPublicEnvVars,
   ]
 
@@ -337,7 +337,7 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
   }
 
   const registryBase =
-    process.env.CODEBUFF_NPM_REGISTRY ??
+    process.env.CODEBIRDS_NPM_REGISTRY ??
     process.env.NPM_REGISTRY_URL ??
     'https://registry.npmjs.org'
   const metadataUrl = `${registryBase.replace(/\/$/, '')}/${encodeURIComponent(packageName)}`

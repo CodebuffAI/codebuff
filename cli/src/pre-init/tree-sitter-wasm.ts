@@ -14,8 +14,8 @@
 //
 // It's 200KB, the npm tarball already contains the binary; adding one
 // more file is trivial. The build script copies the wasm into `cli/bin/`
-// after compile, the release workflow tarballs both, and the freebuff /
-// codebuff downloader extracts both into the same directory. At runtime,
+// after compile, the release workflow tarballs both, and the codebirds /
+// codebirds downloader extracts both into the same directory. At runtime,
 // `process.execPath` plus a relative file lookup gets us the wasm with
 // zero bundler involvement.
 
@@ -60,14 +60,14 @@ if (siblingPath) {
   // Tell init-node.ts (in code-map / the SDK bundle) where the wasm
   // is. The locateFile callback there will hand this path to
   // emscripten, which fs.readFile's it.
-  process.env.CODEBUFF_TREE_SITTER_WASM_PATH = siblingPath
+  process.env.CODEBIRDS_TREE_SITTER_WASM_PATH = siblingPath
 
   // Also publish on globalThis so the smoke handler in index.tsx can
   // read it without touching process.env (which is gated by the env
   // architecture check outside the allowlisted pre-init files).
   ;(
-    globalThis as { __CODEBUFF_TREE_SITTER_WASM_PATH__?: string }
-  ).__CODEBUFF_TREE_SITTER_WASM_PATH__ = siblingPath
+    globalThis as { __CODEBIRDS_TREE_SITTER_WASM_PATH__?: string }
+  ).__CODEBIRDS_TREE_SITTER_WASM_PATH__ = siblingPath
 
   // Also try the synchronous-bytes path: hand the bytes straight to
   // Parser.init({ wasmBinary }) so the SDK doesn't need to round-trip
@@ -76,8 +76,8 @@ if (siblingPath) {
   try {
     const buf = readFileSync(siblingPath)
     ;(
-      globalThis as { __CODEBUFF_TREE_SITTER_WASM_BINARY__?: Uint8Array }
-    ).__CODEBUFF_TREE_SITTER_WASM_BINARY__ = new Uint8Array(
+      globalThis as { __CODEBIRDS_TREE_SITTER_WASM_BINARY__?: Uint8Array }
+    ).__CODEBIRDS_TREE_SITTER_WASM_BINARY__ = new Uint8Array(
       buf.buffer,
       buf.byteOffset,
       buf.byteLength,

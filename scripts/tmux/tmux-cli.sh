@@ -7,7 +7,7 @@
 # DESCRIPTION:
 #   A unified script for testing TUI applications using tmux.
 #   Provides subcommands for starting, sending input, capturing output,
-#   and stopping test sessions. Works with any TUI app (Codebuff,
+#   and stopping test sessions. Works with any TUI app (Codebirds,
 #   Claude Code, Codex, custom apps, etc.).
 #
 # USAGE:
@@ -44,16 +44,16 @@
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex chat")
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "python my_app.py")
 #
-#   # Test Codebuff (default when no --command specified)
+#   # Test Codebirds (default when no --command specified)
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --name my-test)
 #   ./scripts/tmux/tmux-cli.sh send "$SESSION" "hello world"
 #   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 3
 #   ./scripts/tmux/tmux-cli.sh stop "$SESSION"
 #
-#   # Test a compiled Codebuff binary
+#   # Test a compiled Codebirds binary
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary)
 #   # Or with custom path:
-#   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary ./path/to/codebuff)
+#   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary ./path/to/codebirds)
 #
 #   # Stop all test sessions
 #   ./scripts/tmux/tmux-cli.sh stop --all

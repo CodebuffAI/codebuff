@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { createMockStream, createToolCallChunk } from '@codebuff/common/testing/mocks/stream'
+ * import { createMockStream, createToolCallChunk } from '@codebirds/common/testing/mocks/stream'
  *
  * // Create a mock stream with text and tool calls
  * const stream = createMockStream([

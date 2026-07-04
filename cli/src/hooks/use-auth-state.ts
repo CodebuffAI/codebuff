@@ -1,12 +1,12 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 import { useCallback, useEffect, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
 import { identifyUser, trackEvent } from '../utils/analytics'
 import { getUserCredentials } from '../utils/auth'
-import { resetCodebuffClient } from '../utils/codebuff-client'
-import { IS_FREEBUFF } from '../utils/constants'
+import { resetCodebirdsClient } from '../utils/codebirds-client'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { loggerContext } from '../utils/logger'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -15,7 +15,7 @@ import type { User } from '../utils/auth'
 const setAuthLoggerContext = (params: { userId: string; email: string }) => {
   loggerContext.userId = params.userId
   loggerContext.userEmail = params.email
-  identifyUser(params.userId, { email: params.email, freebuff: IS_FREEBUFF })
+  identifyUser(params.userId, { email: params.email, codebirds: IS_CODEBIRDS })
 }
 
 const clearAuthLoggerContext = () => {
@@ -112,7 +112,7 @@ export const useAuthState = ({
       })
 
       // Reset the SDK client to pick up new credentials
-      resetCodebuffClient()
+      resetCodebirdsClient()
       resetChatStore()
       resetLoginState()
       setInputFocused(true)

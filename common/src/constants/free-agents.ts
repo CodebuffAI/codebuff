@@ -1,20 +1,20 @@
 import { parseAgentId } from '../util/agent-id-parsing'
 
 import {
-  FREEBUFF_GEMINI_PRO_AGENT_IDS,
-  FREEBUFF_GEMINI_THINKER_AGENT_ID,
-} from './freebuff-gemini-thinker'
+  CODEBIRDS_GEMINI_PRO_AGENT_IDS,
+  CODEBIRDS_GEMINI_THINKER_AGENT_ID,
+} from './codebirds-gemini-thinker'
 import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_GEMINI_PRO_MODEL_ID,
-  FREEBUFF_GLM_V52_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
-  FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-} from './freebuff-models'
+  CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID,
+  CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID,
+  CODEBIRDS_GEMINI_PRO_MODEL_ID,
+  CODEBIRDS_GLM_V52_MODEL_ID,
+  CODEBIRDS_KIMI_MODEL_ID,
+  CODEBIRDS_MINIMAX_MODEL_ID,
+  CODEBIRDS_MINIMAX_M3_MODEL_ID,
+  CODEBIRDS_MIMO_V25_MODEL_ID,
+  CODEBIRDS_MIMO_V25_PRO_MODEL_ID,
+} from './codebirds-models'
 
 import type { CostMode } from './model-config'
 
@@ -25,12 +25,12 @@ import type { CostMode } from './model-config'
 export const FREE_COST_MODE = 'free' as const
 
 /**
- * Root-orchestrator agent IDs counted as "a freebuff session" for abuse
+ * Root-orchestrator agent IDs counted as "a codebirds session" for abuse
  * detection and usage auditing. Subagents (file-picker, basher, etc.) are
  * excluded — they're spawned by the root, so counting them would inflate
  * every user's apparent activity.
  */
-export const FREEBUFF_ROOT_AGENT_IDS = [
+export const CODEBIRDS_ROOT_AGENT_IDS = [
   'base2-free',
   'base2-free-kimi',
   'base2-free-deepseek',
@@ -40,34 +40,34 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-minimax-m3',
   'base2-free-glm',
 ] as const
-const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
-  FREEBUFF_ROOT_AGENT_IDS,
+const CODEBIRDS_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
+  CODEBIRDS_ROOT_AGENT_IDS,
 )
 
-export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
-  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
-  [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
-  [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free',
-  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
-  [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
-  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
-  [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
+export const CODEBIRDS_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
+  [CODEBIRDS_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
+  [CODEBIRDS_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
+  [CODEBIRDS_MINIMAX_MODEL_ID]: 'base2-free',
+  [CODEBIRDS_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
+  [CODEBIRDS_KIMI_MODEL_ID]: 'base2-free-kimi',
+  [CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
+  [CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
+  [CODEBIRDS_GLM_V52_MODEL_ID]: 'base2-free-glm',
 }
 
-export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
-  [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
-  [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
-  [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
-  [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
-  [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
-  [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
-  [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
-  [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
+export const CODEBIRDS_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
+  [CODEBIRDS_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
+  [CODEBIRDS_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
+  [CODEBIRDS_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
+  [CODEBIRDS_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
+  [CODEBIRDS_KIMI_MODEL_ID]: 'code-reviewer-kimi',
+  [CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
+  [CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
+  [CODEBIRDS_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
 }
 
 export function getFreebuffRootAgentIdForModel(model: string): string {
-  return FREEBUFF_ROOT_AGENT_ID_BY_MODEL[model] ?? 'base2-free'
+  return CODEBIRDS_ROOT_AGENT_ID_BY_MODEL[model] ?? 'base2-free'
 }
 
 /**
@@ -81,20 +81,20 @@ export function getFreebuffRootAgentIdForModel(model: string): string {
 export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
   'base2-free': new Set([
-    FREEBUFF_MINIMAX_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_KIMI_MODEL_ID,
-    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    FREEBUFF_MIMO_V25_MODEL_ID,
+    CODEBIRDS_MINIMAX_MODEL_ID,
+    CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID,
+    CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID,
+    CODEBIRDS_KIMI_MODEL_ID,
+    CODEBIRDS_MIMO_V25_PRO_MODEL_ID,
+    CODEBIRDS_MIMO_V25_MODEL_ID,
   ]),
-  'base2-free-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
-  'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
-  'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
-  'base2-free-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
-  'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
-  'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
-  'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
+  'base2-free-kimi': new Set([CODEBIRDS_KIMI_MODEL_ID]),
+  'base2-free-deepseek': new Set([CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID]),
+  'base2-free-deepseek-flash': new Set([CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID]),
+  'base2-free-mimo-pro': new Set([CODEBIRDS_MIMO_V25_PRO_MODEL_ID]),
+  'base2-free-mimo': new Set([CODEBIRDS_MIMO_V25_MODEL_ID]),
+  'base2-free-minimax-m3': new Set([CODEBIRDS_MINIMAX_M3_MODEL_ID]),
+  'base2-free-glm': new Set([CODEBIRDS_GLM_V52_MODEL_ID]),
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
@@ -110,32 +110,32 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Command execution
   basher: new Set(['google/gemini-3.1-flash-lite-preview']),
-  'tmux-cli': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
+  'tmux-cli': new Set([CODEBIRDS_MINIMAX_MODEL_ID]),
 
   // Code reviewer for free mode
-  'code-reviewer-minimax': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
-  'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
-  'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
-  'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
+  'code-reviewer-minimax': new Set([CODEBIRDS_MINIMAX_MODEL_ID]),
+  'code-reviewer-minimax-m3': new Set([CODEBIRDS_MINIMAX_M3_MODEL_ID]),
+  'code-reviewer-kimi': new Set([CODEBIRDS_KIMI_MODEL_ID]),
+  'code-reviewer-deepseek': new Set([CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID,
   ]),
-  'code-reviewer-mimo-pro': new Set([FREEBUFF_MIMO_V25_PRO_MODEL_ID]),
-  'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
-  'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
-  // Legacy freebuff clients spawned code-reviewer-lite under provider-specific
+  'code-reviewer-mimo-pro': new Set([CODEBIRDS_MIMO_V25_PRO_MODEL_ID]),
+  'code-reviewer-mimo': new Set([CODEBIRDS_MIMO_V25_MODEL_ID]),
+  'code-reviewer-glm': new Set([CODEBIRDS_GLM_V52_MODEL_ID]),
+  // Legacy codebirds clients spawned code-reviewer-lite under provider-specific
   // free roots before those reviewer IDs existed.
   'code-reviewer-lite': new Set([
-    FREEBUFF_MINIMAX_MODEL_ID,
-    FREEBUFF_KIMI_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-    FREEBUFF_MIMO_V25_MODEL_ID,
+    CODEBIRDS_MINIMAX_MODEL_ID,
+    CODEBIRDS_KIMI_MODEL_ID,
+    CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID,
+    CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID,
+    CODEBIRDS_MIMO_V25_PRO_MODEL_ID,
+    CODEBIRDS_MIMO_V25_MODEL_ID,
   ]),
 
   // Legacy: kept for the standalone gemini thinker agent if invoked directly.
-  [FREEBUFF_GEMINI_THINKER_AGENT_ID]: new Set([FREEBUFF_GEMINI_PRO_MODEL_ID]),
+  [CODEBIRDS_GEMINI_THINKER_AGENT_ID]: new Set([CODEBIRDS_GEMINI_PRO_MODEL_ID]),
 }
 
 /**
@@ -172,28 +172,28 @@ export function isFreeMode(costMode: CostMode | string | undefined): boolean {
 export function isFreebuffRootAgent(fullAgentId: string): boolean {
   const { publisherId, agentId } = parseAgentId(fullAgentId)
   if (!agentId) return false
-  if (publisherId && publisherId !== 'codebuff') return false
-  return FREEBUFF_ROOT_AGENT_ID_SET.has(agentId)
+  if (publisherId && publisherId !== 'codebirds') return false
+  return CODEBIRDS_ROOT_AGENT_ID_SET.has(agentId)
 }
 
 export function isFreebuffGeminiThinkerAgent(fullAgentId: string): boolean {
   const { publisherId, agentId } = parseAgentId(fullAgentId)
   if (!agentId) return false
-  if (publisherId && publisherId !== 'codebuff') return false
-  return agentId === FREEBUFF_GEMINI_THINKER_AGENT_ID
+  if (publisherId && publisherId !== 'codebirds') return false
+  return agentId === CODEBIRDS_GEMINI_THINKER_AGENT_ID
 }
 
 /**
  * True if this agent is permitted to call the premium Gemini Pro model — i.e.
  * one of the two gemini-thinker subagents (CLI `thinker-with-files-gemini` or
  * chat `thinker-gemini`). Publisher-spoof-safe like the other gates: a
- * non-codebuff publisher never matches.
+ * non-codebirds publisher never matches.
  */
 export function isFreebuffGeminiProAgent(fullAgentId: string): boolean {
   const { publisherId, agentId } = parseAgentId(fullAgentId)
   if (!agentId) return false
-  if (publisherId && publisherId !== 'codebuff') return false
-  return FREEBUFF_GEMINI_PRO_AGENT_IDS.has(agentId)
+  if (publisherId && publisherId !== 'codebirds') return false
+  return CODEBIRDS_GEMINI_PRO_AGENT_IDS.has(agentId)
 }
 
 export function shouldUseLocalTokenCountForFreebuffDeepseekFlash(params: {
@@ -201,12 +201,12 @@ export function shouldUseLocalTokenCountForFreebuffDeepseekFlash(params: {
   model: string | undefined
 }): boolean {
   const { agentId: fullAgentId, model } = params
-  if (!fullAgentId || model !== FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID) {
+  if (!fullAgentId || model !== CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID) {
     return false
   }
 
   const { publisherId, agentId } = parseAgentId(fullAgentId)
-  if (publisherId && publisherId !== 'codebuff') return false
+  if (publisherId && publisherId !== 'codebirds') return false
   return agentId === 'base2-free-deepseek-flash'
 }
 
@@ -217,7 +217,7 @@ export function shouldUseLocalTokenCountForFreebuffDeepseekFlash(params: {
  * Returns true only if:
  * 1. The agent has a valid agent ID
  * 2. The agent is in the allowed free-mode agents list
- * 3. The agent is either internal or published by 'codebuff' (prevents spoofing)
+ * 3. The agent is either internal or published by 'codebirds' (prevents spoofing)
  * 4. The model is in that agent's allowed model set
  */
 export function isFreeModeAllowedAgentModel(
@@ -229,8 +229,8 @@ export function isFreeModeAllowedAgentModel(
   // Must have a valid agent ID
   if (!agentId) return false
 
-  // Must be either internal (no publisher) or from codebuff
-  if (publisherId && publisherId !== 'codebuff') return false
+  // Must be either internal (no publisher) or from codebirds
+  if (publisherId && publisherId !== 'codebirds') return false
 
   // Get the allowed models for this agent
   const allowedModels = FREE_MODE_AGENT_MODELS[agentId]
@@ -265,7 +265,7 @@ export function isFreeModeAllowedAgentModel(
  * Handles all agent ID formats:
  * - 'file-picker'
  * - 'file-picker@1.0.0'
- * - 'codebuff/file-picker@0.0.2'
+ * - 'codebirds/file-picker@0.0.2'
  */
 export function isFreeAgent(fullAgentId: string): boolean {
   const { publisherId, agentId } = parseAgentId(fullAgentId)
@@ -276,9 +276,9 @@ export function isFreeAgent(fullAgentId: string): boolean {
   // Must be in the free tier agents list
   if (!FREE_TIER_AGENTS.has(agentId)) return false
 
-  // Must be either internal (no publisher) or from codebuff
+  // Must be either internal (no publisher) or from codebirds
   // This prevents publisher spoofing attacks
-  if (publisherId && publisherId !== 'codebuff') return false
+  if (publisherId && publisherId !== 'codebirds') return false
 
   return true
 }

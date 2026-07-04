@@ -16,7 +16,7 @@ import { getCliEnv } from '../utils/env'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
 import { formatCwd } from '../utils/path-helpers'
 
-import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+import type { FeedbackCategory } from '@codebirds/common/constants/feedback'
 
 import type {
   ContentBlock,
@@ -180,7 +180,7 @@ export const MessageBlock = memo(({
     },
     {
       logLevel: 'debug',
-      enabled: getCliEnv().CODEBUFF_PERF_TEST === 'true',
+      enabled: getCliEnv().CODEBIRDS_PERF_TEST === 'true',
     },
   )
 

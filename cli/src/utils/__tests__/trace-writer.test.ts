@@ -11,13 +11,13 @@ mock.module('../../project-files', () => ({
 }))
 
 // Force tracing on and pin the dev path so the test is deterministic
-mock.module('@codebuff/common/env', () => ({
+mock.module('@codebirds/common/env', () => ({
   IS_DEV: true,
 }))
 
 import { createTraceWriter } from '../trace-writer'
 
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebirds/common/types/messages/codebirds-message'
 
 function readTraceLines(): any[] {
   const tracePath = path.join(tempDir, 'debug', 'trace.jsonl')
@@ -48,7 +48,7 @@ const baseParams = {
 
 describe('createTraceWriter', () => {
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-trace-'))
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebirds-trace-'))
   })
 
   afterEach(() => {

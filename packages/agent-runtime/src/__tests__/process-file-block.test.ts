@@ -1,9 +1,9 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
+} from '@codebirds/common/testing/mock-modules'
+import { cleanMarkdownCodeBlock } from '@codebirds/common/util/file'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
@@ -12,7 +12,7 @@ import { processFileBlock } from '../process-file-block'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
+} from '@codebirds/common/types/contracts/agent-runtime'
 
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
@@ -99,7 +99,7 @@ describe('processFileBlockModule', () => {
 
       const newContent =
         'function hello() {\r\n' +
-        '  console.log("Hello, Codebuff!");\r\n' +
+        '  console.log("Hello, Codebirds!");\r\n' +
         '  return "See you later!";\r\n' +
         '}\r\n'
 

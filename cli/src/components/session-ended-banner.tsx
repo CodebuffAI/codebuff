@@ -1,4 +1,4 @@
-import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+import { getRateLimitsByModel } from '@codebirds/common/types/codebirds-session'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useState } from 'react'
@@ -7,9 +7,9 @@ import { Button } from './button'
 import {
   refreshFreebuffSession,
   returnToFreebuffLanding,
-} from '../hooks/use-freebuff-session'
+} from '../hooks/use-codebirds-session'
 import { useTheme } from '../hooks/use-theme'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { useFreebuffSessionStore } from '../state/codebirds-session-store'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -24,7 +24,7 @@ interface SessionEndedBannerProps {
 }
 
 /**
- * Replaces the chat input when the freebuff session has ended. Captures
+ * Replaces the chat input when the codebirds session has ended. Captures
  * Enter to start a new same-chat session. Esc returns to model selection
  * once no in-flight work needs the global stream-interrupt handler.
  */

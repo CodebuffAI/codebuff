@@ -4,7 +4,7 @@ import {
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-import type { Model } from '@codebuff/common/old-constants'
+import type { Model } from '@codebirds/common/old-constants'
 
 export const createReviewer = (
   model: Model,

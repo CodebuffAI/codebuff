@@ -1,8 +1,8 @@
-import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
-import { withSystemTags } from '@codebuff/agent-runtime/util/messages'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { getStubProjectFileContext } from '@codebuff/common/util/file'
-import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
+import * as mainPromptModule from '@codebirds/agent-runtime/main-prompt'
+import { withSystemTags } from '@codebirds/agent-runtime/util/messages'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { getStubProjectFileContext } from '@codebirds/common/util/file'
+import { assistantMessage, userMessage } from '@codebirds/common/util/messages'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { RetryError } from 'ai'
 
@@ -14,7 +14,7 @@ interface ToolCallContentBlock {
   input: Record<string, unknown>
 }
 
-import { CodebuffClient } from '../client'
+import { CodebirdsClient } from '../client'
 import * as databaseModule from '../impl/database'
 
 describe('Run Cancellation Handling', () => {
@@ -71,7 +71,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -165,7 +165,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -225,7 +225,7 @@ describe('Run Cancellation Handling', () => {
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -276,7 +276,7 @@ describe('Run Cancellation Handling', () => {
     apiError.responseBody = JSON.stringify({
       error: 'session_model_mismatch',
       message:
-        'This session is bound to deepseek; restart freebuff to switch models.',
+        'This session is bound to deepseek; restart codebirds to switch models.',
     })
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(
@@ -287,7 +287,7 @@ describe('Run Cancellation Handling', () => {
       }),
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -303,7 +303,7 @@ describe('Run Cancellation Handling', () => {
       error?: string
     }
     expect(output.message).toBe(
-      'This session is bound to deepseek; restart freebuff to switch models.',
+      'This session is bound to deepseek; restart codebirds to switch models.',
     )
     expect(output.statusCode).toBe(409)
     expect(output.error).toBe('session_model_mismatch')
@@ -335,7 +335,7 @@ describe('Run Cancellation Handling', () => {
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -380,7 +380,7 @@ describe('Run Cancellation Handling', () => {
 
     spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -419,7 +419,7 @@ describe('Run Cancellation Handling', () => {
       new Error('Network connection failed'),
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -517,7 +517,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -578,7 +578,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -713,7 +713,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -811,7 +811,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -859,7 +859,7 @@ describe('Run Cancellation Handling', () => {
     // Abort before the run starts
     abortController.abort()
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -923,7 +923,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -1015,7 +1015,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 
@@ -1261,7 +1261,7 @@ describe('Run Cancellation Handling', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 

@@ -1,4 +1,4 @@
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
 export type AgentStep = PrintModeEvent
 

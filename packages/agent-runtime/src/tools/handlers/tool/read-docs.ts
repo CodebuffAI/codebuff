@@ -1,21 +1,21 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
-import { callDocsSearchAPI } from '../../../llm-api/codebuff-web-api'
+import { callDocsSearchAPI } from '../../../llm-api/codebirds-web-api'
 
 import type { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { ClientEnv, CiEnv } from '@codebirds/common/types/contracts/env'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 
 export const handleReadDocs = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<'read_docs'>
+    toolCall: CodebirdsToolCall<'read_docs'>
 
     agentStepId: string
     clientSessionId: string
@@ -31,7 +31,7 @@ export const handleReadDocs = (async (
     'query' | 'topic' | 'tokens'
   >,
 ): Promise<{
-  output: CodebuffToolOutput<'read_docs'>
+  output: CodebirdsToolOutput<'read_docs'>
   creditsUsed: number
 }> => {
   const {
@@ -157,4 +157,4 @@ export const handleReadDocs = (async (
       creditsUsed,
     }
   }
-}) satisfies CodebuffToolHandlerFunction<'read_docs'>
+}) satisfies CodebirdsToolHandlerFunction<'read_docs'>

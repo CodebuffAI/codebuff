@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
  * this independently; setIntervals are cheap and React batches the resulting
  * renders.
  *
- * Intended for short-lived UI countdowns like the freebuff session timer or
+ * Intended for short-lived UI countdowns like the codebirds session timer or
  * elapsed-in-queue display.
  */
 export function useNow(intervalMs: number, enabled = true): number {

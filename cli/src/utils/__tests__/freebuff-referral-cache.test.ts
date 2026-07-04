@@ -4,10 +4,10 @@ import {
   __resetReferralCacheForTest,
   getCachedReferral,
   rememberReferral,
-} from '../freebuff-referral-cache'
+} from '../codebirds-referral-cache'
 
-import type { FreebuffReferralInfo } from '@codebuff/common/types/freebuff-session'
-import type { FreebuffSessionResponse } from '../../types/freebuff-session'
+import type { FreebuffReferralInfo } from '@codebirds/common/types/codebirds-session'
+import type { FreebuffSessionResponse } from '../../types/codebirds-session'
 
 const referral: FreebuffReferralInfo = {
   code: 'ABC123',
@@ -31,7 +31,7 @@ const activeWithoutReferral = {
   instanceId: 'i-1',
 } as unknown as FreebuffSessionResponse
 
-describe('freebuff referral cache', () => {
+describe('codebirds referral cache', () => {
   beforeEach(() => {
     __resetReferralCacheForTest()
   })

@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebirds/common/constants/agents'
 
 import {
   createEventHandler,
@@ -8,13 +8,13 @@ import {
 } from './sdk-event-handlers'
 
 import type { EventHandlerState } from './sdk-event-handlers'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 import type {
   AgentDefinition,
   FileFilter,
   MessageContent,
   RunState,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 
 export type CreateRunConfigParams = {
   logger: Logger
@@ -26,7 +26,7 @@ export type CreateRunConfigParams = {
   eventHandlerState: EventHandlerState
   signal: AbortSignal
   costMode?: 'free' | 'lite' | 'normal' | 'max' | 'experimental' | 'ask'
-  extraCodebuffMetadata?: Record<string, string>
+  extraCodebirdsMetadata?: Record<string, string>
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -103,7 +103,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     agentDefinitions,
     eventHandlerState,
     costMode,
-    extraCodebuffMetadata,
+    extraCodebirdsMetadata,
   } = params
 
   return {
@@ -118,7 +118,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     handleEvent: createEventHandler(eventHandlerState),
     signal: params.signal,
     costMode,
-    extraCodebuffMetadata,
+    extraCodebirdsMetadata,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, mock } from 'bun:test'
 import {
   clearMockedModules,
   mockModule,
-} from '@codebuff/common/testing/mock-modules'
+} from '@codebirds/common/testing/mock-modules'
 
 describe('getModelForRequest free-mode guards', () => {
   const mockGetValidChatGptOAuthCredentials = mock(() =>
@@ -12,7 +12,7 @@ describe('getModelForRequest free-mode guards', () => {
   beforeEach(async () => {
     // Mock CHATGPT_OAUTH_ENABLED to true so the ChatGPT OAuth path is entered.
     // Uses mockModule helper since this is an absolute package specifier.
-    await mockModule('@codebuff/common/constants/chatgpt-oauth', () => ({
+    await mockModule('@codebirds/common/constants/chatgpt-oauth', () => ({
       CHATGPT_OAUTH_ENABLED: true,
     }))
 

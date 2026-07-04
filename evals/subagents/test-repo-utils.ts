@@ -3,7 +3,7 @@ import fs from 'fs'
 import * as os from 'os'
 import path from 'path'
 
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject } from '@codebirds/common/util/error'
 
 /**
  * Helper function to manage test repository lifecycle
@@ -22,7 +22,7 @@ export const withTestRepo = async <T>(
   const { repoUrl, parentSha, initCommand, env } = repoConfig
 
   // Create a temporary directory for the test repo
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-eval-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebirds-eval-'))
   const repoDir = path.join(tempDir, 'repo')
 
   try {
@@ -71,7 +71,7 @@ export const withTestRepoAndParent = async <T>(
 ): Promise<T | null> => {
   const { repoUrl, commitSha, initCommand } = repoConfig
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-eval-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebirds-eval-'))
   const repoDir = path.join(tempDir, 'repo')
 
   try {

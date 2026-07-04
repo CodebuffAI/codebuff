@@ -1,15 +1,15 @@
 import {
-  DEFAULT_FREEBUFF_MODEL_ID,
+  DEFAULT_CODEBIRDS_MODEL_ID,
   resolveAvailableFreebuffModel,
   resolveSupportedFreebuffModel,
-} from '@codebuff/common/constants/freebuff-models'
+} from '@codebirds/common/constants/codebirds-models'
 import { create } from 'zustand'
 
 import { loadFreebuffModelPreference } from '../utils/settings'
 
 /**
- * Holds the user's currently-selected freebuff model. Initialized from the
- * persisted settings file so freebuff defaults to whatever model the user
+ * Holds the user's currently-selected codebirds model. Initialized from the
+ * persisted settings file so codebirds defaults to whatever model the user
  * last picked.
  *
  * `setSelectedModel` is in-memory only — it does NOT persist. Persistence
@@ -29,7 +29,7 @@ interface FreebuffModelStore {
 
 export const useFreebuffModelStore = create<FreebuffModelStore>((set) => ({
   selectedModel: resolveAvailableFreebuffModel(
-    loadFreebuffModelPreference() ?? DEFAULT_FREEBUFF_MODEL_ID,
+    loadFreebuffModelPreference() ?? DEFAULT_CODEBIRDS_MODEL_ID,
   ),
   setSelectedModel: (model) =>
     set({ selectedModel: resolveSupportedFreebuffModel(model) }),

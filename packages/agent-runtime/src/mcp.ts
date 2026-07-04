@@ -1,16 +1,16 @@
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject } from '@codebirds/common/util/error'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { MCP_TOOL_SEPARATOR } from './mcp-constants'
 
 import type { AgentTemplate } from './templates/types'
-import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { OptionalFields } from '@codebuff/common/types/function-params'
+import type { RequestMcpToolDataFn } from '@codebirds/common/types/contracts/client'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { OptionalFields } from '@codebirds/common/types/function-params'
 import type {
   CustomToolDefinitions,
   ProjectFileContext,
-} from '@codebuff/common/util/file'
+} from '@codebirds/common/util/file'
 
 export async function getMCPToolData(
   params: OptionalFields<

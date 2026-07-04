@@ -1,23 +1,23 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
-  FREEBUFF_MINIMAX_M3_MODEL_ID,
-  FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V25_PRO_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
+  CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID,
+  CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID,
+  CODEBIRDS_KIMI_MODEL_ID,
+  CODEBIRDS_MINIMAX_MODEL_ID,
+  CODEBIRDS_MINIMAX_M3_MODEL_ID,
+  CODEBIRDS_MIMO_V25_MODEL_ID,
+  CODEBIRDS_MIMO_V25_PRO_MODEL_ID,
+} from '@codebirds/common/constants/codebirds-models'
 
 import { createBase2 } from '../base2/base2'
 import codeReviewerLite from '../reviewer/code-reviewer-lite'
 
 describe('base2 reviewer selection', () => {
-  test('Codebuff lite uses MiniMax M3 and its matching reviewer', () => {
+  test('Codebirds lite uses MiniMax M3 and its matching reviewer', () => {
     const base2 = createBase2('lite')
 
-    expect(base2.model).toBe(FREEBUFF_MINIMAX_M3_MODEL_ID)
+    expect(base2.model).toBe(CODEBIRDS_MINIMAX_M3_MODEL_ID)
     expect(base2.spawnableAgents).toContain('code-reviewer-minimax-m3')
     expect(base2.instructionsPrompt).toContain(
       'Spawn a code-reviewer-minimax-m3',
@@ -26,17 +26,17 @@ describe('base2 reviewer selection', () => {
   })
 
   test('legacy lite reviewer definition uses DeepSeek V4 Flash', () => {
-    expect(codeReviewerLite.model).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(codeReviewerLite.model).toBe(CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
   test.each([
-    [FREEBUFF_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
-    [FREEBUFF_MINIMAX_M3_MODEL_ID, 'code-reviewer-minimax-m3'],
-    [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],
-    [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
-    [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'code-reviewer-deepseek-flash'],
-    [FREEBUFF_MIMO_V25_PRO_MODEL_ID, 'code-reviewer-mimo-pro'],
-    [FREEBUFF_MIMO_V25_MODEL_ID, 'code-reviewer-mimo'],
+    [CODEBIRDS_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
+    [CODEBIRDS_MINIMAX_M3_MODEL_ID, 'code-reviewer-minimax-m3'],
+    [CODEBIRDS_KIMI_MODEL_ID, 'code-reviewer-kimi'],
+    [CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
+    [CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID, 'code-reviewer-deepseek-flash'],
+    [CODEBIRDS_MIMO_V25_PRO_MODEL_ID, 'code-reviewer-mimo-pro'],
+    [CODEBIRDS_MIMO_V25_MODEL_ID, 'code-reviewer-mimo'],
   ])('uses matching reviewer for model %p', (model, expectedReviewer) => {
     const base2 = createBase2('free', { model })
 
@@ -92,7 +92,7 @@ describe('base2 context pruning', () => {
 
   test('free Kimi mode defaults context pruning to 250k tokens', () => {
     expect(
-      getContextPrunerParams('free', { model: FREEBUFF_KIMI_MODEL_ID }),
+      getContextPrunerParams('free', { model: CODEBIRDS_KIMI_MODEL_ID }),
     ).toEqual({
       maxContextLength: 250_000,
       cacheExpiryMs: 30 * 60 * 1000,
@@ -102,7 +102,7 @@ describe('base2 context pruning', () => {
   test('free non-MiniMax/Kimi models default context pruning to 400k tokens', () => {
     expect(
       getContextPrunerParams('free', {
-        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        model: CODEBIRDS_DEEPSEEK_V4_FLASH_MODEL_ID,
       }),
     ).toEqual({
       maxContextLength: 400_000,
@@ -137,9 +137,9 @@ describe('base2 context pruning', () => {
   )
 
   test.each([
-    [FREEBUFF_MINIMAX_MODEL_ID, 200_000],
-    [FREEBUFF_KIMI_MODEL_ID, 250_000],
-    [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 400_000],
+    [CODEBIRDS_MINIMAX_MODEL_ID, 200_000],
+    [CODEBIRDS_KIMI_MODEL_ID, 250_000],
+    [CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID, 400_000],
   ] as const)(
     'non-free model %p defaults context pruning to %p tokens',
     (model, maxContextLength) => {
@@ -150,12 +150,12 @@ describe('base2 context pruning', () => {
   )
 
   test.each([
-    ['free', { model: FREEBUFF_MINIMAX_MODEL_ID }, 200_000],
-    ['free', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
-    ['free', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
-    ['default', { model: FREEBUFF_MINIMAX_MODEL_ID }, 200_000],
-    ['default', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
-    ['default', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
+    ['free', { model: CODEBIRDS_MINIMAX_MODEL_ID }, 200_000],
+    ['free', { model: CODEBIRDS_KIMI_MODEL_ID }, 250_000],
+    ['free', { model: CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
+    ['default', { model: CODEBIRDS_MINIMAX_MODEL_ID }, 200_000],
+    ['default', { model: CODEBIRDS_KIMI_MODEL_ID }, 250_000],
+    ['default', { model: CODEBIRDS_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
   ] as const)(
     'serialized %s handleSteps for model %p defaults to %p tokens',
     (mode, options, maxContextLength) => {
@@ -170,7 +170,7 @@ describe('base2 context pruning', () => {
       getContextPrunerParams(
         'default',
         {
-          model: FREEBUFF_KIMI_MODEL_ID,
+          model: CODEBIRDS_KIMI_MODEL_ID,
         },
         {
           maxContextLength: 123_000,

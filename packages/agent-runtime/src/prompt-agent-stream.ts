@@ -1,16 +1,16 @@
 import { globalStopSequence } from './constants'
 
 import type { AgentTemplate } from './templates/types'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { SendActionFn } from '@codebuff/common/types/contracts/client'
+import type { TrackEventFn } from '@codebirds/common/types/contracts/analytics'
+import type { SendActionFn } from '@codebirds/common/types/contracts/client'
 import type {
   CacheDebugUsageData,
   PromptAiSdkStreamFn,
-} from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { OpenRouterProviderOptions } from '@codebuff/common/types/agent-template'
+} from '@codebirds/common/types/contracts/llm'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsOf } from '@codebirds/common/types/function-params'
+import type { Message } from '@codebirds/common/types/messages/codebirds-message'
+import type { OpenRouterProviderOptions } from '@codebirds/common/types/agent-template'
 import type { ToolSet } from 'ai'
 
 export const getAgentStreamFromTemplate = (params: {
@@ -18,7 +18,7 @@ export const getAgentStreamFromTemplate = (params: {
   apiKey: string
   clientSessionId: string
   costMode?: string
-  extraCodebuffMetadata?: Record<string, string>
+  extraCodebirdsMetadata?: Record<string, string>
   fingerprintId: string
   includeCacheControl?: boolean
   localAgentTemplates: Record<string, AgentTemplate>
@@ -48,7 +48,7 @@ export const getAgentStreamFromTemplate = (params: {
     apiKey,
     clientSessionId,
     costMode,
-    extraCodebuffMetadata,
+    extraCodebirdsMetadata,
     fingerprintId,
     includeCacheControl,
     localAgentTemplates,
@@ -80,7 +80,7 @@ export const getAgentStreamFromTemplate = (params: {
     apiKey,
     clientSessionId,
     costMode,
-    extraCodebuffMetadata,
+    extraCodebirdsMetadata,
     fingerprintId,
     includeCacheControl,
     logger,
@@ -108,7 +108,7 @@ export const getAgentStreamFromTemplate = (params: {
   if (!aiSdkStreamParams.providerOptions) {
     aiSdkStreamParams.providerOptions = {}
   }
-  for (const provider of ['openrouter', 'codebuff'] as const) {
+  for (const provider of ['openrouter', 'codebirds'] as const) {
     if (!aiSdkStreamParams.providerOptions[provider]) {
       aiSdkStreamParams.providerOptions[provider] = {}
     }

@@ -1,14 +1,14 @@
-import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import * as mainPromptModule from '@codebirds/agent-runtime/main-prompt'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { getStubProjectFileContext } from '@codebirds/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { CodebuffClient } from '../client'
-import * as mcpClientModule from '@codebuff/common/mcp/client'
+import { CodebirdsClient } from '../client'
+import * as mcpClientModule from '@codebirds/common/mcp/client'
 import * as databaseModule from '../impl/database'
 
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-import type { MCPConfig } from '@codebuff/common/types/mcp'
+import type { AgentDefinition } from '@codebirds/common/templates/initial-agents-dir/types/agent-definition'
+import type { MCPConfig } from '@codebirds/common/types/mcp'
 
 const browserMcpConfig: MCPConfig = {
   type: 'stdio',
@@ -105,7 +105,7 @@ describe('MCP tool filtering', () => {
       },
     )
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
       agentDefinitions: [TEST_AGENT],
     })

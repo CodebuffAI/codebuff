@@ -5,15 +5,15 @@ import os from 'os'
 import {
   CHATGPT_OAUTH_CLIENT_ID,
   CHATGPT_OAUTH_TOKEN_URL,
-} from '@codebuff/common/constants/chatgpt-oauth'
-import { env } from '@codebuff/common/env'
-import { userSchema } from '@codebuff/common/util/credentials'
+} from '@codebirds/common/constants/chatgpt-oauth'
+import { env } from '@codebirds/common/env'
+import { userSchema } from '@codebirds/common/util/credentials'
 import { z } from 'zod/v4'
 
 import { getChatGptOAuthTokenFromEnv } from './env'
 
-import type { ClientEnv } from '@codebuff/common/types/contracts/env'
-import type { User } from '@codebuff/common/util/credentials'
+import type { ClientEnv } from '@codebirds/common/types/contracts/env'
+import type { User } from '@codebirds/common/util/credentials'
 
 const chatGptOAuthSchema = z.object({
   accessToken: z.string(),
@@ -24,7 +24,7 @@ const chatGptOAuthSchema = z.object({
 
 /**
  * Unified schema for the credentials file.
- * Contains both Codebuff user credentials and ChatGPT OAuth credentials.
+ * Contains both Codebirds user credentials and ChatGPT OAuth credentials.
  */
 const credentialsFileSchema = z.object({
   default: userSchema.optional(),
@@ -110,7 +110,7 @@ export const getChatGptOAuthCredentials = (
     }
   }
 
-  // 2. Codebuff's own stored credentials
+  // 2. Codebirds's own stored credentials
   const credentialsPath = getCredentialsPath(clientEnv)
   if (fs.existsSync(credentialsPath)) {
     try {

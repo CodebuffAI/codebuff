@@ -7,12 +7,12 @@ import {
 
 describe('parseToolCallsFromText', () => {
   it('should parse a single tool call', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"]
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseToolCallsFromText(text)
 
@@ -26,22 +26,22 @@ describe('parseToolCallsFromText', () => {
   it('should parse multiple tool calls', () => {
     const text = `Some commentary before
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["file1.ts"]
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 Some text between
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "str_replace",
   "path": "file1.ts",
   "replacements": [{"oldString": "foo", "newString": "bar"}]
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 Some commentary after`
 
@@ -62,13 +62,13 @@ Some commentary after`
   })
 
   it('should remove cb_tool_name from input', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "write_file",
   "path": "test.ts",
   "content": "console.log('hello')"
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseToolCallsFromText(text)
 
@@ -81,13 +81,13 @@ Some commentary after`
   })
 
   it('should remove cb_easp from input', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"],
   "cb_easp": true
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseToolCallsFromText(text)
 
@@ -97,20 +97,20 @@ Some commentary after`
   })
 
   it('should skip malformed JSON', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "write_file",
   "path": "good.ts",
   "content": "valid"
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseToolCallsFromText(text)
 
@@ -119,11 +119,11 @@ Some commentary after`
   })
 
   it('should skip tool calls without cb_tool_name', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "paths": ["test.ts"]
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseToolCallsFromText(text)
 
@@ -145,7 +145,7 @@ Some commentary after`
   })
 
   it('should handle complex nested objects in input', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "spawn_agents",
   "agents": [
@@ -163,7 +163,7 @@ Some commentary after`
     }
   ]
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseToolCallsFromText(text)
 
@@ -174,13 +174,13 @@ Some commentary after`
 
   it('should handle tool calls with escaped characters in strings', () => {
     const text =
-      '<codebuff_tool_call>\n' +
+      '<codebirds_tool_call>\n' +
       '{\n' +
       '  "cb_tool_name": "str_replace",\n' +
       '  "path": "test.ts",\n' +
       '  "replacements": [{"oldString": "console.log(\\"hello\\")", "newString": "console.log(\'world\')"}]\n' +
       '}\n' +
-      '</codebuff_tool_call>'
+      '</codebirds_tool_call>'
 
     const result = parseToolCallsFromText(text)
 
@@ -194,13 +194,13 @@ Some commentary after`
 
   it('should handle tool calls with newlines in content', () => {
     const text =
-      '<codebuff_tool_call>\n' +
+      '<codebirds_tool_call>\n' +
       '{\n' +
       '  "cb_tool_name": "write_file",\n' +
       '  "path": "test.ts",\n' +
       '  "content": "line1\\nline2\\nline3"\n' +
       '}\n' +
-      '</codebuff_tool_call>'
+      '</codebirds_tool_call>'
 
     const result = parseToolCallsFromText(text)
 
@@ -213,22 +213,22 @@ describe('parseTextWithToolCalls', () => {
   it('should parse interleaved text and tool calls', () => {
     const text = `Some commentary before
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["file1.ts"]
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 Some text between
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "write_file",
   "path": "file2.ts",
   "content": "test"
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 Some commentary after`
 
@@ -251,12 +251,12 @@ Some commentary after`
   })
 
   it('should return only tool call when no surrounding text', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"]
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseTextWithToolCalls(text)
 
@@ -289,12 +289,12 @@ Some commentary after`
   it('should handle text only before tool call', () => {
     const text = `Introduction text
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"]
 }
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const result = parseTextWithToolCalls(text)
 
@@ -304,12 +304,12 @@ Some commentary after`
   })
 
   it('should handle text only after tool call', () => {
-    const text = `<codebuff_tool_call>
+    const text = `<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"]
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 Conclusion text`
 
@@ -323,12 +323,12 @@ Conclusion text`
   it('should skip malformed tool calls but keep surrounding text', () => {
     const text = `Before text
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 After text`
 
@@ -343,12 +343,12 @@ After text`
     const text = `   
   Text with whitespace  
    
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "read_files",
   "paths": ["test.ts"]
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
    
   More text  
    `

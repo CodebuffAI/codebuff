@@ -1,17 +1,17 @@
-import { isRetryableStatusCode, getErrorStatusCode } from '@codebuff/sdk'
+import { isRetryableStatusCode, getErrorStatusCode } from '@codebirds/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { ChatHistoryScreen } from './components/chat-history-screen'
-import { FreebuffSupersededScreen } from './components/freebuff-superseded-screen'
+import { FreebuffSupersededScreen } from './components/codebirds-superseded-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
 import { WaitingRoomScreen } from './components/waiting-room-screen'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
-import { useFreebuffSession } from './hooks/use-freebuff-session'
+import { useFreebuffSession } from './hooks/use-codebirds-session'
 import { useLogo } from './hooks/use-logo'
 import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
@@ -21,7 +21,7 @@ import { getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import type { TopBannerType } from './types/store'
-import { IS_FREEBUFF } from './utils/constants'
+import { IS_CODEBIRDS } from './utils/constants'
 import { findGitRoot } from './utils/git'
 import { openFileAtPath } from './utils/open-file'
 import { formatCwd } from './utils/path-helpers'
@@ -30,7 +30,7 @@ import { getLogoBlockColor, getLogoAccentColor } from './utils/theme-system'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { AgentMode } from './utils/constants'
 import type { AuthStatus } from './utils/status-indicator-state'
-import type { FileTreeNode } from '@codebuff/common/util/file'
+import type { FileTreeNode } from '@codebirds/common/util/file'
 
 interface AppProps {
   initialPrompt: string | null
@@ -226,7 +226,7 @@ export const App = ({
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
         >
-          {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} will run commands on your behalf to help you build.
+          {IS_CODEBIRDS ? 'Freebuff' : 'Codebirds'} will run commands on your behalf to help you build.
         </text>
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
@@ -263,7 +263,7 @@ export const App = ({
   // Render project picker FIRST when at home directory or outside a project.
   // This deliberately precedes the login/auth and waiting-room gates so the
   // user always gets to pick a working directory before anything else — auth
-  // failures or a banned freebuff session would otherwise replace the
+  // failures or a banned codebirds session would otherwise replace the
   // picker mid-flash and look like being kicked out of the app.
   if (showProjectPicker) {
     return (
@@ -340,7 +340,7 @@ interface AuthedSurfaceProps {
 }
 
 /**
- * Rendered only after auth is confirmed. Owns the freebuff waiting-room gate
+ * Rendered only after auth is confirmed. Owns the codebirds waiting-room gate
  * so `useFreebuffSession` runs exactly once per authed session (not before
  * we have a token).
  */
@@ -370,7 +370,7 @@ const AuthedSurface = ({
   // Terminal state: a 409 from the gate means another CLI rotated our
   // instance id. Show a dedicated screen and stop polling — don't fall back
   // into the pre-chat screen, which would look like normal startup progress.
-  if (IS_FREEBUFF && session?.status === 'superseded') {
+  if (IS_CODEBIRDS && session?.status === 'superseded') {
     return <FreebuffSupersededScreen />
   }
 
@@ -386,7 +386,7 @@ const AuthedSurface = ({
   // finishing work under the server-side grace period, and the chat surface
   // itself swaps the input box for the session-ended banner.
   if (
-    IS_FREEBUFF &&
+    IS_CODEBIRDS &&
     (session === null ||
       session.status === 'none' ||
       session.status === 'country_blocked' ||
@@ -397,7 +397,7 @@ const AuthedSurface = ({
     return <WaitingRoomScreen session={session} error={sessionError} />
   }
 
-  // Chat history renders inside AuthedSurface so the freebuff session stays
+  // Chat history renders inside AuthedSurface so the codebirds session stays
   // mounted while the user browses history. Unmounting this surface would
   // DELETE the session row and drop the user back into the waiting room on
   // return.
@@ -428,7 +428,7 @@ const AuthedSurface = ({
       initialMode={initialMode}
       gitRoot={gitRoot}
       onSwitchToGitRoot={onSwitchToGitRoot}
-      freebuffSession={session}
+      codebirdsSession={session}
     />
   )
 }

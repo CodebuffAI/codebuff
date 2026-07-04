@@ -1,10 +1,10 @@
-import { getFreebuffRootAgentIdForModel } from '@codebuff/common/constants/free-agents'
+import { getFreebuffRootAgentIdForModel } from '@codebirds/common/constants/free-agents'
 
-import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
-import { AGENT_MODE_TO_ID, IS_FREEBUFF, type AgentMode } from './constants'
+import { getSelectedFreebuffModel } from '../state/codebirds-model-store'
+import { AGENT_MODE_TO_ID, IS_CODEBIRDS, type AgentMode } from './constants'
 
 export function getAgentIdForMode(agentMode: AgentMode): string {
-  if (IS_FREEBUFF && agentMode === 'LITE') {
+  if (IS_CODEBIRDS && agentMode === 'LITE') {
     return getFreebuffRootAgentIdForModel(getSelectedFreebuffModel())
   }
 

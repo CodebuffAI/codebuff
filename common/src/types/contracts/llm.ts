@@ -4,7 +4,7 @@ import type { OpenRouterProviderRoutingOptions , AgentTemplate } from '../agent-
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
-import type { Message } from '../messages/codebuff-message'
+import type { Message } from '../messages/codebirds-message'
 import type { PromptResult } from '../../util/error'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type z from 'zod/v4'
@@ -62,10 +62,10 @@ export type PromptAiSdkStreamFn = (
     localAgentTemplates?: Record<string, AgentTemplate>
     /** Cost mode - 'free' mode means 0 credits charged for all agents */
     costMode?: string
-    /** Extra key/values merged into the request's `codebuff_metadata` field.
-     *  Used to forward client-scoped identifiers (e.g. `freebuff_instance_id`)
+    /** Extra key/values merged into the request's `codebirds_metadata` field.
+     *  Used to forward client-scoped identifiers (e.g. `codebirds_instance_id`)
      *  that server-side gates read from the chat-completions body. */
-    extraCodebuffMetadata?: Record<string, string>
+    extraCodebirdsMetadata?: Record<string, string>
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn

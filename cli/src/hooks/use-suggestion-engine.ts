@@ -4,7 +4,7 @@ import {
   getAllPathsWithDirectories,
   getProjectFileTree,
   type PathInfo,
-} from '@codebuff/common/project-file-tree'
+} from '@codebirds/common/project-file-tree'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 
 
@@ -17,7 +17,7 @@ import type { SlashCommand } from '../data/slash-commands'
 import type { Prettify } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
-import type { FileTreeNode } from '@codebuff/common/util/file'
+import type { FileTreeNode } from '@codebirds/common/util/file'
 
 export interface TriggerContext {
   active: boolean

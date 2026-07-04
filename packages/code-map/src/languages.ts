@@ -146,7 +146,7 @@ function resolveWasmPath(wasmFileName: string): string {
   }
 
   // Try environment variable override
-  const envWasmDir = process.env.CODEBUFF_WASM_DIR
+  const envWasmDir = process.env.CODEBIRDS_WASM_DIR
   if (envWasmDir) {
     return path.join(envWasmDir, wasmFileName)
   }

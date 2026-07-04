@@ -5,8 +5,8 @@
     "baseUrl": ".",
     "skipLibCheck": true,
     "paths": {
-      "@codebuff/sdk": ["../sdk/src/index.ts"],
-      "@codebuff/sdk/*": ["../sdk/src/*"]
+      "@codebirds/sdk": ["../sdk/src/index.ts"],
+      "@codebirds/sdk/*": ["../sdk/src/*"]
     }
   },
   "include": ["**/*.ts"],

@@ -45,7 +45,7 @@ Your task is to write out ALL the code changes needed to complete the user's req
 IMPORTANT: Use propose_str_replace and propose_write_file tools to make your edits. These tools draft changes without actually applying them - they will be reviewed first. DO NOT use any other tools. Do not spawn any agents, read files, or set output.
 
 You can make multiple tool calls across multiple steps to complete the implementation. Only the file changes will be passed on, so you can say whatever you want to help you think. Do not write any final summary as that would be a waste of tokens because no one is reading it.
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "propose_str_replace",
   "path": "path/to/file",
@@ -60,18 +60,18 @@ You can make multiple tool calls across multiple steps to complete the implement
     },
   ]
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 OR for new files or major rewrites:
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 {
   "cb_tool_name": "propose_write_file",
   "path": "path/to/file",
   "instructions": "What the change does",
   "content": "Complete file content"
 }
-</codebuff_tool_call>
+</codebirds_tool_call>
 ${
   isGpt5 || isGemini
     ? ``
@@ -86,21 +86,21 @@ You can also use <think> tags interspersed between tool calls to think about the
 [ Long think about the best way to implement the changes ]
 </think>
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 [ First tool call to implement the feature ]
-</codebuff_tool_call>
+</codebirds_tool_call>
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 [ Second tool call to implement the feature ]
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 <think>
 [ Thoughts about a tricky part of the implementation ]
 </think>
 
-<codebuff_tool_call>
+<codebirds_tool_call>
 [ Third tool call to implement the feature ]
-</codebuff_tool_call>
+</codebirds_tool_call>
 
 </example>`
 }

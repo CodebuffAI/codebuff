@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the @codebuff/sdk package will be documented in this file.
+All notable changes to the @codebirds/sdk package will be documented in this file.
 
 ## [0.10.7]
 
@@ -31,7 +31,7 @@ Lots of changes in the implementation, including native tool calls under the hoo
 
 ### Added
 
-- Exported `processToolCallBuffer` and state helpers so SDK consumers can strip `<codebuff_tool_call>` segments mid-stream.
+- Exported `processToolCallBuffer` and state helpers so SDK consumers can strip `<codebirds_tool_call>` segments mid-stream.
 - CLI now consumes the shared helper to avoid leaking XML when responses arrive without token streaming.
 - Extra regression tests covering multi-chunk tool-call payloads based on the CLI log case ("I'll help you commit").
 
@@ -39,18 +39,18 @@ Lots of changes in the implementation, including native tool calls under the hoo
 
 ### Added
 
-- XML tool call filtering in stream chunks - filters out `<codebuff_tool_call>` tags while preserving response text
+- XML tool call filtering in stream chunks - filters out `<codebirds_tool_call>` tags while preserving response text
 - Stateful parser handles tags split across chunk boundaries
 - 50-character safety buffer for split tag detection
 - Comprehensive unit tests (17 test cases)
 
 ## [0.3.1]
 
-- `CodebuffClient.run` now does not return `null`. Instead, the `CodebuffClient.run(...).output.type` will be `'error'`.
+- `CodebirdsClient.run` now does not return `null`. Instead, the `CodebirdsClient.run(...).output.type` will be `'error'`.
 
 ## [0.3.0]
 
-- New more intuitive interface for `CodebuffClient` and `CodebuffClient.run`.
+- New more intuitive interface for `CodebirdsClient` and `CodebirdsClient.run`.
 
 ## [0.1.30]
 
@@ -59,14 +59,14 @@ Types updates.
 ## [0.1.20]
 
 - You can now retrieve the output of an agent in `result.output` if result is the output of an awaited `client.run(...)` call.
-- cwd is optional in the CodebuffClient constructor.
+- cwd is optional in the CodebirdsClient constructor.
 - You can pass in `extraToolResults` into a run() call to include more info to the agent.
 
 ## [0.1.17]
 
 ### Added
 
-- You can now get an API key from the [Codebuff website](https://www.codebuff.com/profile?tab=api-keys)!
+- You can now get an API key from the [Codebirds website](https://www.codebirds.com/profile?tab=api-keys)!
 - You can provide your own custom tools!
 
 ### Updated
@@ -77,7 +77,7 @@ Types updates.
 
 ### Added
 
-- `closeConnection` method in `CodebuffClient`
+- `closeConnection` method in `CodebirdsClient`
 
 ### Changed
 
@@ -86,7 +86,7 @@ Types updates.
 ### Fixed
 
 - `maxAgentSteps` resets every run
-- `CodebuffClient` no longer requires binary to be installed
+- `CodebirdsClient` no longer requires binary to be installed
 
 ## [0.1.8] - 2025-08-13
 
@@ -110,7 +110,7 @@ Types updates.
 
 ### Added
 
-- Complete `CodebuffClient`
+- Complete `CodebirdsClient`
 - Better docs
 - New `run()` api
 
@@ -118,9 +118,9 @@ Types updates.
 
 ### Added
 
-- Initial release of the Codebuff SDK
-- `CodebuffClient` class for interacting with Codebuff agents
+- Initial release of the Codebirds SDK
+- `CodebirdsClient` class for interacting with Codebirds agents
 - `runNewChat` method for starting new chat sessions
 - TypeScript support with full type definitions
-- Support for all Codebuff agent types
+- Support for all Codebirds agent types
 - Event streaming for real-time responses

@@ -1,12 +1,12 @@
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject } from '@codebirds/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { CodebirdsToolOutput } from '@codebirds/common/tools/list'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 export function simplifyReadFileResults(
-  messageContent: CodebuffToolOutput<'read_files'>,
-): CodebuffToolOutput<'read_files'> {
+  messageContent: CodebirdsToolOutput<'read_files'>,
+): CodebirdsToolOutput<'read_files'> {
   return [
     {
       type: 'json',
@@ -21,9 +21,9 @@ export function simplifyReadFileResults(
 }
 
 export function simplifyTerminalCommandResults(params: {
-  messageContent: CodebuffToolOutput<'run_terminal_command'>
+  messageContent: CodebirdsToolOutput<'run_terminal_command'>
   logger: Logger
-}): CodebuffToolOutput<'run_terminal_command'> {
+}): CodebirdsToolOutput<'run_terminal_command'> {
   const { messageContent, logger } = params
   try {
     const clone = cloneDeep(messageContent)

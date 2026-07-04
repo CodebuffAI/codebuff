@@ -1,5 +1,5 @@
-import type { ToolName } from '@codebuff/common/tools/constants'
-import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
+import type { ToolName } from '@codebirds/common/tools/constants'
+import type { ToolResultOutput } from '@codebirds/common/types/messages/content-part'
 import type { z } from 'zod/v4'
 
 export type CustomToolDefinition<
@@ -44,7 +44,7 @@ export function getCustomToolDefinition<
 }: {
   toolName: TN extends ToolName
     ? TN & {
-        error: `Hi there. This is a message from the Codebuff team: You have used a custom tool where you needed to use overrideTools instead for name: ${TN}`
+        error: `Hi there. This is a message from the Codebirds team: You have used a custom tool where you needed to use overrideTools instead for name: ${TN}`
       }
     : TN
   inputSchema: z.ZodType<Args, Input>

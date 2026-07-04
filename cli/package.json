@@ -1,10 +1,10 @@
 {
-  "name": "@codebuff/cli",
+  "name": "@codebirds/cli",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "codebuff-tui": "./bin/codecane"
+    "codebirds-tui": "./bin/codecane"
   },
   "exports": {
     ".": {
@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "bun run prebuild:agents && bun run src/index.tsx --cwd ..",
     "prebuild:agents": "bun run scripts/prebuild-agents.ts",
-    "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
+    "build:binary": "bun ./scripts/build-binary.ts codebirds $npm_package_version",
     "release": "bun run scripts/release.ts",
     "test": "NODE_ENV=production bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
@@ -30,7 +30,7 @@
     "bun": "1.3.11"
   },
   "dependencies": {
-    "@codebuff/sdk": "workspace:*",
+    "@codebirds/sdk": "workspace:*",
     "@gravity-ai/api": "^0.1.2",
     "@opentui/core": "0.2.2",
     "@opentui/react": "0.2.2",

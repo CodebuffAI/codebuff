@@ -1,16 +1,16 @@
 
-import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import * as mainPromptModule from '@codebirds/agent-runtime/main-prompt'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { getStubProjectFileContext } from '@codebirds/common/util/file'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { CodebirdsClient } from '../client'
 import * as databaseModule from '../impl/database'
 
-import type { CodebuffClientOptions } from '../run'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { CodebirdsClientOptions } from '../run'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
-describe('CodebuffClient handleEvent / handleStreamChunk', () => {
+describe('CodebirdsClient handleEvent / handleStreamChunk', () => {
   afterEach(() => {
     mock.restore()
   })
@@ -105,13 +105,13 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
     )
 
     type StreamChunk = Parameters<
-      NonNullable<CodebuffClientOptions['handleStreamChunk']>
+      NonNullable<CodebirdsClientOptions['handleStreamChunk']>
     >[0]
 
     const events: PrintModeEvent[] = []
     const streamChunks: StreamChunk[] = []
 
-    const client = new CodebuffClient({
+    const client = new CodebirdsClient({
       apiKey: 'test-key',
     })
 

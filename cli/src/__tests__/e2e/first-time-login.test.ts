@@ -1,6 +1,6 @@
 import { describe, test, expect, mock } from 'bun:test'
 
-import { createMockLogger } from '@codebuff/common/testing/mock-types'
+import { createMockLogger } from '@codebirds/common/testing/mock-types'
 import {
   generateLoginUrl,
   pollLoginStatus,
@@ -8,7 +8,7 @@ import {
 } from '../../login/login-flow'
 import { createMockApiClient } from '../helpers/mock-api-client'
 
-import type { ApiResponse } from '../../utils/codebuff-api'
+import type { ApiResponse } from '../../utils/codebirds-api'
 
 describe('First-Time Login Flow (helpers)', () => {
   test('generateLoginUrl posts fingerprint id and returns payload', async () => {
@@ -51,7 +51,7 @@ describe('First-Time Login Flow (helpers)', () => {
           user: {
             id: 'new-user-123',
             name: 'New User',
-            email: 'new@codebuff.dev',
+            email: 'new@codebirds.dev',
             authToken: 'token-123',
           },
         },

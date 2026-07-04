@@ -4,8 +4,8 @@ import * as path from 'path'
 
 import { Parser } from 'web-tree-sitter'
 
-const TREE_SITTER_WASM_ENV_VAR = 'CODEBUFF_TREE_SITTER_WASM_PATH'
-const WASM_BINARY_GLOBAL_KEY = '__CODEBUFF_TREE_SITTER_WASM_BINARY__'
+const TREE_SITTER_WASM_ENV_VAR = 'CODEBIRDS_TREE_SITTER_WASM_PATH'
+const WASM_BINARY_GLOBAL_KEY = '__CODEBIRDS_TREE_SITTER_WASM_BINARY__'
 
 // Pinned to the version in sdk/package.json. If we bump web-tree-sitter,
 // update this too — fetching a wasm built for a different version of the
@@ -14,7 +14,7 @@ const WEB_TREE_SITTER_VERSION = '0.25.10'
 
 // Self-heal endpoints for users on an old npm wrapper. The wrapper
 // auto-updates the binary but not itself, so users on pre-0.0.74
-// (freebuff) / pre-1.0.666 (codebuff) wrappers download the new binary
+// (codebirds) / pre-1.0.666 (codebirds) wrappers download the new binary
 // but their wrapper drops the sibling tree-sitter.wasm we tarball
 // alongside it. On missing wasm, the binary fetches it from one of
 // these CDNs and caches it next to itself for subsequent runs.
@@ -28,7 +28,7 @@ const WASM_DOWNLOAD_URLS = [
  *
  * Path-based fallback for environments that can't pre-load the wasm bytes (e.g.
  * external SDK consumers using a custom layout). The CLI binary instead pre-loads
- * bytes onto `globalThis.__CODEBUFF_TREE_SITTER_WASM_BINARY__` because Windows
+ * bytes onto `globalThis.__CODEBIRDS_TREE_SITTER_WASM_BINARY__` because Windows
  * bunfs paths (`B:\~BUN\root\...`) round-trip inconsistently through
  * `fs.existsSync` even when `fs.readFileSync` succeeds.
  *
@@ -115,7 +115,7 @@ function resolveTreeSitterWasm(scriptDir: string): string {
   }
 
   // Sibling file next to the running binary. The CLI ships
-  // tree-sitter.wasm alongside `freebuff.exe` / `codebuff.exe` because
+  // tree-sitter.wasm alongside `codebirds.exe` / `codebirds.exe` because
   // bun --compile asset embedding was unreliable on Windows. We do this
   // lookup *here* (not in pre-init) on purpose: inside a bun --compile
   // binary on Windows, `process.execPath` returns the bunfs internal

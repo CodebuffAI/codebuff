@@ -3,7 +3,7 @@ import { applyPatch } from 'diff'
 
 import { processStrReplace } from '../process-str-replace'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 const logger: Logger = {
   debug: () => {},

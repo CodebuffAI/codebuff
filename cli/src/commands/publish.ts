@@ -1,13 +1,13 @@
-import { WEBSITE_URL } from '@codebuff/sdk'
+import { WEBSITE_URL } from '@codebirds/sdk'
 
 import { getUserCredentials } from '../utils/auth'
-import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
+import { getApiClient, setApiClientAuthToken } from '../utils/codebirds-api'
 import { loadAgentDefinitions, getLoadedAgentsData } from '../utils/local-agent-registry'
 
 import type {
   PublishAgentsErrorResponse,
   PublishAgentsResponse,
-} from '@codebuff/common/types/api/agents/publish'
+} from '@codebirds/common/types/api/agents/publish'
 
 export interface PublishResult {
   success: boolean

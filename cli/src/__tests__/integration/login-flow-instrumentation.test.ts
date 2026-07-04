@@ -1,12 +1,12 @@
 import { describe, test, expect, mock } from 'bun:test'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { createMockLogger } from '@codebuff/common/testing/mock-types'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { createMockLogger } from '@codebirds/common/testing/mock-types'
 
 import { generateLoginUrl, pollLoginStatus } from '../../login/login-flow'
 import { createMockApiClient } from '../helpers/mock-api-client'
 
-import type { ApiResponse } from '../../utils/codebuff-api'
+import type { ApiResponse } from '../../utils/codebirds-api'
 
 const createClock = () => {
   let current = 0

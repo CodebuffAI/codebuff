@@ -1,14 +1,14 @@
 import { z } from 'zod/v4'
 
-import { CodebuffClient, getCustomToolDefinition } from '@codebuff/sdk'
+import { CodebirdsClient, getCustomToolDefinition } from '@codebirds/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@codebirds/sdk'
 
 async function main() {
-  const client = new CodebuffClient({
+  const client = new CodebirdsClient({
     // Note: You need to pass in your own API key.
-    // Get it here: https://www.codebuff.com/profile?tab=api-keys
-    apiKey: process.env.CODEBUFF_API_KEY,
+    // Get it here: https://www.codebirds.com/profile?tab=api-keys
+    apiKey: process.env.CODEBIRDS_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
   })
@@ -61,7 +61,7 @@ async function main() {
 
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Codebirds Event', JSON.stringify(event))
     },
   })
 

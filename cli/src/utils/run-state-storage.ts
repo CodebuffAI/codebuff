@@ -10,7 +10,7 @@ import {
 import { logger } from './logger'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
-import type { RunState } from '@codebuff/sdk'
+import type { RunState } from '@codebirds/sdk'
 
 const RUN_STATE_FILENAME = 'run-state.json'
 const CHAT_MESSAGES_FILENAME = 'chat-messages.json'

@@ -31,7 +31,7 @@ export const MIN_GITHUB_ACCOUNT_AGE_MONTHS_REFERRAL = 4
  * Freebuff CLI limited-tier perk: each qualified referral whose referred user
  * activated at the *limited* access tier grants +1 daily free-mode session,
  * capped here (e.g. 5 base + 3 = 8/day). Full-access referrals instead grant
- * GLM sessions (see FREEBUFF_GLM_V52_REFERRAL_CAP).
+ * GLM sessions (see CODEBIRDS_GLM_V52_REFERRAL_CAP).
  */
 export const REFERRAL_CLI_DAILY_SESSION_BONUS_CAP = 3
 
@@ -49,7 +49,7 @@ export interface FreebuffReferralTier {
 }
 
 /** Tier ladder: 1 referral, then +2 (3 total), then +4 (7 total). */
-export const FREEBUFF_REFERRAL_TIERS: readonly FreebuffReferralTier[] = [
+export const CODEBIRDS_REFERRAL_TIERS: readonly FreebuffReferralTier[] = [
   {
     tier: 0,
     referralsRequired: 0,
@@ -86,19 +86,19 @@ export const FREEBUFF_REFERRAL_TIERS: readonly FreebuffReferralTier[] = [
  * ladder tops out at 7 qualified referrals, so it needs its own headroom —
  * generous enough for unqualified signups, small enough to bound farming.
  */
-export const FREEBUFF_WEB_REFERRAL_LIMIT = 20
+export const CODEBIRDS_WEB_REFERRAL_LIMIT = 20
 
-export const MAX_FREEBUFF_REFERRAL_TIER =
-  FREEBUFF_REFERRAL_TIERS[FREEBUFF_REFERRAL_TIERS.length - 1].tier
+export const MAX_CODEBIRDS_REFERRAL_TIER =
+  CODEBIRDS_REFERRAL_TIERS[CODEBIRDS_REFERRAL_TIERS.length - 1].tier
 
 /** Lowest tier whose perks include watermark removal. */
-export const FREEBUFF_WATERMARK_REMOVAL_TIER = FREEBUFF_REFERRAL_TIERS.find(
+export const CODEBIRDS_WATERMARK_REMOVAL_TIER = CODEBIRDS_REFERRAL_TIERS.find(
   (tier) => tier.removesWatermark,
 )!.tier
 
 /** Qualified referrals needed before deploys drop the watermark. */
-export const FREEBUFF_WATERMARK_REMOVAL_REFERRALS =
-  FREEBUFF_REFERRAL_TIERS.find(
+export const CODEBIRDS_WATERMARK_REMOVAL_REFERRALS =
+  CODEBIRDS_REFERRAL_TIERS.find(
     (tier) => tier.removesWatermark,
   )!.referralsRequired
 
@@ -107,8 +107,8 @@ export function getReferralTier(
   qualifiedReferralCount: number | null | undefined,
 ): FreebuffReferralTier {
   const count = Math.max(0, qualifiedReferralCount ?? 0)
-  let unlocked = FREEBUFF_REFERRAL_TIERS[0]
-  for (const tier of FREEBUFF_REFERRAL_TIERS) {
+  let unlocked = CODEBIRDS_REFERRAL_TIERS[0]
+  for (const tier of CODEBIRDS_REFERRAL_TIERS) {
     if (count >= tier.referralsRequired) {
       unlocked = tier
     }
@@ -118,8 +118,8 @@ export function getReferralTier(
 
 /** Tier limits by tier index (clamped into range). */
 export function getTierLimits(tier: number): FreebuffReferralTier {
-  const clamped = Math.min(Math.max(0, tier), MAX_FREEBUFF_REFERRAL_TIER)
-  return FREEBUFF_REFERRAL_TIERS.find((t) => t.tier === clamped)!
+  const clamped = Math.min(Math.max(0, tier), MAX_CODEBIRDS_REFERRAL_TIER)
+  return CODEBIRDS_REFERRAL_TIERS.find((t) => t.tier === clamped)!
 }
 
 /** Next tier above the given qualified referral count, or null if maxed. */
@@ -128,7 +128,7 @@ export function getNextReferralTier(
 ): FreebuffReferralTier | null {
   const current = getReferralTier(qualifiedReferralCount)
   return (
-    FREEBUFF_REFERRAL_TIERS.find((tier) => tier.tier === current.tier + 1) ??
+    CODEBIRDS_REFERRAL_TIERS.find((tier) => tier.tier === current.tier + 1) ??
     null
   )
 }

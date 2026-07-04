@@ -5,7 +5,7 @@
  * Run with: bun run sdk/e2e/examples/code-explainer.example.ts
  */
 
-import { CodebuffClient } from '../../src/client'
+import { CodebirdsClient } from '../../src/client'
 
 const SAMPLE_CODE = `
 async function fetchUserData(userId: string): Promise<User | null> {
@@ -23,13 +23,13 @@ async function fetchUserData(userId: string): Promise<User | null> {
 `.trim()
 
 async function main() {
-  const apiKey = process.env.CODEBUFF_API_KEY
+  const apiKey = process.env.CODEBIRDS_API_KEY
   if (!apiKey) {
-    console.error('CODEBUFF_API_KEY environment variable is required')
+    console.error('CODEBIRDS_API_KEY environment variable is required')
     process.exit(1)
   }
 
-  const client = new CodebuffClient({ apiKey })
+  const client = new CodebirdsClient({ apiKey })
 
   console.log('📖 Explaining code...\n')
   console.log('Code to explain:')
@@ -39,7 +39,7 @@ async function main() {
   console.log('Explanation:\n')
 
   const result = await client.run({
-    agent: 'codebuff/base2@latest',
+    agent: 'codebirds/base2@latest',
     prompt: `Explain what this code does in simple terms:\n\n${SAMPLE_CODE}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

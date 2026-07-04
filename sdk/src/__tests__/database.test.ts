@@ -2,7 +2,7 @@ import { afterEach, describe, expect, mock, test } from 'bun:test'
 
 import { getUserInfoFromApiKey } from '../impl/database'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 describe('getUserInfoFromApiKey', () => {
   const originalFetch = globalThis.fetch

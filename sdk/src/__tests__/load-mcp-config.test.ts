@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
 import { loadMCPConfig, loadMCPConfigSync, mcpFileSchema } from '../agents/load-mcp-config'
 
-import type { MCPConfig } from '@codebuff/common/types/mcp'
+import type { MCPConfig } from '@codebirds/common/types/mcp'
 
 // Helper to safely access stdio config properties
 function isStdioConfig(config: MCPConfig): config is MCPConfig & { command: string; env?: Record<string, string> } {

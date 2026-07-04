@@ -11,7 +11,7 @@ import type { StreamStatus } from '../../hooks/use-message-queue'
 import type { AgentContentBlock, ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../constants'
 import type { EventHandlerState } from '../sdk-event-handlers'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 // Type for spawn agent info stored in the map
 interface SpawnAgentInfo {
@@ -197,7 +197,7 @@ describe('sdk-event-handlers', () => {
     const startEvent: SubagentStartEvent = {
       type: 'subagent_start',
       agentId: 'agent-real',
-      agentType: 'codebuff/file-picker@1.0.0',
+      agentType: 'codebirds/file-picker@1.0.0',
       displayName: 'Agent',
       onlyChild: false,
       parentAgentId: undefined,

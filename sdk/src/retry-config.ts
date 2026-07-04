@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { MAX_RETRIES_PER_MESSAGE, RETRY_BACKOFF_BASE_DELAY_MS } from '@codebuff/sdk'
+ * import { MAX_RETRIES_PER_MESSAGE, RETRY_BACKOFF_BASE_DELAY_MS } from '@codebirds/sdk'
  *
  * let retryCount = 0
  * let backoffDelay = RETRY_BACKOFF_BASE_DELAY_MS

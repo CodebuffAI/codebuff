@@ -2,7 +2,7 @@ import { z } from 'zod/v4'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
 
-import type { Message } from './messages/codebuff-message'
+import type { Message } from './messages/codebirds-message'
 import type { ProjectFileContext } from '../util/file'
 
 export const toolCallSchema = z.object({

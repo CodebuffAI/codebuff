@@ -1,25 +1,25 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { renderReadFilesResult } from '../../../util/render-read-files-result'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 
 type ToolName = 'read_files'
 export const handleReadFiles = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<ToolName>
+    toolCall: CodebirdsToolCall<ToolName>
 
     fileContext: ProjectFileContext
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
-): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+): Promise<{ output: CodebirdsToolOutput<ToolName> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -40,4 +40,4 @@ export const handleReadFiles = (async (
       renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
     ),
   }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebirdsToolHandlerFunction<ToolName>

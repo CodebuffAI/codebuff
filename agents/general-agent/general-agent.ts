@@ -1,4 +1,4 @@
-import { buildArray } from '@codebuff/common/util/array'
+import { buildArray } from '@codebirds/common/util/array'
 
 import { publisher } from '../constants'
 

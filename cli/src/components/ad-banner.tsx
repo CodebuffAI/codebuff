@@ -162,7 +162,7 @@ export const SingleAdBanner: React.FC<{
 }
 
 /**
- * Up to four ads shown in a row. Still used by the freebuff waiting room, which
+ * Up to four ads shown in a row. Still used by the codebirds waiting room, which
  * intentionally fills the space with multiple ads.
  */
 export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({

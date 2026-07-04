@@ -1,18 +1,18 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
-import { callWebSearchAPI } from '../../../llm-api/codebuff-web-api'
+import { callWebSearchAPI } from '../../../llm-api/codebirds-web-api'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { ClientEnv, CiEnv } from '@codebirds/common/types/contracts/env'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 export const handleWebSearch = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'web_search'>
+  toolCall: CodebirdsToolCall<'web_search'>
   logger: Logger
   apiKey: string
 
@@ -28,7 +28,7 @@ export const handleWebSearch = (async (params: {
   clientEnv: ClientEnv
   ciEnv: CiEnv
 }): Promise<{
-  output: CodebuffToolOutput<'web_search'>
+  output: CodebirdsToolOutput<'web_search'>
   creditsUsed: number
 }> => {
   const {
@@ -148,4 +148,4 @@ export const handleWebSearch = (async (params: {
     )
     return { output: jsonToolResult({ errorMessage }), creditsUsed }
   }
-}) satisfies CodebuffToolHandlerFunction<'web_search'>
+}) satisfies CodebirdsToolHandlerFunction<'web_search'>

@@ -2,7 +2,7 @@ import type { BaseEnv, ProcessEnv } from './types/contracts/env'
 
 /**
  * Test-only helpers for process env snapshots.
- * Keep production code using `@codebuff/common/env-process`.
+ * Keep production code using `@codebirds/common/env-process`.
  */
 export const createTestBaseEnv = (
   overrides: Partial<BaseEnv> = {},
@@ -55,19 +55,19 @@ export const createTestProcessEnv = (
   // Editor preferences
   VISUAL: undefined,
   EDITOR: undefined,
-  CODEBUFF_CLI_EDITOR: undefined,
-  CODEBUFF_EDITOR: undefined,
+  CODEBIRDS_CLI_EDITOR: undefined,
+  CODEBIRDS_EDITOR: undefined,
 
   // Theme preferences
   OPEN_TUI_THEME: undefined,
   OPENTUI_THEME: undefined,
 
-  // Codebuff CLI-specific
-  CODEBUFF_IS_BINARY: undefined,
-  CODEBUFF_CLI_VERSION: undefined,
-  CODEBUFF_CLI_TARGET: undefined,
-  CODEBUFF_RG_PATH: undefined,
-  CODEBUFF_WASM_DIR: undefined,
+  // Codebirds CLI-specific
+  CODEBIRDS_IS_BINARY: undefined,
+  CODEBIRDS_CLI_VERSION: undefined,
+  CODEBIRDS_CLI_TARGET: undefined,
+  CODEBIRDS_RG_PATH: undefined,
+  CODEBIRDS_WASM_DIR: undefined,
 
   // Build/CI flags
   VERBOSE: undefined,

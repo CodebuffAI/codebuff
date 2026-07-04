@@ -1,50 +1,50 @@
-# @codebuff/sdk
+# @codebirds/sdk
 
-Official SDK for Codebuff - AI coding agent and framework
+Official SDK for Codebirds - AI coding agent and framework
 
 ## Installation
 
 ```bash
-npm install @codebuff/sdk
+npm install @codebirds/sdk
 ```
 
 ## Prerequisites
 
-- Create a Codebuff account and get your [Codebuff API key here](https://www.codebuff.com/api-keys).
+- Create a Codebirds account and get your [Codebirds API key here](https://www.codebirds.com/api-keys).
 
 ## Usage
 
 ### Basic Example
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+import { CodebirdsClient } from '@codebirds/sdk'
 
 async function main() {
-  const client = new CodebuffClient({
+  const client = new CodebirdsClient({
     // You need to pass in your own API key here.
-    // Get one here: https://www.codebuff.com/api-keys
-    apiKey: process.env.CODEBUFF_API_KEY,
+    // Get one here: https://www.codebirds.com/api-keys
+    apiKey: process.env.CODEBIRDS_API_KEY,
     cwd: process.cwd(),
   })
 
   // First run
   const runState1 = await client.run({
-    // The agent id. Any agent on the store (https://codebuff.com/store)
-    agent: 'codebuff/base@0.0.16',
+    // The agent id. Any agent on the store (https://codebirds.com/store)
+    agent: 'codebirds/base@0.0.16',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Codebirds Event', JSON.stringify(event))
     },
   })
 
   // Continue the same session with a follow-up
   const runOrError2 = await client.run({
-    agent: 'codebuff/base@0.0.16',
+    agent: 'codebirds/base@0.0.16',
     prompt: 'Add unit tests for the calculator',
     previousRun: runState1, // <-- this is where your next run differs from the previous run
     handleEvent: (event) => {
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Codebirds Event', JSON.stringify(event))
     },
   })
 }
@@ -59,15 +59,15 @@ Here, we create a full agent and custom tools that can be reused between runs.
 ```typescript
 import { z } from 'zod/v4'
 
-import { CodebuffClient, getCustomToolDefinition } from '@codebuff/sdk'
+import { CodebirdsClient, getCustomToolDefinition } from '@codebirds/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@codebirds/sdk'
 
 async function main() {
-  const client = new CodebuffClient({
+  const client = new CodebirdsClient({
     // Note: You need to pass in your own API key.
-    // Get it here: https://www.codebuff.com/profile?tab=api-keys
-    apiKey: process.env.CODEBUFF_API_KEY,
+    // Get it here: https://www.codebirds.com/profile?tab=api-keys
+    apiKey: process.env.CODEBIRDS_API_KEY,
     // Optional directory agent runs from (if applicable).
     cwd: process.cwd(),
   })
@@ -120,7 +120,7 @@ async function main() {
 
     handleEvent: (event) => {
       // All events that happen during the run: agent start/finish, tool calls/results, text responses, errors.
-      console.log('Codebuff Event', JSON.stringify(event))
+      console.log('Codebirds Event', JSON.stringify(event))
     },
   })
 
@@ -147,7 +147,7 @@ Override with `knowledgeFiles` (replaces project files) or `userKnowledgeFiles` 
 
 ```typescript
 await client.run({
-  agent: 'codebuff/base@0.0.16',
+  agent: 'codebirds/base@0.0.16',
   prompt: 'Help me refactor',
   knowledgeFiles: { 'knowledge.md': '# Guidelines\n- Use TypeScript' },
   userKnowledgeFiles: { '~/.knowledge.md': '# Preferences\n- Be concise' },
@@ -159,8 +159,8 @@ await client.run({
 The `fileFilter` option controls which files the agent can read:
 
 ```typescript
-const client = new CodebuffClient({
-  apiKey: process.env.CODEBUFF_API_KEY,
+const client = new CodebirdsClient({
+  apiKey: process.env.CODEBIRDS_API_KEY,
   fileFilter: (filePath) => {
     if (filePath === '.env') return { status: 'blocked' }
     if (filePath.endsWith('.env.example')) return { status: 'allow-example' }
@@ -178,7 +178,7 @@ const client = new CodebuffClient({
 Loads agent definitions from `.agents` directories on disk.
 
 ```typescript
-import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
+import { loadLocalAgents, CodebirdsClient } from '@codebirds/sdk'
 
 // Load from default locations (.agents in cwd, parent, or home)
 const agents = await loadLocalAgents({ verbose: true })
@@ -195,7 +195,7 @@ for (const agent of Object.values(agents)) {
 }
 
 // Use the loaded agents with client.run()
-const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+const client = new CodebirdsClient({ apiKey: process.env.CODEBIRDS_API_KEY })
 const result = await client.run({
   agent: 'my-custom-agent',
   agentDefinitions: Object.values(agents),
@@ -226,7 +226,7 @@ Files ending in `.d.ts` or `.test.ts` are excluded.
 
 ### `client.run(options)`
 
-Runs a Codebuff agent with the specified options.
+Runs a Codebirds agent with the specified options.
 
 #### Parameters
 
@@ -240,7 +240,7 @@ Runs a Codebuff agent with the specified options.
 
 - **`previousRun`** (object, optional): JSON state returned from a previous `run()` call. Use this to continue a conversation or session with the agent, maintaining context from previous interactions.
 
-- **`projectFiles`** (object, optional): All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: `{ "src/index.ts": "console.log('hi')" }`. This helps Codebuff pick good source files for context. Note: This parameter was previously named `allFiles` but has been renamed for clarity.
+- **`projectFiles`** (object, optional): All the files in your project as a plain JavaScript object. Keys should be the full path from your current directory to each file, and values should be the string contents of the file. Example: `{ "src/index.ts": "console.log('hi')" }`. This helps Codebirds pick good source files for context. Note: This parameter was previously named `allFiles` but has been renamed for clarity.
 
 - **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
 

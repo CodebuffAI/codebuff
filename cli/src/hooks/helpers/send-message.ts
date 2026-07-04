@@ -1,14 +1,14 @@
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject } from '@codebirds/common/util/error'
 
 import {
   markFreebuffSessionCountryBlocked,
   markFreebuffSessionEnded,
   markFreebuffSessionSuperseded,
   refreshFreebuffSession,
-} from '../use-freebuff-session'
+} from '../use-codebirds-session'
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
-import { IS_FREEBUFF } from '../../utils/constants'
+import { IS_CODEBIRDS } from '../../utils/constants'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
@@ -45,7 +45,7 @@ import type { AgentMode } from '../../utils/constants'
 import type { SendMessageTimerController } from '../../utils/send-message-timer'
 import type { StreamController } from '../stream-state'
 import type { StreamStatus } from '../use-message-queue'
-import type { MessageContent, RunState } from '@codebuff/sdk'
+import type { MessageContent, RunState } from '@codebirds/sdk'
 import type { MutableRefObject, SetStateAction } from 'react'
 
 /** Resets queue state on early return (before streaming starts). */
@@ -400,7 +400,7 @@ export const handleRunCompletion = (params: {
 
     if (isFreeModeUnavailableError(output)) {
       updater.setError(getFreeModeUnavailableErrorMessage(output))
-      if (IS_FREEBUFF) {
+      if (IS_CODEBIRDS) {
         markFreebuffSessionCountryBlocked(
           getCountryBlockFromFreeModeError(output) ?? {
             countryCode: 'UNKNOWN',
@@ -418,11 +418,11 @@ export const handleRunCompletion = (params: {
       return
     }
 
-    const freebuffRateLimitMessage = IS_FREEBUFF
+    const codebirdsRateLimitMessage = IS_CODEBIRDS
       ? getFreebuffRateLimitErrorMessage(output)
       : null
-    if (freebuffRateLimitMessage) {
-      updater.setError(freebuffRateLimitMessage)
+    if (codebirdsRateLimitMessage) {
+      updater.setError(codebirdsRateLimitMessage)
       finalizeAfterError()
       return
     }
@@ -511,7 +511,7 @@ export const handleRunError = (params: {
 
   if (isFreeModeUnavailableError(error)) {
     updater.setError(getFreeModeUnavailableErrorMessage(error))
-    if (IS_FREEBUFF) {
+    if (IS_CODEBIRDS) {
       markFreebuffSessionCountryBlocked(
         getCountryBlockFromFreeModeError(error) ?? {
           countryCode: 'UNKNOWN',
@@ -527,11 +527,11 @@ export const handleRunError = (params: {
     return
   }
 
-  const freebuffRateLimitMessage = IS_FREEBUFF
+  const codebirdsRateLimitMessage = IS_CODEBIRDS
     ? getFreebuffRateLimitErrorMessage(error)
     : null
-  if (freebuffRateLimitMessage) {
-    updater.setError(freebuffRateLimitMessage)
+  if (codebirdsRateLimitMessage) {
+    updater.setError(codebirdsRateLimitMessage)
     return
   }
 
@@ -575,7 +575,7 @@ function handleFreebuffGateError(
       return
     case 'session_superseded':
       updater.setError(
-        'Another freebuff CLI took over this account. Close the other instance, then restart.',
+        'Another codebirds CLI took over this account. Close the other instance, then restart.',
       )
       // Terminal state: stop polling and flip UI to a "please restart" screen
       // so we don't silently fight the other instance for the seat.

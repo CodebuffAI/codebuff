@@ -1,4 +1,4 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 import { TextAttributes } from '@opentui/core'
 import React, { useRef } from 'react'
 

@@ -1,19 +1,19 @@
 // Test TypeScript type resolution in ESM environment
 import {
-  CodebuffClient as ClientClass,
+  CodebirdsClient as ClientClass,
   getCustomToolDefinition,
-} from '@codebuff/sdk'
-import * as FullSDK from '@codebuff/sdk'
+} from '@codebirds/sdk'
+import * as FullSDK from '@codebirds/sdk'
 ;
 
 import type {
-  CodebuffClient,
+  CodebirdsClient,
   CustomToolDefinition,
   RunState,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 (async () => {
   // Test 1: Type imports work correctly
-  const testClient: CodebuffClient = {} as any
+  const testClient: CodebirdsClient = {} as any
   const testTool: CustomToolDefinition = {} as any
   const testState: RunState = {} as any
 
@@ -48,12 +48,12 @@ import type {
   console.log('✅ Custom tool definition types work correctly')
 
   // Test 5: Dynamic imports also work in TypeScript ESM
-  const dynamicSDK = await import('@codebuff/sdk')
-  const ClientFromDynamic: typeof ClientClass = dynamicSDK.CodebuffClient
+  const dynamicSDK = await import('@codebirds/sdk')
+  const ClientFromDynamic: typeof ClientClass = dynamicSDK.CodebirdsClient
   console.log('✅ Dynamic imports work in TypeScript ESM')
 
   // Test 6: Namespace imports work
-  const ClientFromNamespace: typeof ClientClass = FullSDK.CodebuffClient
+  const ClientFromNamespace: typeof ClientClass = FullSDK.CodebirdsClient
   console.log('✅ Namespace imports work correctly')
 })()
 

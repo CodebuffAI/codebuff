@@ -1,5 +1,5 @@
-import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
-import { escapeString } from '@codebuff/common/util/string'
+import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebirds/common/constants/knowledge'
+import { escapeString } from '@codebirds/common/util/string'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
@@ -13,21 +13,21 @@ import {
 import { parseUserMessage } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 import type {
   Message,
   UserMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
-import type { TextPart } from '@codebuff/common/types/messages/content-part'
+} from '@codebirds/common/types/messages/codebirds-message'
+import type { TextPart } from '@codebirds/common/types/messages/content-part'
 import type {
   AgentState,
   AgentTemplateType,
-} from '@codebuff/common/types/session-state'
+} from '@codebirds/common/types/session-state'
 import type {
   CustomToolDefinitions,
   ProjectFileContext,
-} from '@codebuff/common/util/file'
+} from '@codebirds/common/util/file'
 
 export function formatCurrentDate(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {

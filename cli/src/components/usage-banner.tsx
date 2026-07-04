@@ -1,6 +1,6 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { IS_FREEBUFF } from '../utils/constants'
-import { isChatGptOAuthValid } from '@codebuff/sdk'
+import { CHATGPT_OAUTH_ENABLED } from '@codebirds/common/constants/chatgpt-oauth'
+import { IS_CODEBIRDS } from '../utils/constants'
+import { isChatGptOAuthValid } from '@codebirds/sdk'
 import { TextAttributes } from '@opentui/core'
 import { safeOpen } from '../utils/open-url'
 import React, { useEffect, useMemo } from 'react'
@@ -45,7 +45,7 @@ const formatRenewalDate = (dateStr: string | null): string => {
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
-  if (IS_FREEBUFF) return null
+  if (IS_CODEBIRDS) return null
 
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
@@ -122,7 +122,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
           />
         )}
 
-        {/* Codebuff credits section - structured layout */}
+        {/* Codebirds credits section - structured layout */}
         <Button
           onClick={() => {
             safeOpen(WEBSITE_URL + '/usage')

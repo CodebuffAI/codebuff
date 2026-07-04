@@ -1,25 +1,25 @@
 import { E2E_MOCK_API_KEY, setupE2eMocks } from './e2e-mocks'
 
-const shouldRunLiveE2e = process.env.RUN_CODEBUFF_E2E === 'true'
+const shouldRunLiveE2e = process.env.RUN_CODEBIRDS_E2E === 'true'
 
 /**
- * Utility to load Codebuff API key from environment or user credentials.
+ * Utility to load Codebirds API key from environment or user credentials.
  * Defaults to a mock key for deterministic local runs.
  */
 export function getApiKey(): string {
   if (shouldRunLiveE2e) {
-    const apiKey = process.env.CODEBUFF_API_KEY
+    const apiKey = process.env.CODEBIRDS_API_KEY
     if (!apiKey) {
       throw new Error(
-        'CODEBUFF_API_KEY environment variable is required for live e2e tests. ' +
-          'Get your API key at https://www.codebuff.com/api-keys',
+        'CODEBIRDS_API_KEY environment variable is required for live e2e tests. ' +
+          'Get your API key at https://www.codebirds.com/api-keys',
       )
     }
     return apiKey
   }
 
   setupE2eMocks()
-  process.env.CODEBUFF_API_KEY = E2E_MOCK_API_KEY
+  process.env.CODEBIRDS_API_KEY = E2E_MOCK_API_KEY
   return E2E_MOCK_API_KEY
 }
 

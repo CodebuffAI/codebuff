@@ -3,24 +3,24 @@
  *
  * This module handles:
  * - ChatGPT OAuth: Direct requests to OpenAI API using user's OAuth token
- * - Default: Requests through Codebuff backend (which routes to OpenRouter)
+ * - Default: Requests through Codebirds backend (which routes to OpenRouter)
  */
 
 import path from 'path'
 
-import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
+import { BYOK_OPENROUTER_HEADER } from '@codebirds/common/constants/byok'
+import { isFreeMode } from '@codebirds/common/constants/free-agents'
 import {
   CHATGPT_BACKEND_BASE_URL,
   CHATGPT_OAUTH_ENABLED,
   isChatGptOAuthModelAllowed,
   isOpenAIProviderModel,
   toOpenAIModelId,
-} from '@codebuff/common/constants/chatgpt-oauth'
+} from '@codebirds/common/constants/chatgpt-oauth'
 import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
-} from '@codebuff/llm-providers/openai-compatible'
+} from '@codebirds/llm-providers/openai-compatible'
 
 import { WEBSITE_URL } from '../constants'
 import { getValidChatGptOAuthCredentials } from '../credentials'
@@ -41,7 +41,7 @@ let chatGptOAuthRateLimitedUntil: number | null = null
 
 /**
  * Mark ChatGPT OAuth as rate-limited. Subsequent requests will skip direct ChatGPT OAuth
- * and use Codebuff backend until the reset time.
+ * and use Codebirds backend until the reset time.
  */
 export function markChatGptOAuthRateLimited(resetAt?: Date): void {
   const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
@@ -76,11 +76,11 @@ export function resetChatGptOAuthRateLimit(): void {
  * Parameters for requesting a model.
  */
 export interface ModelRequestParams {
-  /** Codebuff API key for backend authentication */
+  /** Codebirds API key for backend authentication */
   apiKey: string
   /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
   model: string
-  /** If true, skip ChatGPT OAuth and use Codebuff backend (for fallback after rate limit) */
+  /** If true, skip ChatGPT OAuth and use Codebirds backend (for fallback after rate limit) */
   skipChatGptOAuth?: boolean
   /** Cost mode (e.g. 'free') — affects fallback behavior for OAuth routes */
   costMode?: string
@@ -96,7 +96,7 @@ export interface ModelResult {
   isChatGptOAuth: boolean
 }
 
-// Usage accounting type for OpenRouter/Codebuff backend responses
+// Usage accounting type for OpenRouter/Codebirds backend responses
 type OpenRouterUsageAccounting = {
   cost: number | null
   costDetails: {
@@ -108,7 +108,7 @@ type OpenRouterUsageAccounting = {
  * Get the appropriate model for a request.
  *
  * If ChatGPT OAuth credentials are available and the model is an OpenAI model,
- * returns an OpenAI direct model. Otherwise, returns the Codebuff backend model.
+ * returns an OpenAI direct model. Otherwise, returns the Codebirds backend model.
  *
  * This function is async because it may need to refresh the OAuth token.
  */
@@ -126,7 +126,7 @@ export async function getModelForRequest(
     isChatGptOAuthModelAllowed(model)
   ) {
     // In free mode, rate-limited ChatGPT OAuth must not silently fall through to
-    // the Codebuff backend — freebuff should only use the direct OpenAI route or fail.
+    // the Codebirds backend — codebirds should only use the direct OpenAI route or fail.
     if (isChatGptOAuthRateLimited()) {
       if (isFreeMode(costMode)) {
         throw new Error(
@@ -155,9 +155,9 @@ export async function getModelForRequest(
     }
   }
 
-  // Default: use Codebuff backend
+  // Default: use Codebirds backend
   return {
-    model: createCodebuffBackendModel(apiKey, model),
+    model: createCodebirdsBackendModel(apiKey, model),
     isChatGptOAuth: false,
   }
 }
@@ -182,7 +182,7 @@ function createOpenAIOAuthModel(
       'OpenAI-Beta': 'responses=experimental',
       originator: 'codex_cli_rs',
       accept: 'text/event-stream',
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebirds-chatgpt-oauth`,
       ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
     }),
     fetch: createChatGptBackendFetch(),
@@ -192,10 +192,10 @@ function createOpenAIOAuthModel(
 }
 
 /**
- * Create a model that routes through the Codebuff backend.
- * This is the existing behavior - requests go to Codebuff backend which forwards to OpenRouter.
+ * Create a model that routes through the Codebirds backend.
+ * This is the existing behavior - requests go to Codebirds backend which forwards to OpenRouter.
  */
-function createCodebuffBackendModel(
+function createCodebirdsBackendModel(
   apiKey: string,
   model: string,
 ): LanguageModel {
@@ -209,18 +209,18 @@ function createCodebuffBackendModel(
   const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
 
   return new OpenAICompatibleChatLanguageModel(model, {
-    provider: 'codebuff',
+    provider: 'codebirds',
     url: ({ path: endpoint }) =>
       new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
-      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebirds`,
       ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
     }),
     metadataExtractor: {
       extractMetadata: async ({ parsedBody }: { parsedBody: any }) => {
         if (openrouterApiKey !== undefined) {
-          return { codebuff: { usage: openrouterUsage } }
+          return { codebirds: { usage: openrouterUsage } }
         }
 
         if (typeof parsedBody?.usage?.cost === 'number') {
@@ -233,7 +233,7 @@ function createCodebuffBackendModel(
           openrouterUsage.costDetails.upstreamInferenceCost =
             parsedBody.usage.cost_details.upstream_inference_cost
         }
-        return { codebuff: { usage: openrouterUsage } }
+        return { codebirds: { usage: openrouterUsage } }
       },
       createStreamExtractor: () => ({
         processChunk: (parsedChunk: any) => {
@@ -253,7 +253,7 @@ function createCodebuffBackendModel(
           }
         },
         buildMetadata: () => {
-          return { codebuff: { usage: openrouterUsage } }
+          return { codebirds: { usage: openrouterUsage } }
         },
       }),
     },

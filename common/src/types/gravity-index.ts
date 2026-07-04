@@ -77,23 +77,23 @@ const runtimeAttributionFields = {
     .string()
     .optional()
     .describe(
-      'Stable Codebuff session ID for Gravity API key attribution. Codebuff usually fills this automatically.',
+      'Stable Codebirds session ID for Gravity API key attribution. Codebirds usually fills this automatically.',
     ),
   // Raw, stable per-end-user identifier for Gravity attribution + payout
   // matching. Surfaces that run under a shared service account (e.g. Freebuff
   // Web) set this to the real end user so conversions don't all collapse onto
   // the service account. The server hashes it before sending it to Gravity.
-  // Codebuff usually fills this automatically.
+  // Codebirds usually fills this automatically.
   external_user_id: z
     .string()
     .optional()
     .describe(
-      'Stable per-end-user identifier for Gravity attribution. Codebuff usually fills this automatically.',
+      'Stable per-end-user identifier for Gravity attribution. Codebirds usually fills this automatically.',
     ),
   metadata: jsonObjectSchema
     .optional()
     .describe(
-      'Non-sensitive API key metadata for Gravity attribution and debugging. Codebuff usually fills this automatically.',
+      'Non-sensitive API key metadata for Gravity attribution and debugging. Codebirds usually fills this automatically.',
     ),
 }
 

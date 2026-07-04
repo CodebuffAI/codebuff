@@ -1,7 +1,7 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { assistantMessage } from '@codebuff/common/util/messages'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { assistantMessage } from '@codebirds/common/util/messages'
 import {
   afterAll,
   beforeAll,
@@ -20,8 +20,8 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type { CodebirdsToolCall } from '@codebirds/common/tools/list'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 import type { Mock } from 'bun:test'
 
 describe('Subagent Streaming', () => {
@@ -135,7 +135,7 @@ describe('Subagent Streaming', () => {
       spawnableAgents: ['thinker'],
     } as unknown as AgentTemplate
 
-    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+    const toolCall: CodebirdsToolCall<'spawn_agents'> = {
       toolName: 'spawn_agents' as const,
       toolCallId: 'test-tool-call-id',
       input: {
@@ -184,7 +184,7 @@ describe('Subagent Streaming', () => {
       spawnableAgents: ['thinker'],
     } as unknown as AgentTemplate
 
-    const toolCall: CodebuffToolCall<'spawn_agents'> = {
+    const toolCall: CodebirdsToolCall<'spawn_agents'> = {
       toolName: 'spawn_agents' as const,
       toolCallId: 'test-tool-call-id-2',
       input: {

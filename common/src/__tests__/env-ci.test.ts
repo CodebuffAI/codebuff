@@ -29,16 +29,16 @@ describe('env-ci', () => {
       expect(env.GITHUB_ACTIONS).toBe('true')
     })
 
-    test('returns current process.env values for CODEBUFF_API_KEY', () => {
-      process.env.CODEBUFF_API_KEY = 'test-key-123'
+    test('returns current process.env values for CODEBIRDS_API_KEY', () => {
+      process.env.CODEBIRDS_API_KEY = 'test-key-123'
       const env = getCiEnv()
-      expect(env.CODEBUFF_API_KEY).toBe('test-key-123')
+      expect(env.CODEBIRDS_API_KEY).toBe('test-key-123')
     })
 
-    test('returns current process.env values for CODEBUFF_GITHUB_TOKEN', () => {
-      process.env.CODEBUFF_GITHUB_TOKEN = 'ghp_test_token'
+    test('returns current process.env values for CODEBIRDS_GITHUB_TOKEN', () => {
+      process.env.CODEBIRDS_GITHUB_TOKEN = 'ghp_test_token'
       const env = getCiEnv()
-      expect(env.CODEBUFF_GITHUB_TOKEN).toBe('ghp_test_token')
+      expect(env.CODEBIRDS_GITHUB_TOKEN).toBe('ghp_test_token')
     })
 
     test('returns undefined for unset env vars', () => {
@@ -65,8 +65,8 @@ describe('env-ci', () => {
     test('contains expected keys', () => {
       expect('CI' in ciEnv).toBe(true)
       expect('GITHUB_ACTIONS' in ciEnv).toBe(true)
-      expect('CODEBUFF_API_KEY' in ciEnv).toBe(true)
-      expect('CODEBUFF_GITHUB_TOKEN' in ciEnv).toBe(true)
+      expect('CODEBIRDS_API_KEY' in ciEnv).toBe(true)
+      expect('CODEBIRDS_GITHUB_TOKEN' in ciEnv).toBe(true)
     })
   })
 
@@ -117,7 +117,7 @@ describe('env-ci', () => {
   describe('createTestCiEnv', () => {
     test('returns a CiEnv with default test values', () => {
       const env = createTestCiEnv()
-      expect(env.CODEBUFF_API_KEY).toBe('test-api-key')
+      expect(env.CODEBIRDS_API_KEY).toBe('test-api-key')
     })
 
     test('returns undefined for most vars by default', () => {
@@ -126,7 +126,7 @@ describe('env-ci', () => {
       expect(env.GITHUB_ACTIONS).toBeUndefined()
       expect(env.RENDER).toBeUndefined()
       expect(env.IS_PULL_REQUEST).toBeUndefined()
-      expect(env.CODEBUFF_GITHUB_TOKEN).toBeUndefined()
+      expect(env.CODEBIRDS_GITHUB_TOKEN).toBeUndefined()
     })
 
     test('allows overriding specific values', () => {
@@ -137,14 +137,14 @@ describe('env-ci', () => {
       expect(env.CI).toBe('true')
       expect(env.GITHUB_ACTIONS).toBe('true')
       // Other values should still have defaults
-      expect(env.CODEBUFF_API_KEY).toBe('test-api-key')
+      expect(env.CODEBIRDS_API_KEY).toBe('test-api-key')
     })
 
     test('allows overriding default values', () => {
       const env = createTestCiEnv({
-        CODEBUFF_API_KEY: 'custom-api-key',
+        CODEBIRDS_API_KEY: 'custom-api-key',
       })
-      expect(env.CODEBUFF_API_KEY).toBe('custom-api-key')
+      expect(env.CODEBIRDS_API_KEY).toBe('custom-api-key')
     })
 
     test('allows setting all CI-related vars for CI simulation', () => {
@@ -153,15 +153,15 @@ describe('env-ci', () => {
         GITHUB_ACTIONS: 'true',
         RENDER: 'true',
         IS_PULL_REQUEST: 'true',
-        CODEBUFF_GITHUB_TOKEN: 'ghp_simulated_token',
-        CODEBUFF_API_KEY: 'test-api-key-override',
+        CODEBIRDS_GITHUB_TOKEN: 'ghp_simulated_token',
+        CODEBIRDS_API_KEY: 'test-api-key-override',
       })
       expect(env.CI).toBe('true')
       expect(env.GITHUB_ACTIONS).toBe('true')
       expect(env.RENDER).toBe('true')
       expect(env.IS_PULL_REQUEST).toBe('true')
-      expect(env.CODEBUFF_GITHUB_TOKEN).toBe('ghp_simulated_token')
-      expect(env.CODEBUFF_API_KEY).toBe('test-api-key-override')
+      expect(env.CODEBIRDS_GITHUB_TOKEN).toBe('ghp_simulated_token')
+      expect(env.CODEBIRDS_API_KEY).toBe('test-api-key-override')
     })
   })
 })

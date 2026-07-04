@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
-import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+import type { FeedbackCategory } from '@codebirds/common/constants/feedback'
 
 interface FeedbackState {
   feedbackMessageId: string | null

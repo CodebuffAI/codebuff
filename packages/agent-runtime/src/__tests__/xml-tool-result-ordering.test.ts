@@ -1,13 +1,13 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { promptSuccess } from '@codebuff/common/util/error'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { promptSuccess } from '@codebirds/common/util/error'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { processStreamWithTools } from '../tool-stream-parser'
 import { createToolCallChunk } from './test-utils'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { AgentRuntimeDeps } from '@codebirds/common/types/contracts/agent-runtime'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
 
 describe('XML tool result ordering', () => {
   async function* createMockStream(chunks: StreamChunk[]) {
@@ -32,9 +32,9 @@ describe('XML tool result ordering', () => {
     const executionOrder: string[] = []
 
     // Stream with XML tool call embedded in text
-    const xmlToolCall = `<codebuff_tool_call>
+    const xmlToolCall = `<codebirds_tool_call>
 {"cb_tool_name": "test_tool", "param1": "value1"}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const streamChunks: StreamChunk[] = [
       textChunk('Text before tool call\n'),
@@ -106,9 +106,9 @@ describe('XML tool result ordering', () => {
     const events: { type: string; toolName?: string; order: number }[] = []
     let eventCounter = 0
 
-    const xmlToolCall = `<codebuff_tool_call>
+    const xmlToolCall = `<codebirds_tool_call>
 {"cb_tool_name": "read_files", "paths": ["test.ts"]}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const streamChunks: StreamChunk[] = [
       textChunk('Before\n'),
@@ -213,9 +213,9 @@ describe('XML tool result ordering', () => {
     // The fix: pass Promise.resolve() instead of previousToolCallFinished for XML mode,
     // so the tool can execute immediately without waiting for the stream to finish.
     
-    const xmlToolCall = `<codebuff_tool_call>
+    const xmlToolCall = `<codebirds_tool_call>
 {"cb_tool_name": "test_tool", "param": "value"}
-</codebuff_tool_call>`
+</codebirds_tool_call>`
 
     const streamChunks: StreamChunk[] = [
       textChunk('Before\n'),

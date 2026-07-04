@@ -1,4 +1,4 @@
-export const FREEBUFF_COUNTDOWN_VISIBLE_MS = 5 * 60_000
+export const CODEBIRDS_COUNTDOWN_VISIBLE_MS = 5 * 60_000
 
 export const formatFreebuffSessionCountdown = (ms: number): string => {
   if (ms <= 0) return 'expiring…'
@@ -10,7 +10,7 @@ export const formatFreebuffSessionCountdown = (ms: number): string => {
 
 export const formatFreebuffSessionRemaining = (ms: number): string => {
   if (ms <= 0) return 'expiring…'
-  if (ms < FREEBUFF_COUNTDOWN_VISIBLE_MS) {
+  if (ms < CODEBIRDS_COUNTDOWN_VISIBLE_MS) {
     return `${formatFreebuffSessionCountdown(ms)} left`
   }
   const totalMinutes = Math.ceil(ms / 60_000)

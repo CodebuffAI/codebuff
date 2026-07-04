@@ -576,7 +576,7 @@ describe('file-picker agent', () => {
 
   describe('system prompt', () => {
     test('contains file tree placeholder', () => {
-      expect(filePicker.systemPrompt).toContain('{CODEBUFF_FILE_TREE_PROMPT}')
+      expect(filePicker.systemPrompt).toContain('{CODEBIRDS_FILE_TREE_PROMPT}')
     })
 
     test('describes file finding purpose', () => {

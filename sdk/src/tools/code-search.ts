@@ -5,13 +5,13 @@ import * as path from 'path'
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
 
-import type { CodebuffToolOutput } from '../../../common/src/tools/list'
-import { Logger } from '@codebuff/common/types/contracts/logger'
+import type { CodebirdsToolOutput } from '../../../common/src/tools/list'
+import { Logger } from '@codebirds/common/types/contracts/logger'
 
 // Hidden directories to include in code search by default.
 // These are searched in addition to '.' to ensure important config/workflow files are discoverable.
 const INCLUDED_HIDDEN_DIRS = [
-  '.agents', // Codebuff agent definitions
+  '.agents', // Codebirds agent definitions
   '.claude', // Claude settings
   '.github', // GitHub Actions, workflows, issue templates
   '.gitlab', // GitLab CI configuration
@@ -39,7 +39,7 @@ export function codeSearch({
   maxOutputStringLength?: number
   timeoutSeconds?: number
   logger?: Logger
-}): Promise<CodebuffToolOutput<'code_search'>> {
+}): Promise<CodebirdsToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
 
@@ -419,7 +419,7 @@ export function codeSearch({
     childProcess.once('error', (error) => {
       if (isResolved) return
       settle({
-        errorMessage: `Failed to execute ripgrep: ${error.message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
+        errorMessage: `Failed to execute ripgrep: ${error.message}. Vendored ripgrep not found; ensure @codebirds/sdk is up-to-date or set CODEBIRDS_RG_PATH.`,
       })
     })
   })

@@ -1,10 +1,10 @@
 import { getAuthToken } from './auth'
-import { getApiClient } from './codebuff-api'
+import { getApiClient } from './codebirds-api'
 import { logger } from './logger'
 import { useChatStore } from '../state/chat-store'
 
-import type { CodebuffApiClient } from './codebuff-api'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { CodebirdsApiClient } from './codebirds-api'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 export interface FetchAndUpdateUsageParams {
   showBanner?: boolean
@@ -14,7 +14,7 @@ export interface FetchAndUpdateUsageParams {
     setInputMode: (mode: 'usage' | 'default') => void
   }
   logger?: Logger
-  apiClient?: CodebuffApiClient
+  apiClient?: CodebirdsApiClient
 }
 
 /**

@@ -1,5 +1,5 @@
 {
-  "name": "codebuff-project",
+  "name": "codebirds-project",
   "version": "1.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -9,7 +9,7 @@
     "cli",
     "common",
     "evals",
-    "freebuff",
+    "codebirds",
     "packages/agent-runtime",
     "packages/code-map",
     "packages/llm-providers",
@@ -19,14 +19,14 @@
   "scripts": {
     "start-cli": "bun --cwd cli dev",
     "dev": "bun start-cli",
-    "dev:freebuff": "FREEBUFF_MODE=true bun --cwd cli dev",
+    "dev:codebirds": "CODEBIRDS_MODE=true bun --cwd cli dev",
     "release:cli": "bun run --cwd=cli release",
     "release:sdk": "bun run --cwd=sdk release",
-    "release:freebuff": "bun run --cwd=freebuff release",
+    "release:codebirds": "bun run --cwd=codebirds release",
     "build:sdk": "cd sdk && bun run build",
-    "build:freebuff": "bun freebuff/cli/build.ts 0.0.0-dev",
+    "build:codebirds": "bun codebirds/cli/build.ts 0.0.0-dev",
     "buffbench": "bun --cwd evals run-buffbench",
-    "ci": "bun run build:sdk && bun run build:freebuff"
+    "ci": "bun run build:sdk && bun run build:codebirds"
   },
   "dependencies": {
     "canvas": "^3.2.0",

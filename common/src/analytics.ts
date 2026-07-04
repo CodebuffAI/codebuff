@@ -1,10 +1,10 @@
-import { env, DEBUG_ANALYTICS } from '@codebuff/common/env'
+import { env, DEBUG_ANALYTICS } from '@codebirds/common/env'
 
 import { createPostHogClient, type AnalyticsClient } from './analytics-core'
 import { AnalyticsEvent } from './constants/analytics-events'
 
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { TrackEventFn } from '@codebirds/common/types/contracts/analytics'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 let client: AnalyticsClient | undefined
 

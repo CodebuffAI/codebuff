@@ -3,15 +3,15 @@ import os from 'os'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { CodebuffClient, getUserCredentials } from '@codebuff/sdk'
+import { API_KEY_ENV_VAR } from '@codebirds/common/old-constants'
+import { CodebirdsClient, getUserCredentials } from '@codebirds/sdk'
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { $ } from 'bun'
 
 import baseDeep from '../base2/base-deep'
 import thinkerCodex from '../thinker/thinker-gpt'
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
 describe('Base Deep Agent Integration', () => {
   const repoRoot = path.resolve(
@@ -211,7 +211,7 @@ describe('Base Deep Agent Integration', () => {
       if (!apiKey) return
 
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         cwd: '/tmp/base-deep-thinker-test',
         projectFiles: {
@@ -264,7 +264,7 @@ describe('Base Deep Agent Integration', () => {
       const notePath = path.join(tmpDir, 'note.txt')
       await fs.promises.writeFile(notePath, 'status: draft\n', 'utf-8')
 
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         cwd: tmpDir,
         agentDefinitions: [baseDeep, thinkerCodex],
@@ -395,7 +395,7 @@ describe('Base Deep Agent Integration', () => {
       }
 
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         cwd: tmpDir,
         agentDefinitions: [baseDeep, thinkerCodex],
@@ -487,14 +487,14 @@ describe('Base Deep Agent Integration', () => {
   )
 
   slowIt(
-    'works on a shallow-cloned codebuff repo for a commit-inspired focused task',
+    'works on a shallow-cloned codebirds repo for a commit-inspired focused task',
     async () => {
       const apiKey = getApiKeyOrSkip()
       if (!apiKey) return
 
       const cloneDir = await createShallowClone()
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         cwd: cloneDir,
         agentDefinitions: [baseDeep, thinkerCodex],
@@ -528,7 +528,7 @@ describe('Base Deep Agent Integration', () => {
 
       await writeTrace({
         testName:
-          'works on a shallow-cloned codebuff repo for a commit-inspired focused task',
+          'works on a shallow-cloned codebirds repo for a commit-inspired focused task',
         events,
         runOutput: run.output,
         cwd: cloneDir,
@@ -549,7 +549,7 @@ describe('Base Deep Agent Integration', () => {
 
       const cloneDir = await createShallowClone()
       const events: PrintModeEvent[] = []
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         cwd: cloneDir,
         agentDefinitions: [baseDeep, thinkerCodex],

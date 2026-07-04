@@ -3,14 +3,14 @@ import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
-import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
-import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { env, IS_DEV, IS_TEST, IS_CI } from '@codebirds/common/env'
+import { createAnalyticsDispatcher } from '@codebirds/common/util/analytics-dispatcher'
+import { getAnalyticsEventId } from '@codebirds/common/util/analytics-log'
 import {
   isFullTelemetryEnabled,
   summarizeAnalyticsValue,
-} from '@codebuff/common/util/analytics-sampling'
+} from '@codebirds/common/util/analytics-sampling'
 import { pino } from 'pino'
 
 import {
@@ -22,7 +22,7 @@ import {
 import { enqueueClientLog } from './log-shipper'
 import { getCurrentChatDir, getProjectRoot } from '../project-files'
 
-import type { LogRecordInput } from '@codebuff/common/schemas/logs'
+import type { LogRecordInput } from '@codebirds/common/schemas/logs'
 
 /** Name of the per-chat debug log file written in production builds */
 export const CHAT_LOG_FILENAME = 'log.jsonl'

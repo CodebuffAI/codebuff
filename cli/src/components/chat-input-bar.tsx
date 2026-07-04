@@ -1,7 +1,7 @@
 import {
   isShallowScanRoot,
   SHALLOW_SCAN_MAX_DEPTH,
-} from '@codebuff/common/project-file-tree'
+} from '@codebirds/common/project-file-tree'
 import React from 'react'
 
 import { AgentModeToggle } from './agent-mode-toggle'

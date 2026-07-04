@@ -1,6 +1,6 @@
 # CLI Testing
 
-Comprehensive testing suite for the Codebuff CLI using tmux for interactive terminal emulation.
+Comprehensive testing suite for the Codebirds CLI using tmux for interactive terminal emulation.
 
 ## Test Naming Convention
 

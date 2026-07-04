@@ -1,4 +1,4 @@
-import { moonshotModels } from '@codebuff/common/constants/model-config'
+import { moonshotModels } from '@codebirds/common/constants/model-config'
 
 import { createBase2 } from './base2'
 

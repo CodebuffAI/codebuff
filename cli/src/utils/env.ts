@@ -5,7 +5,7 @@
  * process env with CLI-specific vars for terminal/IDE detection.
  */
 
-import { getBaseEnv } from '@codebuff/common/env-process'
+import { getBaseEnv } from '@codebirds/common/env-process'
 
 import type { CliEnv } from '../types/env'
 
@@ -60,23 +60,23 @@ export const getCliEnv = (): CliEnv => ({
   // Editor preferences
   VISUAL: process.env.VISUAL,
   EDITOR: process.env.EDITOR,
-  CODEBUFF_CLI_EDITOR: process.env.CODEBUFF_CLI_EDITOR,
-  CODEBUFF_EDITOR: process.env.CODEBUFF_EDITOR,
+  CODEBIRDS_CLI_EDITOR: process.env.CODEBIRDS_CLI_EDITOR,
+  CODEBIRDS_EDITOR: process.env.CODEBIRDS_EDITOR,
 
   // Theme preferences
   OPEN_TUI_THEME: process.env.OPEN_TUI_THEME,
   OPENTUI_THEME: process.env.OPENTUI_THEME,
 
   // Binary build configuration
-  CODEBUFF_IS_BINARY: process.env.CODEBUFF_IS_BINARY,
-  CODEBUFF_CLI_VERSION: process.env.CODEBUFF_CLI_VERSION,
-  CODEBUFF_CLI_TARGET: process.env.CODEBUFF_CLI_TARGET,
-  CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
-  CODEBUFF_SCROLL_MULTIPLIER: process.env.CODEBUFF_SCROLL_MULTIPLIER,
-  CODEBUFF_PERF_TEST: process.env.CODEBUFF_PERF_TEST,
-  CODEBUFF_TRACE: process.env.CODEBUFF_TRACE,
-  CODEBUFF_SHIP_LOGS: process.env.CODEBUFF_SHIP_LOGS,
-  FREEBUFF_MODE: process.env.FREEBUFF_MODE,
+  CODEBIRDS_IS_BINARY: process.env.CODEBIRDS_IS_BINARY,
+  CODEBIRDS_CLI_VERSION: process.env.CODEBIRDS_CLI_VERSION,
+  CODEBIRDS_CLI_TARGET: process.env.CODEBIRDS_CLI_TARGET,
+  CODEBIRDS_RG_PATH: process.env.CODEBIRDS_RG_PATH,
+  CODEBIRDS_SCROLL_MULTIPLIER: process.env.CODEBIRDS_SCROLL_MULTIPLIER,
+  CODEBIRDS_PERF_TEST: process.env.CODEBIRDS_PERF_TEST,
+  CODEBIRDS_TRACE: process.env.CODEBIRDS_TRACE,
+  CODEBIRDS_SHIP_LOGS: process.env.CODEBIRDS_SHIP_LOGS,
+  CODEBIRDS_MODE: process.env.CODEBIRDS_MODE,
 })
 
 /**

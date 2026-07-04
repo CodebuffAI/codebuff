@@ -1,17 +1,17 @@
 import {
-  FREEBUFF_GLM_V52_REFERRAL_ENABLED,
-  FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
-  FREEBUFF_STREAK_GLM_BONUS_ENABLED,
-  FREEBUFF_STREAK_REWARD_INTERVAL_DAYS,
-  FREEBUFF_STREAK_REWARDS_ENABLED,
-} from '../constants/freebuff-models'
+  CODEBIRDS_GLM_V52_REFERRAL_ENABLED,
+  CODEBIRDS_PREMIUM_SESSION_RESET_TIMEZONE,
+  CODEBIRDS_STREAK_GLM_BONUS_ENABLED,
+  CODEBIRDS_STREAK_REWARD_INTERVAL_DAYS,
+  CODEBIRDS_STREAK_REWARDS_ENABLED,
+} from '../constants/codebirds-models'
 
 import type {
   FreebuffAccessTier,
   FreebuffStreakRewardPool,
-} from '../constants/freebuff-models'
+} from '../constants/codebirds-models'
 
-export const FREEBUFF_STREAK_TIME_ZONE = FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
+export const CODEBIRDS_STREAK_TIME_ZONE = CODEBIRDS_PREMIUM_SESSION_RESET_TIMEZONE
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -32,7 +32,7 @@ function dateKeyFromParts(parts: Intl.DateTimeFormatPart[]): string {
 
 export function getFreebuffUsageDateKey(
   now: Date = new Date(),
-  timeZone = FREEBUFF_STREAK_TIME_ZONE,
+  timeZone = CODEBIRDS_STREAK_TIME_ZONE,
 ): string {
   return dateKeyFromParts(
     new Intl.DateTimeFormat('en-US', {
@@ -95,7 +95,7 @@ export function calculateFreebuffStreak(params: {
 /** True when `streak` lands exactly on a streak-reward milestone (a positive
  *  multiple of the 7-day interval). */
 export function isFreebuffStreakMilestone(streak: number): boolean {
-  return streak > 0 && streak % FREEBUFF_STREAK_REWARD_INTERVAL_DAYS === 0
+  return streak > 0 && streak % CODEBIRDS_STREAK_REWARD_INTERVAL_DAYS === 0
 }
 
 /**
@@ -108,9 +108,9 @@ export function isFreebuffStreakMilestone(streak: number): boolean {
  */
 export function isFreebuffStreakGlmBonusActive(): boolean {
   return (
-    FREEBUFF_STREAK_REWARDS_ENABLED &&
-    FREEBUFF_STREAK_GLM_BONUS_ENABLED &&
-    FREEBUFF_GLM_V52_REFERRAL_ENABLED
+    CODEBIRDS_STREAK_REWARDS_ENABLED &&
+    CODEBIRDS_STREAK_GLM_BONUS_ENABLED &&
+    CODEBIRDS_GLM_V52_REFERRAL_ENABLED
   )
 }
 
@@ -126,7 +126,7 @@ export function streakRewardPoolsForMilestone(params: {
   todayUsed: boolean
   accessTier: FreebuffAccessTier
 }): FreebuffStreakRewardPool[] {
-  if (!FREEBUFF_STREAK_REWARDS_ENABLED) return []
+  if (!CODEBIRDS_STREAK_REWARDS_ENABLED) return []
   if (!params.todayUsed || !isFreebuffStreakMilestone(params.streak)) return []
   if (params.accessTier === 'limited') return ['limited']
   const pools: FreebuffStreakRewardPool[] = ['premium']

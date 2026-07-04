@@ -1,33 +1,33 @@
 import type { FileProcessingState } from './tool/write-file'
-import type { ToolName } from '@codebuff/common/tools/constants'
+import type { ToolName } from '@codebirds/common/tools/constants'
 import type {
   ClientToolCall,
   ClientToolName,
-  CodebuffToolCall,
-  CodebuffToolMessage,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+  CodebirdsToolCall,
+  CodebirdsToolMessage,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { TrackEventFn } from '@codebirds/common/types/contracts/analytics'
+import type { SendSubagentChunkFn } from '@codebirds/common/types/contracts/client'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
+import type { AgentState, Subgoal } from '@codebirds/common/types/session-state'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 import type { ToolSet } from 'ai'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
   | { [P in K]: never }
 
-export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
+export type CodebirdsToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<T>
+    toolCall: CodebirdsToolCall<T>
 
     agentContext: Record<string, Subgoal>
     agentState: AgentState
@@ -59,11 +59,11 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     'requestClientToolCall',
     (
       toolCall: ClientToolCall<T extends ClientToolName ? T : never>,
-    ) => Promise<CodebuffToolOutput<T extends ClientToolName ? T : never>>
+    ) => Promise<CodebirdsToolOutput<T extends ClientToolName ? T : never>>
   > &
     AgentRuntimeDeps &
     AgentRuntimeScopedDeps,
 ) => Promise<{
-  output: CodebuffToolMessage<T>['content']
+  output: CodebirdsToolMessage<T>['content']
   creditsUsed?: number
 }>

@@ -8,7 +8,7 @@ import {
   getCountryBlockFromFreeModeError,
   OUT_OF_CREDITS_MESSAGE,
   FREE_MODE_UNAVAILABLE_MESSAGE,
-  FREEBUFF_RATE_LIMIT_MESSAGE,
+  CODEBIRDS_RATE_LIMIT_MESSAGE,
   createErrorMessage,
 } from '../error-handling'
 
@@ -137,7 +137,7 @@ describe('error-handling', () => {
           statusCode: 429,
           message: 'Too Many Requests',
         }),
-      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+      ).toBe(CODEBIRDS_RATE_LIMIT_MESSAGE)
     })
 
     test('returns the generic message for thrown API errors with status 429', () => {
@@ -146,7 +146,7 @@ describe('error-handling', () => {
           status: 429,
           message: 'Too Many Requests',
         }),
-      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+      ).toBe(CODEBIRDS_RATE_LIMIT_MESSAGE)
     })
 
     test('returns the generic message for retry-wrapped untyped 429 errors', () => {
@@ -158,7 +158,7 @@ describe('error-handling', () => {
             message: 'Too Many Requests',
           },
         }),
-      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+      ).toBe(CODEBIRDS_RATE_LIMIT_MESSAGE)
     })
 
     test('returns null for non-429 status codes', () => {
@@ -226,7 +226,7 @@ describe('error-handling', () => {
           statusCode: 429,
           error: 'free_mode_rate_limited',
         }),
-      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+      ).toBe(CODEBIRDS_RATE_LIMIT_MESSAGE)
     })
 
     test('appends detail from agent-run output objects for untyped 429s', () => {
@@ -237,7 +237,7 @@ describe('error-handling', () => {
           message: 'Model is at capacity. Please try again later.',
         }),
       ).toBe(
-        `${FREEBUFF_RATE_LIMIT_MESSAGE} (Model is at capacity. Please try again later.)`,
+        `${CODEBIRDS_RATE_LIMIT_MESSAGE} (Model is at capacity. Please try again later.)`,
       )
     })
 
@@ -255,7 +255,7 @@ describe('error-handling', () => {
           }),
         }),
       ).toBe(
-        `${FREEBUFF_RATE_LIMIT_MESSAGE} (Model is at capacity. Please try again later.)`,
+        `${CODEBIRDS_RATE_LIMIT_MESSAGE} (Model is at capacity. Please try again later.)`,
       )
     })
 
@@ -266,7 +266,7 @@ describe('error-handling', () => {
           statusCode: 429,
           message: 'Too Many Requests',
         }),
-      ).toBe(FREEBUFF_RATE_LIMIT_MESSAGE)
+      ).toBe(CODEBIRDS_RATE_LIMIT_MESSAGE)
     })
   })
 
@@ -388,9 +388,9 @@ describe('error-handling', () => {
     })
   })
 
-  describe('FREEBUFF_RATE_LIMIT_MESSAGE', () => {
+  describe('CODEBIRDS_RATE_LIMIT_MESSAGE', () => {
     test('encourages retry without mentioning credits or payment', () => {
-      const message = FREEBUFF_RATE_LIMIT_MESSAGE.toLowerCase()
+      const message = CODEBIRDS_RATE_LIMIT_MESSAGE.toLowerCase()
       expect(message).toContain('try again')
       expect(message).not.toContain('credit')
       expect(message).not.toContain('pay')

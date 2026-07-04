@@ -3,7 +3,7 @@ import React from 'react'
 import { BottomBanner } from './bottom-banner'
 import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { useChatStore } from '../state/chat-store'
 
 const HELP_TIMEOUT = 60 * 1000 // 60 seconds
@@ -78,7 +78,7 @@ export const HelpBanner = () => {
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Tips</SectionHeader>
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
-            {IS_FREEBUFF && (
+            {IS_CODEBIRDS && (
               <text style={{ fg: theme.muted }}>
                 Try workflow: /interview → /plan → implement → /review
               </text>
@@ -97,7 +97,7 @@ export const HelpBanner = () => {
         </box>
 
         {/* Credits Section — hidden in Freebuff */}
-        {!IS_FREEBUFF && (
+        {!IS_CODEBIRDS && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
             <SectionHeader>Credits</SectionHeader>
             <box style={{ flexDirection: 'column', paddingLeft: 2 }}>

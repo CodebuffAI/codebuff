@@ -6,7 +6,7 @@ import type {
   SetStreamStatusFn,
 } from './sdk-event-handlers'
 import type { StreamController } from '../hooks/stream-state'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 import type { MutableRefObject } from 'react'
 
 export type CreateEventHandlerStateParams = {

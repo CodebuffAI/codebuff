@@ -80,12 +80,12 @@ export type BaseEnv = {
 // =============================================================================
 
 /**
- * Extended CI env with Codebuff-specific CI vars.
+ * Extended CI env with Codebirds-specific CI vars.
  * Used by agent-runtime and server code.
  */
 export type CiEnv = BaseCiEnv & {
-  CODEBUFF_GITHUB_TOKEN?: string
-  CODEBUFF_API_KEY?: string
+  CODEBIRDS_GITHUB_TOKEN?: string
+  CODEBIRDS_API_KEY?: string
   EVAL_RESULTS_EMAIL?: string
 }
 
@@ -121,19 +121,19 @@ export type ProcessEnv = BaseEnv & {
   // Editor preferences
   VISUAL?: string
   EDITOR?: string
-  CODEBUFF_CLI_EDITOR?: string
-  CODEBUFF_EDITOR?: string
+  CODEBIRDS_CLI_EDITOR?: string
+  CODEBIRDS_EDITOR?: string
 
   // Theme preferences
   OPEN_TUI_THEME?: string
   OPENTUI_THEME?: string
 
-  // Codebuff CLI-specific (set during binary build)
-  CODEBUFF_IS_BINARY?: string
-  CODEBUFF_CLI_VERSION?: string
-  CODEBUFF_CLI_TARGET?: string
-  CODEBUFF_RG_PATH?: string
-  CODEBUFF_WASM_DIR?: string
+  // Codebirds CLI-specific (set during binary build)
+  CODEBIRDS_IS_BINARY?: string
+  CODEBIRDS_CLI_VERSION?: string
+  CODEBIRDS_CLI_TARGET?: string
+  CODEBIRDS_RG_PATH?: string
+  CODEBIRDS_WASM_DIR?: string
 
   // Build/CI flags
   VERBOSE?: string

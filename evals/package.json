@@ -1,7 +1,7 @@
 {
-  "name": "@codebuff/evals",
+  "name": "@codebirds/evals",
   "version": "1.0.0",
-  "description": "Evaluation scripts for Codebuff (public buffbench subset)",
+  "description": "Evaluation scripts for Codebirds (public buffbench subset)",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,9 +13,9 @@
     "bun": "1.3.11"
   },
   "dependencies": {
-    "@codebuff/code-map": "workspace:*",
-    "@codebuff/common": "workspace:*",
-    "@codebuff/sdk": "workspace:*",
+    "@codebirds/code-map": "workspace:*",
+    "@codebirds/common": "workspace:*",
+    "@codebirds/sdk": "workspace:*",
     "async": "^3.2.6",
     "diff": "^8.0.2",
     "p-limit": "^6.2.0",

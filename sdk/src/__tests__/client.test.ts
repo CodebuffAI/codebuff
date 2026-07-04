@@ -1,8 +1,8 @@
 import { describe, expect, test, mock, afterEach } from 'bun:test'
 
-import { CodebuffClient } from '../client'
+import { CodebirdsClient } from '../client'
 
-describe('CodebuffClient', () => {
+describe('CodebirdsClient', () => {
   const originalFetch = globalThis.fetch
 
   const setFetchMock = (mockFetch: ReturnType<typeof mock>) => {
@@ -24,7 +24,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(true)
@@ -41,7 +41,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
@@ -58,7 +58,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
@@ -74,7 +74,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
@@ -85,7 +85,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
@@ -101,7 +101,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
@@ -117,7 +117,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
@@ -133,7 +133,7 @@ describe('CodebuffClient', () => {
 
       setFetchMock(mockFetch)
 
-      const client = new CodebuffClient({ apiKey: 'test-key' })
+      const client = new CodebirdsClient({ apiKey: 'test-key' })
       const result = await client.checkConnection()
 
       expect(result).toBe(false)

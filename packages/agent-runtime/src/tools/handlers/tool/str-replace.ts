@@ -1,33 +1,33 @@
 import { postStreamProcessing } from './write-file'
 import { processStrReplace } from '../../../process-str-replace'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type { FileProcessingState } from './write-file'
 import type {
   ClientToolCall,
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { RequestOptionalFileFn } from '@codebirds/common/types/contracts/client'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 
 export const handleStrReplace = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<'str_replace'>
+    toolCall: CodebirdsToolCall<'str_replace'>
 
     fileProcessingState: FileProcessingState
     logger: Logger
 
     requestClientToolCall: (
       toolCall: ClientToolCall<'str_replace'>,
-    ) => Promise<CodebuffToolOutput<'str_replace'>>
+    ) => Promise<CodebirdsToolOutput<'str_replace'>>
     writeToClient: (chunk: string) => void
 
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
-): Promise<{ output: CodebuffToolOutput<'str_replace'> }> => {
+): Promise<{ output: CodebirdsToolOutput<'str_replace'> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -94,4 +94,4 @@ export const handleStrReplace = (async (
   }
 
   return { output: clientToolResult }
-}) satisfies CodebuffToolHandlerFunction<'str_replace'>
+}) satisfies CodebirdsToolHandlerFunction<'str_replace'>

@@ -1,5 +1,5 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import type { FeedbackCategory } from '@codebirds/common/constants/feedback'
 import { safeOpen } from './utils/open-url'
 import {
   useCallback,
@@ -15,7 +15,7 @@ import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { SingleAdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
-import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
+import { FreebuffActiveSessionSummary } from './components/codebirds-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -62,8 +62,8 @@ import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
-import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
-import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
+import { returnToFreebuffLanding } from './hooks/use-codebirds-session'
+import { END_SESSION_MESSAGE, IS_CODEBIRDS } from './utils/constants'
 import { getSystemMessage } from './utils/message-history'
 import { getInputModeConfig } from './utils/input-modes'
 import {
@@ -95,10 +95,10 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
-import type { FreebuffSessionResponse } from './types/freebuff-session'
+import type { FreebuffSessionResponse } from './types/codebirds-session'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
-import type { FileTreeNode } from '@codebuff/common/util/file'
+import type { FileTreeNode } from '@codebirds/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
@@ -118,7 +118,7 @@ export const Chat = ({
   initialMode,
   gitRoot,
   onSwitchToGitRoot,
-  freebuffSession,
+  codebirdsSession,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -134,14 +134,14 @@ export const Chat = ({
   initialMode?: AgentMode
   gitRoot?: string | null
   onSwitchToGitRoot?: () => void
-  freebuffSession: FreebuffSessionResponse | null
+  codebirdsSession: FreebuffSessionResponse | null
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
 
   // First-time onboarding: show clickable starter prompts until the user
   // submits their first prompt ever (persisted in settings). Freebuff only.
   const [showSuggestedPrompts, setShowSuggestedPrompts] = useState(
-    () => IS_FREEBUFF && !hasSubmittedFirstPrompt(),
+    () => IS_CODEBIRDS && !hasSubmittedFirstPrompt(),
   )
 
   const { validate: validateAgents } = useAgentValidation()
@@ -191,7 +191,7 @@ export const Chat = ({
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
   const { ads, recordClick, recordImpression } = useGravityAd({
-    enabled: IS_FREEBUFF || !hasSubscription,
+    enabled: IS_CODEBIRDS || !hasSubscription,
     provider: 'gravity',
   })
 
@@ -615,10 +615,10 @@ export const Chat = ({
         })
     }
 
-    globalThis.addEventListener('codebuff:send-followup', handleFollowupClick)
+    globalThis.addEventListener('codebirds:send-followup', handleFollowupClick)
     return () => {
       globalThis.removeEventListener(
-        'codebuff:send-followup',
+        'codebirds:send-followup',
         handleFollowupClick,
       )
     }
@@ -1429,9 +1429,9 @@ export const Chat = ({
   }, [queuePreviewTitle, pausedQueueText])
 
   const hasActiveFreebuffSession =
-    IS_FREEBUFF && freebuffSession?.status === 'active'
+    IS_CODEBIRDS && codebirdsSession?.status === 'active'
   const isFreebuffSessionOver =
-    IS_FREEBUFF && freebuffSession?.status === 'ended'
+    IS_CODEBIRDS && codebirdsSession?.status === 'ended'
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent ||
@@ -1501,8 +1501,8 @@ export const Chat = ({
         <TopBanner gitRoot={gitRoot} onSwitchToGitRoot={onSwitchToGitRoot} />
 
         {headerContent}
-        {IS_FREEBUFF && (
-          <FreebuffActiveSessionSummary session={freebuffSession} />
+        {IS_CODEBIRDS && (
+          <FreebuffActiveSessionSummary session={codebirdsSession} />
         )}
         {hiddenMessageCount > 0 && (
           <LoadPreviousButton
@@ -1557,11 +1557,11 @@ export const Chat = ({
               ])
               returnToFreebuffLanding({ resetChat: true }).catch(() => {})
             }}
-            freebuffSession={freebuffSession}
+            codebirdsSession={codebirdsSession}
           />
         )}
 
-        {ads?.[0] && (IS_FREEBUFF || getAdsEnabled()) && (
+        {ads?.[0] && (IS_CODEBIRDS || getAdsEnabled()) && (
           <SingleAdBanner
             ad={ads[0]}
             onClick={recordClick}

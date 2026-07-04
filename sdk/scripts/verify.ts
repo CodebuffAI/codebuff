@@ -49,7 +49,7 @@ function run(command: string, options: ExecSyncOptions = {}) {
 }
 
 function removeOldSdk(projectPath: string) {
-  const sdkPath = join(projectPath, 'node_modules', '@codebuff', 'sdk')
+  const sdkPath = join(projectPath, 'node_modules', '@codebirds', 'sdk')
   if (existsSync(sdkPath)) {
     step(`Removing old SDK at ${sdkPath}`)
     rmSync(sdkPath, { recursive: true, force: true })

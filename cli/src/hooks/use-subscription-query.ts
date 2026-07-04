@@ -1,11 +1,11 @@
 import { useActivityQuery } from './use-activity-query'
 import { getAuthToken } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
-import { getApiClient } from '../utils/codebuff-api'
+import { IS_CODEBIRDS } from '../utils/constants'
+import { getApiClient } from '../utils/codebirds-api'
 import { logger as defaultLogger } from '../utils/logger'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { SubscriptionResponse } from '@codebuff/common/types/subscription'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { SubscriptionResponse } from '@codebirds/common/types/subscription'
 
 export type { SubscriptionResponse }
 
@@ -58,7 +58,7 @@ export function useSubscriptionQuery(deps: UseSubscriptionQueryDeps = {}) {
   return useActivityQuery({
     queryKey: subscriptionQueryKeys.current(),
     queryFn: () => fetchSubscriptionData(logger),
-    enabled: enabled && !!authToken && !IS_FREEBUFF,
+    enabled: enabled && !!authToken && !IS_CODEBIRDS,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,

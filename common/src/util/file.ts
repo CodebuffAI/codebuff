@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import { z } from 'zod/v4'
 
-import type { CodebuffFileSystem } from '../types/filesystem'
+import type { CodebirdsFileSystem } from '../types/filesystem'
 import type { SkillsMap } from '../types/skill'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
@@ -255,7 +255,7 @@ export const ensureEndsWithNewline = (
  */
 export async function fileExists(params: {
   filePath: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }): Promise<boolean> {
   const { filePath, fs } = params
 
@@ -269,7 +269,7 @@ export async function fileExists(params: {
 
 export const ensureDirectoryExists = async (params: {
   baseDir: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }) => {
   const { baseDir, fs } = params
 
@@ -304,7 +304,7 @@ export function isValidFilePath(path: string) {
 
 export async function isDir(params: {
   path: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }): Promise<boolean> {
   const { path, fs } = params
 

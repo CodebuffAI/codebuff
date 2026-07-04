@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { getBundledRgPath } from '@codebuff/sdk'
+import { getBundledRgPath } from '@codebirds/sdk'
 import { spawnSync } from 'bun'
 
 import { getCliEnv } from '../utils/env'
@@ -9,7 +9,7 @@ import { logger } from '../utils/logger'
 const getRipgrepPath = async (): Promise<string> => {
   const env = getCliEnv()
   // In dev mode, use the SDK's bundled ripgrep binary
-  if (!env.CODEBUFF_IS_BINARY) {
+  if (!env.CODEBIRDS_IS_BINARY) {
     return getBundledRgPath()
   }
 

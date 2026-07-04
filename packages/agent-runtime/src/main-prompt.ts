@@ -1,6 +1,6 @@
-import { trackEvent } from '@codebuff/common/analytics'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
+import { trackEvent } from '@codebirds/common/analytics'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { AgentTemplateTypes } from '@codebirds/common/types/session-state'
 
 import { loopAgentSteps } from './run-agent-step'
 import {
@@ -9,20 +9,20 @@ import {
 } from './templates/agent-registry'
 
 import type { AgentTemplate } from './templates/types'
-import type { ClientAction } from '@codebuff/common/actions'
-import type { CostMode } from '@codebuff/common/old-constants'
+import type { ClientAction } from '@codebirds/common/actions'
+import type { CostMode } from '@codebirds/common/old-constants'
 import type {
   RequestToolCallFn,
   SendActionFn,
-} from '@codebuff/common/types/contracts/client'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+} from '@codebirds/common/types/contracts/client'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 import type {
   SessionState,
   AgentTemplateType,
   AgentOutput,
-} from '@codebuff/common/types/session-state'
+} from '@codebirds/common/types/session-state'
 
 export async function mainPrompt(
   params: {

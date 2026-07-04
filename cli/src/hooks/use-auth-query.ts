@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 
-import { getCiEnv } from '@codebuff/common/env-ci'
+import { getCiEnv } from '@codebirds/common/env-ci'
 import {
   getUserInfoFromApiKey as defaultGetUserInfoFromApiKey,
   isRetryableStatusCode,
@@ -9,7 +9,7 @@ import {
   createServerError,
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import {
@@ -18,11 +18,11 @@ import {
   logoutUser as logoutUserUtil,
   type User,
 } from '../utils/auth'
-import { resetCodebuffClient } from '../utils/codebuff-client'
+import { resetCodebirdsClient } from '../utils/codebirds-client'
 import { logger as defaultLogger, loggerContext } from '../utils/logger'
 
-import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { GetUserInfoFromApiKeyFn } from '@codebirds/common/types/contracts/database'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 const getApiKeyHash = (apiKey: string): string => {
   return createHash('sha256').update(apiKey).digest('hex')
@@ -133,7 +133,7 @@ export function useAuthQuery(deps: UseAuthQueryDeps = {}) {
   } = deps
 
   const userCredentials = getUserCredentials()
-  const apiKey = userCredentials?.authToken || getCiEnv().CODEBUFF_API_KEY || ''
+  const apiKey = userCredentials?.authToken || getCiEnv().CODEBIRDS_API_KEY || ''
 
   return useQuery({
     queryKey: authQueryKeys.validation(apiKey),
@@ -234,7 +234,7 @@ export function useLogoutMutation(deps: UseLogoutMutationDeps = {}) {
     mutationFn: logoutUser,
     onSuccess: () => {
       // Reset the SDK client after logout
-      resetCodebuffClient()
+      resetCodebirdsClient()
       // Clear all auth-related cache
       queryClient.removeQueries({ queryKey: authQueryKeys.all })
       // Clear logger context

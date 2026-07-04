@@ -1,26 +1,26 @@
-import { models } from '@codebuff/common/old-constants'
-import { promptSuccess } from '@codebuff/common/util/error'
+import { models } from '@codebirds/common/old-constants'
+import { promptSuccess } from '@codebirds/common/util/error'
 import { spyOn } from 'bun:test'
 import z from 'zod/v4'
 
-import { CodebuffClient } from '../../src/client'
+import { CodebirdsClient } from '../../src/client'
 import * as databaseModule from '../../src/impl/database'
 import * as llmModule from '../../src/impl/llm'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
   PromptAiSdkStructuredInput,
-} from '@codebuff/common/types/contracts/llm'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+} from '@codebirds/common/types/contracts/llm'
+import type { ParamsOf } from '@codebirds/common/types/function-params'
+import type { Message } from '@codebirds/common/types/messages/codebirds-message'
 
-export const E2E_MOCK_API_KEY = 'codebuff-e2e-mock'
+export const E2E_MOCK_API_KEY = 'codebirds-e2e-mock'
 
 const MOCK_USER = {
   id: 'e2e-user',
-  email: 'e2e-user@codebuff.test',
+  email: 'e2e-user@codebirds.test',
   discord_id: null,
   referral_code: null,
   stripe_customer_id: null,
@@ -453,5 +453,5 @@ export function setupE2eMocks(): void {
     promptAiSdkStructuredMock as typeof llmModule.promptAiSdkStructured,
   )
 
-  spyOn(CodebuffClient.prototype, 'checkConnection').mockResolvedValue(true)
+  spyOn(CodebirdsClient.prototype, 'checkConnection').mockResolvedValue(true)
 }

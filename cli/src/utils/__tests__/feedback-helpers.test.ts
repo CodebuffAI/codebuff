@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { feedbackRequestSchema } from '@codebuff/common/schemas/feedback'
+import { feedbackRequestSchema } from '@codebirds/common/schemas/feedback'
 
 import { buildFeedbackPayload, buildMessageContext, type RecentMessageSummary } from '../feedback-helpers'
 

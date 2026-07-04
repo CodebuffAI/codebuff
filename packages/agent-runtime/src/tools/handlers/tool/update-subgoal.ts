@@ -1,18 +1,18 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { Subgoal } from '@codebuff/common/types/session-state'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { Subgoal } from '@codebirds/common/types/session-state'
 
 type ToolName = 'update_subgoal'
 export const handleUpdateSubgoal = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<ToolName>
+  toolCall: CodebirdsToolCall<ToolName>
   agentContext: Record<string, Subgoal>
-}): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+}): Promise<{ output: CodebirdsToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, agentContext } = params
 
   let messages: string[] = []
@@ -45,4 +45,4 @@ export const handleUpdateSubgoal = (async (params: {
       message: messages.join('\n\n'),
     }),
   }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebirdsToolHandlerFunction<ToolName>

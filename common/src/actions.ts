@@ -2,7 +2,7 @@ import { z } from 'zod/v4'
 
 import type { GrantType } from './types/grant'
 import type { MCPConfig } from './types/mcp'
-import type { ToolMessage } from './types/messages/codebuff-message'
+import type { ToolMessage } from './types/messages/codebirds-message'
 import type {
   TextPart,
   ImagePart,

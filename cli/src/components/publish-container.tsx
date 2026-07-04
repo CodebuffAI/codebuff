@@ -1,4 +1,4 @@
-import { pluralize } from '@codebuff/common/util/string'
+import { pluralize } from '@codebirds/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -288,7 +288,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
           Create agents in the .agents/ directory to publish them.
         </text>
         <text style={{ fg: theme.muted }}>
-          See: https://codebuff.com/docs/agents for guidance.
+          See: https://codebirds.com/docs/agents for guidance.
         </text>
         <Button
           onClick={handleCancel}

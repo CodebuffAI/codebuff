@@ -1,13 +1,13 @@
-import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
-import { isAbortError, unwrapPromptResult } from '@codebuff/common/util/error'
+import { openaiModels, openrouterModels } from '@codebirds/common/old-constants'
+import { isAbortError, unwrapPromptResult } from '@codebirds/common/util/error'
 
 import type {
   FinetunedVertexModel,
-} from '@codebuff/common/old-constants'
-import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+} from '@codebirds/common/old-constants'
+import type { PromptAiSdkFn } from '@codebirds/common/types/contracts/llm'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { Message } from '@codebirds/common/types/messages/codebirds-message'
 
 /**
  * Prompts a Gemini model with fallback logic.

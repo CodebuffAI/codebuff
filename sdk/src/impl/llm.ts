@@ -1,16 +1,16 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isFreeMode } from '@codebuff/common/constants/free-agents'
-import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
-import { buildArray } from '@codebuff/common/util/array'
-import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { isFreeMode } from '@codebirds/common/constants/free-agents'
+import { models, PROFIT_MARGIN } from '@codebirds/common/old-constants'
+import { buildArray } from '@codebirds/common/util/array'
+import { normalizeProviderRequestBodyForCacheDebug } from '@codebirds/common/util/cache-debug'
 import {
   getErrorObject,
   promptAborted,
   promptSuccess,
-} from '@codebuff/common/util/error'
-import { convertCbToModelMessages } from '@codebuff/common/util/messages'
-import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
-import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
+} from '@codebirds/common/util/error'
+import { convertCbToModelMessages } from '@codebirds/common/util/messages'
+import { isExplicitlyDefinedModel } from '@codebirds/common/util/model-utils'
+import { StopSequenceHandler } from '@codebirds/common/util/stop-sequence'
 import {
   streamText,
   generateText,
@@ -33,15 +33,15 @@ import type { ModelRequestParams } from './model-provider'
 import type {
   OpenRouterProviderOptions,
   OpenRouterProviderRoutingOptions,
-} from '@codebuff/common/types/agent-template'
+} from '@codebirds/common/types/agent-template'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
   PromptAiSdkStructuredInput,
   PromptAiSdkStructuredOutput,
-} from '@codebuff/common/types/contracts/llm'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type { JSONObject } from '@codebuff/common/types/json'
+} from '@codebirds/common/types/contracts/llm'
+import type { ParamsOf } from '@codebirds/common/types/function-params'
+import type { JSONObject } from '@codebirds/common/types/json'
 import type { LanguageModel } from 'ai'
 import type z from 'zod/v4'
 
@@ -75,8 +75,8 @@ export function getProviderOptions(params: {
   n?: number
   costMode?: string
   cacheDebugCorrelation?: string
-  extraCodebuffMetadata?: Record<string, string>
-}): { codebuff: JSONObject } {
+  extraCodebirdsMetadata?: Record<string, string>
+}): { codebirds: JSONObject } {
   const {
     model,
     runId,
@@ -86,7 +86,7 @@ export function getProviderOptions(params: {
     n,
     costMode,
     cacheDebugCorrelation,
-    extraCodebuffMetadata,
+    extraCodebirdsMetadata,
   } = params
 
   let providerConfig: Record<string, any>
@@ -106,14 +106,14 @@ export function getProviderOptions(params: {
 
   return {
     ...providerOptions,
-    // Could either be "codebuff" or "openaiCompatible"
-    codebuff: {
-      ...providerOptions?.codebuff,
+    // Could either be "codebirds" or "openaiCompatible"
+    codebirds: {
+      ...providerOptions?.codebirds,
       // All values here get appended to the request body
-      codebuff_metadata: {
+      codebirds_metadata: {
         // Caller-supplied keys go first so they can't override reserved
         // identifiers like run_id/client_id/cost_mode that the server trusts.
-        ...(extraCodebuffMetadata ?? {}),
+        ...(extraCodebirdsMetadata ?? {}),
         run_id: runId,
         client_id: clientSessionId,
         ...(n && { n }),
@@ -127,7 +127,7 @@ export function getProviderOptions(params: {
   }
 }
 
-// Usage accounting type for OpenRouter/Codebuff backend responses
+// Usage accounting type for OpenRouter/Codebirds backend responses
 // Forked from https://github.com/OpenRouterTeam/ai-sdk-provider/
 type OpenRouterUsageAccounting = {
   cost: number | null
@@ -339,7 +339,7 @@ export async function* promptAiSdkStream(
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
     ...(isChatGptOAuth && { maxRetries: 0 }),
-    // For ChatGPT OAuth direct, don't send codebuff metadata/provider options to OpenAI
+    // For ChatGPT OAuth direct, don't send codebirds metadata/provider options to OpenAI
     ...(isChatGptOAuth
       ? {}
       : {
@@ -546,7 +546,7 @@ export async function* promptAiSdkStream(
 
         markChatGptOAuthRateLimited()
 
-        // In free mode, don't fall back to Codebuff backend — fail instead
+        // In free mode, don't fall back to Codebirds backend — fail instead
         if (isFreeMode(params.costMode)) {
           throw new Error(
             `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
@@ -597,14 +597,14 @@ export async function* promptAiSdkStream(
         }
 
         // Refresh failed or already retried
-        // In free mode, don't fall back to Codebuff backend — fail instead
+        // In free mode, don't fall back to Codebirds backend — fail instead
         if (isFreeMode(params.costMode)) {
           throw new Error(
             'ChatGPT OAuth authentication failed. Please reconnect with /connect:chatgpt and try again.',
           )
         }
 
-        // Fall back to Codebuff backend
+        // Fall back to Codebirds backend
         const fallbackResult = yield* promptAiSdkStream({
           ...params,
           skipChatGptOAuth: true,
@@ -625,7 +625,7 @@ export async function* promptAiSdkStream(
       throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
-      const reasoningExcluded = (['openrouter', 'codebuff'] as const).some(
+      const reasoningExcluded = (['openrouter', 'codebirds'] as const).some(
         (p) =>
           (params.providerOptions?.[p] as OpenRouterProviderOptions | undefined)
             ?.reasoning?.exclude,
@@ -695,9 +695,9 @@ export async function* promptAiSdkStream(
     const providerMetadata = providerMetadataResult ?? {}
 
     let costOverrideDollars: number | undefined
-    if (providerMetadata.codebuff) {
-      if (providerMetadata.codebuff.usage) {
-        const openrouterUsage = providerMetadata.codebuff
+    if (providerMetadata.codebirds) {
+      if (providerMetadata.codebirds.usage) {
+        const openrouterUsage = providerMetadata.codebirds
           .usage as OpenRouterUsageAccounting
 
         costOverrideDollars =
@@ -736,7 +736,7 @@ export async function promptAiSdk(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
+    skipChatGptOAuth: true, // Always use Codebirds backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)
 
@@ -764,9 +764,9 @@ export async function promptAiSdk(
 
   const providerMetadata = response.providerMetadata ?? {}
   let costOverrideDollars: number | undefined
-  if (providerMetadata.codebuff) {
-    if (providerMetadata.codebuff.usage) {
-      const openrouterUsage = providerMetadata.codebuff
+  if (providerMetadata.codebirds) {
+    if (providerMetadata.codebirds.usage) {
+      const openrouterUsage = providerMetadata.codebirds
         .usage as OpenRouterUsageAccounting
 
       costOverrideDollars =
@@ -803,7 +803,7 @@ export async function promptAiSdkStructured<T>(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipChatGptOAuth: true, // Always use Codebuff backend for non-streaming
+    skipChatGptOAuth: true, // Always use Codebirds backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)
 
@@ -834,9 +834,9 @@ export async function promptAiSdkStructured<T>(
 
   const providerMetadata = response.providerMetadata ?? {}
   let costOverrideDollars: number | undefined
-  if (providerMetadata.codebuff) {
-    if (providerMetadata.codebuff.usage) {
-      const openrouterUsage = providerMetadata.codebuff
+  if (providerMetadata.codebirds) {
+    if (providerMetadata.codebirds.usage) {
+      const openrouterUsage = providerMetadata.codebirds
         .usage as OpenRouterUsageAccounting
 
       costOverrideDollars =

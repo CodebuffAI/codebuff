@@ -5,7 +5,7 @@ import {
   simplifyTerminalCommandResults,
 } from '../simplify-tool-results'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type { CodebirdsToolOutput } from '@codebirds/common/tools/list'
 
 // Mock logger for tests
 const logger = {
@@ -17,7 +17,7 @@ const logger = {
 
 describe('simplifyReadFileResults', () => {
   it('should simplify read file results by omitting content', () => {
-    const input: CodebuffToolOutput<'read_files'> = [
+    const input: CodebirdsToolOutput<'read_files'> = [
       {
         type: 'json',
         value: [
@@ -55,7 +55,7 @@ describe('simplifyReadFileResults', () => {
   })
 
   it('should handle empty file results', () => {
-    const input: CodebuffToolOutput<'read_files'> = [
+    const input: CodebirdsToolOutput<'read_files'> = [
       {
         type: 'json',
         value: [],
@@ -73,7 +73,7 @@ describe('simplifyReadFileResults', () => {
   })
 
   it('should handle files with contentOmittedForLength already set', () => {
-    const input: CodebuffToolOutput<'read_files'> = [
+    const input: CodebirdsToolOutput<'read_files'> = [
       {
         type: 'json',
         value: [
@@ -101,7 +101,7 @@ describe('simplifyReadFileResults', () => {
   })
 
   it('should not mutate the original input', () => {
-    const originalInput: CodebuffToolOutput<'read_files'> = [
+    const originalInput: CodebirdsToolOutput<'read_files'> = [
       {
         type: 'json',
         value: [
@@ -123,7 +123,7 @@ describe('simplifyReadFileResults', () => {
 
 describe('simplifyTerminalCommandResults', () => {
   it('should simplify terminal command results with stdout', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -156,7 +156,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should simplify terminal command results without message', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -185,7 +185,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should simplify terminal command results without exitCode', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -212,7 +212,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should handle background process results without simplification', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -232,7 +232,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should handle error message results without simplification', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -251,7 +251,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should handle results that already have stdoutOmittedForLength', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -302,7 +302,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should not mutate the original input', () => {
-    const originalInput: CodebuffToolOutput<'run_terminal_command'> = [
+    const originalInput: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -321,7 +321,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should handle terminal command with stderr', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {
@@ -351,7 +351,7 @@ describe('simplifyTerminalCommandResults', () => {
   })
 
   it('should handle terminal command with startingCwd', () => {
-    const input: CodebuffToolOutput<'run_terminal_command'> = [
+    const input: CodebirdsToolOutput<'run_terminal_command'> = [
       {
         type: 'json',
         value: {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
-import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+import type { FeedbackCategory } from '@codebirds/common/constants/feedback'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'

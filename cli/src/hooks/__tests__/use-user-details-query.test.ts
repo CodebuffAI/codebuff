@@ -9,10 +9,10 @@ import {
 } from 'bun:test'
 
 import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
-import * as CodebuffApiModule from '../../utils/codebuff-api'
+import * as CodebirdsApiModule from '../../utils/codebirds-api'
 import { fetchUserDetails } from '../use-user-details-query'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 describe('fetchUserDetails', () => {
   const mockLogger: Logger = {
@@ -22,14 +22,14 @@ describe('fetchUserDetails', () => {
     debug: mock(() => {}),
   }
 
-  const originalEnv = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const originalEnv = process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://test.codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL = 'https://test.codebirds.com'
   })
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalEnv
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL = originalEnv
   })
 
   describe('API failure handling', () => {
@@ -176,10 +176,10 @@ describe('fetchUserDetails', () => {
       const apiClient = createMockApiClient({ me: meMock })
 
       const setTokenSpy = spyOn(
-        CodebuffApiModule,
+        CodebirdsApiModule,
         'setApiClientAuthToken',
       )
-      spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue(apiClient as ReturnType<typeof CodebuffApiModule.getApiClient>)
+      spyOn(CodebirdsApiModule, 'getApiClient').mockReturnValue(apiClient as ReturnType<typeof CodebirdsApiModule.getApiClient>)
 
       await expect(
         fetchUserDetails({

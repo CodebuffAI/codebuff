@@ -1,4 +1,4 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
 import {
   validateAndGetAgentTemplate,
@@ -8,16 +8,16 @@ import {
   extractSubagentContextParams,
 } from './spawn-agent-utils'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentState } from '@codebuff/common/types/session-state'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
+import type { AgentState } from '@codebirds/common/types/session-state'
 import type { ToolSet } from 'ai'
 
 export type SendSubagentChunk = (data: {
@@ -33,7 +33,7 @@ type ToolName = 'spawn_agents'
 export const handleSpawnAgents = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<ToolName>
+    toolCall: CodebirdsToolCall<ToolName>
 
     agentState: AgentState
     agentTemplate: AgentTemplate
@@ -64,7 +64,7 @@ export const handleSpawnAgents = (async (
       | 'parentTools'
       | 'onResponseChunk'
     >,
-): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+): Promise<{ output: CodebirdsToolOutput<ToolName> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -252,4 +252,4 @@ export const handleSpawnAgents = (async (
   })
 
   return { output: jsonToolResult(reports) }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebirdsToolHandlerFunction<ToolName>

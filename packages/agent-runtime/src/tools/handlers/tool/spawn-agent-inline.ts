@@ -8,24 +8,24 @@ import {
   extractSubagentContextParams,
 } from './spawn-agent-utils'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
+import type { AgentState } from '@codebirds/common/types/session-state'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 import type { ToolSet } from 'ai'
 
 type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<ToolName>
+    toolCall: CodebirdsToolCall<ToolName>
 
     agentState: AgentState
     agentTemplate: AgentTemplate
@@ -53,7 +53,7 @@ export const handleSpawnAgentInline = (async (
     | 'clearUserPromptMessagesAfterResponse'
     | 'fingerprintId'
   >,
-): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+): Promise<{ output: CodebirdsToolOutput<ToolName> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -139,4 +139,4 @@ export const handleSpawnAgentInline = (async (
   parentAgentState.messageHistory = result.agentState.messageHistory
 
   return { output: [{ type: 'json', value: { message: 'Agent spawned.' } }] }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebirdsToolHandlerFunction<ToolName>

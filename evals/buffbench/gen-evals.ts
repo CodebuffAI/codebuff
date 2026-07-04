@@ -3,8 +3,8 @@ import fs from 'fs'
 import path from 'path'
 
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { CodebuffClient, getUserCredentials } from '@codebuff/sdk'
+import { API_KEY_ENV_VAR } from '@codebirds/common/old-constants'
+import { CodebirdsClient, getUserCredentials } from '@codebirds/sdk'
 import { mapLimit } from 'async'
 import { createTwoFilesPatch } from 'diff'
 
@@ -142,7 +142,7 @@ export async function generateEvalFileV2({
 }): Promise<void> {
   const actualRepoName = extractRepoNameFromUrl(repoUrl)
 
-  const client = new CodebuffClient({
+  const client = new CodebirdsClient({
     apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
   })
 

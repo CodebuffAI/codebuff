@@ -28,7 +28,7 @@ import type {
 
 describe('getAgentBaseName', () => {
   test('extracts base name from scoped versioned name', () => {
-    expect(getAgentBaseName('codebuff/file-picker@0.0.2')).toBe('file-picker')
+    expect(getAgentBaseName('codebirds/file-picker@0.0.2')).toBe('file-picker')
   })
 
   test('extracts base name from simple versioned name', () => {
@@ -44,7 +44,7 @@ describe('getAgentBaseName', () => {
   })
 
   test('handles scoped name without version', () => {
-    expect(getAgentBaseName('codebuff/file-picker')).toBe('file-picker')
+    expect(getAgentBaseName('codebirds/file-picker')).toBe('file-picker')
   })
 
   test('handles empty string', () => {

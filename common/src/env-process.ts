@@ -8,7 +8,7 @@
  * Usage:
  * - Import `getBaseEnv` for base OS-level vars only
  * - Import `getProcessEnv` for the full ProcessEnv (base + extensions)
- * - In tests, use `@codebuff/common/testing-env-process`
+ * - In tests, use `@codebirds/common/testing-env-process`
  */
 
 import type { BaseEnv, ProcessEnv } from './types/contracts/env'
@@ -67,19 +67,19 @@ export const getProcessEnv = (): ProcessEnv => ({
   // Editor preferences
   VISUAL: process.env.VISUAL,
   EDITOR: process.env.EDITOR,
-  CODEBUFF_CLI_EDITOR: process.env.CODEBUFF_CLI_EDITOR,
-  CODEBUFF_EDITOR: process.env.CODEBUFF_EDITOR,
+  CODEBIRDS_CLI_EDITOR: process.env.CODEBIRDS_CLI_EDITOR,
+  CODEBIRDS_EDITOR: process.env.CODEBIRDS_EDITOR,
 
   // Theme preferences
   OPEN_TUI_THEME: process.env.OPEN_TUI_THEME,
   OPENTUI_THEME: process.env.OPENTUI_THEME,
 
-  // Codebuff CLI-specific
-  CODEBUFF_IS_BINARY: process.env.CODEBUFF_IS_BINARY,
-  CODEBUFF_CLI_VERSION: process.env.CODEBUFF_CLI_VERSION,
-  CODEBUFF_CLI_TARGET: process.env.CODEBUFF_CLI_TARGET,
-  CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
-  CODEBUFF_WASM_DIR: process.env.CODEBUFF_WASM_DIR,
+  // Codebirds CLI-specific
+  CODEBIRDS_IS_BINARY: process.env.CODEBIRDS_IS_BINARY,
+  CODEBIRDS_CLI_VERSION: process.env.CODEBIRDS_CLI_VERSION,
+  CODEBIRDS_CLI_TARGET: process.env.CODEBIRDS_CLI_TARGET,
+  CODEBIRDS_RG_PATH: process.env.CODEBIRDS_RG_PATH,
+  CODEBIRDS_WASM_DIR: process.env.CODEBIRDS_WASM_DIR,
 
   // Build/CI flags
   VERBOSE: process.env.VERBOSE,

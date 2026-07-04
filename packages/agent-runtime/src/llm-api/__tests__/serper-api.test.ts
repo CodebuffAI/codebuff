@@ -1,8 +1,8 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
-} from '@codebuff/common/testing/mock-modules'
+} from '@codebirds/common/testing/mock-modules'
 import {
   afterAll,
   afterEach,
@@ -16,7 +16,7 @@ import {
 
 import { searchWeb } from '../serper-api'
 
-import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
+import type { AgentRuntimeDeps } from '@codebirds/common/types/contracts/agent-runtime'
 
 const testServerEnv = { SERPER_API_KEY: 'test-api-key' }
 
@@ -24,7 +24,7 @@ describe('Serper API', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & { serverEnv: typeof testServerEnv }
 
   beforeAll(async () => {
-    await mockModule('@codebuff/common/util/promise', () => ({
+    await mockModule('@codebirds/common/util/promise', () => ({
       withTimeout: async (promise: Promise<any>, timeout: number) => promise,
     }))
   })

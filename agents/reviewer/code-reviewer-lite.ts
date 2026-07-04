@@ -1,4 +1,4 @@
-import { deepseekModels } from '@codebuff/common/constants/model-config'
+import { deepseekModels } from '@codebirds/common/constants/model-config'
 
 import { publisher } from '../constants'
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'

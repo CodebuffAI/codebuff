@@ -1,11 +1,11 @@
 import {
   promptSuccess,
   type PromptResult,
-} from '@codebuff/common/util/error'
-import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
+} from '@codebirds/common/util/error'
+import { cleanMarkdownCodeBlock } from '@codebirds/common/util/file'
 import { createPatch } from 'diff'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 type WriteFileSuccess = {
   tool: 'write_file'

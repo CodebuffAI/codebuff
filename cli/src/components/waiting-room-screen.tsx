@@ -4,48 +4,48 @@ import React, { useCallback, useEffect, useState } from 'react'
 
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
-import { FreebuffModelSelector } from './freebuff-model-selector'
-import { FreebuffReferralBanner } from './freebuff-referral-banner'
+import { FreebuffModelSelector } from './codebirds-model-selector'
+import { FreebuffReferralBanner } from './codebirds-referral-banner'
 import { ShimmerText } from './shimmer-text'
 import {
   refreshFreebuffLandingMetadata,
   takeOverFreebuffSession,
-} from '../hooks/use-freebuff-session'
-import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
-import { useFreebuffStreakQuery } from '../hooks/use-freebuff-streak-query'
+} from '../hooks/use-codebirds-session'
+import { useFreebuffCtrlCExit } from '../hooks/use-codebirds-ctrl-c-exit'
+import { useFreebuffStreakQuery } from '../hooks/use-codebirds-streak-query'
 import { useGravityAd } from '../hooks/use-gravity-ad'
 import { useLogo } from '../hooks/use-logo'
 import { useNow } from '../hooks/use-now'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { exitFreebuffCleanly } from '../utils/freebuff-exit'
+import { exitFreebuffCleanly } from '../utils/codebirds-exit'
 import {
   formatFreebuffPremiumResetCountdown,
   getFreebuffPremiumResetAt,
-} from '../utils/freebuff-premium-reset'
+} from '../utils/codebirds-premium-reset'
 import {
-  FREEBUFF_STREAK_WEEK,
+  CODEBIRDS_STREAK_WEEK,
   getFreebuffStreakBonusNote,
   getFreebuffStreakLine,
-} from '../utils/freebuff-streak-line'
+} from '../utils/codebirds-streak-line'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
 import { INVERTED_CTA_FG } from '../utils/ui-constants'
 import {
-  FREEBUFF_ENABLE_STREAK_IN_UI,
-  FREEBUFF_LIMITED_SESSION_LIMIT,
-  FREEBUFF_PREMIUM_SESSION_LIMIT,
-} from '@codebuff/common/constants/freebuff-models'
+  CODEBIRDS_ENABLE_STREAK_IN_UI,
+  CODEBIRDS_LIMITED_SESSION_LIMIT,
+  CODEBIRDS_PREMIUM_SESSION_LIMIT,
+} from '@codebirds/common/constants/codebirds-models'
 import {
   getRateLimitsByModel,
   getReferralInfo,
-} from '@codebuff/common/types/freebuff-session'
-import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
+} from '@codebirds/common/types/codebirds-session'
+import { formatFreebuffHardBlockedPrivacySignals } from '@codebirds/common/util/codebirds-privacy'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
-import type { FreebuffIpPrivacySignal } from '@codebuff/common/types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/codebirds-session'
+import type { FreebuffIpPrivacySignal } from '@codebirds/common/types/codebirds-session'
 import type { KeyEvent } from '@opentui/core'
 
 interface WaitingRoomScreenProps {
@@ -226,7 +226,7 @@ const TakeoverPrompt: React.FC = () => {
       </text>
 
       <text style={{ fg: theme.muted }}>
-        Only one freebuff instance is allowed at a time.
+        Only one codebirds instance is allowed at a time.
       </text>
 
       <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
@@ -394,14 +394,14 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   // joinFreebuffQueue, which POSTs and transitions straight to 'active' (chat).
   const isLanding = session?.status === 'none'
   const streakQuery = useFreebuffStreakQuery({
-    enabled: FREEBUFF_ENABLE_STREAK_IN_UI && isLanding,
+    enabled: CODEBIRDS_ENABLE_STREAK_IN_UI && isLanding,
   })
   const streak = streakQuery.data?.streak ?? 0
   // Reserve the streak row whenever the feature could appear so the picker
   // doesn't jump when the query resolves or the user crosses from 0 → 1.
   // The component itself renders blank space when streak === 0.
   const reserveStreakSlot =
-    FREEBUFF_ENABLE_STREAK_IN_UI && isLanding && !compact
+    CODEBIRDS_ENABLE_STREAK_IN_UI && isLanding && !compact
   // Once a full week is earned, explain the recurring perk under the picker so
   // the streak reads as worth keeping. Accuracy lives in getFreebuffStreakBonusNote
   // (recurring "each week" framing, GLM only for full access).
@@ -444,13 +444,13 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
   const isSessionExhausted =
     sharedSessionUsed >=
     (accessTier === 'limited'
-      ? FREEBUFF_LIMITED_SESSION_LIMIT
-      : FREEBUFF_PREMIUM_SESSION_LIMIT)
+      ? CODEBIRDS_LIMITED_SESSION_LIMIT
+      : CODEBIRDS_PREMIUM_SESSION_LIMIT)
   const sessionUsedColor = isSessionExhausted ? theme.secondary : theme.muted
   const sessionLimit =
     accessTier === 'limited'
-      ? FREEBUFF_LIMITED_SESSION_LIMIT
-      : FREEBUFF_PREMIUM_SESSION_LIMIT
+      ? CODEBIRDS_LIMITED_SESSION_LIMIT
+      : CODEBIRDS_PREMIUM_SESSION_LIMIT
   const sessionLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
   const formattedSharedSessionUsed = formatSessionUnits(sharedSessionUsed)
   const sessionResetAt = getFreebuffPremiumResetAt({
@@ -736,13 +736,13 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                   <>
                     We couldn't verify an eligible location for this request.
                     VPN, Tor, proxy, or unknown-location traffic can't use
-                    freebuff. Press Ctrl+C to exit.
+                    codebirds. Press Ctrl+C to exit.
                   </>
                 ) : (
                   <>
                     We detected your location as{' '}
                     <span fg={theme.foreground}>{session.countryCode}</span>,
-                    which is outside the countries where freebuff is currently
+                    which is outside the countries where codebirds is currently
                     offered. Press Ctrl+C to exit.
                   </>
                 )}
@@ -758,8 +758,8 @@ export const WaitingRoomScreen: React.FC<WaitingRoomScreenProps> = ({
                 ⚠ Account unavailable
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                This account has been suspended and can't use freebuff. If you
-                think this is a mistake, contact support@codebuff.com. Press
+                This account has been suspended and can't use codebirds. If you
+                think this is a mistake, contact support@codebirds.com. Press
                 Ctrl+C to exit.
               </text>
             </>

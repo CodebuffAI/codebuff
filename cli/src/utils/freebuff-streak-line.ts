@@ -1,8 +1,8 @@
-import { FREEBUFF_STREAK_REWARDS_ENABLED } from '@codebuff/common/constants/freebuff-models'
-import { isFreebuffStreakGlmBonusActive } from '@codebuff/common/util/freebuff-streak'
+import { CODEBIRDS_STREAK_REWARDS_ENABLED } from '@codebirds/common/constants/codebirds-models'
+import { isFreebuffStreakGlmBonusActive } from '@codebirds/common/util/codebirds-streak'
 
 /** Days in a streak "week" — the milestone the progress dots fill toward. */
-export const FREEBUFF_STREAK_WEEK = 7
+export const CODEBIRDS_STREAK_WEEK = 7
 
 export interface FreebuffStreakLine {
   /** Count label, e.g. "2 day streak". */
@@ -26,11 +26,11 @@ export function getFreebuffStreakLine(streak: number): FreebuffStreakLine | null
   // Fill toward the 7-day milestone, then stay full — a 19-day streak should
   // read as fully earned, not roll back over into a partial second week. Past
   // the week, a trailing "+" marks that the streak has run beyond the row.
-  const filled = Math.min(streak, FREEBUFF_STREAK_WEEK)
+  const filled = Math.min(streak, CODEBIRDS_STREAK_WEEK)
   const dots =
     '●'.repeat(filled) +
-    '○'.repeat(FREEBUFF_STREAK_WEEK - filled) +
-    (streak > FREEBUFF_STREAK_WEEK ? '+' : '')
+    '○'.repeat(CODEBIRDS_STREAK_WEEK - filled) +
+    (streak > CODEBIRDS_STREAK_WEEK ? '+' : '')
 
   // "day" stays singular — it's a compound modifier ("7 day streak"), not a
   // count of days on its own.
@@ -53,8 +53,8 @@ export function getFreebuffStreakBonusNote(params: {
   streak: number
   accessTier: 'full' | 'limited'
 }): string | null {
-  if (!FREEBUFF_STREAK_REWARDS_ENABLED) return null
-  if (params.streak < FREEBUFF_STREAK_WEEK) return null
+  if (!CODEBIRDS_STREAK_REWARDS_ENABLED) return null
+  if (params.streak < CODEBIRDS_STREAK_WEEK) return null
   // Only advertise GLM when the full-access GLM bonus is actually active —
   // mirrors what streakRewardPoolsForMilestone grants, so the copy never
   // promises a perk the gate won't honor.

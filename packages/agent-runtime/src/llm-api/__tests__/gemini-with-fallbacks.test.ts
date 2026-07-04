@@ -1,10 +1,10 @@
-import { openrouterModels } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { openrouterModels } from '@codebirds/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
 import {
   ABORT_ERROR_MESSAGE,
   promptAborted,
   promptSuccess,
-} from '@codebuff/common/util/error'
+} from '@codebirds/common/util/error'
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import { promptFlashWithFallbacks } from '../gemini-with-fallbacks'
@@ -12,7 +12,7 @@ import { promptFlashWithFallbacks } from '../gemini-with-fallbacks'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
+} from '@codebirds/common/types/contracts/agent-runtime'
 
 describe('promptFlashWithFallbacks', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps

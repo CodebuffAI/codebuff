@@ -1,4 +1,4 @@
-import type { GrantType } from '@codebuff/common/types/grant'
+import type { GrantType } from '@codebirds/common/types/grant'
 
 // Lower = consumed first
 export const GRANT_PRIORITIES: Record<GrantType, number> = {

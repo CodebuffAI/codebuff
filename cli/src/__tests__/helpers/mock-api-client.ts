@@ -1,6 +1,6 @@
 import { mock } from 'bun:test'
 
-import type { CodebuffApiClient } from '../../utils/codebuff-api'
+import type { CodebirdsApiClient } from '../../utils/codebirds-api'
 
 export interface MockApiClientOverrides {
   get?: ReturnType<typeof mock>
@@ -29,36 +29,36 @@ const defaultOkResponse = () =>
   Promise.resolve({ ok: true as const, status: 200 })
 
 /**
- * Creates a mock CodebuffApiClient with sensible defaults.
+ * Creates a mock CodebirdsApiClient with sensible defaults.
  * All methods return { ok: true, status: 200 } by default.
  * Pass overrides to customize specific methods.
  */
 export const createMockApiClient = (
   overrides: MockApiClientOverrides = {},
-): CodebuffApiClient => ({
-  get: (overrides.get ?? mock(defaultOkResponse)) as CodebuffApiClient['get'],
+): CodebirdsApiClient => ({
+  get: (overrides.get ?? mock(defaultOkResponse)) as CodebirdsApiClient['get'],
   post: (overrides.post ??
-    mock(defaultOkResponse)) as CodebuffApiClient['post'],
-  put: (overrides.put ?? mock(defaultOkResponse)) as CodebuffApiClient['put'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['post'],
+  put: (overrides.put ?? mock(defaultOkResponse)) as CodebirdsApiClient['put'],
   patch: (overrides.patch ??
-    mock(defaultOkResponse)) as CodebuffApiClient['patch'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['patch'],
   delete: (overrides.delete ??
-    mock(defaultOkResponse)) as CodebuffApiClient['delete'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['delete'],
   request: (overrides.request ??
-    mock(defaultOkResponse)) as CodebuffApiClient['request'],
-  me: (overrides.me ?? mock(defaultOkResponse)) as CodebuffApiClient['me'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['request'],
+  me: (overrides.me ?? mock(defaultOkResponse)) as CodebirdsApiClient['me'],
   usage: (overrides.usage ??
-    mock(defaultOkResponse)) as CodebuffApiClient['usage'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['usage'],
   loginCode: (overrides.loginCode ??
-    mock(defaultOkResponse)) as CodebuffApiClient['loginCode'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['loginCode'],
   loginStatus: (overrides.loginStatus ??
-    mock(defaultOkResponse)) as CodebuffApiClient['loginStatus'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['loginStatus'],
   publish: (overrides.publish ??
-    mock(defaultOkResponse)) as CodebuffApiClient['publish'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['publish'],
   logout: (overrides.logout ??
-    mock(defaultOkResponse)) as CodebuffApiClient['logout'],
+    mock(defaultOkResponse)) as CodebirdsApiClient['logout'],
   feedback: (overrides.feedback ??
-    mock(defaultOkResponse)) as CodebuffApiClient['feedback'],
-  baseUrl: overrides.baseUrl ?? 'https://test.codebuff.com',
+    mock(defaultOkResponse)) as CodebirdsApiClient['feedback'],
+  baseUrl: overrides.baseUrl ?? 'https://test.codebirds.com',
   authToken: overrides.authToken,
 })

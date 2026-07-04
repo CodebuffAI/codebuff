@@ -5,7 +5,7 @@
  * Run with: bun run sdk/e2e/examples/sdk-test-gen.example.ts
  */
 
-import { CodebuffClient } from '../../src/client'
+import { CodebirdsClient } from '../../src/client'
 
 const CODE_TO_TEST = `
 function add(a: number, b: number): number {
@@ -23,13 +23,13 @@ function divide(a: number, b: number): number {
 `.trim()
 
 async function main() {
-  const apiKey = process.env.CODEBUFF_API_KEY
+  const apiKey = process.env.CODEBIRDS_API_KEY
   if (!apiKey) {
-    console.error('CODEBUFF_API_KEY environment variable is required')
+    console.error('CODEBIRDS_API_KEY environment variable is required')
     process.exit(1)
   }
 
-  const client = new CodebuffClient({ apiKey })
+  const client = new CodebirdsClient({ apiKey })
 
   console.log('🧪 Generating tests...\n')
   console.log('Code to test:')
@@ -39,7 +39,7 @@ async function main() {
   console.log('Generated tests:\n')
 
   const result = await client.run({
-    agent: 'codebuff/base2@latest',
+    agent: 'codebirds/base2@latest',
     prompt: `Generate unit tests for these functions using Jest:\n\n${CODE_TO_TEST}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

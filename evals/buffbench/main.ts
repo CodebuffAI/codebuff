@@ -5,12 +5,12 @@ import { runBuffBench } from './run-buffbench'
 async function main() {
   const saveTraces = process.argv.includes('--save-traces')
 
-  // Compare Codebuff agents against external CLI agents
+  // Compare Codebirds agents against external CLI agents
   // Use 'external:claude' for Claude Code CLI
   // Use 'external:codex' for OpenAI Codex CLI
   // Use 'external:opencode' for OpenCode CLI
   await runBuffBench({
-    evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
+    evalDataPaths: [path.join(__dirname, 'eval-codebirds.json')],
     agents: ['base2-free-evals'],
     taskConcurrency: 6,
     saveTraces,

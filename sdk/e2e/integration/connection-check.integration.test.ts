@@ -1,20 +1,20 @@
 /**
  * Integration Test: Connection Check
  *
- * Tests the checkConnection() method of CodebuffClient.
+ * Tests the checkConnection() method of CodebirdsClient.
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test'
 
-import { CodebuffClient } from '../../src/client'
+import { CodebirdsClient } from '../../src/client'
 import { getApiKey, skipIfNoApiKey } from '../utils'
 
 describe('Integration: Connection Check', () => {
-  let client: CodebuffClient
+  let client: CodebirdsClient
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new CodebirdsClient({ apiKey: getApiKey() })
   })
 
   test('checkConnection returns true when backend is reachable', async () => {

@@ -9,13 +9,13 @@ import {
   MAX_TOTAL_IMAGE_SIZE,
   IMAGE_EXTENSIONS_PATTERN,
   getImageMimeType,
-} from '@codebuff/common/constants/images'
+} from '@codebirds/common/constants/images'
 import { Jimp } from 'jimp'
 
 import { logger } from './logger'
 
 // Re-export all image constants for backwards compatibility
-export * from '@codebuff/common/constants/images'
+export * from '@codebirds/common/constants/images'
 
 export interface ImageUploadResult {
   success: boolean

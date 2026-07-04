@@ -5,14 +5,14 @@ import {
   setProposedContent,
 } from './proposed-content-store'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { RequestOptionalFileFn } from '@codebirds/common/types/contracts/client'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 
 /**
  * Proposes writing a file without actually applying the changes.
@@ -22,14 +22,14 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 export const handleProposeWriteFile = (async (
   params: {
     previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<'propose_write_file'>
+    toolCall: CodebirdsToolCall<'propose_write_file'>
 
     logger: Logger
     runId: string
 
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
-): Promise<{ output: CodebuffToolOutput<'propose_write_file'> }> => {
+): Promise<{ output: CodebirdsToolOutput<'propose_write_file'> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -84,4 +84,4 @@ export const handleProposeWriteFile = (async (
       },
     ],
   }
-}) as CodebuffToolHandlerFunction<'propose_write_file'>
+}) as CodebirdsToolHandlerFunction<'propose_write_file'>

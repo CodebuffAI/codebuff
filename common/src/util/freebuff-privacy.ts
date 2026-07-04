@@ -1,6 +1,6 @@
-import type { FreebuffIpPrivacySignal } from '../types/freebuff-session'
+import type { FreebuffIpPrivacySignal } from '../types/codebirds-session'
 
-export const FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS = [
+export const CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNALS = [
   'vpn',
   'proxy',
   'tor',
@@ -8,12 +8,12 @@ export const FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS = [
 ] as const satisfies readonly FreebuffIpPrivacySignal[]
 
 type FreebuffHardBlockedPrivacySignal =
-  (typeof FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS)[number]
+  (typeof CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNALS)[number]
 
-const FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNAL_SET =
-  new Set<FreebuffIpPrivacySignal>(FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNALS)
+const CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNAL_SET =
+  new Set<FreebuffIpPrivacySignal>(CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNALS)
 
-const FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNAL_LABELS: Record<
+const CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNAL_LABELS: Record<
   FreebuffHardBlockedPrivacySignal,
   string
 > = {
@@ -26,7 +26,7 @@ const FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNAL_LABELS: Record<
 export function isFreebuffHardBlockedPrivacySignal(
   signal: FreebuffIpPrivacySignal,
 ): signal is FreebuffHardBlockedPrivacySignal {
-  return FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNAL_SET.has(signal)
+  return CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNAL_SET.has(signal)
 }
 
 /**
@@ -37,7 +37,7 @@ export function isFreebuffHardBlockedPrivacySignal(
  * users sit behind, so we treat them as benign even when other heuristics
  * (e.g. ipinfo's `is_hosting` flag) would otherwise fire.
  */
-const FREEBUFF_BENIGN_AS_TYPES = new Set([
+const CODEBIRDS_BENIGN_AS_TYPES = new Set([
   'isp',
   'business',
   'education',
@@ -47,7 +47,7 @@ const FREEBUFF_BENIGN_AS_TYPES = new Set([
 export function isFreebuffBenignAsType(
   asType: string | null | undefined,
 ): boolean {
-  return asType != null && FREEBUFF_BENIGN_AS_TYPES.has(asType.toLowerCase())
+  return asType != null && CODEBIRDS_BENIGN_AS_TYPES.has(asType.toLowerCase())
 }
 
 export function isFreebuffHostingAsType(
@@ -63,7 +63,7 @@ export function formatFreebuffHardBlockedPrivacySignals(
     new Set(
       (signals ?? []).flatMap((signal): string[] => {
         if (!isFreebuffHardBlockedPrivacySignal(signal)) return []
-        return [FREEBUFF_HARD_BLOCKED_PRIVACY_SIGNAL_LABELS[signal]]
+        return [CODEBIRDS_HARD_BLOCKED_PRIVACY_SIGNAL_LABELS[signal]]
       }),
     ),
   )

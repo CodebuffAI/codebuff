@@ -1,44 +1,44 @@
-import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
-import { toolParams } from '@codebuff/common/tools/list'
-import { generateCompactId } from '@codebuff/common/util/string'
+import { endsAgentStepParam, toolNames } from '@codebirds/common/tools/constants'
+import { toolParams } from '@codebirds/common/tools/list'
+import { generateCompactId } from '@codebirds/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getAgentShortName, getAgentToolName } from '../templates/prompts'
 import { formatValueForError } from '../util/format-value'
-import { codebuffToolHandlers } from './handlers/list'
+import { codebirdsToolHandlers } from './handlers/list'
 import { getMatchingSpawn } from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
 import { ensureZodSchema } from './prompts'
 
 import type { AgentTemplate } from '../templates/types'
-import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
+import type { CodebirdsToolHandlerFunction } from './handlers/handler-function-type'
 import type { FileProcessingState } from './handlers/tool/write-file'
-import type { ToolName } from '@codebuff/common/tools/constants'
+import type { ToolName } from '@codebirds/common/tools/constants'
 import type {
   ClientToolCall,
   ClientToolName,
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
-import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ToolMessage } from '@codebirds/common/types/messages/codebirds-message'
+import type { ToolResultOutput } from '@codebirds/common/types/messages/content-part'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 import type {
   AgentTemplateType,
   AgentState,
   Subgoal,
-} from '@codebuff/common/types/session-state'
+} from '@codebirds/common/types/session-state'
 import type {
   CustomToolDefinitions,
   ProjectFileContext,
-} from '@codebuff/common/util/file'
+} from '@codebirds/common/util/file'
 import type { ToolCallPart, ToolSet } from 'ai'
 
 export type CustomToolCall = {
@@ -50,7 +50,7 @@ export type ToolCallError = {
   toolName?: string
   input: unknown
   error: string
-} & Pick<CodebuffToolCall, 'toolCallId'>
+} & Pick<CodebirdsToolCall, 'toolCallId'>
 
 const bareStringFieldRepairAllowlist: Partial<
   Record<string, readonly string[]>
@@ -195,7 +195,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     toolCallId: string
     input: unknown
   }
-}): CodebuffToolCall<T> | ToolCallError {
+}): CodebirdsToolCall<T> | ToolCallError {
   const { rawToolCall } = params
   const toolName = rawToolCall.toolName
 
@@ -242,7 +242,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     toolName,
     input: result.data,
     toolCallId: rawToolCall.toolCallId,
-  } as CodebuffToolCall<T>
+  } as CodebirdsToolCall<T>
 }
 
 export type ExecuteToolCallParams<T extends string = ToolName> = {
@@ -273,8 +273,8 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   system: string
   tools: ToolSet
   toolCallId: string | undefined
-  toolCalls: (CodebuffToolCall | CustomToolCall)[]
-  toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[]
+  toolCalls: (CodebirdsToolCall | CustomToolCall)[]
+  toolCallsToAddToMessageHistory: (CodebirdsToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
   toolResultsToAddToMessageHistory: ToolMessage[]
   userId: string | undefined
@@ -311,7 +311,7 @@ export async function executeToolCall<T extends ToolName>(
   } = params
   const toolCallId = params.toolCallId ?? generateCompactId()
 
-  const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
+  const toolCall: CodebirdsToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
       toolName,
       toolCallId,
@@ -465,9 +465,9 @@ export async function executeToolCall<T extends ToolName>(
   })
 
   // Cast to any to avoid type errors
-  const handler = codebuffToolHandlers[
+  const handler = codebirdsToolHandlers[
     toolName
-  ] as unknown as CodebuffToolHandlerFunction<T>
+  ] as unknown as CodebirdsToolHandlerFunction<T>
 
   // Use effective input for spawn_agents so the handler receives the correct agent types
   const finalToolCall =
@@ -497,7 +497,7 @@ export async function executeToolCall<T extends ToolName>(
         toolName: clientToolCall.toolName,
         input: clientToolCall.input,
       })
-      return clientToolResult.output as CodebuffToolOutput<T>
+      return clientToolResult.output as CodebirdsToolOutput<T>
     }) as any,
   })
 
@@ -572,7 +572,7 @@ export function parseRawCustomToolCall(params: {
     processedParameters[param] = val
   }
 
-  // Add the required codebuff_end_step parameter with the correct value for this tool if requested
+  // Add the required codebirds_end_step parameter with the correct value for this tool if requested
   if (autoInsertEndStepParam) {
     processedParameters[endsAgentStepParam] =
       customToolDefs?.[toolName]?.endsAgentStep

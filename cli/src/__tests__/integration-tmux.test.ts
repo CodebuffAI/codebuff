@@ -69,18 +69,18 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
             }),
           ),
         )
-        // Clear FREEBUFF_MODE from the tmux global env. A previous freebuff
-        // build or `bun run dev:freebuff` invocation in the same tmux server
+        // Clear CODEBIRDS_MODE from the tmux global env. A previous codebirds
+        // build or `bun run dev:codebirds` invocation in the same tmux server
         // can leave it set globally, which would make this test see the
-        // freebuff CLI variant (which has no `--agent` flag).
-        await tmux(['set-environment', '-gu', 'FREEBUFF_MODE']).catch(() => {})
+        // codebirds CLI variant (which has no `--agent` flag).
+        await tmux(['set-environment', '-gu', 'CODEBIRDS_MODE']).catch(() => {})
       }
     })
 
     test(
       'CLI starts and displays help output',
       async () => {
-        const sessionName = 'codebuff-test-' + Date.now()
+        const sessionName = 'codebirds-test-' + Date.now()
 
         try {
           // Create session with --help flag and keep it alive with '; sleep 2'
@@ -126,7 +126,7 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
     test(
       'CLI accepts --agent flag',
       async () => {
-        const sessionName = 'codebuff-test-' + Date.now()
+        const sessionName = 'codebirds-test-' + Date.now()
 
         try {
           // Start CLI with --agent flag (it will wait for input, so we can capture)

@@ -9,15 +9,15 @@
 import type {
   BaseEnv,
   ClientEnv,
-} from '@codebuff/common/types/contracts/env'
+} from '@codebirds/common/types/contracts/env'
 
 /**
  * SDK-specific env vars for binary paths and WASM.
  */
 export type SdkEnv = BaseEnv & {
   // SDK-specific paths
-  CODEBUFF_RG_PATH?: string
-  CODEBUFF_WASM_DIR?: string
+  CODEBIRDS_RG_PATH?: string
+  CODEBIRDS_WASM_DIR?: string
 
   // Build flags
   VERBOSE?: string

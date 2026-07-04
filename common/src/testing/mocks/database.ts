@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { createMockDbOperations, setupDbSpies } from '@codebuff/common/testing/mocks/database'
+ * import { createMockDbOperations, setupDbSpies } from '@codebirds/common/testing/mocks/database'
  *
  * // Option 1: Create mock operations object
  * const dbOps = createMockDbOperations()

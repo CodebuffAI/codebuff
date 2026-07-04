@@ -3,9 +3,9 @@ import { describe, it, expect, mock } from 'bun:test'
 import { handleGlob } from '../tool/glob'
 
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
 
 interface GlobResultValue {
   files?: string[]
@@ -17,7 +17,7 @@ interface GlobResultValue {
 describe('handleGlob', () => {
   it('delegates to requestClientToolCall and returns matching files', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -33,7 +33,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-1',
       input: {
@@ -62,7 +62,7 @@ describe('handleGlob', () => {
 
   it('handles glob pattern with cwd parameter', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -75,7 +75,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-2',
       input: {
@@ -103,7 +103,7 @@ describe('handleGlob', () => {
 
   it('handles glob pattern that matches all files with **/*', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -121,7 +121,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-3',
       input: {
@@ -143,7 +143,7 @@ describe('handleGlob', () => {
 
   it('handles glob pattern with no matches', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -155,7 +155,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-4',
       input: {
@@ -177,7 +177,7 @@ describe('handleGlob', () => {
 
   it('handles brace expansion patterns', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -194,7 +194,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-5',
       input: {
@@ -216,7 +216,7 @@ describe('handleGlob', () => {
 
   it('handles error responses from client', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -226,7 +226,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-6',
       input: {
@@ -256,7 +256,7 @@ describe('handleGlob', () => {
     })
 
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => {
+      async (): Promise<CodebirdsToolOutput<'glob'>> => {
         expect(previousFinished).toBe(true)
         return [
           {
@@ -271,7 +271,7 @@ describe('handleGlob', () => {
       },
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-7',
       input: {
@@ -291,7 +291,7 @@ describe('handleGlob', () => {
 
   it('handles nested directory patterns with cwd', async () => {
     const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
+      async (): Promise<CodebirdsToolOutput<'glob'>> => [
         {
           type: 'json',
           value: {
@@ -308,7 +308,7 @@ describe('handleGlob', () => {
       ],
     )
 
-    const toolCall: CodebuffToolCall<'glob'> = {
+    const toolCall: CodebirdsToolCall<'glob'> = {
       toolName: 'glob',
       toolCallId: 'tc-8',
       input: {

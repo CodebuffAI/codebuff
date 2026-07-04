@@ -1,16 +1,16 @@
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
-import { callGravityIndexAPI } from '../../../llm-api/codebuff-web-api'
+import { callGravityIndexAPI } from '../../../llm-api/codebirds-web-api'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
-import type { JSONObject, JSONValue } from '@codebuff/common/types/json'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { ClientEnv, CiEnv } from '@codebirds/common/types/contracts/env'
+import type { JSONObject, JSONValue } from '@codebirds/common/types/json'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 const omitUndefined = (value: Record<string, JSONValue | undefined>) => {
   const result: JSONObject = {}
@@ -28,21 +28,21 @@ const isJSONObject = (value: JSONValue | undefined): value is JSONObject =>
 /** Gravity attribution surface, so clicks/conversions are attributable to the
  *  product the request came from rather than all reading as CLI traffic. */
 const gravitySurface = (agentTemplate: { id: string }): string => {
-  if (agentTemplate.id === 'base-chat') return 'freebuff_chat'
+  if (agentTemplate.id === 'base-chat') return 'codebirds_chat'
   // Freebuff Web project agents are the `base2-free*` family.
-  if (agentTemplate.id.startsWith('base2-free')) return 'freebuff_web'
-  return 'codebuff_cli'
+  if (agentTemplate.id.startsWith('base2-free')) return 'codebirds_web'
+  return 'codebirds_cli'
 }
 
 /** Surfaces that run under a shared service-account API key. For these we must
  *  send a per-end-user identifier so Gravity attributes conversions to the real
  *  user instead of collapsing every request onto the service account. */
 const isServiceAccountSurface = (surface: string): boolean =>
-  surface === 'freebuff_chat' || surface === 'freebuff_web'
+  surface === 'codebirds_chat' || surface === 'codebirds_web'
 
 export const handleGravityIndex = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'gravity_index'>
+  toolCall: CodebirdsToolCall<'gravity_index'>
   agentTemplate: AgentTemplate
   logger: Logger
   apiKey: string
@@ -58,7 +58,7 @@ export const handleGravityIndex = (async (params: {
   clientEnv: ClientEnv
   ciEnv: CiEnv
 }): Promise<{
-  output: CodebuffToolOutput<'gravity_index'>
+  output: CodebirdsToolOutput<'gravity_index'>
   creditsUsed: number
 }> => {
   const {
@@ -117,7 +117,7 @@ export const handleGravityIndex = (async (params: {
       // Shared service-account surfaces (Freebuff Web) authenticate the web API
       // with one account key, so the API-key owner can't identify the end user.
       // `fingerprintId` is the stable per-end-user/per-project signal there
-      // (e.g. `freebuff-chat-<userId>` or the project id), so forward it as the
+      // (e.g. `codebirds-chat-<userId>` or the project id), so forward it as the
       // external user id; the web API hashes it before sending to Gravity. CLI
       // traffic omits it and falls back to the real API-key owner server-side.
       ...(isServiceAccountSurface(surface)
@@ -196,4 +196,4 @@ export const handleGravityIndex = (async (params: {
     )
     return { output: jsonToolResult({ errorMessage }), creditsUsed }
   }
-}) satisfies CodebuffToolHandlerFunction<'gravity_index'>
+}) satisfies CodebirdsToolHandlerFunction<'gravity_index'>

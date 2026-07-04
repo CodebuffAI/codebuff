@@ -5,24 +5,24 @@ Create specialized agent workflows that coordinate multiple AI agents to tackle 
 ## Getting Started
 
 1. **Edit an existing agent**: Start with `my-custom-agent.ts` and modify it for your needs
-2. **Test your agent**: Run `codebuff` without `--agent` so local `.agents` load, then invoke your agent from a prompt
-3. **Publish your agent**: Run `codebuff publish your-agent-name`
+2. **Test your agent**: Run `codebirds` without `--agent` so local `.agents` load, then invoke your agent from a prompt
+3. **Publish your agent**: Run `codebirds publish your-agent-name`
 
 ## Need Help?
 
 - For examples, check the `examples/` directory.
-- Join our [Discord community](https://codebuff.com/discord) and ask your questions!
-- Check our [documentation](https://codebuff.com/docs) for more details
+- Join our [Discord community](https://codebirds.com/discord) and ask your questions!
+- Check our [documentation](https://codebirds.com/docs) for more details
 
-# What is Codebuff?
+# What is Codebirds?
 
-Codebuff is an **open-source AI coding assistant** that edits your codebase through natural language instructions. Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
+Codebirds is an **open-source AI coding assistant** that edits your codebase through natural language instructions. Instead of using one model for everything, it coordinates specialized agents that work together to understand your project and make precise changes.
 
-Codebuff beats Claude Code at 61% vs 53% on [our evals](https://github.com/CodebuffAI/codebuff/tree/main/evals) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
+Codebirds beats Claude Code at 61% vs 53% on [our evals](https://github.com/CodebirdsAI/codebirds/tree/main/evals) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
-## How Codebuff Works
+## How Codebirds Works
 
-When you ask Codebuff to "add authentication to my API," it might invoke:
+When you ask Codebirds to "add authentication to my API," it might invoke:
 
 1. A **File Explorer Agent** to scan your codebase to understand the architecture and find relevant files
 2. A **Planner Agent** to plan which files need changes and in what order
@@ -74,7 +74,7 @@ This agent systematically analyzes changes, reads relevant files for context, th
 
 # Agent Development Guide
 
-This guide covers everything you need to know about building custom Codebuff agents.
+This guide covers everything you need to know about building custom Codebirds agents.
 
 ## Agent Structure
 
@@ -175,7 +175,7 @@ Choose models based on your agent's needs:
 - **`openai/gpt-5.2`**: Best at complex reasoning and planning
 - **`google/gemini-3.1-flash-lite-preview`**: Fast and cost-effective for simple or medium-complexity tasks
 
-**Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
+**Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebirds supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
 
 See [OpenRouter](https://openrouter.ai/models) for all available models and pricing.
 
@@ -198,7 +198,7 @@ async *handleSteps() {
 }
 ```
 
-**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/store) to get a leg up. Codebuff agents are the new MCP!
+**Reuse any published agent**: Compose existing [published agents](https://www.codebirds.com/store) to get a leg up. Codebirds agents are the new MCP!
 
 ## Best Practices
 
@@ -229,7 +229,7 @@ async *handleSteps() {
 
 ## Testing Your Agent
 
-1. **Local Testing**: Run `codebuff` without `--agent` so local `.agents` load, then invoke your agent from a prompt
+1. **Local Testing**: Run `codebirds` without `--agent` so local `.agents` load, then invoke your agent from a prompt
 2. **Debug Mode**: Add logging to your `handleSteps` function
 3. **Unit Testing**: Test individual functions in isolation
 4. **Integration Testing**: Test agent coordination workflows
@@ -238,7 +238,7 @@ async *handleSteps() {
 
 1. **Validate**: Ensure your agent works across different codebases
 2. **Document**: Include clear usage instructions
-3. **Publish**: `codebuff publish your-agent-name`
+3. **Publish**: `codebirds publish your-agent-name`
 4. **Maintain**: Update as models and tools evolve
 
 ## Advanced Patterns
@@ -275,20 +275,20 @@ async *handleSteps() {
 }
 ```
 
-## Why Choose Codebuff for Custom Agents
+## Why Choose Codebirds for Custom Agents
 
 **Deep customizability**: Create sophisticated agent workflows with TypeScript generators that mix AI generation with programmatic control. Define custom agents that spawn subagents, implement conditional logic, and orchestrate complex multi-step processes that adapt to your specific use cases.
 
-**Fully customizable SDK**: Build Codebuff's capabilities directly into your applications with a complete TypeScript SDK. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
+**Fully customizable SDK**: Build Codebirds's capabilities directly into your applications with a complete TypeScript SDK. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
 
-Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
+Learn more about the SDK [here](https://www.npmjs.com/package/@codebirds/sdk).
 
 ## Community & Support
 
-- **Discord**: [Join our community](https://codebuff.com/discord) for help and inspiration
+- **Discord**: [Join our community](https://codebirds.com/discord) for help and inspiration
 - **Examples**: Study the `examples/` directory for patterns
-- **Documentation**: [codebuff.com/docs](https://codebuff.com/docs) and check `types/` for detailed type information
-- **Issues**: [Report bugs and request features on GitHub](https://github.com/CodebuffAI/codebuff/issues)
-- **Support**: [support@codebuff.com](mailto:support@codebuff.com)
+- **Documentation**: [codebirds.com/docs](https://codebirds.com/docs) and check `types/` for detailed type information
+- **Issues**: [Report bugs and request features on GitHub](https://github.com/CodebirdsAI/codebirds/issues)
+- **Support**: [support@codebirds.com](mailto:support@codebirds.com)
 
 Happy agent building! 🤖

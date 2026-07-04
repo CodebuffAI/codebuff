@@ -11,7 +11,7 @@ const zlib = require('zlib')
 const tar = require('tar')
 const { createReleaseHttpClient } = require('./http')
 
-const packageName = 'codebuff'
+const packageName = 'codebirds'
 
 /**
  * Terminal escape sequences to reset terminal state after the child process exits.
@@ -93,7 +93,7 @@ function createConfig(packageName) {
     configDir,
     binaryName,
     binaryPath: path.join(configDir, binaryName),
-    metadataPath: path.join(configDir, 'codebuff-metadata.json'),
+    metadataPath: path.join(configDir, 'codebirds-metadata.json'),
     tempDownloadDir: path.join(configDir, '.download-temp'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
@@ -109,10 +109,10 @@ const { getProxyUrl, httpGet } = createReleaseHttpClient({
 
 function getPostHogConfig() {
   const apiKey =
-    process.env.CODEBUFF_POSTHOG_API_KEY ||
+    process.env.CODEBIRDS_POSTHOG_API_KEY ||
     process.env.NEXT_PUBLIC_POSTHOG_API_KEY
   const host =
-    process.env.CODEBUFF_POSTHOG_HOST ||
+    process.env.CODEBIRDS_POSTHOG_HOST ||
     process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
 
   if (!apiKey || !host) {
@@ -135,7 +135,7 @@ function trackUpdateFailed(errorMessage, version, context = {}) {
 
     const payload = JSON.stringify({
       api_key: posthogConfig.apiKey,
-      event: 'cli.update_codebuff_failed',
+      event: 'cli.update_codebirds_failed',
       properties: {
         distinct_id: `anonymous-${CONFIG.homeDir}`,
         error: errorMessage,
@@ -208,7 +208,7 @@ function getPlatformKey() {
 function getTargetOverride() {
   const envNames = [
     `${packageName.toUpperCase()}_BINARY_TARGET`,
-    'CODEBUFF_BINARY_TARGET',
+    'CODEBIRDS_BINARY_TARGET',
     'CLI_BINARY_TARGET',
   ]
 
@@ -424,7 +424,7 @@ async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
   }
 
   const downloadUrl = `${
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL || 'https://codebirds.com'
   }/api/releases/download/${version}/${fileName}`
 
   // Ensure config directory exists
@@ -551,7 +551,7 @@ async function downloadBinary(version, targetKey = getDownloadTargetKey()) {
   }
 
   term.clearLine()
-  console.log('Download complete! Starting Codebuff...')
+  console.log('Download complete! Starting Codebirds...')
 }
 
 async function ensureBinaryExists() {
@@ -576,7 +576,7 @@ async function ensureBinaryExists() {
     await downloadBinary(version)
   } catch (error) {
     term.clearLine()
-    console.error('❌ Failed to download codebuff:', error.message)
+    console.error('❌ Failed to download codebirds:', error.message)
     console.error('Please check your internet connection and try again')
     if (!getProxyUrl()) {
       console.error(
@@ -676,7 +676,7 @@ function printCrashDiagnostics(code, signal) {
   console.error(`  Binary:   ${CONFIG.binaryPath}`)
   console.error('')
   console.error('Please report this issue at:')
-  console.error('  https://github.com/CodebuffAI/codebuff/issues')
+  console.error('  https://github.com/CodebirdsAI/codebirds/issues')
   console.error('')
 }
 

@@ -1,10 +1,10 @@
-import { getUserInfoFromApiKey } from '@codebuff/sdk'
+import { getUserInfoFromApiKey } from '@codebirds/sdk'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 /**
- * Integration tests for API communication with Codebuff backend
+ * Integration tests for API communication with Codebirds backend
  *
  * These tests verify that the CLI correctly communicates with backend endpoints:
  * - /api/v1/me - User info retrieval with Bearer token auth
@@ -19,7 +19,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  */
 describe('API Integration', () => {
   const originalFetch = globalThis.fetch
-  const originalAppUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const originalAppUrl = process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL
 
   type LoggerMocks = Logger & {
     info: ReturnType<typeof mock>
@@ -48,7 +48,7 @@ describe('API Integration', () => {
   const originalSetTimeout = globalThis.setTimeout
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://example.codebuff.test'
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL = 'https://example.codebirds.test'
     // Mock setTimeout to execute immediately for faster tests
     // This makes the retry backoff delays instant
     globalThis.setTimeout = ((
@@ -64,7 +64,7 @@ describe('API Integration', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch
     globalThis.setTimeout = originalSetTimeout
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalAppUrl
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL = originalAppUrl
     mock.restore()
   })
 
@@ -262,7 +262,7 @@ describe('API Integration', () => {
 
     test('should handle DNS resolution failures gracefully', async () => {
       const fetchMock = setFetchMock(async () => {
-        const error = new Error('getaddrinfo ENOTFOUND api.codebuff.local')
+        const error = new Error('getaddrinfo ENOTFOUND api.codebirds.local')
         error.name = 'ENOTFOUND'
         throw error
       })

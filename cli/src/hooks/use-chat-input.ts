@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import stringWidth from 'string-width'
 
 import { useChatStore } from '../state/chat-store'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 
 import type { InputValue } from '../types/store'
 import type { AgentMode } from '../utils/constants'
@@ -36,7 +36,7 @@ export const useChatInput = ({
   // Estimate the collapsed toggle width as rendered by AgentModeToggle.
   // In Freebuff, the toggle is always hidden, so never reserve width for it.
   // In non-Freebuff: hide in bash mode, compact height, or narrow width.
-  const estimatedToggleWidth = IS_FREEBUFF || inputMode !== 'default' || isCompactHeight || isNarrowWidth
+  const estimatedToggleWidth = IS_CODEBIRDS || inputMode !== 'default' || isCompactHeight || isNarrowWidth
     ? 0
     : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
 

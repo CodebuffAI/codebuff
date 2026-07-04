@@ -1,17 +1,17 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { API_KEY_ENV_VAR } from '@codebirds/common/old-constants'
 import {
-  CodebuffClient,
+  CodebirdsClient,
   initialSessionState,
   withMessageHistory,
   type AgentDefinition,
   type Message,
   type ToolMessage,
   type JSONValue,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 import { describe, expect, it } from 'bun:test'
 
 
-import type { ToolCallPart } from '@codebuff/common/types/messages/content-part'
+import type { ToolCallPart } from '@codebirds/common/types/messages/content-part'
 
 /**
  * Type guard to check if a content part is a tool-call part with toolCallId.
@@ -143,7 +143,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
         createMessage('user', 'Now spawn the context-pruner'),
       ]
 
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         agentDefinitions: [testAgent],
       })
@@ -274,7 +274,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
         createMessage('user', 'Now prune the context'),
       ]
 
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         agentDefinitions: [testAgent],
       })

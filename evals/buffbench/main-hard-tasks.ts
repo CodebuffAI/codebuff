@@ -16,7 +16,7 @@ async function main() {
   const saveTraces = process.argv.includes('--save-traces')
 
   const evalPaths = [
-    path.join(__dirname, 'eval-codebuff2.json'),
+    path.join(__dirname, 'eval-codebirds2.json'),
     path.join(__dirname, 'eval-manifold2.json'),
     path.join(__dirname, 'eval-plane2.json'),
     path.join(__dirname, 'eval-saleor2.json'),

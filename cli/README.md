@@ -1,4 +1,4 @@
-# @codebuff/cli
+# @codebirds/cli
 
 A Terminal User Interface (TUI) package built with OpenTUI and React.
 
@@ -74,7 +74,7 @@ bun run start
 Or use the binary directly:
 
 ```bash
-codebuff-tui
+codebirds-tui
 ```
 
 ## Features

@@ -209,7 +209,7 @@ describe('markdown renderer', () => {
   test('renders code fence followed by text with quotes correctly', () => {
     const markdown = `\`\`\`bash
 # Start using it
-codebuff "add a new feature to handle user authentication"
+codebirds "add a new feature to handle user authentication"
 \`\`\``
     const output = renderMarkdown(markdown)
     const nodes = flattenNodes(output)
@@ -228,7 +228,7 @@ codebuff "add a new feature to handle user authentication"
     // Should contain the complete command text
     expect(textContent).toContain('# Start using it')
     expect(textContent).toContain(
-      'codebuff "add a new feature to handle user authentication"',
+      'codebirds "add a new feature to handle user authentication"',
     )
 
     // Should NOT have quotes concatenated with backticks
@@ -237,7 +237,7 @@ codebuff "add a new feature to handle user authentication"
   })
 
   test('renders inline code followed by quotes correctly', () => {
-    const markdown = 'Use `codebuff "fix bug"` to fix bugs.'
+    const markdown = 'Use `codebirds "fix bug"` to fix bugs.'
     const output = renderMarkdown(markdown)
     const nodes = flattenNodes(output)
 
@@ -246,12 +246,12 @@ codebuff "add a new feature to handle user authentication"
     const inlineCode = nodes[1] as El
     expect(inlineCode.props.fg).toBe('#86efac')
     const inlineContent = flattenChildren(inlineCode.props.children).join('')
-    expect(inlineContent).toContain('codebuff "fix bug"')
+    expect(inlineContent).toContain('codebirds "fix bug"')
 
     expect(nodes[2]).toBe(' to fix bugs.')
 
     // Verify quotes are inside the inline code, not concatenated after
-    expect(inlineContent).toMatch(/codebuff\s+"fix bug"/)
+    expect(inlineContent).toMatch(/codebirds\s+"fix bug"/)
   })
 
   test('renders multiple code blocks with text between them', () => {
@@ -292,7 +292,7 @@ console.log("world")
 
   test('renders code fence with command and quotes on same line', () => {
     const markdown = `\`\`\`bash
-codebuff "implement feature" --verbose
+codebirds "implement feature" --verbose
 \`\`\``
     const output = renderMarkdown(markdown)
     const nodes = flattenNodes(output)
@@ -308,7 +308,7 @@ codebuff "implement feature" --verbose
       .join('')
 
     // Should preserve the complete command with quotes
-    expect(textContent).toContain('codebuff "implement feature" --verbose')
+    expect(textContent).toContain('codebirds "implement feature" --verbose')
     expect(textContent).not.toContain('```"')
   })
 

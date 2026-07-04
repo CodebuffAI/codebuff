@@ -6,7 +6,7 @@ async function main() {
   const saveTraces = process.argv.includes('--save-traces')
 
   await runBuffBench({
-    evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
+    evalDataPaths: [path.join(__dirname, 'eval-codebirds.json')],
     agents: ['base2-kimi-2-7-code'],
     taskIds: ['server-agent-validation'],
     saveTraces,

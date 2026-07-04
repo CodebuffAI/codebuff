@@ -20,13 +20,13 @@ import * as authModule from '../../utils/auth'
  */
 describe('Usage Refresh on SDK Completion', () => {
   const originalFetch = globalThis.fetch
-  const originalEnv = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const originalEnv = process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL
 
   let queryClient: QueryClient
   let getAuthTokenSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://test.codebuff.local'
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL = 'https://test.codebirds.local'
 
     // Reset chat store to initial state
     useChatStore.getState().reset()
@@ -61,7 +61,7 @@ describe('Usage Refresh on SDK Completion', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch
     getAuthTokenSpy.mockRestore()
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalEnv
+    process.env.NEXT_PUBLIC_CODEBIRDS_APP_URL = originalEnv
     mock.restore()
   })
 

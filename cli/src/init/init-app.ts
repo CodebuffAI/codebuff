@@ -1,8 +1,8 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import { CHATGPT_OAUTH_ENABLED } from '@codebirds/common/constants/chatgpt-oauth'
 import {
   getChatGptOAuthCredentials,
   getValidChatGptOAuthCredentials,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 import { enableMapSet } from 'immer'
 
 import { initializeThemeStore } from '../hooks/use-theme'

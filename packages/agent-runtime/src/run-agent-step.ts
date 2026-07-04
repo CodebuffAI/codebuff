@@ -1,11 +1,11 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { shouldUseLocalTokenCountForFreebuffDeepseekFlash } from '@codebuff/common/constants/free-agents'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { shouldUseLocalTokenCountForFreebuffDeepseekFlash } from '@codebirds/common/constants/free-agents'
 import {
   supportsAssistantPrefill,
   supportsCacheControl,
-} from '@codebuff/common/old-constants'
-import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
-import { buildArray } from '@codebuff/common/util/array'
+} from '@codebirds/common/old-constants'
+import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebirds/common/tools/constants'
+import { buildArray } from '@codebirds/common/util/array'
 import {
   AbortError,
   FETCH_IDLE_TIMEOUT_USER_MESSAGE,
@@ -13,14 +13,14 @@ import {
   getErrorObject,
   isAbortError,
   isFetchIdleTimeoutError,
-} from '@codebuff/common/util/error'
-import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+} from '@codebirds/common/util/error'
+import { serializeCacheDebugCorrelation } from '@codebirds/common/util/cache-debug'
+import { systemMessage, userMessage } from '@codebirds/common/util/messages'
 import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
-import { callTokenCountAPI } from './llm-api/codebuff-web-api'
+import { callTokenCountAPI } from './llm-api/codebirds-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import {
@@ -47,38 +47,38 @@ import {
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { TrackEventFn } from '@codebirds/common/types/contracts/analytics'
 import type {
   AddAgentStepFn,
   FinishAgentRunFn,
   StartAgentRunFn,
-} from '@codebuff/common/types/contracts/database'
+} from '@codebirds/common/types/contracts/database'
 import type {
   CacheDebugUsageData,
   PromptAiSdkFn,
-} from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+} from '@codebirds/common/types/contracts/llm'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { TraceWriter } from '@codebirds/common/types/contracts/trace'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 import type {
   Message,
   ToolMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
+} from '@codebirds/common/types/messages/codebirds-message'
 import type {
   TextPart,
   ImagePart,
-} from '@codebuff/common/types/messages/content-part'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+} from '@codebirds/common/types/messages/content-part'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 import type {
   AgentTemplateType,
   AgentState,
   AgentOutput,
-} from '@codebuff/common/types/session-state'
+} from '@codebirds/common/types/session-state'
 import type {
   CustomToolDefinitions,
   ProjectFileContext,
-} from '@codebuff/common/util/file'
+} from '@codebirds/common/util/file'
 
 async function additionalToolDefinitions(
   params: {

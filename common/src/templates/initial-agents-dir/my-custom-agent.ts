@@ -2,12 +2,12 @@
  *  EDIT ME to create your own agent!
  *
  *  Run your agent with:
- *  > codebuff
- *  Inside codebuff:
+ *  > codebirds
+ *  Inside codebirds:
  *  > @my-custom-agent please review my recent changes
  *
  *  Finally, you can publish your agent with:
- *  > codebuff publish my-custom-agent
+ *  > codebirds publish my-custom-agent
  *  Then users from around the world can run it!
  */
 
@@ -18,7 +18,7 @@ const definition: AgentDefinition = {
   displayName: 'My Custom Agent',
 
   model: 'x-ai/grok-4-fast',
-  spawnableAgents: ['codebuff/file-explorer@0.0.6'],
+  spawnableAgents: ['codebirds/file-explorer@0.0.6'],
 
   // Check out .agents/types/tools.ts for more information on the tools you can include.
   toolNames: ['run_terminal_command', 'read_files', 'spawn_agents'],

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { getCodebuffClient } from '../utils/codebuff-client'
+import { getCodebirdsClient } from '../utils/codebirds-client'
 import { logger } from '../utils/logger'
 
 // Adaptive health check interval configuration
@@ -34,7 +34,7 @@ export function getNextInterval(consecutiveSuccesses: number): number {
 }
 
 /**
- * Hook to monitor connection status to the Codebuff backend.
+ * Hook to monitor connection status to the Codebirds backend.
  * Uses adaptive exponential backoff to reduce polling frequency when connection is stable.
  *
  * When the connection transitions from disconnected to connected, the optional
@@ -60,7 +60,7 @@ export const useConnectionStatus = (
     }
 
     const checkConnection = async () => {
-      const client = await getCodebuffClient()
+      const client = await getCodebirdsClient()
       if (!client) {
         if (isMounted) {
           setIsConnected(false)

@@ -1,49 +1,49 @@
-import { env } from '@codebuff/common/env'
+import { env } from '@codebirds/common/env'
 import {
-  FALLBACK_FREEBUFF_MODEL_ID,
-  LIMITED_FREEBUFF_MODEL_ID,
+  FALLBACK_CODEBIRDS_MODEL_ID,
+  LIMITED_CODEBIRDS_MODEL_ID,
   resolveFreebuffModelForAccessTier,
-} from '@codebuff/common/constants/freebuff-models'
+} from '@codebirds/common/constants/codebirds-models'
 import {
   getRateLimitsByModel,
   getReferralInfo,
-} from '@codebuff/common/types/freebuff-session'
+} from '@codebirds/common/types/codebirds-session'
 import { useEffect } from 'react'
 
 import {
   getSelectedFreebuffModel,
   useFreebuffModelStore,
-} from '../state/freebuff-model-store'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+} from '../state/codebirds-model-store'
+import { useFreebuffSessionStore } from '../state/codebirds-session-store'
 import { getAuthTokenDetails } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import {
   isFreebuffInstanceOwnedByDeadLocalProcess,
   recordFreebuffInstanceOwner,
-} from '../utils/freebuff-instance-owner'
+} from '../utils/codebirds-instance-owner'
 import { logger } from '../utils/logger'
 import {
   getCachedReferral,
   rememberReferral,
-} from '../utils/freebuff-referral-cache'
+} from '../utils/codebirds-referral-cache'
 import { saveFreebuffModelPreference } from '../utils/settings'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/codebirds-session'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
   FreebuffSessionServerResponse,
-} from '@codebuff/common/types/freebuff-session'
+} from '@codebirds/common/types/codebirds-session'
 
 const POLL_INTERVAL_ACTIVE_MS = 30_000
 const POLL_INTERVAL_ERROR_MS = 10_000
 
 /** Header sent on GET so the server can detect when another CLI on the same
  *  account has rotated the id and respond with `{ status: 'superseded' }`. */
-const FREEBUFF_INSTANCE_HEADER = 'x-freebuff-instance-id'
+const CODEBIRDS_INSTANCE_HEADER = 'x-codebirds-instance-id'
 
 /** Header sent on POST telling the server which model to use. */
-const FREEBUFF_MODEL_HEADER = 'x-freebuff-model'
+const CODEBIRDS_MODEL_HEADER = 'x-codebirds-model'
 
 /** Play the terminal bell so users get an audible notification on admission. */
 const playAdmissionSound = () => {
@@ -56,9 +56,9 @@ const playAdmissionSound = () => {
 
 const sessionEndpoint = (): string => {
   const base = (
-    env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+    env.NEXT_PUBLIC_CODEBIRDS_APP_URL || 'https://codebirds.com'
   ).replace(/\/$/, '')
-  return `${base}/api/v1/freebuff/session`
+  return `${base}/api/v1/codebirds/session`
 }
 
 async function callSession(
@@ -68,10 +68,10 @@ async function callSession(
 ): Promise<FreebuffSessionServerResponse> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
   if (method === 'GET' && opts.instanceId) {
-    headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
+    headers[CODEBIRDS_INSTANCE_HEADER] = opts.instanceId
   }
   if (method === 'POST' && opts.model) {
-    headers[FREEBUFF_MODEL_HEADER] = opts.model
+    headers[CODEBIRDS_MODEL_HEADER] = opts.model
   }
   const resp = await fetch(sessionEndpoint(), {
     method,
@@ -133,7 +133,7 @@ async function callSession(
   if (!resp.ok) {
     const text = await resp.text().catch(() => '')
     throw new Error(
-      `freebuff session ${method} failed: ${resp.status} ${text.slice(0, 200)}`,
+      `codebirds session ${method} failed: ${resp.status} ${text.slice(0, 200)}`,
     )
   }
   return (await resp.json()) as FreebuffSessionServerResponse
@@ -278,7 +278,7 @@ async function restartFreebuffSession(
   mode: RestartMode,
   opts: RestartOpts = {},
 ): Promise<void> {
-  if (!IS_FREEBUFF) return
+  if (!IS_CODEBIRDS) return
   // Halt the running poll loop before we touch local stores or DELETE the
   // slot. Otherwise an in-flight GET could land mid-reset and overwrite
   // state, or the next scheduled tick could fire between DELETE and
@@ -336,7 +336,7 @@ export function refreshFreebuffLandingMetadata(): Promise<void> {
  * to switch can /end-session deliberately.
  */
 export function joinFreebuffQueue(model: string): Promise<void> {
-  if (!IS_FREEBUFF) return Promise.resolve()
+  if (!IS_CODEBIRDS) return Promise.resolve()
   // This is the only explicit user-pick path (called from the picker on
   // click / Enter), so persistence belongs here — and ONLY here. Server-
   // driven flips (`model_locked`, `model_unavailable`, takeover) go
@@ -351,7 +351,7 @@ export function joinFreebuffQueue(model: string): Promise<void> {
 }
 
 export function takeOverFreebuffSession(): Promise<void> {
-  if (!IS_FREEBUFF) return Promise.resolve()
+  if (!IS_CODEBIRDS) return Promise.resolve()
   const current = useFreebuffSessionStore.getState().session
   if (current?.status !== 'takeover_prompt') return Promise.resolve()
   useFreebuffModelStore.getState().setSelectedModel(current.model)
@@ -364,12 +364,12 @@ export function takeOverFreebuffSession(): Promise<void> {
  * instead of waiting for the server-side expiry sweep.
  */
 export async function endFreebuffSessionBestEffort(): Promise<void> {
-  if (!IS_FREEBUFF) return
+  if (!IS_CODEBIRDS) return
   await releaseFreebuffSlot()
 }
 
 export function markFreebuffSessionSuperseded(): void {
-  if (!IS_FREEBUFF) return
+  if (!IS_CODEBIRDS) return
   controller?.abort()
   controller?.apply({ status: 'superseded' })
 }
@@ -385,7 +385,7 @@ export function markFreebuffSessionCountryBlocked(params: {
   countryBlockReason?: FreebuffCountryBlockReason
   ipPrivacySignals?: FreebuffIpPrivacySignal[]
 }): void {
-  if (!IS_FREEBUFF) return
+  if (!IS_CODEBIRDS) return
   controller?.abort()
   controller?.apply({ status: 'country_blocked', ...params })
   // Best-effort DELETE so we don't hold a waiting-room seat on a session the
@@ -398,7 +398,7 @@ export function markFreebuffSessionCountryBlocked(params: {
  *  Preserves any `rateLimitsByModel` snapshot from the prior session so the
  *  banner can show today's session count without an extra fetch. */
 export function markFreebuffSessionEnded(): void {
-  if (!IS_FREEBUFF) return
+  if (!IS_CODEBIRDS) return
   controller?.abort()
   const current = useFreebuffSessionStore.getState().session
   const rateLimitsByModel = getRateLimitsByModel(current)
@@ -416,7 +416,7 @@ interface UseFreebuffSessionResult {
 }
 
 /**
- * Manages the freebuff session lifecycle:
+ * Manages the codebirds session lifecycle:
  *   - GET on mount to probe state (no auto-join; the user picks a model in
  *     the landing screen, which calls joinFreebuffQueue)
  *   - if the probe sees an existing seat, auto-takes-over when the prior
@@ -435,9 +435,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
   useEffect(() => {
     const { setSession, setError } = useFreebuffSessionStore.getState()
 
-    if (!IS_FREEBUFF) {
-      // Non-freebuff (Codebuff) builds never gate on a free session; leave the
-      // store empty (app.tsx's session routing is all behind IS_FREEBUFF).
+    if (!IS_CODEBIRDS) {
+      // Non-codebirds (Codebirds) builds never gate on a free session; leave the
+      // store empty (app.tsx's session routing is all behind IS_CODEBIRDS).
       setSession(null)
       return
     }
@@ -446,7 +446,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
     if (!token) {
       logger.warn(
         {},
-        '[freebuff-session] No auth token; skipping free-session admission',
+        '[codebirds-session] No auth token; skipping free-session admission',
       )
       setError('Not authenticated')
       return
@@ -471,7 +471,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       } else if (next.status === 'none' && next.accessTier === 'limited') {
         useFreebuffModelStore
           .getState()
-          .setSelectedModel(LIMITED_FREEBUFF_MODEL_ID)
+          .setSelectedModel(LIMITED_CODEBIRDS_MODEL_ID)
       }
       setSession(next)
       setError(null)
@@ -525,7 +525,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           // is preserved for their next launch.
           useFreebuffModelStore
             .getState()
-            .setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
+            .setSelectedModel(FALLBACK_CODEBIRDS_MODEL_ID)
           // The unavailable response came from a POST attempt. Re-POST with
           // the fallback model; a GET would only redisplay the old ended row
           // and leave the restart banner stuck in its pending state.
@@ -536,7 +536,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
         // Startup takeover: the initial probe GET saw we already hold a seat
         // (from a prior CLI instance). Stop here and ask before POSTing to
-        // rotate our instance id; otherwise opening a second freebuff would
+        // rotate our instance id; otherwise opening a second codebirds would
         // immediately supersede the first one.
         // `previousStatus === null` fences this to the very first tick only.
         // Pin the selected model to whatever the server thinks we're on so
@@ -599,7 +599,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       } catch (err) {
         if (cancelled || abortController.signal.aborted) return
         const msg = err instanceof Error ? err.message : String(err)
-        logger.warn({ error: msg }, '[freebuff-session] fetch failed')
+        logger.warn({ error: msg }, '[codebirds-session] fetch failed')
         setError(msg)
         schedule(POLL_INTERVAL_ERROR_MS)
       }

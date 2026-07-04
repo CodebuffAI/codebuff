@@ -10,7 +10,7 @@
 import type {
   BaseEnv,
   ClientEnv,
-} from '@codebuff/common/types/contracts/env'
+} from '@codebirds/common/types/contracts/env'
 
 /**
  * CLI-specific env vars for terminal/IDE detection and editor preferences.
@@ -60,24 +60,24 @@ export type CliEnv = BaseEnv & {
   // Editor preferences
   VISUAL?: string
   EDITOR?: string
-  CODEBUFF_CLI_EDITOR?: string
-  CODEBUFF_EDITOR?: string
+  CODEBIRDS_CLI_EDITOR?: string
+  CODEBIRDS_EDITOR?: string
 
   // Theme preferences
   OPEN_TUI_THEME?: string
   OPENTUI_THEME?: string
 
-  // Codebuff CLI-specific (set during binary build)
-  CODEBUFF_IS_BINARY?: string
-  CODEBUFF_CLI_VERSION?: string
-  CODEBUFF_CLI_TARGET?: string
-  CODEBUFF_RG_PATH?: string
-  CODEBUFF_SCROLL_MULTIPLIER?: string
-  CODEBUFF_PERF_TEST?: string
-  CODEBUFF_TRACE?: string
+  // Codebirds CLI-specific (set during binary build)
+  CODEBIRDS_IS_BINARY?: string
+  CODEBIRDS_CLI_VERSION?: string
+  CODEBIRDS_CLI_TARGET?: string
+  CODEBIRDS_RG_PATH?: string
+  CODEBIRDS_SCROLL_MULTIPLIER?: string
+  CODEBIRDS_PERF_TEST?: string
+  CODEBIRDS_TRACE?: string
   // Toggle for mirroring CLI logs to the server's /api/logs sink (Axiom).
-  CODEBUFF_SHIP_LOGS?: string
-  FREEBUFF_MODE?: string
+  CODEBIRDS_SHIP_LOGS?: string
+  CODEBIRDS_MODE?: string
 }
 
 /**

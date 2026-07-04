@@ -1,11 +1,11 @@
-import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
-import { promptSuccess } from '@codebuff/common/util/error'
+import * as analytics from '@codebirds/common/analytics'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { createTestAgentRuntimeParams } from '@codebirds/common/testing/fixtures/agent-runtime'
+import { promptSuccess } from '@codebirds/common/util/error'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
-} from '@codebuff/common/types/session-state'
+} from '@codebirds/common/types/session-state'
 import {
   afterEach,
   beforeEach,
@@ -20,19 +20,19 @@ import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 import { createToolCallChunk } from './test-utils'
 
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
 import type {
   RequestFilesFn,
   RequestOptionalFileFn,
   RequestToolCallFn,
-} from '@codebuff/common/types/contracts/client'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+} from '@codebirds/common/types/contracts/client'
+import type { ParamsOf } from '@codebirds/common/types/function-params'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 
 let mainPromptBaseParams: any
 
 
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
 
 const mockAgentStream = (chunks: StreamChunk[]) => {
   mainPromptBaseParams.promptAiSdkStream = async function* ({}) {

@@ -44,7 +44,7 @@ export const AGENT_PERSONAS = {
   } as const,
   'agent-builder': {
     displayName: 'Bob the Agent Builder',
-    purpose: 'Creates new agent templates for the codebuff multi-agent system',
+    purpose: 'Creates new agent templates for the codebirds multi-agent system',
     hidden: false,
   } as const,
 } as const satisfies Partial<
@@ -60,7 +60,7 @@ export const AGENT_IDS = Object.keys(
 ) as (keyof typeof AGENT_PERSONAS)[]
 
 // Agent ID prefix constant
-export const AGENT_ID_PREFIX = 'CodebuffAI/'
+export const AGENT_ID_PREFIX = 'CodebirdsAI/'
 
 // Agent names for client-side reference
 export const AGENT_NAMES = Object.fromEntries(

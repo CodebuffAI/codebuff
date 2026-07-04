@@ -1,9 +1,9 @@
-import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
-import { isFileIgnored } from '@codebuff/common/project-file-tree'
+import { FILE_READ_STATUS } from '@codebirds/common/old-constants'
+import { isFileIgnored } from '@codebirds/common/project-file-tree'
 
 import { resolveFilePathWithinProject } from './path-utils'
 
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
 
 export type FileFilterResult = {
   status: 'blocked' | 'allow-example' | 'allow'
@@ -14,7 +14,7 @@ export type FileFilter = (filePath: string) => FileFilterResult
 export async function getFiles(params: {
   filePaths: string[]
   cwd: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
   /**
    * Filter to classify files before reading.
    * If provided, the caller takes full control of filtering (no gitignore check).

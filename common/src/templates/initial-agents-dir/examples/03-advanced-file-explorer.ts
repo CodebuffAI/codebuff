@@ -10,7 +10,7 @@ const definition: AgentDefinition = {
 
   includeMessageHistory: false,
   toolNames: ['spawn_agents', 'set_output'],
-  spawnableAgents: [`codebuff/file-picker@0.0.1`],
+  spawnableAgents: [`codebirds/file-picker@0.0.1`],
 
   inputSchema: {
     prompt: {
@@ -56,7 +56,7 @@ const definition: AgentDefinition = {
         toolName: 'spawn_agents',
         input: {
           agents: filePickerPrompts.map((promptText) => ({
-            agent_type: 'codebuff/file-picker@0.0.1',
+            agent_type: 'codebirds/file-picker@0.0.1',
             prompt: promptText,
           })),
         },

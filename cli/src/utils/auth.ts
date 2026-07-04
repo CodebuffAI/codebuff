@@ -1,15 +1,15 @@
 import fs from 'fs'
 import path from 'path'
 
-import { getCiEnv } from '@codebuff/common/env-ci'
+import { getCiEnv } from '@codebirds/common/env-ci'
 import { z } from 'zod'
 
 
-import { getApiClient, setApiClientAuthToken } from './codebuff-api'
+import { getApiClient, setApiClientAuthToken } from './codebirds-api'
 import { getConfigDir as getConfigDirBase } from './config-dir'
 import { logger } from './logger'
 
-import type { CiEnv } from '@codebuff/common/types/contracts/env'
+import type { CiEnv } from '@codebirds/common/types/contracts/env'
 
 // User schema
 const userSchema = z.object({
@@ -111,7 +111,7 @@ export const getAuthTokenDetails = (
     return { token: userCredentials.authToken, source: 'credentials' }
   }
 
-  const envToken = ciEnv.CODEBUFF_API_KEY
+  const envToken = ciEnv.CODEBIRDS_API_KEY
   if (envToken) {
     return { token: envToken, source: 'environment' }
   }

@@ -1,10 +1,10 @@
 import path from 'path'
 
-import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { ApplyPatchOperation } from '@codebirds/common/tools/params/tool/apply-patch'
+import type { CodebirdsToolOutput } from '@codebirds/common/tools/list'
+import type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
 
-type ApplyPatchResult = CodebuffToolOutput<'apply_patch'>
+type ApplyPatchResult = CodebirdsToolOutput<'apply_patch'>
 type ApplyPatchJson = ApplyPatchResult[number] & { type: 'json' }
 type PatchAction = 'add' | 'delete' | 'update'
 type DiffMode = 'default' | 'create'
@@ -601,7 +601,7 @@ function parseOperation(parameters: unknown): ApplyPatchOperation | null {
 export async function applyPatchTool(params: {
   parameters: unknown
   cwd: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }): Promise<ApplyPatchResult> {
   const { parameters, cwd, fs } = params
   const operation = parseOperation(parameters)

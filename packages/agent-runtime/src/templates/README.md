@@ -15,7 +15,7 @@ Override files should be JSON files with the following structure:
 ```json
 {
   "override": {
-    "type": "CodebuffAI/reviewer",
+    "type": "CodebirdsAI/reviewer",
     "version": "0.1.7",
     "model": "anthropic/claude-sonnet-4",
     "systemPrompt": {
@@ -34,7 +34,7 @@ Override files should be JSON files with the following structure:
 
 ### Basic Properties
 
-- `type`: Agent type identifier (e.g., "CodebuffAI/reviewer" maps to "reviewer")
+- `type`: Agent type identifier (e.g., "CodebirdsAI/reviewer" maps to "reviewer")
 - `version`: Version identifier (currently informational)
 - `model`: Override the model used by the agent
 
@@ -65,7 +65,7 @@ You can reference external files for prompt content:
 ```json
 {
   "override": {
-    "type": "CodebuffAI/reviewer",
+    "type": "CodebirdsAI/reviewer",
     "version": "0.1.7",
     "systemPrompt": {
       "type": "append",
@@ -86,7 +86,7 @@ The path is resolved relative to the override file's directory.
 ```json
 {
   "override": {
-    "type": "CodebuffAI/reviewer",
+    "type": "CodebirdsAI/reviewer",
     "version": "0.1.7",
     "model": "anthropic/claude-sonnet-4"
   }
@@ -100,7 +100,7 @@ The path is resolved relative to the override file's directory.
 ```json
 {
   "override": {
-    "type": "CodebuffAI/reviewer",
+    "type": "CodebirdsAI/reviewer",
     "version": "0.1.7",
     "systemPrompt": {
       "type": "append",
@@ -117,7 +117,7 @@ The path is resolved relative to the override file's directory.
 ```json
 {
   "override": {
-    "type": "CodebuffAI/reviewer",
+    "type": "CodebirdsAI/reviewer",
     "version": "0.1.7",
     "systemPrompt": {
       "type": "append",

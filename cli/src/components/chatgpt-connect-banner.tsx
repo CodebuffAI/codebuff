@@ -199,7 +199,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
     return {
       success: true,
       message:
-        'Successfully connected your ChatGPT subscription! Codebuff will use it for supported OpenAI streaming requests.',
+        'Successfully connected your ChatGPT subscription! Codebirds will use it for supported OpenAI streaming requests.',
     }
   } catch (err) {
     return {

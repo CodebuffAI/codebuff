@@ -1,21 +1,21 @@
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
   ClientToolCall,
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
 
 export const handleCodeSearch = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'code_search'>
+  toolCall: CodebirdsToolCall<'code_search'>
   requestClientToolCall: (
     toolCall: ClientToolCall<'code_search'>,
-  ) => Promise<CodebuffToolOutput<'code_search'>>
+  ) => Promise<CodebirdsToolOutput<'code_search'>>
 }): Promise<{
-  output: CodebuffToolOutput<'code_search'>
+  output: CodebirdsToolOutput<'code_search'>
 }> => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
   await previousToolCallFinished
   return { output: await requestClientToolCall(toolCall) }
-}) satisfies CodebuffToolHandlerFunction<'code_search'>
+}) satisfies CodebirdsToolHandlerFunction<'code_search'>

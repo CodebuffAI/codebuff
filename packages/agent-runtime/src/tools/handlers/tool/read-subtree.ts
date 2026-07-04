@@ -1,27 +1,27 @@
-import { getAllFilePaths } from '@codebuff/common/project-file-tree'
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { getAllFilePaths } from '@codebirds/common/project-file-tree'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 
 import { truncateFileTreeBasedOnTokenBudget } from '../../../system-prompt/truncate-file-tree'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 import type {
   FileTreeNode,
   ProjectFileContext,
-} from '@codebuff/common/util/file'
+} from '@codebirds/common/util/file'
 
 type ToolName = 'read_subtree'
 export const handleReadSubtree = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<ToolName>
+  toolCall: CodebirdsToolCall<ToolName>
   fileContext: ProjectFileContext
   logger: Logger
 }): Promise<{
-  output: CodebuffToolOutput<ToolName>
+  output: CodebirdsToolOutput<ToolName>
 }> => {
   const { previousToolCallFinished, toolCall, fileContext, logger } = params
   const { paths, maxTokens } = toolCall.input
@@ -98,7 +98,7 @@ export const handleReadSubtree = (async (params: {
 
   await previousToolCallFinished
 
-  // Build outputs inline so the return type is a tuple matching CodebuffToolOutput
+  // Build outputs inline so the return type is a tuple matching CodebirdsToolOutput
   const requested = paths && paths.length > 0 ? paths : ['.']
   const outputs: Array<
     | {
@@ -140,7 +140,7 @@ export const handleReadSubtree = (async (params: {
   }
 
   return { output: jsonToolResult(outputs) }
-}) satisfies CodebuffToolHandlerFunction<ToolName>
+}) satisfies CodebirdsToolHandlerFunction<ToolName>
 
 function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj))

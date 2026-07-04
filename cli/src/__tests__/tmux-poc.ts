@@ -49,7 +49,7 @@ async function capturePane(sessionName: string): Promise<string> {
 
 // Main test function
 async function testCLIWithTmux() {
-  const sessionName = 'codebuff-test-' + Date.now()
+  const sessionName = 'codebirds-test-' + Date.now()
 
   console.log('🚀 Starting tmux-based CLI test...')
   console.log(`📦 Session: ${sessionName}`)

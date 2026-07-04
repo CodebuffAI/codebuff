@@ -1,11 +1,11 @@
 import {
   validateAgents as validateAgentsCommon,
   type DynamicAgentValidationError,
-} from '@codebuff/common/templates/agent-validation'
+} from '@codebirds/common/templates/agent-validation'
 
 import { WEBSITE_URL } from './constants'
 
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+import type { AgentDefinition } from '@codebirds/common/templates/initial-agents-dir/types/agent-definition'
 
 export interface ValidationResult {
   success: boolean
@@ -24,9 +24,9 @@ export interface ValidateAgentsOptions {
   remote?: boolean
 
   /**
-   * The base URL of the Codebuff website API.
-   * Optional - defaults to NEXT_PUBLIC_CODEBUFF_APP_URL or environment-based URL.
-   * Example: 'https://codebuff.com'
+   * The base URL of the Codebirds website API.
+   * Optional - defaults to NEXT_PUBLIC_CODEBIRDS_APP_URL or environment-based URL.
+   * Example: 'https://codebirds.com'
    */
   websiteUrl?: string
 }
@@ -49,7 +49,7 @@ export interface ValidateAgentsOptions {
  * // Remote validation
  * const result = await validateAgents(definitions, {
  *   remote: true,
- *   websiteUrl: 'https://codebuff.com'
+ *   websiteUrl: 'https://codebirds.com'
  * })
  * ```
  */

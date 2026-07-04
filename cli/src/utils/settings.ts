@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { isSupportedFreebuffModelId } from '@codebuff/common/constants/freebuff-models'
+import { isSupportedFreebuffModelId } from '@codebirds/common/constants/codebirds-models'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
@@ -22,10 +22,10 @@ const DEFAULT_SETTINGS: Settings = {
 export interface Settings {
   mode?: AgentMode
   adsEnabled?: boolean
-  /** Last model the user picked in the freebuff model selector. Restored on
-   *  next freebuff launch so users land in the queue for their preferred
+  /** Last model the user picked in the codebirds model selector. Restored on
+   *  next codebirds launch so users land in the queue for their preferred
    *  model without re-picking. Persisted as the canonical model id. */
-  freebuffModel?: string
+  codebirdsModel?: string
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
@@ -106,14 +106,14 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.adsEnabled = obj.adsEnabled
   }
 
-  // Validate freebuffModel — drop unknown ids so a removed model doesn't
+  // Validate codebirdsModel — drop unknown ids so a removed model doesn't
   // strand the user on a non-existent queue. Hidden-but-supported models are
   // kept; access-tier resolution decides whether they are selectable.
   if (
-    typeof obj.freebuffModel === 'string' &&
-    isSupportedFreebuffModelId(obj.freebuffModel)
+    typeof obj.codebirdsModel === 'string' &&
+    isSupportedFreebuffModelId(obj.codebirdsModel)
   ) {
-    settings.freebuffModel = obj.freebuffModel
+    settings.codebirdsModel = obj.codebirdsModel
   }
 
   // Validate alwaysUseALaCarte (legacy)
@@ -175,19 +175,19 @@ export const saveModePreference = (mode: AgentMode): void => {
 }
 
 /**
- * Load the saved freebuff model preference. Returns undefined if none is
- * saved yet — callers should fall back to DEFAULT_FREEBUFF_MODEL_ID.
+ * Load the saved codebirds model preference. Returns undefined if none is
+ * saved yet — callers should fall back to DEFAULT_CODEBIRDS_MODEL_ID.
  */
 export const loadFreebuffModelPreference = (): string | undefined => {
-  return loadSettings().freebuffModel
+  return loadSettings().codebirdsModel
 }
 
 /**
- * Save the freebuff model preference. Called whenever the user picks a model
+ * Save the codebirds model preference. Called whenever the user picks a model
  * in the waiting room so the next launch defaults to it.
  */
 export const saveFreebuffModelPreference = (model: string): void => {
-  saveSettings({ freebuffModel: model })
+  saveSettings({ codebirdsModel: model })
 }
 
 /**

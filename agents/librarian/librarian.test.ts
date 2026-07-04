@@ -13,9 +13,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { CodebuffClient, loadLocalAgents } from '@codebuff/sdk'
+import { CodebirdsClient, loadLocalAgents } from '@codebirds/sdk'
 
-import type { AgentDefinition } from '@codebuff/sdk'
+import type { AgentDefinition } from '@codebirds/sdk'
 
 const TRACE_DIR = path.join(process.cwd(), 'debug', 'librarian-traces')
 
@@ -53,7 +53,7 @@ interface LibrarianOutput {
 }
 
 async function runTask(
-  client: CodebuffClient,
+  client: CodebirdsClient,
   task: TaskDefinition,
   agentDefinitions: AgentDefinition[],
   taskIndex: number,
@@ -245,8 +245,8 @@ async function main() {
   }
   console.log(`Loaded librarian agent (model: ${librarianAgent.model})`)
 
-  const client = new CodebuffClient({
-    apiKey: process.env.CODEBUFF_API_KEY,
+  const client = new CodebirdsClient({
+    apiKey: process.env.CODEBIRDS_API_KEY,
     cwd: process.cwd(),
   })
 

@@ -2,58 +2,58 @@ import { describe, test, expect, beforeEach, mock } from 'bun:test'
 
 import { fetchAndUpdateUsage } from '../fetch-usage'
 
-import type { CodebuffApiClient } from '../codebuff-api'
+import type { CodebirdsApiClient } from '../codebirds-api'
 import type { FetchAndUpdateUsageParams } from '../fetch-usage'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 describe('fetchAndUpdateUsage (deprecated)', () => {
   let setInputModeMock: ReturnType<typeof mock>
   let getAuthTokenMock: ReturnType<typeof mock>
   let loggerMock: Logger
-  let apiClientMock: CodebuffApiClient
+  let apiClientMock: CodebirdsApiClient
 
   // Note: fetch-usage now uses apiClient.usage() instead of apiClient.post()
   const createMockApiClient = (
     usageMock: ReturnType<typeof mock>,
-  ): CodebuffApiClient => ({
+  ): CodebirdsApiClient => ({
     get: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['get'],
+    ) as CodebirdsApiClient['get'],
     post: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['post'],
+    ) as CodebirdsApiClient['post'],
     put: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['put'],
+    ) as CodebirdsApiClient['put'],
     patch: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['patch'],
+    ) as CodebirdsApiClient['patch'],
     delete: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['delete'],
+    ) as CodebirdsApiClient['delete'],
     request: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['request'],
+    ) as CodebirdsApiClient['request'],
     me: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['me'],
-    usage: usageMock as CodebuffApiClient['usage'],
+    ) as CodebirdsApiClient['me'],
+    usage: usageMock as CodebirdsApiClient['usage'],
     loginCode: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['loginCode'],
+    ) as CodebirdsApiClient['loginCode'],
     loginStatus: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['loginStatus'],
+    ) as CodebirdsApiClient['loginStatus'],
     publish: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['publish'],
+    ) as CodebirdsApiClient['publish'],
     logout: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['logout'],
+    ) as CodebirdsApiClient['logout'],
     feedback: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
-    ) as CodebuffApiClient['feedback'],
-    baseUrl: 'https://test.codebuff.com',
+    ) as CodebirdsApiClient['feedback'],
+    baseUrl: 'https://test.codebirds.com',
     authToken: 'test-auth-token',
   })
 

@@ -22,7 +22,7 @@ export const CHATGPT_OAUTH_REDIRECT_URI = 'http://localhost:1455/auth/callback'
 export const CHATGPT_BACKEND_BASE_URL = 'https://chatgpt.com/backend-api'
 
 /** Environment variable for OAuth token override. */
-export const CHATGPT_OAUTH_TOKEN_ENV_VAR = 'CODEBUFF_CHATGPT_OAUTH_TOKEN'
+export const CHATGPT_OAUTH_TOKEN_ENV_VAR = 'CODEBIRDS_CHATGPT_OAUTH_TOKEN'
 
 /**
  * OpenRouter-style model IDs that are allowed for ChatGPT OAuth direct routing.

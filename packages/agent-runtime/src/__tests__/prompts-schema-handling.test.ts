@@ -1,4 +1,4 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
 import { describe, test, expect, mock } from 'bun:test'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 import { z } from 'zod/v4'
@@ -127,7 +127,7 @@ describe('Schema handling error recovery', () => {
       const transformed = tryTransformAgentToolCall({
         toolName: 'file_picker',
         input: { prompt: 'Find relevant files' },
-        spawnableAgents: ['codebuff/file-picker@1.0.0'],
+        spawnableAgents: ['codebirds/file-picker@1.0.0'],
       })
 
       expect(transformed).toEqual({
@@ -135,7 +135,7 @@ describe('Schema handling error recovery', () => {
         input: {
           agents: [
             {
-              agent_type: 'codebuff/file-picker@1.0.0',
+              agent_type: 'codebirds/file-picker@1.0.0',
               prompt: 'Find relevant files',
             },
           ],

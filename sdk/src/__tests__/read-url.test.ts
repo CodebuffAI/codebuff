@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { clientToolCallSchema } from '@codebuff/common/tools/list'
+import { clientToolCallSchema } from '@codebirds/common/tools/list'
 
 import { readUrl } from '../tools/read-url'
 import { isBlockedAddress } from '../tools/ssrf'
@@ -166,14 +166,14 @@ describe('readUrl', () => {
   })
 
   it('returns pretty-printed JSON for JSON responses', async () => {
-    const result = await successValue('{"name":"Codebuff","answer":42}', {
+    const result = await successValue('{"name":"Codebirds","answer":42}', {
       contentType: 'application/json',
     })
 
     expect('errorMessage' in result).toBe(false)
     if ('errorMessage' in result) return
 
-    expect(result.text).toContain('"name": "Codebuff"')
+    expect(result.text).toContain('"name": "Codebirds"')
     expect(result.text).toContain('"answer": 42')
   })
 

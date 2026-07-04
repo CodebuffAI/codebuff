@@ -4,8 +4,8 @@
  */
 const testDefaults: Record<string, string> = {
   NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
-  NEXT_PUBLIC_CODEBUFF_APP_URL: 'http://localhost:3000',
-  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebuff.com',
+  NEXT_PUBLIC_CODEBIRDS_APP_URL: 'http://localhost:3000',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebirds.com',
   NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog-key',
   NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://us.i.posthog.com',
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder',
@@ -21,8 +21,8 @@ const serverDefaults: Record<string, string> = {
   SERPER_API_KEY: 'test',
   PORT: '4242',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
-  CODEBUFF_GITHUB_ID: 'test-id',
-  CODEBUFF_GITHUB_SECRET: 'test-secret',
+  CODEBIRDS_GITHUB_ID: 'test-id',
+  CODEBIRDS_GITHUB_SECRET: 'test-secret',
   NEXTAUTH_SECRET: 'test-secret',
   STRIPE_SECRET_KEY: 'sk_test_dummy',
   STRIPE_WEBHOOK_SECRET_KEY: 'whsec_dummy',

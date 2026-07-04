@@ -5,7 +5,7 @@ import type { Tool } from 'ai'
 
 export const toolNameParam = 'cb_tool_name'
 export const endsAgentStepParam = 'cb_easp'
-export const toolXmlName = 'codebuff_tool_call'
+export const toolXmlName = 'codebirds_tool_call'
 export const startToolTag = `<${toolXmlName}>\n`
 export const endToolTag = `\n</${toolXmlName}>`
 

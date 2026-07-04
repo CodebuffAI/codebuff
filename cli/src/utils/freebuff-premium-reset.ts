@@ -1,7 +1,7 @@
-import { FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE } from '@codebuff/common/constants/freebuff-models'
-import { getZonedDayBounds } from '@codebuff/common/util/zoned-time'
+import { CODEBIRDS_PREMIUM_SESSION_RESET_TIMEZONE } from '@codebirds/common/constants/codebirds-models'
+import { getZonedDayBounds } from '@codebirds/common/util/zoned-time'
 
-import type { FreebuffSessionRateLimitByModel } from '@codebuff/common/types/freebuff-session'
+import type { FreebuffSessionRateLimitByModel } from '@codebirds/common/types/codebirds-session'
 
 export function getFreebuffPremiumResetAt(params: {
   rateLimitsByModel?: FreebuffSessionRateLimitByModel
@@ -22,7 +22,7 @@ export function getFreebuffPremiumResetAt(params: {
 
   return getZonedDayBounds(
     new Date(nowMs),
-    FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE,
+    CODEBIRDS_PREMIUM_SESSION_RESET_TIMEZONE,
   ).resetsAt
 }
 

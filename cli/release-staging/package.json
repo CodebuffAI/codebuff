@@ -33,9 +33,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/CodebuffAI/codebuff.git"
+    "url": "https://github.com/CodebirdsAI/codebirds.git"
   },
-  "homepage": "https://codebuff.com",
+  "homepage": "https://codebirds.com",
   "publishConfig": {
     "access": "public"
   }

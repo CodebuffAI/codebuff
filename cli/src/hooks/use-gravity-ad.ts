@@ -1,4 +1,4 @@
-import { WEBSITE_URL } from '@codebuff/sdk'
+import { WEBSITE_URL } from '@codebirds/sdk'
 import { useEffect, useRef, useState } from 'react'
 
 import { useTerminalLayout } from './use-terminal-layout'
@@ -6,11 +6,11 @@ import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 
-import type { Message } from '@codebuff/sdk'
+import type { Message } from '@codebirds/sdk'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
@@ -89,7 +89,7 @@ function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
  */
 export const useGravityAd = (options?: {
   enabled?: boolean
-  /** Skip the "wait for first user message" gate. Used by the freebuff
+  /** Skip the "wait for first user message" gate. Used by the codebirds
    *  waiting room, which has no conversation but still needs ads. */
   forceStart?: boolean
   /** Ad network to request first. The server owns fallback ordering. */
@@ -109,7 +109,7 @@ export const useGravityAd = (options?: {
   const isVeryCompactHeight = terminalHeight <= 17
 
   // Freebuff always shows ads even on compact screens (ads are mandatory there).
-  const isFreeMode = IS_FREEBUFF
+  const isFreeMode = IS_CODEBIRDS
 
   // Skip ads on very compact screens unless we're in Freebuff (where ads are mandatory)
   // Also skip if explicitly disabled (e.g. user has a subscription)
@@ -513,7 +513,7 @@ function getAdUserAgent(): string {
 }
 
 function getCliAdRequestUserAgent(): string {
-  const product = IS_FREEBUFF ? 'Freebuff-CLI' : 'Codebuff-CLI'
-  const version = getCliEnv().CODEBUFF_CLI_VERSION ?? 'dev'
+  const product = IS_CODEBIRDS ? 'Freebuff-CLI' : 'Codebirds-CLI'
+  const version = getCliEnv().CODEBIRDS_CLI_VERSION ?? 'dev'
   return `${product}/${version}`
 }

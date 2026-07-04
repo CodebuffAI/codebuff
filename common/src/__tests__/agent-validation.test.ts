@@ -7,7 +7,7 @@ import { getStubProjectFileContext } from '../util/file'
 import type { DynamicAgentTemplate } from '../types/dynamic-agent-template'
 import type { AgentState } from '../types/session-state'
 import type { ProjectFileContext } from '../util/file'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 describe('Agent Validation', () => {
   let mockFileContext: ProjectFileContext
@@ -224,7 +224,7 @@ describe('Agent Validation', () => {
         ...mockFileContext,
         agentTemplates: {
           'git-committer.ts': {
-            id: 'codebuffai-git-committer',
+            id: 'codebirdsai-git-committer',
             version: '0.0.1',
             displayName: 'Git Committer',
             spawnerPrompt: 'A git committer agent',
@@ -247,7 +247,7 @@ describe('Agent Validation', () => {
             systemPrompt: 'Test system prompt',
             instructionsPrompt: 'Test user prompt',
             stepPrompt: 'Test step prompt',
-            spawnableAgents: ['codebuffai-git-committer'], // Should be valid after first pass
+            spawnableAgents: ['codebirdsai-git-committer'], // Should be valid after first pass
             outputMode: 'last_message',
             includeMessageHistory: true,
             inheritParentSystemPrompt: false,
@@ -262,10 +262,10 @@ describe('Agent Validation', () => {
       })
 
       expect(result.validationErrors).toHaveLength(0)
-      expect(result.templates).toHaveProperty('codebuffai-git-committer')
+      expect(result.templates).toHaveProperty('codebirdsai-git-committer')
       expect(result.templates).toHaveProperty('spawner-agent')
       expect(result.templates['spawner-agent'].spawnableAgents).toContain(
-        'codebuffai-git-committer', // Full agent ID with prefix
+        'codebirdsai-git-committer', // Full agent ID with prefix
       )
     })
   })
@@ -545,7 +545,7 @@ describe('Agent Validation', () => {
           ...mockFileContext,
           agentTemplates: {
             'git-committer.ts': {
-              id: 'codebuffai-git-committer',
+              id: 'codebirdsai-git-committer',
               version: '0.0.1',
               displayName: 'Git Committer',
               spawnerPrompt:
@@ -584,9 +584,9 @@ describe('Agent Validation', () => {
         })
 
         expect(result.validationErrors).toHaveLength(0)
-        expect(result.templates).toHaveProperty('codebuffai-git-committer')
+        expect(result.templates).toHaveProperty('codebirdsai-git-committer')
 
-        const template = result.templates['codebuffai-git-committer']
+        const template = result.templates['codebirdsai-git-committer']
         const paramsSchema = template.inputSchema.params!
 
         expect(paramsSchema.safeParse('').success).toBe(false) // Too short

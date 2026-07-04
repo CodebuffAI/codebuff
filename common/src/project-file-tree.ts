@@ -6,7 +6,7 @@ import { sortBy } from 'lodash'
 import { DEFAULT_IGNORED_PATHS } from './constants/paths'
 import { fileExists, isValidProjectRoot } from './util/file'
 
-import type { CodebuffFileSystem } from './types/filesystem'
+import type { CodebirdsFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
 
 /**
@@ -23,7 +23,7 @@ function logFileTreeError(
   error: unknown,
 ): void {
   // Only log in debug mode to avoid noisy output
-  if (!process.env.DEBUG && !process.env.CODEBUFF_DEBUG) {
+  if (!process.env.DEBUG && !process.env.CODEBIRDS_DEBUG) {
     return
   }
 
@@ -58,7 +58,7 @@ export function isShallowScanRoot(
 export async function getProjectFileTree(params: {
   projectRoot: string
   maxFiles?: number
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }): Promise<FileTreeNode[]> {
   const withDefaults = { maxFiles: DEFAULT_MAX_FILES, ...params }
   const { projectRoot, fs } = withDefaults
@@ -220,7 +220,7 @@ function rebaseGitignorePattern(
 export async function parseGitignore(params: {
   fullDirPath: string
   projectRoot: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }): Promise<ignore.Ignore> {
   const { fullDirPath, projectRoot, fs } = params
 
@@ -228,7 +228,7 @@ export async function parseGitignore(params: {
   const relativeDirPath = path.relative(projectRoot, fullDirPath)
   const ignoreFiles = [
     path.join(fullDirPath, '.gitignore'),
-    path.join(fullDirPath, '.codebuffignore'),
+    path.join(fullDirPath, '.codebirdsignore'),
     path.join(fullDirPath, '.manicodeignore'), // Legacy support
   ]
 
@@ -317,7 +317,7 @@ export function getLastReadFilePaths(
 export async function isFileIgnored(params: {
   filePath: string
   projectRoot: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }): Promise<boolean> {
   const { filePath, projectRoot, fs } = params
 

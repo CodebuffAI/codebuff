@@ -80,7 +80,7 @@ try {
 
   // Test 1: Import ripgrep functions via Tools namespace
   console.log('\n1. Testing ripgrep imports...')
-  const { getBundledRgPath, ToolHelpers } = await import('@codebuff/sdk')
+  const { getBundledRgPath, ToolHelpers } = await import('@codebirds/sdk')
 
   if (typeof getBundledRgPath !== 'function') {
     throw new Error(
@@ -226,10 +226,10 @@ try {
 
   // Test 10: Test environment variable override
   console.log('\n10. Testing environment variable override...')
-  const originalPath = process.env.CODEBUFF_RG_PATH
+  const originalPath = process.env.CODEBIRDS_RG_PATH
 
   // Set environment variable to override
-  process.env.CODEBUFF_RG_PATH = '/usr/bin/rg'
+  process.env.CODEBIRDS_RG_PATH = '/usr/bin/rg'
 
   try {
     const overridePath = getBundledRgPath(import.meta.url)
@@ -240,9 +240,9 @@ try {
   } finally {
     // Restore original value
     if (originalPath) {
-      process.env.CODEBUFF_RG_PATH = originalPath
+      process.env.CODEBIRDS_RG_PATH = originalPath
     } else {
-      delete process.env.CODEBUFF_RG_PATH
+      delete process.env.CODEBIRDS_RG_PATH
     }
   }
 

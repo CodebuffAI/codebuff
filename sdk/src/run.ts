@@ -1,29 +1,29 @@
 import path from 'path'
 
-import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
+import { callMainPrompt } from '@codebirds/agent-runtime/main-prompt'
 import {
   buildUserMessageContent,
   withSystemTags,
-} from '@codebuff/agent-runtime/util/messages'
-import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { toOptionalFile } from '@codebuff/common/constants/paths'
+} from '@codebirds/agent-runtime/util/messages'
+import { MAX_AGENT_STEPS_DEFAULT } from '@codebirds/common/constants/agents'
+import { toOptionalFile } from '@codebirds/common/constants/paths'
 import {
   getMCPClient,
   listMCPTools,
   callMCPTool,
-} from '@codebuff/common/mcp/client'
+} from '@codebirds/common/mcp/client'
 import {
   COMPOSIO_META_TOOL_NAMES,
   isComposioMetaToolName,
-} from '@codebuff/common/constants/composio'
-import { toolNames } from '@codebuff/common/tools/constants'
-import { clientToolCallSchema } from '@codebuff/common/tools/list'
-import { AgentOutputSchema } from '@codebuff/common/types/session-state'
+} from '@codebirds/common/constants/composio'
+import { toolNames } from '@codebirds/common/tools/constants'
+import { clientToolCallSchema } from '@codebirds/common/tools/list'
+import { AgentOutputSchema } from '@codebirds/common/types/session-state'
 import {
   FETCH_IDLE_TIMEOUT_USER_MESSAGE,
   extractApiErrorDetails,
   isFetchIdleTimeoutError,
-} from '@codebuff/common/util/error'
+} from '@codebirds/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import { executeComposioToolViaServer } from './composio'
@@ -44,23 +44,23 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { FileFilter } from './tools/read-files'
-import type { ServerAction } from '@codebuff/common/actions'
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-import type { ToolName } from '@codebuff/common/tools/constants'
-import type { PublishedClientToolName } from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { ServerAction } from '@codebirds/common/actions'
+import type { AgentDefinition } from '@codebirds/common/templates/initial-agents-dir/types/agent-definition'
+import type { ToolName } from '@codebirds/common/tools/constants'
+import type { PublishedClientToolName } from '@codebirds/common/tools/list'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { TraceWriter } from '@codebirds/common/types/contracts/trace'
+import type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
+import type { ToolMessage } from '@codebirds/common/types/messages/codebirds-message'
 import type {
   ImagePart,
   TextPart,
   ToolResultOutput,
-} from '@codebuff/common/types/messages/content-part'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { SessionState } from '@codebuff/common/types/session-state'
-import type { Source } from '@codebuff/common/types/source'
-import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
+} from '@codebirds/common/types/messages/content-part'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
+import type { SessionState } from '@codebirds/common/types/session-state'
+import type { Source } from '@codebirds/common/types/source'
+import type { CodebirdsSpawn } from '@codebirds/common/types/spawn'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -89,14 +89,14 @@ function isRunPauseError(error: unknown) {
   return (
     !!error &&
     typeof error === 'object' &&
-    (('codebuffRunPaused' in error &&
-      (error as { codebuffRunPaused?: unknown }).codebuffRunPaused === true) ||
+    (('codebirdsRunPaused' in error &&
+      (error as { codebirdsRunPaused?: unknown }).codebirdsRunPaused === true) ||
       ('name' in error &&
-        (error as { name?: unknown }).name === 'CodebuffRunPausedError'))
+        (error as { name?: unknown }).name === 'CodebirdsRunPausedError'))
   )
 }
 
-export type CodebuffClientOptions = {
+export type CodebirdsClientOptions = {
   apiKey?: string
 
   cwd?: string
@@ -132,8 +132,8 @@ export type CodebuffClientOptions = {
   overrideTools?: OverrideToolHandlers
   customToolDefinitions?: CustomToolDefinition[]
 
-  fsSource?: Source<CodebuffFileSystem>
-  spawnSource?: Source<CodebuffSpawn>
+  fsSource?: Source<CodebirdsFileSystem>
+  spawnSource?: Source<CodebirdsSpawn>
   logger?: Logger
   /** Optional debug trace of agent message histories. Called with the full
    *  history at each agent step boundary; implementations should append each
@@ -170,10 +170,10 @@ export type RunOptions = {
    * prompt for after the turn finishes. */
   drainSteeringMessages?: () => string[]
   costMode?: string
-  /** Extra key/values merged into each LLM request's `codebuff_metadata`.
+  /** Extra key/values merged into each LLM request's `codebirds_metadata`.
    *  Used by hosts (e.g. the CLI) to forward client-scoped identifiers like
-   *  `freebuff_instance_id` that server-side gates read from the request body. */
-  extraCodebuffMetadata?: Record<string, string>
+   *  `codebirds_instance_id` that server-side gates read from the request body. */
+  extraCodebirdsMetadata?: Record<string, string>
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -186,7 +186,7 @@ const createAbortError = (signal?: AbortSignal) => {
 }
 
 type RunExecutionOptions = RunOptions &
-  CodebuffClientOptions & {
+  CodebirdsClientOptions & {
     apiKey: string
     fingerprintId: string
   }
@@ -244,16 +244,16 @@ async function runOnce({
   signal,
   drainSteeringMessages,
   costMode,
-  extraCodebuffMetadata,
+  extraCodebirdsMetadata,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
-  let spawn: CodebuffSpawn
+  let spawn: CodebirdsSpawn
   if (spawnSource) {
     const spawnSourceValue = await spawnSource
-    spawn = spawnSourceValue as CodebuffSpawn
+    spawn = spawnSourceValue as CodebirdsSpawn
   } else {
-    spawn = require('child_process').spawn as CodebuffSpawn
+    spawn = require('child_process').spawn as CodebirdsSpawn
   }
   const preparedContent = wrapContentForUserMessage(content)
   let activeCustomToolDefinitions = customToolDefinitions ?? []
@@ -570,8 +570,8 @@ async function runOnce({
     repoId: undefined,
     clientSessionId: promptId,
     userId,
-    extraCodebuffMetadata: {
-      ...(extraCodebuffMetadata ?? {}),
+    extraCodebirdsMetadata: {
+      ...(extraCodebirdsMetadata ?? {}),
       trace_session_id: traceSessionId,
     },
     signal: signal ?? new AbortController().signal,
@@ -615,7 +615,7 @@ async function runOnce({
 function requireCwd(cwd: string | undefined, toolName: string): string {
   if (!cwd) {
     throw new Error(
-      `cwd is required for the ${toolName} tool. Please provide cwd in CodebuffClientOptions or override the ${toolName} tool.`,
+      `cwd is required for the ${toolName} tool. Please provide cwd in CodebirdsClientOptions or override the ${toolName} tool.`,
     )
   }
   return cwd
@@ -630,11 +630,11 @@ async function readFiles({
 }: {
   filePaths: string[]
   override?: NonNullable<
-    Required<CodebuffClientOptions>['overrideTools']['read_files']
+    Required<CodebirdsClientOptions>['overrideTools']['read_files']
   >
   fileFilter?: FileFilter
   cwd?: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
 }) {
   if (override) {
     return await override({ filePaths })
@@ -657,10 +657,10 @@ async function handleToolCall({
   apiKey,
 }: {
   action: ServerAction<'tool-call-request'>
-  overrides: NonNullable<CodebuffClientOptions['overrideTools']>
+  overrides: NonNullable<CodebirdsClientOptions['overrideTools']>
   customToolDefinitions: Record<string, CustomToolDefinition>
   cwd?: string
-  fs: CodebuffFileSystem
+  fs: CodebirdsFileSystem
   env?: Record<string, string>
   apiKey: string
 }): Promise<{ output: ToolResultOutput[] }> {
@@ -915,7 +915,7 @@ async function handlePromptResponse({
       const message = [
         'Received invalid prompt response from server:',
         JSON.stringify(parsedOutput.error.issues),
-        'If this issues persists, please contact support@codebuff.com',
+        'If this issues persists, please contact support@codebirds.com',
       ].join('\n')
       onError({ message })
       resolve({

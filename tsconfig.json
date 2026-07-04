@@ -4,13 +4,13 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@codebuff/common/*": ["./common/src/*"],
-      "@codebuff/evals/*": ["./evals/*"],
-      "@codebuff/sdk": ["./sdk/src/index.ts"],
-      "@codebuff/sdk/*": ["./sdk/*"],
-      "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"],
-      "@codebuff/llm-providers/*": ["./packages/llm-providers/src/*"],
-      "@codebuff/code-map/*": ["./packages/code-map/*"]
+      "@codebirds/common/*": ["./common/src/*"],
+      "@codebirds/evals/*": ["./evals/*"],
+      "@codebirds/sdk": ["./sdk/src/index.ts"],
+      "@codebirds/sdk/*": ["./sdk/*"],
+      "@codebirds/agent-runtime/*": ["./packages/agent-runtime/src/*"],
+      "@codebirds/llm-providers/*": ["./packages/llm-providers/src/*"],
+      "@codebirds/code-map/*": ["./packages/code-map/*"]
     }
   },
   "files": [],

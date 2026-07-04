@@ -5,7 +5,7 @@ import path from 'path'
 
 import { handleSkill } from '../skill'
 
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 
 function writeSkill(projectRoot: string, name: string, description: string) {
   const skillDir = path.join(projectRoot, '.claude', 'skills', name)

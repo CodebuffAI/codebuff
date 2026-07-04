@@ -3,17 +3,17 @@ import { promisify } from 'util'
 
 const execAsync = promisify(exec)
 
-import { withTimeout } from '@codebuff/common/util/promise'
+import { withTimeout } from '@codebirds/common/util/promise'
 
 import { withTestRepo } from '../subagents/test-repo-utils'
 import { ClaudeRunner } from './runners/claude'
-import { CodebuffRunner } from './runners/codebuff'
+import { CodebirdsRunner } from './runners/codebirds'
 import { CodexRunner } from './runners/codex'
 import { OpenCodeRunner } from './runners/opencode'
 
 import type { Runner, AgentStep } from './runners/runner'
 import type { EvalCommitV2, FinalCheckOutput } from './types'
-import type { CodebuffClient } from '@codebuff/sdk'
+import type { CodebirdsClient } from '@codebirds/sdk'
 
 export type { AgentStep }
 
@@ -31,7 +31,7 @@ export async function runAgentOnCommit({
   finalCheckCommands,
   externalAgentType,
 }: {
-  client: CodebuffClient
+  client: CodebirdsClient
   agentId: string
   commit: EvalCommitV2
   repoUrl: string
@@ -79,7 +79,7 @@ export async function runAgentOnCommit({
           } else if (externalAgentType === 'opencode') {
             runner = new OpenCodeRunner(repoDir, env)
           } else {
-            runner = new CodebuffRunner({
+            runner = new CodebirdsRunner({
               cwd: repoDir,
               env,
               client,
@@ -92,7 +92,7 @@ export async function runAgentOnCommit({
           }
 
           console.log(
-            `[${commit.id}] Running agent: ${externalAgentType || 'codebuff'}`,
+            `[${commit.id}] Running agent: ${externalAgentType || 'codebirds'}`,
           )
 
           const result = await runner.run(commit.prompt)

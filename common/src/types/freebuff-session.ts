@@ -1,7 +1,7 @@
-import type { FreebuffAccessTier } from '../constants/freebuff-models'
+import type { FreebuffAccessTier } from '../constants/codebirds-models'
 
 /**
- * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
+ * Wire-level shapes returned by `/api/v1/codebirds/session`. Source of truth
  * for the CLI (which deserializes these) and the server (which serializes
  * them) — keep both in sync by importing this module from either side.
  *
@@ -250,7 +250,7 @@ export type FreebuffSessionServerResponse =
        *  and come back later. */
       status: 'rate_limited'
       accessTier?: FreebuffAccessTier
-      /** The freebuff model the user tried to join. */
+      /** The codebirds model the user tried to join. */
       model: string
       /** Max session units permitted per period (e.g. 5/day premium, or the
        *  user's weekly GLM referral entitlement). */

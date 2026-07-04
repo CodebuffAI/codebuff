@@ -1,7 +1,7 @@
 /**
- * Codebuff Agent Type Definitions
+ * Codebirds Agent Type Definitions
  *
- * This file provides TypeScript type definitions for creating custom Codebuff agents.
+ * This file provides TypeScript type definitions for creating custom Codebirds agents.
  * Import these types in your agent files to get full type safety and IntelliSense.
  *
  * Usage in .agents/your-agent.ts:
@@ -128,9 +128,9 @@ export interface AgentDefinition {
    */
   toolNames?: (ToolName | (string & {}))[]
 
-  /** Other agents this agent can spawn, like 'codebuff/file-picker@0.0.1'.
+  /** Other agents this agent can spawn, like 'codebirds/file-picker@0.0.1'.
    *
-   * Use the fully qualified agent id from the agent store, including publisher and version: 'codebuff/file-picker@0.0.1'
+   * Use the fully qualified agent id from the agent store, including publisher and version: 'codebirds/file-picker@0.0.1'
    * (publisher and version are required!)
    *
    * Or, use the agent id from a local agent file in your .agents directory: 'file-picker'.

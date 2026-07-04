@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-import { generateAnonymousId } from '@codebuff/common/analytics-core'
+import { generateAnonymousId } from '@codebirds/common/analytics-core'
 
 import { getConfigDir } from './config-dir'
 

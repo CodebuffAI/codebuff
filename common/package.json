@@ -1,7 +1,7 @@
 {
-  "name": "@codebuff/common",
+  "name": "@codebirds/common",
   "version": "1.0.0",
-  "description": "Common utilities for Codebuff",
+  "description": "Common utilities for Codebirds",
   "private": true,
   "type": "module",
   "exports": {

@@ -6,9 +6,9 @@ import {
   getFreebuffUsageDateKey,
   isFreebuffStreakMilestone,
   streakRewardPoolsForMilestone,
-} from '../freebuff-streak'
+} from '../codebirds-streak'
 
-describe('freebuff streak helpers', () => {
+describe('codebirds streak helpers', () => {
   test('formats usage dates in the Freebuff reset timezone', () => {
     expect(getFreebuffUsageDateKey(new Date('2026-05-27T06:30:00.000Z'))).toBe(
       '2026-05-26',
@@ -64,7 +64,7 @@ describe('freebuff streak helpers', () => {
   })
 })
 
-describe('freebuff streak rewards', () => {
+describe('codebirds streak rewards', () => {
   test('recognizes 7-day multiples as milestones', () => {
     expect(isFreebuffStreakMilestone(7)).toBe(true)
     expect(isFreebuffStreakMilestone(14)).toBe(true)

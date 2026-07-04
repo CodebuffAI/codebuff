@@ -6,7 +6,7 @@ import path from 'path'
 import {
   SKILL_FILE_NAME,
   SKILL_NAME_MAX_LENGTH,
-} from '@codebuff/common/constants/skills'
+} from '@codebirds/common/constants/skills'
 
 import { loadSkills } from '../skills/load-skills'
 
@@ -49,7 +49,7 @@ describe('loadSkills', () => {
   let projectDir: string
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(path.join(os.tmpdir(), 'codebuff-sdk-load-skills-'))
+    tempRoot = mkdtempSync(path.join(os.tmpdir(), 'codebirds-sdk-load-skills-'))
     homeDir = path.join(tempRoot, 'home')
     projectDir = path.join(tempRoot, 'project')
 

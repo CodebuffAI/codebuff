@@ -132,7 +132,7 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
   }
 
   const client = new Client({
-    name: 'codebuff',
+    name: 'codebirds',
     version: '1.0.0',
   })
 

@@ -11,36 +11,36 @@ import React, {
 
 import { Button } from './button'
 import {
-  FALLBACK_FREEBUFF_MODEL_ID,
-  FREEBUFF_PREMIUM_SESSION_LIMIT,
+  FALLBACK_CODEBIRDS_MODEL_ID,
+  CODEBIRDS_PREMIUM_SESSION_LIMIT,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
   isFreebuffGlmV52ModelId,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
-} from '@codebuff/common/constants/freebuff-models'
-import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
+} from '@codebirds/common/constants/codebirds-models'
+import { getRateLimitsByModel } from '@codebirds/common/types/codebirds-session'
 
-import { joinFreebuffQueue } from '../hooks/use-freebuff-session'
+import { joinFreebuffQueue } from '../hooks/use-codebirds-session'
 import { useNow } from '../hooks/use-now'
-import { useFreebuffLandingFocusStore } from '../state/freebuff-landing-focus-store'
-import { useFreebuffModelStore } from '../state/freebuff-model-store'
-import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import { useFreebuffLandingFocusStore } from '../state/codebirds-landing-focus-store'
+import { useFreebuffModelStore } from '../state/codebirds-model-store'
+import { useFreebuffSessionStore } from '../state/codebirds-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import {
-  freebuffModelNavigationDirectionForKey,
+  codebirdsModelNavigationDirectionForKey,
   nextFreebuffModelId,
-} from '../utils/freebuff-model-navigation'
+} from '../utils/codebirds-model-navigation'
 import { formatSessionUnits } from '../utils/format-session-units'
 import {
   formatFreebuffPremiumResetCountdown,
   getFreebuffPremiumResetAt,
-} from '../utils/freebuff-premium-reset'
+} from '../utils/codebirds-premium-reset'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
-import type { FreebuffModelOption } from '@codebuff/common/constants/freebuff-models'
+import type { FreebuffModelOption } from '@codebirds/common/constants/codebirds-models'
 import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 
 // The picker opens collapsed to a single recommended hero so a new user can
@@ -70,7 +70,7 @@ type Section = {
 
 // Sentinel id for the expand/collapse toggle so it can ride the same
 // keyboard-navigation list as the model rows (Tab/arrow to it, Enter to fire).
-const TOGGLE_ID = '__freebuff_toggle__'
+const TOGGLE_ID = '__codebirds_toggle__'
 
 // Right-aligned CTA shown on the focused, joinable row so the highlighted card
 // reads as a button ("you can press Enter here") instead of just a selection.
@@ -265,7 +265,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       (!renderedModelIds.includes(selectedModel) ||
         !isFreebuffModelAvailable(selectedModel, new Date(now)))
     ) {
-      setSelectedModel(renderedModelIds[0] ?? FALLBACK_FREEBUFF_MODEL_ID)
+      setSelectedModel(renderedModelIds[0] ?? FALLBACK_CODEBIRDS_MODEL_ID)
     }
   }, [renderedModelIds, now, selectedModel, session, setSelectedModel])
 
@@ -286,7 +286,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     ? Object.values(rateLimitsByModel)[0]
     : undefined
   const premiumUsed = sharedRateLimit?.recentCount ?? 0
-  const premiumExhausted = premiumUsed >= FREEBUFF_PREMIUM_SESSION_LIMIT
+  const premiumExhausted = premiumUsed >= CODEBIRDS_PREMIUM_SESSION_LIMIT
   // The pool resets daily on a Pacific-day boundary regardless of usage, so the
   // countdown is meaningful even at zero used — getFreebuffPremiumResetAt falls
   // back to the next day boundary when the server hasn't sent a resetAt yet.
@@ -491,7 +491,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       (key: KeyEvent) => {
         if (pending) return
         const name = key.name ?? ''
-        const direction = freebuffModelNavigationDirectionForKey(key)
+        const direction = codebirdsModelNavigationDirectionForKey(key)
         // Use the shared Enter detector so the keypad Enter and the niche
         // Linux terminals that send \n (linefeed) for Enter also commit; a
         // raw name === 'return' check silently ignores those, which looks
@@ -693,7 +693,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             <span fg={premiumExhausted ? theme.secondary : theme.muted}>
               {' '}
               · {formatSessionUnits(premiumUsed)} of{' '}
-              {FREEBUFF_PREMIUM_SESSION_LIMIT} used
+              {CODEBIRDS_PREMIUM_SESSION_LIMIT} used
             </span>
           )}
           {section.key === 'premium' && premiumResetCountdown && (

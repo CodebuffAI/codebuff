@@ -9,7 +9,7 @@ const binaryPath = path.join(
   os.homedir(),
   '.config',
   'manicode',
-  process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'
+  process.platform === 'win32' ? 'codebirds.exe' : 'codebirds'
 );
 
 try {
@@ -20,15 +20,15 @@ try {
 
 // Print welcome message
 console.log('\n');
-console.log('🎉 Welcome to Codebuff!');
+console.log('🎉 Welcome to Codebirds!');
 console.log('\n');
 console.log('To get started:');
 console.log('  1. cd to your project directory');
-console.log('  2. Run: codebuff');
+console.log('  2. Run: codebirds');
 console.log('\n');
 console.log('Example:');
 console.log('  $ cd ~/my-project');
-console.log('  $ codebuff');
+console.log('  $ codebirds');
 console.log('\n');
-console.log('For more information, visit: https://codebuff.com/docs');
+console.log('For more information, visit: https://codebirds.com/docs');
 console.log('\n');

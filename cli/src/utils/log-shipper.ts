@@ -1,9 +1,9 @@
-import { IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
+import { IS_DEV, IS_TEST, IS_CI } from '@codebirds/common/env'
 
-import { getApiClient } from './codebuff-api'
+import { getApiClient } from './codebirds-api'
 import { getCliEnv } from './env'
 
-import type { LogRecordInput } from '@codebuff/common/schemas/logs'
+import type { LogRecordInput } from '@codebirds/common/schemas/logs'
 
 /**
  * Client-side shipper that mirrors CLI logs/events into the server's Axiom
@@ -12,7 +12,7 @@ import type { LogRecordInput } from '@codebuff/common/schemas/logs'
  * through the app logger (which would recurse).
  *
  * Tuning via env:
- *  - CODEBUFF_SHIP_LOGS 'true' | 'false'  (default: on outside dev/test)
+ *  - CODEBIRDS_SHIP_LOGS 'true' | 'false'  (default: on outside dev/test)
  */
 
 const MAX_BATCH = 50
@@ -25,7 +25,7 @@ let flushing = false
 let shutdownRegistered = false
 
 function enabled(): boolean {
-  const flag = getCliEnv().CODEBUFF_SHIP_LOGS
+  const flag = getCliEnv().CODEBIRDS_SHIP_LOGS
   if (flag === 'true') return true
   if (flag === 'false') return false
   return !IS_DEV && !IS_TEST && !IS_CI

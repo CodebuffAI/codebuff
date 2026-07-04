@@ -7,12 +7,12 @@ import { z } from 'zod/v4'
 
 import { initialSessionState } from '../run-state'
 
-import type { MockStatResult } from '@codebuff/common/testing/mock-types'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { MockStatResult } from '@codebirds/common/testing/mock-types'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
 
 describe('Initial Session State', () => {
-  let mockFs: CodebuffFileSystem
+  let mockFs: CodebirdsFileSystem
   let mockLogger: Logger
 
   beforeEach(() => {
@@ -33,7 +33,7 @@ describe('Initial Session State', () => {
         if (path.includes('.gitignore')) {
           return 'node_modules/\n.git/'
         }
-        if (path.includes('.codebuffignore')) {
+        if (path.includes('.codebirdsignore')) {
           return ''
         }
         if (path.includes('.manicodeignore')) {
@@ -73,7 +73,7 @@ describe('Initial Session State', () => {
       }),
       exists: async (path: string) => {
         if (path.includes('.gitignore')) return true
-        if (path.includes('.codebuffignore')) return true
+        if (path.includes('.codebirdsignore')) return true
         if (path.includes('.manicodeignore')) return true
         if (path.includes('src')) return true
         if (path.includes('.git')) return true
@@ -83,7 +83,7 @@ describe('Initial Session State', () => {
       },
       mkdir: async () => {},
       writeFile: async () => {},
-    } as unknown as CodebuffFileSystem
+    } as unknown as CodebirdsFileSystem
 
     mockLogger = {
       debug: () => {},
@@ -124,7 +124,7 @@ describe('Initial Session State', () => {
         return ['index.ts', 'utils.ts', 'generated.ts']
       }
       return []
-    }) as CodebuffFileSystem['readdir']
+    }) as CodebirdsFileSystem['readdir']
     mockFs.stat = (async (filePath: string) =>
       ({
         isDirectory: () =>
@@ -132,14 +132,14 @@ describe('Initial Session State', () => {
         isFile: () =>
           filePath !== '/test-project/src' && filePath !== '/test-project/.git',
         size: filePath.endsWith('generated.ts') ? 1_000_001 : 100,
-      }) as MockStatResult & { size: number }) as CodebuffFileSystem['stat']
+      }) as MockStatResult & { size: number }) as CodebirdsFileSystem['stat']
 
     const readFilePaths: string[] = []
     const originalReadFile = mockFs.readFile
     mockFs.readFile = (async (filePath: string, encoding?: BufferEncoding) => {
       readFilePaths.push(filePath)
       return originalReadFile(filePath, encoding)
-    }) as CodebuffFileSystem['readFile']
+    }) as CodebirdsFileSystem['readFile']
 
     const sessionState = await initialSessionState({
       cwd: '/test-project',

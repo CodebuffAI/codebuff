@@ -1,5 +1,5 @@
 /**
- * Consolidated testing utilities for Codebuff.
+ * Consolidated testing utilities for Codebirds.
  *
  * This module re-exports all testing utilities from a single entry point,
  * making it easy to import everything you need for testing.
@@ -30,7 +30,7 @@
  *   // Module mocking
  *   mockModule,
  *   clearMockedModules,
- * } from '@codebuff/common/testing'
+ * } from '@codebirds/common/testing'
  * ```
  *
  * @module testing
@@ -80,5 +80,5 @@ export type { CreateTestSetupOptions, TestSetupResult } from './setup'
 // Note: These are in separate files for historical reasons but are commonly
 // used together with other testing utilities.
 // Import directly from their modules if you need only env helpers:
-//   - '@codebuff/common/testing-env-process' for process env
-//   - '@codebuff/common/testing-env-ci' for CI env
+//   - '@codebirds/common/testing-env-process' for process env
+//   - '@codebirds/common/testing-env-ci' for CI env

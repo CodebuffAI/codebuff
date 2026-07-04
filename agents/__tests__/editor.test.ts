@@ -146,9 +146,9 @@ describe('editor agent', () => {
       expect(editor.instructionsPrompt).toContain('content')
     })
 
-    test('contains codebuff_tool_call format', () => {
-      expect(editor.instructionsPrompt).toContain('<codebuff_tool_call>')
-      expect(editor.instructionsPrompt).toContain('</codebuff_tool_call>')
+    test('contains codebirds_tool_call format', () => {
+      expect(editor.instructionsPrompt).toContain('<codebirds_tool_call>')
+      expect(editor.instructionsPrompt).toContain('</codebirds_tool_call>')
     })
 
     test('instructs not to call set_output', () => {

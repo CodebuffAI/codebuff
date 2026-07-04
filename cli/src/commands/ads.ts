@@ -1,5 +1,5 @@
 import { useChatStore } from '../state/chat-store'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
 import { saveSettings, loadSettings } from '../utils/settings'
@@ -36,9 +36,9 @@ export const handleAdsDisable = (): {
 }
 
 export const getAdsEnabled = (): boolean => {
-  if (IS_FREEBUFF) return true
+  if (IS_CODEBIRDS) return true
 
-  // Codebuff LITE is a paid mode now, so use the normal saved setting.
+  // Codebirds LITE is a paid mode now, so use the normal saved setting.
   const settings = loadSettings()
   return settings.adsEnabled ?? false
 }

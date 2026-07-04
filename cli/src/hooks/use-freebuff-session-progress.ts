@@ -1,7 +1,7 @@
 import { useNow } from './use-now'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/codebirds-session'
 
 export interface FreebuffSessionProgress {
   /** 0..1, fraction of the session remaining. 1 at admission, 0 at expiry. */
@@ -10,8 +10,8 @@ export interface FreebuffSessionProgress {
 }
 
 /**
- * Computes a live progress value for the active freebuff session, ticking at
- * 1Hz. Returns null outside of active state or in non-freebuff builds, so
+ * Computes a live progress value for the active codebirds session, ticking at
+ * 1Hz. Returns null outside of active state or in non-codebirds builds, so
  * callers can short-circuit their rendering.
  */
 export function useFreebuffSessionProgress(
@@ -24,7 +24,7 @@ export function useFreebuffSessionProgress(
 
   const nowMs = useNow(1000, expiresAtMs !== null)
 
-  if (!IS_FREEBUFF || !expiresAtMs || !admittedAtMs) return null
+  if (!IS_CODEBIRDS || !expiresAtMs || !admittedAtMs) return null
 
   const totalMs = expiresAtMs - admittedAtMs
   if (totalMs <= 0) return null

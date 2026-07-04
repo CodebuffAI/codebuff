@@ -42,7 +42,7 @@ describe('loadLocalAgents', () => {
   let agentsDir: string
 
   beforeEach(() => {
-    tempDir = mkdtempSync(path.join(os.tmpdir(), 'codebuff-sdk-load-agents-'))
+    tempDir = mkdtempSync(path.join(os.tmpdir(), 'codebirds-sdk-load-agents-'))
     agentsDir = path.join(tempDir, '.agents')
   })
 

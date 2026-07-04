@@ -1,4 +1,4 @@
-import { getFreebuffModel } from '@codebuff/common/constants/freebuff-models'
+import { getFreebuffModel } from '@codebirds/common/constants/codebirds-models'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
@@ -6,16 +6,16 @@ import { Button } from './button'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { ShimmerText } from './shimmer-text'
 
-import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
+import { useFreebuffSessionProgress } from '../hooks/use-codebirds-session-progress'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 import {
-  FREEBUFF_COUNTDOWN_VISIBLE_MS,
+  CODEBIRDS_COUNTDOWN_VISIBLE_MS,
   formatFreebuffSessionCountdown,
   formatFreebuffSessionRemaining,
-} from '../utils/freebuff-session-display'
+} from '../utils/codebirds-session-display'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/codebirds-session'
 import type { StatusIndicatorState } from '../utils/status-indicator-state'
 
 /** A small status-bar action button with hover-bold styling. */
@@ -57,7 +57,7 @@ interface StatusBarProps {
   statusIndicatorState: StatusIndicatorState
   onStop?: () => void
   onEndSession?: () => void
-  freebuffSession: FreebuffSessionResponse | null
+  codebirdsSession: FreebuffSessionResponse | null
 }
 
 export const StatusBar = ({
@@ -67,7 +67,7 @@ export const StatusBar = ({
   statusIndicatorState,
   onStop,
   onEndSession,
-  freebuffSession,
+  codebirdsSession,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -106,9 +106,9 @@ export const StatusBar = ({
     return () => clearInterval(interval)
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
-  const sessionProgress = useFreebuffSessionProgress(freebuffSession)
+  const sessionProgress = useFreebuffSessionProgress(codebirdsSession)
   const isUnlimited =
-    freebuffSession?.status === 'active' && !freebuffSession.rateLimit
+    codebirdsSession?.status === 'active' && !codebirdsSession.rateLimit
 
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
@@ -158,10 +158,10 @@ export const StatusBar = ({
       case 'idle':
         if (sessionProgress !== null) {
           const isUrgent =
-            sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS
+            sessionProgress.remainingMs < CODEBIRDS_COUNTDOWN_VISIBLE_MS
           const modelName =
-            freebuffSession?.status === 'active'
-              ? getFreebuffModel(freebuffSession.model).displayName
+            codebirdsSession?.status === 'active'
+              ? getFreebuffModel(codebirdsSession.model).displayName
               : null
           return (
             <span
@@ -196,7 +196,7 @@ export const StatusBar = ({
   const elapsedTimeContent = renderElapsedTime()
 
   // Show gray background when there's status indicator, timer, or when the
-  // freebuff session fill is visible (otherwise the fill would float over
+  // codebirds session fill is visible (otherwise the fill would float over
   // transparent space).
   const hasContent =
     statusIndicatorContent || elapsedTimeContent || sessionProgress !== null
@@ -260,13 +260,13 @@ export const StatusBar = ({
           )}
         {onEndSession &&
           statusIndicatorState.kind === 'idle' &&
-          freebuffSession?.status === 'active' && (
+          codebirdsSession?.status === 'active' && (
             <StatusActionButton onClick={onEndSession}>
               ✕ End session
             </StatusActionButton>
           )}
         {sessionProgress !== null &&
-          sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS &&
+          sessionProgress.remainingMs < CODEBIRDS_COUNTDOWN_VISIBLE_MS &&
           statusIndicatorState.kind !== 'idle' &&
           !isUnlimited && (
             <text style={{ wrapMode: 'none' }}>

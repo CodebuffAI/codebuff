@@ -1,4 +1,4 @@
-import { stripAnsi } from '@codebuff/common/util/string'
+import { stripAnsi } from '@codebirds/common/util/string'
 
 // Bun 1.2 removed Bun.stripANSI; provide a fallback for libraries that still call it.
 const bunGlobal = globalThis as typeof globalThis & {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 
 import {
   getAnalyticsEventId,

@@ -1,32 +1,32 @@
-export type * from '@codebuff/common/types/json'
-export type * from '@codebuff/common/types/messages/codebuff-message'
-export type * from '@codebuff/common/types/messages/data-content'
-export type * from '@codebuff/common/types/print-mode'
+export type * from '@codebirds/common/types/json'
+export type * from '@codebirds/common/types/messages/codebirds-message'
+export type * from '@codebirds/common/types/messages/data-content'
+export type * from '@codebirds/common/types/print-mode'
 export type {
   TextPart,
   ImagePart,
-} from '@codebuff/common/types/messages/content-part'
+} from '@codebirds/common/types/messages/content-part'
 export { run } from './run'
 export { getFiles } from './tools/read-files'
 export type { FileFilter, FileFilterResult } from './tools/read-files'
 export type {
-  CodebuffClientOptions,
+  CodebirdsClientOptions,
   RunOptions,
   MessageContent,
   TextContent,
   ImageContent,
 } from './run'
-export type { TraceWriter } from '@codebuff/common/types/contracts/trace'
-export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'
+export type { TraceWriter } from '@codebirds/common/types/contracts/trace'
+export { buildUserMessageContent } from '@codebirds/agent-runtime/util/messages'
 // Agent type exports
-export type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
-export type { ToolName } from '@codebuff/common/tools/constants'
+export type { AgentDefinition } from '@codebirds/common/templates/initial-agents-dir/types/agent-definition'
+export type { ToolName } from '@codebirds/common/tools/constants'
 
 export type {
   ClientToolCall,
   ClientToolName,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
 export * from './client'
 export * from './custom-tool'
 export * from './native/ripgrep'
@@ -39,9 +39,9 @@ export * from './credentials'
 export { loadLocalAgents } from './agents/load-agents'
 export { loadMCPConfig, loadMCPConfigSync } from './agents/load-mcp-config'
 export { loadSkills } from './skills/load-skills'
-export { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
+export { formatAvailableSkillsXml } from '@codebirds/common/util/skills'
 export type { LoadSkillsOptions } from './skills/load-skills'
-export type { SkillDefinition, SkillsMap } from '@codebuff/common/types/skill'
+export type { SkillDefinition, SkillsMap } from '@codebirds/common/types/skill'
 export type {
   LoadedAgents,
   LoadedAgentDefinition,
@@ -80,15 +80,15 @@ export {
   RECONNECTION_RETRY_DELAY_MS,
 } from './retry-config'
 
-export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+export type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
 
 // Tree-sitter / code-map exports
 export {
   getFileTokenScores,
   setWasmDir,
   setTreeSitterWasmPath,
-} from '@codebuff/code-map'
-export type { FileTokenData, TokenCallerMap } from '@codebuff/code-map'
+} from '@codebirds/code-map'
+export type { FileTokenData, TokenCallerMap } from '@codebirds/code-map'
 
 export { runTerminalCommand } from './tools/run-terminal-command'
 export {

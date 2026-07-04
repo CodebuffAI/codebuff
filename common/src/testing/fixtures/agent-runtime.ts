@@ -11,7 +11,7 @@
  *   createTestAgentRuntimeParams,
  *   createTestAgentRuntimeDeps,
  *   mockFileContext,
- * } from '@codebuff/common/testing/fixtures/agent-runtime'
+ * } from '@codebirds/common/testing/fixtures/agent-runtime'
  *
  * const params = createTestAgentRuntimeParams()
  * const { agentTemplate, localAgentTemplates } = params
@@ -75,8 +75,8 @@ export const testFetch = Object.assign(
 
 export const testClientEnv = {
   NEXT_PUBLIC_CB_ENVIRONMENT: 'test' as const,
-  NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://test.codebuff.com',
-  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebuff.test',
+  NEXT_PUBLIC_CODEBIRDS_APP_URL: 'https://test.codebirds.com',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebirds.test',
   NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog-key',
   NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test.posthog.com',
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
@@ -90,8 +90,8 @@ export const testCiEnv = {
   GITHUB_ACTIONS: undefined,
   RENDER: undefined,
   IS_PULL_REQUEST: undefined,
-  CODEBUFF_GITHUB_TOKEN: undefined,
-  CODEBUFF_API_KEY: 'test-api-key',
+  CODEBIRDS_GITHUB_TOKEN: undefined,
+  CODEBIRDS_API_KEY: 'test-api-key',
 }
 
 /** @deprecated Use createTestAgentRuntimeParams() */

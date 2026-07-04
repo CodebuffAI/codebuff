@@ -1,8 +1,8 @@
-import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { promptSuccess, success } from '@codebuff/common/util/error'
+import * as analytics from '@codebirds/common/analytics'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { promptSuccess, success } from '@codebirds/common/util/error'
 import {
   afterEach,
   beforeEach,
@@ -15,22 +15,22 @@ import {
 
 import { createToolCallChunk, mockFileContext } from './test-utils'
 import researcherAgent from '../../../../agents-graveyard/researcher/researcher'
-import * as webApi from '../llm-api/codebuff-web-api'
+import * as webApi from '../llm-api/codebirds-web-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
 
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 let runAgentStepBaseParams: ParamsExcluding<
   typeof runAgentStep,
   'localAgentTemplates' | 'agentState' | 'prompt' | 'agentTemplate'
 >
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
 
 function mockAgentStream(chunks: StreamChunk[]) {
   runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {

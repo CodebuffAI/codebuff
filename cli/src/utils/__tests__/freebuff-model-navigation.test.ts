@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  freebuffModelNavigationDirectionForKey,
+  codebirdsModelNavigationDirectionForKey,
   nextFreebuffModelId,
-} from '../freebuff-model-navigation'
+} from '../codebirds-model-navigation'
 
 describe('nextFreebuffModelId', () => {
   test('moves to the next model when moving forward', () => {
@@ -53,50 +53,50 @@ describe('nextFreebuffModelId', () => {
   })
 })
 
-describe('freebuffModelNavigationDirectionForKey', () => {
+describe('codebirdsModelNavigationDirectionForKey', () => {
   test('maps arrow keys to model navigation directions', () => {
-    expect(freebuffModelNavigationDirectionForKey({ name: 'down' })).toBe(
+    expect(codebirdsModelNavigationDirectionForKey({ name: 'down' })).toBe(
       'forward',
     )
-    expect(freebuffModelNavigationDirectionForKey({ name: 'right' })).toBe(
+    expect(codebirdsModelNavigationDirectionForKey({ name: 'right' })).toBe(
       'forward',
     )
-    expect(freebuffModelNavigationDirectionForKey({ name: 'up' })).toBe(
+    expect(codebirdsModelNavigationDirectionForKey({ name: 'up' })).toBe(
       'backward',
     )
-    expect(freebuffModelNavigationDirectionForKey({ name: 'left' })).toBe(
+    expect(codebirdsModelNavigationDirectionForKey({ name: 'left' })).toBe(
       'backward',
     )
   })
 
   test('maps tab and shift-tab to model navigation directions', () => {
-    expect(freebuffModelNavigationDirectionForKey({ name: 'tab' })).toBe(
+    expect(codebirdsModelNavigationDirectionForKey({ name: 'tab' })).toBe(
       'forward',
     )
     expect(
-      freebuffModelNavigationDirectionForKey({ name: 'tab', shift: true }),
+      codebirdsModelNavigationDirectionForKey({ name: 'tab', shift: true }),
     ).toBe('backward')
   })
 
   test('maps terminal tab sequences to model navigation directions', () => {
-    expect(freebuffModelNavigationDirectionForKey({ sequence: '\t' })).toBe(
+    expect(codebirdsModelNavigationDirectionForKey({ sequence: '\t' })).toBe(
       'forward',
     )
     expect(
-      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[9u' }),
+      codebirdsModelNavigationDirectionForKey({ sequence: '\x1b[9u' }),
     ).toBe('forward')
     expect(
-      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[Z' }),
+      codebirdsModelNavigationDirectionForKey({ sequence: '\x1b[Z' }),
     ).toBe('backward')
     expect(
-      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[9;2u' }),
+      codebirdsModelNavigationDirectionForKey({ sequence: '\x1b[9;2u' }),
     ).toBe('backward')
     expect(
-      freebuffModelNavigationDirectionForKey({ sequence: '\x1b[27;2;9~' }),
+      codebirdsModelNavigationDirectionForKey({ sequence: '\x1b[27;2;9~' }),
     ).toBe('backward')
   })
 
   test('ignores non-navigation keys', () => {
-    expect(freebuffModelNavigationDirectionForKey({ name: 'enter' })).toBeNull()
+    expect(codebirdsModelNavigationDirectionForKey({ name: 'enter' })).toBeNull()
   })
 })

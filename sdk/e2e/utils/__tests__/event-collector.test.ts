@@ -8,7 +8,7 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 
 import { EventCollector } from '../event-collector'
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
 describe('Unit: EventCollector', () => {
   let collector: EventCollector

@@ -1,4 +1,4 @@
-# Publishing the Codebuff SDK
+# Publishing the Codebirds SDK
 
 ## Quick Start
 

@@ -11,17 +11,17 @@ import {
   CHATGPT_OAUTH_CLIENT_ID,
   CHATGPT_OAUTH_REDIRECT_URI,
   CHATGPT_OAUTH_TOKEN_URL,
-} from '@codebuff/common/constants/chatgpt-oauth'
+} from '@codebirds/common/constants/chatgpt-oauth'
 import {
   clearChatGptOAuthCredentials,
   getChatGptOAuthCredentials,
   isChatGptOAuthValid,
   resetChatGptOAuthRateLimit,
   saveChatGptOAuthCredentials,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 import { safeOpen } from './open-url'
 
-import type { ChatGptOAuthCredentials } from '@codebuff/sdk'
+import type { ChatGptOAuthCredentials } from '@codebirds/sdk'
 
 function parseOAuthTokenResponse(data: unknown): {
   accessToken: string
@@ -121,12 +121,12 @@ function escapeHtml(s: string): string {
 }
 
 function callbackPageHtml(success: boolean, errorMessage?: string): string {
-  const title = success ? 'Connected — Codebuff' : 'Connection Failed — Codebuff'
+  const title = success ? 'Connected — Codebirds' : 'Connection Failed — Codebirds'
   const heading = success ? '✓ Connected to ChatGPT' : 'Connection Failed'
   const headingColor = success ? '#4ade80' : '#f87171'
   const body = success
-    ? 'You can close this tab and return to Codebuff.'
-    : `${escapeHtml(errorMessage ?? 'Unknown error')}. Return to Codebuff and try /connect:chatgpt again.`
+    ? 'You can close this tab and return to Codebirds.'
+    : `${escapeHtml(errorMessage ?? 'Unknown error')}. Return to Codebirds and try /connect:chatgpt again.`
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#0a0a0a;color:#e5e5e5">

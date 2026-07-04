@@ -1,7 +1,7 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { promptSuccess } from '@codebuff/common/util/error'
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { promptSuccess } from '@codebirds/common/util/error'
+import { jsonToolResult } from '@codebirds/common/util/messages'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { mockFileContext } from './test-utils'
@@ -12,13 +12,13 @@ import type { AgentTemplate } from '../templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
 import type {
   AssistantMessage,
   ToolMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+} from '@codebirds/common/types/messages/codebirds-message'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
 describe('tool validation error handling', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps

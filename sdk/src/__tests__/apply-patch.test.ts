@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
+import { createMockFs } from '@codebirds/common/testing/mocks/filesystem'
 
 import { applyPatchTool } from '../tools/apply-patch'
 

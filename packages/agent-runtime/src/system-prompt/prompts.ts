@@ -1,15 +1,15 @@
 import {
   flattenTree,
   getLastReadFilePaths,
-} from '@codebuff/common/project-file-tree'
-import { createMarkdownFileBlock } from '@codebuff/common/util/file'
-import { truncateString } from '@codebuff/common/util/string'
-import { closeXml } from '@codebuff/common/util/xml'
+} from '@codebirds/common/project-file-tree'
+import { createMarkdownFileBlock } from '@codebirds/common/util/file'
+import { truncateString } from '@codebirds/common/util/string'
+import { closeXml } from '@codebirds/common/util/xml'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 
 export const knowledgeFilesPrompt = `
 # Knowledge files
@@ -76,12 +76,12 @@ User has typed "export". Export the current conversation. (It's ok to proceed ev
    - All key decisions made during the conversation.
    - All significant file changes. If you have access to write_file blocks from our history, reproduce their paths and content accurately. If you only have diffs or descriptions of changes, summarize those.
    - The reasoning behind those decisions and changes.
-4. Use the 'write_file' tool to save this Markdown summary to a new file with a generated name starting with the prefix 'codebuff-export-' like 'codebuff-export-topic-of-conversation.md' in the project root directory.
+4. Use the 'write_file' tool to save this Markdown summary to a new file with a generated name starting with the prefix 'codebirds-export-' like 'codebirds-export-topic-of-conversation.md' in the project root directory.
 
 Write file tool format:
 
 <write_file>
-<path>codebuff-export-file-name.md${closeXml('path')}
+<path>codebirds-export-file-name.md${closeXml('path')}
 <content>
 [Insert markdown content here]
 ${closeXml('content')}

@@ -1,8 +1,8 @@
-import { trackEvent as trackCommonEvent } from '@codebuff/common/analytics'
-import { env as clientEnvDefault } from '@codebuff/common/env'
-import { getCiEnv } from '@codebuff/common/env-ci'
-import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
-import { success } from '@codebuff/common/util/error'
+import { trackEvent as trackCommonEvent } from '@codebirds/common/analytics'
+import { env as clientEnvDefault } from '@codebirds/common/env'
+import { getCiEnv } from '@codebirds/common/env-ci'
+import { shouldTrackAnalyticsEvent } from '@codebirds/common/util/analytics-sampling'
+import { success } from '@codebirds/common/util/error'
 
 import {
   addAgentStep,
@@ -16,18 +16,18 @@ import { promptAiSdk, promptAiSdkStream, promptAiSdkStructured } from './llm'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { DatabaseAgentCache } from '@codebuff/common/types/contracts/database'
-import type { ClientEnv } from '@codebuff/common/types/contracts/env'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { DatabaseAgentCache } from '@codebirds/common/types/contracts/database'
+import type { ClientEnv } from '@codebirds/common/types/contracts/env'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { TraceWriter } from '@codebirds/common/types/contracts/trace'
+import type { TrackEventFn } from '@codebirds/common/types/contracts/analytics'
 
 const DATABASE_AGENT_CACHE_MAX_ENTRIES = 200
 
 /** Insertion-order (FIFO) eviction so the cache can't grow without bound in
- *  long-lived processes (e.g. the freebuff chat server, which runs the agent
+ *  long-lived processes (e.g. the codebirds chat server, which runs the agent
  *  runtime in-process). Templates are large — prompts plus handleSteps source. */
 class BoundedAgentCache extends Map<string, AgentTemplate | null> {
   override set(key: string, value: AgentTemplate | null): this {

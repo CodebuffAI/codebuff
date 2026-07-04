@@ -1,19 +1,19 @@
-import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
+import { assistantMessage, userMessage } from '@codebirds/common/util/messages'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 import type {
-  CodebuffToolCall,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { AgentState } from '@codebuff/common/types/session-state'
+  CodebirdsToolCall,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { AgentState } from '@codebirds/common/types/session-state'
 
 export const handleAddMessage = (async (params: {
   previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'add_message'>
+  toolCall: CodebirdsToolCall<'add_message'>
 
   agentState: AgentState
 }): Promise<{
-  output: CodebuffToolOutput<'add_message'>
+  output: CodebirdsToolOutput<'add_message'>
 }> => {
   const {
     previousToolCallFinished,
@@ -31,4 +31,4 @@ export const handleAddMessage = (async (params: {
   )
 
   return { output: [{ type: 'json', value: { message: 'Message added.' } }] }
-}) satisfies CodebuffToolHandlerFunction<'add_message'>
+}) satisfies CodebirdsToolHandlerFunction<'add_message'>

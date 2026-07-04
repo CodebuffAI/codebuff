@@ -1,8 +1,8 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 import {
   EngagementTracker,
   createEngagementSessionId,
-} from '@codebuff/common/util/engagement-tracker'
+} from '@codebirds/common/util/engagement-tracker'
 
 import { subscribeToActivity } from './activity-tracker'
 import { trackEvent } from './analytics'

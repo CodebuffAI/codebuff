@@ -54,7 +54,7 @@ The TUI uses a vertical layout designed for clarity:
 ├─ ⏸ Paused ──────────────────────────────────────────────────────┤
 │  ┌─○ [1] 12:00:00─┐ ┌─▶ [2] 12:00:05─┐ ┌─○ [3] 12:00:10─┐       │  ← Timeline
 │  │ initial-state  │ │ after-command  │ │ final-state    │       │     Cards
-│  │ $ codebuff...  │ │ $ /help        │ │ $ /quit        │       │
+│  │ $ codebirds...  │ │ $ /help        │ │ $ /quit        │       │
 │  └────────────────┘ └────────────────┘ └────────────────┘       │
 ├─────────────────────────────────────────────────────────────────┤
 │ ▶ 2/10 @1.5s   space: play/pause  +/-: speed  ←→: navigate      │  ← Footer

@@ -66,10 +66,10 @@ describe('CLI Argument Parsing', () => {
   test('parses --agent with full agent ID', () => {
     const result = parseTestArgs([
       '--agent',
-      'codebuff/base-lite@1.0.0',
+      'codebirds/base-lite@1.0.0',
       'hello',
     ])
-    expect(result.agent).toBe('codebuff/base-lite@1.0.0')
+    expect(result.agent).toBe('codebirds/base-lite@1.0.0')
     expect(result.initialPrompt).toBe('hello')
   })
 
@@ -145,7 +145,7 @@ describe('CLI Argument Parsing', () => {
 describe('Freebuff CLI Argument Parsing', () => {
   test('accepts login as a command, not an unexpected argument', () => {
     const result = parseArgs({
-      argv: ['node', 'freebuff', 'login'],
+      argv: ['node', 'codebirds', 'login'],
       isFreebuff: true,
       version: '1.0.0',
     })
@@ -157,7 +157,7 @@ describe('Freebuff CLI Argument Parsing', () => {
 
   test('allows cwd before the login command', () => {
     const result = parseArgs({
-      argv: ['node', 'freebuff', '--cwd', '/tmp', 'login'],
+      argv: ['node', 'codebirds', '--cwd', '/tmp', 'login'],
       isFreebuff: true,
       version: '1.0.0',
     })
@@ -169,7 +169,7 @@ describe('Freebuff CLI Argument Parsing', () => {
 
   test('allows cwd after the login command', () => {
     const result = parseArgs({
-      argv: ['node', 'freebuff', 'login', '--cwd', '/tmp'],
+      argv: ['node', 'codebirds', 'login', '--cwd', '/tmp'],
       isFreebuff: true,
       version: '1.0.0',
     })

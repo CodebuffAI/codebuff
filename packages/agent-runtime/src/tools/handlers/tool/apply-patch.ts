@@ -1,4 +1,4 @@
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebirdsToolHandlerFunction } from '../handler-function-type'
 
 export const handleApplyPatch = (async ({
   previousToolCallFinished,
@@ -14,4 +14,4 @@ export const handleApplyPatch = (async ({
   return {
     output: await requestClientToolCall(clientToolCall),
   }
-}) satisfies CodebuffToolHandlerFunction<'apply_patch'>
+}) satisfies CodebirdsToolHandlerFunction<'apply_patch'>

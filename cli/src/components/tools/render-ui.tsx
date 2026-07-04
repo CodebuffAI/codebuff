@@ -7,7 +7,7 @@ import { safeOpen } from '../../utils/open-url'
 import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
-import type { RenderUIButtonWidget } from '@codebuff/common/tools/params/tool/render-ui'
+import type { RenderUIButtonWidget } from '@codebirds/common/tools/params/tool/render-ui'
 
 type RenderUIButtonVariant = NonNullable<RenderUIButtonWidget['variant']>
 

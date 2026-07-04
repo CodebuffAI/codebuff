@@ -3,12 +3,12 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { API_KEY_ENV_VAR } from '@codebirds/common/old-constants'
 import {
-  CodebuffClient,
+  CodebirdsClient,
   getUserCredentials,
   loadLocalAgents,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
@@ -42,7 +42,7 @@ function parseAgentId(agent: string): {
 }
 
 async function runTask(options: {
-  client: CodebuffClient
+  client: CodebirdsClient
   commit: EvalDataV2['evalCommits'][0]
   agents: string[]
   repoUrl: string
@@ -274,7 +274,7 @@ function installBinaries(binInstalls: EvalDataV2['binInstalls']): {
     return { tempDir: null, env: {} }
   }
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-bins-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebirds-bins-'))
 
   const binPaths: string[] = []
 
@@ -320,7 +320,7 @@ export async function runBuffBench(options: {
   evalDataPaths: string[]
   agents: string[]
   taskConcurrency?: number
-  client?: CodebuffClient
+  client?: CodebirdsClient
   taskIds?: string[]
   extractLessons?: boolean
   disableAnalysis?: boolean
@@ -409,7 +409,7 @@ export async function runBuffBench(options: {
 
   const client =
     options.client ??
-    new CodebuffClient({
+    new CodebirdsClient({
       logger,
       apiKey: process.env[API_KEY_ENV_VAR] || getUserCredentials()?.authToken,
     })

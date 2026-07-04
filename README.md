@@ -1,43 +1,16 @@
-# Codebuff & Freebuff
+# Codebirds
 
 English | [简体中文](./README.zh-CN.md)
 
-**[Codebuff](https://codebuff.com)** is an open-source AI coding assistant that edits your codebase through natural language instructions. **[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version — no subscription, no credits, no configuration.
-
-Instead of using one model for everything, Codebuff coordinates specialized agents that work together to understand your project and make precise changes.
+**Codebirds** is an open-source AI coding assistant that edits your codebase through natural language instructions.
 
 <div align="center">
-  <img src="./assets/codebuff-vs-claude-code.png" alt="Codebuff vs Claude Code" width="400">
+  <img src="./assets/codebirds-vs-claude-code.png" alt="Codebirds vs Claude Code" width="400">
 </div>
 
-Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
+Codebirds beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
-## Freebuff: the free coding agent
-
-**[Freebuff](https://www.npmjs.com/package/freebuff)** is the free, ad-supported version of Codebuff. No subscription. No credits. No configuration. Just install and start coding in your terminal.
-
-### Install
-
-```bash
-npm install -g freebuff
-```
-
-### Usage
-
-```bash
-cd ~/my-project
-freebuff
-```
-
-Then tell Freebuff what you want — it finds the right files, makes the changes, and runs your tests.
-
-### Why Freebuff?
-
-- **Best open-source models** — Powered by the strongest open-source models available, like DeepSeek, Kimi, and MiniMax — no proprietary lock-in.
-- **Fast** — 5–10× speed up. Faster models plus context gathering in seconds rather than minutes.
-- **Loaded** — Built-in web research, browser use, and more.
-
-### Features
+## Key Features
 
 - **File mentions** — Use `@filename` to reference specific files
 - **Agent mentions** — Use `@AgentName` to invoke specialized agents
@@ -60,27 +33,13 @@ Then tell Freebuff what you want — it finds the right files, makes the changes
 | `/logout`       | Sign out                         |
 | `/exit`         | Quit                             |
 
-### FAQ
-
-**How can it be free?** Freebuff is supported by text ads.
-
-**What models do you use?** The best open-source models available. In full mode you can choose from DeepSeek V4 Pro, MiMo 2.5 Pro, Kimi K2.6, DeepSeek V4 Flash, MiMo 2.5, and MiniMax M3. Limited mode uses DeepSeek V4 Flash and MiMo 2.5. Gemini 3.1 Flash Lite handles file finding and research.
-
-**Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
-
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes DeepSeek V4 Flash and MiMo 2.5, with 5 one-hour sessions per day.
-
-**Are you training on my data?** No. We don't share your data with third parties that would train on it or use it for another purpose, unless you choose a model clearly labeled as "Collects data for training."
-
-**What data do you store?** We don't store your codebase. We only collect minimal logs for debugging purposes.
-
 ---
 
-The rest of this README covers **Codebuff**, the full platform Freebuff is built on — its multi-agent architecture, custom agents, and SDK.
+This README covers **Codebirds** — its multi-agent architecture, custom agents, and SDK.
 
 ## How it works
 
-When you ask Codebuff to "add authentication to my API," it might invoke:
+When you ask Codebirds to "add authentication to my API," it might invoke:
 
 1. A **File Picker Agent** to scan your codebase to understand the architecture and find relevant files
 2. A **Planner Agent** to plan which files need changes and in what order
@@ -88,7 +47,7 @@ When you ask Codebuff to "add authentication to my API," it might invoke:
 4. A **Reviewer Agent** to validate changes
 
 <div align="center">
-  <img src="./assets/multi-agents.png" alt="Codebuff Multi-Agents" width="250">
+  <img src="./assets/multi-agents.png" alt="Codebirds Multi-Agents" width="250">
 </div>
 
 This multi-agent approach gives you better context understanding, more accurate edits, and fewer errors compared to single-model tools.
@@ -98,30 +57,30 @@ This multi-agent approach gives you better context understanding, more accurate 
 Install:
 
 ```bash
-npm install -g codebuff
+npm install -g codebirds
 ```
 
 Run:
 
 ```bash
 cd your-project
-codebuff
+codebirds
 ```
 
-Then just tell Codebuff what you want and it handles the rest:
+Then just tell Codebirds what you want and it handles the rest:
 
 - "Fix the SQL injection vulnerability in user registration"
 - "Add rate limiting to all API endpoints"
 - "Refactor the database connection code for better performance"
 
-Codebuff will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
+Codebirds will find the right files, makes changes across your codebase, and runs tests to make sure nothing breaks.
 
 ## Create custom agents
 
-To get started building your own agents, start Codebuff and run the `/init` command:
+To get started building your own agents, start Codebirds and run the `/init` command:
 
 ```bash
-codebuff
+codebirds
 ```
 
 Then inside the CLI:
@@ -132,7 +91,7 @@ Then inside the CLI:
 
 This creates:
 ```
-knowledge.md               # Project context for Codebuff
+knowledge.md               # Project context for Codebirds
 .agents/
 └── types/                 # TypeScript type definitions
     ├── agent-definition.ts
@@ -169,27 +128,27 @@ export default {
 
 ## SDK: Run agents in production
 
-Install the [SDK package](https://www.npmjs.com/package/@codebuff/sdk) -- note this is different than the CLI codebuff package.
+Install the [SDK package](https://www.npmjs.com/package/@codebirds/sdk) -- note this is different than the CLI codebirds package.
 
 ```bash
-npm install @codebuff/sdk
+npm install @codebirds/sdk
 ```
 
 Import the client and run agents!
 
 ```typescript
-import { CodebuffClient } from '@codebuff/sdk'
+import { CodebirdsClient } from '@codebirds/sdk'
 
 // 1. Initialize the client
-const client = new CodebuffClient({
+const client = new CodebirdsClient({
   apiKey: 'your-api-key',
   cwd: '/path/to/your/project',
-  onError: (error) => console.error('Codebuff error:', error.message),
+  onError: (error) => console.error('Codebirds error:', error.message),
 })
 
 // 2. Do a coding task...
 const result = await client.run({
-  agent: 'base', // Codebuff's base coding agent
+  agent: 'base', // Codebirds' base coding agent
   prompt: 'Add error handling to all API endpoints',
   handleEvent: (event) => {
     console.log('Progress', event)
@@ -214,17 +173,17 @@ await client.run({
 })
 ```
 
-Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
+Learn more about the SDK [here](https://www.npmjs.com/package/@codebirds/sdk).
 
-## Why choose Codebuff
+## Why choose Codebirds
 
 **Custom workflows**: TypeScript generators let you mix AI generation with programmatic control. Agents can spawn subagents, branch on conditions, and run multi-step processes.
 
-**Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
+**Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebirds supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
 
-**Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/store) to get a leg up. Codebuff agents are the new MCP!
+**Reuse any published agent**: Compose existing [published agents](https://www.codebirds.com/store) to get a leg up. Codebirds agents are the new MCP!
 
-**SDK**: Build Codebuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
+**SDK**: Build Codebirds into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
 
 ## Advanced Usage
 
@@ -233,13 +192,13 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 Create your own agents with specialized workflows using the `/init` command:
 
 ```bash
-codebuff
+codebirds
 /init
 ```
 
 This creates a custom agent structure in `.agents/` that you can customize.
 
-## Contributing to Codebuff
+## Contributing to Codebirds
 
 We ❤️ contributions from the community - whether you're fixing bugs, tweaking our agents, or improving documentation.
 
@@ -275,30 +234,28 @@ Some ways you can help:
 - 🐛 **Fix bugs** or add features
 - 🤖 **Create specialized agents** and publish them to the Agent Store
 - 📚 **Improve documentation** or write tutorials
-- 💡 **Share ideas** in our [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+- 💡 **Share ideas** in our [GitHub Issues](https://github.com/CodebirdsAI/codebirds/issues)
 
 ## Get started
 
 ### Install
 
-**CLI**: `npm install -g codebuff`
+**CLI**: `npm install -g codebirds`
 
-**SDK**: `npm install @codebuff/sdk`
-
-**Freebuff (free)**: `npm install -g freebuff`
+**SDK**: `npm install @codebirds/sdk`
 
 ### Resources
 
-**Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
+**Documentation**: [codebirds.com/docs](https://codebirds.com/docs)
 
-**Community**: [Discord](https://codebuff.com/discord)
+**Community**: [Discord](https://codebirds.com/discord)
 
-**Issues & Ideas**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
+**Issues & Ideas**: [GitHub Issues](https://github.com/CodebirdsAI/codebirds/issues)
 
 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md) - Start here to contribute!
 
-**Support**: [support@codebuff.com](mailto:support@codebuff.com)
+**Support**: [support@codebirds.com](mailto:support@codebirds.com)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=CodebuffAI/codebuff&type=Date)](https://www.star-history.com/#CodebuffAI/codebuff&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=CodebirdsAI/codebirds&type=Date)](https://www.star-history.com/#CodebirdsAI/codebirds&Date)

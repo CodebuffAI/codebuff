@@ -19,7 +19,7 @@ tsconfig.tsbuildinfo
 __mock-projects__
 npm-app/src/__tests__/data/
 .aider*
-.codebuff*
+.codebirds*
 **.log
 
 debug/

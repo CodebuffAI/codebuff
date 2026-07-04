@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { generateCompactId } from '@codebuff/common/util/string'
+import { generateCompactId } from '@codebirds/common/util/string'
 
 export const TEST_REPOS_DIR = path.join(__dirname, '..', 'test-repos')
 
@@ -103,7 +103,7 @@ export async function setupTestRepo(
       process.env.RENDER === 'true' || process.env.IS_PULL_REQUEST === 'false'
 
     // Always try authenticated approach first if we have a token, regardless of environment
-    const githubToken = process.env.CODEBUFF_GITHUB_TOKEN
+    const githubToken = process.env.CODEBIRDS_GITHUB_TOKEN
     const shouldUseAuth = githubToken && repoUrl.includes('github.com')
 
     let effectiveCloneUrl = repoUrl
@@ -285,7 +285,7 @@ export async function setupTestRepo(
     ) {
       console.error('\nAuthentication troubleshooting:')
       console.error(
-        '1. Verify CODEBUFF_GITHUB_TOKEN environment variable is set',
+        '1. Verify CODEBIRDS_GITHUB_TOKEN environment variable is set',
       )
       console.error(
         '2. Ensure token has appropriate repository access permissions',
@@ -297,13 +297,13 @@ export async function setupTestRepo(
         '4. For private repos, ensure token owner has access to the repository',
       )
 
-      const token = process.env.CODEBUFF_GITHUB_TOKEN
+      const token = process.env.CODEBIRDS_GITHUB_TOKEN
       if (token) {
         console.error(
           `Token format: ${token.substring(0, 10)}... (length: ${token.length})`,
         )
       } else {
-        console.error('CODEBUFF_GITHUB_TOKEN environment variable is not set')
+        console.error('CODEBIRDS_GITHUB_TOKEN environment variable is not set')
       }
     }
 

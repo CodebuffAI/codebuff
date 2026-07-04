@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './agent-definition'
 import type * as Tools from './tools'
-import type { ComposioMetaToolName } from '@codebuff/common/constants/composio'
+import type { ComposioMetaToolName } from '@codebirds/common/constants/composio'
 export type { Tools }
 
 export type AllToolNames =
@@ -43,11 +43,11 @@ const placeholderNames = [
 ] as const
 
 type PlaceholderType<T extends readonly string[]> = {
-  [K in T[number]]: `{CODEBUFF_${K}}`
+  [K in T[number]]: `{CODEBIRDS_${K}}`
 }
 
 export const PLACEHOLDER = Object.fromEntries(
-  placeholderNames.map((name) => [name, `{CODEBUFF_${name}}` as const]),
+  placeholderNames.map((name) => [name, `{CODEBIRDS_${name}}` as const]),
 ) as PlaceholderType<typeof placeholderNames>
 export type PlaceholderValue = (typeof PLACEHOLDER)[keyof typeof PLACEHOLDER]
 export const placeholderValues = Object.values(PLACEHOLDER)

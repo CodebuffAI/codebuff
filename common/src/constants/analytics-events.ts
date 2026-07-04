@@ -5,7 +5,7 @@ export enum AnalyticsEvent {
   // Cross-surface — DAU
   // Emitted exactly once per user-submitted message/prompt, on each surface
   // (cli / web / chat), and never sampled. `distinct_id` is the canonical
-  // codebuff Postgres user id on every surface, so unique-users of this event
+  // codebirds Postgres user id on every surface, so unique-users of this event
   // gives accurate per-surface DAU (filter on the `surface` property) and a
   // combined DAU (no filter). The `surface` property is one of: cli, web, chat,
   // desktop.
@@ -40,7 +40,7 @@ export enum AnalyticsEvent {
   SLASH_COMMAND_USED = 'cli.slash_command_used',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
-  UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
+  UPDATE_CODEBIRDS_FAILED = 'cli.update_codebirds_failed',
   FEEDBACK_BUTTON_HOVERED = 'cli.feedback_button_hovered',
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
   SUGGESTED_PROMPT_SHOWN = 'cli.suggested_prompt_shown',
@@ -92,7 +92,7 @@ export enum AnalyticsEvent {
   ONBOARD_PAGE_INSTALL_COMMAND_COPIED = 'onboard_page.install_command_copied',
 
   // Web - Creator Attribution
-  CODEBUFF_REFERRER_ATTRIBUTED = 'codebuff.referrer_attributed',
+  CODEBIRDS_REFERRER_ATTRIBUTED = 'codebirds.referrer_attributed',
 
   // Web - Install Dialog
   INSTALL_DIALOG_CD_COMMAND_COPIED = 'install_dialog.cd_command_copied',
@@ -183,7 +183,7 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
 
   // Freebuff - Creator Attribution
-  FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
+  CODEBIRDS_REFERRER_ATTRIBUTED = 'codebirds.referrer_attributed',
 
   // Freebuff - Referral program server lifecycle (emitted from packages/billing
   // via the server logger → Axiom `event` column). Funnel: redeemed → completed
@@ -192,48 +192,48 @@ export enum AnalyticsEvent {
   // per-evaluation event — that would fire on every live trigger and dominate
   // ingest; it rides on `sweep`, which aggregates outcomes across the whole
   // pending population once per run (see ReferralSweepResult.outcomes).
-  FREEBUFF_REFERRAL_REDEEMED = 'freebuff.referral.redeemed',
-  FREEBUFF_REFERRAL_COMPLETED = 'freebuff.referral.completed',
-  FREEBUFF_REFERRAL_SWEEP = 'freebuff.referral.sweep',
+  CODEBIRDS_REFERRAL_REDEEMED = 'codebirds.referral.redeemed',
+  CODEBIRDS_REFERRAL_COMPLETED = 'codebirds.referral.completed',
+  CODEBIRDS_REFERRAL_SWEEP = 'codebirds.referral.sweep',
 
   // Freebuff - Get Started Page (referral onboarding funnel, in order:
   //   viewed → sign_in_clicked → signed_in → eligibility_resolved →
   //   [connect_github_clicked] → install_command_copied | web_clicked).
   // Every event carries a `referrer` prop (the inviter's name) for per-referrer
   // funnel breakdowns.
-  FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
-  FREEBUFF_GET_STARTED_SIGN_IN_CLICKED = 'freebuff.get_started_sign_in_clicked',
-  FREEBUFF_GET_STARTED_SIGNED_IN = 'freebuff.get_started_signed_in',
-  FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED = 'freebuff.get_started_eligibility_resolved',
-  FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED = 'freebuff.get_started_connect_github_clicked',
-  FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',
-  FREEBUFF_GET_STARTED_WEB_CLICKED = 'freebuff.get_started_web_clicked',
+  CODEBIRDS_GET_STARTED_VIEWED = 'codebirds.get_started_viewed',
+  CODEBIRDS_GET_STARTED_SIGN_IN_CLICKED = 'codebirds.get_started_sign_in_clicked',
+  CODEBIRDS_GET_STARTED_SIGNED_IN = 'codebirds.get_started_signed_in',
+  CODEBIRDS_GET_STARTED_ELIGIBILITY_RESOLVED = 'codebirds.get_started_eligibility_resolved',
+  CODEBIRDS_GET_STARTED_CONNECT_GITHUB_CLICKED = 'codebirds.get_started_connect_github_clicked',
+  CODEBIRDS_GET_STARTED_INSTALL_COMMAND_COPIED = 'codebirds.get_started_install_command_copied',
+  CODEBIRDS_GET_STARTED_WEB_CLICKED = 'codebirds.get_started_web_clicked',
   // Deprecated (previous get-started design — no longer fired):
-  FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
-  FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
+  CODEBIRDS_GET_STARTED_HELP_EXPANDED = 'codebirds.get_started_help_expanded',
+  CODEBIRDS_GET_STARTED_EDITOR_CLICKED = 'codebirds.get_started_editor_clicked',
 
   // Freebuff - Chat
   // Emitted once per new-thread title generation attempt (server-side). The
   // `outcome` property is one of: generated | empty | unknown_model | error |
   // aborted. Carries `latencyMs`, `model`, and `titleLength` so the failure/
   // fallback rate and added latency are queryable.
-  FREEBUFF_CHAT_TITLE_GENERATED = 'freebuff.chat_title_generated',
+  CODEBIRDS_CHAT_TITLE_GENERATED = 'codebirds.chat_title_generated',
 
   // Freebuff - Home Page
-  FREEBUFF_HOME_INSTALL_COMMAND_COPIED = 'freebuff.home_install_command_copied',
-  FREEBUFF_HOME_GITHUB_CLICKED = 'freebuff.home_github_clicked',
-  FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED = 'freebuff.home_install_guide_expanded',
-  FREEBUFF_HOME_FAQ_OPENED = 'freebuff.home_faq_opened',
+  CODEBIRDS_HOME_INSTALL_COMMAND_COPIED = 'codebirds.home_install_command_copied',
+  CODEBIRDS_HOME_GITHUB_CLICKED = 'codebirds.home_github_clicked',
+  CODEBIRDS_HOME_INSTALL_GUIDE_EXPANDED = 'codebirds.home_install_guide_expanded',
+  CODEBIRDS_HOME_FAQ_OPENED = 'codebirds.home_faq_opened',
 
   // Freebuff - acquisition attribution (UTM / ad-click params captured as
   // super-properties; filter by utm_source, reddit_click_id, is_reddit_traffic)
-  FREEBUFF_ATTRIBUTED = 'freebuff.attributed',
+  CODEBIRDS_ATTRIBUTED = 'codebirds.attributed',
   // Freebuff - Reddit ad funnel (filter in PostHog by reddit_click_id / utm_source)
-  FREEBUFF_REDDIT_FUNNEL_CLI_INSTALLED = 'freebuff.reddit_funnel.cli_installed',
-  FREEBUFF_REDDIT_FUNNEL_LOGIN = 'freebuff.reddit_funnel.login',
-  FREEBUFF_REDDIT_FUNNEL_SIGN_UP = 'freebuff.reddit_funnel.sign_up',
-  FREEBUFF_REDDIT_FUNNEL_FIRST_PROMPT = 'freebuff.reddit_funnel.first_prompt',
-  FREEBUFF_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'freebuff.reddit_funnel.gravity_ad_click',
+  CODEBIRDS_REDDIT_FUNNEL_CLI_INSTALLED = 'codebirds.reddit_funnel.cli_installed',
+  CODEBIRDS_REDDIT_FUNNEL_LOGIN = 'codebirds.reddit_funnel.login',
+  CODEBIRDS_REDDIT_FUNNEL_SIGN_UP = 'codebirds.reddit_funnel.sign_up',
+  CODEBIRDS_REDDIT_FUNNEL_FIRST_PROMPT = 'codebirds.reddit_funnel.first_prompt',
+  CODEBIRDS_REDDIT_FUNNEL_GRAVITY_AD_CLICK = 'codebirds.reddit_funnel.gravity_ad_click',
 
   // Freebuff Desktop (Electron app)
   // Mirrors the CLI's surface events so the desktop shows up in the same DAU /

@@ -1,6 +1,6 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { AbortError, isAbortError } from '@codebuff/common/util/error'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { AbortError, isAbortError } from '@codebirds/common/util/error'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { mockFileContext } from './test-utils'
@@ -10,10 +10,10 @@ import type { AgentTemplate } from '../templates/types'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
-import type { AssistantMessage } from '@codebuff/common/types/messages/codebuff-message'
-import type { PromptResult } from '@codebuff/common/util/error'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
+import type { AssistantMessage } from '@codebirds/common/types/messages/codebirds-message'
+import type { PromptResult } from '@codebirds/common/util/error'
 
 describe('stream parser abort handling', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps

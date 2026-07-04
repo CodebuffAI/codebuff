@@ -1,4 +1,4 @@
-import { createTestBaseEnv } from '@codebuff/common/testing-env-process'
+import { createTestBaseEnv } from '@codebirds/common/testing-env-process'
 
 import type { CliEnv } from '../types/env'
 
@@ -32,15 +32,15 @@ export const createTestCliEnv = (overrides: Partial<CliEnv> = {}): CliEnv => ({
   JB_IDE_CONFIG_DIR: undefined,
   VISUAL: undefined,
   EDITOR: undefined,
-  CODEBUFF_CLI_EDITOR: undefined,
-  CODEBUFF_EDITOR: undefined,
+  CODEBIRDS_CLI_EDITOR: undefined,
+  CODEBIRDS_EDITOR: undefined,
   OPEN_TUI_THEME: undefined,
   OPENTUI_THEME: undefined,
-  CODEBUFF_IS_BINARY: undefined,
-  CODEBUFF_CLI_VERSION: undefined,
-  CODEBUFF_CLI_TARGET: undefined,
-  CODEBUFF_RG_PATH: undefined,
-  CODEBUFF_SCROLL_MULTIPLIER: undefined,
-  FREEBUFF_MODE: undefined,
+  CODEBIRDS_IS_BINARY: undefined,
+  CODEBIRDS_CLI_VERSION: undefined,
+  CODEBIRDS_CLI_TARGET: undefined,
+  CODEBIRDS_RG_PATH: undefined,
+  CODEBIRDS_SCROLL_MULTIPLIER: undefined,
+  CODEBIRDS_MODE: undefined,
   ...overrides,
 })

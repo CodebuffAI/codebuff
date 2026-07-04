@@ -6,7 +6,7 @@ Helper scripts for testing TUI applications (Terminal User Interface apps) using
 
 - **Automatic bracketed paste mode** - Input is wrapped in escape sequences so characters don't get dropped
 - **Automatic session logs** - Every capture is saved to `debug/tmux-sessions/{session}/` for debugging
-- **Works with any TUI app** - Codebuff, Claude Code, Codex, or any custom TUI application
+- **Works with any TUI app** - Codebirds, Claude Code, Codex, or any custom TUI application
 - **Paper trail** - Both the subagent and parent agent can review what the app displayed
 
 ## Why These Scripts?
@@ -48,10 +48,10 @@ echo "Started session: $SESSION"
 ./scripts/tmux/tmux-cli.sh stop "$SESSION"
 ```
 
-### Testing Codebuff (Default)
+### Testing Codebirds (Default)
 
 ```bash
-# Start a test session (defaults to Codebuff dev server)
+# Start a test session (defaults to Codebirds dev server)
 SESSION=$(./scripts/tmux/tmux-cli.sh start)
 echo "Started session: $SESSION"
 
@@ -68,17 +68,17 @@ echo "Started session: $SESSION"
 ### Testing Compiled Binaries
 
 ```bash
-# Build the binary first (Codebuff example)
+# Build the binary first (Codebirds example)
 cd cli && bun run build:binary
 
-# Test with binary at default location (./cli/bin/codebuff)
+# Test with binary at default location (./cli/bin/codebirds)
 SESSION=$(./scripts/tmux/tmux-cli.sh start --binary)
 
 # Or specify a custom binary path
 SESSION=$(./scripts/tmux/tmux-cli.sh start --binary /path/to/binary)
 
 # Or use environment variable
-CODEBUFF_BINARY=./cli/bin/codebuff ./scripts/tmux/tmux-cli.sh start
+CODEBIRDS_BINARY=./cli/bin/codebirds ./scripts/tmux/tmux-cli.sh start
 ```
 
 The session-info.yaml will record which mode was used (`cli_mode: custom`, `cli_mode: binary`, or `cli_mode: dynamic`).
@@ -108,7 +108,7 @@ Start a new tmux session with a TUI app.
 ./scripts/tmux/tmux-start.sh --command "codex chat"
 ./scripts/tmux/tmux-start.sh --command "python my_app.py"
 
-# Default settings (Codebuff dev server)
+# Default settings (Codebirds dev server)
 ./scripts/tmux/tmux-start.sh
 # Output: tui-test-1234567890
 
@@ -121,7 +121,7 @@ Start a new tmux session with a TUI app.
 # Custom wait time for app initialization
 ./scripts/tmux/tmux-start.sh --wait 6
 
-# Test a compiled binary (default location: ./cli/bin/codebuff)
+# Test a compiled binary (default location: ./cli/bin/codebirds)
 ./scripts/tmux/tmux-start.sh --binary
 
 # Test a compiled binary at custom path
@@ -333,7 +333,7 @@ tmux has-session -t SESSION_NAME && echo "exists" || echo "not found"
 ## Used By
 
 These scripts are used by TUI testing agents:
-- `@codebuff-tester` - Tests the Codebuff CLI
+- `@codebirds-tester` - Tests the Codebirds CLI
 - `@claude-code-tester` - Tests Claude Code CLI
 - `@codex-tester` - Tests OpenAI Codex CLI
 - `@gemini-tester` - Tests Google Gemini CLI

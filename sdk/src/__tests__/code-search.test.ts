@@ -1,18 +1,18 @@
 import {
   clearMockedModules,
   mockModule,
-} from '@codebuff/common/testing/mock-modules'
+} from '@codebirds/common/testing/mock-modules'
 import {
   createMockChildProcess,
   asCodeSearchResult,
   createRgJsonMatch,
   createRgJsonContext,
-} from '@codebuff/common/testing/mocks'
+} from '@codebirds/common/testing/mocks'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 
 import { codeSearch } from '../tools/code-search'
 
-import type { MockChildProcess } from '@codebuff/common/testing/mocks'
+import type { MockChildProcess } from '@codebirds/common/testing/mocks'
 
 describe('codeSearch', () => {
   let mockSpawn: ReturnType<typeof mock>

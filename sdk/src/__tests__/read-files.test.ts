@@ -1,6 +1,6 @@
-import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
-import * as projectFileTree from '@codebuff/common/project-file-tree'
-import { createNodeError } from '@codebuff/common/testing/errors'
+import { FILE_READ_STATUS } from '@codebirds/common/old-constants'
+import * as projectFileTree from '@codebirds/common/project-file-tree'
+import { createNodeError } from '@codebirds/common/testing/errors'
 import {
   describe,
   test,
@@ -13,14 +13,14 @@ import {
 
 import { getFiles } from '../tools/read-files'
 
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
 import type { PathLike } from 'node:fs'
 
 // Helper to create a mock filesystem
 function createMockFs(config: {
   files?: Record<string, { content: string; size?: number }>
   errors?: Record<string, { code?: string; message?: string }>
-}): CodebuffFileSystem {
+}): CodebirdsFileSystem {
   const { files = {}, errors = {} } = config
 
   return {
@@ -65,7 +65,7 @@ function createMockFs(config: {
     readdir: async () => [],
     mkdir: async () => undefined,
     writeFile: async () => undefined,
-  } as unknown as CodebuffFileSystem
+  } as unknown as CodebirdsFileSystem
 }
 
 describe('getFiles', () => {

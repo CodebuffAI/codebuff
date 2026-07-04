@@ -1,7 +1,7 @@
 import { mkdirSync } from 'fs'
 import path, { dirname } from 'path'
 
-import { IS_CI, IS_TEST } from '@codebuff/common/env'
+import { IS_CI, IS_TEST } from '@codebirds/common/env'
 import { pino } from 'pino'
 
 let logPath: string | undefined = undefined

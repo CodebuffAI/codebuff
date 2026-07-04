@@ -1,12 +1,12 @@
 import React from 'react'
 
-import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
+import { useFreebuffSessionProgress } from '../hooks/use-codebirds-session-progress'
 import { useNow } from '../hooks/use-now'
 import { useTheme } from '../hooks/use-theme'
-import { formatFreebuffPremiumResetCountdown } from '../utils/freebuff-premium-reset'
+import { formatFreebuffPremiumResetCountdown } from '../utils/codebirds-premium-reset'
 import { formatSessionUnits } from '../utils/format-session-units'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/codebirds-session'
 
 interface FreebuffActiveSessionSummaryProps {
   session: FreebuffSessionResponse | null

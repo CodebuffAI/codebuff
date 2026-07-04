@@ -1,12 +1,12 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
 import { describe, test, expect, mock } from 'bun:test'
 
 import { PLACEHOLDER } from '../types'
 import { formatCurrentDate, getAgentPrompt } from '../strings'
 
 import type { AgentTemplate } from '../types'
-import type { AgentState } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { AgentState } from '@codebirds/common/types/session-state'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 
 /** Create a mock logger using bun:test mock() for better test consistency */
 const createMockLogger = () => ({

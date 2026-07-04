@@ -1,10 +1,10 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
 import {
   assistantMessage,
   userMessage,
-} from '@codebuff/common/util/messages'
+} from '@codebirds/common/util/messages'
 import {
   describe,
   expect,
@@ -20,10 +20,10 @@ import * as runAgentStep from '../run-agent-step'
 import { handleSpawnAgentInline } from '../tools/handlers/tool/spawn-agent-inline'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { ImagePart, TextPart } from '@codebuff/common/types/messages/content-part'
+import type { CodebirdsToolCall } from '@codebirds/common/tools/list'
+import type { AgentTemplate } from '@codebirds/common/types/agent-template'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { ImagePart, TextPart } from '@codebirds/common/types/messages/content-part'
 
 /**
  * Tests to verify that image content is NOT propagated to spawned subagents via the `content` parameter.
@@ -119,7 +119,7 @@ describe('Spawn Agents Image Content Propagation', () => {
   const createSpawnToolCall = (
     agentType: string,
     prompt = 'test prompt',
-  ): CodebuffToolCall<'spawn_agents'> => ({
+  ): CodebirdsToolCall<'spawn_agents'> => ({
     toolName: 'spawn_agents' as const,
     toolCallId: 'test-tool-call-id',
     input: {
@@ -130,7 +130,7 @@ describe('Spawn Agents Image Content Propagation', () => {
   const createInlineSpawnToolCall = (
     agentType: string,
     prompt = 'test prompt',
-  ): CodebuffToolCall<'spawn_agent_inline'> => ({
+  ): CodebirdsToolCall<'spawn_agent_inline'> => ({
     toolName: 'spawn_agent_inline' as const,
     toolCallId: 'test-tool-call-id',
     input: {
@@ -298,7 +298,7 @@ describe('Spawn Agents Image Content Propagation', () => {
 
       const imageContent = createImageContent()
 
-      const toolCall: CodebuffToolCall<'spawn_agents'> = {
+      const toolCall: CodebirdsToolCall<'spawn_agents'> = {
         toolName: 'spawn_agents' as const,
         toolCallId: 'test-tool-call-id',
         input: {

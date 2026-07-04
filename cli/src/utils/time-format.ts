@@ -1,4 +1,4 @@
-import { formatTimeUntil } from '@codebuff/common/util/dates'
+import { formatTimeUntil } from '@codebirds/common/util/dates'
 
 /**
  * Format time until reset in human-readable form.

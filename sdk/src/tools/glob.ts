@@ -1,18 +1,18 @@
 import {
   flattenTree,
   getProjectFileTree,
-} from '@codebuff/common/project-file-tree'
+} from '@codebirds/common/project-file-tree'
 import micromatch from 'micromatch'
 
-import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
-import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { CodebirdsToolOutput } from '@codebirds/common/tools/list'
+import type { CodebirdsFileSystem } from '@codebirds/common/types/filesystem'
 
 export async function glob(params: {
   pattern: string
   projectPath: string
   cwd?: string
-  fs: CodebuffFileSystem
-}): Promise<CodebuffToolOutput<'glob'>> {
+  fs: CodebirdsFileSystem
+}): Promise<CodebirdsToolOutput<'glob'>> {
   const { pattern, projectPath, cwd, fs } = params
 
   try {

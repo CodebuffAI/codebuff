@@ -2,7 +2,7 @@ import { createRequire } from 'module'
 
 import { Argument, Command } from 'commander'
 
-import { IS_FREEBUFF, type AgentMode } from './utils/constants'
+import { IS_CODEBIRDS, type AgentMode } from './utils/constants'
 import { getCliEnv } from './utils/env'
 
 const require = createRequire(import.meta.url)
@@ -20,8 +20,8 @@ export type ParsedArgs = {
 
 export function loadPackageVersion(): string {
   const env = getCliEnv()
-  if (env.CODEBUFF_CLI_VERSION) {
-    return env.CODEBUFF_CLI_VERSION
+  if (env.CODEBIRDS_CLI_VERSION) {
+    return env.CODEBIRDS_CLI_VERSION
   }
 
   try {
@@ -38,7 +38,7 @@ export function loadPackageVersion(): string {
 
 export function parseArgs({
   argv = process.argv,
-  isFreebuff = IS_FREEBUFF,
+  isFreebuff = IS_CODEBIRDS,
   version = loadPackageVersion(),
 }: {
   argv?: string[]
@@ -50,7 +50,7 @@ export function parseArgs({
   if (isFreebuff) {
     // Freebuff: simplified CLI - no prompt args, no agent override, no clear-logs
     program
-      .name('freebuff')
+      .name('codebirds')
       .description('Freebuff - Free AI coding assistant')
       .version(version, '-v, --version', 'Print the CLI version')
       .option(
@@ -66,10 +66,10 @@ export function parseArgs({
       )
       .helpOption('-h, --help', 'Show this help message')
   } else {
-    // Codebuff: full CLI with all options
+    // Codebirds: full CLI with all options
     program
-      .name('codebuff')
-      .description('Codebuff CLI - AI-powered coding assistant')
+      .name('codebirds')
+      .description('Codebirds CLI - AI-powered coding assistant')
       .version(version, '-v, --version', 'Print the CLI version')
       .option(
         '--agent <agent-id>',

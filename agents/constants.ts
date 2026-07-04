@@ -1,1 +1,1 @@
-export const publisher = 'codebuff'
+export const publisher = 'codebirds'

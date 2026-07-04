@@ -53,10 +53,10 @@ describe('env-process', () => {
       expect(env.KITTY_WINDOW_ID).toBeUndefined()
     })
 
-    test('returns current process.env values for CODEBUFF_IS_BINARY', () => {
-      process.env.CODEBUFF_IS_BINARY = 'true'
+    test('returns current process.env values for CODEBIRDS_IS_BINARY', () => {
+      process.env.CODEBIRDS_IS_BINARY = 'true'
       const env = getProcessEnv()
-      expect(env.CODEBUFF_IS_BINARY).toBe('true')
+      expect(env.CODEBIRDS_IS_BINARY).toBe('true')
     })
 
     test('returns a snapshot that does not change when process.env changes', () => {
@@ -98,7 +98,7 @@ describe('env-process', () => {
       expect(env.COMSPEC).toBeUndefined()
       expect(env.TERM_PROGRAM).toBeUndefined()
       expect(env.KITTY_WINDOW_ID).toBeUndefined()
-      expect(env.CODEBUFF_IS_BINARY).toBeUndefined()
+      expect(env.CODEBIRDS_IS_BINARY).toBeUndefined()
     })
 
     test('allows overriding specific values', () => {
@@ -122,13 +122,13 @@ describe('env-process', () => {
       expect(env.NODE_ENV).toBe('production')
     })
 
-    test('allows setting CODEBUFF_IS_BINARY for binary mode tests', () => {
+    test('allows setting CODEBIRDS_IS_BINARY for binary mode tests', () => {
       const env = createTestProcessEnv({
-        CODEBUFF_IS_BINARY: 'true',
-        CODEBUFF_CLI_VERSION: '1.0.0',
+        CODEBIRDS_IS_BINARY: 'true',
+        CODEBIRDS_CLI_VERSION: '1.0.0',
       })
-      expect(env.CODEBUFF_IS_BINARY).toBe('true')
-      expect(env.CODEBUFF_CLI_VERSION).toBe('1.0.0')
+      expect(env.CODEBIRDS_IS_BINARY).toBe('true')
+      expect(env.CODEBIRDS_CLI_VERSION).toBe('1.0.0')
     })
 
     test('allows setting terminal-specific vars', () => {

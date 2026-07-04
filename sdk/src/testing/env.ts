@@ -1,4 +1,4 @@
-import { createTestBaseEnv } from '@codebuff/common/testing-env-process'
+import { createTestBaseEnv } from '@codebirds/common/testing-env-process'
 
 import type { SdkEnv } from '../types/env'
 
@@ -11,8 +11,8 @@ export const createTestSdkEnv = (
   ...createTestBaseEnv(),
 
   // SDK-specific defaults
-  CODEBUFF_RG_PATH: undefined,
-  CODEBUFF_WASM_DIR: undefined,
+  CODEBIRDS_RG_PATH: undefined,
+  CODEBIRDS_WASM_DIR: undefined,
   VERBOSE: undefined,
   OVERRIDE_TARGET: undefined,
   OVERRIDE_PLATFORM: undefined,

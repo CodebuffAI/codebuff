@@ -3,7 +3,7 @@
  *
  * This module provides a typed interface to CI-specific environment variables.
  * These are used in CI/CD pipelines and eval contexts.
- * In tests, use `@codebuff/common/testing-env-ci`.
+ * In tests, use `@codebirds/common/testing-env-ci`.
  */
 
 import type { CiEnv } from './types/contracts/env'
@@ -17,8 +17,8 @@ export const getCiEnv = (): CiEnv => ({
   GITHUB_ACTIONS: process.env.GITHUB_ACTIONS,
   RENDER: process.env.RENDER,
   IS_PULL_REQUEST: process.env.IS_PULL_REQUEST,
-  CODEBUFF_GITHUB_TOKEN: process.env.CODEBUFF_GITHUB_TOKEN,
-  CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
+  CODEBIRDS_GITHUB_TOKEN: process.env.CODEBIRDS_GITHUB_TOKEN,
+  CODEBIRDS_API_KEY: process.env.CODEBIRDS_API_KEY,
 })
 
 /**

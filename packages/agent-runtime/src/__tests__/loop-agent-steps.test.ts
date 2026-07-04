@@ -1,14 +1,14 @@
-import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
-import { clearMockedModules } from '@codebuff/common/testing/mock-modules'
+import * as analytics from '@codebirds/common/analytics'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { createTestAgentRuntimeParams } from '@codebirds/common/testing/fixtures/agent-runtime'
+import { clearMockedModules } from '@codebirds/common/testing/mock-modules'
 import {
   createMockDbOperations,
   setupDbSpies,
-} from '@codebuff/common/testing/mocks/database'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { AbortError, promptSuccess } from '@codebuff/common/util/error'
-import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
+} from '@codebirds/common/testing/mocks/database'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { AbortError, promptSuccess } from '@codebirds/common/util/error'
+import { assistantMessage, userMessage } from '@codebirds/common/util/messages'
 import {
   afterAll,
   afterEach,
@@ -28,9 +28,9 @@ import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
-import type { DbSpies } from '@codebuff/common/testing/mocks/database'
-import type { StepGenerator } from '@codebuff/common/types/agent-template'
-import type { AgentState } from '@codebuff/common/types/session-state'
+import type { DbSpies } from '@codebirds/common/testing/mocks/database'
+import type { StepGenerator } from '@codebirds/common/types/agent-template'
+import type { AgentState } from '@codebirds/common/types/session-state'
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {
   let mockTemplate: AgentTemplate
@@ -980,7 +980,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         throw new APICallError({
           statusCode: 403,
           message: 'Forbidden',
-          url: 'https://api.codebuff.com/v1/chat/completions',
+          url: 'https://api.codebirds.com/v1/chat/completions',
           requestBodyValues: {},
           responseBody: JSON.stringify({
             error: 'free_mode_unavailable',
@@ -1032,7 +1032,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         throw new APICallError({
           statusCode: 500,
           message: 'Internal Server Error',
-          url: 'https://api.codebuff.com/v1/chat/completions',
+          url: 'https://api.codebirds.com/v1/chat/completions',
           requestBodyValues: {},
           responseBody: undefined,
           isRetryable: true,
@@ -1068,12 +1068,12 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       const apiError = new APICallError({
         statusCode: 409,
         message: 'Conflict',
-        url: 'https://api.codebuff.com/v1/chat/completions',
+        url: 'https://api.codebirds.com/v1/chat/completions',
         requestBodyValues: {},
         responseBody: JSON.stringify({
           error: 'session_superseded',
           message:
-            'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+            'Another instance of codebirds has taken over this session. Only one instance per account is allowed.',
         }),
         isRetryable: true,
       })
@@ -1095,7 +1095,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       expect(result.output.type).toBe('error')
       if (result.output.type === 'error') {
         expect(result.output.message).toBe(
-          'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+          'Another instance of codebirds has taken over this session. Only one instance per account is allowed.',
         )
         expect(result.output.message).not.toContain('Agent run error:')
         expect(result.output.error).toBe('session_superseded')

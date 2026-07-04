@@ -1,5 +1,5 @@
 {
-  "name": "@codebuff/tmux-viewer",
+  "name": "@codebirds/tmux-viewer",
   "version": "0.0.1",
   "private": true,
   "type": "module",

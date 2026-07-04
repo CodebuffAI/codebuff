@@ -1,7 +1,7 @@
-import { getReferralInfo } from '@codebuff/common/types/freebuff-session'
+import { getReferralInfo } from '@codebirds/common/types/codebirds-session'
 
-import type { FreebuffSessionResponse } from '../types/freebuff-session'
-import type { FreebuffReferralInfo } from '@codebuff/common/types/freebuff-session'
+import type { FreebuffSessionResponse } from '../types/codebirds-session'
+import type { FreebuffReferralInfo } from '@codebirds/common/types/codebirds-session'
 
 /**
  * Process-wide cache of the most recent referral block the server sent.

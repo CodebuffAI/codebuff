@@ -29,9 +29,9 @@ const createCodeSearcherBlock = (
   status: 'complete',
   params: {
     searchQueries: [
-      { pattern: 'FREEBUFF_MODEL_SELECTOR_MODELS' },
-      { pattern: 'FREEBUFF_MODEL_SELECTOR_MODEL_IDS' },
-      { pattern: 'DEFAULT_FREEBUFF_MODEL_ID' },
+      { pattern: 'CODEBIRDS_MODEL_SELECTOR_MODELS' },
+      { pattern: 'CODEBIRDS_MODEL_SELECTOR_MODEL_IDS' },
+      { pattern: 'DEFAULT_CODEBIRDS_MODEL_ID' },
     ],
   },
   blocks: [],
@@ -72,7 +72,7 @@ describe('code search summary helpers', () => {
   test('handles singular labels', () => {
     const agentBlock = createCodeSearcherBlock({
       params: {
-        searchQueries: [{ pattern: 'DEFAULT_FREEBUFF_MODEL_ID' }],
+        searchQueries: [{ pattern: 'DEFAULT_CODEBIRDS_MODEL_ID' }],
       },
       blocks: [createCodeSearchToolBlock('Found 1 match')],
     })

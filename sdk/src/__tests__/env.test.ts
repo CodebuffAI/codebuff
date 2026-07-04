@@ -25,16 +25,16 @@ describe('sdk/env', () => {
       expect(env.HOME).toBe('/Users/testuser')
     })
 
-    test('returns current process.env values for CODEBUFF_RG_PATH', () => {
-      process.env.CODEBUFF_RG_PATH = '/path/to/rg'
+    test('returns current process.env values for CODEBIRDS_RG_PATH', () => {
+      process.env.CODEBIRDS_RG_PATH = '/path/to/rg'
       const env = getSdkEnv()
-      expect(env.CODEBUFF_RG_PATH).toBe('/path/to/rg')
+      expect(env.CODEBIRDS_RG_PATH).toBe('/path/to/rg')
     })
 
-    test('returns current process.env values for CODEBUFF_WASM_DIR', () => {
-      process.env.CODEBUFF_WASM_DIR = '/path/to/wasm'
+    test('returns current process.env values for CODEBIRDS_WASM_DIR', () => {
+      process.env.CODEBIRDS_WASM_DIR = '/path/to/wasm'
       const env = getSdkEnv()
-      expect(env.CODEBUFF_WASM_DIR).toBe('/path/to/wasm')
+      expect(env.CODEBIRDS_WASM_DIR).toBe('/path/to/wasm')
     })
 
     test('returns current process.env values for build flags', () => {
@@ -46,18 +46,18 @@ describe('sdk/env', () => {
     })
 
     test('returns undefined for unset env vars', () => {
-      delete process.env.CODEBUFF_RG_PATH
-      delete process.env.CODEBUFF_WASM_DIR
+      delete process.env.CODEBIRDS_RG_PATH
+      delete process.env.CODEBIRDS_WASM_DIR
       const env = getSdkEnv()
-      expect(env.CODEBUFF_RG_PATH).toBeUndefined()
-      expect(env.CODEBUFF_WASM_DIR).toBeUndefined()
+      expect(env.CODEBIRDS_RG_PATH).toBeUndefined()
+      expect(env.CODEBIRDS_WASM_DIR).toBeUndefined()
     })
 
     test('returns a snapshot that does not change when process.env changes', () => {
-      process.env.CODEBUFF_RG_PATH = '/original/path'
+      process.env.CODEBIRDS_RG_PATH = '/original/path'
       const env = getSdkEnv()
-      process.env.CODEBUFF_RG_PATH = '/new/path'
-      expect(env.CODEBUFF_RG_PATH).toBe('/original/path')
+      process.env.CODEBIRDS_RG_PATH = '/new/path'
+      expect(env.CODEBIRDS_RG_PATH).toBe('/original/path')
     })
   })
 
@@ -72,19 +72,19 @@ describe('sdk/env', () => {
 
     test('returns undefined for SDK-specific vars by default', () => {
       const env = createTestSdkEnv()
-      expect(env.CODEBUFF_RG_PATH).toBeUndefined()
-      expect(env.CODEBUFF_WASM_DIR).toBeUndefined()
+      expect(env.CODEBIRDS_RG_PATH).toBeUndefined()
+      expect(env.CODEBIRDS_WASM_DIR).toBeUndefined()
       expect(env.VERBOSE).toBeUndefined()
       expect(env.OVERRIDE_TARGET).toBeUndefined()
     })
 
     test('allows overriding SDK-specific values', () => {
       const env = createTestSdkEnv({
-        CODEBUFF_RG_PATH: '/custom/rg',
-        CODEBUFF_WASM_DIR: '/custom/wasm',
+        CODEBIRDS_RG_PATH: '/custom/rg',
+        CODEBIRDS_WASM_DIR: '/custom/wasm',
       })
-      expect(env.CODEBUFF_RG_PATH).toBe('/custom/rg')
-      expect(env.CODEBUFF_WASM_DIR).toBe('/custom/wasm')
+      expect(env.CODEBIRDS_RG_PATH).toBe('/custom/rg')
+      expect(env.CODEBIRDS_WASM_DIR).toBe('/custom/wasm')
       // Other values should still have defaults
       expect(env.HOME).toBe('/home/test')
     })
@@ -125,12 +125,12 @@ describe('sdk/env', () => {
     })
 
     test('returns undefined when token env var is unset', () => {
-      delete process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN
+      delete process.env.CODEBIRDS_CHATGPT_OAUTH_TOKEN
       expect(getChatGptOAuthTokenFromEnv()).toBeUndefined()
     })
 
-    test('returns token from CODEBUFF_CHATGPT_OAUTH_TOKEN', () => {
-      process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'chatgpt-oauth-token'
+    test('returns token from CODEBIRDS_CHATGPT_OAUTH_TOKEN', () => {
+      process.env.CODEBIRDS_CHATGPT_OAUTH_TOKEN = 'chatgpt-oauth-token'
       expect(getChatGptOAuthTokenFromEnv()).toBe('chatgpt-oauth-token')
     })
   })

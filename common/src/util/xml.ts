@@ -13,5 +13,5 @@ export function closeXml(toolName: string): string {
  * @returns Array of closing XML tag strings
  */
 export function getStopSequences(toolNames: readonly string[]): string[] {
-  return toolNames.map((toolName) => `</codebuff_tool_${toolName}>`)
+  return toolNames.map((toolName) => `</codebirds_tool_${toolName}>`)
 }

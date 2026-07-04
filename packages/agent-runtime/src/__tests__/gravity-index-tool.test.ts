@@ -1,7 +1,7 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { promptSuccess } from '@codebuff/common/util/error'
+import { TEST_USER_ID } from '@codebirds/common/old-constants'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebirds/common/testing/impl/agent-runtime'
+import { getInitialSessionState } from '@codebirds/common/types/session-state'
+import { promptSuccess } from '@codebirds/common/util/error'
 import {
   afterEach,
   beforeEach,
@@ -13,16 +13,16 @@ import {
 } from 'bun:test'
 
 import { createToolCallChunk, mockFileContext } from './test-utils'
-import * as webApi from '../llm-api/codebuff-web-api'
+import * as webApi from '../llm-api/codebirds-web-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+} from '@codebirds/common/types/contracts/agent-runtime'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { StreamChunk } from '@codebirds/common/types/contracts/llm'
 
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 let runAgentStepBaseParams: ParamsExcluding<
@@ -137,7 +137,7 @@ describe('gravity_index tool', () => {
           query: 'transactional email for Next.js',
           external_session_id: 'test-session',
           metadata: expect.objectContaining({
-            surface: 'codebuff_cli',
+            surface: 'codebirds_cli',
             tool_call_id: expect.any(String),
             agent_step_id: expect.any(String),
             fingerprint_id: 'test-fingerprint',
@@ -151,7 +151,7 @@ describe('gravity_index tool', () => {
     expect(spy.mock.calls[0]?.[0]?.input).not.toHaveProperty('external_user_id')
   })
 
-  test('tags base-chat traffic with the freebuff_chat surface', async () => {
+  test('tags base-chat traffic with the codebirds_chat surface', async () => {
     const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: { search_id: 'search-1' },
     })
@@ -199,14 +199,14 @@ describe('gravity_index tool', () => {
         input: expect.objectContaining({
           external_user_id: 'test-fingerprint',
           metadata: expect.objectContaining({
-            surface: 'freebuff_chat',
+            surface: 'codebirds_chat',
           }),
         }),
       }),
     )
   })
 
-  test('tags base2-free traffic with the freebuff_web surface and forwards external_user_id', async () => {
+  test('tags base2-free traffic with the codebirds_web surface and forwards external_user_id', async () => {
     const spy = spyOn(webApi, 'callGravityIndexAPI').mockResolvedValue({
       result: { search_id: 'search-1' },
     })
@@ -257,7 +257,7 @@ describe('gravity_index tool', () => {
           // attribution instead of letting it collapse onto the service account.
           external_user_id: 'test-fingerprint',
           metadata: expect.objectContaining({
-            surface: 'freebuff_web',
+            surface: 'codebirds_web',
           }),
         }),
       }),

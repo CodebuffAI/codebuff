@@ -1,4 +1,4 @@
-// Tool handlers for the Codebuff SDK
+// Tool handlers for the Codebirds SDK
 import { changeFile } from './change-file'
 import { codeSearch } from './code-search'
 import { glob } from './glob'

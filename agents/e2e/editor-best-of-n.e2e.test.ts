@@ -1,9 +1,9 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { CodebuffClient } from '@codebuff/sdk'
+import { API_KEY_ENV_VAR } from '@codebirds/common/old-constants'
+import { CodebirdsClient } from '@codebirds/sdk'
 import { describe, expect, it } from 'bun:test'
 
 
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { PrintModeEvent } from '@codebirds/common/types/print-mode'
 
 /**
  * Integration tests for the editor-best-of-n-max agent.
@@ -46,7 +46,7 @@ console.log(subtract(5, 3))
         }),
       }
 
-      const client = new CodebuffClient({
+      const client = new CodebirdsClient({
         apiKey,
         cwd: '/tmp/test-best-of-n-project',
         projectFiles,

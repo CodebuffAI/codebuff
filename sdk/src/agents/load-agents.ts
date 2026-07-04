@@ -5,7 +5,7 @@ import { pathToFileURL } from 'url'
 
 import { validateAgents } from '../validate-agents'
 
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+import type { AgentDefinition } from '@codebirds/common/templates/initial-agents-dir/types/agent-definition'
 
 /**
  * Agent definition with source file path metadata.

@@ -1,6 +1,6 @@
 import { mock } from 'bun:test'
 
-import type { CodebuffFileSystem } from '../../types/filesystem'
+import type { CodebirdsFileSystem } from '../../types/filesystem'
 import type { Mock } from 'bun:test'
 import type { PathLike , Stats } from 'node:fs'
 
@@ -17,7 +17,7 @@ export interface CreateMockFsOptions {
   statImpl?: (path: string) => Promise<Stats>
 }
 
-export interface MockFs extends CodebuffFileSystem {}
+export interface MockFs extends CodebirdsFileSystem {}
 
 export interface MockFsWithMocks {
   readFile: Mock<
@@ -34,7 +34,7 @@ export interface MockFsWithMocks {
   stat: Mock<(path: PathLike) => Promise<Stats>>
 }
 
-/** Creates a mock filesystem compatible with CodebuffFileSystem. */
+/** Creates a mock filesystem compatible with CodebirdsFileSystem. */
 export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
   const {
     files = {},

@@ -1,4 +1,4 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
+import { CHATGPT_OAUTH_ENABLED } from '@codebirds/common/constants/chatgpt-oauth'
 import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
@@ -9,13 +9,13 @@ import { handleInitializationFlowLocally } from './init'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
-import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
+import { returnToFreebuffLanding } from '../hooks/use-codebirds-session'
 import { useThemeStore } from '../hooks/use-theme'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
-import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
+import { AGENT_MODES, END_SESSION_MESSAGE, IS_CODEBIRDS } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
@@ -164,7 +164,7 @@ const clearInput = (params: RouterParams) => {
   params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 }
 
-const FREEBUFF_REMOVED_COMMANDS = new Set([
+const CODEBIRDS_REMOVED_COMMANDS = new Set([
   'ads:enable',
   'ads:disable',
   'usage',
@@ -174,7 +174,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'gpt-5-agent',
 ])
 
-const FREEBUFF_ONLY_COMMANDS = new Set([
+const CODEBIRDS_ONLY_COMMANDS = new Set([
   'connect',
   'plan',
   'end-session',
@@ -400,7 +400,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
     },
   }),
   // Mode commands generated from AGENT_MODES (excluded in Freebuff)
-  ...(IS_FREEBUFF ? [] : AGENT_MODES).map((mode) =>
+  ...(IS_CODEBIRDS ? [] : AGENT_MODES).map((mode) =>
     defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
       aliases: [`model:${mode.toLowerCase()}`],
@@ -572,7 +572,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // /end-session (freebuff-only) — end the active session early and drop back
+  // /end-session (codebirds-only) — end the active session early and drop back
   // to the model picker. The hook flips status to 'none', which unmounts
   // <Chat> and mounts <WaitingRoomScreen> on the landing view, where the
   // user picks a model and hits Enter to rejoin the queue.
@@ -595,9 +595,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
   }),
 ]
 
-export const COMMAND_REGISTRY: CommandDefinition[] = IS_FREEBUFF
-  ? ALL_COMMANDS.filter((cmd) => !FREEBUFF_REMOVED_COMMANDS.has(cmd.name))
-  : ALL_COMMANDS.filter((cmd) => !FREEBUFF_ONLY_COMMANDS.has(cmd.name))
+export const COMMAND_REGISTRY: CommandDefinition[] = IS_CODEBIRDS
+  ? ALL_COMMANDS.filter((cmd) => !CODEBIRDS_REMOVED_COMMANDS.has(cmd.name))
+  : ALL_COMMANDS.filter((cmd) => !CODEBIRDS_ONLY_COMMANDS.has(cmd.name))
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
   const lowerCmd = cmd.toLowerCase()

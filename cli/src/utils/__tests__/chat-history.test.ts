@@ -40,7 +40,7 @@ function writeChat(chatId: string, prompt: string) {
 
 describe('chat-history', () => {
   beforeEach(() => {
-    tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-history-'))
+    tempDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebirds-history-'))
   })
 
   afterEach(() => {

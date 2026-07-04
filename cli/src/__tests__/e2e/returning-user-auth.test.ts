@@ -2,7 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { API_KEY_ENV_VAR } from '@codebirds/common/old-constants'
 import {
   describe,
   test,
@@ -17,8 +17,8 @@ import { validateApiKey } from '../../hooks/use-auth-query'
 import * as AuthModule from '../../utils/auth'
 import { getAuthTokenDetails, saveUserCredentials } from '../../utils/auth'
 
-import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { GetUserInfoFromApiKeyFn } from '@codebirds/common/types/contracts/database'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 type User = AuthModule.User
 
@@ -70,7 +70,7 @@ describe('Returning User Authentication helpers', () => {
     expect(details.token).toBe(RETURNING_USER.authToken)
   })
 
-  test('should fall back to CODEBUFF_API_KEY when credentials are missing', () => {
+  test('should fall back to CODEBIRDS_API_KEY when credentials are missing', () => {
     spyOn(AuthModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(AuthModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),

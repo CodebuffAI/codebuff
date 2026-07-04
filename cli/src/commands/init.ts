@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { PRIMARY_KNOWLEDGE_FILE_NAME } from '@codebuff/common/constants/knowledge'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
+import { PRIMARY_KNOWLEDGE_FILE_NAME } from '@codebirds/common/constants/knowledge'
 
 // @ts-expect-error - Bun text import attribute not supported by TypeScript
 import agentDefinitionSource from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
@@ -12,12 +12,12 @@ import toolsSource from '../../../common/src/templates/initial-agents-dir/types/
 import utilTypesSource from '../../../common/src/templates/initial-agents-dir/types/util-types' with { type: 'text' }
 import { getProjectRoot } from '../project-files'
 import { trackEvent } from '../utils/analytics'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { getSystemMessage } from '../utils/message-history'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
-const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
+const brandName = IS_CODEBIRDS ? 'Freebuff' : 'Codebirds'
 
 const INITIAL_KNOWLEDGE_FILE = `# Project knowledge
 

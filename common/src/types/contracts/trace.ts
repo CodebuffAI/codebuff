@@ -1,4 +1,4 @@
-import type { Message } from '../messages/codebuff-message'
+import type { Message } from '../messages/codebirds-message'
 
 /**
  * Records agent message histories for debugging (e.g. to a trace.jsonl file).

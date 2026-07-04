@@ -1,9 +1,9 @@
 import { AssertionError } from 'assert'
 
-import { buildArray } from '@codebuff/common/util/array'
-import { getErrorObject } from '@codebuff/common/util/error'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
-import { closeXml } from '@codebuff/common/util/xml'
+import { buildArray } from '@codebirds/common/util/array'
+import { getErrorObject } from '@codebirds/common/util/error'
+import { systemMessage, userMessage } from '@codebirds/common/util/messages'
+import { closeXml } from '@codebirds/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
@@ -11,15 +11,15 @@ import { countTokensJson } from './token-counter'
 
 import type { System } from '../llm-api/claude'
 import type {
-  CodebuffToolMessage,
-  CodebuffToolOutput,
-} from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+  CodebirdsToolMessage,
+  CodebirdsToolOutput,
+} from '@codebirds/common/tools/list'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { Message } from '@codebirds/common/types/messages/codebirds-message'
 import type {
   TextPart,
   ImagePart,
-} from '@codebuff/common/types/messages/content-part'
+} from '@codebirds/common/types/messages/content-part'
 
 export function messagesWithSystem(params: {
   messages: Message[]
@@ -138,10 +138,10 @@ export function castAssistantMessage(message: Message): Message | null {
 const numTerminalCommandsToKeep = 5
 
 function simplifyTerminalHelper(params: {
-  toolResult: CodebuffToolOutput<'run_terminal_command'>
+  toolResult: CodebirdsToolOutput<'run_terminal_command'>
   numKept: number
   logger: Logger
-}): { result: CodebuffToolOutput<'run_terminal_command'>; numKept: number } {
+}): { result: CodebirdsToolOutput<'run_terminal_command'>; numKept: number } {
   const { toolResult, numKept, logger } = params
   const simplified = simplifyTerminalCommandResults({
     messageContent: toolResult,
@@ -211,7 +211,7 @@ export function trimMessagesToFitTokenLimit(params: {
 
       const terminalResultMessage = cloneDeep(
         m,
-      ) as CodebuffToolMessage<'run_terminal_command'>
+      ) as CodebirdsToolMessage<'run_terminal_command'>
 
       const result = simplifyTerminalHelper({
         toolResult: terminalResultMessage.content,
@@ -274,7 +274,7 @@ export function getMessagesSubset(params: {
 
   // Remove cache_control from all messages
   for (const message of messagesSubset) {
-    for (const provider of ['anthropic', 'openrouter', 'codebuff'] as const) {
+    for (const provider of ['anthropic', 'openrouter', 'codebirds'] as const) {
       delete message.providerOptions?.[provider]?.cacheControl
     }
   }
@@ -368,7 +368,7 @@ export function getEditedFiles(params: {
       .filter(
         (
           m,
-        ): m is CodebuffToolMessage<
+        ): m is CodebirdsToolMessage<
           'create_plan' | 'str_replace' | 'write_file'
         > => {
           return (
@@ -413,7 +413,7 @@ export function getPreviouslyReadFiles(params: {
       try {
         files.push(
           ...(
-            message as CodebuffToolMessage<'read_files'>
+            message as CodebirdsToolMessage<'read_files'>
           ).content[0].value.filter(
             (
               file,
@@ -431,7 +431,7 @@ export function getPreviouslyReadFiles(params: {
 
     if (message.toolName === 'find_files') {
       try {
-        const v = (message as CodebuffToolMessage<'find_files'>).content[0]
+        const v = (message as CodebirdsToolMessage<'find_files'>).content[0]
           .value
         if ('message' in v) {
           continue

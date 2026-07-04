@@ -1,16 +1,16 @@
-import { env } from '@codebuff/common/env'
-import { extractApiErrorDetails } from '@codebuff/common/util/error'
-import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
+import { env } from '@codebirds/common/env'
+import { extractApiErrorDetails } from '@codebirds/common/util/error'
+import { formatFreebuffHardBlockedPrivacySignals } from '@codebirds/common/util/codebirds-privacy'
 
 import type { ChatMessage } from '../types/chat'
 import type {
   FreebuffCountryBlockReason,
   FreebuffIpPrivacySignal,
-} from '@codebuff/common/types/freebuff-session'
+} from '@codebirds/common/types/codebirds-session'
 
-import { IS_FREEBUFF } from './constants'
+import { IS_CODEBIRDS } from './constants'
 
-const defaultAppUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+const defaultAppUrl = env.NEXT_PUBLIC_CODEBIRDS_APP_URL || 'https://codebirds.com'
 
 // Normalize unknown errors to a user-facing string.
 const extractErrorMessage = (error: unknown, fallback: string): string => {
@@ -123,7 +123,7 @@ export const getFreebuffRateLimitErrorMessage = (
   if (details.errorCode === 'free_mode_rate_limited') {
     // Our own rate limiter's message is already user-facing and includes the
     // retry countdown — show it verbatim.
-    return details.message ?? FREEBUFF_RATE_LIMIT_MESSAGE
+    return details.message ?? CODEBIRDS_RATE_LIMIT_MESSAGE
   }
   // Other 429s (e.g. relayed upstream capacity errors) keep the branded
   // message but include the server detail so users aren't left guessing.
@@ -138,9 +138,9 @@ export const getFreebuffRateLimitErrorMessage = (
     extractApiErrorDetails(error).message ??
     (isRunOutputObject ? details.message : undefined)
   if (detail && !/^too many requests\.?$/i.test(detail)) {
-    return `${FREEBUFF_RATE_LIMIT_MESSAGE} (${detail})`
+    return `${CODEBIRDS_RATE_LIMIT_MESSAGE} (${detail})`
   }
-  return FREEBUFF_RATE_LIMIT_MESSAGE
+  return CODEBIRDS_RATE_LIMIT_MESSAGE
 }
 
 export const getCountryBlockFromFreeModeError = (
@@ -176,7 +176,7 @@ export const getFreeModeUnavailableErrorMessage = (
   const details = getCliApiErrorDetails(error)
   const block = getCountryBlockFromFreeModeError(error)
   if (block?.countryBlockReason === 'anonymous_network') {
-    return `${IS_FREEBUFF ? 'Freebuff' : 'Free mode'} cannot be used from ${formatFreebuffHardBlockedPrivacySignals(
+    return `${IS_CODEBIRDS ? 'Freebuff' : 'Free mode'} cannot be used from ${formatFreebuffHardBlockedPrivacySignals(
       block.ipPrivacySignals,
     )} traffic. Please disable it and try again.`
   }
@@ -186,7 +186,7 @@ export const getFreeModeUnavailableErrorMessage = (
 /**
  * Freebuff waiting-room gate errors returned by /api/v1/chat/completions.
  *
- * Contract (see docs/freebuff-waiting-room.md):
+ * Contract (see docs/codebirds-waiting-room.md):
  *   - 428 `waiting_room_required`   — no session row exists; POST /session to join.
  *   - 429 `waiting_room_queued`     — row exists but still queued.
  *   - 409 `session_superseded`      — another CLI rotated our instance id.
@@ -200,7 +200,7 @@ export type FreebuffGateErrorKind =
   | 'session_model_mismatch'
   | 'session_expired'
 
-const FREEBUFF_GATE_STATUS: Record<FreebuffGateErrorKind, number> = {
+const CODEBIRDS_GATE_STATUS: Record<FreebuffGateErrorKind, number> = {
   waiting_room_required: 428,
   waiting_room_queued: 429,
   session_superseded: 409,
@@ -215,17 +215,17 @@ export const getFreebuffGateErrorKind = (
   const errorCode = (error as { error?: unknown }).error
   const statusCode = (error as { statusCode?: unknown }).statusCode
   if (typeof errorCode !== 'string') return null
-  const expected = FREEBUFF_GATE_STATUS[errorCode as FreebuffGateErrorKind]
+  const expected = CODEBIRDS_GATE_STATUS[errorCode as FreebuffGateErrorKind]
   if (expected === undefined || statusCode !== expected) return null
   return errorCode as FreebuffGateErrorKind
 }
 
 export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
 
-export const FREEBUFF_RATE_LIMIT_MESSAGE =
+export const CODEBIRDS_RATE_LIMIT_MESSAGE =
   'Freebuff is temporarily busy. Please try again in a moment.'
 
-export const FREE_MODE_UNAVAILABLE_MESSAGE = IS_FREEBUFF
+export const FREE_MODE_UNAVAILABLE_MESSAGE = IS_CODEBIRDS
   ? 'Freebuff is not available in your country.'
   : 'Free mode is not available in your country. You can use another mode to continue.'
 

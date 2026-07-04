@@ -3,7 +3,7 @@ import {
   createMockTreeSitterParser,
   createMockTreeSitterQuery,
   createMockTree,
-} from '@codebuff/common/testing/mocks/tree-sitter'
+} from '@codebirds/common/testing/mocks/tree-sitter'
 import { describe, it, expect } from 'bun:test'
 
 import {

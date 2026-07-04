@@ -2,22 +2,22 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-import { pluralize } from '@codebuff/common/util/string'
+import { pluralize } from '@codebirds/common/util/string'
 import {
   loadLocalAgents as sdkLoadLocalAgents,
   loadMCPConfigSync,
-} from '@codebuff/sdk'
+} from '@codebirds/sdk'
 
-import type { MCPConfig } from '@codebuff/common/types/mcp'
+import type { MCPConfig } from '@codebirds/common/types/mcp'
 
-import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
+import { getSelectedFreebuffModel } from '../state/codebirds-model-store'
 import { getProjectRoot } from '../project-files'
-import { IS_FREEBUFF, type AgentMode } from './constants'
-import { getAgentIdForMode } from './freebuff-agent-selection'
+import { IS_CODEBIRDS, type AgentMode } from './constants'
+import { getAgentIdForMode } from './codebirds-agent-selection'
 import { logger } from './logger'
 import * as bundledAgentsModule from '../agents/bundled-agents.generated'
 
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+import type { AgentDefinition } from '@codebirds/common/templates/initial-agents-dir/types/agent-definition'
 
 // ============================================================================
 // Constants and types
@@ -29,7 +29,7 @@ export interface LocalAgentInfo {
   id: string
   displayName: string
   filePath: string
-  /** True if this is a bundled Codebuff agent (not user-created) */
+  /** True if this is a bundled Codebirds agent (not user-created) */
   isBundled?: boolean
 }
 
@@ -244,7 +244,7 @@ const cachedAgentsByMode: Map<string, LocalAgentInfo[]> = new Map()
 export const loadLocalAgents = (
   currentAgentMode?: AgentMode,
 ): LocalAgentInfo[] => {
-  const selectedFreebuffModel = IS_FREEBUFF ? getSelectedFreebuffModel() : null
+  const selectedFreebuffModel = IS_CODEBIRDS ? getSelectedFreebuffModel() : null
   const cacheKey = selectedFreebuffModel
     ? `${currentAgentMode ?? 'all'}:${selectedFreebuffModel}`
     : (currentAgentMode ?? 'all')
@@ -253,7 +253,7 @@ export const loadLocalAgents = (
     return cached
   }
 
-  // Get bundled agents - these are the default Codebuff agents
+  // Get bundled agents - these are the default Codebirds agents
   // compiled into the CLI binary at build time
   const bundledAgentsInfo = getBundledAgentsAsLocalInfo()
   const bundledAgents = getBundledAgents()
@@ -320,7 +320,7 @@ export const loadLocalAgents = (
  * their custom agents without needing to modify the base agent definition.
  */
 export const loadAgentDefinitions = (): AgentDefinition[] => {
-  // Start with bundled agents - these are the default Codebuff agents
+  // Start with bundled agents - these are the default Codebirds agents
   const bundledAgents = getBundledAgents()
   const definitions: AgentDefinition[] = Object.values(bundledAgents).map(
     (def) => ({ ...def }),

@@ -6,7 +6,7 @@ import type { ChildProcess, SpawnOptions } from 'child_process'
  * Compatible with `child_process.spawn` from Node.js.
  * Returns ChildProcess to support full streaming capabilities (stdin, stdout, stderr).
  */
-export type CodebuffSpawn = (
+export type CodebirdsSpawn = (
   command: string,
   args?: readonly string[],
   options?: SpawnOptions,

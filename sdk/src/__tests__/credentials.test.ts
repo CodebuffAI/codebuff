@@ -18,7 +18,7 @@ import {
 } from '../credentials'
 
 // Need to import to check env var name
-import { CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/chatgpt-oauth'
+import { CHATGPT_OAUTH_TOKEN_ENV_VAR } from '@codebirds/common/constants/chatgpt-oauth'
 
 describe('credentials', () => {
   const testEnv = {

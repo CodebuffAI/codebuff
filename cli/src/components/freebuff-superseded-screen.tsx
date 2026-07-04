@@ -1,7 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import React from 'react'
 
-import { useFreebuffCtrlCExit } from '../hooks/use-freebuff-ctrl-c-exit'
+import { useFreebuffCtrlCExit } from '../hooks/use-codebirds-ctrl-c-exit'
 import { useLogo } from '../hooks/use-logo'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
@@ -44,13 +44,13 @@ export const FreebuffSupersededScreen: React.FC = () => {
         style={{ fg: theme.foreground, marginBottom: 1 }}
         attributes={TextAttributes.BOLD}
       >
-        Another freebuff instance took over this account.
+        Another codebirds instance took over this account.
       </text>
       <text style={{ fg: theme.muted, wrapMode: 'word' }}>
         Only one CLI per account can be active at a time.
       </text>
       <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-        Close the other instance, then restart freebuff here.
+        Close the other instance, then restart codebirds here.
       </text>
       <box style={{ marginTop: 1 }}>
         <text style={{ fg: theme.muted }}>

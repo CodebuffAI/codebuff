@@ -1,10 +1,10 @@
-import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import { getStubProjectFileContext } from '@codebirds/common/util/file'
 import { describe, it, expect } from 'bun:test'
 
 import { handleReadSubtree } from '../tool/read-subtree'
 
-import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { CodebirdsToolCall } from '@codebirds/common/tools/list'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
 
 // Type for read_subtree result entries
 interface ReadSubtreeResultEntry {
@@ -68,7 +68,7 @@ describe('handleReadSubtree', () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
 
-    const toolCall: CodebuffToolCall<'read_subtree'> = {
+    const toolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-1',
       input: { paths: ['src'], maxTokens: 50000 },
@@ -103,7 +103,7 @@ describe('handleReadSubtree', () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
 
-    const toolCall: CodebuffToolCall<'read_subtree'> = {
+    const toolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-2',
       input: { paths: ['src/index.ts'], maxTokens: 50000 },
@@ -132,7 +132,7 @@ describe('handleReadSubtree', () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
 
-    const toolCall: CodebuffToolCall<'read_subtree'> = {
+    const toolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-3',
       input: { paths: ['does-not-exist'], maxTokens: 50000 },
@@ -185,7 +185,7 @@ describe('handleReadSubtree', () => {
       'packages/backend/index.ts': { myFunction: 5.0, myClass: 3.0 },
     }
 
-    const toolCall: CodebuffToolCall<'read_subtree'> = {
+    const toolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-subdir',
       input: { paths: ['packages/backend'], maxTokens: 50000 },
@@ -215,7 +215,7 @@ describe('handleReadSubtree', () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
 
-    const toolCall: CodebuffToolCall<'read_subtree'> = {
+    const toolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-trailing-slash',
       input: { paths: ['src/'], maxTokens: 50000 },
@@ -267,7 +267,7 @@ describe('handleReadSubtree', () => {
       'packages/backend/index.ts': { myFunction: 5.0 },
     }
 
-    const toolCall: CodebuffToolCall<'read_subtree'> = {
+    const toolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-nested-trailing-slash',
       input: { paths: ['packages/backend/'], maxTokens: 50000 },
@@ -294,7 +294,7 @@ describe('handleReadSubtree', () => {
     const logger = createLogger()
 
     // Large budget (baseline)
-    const largeToolCall: CodebuffToolCall<'read_subtree'> = {
+    const largeToolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-4a',
       input: { paths: ['src'], maxTokens: 50000 },
@@ -314,7 +314,7 @@ describe('handleReadSubtree', () => {
 
     // Tiny budget
     const tinyBudget = 5
-    const smallToolCall: CodebuffToolCall<'read_subtree'> = {
+    const smallToolCall: CodebirdsToolCall<'read_subtree'> = {
       toolName: 'read_subtree',
       toolCallId: 'tc-4b',
       input: { paths: ['src'], maxTokens: tinyBudget },

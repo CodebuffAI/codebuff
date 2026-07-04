@@ -1,10 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 
-import { getErrorObject } from '@codebuff/common/util/error'
-import { withTimeout } from '@codebuff/common/util/promise'
+import { getErrorObject } from '@codebirds/common/util/error'
+import { withTimeout } from '@codebirds/common/util/promise'
 
-import type { CodebuffClient, AgentDefinition } from '@codebuff/sdk'
+import type { CodebirdsClient, AgentDefinition } from '@codebirds/sdk'
 
 export interface TaskAnalysisData {
   commitSha: string
@@ -144,7 +144,7 @@ Focus on actionable patterns that can inform agent improvements, not individual 
 }
 
 export async function analyzeAllTasks(params: {
-  client: CodebuffClient
+  client: CodebirdsClient
   logsDir: string
   agents: string[]
   analyzerContext: {

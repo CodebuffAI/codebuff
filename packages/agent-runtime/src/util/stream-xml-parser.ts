@@ -1,5 +1,5 @@
 /**
- * Stateful stream XML parser that extracts tool calls from <codebuff_tool_call> XML
+ * Stateful stream XML parser that extracts tool calls from <codebirds_tool_call> XML
  * and filters them out of the text stream.
  *
  * Handles partial tags at chunk boundaries using a stateful approach.
@@ -8,7 +8,7 @@
 import {
   toolNameParam,
   toolXmlName,
-} from '@codebuff/common/tools/constants'
+} from '@codebirds/common/tools/constants'
 
 // Use flexible tag matching without requiring specific newlines
 const startToolTag = `<${toolXmlName}>`

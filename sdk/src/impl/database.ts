@@ -1,7 +1,7 @@
-import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
-import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
-import { getErrorObject } from '@codebuff/common/util/error'
-import { truncateString } from '@codebuff/common/util/string'
+import { validateSingleAgent } from '@codebirds/common/templates/agent-validation'
+import { DynamicAgentTemplateSchema } from '@codebirds/common/types/dynamic-agent-template'
+import { getErrorObject } from '@codebirds/common/util/error'
+import { truncateString } from '@codebirds/common/util/string'
 import z from 'zod/v4'
 
 import { WEBSITE_URL } from '../constants'
@@ -26,9 +26,9 @@ import type {
   GetUserInfoFromApiKeyOutput,
   StartAgentRunFn,
   UserColumn,
-} from '@codebuff/common/types/contracts/database'
-import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
+} from '@codebirds/common/types/contracts/database'
+import type { DynamicAgentTemplate } from '@codebirds/common/types/dynamic-agent-template'
+import type { ParamsOf } from '@codebirds/common/types/function-params'
 
 type CachedUserInfo = Partial<
   NonNullable<Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>>

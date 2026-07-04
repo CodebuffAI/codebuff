@@ -1,4 +1,4 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { AnalyticsEvent } from '@codebirds/common/constants/analytics-events'
 import { cyan, green, red, yellow, bold } from 'picocolors'
 
 import { LOGIN_WEBSITE_URL } from './constants'
@@ -9,7 +9,7 @@ import {
   trackEvent,
 } from '../utils/analytics'
 import { saveUserCredentials } from '../utils/auth'
-import { IS_FREEBUFF } from '../utils/constants'
+import { IS_CODEBIRDS } from '../utils/constants'
 import { getFingerprintId } from '../utils/fingerprint'
 import { logger } from '../utils/logger'
 
@@ -27,7 +27,7 @@ export async function runPlainLogin(): Promise<void> {
   const fingerprintId = await getFingerprintId()
 
   console.log()
-  console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codebuff Login'))
+  console.log(bold(IS_CODEBIRDS ? 'Freebuff Login' : 'Codebirds Login'))
   console.log()
   console.log('Generating login URL...')
 
@@ -82,7 +82,7 @@ export async function runPlainLogin(): Promise<void> {
     // logins aren't missing from the funnel, then flush before exiting since
     // process.exit would otherwise drop the buffered PostHog events.
     if (user.id) {
-      identifyUser(user.id, { email: user.email, freebuff: IS_FREEBUFF })
+      identifyUser(user.id, { email: user.email, codebirds: IS_CODEBIRDS })
       trackEvent(AnalyticsEvent.LOGIN, {
         userId: user.id,
         via: 'plain_command',
@@ -95,7 +95,7 @@ export async function runPlainLogin(): Promise<void> {
     console.log()
     console.log(green(`✓ Logged in as ${user.name} (${user.email})`))
     console.log()
-    const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
+    const cliName = IS_CODEBIRDS ? 'codebirds' : 'codebirds'
     console.log('You can now run ' + cyan(cliName) + ' to start.')
     process.exit(0)
   } else if (result.status === 'timeout') {

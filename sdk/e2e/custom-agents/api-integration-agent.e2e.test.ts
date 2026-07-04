@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { z } from 'zod/v4'
 
-import { CodebuffClient, getCustomToolDefinition } from '../../src'
+import { CodebirdsClient, getCustomToolDefinition } from '../../src'
 import {
   EventCollector,
   getApiKey,
@@ -18,7 +18,7 @@ import {
 import type { AgentDefinition } from '../../src'
 
 describe('Custom Agents: API Integration Agent', () => {
-  let client: CodebuffClient
+  let client: CodebirdsClient
 
   const apiAgent: AgentDefinition = {
     id: 'api-agent',
@@ -93,7 +93,7 @@ Summarize the response data clearly.`,
 
   beforeAll(() => {
     if (skipIfNoApiKey()) return
-    client = new CodebuffClient({ apiKey: getApiKey() })
+    client = new CodebirdsClient({ apiKey: getApiKey() })
   })
 
   test(

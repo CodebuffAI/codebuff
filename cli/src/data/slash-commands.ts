@@ -1,7 +1,7 @@
-import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
-import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
+import { CHATGPT_OAUTH_ENABLED } from '@codebirds/common/constants/chatgpt-oauth'
+import { AGENT_MODES, IS_CODEBIRDS } from '../utils/constants'
 
-import type { SkillsMap } from '@codebuff/common/types/skill'
+import type { SkillsMap } from '@codebirds/common/types/skill'
 
 
 export interface SlashCommand {
@@ -22,7 +22,7 @@ export interface SlashCommand {
 }
 
 // Generate mode commands from the AGENT_MODES constant (excluded in Freebuff)
-const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
+const MODE_COMMANDS: SlashCommand[] = IS_CODEBIRDS
   ? []
   : AGENT_MODES.map((mode) => ({
       id: `mode:${mode.toLowerCase()}`,
@@ -31,7 +31,7 @@ const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
       aliases: [`model:${mode.toLowerCase()}`],
     }))
 
-const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
+const CODEBIRDS_REMOVED_COMMAND_IDS = new Set([
   'ads:enable',
   'ads:disable',
   'usage',
@@ -42,7 +42,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'init',
 ])
 
-const FREEBUFF_ONLY_COMMAND_IDS = new Set([
+const CODEBIRDS_ONLY_COMMAND_IDS = new Set([
   'connect',
   'plan',
   'end-session',
@@ -154,7 +154,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'feedback',
     label: 'feedback',
-    description: IS_FREEBUFF ? 'Share general feedback about Freebuff' : 'Share general feedback about Codebuff',
+    description: IS_CODEBIRDS ? 'Share general feedback about Freebuff' : 'Share general feedback about Codebirds',
   },
   {
     id: 'bash',
@@ -201,12 +201,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   },
 ]
 
-export const SLASH_COMMANDS = IS_FREEBUFF
+export const SLASH_COMMANDS = IS_CODEBIRDS
   ? ALL_SLASH_COMMANDS.filter(
-      (cmd) => !FREEBUFF_REMOVED_COMMAND_IDS.has(cmd.id),
+      (cmd) => !CODEBIRDS_REMOVED_COMMAND_IDS.has(cmd.id),
     )
   : ALL_SLASH_COMMANDS.filter(
-      (cmd) => !FREEBUFF_ONLY_COMMAND_IDS.has(cmd.id),
+      (cmd) => !CODEBIRDS_ONLY_COMMAND_IDS.has(cmd.id),
     )
 
 export const SLASHLESS_COMMAND_IDS = new Set(

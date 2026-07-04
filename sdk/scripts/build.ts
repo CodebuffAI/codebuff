@@ -1,4 +1,4 @@
-// Build script for @codebuff/sdk using Bun's bundler with dual package support
+// Build script for @codebirds/sdk using Bun's bundler with dual package support
 // Creates ESM + CJS bundles with TypeScript declarations
 
 import { mkdir, cp, readFile, writeFile, rm } from 'fs/promises'
@@ -32,7 +32,7 @@ async function build() {
   const external = [
     // Only exclude actual npm dependencies, not workspace packages
     ...Object.keys(pkg.dependencies || {}).filter(
-      (dep) => !dep.startsWith('@codebuff/'),
+      (dep) => !dep.startsWith('@codebirds/'),
     ),
     // Add Node.js built-ins
     'fs',
@@ -105,13 +105,13 @@ async function build() {
             exportReferencedTypes: false,
           },
           libraries: {
-            // Treat all @codebuff/* workspace packages as external imports
+            // Treat all @codebirds/* workspace packages as external imports
             // so dts-bundle-generator doesn't fail on their internal relative imports
             importedLibraries: [
-              '@codebuff/common',
-              '@codebuff/agent-runtime',
-              '@codebuff/code-map',
-              '@codebuff/llm-providers',
+              '@codebirds/common',
+              '@codebirds/agent-runtime',
+              '@codebirds/code-map',
+              '@codebirds/llm-providers',
             ],
           },
         },

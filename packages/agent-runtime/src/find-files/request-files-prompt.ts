@@ -4,10 +4,10 @@ import {
   finetunedVertexModels,
   models,
   type FinetunedVertexModel,
-} from '@codebuff/common/old-constants'
-import { getAllFilePaths } from '@codebuff/common/project-file-tree'
-import { isAbortError, unwrapPromptResult } from '@codebuff/common/util/error'
-import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+} from '@codebirds/common/old-constants'
+import { getAllFilePaths } from '@codebirds/common/project-file-tree'
+import { isAbortError, unwrapPromptResult } from '@codebirds/common/util/error'
+import { systemMessage, userMessage } from '@codebirds/common/util/messages'
 import { range, shuffle, uniq } from 'lodash'
 
 import { promptFlashWithFallbacks } from '../llm-api/gemini-with-fallbacks'
@@ -18,11 +18,11 @@ import {
 } from '../util/messages'
 
 import type { TextBlock } from '../llm-api/claude'
-import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { PromptAiSdkFn } from '@codebirds/common/types/contracts/llm'
+import type { Logger } from '@codebirds/common/types/contracts/logger'
+import type { ParamsExcluding } from '@codebirds/common/types/function-params'
+import type { Message } from '@codebirds/common/types/messages/codebirds-message'
+import type { ProjectFileContext } from '@codebirds/common/util/file'
 
 const NUMBER_OF_EXAMPLE_FILES = 100
 const MAX_FILES_PER_REQUEST = 30
@@ -204,12 +204,12 @@ async function getRelevantFiles(
     logger,
   })
   const start = performance.now()
-  let codebuffMessages = [systemMessage(system), ...messagesWithPrompt]
+  let codebirdsMessages = [systemMessage(system), ...messagesWithPrompt]
 
   // Converts assistant messages to user messages for finetuned model
-  codebuffMessages = codebuffMessages
+  codebirdsMessages = codebirdsMessages
     .map((msg, i) => {
-      if (msg.role === 'assistant' && i !== codebuffMessages.length - 1) {
+      if (msg.role === 'assistant' && i !== codebirdsMessages.length - 1) {
         return castAssistantMessage(msg)
       } else {
         return msg
@@ -220,7 +220,7 @@ async function getRelevantFiles(
 
   let response = await promptFlashWithFallbacks({
     ...params,
-    messages: codebuffMessages,
+    messages: codebirdsMessages,
     model: models.openrouter_gemini2_5_flash,
     useFinetunedModel: finetunedModel,
   })

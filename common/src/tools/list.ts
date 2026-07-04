@@ -39,7 +39,7 @@ import { writeFileParams } from './params/tool/write-file'
 import { writeTodosParams } from './params/tool/write-todos'
 
 import type { $ToolParams, PublishedToolName, ToolName } from './constants'
-import type { ToolMessage } from '../types/messages/codebuff-message'
+import type { ToolMessage } from '../types/messages/codebirds-message'
 import type { ToolCallPart } from '../types/messages/content-part'
 
 export const toolParams = {
@@ -84,21 +84,21 @@ export const toolParams = {
 }
 
 // Tool call from LLM after parsing
-export type CodebuffToolCall<T extends ToolName = ToolName> = {
+export type CodebirdsToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
     input: z.infer<(typeof toolParams)[K]['inputSchema']>
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
-export type CodebuffToolOutput<T extends ToolName = ToolName> = {
+export type CodebirdsToolOutput<T extends ToolName = ToolName> = {
   [K in ToolName]: K extends ToolName
     ? z.infer<(typeof toolParams)[K]['outputSchema']>
     : never
 }[T]
 
-export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage & {
-  content: CodebuffToolOutput<T>
+export type CodebirdsToolMessage<T extends ToolName = ToolName> = ToolMessage & {
+  content: CodebirdsToolOutput<T>
 }
 
 // Tool call to send to client
