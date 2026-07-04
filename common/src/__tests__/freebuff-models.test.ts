@@ -119,21 +119,25 @@ describe('freebuff model availability', () => {
     expect(isFreebuffPremiumModelId(FREEBUFF_MIMO_V25_MODEL_ID)).toBe(false)
   })
 
-  test('Kimi is selectable in full mode', () => {
+  test('Kimi is hidden from pickers but still server-supported for full mode', () => {
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_KIMI_MODEL_ID,
     )
-    expect(getFreebuffModelsForAccessTier('full').map((m) => m.id)).toContain(
-      FREEBUFF_KIMI_MODEL_ID,
-    )
-    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    expect(
+      getFreebuffModelsForAccessTier('full').map((m) => m.id),
+    ).not.toContain(FREEBUFF_KIMI_MODEL_ID)
+    expect(isFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(false)
     expect(isSupportedFreebuffModelId(FREEBUFF_KIMI_MODEL_ID)).toBe(true)
+    // Existing sessions with a saved Kimi selection must still be admitted.
     expect(
       isFreebuffModelAllowedForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
     ).toBe(true)
+    expect(
+      resolveFreebuffModelForAccessTier(FREEBUFF_KIMI_MODEL_ID, 'full'),
+    ).toBe(FREEBUFF_KIMI_MODEL_ID)
   })
 
   test('MiniMax M2.7 is legacy: hidden from pickers but still served for old clients', () => {
