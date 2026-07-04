@@ -34,6 +34,8 @@ export function Composer({
   const pushToast = useStore((s) => s.pushToast)
   const running = useStore((s) => s.threads[threadId]?.thread.turnState === 'running')
   const skills = useStore((s) => s.skills)
+  const pendingFocus = useStore((s) => s.pendingFocusId === threadId)
+  const consumeComposerFocus = useStore((s) => s.consumeComposerFocus)
 
   const [sel, setSel] = useState(0)
   // Set when the user dismisses the menu with Esc; reset on the next edit so a
@@ -48,6 +50,15 @@ export function Composer({
     if (atts.length > prevLength.current) ref.current?.focus({ preventScroll: true })
     prevLength.current = atts.length
   }, [atts.length])
+
+  // A newly-opened tab flags itself for focus so the user can type right away
+  // (see store.pendingFocusId). Consume the one-shot signal once focused so a
+  // later manual switch back to this tab doesn't re-steal focus.
+  useEffect(() => {
+    if (!pendingFocus) return
+    ref.current?.focus({ preventScroll: true })
+    consumeComposerFocus(threadId)
+  }, [pendingFocus, threadId, consumeComposerFocus])
 
   // Grow the textarea to fit when the draft changes, including on tab switch
   // (the new thread's draft can be much longer than the previous tab's; without

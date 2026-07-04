@@ -236,6 +236,11 @@ interface StoreState {
   cycleTab: (delta: number) => void
   jumpTab: (index: number) => void
   ensureLoaded: (id: string) => Promise<void>
+  /** One-shot signal: a newly-opened tab whose composer should grab focus. The
+   *  Composer clears it via `consumeComposerFocus` once it has focused, so a
+   *  later manual tab switch doesn't re-steal focus. */
+  pendingFocusId: string | null
+  consumeComposerFocus: (id: string) => void
 
   /** Toggle a reasoning part between its preview/expanded view (preserves user intent). */
   toggleReasoning: (threadId: string, messageId: string, partId: string) => void
@@ -295,6 +300,7 @@ export const useStore = create<StoreState>((set, get) => ({
   settingsOpen: false,
   recentProjects: [],
   toasts: [],
+  pendingFocusId: null,
 
   setAgentHarness(id) {
     // Optimistic: the server echoes the change back via a `state` event too.
@@ -667,6 +673,8 @@ export const useStore = create<StoreState>((set, get) => ({
       tabOrder: appendTab(s.tabOrder, t.id),
       activeId: t.id,
       recentProjects: pushRecent(s.recentProjects, t.projectPath),
+      // Fresh tab → its composer should be ready to type into immediately.
+      pendingFocusId: t.id,
     }))
   },
 
@@ -735,9 +743,16 @@ export const useStore = create<StoreState>((set, get) => ({
       set((s) => ({
         tabOrder: appendTab(s.tabOrder, id),
         activeId: id,
+        pendingFocusId: id,
       }))
       get().ensureLoaded(id)
     })
+  },
+
+  consumeComposerFocus(id) {
+    // Only clear if it's still pointing at the tab that just focused, so a rapid
+    // second new-tab doesn't get its pending focus wiped by the first's consume.
+    if (get().pendingFocusId === id) set({ pendingFocusId: null })
   },
 
   cycleTab(delta) {
