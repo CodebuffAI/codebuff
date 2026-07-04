@@ -23,6 +23,7 @@ import React, {
   useState,
   useEffect,
   useLayoutEffect,
+  useDeferredValue,
   useRef,
 } from 'react'
 import { useStickToBottom } from 'use-stick-to-bottom'
@@ -829,6 +830,135 @@ const isDetailedActivityItem = (item: AssistantStreamItemType) => {
   return false
 }
 
+const parseReasoningInline = (text: string): React.ReactNode[] =>
+  text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g).map((part, index) => {
+    if (!part) return null
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code
+          key={index}
+          className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px]"
+        >
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+    if (linkMatch) {
+      return (
+        <a
+          key={index}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary/80 underline-offset-2 hover:underline"
+        >
+          {linkMatch[1]}
+        </a>
+      )
+    }
+    return part
+  })
+
+const ReasoningMarkdown: React.FC<{ content: string }> = React.memo(
+  ({ content }) => {
+    const deferredContent = useDeferredValue(content)
+    const elements = useMemo(() => {
+      const lines = deferredContent.trim().split('\n')
+      const nodes: React.ReactNode[] = []
+      let inCodeBlock = false
+      let codeLines: string[] = []
+
+      lines.forEach((line, index) => {
+        if (line.trim().startsWith('```')) {
+          if (inCodeBlock) {
+            nodes.push(
+              <pre
+                key={`code-${index}`}
+                className="my-2 overflow-x-auto rounded-md bg-muted/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground"
+              >
+                {codeLines.join('\n')}
+              </pre>,
+            )
+            codeLines = []
+            inCodeBlock = false
+          } else {
+            inCodeBlock = true
+          }
+          return
+        }
+
+        if (inCodeBlock) {
+          codeLines.push(line)
+          return
+        }
+
+        if (!line.trim()) {
+          nodes.push(<div key={index} className="h-2" />)
+          return
+        }
+
+        const heading = line.match(/^(#{1,4})\s+(.+)$/)
+        if (heading) {
+          nodes.push(
+            <div
+              key={index}
+              className="mb-1 mt-2 text-[11px] font-semibold text-muted-foreground/90"
+            >
+              {parseReasoningInline(heading[2])}
+            </div>,
+          )
+          return
+        }
+
+        const bullet = line.match(/^(\s*)[-*+]\s+(.+)$/)
+        if (bullet) {
+          nodes.push(
+            <div
+              key={index}
+              className="flex gap-1.5 text-xs leading-relaxed text-muted-foreground/70"
+              style={{ paddingLeft: `${Math.min(bullet[1].length, 8) * 0.25}rem` }}
+            >
+              <span className="text-muted-foreground/45">•</span>
+              <span>{parseReasoningInline(bullet[2])}</span>
+            </div>,
+          )
+          return
+        }
+
+        nodes.push(
+          <div
+            key={index}
+            className="whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground/70"
+          >
+            {parseReasoningInline(line)}
+          </div>,
+        )
+      })
+
+      if (inCodeBlock && codeLines.length > 0) {
+        nodes.push(
+          <pre
+            key="code-final"
+            className="my-2 overflow-x-auto rounded-md bg-muted/50 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground"
+          >
+            {codeLines.join('\n')}
+          </pre>,
+        )
+      }
+
+      return nodes
+    }, [deferredContent])
+
+    return <div className="mt-0.5 space-y-0.5">{elements}</div>
+  },
+)
+
+ReasoningMarkdown.displayName = 'ReasoningMarkdown'
+
 // One row inside an expanded activity group. Rich items (subagent output,
 // tool results, errors) stay independently expandable via
 // <AssistantStreamItem>; reasoning shows its full text inline as faded prose;
@@ -844,11 +974,7 @@ const ActivityDetailRow: React.FC<{ item: AssistantStreamItemType }> = ({
         <div className="text-[11px] font-medium text-muted-foreground/80">
           Reasoning
         </div>
-        {content && (
-          <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/70">
-            {content}
-          </p>
-        )}
+        {content && <ReasoningMarkdown content={content} />}
       </div>
     )
   }
@@ -1162,6 +1288,62 @@ const getAgentMessageStreamSignature = (message: {
   ].join(':')
 }
 
+const getActiveRunStatus = (
+  assistantStream: AssistantStreamItemType[],
+  isStreaming: boolean,
+) => {
+  if (!isStreaming) return undefined
+  const last = assistantStream[assistantStream.length - 1]
+  if (!last) {
+    return {
+      label: 'Starting agent',
+      detail: 'waiting for the first update',
+    }
+  }
+
+  if (last.type === 'reasoning' || last.type === 'thinking') {
+    return {
+      label: 'Thinking',
+      detail: 'reasoning is streaming above',
+    }
+  }
+  if (last.type === 'tool_use') {
+    return {
+      label: getActivityItemLabel(last),
+      detail: 'running a tool',
+    }
+  }
+  if (last.type === 'tool_result') {
+    return {
+      label: getActivityItemLabel(last),
+      detail: 'reading the tool result',
+    }
+  }
+  if (last.type === 'reviewing' || last.title?.toLowerCase().includes('review')) {
+    return {
+      label: 'Reviewing changes',
+      detail: 'checking the latest edits for issues',
+    }
+  }
+  if (last.type === 'error') {
+    return {
+      label: 'Handling error',
+      detail: 'preparing the error details',
+    }
+  }
+  if (TEXT_TYPES.has(last.type)) {
+    return {
+      label: 'Writing response',
+      detail: 'streaming output',
+    }
+  }
+
+  return {
+    label: getActivityItemLabel(last),
+    detail: 'working on the next step',
+  }
+}
+
 const getPersistedAdSignature = (ad?: PersistedAgentAd) => {
   if (!ad) return ''
   return [
@@ -1233,6 +1415,10 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
       !(TEXT_TYPES.has(item.type) && !(item.content ?? '').trim()),
   )
   const hasStream = visibleAssistantStream.length > 0
+  const activeRunStatus = useMemo(
+    () => getActiveRunStatus(assistantStream, isStreaming),
+    [assistantStream, isStreaming],
+  )
   const hasCheckpoint =
     message.commit_hash &&
     message.commit_hash !== 'creating' &&
@@ -1412,7 +1598,11 @@ const AgentMessageCard: React.FC<AgentMessageCardProps> = React.memo(
         (isReviewingNow(assistantStream, isStreaming) ? (
           <ReviewingState activityKey={message._id} />
         ) : (
-          <ThinkingState activityKey={message._id} />
+          <ThinkingState
+            activityKey={message._id}
+            label={activeRunStatus?.label}
+            detail={activeRunStatus?.detail}
+          />
         ))}
 
       {isPromptTimeLimit && (
@@ -1683,23 +1873,32 @@ export const AgentChatMessages = forwardRef<
   // Merge fetched bodies back onto the (lightweight) list messages so existing
   // rendering that reads message.assistant_stream keeps working unchanged.
   const hydratedThreadMessages = useMemo(() => {
-    if (!messageBodies) return filteredThreadMessages
     return filteredThreadMessages.map((msg: any) => {
       if (msg.assistant_stream?.length > 0) return msg
-      const body = messageBodies[msg._id]
-      return body ? { ...msg, assistant_stream: body } : msg
+      const body = messageBodies?.[msg._id]
+      if (body) return { ...msg, assistant_stream: body }
+      if (
+        streamingMessage?._id === msg._id &&
+        streamingMessage.assistant_stream?.length > 0
+      ) {
+        return {
+          ...streamingMessage,
+          ...msg,
+          assistant_stream: streamingMessage.assistant_stream,
+        }
+      }
+      return msg
     })
-  }, [filteredThreadMessages, messageBodies])
+  }, [filteredThreadMessages, messageBodies, streamingMessage])
 
   const filteredStreamedMessages = useMemo(() => {
     if (!streamingMessage) return []
     if (streamingMessage.deactivated === true) return []
-    // The latched stream snapshot can briefly lag the message list (e.g. right
-    // after a run finalizes); drop it if the same message already landed there.
-    const alreadyInList = hydratedThreadMessages.some(
+    const messageInList = hydratedThreadMessages.find(
       (msg: any) => msg._id === streamingMessage._id,
     )
-    return alreadyInList ? [] : [streamingMessage]
+    if (!messageInList) return [streamingMessage]
+    return []
   }, [streamingMessage, hydratedThreadMessages])
 
   // Combine and sort messages (oldest first for rendering)

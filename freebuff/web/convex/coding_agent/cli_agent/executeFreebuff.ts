@@ -1188,6 +1188,16 @@ export const runFreebuffAgent = internalAction({
     if (!isContinuation) {
       await recordRunEvent({ ctx, ...args, event: { type: 'start' } })
     }
+    const recordStatus = async (title: string, content: string) =>
+      recordRunEvent({
+        ctx,
+        ...args,
+        event: {
+          type: 'status',
+          title,
+          content,
+        },
+      })
     let pendingAskUserQuestions: AskUserQuestion[] | undefined
 
     const abortController = new AbortController()
@@ -1353,6 +1363,10 @@ export const runFreebuffAgent = internalAction({
       const getCodebase = async () => {
         if (!codebasePromise) {
           codebasePromise = (async () => {
+            await recordStatus(
+              'Starting VM',
+              'Connecting to the project runtime.',
+            )
             const codebase = await initializeCodebase(
               args.sandboxId,
               args.packageManager,
@@ -1414,21 +1428,36 @@ export const runFreebuffAgent = internalAction({
       // `readStoredRunState` call so we don't add an extra thread read.
       let previousRun: any | undefined
       if (isContinuation) {
+        await recordStatus(
+          'Restoring context',
+          'Resuming from the previous cloud step.',
+        )
         priorResumeStorageId = args.resumeFromStorageId
         previousRun = sanitizeRunState(await readResumeStateFromStorage(
           ctx,
           args.resumeFromStorageId!,
         ))
       } else {
+        await recordStatus(
+          'Loading context',
+          'Preparing the previous conversation and project state.',
+        )
         const stored = await readStoredRunState(ctx, args.threadId)
         priorResumeStorageId = stored.storageId
         previousRun = sanitizeRunState(stored.state)
       }
       const codebase = isWebContainerProject ? undefined : await getCodebase()
+      if (!isWebContainerProject) {
+        await recordStatus('Indexing files', 'Reading the latest project files.')
+      }
       const projectFiles = isWebContainerProject
         ? {}
         : await buildDaytonaProjectFiles(codebase!)
 
+      await recordStatus(
+        'Launching model',
+        'Waiting for the first model update.',
+      )
       const runState = await run({
         apiKey: requireEnv('CODEBUFF_API_KEY'),
         fingerprintId: args.projectId,

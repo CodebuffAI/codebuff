@@ -60,8 +60,11 @@ export const continueOrPauseCloudCliAgent = internalMutation({
     const resumeSessionId =
       args.sessionId || thread?.active_session_id || undefined;
 
-    if (!eligible || !withinBudget || !resumeSessionId) {
-      await pauseWithTimeout(ctx, args.messageId);
+    if (!eligible || !withinBudget || !resumeSessionId || !args.userId) {
+      await pauseWithTimeout(ctx, args.messageId, {
+        threadId: args.threadId,
+        projectId: args.projectId,
+      });
       // Clear the per-turn marker so the next user turn starts a fresh budget.
       if (message?.cloud_turn_started_at !== undefined) {
         await ctx.db.patch(args.messageId, { cloud_turn_started_at: undefined });
@@ -75,6 +78,15 @@ export const continueOrPauseCloudCliAgent = internalMutation({
       state: "Processing",
       isStreaming: true,
       state_message: undefined,
+    });
+
+    // `handleWorkflowComplete` clears this flag before asking whether a cloud
+    // turn should continue. Re-set it here so server-side send gates and the
+    // idle sweep still treat the chained turn as in flight.
+    await ctx.db.patch(args.threadId, {
+      isProcessing: true,
+      workflow_id: undefined,
+      last_edited_timestamp: Date.now(),
     });
 
     // Resume the same session in a fresh workflow. The executor reads
@@ -126,7 +138,10 @@ export const startCloudCliContinuation = internalMutation({
   },
   handler: async (ctx, args) => {
     if (!args.userId) {
-      await pauseWithTimeout(ctx, args.messageId);
+      await pauseWithTimeout(ctx, args.messageId, {
+        threadId: args.threadId,
+        projectId: args.projectId,
+      });
       return;
     }
 
@@ -170,6 +185,11 @@ export const startCloudCliContinuation = internalMutation({
       },
     );
 
+    await ctx.db.patch(args.threadId, {
+      isProcessing: true,
+      last_edited_timestamp: Date.now(),
+    });
+
     await ctx.db.patch(args.projectId, {
       terminated: false,
       state: "processing",
@@ -180,6 +200,7 @@ export const startCloudCliContinuation = internalMutation({
 async function pauseWithTimeout(
   ctx: MutationCtx,
   messageId: Id<"agent_message">,
+  opts?: { threadId?: Id<"agent_thread">; projectId?: Id<"project"> },
 ) {
   await finalizeMessageStream(ctx, messageId, {
     extraItems: [
@@ -195,4 +216,14 @@ async function pauseWithTimeout(
       isStreaming: false,
     },
   });
+  if (opts?.threadId) {
+    await ctx.db.patch(opts.threadId, {
+      isProcessing: false,
+      workflow_id: undefined,
+      last_edited_timestamp: Date.now(),
+    });
+  }
+  if (opts?.projectId) {
+    await ctx.db.patch(opts.projectId, { state: "active" });
+  }
 }
