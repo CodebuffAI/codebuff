@@ -6,6 +6,7 @@ import {
   convertToResponsesApiInput,
   countTokensViaOpenAI,
   formatToolContent,
+  normalizeToolSchemasForAnthropic,
 } from '../_post'
 
 describe('convertContentToAnthropic', () => {
@@ -909,6 +910,93 @@ describe('countTokensViaOpenAI', () => {
         logger: mockLogger,
       }),
     ).rejects.toThrow('OpenAI API error: 500')
+  })
+})
+
+describe('normalizeToolSchemasForAnthropic', () => {
+  it('backfills type: object when the schema is missing a top-level type', () => {
+    const tools = [
+      {
+        name: 'broken_tool',
+        description: 'A tool whose schema omits the top-level type',
+        input_schema: {
+          properties: { path: { type: 'string' } },
+          required: ['path'],
+        },
+      },
+    ]
+
+    const result = normalizeToolSchemasForAnthropic(tools)
+
+    expect(result).toEqual([
+      {
+        name: 'broken_tool',
+        description: 'A tool whose schema omits the top-level type',
+        input_schema: {
+          type: 'object',
+          properties: { path: { type: 'string' } },
+          required: ['path'],
+        },
+      },
+    ])
+  })
+
+  it('leaves a well-formed schema unchanged', () => {
+    const tools = [
+      {
+        name: 'good_tool',
+        description: 'Already has a top-level type',
+        input_schema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+        },
+      },
+    ]
+
+    const result = normalizeToolSchemasForAnthropic(tools)
+
+    // Unchanged, including the same type value.
+    expect(result).toEqual(tools)
+    expect(result![0].input_schema.type).toBe('object')
+  })
+
+  it('does not overwrite a non-object top-level type', () => {
+    const tools = [
+      {
+        name: 'string_tool',
+        input_schema: { type: 'string' },
+      },
+    ]
+
+    const result = normalizeToolSchemasForAnthropic(tools)
+
+    expect(result![0].input_schema.type).toBe('string')
+  })
+
+  it('normalizes only the tools that need it, preserving order', () => {
+    const tools = [
+      { name: 'ok', input_schema: { type: 'object', properties: {} } },
+      { name: 'broken', input_schema: { properties: { a: { type: 'number' } } } },
+    ]
+
+    const result = normalizeToolSchemasForAnthropic(tools)
+
+    expect(result).toEqual([
+      { name: 'ok', input_schema: { type: 'object', properties: {} } },
+      {
+        name: 'broken',
+        input_schema: { type: 'object', properties: { a: { type: 'number' } } },
+      },
+    ])
+  })
+
+  it('leaves tools without an input_schema untouched', () => {
+    const tools = [{ name: 'no_schema' }]
+    expect(normalizeToolSchemasForAnthropic(tools)).toEqual(tools)
+  })
+
+  it('returns undefined when tools is undefined', () => {
+    expect(normalizeToolSchemasForAnthropic(undefined)).toBeUndefined()
   })
 })
 

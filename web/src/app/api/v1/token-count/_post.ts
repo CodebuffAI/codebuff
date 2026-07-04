@@ -38,6 +38,44 @@ type TokenCountRequest = z.infer<typeof tokenCountRequestSchema>
 
 const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-6'
 
+// Error carrying the upstream HTTP status from a token-count provider call, so
+// the route handler can map an upstream 4xx (a deterministic bad request, e.g.
+// a malformed tool schema) to a client 4xx instead of a retryable 500.
+export class UpstreamTokenCountError extends Error {
+  constructor(
+    message: string,
+    readonly upstreamStatus: number,
+  ) {
+    super(message)
+    this.name = 'UpstreamTokenCountError'
+  }
+}
+
+// Anthropic's count_tokens API requires every tool's `input_schema` to be a
+// JSON Schema object with a top-level `type: 'object'`. Some tool definitions
+// reach us with a schema that has `properties` but no top-level `type`, which
+// the API rejects with `tools.N.custom.input_schema.type: Field required` —
+// failing token counting for every step of every run carrying that tool.
+// Defensively backfill `type: 'object'` so one malformed schema can't 400 the
+// whole request. (The source is also fixed to emit `type`; this is a backstop.)
+export function normalizeToolSchemasForAnthropic(
+  tools: TokenCountRequest['tools'],
+): TokenCountRequest['tools'] {
+  if (!tools) return tools
+  return tools.map((tool) => {
+    const schema = tool.input_schema
+    if (
+      schema != null &&
+      typeof schema === 'object' &&
+      !Array.isArray(schema) &&
+      (schema as Record<string, unknown>).type === undefined
+    ) {
+      return { ...tool, input_schema: { ...schema, type: 'object' } }
+    }
+    return tool
+  })
+}
+
 export async function postTokenCount(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -120,9 +158,22 @@ export async function postTokenCount(params: {
       'Failed to count tokens',
     )
 
+    // Map a deterministic upstream 4xx (e.g. a malformed tool schema the
+    // provider rejects) to a client 4xx so callers treat it as non-retryable
+    // instead of hammering the endpoint on every step. Everything else stays a
+    // 500 (retryable transient failure).
+    const upstreamStatus =
+      error instanceof UpstreamTokenCountError
+        ? error.upstreamStatus
+        : undefined
+    const status =
+      upstreamStatus !== undefined && upstreamStatus >= 400 && upstreamStatus < 500
+        ? 422
+        : 500
+
     return NextResponse.json(
       { error: 'Failed to count tokens' },
-      { status: 500 },
+      { status },
     )
   }
 }
@@ -331,6 +382,10 @@ async function countTokensViaAnthropic(params: {
   // Convert messages to Anthropic format
   const anthropicMessages = convertToAnthropicMessages(messages)
 
+  // Ensure every tool schema carries a top-level `type: 'object'` (see
+  // normalizeToolSchemasForAnthropic) before sending to count_tokens.
+  const normalizedTools = normalizeToolSchemasForAnthropic(tools)
+
   // Convert model from OpenRouter format (e.g. "anthropic/claude-opus-4.5") to Anthropic format (e.g. "claude-opus-4-5-20251101")
   // For non-Anthropic models, use the default Anthropic model for token counting
   const isNonAnthropicModel = !model || !isClaudeModel(model)
@@ -353,7 +408,7 @@ async function countTokensViaAnthropic(params: {
         model: anthropicModelId,
         messages: anthropicMessages,
         ...(system && { system }),
-        ...(tools && { tools }),
+        ...(normalizedTools && { tools: normalizedTools }),
       }),
       signal: AbortSignal.timeout(TOKEN_COUNT_FETCH_TIMEOUT_MS),
     },
@@ -361,17 +416,25 @@ async function countTokensViaAnthropic(params: {
 
   if (!response.ok) {
     const errorText = await response.text()
+    // Intentionally omit `messages` (and the full tool schemas) from the error
+    // log: the messages array can be ~0.5MB, and shipping it on every failure
+    // dominated Axiom ingest cost. Keep the fields needed to diagnose (model,
+    // tool count/names, and the upstream error text).
     logger.error(
       {
         status: response.status,
         errorText,
-        messages: anthropicMessages,
-        system,
         model,
+        anthropicModelId,
+        toolCount: normalizedTools?.length,
+        toolNames: normalizedTools?.map((tool) => tool.name),
       },
       'Anthropic token count API error',
     )
-    throw new Error(`Anthropic API error: ${response.status} - ${errorText}`)
+    throw new UpstreamTokenCountError(
+      `Anthropic API error: ${response.status} - ${errorText}`,
+      response.status,
+    )
   }
 
   const data = await response.json()

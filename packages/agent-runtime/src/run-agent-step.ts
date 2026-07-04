@@ -23,6 +23,7 @@ import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debu
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
+import z from 'zod/v4'
 
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 import { callTokenCountAPI } from './llm-api/codebuff-web-api'
@@ -84,6 +85,44 @@ import type {
   CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
+
+// Convert a tool's stored inputSchema into JSON Schema suitable for Anthropic's
+// count_tokens API. Built-in and MCP tools store a Zod schema here; serializing
+// it raw ships Zod internals (`def`/`shape`) instead of JSON Schema, so token
+// counts are computed against garbage and any schema whose top-level isn't an
+// object (e.g. a union → `anyOf`) arrives without `type`, which the API rejects
+// with `tools.N.custom.input_schema.type: Field required`. We convert to JSON
+// Schema and guarantee a top-level `type: 'object'`.
+export function toTokenCountInputSchema(
+  inputSchema: unknown,
+): Record<string, unknown> | undefined {
+  if (inputSchema == null) return undefined
+
+  let jsonSchema: Record<string, unknown>
+  if (typeof (inputSchema as { safeParse?: unknown }).safeParse === 'function') {
+    try {
+      jsonSchema = z.toJSONSchema(inputSchema as z.ZodType, {
+        io: 'input',
+      }) as Record<string, unknown>
+    } catch {
+      jsonSchema = { type: 'object', properties: {} }
+    }
+  } else if (typeof inputSchema === 'object' && !Array.isArray(inputSchema)) {
+    // Already a plain object (e.g. a pre-serialized JSON Schema) — copy it.
+    jsonSchema = { ...(inputSchema as Record<string, unknown>) }
+  } else {
+    return undefined
+  }
+
+  // `$schema` is meaningless to count_tokens; drop it to keep the payload lean.
+  delete jsonSchema['$schema']
+  // Anthropic requires a top-level `type: 'object'`. Object schemas already
+  // carry it; union/intersection schemas (anyOf/allOf) don't — backfill it.
+  if (jsonSchema.type === undefined) {
+    jsonSchema.type = 'object'
+  }
+  return jsonSchema
+}
 
 async function additionalToolDefinitions(
   params: {
@@ -886,15 +925,20 @@ export async function loopAgentSteps(
   initialAgentState.toolDefinitions = toolDefinitions
   let currentAgentState: AgentState = initialAgentState
 
-  // Convert tool definitions to Anthropic format for accurate token counting
-  // Tool definitions are stored as { [name]: { description, inputSchema } }
-  // Anthropic count_tokens API expects [{ name, description, input_schema }]
+  // Convert tool definitions to Anthropic format for accurate token counting.
+  // Tool definitions are stored as { [name]: { description, inputSchema } },
+  // where inputSchema is a Zod schema. Anthropic's count_tokens API expects
+  // [{ name, description, input_schema }] with input_schema being real JSON
+  // Schema (with a top-level `type: 'object'`) — see toTokenCountInputSchema.
   const toolsForTokenCount = Object.entries(toolDefinitions).map(
-    ([name, def]) => ({
-      name,
-      ...(def.description && { description: def.description }),
-      ...(def.inputSchema && { input_schema: def.inputSchema }),
-    }),
+    ([name, def]) => {
+      const input_schema = toTokenCountInputSchema(def.inputSchema)
+      return {
+        name,
+        ...(def.description && { description: def.description }),
+        ...(input_schema && { input_schema }),
+      }
+    },
   )
 
   let shouldEndTurn = false
