@@ -118,7 +118,9 @@ export function toTokenCountInputSchema(
   delete jsonSchema['$schema']
   // Anthropic requires a top-level `type: 'object'`. Object schemas already
   // carry it; union/intersection schemas (anyOf/allOf) don't — backfill it.
-  if (jsonSchema.type === undefined) {
+  // Treat missing / null / empty-string as absent (valid JSON Schema `type` is
+  // always a non-empty string or array).
+  if (jsonSchema.type == null || jsonSchema.type === '') {
     jsonSchema.type = 'object'
   }
   return jsonSchema
