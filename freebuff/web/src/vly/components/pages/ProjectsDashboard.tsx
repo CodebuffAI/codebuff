@@ -40,6 +40,7 @@ import {
   getProjectImageSrc,
   ProjectCardThumbnail,
 } from '@/vly/components/projects/ProjectCardThumbnail'
+import { isWebContainerSandboxId } from '@/vly/lib/webcontainer/constants'
 import { WebLandingSections } from '@/vly/components/pages/WebLandingSections'
 // NB: `@/components/*` is aliased to `src/vly/components/*`, so the landing
 // footer is imported relatively.
@@ -55,7 +56,15 @@ type AnyProject = NonNullable<
 
 function isLegacyProject(project: AnyProject): boolean {
   const p = project as any
-  return p.sandbox_id && !p.sandbox_id.startsWith('daytona:')
+  return (
+    !!p.sandbox_id &&
+    !p.sandbox_id.startsWith('daytona:') &&
+    !isWebContainerSandboxId(p.sandbox_id)
+  )
+}
+
+function isFastProject(project: AnyProject): boolean {
+  return isWebContainerSandboxId((project as any).sandbox_id)
 }
 
 export default function ProjectsDashboard() {
@@ -306,6 +315,14 @@ export default function ProjectsDashboard() {
                             title="Legacy CodeSandbox project"
                           >
                             Legacy
+                          </span>
+                        )}
+                        {isFastProject(project) && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                            title="Fast WebContainer project"
+                          >
+                            FAST
                           </span>
                         )}
                         {!quotaCheck.allowed && (

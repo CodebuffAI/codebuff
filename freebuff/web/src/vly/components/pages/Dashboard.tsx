@@ -43,6 +43,7 @@ import { useCustomer } from "@/vly/lib/billing-disabled-react";
 import { checkProjectWorkspaceQuota } from "@/vly/lib/billing/workspace-quota-utils";
 import type { AutumnCustomer } from "@/vly/lib/billing/types";
 import { PageLayout } from "@/vly/components/test-landing/PageLayout";
+import { isWebContainerSandboxId } from "@/vly/lib/webcontainer/constants";
 
 export default function Dashboard() {
   const { data: session, status: sessionStatus } = useSession()
@@ -104,8 +105,17 @@ export default function Dashboard() {
   };
 
   const isLegacyProject = (project: any) => {
-    // Legacy projects have a sandbox_id without the "daytona:" prefix
-    return project.sandbox_id && !project.sandbox_id.startsWith("daytona:");
+    // Legacy projects are old CodeSandbox projects. WebContainer projects also
+    // do not use the daytona prefix, but should show the FAST badge instead.
+    return (
+      !!project.sandbox_id &&
+      !project.sandbox_id.startsWith("daytona:") &&
+      !isWebContainerSandboxId(project.sandbox_id)
+    );
+  };
+
+  const isFastProject = (project: any) => {
+    return isWebContainerSandboxId(project.sandbox_id);
   };
 
   // Filter and sort projects
@@ -740,6 +750,14 @@ export default function Dashboard() {
                             Legacy
                           </span>
                         )}
+                        {isFastProject(project) && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                            title="Fast WebContainer project"
+                          >
+                            FAST
+                          </span>
+                        )}
                         {!quotaCheck.allowed && (
                           <span
                             className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
@@ -1216,6 +1234,14 @@ export default function Dashboard() {
                                         />
                                       </svg>
                                       Legacy
+                                    </span>
+                                  )}
+                                  {isFastProject(project) && (
+                                    <span
+                                      className="inline-flex flex-shrink-0 items-center gap-1 rounded-md border border-primary/30 bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary"
+                                      title="Fast WebContainer project"
+                                    >
+                                      FAST
                                     </span>
                                   )}
                                 </div>
