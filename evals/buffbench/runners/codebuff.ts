@@ -42,6 +42,29 @@ export class CodebuffRunner implements Runner {
     const steps: AgentStep[] = []
     let totalCostUsd = 0
 
+    /**
+     * Streaming-aggregated cost in USD, accumulated from `finish` events emitted
+     * during the run. This is a defensive SECOND source of cost, complementing
+     * the post-run `result.sessionState.mainAgentState.creditsUsed`.
+     *
+     * Why two sources: for routed providers (e.g. iamhc/glm-5.2) the post-run
+     * `creditsUsed` field is NOT populated — every step's `onCostCalculated`
+     * callback either never fires or fires with 0, so `creditsUsed` stays 0 and
+     * the cost-to-value signal is lost. The `finish` PrintModeEvent carries a
+     * `totalCost` field that the SDK reports alongside `creditsUsed`; by also
+     * accumulating it here we capture cost even when the post-run field is
+     * absent. We prefer `creditsUsed` when present (it is the authoritative
+     * per-turn accounting) and fall back to the streaming aggregate otherwise.
+     *
+     * Assumption: every cost-bearing event reports cost in the same unit as
+     * `creditsUsed` (i.e. US cents), so we divide by 100 to get USD, matching the
+     * existing `creditsUsed / 100` conversion below. If events only carried raw
+     * token counts we'd need a per-model price lookup, but the `finish` event's
+     * `totalCost` is already credit-denominated (cents), so the simple division
+     * is correct.
+     */
+    let streamedCostUsd = 0
+
     const maxAgentSteps = 40
     const result = await this.client.run({
       agent: this.agentId,
@@ -57,6 +80,12 @@ export class CodebuffRunner implements Runner {
           event.toolName === 'set_messages'
         ) {
           return
+        }
+        // Accumulate cost from streaming `finish` events. The `finish` event's
+        // `totalCost` is reported in cents (same as `creditsUsed`), so divide by
+        // 100 to USD and sum across every finish in the run (subagent + main).
+        if (event.type === 'finish' && typeof event.totalCost === 'number') {
+          streamedCostUsd += event.totalCost / 100
         }
         if (event.type === 'error') {
           console.error(
@@ -117,12 +146,39 @@ export class CodebuffRunner implements Runner {
     }
 
     const mainAgentState = result.sessionState?.mainAgentState
-    totalCostUsd = (mainAgentState?.creditsUsed ?? 0) / 100
+    // Prefer the authoritative post-run `creditsUsed` (credited per-turn,
+    // summed across steps). When it's 0/absent — the routed-provider case —
+    // fall back to `directCreditsUsed` (a sibling session-state cost field that
+    // mirrors `creditsUsed`'s accumulation), and finally to the
+    // streaming-aggregated cost. All three are credit-denominated (cents), so
+    // each is divided by 100 to USD. cachedInputTokens / inputTokens still read
+    // from mainAgentState exactly as before (those were NOT reported missing).
+    const creditsUsed = mainAgentState?.creditsUsed ?? 0
+    const directCreditsUsed = mainAgentState?.directCreditsUsed ?? 0
+    if (creditsUsed > 0) {
+      totalCostUsd = creditsUsed / 100
+    } else if (directCreditsUsed > 0) {
+      totalCostUsd = directCreditsUsed / 100
+    } else {
+      totalCostUsd = streamedCostUsd
+    }
+
     const cachedInputTokens = mainAgentState?.cacheInputTokens
     const inputTokens = mainAgentState?.cacheTotalInputTokens
     const finalMessageHistoryText = mainAgentState?.messageHistory
       ? JSON.stringify(mainAgentState.messageHistory)
       : undefined
+
+    // If the agent actually did work (produced step events) but we still have
+    // no cost, flag it. For routed providers where none of `creditsUsed`,
+    // `directCreditsUsed`, nor any streamed `finish.totalCost` was populated,
+    // the cost truly cannot be aggregated from the available signals — this
+    // keeps the meta-analysis from misinterpreting cost:0 as a "free run".
+    if (totalCostUsd === 0 && steps.length > 0) {
+      console.warn(
+        `[${this.commitId}:${this.agentId}] Cost could not be aggregated for this provider route (creditsUsed=${creditsUsed}, directCreditsUsed=${directCreditsUsed}, streamedCostUsd=${streamedCostUsd}); reporting cost:0 as a known limitation.`,
+      )
+    }
 
     // Get git diff after Codebuff has made changes
     let diff = ''

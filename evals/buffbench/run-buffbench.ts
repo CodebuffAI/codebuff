@@ -51,6 +51,10 @@ function failedJudgingResult(error: string): JudgingResult {
     completionScore: 0,
     codeQualityScore: 0,
     overallScore: 0,
+    // The agent crashed before any judge could run — these all-zero scores are
+    // synthetic, NOT a measured 0/10. Match the all-judges-failed signal so
+    // downstream consumers can exclude this run from averages.
+    scoringStatus: 'all_judges_failed',
   }
 }
 
@@ -179,11 +183,14 @@ async function runTask(options: {
         })
       }
 
-      const evalRun = {
+      const evalRun: EvalRun = {
         commitSha: commit.sha,
         prompt: commit.prompt,
         diff: agentResult.diff,
         judging: judgeResult,
+        // Surface the judging signal at the top level for ergonomic meta-analysis
+        // filtering. Default to 'scored' for back-compat with old trace files.
+        scoringStatus: judgeResult.scoringStatus ?? 'scored',
         cost: agentResult.cost,
         durationMs: agentResult.durationMs,
         error: agentResult.error,
@@ -242,11 +249,14 @@ async function runTask(options: {
       const message = formatUnknownError(error)
       console.error(`[${commit.id}] Agent ${agentId} failed:`, message)
       const judgeResult = failedJudgingResult(message)
-      const evalRun = {
+      const evalRun: EvalRun = {
         commitSha: commit.sha,
         prompt: commit.prompt,
         diff: '',
         judging: judgeResult,
+        // The agent itself crashed before judging — mirror the synthetic-zero
+        // signal so this run is excluded from measured averages.
+        scoringStatus: 'all_judges_failed',
         cost: 0,
         durationMs: 0,
         error: message,
@@ -282,7 +292,9 @@ async function runTask(options: {
   const analysisData = {
     commitSha: commit.sha,
     timestamp: new Date().toISOString(),
-    ...traceAnalysis,
+    ...(traceAnalysis ?? {
+      traceAnalysisStatus: 'analysis_disabled' as const,
+    }),
     results: commitTraces.map((t) => ({
       agentId: t.agentId,
       ...t.judgeResult,

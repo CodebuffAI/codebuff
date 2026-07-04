@@ -134,6 +134,7 @@
       "models": [
         "glm-5.2",
         "gpt-5.5",
+        "gpt-5.4",
         "claude-opus-4-6",
         "deepseek-v4-pro",
         "deepseek-v4-flash"
@@ -671,6 +672,60 @@
         "context": {
           "windowTokens": 500000
         }
+      }
+    },
+    "hapuppy": {
+      "type": "openai-compatible",
+      "baseURL": "https://beta.hapuppy.com/v1",
+      "apiKeyEnv": "HAPUPPY_API_KEY",
+      "models": [
+        "glm-5.2"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
+    },
+    "futureppo": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.futureppo.top/v1",
+      "apiKeyEnv": "FUTUREPPO_API_KEY",
+      "models": [
+        "gpt-5.4"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
+      }
+    },
+    "iamhc": {
+      "type": "openai-compatible",
+      "baseURL": "https://api.iamhc.cn/v1",
+      "apiKeyEnv": "IAMHC_API_KEY",
+      "models": [
+        "DeepSeek-V4-Pro",
+        "DeepSeek-V4-Flash",
+        "glm-5.2",
+        "MiniMax-M3"
+      ],
+      "supportsStructuredOutputs": false,
+      "compatibility": {
+        "stripCacheControl": true,
+        "stringifyTextContent": true,
+        "supportsTools": true,
+        "supportsRequiredToolChoice": true,
+        "supportsStopSequences": false,
+        "stripProviderMetadata": true
       }
     }
   }

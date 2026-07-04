@@ -1,3 +1,7 @@
 test-repos/
 logs/
 
+# Auto-generated buffbench judge / base2 error artifacts
+*-judge-*-agent-output-error.json
+buffbench/*-base2-error-*.json
+
