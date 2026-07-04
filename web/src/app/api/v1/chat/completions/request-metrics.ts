@@ -22,6 +22,10 @@ type RequestMetricsParams = {
    *  See util/request-queue-time.ts — this is the only place instance-level
    *  backpressure is visible; handler timers start after dequeue. */
   queueMs?: number
+  /** Declared request body size (Content-Length). Disambiguates queueMs:
+   *  X-Request-Start is stamped at header arrival, so queueMs includes body
+   *  upload — a large body inflates it independent of backpressure. */
+  contentBytes?: number
   logSampleRate?: number
 }
 
@@ -36,6 +40,7 @@ export function beginChatCompletionRequestMetrics({
   streaming,
   costMode,
   queueMs,
+  contentBytes,
   logSampleRate = DEFAULT_LOG_SAMPLE_RATE,
 }: RequestMetricsParams) {
   const requestSequence = ++nextRequestSequence
@@ -61,6 +66,7 @@ export function beginChatCompletionRequestMetrics({
     streaming,
     costMode,
     ...(queueMs !== undefined && { queueMs }),
+    ...(contentBytes !== undefined && { contentBytes }),
     logSampleRate: normalizedLogSampleRate,
   }
 

@@ -62,6 +62,44 @@ describe('chat completion request metrics', () => {
     expect(logger.info).toHaveBeenCalledTimes(0)
   })
 
+  it('emits queueMs and contentBytes when provided', () => {
+    const logger = createLogger()
+    const metrics = beginChatCompletionRequestMetrics({
+      ...baseParams(logger),
+      queueMs: 1234,
+      contentBytes: 65536,
+    })
+    metrics.end('completed')
+
+    const startFields = (logger.info as ReturnType<typeof mock>).mock
+      .calls[0][0]
+    expect(startFields).toMatchObject({ queueMs: 1234, contentBytes: 65536 })
+  })
+
+  it('omits contentBytes/queueMs fields when absent', () => {
+    const logger = createLogger()
+    const metrics = beginChatCompletionRequestMetrics(baseParams(logger))
+    metrics.end('completed')
+
+    const startFields = (logger.info as ReturnType<typeof mock>).mock
+      .calls[0][0]
+    expect(startFields).not.toHaveProperty('contentBytes')
+    expect(startFields).not.toHaveProperty('queueMs')
+  })
+
+  it('logs a long-queued request even when sampling would skip it', () => {
+    const logger = createLogger()
+    const metrics = beginChatCompletionRequestMetrics({
+      ...baseParams(logger),
+      logSampleRate: 0,
+      queueMs: 8000,
+    })
+    metrics.end('completed')
+
+    // start + finish both logged despite logSampleRate 0
+    expect(logger.info).toHaveBeenCalledTimes(2)
+  })
+
   it('decrements when a wrapped stream completes', async () => {
     const logger = createLogger()
     const metrics = beginChatCompletionRequestMetrics(baseParams(logger))

@@ -41,3 +41,30 @@ export function queueTimeMsFromHeaders(headers: {
   if (queueMs < 0 || queueMs > MAX_PLAUSIBLE_QUEUE_MS) return undefined
   return Math.round(queueMs)
 }
+
+/**
+ * Declared request body size from `Content-Length`, for disambiguating
+ * `queueMs`: X-Request-Start is stamped when headers arrive, so queue time
+ * folds in the time to receive the body. Chat-completion bodies (full message
+ * history) are large, so a big queueMs can be slow upload rather than
+ * instance backpressure. Logging both lets us tell them apart. Returns
+ * undefined when the header is absent or unparseable (e.g. chunked transfer).
+ */
+// A body larger than this over the JSON API is bogus (spoofed/garbage header),
+// not a real request — drop it rather than log a misleading giant number.
+const MAX_PLAUSIBLE_CONTENT_BYTES = 1024 * 1024 * 1024 // 1 GiB
+
+export function requestContentBytesFromHeaders(headers: {
+  get(name: string): string | null
+}): number | undefined {
+  const raw = headers.get('content-length')?.trim()
+  // Content-Length is `1*DIGIT` per HTTP. Require exactly that so a malformed
+  // value ("0x10", "1e6", "123abc") is dropped as unparseable rather than
+  // silently partial-parsed by parseInt into a wrong, plausible-looking number.
+  if (!raw || !/^\d+$/.test(raw)) return undefined
+  const bytes = Number(raw)
+  if (!Number.isFinite(bytes) || bytes > MAX_PLAUSIBLE_CONTENT_BYTES) {
+    return undefined
+  }
+  return bytes
+}
