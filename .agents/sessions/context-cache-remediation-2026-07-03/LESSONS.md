@@ -234,3 +234,21 @@ GOTCHA — validation-hook gap: The M1–M5 commit (b3240ef44) passed the automa
 
 Reviewer gate may require integration-style coverage through the orchestration path, not just pure helper tests. For buffbench runner behavior, `runAgentOnCommit` can be tested cheaply with a temp local git repo and a mock Openbuff client; this exercises `CodebuffRunner`, cache metric extraction from `sessionState.mainAgentState`, deterministic cache-recall final-check output, and diff generation without hitting external services.
 
+
+<!-- update_plan_status:appended -->
+## Subagent parallelism policy lesson — 2026-07-03T23:04:14.522Z
+
+Policy updates should describe agent spawning as deterministic phase-triggered delegation rather than discretionary randomness. The durable pattern is: discover context first, use thinker for complex post-discovery reasoning, use editor for non-trivial implementation with a self-contained brief, run independent validation in parallel when safe, and join validation/review/security results before finalizing. Parallel reviewers are static-only unless validation output is already complete and included in the prompt.
+
+
+<!-- update_plan_status:appended -->
+## Multi-orchestrator policy consistency — 2026-07-03T23:09:11.243Z
+
+When docs claim a policy applies to multiple orchestrator definitions, verify every named definition receives the prompt/policy update. For base policy work, check both `agents/base2/base2.ts` and `agents/base2/base-deep.ts` before finalizing docs that mention both.
+
+
+<!-- update_plan_status:appended -->
+## Explicit Candidate Coverage — 2026-07-04T00:15:43.681Z
+
+When user asks to cover a numbered or enumerated policy-candidate list, mirror every item explicitly in both prompt policy and docs. Avoid relying on umbrella wording for high-impact candidates such as validation selection, release/deployment flow, ask-user decisions, and tool routing; reviewers and users will treat omissions as incomplete even if adjacent policies imply them.
+

@@ -65,6 +65,72 @@ and a reviewer gate to decide whether a turn may finish green:
   transcripts. Only the marker (hash + byte length) and pass/fail
   status are recorded.
 
+### Subagent and parallelism policy
+
+Subagent use is phase-triggered orchestration policy, not a random choice. The policy covers every high-impact orchestration candidate:
+
+- Context-gathering breadth: classify each task as `tiny`, `focused`,
+  `multi-file`, `cross-subsystem`, or `unknown surface` before editing.
+  Tiny tasks read the directly relevant file; focused tasks also inspect
+  adjacent tests/callers; multi-file tasks search and read representative
+  files; cross-subsystem or unknown-surface tasks use `query_index`,
+  `list_directory`, `glob`, and parallel file-picker/code-searcher shards.
+- Tool choice: route repository state to `git_status`, source inspection to
+  `read_files`/`read_outline`/`read_subtree`/`glob`/`list_directory`/
+  `query_index`, images to `read_image`, whole-symbol edits to
+  `rewrite_symbol`, related edits to `edit_transaction`, configured hooks
+  to `run_file_change_hooks`, visual smoke tests to browser/CLI visual
+  agents, and only use shell commands through `basher` when no dedicated
+  tool exists.
+- Ask-user decisions: require confirmation for destructive commands,
+  public API or contract changes, dependency additions, schema/data
+  migrations, release/publish/deploy actions, production-affecting scripts,
+  and ambiguous product behavior. For reversible or obvious choices,
+  choose the conservative path and proceed.
+- Discovery phase: use `query_index` directly, then spawn file-picker,
+  code-searcher, or researcher agents when relevant files, APIs, or
+  commands are not already obvious.
+- Reasoning phase: spawn `thinker` after context discovery for complex
+  design, architecture, risk, tradeoff, spec/plan critique, or debugging
+  strategy decisions. Explicitly skip it for straightforward edits.
+- Implementation phase: spawn `editor` for non-trivial source changes
+  with a self-contained implementation brief. Preserve simple-task
+  exceptions for direct answers and tiny edits.
+- Validation selection: map changed paths to the narrowest deterministic
+  suite where possible: `agents/base2/*` to agents typecheck plus prompt,
+  gate, or e2e subsets when behavior changes; `agents/*` to agents
+  typecheck and relevant agent tests; `packages/sdk/*` to SDK checks;
+  `packages/agent-runtime/*` to runtime checks; `common/*` to common
+  checks plus dependent package typechecks; `cli/src/components/*` and
+  `cli/src/hooks/*` to CLI typecheck plus visual smoke; docs/prompt-only
+  changes to configured hooks or a recorded skip reason.
+- Repair phase: validation failures and timeouts block completion. Repair
+  the exact failure, re-run the relevant validation, and use `debugger`
+  when repeated failures or unclear runtime behavior need focused
+  diagnosis.
+- Reviewer selection: use the automated `code-reviewer` gate for edited
+  code; use `security-reviewer` for auth, crypto, secrets, permissions,
+  injection, sandboxing, path/process/network handling, supply-chain, or
+  production-risk changes; use `test-writer` when behavior changes lack
+  coverage; use `debugger` after repeated validation/runtime failures.
+- Release/deployment flow: for requested push, release, deployment, or
+  publish work, follow status inspection, remote/tag fetch, rebase/merge
+  decision, push, CI/CD wait, release trigger, artifact/tag/package
+  verification, and local branch sync/reporting. Ask before resolving
+  non-fast-forward or conflict decisions unless the user already gave an
+  explicit strategy.
+- Plan artifact maintenance: in EXECUTE_PLAN update `STATUS.md` and
+  `LESSONS.md` at phase boundaries, blockers, validation/review results,
+  and finalization. Prefer `update_plan_status` for incremental updates.
+- Subagent parallelism: parallelize independent discovery shards,
+  independent validation commands, and static review that does not depend
+  on validation output. Keep dependent edits, fragile debug loops, and
+  validation-repair cycles sequential.
+- Join discipline: reviewers spawned in parallel with validation provide
+  static review only. Reviewer approval cannot certify still-running or
+  failed validation; validation failure/timeout and reviewer/security
+  blockers both prevent a green finish.
+
 ## Plan artifacts and PlanLink wiring
 
 Durable plan artifacts under `.agents/sessions/<plan>/` are wired into the

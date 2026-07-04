@@ -72,3 +72,17 @@
 {"ts":"2026-07-03T20:42:37.260Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
 {"ts":"2026-07-03T20:42:51.960Z","kind":"append_lesson","summary":"Appended entry \"Cache recall runner coverage\" to LESSONS.md","payload":{"heading":"Cache recall runner coverage","artifact":"LESSONS.md"}}
 {"ts":"2026-07-03T20:42:51.960Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T23:04:02.963Z","kind":"append_lesson","summary":"Appended entry \"Validation-to-subagent-parallelism policy complete\" to STATUS.md","payload":{"heading":"Validation-to-subagent-parallelism policy complete","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T23:04:02.963Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T23:04:14.523Z","kind":"append_lesson","summary":"Appended entry \"Subagent parallelism policy lesson\" to LESSONS.md","payload":{"heading":"Subagent parallelism policy lesson","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T23:04:14.523Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T23:08:53.721Z","kind":"append_lesson","summary":"Appended entry \"Base-deep policy blocker resolved\" to STATUS.md","payload":{"heading":"Base-deep policy blocker resolved","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T23:08:53.721Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T23:09:11.244Z","kind":"append_lesson","summary":"Appended entry \"Multi-orchestrator policy consistency\" to LESSONS.md","payload":{"heading":"Multi-orchestrator policy consistency","artifact":"LESSONS.md"}}
+{"ts":"2026-07-03T23:09:11.244Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-03T23:11:13.318Z","kind":"append_lesson","summary":"Appended entry \"Base-deep reviewer re-check passed\" to STATUS.md","payload":{"heading":"Base-deep reviewer re-check passed","artifact":"STATUS.md"}}
+{"ts":"2026-07-03T23:11:13.318Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-04T00:15:21.104Z","kind":"append_lesson","summary":"Appended entry \"Policy Coverage Validation\" to STATUS.md","payload":{"heading":"Policy Coverage Validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-04T00:15:21.105Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-04T00:15:43.682Z","kind":"append_lesson","summary":"Appended entry \"Explicit Candidate Coverage\" to LESSONS.md","payload":{"heading":"Explicit Candidate Coverage","artifact":"LESSONS.md"}}
+{"ts":"2026-07-04T00:15:43.682Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

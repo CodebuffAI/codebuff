@@ -280,3 +280,53 @@ Validation passed:
 Next:
 - Automated reviewer gate can rerun against the added runner-path coverage.
 
+
+<!-- update_plan_status:appended -->
+## Validation-to-subagent-parallelism policy complete — 2026-07-03T23:04:02.962Z
+
+Implemented validation-to-subagent-parallelism policy updates across orchestrator prompts and docs.
+
+Changed:
+- `agents/base2/base2.ts`: added deterministic phase-triggered delegation guidance, editor/thinker trigger language, validation/review join discipline, validation repair requirements, and step-prompt reminders for default mode.
+- `docs/agents-and-tools.md`: documented orchestrator-spawnable agents by phase trigger and clarified parallelism/join semantics.
+- `docs/deterministic-edit-system.md`: added the subagent and parallelism policy section covering discovery, reasoning, implementation, validation, repair, review, coverage, and join discipline.
+
+Validation:
+- `run_file_change_hooks` for `agents/base2/base2.ts`, `docs/agents-and-tools.md`, and `docs/deterministic-edit-system.md` ran `cd agents && bun run typecheck` and passed.
+
+Next checkpoint:
+- Ready for final user summary. If this policy work will be committed, include these three files in the commit.
+
+
+<!-- update_plan_status:appended -->
+## Base-deep policy blocker resolved — 2026-07-03T23:08:53.721Z
+
+Resolved the reviewer blocker about inconsistent base-deep policy coverage.
+
+Blocker addressed:
+- `docs/agents-and-tools.md` stated orchestrator-spawnable agents are defined by both `base2.ts` and `base-deep.ts`, but only `base2.ts` had received the deterministic phase-trigger policy language.
+
+Change:
+- `agents/base2/base-deep.ts`: updated the spawning guidelines to match the new deterministic phase-trigger delegation policy: simple-task exception, phase-triggered delegation, validation/reviewer join discipline, context discovery, thinker usage, validation bashers, debugger, reviewers, and doc/test writers.
+
+Validation:
+- `run_file_change_hooks` for `agents/base2/base2.ts`, `agents/base2/base-deep.ts`, `docs/agents-and-tools.md`, and `docs/deterministic-edit-system.md` ran `cd agents && bun run typecheck` and passed.
+
+
+<!-- update_plan_status:appended -->
+## Base-deep reviewer re-check passed — 2026-07-03T23:11:13.317Z
+
+Reviewer re-check passed after the base-deep policy update.
+
+Review result:
+- `code-reviewer` returned `LOOKS_GOOD`: prior blocker is resolved; `base-deep.ts` now has the same deterministic phase-trigger/join policy language, and docs remain consistent.
+
+Validation remains green:
+- `run_file_change_hooks` ran `cd agents && bun run typecheck` and passed for the changed policy/docs files.
+
+
+<!-- update_plan_status:appended -->
+## Policy Coverage Validation — 2026-07-04T00:15:21.104Z
+
+Expanded orchestration policy coverage to explicitly address all ten high-impact candidates: validation selection, reviewer selection, context breadth, ask-user decisions, editor delegation, thinker delegation, release/deployment flow, plan artifact maintenance, tool routing, and subagent parallelism. Validation: configured file-change hook `cd agents && bun run typecheck` passed for agents/base2/base2.ts, agents/base2/base-deep.ts, docs/deterministic-edit-system.md, and docs/agents-and-tools.md.
+
