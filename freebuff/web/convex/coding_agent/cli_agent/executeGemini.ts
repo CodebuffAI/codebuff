@@ -54,9 +54,9 @@ export async function executeGemini(
   // Check if this is the first message (no active session ID means new thread)
   const isFirstMessage = !args.activeSessionId;
 
-  // For first message, check if AGENTS.md exists and create it if it doesn't
-  // Also check if .gemini/settings.json exists and create it if it doesn't
-  if (isFirstMessage) {
+  // Template projects get generated Gemini context files. Cloud connected repos
+  // should receive only the user's prompt and repo-local instructions.
+  if (isFirstMessage && !isConnectedRepoProject) {
     try {
       const agentsMdExists =
         await codebase.checkIfFileExistsInCodebase("AGENTS.md");

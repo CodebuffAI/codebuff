@@ -92,6 +92,20 @@ export const execute = internalAction({
 
     const daytonaSandboxId = args.sandboxId.slice("daytona:".length);
 
+    await ctx.runMutation(
+      internal.coding_agent.cli_agent.agent_message.updateAgentMessageStream,
+      {
+        messageId: args.messageId,
+        assistantStream: [
+          {
+            type: "status",
+            title: "Starting VM",
+            content: "Connecting to the project runtime.",
+          },
+        ],
+      },
+    );
+
     // Initialize and resume Daytona codebase
     const codebase = await initializeCodebase(`daytona:${daytonaSandboxId}`);
 
@@ -101,6 +115,25 @@ export const execute = internalAction({
         "Codebase must be DaytonaCodebase for CLI agent execution",
       );
     }
+
+    await ctx.runMutation(
+      internal.coding_agent.cli_agent.agent_message.updateAgentMessageStream,
+      {
+        messageId: args.messageId,
+        assistantStream: [
+          {
+            type: "status",
+            title: "Starting VM",
+            content: "Connected to the project runtime.",
+          },
+          {
+            type: "status",
+            title: "Preparing agent",
+            content: `Launching ${args.agentType}.`,
+          },
+        ],
+      },
+    );
 
     const executingUser: any = await ctx.runQuery(internal.users.get, {
       userId: args.executingUserId,

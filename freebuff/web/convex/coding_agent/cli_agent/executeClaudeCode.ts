@@ -170,11 +170,14 @@ export async function executeClaudeCode(
   const runner = pm.runner(); // "npx" or "bunx"
   const packageManagerName = codebase.getPackageManagerName();
 
-  // Escape system prompt for --append-system-prompt flag
-  const escapedSystemPrompt = escapeShellArg(
-    cliAgentSystemPrompt(runner, { allowGit: isConnectedRepoProject }) +
-      knowledgePrompts(runner, packageManagerName),
-  );
+  // Template projects get the platform prompt. Cloud connected repos should
+  // receive only the user's prompt and repo-local instructions.
+  const escapedSystemPrompt = isConnectedRepoProject
+    ? undefined
+    : escapeShellArg(
+        cliAgentSystemPrompt(runner, { allowGit: false }) +
+          knowledgePrompts(runner, packageManagerName),
+      );
 
   // Build the base Claude Code command with escaped inputs
   const commandParts = [
@@ -185,8 +188,8 @@ export async function executeClaudeCode(
     resumeFlag.trim(),
     "-p",
     escapedPrompt,
-    "--append-system-prompt",
-    escapedSystemPrompt,
+    escapedSystemPrompt ? "--append-system-prompt" : "",
+    escapedSystemPrompt ?? "",
     "--tools",
     '"default"',
     "--output-format",

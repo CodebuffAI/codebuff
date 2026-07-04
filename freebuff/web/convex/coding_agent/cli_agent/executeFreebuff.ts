@@ -20,7 +20,6 @@ import { initializeCodebase } from '../../../codebase-utils/codebase/initializeC
 import {
   bundledAgentDefinitions,
   resolveFreebuffAgentId,
-  CONNECTED_REPO_AGENT_GUIDANCE,
   WEBCONTAINER_AGENT_GUIDANCE,
 } from './freebuff_bundled_agents'
 import { buildWebContainerOverrideTools } from './webcontainerOverrideTools'
@@ -1400,12 +1399,9 @@ export const runFreebuffAgent = internalAction({
       const baseUserMessage = supportsImages
         ? args.userMessage
         : await appendImageUrlsToMessage(ctx, args.userMessage, args.images)
-      // Connected-repo / WebContainer guidance is injected per-run here
-      // (rather than in the shared system-prompt appendix) so default Daytona
-      // template projects are completely unaffected.
-      const userMessage = connectedRepoContext
-        ? `${CONNECTED_REPO_AGENT_GUIDANCE}\n\n---\n\n${baseUserMessage}`
-        : isWebContainerProject
+      // WebContainer still needs browser-bridge guidance. Cloud connected repos
+      // receive only the user's prompt (plus image content when present).
+      const userMessage = isWebContainerProject
           ? `${WEBCONTAINER_AGENT_GUIDANCE}\n\n---\n\n${baseUserMessage}`
           : baseUserMessage
 

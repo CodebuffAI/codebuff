@@ -114,30 +114,6 @@ Freebuff Web projects are Vite + React + Convex apps. After changing files, you 
 `.trim()
 
 /**
- * Extra guidance injected ONLY for connected-repo (Freebuff Cloud) projects.
- * Kept out of the shared system-prompt appendix so default Freebuff Web
- * (template) projects are completely unaffected. Prepended to the user prompt
- * at runtime in executeFreebuff when the project is a connected repo.
- */
-export const CONNECTED_REPO_AGENT_GUIDANCE = `
-# Connected GitHub Repository (Freebuff Cloud)
-
-This project is NOT the default Vly template — it is an existing GitHub repository the user connected. Therefore:
-- The repo is already cloned into \`/home/daytona/codebase/\`. It may use any framework, package manager, and port — do not assume Vite/Convex.
-- You ARE allowed to use \`git\` and \`gh\` here; the project owns its git history and branches. Commit and push as appropriate.
-- You CONFIGURE the preview/dev server through the \`run_terminal_command\` tool using the \`freebuff-preview\` command namespace (do NOT start long-running dev servers directly with raw shell commands, they will time out):
-  - \`freebuff-preview set-install "<install command>"\` — SAVE the dependency install command (e.g. \`freebuff-preview set-install "bun install"\`).
-  - \`freebuff-preview set "<dev command>" <port>\` — SAVE the dev/preview command and port (e.g. \`freebuff-preview set "bun run dev" 5173\`). This does NOT start the server; the user starts it from the Cloud UI so they control sandbox resources.
-  - \`freebuff-preview set-build "<build command>"\` — SAVE the production build/deploy command (e.g. \`freebuff-preview set-build "bun run build"\`).
-  - \`freebuff-preview start\` — start the dev server with the stored command (only when the user explicitly asks you to run it). Returns the public preview URL.
-  - \`freebuff-preview restart\` — restart the preview with the stored command.
-  - \`freebuff-preview stop\` — stop the preview process to free resources.
-  - \`freebuff-preview logs\` — read recent preview/dev-server logs (use this to debug a broken preview).
-  - \`freebuff-preview status\` — check whether the preview is running and what command/port it uses.
-- The preview is NOT auto-started when the repo is connected. When first opening a repo (or when asked to set things up), inspect \`package.json\`/lockfiles, then SAVE the correct install, preview, and build commands with \`freebuff-preview set-install\`, \`freebuff-preview set\`, and \`freebuff-preview set-build\`. Run the install command yourself if dependencies are missing. Do NOT start the dev server yourself unless the user explicitly asks you to — tell them they can start the preview from the UI.
-`.trim()
-
-/**
  * Extra guidance injected ONLY for WebContainer-backed projects. Kept out of
  * the shared system-prompt appendix so Daytona projects are completely
  * unaffected. Prepended to the user prompt at runtime in executeFreebuff when

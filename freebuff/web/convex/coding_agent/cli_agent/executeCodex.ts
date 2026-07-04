@@ -95,6 +95,14 @@ export async function executeCodex(
       .trim();
   };
 
+  const humanizeCodexItemType = (value: string): string => {
+    const label = value
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return label ? `Processing ${label}` : "Processing the next step.";
+  };
+
   const normalizeByokOpenAiKey = (
     value: string | undefined,
   ): string | undefined => {
@@ -149,8 +157,10 @@ export async function executeCodex(
     await refreshConnectedRepoOrigin(codebase, projectRecord);
   }
 
-  // For first message, check if AGENTS.md exists and create it if it doesn't
-  if (isFirstMessage) {
+  // Template projects get the CLI agent instruction file. Cloud connected repos
+  // should receive only the user's prompt and whatever instructions already
+  // exist in the repo.
+  if (isFirstMessage && !isConnectedRepoProject) {
     try {
       const agentsMdExists =
         await codebase.checkIfFileExistsInCodebase("AGENTS.md");
@@ -202,13 +212,9 @@ export async function executeCodex(
     }
   }
 
-  // Add Codex-specific runtime constraints to every prompt.
-  // These constraints are also reinforced by AGENTS.md on first message.
   const codexRuntimeConstraints = [
     "Important constraints:",
-    isConnectedRepoProject
-      ? "- Git and GitHub operations are allowed: this is a connected repository and `origin` is authenticated for you. Use git for branching, committing, syncing from the default branch, and pushing."
-      : "- Git runs automatically between messages (the platform commits and syncs your changes after each turn), so you normally don't need to run git yourself. You may use it if genuinely needed, but avoid manual commits/pushes/history rewrites that can conflict with the automatic sync.",
+    "- Git runs automatically between messages (the platform commits and syncs your changes after each turn), so you normally don't need to run git yourself. You may use it if genuinely needed, but avoid manual commits/pushes/history rewrites that can conflict with the automatic sync.",
     isFirstMessage
       ? "- This is the first message in this thread. Make at least one clearly visible landing-page edit so the user can immediately see changes in preview."
       : "",
@@ -216,7 +222,9 @@ export async function executeCodex(
     .filter(Boolean)
     .join("\n");
 
-  const commandPrompt = `${codexRuntimeConstraints}\n\nUser request:\n${userMessageWithImages}`;
+  const commandPrompt = isConnectedRepoProject
+    ? userMessageWithImages
+    : `${codexRuntimeConstraints}\n\nUser request:\n${userMessageWithImages}`;
 
   // Escape the final prompt for shell
   const escapedPrompt = escapeShellArg(commandPrompt);
@@ -340,6 +348,40 @@ export async function executeCodex(
       }
     });
     return promise;
+  };
+
+  const flushAssistantStream = async () => {
+    try {
+      await trackMutation(
+        ctx.runMutation(
+          internal.coding_agent.cli_agent.agent_message.updateAgentMessageStream,
+          {
+            messageId: args.messageId,
+            assistantStream: [...assistantStream],
+          },
+        ),
+      );
+      lastUpdateCount = assistantStream.length;
+    } catch (error) {
+      console.error("[Codex] Error updating stream (will continue):", error);
+    }
+  };
+
+  const appendStatus = async (title: string, content: string) => {
+    const previous = assistantStream[assistantStream.length - 1];
+    if (
+      previous?.type === "status" &&
+      previous.title === title &&
+      previous.content === content
+    ) {
+      return;
+    }
+    assistantStream.push({
+      type: "status",
+      title,
+      content,
+    });
+    await flushAssistantStream();
   };
 
   // Buffer for incomplete JSON lines that span multiple PTY chunks
@@ -566,7 +608,30 @@ export async function executeCodex(
 
     // Handle thread.started events explicitly.
     if (type === "thread.started") {
+      await appendStatus("Starting Codex", "Session started.");
       return; // Don't save thread.started events
+    }
+
+    if (type === "turn.started") {
+      await appendStatus("Planning", "Codex is reading the prompt.");
+      return;
+    }
+
+    if (type === "item.started" && parsed.item) {
+      const itemType = parsed.item.type || "";
+      if (itemType === "reasoning") {
+        await appendStatus("Reasoning", "Codex is thinking through the task.");
+      } else if (itemType === "command_execution") {
+        const command = normalizeCommandForDisplay(
+          parsed.item.command || "Running command",
+        );
+        await appendStatus("Running command", command);
+      } else if (itemType === "agent_message") {
+        await appendStatus("Writing response", "Codex is preparing its answer.");
+      } else {
+        await appendStatus("Working", humanizeCodexItemType(itemType));
+      }
+      return;
     }
 
     // Capture stream-level failures. The message is often JSON-in-JSON
@@ -699,24 +764,7 @@ export async function executeCodex(
 
       // Batch updates
       if (assistantStream.length - lastUpdateCount >= BATCH_SIZE) {
-        try {
-          await trackMutation(
-            ctx.runMutation(
-              internal.coding_agent.cli_agent.agent_message
-                .updateAgentMessageStream,
-              {
-                messageId: args.messageId,
-                assistantStream: [...assistantStream],
-              },
-            ),
-          );
-          lastUpdateCount = assistantStream.length;
-        } catch (error) {
-          console.error(
-            "[Codex] Error updating stream (will continue):",
-            error,
-          );
-        }
+        await flushAssistantStream();
       }
     }
 
@@ -923,6 +971,7 @@ export async function executeCodex(
     // This ensures Codex is available before running the PTY command
     // Use --prefix to install to user-writable directory to avoid permission issues
     try {
+      await appendStatus("Checking Codex", "Making sure the Codex CLI is installed.");
       // Check if codex command exists before installing
       const checkResult = await codebase.runCommand(
         'export PATH="$HOME/.local/share/npm-global/bin:$HOME/.local/bin:$PATH" && command -v codex >/dev/null 2>&1 && echo "EXISTS" || echo "MISSING"',
@@ -931,6 +980,7 @@ export async function executeCodex(
       const codexExists = checkResult.output?.trim() === "EXISTS";
 
       if (!codexExists) {
+        await appendStatus("Installing Codex", "Installing the Codex CLI in the VM.");
         // Install to ~/.local/share/npm-global/bin (user-writable directory)
         await codebase.runCommand(
           "mkdir -p ~/.local/share/npm-global && npm install -g --prefix ~/.local/share/npm-global @openai/codex",
@@ -948,6 +998,7 @@ export async function executeCodex(
     let resolvedOpenAiApiKey: string | undefined = undefined;
 
     if (args.gptAuthMethod === "byok") {
+      await appendStatus("Checking auth", "Using your saved OpenAI API key.");
       resolvedOpenAiApiKey = normalizeByokOpenAiKey(args.openAiApiKey);
       if (!resolvedOpenAiApiKey) {
         assistantStream.push({
@@ -1005,6 +1056,7 @@ export async function executeCodex(
         );
       }
     } else {
+      await appendStatus("Checking auth", "Looking for your saved ChatGPT login.");
       const executingUser = await ctx.runQuery(internal.users.get, {
         userId: args.executingUserId,
       });
@@ -1035,16 +1087,17 @@ export async function executeCodex(
       }
       // No stored login: start device auth and instruct user.
       if (!hasStoredLogin) {
-      if (oauthRevoked) {
-        await ctx.runMutation(internal.users.setCodexOauthRevokedInternal, {
-          userId: args.executingUserId,
-          revoked: false,
-        });
-      }
-      await codebase.runCommand(
-        `cd /home/daytona/codebase && export PATH=${pathValue} && mkdir -p "/home/daytona/.codex" && if pgrep -f "codex login --device-auth" >/dev/null 2>&1; then echo "RUNNING"; else rm -f "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"; if command -v timeout >/dev/null 2>&1; then nohup timeout 900 codex login --device-auth > "/home/daytona/.codex/vly-device-auth.log" 2>&1 < /dev/null & else nohup codex login --device-auth > "/home/daytona/.codex/vly-device-auth.log" 2>&1 < /dev/null & fi; echo $! > "/home/daytona/.codex/vly-device-auth.pid"; echo "STARTED"; fi`,
-        10000,
-      );
+        await appendStatus("Waiting for auth", "Starting Codex device login.");
+        if (oauthRevoked) {
+          await ctx.runMutation(internal.users.setCodexOauthRevokedInternal, {
+            userId: args.executingUserId,
+            revoked: false,
+          });
+        }
+        await codebase.runCommand(
+          `cd /home/daytona/codebase && export PATH=${pathValue} && mkdir -p "/home/daytona/.codex" && if pgrep -f "codex login --device-auth" >/dev/null 2>&1; then echo "RUNNING"; else rm -f "/home/daytona/.codex/vly-device-auth.log" "/home/daytona/.codex/vly-device-auth.pid"; if command -v timeout >/dev/null 2>&1; then nohup timeout 900 codex login --device-auth > "/home/daytona/.codex/vly-device-auth.log" 2>&1 < /dev/null & else nohup codex login --device-auth > "/home/daytona/.codex/vly-device-auth.log" 2>&1 < /dev/null & fi; echo $! > "/home/daytona/.codex/vly-device-auth.pid"; echo "STARTED"; fi`,
+          10000,
+        );
 
       let deviceAuthInfo: DeviceAuthInfo = {};
       for (let attempt = 0; attempt < 15; attempt++) {
@@ -1162,6 +1215,7 @@ export async function executeCodex(
       return result;
     };
 
+    await appendStatus("Launching Codex", "Waiting for Codex to start streaming.");
     let result = await runCodexCommandAndProcessOutput(fullCommand);
 
     // Some Codex CLI runs emit a new thread id then exit non-zero before the
@@ -1179,6 +1233,7 @@ export async function executeCodex(
         resolvedOpenAiApiKey,
         "subcommand",
       );
+      await appendStatus("Resuming Codex", "Retrying with the discovered session.");
       result = await runCodexCommandAndProcessOutput(fullCommand);
     }
 
@@ -1199,6 +1254,7 @@ export async function executeCodex(
           resolvedOpenAiApiKey,
           "legacy_flag",
         );
+        await appendStatus("Resuming Codex", "Retrying with the legacy resume flag.");
         result = await runCodexCommandAndProcessOutput(fullCommand);
       }
 
@@ -1231,6 +1287,7 @@ export async function executeCodex(
           resolvedOpenAiApiKey,
           "subcommand",
         );
+        await appendStatus("Starting fresh", "Previous Codex session was stale.");
         result = await runCodexCommandAndProcessOutput(fullCommand);
       }
     }
