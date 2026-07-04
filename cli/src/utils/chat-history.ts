@@ -22,8 +22,8 @@ export interface ChatHistoryEntry {
   unreadable?: boolean
 }
 
-function getChatsDir(): string {
-  return path.join(getProjectDataDir(), 'chats')
+function getChatsDir(dataDir: string = getProjectDataDir()): string {
+  return path.join(dataDir, 'chats')
 }
 
 interface ChatDirInfo {
@@ -37,9 +37,12 @@ interface ChatDirInfo {
  * List all available chats sorted by most recent first
  * @param maxChats - Maximum number of chats to load (default: 500)
  */
-export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
+export function getAllChats(
+  maxChats: number = 500,
+  dataDir?: string,
+): ChatHistoryEntry[] {
   try {
-    const chatsDir = getChatsDir()
+    const chatsDir = getChatsDir(dataDir)
 
     if (!fs.existsSync(chatsDir)) {
       return []
@@ -152,11 +155,11 @@ const MIN_LOG_AGE_MS = 14 * 24 * 60 * 60 * 1000
  * touched in 14+ days. Only debug logs are removed — chat history files are
  * untouched.
  */
-export function trimOversizedChatLogs(): void {
+export function trimOversizedChatLogs(dataDir?: string): void {
   let chatsDir: string
   let chatIds: string[]
   try {
-    chatsDir = getChatsDir()
+    chatsDir = getChatsDir(dataDir)
     chatIds = fs.readdirSync(chatsDir)
   } catch {
     return // No project root set or no chats directory yet
@@ -183,7 +186,7 @@ export function trimOversizedChatLogs(): void {
 /**
  * Delete a saved chat session from local history.
  */
-export function deleteChatSession(chatId: string): boolean {
+export function deleteChatSession(chatId: string, dataDir?: string): boolean {
   try {
     const safeChatId = chatId.trim()
     if (
@@ -196,7 +199,7 @@ export function deleteChatSession(chatId: string): boolean {
       return false
     }
 
-    const chatsDir = getChatsDir()
+    const chatsDir = getChatsDir(dataDir)
     const chatPath = path.join(chatsDir, safeChatId)
 
     if (!fs.existsSync(chatPath)) {

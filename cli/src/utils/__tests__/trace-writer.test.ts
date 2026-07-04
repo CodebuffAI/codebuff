@@ -3,24 +3,24 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-let tempDir = ''
-
-mock.module('../../project-files', () => ({
-  getProjectRoot: () => tempDir,
-  getCurrentChatDir: () => path.join(tempDir, 'chats', 'current'),
-}))
-
-// Force tracing on and pin the dev path so the test is deterministic
+// Force tracing on so the test is deterministic
 mock.module('@codebuff/common/env', () => ({
   IS_DEV: true,
 }))
 
 import { createTraceWriter } from '../trace-writer'
+import { setProjectRoot, tryGetProjectRoot } from '../../project-files'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
+let tempDir = ''
+
+function tracePathFor(dir: string): string {
+  return path.join(dir, 'debug', 'trace.jsonl')
+}
+
 function readTraceLines(): any[] {
-  const tracePath = path.join(tempDir, 'debug', 'trace.jsonl')
+  const tracePath = tracePathFor(tempDir)
   if (!fs.existsSync(tracePath)) return []
   return fs
     .readFileSync(tracePath, 'utf8')
@@ -47,16 +47,37 @@ const baseParams = {
 }
 
 describe('createTraceWriter', () => {
+  let originalProjectRoot: string | undefined
+
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuff-trace-'))
+    originalProjectRoot = tryGetProjectRoot()
   })
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true })
+    if (originalProjectRoot !== undefined) {
+      setProjectRoot(originalProjectRoot)
+    }
+  })
+
+  test('falls back to the real project-root-based path when no resolver is injected', () => {
+    setProjectRoot(tempDir)
+    const writer = createTraceWriter()!
+
+    writer.recordStep({
+      ...baseParams,
+      step: 1,
+      messages: [userMessage('hello')],
+    })
+
+    const lines = readTraceLines()
+    expect(lines).toHaveLength(1)
+    expect(lines[0].message.role).toBe('user')
   })
 
   test('writes each message exactly once across steps', () => {
-    const writer = createTraceWriter()!
+    const writer = createTraceWriter(() => tracePathFor(tempDir))!
     const history = [userMessage('hello')]
 
     writer.recordStep({ ...baseParams, step: 1, messages: history })
@@ -72,7 +93,7 @@ describe('createTraceWriter', () => {
   })
 
   test('records system prompt once and again only when it changes', () => {
-    const writer = createTraceWriter()!
+    const writer = createTraceWriter(() => tracePathFor(tempDir))!
 
     writer.recordStep({
       ...baseParams,
@@ -105,7 +126,7 @@ describe('createTraceWriter', () => {
   })
 
   test('detects history rewrites and re-dumps the new history', () => {
-    const writer = createTraceWriter()!
+    const writer = createTraceWriter(() => tracePathFor(tempDir))!
 
     writer.recordStep({
       ...baseParams,
@@ -133,7 +154,7 @@ describe('createTraceWriter', () => {
   })
 
   test('tracks agents independently', () => {
-    const writer = createTraceWriter()!
+    const writer = createTraceWriter(() => tracePathFor(tempDir))!
 
     writer.recordStep({
       ...baseParams,
@@ -155,7 +176,7 @@ describe('createTraceWriter', () => {
 
   test('writes base64 image data in full', () => {
     const base64 = 'a'.repeat(10_000)
-    const writer = createTraceWriter()!
+    const writer = createTraceWriter(() => tracePathFor(tempDir))!
 
     writer.recordStep({
       ...baseParams,
