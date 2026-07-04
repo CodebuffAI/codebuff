@@ -6,6 +6,7 @@ import { Id } from "!/_generated/dataModel";
 import { DaytonaCodebase } from "../../../codebase-utils/codebase/DaytonaCodebase";
 import { cliAgentSystemPrompt, knowledgePrompts } from "./system_prompt";
 import { escapeShellArg, escapeShellArgSingleQuotes } from "./shellEscape";
+import { refreshConnectedRepoOrigin } from "./gitRemoteAuth";
 
 export interface ExecuteGeminiArgs {
   projectId: Id<"project">;
@@ -33,6 +34,16 @@ export async function executeGemini(
     projectId: args.projectId,
   });
   const shouldInjectConvexDeployKey = projectRecord?.project_type === "template";
+  // Freebuff Cloud (connected_repo) operates on the user's real repo, so git is
+  // allowed here; web/template stays platform-managed.
+  const isConnectedRepoProject =
+    projectRecord?.project_type === "connected_repo";
+
+  // Authenticate `origin` up front so agent-run fetch/pull/push work on
+  // long-lived cloud sandboxes. Best-effort; local git works regardless.
+  if (isConnectedRepoProject) {
+    await refreshConnectedRepoOrigin(codebase, projectRecord);
+  }
 
   // Get Google API key
   const googleApiKey = process.env.GOOGLE_API_KEY;
@@ -56,7 +67,7 @@ export async function executeGemini(
         const runner = pm.runner(); // "npx" or "bunx"
         const packageManagerName = codebase.getPackageManagerName();
         const systemPromptContent =
-          cliAgentSystemPrompt(runner) +
+          cliAgentSystemPrompt(runner, { allowGit: isConnectedRepoProject }) +
           knowledgePrompts(runner, packageManagerName);
         await codebase.writeFile("AGENTS.md", systemPromptContent);
       }

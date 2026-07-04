@@ -95,6 +95,7 @@ import type * as coding_agent_cli_agent_executeFreebuff from "../coding_agent/cl
 import type * as coding_agent_cli_agent_executeGemini from "../coding_agent/cli_agent/executeGemini.js";
 import type * as coding_agent_cli_agent_freebuff_agent_run_mutations from "../coding_agent/cli_agent/freebuff_agent_run_mutations.js";
 import type * as coding_agent_cli_agent_freebuff_bundled_agents from "../coding_agent/cli_agent/freebuff_bundled_agents.js";
+import type * as coding_agent_cli_agent_gitRemoteAuth from "../coding_agent/cli_agent/gitRemoteAuth.js";
 import type * as coding_agent_cli_agent_queries from "../coding_agent/cli_agent/queries.js";
 import type * as coding_agent_cli_agent_shellEscape from "../coding_agent/cli_agent/shellEscape.js";
 import type * as coding_agent_cli_agent_streamParser from "../coding_agent/cli_agent/streamParser.js";
@@ -362,6 +363,7 @@ declare const fullApi: ApiFromModules<{
   "coding_agent/cli_agent/executeGemini": typeof coding_agent_cli_agent_executeGemini;
   "coding_agent/cli_agent/freebuff_agent_run_mutations": typeof coding_agent_cli_agent_freebuff_agent_run_mutations;
   "coding_agent/cli_agent/freebuff_bundled_agents": typeof coding_agent_cli_agent_freebuff_bundled_agents;
+  "coding_agent/cli_agent/gitRemoteAuth": typeof coding_agent_cli_agent_gitRemoteAuth;
   "coding_agent/cli_agent/queries": typeof coding_agent_cli_agent_queries;
   "coding_agent/cli_agent/shellEscape": typeof coding_agent_cli_agent_shellEscape;
   "coding_agent/cli_agent/streamParser": typeof coding_agent_cli_agent_streamParser;

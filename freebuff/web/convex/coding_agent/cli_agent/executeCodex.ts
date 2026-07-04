@@ -6,6 +6,7 @@ import { Id } from "!/_generated/dataModel";
 import { DaytonaCodebase } from "../../../codebase-utils/codebase/DaytonaCodebase";
 import { cliAgentSystemPrompt, knowledgePrompts } from "./system_prompt";
 import { escapeShellArg } from "./shellEscape";
+import { refreshConnectedRepoOrigin } from "./gitRemoteAuth";
 import {
   PER_ACTION_ABORT_MS,
   CLOUD_PER_ACTION_ABORT_MS,
@@ -135,6 +136,18 @@ export async function executeCodex(
     projectId: args.projectId,
   });
   const shouldInjectConvexDeployKey = projectRecord?.project_type === "template";
+  // Freebuff Cloud runs against the user's real connected repo, so the agent is
+  // allowed to use git here (web/template stays platform-managed). See
+  // gitGuidanceLines / gitRemoteAuth for the rationale.
+  const isConnectedRepoProject =
+    projectRecord?.project_type === "connected_repo";
+
+  // Give the cloud agent a fresh, authenticated `origin` up front so its
+  // fetch/pull/push work even on a long-lived sandbox whose clone-time token
+  // has expired. Best-effort; local git works regardless.
+  if (isConnectedRepoProject) {
+    await refreshConnectedRepoOrigin(codebase, projectRecord);
+  }
 
   // For first message, check if AGENTS.md exists and create it if it doesn't
   if (isFirstMessage) {
@@ -148,7 +161,7 @@ export async function executeCodex(
         const runner = pm.runner(); // "npx" or "bunx"
         const packageManagerName = codebase.getPackageManagerName();
         const systemPromptContent =
-          cliAgentSystemPrompt(runner) +
+          cliAgentSystemPrompt(runner, { allowGit: isConnectedRepoProject }) +
           knowledgePrompts(runner, packageManagerName);
         await codebase.writeFile("AGENTS.md", systemPromptContent);
       }
@@ -193,7 +206,9 @@ export async function executeCodex(
   // These constraints are also reinforced by AGENTS.md on first message.
   const codexRuntimeConstraints = [
     "Important constraints:",
-    "- Do not run any Git or GitHub commands (for example: git, gh, github). Version control and sync are platform-managed.",
+    isConnectedRepoProject
+      ? "- Git and GitHub operations are allowed: this is a connected repository and `origin` is authenticated for you. Use git for branching, committing, syncing from the default branch, and pushing."
+      : "- Git runs automatically between messages (the platform commits and syncs your changes after each turn), so you normally don't need to run git yourself. You may use it if genuinely needed, but avoid manual commits/pushes/history rewrites that can conflict with the automatic sync.",
     isFirstMessage
       ? "- This is the first message in this thread. Make at least one clearly visible landing-page edit so the user can immediately see changes in preview."
       : "",

@@ -27,7 +27,32 @@ import {
   uiPresetGuidelines,
 } from "../shared/base_knowledge";
 
-export const cliAgentSystemPrompt = (_runner: string) =>
+/**
+ * Git guidance differs by surface. On Freebuff Cloud (`connected_repo`) the
+ * agent operates directly on the user's real repo, so git is fully in play and
+ * the run refreshes the `origin` token up front so fetch/pull/push work. On
+ * web/template the platform already commits and syncs to GitHub automatically
+ * between messages, so the agent should just edit files and let that run — git
+ * is available but usually unnecessary, and manual pushes/history rewrites can
+ * conflict with the automatic sync.
+ */
+function gitGuidanceLines(allowGit: boolean): string {
+  if (allowGit) {
+    return [
+      "- Git and GitHub operations ARE allowed here — this is a connected repository. Use git freely: create/switch branches, stage, commit, reset/clean, sync from the default branch (fetch/pull), and push.",
+      "- The `origin` remote is authenticated for you at the start of each run. If a push/pull ever fails with an auth/token error, tell the user to use the Git controls in the top bar.",
+    ].join("\n");
+  }
+  return [
+    "- Git runs automatically between messages: the platform commits your changes and syncs them to GitHub after each turn, so you normally don't need to run git yourself — just edit files.",
+    "- You may use git if you genuinely need it (e.g. inspecting history or a diff), but avoid manual commits, pushes, or history rewrites, which can conflict with the automatic sync.",
+  ].join("\n");
+}
+
+export const cliAgentSystemPrompt = (
+  _runner: string,
+  options?: { allowGit?: boolean },
+) =>
   `You are an expert coding agent named vly operating within a sandboxed codebase running on a VM.
 
 <environment>
@@ -43,8 +68,7 @@ export const cliAgentSystemPrompt = (_runner: string) =>
   - Manipulating, logging, or displaying JWT_PRIVATE_KEY and JWKS is STRICTLY FORBIDDEN
   - If JWT key issues occur, instruct the user to regenerate keys via the system, don't attempt to fix them manually
 - All edits render immediately to user - never make partial changes or placeholders
-- NEVER PUSH WITH GIT. Changes are committed automatically by the system; do not make commits or push to interfere with git sync operations
-- NEVER run Git or GitHub commands (for example: git, gh, github). Version control and GitHub sync are managed by the platform.
+${gitGuidanceLines(options?.allowGit ?? false)}
 - For WebContainer-backed projects, treat the project root as \`/\`. Never assume \`/home/daytona/codebase\` exists.
 </environment>
 

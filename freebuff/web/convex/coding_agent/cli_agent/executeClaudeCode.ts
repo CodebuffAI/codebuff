@@ -6,6 +6,7 @@ import { Id } from "!/_generated/dataModel";
 import { DaytonaCodebase } from "../../../codebase-utils/codebase/DaytonaCodebase";
 import { cliAgentSystemPrompt, knowledgePrompts } from "./system_prompt";
 import { escapeShellArg } from "./shellEscape";
+import { refreshConnectedRepoOrigin } from "./gitRemoteAuth";
 import { processStreamItem as parseStreamItem } from "./streamParser";
 import {
   PER_ACTION_ABORT_MS,
@@ -87,6 +88,16 @@ export async function executeClaudeCode(
     projectId: args.projectId,
   });
   const shouldInjectConvexDeployKey = projectRecord?.project_type === "template";
+  // Freebuff Cloud (connected_repo) operates on the user's real repo, so git is
+  // allowed here; web/template stays platform-managed.
+  const isConnectedRepoProject =
+    projectRecord?.project_type === "connected_repo";
+
+  // Authenticate `origin` up front so agent-run fetch/pull/push work on
+  // long-lived cloud sandboxes. Best-effort; local git works regardless.
+  if (isConnectedRepoProject) {
+    await refreshConnectedRepoOrigin(codebase, projectRecord);
+  }
 
   const selectedProvider = args.claudeProviderPreference;
   const anthropicApiKey = args.anthropicApiKey?.trim() || undefined;
@@ -161,7 +172,8 @@ export async function executeClaudeCode(
 
   // Escape system prompt for --append-system-prompt flag
   const escapedSystemPrompt = escapeShellArg(
-    cliAgentSystemPrompt(runner) + knowledgePrompts(runner, packageManagerName),
+    cliAgentSystemPrompt(runner, { allowGit: isConnectedRepoProject }) +
+      knowledgePrompts(runner, packageManagerName),
   );
 
   // Build the base Claude Code command with escaped inputs
