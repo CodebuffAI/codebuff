@@ -22,6 +22,8 @@
     "run-git-evals": "bun run git-evals/run-git-evals.ts",
     "run-eval-set": "bun run git-evals/run-eval-set.ts",
     "run-buffbench": "bun run buffbench/main.ts",
+    "main": "bun run buffbench/main.ts",
+    "main-openbuff": "bun run buffbench/main-openbuff.ts",
     "run-buffbench-nightly": "bun run buffbench/main-nightly.ts",
     "trigger-buffbench": "bun run scripts/trigger-buffbench.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
