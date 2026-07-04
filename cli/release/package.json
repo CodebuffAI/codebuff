@@ -1,8 +1,20 @@
 {
   "name": "@openbuff/cli",
   "version": "1.1.3",
-  "description": "AI coding agent",
+  "description": "An AI coding agent that writes code for you. Run it from your project directory, tell it what to do, and it reads and writes files, runs commands, and iterates until the task is done. Supports sub-agents, custom tools, and Bring-Your-Own-Key providers.",
   "license": "MIT",
+  "keywords": [
+    "ai",
+    "agent",
+    "coding-agent",
+    "cli",
+    "terminal",
+    "developer-tools",
+    "code-generator",
+    "assistant",
+    "automation",
+    "tui"
+  ],
   "bin": {
     "openbuff": "index.js",
     "cb": "index.js"
@@ -36,7 +48,7 @@
     "type": "git",
     "url": "https://github.com/AnzoBenjamin/openbuff.git"
   },
-  "homepage": "https://github.com/AnzoBenjamin/openbuff",
+  "homepage": "https://openbuff.dev",
   "publishConfig": {
     "access": "public"
   }

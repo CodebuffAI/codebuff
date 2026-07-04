@@ -1,8 +1,21 @@
 {
   "name": "codecane",
   "version": "1.0.420",
-  "description": "AI coding agent CLI (staging)",
+  "description": "Staging/beta release of Openbuff, an AI coding agent that writes code for you. Run it from your project directory, tell it what to do, and it reads and writes files, runs commands, and iterates until the task is done. Use this tag only for testing; install the stable release from @openbuff/cli.",
   "license": "MIT",
+  "keywords": [
+    "ai",
+    "agent",
+    "coding-agent",
+    "cli",
+    "terminal",
+    "developer-tools",
+    "code-generator",
+    "assistant",
+    "automation",
+    "tui",
+    "beta"
+  ],
   "bin": {
     "codecane": "index.js"
   },
@@ -35,7 +48,7 @@
     "type": "git",
     "url": "https://github.com/AnzoBenjamin/openbuff.git"
   },
-  "homepage": "https://github.com/AnzoBenjamin/openbuff",
+  "homepage": "https://openbuff.dev",
   "publishConfig": {
     "access": "public"
   }

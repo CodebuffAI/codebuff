@@ -15,7 +15,7 @@ Note: Openbuff will run commands in your terminal as it deems necessary to fulfi
 To install Openbuff (staging), run:
 
 ```bash
-npm install -g openbuff@beta
+npm install -g @openbuff/cli@beta
 ```
 
 (Use `sudo` if you get a permission error.)
@@ -62,7 +62,7 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 If you are getting permission errors during installation, try using sudo:
 
 ```
-sudo npm install -g openbuff@beta
+sudo npm install -g @openbuff/cli@beta
 ```
 
 If you still have errors, it's a good idea to [reinstall Node](https://nodejs.org/en/download).
@@ -70,5 +70,5 @@ If you still have errors, it's a good idea to [reinstall Node](https://nodejs.or
 ## Feedback
 
 We value your input! Please open an issue on
-[GitHub](https://github.com/nicholasgriffintn/openbuff/issues). Thank you for
+[GitHub](https://github.com/AnzoBenjamin/openbuff/issues). Thank you for
 using Openbuff!

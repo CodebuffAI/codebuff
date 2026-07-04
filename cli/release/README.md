@@ -1,6 +1,8 @@
-# The most powerful coding agent
+# Openbuff — The most powerful coding agent
 
-Openbuff is a CLI tool that writes code for you.
+Openbuff is an open-source, **local-first** agentic coding CLI that edits your codebase through natural language instructions using your configured OpenAI-compatible or Anthropic-compatible providers. No backend fallback, no credits, no subscription — bring your own keys (BYOK).
+
+Instead of using one model for everything, Openbuff coordinates **specialized agents** that work together to understand your project and make precise changes.
 
 1. Run `openbuff` from your project directory
 2. Tell it what to do
@@ -13,7 +15,7 @@ Note: Openbuff will run commands in your terminal as it deems necessary to fulfi
 To install Openbuff, run:
 
 ```bash
-npm install -g openbuff
+npm install -g @openbuff/cli
 ```
 
 (Use `sudo` if you get a permission error.)
@@ -35,7 +37,10 @@ Once running, simply chat with Openbuff to say what coding task you want done.
 - Understands your whole codebase
 - Creates and edits multiple files based on your request
 - Can run your tests or type checker or linter; can install packages
-- It's powerful: ask Openbuff to keep working until it reaches a condition and it will.
+- It's powerful: ask Openbuff to keep working until it reaches a condition and it will
+- **Multi-agent orchestration** — a File Picker Agent, Planner Agent, Editor Agent, and Reviewer Agent work together so each step gets the right specialist
+- **Provider-flexible (BYOK)** — route each agent to OpenAI, Anthropic/Claude, ChatGPT/Codex OAuth, OpenRouter, opencode gateways, GLM/Z.ai, or local Ollama/LM Studio
+- **Custom agents** — run the `/init` command to create your own `.agents/` with TypeScript generators for programmatic control
 
 Our users regularly use Openbuff to implement new features, write unit tests, refactor code, write scripts, or give advice.
 
@@ -49,19 +54,20 @@ Some have said every change should be paired with a unit test. In 2024, every ch
 
 ## Tips
 
-1. Type '/help' or just '/' to see available commands.
+1. Type `/help` or just `/` to see available commands.
 2. Create a `knowledge.md` file and collect specific points of advice. The assistant will use this knowledge to improve its responses.
 3. Type `undo` or `redo` to revert or reapply file changes from the conversation.
 4. Press `Esc` or `Ctrl+C` while Openbuff is generating a response to stop it.
+5. Run `/setup opencode-go` (or `openai`, `anthropic`, `codex`, `openrouter`, `ollama`, `glm`) to configure a provider, then `/provider` to manage config and `/models` to route individual agents.
 
 ## Troubleshooting
 
 ### Permission Errors
 
-If you are getting permission errors during installation, try using sudo:
+If you are getting permission errors during installation, try using `sudo`:
 
 ```
-sudo npm install -g openbuff
+sudo npm install -g @openbuff/cli
 ```
 
 If you still have errors, it's a good idea to [reinstall Node](https://nodejs.org/en/download).
@@ -104,4 +110,4 @@ Both `http://` and `https://` proxy URLs are supported. Proxy authentication is 
 
 ## Feedback
 
-We value your input! Please open a GitHub issue with your feedback. Thank you for using Openbuff!
+We value your input! Please open a [GitHub issue](https://github.com/AnzoBenjamin/openbuff/issues) with your feedback. Thank you for using Openbuff!
