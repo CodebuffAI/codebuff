@@ -12,6 +12,7 @@ import {
 import {
   isFreebuffPremiumModelId,
   isFreebuffWebGeoExemptModelId,
+  resolveFreebuffModel,
   resolveFreebuffWebModelForLimitedTier,
 } from "@codebuff/common/constants/freebuff-models";
 import { checkLimitedSessionGate, getWebAccessTier } from "./geoAccess";
@@ -119,8 +120,10 @@ export async function runResolvedGates(
   // standard/free-model daily quota, but never unlock premium-model usage
   // there. Full/allowed regions keep both standard and premium tier scaling.
   const freebuffModel =
-    args.agentType === "Freebuff" && args.accessTier === "limited"
-      ? resolveFreebuffWebModelForLimitedTier(args.freebuffModel)
+    args.agentType === "Freebuff"
+      ? args.accessTier === "limited"
+        ? resolveFreebuffWebModelForLimitedTier(args.freebuffModel)
+        : resolveFreebuffModel(args.freebuffModel)
       : args.freebuffModel;
 
   if (!args.skipRateLimitCheck && !isGodRole) {

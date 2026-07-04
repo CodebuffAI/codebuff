@@ -45,9 +45,9 @@ interface FreebuffModelSelectorProps {
 }
 
 /**
- * Keep a web-specific resolver for localStorage hydration. There are no hidden
- * web models right now (Kimi and MiniMax M3 should both be selectable), but the
- * wrapper keeps stale/unknown IDs pinned to the shared Freebuff fallback.
+ * Keep a web-specific resolver for localStorage hydration. Kimi is still
+ * server-supported for old clients, but it is hidden from the web picker after
+ * repeated first-token stalls; stale saved IDs should fall back.
  */
 export function resolveVisibleFreebuffModel(modelId: string): string {
   return resolveFreebuffModel(modelId);
@@ -119,8 +119,9 @@ export function FreebuffModelSelector({
   disabled = false,
   compact = false,
 }: FreebuffModelSelectorProps) {
+  const visibleSelectedModelId = resolveVisibleFreebuffModel(selectedModelId);
   const current =
-    getFreebuffModel(selectedModelId) ??
+    getFreebuffModel(visibleSelectedModelId) ??
     getFreebuffModel(DEFAULT_FREEBUFF_MODEL_ID);
 
   // Live premium quota remaining (reactive). `check()` returns the current
@@ -166,6 +167,11 @@ export function FreebuffModelSelector({
   // plus a daily session quota; the server enforces both, this mirrors it.
   const accessStatus = useQuery(api.webAccess.getWebAccessStatus, {});
   const isLimitedTier = accessStatus?.accessTier === "limited";
+
+  React.useEffect(() => {
+    if (visibleSelectedModelId === selectedModelId) return;
+    onModelChange(visibleSelectedModelId);
+  }, [visibleSelectedModelId, selectedModelId, onModelChange]);
 
   // Coerce a saved selection (e.g. premium id from localStorage) that the
   // limited tier can't use, so the UI matches what the server will run.
