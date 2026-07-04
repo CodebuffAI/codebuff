@@ -13,6 +13,27 @@ import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
 
 const DEBUG_ERROR = true
 
+export const ScoringStatusSchema = z.enum([
+  'scored',
+  'all_judges_failed',
+  'partial_judge_failure',
+])
+
+/**
+ * Scoring status carried alongside {@link JudgingResult} scores.
+ *
+ * - `'scored'` (default when absent): at least one judge produced structured
+ *   output and the scores reflect a real measurement.
+ * - `'all_judges_failed'`: NO judge produced structured output — the returned
+ *   scores are synthetic all-zeros and must NOT be treated as a measured 0/10.
+ * - `'partial_judge_failure'`: SOME (but not all) judges failed; the scores are
+ *   still derived from the judges that succeeded, but are noisier than usual.
+ *
+ * Back-compat: the field is optional, so old trace files (which predate it)
+ * default to `'scored'` for downstream consumers.
+ */
+export type ScoringStatus = z.infer<typeof ScoringStatusSchema>
+
 export const JudgingResultSchema = z.object({
   analysis: z
     .string()
@@ -32,6 +53,9 @@ export const JudgingResultSchema = z.object({
     .max(10)
     .describe('Code structure and maintainability'),
   overallScore: z.number().min(0).max(10).describe('Combined assessment'),
+  scoringStatus: ScoringStatusSchema.optional().describe(
+    'Whether the scores were actually measured by the judges, or are synthetic (all judges failed). Absent => scored for back-compat.',
+  ),
 })
 
 export type JudgingResult = z.infer<typeof JudgingResultSchema>
@@ -79,7 +103,15 @@ const judgeAgentBase: Omit<AgentDefinition, 'id' | 'model'> = {
         maximum: 10,
         description: 'Combined assessment',
       },
+      scoringStatus: {
+        type: 'string',
+        enum: ['scored', 'all_judges_failed', 'partial_judge_failure'],
+        description:
+          'Whether the scores were actually measured by the judges, or are synthetic (all judges failed). Optional; omit if unsure.',
+      },
     },
+    // scoringStatus is intentionally NOT required — the judge agent is unlikely
+    // to populate it, and our code defaults the absent value to 'scored'.
     required: [
       'analysis',
       'strengths',
@@ -288,8 +320,21 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
       completionScore: 0,
       codeQualityScore: 0,
       overallScore: 0,
+      // No judge produced structured output — these all-zero scores are
+      // synthetic, NOT a measured 0/10. Signal this explicitly to downstream
+      // consumers (FINAL_RESULTS.json, meta-analysis) so they can exclude the
+      // run from averages instead of treating it as a true zero.
+      scoringStatus: 'all_judges_failed',
     }
   }
+
+  // Some (but not all) judges failed to produce structured output. The scores
+  // below are still derived from the judges that succeeded, but the run is
+  // noisier than usual — surface that as a distinct signal.
+  const scoringStatus: ScoringStatus =
+    validResults.length < judgeResults.length
+      ? 'partial_judge_failure'
+      : 'scored'
 
   // Sort judges by overall score and select the median for analysis
   const sortedResults = validResults.sort(
@@ -321,6 +366,10 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
     completionScore: averageCompletionScore,
     codeQualityScore: averageCodeQualityScore,
     overallScore: averageOverallScore,
+    // 'scored' when all judges succeeded; 'partial_judge_failure' when some
+    // dropped out (see the computation above). clampScoresByDeterministicSignals
+    // preserves this field unchanged via object spread.
+    scoringStatus,
   }
 
   // P2-1: Apply deterministic clamping from finalCheckCommands exit codes.

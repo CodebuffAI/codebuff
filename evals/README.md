@@ -309,7 +309,7 @@ The `post-eval-analysis.ts` system provides:
 
 The `evals/git-evals/` directory contains several example evaluation files:
 
-- `eval-codebuff.json` - Openbuff/Codebuff project evaluations
+- `eval-codebuff.json` - Openbuff project evaluations (inherited upstream-history tasks, repoUrl → AnzoBenjamin/openbuff)
 - `eval-manifold.json` - Manifold prediction market evaluations
 - `eval-saleor.json` - Saleor e-commerce platform evaluations
 

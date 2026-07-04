@@ -130,6 +130,7 @@ export async function analyzeAgentTraces({
     weaknesses: string[]
     recommendations: string[]
   }>
+  traceAnalysisStatus: 'ok' | 'no_structured_output' | 'agent_error'
 }> {
   try {
     const truncatedTraces = traces.map((t) => ({
@@ -217,15 +218,17 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
       return {
         overallAnalysis: 'Error running trace analyzer - not structured output',
         agentFeedback: [],
+        traceAnalysisStatus: 'no_structured_output',
       }
     }
 
-    return output.value as any
+    return { ...(output.value as any), traceAnalysisStatus: 'ok' }
   } catch (error) {
     console.error(`Failed to analyze traces:`, getErrorObject(error))
     return {
       overallAnalysis: `Error running trace analyzer: ${getErrorObject(error).message}`,
       agentFeedback: [],
+      traceAnalysisStatus: 'agent_error',
     }
   }
 }

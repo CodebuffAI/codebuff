@@ -121,15 +121,15 @@ export async function generateEvalTask({
 }> {
   const { diff, editedFilePaths, commitMessage, repoPath } = input
 
-  const allAgentDefinitions = [
+  const allAgentDefinitions: AgentDefinition[] = [
     evalTaskGeneratorAgentDef,
-    fileExplorerDef,
-    findAllReferencerDef,
-    filePickerDef,
-    fileListerDef,
-    codeSearcherDef,
-    directoryListerDef,
-    globMatcherDef,
+    fileExplorerDef as AgentDefinition,
+    findAllReferencerDef as AgentDefinition,
+    filePickerDef as AgentDefinition,
+    fileListerDef as AgentDefinition,
+    codeSearcherDef as AgentDefinition,
+    directoryListerDef as AgentDefinition,
+    globMatcherDef as AgentDefinition,
     ...(agentDefinitions || []),
   ]
 

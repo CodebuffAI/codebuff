@@ -1,5 +1,5 @@
 {
-  "repoUrl": "https://github.com/CodebuffAI/codebuff",
+  "repoUrl": "https://github.com/AnzoBenjamin/openbuff",
   "generationDate": "2025-12-10",
   "initCommand": "bun install && git checkout -- bun.lock",
   "binInstalls": [

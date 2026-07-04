@@ -6,6 +6,27 @@ import path from 'path'
 import { getErrorObject } from '@codebuff/common/util/error'
 
 /**
+ * Build the `git clone` invocation for a repo URL. `file://` URLs pointing at
+ * a non-bare worktree fail with exit 128 under `git clone --depth 1` because
+ * git refuses to shallow-copy a checked-out local repo; `--no-local` forces
+ * the remote transport, which supports `--depth 1` against worktrees.
+ */
+function buildCloneCommand(repoUrl: string, repoDir: string): string {
+  const depthFlag = '--depth 1'
+  const noLocalFlag = repoUrl.startsWith('file://') ? '--no-local' : ''
+  return [
+    'git',
+    'clone',
+    noLocalFlag,
+    depthFlag,
+    repoUrl,
+    repoDir,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
  * Helper function to manage test repository lifecycle
  * Sets up a test repo, runs a function with the repo cwd, then cleans up
  */
@@ -26,7 +47,7 @@ export const withTestRepo = async <T>(
   const repoDir = path.join(tempDir, 'repo')
 
   try {
-    execSync(`git clone --depth 1 ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
+    execSync(buildCloneCommand(repoUrl, repoDir), { stdio: 'ignore' })
 
     execSync(`git fetch --depth 1 origin ${parentSha}`, {
       cwd: repoDir,
@@ -75,7 +96,7 @@ export const withTestRepoAndParent = async <T>(
   const repoDir = path.join(tempDir, 'repo')
 
   try {
-    execSync(`git clone --depth 1 ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
+    execSync(buildCloneCommand(repoUrl, repoDir), { stdio: 'ignore' })
 
     execSync(`git fetch --depth 2 origin ${commitSha}`, {
       cwd: repoDir,

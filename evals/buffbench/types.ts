@@ -1,4 +1,4 @@
-import type { JudgingResult } from './judge'
+import type { JudgingResult, ScoringStatus } from './judge'
 
 export interface FileState {
   path: string
@@ -88,6 +88,13 @@ export interface EvalRun {
   prompt: string
   diff: string
   judging: JudgingResult
+  /**
+   * Top-level mirror of {@link JudgingResult.scoringStatus} for ergonomic
+   * filtering in meta-analysis (so consumers don't have to reach into
+   * `judging`). Defaults to `'scored'` when absent (back-compat with old trace
+   * files that predate the field).
+   */
+  scoringStatus?: ScoringStatus
   cost: number
   durationMs: number
   error?: string

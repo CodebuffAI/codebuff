@@ -46,16 +46,102 @@ export interface CommitPickerResult {
   selectedCommits: FilteredCommit[]
 }
 
-// Schema for GPT-5 response
-const CommitSelectionSchema = z.object({
-  selectedCommits: z.array(
-    z.object({
-      sha: z.string(),
-      reason: z.string(),
-      shortDescription: z.string(),
-    }),
-  ),
+// Raw entry shape that tolerates the field-name variants the routed model
+// actually emits (selected_commits / commits / selected / is_hard / commit /
+// commit_hash). Each variant is normalized below into the canonical shape.
+// NOTE: every optional field uses `.optional()` (not `z.union([..., z.undefined()])`)
+// because zod-to-JSON-Schema conversion cannot represent `z.undefined()` in a
+// union and the SDK's `generateObject` call crashes when building the schema.
+const RawCommitSelectionEntrySchema = z
+  .object({
+    sha: z.string().optional(),
+    commit: z.string().optional(),
+    commit_hash: z.string().optional(),
+    reason: z.string().optional(),
+    why_hard: z.union([z.string(), z.array(z.string())]).optional(),
+    why_it_is_hard: z.union([z.string(), z.array(z.string())]).optional(),
+    description: z.string().optional(),
+    shortDescription: z.string().optional(),
+    reasoning: z.string().optional(),
+  })
+  .passthrough()
+
+type RawCommitSelectionEntry = z.infer<typeof RawCommitSelectionEntrySchema>
+
+const CanonicalCommitSelectionEntrySchema = z.object({
+  sha: z.string(),
+  reason: z.string(),
+  shortDescription: z.string(),
 })
+
+function pickSha(raw: RawCommitSelectionEntry): string {
+  return (raw.sha ?? raw.commit ?? raw.commit_hash ?? '').trim()
+}
+
+function joinListOrString(
+  value: string | string[] | undefined,
+): string {
+  if (Array.isArray(value)) return value.filter(Boolean).join(' ')
+  return (value ?? '').trim()
+}
+function pickReason(raw: RawCommitSelectionEntry): string {
+  return (
+    joinListOrString(raw.reason) ||
+    joinListOrString(raw.why_hard) ||
+    joinListOrString(raw.why_it_is_hard) ||
+    joinListOrString(raw.reasoning) ||
+    ''
+  )
+}
+function pickShortDescription(raw: RawCommitSelectionEntry): string {
+  return (
+    (raw.shortDescription ?? '').trim() ||
+    (raw.description ?? '').trim() ||
+    ''
+  )
+}
+
+// Schema for GPT-5 response. The routed model (iamhc/glm-5.2 via the default
+// route) frequently returns selected_commits / commits / selected / is_hard
+// instead of the canonical `selectedCommits` key. Accept the variants and
+// normalize to the shape `processCommit` consumes. `selected` is typed as
+// `z.unknown()` because the model sometimes returns a boolean, sometimes a
+// single object, and sometimes an array — all of which are normalized in the
+// transform below. (A `z.union` of those three is not JSON-Schema-able.)
+export const CommitSelectionSchema = z
+  .object({
+    selectedCommits: z.array(RawCommitSelectionEntrySchema).optional(),
+    selected_commits: z.array(RawCommitSelectionEntrySchema).optional(),
+    commits: z.array(RawCommitSelectionEntrySchema).optional(),
+    selected: z.unknown().optional(),
+  })
+  .passthrough()
+  .transform(
+    (raw): { selectedCommits: z.infer<typeof CanonicalCommitSelectionEntrySchema>[] } => {
+      const rawList: RawCommitSelectionEntry[] = []
+      rawList.push(...(raw.selectedCommits ?? []))
+      rawList.push(...(raw.selected_commits ?? []))
+      rawList.push(...(raw.commits ?? []))
+      if (Array.isArray(raw.selected)) {
+        for (const item of raw.selected) {
+          if (item && typeof item === 'object') rawList.push(item as RawCommitSelectionEntry)
+        }
+      } else if (raw.selected && typeof raw.selected === 'object') {
+        rawList.push(raw.selected as RawCommitSelectionEntry)
+      }
+
+      const normalized = rawList
+        .map((entry) => ({
+          sha: pickSha(entry),
+          reason: pickReason(entry),
+          shortDescription: pickShortDescription(entry),
+        }))
+        .filter((entry) => entry.sha.length > 0)
+
+      return { selectedCommits: normalized }
+    },
+  )
+  .pipe(z.object({ selectedCommits: z.array(CanonicalCommitSelectionEntrySchema) }))
 
 const COMMIT_SCREENING_PROMPT = `You are an expert at identifying HARD and CHALLENGING code changes in git commits that would make difficult evaluation examples for an AI coding assistant.
 
@@ -145,10 +231,13 @@ function getCommits(repoPath: string, limit: number, afterCommit?: string): Comm
     const [sha, author, date, ...messageParts] = line.split('|')
     const message = messageParts.join('|')
 
-    // Get stats for this commit
+    // Get stats for this commit. Use a large maxBuffer because some commits
+    // touch thousands of files (e.g. dependency-cache or generated-code
+    // commits), which overrun Node's default 1MB stdout limit (ENOBUFS).
     const statsOutput = execFileSync('git', ['show', '--stat', sha], {
       cwd: repoPath,
       encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
     })
     const stats = parseGitStats(statsOutput)
 

@@ -196,7 +196,7 @@ evals/buffbench/
 │
 ├── types.ts                  # Type definitions
 │
-├── eval-codebuff.json        # Codebuff project evaluations
+├── eval-codebuff.json        # Openbuff project evaluations (inherited upstream-history tasks, repoUrl → AnzoBenjamin/openbuff)
 ├── eval-manifold.json        # Manifold evaluations
 ├── eval-plane.json           # Plane project evaluations
 └── eval-saleor.json          # Saleor e-commerce evaluations
@@ -433,9 +433,19 @@ taskConcurrency: 10  // High parallelism (faster, more resources)
 
 The `evals/buffbench/` directory contains several example evaluation files:
 
-- **eval-codebuff.json** - Codebuff project evaluations
+- **eval-codebuff.json** - Openbuff project evaluations (inherited upstream-history tasks, repoUrl → AnzoBenjamin/openbuff). 62 curated tasks from the upstream Codebuff commit history that openbuff inherited at fork. Use `bun run main.ts`.
+- **eval-openbuff-v2.json** - Openbuff project evaluations (openbuff-authored tasks, repoUrl → `file:///home/ben/Code/CLI/openbuff`). 8 tasks regenerated from the openbuff repo's own post-fork commit history via `gen-repo-eval.ts`. Use `bun run main-openbuff.ts`.
 - **eval-manifold.json** - Manifold prediction market evaluations
 - **eval-plane.json** - Plane project management evaluations
 - **eval-saleor.json** - Saleor e-commerce platform evaluations
 
 These demonstrate the evaluation format and provide ready-to-use test cases.
+
+### `eval-codebuff.json` vs `eval-openbuff-v2.json` (coexistence)
+
+The two Openbuff-project eval sets coexist so we can measure regression against **both** inherited upstream history **and** openbuff-authored history:
+
+- **`eval-codebuff.json`** — inherited upstream-history commits (`456858c`, `6c362c3`, `30dc486`, `212590d`, …). These SHAs exist in the openbuff repo's history at the same SHAs because openbuff forked with full history. The `repoUrl` was repointed from the dead `github.com/CodebuffAI/codebuff` to `github.com/AnzoBenjamin/openbuff` so the eval runner can `git clone` it. 62 tasks, curated.
+- **`eval-openbuff-v2.json`** — openbuff-authored post-fork commits (`1d66533f40`, `f1730792f0`, `6ac45f1d86`, `67de1070b6`, `08415a2d35`, `85a4092a2b`, `b58a4eef60`, `84cc946c1b`). Regenerated from the openbuff repo's own history via the `pick-commits` LLM screening pipeline. The `repoUrl` is a `file://` URL pointing at the local openbuff worktree (see `setup-test-repo.ts` `file://` support).
+
+Both can run in the same environment; they share `runBuffBench`, only the `evalDataPaths` differ.

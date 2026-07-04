@@ -30,6 +30,12 @@ export function extractRepoNameFromUrl(repoUrl: string): string {
     cleanUrl = cleanUrl.split('://')[1]
   }
 
+  // Strip a trailing slash so a file:// URL like
+  // `file:///home/ben/Code/CLI/openbuff/` resolves to `openbuff`, not `''`.
+  if (cleanUrl.endsWith('/')) {
+    cleanUrl = cleanUrl.slice(0, -1)
+  }
+
   // Remove domain and get the last part (repo name)
   const parts = cleanUrl.split('/')
   return parts[parts.length - 1]
@@ -79,6 +85,23 @@ export function executeInitCommand(
   })
 }
 
+/**
+ * Sets up an isolated test repository for evaluation runs.
+ *
+ * Supports three remote URL shapes:
+ *  - HTTPS / SSH GitHub URLs (e.g. `https://github.com/user/repo`,
+ *    `git@github.com:user/repo`) — optionally authenticated via
+ *    `CODEBUFF_GITHUB_TOKEN`.
+ *  - `file://` absolute local paths (e.g. `file:///home/ben/Code/CLI/openbuff`)
+ *    for offline runs against a local worktree clone. `git clone` and
+ *    `git fetch` natively accept `file://` URLs; this path is taken when no
+ *    GitHub token is set or the URL does not include `github.com`.
+ *  - Bare local paths are not accepted; wrap them in `file://` first.
+ *
+ * Self-clone guard: a `file://` URL that resolves inside `TEST_REPOS_DIR` is
+ * rejected, since the clone target also lives under `TEST_REPOS_DIR` and that
+ * would create a recursive-clone / disk-fill loop.
+ */
 export async function setupTestRepo(
   repoUrl: string,
   customRepoName: string,
@@ -95,6 +118,19 @@ export async function setupTestRepo(
   const repoDir = addRandomSuffix
     ? `${repoBaseDir}-${generateCompactId()}`
     : repoBaseDir
+
+  // Self-clone guard for file:// URLs: reject remotes that resolve inside
+  // TEST_REPOS_DIR to avoid recursive cloning / disk-fill loops.
+  if (repoUrl.startsWith('file://')) {
+    const fileRemotePath = path.resolve(decodeURIComponent(repoUrl.slice('file://'.length)))
+    const resolvedTestReposDir = path.resolve(TEST_REPOS_DIR)
+    if (fileRemotePath === resolvedTestReposDir || fileRemotePath.startsWith(resolvedTestReposDir + path.sep)) {
+      throw new Error(
+        `Refusing to clone file:// URL ${repoUrl}: the remote path resolves inside TEST_REPOS_DIR (${resolvedTestReposDir}), which would create a recursive-clone loop. Point file:// at a worktree outside evals/buffbench/test-repos/ instead.`,
+      )
+    }
+    console.log(`file:// remote detected - cloning from local path: ${fileRemotePath}`)
+  }
 
   // Create test-repos directory if it doesn't exist
   if (!fs.existsSync(TEST_REPOS_DIR)) {
@@ -189,16 +225,24 @@ export async function setupTestRepo(
         },
       )
 
-      await executeGitCommandWithRetry(
-        'git',
-        ['fetch', '--depth=1', 'origin', parentSha],
-        {
-          cwd: repoDir,
-          timeout: 600_000,
-          stdio: 'inherit',
-          env: gitEnv,
-        },
-      )
+      // `--no-local` forces remote transport for file:// URLs so `git fetch
+      // --depth=1` works against a non-bare worktree. Without it git refuses
+      // to shallow-fetch from a checked-out local repo (exit 128).
+      const isLocalFileUrl = effectiveCloneUrl.startsWith('file://')
+      const fetchFetchArgs = [
+        'fetch',
+        ...(isLocalFileUrl ? ['--no-local'] : []),
+        '--depth=1',
+        'origin',
+        parentSha,
+      ]
+
+      await executeGitCommandWithRetry('git', fetchFetchArgs, {
+        cwd: repoDir,
+        timeout: 600_000,
+        stdio: 'inherit',
+        env: gitEnv,
+      })
 
       await executeGitCommandWithRetry('git', ['checkout', 'FETCH_HEAD'], {
         cwd: repoDir,
