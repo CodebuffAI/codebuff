@@ -34,6 +34,6 @@
     "next-auth": "^4.24.11"
   },
   "devDependencies": {
-    "next": "15.5.16"
+    "next": "16.2.10"
   }
 }

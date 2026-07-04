@@ -36,9 +36,6 @@ const nextConfig = {
         }
       : {}),
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -65,18 +62,17 @@ const nextConfig = {
     'turndown-plugin-gfm',
     // NOTE: lz4-wasm is intentionally NOT listed here. serverExternalPackages
     // only works for packages Node can require() at runtime; lz4-wasm is an
-    // ESM-only wasm-pack bundler build, so Next bundles it into the SSR layer
-    // anyway and the server then tries to read the emitted wasm chunk during
-    // SSR (ENOENT in prod). It's aliased to `false` in the server webpack
-    // config below instead.
+    // ESM-only wasm-pack bundler build. Turbopack bundles it natively and
+    // emits the .wasm file next to the chunk (inside the standalone output),
+    // so no server-side stub is needed — unlike the old webpack build, where
+    // the emitted wasm chunk path was unreadable at runtime (ENOENT in prod).
   ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
     serverComponentsHmrCache: true,
-    webpackBuildWorker: true,
-    webpackMemoryOptimizations: true,
-    parallelServerCompiles: false,
-    parallelServerBuildTraces: false,
+    // Persist Turbopack's build cache under .next/cache so the Render
+    // build-cache stash (scripts/render-next-cache.mjs) makes rebuilds warm.
+    turbopackFileSystemCacheForBuild: true,
   },
   turbopack: {
     // Keep Turbopack scoped to this Next app. Letting it infer the monorepo
@@ -85,56 +81,6 @@ const nextConfig = {
       process.env.NODE_ENV === 'production'
         ? monorepoRoot
         : import.meta.dirname,
-  },
-  webpack: (config, { isServer }) => {
-    // lz4-wasm is browser-only (WebContainer snapshot compression). Client
-    // components still compile into the server's SSR bundle, where the wasm
-    // chunk gets emitted but can't be read at runtime — so stub the package
-    // out of the server build entirely and enable wasm only for the client.
-    if (isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'lz4-wasm': false,
-      }
-    } else {
-      config.experiments = {
-        ...config.experiments,
-        asyncWebAssembly: true,
-      }
-    }
-    config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
-    config.externals.push(
-      { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
-      'pino-pretty',
-      'encoding',
-      'perf_hooks',
-      'async_hooks',
-    )
-    config.externals.push(
-      '@codebuff/code-map',
-      '@codebuff/code-map/parse',
-      '@codebuff/code-map/languages',
-      /^@codebuff\/code-map/,
-    )
-    config.infrastructureLogging = {
-      level: 'error',
-    }
-    config.watchOptions = {
-      ...(config.watchOptions ?? {}),
-      ignored: [
-        '**/.git/**',
-        '**/.next/**',
-        '**/node_modules/**',
-        '../../debug/**',
-        '../../web/.next/**',
-        '../../cli/release/**',
-        '../../cli/release-staging/**',
-        // Standalone template mounted into WebContainer at runtime, read from
-        // disk by an API route — not part of this app's module graph.
-        '**/webcontainer-template/**',
-      ],
-    }
-    return config
   },
   headers: () => {
     return [

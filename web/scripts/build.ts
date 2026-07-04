@@ -63,7 +63,9 @@ async function runNextBuild(): Promise<number> {
   const startTime = Date.now()
   const startMemory = process.memoryUsage().heapUsed
 
-  const proc = spawn(['bun', 'next', 'build'], {
+  // --webpack: this app still relies on its `webpack()` config (contentlayer,
+  // pino/code-map externals); Next 16 defaults to Turbopack which ignores it.
+  const proc = spawn(['bun', 'next', 'build', '--webpack'], {
     cwd: path.join(import.meta.dir, '..'),
     stdout: 'pipe',
     stderr: 'pipe',

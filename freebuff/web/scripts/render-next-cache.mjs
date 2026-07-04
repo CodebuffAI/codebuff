@@ -19,8 +19,9 @@ import { fileURLToPath } from 'url'
 const webRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..')
 const projectCache = join(webRoot, '.next/cache')
 
-// Drop the stash if it balloons past this — a huge webpack cache slows
-// Render's build-cache download/extraction more than it saves in compile time.
+// Drop the stash if it balloons past this — a huge bundler cache (Turbopack
+// filesystem cache, `.next/cache/turbopack`) slows Render's build-cache
+// download/extraction more than it saves in compile time.
 const MAX_STASH_BYTES = 3 * 1024 * 1024 * 1024
 
 async function exists(path) {
