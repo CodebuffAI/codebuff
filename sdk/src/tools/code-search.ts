@@ -46,24 +46,11 @@ export function codeSearch({
   return new Promise((resolve) => {
     let isResolved = false
 
-    // Guard paths robustly
+    // Resolve the search directory: absolute `cwd` is honored as-is, relative
+    // `cwd` is resolved against the project root. Searches may target any
+    // directory on the system.
     const projectRoot = path.resolve(projectPath)
     const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
-
-    // Ensure the resolved path is within the project directory
-    if (
-      !searchCwd.startsWith(projectRoot + path.sep) &&
-      searchCwd !== projectRoot
-    ) {
-      return resolve([
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
-          },
-        },
-      ])
-    }
 
     // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
     // Deduplicating would break up these pairs and cause errors

@@ -1,7 +1,7 @@
 import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
 import { isFileIgnored } from '@codebuff/common/project-file-tree'
 
-import { resolveFilePathWithinProject } from './path-utils'
+import { resolveFilePath } from './path-utils'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
@@ -38,12 +38,10 @@ export async function getFiles(params: {
       continue
     }
 
-    const resolvedPath = resolveFilePathWithinProject(cwd, filePath)
-    if (!resolvedPath) {
-      result[filePath] = FILE_READ_STATUS.OUTSIDE_PROJECT
-      continue
-    }
-    const { relativePath, fullPath } = resolvedPath
+    const { relativePath, fullPath, isWithinProject } = resolveFilePath(
+      cwd,
+      filePath,
+    )
 
     // Apply file filter if provided
     const filterResult = fileFilter?.(relativePath)
@@ -53,9 +51,10 @@ export async function getFiles(params: {
     }
     const isExampleFile = filterResult?.status === 'allow-example'
 
-    // If no custom filter provided, apply default gitignore checking
-    // (allow-example files skip gitignore since they need to bypass .env.* patterns)
-    if (!hasCustomFilter && !isExampleFile) {
+    // If no custom filter provided, apply default gitignore checking.
+    // Gitignore is project-scoped, so it only applies to files inside the
+    // project (allow-example files skip it to bypass .env.* patterns).
+    if (!hasCustomFilter && !isExampleFile && isWithinProject) {
       const ignored = await isFileIgnored({
         filePath: relativePath,
         projectRoot: cwd,
