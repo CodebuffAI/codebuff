@@ -1,0 +1,43 @@
+name: Web Peak-Hours Scaling
+
+# Drives the Render `web` service instance count on a fixed daily curve so it can
+# absorb the 12-17Z load peak (see scripts/ops/scale-web.ts / docs/web-scaling.md).
+# The web tier is ingress/connection-bound and its load is clock-predictable, so a
+# time-based instance floor beats CPU-target autoscaling, which reacts late.
+#
+# Idempotent: runs hourly and just POSTs the curve's target for the current UTC
+# hour. A missed run self-corrects on the next tick. Requires native autoscaling
+# to be OFF on the service (the manual scale endpoint is ignored otherwise).
+#
+# Setup: add the `RENDER_API_KEY` secret (Render API key with access to the web
+# service). Optionally override the service id with the `RENDER_WEB_SERVICE_ID`
+# repo variable; the script defaults to the prod web service.
+
+on:
+  schedule:
+    - cron: '5 * * * *' # hourly, at :05 to avoid the top-of-hour cron stampede
+  workflow_dispatch:
+    inputs:
+      instances:
+        description: 'Override: set an explicit instance count now (blank = use curve)'
+        required: false
+        type: string
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Scale web service
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WEB_SERVICE_ID: ${{ vars.RENDER_WEB_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.instances }}" ]; then
+            bun scripts/ops/scale-web.ts --instances "${{ github.event.inputs.instances }}"
+          else
+            bun scripts/ops/scale-web.ts
+          fi
