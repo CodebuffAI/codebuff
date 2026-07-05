@@ -216,6 +216,13 @@ export function runTerminalCommand({
       // On POSIX, give the command its own process group so that killing it
       // (timeout or user abort) also kills any grandchild processes.
       detached: !isWindows,
+      // On Windows, give the child its own invisible console (CREATE_NO_WINDOW)
+      // instead of attaching it to the TUI's console. Console-attached
+      // descendants can open CONIN$/CONOUT$ directly (cmd, pause, choice,
+      // PSReadLine, ...) even when stdio is piped, stealing the VT input that
+      // ConPTY generates for the TUI's mouse/focus tracking and echoing it as
+      // gibberish like `^[[I^[[<35;12;7M` painted over the UI.
+      windowsHide: true,
     })
 
     liveChildren.add(childProcess)
