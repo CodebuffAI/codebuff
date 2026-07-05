@@ -40,6 +40,7 @@ const SKIP_PATH_PREFIXES = [
   '.kimchi/',
   'packages/billing/',
   'packages/bigquery/',
+  'evals/test-repos/',
 ]
 
 const PATH_QUOTED_REGEX =
