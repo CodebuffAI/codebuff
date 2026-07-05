@@ -219,6 +219,76 @@ Example:
 }
 ```
 
+### `spawn_agent_inline`
+
+`spawn_agent_inline` is an orchestrator-internal tool that spawns a single
+child agent that runs **within the parent's message history**. Its schema
+lives in `common/src/tools/params/tool/spawn-agent-inline.ts` and its
+handler in
+`packages/agent-runtime/src/tools/handlers/tool/spawn-agent-inline.ts`.
+It is distinct from `spawn_agents` (the visible multi-agent spawn tool):
+`spawn_agent_inline` is hidden from the TUI tool palette and is used by
+the automated phase-gates and the `context-pruner` flow, where the child
+must share the parent's conversation context.
+
+Input fields:
+
+- `agent_type` (string, required) — the child agent id to spawn.
+- `prompt` (string, optional) — the prompt forwarded to the child.
+- `params` (object, optional) — parameters object for the child agent.
+- `handoff` (object, optional) — structured handoff payload, merged into
+  the child's `spawnParams` (purely additive; children that do not
+  consume `handoff` still receive `prompt` and `params`).
+
+Example:
+
+```json
+{
+  "agent_type": "file-picker",
+  "prompt": "Find files related to authentication",
+  "params": { "paths": ["src/auth.ts", "src/user.ts"] }
+}
+```
+
+The child's template overrides are forced by the inline handler:
+`includeMessageHistory: true` and `inheritParentSystemPrompt: true`,
+regardless of what the agent template declares. The child shares the
+parent's `systemPrompt` and `messageHistory`, and any messages the child
+adds are written back to the parent's `messageHistory` after execution
+(`clearUserPromptMessagesAfterResponse: false`).
+
+There is no tool result for this tool — it returns a fixed
+`{ message: 'Agent spawned.' }` ack. The child runs until it calls
+`end_turn`, then control returns to the parent. Because the spawn ends
+the current agent step (`endsAgentStep: true`), the parent emits a new
+step after the child returns.
+
+#### Event nesting (`parentAgentId`)
+
+The handler's `onResponseChunk` callback tags each forwarded
+`PrintModeEvent` with a `parentAgentId` so the CLI can nest the child's
+output under the correct agent block:
+
+| Event type | injected field |
+|---|---|
+| `subagent_start` / `subagent_finish` | `parentAgentId` set to the **parent orchestrator's** `agentId` (or the event's existing `parentAgentId` if already set), so the child block nests under the orchestrator |
+| `tool_call` / `tool_result` | `parentAgentId` set to the **child's** `agentId`, so the child's tool calls render inside the child's own agent block, not the orchestrator's |
+| `text` | `agentId` set to the **child's** `agentId` (empty `text` is dropped), so child prose attributes to the child block |
+| other events (e.g. `reasoning_delta`, plain strings) | forwarded verbatim, no field injected |
+
+This mirrors the `ensureParentAgentId` logic the `spawn_agents` handler
+applies, and is what makes an aux-gate `test-writer` / `doc-writer` /
+`security-reviewer` spawn render inside its own labeled box in the TUI
+rather than blending into the orchestrator's turn.
+
+#### `context-pruner` silencing
+
+When `agent_type === 'context-pruner'`, the handler suppresses **all**
+forwarded chunks (including the child's `subagent_start` /
+`subagent_finish` emitted by `executeSubagent`), so the pruner runs
+silently and produces no TUI output. This is the existing behavior; the
+`TODO` in source notes a future option may make this configurable.
+
 ## Slash Commands
 
 Slash commands are the TUI-level command surface (the `/<id>` entries in
