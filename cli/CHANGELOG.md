@@ -1,0 +1,27 @@
+# Changelog
+
+All notable changes to the `@openbuff/cli` package will be documented in this file.
+
+## [1.1.7] - 2026-07-05
+
+Pipeline release of `@openbuff/cli` covering the inline-subagent rendering fix, a legacy-skill prune, and model-agnostic slash-command descriptions.
+
+### Fixed
+
+- `spawn_agent_inline` now nests inline-subagent events under the child agent block in the TUI instead of blending them into the orchestrator's turn. The handler's `onResponseChunk` injects the same lineage tagging `spawn_agents` uses: `tool_call`/`tool_result` get the child's `agentId` as `parentAgentId`, `text` events get the child's `agentId` (empty text dropped), and `subagent_start`/`subagent_finish` get the parent orchestrator's `agentId`. Both injections use `??` so a pre-existing value (set by `run-programmatic-step` for grandchild spawns) is preserved, keeping correct lineage across deep inline nesting. Restores clean rendering of the `test-writer`/`doc-writer`/`security-reviewer` aux-gate spawns.
+
+### Changed
+
+- Pruned the legacy `cleanup` and `review` skills, which duplicated the root "Code Craftsmanship" guidance and the `/review` handler plus the auto-spawned code-reviewer gate covering the same surface. Retiring them removes three sources of truth that were drifting apart.
+- `/plan` and `/review` palette descriptions are now model-agnostic ("configured planner" / "configured reviewer") instead of naming a specific hosted model, so the strings stay correct under BYOK and across providers.
+
+### Added
+
+- `cli/src/data/__tests__/slash-commands.test.ts` (23 tests) locking the slash-command contract — `SLASH_COMMANDS`, `SLASHLESS_COMMAND_IDS`, `getSlashCommandsWithSkills` — including "GPT 5.4"-style model-name regression guards (reject hardcoded hosted-model text) and a 50-char description-truncation boundary check.
+- `packages/agent-runtime/src/__tests__/spawn-agent-inline-nesting.test.ts` (12 tests) covering the new nesting behavior, including grandchild regression guards for both `parentAgentId` and `agentId` preservation, the silent-`context-pruner` guard, and verbatim pass-through of non-nesting event types.
+- `## Slash Commands` section in `docs/agents-and-tools.md` cataloging the three exports, the `SlashCommand` shape, the registered command set, and the skill-command vs. alias/implicit rules.
+- `### spawn_agent_inline` subsection in `docs/agents-and-tools.md` documenting the handler contract, forced template overrides, return shape, and the `parentAgentId`/`agentId` nesting table.
+
+### Removed
+
+- `.agents/skills/cleanup/SKILL.md` and `.agents/skills/review/SKILL.md` (see "Changed" above for rationale).
