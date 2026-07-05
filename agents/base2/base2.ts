@@ -645,18 +645,121 @@ ${securityReviewSection}
         if (finalResponseGateOpen && !editsThisStep) break
 
         const currentPendingGateFiles = Array.from(pendingGateFiles)
-        // M3 (R1d) — reset the aux-gate done-flags when the pending gate
-        // file set changes, so security-reviewer / test-writer / doc-writer
-        // each get exactly one spawn per distinct edited file set.
+        // M3 (R1d) — reset the aux-gate done-flags when the AUX-RELEVANT
+        // pending gate file set changes, so security-reviewer / test-writer
+        // / doc-writer each get exactly one spawn per distinct edited file
+        // set. We compare the aux-relevant subset (files at least one aux
+        // predicate would act on) rather than the raw set so that aux
+        // OUTPUTS (test files, doc files, etc.) added in the next top-of-loop
+        // extractChangedFilesFromMessages sweep do NOT perturb the snapshot
+        // and do NOT trigger a *GateDone reset — preventing an infinite
+        // re-spawn loop (e.g. test-writer writes foo.test.ts -> next iter
+        // adds it to pendingGateFiles -> raw detectPendingGateFileSetChange
+        // returns TRUE -> resetAuxGateFlags clears testWriterGateDone ->
+        // test-writer re-spawns for the original source file, forever). The
+        // reset snapshot stored in auxGatesLastPendingFiles is therefore the
+        // aux-relevant subset.
+        const auxRelevantPendingFiles =
+          selectAuxRelevantFiles(currentPendingGateFiles)
         if (
-          detectPendingGateFileSetChange(activeWorkState, currentPendingGateFiles)
+          detectPendingGateFileSetChange(activeWorkState, auxRelevantPendingFiles)
         ) {
-          resetAuxGateFlags(activeWorkState, currentPendingGateFiles)
+          resetAuxGateFlags(activeWorkState, auxRelevantPendingFiles)
           markActiveWorkStateChanged()
         }
-        // M3 (R1a) — security-reviewer gate: pre-edit advisory review, fires
-        // BEFORE the validation/reviewer gate when the pending gate files
-        // match security-sensitive patterns. Idempotent per file set.
+        // Unified pre-reviewer aux gates (M3). These fire BEFORE the
+        // validation/reviewer gate (which is now the FINAL gate), in order:
+        // test-writer -> doc-writer -> security-reviewer. Each is predicate-
+        // gated and skips silently (sets its *GateDone=true and marks work
+        // state changed) when no pending file matches its relevance
+        // predicate, exactly like the existing else-blocks. Each spawn uses
+        // spawn_agent_inline; the runtime blocks the generator until the
+        // child completes (the yield is the blocking point, and
+        // finalResponseGateOpen stays false while aux work runs), so the
+        // orchestrator waits for each aux spawn to finish before proceeding
+        // to the next gate. After all three run (or skip), continue so the
+        // loop re-enters and reaches the existing validation+reviewer loop
+        // unchanged. Idempotent per pending gate file set via the done-flags
+        // above.
+        let auxGateFiredThisIteration = false
+        // 1) test-writer gate
+        if (
+          runValidationGate &&
+          editsHappened &&
+          currentPendingGateFiles.length > 0 &&
+          !activeWorkState.testWriterGateDone
+        ) {
+          const testWriterSelection = selectTestWriterTargets(
+            currentPendingGateFiles,
+          )
+          if (
+            testWriterSelection.targetFiles.length > 0 &&
+            testWriterSelection.testCommand
+          ) {
+            activeWorkState.testWriterGateDone = true
+            markActiveWorkStateChanged()
+            emitGateTelemetry({
+              currentPhase: 'awaiting_validation',
+              pendingFileCount: currentPendingGateFiles.length,
+              pendingFiles: currentPendingGateFiles,
+              reviewerStatus: 'passed',
+              validationStatus: 'passed',
+              reuseReason: 'aux-gate:test-writer',
+            })
+            auxGateFiredThisIteration = true
+            yield {
+              toolName: 'spawn_agent_inline',
+              input: {
+                agent_type: 'test-writer',
+                params: {
+                  target_files: testWriterSelection.targetFiles,
+                  test_command: testWriterSelection.testCommand,
+                },
+              },
+              includeToolCall: false,
+            } as any
+          } else {
+            activeWorkState.testWriterGateDone = true
+            markActiveWorkStateChanged()
+          }
+        }
+        // 2) doc-writer gate
+        if (
+          runValidationGate &&
+          editsHappened &&
+          currentPendingGateFiles.length > 0 &&
+          !activeWorkState.docWriterGateDone
+        ) {
+          const docTargets = selectDocWriterTargets(currentPendingGateFiles)
+          if (docTargets.length > 0) {
+            activeWorkState.docWriterGateDone = true
+            markActiveWorkStateChanged()
+            emitGateTelemetry({
+              currentPhase: 'awaiting_validation',
+              pendingFileCount: currentPendingGateFiles.length,
+              pendingFiles: currentPendingGateFiles,
+              reviewerStatus: 'passed',
+              validationStatus: 'passed',
+              reuseReason: 'aux-gate:doc-writer',
+            })
+            auxGateFiredThisIteration = true
+            yield {
+              toolName: 'spawn_agent_inline',
+              input: {
+                agent_type: 'doc-writer',
+                params: {
+                  source_files: docTargets,
+                  target_doc_files: ['docs/agents-and-tools.md'],
+                },
+              },
+              includeToolCall: false,
+            } as any
+          } else {
+            activeWorkState.docWriterGateDone = true
+            markActiveWorkStateChanged()
+          }
+        }
+        // 3) security-reviewer gate
         if (
           runValidationGate &&
           editsHappened &&
@@ -665,15 +768,16 @@ ${securityReviewSection}
           matchesSecuritySensitiveGlob(currentPendingGateFiles)
         ) {
           activeWorkState.preEditSecurityReviewDone = true
+          markActiveWorkStateChanged()
           emitGateTelemetry({
             currentPhase: 'awaiting_validation',
             pendingFileCount: currentPendingGateFiles.length,
             pendingFiles: currentPendingGateFiles,
-            reviewerStatus: 'pending',
-            validationStatus: 'pending',
+            reviewerStatus: 'passed',
+            validationStatus: 'passed',
             reuseReason: 'aux-gate:security-reviewer',
           })
-          markActiveWorkStateChanged()
+          auxGateFiredThisIteration = true
           yield {
             toolName: 'spawn_agent_inline',
             input: {
@@ -683,6 +787,12 @@ ${securityReviewSection}
             includeToolCall: false,
           } as any
         }
+        // After any aux gate fired (or all three skipped/marked done), re-loop
+        // so validation+reviewer (the FINAL gate) re-enters on a fresh read.
+        // This blocks the orchestrator behind the aux spawns (each yield
+        // blocked until the child completed) and lets the loop re-read pending
+        // files before the final gate runs.
+        if (auxGateFiredThisIteration) continue
         if (
           runValidationGate &&
           editsHappened &&
@@ -1358,83 +1468,18 @@ ${securityReviewSection}
             },
             includeToolCall: false,
           } as any
-          // M3 (R1b/R1c) — test-writer + doc-writer gates: post-edit coverage,
-          // fire AFTER the validation/reviewer gate passes
-          // (finalResponseGateOpen). Idempotent per pending gate file set; the
-          // done-flags are reset by detectPendingGateFileSetChange when the
-          // set changes. They run before `continue` so the loop re-enters and
-          // breaks on the next iteration with finalResponseGateOpen=true.
-          if (
-            currentPendingGateFiles.length > 0 &&
-            !activeWorkState.testWriterGateDone
-          ) {
-            const testWriterSelection = selectTestWriterTargets(
-              currentPendingGateFiles,
-            )
-            if (
-              testWriterSelection.targetFiles.length > 0 &&
-              testWriterSelection.testCommand
-            ) {
-              activeWorkState.testWriterGateDone = true
-              markActiveWorkStateChanged()
-              emitGateTelemetry({
-                currentPhase: 'final_response_allowed',
-                pendingFileCount: currentPendingGateFiles.length,
-                pendingFiles: currentPendingGateFiles,
-                reviewerStatus: 'passed',
-                validationStatus: 'passed',
-                reuseReason: 'aux-gate:test-writer',
-              })
-              yield {
-                toolName: 'spawn_agent_inline',
-                input: {
-                  agent_type: 'test-writer',
-                  params: {
-                    target_files: testWriterSelection.targetFiles,
-                    test_command: testWriterSelection.testCommand,
-                  },
-                },
-                includeToolCall: false,
-              } as any
-            } else {
-              activeWorkState.testWriterGateDone = true
-              markActiveWorkStateChanged()
-            }
-          }
-          if (
-            currentPendingGateFiles.length > 0 &&
-            !activeWorkState.docWriterGateDone
-          ) {
-            const docTargets = selectDocWriterTargets(
-              currentPendingGateFiles,
-            )
-            if (docTargets.length > 0) {
-              activeWorkState.docWriterGateDone = true
-              markActiveWorkStateChanged()
-              emitGateTelemetry({
-                currentPhase: 'final_response_allowed',
-                pendingFileCount: currentPendingGateFiles.length,
-                pendingFiles: currentPendingGateFiles,
-                reviewerStatus: 'passed',
-                validationStatus: 'passed',
-                reuseReason: 'aux-gate:doc-writer',
-              })
-              yield {
-                toolName: 'spawn_agent_inline',
-                input: {
-                  agent_type: 'doc-writer',
-                  params: {
-                    source_files: docTargets,
-                    target_doc_files: ['docs/agents-and-tools.md'],
-                  },
-                },
-                includeToolCall: false,
-              } as any
-            } else {
-              activeWorkState.docWriterGateDone = true
-              markActiveWorkStateChanged()
-            }
-          }
+          // NOTE: the three aux gates (test-writer / doc-writer /
+          // security-reviewer) now run pre-reviewer above, before this final
+          // validation+code-reviewer gate. Code-reviewer is the final gate.
+          // The pre-reviewer aux spawns write aux-output files (tests, docs),
+          // which the next loop iteration re-reads into pendingGateFiles so
+          // this final gate also covers their changes — desirable, so the
+          // final reviewer covers the full set of edits. (The old R1b/R1c
+          // post-gate test-writer + doc-writer spawns have been moved above
+          // and subsumed into the unified pre-reviewer aux block.)
+          //
+          // (Previously here: the full R1b test-writer + R1c doc-writer
+          // post-gate blocks, which ran AFTER the gate passed. Removed.)
           continue
         }
         if (editsHappened) {
@@ -1731,6 +1776,42 @@ ${securityReviewSection}
 
       function selectDocWriterTargets(files: string[]): string[] {
         return files.filter(isPublicApiSourceFile)
+      }
+
+      // Return the subset of `files` that at least one aux gate predicate
+      // (test-writer / doc-writer / security-reviewer) would act on. Used at
+      // the handleSteps call site to compare/store the aux-relevant snapshot
+      // so aux outputs (test files, doc files) don't perturb the snapshot and
+      // trigger an infinite *GateDone reset loop. Self-contained inline
+      // helper — no module-scope imports (handleSteps is serialized).
+      function selectAuxRelevantFiles(files: string[]): string[] {
+        const relevant: string[] = []
+        for (const file of files) {
+          if (
+            isNonTestSourceFile(file) &&
+            inferPackageTestCommand(file) !== null
+          ) {
+            relevant.push(file)
+            continue
+          }
+          if (isPublicApiSourceFile(file)) {
+            relevant.push(file)
+            continue
+          }
+          if (matchesSecuritySensitiveGlob([file])) {
+            relevant.push(file)
+          }
+        }
+        // Dedupe preserving first-seen order.
+        const seen = new Set<string>()
+        const out: string[] = []
+        for (const file of relevant) {
+          if (!seen.has(file)) {
+            seen.add(file)
+            out.push(file)
+          }
+        }
+        return out
       }
 
       function detectPendingGateFileSetChange(

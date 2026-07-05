@@ -13,6 +13,10 @@ type GateAuxHelpers = {
   ) => { targetFiles: string[]; testCommand: string | null }
   isPublicApiSourceFile: (filePath: string) => boolean
   selectDocWriterTargets: (files: string[]) => string[]
+  // Reorder helper: the aux-relevant subset used for the *GateDone reset
+  // compare/store so aux outputs (test/doc files) don't perturb the
+  // snapshot and trigger an infinite reset -> re-spawn loop.
+  selectAuxRelevantFiles: (files: string[]) => string[]
   detectPendingGateFileSetChange: (
     activeWorkState: AuxWorkState,
     currentFiles: string[],
@@ -49,6 +53,7 @@ const INLINE_FUNCTION_NAMES: GateAuxFunctionName[] = [
   'selectTestWriterTargets',
   'isPublicApiSourceFile',
   'selectDocWriterTargets',
+  'selectAuxRelevantFiles',
   'detectPendingGateFileSetChange',
   'resetAuxGateFlags',
 ]
@@ -124,7 +129,7 @@ function loadInlineGateAuxHelpers(): GateAuxHelpers {
   ].join('\n\n')
   const buildHelpers = new Function(
     'process',
-    `"use strict";\n${helperSource}\nreturn { normalizeGateFilePath, gateFileSetsEqual, matchesSecuritySensitiveGlob, inferPackageTestCommand, isNonTestSourceFile, selectTestWriterTargets, isPublicApiSourceFile, selectDocWriterTargets, detectPendingGateFileSetChange, resetAuxGateFlags }`,
+    `"use strict";\n${helperSource}\nreturn { normalizeGateFilePath, gateFileSetsEqual, matchesSecuritySensitiveGlob, inferPackageTestCommand, isNonTestSourceFile, selectTestWriterTargets, isPublicApiSourceFile, selectDocWriterTargets, selectAuxRelevantFiles, detectPendingGateFileSetChange, resetAuxGateFlags }`,
   ) as InlineHelperFactory
 
   return buildHelpers(process)
@@ -347,6 +352,104 @@ describe('gate-aux-triggers', () => {
 
     test('empty input yields []', () => {
       expect(helpers.selectDocWriterTargets([])).toEqual([])
+    })
+  })
+
+  describe('selectAuxRelevantFiles (reorder reset-snapshot helper)', () => {
+    test('packages/<name>/src source file is relevant (test-writer predicate)', () => {
+      expect(
+        helpers.selectAuxRelevantFiles(['packages/sdk/src/run.ts']),
+      ).toEqual(['packages/sdk/src/run.ts'])
+    })
+
+    test('cli/src (*.tsx) file is relevant (doc-writer predicate)', () => {
+      expect(
+        helpers.selectAuxRelevantFiles(['cli/src/components/Button.tsx']),
+      ).toEqual(['cli/src/components/Button.tsx'])
+    })
+
+    test('security-sensitive file is relevant even without a package mapping', () => {
+      // .env files don't match a package test command and aren't a public-api
+      // source file, but they ARE security-sensitive so the aux snapshot must
+      // include them so security-reviewer's spawn is tracked.
+      expect(helpers.selectAuxRelevantFiles(['.env'])).toEqual(['.env'])
+    })
+
+    test('test file written by test-writer is filtered out of the snapshot', () => {
+      // The aux-output invariant: a __tests__/*.test.ts file written by the
+      // test-writer subagent must NOT be in the aux-relevant subset, otherwise
+      // the next loop sweep would add it to pendingGateFiles, perturb the reset
+      // snapshot, and re-spawn test-writer forever.
+      expect(
+        helpers.selectAuxRelevantFiles([
+          'packages/sdk/src/__tests__/run.test.ts',
+        ]),
+      ).toEqual([])
+    })
+
+    test('docs file written by doc-writer is filtered out of the snapshot', () => {
+      // Same invariant for doc-writer's output: docs/agents-and-tools.md must
+      // not be aux-relevant, or the reset snapshot grows after doc-writer runs
+      // and triggers a spurious reset + re-spawn.
+      expect(
+        helpers.selectAuxRelevantFiles(['docs/agents-and-tools.md']),
+      ).toEqual([])
+    })
+
+    test('mixed set keeps only aux-relevant files, preserving first-seen order', () => {
+      // A source file, its generated test file, and a docs file: only the
+      // source file is aux-relevant, and it stays in input order.
+      const input = [
+        'packages/sdk/src/run.ts',
+        'packages/sdk/src/__tests__/run.test.ts',
+        'docs/agents-and-tools.md',
+      ]
+      expect(helpers.selectAuxRelevantFiles(input)).toEqual([
+        'packages/sdk/src/run.ts',
+      ])
+    })
+
+    test('dedupes repeated aux-relevant files, keeping first occurrence', () => {
+      expect(
+        helpers.selectAuxRelevantFiles([
+          'packages/sdk/src/run.ts',
+          'packages/sdk/src/run.ts',
+          'common/src/tools/list.ts',
+        ]),
+      ).toEqual(['packages/sdk/src/run.ts', 'common/src/tools/list.ts'])
+    })
+
+    test('empty input yields []', () => {
+      expect(helpers.selectAuxRelevantFiles([])).toEqual([])
+    })
+
+    test('reset snapshot stays stable when an aux output joins pendingGateFiles (no infinite re-spawn)', () => {
+      // End-to-end reproduction of the loop the reorder fixes:
+      // 1. Orchestrator edits packages/sdk/src/run.ts -> aux-relevant snapshot
+      //    is ['packages/sdk/src/run.ts']; reset stores it and clears flags.
+      // 2. test-writer spawns and writes packages/sdk/src/__tests__/run.test.ts;
+      //    the next top-of-loop sweep adds that test file to pendingGateFiles.
+      // 3. selectAuxRelevantFiles of the new pending set must STILL equal the
+      //    stored snapshot (the test file is filtered out), so
+      //    detectPendingGateFileSetChange returns false and no reset + respawn
+      //    happens. This is the regression guard for the infinite loop.
+      const state = createState()
+      const sourceFiles = ['packages/sdk/src/run.ts']
+      const auxSnapshot = helpers.selectAuxRelevantFiles(sourceFiles)
+      expect(auxSnapshot).toEqual(['packages/sdk/src/run.ts'])
+      helpers.resetAuxGateFlags(state, auxSnapshot)
+      state.testWriterGateDone = true
+
+      const afterTestWriterRun = [
+        'packages/sdk/src/run.ts',
+        'packages/sdk/src/__tests__/run.test.ts',
+      ]
+      const newAuxSnapshot = helpers.selectAuxRelevantFiles(afterTestWriterRun)
+      expect(newAuxSnapshot).toEqual(['packages/sdk/src/run.ts'])
+      expect(
+        helpers.detectPendingGateFileSetChange(state, newAuxSnapshot),
+      ).toBe(false)
+      expect(state.testWriterGateDone).toBe(true)
     })
   })
 
