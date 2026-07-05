@@ -357,6 +357,35 @@ ${securityReviewSection}
           ? !hasNoValidation
           : agentId !== 'base2-fast' &&
             agentId !== 'base2-fast-no-validation'
+      // M3 (R1a–R1d) automated phase-gate predicates. These mirror the
+      // advisory glob list in securityReviewSection (quality-prompt-section.ts)
+      // so the automated gate and the advisory prompt agree on what is
+      // security-sensitive. Self-contained string/regex matching (no
+      // module-scope imports) because handleSteps is serialized via
+      // .toString() and reconstructed with new Function(...): module-scope
+      // bindings such as an imported `micromatch` would be undefined at
+      // reconstruction time.
+      const SECURITY_SENSITIVE_GLOBS = [
+        'auth',
+        'oauth',
+        'credentials',
+        'session',
+        'crypto',
+        'keys',
+        'secrets',
+        'vault',
+        'billing',
+        'payment',
+        'stripe',
+        'permissions',
+        'rbac',
+        'policy',
+      ]
+      const SECURITY_SENSITIVE_NAME_SUBSTRINGS = [
+        'secret',
+        'token',
+        'apikey',
+      ]
       const runReviewerGate = runValidationGate
       const reviewerAgentType = 'code-reviewer'
       const MAX_REPAIR_ROUNDS = 3
@@ -1599,36 +1628,6 @@ ${securityReviewSection}
         const rightFiles = new Set(right)
         return left.every((file) => rightFiles.has(file))
       }
-
-      // M3 (R1a–R1d) automated phase-gate predicates. These mirror the
-      // advisory glob list in securityReviewSection (quality-prompt-section.ts)
-      // so the automated gate and the advisory prompt agree on what is
-      // security-sensitive. Self-contained string/regex matching (no
-      // module-scope imports) because handleSteps is serialized via
-      // .toString() and reconstructed with new Function(...): module-scope
-      // bindings such as an imported `micromatch` would be undefined at
-      // reconstruction time.
-      const SECURITY_SENSITIVE_GLOBS = [
-        'auth',
-        'oauth',
-        'credentials',
-        'session',
-        'crypto',
-        'keys',
-        'secrets',
-        'vault',
-        'billing',
-        'payment',
-        'stripe',
-        'permissions',
-        'rbac',
-        'policy',
-      ]
-      const SECURITY_SENSITIVE_NAME_SUBSTRINGS = [
-        'secret',
-        'token',
-        'apikey',
-      ]
 
       function matchesSecuritySensitiveGlob(files: string[]): boolean {
         if (!files.length) return false
