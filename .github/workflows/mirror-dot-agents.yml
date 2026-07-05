@@ -1,4 +1,16 @@
 name: Mirror subdir to dot-agents
+# ┌─────────────────────────────────────────────────────────────────────────────
+# │ DISABLED 2026-07-05 — target repo `AnzoBenjamin/openbuff-dot-agents` does   │
+# │ not exist on GitHub, so every `git subtree push` here fails with exit 128   │
+# │ ("remote: Repository not found"). The dot-agents bundle is already shipped │
+# │ to users via the @openbuff/cli npm package (which seeds `.agents/` at      │
+# │ runtime from common/src/templates/initial-agents-dir/), so the standalone  │
+# │ mirror has no known consumer today.                                         │
+# │                                                                            │
+# │ To re-enable: create `AnzoBenjamin/openbuff-dot-agents` (public, default   │
+# │ branch `main`), then run `gh workflow enable mirror-dot-agents.yml`.       │
+# │ To remove permanently: delete this file.                                   │
+# └─────────────────────────────────────────────────────────────────────────────
 on:
   push:
     branches: [main]
