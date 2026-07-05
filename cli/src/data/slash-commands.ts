@@ -93,7 +93,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'plan',
     label: 'plan',
-    description: 'Create a plan with GPT 5.4',
+    description: 'Create a durable plan with the configured planner',
   },
   {
     id: 'resume-plan',
@@ -122,7 +122,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'review',
     label: 'review',
-    description: 'Review code changes with GPT 5.4',
+    description: 'Review code changes with the configured reviewer',
   },
   {
     id: 'new',

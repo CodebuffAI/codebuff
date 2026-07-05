@@ -218,3 +218,83 @@ Example:
   "allowPositionalFallback": false
 }
 ```
+
+## Slash Commands
+
+Slash commands are the TUI-level command surface (the `/<id>` entries in
+the command palette). Their static registry lives in
+`cli/src/data/slash-commands.ts` and is exported as one array plus two
+derived helpers:
+
+- `SLASH_COMMANDS: SlashCommand[]` — the authoritative list of every
+  registered command (mode commands are generated from `AGENT_MODES`).
+- `SLASHLESS_COMMAND_IDS: Set<string>` — the lowercased ids of every
+  command flagged `implicitCommand: true`. These are the commands that
+  can be invoked without a leading `/` when the input matches the id
+  exactly with no arguments (e.g. `init` or `new`).
+- `getSlashCommandsWithSkills(skills): SlashCommand[]` — returns the
+  base `SLASH_COMMANDS` with one `skill:<name>` entry appended per
+  discovered skill, so user-installed skills show up in the palette as
+  slash commands.
+
+### `SlashCommand` shape
+
+Every entry conforms to the `SlashCommand` interface:
+
+- `id` / `label` — the command id and palette label (lowercased for
+  matching).
+- `description` — one-line text shown in the palette.
+- `aliases` (optional) — alternate ids that resolve to the same handler.
+- `implicitCommand` (optional) — when `true`, the command is also
+  reachable without the `/` prefix if the input is exactly the id (no
+  args). Aliases are never implicit.
+- `insertText` (optional) — when set, selecting the command inserts this
+  text into the input field instead of executing a handler. Used for
+  agent shortcuts (e.g. `agent:general` inserts `@general-agent `).
+
+### Registered commands
+
+The static command set (current as of the source file) is grouped by
+purpose:
+
+| Group | Commands |
+|---|---|
+| Diagnostics / info | `info` (`status`), `help` (`h`, `?`, implicit), `setup`, `models`, `provider` |
+| Project scaffold | `init` (implicit) |
+| Provider account | `connect` (`chatgpt`, `connect:chatgpt`) — only present when `CHATGPT_OAUTH_ENABLED` is `true` |
+| Edit history | `undo`, `redo` |
+| Durable plans | `interview`, `plan`, `resume-plan` (`rp`), `update-plan` (`up`), `plan-status` (`ps`), `lessons` (`lesson`) |
+| Code review | `review` |
+| Conversation | `new` (`n`, `clear`, `c`, `reset`, implicit), `history` (`chats`), `prompts` (`prompt-search`) |
+| Agent shortcuts | `agent:general` (inserts `@general-agent `) |
+| Feedback / misc | `feedback`, `bash` (`!`), `diff`, `changes`, `image` (`img`, `attach`) |
+| Mode switching | `mode:<mode>` for every mode in `AGENT_MODES`, each with a `model:<mode>` alias |
+| Theme / session | `theme:toggle`, `exit` (`quit`, `q`, implicit) |
+
+`review` and `plan` use model-agnostic descriptions ("with the configured
+reviewer" / "with the configured planner"); they never claim a specific
+hosted model. The durable-plan quartet (`/resume-plan`, `/update-plan`,
+`/plan-status`, `/lessons`) is backed by the `update_plan_status` and
+`create_plan` tools documented above and is the user-facing surface to
+the PlanLink artifact flow.
+
+### Skill commands
+
+`getSlashCommandsWithSkills` appends one entry per discovered skill
+(loaded from `.agents/skills/`, `~/.agents/skills/`, or
+`{cwd}/.claude/skills/`). Each skill command has id `skill:<name>`,
+label `skill:<name>`, and a description derived from the skill's
+frontmatter.
+
+Gotcha: skill descriptions are truncated for the palette. Descriptions
+longer than 50 characters are shortened to 49 characters plus a trailing
+`…`. Descriptions of exactly 50 characters are left unchanged; this is a
+strict greater-than comparison, not a `>=` boundary.
+
+### Aliases vs. implicit commands
+
+`aliases` and `implicitCommand` are independent: a command may have
+aliases that resolve inside the registry without being reachable
+slashless, and an implicit command's aliases are never themselves
+implicit. `SLASHLESS_COMMAND_IDS` is built from the lowercased `id` of
+every `implicitCommand: true` entry only.
