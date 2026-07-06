@@ -16,6 +16,9 @@ import type { CliEnv } from '../types/env'
 export const getCliEnv = (): CliEnv => ({
   ...getBaseEnv(),
 
+  // Windows system paths
+  SystemRoot: process.env.SystemRoot,
+
   // Display server detection (Linux headless check)
   DISPLAY: process.env.DISPLAY,
   WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY,

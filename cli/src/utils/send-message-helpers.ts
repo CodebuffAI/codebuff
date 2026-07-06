@@ -6,6 +6,7 @@
 
 import { has } from 'lodash'
 
+import { AI_MESSAGE_ID_PREFIX, generateAiMessageId } from './ai-message-id'
 import { markRunningAgentsAsCancelled } from './block-operations'
 import { shouldHideAgent } from './constants'
 import { formatTimestamp } from './helpers'
@@ -53,12 +54,10 @@ export const createErrorMessage = (content: string): ChatMessage => ({
   timestamp: formatTimestamp(),
 })
 
-/** Id prefix identifying streamed AI response shells; shared with
- * sanitizeRestoredMessages so the two can't silently drift apart. */
-export const AI_MESSAGE_ID_PREFIX = 'ai-'
-
-export const generateAiMessageId = (): string =>
-  `${AI_MESSAGE_ID_PREFIX}${Date.now()}-${Math.random().toString(16).slice(2)}`
+// Re-exported (imported above) from a dependency-free leaf module so lightweight
+// consumers can import the id prefix without dragging in this helper graph.
+// Shared with sanitizeRestoredMessages so the two can't silently drift apart.
+export { AI_MESSAGE_ID_PREFIX, generateAiMessageId }
 
 /**
  * A restored chat may contain an AI response that was still streaming when the

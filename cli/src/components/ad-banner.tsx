@@ -162,6 +162,33 @@ export const SingleAdBanner: React.FC<{
 }
 
 /**
+ * A single ad embedded inside the chat transcript, anchored below a message so
+ * it stays in scrollback. Same card as {@link SingleAdBanner} but with a bottom
+ * spacer so it reads as its own block between messages; fires its impression on
+ * mount (deduped per impUrl in the hook, so scroll churn won't double-count).
+ */
+export const InlineAdBanner: React.FC<{
+  ad: AdResponse
+  onClick?: (ad: AdResponse) => void
+  onImpression?: (ad: AdResponse) => void
+}> = ({ ad, onClick, onImpression }) => {
+  const { terminalWidth } = useTerminalDimensions()
+
+  // Full width minus left/right margin of 1 each.
+  const width = terminalWidth - 2
+
+  useEffect(() => {
+    onImpression?.(ad)
+  }, [ad, onImpression])
+
+  return (
+    <box style={{ marginLeft: 1, marginRight: 1, paddingBottom: 1 }}>
+      <AdCard ad={ad} width={width} onClick={onClick} />
+    </box>
+  )
+}
+
+/**
  * Up to four ads shown in a row. Still used by the freebuff landing screen,
  * which intentionally fills the space with multiple ads.
  */

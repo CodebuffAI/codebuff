@@ -373,10 +373,10 @@ async function main(): Promise<void> {
   process.on('unhandledRejection', earlyFatalHandler)
 
   // Last line of defense for uncatchable deaths (SIGKILL, native crashes,
-  // kill sweeps that also take out the npm wrapper): a detached sh process
-  // that resets the terminal when this process disappears. Started before the
-  // renderer begins enabling terminal modes; the clean-shutdown path
-  // (renderer-cleanup) disarms it.
+  // kill sweeps that also take out the npm wrapper): a detached process
+  // (sh on POSIX, PowerShell on Windows) that resets the terminal when this
+  // process disappears. Started before the renderer begins enabling terminal
+  // modes; the clean-shutdown path (renderer-cleanup) disarms it.
   startTerminalWatchdog()
 
   const renderer = await createCliRenderer({

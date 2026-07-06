@@ -2,6 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 import { safeOpen } from './utils/open-url'
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -13,7 +14,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { SingleAdBanner } from './components/ad-banner'
+import { InlineAdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
@@ -190,10 +191,21 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { ads, recordClick, recordImpression } = useGravityAd({
+  const { placedAds, recordClick, recordImpression } = useGravityAd({
     enabled: IS_FREEBUFF || !hasSubscription,
     provider: 'gravity',
+    inline: true,
+    surface: 'cli_chat',
   })
+
+  // Index placed ads by the message they're anchored below, so the transcript
+  // render can drop each ad in right after its anchor message.
+  const adByAnchor = useMemo(() => {
+    const map = new Map<string, (typeof placedAds)[number]>()
+    for (const placed of placedAds) map.set(placed.afterMessageId, placed)
+    return map
+  }, [placedAds])
+  const showInlineAds = IS_FREEBUFF || getAdsEnabled()
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -1514,14 +1526,23 @@ export const Chat = ({
         )}
         {visibleTopLevelMessages.map((message, idx) => {
           const isLast = idx === visibleTopLevelMessages.length - 1
+          const anchoredAd = adByAnchor.get(message.id)
           return (
-            <MessageWithAgents
-              key={message.id}
-              message={message}
-              depth={0}
-              isLastMessage={isLast}
-              availableWidth={messageAvailableWidth}
-            />
+            <Fragment key={message.id}>
+              <MessageWithAgents
+                message={message}
+                depth={0}
+                isLastMessage={isLast}
+                availableWidth={messageAvailableWidth}
+              />
+              {showInlineAds && anchoredAd && (
+                <InlineAdBanner
+                  ad={anchoredAd.ad}
+                  onClick={recordClick}
+                  onImpression={recordImpression}
+                />
+              )}
+            </Fragment>
           )
         })}
         {/* Pending bash messages as ghost messages (only show those not already in history) */}
@@ -1560,14 +1581,6 @@ export const Chat = ({
               returnToFreebuffLanding({ resetChat: true }).catch(() => {})
             }}
             freebuffSession={freebuffSession}
-          />
-        )}
-
-        {ads?.[0] && (IS_FREEBUFF || getAdsEnabled()) && (
-          <SingleAdBanner
-            ad={ads[0]}
-            onClick={recordClick}
-            onImpression={recordImpression}
           />
         )}
 

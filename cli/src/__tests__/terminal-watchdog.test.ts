@@ -31,7 +31,7 @@ function waitForReady(child: ChildProcess): Promise<void> {
       out += chunk.toString()
       if (out.includes('ready')) resolve()
     })
-    child.on('exit', () => resolve()) // "clean" mode exits immediately
+    child.on('exit', () => resolve()) // "clean" mode exits after arming
     child.on('error', reject)
   })
 }
@@ -61,9 +61,10 @@ async function pollForContent(ttyPath: string, timeoutMs: number): Promise<strin
   return readTty(ttyPath)
 }
 
-// The watchdog is POSIX-only (sh + /dev/tty); on Windows the npm wrapper is
-// the safety net instead.
-describe.skipIf(process.platform === 'win32')('terminal watchdog', () => {
+// POSIX uses a detached sh blocking on pipe EOF; Windows uses a PowerShell
+// grandchild (outside Bun's kill-on-close job object) blocking on
+// Wait-Process. Both then write the reset sequences to the injected ttyPath.
+describe('terminal watchdog', () => {
   test('writes reset sequences to the tty when the process dies uncleanly', async () => {
     const ttyPath = join(tempDir, 'unclean.out')
     const child = spawnFixture('hang', ttyPath)
@@ -72,17 +73,21 @@ describe.skipIf(process.platform === 'win32')('terminal watchdog', () => {
     child.kill('SIGKILL')
     await waitForExit(child)
 
-    const written = await pollForContent(ttyPath, 5_000)
+    // Wait-Process wakeup + write can take a few seconds under CI load.
+    const written = await pollForContent(ttyPath, 15_000)
     expect(written).toBe(TERMINAL_RESET_SEQUENCES)
-  }, 15_000)
+  }, 60_000)
 
   test('stays silent when the process shuts down cleanly', async () => {
     const ttyPath = join(tempDir, 'clean.out')
     const child = spawnFixture('clean', ttyPath)
     await waitForExit(child)
 
-    // Give a killed-too-late watchdog time to (incorrectly) fire.
-    await new Promise((r) => setTimeout(r, 500))
+    // Give a disarmed-too-late watchdog time to (incorrectly) fire. Windows
+    // gets longer since the watchdog wakes asynchronously via Wait-Process.
+    await new Promise((r) =>
+      setTimeout(r, process.platform === 'win32' ? 3_000 : 500),
+    )
     expect(readTty(ttyPath)).toBe('')
-  }, 15_000)
+  }, 60_000)
 })

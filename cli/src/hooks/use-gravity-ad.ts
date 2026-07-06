@@ -9,14 +9,26 @@ import { getAuthToken } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
+import { AI_MESSAGE_ID_PREFIX } from '../utils/ai-message-id'
 
 import type { Message } from '@codebuff/sdk'
+import type { ChatMessage } from '../types/chat'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
 const ACTIVITY_THRESHOLD_MS = 30_000 // 30 seconds idle threshold for fetching new ads
 const MAX_AD_CACHE_SIZE = 50 // Maximum number of ads to keep in cache
 const ZEROCLICK_IMPRESSIONS_URL = 'https://zeroclick.dev/api/v2/impressions'
+
+// Inline ad pacing — anchors go below *completed* assistant answers (an answer
+// is "completed" once its turn finishes, so an anchor never sits under the
+// actively-streaming last turn). Tweak these two knobs to experiment with
+// frequency:
+//   AD_FIRST_ANSWER_OFFSET — index of the first completed answer that gets an
+//     ad; 0 = right after the very first answer (most prominent).
+//   AD_STEP_EXCHANGES — completed answers between ads after that first one.
+const AD_FIRST_ANSWER_OFFSET = 0
+const AD_STEP_EXCHANGES = 2
 
 // Ad response type (normalized shape across providers; credits added after impression)
 export type AdResponse = {
@@ -37,12 +49,26 @@ export type AdResponse = {
  * same normalized response shape, so the rest of the hook is provider-agnostic.
  */
 export type AdProvider = 'gravity' | 'carbon' | 'zeroclick'
-// 'waiting_room' is the legacy wire name for the freebuff landing screen —
-// the ads API maps it to placements, so the value must not change.
-export type AdSurface = 'waiting_room'
+// Product surfaces the ads API maps to Gravity placements. 'waiting_room' is the
+// legacy wire name for the freebuff landing screen; 'cli_chat' is the inline
+// transcript ad in the coding-agent chat. Values must match the server's
+// AD_SURFACES enum, so don't rename them.
+export type AdSurface = 'waiting_room' | 'cli_chat'
+
+/**
+ * An ad pinned into the chat transcript. `afterMessageId` anchors it directly
+ * below a specific (settled) top-level message; once placed it never moves, so
+ * it stays put in scrollback and multiple can be on screen at once.
+ */
+export type PlacedAd = {
+  ad: AdResponse
+  afterMessageId: string
+}
 
 export type GravityAdState = {
   ads: AdResponse[] | null
+  /** Ads interleaved into the transcript, in placement order. */
+  placedAds: PlacedAd[]
   isLoading: boolean
   recordClick: (ad: AdResponse) => void
   recordImpression: (ad: AdResponse) => void
@@ -79,6 +105,90 @@ function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
 }
 
 /**
+ * A completed, streamed LLM answer — the only messages inline ads anchor to.
+ * Other top-level 'ai'-variant messages (bash `!command` echoes, system notices,
+ * mode dividers) are excluded via the `ai-` id prefix so they don't inflate the
+ * spacing cadence or get an ad below them.
+ */
+export function isCompletedAnswer(m: ChatMessage): boolean {
+  return (
+    !m.parentId &&
+    m.variant === 'ai' &&
+    !!m.isComplete &&
+    m.id.startsWith(AI_MESSAGE_ID_PREFIX)
+  )
+}
+
+/** Frequency knobs for inline ad placement; defaults from the module constants. */
+export type AdPacing = { firstOffset?: number; step?: number }
+
+/**
+ * Pure helper: given the ids of completed assistant answers in transcript order,
+ * return the ones that should get an inline ad — the answer at `firstOffset`,
+ * then every `step` answers after it.
+ */
+export function inlineAdAnchorIds(
+  completedAnswerIds: string[],
+  pacing: AdPacing = {},
+): string[] {
+  const firstOffset = pacing.firstOffset ?? AD_FIRST_ANSWER_OFFSET
+  const step = Math.max(1, pacing.step ?? AD_STEP_EXCHANGES)
+  const anchors: string[] = []
+  for (let i = firstOffset; i <= completedAnswerIds.length - 1; i += step) {
+    anchors.push(completedAnswerIds[i]!)
+  }
+  return anchors
+}
+
+/**
+ * Draw the next ad whose `impUrl` hasn't been used yet, or null if the pool is
+ * empty or every ad in it is already placed. `drawAd` cycles the pool, so seeing
+ * an `impUrl` twice means we've been through the whole pool without a fresh one.
+ */
+function drawUnusedAd(
+  drawAd: () => AdResponse | null,
+  usedImpUrls: Set<string>,
+): AdResponse | null {
+  const tried = new Set<string>()
+  for (;;) {
+    const ad = drawAd()
+    if (!ad) return null
+    if (!usedImpUrls.has(ad.impUrl)) return ad
+    if (tried.has(ad.impUrl)) return null
+    tried.add(ad.impUrl)
+  }
+}
+
+/**
+ * Pure helper: compute the inline ads to append this pass. Fills every anchor
+ * ({@link inlineAdAnchorIds}) not already in `placedAds`, drawing a *distinct*
+ * ad per new anchor via `drawAd` — the same ad is never shown twice in the
+ * transcript. Idempotent: anchors already placed are skipped, so re-running with
+ * an unchanged transcript adds nothing. Stops when no unused ad is available
+ * (empty cache, or every cached ad is already placed), leaving later anchors for
+ * a future pass once fresh ads are fetched.
+ */
+export function computeInlineAdAdditions(params: {
+  completedAnswerIds: string[]
+  placedAds: PlacedAd[]
+  drawAd: () => AdResponse | null
+  pacing?: AdPacing
+}): PlacedAd[] {
+  const { completedAnswerIds, placedAds, drawAd, pacing } = params
+  const placedAnchors = new Set(placedAds.map((p) => p.afterMessageId))
+  const usedImpUrls = new Set(placedAds.map((p) => p.ad.impUrl))
+  const additions: PlacedAd[] = []
+  for (const anchorId of inlineAdAnchorIds(completedAnswerIds, pacing)) {
+    if (placedAnchors.has(anchorId)) continue
+    const ad = drawUnusedAd(drawAd, usedImpUrls)
+    if (!ad) break
+    additions.push({ ad, afterMessageId: anchorId })
+    usedImpUrls.add(ad.impUrl)
+  }
+  return additions
+}
+
+/**
  * Hook for fetching and rotating Gravity ads.
  *
  * Behavior:
@@ -98,12 +208,21 @@ export const useGravityAd = (options?: {
   provider?: AdProvider
   /** Product surface requesting the ad. The server maps this to placements. */
   surface?: AdSurface
+  /**
+   * Interleave ads into the chat transcript (spaced every few exchanges,
+   * pinned in scrollback) instead of exposing a single rotating `ads[0]` slot.
+   * When set, {@link GravityAdState.placedAds} is populated for the caller to
+   * render inline. The rotating `ads` field still drives ad fetching.
+   */
+  inline?: boolean
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
   const provider: AdProvider = options?.provider ?? 'gravity'
   const surface = options?.surface
+  const inline = options?.inline ?? false
   const [ads, setAds] = useState<AdResponse[] | null>(null)
+  const [placedAds, setPlacedAds] = useState<PlacedAd[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   // Check if terminal height is too small to show ads
@@ -430,10 +549,46 @@ export const useGravityAd = (options?: {
     }
   }, [shouldStart, shouldHideAds, provider, surface])
 
+  // Count of completed assistant answers (a top-level 'ai' message whose turn
+  // has finished). This is the only transcript signal placement cares about — it
+  // ticks up when a turn completes, NOT on every streamed token, so subscribing
+  // to it here doesn't re-render the caller mid-stream.
+  const completedAnswerCount = useChatStore((s) => {
+    if (!inline) return 0
+    let count = 0
+    for (const m of s.messages) {
+      if (isCompletedAnswer(m)) count++
+    }
+    return count
+  })
+
+  // Anchor a new ad below completed assistant answers per the pacing knobs,
+  // drawing from the same rotation cache the slot ad cycles through. Placement is
+  // append-only and idempotent (an anchor is filled once, never moved or
+  // re-drawn), so ads stay put in scrollback. Re-runs on `ads` retry any anchor
+  // that couldn't be filled while the cache was still empty.
+  useEffect(() => {
+    if (!inline || shouldHideAds || !getAdsEnabled()) return
+
+    const completedAnswerIds = useChatStore
+      .getState()
+      .messages.filter(isCompletedAnswer)
+      .map((m) => m.id)
+
+    const additions = computeInlineAdAdditions({
+      completedAnswerIds,
+      placedAds,
+      drawAd: () => nextFromChoiceCache(ctrlRef.current)?.[0] ?? null,
+    })
+
+    if (additions.length > 0) setPlacedAds((prev) => [...prev, ...additions])
+  }, [inline, shouldHideAds, completedAnswerCount, ads, placedAds])
+
   // Don't return ads when ads should be hidden
   const visible = shouldStart && !shouldHideAds
   return {
     ads: visible ? ads : null,
+    placedAds: visible ? placedAds : [],
     isLoading,
     recordClick,
     recordImpression: recordImpressionOnce,

@@ -16,6 +16,9 @@ import type {
  * CLI-specific env vars for terminal/IDE detection and editor preferences.
  */
 export type CliEnv = BaseEnv & {
+  // Windows system paths
+  SystemRoot?: string
+
   // Terminal detection (for tmux/screen passthrough)
   TERM?: string
   TMUX?: string
