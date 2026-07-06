@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["bun"],
+    // The generated Convex api types pull in the whole web convex tree,
+    // which includes .tsx email templates.
+    "jsx": "react-jsx",
+    // The web convex tree (which we import for the generated api and the
+    // bundled agent definitions) aliases '!' to its convex root.
+    "paths": {
+      "!/*": ["../web/convex/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
