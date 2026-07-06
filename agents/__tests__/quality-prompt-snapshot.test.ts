@@ -6,6 +6,7 @@ import { createBaseDeep } from '../base2/base-deep'
 import { createBase2 } from '../base2/base2'
 import { createCodeEditor } from '../editor/editor'
 import {
+  buildBroadAuditSection,
   frontendSection,
   gateAwarenessSection,
   gitDisciplineSection,
@@ -47,6 +48,23 @@ describe('shared craftsmanship prompt sections', () => {
     expect(frontendSection).toContain('Accessibility')
     expect(frontendSection).toContain('Responsive Design')
     expect(frontendSection).toContain('Performance')
+  })
+
+  test('buildBroadAuditSection contains broad-audit production-readiness guidance (not byte-frozen)', () => {
+    // Broad audit guidance is allowed to evolve; only assert topic coverage.
+    const broadAuditSection = buildBroadAuditSection('finalize')
+    expect(broadAuditSection).toContain('Broad audit / exploration requests')
+    expect(broadAuditSection).toContain(
+      'assess this codebase for how production ready it is on a feature, security and code level',
+    )
+    expect(broadAuditSection).toContain('frontend/page/route/UI surface')
+    expect(broadAuditSection).toContain('UI page wiring')
+    expect(broadAuditSection).toContain('auth/error/loading states')
+    expect(broadAuditSection).toContain('accessibility')
+    expect(broadAuditSection).toContain('responsiveness')
+    expect(broadAuditSection).toContain('explicitly mark frontend/UI coverage out-of-scope')
+    expect(broadAuditSection).toContain('general-agent audit shards')
+    expect(broadAuditSection).toContain('file-picker + code-searcher coverage')
   })
 
   test('gitDisciplineSection contains the required git-discipline topics (not byte-frozen)', () => {

@@ -88,6 +88,8 @@ function textEvent(text: string): PrintModeEvent {
 
 const AUDIT_PROMPT =
   'Audit this codebase for any feature improvements that can be made.'
+const PRODUCTION_READY_AUDIT_PROMPT =
+  'Assess this codebase for how production ready it is on a feature, security and code level'
 const IMPL_PROMPT = 'Implement a login form with email and password fields.'
 const QUESTION_PROMPT = 'How does the config loader resolve relative paths?'
 const SHORT_PROMPT = 'do the thing'
@@ -102,6 +104,7 @@ describe('classifyPrompt', () => {
     expect(classifyPrompt('Please review the codebase for technical debt.')).toBe('audit')
     expect(classifyPrompt('check this codebase for any issues')).toBe('audit')
     expect(classifyPrompt('Run a codebase audit for security review.')).toBe('audit')
+    expect(classifyPrompt(PRODUCTION_READY_AUDIT_PROMPT)).toBe('audit')
   })
 
   test('classifies implementation prompts as implementation', () => {
@@ -164,6 +167,13 @@ describe('classifyBreadth', () => {
     )
     expect(result.kind).toBe('broad-audit')
     expect(result.hasBreadthMarker).toBe(true)
+  })
+
+  test('broad-audit: production-readiness assessment of this codebase', () => {
+    const result = classifyBreadth(PRODUCTION_READY_AUDIT_PROMPT)
+    expect(result.kind).toBe('broad-audit')
+    expect(result.hasBreadthMarker).toBe(true)
+    expect(result.hasSingleFileTarget).toBe(false)
   })
 
   test('single-target: explicit path literal', () => {
@@ -704,6 +714,26 @@ describe('evaluateMinimumShardRule', () => {
     })
     const result = evaluateShardingVerdict(signals, BROAD_AUDIT_3_DOMAINS)
     expect(result.verdict).toBe('pass')
+  })
+
+  test('wire-through: production-readiness audit requires broad-audit minimum shards', () => {
+    const breadth = classifyBreadth(PRODUCTION_READY_AUDIT_PROMPT)
+    expect(breadth.kind).toBe('broad-audit')
+    expect(breadth.domainCount).toBe(0)
+
+    const signals = computePlanShardingSignals({
+      events: shardingEvents(1, 1),
+      prompt: PRODUCTION_READY_AUDIT_PROMPT,
+    })
+    expect(signals.promptKind).toBe('audit')
+
+    const result = evaluateShardingVerdict(signals, PRODUCTION_READY_AUDIT_PROMPT)
+    expect(result.verdict).toBe('fail')
+    expect(
+      result.reasons.some((r) =>
+        r.includes('Minimum-shard rule (M10.2) violated'),
+      ),
+    ).toBe(true)
   })
 })
 

@@ -398,3 +398,35 @@ Reviewer gate:
 
 Current state: M7 dry-run/manual-review self-improvement loop slice is complete and validated. Remaining work, if continuing the durable plan beyond this slice, is consolidation/commit or any separately requested hardening/e2e live buffbench run.
 
+
+<!-- update_plan_status:appended -->
+## UIMessage prompt fix validation — 2026-07-06T21:46:30.156Z
+
+Validation completed for the UIMessage-to-ModelMessage prompt fix.
+
+Completed:
+- Updated `common/src/util/messages.ts` so `convertCbToModelMessages` detects persisted UIMessage-shaped entries by authoritative `parts` and converts them with AI SDK `convertToModelMessages` before cache-control and model schema validation.
+- Preserved Codebuff auxiliary metadata, including falsy-but-defined values such as `sentAt: 0` and `keepDuringTruncation: false`.
+- Added regression coverage in `common/src/util/__tests__/messages.test.ts` for UIMessage-shaped persisted entries, including mixed `parts` plus stale `content`.
+
+Validation passed:
+- `bun test common/src/util/__tests__/messages.test.ts agents/__tests__/quality-prompt-snapshot.test.ts evals/buffbench/__tests__/plan-sharding-signals.test.ts`
+- `cd common && bun run typecheck`
+
+Reviewer follow-up:
+- Addressed metadata preservation and mixed `parts`/`content` UIMessage detection findings from manual review.
+
+
+<!-- update_plan_status:appended -->
+## UIMessage prompt fix validation rerun — 2026-07-06T21:51:07.775Z
+
+Validation rerun completed for the UIMessage-to-ModelMessage prompt fix after context compaction.
+
+Validated commands:
+- `bun --cwd common test src/util/__tests__/messages.test.ts` — pass.
+- `cd common && bun run typecheck` — pass.
+
+Notes:
+- Initial `bun --cwd common run typecheck` invocation printed Bun usage instead of running the package script; reran from `common/` with `bun run typecheck` successfully.
+- Configured file-change hooks had previously skipped because no hook matched the changed files, so targeted validation is the current validation record for `common/src/util/messages.ts` and `common/src/util/__tests__/messages.test.ts`.
+

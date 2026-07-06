@@ -84,3 +84,7 @@
 {"ts":"2026-07-06T20:28:42.151Z","kind":"append_lesson","summary":"Appended entry \"M7 completion\" to PLAN.md","payload":{"heading":"M7 completion","artifact":"PLAN.md"}}
 {"ts":"2026-07-06T20:28:42.151Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
 {"ts":"2026-07-06T20:28:42.151Z","kind":"current_task","summary":"Current task pointer cleared","payload":{"currentTask":null}}
+{"ts":"2026-07-06T21:46:30.158Z","kind":"append_lesson","summary":"Appended entry \"UIMessage prompt fix validation\" to STATUS.md","payload":{"heading":"UIMessage prompt fix validation","artifact":"STATUS.md"}}
+{"ts":"2026-07-06T21:46:30.158Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-06T21:51:07.776Z","kind":"append_lesson","summary":"Appended entry \"UIMessage prompt fix validation rerun\" to STATUS.md","payload":{"heading":"UIMessage prompt fix validation rerun","artifact":"STATUS.md"}}
+{"ts":"2026-07-06T21:51:07.776Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

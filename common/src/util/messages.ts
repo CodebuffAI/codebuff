@@ -1,4 +1,7 @@
-import { modelMessageSchema } from 'ai'
+import {
+  convertToModelMessages as convertUiToModelMessages,
+  modelMessageSchema,
+} from 'ai'
 import { has, isEqual } from 'lodash'
 
 import type { Logger } from '../types/contracts/logger'
@@ -18,6 +21,7 @@ import type {
   ModelMessage,
   SystemModelMessage,
   ToolModelMessage,
+  UIMessage,
   UserModelMessage,
 } from 'ai'
 
@@ -163,7 +167,44 @@ function convertToolResultMessage(
   })
 }
 
+function isUiMessageLike(
+  message: unknown,
+): message is UIMessage & AuxiliaryMessageData {
+  if (!message || typeof message !== 'object') return false
+
+  const candidate = message as { role?: unknown; parts?: unknown }
+  return (
+    (candidate.role === 'system' ||
+      candidate.role === 'user' ||
+      candidate.role === 'assistant') &&
+    Array.isArray(candidate.parts)
+  )
+}
+
+function convertUiMessage(
+  message: UIMessage & AuxiliaryMessageData,
+): ModelMessageWithAuxiliaryData[] {
+  const converted = convertUiToModelMessages([message])
+  return converted.map((convertedMessage) => ({
+    ...convertedMessage,
+    ...(message.providerOptions !== undefined && {
+      providerOptions: message.providerOptions,
+    }),
+    ...(message.tags !== undefined && { tags: message.tags }),
+    ...(message.sentAt !== undefined && { sentAt: message.sentAt }),
+    ...(message.timeToLive !== undefined && { timeToLive: message.timeToLive }),
+    ...(message.keepDuringTruncation !== undefined && {
+      keepDuringTruncation: message.keepDuringTruncation,
+    }),
+    ...(message.keepLastTags !== undefined && { keepLastTags: message.keepLastTags }),
+  })) as ModelMessageWithAuxiliaryData[]
+}
+
 function convertToolMessage(message: Message): ModelMessageWithAuxiliaryData[] {
+  if (isUiMessageLike(message)) {
+    return convertUiMessage(message)
+  }
+
   if (message.role === 'system') {
     return [
       {
@@ -506,6 +547,29 @@ export function getCacheAnchorSummary(messages: Message[]): CacheAnchorInfo[] {
   }
 }
 
+function validateModelMessages(
+  messages: ModelMessageWithAuxiliaryData[],
+  logger?: Logger,
+): void {
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i]
+    const result = modelMessageSchema.safeParse(message)
+    if (!result.success) {
+      if (logger) {
+        logger.error(
+          { message, aggregated: messages, error: result.error },
+          `convertCbToModelMessages: Message at index ${i} failed schema validation.`,
+        )
+      }
+      throw new Error(
+        `convertCbToModelMessages: Message at index ${i} failed schema validation.\n` +
+          `Role: ${message.role}\n` +
+          `Message:\n${result.error.message}`,
+      )
+    }
+  }
+}
+
 export function convertCbToModelMessages({
   messages,
   includeCacheControl = true,
@@ -517,38 +581,18 @@ export function convertCbToModelMessages({
 }): ModelMessage[] {
   const aggregated = aggregateMessages(messages, logger)
 
-  if (!includeCacheControl) {
-    return aggregated
-  }
-
-  // M2: Place cache-control anchors on stable prefix boundaries instead of
-  // the volatile conversation tail. See `findCacheAnchorIndices` for the full
-  // rationale. We apply at most 3 anchors (system + stable-history + tail),
-  // well within Anthropic's 4-breakpoint limit.
-  const anchorIndices = findCacheAnchorIndices(aggregated)
-  for (const { index } of anchorIndices) {
-    applyCacheControlToLastContentPart(aggregated, index)
-  }
-
-  // Validate each message against the AI SDK schema
-  for (let i = 0; i < aggregated.length; i++) {
-    const message = aggregated[i]
-    const result = modelMessageSchema.safeParse(message)
-    if (!result.success) {
-      if (logger) {
-        logger.error(
-          { message, aggregated, error: result.error },
-          `convertCbToModelMessages: Message at index ${i} failed schema validation.`,
-        )
-      }
-      throw new Error(
-        `convertCbToModelMessages: Message at index ${i} failed schema validation.\n` +
-        `Role: ${message.role}\n` +
-        `Message:\n${result.error.message}`,
-      )
+  if (includeCacheControl) {
+    // M2: Place cache-control anchors on stable prefix boundaries instead of
+    // the volatile conversation tail. See `findCacheAnchorIndices` for the full
+    // rationale. We apply at most 3 anchors (system + stable-history + tail),
+    // well within Anthropic's 4-breakpoint limit.
+    const anchorIndices = findCacheAnchorIndices(aggregated)
+    for (const { index } of anchorIndices) {
+      applyCacheControlToLastContentPart(aggregated, index)
     }
   }
 
+  validateModelMessages(aggregated, logger)
   return aggregated
 }
 

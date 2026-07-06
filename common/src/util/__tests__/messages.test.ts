@@ -1155,6 +1155,84 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
+    it('should convert persisted UIMessage-shaped entries before AI SDK validation', () => {
+      const messages = [
+        {
+          id: 'ui-1',
+          role: 'user' as const,
+          parts: [{ type: 'text' as const, text: 'Hello from persisted UI state' }],
+          content: 'stale UI content must not be sent to the model',
+          providerOptions: { anthropic: { someOption: 'value' } },
+          tags: ['USER_PROMPT'],
+          sentAt: 0,
+          timeToLive: 'userPrompt' as const,
+          keepDuringTruncation: false,
+        },
+      ] as unknown as Message[]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Hello from persisted UI state' },
+          ],
+          providerOptions: { anthropic: { someOption: 'value' } },
+          tags: ['USER_PROMPT'],
+          sentAt: 0,
+          timeToLive: 'userPrompt',
+          keepDuringTruncation: false,
+        },
+      ])
+    })
+
+    it('should convert assistant UIMessage-shaped entries before AI SDK validation', () => {
+      const messages = [
+        {
+          id: 'ui-assistant-1',
+          role: 'assistant' as const,
+          parts: [
+            {
+              type: 'text' as const,
+              text: 'Assistant response from persisted UI state',
+            },
+          ],
+          content: 'stale assistant content must not be sent to the model',
+          providerOptions: { anthropic: { someOption: 'assistant-value' } },
+          tags: ['LAST_ASSISTANT_MESSAGE'],
+          sentAt: 0,
+          timeToLive: 'agentStep' as const,
+          keepDuringTruncation: false,
+        },
+      ] as unknown as Message[]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'text',
+              text: 'Assistant response from persisted UI state',
+            },
+          ],
+          providerOptions: { anthropic: { someOption: 'assistant-value' } },
+          tags: ['LAST_ASSISTANT_MESSAGE'],
+          sentAt: 0,
+          timeToLive: 'agentStep',
+          keepDuringTruncation: false,
+        },
+      ])
+    })
+
     it('should preserve message metadata during conversion', () => {
       const messages: Message[] = [
         userMessage({
