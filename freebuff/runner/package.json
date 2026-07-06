@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@codebuff/common": "workspace:*",
+    "@codebuff/logging": "workspace:*",
     "@codebuff/sdk": "workspace:*",
     "@daytonaio/sdk": "^0.145.0",
     "convex": "^1.30.0",

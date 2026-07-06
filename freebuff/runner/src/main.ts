@@ -10,6 +10,7 @@
 
 import { internal } from '../../web/convex/_generated/api'
 import { createRunnerCtx, createSubscriptionClient } from './convexBridge'
+import { flushLogSink, logger } from './logger'
 import { runCliTurn } from './runCliTurn'
 import { runFreebuffTurn } from './runTurn'
 
@@ -26,6 +27,7 @@ const CONVEX_DEPLOY_KEY = requireEnv('CONVEX_DEPLOY_KEY')
 // Render sets RENDER_INSTANCE_ID; fall back to a random id in local dev.
 const RUNNER_ID =
   process.env.RENDER_INSTANCE_ID ?? `local-${crypto.randomUUID().slice(0, 8)}`
+process.env.FREEBUFF_RUNNER_ID = RUNNER_ID
 // The work is I/O-bound (waiting on model tokens / Daytona), so one instance
 // comfortably multiplexes many runs. Backpressure = simply not claiming.
 const MAX_CONCURRENT_RUNS = Number(process.env.RUNNER_MAX_CONCURRENT_RUNS ?? 25)
@@ -63,17 +65,6 @@ const activeRuns = new Map<string, ActiveRun>()
 // concurrency cap and must not be double-claimed from a subscription refire.
 const claiming = new Set<string>()
 
-function log(message: string, extra?: Record<string, unknown>) {
-  console.log(
-    JSON.stringify({
-      source: 'freebuff-runner',
-      runnerId: RUNNER_ID,
-      message,
-      ...extra,
-    }),
-  )
-}
-
 async function executeRun(claim: ClaimedRun & { claimed: true }) {
   const active: ActiveRun = {
     runId: claim.runId,
@@ -96,7 +87,10 @@ async function executeRun(claim: ClaimedRun & { claimed: true }) {
     (error) => {
       // Subscription errors are non-fatal: the turn keeps running and user
       // cancels degrade to the terminal-state guard in recordRunEventBatch.
-      console.warn('[freebuff-runner] status subscription error', error)
+      logger.warn('status subscription error', {
+        runId: claim.runId,
+        error,
+      })
     },
   )
 
@@ -124,13 +118,13 @@ async function executeRun(claim: ClaimedRun & { claimed: true }) {
             resumeStorageId: result.resumeStorageId,
           },
         )
-        log('run requeued for another instance', {
+        logger.info('run requeued for another instance', {
           runId: claim.runId,
           ok: requeued.ok,
           hasResumeState: !!result.resumeStorageId,
         })
       } else {
-        log('run finished', {
+        logger.info('run finished', {
           runId: claim.runId,
           outcome: result.outcome,
           elapsedMs: Date.now() - startedAt,
@@ -140,7 +134,7 @@ async function executeRun(claim: ClaimedRun & { claimed: true }) {
       // runFreebuffTurn reports its own terminal events; reaching here means
       // even the error path failed (e.g. Convex unreachable). The sweep cron
       // will reap the run once its heartbeat goes stale.
-      console.error('[freebuff-runner] run crashed', claim.runId, error)
+      logger.error('run crashed', { runId: claim.runId, error })
     } finally {
       active.unsubscribeStatus()
       activeRuns.delete(claim.runId)
@@ -167,11 +161,11 @@ async function claimQueued(queue: Array<{ runId: string }>) {
         { runId, runnerId: RUNNER_ID },
       )
       if (claim?.claimed) {
-        log('claimed run', { runId, resuming: !!claim.resumeStorageId })
+        logger.info('claimed run', { runId, resuming: !!claim.resumeStorageId })
         await executeRun(claim)
       }
     } catch (error) {
-      console.error('[freebuff-runner] claim failed', runId, error)
+      logger.error('claim failed', { runId, error })
     } finally {
       claiming.delete(runId)
     }
@@ -187,7 +181,7 @@ function subscribeToQueue() {
       void claimQueued(lastSeenQueue)
     },
     (error) => {
-      console.error('[freebuff-runner] queue subscription error', error)
+      logger.error('queue subscription error', { error })
     },
   )
 }
@@ -195,7 +189,7 @@ function subscribeToQueue() {
 async function gracefulShutdown(signal: string) {
   if (shutdown.requested) return
   shutdown.requested = true
-  log('shutdown requested', { signal, activeRuns: activeRuns.size })
+  logger.info('shutdown requested', { signal, activeRuns: activeRuns.size })
 
   // Each active turn sees shutdown.requested on its next stream callback,
   // aborts the SDK run, persists resume state, and requeues itself. Render
@@ -205,18 +199,19 @@ async function gracefulShutdown(signal: string) {
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
   if (activeRuns.size > 0) {
-    log('shutdown deadline hit with runs still active', {
+    logger.warn('shutdown deadline hit with runs still active', {
       remaining: [...activeRuns.keys()],
     })
   }
   await subscriptions.close()
+  await flushLogSink()
   process.exit(0)
 }
 
 process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'))
 process.on('SIGINT', () => void gracefulShutdown('SIGINT'))
 
-log('freebuff runner started', {
+logger.info('freebuff runner started', {
   convexUrl: CONVEX_URL,
   maxConcurrentRuns: MAX_CONCURRENT_RUNS,
   turnLimitMs: TURN_LIMIT_MS,

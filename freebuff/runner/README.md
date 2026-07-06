@@ -24,6 +24,9 @@ to claim them.
 - `CONVEX_URL` — deployment URL (e.g. https://<name>.convex.cloud)
 - `CONVEX_DEPLOY_KEY` — deploy/admin key for that deployment (internal
   functions + subscriptions). Keep scoped to this service's env.
+- `AXIOM_API_TOKEN` (+ optional `AXIOM_ORG_ID`, `AXIOM_DATASET`,
+  `AXIOM_LOGS_ENABLED`) — ships runner lifecycle / claim / crash logs into the
+  unified `freebuff` dataset as `service=freebuff-runner`.
 - `CODEBUFF_API_KEY` — Freebuff Web service account PAT
   (docs/freebuff-web-service-account.md)
 - `NEXT_PUBLIC_CODEBUFF_APP_URL` — Codebuff backend base URL for the SDK

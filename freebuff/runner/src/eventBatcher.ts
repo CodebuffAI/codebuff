@@ -1,4 +1,5 @@
 import { internal } from '../../web/convex/_generated/api'
+import { logger } from './logger'
 
 import type { RunnerCtx } from './convexBridge'
 import type { FreebuffRunEvent } from './harness'
@@ -81,7 +82,7 @@ export function createEventBatcher(params: {
       chain = chain
         .then(() => send(events))
         .catch((error) => {
-          console.error('[freebuff-runner] stream flush failed', error)
+          logger.error('stream flush failed', { runId, error })
         })
     }, FLUSH_INTERVAL_MS)
   }
@@ -93,7 +94,7 @@ export function createEventBatcher(params: {
     chain = chain
       .then(() => send([]))
       .catch((error) => {
-        console.warn('[freebuff-runner] heartbeat failed', error)
+        logger.warn('heartbeat failed', { runId, error })
       })
   }, HEARTBEAT_INTERVAL_MS)
 

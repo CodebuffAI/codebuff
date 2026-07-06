@@ -23,6 +23,7 @@ import {
   WEBCONTAINER_AGENT_GUIDANCE,
 } from '../../web/convex/coding_agent/cli_agent/freebuff_bundled_agents'
 import { createEventBatcher } from './eventBatcher'
+import { logger } from './logger'
 import {
   buildCommitMessage,
   buildDaytonaProjectFiles,
@@ -89,7 +90,7 @@ async function fetchJsonBlob(url: string): Promise<any | undefined> {
     if (!response.ok) return undefined
     return await response.json()
   } catch (error) {
-    console.error('[freebuff-runner] failed to fetch run state blob', error)
+    logger.error('failed to fetch run state blob', { error })
     return undefined
   }
 }
@@ -113,7 +114,7 @@ async function persistRunState(
     }
     return storageId
   } catch (error) {
-    console.error('[freebuff-runner] failed to persist run state', error)
+    logger.error('failed to persist run state', { error })
     return undefined
   }
 }
@@ -167,7 +168,7 @@ async function loadImageContents(
         mediaType: blob.type || 'image/png',
       })
     } catch (error) {
-      console.warn('[freebuff-runner] failed to load image', error)
+      logger.warn('failed to load image', { error })
     }
   }
   return contents
@@ -417,7 +418,7 @@ export async function runFreebuffTurn(
               )
             }
           } catch (error) {
-            console.warn('[freebuff-runner] gravity capture failed', error)
+            logger.warn('gravity capture failed', { runId, error })
           }
         }
       },
@@ -506,7 +507,7 @@ export async function runFreebuffTurn(
         message: buildCommitMessage(payload.userMessage),
       })
     } catch (commitError) {
-      console.warn('[freebuff-runner] post-run commit failed', commitError)
+      logger.warn('post-run commit failed', { runId, error: commitError })
       // Non-fatal: still mark the run as completed.
     }
 
