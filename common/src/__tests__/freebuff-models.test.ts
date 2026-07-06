@@ -11,7 +11,6 @@ import {
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
-  FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
   FREEBUFF_MODELS,
@@ -140,25 +139,20 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_KIMI_MODEL_ID)
   })
 
-  test('MiniMax M2.7 is legacy: hidden from pickers but still served for old clients', () => {
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(
-      FREEBUFF_MINIMAX_MODEL_ID,
+  test('MiniMax M2.7 support is fully removed', () => {
+    const legacyMinimaxM27 = 'minimax/minimax-m2.7'
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      legacyMinimaxM27,
     )
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
-      FREEBUFF_MINIMAX_MODEL_ID,
+    expect(isFreebuffModelId(legacyMinimaxM27)).toBe(false)
+    expect(isSupportedFreebuffModelId(legacyMinimaxM27)).toBe(false)
+    expect(
+      isFreebuffModelAllowedForAccessTier(legacyMinimaxM27, 'full'),
+    ).toBe(false)
+    // Old clients with a saved M2.7 selection resolve to the fallback model.
+    expect(resolveFreebuffModelForAccessTier(legacyMinimaxM27, 'full')).toBe(
+      FALLBACK_FREEBUFF_MODEL_ID,
     )
-    expect(
-      getFreebuffModelsForAccessTier('full').map((m) => m.id),
-    ).not.toContain(FREEBUFF_MINIMAX_MODEL_ID)
-    expect(isFreebuffModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(false)
-    expect(isSupportedFreebuffModelId(FREEBUFF_MINIMAX_MODEL_ID)).toBe(true)
-    // Old clients with a saved M2.7 selection must still be admitted.
-    expect(
-      isFreebuffModelAllowedForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'full'),
-    ).toBe(true)
-    expect(
-      resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'full'),
-    ).toBe(FREEBUFF_MINIMAX_MODEL_ID)
   })
 
   test('MiniMax M3 is a selectable unlimited model, last in the unlimited section', () => {
@@ -198,9 +192,6 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(true)
     expect(
-      isFreebuffModelAllowedForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
-    ).toBe(false)
-    expect(
       isFreebuffModelAllowedForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
     ).toBe(false)
     expect(
@@ -219,7 +210,7 @@ describe('freebuff model availability', () => {
       resolveFreebuffModelForAccessTier(FREEBUFF_MIMO_V25_MODEL_ID, 'limited'),
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
     expect(
-      resolveFreebuffModelForAccessTier(FREEBUFF_MINIMAX_MODEL_ID, 'limited'),
+      resolveFreebuffModelForAccessTier(MINIMAX_M3_MODEL_ID, 'limited'),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
@@ -255,10 +246,6 @@ describe('freebuff model availability', () => {
     ).toBe(true)
     expect(canFreebuffModelSpawnGeminiThinker(MINIMAX_M3_MODEL_ID)).toBe(true)
 
-    // Legacy "Fastest" MiniMax M2.7 skips it to preserve the fastest tier.
-    expect(canFreebuffModelSpawnGeminiThinker(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
-      false,
-    )
     // Limited-tier models (DeepSeek V4 Flash, MiMo 2.5) skip it.
     expect(
       canFreebuffModelSpawnGeminiThinker(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),

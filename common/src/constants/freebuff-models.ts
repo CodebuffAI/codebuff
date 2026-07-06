@@ -51,11 +51,6 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID = 'deepseek/deepseek-v4-flash'
 export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
   'fireworks/deepseek-v4-flash'
 export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK26
-/** Legacy: removed from the pickers on 2026-06-09 in favor of MiniMax M3, but
- *  still server-supported so old clients keep working. Drop from
- *  SUPPORTED_FREEBUFF_MODELS after ~2026-06-16. */
-export const FREEBUFF_MINIMAX_MODEL_ID = 'minimax/minimax-m2.7'
-/** Routes to MiniMax's official API (distinct from the m2.7 id). */
 export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -147,11 +142,10 @@ interface LocalTimeFormatOptions {
 
 /** Full-access freebuff models that benefit from spawning the gemini-thinker
  *  subagent for deeper reasoning. Covers every full-access picker model except
- *  the two limited-tier ones (DeepSeek V4 Flash, MiMo 2.5); the legacy
- *  "Fastest" MiniMax M2.7 also skips it because the extra round-trip would
- *  defeat that tier. Used by the CLI to toggle the gemini-thinker spawnable +
- *  prompts based on the user's pick, and by the server to admit gemini-thinker
- *  child requests against a parent session bound to one of these models. */
+ *  the two limited-tier ones (DeepSeek V4 Flash, MiMo 2.5). Used by the CLI to
+ *  toggle the gemini-thinker spawnable + prompts based on the user's pick, and
+ *  by the server to admit gemini-thinker child requests against a parent
+ *  session bound to one of these models. */
 export const FREEBUFF_GEMINI_THINKER_PARENT_MODELS = new Set<string>([
   FREEBUFF_KIMI_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -216,16 +210,6 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
-/** Legacy (not in FREEBUFF_MODELS): see FREEBUFF_MINIMAX_MODEL_ID. */
-const MINIMAX_MODEL = {
-  id: FREEBUFF_MINIMAX_MODEL_ID,
-  displayName: 'MiniMax M2.7',
-  tagline: 'Fastest',
-  availability: 'always',
-  premium: false,
-  multimodal: false,
-} as const satisfies FreebuffModelOption
-
 const MINIMAX_M3_MODEL = {
   id: FREEBUFF_MINIMAX_M3_MODEL_ID,
   displayName: 'MiniMax M3',
@@ -259,7 +243,6 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   GLM_V52_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   MIMO_V25_MODEL,
-  MINIMAX_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 // GLM 5.2 is intentionally NOT in FREEBUFF_MODELS: it isn't a freely-pickable

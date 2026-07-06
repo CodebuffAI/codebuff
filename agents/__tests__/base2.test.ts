@@ -4,7 +4,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -30,7 +29,6 @@ describe('base2 reviewer selection', () => {
   })
 
   test.each([
-    [FREEBUFF_MINIMAX_MODEL_ID, 'code-reviewer-minimax'],
     [FREEBUFF_MINIMAX_M3_MODEL_ID, 'code-reviewer-minimax-m3'],
     [FREEBUFF_KIMI_MODEL_ID, 'code-reviewer-kimi'],
     [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 'code-reviewer-deepseek'],
@@ -73,7 +71,7 @@ describe('base2 context pruning', () => {
     return step.input.params
   }
 
-  test('free MiniMax mode defaults context pruning to 200k tokens', () => {
+  test('free mode (MiniMax M3) defaults context pruning to 400k tokens', () => {
     const base2 = createBase2('free')
     const generator = base2.handleSteps!({ params: undefined } as any)
 
@@ -82,7 +80,7 @@ describe('base2 context pruning', () => {
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 200_000,
+          maxContextLength: 400_000,
           cacheExpiryMs: 30 * 60 * 1000,
         },
       },
@@ -137,7 +135,6 @@ describe('base2 context pruning', () => {
   )
 
   test.each([
-    [FREEBUFF_MINIMAX_MODEL_ID, 200_000],
     [FREEBUFF_KIMI_MODEL_ID, 250_000],
     [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID, 400_000],
   ] as const)(
@@ -150,10 +147,8 @@ describe('base2 context pruning', () => {
   )
 
   test.each([
-    ['free', { model: FREEBUFF_MINIMAX_MODEL_ID }, 200_000],
     ['free', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
     ['free', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
-    ['default', { model: FREEBUFF_MINIMAX_MODEL_ID }, 200_000],
     ['default', { model: FREEBUFF_KIMI_MODEL_ID }, 250_000],
     ['default', { model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID }, 400_000],
   ] as const)(

@@ -446,7 +446,6 @@ export type ModelName =
   | 'z-ai/glm-4.7-flash'
   | 'z-ai/glm-4.7-flash:nitro'
   | 'minimax/minimax-m2.5'
-  | 'minimax/minimax-m2.7'
   | 'minimax/minimax-m3'
   | (string & {})
 

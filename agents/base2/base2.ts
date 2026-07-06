@@ -10,7 +10,6 @@ import { FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL } from '@codebuff/common/constants/
 import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -47,18 +46,16 @@ export function createBase2(
   const isFree = mode === 'free' || mode === 'lite'
 
   const isSonnet = false
-  // Lite mode runs MiniMax M3 (routed through the Fireworks AI API). The
-  // unqualified base2-free agent still uses MiniMax for legacy callers; new
-  // Freebuff clients select explicit free variants from the model picker.
+  // Lite and free modes run MiniMax M3 (routed through the Fireworks AI API).
+  // New Freebuff clients select explicit free variants from the model picker;
+  // the unqualified base2-free agent covers legacy callers.
   const model =
     modelOverride ??
-    (mode === 'lite'
+    (mode === 'lite' || mode === 'free'
       ? FREEBUFF_MINIMAX_M3_MODEL_ID
-      : mode === 'free'
-        ? FREEBUFF_MINIMAX_MODEL_ID
-        : 'anthropic/claude-opus-4.8')
+      : 'anthropic/claude-opus-4.8')
   // Smart freebuff model variants (Kimi, DeepSeek) can offload deeper
-  // reasoning. Fast MiniMax omits the extra round trip by construction.
+  // reasoning.
   const hasFreeGeminiThinker =
     isFree && canFreebuffModelSpawnGeminiThinker(model)
   const freeCodeReviewerAgentId =
@@ -364,8 +361,7 @@ type Base2HandleSteps = NonNullable<SecretAgentDefinition['handleSteps']>
 
 function getBase2ContextPrunerMaxContextLength(
   model: SecretAgentDefinition['model'],
-): 200_000 | 250_000 | 400_000 {
-  if (model === FREEBUFF_MINIMAX_MODEL_ID) return 200_000
+): 250_000 | 400_000 {
   if (model === FREEBUFF_KIMI_MODEL_ID) return 250_000
   return 400_000
 }
@@ -375,36 +371,14 @@ function getBase2HandleSteps({
   maxContextLength,
 }: {
   isFree: boolean
-  maxContextLength: 200_000 | 250_000 | 400_000
+  maxContextLength: 250_000 | 400_000
 }): Base2HandleSteps {
   if (isFree) {
-    if (maxContextLength === 200_000) return handleStepsFree200k
     if (maxContextLength === 250_000) return handleStepsFree250k
     return handleStepsFree400k
   }
-  if (maxContextLength === 200_000) return handleSteps200k
   if (maxContextLength === 250_000) return handleSteps250k
   return handleSteps400k
-}
-
-const handleStepsFree200k: Base2HandleSteps = function* ({ params }) {
-  while (true) {
-    yield {
-      toolName: 'spawn_agent_inline',
-      input: {
-        agent_type: 'context-pruner',
-        params: {
-          maxContextLength: 200_000,
-          ...(params ?? {}),
-          cacheExpiryMs: 30 * 60 * 1000,
-        },
-      },
-      includeToolCall: false,
-    } as any
-
-    const { stepsComplete } = yield 'STEP'
-    if (stepsComplete) break
-  }
 }
 
 const handleStepsFree250k: Base2HandleSteps = function* ({ params }) {
@@ -437,25 +411,6 @@ const handleStepsFree400k: Base2HandleSteps = function* ({ params }) {
           maxContextLength: 400_000,
           ...(params ?? {}),
           cacheExpiryMs: 30 * 60 * 1000,
-        },
-      },
-      includeToolCall: false,
-    } as any
-
-    const { stepsComplete } = yield 'STEP'
-    if (stepsComplete) break
-  }
-}
-
-const handleSteps200k: Base2HandleSteps = function* ({ params }) {
-  while (true) {
-    yield {
-      toolName: 'spawn_agent_inline',
-      input: {
-        agent_type: 'context-pruner',
-        params: {
-          maxContextLength: 200_000,
-          ...(params ?? {}),
         },
       },
       includeToolCall: false,

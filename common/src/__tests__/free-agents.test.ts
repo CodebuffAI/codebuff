@@ -5,7 +5,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
 } from '../constants/freebuff-models'
@@ -21,12 +20,11 @@ import {
 } from '../constants/free-agents'
 
 const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
+// Removed model: support was dropped entirely (client + server).
+const LEGACY_MINIMAX_M2_7_MODEL_ID = 'minimax/minimax-m2.7'
 
 describe('free mode agent model allowlist', () => {
   test('maps supported freebuff models to concrete root agents', () => {
-    expect(getFreebuffRootAgentIdForModel(FREEBUFF_MINIMAX_MODEL_ID)).toBe(
-      'base2-free',
-    )
     expect(getFreebuffRootAgentIdForModel(FREEBUFF_KIMI_MODEL_ID)).toBe(
       'base2-free-kimi',
     )
@@ -48,12 +46,12 @@ describe('free mode agent model allowlist', () => {
   })
 
   test('allows each freebuff root agent only with its configured model', () => {
-    expect(
-      isFreeModeAllowedAgentModel('base2-free', FREEBUFF_MINIMAX_MODEL_ID),
-    ).toBe(true)
     expect(isFreeModeAllowedAgentModel('base2-free', MINIMAX_M3_MODEL_ID)).toBe(
-      false,
+      true,
     )
+    expect(
+      isFreeModeAllowedAgentModel('base2-free', LEGACY_MINIMAX_M2_7_MODEL_ID),
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel(
         'base2-free',
@@ -108,22 +106,17 @@ describe('free mode agent model allowlist', () => {
     expect(
       isFreeModeAllowedAgentModel(
         'base2-free-minimax-m3',
-        FREEBUFF_MINIMAX_MODEL_ID,
+        LEGACY_MINIMAX_M2_7_MODEL_ID,
       ),
     ).toBe(false)
   })
 
   test('allows each freebuff reviewer agent only with its configured model', () => {
+    // The M2.7 reviewer was removed along with the model.
     expect(
       isFreeModeAllowedAgentModel(
         'code-reviewer-minimax',
-        FREEBUFF_MINIMAX_MODEL_ID,
-      ),
-    ).toBe(true)
-    expect(
-      isFreeModeAllowedAgentModel(
-        'code-reviewer-minimax',
-        FREEBUFF_KIMI_MODEL_ID,
+        LEGACY_MINIMAX_M2_7_MODEL_ID,
       ),
     ).toBe(false)
     expect(
@@ -135,7 +128,7 @@ describe('free mode agent model allowlist', () => {
     expect(
       isFreeModeAllowedAgentModel(
         'code-reviewer-minimax-m3',
-        FREEBUFF_MINIMAX_MODEL_ID,
+        LEGACY_MINIMAX_M2_7_MODEL_ID,
       ),
     ).toBe(false)
     expect(
@@ -171,9 +164,9 @@ describe('free mode agent model allowlist', () => {
     expect(
       isFreeModeAllowedAgentModel(
         'code-reviewer-lite',
-        FREEBUFF_MINIMAX_MODEL_ID,
+        LEGACY_MINIMAX_M2_7_MODEL_ID,
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       isFreeModeAllowedAgentModel('code-reviewer-lite', MINIMAX_M3_MODEL_ID),
     ).toBe(false)
@@ -238,20 +231,17 @@ describe('free mode agent model allowlist', () => {
   })
 
   test('allows the tmux-cli subagent with its bundled model', () => {
-    expect(
-      isFreeModeAllowedAgentModel('tmux-cli', FREEBUFF_MINIMAX_MODEL_ID),
-    ).toBe(true)
+    expect(isFreeModeAllowedAgentModel('tmux-cli', MINIMAX_M3_MODEL_ID)).toBe(
+      true,
+    )
     expect(
       isFreeModeAllowedAgentModel(
         'codebuff/tmux-cli@0.0.1',
-        FREEBUFF_MINIMAX_MODEL_ID,
+        MINIMAX_M3_MODEL_ID,
       ),
     ).toBe(true)
     expect(
-      isFreeModeAllowedAgentModel(
-        'other/tmux-cli@0.0.1',
-        FREEBUFF_MINIMAX_MODEL_ID,
-      ),
+      isFreeModeAllowedAgentModel('other/tmux-cli@0.0.1', MINIMAX_M3_MODEL_ID),
     ).toBe(false)
   })
 

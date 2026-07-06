@@ -10,7 +10,6 @@ import {
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
-  FREEBUFF_MINIMAX_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MIMO_V25_PRO_MODEL_ID,
@@ -60,7 +59,6 @@ const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
 export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'base2-free-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
-  [FREEBUFF_MINIMAX_MODEL_ID]: 'base2-free',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
   [FREEBUFF_KIMI_MODEL_ID]: 'base2-free-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
@@ -71,7 +69,6 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_PRO_MODEL_ID]: 'code-reviewer-mimo-pro',
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
-  [FREEBUFF_MINIMAX_MODEL_ID]: 'code-reviewer-minimax',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
   [FREEBUFF_KIMI_MODEL_ID]: 'code-reviewer-kimi',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
@@ -94,7 +91,7 @@ export function getFreebuffRootAgentIdForModel(model: string): string {
 export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Root orchestrator
   'base2-free': new Set([
-    FREEBUFF_MINIMAX_MODEL_ID,
+    FREEBUFF_MINIMAX_M3_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
@@ -138,10 +135,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Command execution
   basher: new Set(['google/gemini-3.1-flash-lite-preview']),
-  'tmux-cli': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
+  'tmux-cli': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
 
   // Code reviewer for free mode
-  'code-reviewer-minimax': new Set([FREEBUFF_MINIMAX_MODEL_ID]),
   'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'code-reviewer-kimi': new Set([FREEBUFF_KIMI_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
@@ -154,7 +150,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Legacy freebuff clients spawned code-reviewer-lite under provider-specific
   // free roots before those reviewer IDs existed.
   'code-reviewer-lite': new Set([
-    FREEBUFF_MINIMAX_MODEL_ID,
     FREEBUFF_KIMI_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -271,7 +266,7 @@ export function isFreeModeAllowedAgentModel(
   // Exact match first
   if (allowedModels.has(model)) return true
 
-  // OpenRouter may return dated variants (e.g. "minimax/minimax-m2.7-20260211")
+  // OpenRouter may return dated variants (e.g. "minimax/minimax-m3-20260211")
   // so also check date-like suffixes. Do not accept arbitrary suffixes:
   // "mimo-v2.5-pro" must not match the non-pro "mimo-v2.5" allowlist entry.
   for (const allowed of allowedModels) {
