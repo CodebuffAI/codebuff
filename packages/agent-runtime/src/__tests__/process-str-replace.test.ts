@@ -214,9 +214,10 @@ describe('processStrReplace', () => {
   })
 
   it('should handle multiple occurrences of the same string with allowMultiple: true', async () => {
-    const initialContent = 'const x = 1;\nconst x = 2;\nconst x = 3;\n'
-    const oldStr = 'const x'
-    const newStr = 'let x'
+    const initialContent =
+      'const value = 1;\nconst value = 2;\nconst value = 3;\n'
+    const oldStr = 'const value'
+    const newStr = 'let value'
 
     const result = await processStrReplace({
       path: 'test.ts',
@@ -230,7 +231,9 @@ describe('processStrReplace', () => {
     expect(result).not.toBeNull()
     expect('content' in result).toBe(true)
     if ('content' in result) {
-      expect(result.content).toBe('let x = 1;\nlet x = 2;\nlet x = 3;\n')
+      expect(result.content).toBe(
+        'let value = 1;\nlet value = 2;\nlet value = 3;\n',
+      )
     }
   })
 
@@ -367,9 +370,10 @@ describe('processStrReplace', () => {
   // New comprehensive tests for allowMultiple functionality
   describe('allowMultiple functionality', () => {
     it('should error when multiple occurrences exist and allowMultiple is false', async () => {
-      const initialContent = 'const x = 1;\nconst x = 2;\nconst x = 3;\n'
-      const oldStr = 'const x'
-      const newStr = 'let x'
+      const initialContent =
+        'const value = 1;\nconst value = 2;\nconst value = 3;\n'
+      const oldStr = 'const value'
+      const newStr = 'let value'
 
       const result = await processStrReplace({
         path: 'test.ts',
@@ -393,9 +397,9 @@ describe('processStrReplace', () => {
     })
 
     it('should replace all occurrences when allowMultiple is true', async () => {
-      const initialContent = 'foo bar foo baz foo'
-      const oldStr = 'foo'
-      const newStr = 'FOO'
+      const initialContent = 'replace foo bar replace foo baz replace foo'
+      const oldStr = 'replace foo'
+      const newStr = 'REPLACED'
 
       const result = await processStrReplace({
         path: 'test.ts',
@@ -409,7 +413,7 @@ describe('processStrReplace', () => {
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
       if ('content' in result) {
-        expect(result.content).toBe('FOO bar FOO baz FOO')
+        expect(result.content).toBe('REPLACED bar REPLACED baz REPLACED')
       }
     })
 
@@ -435,10 +439,11 @@ describe('processStrReplace', () => {
     })
 
     it('should handle mixed allowMultiple settings in multiple replacements', async () => {
-      const initialContent = 'foo bar foo\nbaz baz baz\nqux qux'
+      const initialContent =
+        'alpha token bar alpha token\nbeta token beta token beta token\nqux qux'
       const replacements = [
-        { oldString: 'foo', newString: 'FOO', allowMultiple: true }, // Replace all 'foo'
-        { oldString: 'baz', newString: 'BAZ', allowMultiple: false }, // Should error on multiple 'baz'
+        { oldString: 'alpha token', newString: 'ALPHA', allowMultiple: true }, // Replace all 'alpha token'
+        { oldString: 'beta token', newString: 'BETA', allowMultiple: false }, // Should error on multiple 'beta token'
         { oldString: 'qux qux', newString: 'QUX', allowMultiple: false }, // Single occurrence, should work
       ]
 
@@ -452,12 +457,251 @@ describe('processStrReplace', () => {
       expect(result).not.toBeNull()
       expect('content' in result).toBe(true)
       if ('content' in result) {
-        // Should have applied foo->FOO and qux qux->QUX, but not baz->BAZ
+        // Should have applied alpha token->ALPHA and qux qux->QUX, but not beta token->BETA
 
-        expect(result.content).toBe('FOO bar FOO\nbaz baz baz\nQUX')
+        expect(result.content).toBe(
+          'ALPHA bar ALPHA\nbeta token beta token beta token\nQUX',
+        )
         expect(result.messages).toHaveLength(1)
-        expect(result.messages[0]).toContain('Found 3 occurrences of "baz"')
+        expect(result.messages[0]).toContain(
+          'Found 3 occurrences of "beta token"',
+        )
         expect(result.messages[0]).toContain('set allowMultiple to true')
+      }
+    })
+
+    it('should refuse tiny anchors with multiple matches even when allowMultiple is true', async () => {
+      const initialContent = 'foo bar foo baz foo'
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          { oldString: 'foo', newString: 'FOO', allowMultiple: true },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('Refusing to apply tiny oldString')
+        expect(result.error).toContain('shorter than 10 characters')
+        expect(result.error).toContain('matches 3 locations')
+        expect(result.error).toContain('allowMultiple=true cannot override')
+        expect(result.error).toContain('Occurrence ranges for read_files.ranges recovery:')
+      }
+    })
+
+    it('should refuse tiny anchors with multiple matches before standard multi-match guidance', async () => {
+      const initialContent = 'baz baz baz'
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          { oldString: 'baz', newString: 'BAZ', allowMultiple: false },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('Refusing to apply tiny oldString')
+        expect(result.error).not.toContain('set allowMultiple to true')
+        expect(result.error).toContain('pass occurrenceIndex')
+      }
+    })
+
+    it('should allow repeated anchors at the tiny-anchor length boundary', async () => {
+      const initialContent = '1234567890 left 1234567890 right'
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: '1234567890',
+            newString: 'BOUNDARY',
+            allowMultiple: true,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('BOUNDARY left BOUNDARY right')
+      }
+    })
+
+    it('should replace a deterministic range with explicit line elision', async () => {
+      const initialContent = [
+        'function target() {',
+        '  const keep = true',
+        '  const value = 1',
+        '  return value',
+        '} // end target',
+        '',
+      ].join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: ['function target() {', '...', '} // end target'].join('\n'),
+            newString: 'function target() {\n  return 2\n} // end target',
+            allowMultiple: false,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('function target() {\n  return 2\n} // end target\n')
+        expect(result.messages).toContain(
+          'Matched explicit `...` elision in oldString at lines 1-5.',
+        )
+      }
+    })
+
+    it('should preserve exact-match precedence for literal ellipsis text', async () => {
+      const initialContent = ['start literal', '...', 'end literal', ''].join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: ['start literal', '...', 'end literal'].join('\n'),
+            newString: 'literal ellipsis replaced',
+            allowMultiple: false,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('content' in result).toBe(true)
+      if ('content' in result) {
+        expect(result.content).toBe('literal ellipsis replaced\n')
+        expect(result.messages).not.toContain(
+          'Matched explicit `...` elision in oldString at lines 1-3.',
+        )
+      }
+    })
+
+    it('should reject ambiguous explicit line elision', async () => {
+      const initialContent = [
+        'function target() {',
+        '  return 1',
+        '} // end target',
+        'function target() {',
+        '  return 2',
+        '} // end target',
+      ].join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: ['function target() {', '...', '} // end target'].join('\n'),
+            newString: 'function target() {\n  return 3\n} // end target',
+            allowMultiple: false,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('Elided oldString is ambiguous')
+        expect(result.error).toContain('does not support allowMultiple')
+      }
+    })
+
+    it('should reject allowMultiple with deterministic explicit line elision', async () => {
+      const initialContent = [
+        'function target() {',
+        '  const keep = true',
+        '  return 1',
+        '} // end target',
+      ].join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: ['function target() {', '...', '} // end target'].join('\n'),
+            newString: 'function target() {\n  return 2\n} // end target',
+            allowMultiple: true,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('does not support allowMultiple')
+        expect(result.error).toContain('Set allowMultiple to false')
+      }
+    })
+
+    it('should treat inline ellipsis as literal text, not an elision marker', async () => {
+      const initialContent = ['start literal', 'middle literal', 'end literal'].join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: 'start literal ... end literal',
+            newString: 'inline ellipsis replaced',
+            allowMultiple: false,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('The old string')
+        expect(result.error).not.toContain('Elided oldString')
+        expect(result.error).not.toContain('Invalid elided oldString')
+      }
+    })
+
+    it('should reject elision markers with tiny literal anchors', async () => {
+      const initialContent = ['a', 'middle', 'b'].join('\n')
+
+      const result = await processStrReplace({
+        path: 'test.ts',
+        replacements: [
+          {
+            oldString: ['a', '...', 'b'].join('\n'),
+            newString: 'tiny',
+            allowMultiple: false,
+          },
+        ],
+        initialContentPromise: Promise.resolve(initialContent),
+        logger,
+      })
+
+      expect(result).not.toBeNull()
+      expect('error' in result).toBe(true)
+      if ('error' in result) {
+        expect(result.error).toContain('each literal anchor segment')
+        expect(result.error).toContain('at least 10 non-whitespace characters')
       }
     })
 
@@ -2023,7 +2267,7 @@ function test3() {
   })
 
   describe('occurrenceIndex targeting', () => {
-    it('targets exactly the Nth occurrence on a small file', async () => {
+    it('lets occurrenceIndex target a tiny repeated anchor on a small file', async () => {
       const initialContent = 'foo\nbar\nfoo\nbaz\nfoo\n'
       const result = await processStrReplace({
         path: 'test.ts',
@@ -2103,13 +2347,17 @@ function test3() {
   describe('ambiguous oldString lists all candidate ranges', () => {
     it('reports every occurrence and suggests occurrenceIndex', async () => {
       const initialContent = Array.from({ length: 30 }, (_, index) =>
-        index % 10 === 5 ? 'dup line' : `filler${index}`,
+        index % 10 === 5 ? 'duplicate line' : `filler${index}`,
       ).join('\n')
 
       const result = await processStrReplace({
         path: 'test.ts',
         replacements: [
-          { oldString: 'dup line', newString: 'changed', allowMultiple: false },
+          {
+            oldString: 'duplicate line',
+            newString: 'changed',
+            allowMultiple: false,
+          },
         ],
         initialContentPromise: Promise.resolve(initialContent),
         logger,

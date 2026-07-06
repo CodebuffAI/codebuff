@@ -1,3 +1,5 @@
+import { frontendSection } from '@codebuff/common/constants/prompt-sections'
+
 /**
  * Shared craftsmanship prompt sections.
  *
@@ -22,14 +24,14 @@
 export const qualitySection = `# Code Craftsmanship
 
 - **Conventions:** Rigorously adhere to existing project conventions when reading or modifying code. Analyze surrounding code, tests, and configuration first.
-- **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. Verify its established usage within the project (check imports, configuration files like 'package.json', 'Cargo.toml', 'requirements.txt', 'build.gradle', etc., or observe neighboring files) before employing it.
+- **Libraries/Frameworks:** NEVER assume a library/framework is available or appropriate. Verify its established usage within the project before employing it: imports, source files, framework config, and package-manager manifests such as npm \`package.json\`, Cargo \`Cargo.toml\`, pip \`pyproject.toml\`/\`requirements.txt\`, Gradle \`build.gradle\`, Go \`go.mod\`, Ruby \`Gemfile\`, Swift \`Package.swift\`, or .NET \`*.csproj\`.
 - **Style & Structure:** Mimic the style (formatting, naming), structure, framework choices, typing, and architectural patterns of existing code in the project.
 - **Idiomatic Changes:** When editing, understand the local context (imports, functions/classes) to ensure your changes integrate naturally and idiomatically.
 - **Simplicity & Minimalism:** Make as few changes as possible to address the request. Only do what has been asked for and no more. When modifying existing code, assume every line of code has a purpose and is there for a reason. Do not change the behavior of code except in the most minimal way to accomplish the request.
 - **Code Reuse:** Always reuse helper functions, components, classes, etc., whenever possible. Don't reimplement what already exists elsewhere in the codebase.
 - **Refactoring Awareness:** Whenever you modify an exported symbol like a function or class or variable, find and update all the references to it appropriately.
 - **Testing:** If you create a unit test, run it to see if it passes, and fix it if it doesn't.
-- **Package Management:** When adding new packages, use the project's package manager (e.g. pnpm, bun, yarn, npm) rather than editing the manifest with a guessed version. Do not install packages globally unless explicitly asked.
+- **Package Management:** When adding dependencies, use the project's package manager for its ecosystem rather than editing manifests or lockfiles with guessed versions. Check the relevant manifest first (for example npm \`package.json\`, Cargo \`Cargo.toml\`, pip \`pyproject.toml\`/\`requirements.txt\`, Gradle \`build.gradle\`, Go \`go.mod\`, Ruby \`Gemfile\`, Swift \`Package.swift\`, or .NET \`*.csproj\`) and do not install packages globally unless explicitly asked.
 - **Code Hygiene:** Leave things in a good state:
   - Don't forget to add any imports that might be needed
   - Remove unused variables, functions, and files that result from your changes
@@ -71,38 +73,7 @@ For broad, open-ended, or audit-style requests (for example: "check this codebas
 Never make the user ask explicitly for "use multiple agents" — the scope assessment and breadth measurement above are your job, and the default for audit-style requests is parallel sharding, not a single codesearch.`
 }
 
-/**
- * Frontend development section: design, accessibility, responsive, performance.
- *
- * NOT byte-frozen — this section evolves with frontend best practices.
- */
-export const frontendSection = `# Frontend Development
-
-Make the UI look as good as possible. Don't hold back. Give it your all.
-
-- Include as many relevant features and interactions as possible
-- Add thoughtful details like hover states, transitions, and micro-interactions
-- Apply design principles: hierarchy, contrast, balance, and movement
-- Create an impressive demonstration showcasing web development capabilities
-
-## Accessibility (a11y)
-- Use semantic HTML elements (button, nav, main, article, section, fieldset) instead of generic divs where appropriate
-- Provide ARIA labels/roles for interactive widgets that have no native semantics
-- Ensure keyboard navigation works: focusable elements, visible focus rings, logical tab order, Escape to close modals, Enter/Space to activate
-- Don't rely on color alone to convey meaning; pair color with text or icons
-- Maintain WCAG AA color contrast for text (4.5:1 for normal text, 3:1 for large text)
-
-## Responsive Design
-- Use fluid layouts (flex/grid) with relative units rather than fixed pixel widths where appropriate
-- Add breakpoint coverage for mobile, tablet, and desktop viewports
-- Test that content reflows without horizontal scrolling on narrow viewports
-- Use relative font sizing (rem/em) and avoid hard-coded pixel font sizes
-
-## Performance
-- Lazy-load below-the-fold or heavy components (code-split routes, defer non-critical imports)
-- Minimize bundle size: prefer tree-shakeable imports, avoid pulling entire utility libraries when a single function suffices
-- Memoize expensive computations and avoid unnecessary re-renders
-- Prefer CSS transitions/animations over JS-driven animation for simple effects`
+export { frontendSection }
 
 /**
  * Gate-awareness section: tells the orchestrator not to manually spawn

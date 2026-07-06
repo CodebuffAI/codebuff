@@ -53,6 +53,16 @@ export const JudgingResultSchema = z.object({
     .max(10)
     .describe('Code structure and maintainability'),
   overallScore: z.number().min(0).max(10).describe('Combined assessment'),
+  idiomScore: z
+    .number()
+    .min(0)
+    .max(10)
+    .optional()
+    .describe('Language-specific idiom compliance when relevant'),
+  nonIdiomaticPatternsDetected: z
+    .array(z.string())
+    .optional()
+    .describe('Concrete non-idiomatic patterns observed in the implementation'),
   scoringStatus: ScoringStatusSchema.optional().describe(
     'Whether the scores were actually measured by the judges, or are synthetic (all judges failed). Absent => scored for back-compat.',
   ),
@@ -103,6 +113,19 @@ const judgeAgentBase: Omit<AgentDefinition, 'id' | 'model'> = {
         maximum: 10,
         description: 'Combined assessment',
       },
+      idiomScore: {
+        type: 'number',
+        minimum: 0,
+        maximum: 10,
+        description:
+          'Language-specific idiom compliance when relevant. Optional; omit when the task does not involve non-TypeScript language idioms.',
+      },
+      nonIdiomaticPatternsDetected: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Concrete non-idiomatic patterns observed in the implementation, such as unnecessary unwraps, unclosed files, or non-standard library usage. Optional; omit or leave empty when none are observed.',
+      },
       scoringStatus: {
         type: 'string',
         enum: ['scored', 'all_judges_failed', 'partial_judge_failure'],
@@ -145,6 +168,7 @@ You will receive:
 
 - **Completion** (0-10): How well did the agent address what was asked in the prompt? Consider the specificity of the prompt.
 - **Code Quality** (0-10): How well-structured and maintainable is the code?
+- **Idiom Compliance** (0-10, optional): For non-TypeScript language tasks, how well does the implementation follow that language's idioms and avoid cross-language habits?
 - **Overall** (0-10): Combined assessment of whether the agent successfully completed the task as requested
 
 ## Ground Truth
@@ -353,6 +377,20 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
   const averageOverallScore =
     validResults.reduce((sum, r) => sum + r.overallScore, 0) /
     validResults.length
+  const idiomScoredResults = validResults.filter(
+    (r): r is JudgingResult & { idiomScore: number } =>
+      typeof r.idiomScore === 'number',
+  )
+  const averageIdiomScore =
+    idiomScoredResults.length > 0
+      ? idiomScoredResults.reduce((sum, r) => sum + r.idiomScore, 0) /
+        idiomScoredResults.length
+      : undefined
+  const nonIdiomaticPatternsDetected = Array.from(
+    new Set(
+      validResults.flatMap((r) => r.nonIdiomaticPatternsDetected ?? []),
+    ),
+  )
 
   console.log(
     `Judging results overall score: ${averageOverallScore.toFixed(1)} (individual scores: ${validResults.map((r) => r.overallScore.toFixed(1)).join(', ')})`,
@@ -366,6 +404,11 @@ ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` :
     completionScore: averageCompletionScore,
     codeQualityScore: averageCodeQualityScore,
     overallScore: averageOverallScore,
+    idiomScore: averageIdiomScore,
+    nonIdiomaticPatternsDetected:
+      nonIdiomaticPatternsDetected.length > 0
+        ? nonIdiomaticPatternsDetected
+        : undefined,
     // 'scored' when all judges succeeded; 'partial_judge_failure' when some
     // dropped out (see the computation above). clampScoresByDeterministicSignals
     // preserves this field unchanged via object spread.

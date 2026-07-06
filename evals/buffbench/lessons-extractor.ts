@@ -9,7 +9,7 @@ import { truncateTrace } from './trace-utils'
 
 import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
-import type { FileDiff } from './types'
+import type { FileDiff, ProposalDryRunReport } from './types'
 import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
 
 export interface Lesson {
@@ -198,6 +198,8 @@ export async function extractAgentLessons(
 
     const judgeSummary = judgeResult
       ? `Overall: ${judgeResult.overallScore}/10, Completion: ${judgeResult.completionScore}/10, Code Quality: ${judgeResult.codeQualityScore}/10
+Idiom Score: ${judgeResult.idiomScore ?? '(not scored)'}/10
+Non-Idiomatic Patterns: ${judgeResult.nonIdiomaticPatternsDetected?.join(' | ') || '(none)'}
 Weaknesses: ${judgeResult.weaknesses?.join(' | ') || '(none)'}`
       : '(no judge summary)'
 
@@ -276,9 +278,18 @@ export function saveAgentLessons(params: {
   commitSha: string
   prompt: string
   lessons: Lesson[]
+  proposalDryRun?: ProposalDryRunReport
   lessonsDir: string
 }): void {
-  const { agentId, commitId, commitSha, prompt, lessons, lessonsDir } = params
+  const {
+    agentId,
+    commitId,
+    commitSha,
+    prompt,
+    lessons,
+    proposalDryRun,
+    lessonsDir,
+  } = params
 
   try {
     const safeAgentId = agentId.replace(/[^a-zA-Z0-9-]/g, '_')
@@ -306,6 +317,12 @@ export function saveAgentLessons(params: {
         })
         .join('\n\n')
       content += '\n'
+
+      if (proposalDryRun && proposalDryRun.proposals.length > 0) {
+        content += '\n### Proposal dry-run\n'
+        content += proposalDryRun.summary.map((line) => `- ${line}`).join('\n')
+        content += '\n'
+      }
 
       fs.appendFileSync(lessonsFile, `${header}${content}\n`, 'utf-8')
     }

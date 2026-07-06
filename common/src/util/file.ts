@@ -179,6 +179,18 @@ export const createSearchReplaceBlock = (search: string, replace: string) => {
   return `<<<<<<< SEARCH\n${search}\n=======\n${replace}\n>>>>>>> REPLACE`
 }
 
+export function fileTreeHasFrontendFiles(nodes: FileTreeNode[]): boolean {
+  for (const node of nodes) {
+    if (node.type === 'file' && /\.(tsx|jsx)$/i.test(node.name)) {
+      return true
+    }
+    if (node.type === 'directory' && node.children) {
+      if (fileTreeHasFrontendFiles(node.children)) return true
+    }
+  }
+  return false
+}
+
 export function printFileTree(
   nodes: FileTreeNode[],
   depth: number = 0,

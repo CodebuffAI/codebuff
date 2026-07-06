@@ -6,7 +6,6 @@ import {
 } from '../types/secret-agent-definition'
 import { createBase2 } from './base2'
 import {
-  frontendSection,
   gateAwarenessSection,
   gitDisciplineSection,
   qualitySection,
@@ -113,6 +112,7 @@ For other questions, you can direct them to openbuff.dev, or especially openbuff
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
+${PLACEHOLDER.LANGUAGE_PROFILE}
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
 # Initial Git Changes
@@ -127,7 +127,7 @@ ${qualitySection}
 
 ${gateAwarenessSection}
 
-${frontendSection}
+${PLACEHOLDER.FRONTEND_SECTION}
 
 ${gitDisciplineSection}
 

@@ -2,7 +2,13 @@ import { expect, describe, test } from 'bun:test'
 
 import type { AgentDefinition } from '@openbuff/sdk'
 
-import { applyProposals, parseProposals } from '../proposals'
+import { compareRuns } from '../compare-runs'
+import {
+  applyProposals,
+  decideProposalPromotion,
+  formatProposalPromotionReport,
+  parseProposals,
+} from '../proposals'
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -24,6 +30,103 @@ const baseAgent = (): AgentDefinition =>
     toolNames: ['read_files', 'code_search'],
     model: 'anthropic/claude-sonnet-4-5',
   })
+
+// ---------------------------------------------------------------------------
+// proposal promotion policy
+// ---------------------------------------------------------------------------
+
+describe('proposal promotion policy', () => {
+  test('accepts applied proposals when before/after comparison improves without regressions', () => {
+    const agent = baseAgent()
+    const dryRun = applyProposals({
+      proposals: [
+        {
+          kind: 'append_system_prompt_guidance',
+          target: { agentId: 'test-agent' },
+          guidance: 'Read same-language idiom guidance before non-TS edits.',
+          rationale: 'Fixes missing idiom context.',
+        },
+      ],
+      agentDefinitions: [agent],
+      dryRun: true,
+    })
+    const comparison = compareRuns(
+      [
+        {
+          agentId: 'test-agent',
+          runs: [],
+          averageScore: 6,
+          averageScoreExcludingFailures: 6,
+          averageCost: 20,
+          averageDuration: 10_000,
+        },
+      ],
+      [
+        {
+          agentId: 'test-agent',
+          runs: [],
+          averageScore: 6.5,
+          averageScoreExcludingFailures: 6.5,
+          averageCost: 20,
+          averageDuration: 10_000,
+        },
+      ],
+    )
+
+    const decision = decideProposalPromotion({ dryRun, comparison })
+    expect(decision.accepted).toBe(true)
+    expect(decision.reasons).toEqual([
+      'meets promotion threshold with no regressions',
+    ])
+
+    const report = formatProposalPromotionReport(decision)
+    expect(report).toContain('Decision: ACCEPT')
+    expect(report).toContain('[dry-run] test-agent')
+  })
+
+  test('rejects proposals when comparison regresses or improvement is too small', () => {
+    const dryRun = applyProposals({
+      proposals: [],
+      agentDefinitions: [baseAgent()],
+      dryRun: true,
+    })
+    const comparison = compareRuns(
+      [
+        {
+          agentId: 'test-agent',
+          runs: [],
+          averageScore: 6,
+          averageScoreExcludingFailures: 6,
+          averageCost: 20,
+          averageDuration: 10_000,
+        },
+      ],
+      [
+        {
+          agentId: 'test-agent',
+          runs: [],
+          averageScore: 5.8,
+          averageScoreExcludingFailures: 5.8,
+          averageCost: 30,
+          averageDuration: 10_000,
+        },
+      ],
+    )
+
+    const decision = decideProposalPromotion({ dryRun, comparison })
+    expect(decision.accepted).toBe(false)
+    expect(decision.reasons).toContain('no proposals applied in dry run')
+    expect(decision.reasons.some((reason) => reason.includes('score delta'))).toBe(
+      true,
+    )
+    expect(decision.reasons.some((reason) => reason.includes('regressions'))).toBe(
+      true,
+    )
+
+    const report = formatProposalPromotionReport(decision)
+    expect(report).toContain('Decision: REJECT')
+  })
+})
 
 // ---------------------------------------------------------------------------
 // parseProposals
@@ -523,7 +626,7 @@ describe('applyProposals: cross-cutting behavior', () => {
     expect(result.summary[0]).toContain('APPLIED')
   })
 
-  test('should include [apply] prefix in summary when dryRun is false', () => {
+  test('should remain dry-run only even when dryRun is false', () => {
     const agent = baseAgent()
     const result = applyProposals({
       proposals: [
@@ -537,8 +640,8 @@ describe('applyProposals: cross-cutting behavior', () => {
       agentDefinitions: [agent],
       dryRun: false,
     })
-    expect(result.summary[0]).toContain('[apply]')
-    expect(result.summary[0]).not.toContain('[dry-run]')
+    expect(result.summary[0]).toContain('[dry-run]')
+    expect(result.summary[0]).not.toContain('[apply]')
   })
 
   test('should include SKIPPED with error in summary for no-op proposals', () => {

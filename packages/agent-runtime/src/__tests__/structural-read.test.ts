@@ -41,6 +41,51 @@ const TS_SRC = [
   '}', // 12
 ].join('\n')
 
+const PY_SRC = [
+  'import pathlib', // 1
+  '', // 2
+  'class Greeter:', // 3
+  '    def greet(self, name):', // 4
+  '        return f"hi {name}"', // 5
+  '', // 6
+  'def helper():', // 7
+  '    return pathlib.Path(".")', // 8
+].join('\n')
+
+const RUST_SRC = [
+  'use std::path::PathBuf;', // 1
+  '', // 2
+  'struct Counter {', // 3
+  '    value: i32,', // 4
+  '}', // 5
+  '', // 6
+  'impl Counter {', // 7
+  '    fn new() -> Self {', // 8
+  '        Self { value: 0 }', // 9
+  '    }', // 10
+  '}', // 11
+  '', // 12
+  'fn main() {', // 13
+  '    println!("ok");', // 14
+  '}', // 15
+].join('\n')
+
+const GO_SRC = [
+  'package main', // 1
+  '', // 2
+  'type Server struct {', // 3
+  '\tName string', // 4
+  '}', // 5
+  '', // 6
+  'func New(name string) *Server {', // 7
+  '\treturn &Server{Name: name}', // 8
+  '}', // 9
+  '', // 10
+  'func (s *Server) Run() error {', // 11
+  '\treturn nil', // 12
+  '}', // 13
+].join('\n')
+
 describe('read_outline handler (AST-backed)', () => {
   test('produces a structural outline with line spans and imports', async () => {
     const result = await handleReadOutline({
@@ -57,6 +102,43 @@ describe('read_outline handler (AST-backed)', () => {
     expect(outline).toMatch(/method run/)
     // greet spans lines 3-6 despite the brace inside the string on line 4.
     expect(outline).toMatch(/Lines 3-6: function greet/)
+  })
+
+  test('produces non-TS structural outlines with imports, nesting, and spans', async () => {
+    const python = await handleReadOutline({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path: 'service.py' } },
+      requestOptionalFile: fileResponder(PY_SRC),
+      fileContext: mockFileContext,
+    } as any)
+    const rust = await handleReadOutline({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path: 'counter.rs' } },
+      requestOptionalFile: fileResponder(RUST_SRC),
+      fileContext: mockFileContext,
+    } as any)
+    const go = await handleReadOutline({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path: 'server.go' } },
+      requestOptionalFile: fileResponder(GO_SRC),
+      fileContext: mockFileContext,
+    } as any)
+
+    expect(outputJson(python).outline).toContain('Line 1: import pathlib')
+    expect(outputJson(python).outline).toMatch(/Lines 3-5: class Greeter/)
+    expect(outputJson(python).outline).toMatch(/  Lines 4-5: method greet/)
+    expect(outputJson(python).outline).toMatch(/Lines 7-8: function helper/)
+
+    expect(outputJson(rust).outline).toContain('Line 1: use std::path::PathBuf;')
+    expect(outputJson(rust).outline).toMatch(/Lines 3-5: struct Counter/)
+    expect(outputJson(rust).outline).toMatch(/Lines 7-11: impl impl Counter/)
+    expect(outputJson(rust).outline).toMatch(/  Lines 8-10: method new/)
+    expect(outputJson(rust).outline).toMatch(/Lines 13-15: function main/)
+
+    expect(outputJson(go).outline).toContain('Line 1: package main')
+    expect(outputJson(go).outline).toMatch(/Lines 3-5: type Server/)
+    expect(outputJson(go).outline).toMatch(/Lines 7-9: function New/)
+    expect(outputJson(go).outline).toMatch(/Lines 11-13: method Run/)
   })
 
   test('falls back gracefully and never throws on unknown extensions', async () => {
@@ -107,6 +189,65 @@ describe('read_slices handler (AST-backed + capability tokens)', () => {
     expect('content' in edit ? edit.content : '').toContain('return name + msg')
   })
 
+  test('slices non-TS functions and methods with exact parser-backed ranges', async () => {
+    const python = await handleReadSlices({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path: 'service.py', symbols: ['greet', 'helper'] } },
+      requestOptionalFile: fileResponder(PY_SRC),
+    } as any)
+    const pySlices = outputJson(python).slices
+    expect(pySlices).toHaveLength(2)
+    expect(pySlices.find((s: any) => s.symbol === 'greet')).toMatchObject({
+      kind: 'method',
+      startLine: 4,
+      endLine: 5,
+    })
+    expect(pySlices.find((s: any) => s.symbol === 'helper')).toMatchObject({
+      kind: 'function',
+      startLine: 7,
+      endLine: 8,
+    })
+
+    const rust = await handleReadSlices({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path: 'counter.rs', symbols: ['new', 'main'] } },
+      requestOptionalFile: fileResponder(RUST_SRC),
+    } as any)
+    const rustSlices = outputJson(rust).slices
+    expect(rustSlices).toHaveLength(2)
+    expect(rustSlices.find((s: any) => s.symbol === 'new')).toMatchObject({
+      kind: 'method',
+      startLine: 8,
+      endLine: 10,
+    })
+    expect(rustSlices.find((s: any) => s.symbol === 'main')).toMatchObject({
+      kind: 'function',
+      startLine: 13,
+      endLine: 15,
+    })
+
+    const go = await handleReadSlices({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall: { input: { path: 'server.go', symbols: ['New', 'Run'] } },
+      requestOptionalFile: fileResponder(GO_SRC),
+    } as any)
+    const goSlices = outputJson(go).slices
+    expect(goSlices).toHaveLength(2)
+    expect(goSlices.find((s: any) => s.symbol === 'New')).toMatchObject({
+      kind: 'function',
+      startLine: 7,
+      endLine: 9,
+    })
+    expect(goSlices.find((s: any) => s.symbol === 'Run')).toMatchObject({
+      kind: 'method',
+      startLine: 11,
+      endLine: 13,
+    })
+    expect(goSlices.find((s: any) => s.symbol === 'Run')?.readCapability).toMatch(
+      /^cap\./,
+    )
+  })
+
   test('returns empty slices array for a missing file', async () => {
     const result = await handleReadSlices({
       previousToolCallFinished: Promise.resolve(),
@@ -129,6 +270,28 @@ describe('extractSlices (shared core for read_files symbols + read_slices)', () 
 
     const service = slices.find((s) => s.symbol === 'Service')!
     expect(service).toMatchObject({ symbol: 'Service', startLine: 8, endLine: 12 })
+  })
+
+  test('extracts non-TS symbols with reusable capability tokens', async () => {
+    const slices = await extractSlices(GO_SRC, 'server.go', ['Server', 'Run'])
+    expect(slices).toHaveLength(2)
+
+    const server = slices.find((s) => s.symbol === 'Server')!
+    expect(server).toMatchObject({
+      kind: 'type',
+      startLine: 3,
+      endLine: 5,
+    })
+    expect(server.content).toContain('\tName string')
+
+    const run = slices.find((s) => s.symbol === 'Run')!
+    expect(run).toMatchObject({
+      kind: 'method',
+      startLine: 11,
+      endLine: 13,
+    })
+    expect(run.content).toContain('\treturn nil')
+    expect(run.readCapability).toMatch(/^cap\./)
   })
 
   test('omits symbols that are not found', async () => {

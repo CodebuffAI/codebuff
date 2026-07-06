@@ -1,5 +1,3 @@
-
-
 import { describe, it, expect, mock } from 'bun:test'
 
 import {
@@ -77,6 +75,10 @@ describe('languages module', () => {
         { ext: '.rs', wasm: 'tree-sitter-rust.wasm' },
         { ext: '.rb', wasm: 'tree-sitter-ruby.wasm' },
         { ext: '.go', wasm: 'tree-sitter-go.wasm' },
+        { ext: '.php', wasm: 'tree-sitter-php.wasm' },
+        { ext: '.swift', wasm: 'tree-sitter-swift.wasm' },
+        { ext: '.kt', wasm: 'tree-sitter-kotlin.wasm' },
+        { ext: '.kts', wasm: 'tree-sitter-kotlin.wasm' },
       ]
 
       expectedLanguages.forEach(({ ext, wasm }) => {
@@ -100,6 +102,9 @@ describe('languages module', () => {
         'tree-sitter-rust.wasm',
         'tree-sitter-tsx.wasm',
         'tree-sitter-typescript.wasm',
+        'tree-sitter-kotlin.wasm',
+        'tree-sitter-php.wasm',
+        'tree-sitter-swift.wasm',
       ] as const
 
       expectedFiles.forEach((file) => {
@@ -111,6 +116,13 @@ describe('languages module', () => {
       Object.entries(WASM_FILES).forEach(([key, value]) => {
         expect(key).toBe(value)
       })
+    })
+
+    it('should keep every language entry paired with a query and declared wasm file', () => {
+      for (const config of languageTable) {
+        expect(Object.values(WASM_FILES)).toContain(config.wasmFile)
+        expect(config.queryPathOrContent.trim().length).toBeGreaterThan(0)
+      }
     })
   })
 

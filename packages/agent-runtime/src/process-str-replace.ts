@@ -1480,6 +1480,135 @@ function tryNearMatchAutoCorrect(params: {
   }
 }
 
+const TINY_ANCHOR_MULTI_MATCH_MIN_LENGTH = 10
+const ELISION_MARKER_LINE = '...'
+const ELISION_MIN_LITERAL_CHARS = 10
+
+type ElisionMatchResult =
+  | { kind: 'not-elision' }
+  | { kind: 'match'; oldStr: string; startLine: number; endLine: number }
+  | { kind: 'error'; error: string }
+
+function parseElidedOldString(oldStr: string):
+  | { segments: string[][] }
+  | { error: string }
+  | null {
+  const lines = oldStr.split('\n')
+  if (!lines.some((line) => line.trim() === ELISION_MARKER_LINE)) {
+    return null
+  }
+
+  const segments: string[][] = []
+  let current: string[] = []
+  for (const line of lines) {
+    if (line.trim() === ELISION_MARKER_LINE) {
+      if (current.length > 0) {
+        segments.push(current)
+        current = []
+      }
+      continue
+    }
+    current.push(line)
+  }
+  if (current.length > 0) {
+    segments.push(current)
+  }
+
+  if (segments.length < 2) {
+    return {
+      error:
+        'Invalid elided oldString: `...` must be a line by itself between at least two literal anchor segments.',
+    }
+  }
+
+  const weakSegment = segments.find(
+    (segment) => segment.join('\n').trim().length < ELISION_MIN_LITERAL_CHARS,
+  )
+  if (weakSegment) {
+    return {
+      error: `Invalid elided oldString: each literal anchor segment around a \`...\` marker must contain at least ${ELISION_MIN_LITERAL_CHARS} non-whitespace characters. Use a more specific anchor or pass occurrenceIndex for exact repeated text.`,
+    }
+  }
+
+  return { segments }
+}
+
+function findLineSegmentAt(
+  lines: string[],
+  segment: string[],
+  fromIndex: number,
+): number[] {
+  const matches: number[] = []
+  if (segment.length === 0 || segment.length > lines.length) return matches
+
+  for (let i = fromIndex; i <= lines.length - segment.length; i++) {
+    let matched = true
+    for (let j = 0; j < segment.length; j++) {
+      if (lines[i + j] !== segment[j]) {
+        matched = false
+        break
+      }
+    }
+    if (matched) matches.push(i)
+  }
+  return matches
+}
+
+function findElidedOldStringMatches(params: {
+  initialContent: string
+  oldStr: string
+}): ElisionMatchResult {
+  const parsed = parseElidedOldString(params.oldStr)
+  if (parsed === null) return { kind: 'not-elision' }
+  if ('error' in parsed) return { kind: 'error', error: parsed.error }
+
+  const contentLines = params.initialContent.split('\n')
+  const matches: { startLine: number; endLine: number; oldStr: string }[] = []
+
+  const visit = (segmentIndex: number, startIndex: number, nextIndex: number): void => {
+    if (matches.length > 1) return
+    const segment = parsed.segments[segmentIndex]
+    for (const index of findLineSegmentAt(contentLines, segment, nextIndex)) {
+      const segmentEnd = index + segment.length
+      if (segmentIndex === parsed.segments.length - 1) {
+        const endIndex = segmentEnd - 1
+        matches.push({
+          startLine: startIndex + 1,
+          endLine: endIndex + 1,
+          oldStr: contentLines.slice(startIndex, endIndex + 1).join('\n'),
+        })
+        if (matches.length > 1) return
+      } else {
+        visit(segmentIndex + 1, startIndex, segmentEnd)
+        if (matches.length > 1) return
+      }
+    }
+  }
+
+  for (const firstIndex of findLineSegmentAt(contentLines, parsed.segments[0], 0)) {
+    visit(1, firstIndex, firstIndex + parsed.segments[0].length)
+    if (matches.length > 1) break
+  }
+
+  if (matches.length === 1) {
+    return { kind: 'match', ...matches[0] }
+  }
+
+  if (matches.length > 1) {
+    return {
+      kind: 'error',
+      error:
+        'Elided oldString is ambiguous: the `...` marker resolved to more than one possible range. `...` matching is deterministic-only and does not support allowMultiple; re-read the relevant ranges and provide a more specific oldString.',
+    }
+  }
+
+  return {
+    kind: 'error',
+    error:
+      'Elided oldString did not match. `...` is only supported as a whole-line elision marker between exact literal anchor segments; re-read the current file/range and copy the surrounding anchor lines exactly.',
+  }
+}
+
 const tryMatchOldStr = (params: {
   initialContent: string
   oldStr: string
@@ -1492,6 +1621,26 @@ const tryMatchOldStr = (params: {
   const { initialContent, oldStr, newStr, allowMultiple, logger } = params
   // count the number of occurrences of oldStr in initialContent
   const count = initialContent.split(oldStr).length - 1
+  if (
+    count > 1 &&
+    oldStr.trim().length < TINY_ANCHOR_MULTI_MATCH_MIN_LENGTH
+  ) {
+    const occurrences = getOccurrenceLineRanges({
+      initialContent,
+      oldStr,
+      limit: count,
+    })
+    const occurrenceDiagnostics = formatOccurrenceDiagnostics(occurrences)
+    return {
+      success: false,
+      error:
+        `Refusing to apply tiny oldString ${JSON.stringify(oldStr)} because it is shorter than ${TINY_ANCHOR_MULTI_MATCH_MIN_LENGTH} characters and matches ${count} locations. Use a longer, more specific oldString, or pass occurrenceIndex (1-indexed) to target exactly one occurrence.` +
+        (allowMultiple
+          ? ' Even allowMultiple=true cannot override this tiny-anchor safety guard.'
+          : '') +
+        occurrenceDiagnostics,
+    }
+  }
   if (count === 1) {
     return { success: true, oldStr }
   }
@@ -1515,6 +1664,26 @@ const tryMatchOldStr = (params: {
   if (allowMultiple && count > 1) {
     // For allowMultiple=true with multiple occurrences, use the original oldStr
     return { success: true, oldStr }
+  }
+
+  const elidedMatch = findElidedOldStringMatches({ initialContent, oldStr })
+  if (elidedMatch.kind === 'match') {
+    if (allowMultiple) {
+      return {
+        success: false,
+        error:
+          'Elided oldString matched exactly one range, but `...` matching is deterministic-only and does not support allowMultiple. Set allowMultiple to false, or re-read the relevant ranges and use exact oldString replacements for multi-location edits.',
+      }
+    }
+    logger.debug('Matched with explicit line elision marker')
+    return {
+      success: true,
+      oldStr: elidedMatch.oldStr,
+      message: `Matched explicit \`...\` elision in oldString at lines ${elidedMatch.startLine}-${elidedMatch.endLine}.`,
+    }
+  }
+  if (elidedMatch.kind === 'error') {
+    return { success: false, error: elidedMatch.error }
   }
 
   const newChange = tryToDoStringReplacementWithExtraIndentation({

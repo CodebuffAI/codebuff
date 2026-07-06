@@ -13,11 +13,24 @@ import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
 import { formatTaskResults } from './format-output'
 import { judgeCommitResult, type JudgingResult } from './judge'
 import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
+import { applyProposals } from './proposals'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { logger } from '../logger'
 import { analyzeAllTasks } from './meta-analyzer'
 
-import type { AgentEvalResults, EvalDataV2, EvalCommitV2, EvalRun } from './types'
+import type {
+  AgentEvalResults,
+  EvalDataV2,
+  EvalCommitV2,
+  EvalRun,
+  ProposalDryRunReport,
+} from './types'
+import { computeIdiomTraceabilitySignals, evaluateIdiomTraceability } from './idiom-traceability-signals'
+import type { IdiomTraceabilityEvaluation } from './idiom-traceability-signals'
+import {
+  detectIdiomPatternSignals,
+  type IdiomPatternFinding,
+} from './idiom-pattern-signals'
 
 function parseAgentId(agent: string): {
   agentId: string
@@ -71,7 +84,30 @@ export function summarizeAgentRuns(agentData: AgentEvalResults): {
   }
 }
 
-async function runTask(options: {
+function formatIdiomPatternFinding(finding: IdiomPatternFinding): string {
+  return `${finding.patternId} (${finding.path}:${finding.lineNumber}): ${finding.message}`
+}
+
+export function mergeIdiomPatternFindings(
+  judging: JudgingResult,
+  findings: IdiomPatternFinding[],
+): JudgingResult {
+  if (findings.length === 0) return judging
+
+  const nonIdiomaticPatternsDetected = Array.from(
+    new Set([
+      ...(judging.nonIdiomaticPatternsDetected ?? []),
+      ...findings.map(formatIdiomPatternFinding),
+    ]),
+  )
+
+  return {
+    ...judging,
+    nonIdiomaticPatternsDetected,
+  }
+}
+
+export async function runTask(options: {
   client: OpenbuffClient
   commit: EvalDataV2['evalCommits'][0]
   agents: string[]
@@ -93,6 +129,7 @@ async function runTask(options: {
   cacheRecallEval?: EvalDataV2['cacheRecallEval']
   disableAnalysis?: boolean
   saveTraces?: boolean
+  runAgentOnCommitImpl?: typeof runAgentOnCommit
 }) {
   const {
     client,
@@ -112,6 +149,7 @@ async function runTask(options: {
     cacheRecallEval,
     disableAnalysis,
     saveTraces = false,
+    runAgentOnCommitImpl = runAgentOnCommit,
   } = options
 
   console.log(
@@ -127,7 +165,7 @@ async function runTask(options: {
       const { agentId: parsedAgentId, externalAgentType } = parseAgentId(agent)
       agentId = parsedAgentId
 
-      const agentResult = await runAgentOnCommit({
+      const agentResult = await runAgentOnCommitImpl({
         client,
         agentId,
         commit,
@@ -141,27 +179,32 @@ async function runTask(options: {
         externalAgentType,
       })
 
-      const judgeResult = await judgeCommitResult({
-        client,
-        commit,
-        contextFiles: agentResult.contextFiles,
-        agentDiff: agentResult.diff,
-        error: agentResult.error,
-        finalCheckOutputs: agentResult.finalCheckOutputs
-          ? agentResult.finalCheckOutputs
-              .map(
-                (output) =>
-                  `### ${output.command}\n\`\`\`\n${output.stdout}${output.stderr ? '\nSTDERR:\n' + output.stderr : ''}\n\`\`\``,
-              )
-              .join('\n\n')
-          : undefined,
-        finalCheckOutputsStructured: agentResult.finalCheckOutputs,
-      })
+      const judgeResult = mergeIdiomPatternFindings(
+        await judgeCommitResult({
+          client,
+          commit,
+          contextFiles: agentResult.contextFiles,
+          agentDiff: agentResult.diff,
+          error: agentResult.error,
+          finalCheckOutputs: agentResult.finalCheckOutputs
+            ? agentResult.finalCheckOutputs
+                .map(
+                  (output) =>
+                    `### ${output.command}\n\`\`\`\n${output.stdout}${output.stderr ? '\nSTDERR:\n' + output.stderr : ''}\n\`\`\``,
+                )
+                .join('\n\n')
+            : undefined,
+          finalCheckOutputsStructured: agentResult.finalCheckOutputs,
+        }),
+        detectIdiomPatternSignals(agentResult.diff),
+      )
+
+      let proposalDryRun: ProposalDryRunReport | undefined
 
       // Extract and append agent lessons
       if (extractLessons) {
         console.log(`[${commit.id}] Extracting lessons for ${agentId}...`)
-        const { lessons } = await extractAgentLessons({
+        const { lessons, proposals } = await extractAgentLessons({
           client,
           localAgentDefinitions,
           prompt: commit.prompt,
@@ -173,15 +216,35 @@ async function runTask(options: {
           error: agentResult.error,
         })
 
+        if (proposals.length > 0) {
+          const dryRun = applyProposals({
+            proposals,
+            agentDefinitions: localAgentDefinitions,
+            dryRun: true,
+          })
+          proposalDryRun = {
+            proposals,
+            appliedCount: dryRun.appliedCount,
+            skippedCount: dryRun.skippedCount,
+            summary: dryRun.summary,
+            perProposal: dryRun.perProposal,
+          }
+        }
+
         saveAgentLessons({
           agentId,
           commitId: commit.id,
           commitSha: commit.sha,
           prompt: commit.prompt,
           lessons,
+          proposalDryRun,
           lessonsDir: path.join(__dirname, 'agent-lessons'),
         })
       }
+
+      const idiomTraceability = evaluateIdiomTraceability(
+        computeIdiomTraceabilitySignals(agentResult.trace),
+      )
 
       const evalRun: EvalRun = {
         commitSha: commit.sha,
@@ -196,6 +259,8 @@ async function runTask(options: {
         error: agentResult.error,
         finalCheckOutputs: agentResult.finalCheckOutputs,
         cacheRecallEval: agentResult.cacheRecallEval,
+        idiomTraceability,
+        proposalDryRun,
       }
 
       // Save trace to logs directory
@@ -219,6 +284,8 @@ async function runTask(options: {
         timestamp: new Date().toISOString(),
         finalCheckOutputs: agentResult.finalCheckOutputs,
         cacheRecallEval: agentResult.cacheRecallEval,
+        idiomTraceability,
+        proposalDryRun,
       })
 
       // Save judge traces to separate files if saveTraces is enabled
@@ -301,6 +368,8 @@ async function runTask(options: {
       cost: t.cost,
       durationMs: t.durationMs,
       error: t.error,
+      idiomTraceability: t.idiomTraceability,
+      proposalDryRun: t.proposalDryRun,
     })),
     prompt: commit.prompt,
   }
@@ -328,6 +397,7 @@ async function runTask(options: {
           logsDir,
           `${index + 1}-${commit.id.replace(/[^a-zA-Z0-9-]/g, '_')}-${trace.agentId.replace(/[^a-zA-Z0-9-]/g, '_')}-${commit.sha.slice(0, 7)}.json`,
         ),
+        idiomTraceability: trace.idiomTraceability,
       })),
       traceAnalysis,
     }),
@@ -590,6 +660,18 @@ export async function runBuffBench(options: {
           ) / runsExcludingFailures.length
         : 0
 
+    const idiomScoredRuns = validRuns.filter(
+      (run): run is EvalRun & { judging: JudgingResult & { idiomScore: number } } =>
+        typeof run.judging.idiomScore === 'number',
+    )
+    agentData.averageIdiomScore =
+      idiomScoredRuns.length > 0
+        ? idiomScoredRuns.reduce(
+            (sum, r) => sum + r.judging.idiomScore,
+            0,
+          ) / idiomScoredRuns.length
+        : undefined
+
     agentData.averageCost =
       validRuns.length > 0
         ? validRuns.reduce((sum, r) => sum + r.cost, 0) / validRuns.length
@@ -682,6 +764,9 @@ export async function runBuffBench(options: {
     console.log(
       `  Average Score (excluding failures ≤1.0): ${data.averageScoreExcludingFailures.toFixed(2)}/10 (${runsExcludingFailures.length}/${validRuns.length} runs)`,
     )
+    if (typeof data.averageIdiomScore === 'number') {
+      console.log(`  Average Idiom Score: ${data.averageIdiomScore.toFixed(2)}/10`)
+    }
     console.log(`  Average Cost: ${data.averageCost.toFixed(4)}`)
     console.log(
       `  Average Duration: ${(data.averageDuration / 1000).toFixed(1)}s`,
@@ -696,8 +781,15 @@ export async function runBuffBench(options: {
   for (const [agentId, data] of Object.entries(results)) {
     const { validRuns } = summarizeAgentRuns(data)
     const scores = validRuns.map((r) => r.judging.overallScore.toFixed(1))
+    const idiomScores = validRuns
+      .map((r) => r.judging.idiomScore)
+      .filter((score): score is number => typeof score === 'number')
+      .map((score) => score.toFixed(1))
     console.log(`\n${agentId}:`)
     console.log(`  Scores: ${scores.join(', ')}`)
+    if (idiomScores.length > 0) {
+      console.log(`  Idiom Scores: ${idiomScores.join(', ')}`)
+    }
   }
 
   return finalResults

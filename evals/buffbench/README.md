@@ -15,6 +15,7 @@ BuffBench evaluates coding agents by having them reconstruct actual git commits 
 - **Final Check Commands**: Run custom validation commands (tests, lints, etc.) after agent implementations
 - **Binary Installation**: Support for installing required binaries in isolated environments
 - **Enhanced Metrics**: Track completion score, code quality score, and overall score separately
+- **Idiom Evaluation Seeds**: Includes a small Python/Rust/Go idiom compliance eval set and deterministic advisory pattern signals
 
 ## Architecture
 
@@ -196,7 +197,12 @@ evals/buffbench/
 │
 ├── types.ts                  # Type definitions
 │
+├── deterministic-signals.ts   # Deterministic final-check score clamps
+├── idiom-pattern-signals.ts   # Pure advisory idiom-pattern detection for Python/Rust/Go diffs
+├── idiom-traceability-signals.ts # Idiom guidance read-trace evaluation
+│
 ├── eval-codebuff.json        # Openbuff project evaluations (inherited upstream-history tasks, repoUrl → AnzoBenjamin/openbuff)
+├── eval-idioms-v1.json       # Initial seed evals for Python/Rust/Go idiom compliance
 ├── eval-manifold.json        # Manifold evaluations
 ├── eval-plane.json           # Plane project evaluations
 └── eval-saleor.json          # Saleor e-commerce evaluations
@@ -325,6 +331,12 @@ interface JudgingResult {
 
 ## Advanced Features
 
+### Idiom Evaluation
+
+`eval-idioms-v1.json` is a small initial seed eval set focused on idiomatic Python, Rust, and Go changes. It uses the EvalDataV2 shape, references the matching `agents/idioms/<lang>.md` guidance files, and keeps validation commands language-specific.
+
+`idiom-pattern-signals.ts` provides deterministic, pure, advisory detection for a few obvious non-idiomatic patterns in Python/Rust/Go diffs. It reports named findings with path and added-line context only; it is not wired into judge scoring or runtime enforcement.
+
 ### Binary Installation
 
 Install required binaries in isolated environments:
@@ -434,6 +446,7 @@ taskConcurrency: 10  // High parallelism (faster, more resources)
 The `evals/buffbench/` directory contains several example evaluation files:
 
 - **eval-codebuff.json** - Openbuff project evaluations (inherited upstream-history tasks, repoUrl → AnzoBenjamin/openbuff). 62 curated tasks from the upstream Codebuff commit history that openbuff inherited at fork. Use `bun run main.ts`.
+- **eval-idioms-v1.json** - Initial seed evals for Python, Rust, and Go idiom compliance. These fixture tasks are not generated from real commits.
 - **eval-openbuff-v2.json** - Openbuff project evaluations (openbuff-authored tasks, repoUrl → `file:///home/ben/Code/CLI/openbuff`). 8 tasks regenerated from the openbuff repo's own post-fork commit history via `gen-repo-eval.ts`. Use `bun run main-openbuff.ts`.
 - **eval-manifold.json** - Manifold prediction market evaluations
 - **eval-plane.json** - Plane project management evaluations

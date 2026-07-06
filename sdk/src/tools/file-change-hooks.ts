@@ -1,6 +1,9 @@
+import fs from 'fs'
+import path from 'path'
+
 import micromatch from 'micromatch'
 
-import { loadProviderConfigSync } from '../provider-config'
+import { loadProviderConfigSync, mergeFileChangeHooks } from '../provider-config'
 import { runTerminalCommand } from './run-terminal-command'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
@@ -16,6 +19,13 @@ export type FileChangeHook = {
 
 const HOOK_TIMEOUT_SECONDS = 180
 const MAX_HOOK_OUTPUT_CHARS = 6000
+const CSHARP_SCAN_EXCLUDED_DIRS = new Set(['.git', 'node_modules', 'dist', 'build'])
+
+type PackageJson = {
+  scripts?: Record<string, unknown>
+  dependencies?: Record<string, unknown>
+  devDependencies?: Record<string, unknown>
+}
 
 /**
  * Hooks that should run for this set of changed files: those with no
@@ -30,6 +40,133 @@ export function selectMatchingHooks(
     if (files.length === 0) return false
     return micromatch.some(files, hook.filePattern)
   })
+}
+
+export function inferFileChangeHooks(cwd: string): FileChangeHook[] {
+  const hooks: FileChangeHook[] = []
+
+  const packageJson = readPackageJson(path.join(cwd, 'package.json'))
+  if (packageJson) hooks.push(...inferPackageJsonHooks(packageJson))
+
+  if (fs.existsSync(path.join(cwd, 'go.mod'))) {
+    hooks.push(
+      {
+        name: 'gofmt',
+        command: 'test -z "$(gofmt -l .)"',
+        filePattern: '**/*.go',
+      },
+      {
+        name: 'go vet',
+        command: 'go vet ./...',
+        filePattern: '**/*.go',
+      },
+    )
+  }
+
+  if (hasCsprojFile(cwd)) {
+    hooks.push({
+      name: 'dotnet format',
+      command: 'dotnet format --verify-no-changes',
+      filePattern: '**/*.{cs,csproj}',
+    })
+  }
+
+  if (fs.existsSync(path.join(cwd, 'Cargo.toml'))) {
+    hooks.push(
+      {
+        name: 'cargo fmt',
+        command: 'cargo fmt --check',
+        filePattern: '**/*.rs',
+      },
+      {
+        name: 'cargo clippy',
+        command: 'cargo clippy --all-targets --all-features -- -D warnings',
+        filePattern: '**/*.rs',
+      },
+    )
+  }
+
+  if (
+    fs.existsSync(path.join(cwd, 'pyproject.toml')) ||
+    fs.existsSync(path.join(cwd, 'requirements.txt'))
+  ) {
+    hooks.push({
+      name: 'ruff',
+      command: 'ruff check .',
+      filePattern: '**/*.py',
+    })
+  }
+
+  if (fs.existsSync(path.join(cwd, 'Gemfile'))) {
+    hooks.push({
+      name: 'rubocop',
+      command: 'rubocop',
+      filePattern: '**/*.rb',
+    })
+  }
+
+  if (fs.existsSync(path.join(cwd, 'Package.swift'))) {
+    hooks.push({
+      name: 'swift-format',
+      command: 'swift-format lint --recursive .',
+      filePattern: '**/*.swift',
+    })
+  }
+
+  return hooks
+}
+
+function inferPackageJsonHooks(packageJson: PackageJson): FileChangeHook[] {
+  const hooks: FileChangeHook[] = []
+  const dependencies = {
+    ...(packageJson.dependencies ?? {}),
+    ...(packageJson.devDependencies ?? {}),
+  }
+
+  if ('eslint' in dependencies) {
+    hooks.push({
+      name: 'lint',
+      command: 'bunx eslint .',
+      filePattern: '**/*.{js,jsx,ts,tsx}',
+    })
+  }
+
+  if ('typescript' in dependencies) {
+    hooks.push({
+      name: 'typecheck',
+      command: 'bunx tsc --noEmit',
+      filePattern: '**/*.{ts,tsx}',
+    })
+  }
+
+  return hooks
+}
+
+function readPackageJson(filePath: string): PackageJson | undefined {
+  if (!fs.existsSync(filePath)) return undefined
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return undefined
+    }
+    return parsed as PackageJson
+  } catch {
+    return undefined
+  }
+}
+
+function hasCsprojFile(cwd: string): boolean {
+  if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return false
+
+  const entries = fs.readdirSync(cwd, { withFileTypes: true })
+  for (const entry of entries) {
+    const entryPath = path.join(cwd, entry.name)
+    if (entry.isFile() && entry.name.endsWith('.csproj')) return true
+    if (entry.isDirectory() && !CSHARP_SCAN_EXCLUDED_DIRS.has(entry.name)) {
+      if (hasCsprojFile(entryPath)) return true
+    }
+  }
+  return false
 }
 
 type RunCommand = typeof runTerminalCommand
@@ -49,7 +186,12 @@ export async function runFileChangeHooks(params: {
 }): Promise<CodebuffToolOutput<'run_file_change_hooks'>> {
   const { files, cwd, env } = params
   const hooks =
-    params.hooks ?? loadProviderConfigSync().config.fileChangeHooks ?? []
+    params.hooks ??
+    (() => {
+      const config = loadProviderConfigSync().config
+      if (config.autoFileChangeHooks === false) return config.fileChangeHooks
+      return mergeFileChangeHooks(inferFileChangeHooks(cwd), config.fileChangeHooks)
+    })()
   const matching = selectMatchingHooks(hooks, files)
   if (hooks.length === 0) {
     return [

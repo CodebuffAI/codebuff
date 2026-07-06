@@ -45,6 +45,18 @@ authorization for each touched path before accepting an edit:
 This policy is staged/strict-mode only; tools still apply unique-anchor
 `str_replace` edits without `basedOnRead` when ambiguity is not a risk.
 
+## Explicit elision markers
+
+`str_replace.oldString` supports a narrow `...` elision marker after exact
+matching fails. The marker is special only when a line's trimmed content is
+exactly `...`, and it must be surrounded by exact literal anchor segments.
+Each literal segment must contain at least 10 non-whitespace characters,
+and the full elided range must resolve to exactly one deterministic match.
+Ambiguous or weak elision anchors fail with recovery guidance rather than
+falling back to broad fuzzy matching. `replace_range` remains strict: it
+uses explicit `startLine`, `endLine`, and `expectedHash`, and does not
+accept `...` in place of a range or hash.
+
 ## Reviewer / validation gate semantics
 
 The reviewer/validation gate tracks pending gate files, validation hooks,

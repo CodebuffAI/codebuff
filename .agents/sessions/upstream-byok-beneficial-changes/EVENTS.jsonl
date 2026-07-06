@@ -1,0 +1,6 @@
+{"ts":"2026-07-05T00:37:17.991Z","kind":"append_lesson","summary":"Appended entry \"Update 2026-07-05 — no-freebuff constraint verified and propagated\" to STATUS.md","payload":{"heading":"Update 2026-07-05 — no-freebuff constraint verified and propagated","artifact":"STATUS.md"}}
+{"ts":"2026-07-05T00:37:38.451Z","kind":"append_lesson","summary":"Appended entry \"Update 2026-07-05 — no-freebuff gotcha\" to LESSONS.md","payload":{"heading":"Update 2026-07-05 — no-freebuff gotcha","artifact":"LESSONS.md"}}
+{"ts":"2026-07-05T15:00:32.514Z","kind":"append_lesson","summary":"Appended entry \"Update 2026-07-05 — deep re-audit corrections (file-content verified) — 2026-07-05T01:05:00.000Z\" to STATUS.md","payload":{"heading":"Update 2026-07-05 — deep re-audit corrections (file-content verified) — 2026-07-05T01:05:00.000Z","artifact":"STATUS.md"}}
+{"ts":"2026-07-05T15:00:32.514Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}
+{"ts":"2026-07-05T15:43:00.180Z","kind":"append_lesson","summary":"Appended entry \"Reviewer gate — 2026-07-05T01:20:00.000Z\" to STATUS.md","payload":{"heading":"Reviewer gate — 2026-07-05T01:20:00.000Z","artifact":"STATUS.md"}}
+{"ts":"2026-07-05T15:43:00.181Z","kind":"session_status","summary":"Session status -> active","payload":{"status":"active"}}

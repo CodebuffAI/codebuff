@@ -1,0 +1,72 @@
+{
+  "repoUrl": "https://github.com/codebuff/idiom-seed-fixtures",
+  "testRepoName": "idiom-seed-fixtures",
+  "generationDate": "2025-01-01T00:00:00.000Z",
+  "finalCheckCommands": [
+    "python -m pytest",
+    "python -m ruff check .",
+    "cargo test",
+    "cargo clippy -- -D warnings",
+    "go test ./...",
+    "gofmt -w . && git diff --exit-code"
+  ],
+  "evalCommits": [
+    {
+      "id": "idiom-seed-python-pathlib-contexts-comprehensions",
+      "sha": "seed-python-idioms-v1",
+      "parentSha": "seed-python-idioms-v1-parent",
+      "spec": "Initial seed fixture, not generated from a real commit. Update the Python file-processing helper so it is idiomatic Python: use pathlib.Path instead of manual os.path string handling, use context managers for file I/O, prefer clear comprehensions for simple transformations, and keep public signatures typed.",
+      "prompt": "Make the Python data loader idiomatic while preserving behavior. Favor pathlib, context managers, comprehensions where they stay readable, and precise typing. Avoid broad exception swallowing and manual file close patterns.",
+      "supplementalFiles": [
+        "agents/idioms/python.md",
+        "pyproject.toml",
+        "tests/test_loader.py"
+      ],
+      "fileDiffs": [
+        {
+          "path": "src/loader.py",
+          "status": "modified",
+          "diff": "diff --git a/src/loader.py b/src/loader.py\n@@ -1,18 +1,18 @@\n-import os\n-from typing import Iterable\n+from pathlib import Path\n+from typing import Iterable\n \n-def load_names(root: str) -> list[str]:\n-    path = os.path.join(root, \"names.txt\")\n-    handle = open(path)\n-    try:\n-        names = []\n-        for line in handle:\n-            cleaned = line.strip()\n-            if cleaned:\n-                names.append(cleaned)\n-        return names\n-    finally:\n-        handle.close()\n+def load_names(root: str | Path) -> list[str]:\n+    path = Path(root) / \"names.txt\"\n+    with path.open(encoding=\"utf-8\") as handle:\n+        return [line.strip() for line in handle if line.strip()]\n \n \n-def write_names(root: str, names: Iterable[str]) -> None:\n-    with open(os.path.join(root, \"names.txt\"), \"w\") as handle:\n+def write_names(root: str | Path, names: Iterable[str]) -> None:\n+    path = Path(root) / \"names.txt\"\n+    with path.open(\"w\", encoding=\"utf-8\") as handle:\n         for name in names:\n             handle.write(f\"{name}\\n\")\n"
+        }
+      ]
+    },
+    {
+      "id": "idiom-seed-rust-result-ownership-iterators",
+      "sha": "seed-rust-idioms-v1",
+      "parentSha": "seed-rust-idioms-v1-parent",
+      "spec": "Initial seed fixture, not generated from a real commit. Update the Rust config parser idiomatically: return Result, use the ? operator for fallible calls, avoid unwrap/expect in library code, avoid unnecessary clone calls, and use iterator adapters where they improve clarity without fighting ownership.",
+      "prompt": "Refactor the Rust config loader to idiomatic Rust while preserving behavior. Propagate errors with Result and ?, keep ownership/borrowing simple, prefer iterators for straightforward filtering/mapping, and do not use unwrap, expect, or avoidable clone calls.",
+      "supplementalFiles": [
+        "agents/idioms/rust.md",
+        "Cargo.toml",
+        "tests/config.rs"
+      ],
+      "fileDiffs": [
+        {
+          "path": "src/config.rs",
+          "status": "modified",
+          "diff": "diff --git a/src/config.rs b/src/config.rs\n@@ -1,20 +1,19 @@\n use std::fs;\n use std::path::Path;\n \n pub struct Config {\n     pub entries: Vec<String>,\n }\n \n-pub fn load_config(path: &Path) -> Config {\n-    let raw = fs::read_to_string(path).unwrap();\n-    let mut entries = Vec::new();\n-    for line in raw.lines() {\n-        let value = line.trim().to_string();\n-        if !value.is_empty() {\n-            entries.push(value.clone());\n-        }\n-    }\n-    Config { entries }\n+pub fn load_config(path: &Path) -> Result<Config, std::io::Error> {\n+    let raw = fs::read_to_string(path)?;\n+    let entries = raw\n+        .lines()\n+        .map(str::trim)\n+        .filter(|value| !value.is_empty())\n+        .map(ToOwned::to_owned)\n+        .collect();\n+\n+    Ok(Config { entries })\n }\n"
+        }
+      ]
+    },
+    {
+      "id": "idiom-seed-go-errors-wrapping-interfaces-gofmt",
+      "sha": "seed-go-idioms-v1",
+      "parentSha": "seed-go-idioms-v1-parent",
+      "spec": "Initial seed fixture, not generated from a real commit. Update the Go storage helper idiomatically: handle errors explicitly, wrap returned errors with %w, keep interfaces small and consumer-owned, and leave the code gofmt-formatted.",
+      "prompt": "Make the Go storage helper idiomatic without changing behavior. Return errors instead of panicking, wrap contextual errors with fmt.Errorf and %w, define only small interfaces needed by consumers, and keep formatting compatible with gofmt.",
+      "supplementalFiles": [
+        "agents/idioms/go.md",
+        "go.mod",
+        "storage/storage_test.go"
+      ],
+      "fileDiffs": [
+        {
+          "path": "storage/load.go",
+          "status": "modified",
+          "diff": "diff --git a/storage/load.go b/storage/load.go\n@@ -1,22 +1,27 @@\n package storage\n \n import (\n     \"fmt\"\n     \"os\"\n )\n \n-type FileSystem interface {\n-    ReadFile(name string) ([]byte, error)\n-    WriteFile(name string, data []byte, perm os.FileMode) error\n+type fileReader interface {\n+\tReadFile(name string) ([]byte, error)\n }\n \n type Loader struct {\n-    fs FileSystem\n+\tfs fileReader\n }\n \n-func NewLoader(fs FileSystem) Loader {\n-    return Loader{fs: fs}\n+func NewLoader(fs fileReader) Loader {\n+\treturn Loader{fs: fs}\n }\n \n func (l Loader) Load(name string) ([]byte, error) {\n-    data, err := l.fs.ReadFile(name)\n-    if err != nil {\n-        panic(err)\n-    }\n-    return data, nil\n+\tdata, err := l.fs.ReadFile(name)\n+\tif err != nil {\n+\t\treturn nil, fmt.Errorf(\"load %s: %w\", name, err)\n+\t}\n+\n+\treturn data, nil\n }\n+\n+var _ fileReader = os.DirFS(\".\")\n"
+        }
+      ]
+    }
+  ]
+}

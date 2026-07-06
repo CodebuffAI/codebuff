@@ -1,6 +1,11 @@
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { tmpdir } from 'os'
+import path from 'path'
+
 import { describe, expect, test } from 'bun:test'
 
 import {
+  inferFileChangeHooks,
   runFileChangeHooks,
   selectMatchingHooks,
   type FileChangeHook,
@@ -8,6 +13,15 @@ import {
 import { mergeFileChangeHooks } from '../provider-config'
 
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
+
+function withTempDir(run: (dir: string) => void): void {
+  const dir = mkdtempSync(path.join(tmpdir(), 'openbuff-hooks-'))
+  try {
+    run(dir)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
 
 function fakeRunner(
   exitByCommand: Record<string, { exitCode: number; stdout?: string; stderr?: string }>,
@@ -190,6 +204,103 @@ describe('runFileChangeHooks', () => {
     expect(paramsList[0]).toMatchObject({
       command: 'tsc',
       timeout_seconds: 30,
+    })
+  })
+})
+
+describe('inferFileChangeHooks', () => {
+  test('infers JavaScript lint and typecheck hooks from package dependencies without running package scripts', () => {
+    withTempDir((dir) => {
+      writeFileSync(
+        path.join(dir, 'package.json'),
+        JSON.stringify({
+          scripts: { lint: 'custom-lint', typecheck: 'custom-typecheck' },
+          devDependencies: { eslint: '^9.0.0', typescript: '^5.0.0' },
+        }),
+      )
+
+      expect(inferFileChangeHooks(dir)).toEqual([
+        {
+          name: 'lint',
+          command: 'bunx eslint .',
+          filePattern: '**/*.{js,jsx,ts,tsx}',
+        },
+        {
+          name: 'typecheck',
+          command: 'bunx tsc --noEmit',
+          filePattern: '**/*.{ts,tsx}',
+        },
+      ])
+    })
+  })
+
+  test('does not infer package script hooks when matching dependencies are absent', () => {
+    withTempDir((dir) => {
+      writeFileSync(
+        path.join(dir, 'package.json'),
+        JSON.stringify({ scripts: { lint: 'eslint .', typecheck: 'tsc --noEmit' } }),
+      )
+
+      expect(inferFileChangeHooks(dir)).toEqual([])
+    })
+  })
+
+  test('ignores malformed package.json while preserving other inferred hooks', () => {
+    withTempDir((dir) => {
+      writeFileSync(path.join(dir, 'package.json'), '{bad json')
+      writeFileSync(path.join(dir, 'go.mod'), 'module demo\n')
+
+      expect(inferFileChangeHooks(dir)).toEqual([
+        {
+          name: 'gofmt',
+          command: 'test -z "$(gofmt -l .)"',
+          filePattern: '**/*.go',
+        },
+        { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },
+      ])
+    })
+  })
+
+  test('infers non-mutating default linter hooks from language manifests', () => {
+    withTempDir((dir) => {
+      writeFileSync(path.join(dir, 'Cargo.toml'), '[package]\nname = "demo"\n')
+      writeFileSync(path.join(dir, 'requirements.txt'), 'ruff\n')
+      writeFileSync(path.join(dir, 'go.mod'), 'module demo\n')
+      writeFileSync(path.join(dir, 'Gemfile'), 'source "https://rubygems.org"\n')
+      writeFileSync(path.join(dir, 'Package.swift'), '// swift-tools-version: 5.9\n')
+      mkdirSync(path.join(dir, 'app'))
+      writeFileSync(path.join(dir, 'app', 'Demo.csproj'), '<Project />\n')
+
+      expect(inferFileChangeHooks(dir)).toEqual([
+        {
+          name: 'gofmt',
+          command: 'test -z "$(gofmt -l .)"',
+          filePattern: '**/*.go',
+        },
+        { name: 'go vet', command: 'go vet ./...', filePattern: '**/*.go' },
+        {
+          name: 'dotnet format',
+          command: 'dotnet format --verify-no-changes',
+          filePattern: '**/*.{cs,csproj}',
+        },
+        {
+          name: 'cargo fmt',
+          command: 'cargo fmt --check',
+          filePattern: '**/*.rs',
+        },
+        {
+          name: 'cargo clippy',
+          command: 'cargo clippy --all-targets --all-features -- -D warnings',
+          filePattern: '**/*.rs',
+        },
+        { name: 'ruff', command: 'ruff check .', filePattern: '**/*.py' },
+        { name: 'rubocop', command: 'rubocop', filePattern: '**/*.rb' },
+        {
+          name: 'swift-format',
+          command: 'swift-format lint --recursive .',
+          filePattern: '**/*.swift',
+        },
+      ])
     })
   })
 })

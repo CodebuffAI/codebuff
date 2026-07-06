@@ -45,6 +45,28 @@ The distinction matters because adding a pattern-specific agent to `spawnableAge
 
 Because Openbuff does not rely on a hosted model registry or credit-balance router, all agent routing is configured directly in your local configuration (`openbuff.json`, the only config file read; no `codebuff.json` fallback). Under [Local BYOK Mode](./local-mode.md), you map individual agents (e.g., `thinker`, `code-reviewer`, or custom agents) to specific providers and models.
 
+### Shared Prompt Sections
+
+Several shipped agents share prompt text through centralized sections rather than maintaining separate copies:
+
+- `agents/base2/quality-prompt-section.ts` exports the shared Code Craftsmanship guidance used by `base2`, `base-deep`, and the `editor` agent. This section is byte-frozen by snapshot tests so the three consumers do not drift accidentally.
+- The same file also exports orchestrator-only guidance for gate awareness, security-sensitive file review, and git discipline. `base2` and `base-deep` interpolate those sections; the `editor` intentionally does not, because validation/review, security triage, and git workflow orchestration remain parent-agent responsibilities.
+- `common/src/constants/prompt-sections.ts` owns the shared Frontend Development section. `packages/agent-runtime/src/templates/types.ts` exposes it as the `{CODEBUFF_FRONTEND_SECTION}` placeholder, and `packages/agent-runtime/src/templates/strings.ts` replaces that placeholder only when `fileTreeHasFrontendFiles` detects `.tsx` or `.jsx` files in the project tree.
+- `common/src/util/language-profiles.ts` owns the `{CODEBUFF_LANGUAGE_PROFILE}` placeholder behavior. It detects TypeScript/JavaScript, Python, Rust, Go, Java, C#/.NET, C/C++, Ruby, PHP, Swift, and Kotlin from `ProjectFileContext.fileTree`, renders only a compact language profile, and tells agents to `read_files` the matching `agents/idioms/<lang>.md` file before non-trivial edits instead of injecting full idiom bodies. To add another first-class language, add a compact `agents/idioms/<lang>.md` contract, extend the language profile mappings, and cover both extension and manifest detection where applicable.
+  - Public inputs are file-tree nodes (`FileTreeNode[]`) or an explicit `LanguageProfile[]`; public outputs are stable-order `LanguageProfile` objects or a Markdown prompt string. No supported languages detected returns an empty string.
+  - Detection uses source extensions plus common manifests. Source extensions are case-normalized; manifest names are matched exactly (for example, `Package.swift` is Swift, while differently-cased manifest names are not treated as manifests).
+  - The rendered prompt lists detected display names, compact per-language guidance, and the matching idiom file path. It intentionally says not to load every idiom file up front.
+  - Example output shape:
+
+    ```md
+    ## Language profile
+
+    Detected: Rust. Use language-native idioms and existing project conventions. Do not load every idiom file up front.
+
+    - Rust: Respect ownership and borrowing, return Result/Option idiomatically, and keep error handling explicit and precise. Before non-trivial Rust edits, `read_files` `agents/idioms/rust.md`.
+    ```
+- The `editor` prompt includes Code Craftsmanship plus the conditional language and frontend placeholders, so implementation agents get the same style guidance as the orchestrator without inheriting the parent system prompt.
+
 ### Shell Shims
 
 You can run individual specialized agents as direct terminal commands without the `openbuff` prefix. This is handled by shell shims:
@@ -108,6 +130,40 @@ Examples:
 
 Results may include `relatedFiles`, each with a relationship reason and optional `via` symbol/import/concept. Use those related files to expand context around likely entry points.
 
+#### Repo-map comparison helpers
+
+`packages/indexer/src/repo-map.ts` exports package-level helpers for retrieval evaluation and reporting. These helpers are available from the `@codebuff/indexer` entrypoint, but they do not change the default `query_index` search path.
+
+Public helpers:
+
+- `buildRepoMap(index, options)` — renders indexed structural metadata into a deterministic text map and returns both the `map` string and structured `entries`.
+- `queryRepoMap(index, query, options)` — scores repo-map entries for a query and returns `QueryIndexResult[]`-shaped results.
+- `compareRetrievalStrategies(index, cases)` — runs each case through existing `queryIndex` and repo-map retrieval, then reports pass counts, failures, and mean reciprocal rank for both strategies.
+- `formatRetrievalComparisonReport(report)` — renders the comparison report as Markdown.
+
+`RepoMapOptions` accepts `maxFiles`, `maxSymbolsPerFile`, `maxImportsPerFile`, `maxHeadingsPerFile`, and `fileTypes`. `fileTypes` may include values with or without a leading dot and is matched against indexed file extensions. `RetrievalComparisonCase` accepts a `query`, `expectedPaths`, optional `queryOptions` for `queryIndex`, and optional `repoMapOptions` for the repo-map side.
+
+Example:
+
+```ts
+import {
+  compareRetrievalStrategies,
+  formatRetrievalComparisonReport,
+} from '@codebuff/indexer'
+
+const report = compareRetrievalStrategies(index, [
+  {
+    query: 'rust auth session token',
+    expectedPaths: ['crates/auth/src/session.rs'],
+    repoMapOptions: { fileTypes: ['rs'] },
+  },
+])
+
+console.log(formatRetrievalComparisonReport(report))
+```
+
+Gotchas: repo-map helpers operate on an already-built `MetadataIndex`; they do not read files or rebuild the index. `queryRepoMap` tokenizes the query and returns only positive-score matches, so blank or stop-word-only queries return no results. `buildRepoMap` sorts files by path before applying `maxFiles`, while `queryRepoMap` scores the full candidate set before applying its result limit.
+
 ### `read_outline`
 
 `read_outline` returns a structural AST-like outline of imports, exports, classes, methods, and function signatures in a source file. It allows understanding the composition of large files without loading their entire implementations, saving significant token counts and processing time.
@@ -141,16 +197,93 @@ read-before-edit enforcement:
 
 - A recent `read_files` call on the target path authorizes a subsequent
   edit to that path.
-- `basedOnRead` (copied from a fresh `read_files` range header, or from
-  the echoed capability returned by a successful large-file edit) is the
-  explicit authorization path for ambiguous or large-file edits. The
-  runtime verifies the embedded hash before applying the edit.
+- `basedOnRead` accepts either a `readCapability` token copied from a
+  fresh `read_files` range header or an explicit `{ startLine, endLine,
+  hash }` object. The runtime verifies the embedded hash for large-file
+  edits before applying the edit.
 - A successful edit invalidates the per-path authorization. Editing the
   same path again requires a new `read_files` call (or carrying the
   echoed post-edit `basedOnRead` forward).
 - Stale or failed edits should be recovered by re-reading the exact
   target range named in the diagnostic and retrying with the new
   `basedOnRead`, not by guessing from memory.
+
+`str_replace` inputs:
+
+- `path` (string, required) — target file path.
+- `replacements` (array, required) — each entry includes `oldString`,
+  `newString`, and `allowMultiple`; optional fields are `occurrenceIndex`,
+  `basedOnRead`, and `skipIfMissing`.
+- `atomic` (boolean, default `false`) — when `true`, any failed
+  replacement aborts the whole batch. Large files are always atomic.
+
+On success, `str_replace` returns the updated `content`, a unified-diff
+`patch`, and informational `messages`. On failure it returns an `error`
+with recovery guidance and does not apply an atomic batch.
+
+Matching behavior:
+
+- `oldString` must be non-empty and is matched exactly after line-ending
+  normalization; the result preserves the file's original line endings.
+- `allowMultiple: true` replaces every exact occurrence. Without it,
+  multiple matches fail with occurrence-range diagnostics.
+- `occurrenceIndex` is 1-indexed and targets exactly one repeated exact
+  match; when combined with a fresh `basedOnRead`, the index is counted
+  within that anchored range.
+- `skipIfMissing: true` is only an idempotency helper for deletions
+  (`newString: ""`): if the old text is already absent, the replacement is
+  reported as a successful no-op instead of a failure.
+- Tiny repeated anchors are refused: an `oldString` shorter than 10
+  trimmed characters that matches more than once fails even when
+  `allowMultiple: true`. Use a longer `oldString` or `occurrenceIndex`.
+- If exact matching fails, `oldString` may use `...` as an explicit
+  line-level elision marker only when the marker is on a line by itself
+  between exact literal anchor segments. Each literal segment must contain
+  at least 10 non-whitespace characters, and the elided range must resolve
+  to exactly one match. Ambiguous elision fails with recovery guidance;
+  `allowMultiple` does not apply to elision matching.
+- If exact and elision matching fail, the runtime may match
+  indentation-adjusted content or a conservative near-match. Near-match
+  success includes a warning and should be verified by re-reading the
+  edited range.
+
+Large-file and anchor behavior:
+
+- Files over 1,000 lines or 100,000 characters are treated as large.
+- Large-file edits use `basedOnRead` range hashes when supplied, and fall
+  back only when `oldString` is deterministic: unique for single-target
+  edits, or present with `allowMultiple: true` for replace-all edits.
+- Valid `basedOnRead` anchors on small files are ignored after basic
+  shape validation because exact `oldString` matching is sufficient.
+- Placeholder or malformed string anchors such as `"dummy"` or invalid
+  `cap.*` tokens are rejected on all files unless `oldString` uniquely
+  matches the current file, in which case the bogus anchor is stripped and
+  the edit proceeds as an unanchored replacement.
+- Successful large-file edits return fresh read capability tokens for the
+  edited hunk or region. Reuse those tokens for immediate follow-up edits;
+  older tokens for the same file are stale.
+
+Example:
+
+```json
+{
+  "path": "src/example.ts",
+  "atomic": true,
+  "replacements": [
+    {
+      "oldString": "const value = 1",
+      "newString": "const value = 2",
+      "allowMultiple": false
+    },
+    {
+      "oldString": "debugLog()",
+      "newString": "",
+      "allowMultiple": true,
+      "skipIfMissing": true
+    }
+  ]
+}
+```
 
 `edit_transaction` preflights every replacement against the same
 in-memory snapshot, so related cross-file or dependent same-file edits

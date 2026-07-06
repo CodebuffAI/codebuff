@@ -1,4 +1,5 @@
 import type { JudgingResult } from './judge'
+import type { IdiomTraceabilityEvaluation } from './idiom-traceability-signals'
 import type { EvalCommitV2 } from './types'
 
 interface AgentResultData {
@@ -8,6 +9,7 @@ interface AgentResultData {
   durationMs: number
   error?: string
   traceFilePath?: string
+  idiomTraceability?: IdiomTraceabilityEvaluation
 }
 
 interface TraceAnalysisData {
@@ -80,6 +82,7 @@ export function formatAgentResult(params: {
   durationMs: number
   error?: string
   traceFilePath?: string
+  idiomTraceability?: IdiomTraceabilityEvaluation
   agentNumber: number
   totalAgents: number
 }): string {
@@ -91,6 +94,7 @@ export function formatAgentResult(params: {
     durationMs,
     error,
     traceFilePath,
+    idiomTraceability,
     agentNumber,
     totalAgents,
   } = params
@@ -118,6 +122,9 @@ export function formatAgentResult(params: {
   lines.push(`  Overall Score:       ${judging.overallScore.toFixed(1)}/10`)
   lines.push(`  Completion Score:    ${judging.completionScore.toFixed(1)}/10`)
   lines.push(`  Code Quality Score:  ${judging.codeQualityScore.toFixed(1)}/10`)
+  if (typeof judging.idiomScore === 'number') {
+    lines.push(`  Idiom Score:         ${judging.idiomScore.toFixed(1)}/10`)
+  }
   lines.push('')
 
   lines.push('Analysis:')
@@ -137,6 +144,24 @@ export function formatAgentResult(params: {
     judging.weaknesses.forEach((w, i) => {
       lines.push(`  ${i + 1}. ${w}`)
     })
+    lines.push('')
+  }
+
+  if (judging.nonIdiomaticPatternsDetected?.length) {
+    lines.push('Non-Idiomatic Patterns:')
+    judging.nonIdiomaticPatternsDetected.forEach((pattern, i) => {
+      lines.push(`  ${i + 1}. ${pattern}`)
+    })
+    lines.push('')
+  }
+
+  if (idiomTraceability) {
+    lines.push('IDIOM TRACEABILITY:')
+    lines.push(minorSeparator)
+    lines.push(`  Verdict: ${idiomTraceability.verdict}`)
+    for (const reason of idiomTraceability.reasons) {
+      lines.push(`  - ${reason}`)
+    }
     lines.push('')
   }
 

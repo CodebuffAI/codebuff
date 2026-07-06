@@ -1,4 +1,6 @@
 import type { JudgingResult, ScoringStatus } from './judge'
+import type { IdiomTraceabilityEvaluation } from './idiom-traceability-signals'
+import type { ApplyProposalsResult, Proposal } from './proposals'
 
 export interface FileState {
   path: string
@@ -83,6 +85,14 @@ export interface FinalCheckOutput {
   stderr: string
 }
 
+export interface ProposalDryRunReport {
+  proposals: Proposal[]
+  appliedCount: number
+  skippedCount: number
+  summary: string[]
+  perProposal: ApplyProposalsResult['perProposal']
+}
+
 export interface EvalRun {
   commitSha: string
   prompt: string
@@ -100,6 +110,8 @@ export interface EvalRun {
   error?: string
   finalCheckOutputs?: FinalCheckOutput[]
   cacheRecallEval?: CacheRecallEvalResult
+  idiomTraceability?: IdiomTraceabilityEvaluation
+  proposalDryRun?: ProposalDryRunReport
 }
 
 export interface AgentEvalResults {
@@ -107,6 +119,7 @@ export interface AgentEvalResults {
   runs: EvalRun[]
   averageScore: number
   averageScoreExcludingFailures: number
+  averageIdiomScore?: number
   averageCost: number
   averageDuration: number
 }

@@ -66,6 +66,16 @@ describe('classifyCommand', () => {
     expect(classifyCommand('eslint . --max-warnings 0')).toBe('lint')
     expect(classifyCommand('biome check src/')).toBe('lint')
     expect(classifyCommand('prettier --check .')).toBe('lint')
+    expect(classifyCommand('cargo clippy --all-targets -- -D warnings')).toBe(
+      'lint',
+    )
+    expect(classifyCommand('cargo fmt --check')).toBe('lint')
+    expect(classifyCommand('ruff check .')).toBe('lint')
+    expect(classifyCommand('go vet ./...')).toBe('lint')
+    expect(classifyCommand('test -z "$(gofmt -l .)"')).toBe('lint')
+    expect(classifyCommand('rubocop')).toBe('lint')
+    expect(classifyCommand('swift-format lint --recursive .')).toBe('lint')
+    expect(classifyCommand('dotnet format --verify-no-changes')).toBe('lint')
   })
 
   test('falls back to generic for unrecognized commands', () => {

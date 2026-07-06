@@ -1,4 +1,8 @@
 import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
+import { frontendSection } from '@codebuff/common/constants/prompt-sections'
+import {
+  formatLanguageProfilePromptForFileTree,
+} from '@codebuff/common/util/language-profiles'
 import {
   formatPatternsIndexPrompt,
   loadPatternsIndex,
@@ -37,6 +41,7 @@ import type {
   CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
+import { fileTreeHasFrontendFiles } from '@codebuff/common/util/file'
 
 export function formatCurrentDate(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -110,6 +115,10 @@ export async function formatPrompt(
         mode: 'agent',
         logger,
       }),
+    [PLACEHOLDER.FRONTEND_SECTION]: () =>
+      fileTreeHasFrontendFiles(fileContext.fileTree) ? frontendSection : '',
+    [PLACEHOLDER.LANGUAGE_PROFILE]: () =>
+      formatLanguageProfilePromptForFileTree(fileContext.fileTree),
     [PLACEHOLDER.FILE_TREE_PROMPT]: () =>
       getProjectFileTreePrompt({
         fileContext,

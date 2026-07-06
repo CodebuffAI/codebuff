@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { PLACEHOLDER } from '@codebuff/agent-runtime/templates/types'
+
 import { createBaseDeep } from '../base2/base-deep'
 import { createBase2 } from '../base2/base2'
 import { createCodeEditor } from '../editor/editor'
@@ -29,6 +31,10 @@ describe('shared craftsmanship prompt sections', () => {
     expect(qualitySection).toContain('# Code Craftsmanship')
     expect(qualitySection).toContain('**Conventions:**')
     expect(qualitySection).toContain('**Libraries/Frameworks:**')
+    expect(qualitySection).toContain('package-manager manifests')
+    expect(qualitySection).toContain('Cargo `Cargo.toml`')
+    expect(qualitySection).toContain('pip `pyproject.toml`/`requirements.txt`')
+    expect(qualitySection).toContain('.NET `*.csproj`')
     expect(qualitySection).toContain('**Style & Structure:**')
     expect(qualitySection).toContain('**Simplicity & Minimalism:**')
     expect(qualitySection).toContain('**Code Reuse:**')
@@ -67,21 +73,25 @@ describe('shared craftsmanship prompt sections', () => {
     expect(securityReviewSection).toContain('read-only')
   })
 
-  test('all three consumers interpolate the shared sections', () => {
-    // Guards the wiring (R1.2): imports alone are not enough; the sections
-    // must actually appear in the assembled prompts.
+  test('all three consumers interpolate shared sections and leave conditional sections gated', () => {
+    // Frontend and language guidance are runtime placeholders so unrelated
+    // repos do not receive prompt pollution.
     const base2 = createBase2('default')
     const baseDeep = createBaseDeep()
     const editor = createCodeEditor({ model: 'opus' })
 
     expect(base2.systemPrompt).toContain(qualitySection)
-    expect(base2.systemPrompt).toContain(frontendSection)
+    expect(base2.systemPrompt).toContain(PLACEHOLDER.FRONTEND_SECTION)
+    expect(base2.systemPrompt).toContain(PLACEHOLDER.LANGUAGE_PROFILE)
+    expect(base2.systemPrompt).not.toContain(frontendSection)
     expect(base2.systemPrompt).toContain(gateAwarenessSection)
     expect(base2.systemPrompt).toContain(gitDisciplineSection)
     expect(base2.systemPrompt).toContain(securityReviewSection)
 
     expect(baseDeep.systemPrompt).toContain(qualitySection)
-    expect(baseDeep.systemPrompt).toContain(frontendSection)
+    expect(baseDeep.systemPrompt).toContain(PLACEHOLDER.FRONTEND_SECTION)
+    expect(baseDeep.systemPrompt).toContain(PLACEHOLDER.LANGUAGE_PROFILE)
+    expect(baseDeep.systemPrompt).not.toContain(frontendSection)
     expect(baseDeep.systemPrompt).toContain(gateAwarenessSection)
     expect(baseDeep.systemPrompt).toContain(gitDisciplineSection)
     expect(baseDeep.systemPrompt).toContain(securityReviewSection)
@@ -93,6 +103,8 @@ describe('shared craftsmanship prompt sections', () => {
     // — the orchestrator decides when to spawn security-reviewer; the editor
     // implements the (already-reviewed) change.
     expect(editor.instructionsPrompt).toContain(qualitySection)
-    expect(editor.instructionsPrompt).toContain(frontendSection)
+    expect(editor.instructionsPrompt).toContain(PLACEHOLDER.FRONTEND_SECTION)
+    expect(editor.instructionsPrompt).toContain(PLACEHOLDER.LANGUAGE_PROFILE)
+    expect(editor.instructionsPrompt).not.toContain(frontendSection)
   })
 })

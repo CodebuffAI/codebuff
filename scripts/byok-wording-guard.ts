@@ -38,6 +38,7 @@ const SKIP_DIRECTORIES = new Set([
 
 const SKIP_PATH_PREFIXES = [
   '.agents/sessions/',
+  'evals/test-repos/',
   'packages/billing/',
   'packages/bigquery/',
 ]

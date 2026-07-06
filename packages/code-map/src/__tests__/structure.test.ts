@@ -160,4 +160,113 @@ describe('parseFileStructure', () => {
     expect(byName.main).toMatchObject({ kind: 'function', startLine: 11, endLine: 11 })
     expect(byName['impl Point']).toMatchObject({ kind: 'impl', startLine: 5, endLine: 9 })
   })
+
+  test('extracts JavaScript classes, methods, and functions', async () => {
+    const src = [
+      'class Widget {', // 1
+      '  render() {', // 2
+      '    return helper()', // 3
+      '  }', // 4
+      '}', // 5
+      'function helper() { return 1 }', // 6
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'service.js')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
+    expect(byName.Widget).toMatchObject({ kind: 'class', startLine: 1, endLine: 5 })
+    expect(byName.render).toMatchObject({ kind: 'method', startLine: 2, endLine: 4 })
+    expect(byName.helper).toMatchObject({ kind: 'function', startLine: 6, endLine: 6 })
+  })
+
+  test('extracts Java interfaces, classes, constructors, and methods', async () => {
+    const src = [
+      'package demo;', // 1
+      'interface RunnableThing {', // 2
+      '  void run();', // 3
+      '}', // 4
+      'class Service implements RunnableThing {', // 5
+      '  public Service() {}', // 6
+      '  public void run() { helper(); }', // 7
+      '  private void helper() {}', // 8
+      '}', // 9
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'Example.java')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [`${s.name}:${s.startLine}`, s]))
+    expect(byName['RunnableThing:2']).toMatchObject({ kind: 'interface', endLine: 4 })
+    expect(byName['run:3']).toMatchObject({ kind: 'method' })
+    expect(byName['Service:5']).toMatchObject({ kind: 'class', endLine: 9 })
+    expect(byName['Service:6']).toMatchObject({ kind: 'method' })
+    expect(byName['run:7']).toMatchObject({ kind: 'method' })
+    expect(byName['helper:8']).toMatchObject({ kind: 'method' })
+  })
+
+  test('extracts C# namespaces, interfaces, classes, and methods', async () => {
+    const src = [
+      'namespace Demo {', // 1
+      '  interface IWorker { void Run(); }', // 2
+      '  class Worker : IWorker {', // 3
+      '    public void Run() { Helper(); }', // 4
+      '    private void Helper() {}', // 5
+      '  }', // 6
+      '}', // 7
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'Program.cs')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [`${s.name}:${s.startLine}`, s]))
+    expect(byName['Demo:1']).toMatchObject({ kind: 'module', endLine: 7 })
+    expect(byName['IWorker:2']).toMatchObject({ kind: 'interface' })
+    expect(byName['Worker:3']).toMatchObject({ kind: 'class', endLine: 6 })
+    expect(byName['Run:4']).toMatchObject({ kind: 'method' })
+    expect(byName['Helper:5']).toMatchObject({ kind: 'method' })
+  })
+
+  test('extracts C++ classes, structs, methods, and functions', async () => {
+    const src = [
+      'namespace demo {', // 1
+      'class Engine {', // 2
+      'public:', // 3
+      '  void start() { helper(); }', // 4
+      '};', // 5
+      'struct Point { int x; };', // 6
+      'int helper() { return 1; }', // 7
+      '}', // 8
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'lib.cpp')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
+    expect(byName.Engine).toMatchObject({ kind: 'class', startLine: 2, endLine: 5 })
+    expect(byName.start).toMatchObject({ kind: 'method', startLine: 4 })
+    expect(byName.Point).toMatchObject({ kind: 'struct', startLine: 6 })
+    expect(byName.helper).toMatchObject({ kind: 'function', startLine: 7 })
+  })
+
+  test('extracts Ruby modules, classes, and methods', async () => {
+    const src = [
+      'module Demo', // 1
+      '  class Worker', // 2
+      '    def run', // 3
+      '      helper', // 4
+      '    end', // 5
+      '', // 6
+      '    def helper', // 7
+      '      1', // 8
+      '    end', // 9
+      '  end', // 10
+      'end', // 11
+    ].join('\n')
+
+    const syms = (await parseFileStructure(src, 'app.rb')) ?? []
+    const byName = Object.fromEntries(syms.map((s) => [s.name, s]))
+    expect(byName.Demo).toMatchObject({ kind: 'module', startLine: 1, endLine: 11 })
+    expect(byName.Worker).toMatchObject({ kind: 'class', startLine: 2, endLine: 10 })
+    expect(byName.run).toMatchObject({ kind: 'method', startLine: 3, endLine: 5 })
+    expect(byName.helper).toMatchObject({ kind: 'method', startLine: 7, endLine: 9 })
+  })
+
+  test('returns null for registered languages whose wasm grammar is unavailable', async () => {
+    expect(await parseFileStructure('<?php function demo() {}', 'index.php')).toBeNull()
+    expect(await parseFileStructure('func demo() {}', 'App.swift')).toBeNull()
+    expect(await parseFileStructure('fun demo() {}', 'Main.kt')).toBeNull()
+  })
 })

@@ -1,4 +1,5 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { frontendSection } from '@codebuff/common/constants/prompt-sections'
 import { describe, test, expect, mock } from 'bun:test'
 
 import { PLACEHOLDER } from '../types'
@@ -16,7 +17,9 @@ const createMockLogger = () => ({
   error: mock(() => {}),
 })
 
-const createMockFileContext = (): ProjectFileContext => ({
+const createMockFileContext = (
+  overrides: Partial<ProjectFileContext> = {},
+): ProjectFileContext => ({
   projectRoot: '/test',
   cwd: '/test',
   fileTree: [],
@@ -41,6 +44,7 @@ const createMockFileContext = (): ProjectFileContext => ({
     cpus: 1,
     chromeAvailable: false,
   },
+  ...overrides,
 })
 
 const createMockAgentState = (agentType: string): AgentState => ({
@@ -114,6 +118,172 @@ describe('getAgentPrompt', () => {
     expect(formatCurrentDate(new Date(2026, 4, 22, 12))).toBe(
       'May 22, 2026',
     )
+  })
+
+  test('omits frontend section when file tree has no frontend files', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'frontend-agent',
+      systemPrompt: `Before${PLACEHOLDER.FRONTEND_SECTION}After`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'frontend-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext({
+        fileTree: [
+          {
+            name: 'main.py',
+            type: 'file',
+            filePath: 'main.py',
+            lastReadTime: 0,
+          },
+        ],
+      }),
+      agentState: createMockAgentState('frontend-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    expect(result).toBe('BeforeAfter')
+    expect(result).not.toContain(frontendSection)
+    expect(result).not.toContain(PLACEHOLDER.FRONTEND_SECTION)
+  })
+
+  test('includes frontend section when file tree has tsx or jsx files', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'frontend-agent',
+      systemPrompt: `Before\n${PLACEHOLDER.FRONTEND_SECTION}\nAfter`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'frontend-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext({
+        fileTree: [
+          {
+            name: 'src',
+            type: 'directory',
+            filePath: 'src',
+            children: [
+              {
+                name: 'App.tsx',
+                type: 'file',
+                filePath: 'src/App.tsx',
+                lastReadTime: 0,
+              },
+            ],
+          },
+        ],
+      }),
+      agentState: createMockAgentState('frontend-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    expect(result).toContain(frontendSection)
+    expect(result).not.toContain(PLACEHOLDER.FRONTEND_SECTION)
+  })
+
+  test('includes language profile section for detected supported languages', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'language-agent',
+      systemPrompt: `Before\n${PLACEHOLDER.LANGUAGE_PROFILE}\nAfter`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'language-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext({
+        fileTree: [
+          {
+            name: 'package.json',
+            type: 'file',
+            filePath: 'package.json',
+            lastReadTime: 0,
+          },
+          {
+            name: 'src',
+            type: 'directory',
+            filePath: 'src',
+            children: [
+              {
+                name: 'main.py',
+                type: 'file',
+                filePath: 'src/main.py',
+                lastReadTime: 0,
+              },
+            ],
+          },
+        ],
+      }),
+      agentState: createMockAgentState('language-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    expect(result).toContain('## Language profile')
+    expect(result).toContain('Detected: TypeScript/JavaScript, Python')
+    expect(result).toContain('`read_files` `agents/idioms/typescript.md`')
+    expect(result).toContain('`read_files` `agents/idioms/python.md`')
+    expect(result).not.toContain('Prefer precise TypeScript types over broad casts')
+    expect(result).not.toContain(PLACEHOLDER.LANGUAGE_PROFILE)
+  })
+
+  test('omits language profile section when no supported language is detected', async () => {
+    const agentTemplate = createMockAgentTemplate({
+      id: 'language-agent',
+      systemPrompt: `Before${PLACEHOLDER.LANGUAGE_PROFILE}After`,
+    })
+    const agentTemplates: Record<string, AgentTemplate> = {
+      'language-agent': agentTemplate,
+    }
+
+    const result = await getAgentPrompt({
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      fileContext: createMockFileContext({
+        fileTree: [
+          {
+            name: 'README.md',
+            type: 'file',
+            filePath: 'README.md',
+            lastReadTime: 0,
+          },
+        ],
+      }),
+      agentState: createMockAgentState('language-agent'),
+      agentTemplates,
+      additionalToolDefinitions: async () => ({}),
+      logger: createMockLogger(),
+      apiKey: TEST_AGENT_RUNTIME_IMPL.apiKey,
+      databaseAgentCache: TEST_AGENT_RUNTIME_IMPL.databaseAgentCache,
+      fetchAgentFromDatabase: TEST_AGENT_RUNTIME_IMPL.fetchAgentFromDatabase,
+    })
+
+    expect(result).toBe('BeforeAfter')
+    expect(result).not.toContain('## Language profile')
+    expect(result).not.toContain(PLACEHOLDER.LANGUAGE_PROFILE)
   })
 
   describe('spawnerPrompt inclusion in instructionsPrompt', () => {

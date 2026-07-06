@@ -1,14 +1,15 @@
 import { z } from 'zod/v4'
 
+import type { ComparisonResult } from './compare-runs'
 import type { AgentDefinition } from '@openbuff/sdk'
 
 /**
  * Structured config-change proposals emitted by the lessons extractor.
  *
  * Each proposal targets a specific agent and describes one mechanical change
- * to its definition. The `applyProposals` pure function applies an ordered
- * list of proposals to a set of agent definitions, producing modified
- * definitions (or a dry-run report when `dryRun` is set).
+ * to its definition. The `applyProposals` pure function simulates an ordered
+ * list of proposals against a copy of agent definitions, producing a
+ * human-reviewable dry-run report.
  *
  * Supported proposal kinds (deliberately small + safe):
  *  - append_system_prompt_guidance: append guidance text to systemPrompt
@@ -23,8 +24,9 @@ import type { AgentDefinition } from '@openbuff/sdk'
  *  - Arbitrary JSON mutations (no escape hatch)
  *
  * The closed-loop workflow is: lessons extractor LLM emits proposals →
- * applyProposals({dryRun:true}) produces a human-reviewable diff → review →
- * applyProposals({dryRun:false}) → re-eval → compareRuns(before, after).
+ * applyProposals(...) produces a human-reviewable dry-run report → manually
+ * stage reviewed changes in a separate worktree → re-eval →
+ * compareRuns(before, after). This module never persists proposal changes.
  */
 
 const agentTargetSchema = z.object({
@@ -134,11 +136,9 @@ export interface ProposalApplicationResult {
 /**
  * Result of applying a list of proposals to a set of agent definitions.
  *
- * `modifiedDefinitions` is always a deep copy with proposals applied; the
- * caller is responsible for persisting it (e.g. writing to a staging
- * worktree). In dryRun mode the summary lines are prefixed with `[dry-run]`
- * for review; in apply mode (default) they are prefixed with `[apply]` to
- * signal the caller should persist the result.
+ * `modifiedDefinitions` is always a deep copy with proposals simulated. The
+ * caller may inspect it for review or comparison, but this helper never
+ * persists changes and summary lines are always prefixed with `[dry-run]`.
  */
 export interface ApplyProposalsResult {
   modifiedDefinitions: AgentDefinition[]
@@ -151,12 +151,28 @@ export interface ApplyProposalsResult {
   summary: string[]
 }
 
+export interface ProposalPromotionPolicy {
+  /** Minimum aggregate score improvement required before promotion. */
+  minTotalScoreDelta: number
+  /** Reject when any compared agent regressed. */
+  requireNoRegressions: boolean
+  /** Reject when the dry run applied no proposals. */
+  requireAppliedProposals: boolean
+}
+
+export interface ProposalPromotionDecision {
+  accepted: boolean
+  reasons: string[]
+  proposalSummary: string[]
+  comparisonSummary: string
+}
+
 /**
  * Apply an ordered list of proposals to a set of agent definitions.
  *
- * Pure: does not mutate the input `agentDefinitions` (deep-copies first) and
- * does not touch the filesystem. The caller is responsible for persisting the
- * returned `modifiedDefinitions` (e.g. writing to a staging worktree).
+ * Pure dry-run: does not mutate the input `agentDefinitions` (deep-copies
+ * first) and does not touch the filesystem. The returned `modifiedDefinitions`
+ * are for review/comparison only; callers must not auto-persist them.
  *
  * Proposals are applied in order. A later proposal can build on an earlier
  * one (e.g. add_tool then set_model on the same agent). Unknown agent ids are
@@ -167,15 +183,12 @@ export function applyProposals(params: {
   proposals: Proposal[]
   agentDefinitions: AgentDefinition[]
   /**
-   * When true, proposals are applied to a copy and a summary is produced, but
-   * the result is marked as not-written (for review). When false (default),
-   * the same copy is returned but `written` semantics indicate the caller
-   * should persist. Either way the function is pure — dryRun only affects
-   * the summary label.
+   * Deprecated compatibility flag. Proposal application is always dry-run and
+   * never signals that callers should persist the modified copy automatically.
    */
   dryRun?: boolean
 }): ApplyProposalsResult {
-  const { proposals, agentDefinitions, dryRun = false } = params
+  const { proposals, agentDefinitions } = params
 
   // Deep copy so we never mutate the caller's definitions. AgentDefinition is
   // a plain JSON-ish object; structuredClone is available in Bun/Node 17+.
@@ -194,12 +207,12 @@ export function applyProposals(params: {
     if (result.applied) {
       appliedCount++
       summary.push(
-        formatProposalSummary(proposal, result, dryRun) + ' — APPLIED',
+        formatProposalSummary(proposal, result) + ' — APPLIED',
       )
     } else {
       skippedCount++
       summary.push(
-        formatProposalSummary(proposal, result, dryRun) +
+        formatProposalSummary(proposal, result) +
           ` — SKIPPED${result.error ? ` (${result.error})` : ''}`,
       )
     }
@@ -318,9 +331,8 @@ function applyOne(
 function formatProposalSummary(
   proposal: Proposal,
   result: ProposalApplicationResult,
-  dryRun: boolean,
 ): string {
-  const mode = dryRun ? '[dry-run]' : '[apply]'
+  const mode = '[dry-run]'
   const target = result.matchedAgentId ?? proposal.target.agentId
   switch (proposal.kind) {
     case 'append_system_prompt_guidance':
@@ -338,6 +350,64 @@ function formatProposalSummary(
       return `${mode} ${target}: set budget (${parts.join(', ') || 'no-op'})`
     }
   }
+}
+
+const defaultPromotionPolicy: ProposalPromotionPolicy = {
+  minTotalScoreDelta: 0.25,
+  requireNoRegressions: true,
+  requireAppliedProposals: true,
+}
+
+export function decideProposalPromotion(params: {
+  dryRun: ApplyProposalsResult
+  comparison: ComparisonResult
+  policy?: Partial<ProposalPromotionPolicy>
+}): ProposalPromotionDecision {
+  const policy = { ...defaultPromotionPolicy, ...params.policy }
+  const reasons: string[] = []
+
+  if (policy.requireAppliedProposals && params.dryRun.appliedCount === 0) {
+    reasons.push('no proposals applied in dry run')
+  }
+  if (
+    params.comparison.overall.totalScoreDelta < policy.minTotalScoreDelta
+  ) {
+    reasons.push(
+      `score delta ${params.comparison.overall.totalScoreDelta.toFixed(2)} is below required ${policy.minTotalScoreDelta.toFixed(2)}`,
+    )
+  }
+  if (policy.requireNoRegressions && params.comparison.hasRegressions) {
+    reasons.push(
+      `regressions detected for ${params.comparison.overall.regressedAgentIds.join(', ')}`,
+    )
+  }
+
+  return {
+    accepted: reasons.length === 0,
+    reasons:
+      reasons.length > 0
+        ? reasons
+        : ['meets promotion threshold with no regressions'],
+    proposalSummary: params.dryRun.summary,
+    comparisonSummary: `score ${params.comparison.overall.totalScoreDelta >= 0 ? '+' : ''}${params.comparison.overall.totalScoreDelta.toFixed(2)}, cost ${params.comparison.overall.totalCostDelta >= 0 ? '+' : ''}${params.comparison.overall.totalCostDelta.toFixed(0)}c, runs ${params.comparison.overall.totalBeforeRuns}→${params.comparison.overall.totalAfterRuns}`,
+  }
+}
+
+export function formatProposalPromotionReport(
+  decision: ProposalPromotionDecision,
+): string {
+  const lines: string[] = []
+  lines.push('## Proposal Promotion Report')
+  lines.push('')
+  lines.push(`Decision: ${decision.accepted ? 'ACCEPT' : 'REJECT'}`)
+  lines.push(`Comparison: ${decision.comparisonSummary}`)
+  lines.push('')
+  lines.push('Reasons:')
+  for (const reason of decision.reasons) lines.push(`- ${reason}`)
+  lines.push('')
+  lines.push('Proposal dry-run:')
+  for (const summary of decision.proposalSummary) lines.push(`- ${summary}`)
+  return lines.join('\n')
 }
 
 /**

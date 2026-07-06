@@ -40,6 +40,43 @@ function outputJson(result: { output: any }): any {
   return out?.value ?? out
 }
 
+async function captureRewritePatch(params: {
+  path: string
+  symbol: string
+  content: string
+  source: string
+  occurrence?: number
+}): Promise<{ value: any; patch: string | undefined }> {
+  let patch: string | undefined
+  const result = await handleRewriteSymbol({
+    previousToolCallFinished: Promise.resolve(),
+    toolCall: {
+      toolCallId: 'rewrite-test',
+      input: {
+        path: params.path,
+        symbol: params.symbol,
+        content: params.content,
+        occurrence: params.occurrence,
+      },
+    },
+    fileProcessingState: freshState(),
+    logger: noopLogger,
+    requestClientToolCall: async (toolCall: any) => {
+      patch = toolCall?.input?.content
+      return [
+        {
+          type: 'json' as const,
+          value: { file: toolCall?.input?.path, message: 'applied' },
+        },
+      ]
+    },
+    writeToClient: () => {},
+    requestOptionalFile: async () => params.source,
+  } as any)
+
+  return { value: outputJson(result), patch }
+}
+
 describe('rewrite_symbol handler', () => {
   test('replaces a symbol by name via the str_replace path (captures correct patch)', async () => {
     let capturedPatch: string | undefined
@@ -235,5 +272,158 @@ describe('rewrite_symbol handler', () => {
     // No duplication: the old doc line must NOT also appear as unchanged
     // context (space-prefixed) in the same patch.
     expect(capturedPatch).not.toMatch(/^ \* Original doc\.$/m)
+  })
+
+  test('rewrites Python functions and class methods with indentation-aware spans', async () => {
+    const source = [
+      'class Greeter:',
+      '    def greet(self, name):',
+      '        return f"hi {name}"',
+      '',
+      'def helper():',
+      '    return 1',
+    ].join('\n')
+
+    const method = await captureRewritePatch({
+      path: 'service.py',
+      symbol: 'greet',
+      source,
+      content: [
+        '    def greet(self, name):',
+        '        return f"hello {name}"',
+      ].join('\n'),
+    })
+    expect(method.value.errorMessage).toBeUndefined()
+    expect(method.patch).toContain('-        return f"hi {name}"')
+    expect(method.patch).toContain('+        return f"hello {name}"')
+    expect(method.patch).not.toMatch(/^[-+].*return 1/m)
+
+    const fn = await captureRewritePatch({
+      path: 'service.py',
+      symbol: 'helper',
+      source,
+      content: ['def helper():', '    return 2'].join('\n'),
+    })
+    expect(fn.value.errorMessage).toBeUndefined()
+    expect(fn.patch).toContain('-    return 1')
+    expect(fn.patch).toContain('+    return 2')
+  })
+
+  test('rewrites Rust functions and impl methods without touching sibling items', async () => {
+    const source = [
+      'struct Counter {',
+      '    value: i32,',
+      '}',
+      '',
+      'impl Counter {',
+      '    fn new() -> Self {',
+      '        Self { value: 0 }',
+      '    }',
+      '}',
+      '',
+      'fn main() {',
+      '    println!("ok");',
+      '}',
+    ].join('\n')
+
+    const method = await captureRewritePatch({
+      path: 'counter.rs',
+      symbol: 'new',
+      source,
+      content: [
+        '    fn new() -> Self {',
+        '        Self { value: 1 }',
+        '    }',
+      ].join('\n'),
+    })
+    expect(method.value.errorMessage).toBeUndefined()
+    expect(method.patch).toContain('-        Self { value: 0 }')
+    expect(method.patch).toContain('+        Self { value: 1 }')
+    expect(method.patch).not.toMatch(/^[-+].*println!/m)
+
+    const fn = await captureRewritePatch({
+      path: 'counter.rs',
+      symbol: 'main',
+      source,
+      content: ['fn main() {', '    println!("done");', '}'].join('\n'),
+    })
+    expect(fn.value.errorMessage).toBeUndefined()
+    expect(fn.patch).toContain('-    println!("ok");')
+    expect(fn.patch).toContain('+    println!("done");')
+  })
+
+  test('rewrites Go functions and receiver methods without confusing type references', async () => {
+    const source = [
+      'package main',
+      '',
+      'type Server struct {',
+      '\tName string',
+      '}',
+      '',
+      'func New(name string) *Server {',
+      '\treturn &Server{Name: name}',
+      '}',
+      '',
+      'func (s *Server) Run() error {',
+      '\treturn nil',
+      '}',
+    ].join('\n')
+
+    const method = await captureRewritePatch({
+      path: 'server.go',
+      symbol: 'Run',
+      source,
+      content: ['func (s *Server) Run() error {', '\treturn fmt.Errorf("stopped")', '}'].join('\n'),
+    })
+    expect(method.value.errorMessage).toBeUndefined()
+    expect(method.patch).toContain('-\treturn nil')
+    expect(method.patch).toContain('+\treturn fmt.Errorf("stopped")')
+    expect(method.patch).not.toMatch(/^[-+].*Name string/m)
+
+    const fn = await captureRewritePatch({
+      path: 'server.go',
+      symbol: 'New',
+      source,
+      content: ['func New(name string) *Server {', '\treturn &Server{Name: "updated-" + name}', '}'].join('\n'),
+    })
+    expect(fn.value.errorMessage).toBeUndefined()
+    expect(fn.patch).toContain('-\treturn &Server{Name: name}')
+    expect(fn.patch).toContain('+\treturn &Server{Name: "updated-" + name}')
+  })
+
+  test('rewrites parser-supported Java and C# methods', async () => {
+    const javaSource = [
+      'class Service {',
+      '  public void run() { helper(); }',
+      '  private void helper() {}',
+      '}',
+    ].join('\n')
+    const java = await captureRewritePatch({
+      path: 'Service.java',
+      symbol: 'run',
+      source: javaSource,
+      content: '  public void run() { helper(); helper(); }',
+    })
+    expect(java.value.errorMessage).toBeUndefined()
+    expect(java.patch).toContain('-  public void run() { helper(); }')
+    expect(java.patch).toContain('+  public void run() { helper(); helper(); }')
+    expect(java.patch).not.toMatch(/^[-+].*private void helper/m)
+
+    const csharpSource = [
+      'class Worker {',
+      '  public void Run() { Helper(); }',
+      '  private void Helper() {}',
+      '}',
+    ].join('\n')
+    const csharp = await captureRewritePatch({
+      path: 'Worker.cs',
+      symbol: 'Run',
+      source: csharpSource,
+      content: '  public void Run() { Helper(); Helper(); }',
+    })
+    expect(csharp.value.errorMessage).toBeUndefined()
+    expect(csharp.patch).toContain('-  public void Run() { Helper(); }')
+    expect(csharp.patch).toContain('+  public void Run() { Helper(); Helper(); }')
+    expect(csharp.patch).not.toMatch(/^[-+].*private void Helper/m)
   })
 })

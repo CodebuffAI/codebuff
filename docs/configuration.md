@@ -328,6 +328,31 @@ Merged result (in order): `[prettier (project version), typecheck-sdk]`.
 edits files. They power the "verification gate" — typechecks, linters, and
 tests that block the agent from ending its turn until they pass.
 
+When `autoFileChangeHooks` is unset or `true`, Openbuff also infers safe,
+non-mutating default hooks from common project manifests and merges them with
+configured `fileChangeHooks` using the concat-with-dedup rules above. Set
+`"autoFileChangeHooks": false` to run only explicitly configured hooks.
+
+Inferred hooks currently include:
+
+| Manifest | Inferred hooks |
+|----------|----------------|
+| `package.json` | `bunx eslint .` when `eslint` is listed in `dependencies` or `devDependencies`; `bunx tsc --noEmit` when `typescript` is listed. Openbuff does not infer or execute `package.json` scripts by default. |
+| `go.mod` | `test -z "$(gofmt -l .)"`, `go vet ./...` |
+| `Cargo.toml` | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` |
+| `pyproject.toml` or `requirements.txt` | `ruff check .` |
+| `Gemfile` | `rubocop` |
+| `Package.swift` | `swift-format lint --recursive .` |
+| `*.csproj` | `dotnet format --verify-no-changes` |
+
+These commands are validation-only by default. For safety, inferred hooks use fixed
+commands selected from dependency/manifest presence; they do not run
+repo-controlled `package.json` scripts unless you explicitly add those commands
+as configured `fileChangeHooks`. If an inferred tool is missing, the hook
+reports the shell error for that command; install the tool, add an overriding
+hook with a project-specific command, or disable inferred hooks with
+`autoFileChangeHooks: false`.
+
 ### Hook fields
 
 ```jsonc

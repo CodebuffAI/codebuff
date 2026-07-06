@@ -1,7 +1,8 @@
 import { publisher } from '../constants'
 
 import type { AgentDefinition } from '../types/agent-definition'
-import { frontendSection, qualitySection } from '../base2/quality-prompt-section'
+import { qualitySection } from '../base2/quality-prompt-section'
+import { PLACEHOLDER } from '@codebuff/agent-runtime/templates/types'
 
 type CodeEditorVariant =
   | 'gpt-5'
@@ -191,7 +192,9 @@ Write out your complete implementation now, formatting all changes as tool calls
 
 ${qualitySection}
 
-${frontendSection}`,
+${PLACEHOLDER.LANGUAGE_PROFILE}
+
+${PLACEHOLDER.FRONTEND_SECTION}`,
 
     handleSteps: function* ({ agentState: initialAgentState, prompt }) {
       const initialMessageHistoryLength =

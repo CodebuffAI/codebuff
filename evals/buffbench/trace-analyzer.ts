@@ -5,7 +5,12 @@ import { truncateTrace } from './trace-utils'
 
 import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
-import type { CacheRecallEvalResult, FinalCheckOutput } from './types'
+import type {
+  CacheRecallEvalResult,
+  FinalCheckOutput,
+  ProposalDryRunReport,
+} from './types'
+import type { IdiomTraceabilityEvaluation } from './idiom-traceability-signals'
 import type { AgentDefinition, OpenbuffClient } from '@openbuff/sdk'
 
 
@@ -23,6 +28,8 @@ export interface AgentTraceData {
   timestamp: string
   finalCheckOutputs?: FinalCheckOutput[]
   cacheRecallEval?: CacheRecallEvalResult
+  idiomTraceability?: IdiomTraceabilityEvaluation
+  proposalDryRun?: ProposalDryRunReport
 }
 
 const traceAnalyzerAgent: AgentDefinition = {

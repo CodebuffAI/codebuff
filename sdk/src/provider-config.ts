@@ -439,6 +439,8 @@ export const providerConfigFileSchema = z
         }),
       )
       .default([]),
+    /** Set false to disable manifest-inferred file-change hooks. */
+    autoFileChangeHooks: z.boolean().optional(),
     /**
      * Maximum number of agent steps in a single run before the loop stops.
      * Unset → MAX_AGENT_STEPS_DEFAULT. Raise it for large migrations; the
@@ -515,6 +517,9 @@ export const providerConfigFileSchema = z
       agentReasoningEfforts,
       indexing: config.indexing,
       fileChangeHooks: config.fileChangeHooks,
+      ...(config.autoFileChangeHooks !== undefined && {
+        autoFileChangeHooks: config.autoFileChangeHooks,
+      }),
       // Optional in the resolved config: omitted unless explicitly set, so
       // callers fall back to MAX_AGENT_STEPS_DEFAULT.
       ...(config.maxAgentSteps !== undefined && {
@@ -589,6 +594,7 @@ const emptyProviderConfig = (): ProviderConfigFile => ({
     },
   },
   fileChangeHooks: [],
+  autoFileChangeHooks: undefined,
   failoverModels: undefined,
   maxAgentSteps: undefined,
 })
@@ -866,6 +872,8 @@ function mergeProviderConfigs(
       base.fileChangeHooks,
       override.fileChangeHooks,
     ),
+    autoFileChangeHooks:
+      override.autoFileChangeHooks ?? base.autoFileChangeHooks,
     failoverModels: override.failoverModels ?? base.failoverModels,
     maxAgentSteps: override.maxAgentSteps ?? base.maxAgentSteps,
   }
@@ -2080,6 +2088,8 @@ export function writeProviderConfigFile(params: {
       fileChangeHooks: existingConfig.fileChangeHooks?.length
         ? existingConfig.fileChangeHooks
         : newConfig.fileChangeHooks,
+      autoFileChangeHooks:
+        existingConfig.autoFileChangeHooks ?? newConfig.autoFileChangeHooks,
       failoverModels: existingConfig.failoverModels ?? newConfig.failoverModels,
       maxAgentSteps: existingConfig.maxAgentSteps ?? newConfig.maxAgentSteps,
     }

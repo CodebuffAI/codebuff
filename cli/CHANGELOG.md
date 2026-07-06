@@ -2,6 +2,23 @@
 
 All notable changes to the `@openbuff/cli` package will be documented in this file.
 
+## [Unreleased] - 2026-07-06
+
+### Added
+
+- Added cross-language idiom guidance and language-profile prompt plumbing so orchestrator/editor prompts can conditionally include compact idiom contracts for non-TypeScript work.
+- Added BuffBench idiom evaluation signals, traceability checks, proposal dry-run artifacts, and self-improvement proposal plumbing for manual-review-only agent improvements.
+- Expanded deterministic edit, structural read, rewrite-symbol, code-map, and indexer retrieval coverage across additional language and repo-map scenarios.
+
+### Changed
+
+- Improved inferred validation hook behavior and documentation for local file-change checks.
+- Refreshed CLI and tmux knowledge notes for menu coverage, readiness waits, input encoding, and capture behavior.
+
+### Fixed
+
+- Excluded generated `evals/test-repos` clones from the focused BYOK wording guard so local validation does not scan temporary repository fixtures.
+
 ## [1.1.7] - 2026-07-05
 
 Pipeline release of `@openbuff/cli` covering the inline-subagent rendering fix, a legacy-skill prune, and model-agnostic slash-command descriptions.

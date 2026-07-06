@@ -70,20 +70,28 @@ export function classifyCommand(command: string): CheckCategory {
     return 'compile'
   }
   if (
+    normalized.includes('lint') ||
+    normalized.includes('eslint') ||
+    normalized.includes('biome check') ||
+    normalized.includes('prettier') ||
+    normalized.includes('cargo clippy') ||
+    normalized.includes('cargo fmt') ||
+    normalized.includes('ruff') ||
+    normalized.includes('go vet') ||
+    normalized.includes('gofmt') ||
+    normalized.includes('rubocop') ||
+    normalized.includes('swift-format') ||
+    normalized.includes('dotnet format')
+  ) {
+    return 'lint'
+  }
+  if (
     normalized.includes('test') ||
     normalized.includes('vitest') ||
     normalized.includes('jest') ||
     normalized.includes('pytest')
   ) {
     return 'test'
-  }
-  if (
-    normalized.includes('lint') ||
-    normalized.includes('eslint') ||
-    normalized.includes('biome check') ||
-    normalized.includes('prettier')
-  ) {
-    return 'lint'
   }
   return 'generic'
 }
