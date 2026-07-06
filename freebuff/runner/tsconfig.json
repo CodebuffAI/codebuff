@@ -8,8 +8,11 @@
     "jsx": "react-jsx",
     // The web convex tree (which we import for the generated api and the
     // bundled agent definitions) aliases '!' to its convex root.
+    // Map the SDK to its source (like cli/tsconfig.json) so typecheck works
+    // without a prior sdk build (CI runs from a fresh checkout with no dist).
     "paths": {
-      "!/*": ["../web/convex/*"]
+      "!/*": ["../web/convex/*"],
+      "@codebuff/sdk": ["../../sdk/src/index.ts"]
     }
   },
   "include": ["src/**/*"]
