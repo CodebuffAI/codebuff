@@ -51,7 +51,11 @@ import {
   buildUserMessageContent,
   expireMessages,
 } from './util/messages'
-import { countTokensJson } from './util/token-counter'
+import {
+  countTokens,
+  countTokensJson,
+  countTokensMessages,
+} from './util/token-counter'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -99,7 +103,9 @@ export function toTokenCountInputSchema(
   if (inputSchema == null) return undefined
 
   let jsonSchema: Record<string, unknown>
-  if (typeof (inputSchema as { safeParse?: unknown }).safeParse === 'function') {
+  if (
+    typeof (inputSchema as { safeParse?: unknown }).safeParse === 'function'
+  ) {
     try {
       jsonSchema = z.toJSONSchema(inputSchema as z.ZodType, {
         io: 'input',
@@ -340,7 +346,9 @@ export const runAgentStep = async (
   }
 
   const iterationNum = agentState.messageHistory.length
-  const systemTokens = countTokensJson(system)
+  // system is a plain string; count it directly rather than JSON-stringifying
+  // it (which would add quotes and escape every newline).
+  const systemTokens = countTokens(system)
 
   let cacheDebugCorrelation:
     | ReturnType<typeof createCacheDebugSnapshot>
@@ -977,9 +985,12 @@ export async function loopAgentSteps(
           }),
       )
 
+      // Count structured message content (not JSON.stringify, which inflates the
+      // count and counts image base64 as text); system is a plain string; tool
+      // schemas stay JSON since that's roughly how the model sees them.
       const estimateContextTokensLocally = () =>
-        countTokensJson(messagesWithStepPrompt) +
-        countTokensJson(system) +
+        countTokensMessages(messagesWithStepPrompt) +
+        countTokens(system) +
         countTokensJson(toolsForTokenCount)
 
       // Free (freebuff) runs never call the token-count web API: the awaited
@@ -1014,11 +1025,7 @@ export async function loopAgentSteps(
             { error: tokenCountResult.error },
             'Failed to get token count from web API',
           )
-          const estimatedTokens =
-            countTokensJson(currentAgentState.messageHistory) +
-            countTokensJson(system) +
-            countTokensJson(toolDefinitions)
-          currentAgentState.contextTokenCount = estimatedTokens
+          currentAgentState.contextTokenCount = estimateContextTokensLocally()
         }
       }
 

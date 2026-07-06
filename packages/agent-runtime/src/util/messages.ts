@@ -7,7 +7,7 @@ import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
 import { simplifyTerminalCommandResults } from './simplify-tool-results'
-import { countTokensJson } from './token-counter'
+import { countTokensMessages } from './token-counter'
 
 import type { System } from '../llm-api/claude'
 import type {
@@ -189,7 +189,7 @@ export function trimMessagesToFitTokenLimit(params: {
   const maxMessageTokens = maxTotalTokens - systemTokens
 
   // Check if we're already under the limit
-  const initialTokens = countTokensJson(messages)
+  const initialTokens = countTokensMessages(messages)
 
   if (initialTokens < maxMessageTokens) {
     return messages
@@ -231,7 +231,7 @@ export function trimMessagesToFitTokenLimit(params: {
   }
   shortenedMessages.reverse()
 
-  const requiredTokens = countTokensJson(
+  const requiredTokens = countTokensMessages(
     shortenedMessages.filter((m) => m.keepDuringTruncation),
   )
   let removedTokens = 0
@@ -245,13 +245,13 @@ export function trimMessagesToFitTokenLimit(params: {
       filteredMessages.push(message)
       continue
     }
-    removedTokens += countTokensJson(message)
+    removedTokens += countTokensMessages([message])
     if (
       filteredMessages.length === 0 ||
       filteredMessages[filteredMessages.length - 1] !== placeholder
     ) {
       filteredMessages.push(placeholder)
-      removedTokens -= countTokensJson(replacementMessage)
+      removedTokens -= countTokensMessages([replacementMessage])
     }
   }
 

@@ -377,7 +377,8 @@ describe('trimMessagesToFitTokenLimit', () => {
       const result = trimMessagesToFitTokenLimit({
         messages,
         systemTokens: 0,
-        maxTotalTokens: 1000,
+        // Below the messages' structured token total so truncation triggers.
+        maxTotalTokens: 300,
         logger,
       })
 
@@ -438,7 +439,8 @@ describe('trimMessagesToFitTokenLimit', () => {
       const result = trimMessagesToFitTokenLimit({
         messages,
         systemTokens: 0,
-        maxTotalTokens: 1000,
+        // Below the messages' structured token total so truncation triggers.
+        maxTotalTokens: 500,
         logger,
       })
 
