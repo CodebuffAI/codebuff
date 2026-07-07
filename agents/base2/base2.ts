@@ -275,8 +275,10 @@ ${
 ${
   isDefault
     ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
-    : isFree
+    : isFree && !noReview
       ? `[ You spawn a ${freeCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
+      : isFree
+        ? `[ You spawn a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
       : isMax
         ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
         : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
@@ -285,7 +287,7 @@ ${
 ${
   isDefault
     ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
-    : isFree
+    : isFree && !noReview
       ? `[ You fix the issues found by the ${freeCodeReviewerAgentId} and type/test errors ]`
       : isMax
         ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
