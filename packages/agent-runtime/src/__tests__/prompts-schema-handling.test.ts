@@ -161,6 +161,56 @@ describe('Schema handling error recovery', () => {
       })
     })
 
+    test('parses stringified params for direct agent tool schemas', () => {
+      const agentTemplate: AgentTemplate = {
+        id: 'basher-like-agent',
+        displayName: 'Basher-like Agent',
+        spawnerPrompt: 'Run a shell command',
+        model: 'gpt-4o-mini',
+        inputSchema: {
+          prompt: z.string(),
+          params: z.object({ command: z.string() }),
+        },
+        outputMode: 'last_message',
+        includeMessageHistory: false,
+        inheritParentSystemPrompt: false,
+        mcpServers: {},
+        toolNames: [],
+        spawnableAgents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      }
+
+      const inputSchema = buildAgentToolInputSchema(agentTemplate)
+
+      const parsed = inputSchema.safeParse({
+        prompt: 'Run pwd',
+        params: '{"command":"pwd"}',
+      })
+
+      expect(parsed.success).toBe(true)
+      if (parsed.success) {
+        expect(parsed.data).toEqual({
+          prompt: 'Run pwd',
+          params: { command: 'pwd' },
+        })
+      }
+
+      expect(
+        inputSchema.safeParse({
+          prompt: 'Run pwd',
+          params: '["pwd"]',
+        }).success,
+      ).toBe(false)
+      expect(
+        inputSchema.safeParse({
+          prompt: 'Run pwd',
+          params: '{}',
+        }).success,
+      ).toBe(false)
+    })
+
     test('preserves structured handoff on direct agent tool calls', () => {
       const transformed = tryTransformAgentToolCall({
         toolName: 'file_picker',
@@ -187,6 +237,78 @@ describe('Schema handling error recovery', () => {
                 summary: 'Use the existing implementation notes',
                 successCriteria: ['Return the most relevant files'],
               },
+            },
+          ],
+        },
+      })
+    })
+
+    test('preserves stringified params on direct agent tool calls', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'basher',
+        input: {
+          prompt: 'Run pwd',
+          params: '{"command":"pwd"}',
+        },
+        spawnableAgents: ['openbuff/basher@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'openbuff/basher@1.0.0',
+              prompt: 'Run pwd',
+              params: '{"command":"pwd"}',
+            },
+          ],
+        },
+      })
+    })
+
+    test('preserves explicit null params on direct agent tool calls', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'basher',
+        input: {
+          prompt: 'Run pwd',
+          params: null,
+        },
+        spawnableAgents: ['openbuff/basher@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'openbuff/basher@1.0.0',
+              prompt: 'Run pwd',
+              params: null,
+            },
+          ],
+        },
+      })
+    })
+
+    test('preserves explicit zero params on direct agent tool calls', () => {
+      const transformed = tryTransformAgentToolCall({
+        toolName: 'basher',
+        input: {
+          prompt: 'Run pwd',
+          params: 0,
+        },
+        spawnableAgents: ['openbuff/basher@1.0.0'],
+      })
+
+      expect(transformed).toEqual({
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: 'openbuff/basher@1.0.0',
+              prompt: 'Run pwd',
+              params: 0,
             },
           ],
         },

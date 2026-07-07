@@ -1,3 +1,4 @@
+import { coerceToObject } from '@codebuff/common/tools/params/utils'
 import { agentHandoffSchema } from '@codebuff/common/tools/params/tool/spawn-agents'
 import { buildArray } from '@codebuff/common/util/array'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
@@ -39,10 +40,6 @@ export function getAgentToolName(agentType: AgentTemplateType): string {
   return getAgentShortName(agentType).replace(/-/g, '_')
 }
 
-/**
- * Builds an input schema for an agent tool with prompt and params as top-level fields.
- * This matches the spawn_agents schema structure: { prompt?: string, params?: object }
- */
 export function buildAgentToolInputSchema(
   agentTemplate: AgentTemplate,
 ): z.ZodType {
@@ -57,7 +54,7 @@ export function buildAgentToolInputSchema(
   }
 
   if (inputSchema?.params) {
-    schemaFields.params = inputSchema.params
+    schemaFields.params = z.preprocess(coerceToObject, inputSchema.params)
   }
 
   schemaFields.handoff = agentHandoffSchema.optional().describe(

@@ -879,10 +879,6 @@ export async function executeCustomToolCall(
     })
 }
 
-/**
- * Checks if a tool name matches a spawnable agent and returns the transformed
- * spawn_agents input if so. Returns null if not an agent tool call.
- */
 export function tryTransformAgentToolCall(params: {
   toolName: string
   input: Record<string, unknown>
@@ -908,7 +904,7 @@ export function tryTransformAgentToolCall(params: {
   if (typeof input.prompt === 'string') {
     agentEntry.prompt = input.prompt
   }
-  if (input.params && typeof input.params === 'object') {
+  if (Object.hasOwn(input, 'params')) {
     agentEntry.params = input.params
   }
   if (Object.hasOwn(input, 'handoff')) {
