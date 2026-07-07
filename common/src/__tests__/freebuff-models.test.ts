@@ -11,6 +11,7 @@ import {
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
+  FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID,
   FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -154,6 +155,9 @@ describe('freebuff model availability', () => {
 
   test('HY3 OpenRouter trial is available only as a Freebuff Web premium model for now', () => {
     expect(FREEBUFF_HY3_MODEL_ID).toBe(FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID)
+    expect(FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID).toBe(
+      FREEBUFF_HY3_ATLAS_MODEL_ID,
+    )
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_HY3_MODEL_ID,
     )

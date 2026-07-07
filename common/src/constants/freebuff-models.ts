@@ -59,6 +59,8 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
 export const FREEBUFF_KIMI_MODEL_ID = moonshotModels.kimiK26
 export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
+export const FREEBUFF_HY3_OPENROUTER_PAID_MODEL_ID =
+  openrouterModels.openrouter_tencent_hy3
 export const FREEBUFF_HY3_ATLAS_MODEL_ID = atlasCloudModels.tencentHy3
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
 export const FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID =

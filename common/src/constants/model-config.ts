@@ -53,6 +53,7 @@ export const openrouterModels = {
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
   openrouter_grok_4: 'x-ai/grok-4-07-09',
+  openrouter_tencent_hy3: 'tencent/hy3',
   openrouter_tencent_hy3_free: 'tencent/hy3:free',
   openrouter_kwaipilot_kat_coder_pro_v2: 'kwaipilot/kat-coder-pro-v2',
 } as const
