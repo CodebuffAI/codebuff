@@ -88,6 +88,8 @@ const defaultCallbacks = {
   onBuildLite: () => {},
   onFeedback: () => {},
   onCloseFeedback: () => {},
+  onAdClick: () => {},
+  onAdImpression: () => {},
 }
 
 const initializeStore = (overrides: {
@@ -104,6 +106,7 @@ const initializeStore = (overrides: {
       isWaitingForResponse: overrides.isWaitingForResponse ?? false,
       timerStartTime: overrides.timerStartTime ?? null,
       availableWidth: overrides.availableWidth ?? 80,
+      responseAds: {},
     },
     callbacks: defaultCallbacks,
   })
@@ -201,6 +204,8 @@ describe('MessageBlockStore', () => {
         onBuildLite: mockBuildFree,
         onFeedback: mockFeedback,
         onCloseFeedback: mockCloseFeedback,
+        onAdClick: () => {},
+        onAdImpression: () => {},
       })
 
       const state = useMessageBlockStore.getState()
@@ -253,6 +258,8 @@ describe('MessageBlockStore', () => {
         onBuildLite: mockFn,
         onFeedback: mockFn,
         onCloseFeedback: mockFn,
+        onAdClick: mockFn,
+        onAdImpression: mockFn,
       })
 
       useMessageBlockStore.getState().reset()

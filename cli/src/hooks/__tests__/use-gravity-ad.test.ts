@@ -1,77 +1,66 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  computeInlineAdAdditions,
-  inlineAdAnchorIds,
-  isCompletedAnswer,
+  computeResponseAds,
+  isAnswerMessage,
+  isPromptMessage,
 } from '../use-gravity-ad'
+import {
+  responseAdNodePositions,
+  RESPONSE_AD_NODE_STEP,
+} from '../../utils/response-ad-positions'
 
-import type { AdResponse, PlacedAd } from '../use-gravity-ad'
+import type { AdResponse, PromptAdBatch } from '../use-gravity-ad'
 import type { ChatMessage } from '../../types/chat'
 
-// Inline ads anchor to completed assistant answers: by default the first one
-// (offset 0), then every other one after it (step 2). The argument is the
-// ordered list of those answers' message ids.
-describe('inlineAdAnchorIds', () => {
-  test('places nothing before the first completed answer', () => {
-    expect(inlineAdAnchorIds([])).toEqual([])
+const msg = (over: Partial<ChatMessage>): ChatMessage => ({
+  id: 'user-1',
+  variant: 'user',
+  content: 'hello',
+  timestamp: '',
+  ...over,
+})
+
+// Batch auctions are triggered by (and the first ad is anchored to) genuine
+// user prompts — not bash `!command` echoes or slash-command echoes.
+describe('isPromptMessage', () => {
+  test('accepts a top-level user prompt', () => {
+    expect(isPromptMessage(msg({}))).toBe(true)
   })
 
-  test('places the first ad right after the first completed answer', () => {
-    expect(inlineAdAnchorIds(['a'])).toEqual(['a'])
-    expect(inlineAdAnchorIds(['a', 'b'])).toEqual(['a'])
+  test('rejects bash command echoes (metadata.bashCwd)', () => {
+    expect(
+      isPromptMessage(msg({ metadata: { bashCwd: '/tmp' } })),
+    ).toBe(false)
   })
 
-  test('then spaces one ad every other completed answer', () => {
-    expect(inlineAdAnchorIds(['a', 'b', 'c'])).toEqual(['a', 'c'])
-    expect(inlineAdAnchorIds(['a', 'b', 'c', 'd'])).toEqual(['a', 'c'])
-    expect(inlineAdAnchorIds(['a', 'b', 'c', 'd', 'e'])).toEqual(['a', 'c', 'e'])
+  test('rejects slash-command echoes', () => {
+    expect(isPromptMessage(msg({ content: '/theme' }))).toBe(false)
+    expect(isPromptMessage(msg({ content: '  /help' }))).toBe(false)
   })
 
-  test('honors custom pacing knobs', () => {
-    const ids = ['a', 'b', 'c', 'd', 'e']
-    // Delay the first ad and widen the spacing.
-    expect(inlineAdAnchorIds(ids, { firstOffset: 1, step: 3 })).toEqual([
-      'b',
-      'e',
-    ])
-    // An ad after every completed answer.
-    expect(inlineAdAnchorIds(ids, { step: 1 })).toEqual(ids)
-    // A non-positive step is clamped to 1 (never loops forever).
-    expect(inlineAdAnchorIds(['a', 'b'], { step: 0 })).toEqual(['a', 'b'])
+  test('rejects non-user variants and nested messages', () => {
+    expect(isPromptMessage(msg({ variant: 'ai' }))).toBe(false)
+    expect(isPromptMessage(msg({ parentId: 'ai-0' }))).toBe(false)
   })
 })
 
-// Only genuine streamed LLM answers (id 'ai-…', completed, top-level) anchor
-// ads — not bash echoes, system notices, mode dividers, or in-flight turns.
-describe('isCompletedAnswer', () => {
-  const msg = (over: Partial<ChatMessage>): ChatMessage => ({
-    id: 'ai-1',
-    variant: 'ai',
-    content: '',
-    timestamp: '',
-    isComplete: true,
-    ...over,
+// Only genuine streamed LLM answers (id 'ai-…', top-level) receive the
+// interspersed remainder of a prompt batch — not bash echoes or system notices.
+describe('isAnswerMessage', () => {
+  const aiMsg = (over: Partial<ChatMessage>): ChatMessage =>
+    msg({ id: 'ai-1', variant: 'ai', content: '', ...over })
+
+  test('accepts a top-level streamed answer (even mid-stream)', () => {
+    expect(isAnswerMessage(aiMsg({}))).toBe(true)
+    expect(isAnswerMessage(aiMsg({ isComplete: false }))).toBe(true)
   })
 
-  test('accepts a completed top-level streamed answer', () => {
-    expect(isCompletedAnswer(msg({}))).toBe(true)
-  })
-
-  test('rejects a still-streaming answer', () => {
-    expect(isCompletedAnswer(msg({ isComplete: false }))).toBe(false)
-  })
-
-  test('rejects bash `!command` echoes and system notices', () => {
-    expect(isCompletedAnswer(msg({ id: 'bash-result-x' }))).toBe(false)
-    expect(isCompletedAnswer(msg({ id: 'sys-1', isComplete: undefined }))).toBe(
-      false,
-    )
-  })
-
-  test('rejects non-ai variants and nested (sub-agent) messages', () => {
-    expect(isCompletedAnswer(msg({ variant: 'user' }))).toBe(false)
-    expect(isCompletedAnswer(msg({ parentId: 'ai-0' }))).toBe(false)
+  test('rejects bash echoes, system notices, and nested messages', () => {
+    expect(isAnswerMessage(aiMsg({ id: 'bash-result-x' }))).toBe(false)
+    expect(isAnswerMessage(aiMsg({ id: 'sys-1' }))).toBe(false)
+    expect(isAnswerMessage(aiMsg({ parentId: 'ai-0' }))).toBe(false)
+    expect(isAnswerMessage(msg({}))).toBe(false)
   })
 })
 
@@ -87,123 +76,154 @@ const ad = (n: number): AdResponse => ({
   provider: 'gravity',
 })
 
-/** A drawAd that cycles a fixed pool, like nextFromChoiceCache does. */
-function cyclingDraw(pool: AdResponse[]): () => AdResponse | null {
-  let cursor = 0
-  return () => {
-    if (pool.length === 0) return null
-    return pool[cursor++ % pool.length]!
-  }
-}
+const prompt = (id: string): ChatMessage => msg({ id })
+const answer = (id: string): ChatMessage =>
+  msg({ id, variant: 'ai', content: '' })
 
-const anchors = (placed: PlacedAd[]): string[] =>
-  placed.map((p) => p.afterMessageId)
-
-describe('computeInlineAdAdditions', () => {
-  test('first ad lands right after the first completed answer', () => {
-    const additions = computeInlineAdAdditions({
-      completedAnswerIds: ['a'],
-      placedAds: [],
-      drawAd: cyclingDraw([ad(1)]),
-    })
-    expect(anchors(additions)).toEqual(['a'])
-    expect(additions[0]!.ad.impUrl).toBe('imp-1')
+describe('computeResponseAds', () => {
+  const batch = (promptMessageId: string, ...ns: number[]): PromptAdBatch => ({
+    promptMessageId,
+    ads: ns.map(ad),
   })
 
-  test('spaces ads every 2 answers across a longer transcript', () => {
-    const additions = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c', 'd', 'e'],
-      placedAds: [],
-      drawAd: cyclingDraw([ad(1), ad(2), ad(3), ad(4)]),
+  test('hands the whole batch to the answer that follows the prompt', () => {
+    const responseAds = computeResponseAds({
+      messages: [prompt('user-1'), answer('ai-1')],
+      batches: [batch('user-1', 1, 2, 3, 4)],
     })
-    expect(anchors(additions)).toEqual(['a', 'c', 'e'])
+    expect(responseAds).toEqual({ 'ai-1': [ad(1), ad(2), ad(3), ad(4)] })
   })
 
-  test('forwards custom pacing to the anchor calc', () => {
-    const additions = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c', 'd', 'e'],
-      placedAds: [],
-      drawAd: cyclingDraw([ad(1), ad(2)]),
-      pacing: { firstOffset: 1, step: 3 },
+  test('assigns nothing until the answer message exists', () => {
+    const responseAds = computeResponseAds({
+      messages: [prompt('user-1')],
+      batches: [batch('user-1', 1, 2, 3, 4)],
     })
-    expect(anchors(additions)).toEqual(['b', 'e'])
+    expect(responseAds).toEqual({})
   })
 
-  test('is idempotent across re-renders — only new anchors are added', () => {
-    const draw = cyclingDraw([ad(1), ad(2), ad(3)])
-
-    // First pass: one completed answer -> one ad at 'a'.
-    let placed = computeInlineAdAdditions({
-      completedAnswerIds: ['a'],
-      placedAds: [],
-      drawAd: draw,
+  test('keeps each batch scoped to its own exchange', () => {
+    const responseAds = computeResponseAds({
+      messages: [
+        prompt('user-1'),
+        answer('ai-1'),
+        prompt('user-2'),
+        answer('ai-2'),
+      ],
+      batches: [batch('user-1', 1, 2), batch('user-2', 3, 4)],
     })
-    expect(anchors(placed)).toEqual(['a'])
+    expect(responseAds).toEqual({
+      'ai-1': [ad(1), ad(2)],
+      'ai-2': [ad(3), ad(4)],
+    })
+  })
 
-    // Re-render with the SAME transcript adds nothing (no anchor churn).
+  test('empty batches assign nothing', () => {
+    const responseAds = computeResponseAds({
+      messages: [prompt('user-1'), answer('ai-1')],
+      batches: [batch('user-1')],
+    })
+    expect(responseAds).toEqual({})
+  })
+
+  test('skips bash echoes and system notices when finding the answer', () => {
+    const responseAds = computeResponseAds({
+      messages: [
+        prompt('user-1'),
+        msg({ id: 'sys-1', variant: 'ai', content: 'notice' }),
+        answer('ai-1'),
+      ],
+      batches: [batch('user-1', 1, 2)],
+    })
+    expect(responseAds).toEqual({ 'ai-1': [ad(1), ad(2)] })
+  })
+
+  test('a new prompt clears any unconsumed ads', () => {
+    // user-1's ads never found an answer; they must not leak into user-2's
+    // exchange (whose own batch is absent here).
+    const responseAds = computeResponseAds({
+      messages: [prompt('user-1'), prompt('user-2'), answer('ai-1')],
+      batches: [batch('user-1', 1, 2)],
+    })
+    expect(responseAds).toEqual({})
+  })
+
+  test('is a pure function of transcript + batches (stable across re-renders)', () => {
+    const args = {
+      messages: [prompt('user-1'), answer('ai-1')],
+      batches: [batch('user-1', 1, 2, 3, 4)],
+    }
+    expect(computeResponseAds(args)).toEqual(computeResponseAds(args))
+  })
+})
+
+describe('responseAdNodePositions', () => {
+  test('places nothing in a response too short to intersperse', () => {
     expect(
-      computeInlineAdAdditions({
-        completedAnswerIds: ['a'],
-        placedAds: placed,
-        drawAd: draw,
-      }),
+      responseAdNodePositions({ nodeCount: 0, adCount: 3 }),
     ).toEqual([])
-
-    // Transcript grows to a new spaced anchor -> only 'c' is added, 'a' stays put.
-    const next = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c'],
-      placedAds: placed,
-      drawAd: draw,
-    })
-    expect(anchors(next)).toEqual(['c'])
+    expect(
+      responseAdNodePositions({ nodeCount: 1, adCount: 3 }),
+    ).toEqual([])
+    // Two nodes: the slot after node 1 would trail the response, so skip it.
+    expect(
+      responseAdNodePositions({ nodeCount: 2, adCount: 3, step: 2 }),
+    ).toEqual([])
   })
 
-  test('never shows the same ad twice — stops when distinct ads run out', () => {
-    // Pool of 2 ads, 3 due anchors -> only 2 get placed, no repeat.
-    const additions = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c', 'd', 'e'],
-      placedAds: [],
-      drawAd: cyclingDraw([ad(1), ad(2)]),
-    })
-    expect(additions.map((p) => p.ad.impUrl)).toEqual(['imp-1', 'imp-2'])
-    expect(anchors(additions)).toEqual(['a', 'c'])
+  test('spaces ads every STEP nodes, strictly between nodes', () => {
+    expect(
+      responseAdNodePositions({ nodeCount: 3, adCount: 4, step: 2 }),
+    ).toEqual([1])
+    expect(
+      responseAdNodePositions({ nodeCount: 5, adCount: 4, step: 2 }),
+    ).toEqual([1, 3])
+    expect(
+      responseAdNodePositions({ nodeCount: 7, adCount: 4, step: 2 }),
+    ).toEqual([1, 3, 5])
+    expect(
+      responseAdNodePositions({ nodeCount: 9, adCount: 4, step: 2 }),
+    ).toEqual([1, 3, 5, 7])
   })
 
-  test('does not reuse an ad already placed in a prior pass', () => {
-    // 'a' already holds imp-1; the only cached ad is imp-1 -> 'c' stays empty.
-    const placed: PlacedAd[] = [{ ad: ad(1), afterMessageId: 'a' }]
-    const blocked = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c'],
-      placedAds: placed,
-      drawAd: cyclingDraw([ad(1)]),
-    })
-    expect(blocked).toEqual([])
-
-    // Once a fresh ad is cached, 'c' fills with the distinct one.
-    const filled = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c'],
-      placedAds: placed,
-      drawAd: cyclingDraw([ad(1), ad(2)]),
-    })
-    expect(anchors(filled)).toEqual(['c'])
-    expect(filled[0]!.ad.impUrl).toBe('imp-2')
+  test('default step keeps ads sparse: one per RESPONSE_AD_NODE_STEP nodes', () => {
+    expect(RESPONSE_AD_NODE_STEP).toBe(4)
+    expect(responseAdNodePositions({ nodeCount: 4, adCount: 4 })).toEqual([])
+    expect(responseAdNodePositions({ nodeCount: 5, adCount: 4 })).toEqual([3])
+    expect(responseAdNodePositions({ nodeCount: 9, adCount: 4 })).toEqual([
+      3, 7,
+    ])
+    expect(responseAdNodePositions({ nodeCount: 17, adCount: 4 })).toEqual([
+      3, 7, 11, 15,
+    ])
   })
 
-  test('stops at an empty cache and fills the rest once it refills', () => {
-    // Cache empty on the first pass: nothing is placed yet.
-    const emptyPass = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c'],
-      placedAds: [],
-      drawAd: () => null,
-    })
-    expect(emptyPass).toEqual([])
+  test('never places more ads than provided', () => {
+    expect(
+      responseAdNodePositions({ nodeCount: 20, adCount: 2, step: 2 }),
+    ).toEqual([1, 3])
+    expect(
+      responseAdNodePositions({ nodeCount: 20, adCount: 0 }),
+    ).toEqual([])
+  })
 
-    // Later pass (cache filled): both due anchors get filled.
-    const filledPass = computeInlineAdAdditions({
-      completedAnswerIds: ['a', 'b', 'c'],
-      placedAds: emptyPass,
-      drawAd: cyclingDraw([ad(1), ad(2)]),
-    })
-    expect(anchors(filledPass)).toEqual(['a', 'c'])
+  test('positions are stable as the streaming response appends nodes', () => {
+    // Every earlier placement stays put as nodeCount grows.
+    let prev: number[] = []
+    for (let n = 0; n <= 12; n++) {
+      const next = responseAdNodePositions({
+        nodeCount: n,
+        adCount: 3,
+        step: RESPONSE_AD_NODE_STEP,
+      })
+      expect(next.slice(0, prev.length)).toEqual(prev)
+      prev = next
+    }
+  })
+
+  test('clamps a non-positive step to 1', () => {
+    expect(
+      responseAdNodePositions({ nodeCount: 4, adCount: 3, step: 0 }),
+    ).toEqual([0, 1, 2])
   })
 })

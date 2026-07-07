@@ -1,5 +1,5 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useTerminalLayout } from './use-terminal-layout'
 import { getAdsEnabled } from '../commands/ads'
@@ -20,15 +20,11 @@ const ACTIVITY_THRESHOLD_MS = 30_000 // 30 seconds idle threshold for fetching n
 const MAX_AD_CACHE_SIZE = 50 // Maximum number of ads to keep in cache
 const ZEROCLICK_IMPRESSIONS_URL = 'https://zeroclick.dev/api/v2/impressions'
 
-// Inline ad pacing — anchors go below *completed* assistant answers (an answer
-// is "completed" once its turn finishes, so an anchor never sits under the
-// actively-streaming last turn). Tweak these two knobs to experiment with
-// frequency:
-//   AD_FIRST_ANSWER_OFFSET — index of the first completed answer that gets an
-//     ad; 0 = right after the very first answer (most prominent).
-//   AD_STEP_EXCHANGES — completed answers between ads after that first one.
-const AD_FIRST_ANSWER_OFFSET = 0
-const AD_STEP_EXCHANGES = 2
+// Inline ads are auctioned as a batch per user prompt and handed to the
+// response renderer to intersperse between the response's rendered sections.
+// How many actually show (0 to all 8) scales with the response length: a
+// one-shot answer shows none, longer tool-using runs show more.
+export const ADS_PER_PROMPT = 8
 
 // Ad response type (normalized shape across providers; credits added after impression)
 export type AdResponse = {
@@ -55,20 +51,13 @@ export type AdProvider = 'gravity' | 'carbon' | 'zeroclick'
 // AD_SURFACES enum, so don't rename them.
 export type AdSurface = 'waiting_room' | 'cli_chat'
 
-/**
- * An ad pinned into the chat transcript. `afterMessageId` anchors it directly
- * below a specific (settled) top-level message; once placed it never moves, so
- * it stays put in scrollback and multiple can be on screen at once.
- */
-export type PlacedAd = {
-  ad: AdResponse
-  afterMessageId: string
-}
-
 export type GravityAdState = {
   ads: AdResponse[] | null
-  /** Ads interleaved into the transcript, in placement order. */
-  placedAds: PlacedAd[]
+  /**
+   * Batch ads keyed by assistant message id, for the response renderer to
+   * intersperse between the message's rendered sections.
+   */
+  responseAds: Record<string, AdResponse[]>
   isLoading: boolean
   recordClick: (ad: AdResponse) => void
   recordImpression: (ad: AdResponse) => void
@@ -81,6 +70,8 @@ type GravityController = {
   impressionsFired: Set<string>
   adsShownSinceActivity: number
   tickInFlight: boolean
+  batchPromptIds: Set<string> // Prompt message ids a batch fetch has started for
+  batchImpUrls: Set<string> // Every impUrl handed out in a prompt batch (never reused)
 }
 
 // Pure helper: add an ad set to the cache
@@ -105,39 +96,30 @@ function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
 }
 
 /**
- * A completed, streamed LLM answer — the only messages inline ads anchor to.
- * Other top-level 'ai'-variant messages (bash `!command` echoes, system notices,
- * mode dividers) are excluded via the `ai-` id prefix so they don't inflate the
- * spacing cadence or get an ad below them.
+ * A genuine user prompt — the trigger for a batch ad auction and the anchor
+ * for the first ad of the batch. Excludes bash `!command` echoes (they carry
+ * `metadata.bashCwd`) and slash-command echoes, which don't start a response.
  */
-export function isCompletedAnswer(m: ChatMessage): boolean {
+export function isPromptMessage(m: ChatMessage): boolean {
   return (
     !m.parentId &&
-    m.variant === 'ai' &&
-    !!m.isComplete &&
-    m.id.startsWith(AI_MESSAGE_ID_PREFIX)
+    m.variant === 'user' &&
+    !m.metadata?.bashCwd &&
+    !m.content.trimStart().startsWith('/')
   )
 }
 
-/** Frequency knobs for inline ad placement; defaults from the module constants. */
-export type AdPacing = { firstOffset?: number; step?: number }
-
 /**
- * Pure helper: given the ids of completed assistant answers in transcript order,
- * return the ones that should get an inline ad — the answer at `firstOffset`,
- * then every `step` answers after it.
+ * A streamed LLM answer (possibly still in flight). Other top-level
+ * 'ai'-variant messages (bash echoes, system notices, mode dividers) are
+ * excluded via the `ai-` id prefix.
  */
-export function inlineAdAnchorIds(
-  completedAnswerIds: string[],
-  pacing: AdPacing = {},
-): string[] {
-  const firstOffset = pacing.firstOffset ?? AD_FIRST_ANSWER_OFFSET
-  const step = Math.max(1, pacing.step ?? AD_STEP_EXCHANGES)
-  const anchors: string[] = []
-  for (let i = firstOffset; i <= completedAnswerIds.length - 1; i += step) {
-    anchors.push(completedAnswerIds[i]!)
-  }
-  return anchors
+export function isAnswerMessage(m: ChatMessage): boolean {
+  return (
+    !m.parentId &&
+    m.variant === 'ai' &&
+    m.id.startsWith(AI_MESSAGE_ID_PREFIX)
+  )
 }
 
 /**
@@ -159,33 +141,43 @@ function drawUnusedAd(
   }
 }
 
+/** The batch of ads auctioned when a user prompt was sent. */
+export type PromptAdBatch = {
+  promptMessageId: string
+  ads: AdResponse[]
+}
+
 /**
- * Pure helper: compute the inline ads to append this pass. Fills every anchor
- * ({@link inlineAdAnchorIds}) not already in `placedAds`, drawing a *distinct*
- * ad per new anchor via `drawAd` — the same ad is never shown twice in the
- * transcript. Idempotent: anchors already placed are skipped, so re-running with
- * an unchanged transcript adds nothing. Stops when no unused ad is available
- * (empty cache, or every cached ad is already placed), leaving later anchors for
- * a future pass once fresh ads are fetched.
+ * Pure helper: map fetched prompt batches onto the transcript. Each batch is
+ * keyed to the first assistant answer that follows its prompt, so the response
+ * renderer can intersperse the ads between that answer's rendered sections.
+ * Purely derived from (messages, batches), so placements are stable as the
+ * transcript appends and idempotent across re-renders.
  */
-export function computeInlineAdAdditions(params: {
-  completedAnswerIds: string[]
-  placedAds: PlacedAd[]
-  drawAd: () => AdResponse | null
-  pacing?: AdPacing
-}): PlacedAd[] {
-  const { completedAnswerIds, placedAds, drawAd, pacing } = params
-  const placedAnchors = new Set(placedAds.map((p) => p.afterMessageId))
-  const usedImpUrls = new Set(placedAds.map((p) => p.ad.impUrl))
-  const additions: PlacedAd[] = []
-  for (const anchorId of inlineAdAnchorIds(completedAnswerIds, pacing)) {
-    if (placedAnchors.has(anchorId)) continue
-    const ad = drawUnusedAd(drawAd, usedImpUrls)
-    if (!ad) break
-    additions.push({ ad, afterMessageId: anchorId })
-    usedImpUrls.add(ad.impUrl)
+export function computeResponseAds(params: {
+  messages: ChatMessage[]
+  batches: PromptAdBatch[]
+}): Record<string, AdResponse[]> {
+  const { messages, batches } = params
+  const batchByPrompt = new Map(batches.map((b) => [b.promptMessageId, b]))
+
+  const responseAds: Record<string, AdResponse[]> = {}
+  let pendingAds: AdResponse[] | null = null
+
+  for (const m of messages) {
+    if (m.parentId) continue
+    if (isPromptMessage(m)) {
+      const batch = batchByPrompt.get(m.id)
+      pendingAds = batch && batch.ads.length > 0
+        ? batch.ads.slice(0, ADS_PER_PROMPT)
+        : null
+    } else if (isAnswerMessage(m) && pendingAds) {
+      responseAds[m.id] = pendingAds
+      pendingAds = null
+    }
   }
-  return additions
+
+  return responseAds
 }
 
 /**
@@ -193,9 +185,12 @@ export function computeInlineAdAdditions(params: {
  *
  * Behavior:
  * - Ads only start after the user sends their first message
- * - Ads rotate every 60 seconds
- * - After 3 ads without user activity, stops fetching new ads but continues cycling cached ads
- * - Any user activity resets the counter and resumes fetching new ads
+ * - The `ads[0]` slot (rendered above the input box) rotates every 60 seconds
+ * - After 3 rotations without user activity, stops fetching new ads but
+ *   continues cycling cached ads; any user activity resumes fetching
+ * - With `inline`, every user prompt additionally auctions a batch of
+ *   {@link ADS_PER_PROMPT} ads that the block renderer intersperses in the
+ *   assistant response (0 shown for a one-shot answer, more as it grows)
  *
  * Activity is tracked via the global activity-tracker module.
  */
@@ -209,20 +204,26 @@ export const useGravityAd = (options?: {
   /** Product surface requesting the ad. The server maps this to placements. */
   surface?: AdSurface
   /**
-   * Interleave ads into the chat transcript (spaced every few exchanges,
-   * pinned in scrollback) instead of exposing a single rotating `ads[0]` slot.
-   * When set, {@link GravityAdState.placedAds} is populated for the caller to
-   * render inline. The rotating `ads` field still drives ad fetching.
+   * In addition to the rotating `ads[0]` slot, auction a batch of
+   * {@link ADS_PER_PROMPT} ads on every user prompt for the response renderer
+   * to intersperse in the assistant response
+   * ({@link GravityAdState.responseAds}).
    */
   inline?: boolean
+  /**
+   * Explicit provider placement id for the rotating `ads[0]` slot fetches,
+   * so they're auctioned separately from the per-prompt inline batch.
+   */
+  slotPlacementId?: string
 }): GravityAdState => {
   const enabled = options?.enabled ?? true
   const forceStart = options?.forceStart ?? false
   const provider: AdProvider = options?.provider ?? 'gravity'
   const surface = options?.surface
   const inline = options?.inline ?? false
+  const slotPlacementId = options?.slotPlacementId
   const [ads, setAds] = useState<AdResponse[] | null>(null)
-  const [placedAds, setPlacedAds] = useState<PlacedAd[]>([])
+  const [adBatches, setAdBatches] = useState<PromptAdBatch[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   // Check if terminal height is too small to show ads
@@ -251,6 +252,8 @@ export const useGravityAd = (options?: {
     impressionsFired: new Set(),
     adsShownSinceActivity: 0,
     tickInFlight: false,
+    batchPromptIds: new Set(),
+    batchImpUrls: new Set(),
   })
 
   // Ref for the tick function (avoids useCallback dependency issues)
@@ -382,7 +385,9 @@ export const useGravityAd = (options?: {
   type FetchAdResult = { ads: AdResponse[] } | null
 
   // Fetch an ad via web API
-  const fetchAd = async (): Promise<FetchAdResult> => {
+  const fetchAd = async (params?: {
+    placementId?: string
+  }): Promise<FetchAdResult> => {
     // Don't fetch ads when they should be hidden
     if (shouldHideAdsRef.current) return null
     if (!getAdsEnabled()) return null
@@ -437,6 +442,7 @@ export const useGravityAd = (options?: {
           sessionId: useChatStore.getState().chatSessionId,
           device: getDeviceInfo(),
           ...(surface ? { surface } : {}),
+          ...(params?.placementId ? { placementId: params.placementId } : {}),
           // Carbon requires a real browser-ish useragent for targeting/fraud
           // detection. Gravity ignores it. We source one centrally so every
           // provider that needs it sees the same value.
@@ -493,7 +499,9 @@ export const useGravityAd = (options?: {
           ctrl.adsShownSinceActivity < MAX_ADS_AFTER_ACTIVITY &&
           isUserActive(ACTIVITY_THRESHOLD_MS)
 
-        const result = canFetchNew ? await fetchAd() : null
+        const result = canFetchNew
+          ? await fetchAd({ placementId: slotPlacementId })
+          : null
 
         if (result) {
           addToChoiceCache(ctrl, result.ads)
@@ -531,7 +539,7 @@ export const useGravityAd = (options?: {
 
     // Fetch first ad immediately
     void (async () => {
-      const result = await fetchAd()
+      const result = await fetchAd({ placementId: slotPlacementId })
       if (result) {
         const ctrl = ctrlRef.current
         addToChoiceCache(ctrl, result.ads)
@@ -549,46 +557,93 @@ export const useGravityAd = (options?: {
     }
   }, [shouldStart, shouldHideAds, provider, surface])
 
-  // Count of completed assistant answers (a top-level 'ai' message whose turn
-  // has finished). This is the only transcript signal placement cares about — it
-  // ticks up when a turn completes, NOT on every streamed token, so subscribing
-  // to it here doesn't re-render the caller mid-stream.
-  const completedAnswerCount = useChatStore((s) => {
-    if (!inline) return 0
-    let count = 0
-    for (const m of s.messages) {
-      if (isCompletedAnswer(m)) count++
+  // Latest user prompt in the transcript. Changes exactly when the user sends
+  // a new prompt (never on streamed tokens), so it doubles as the trigger for
+  // the per-prompt batch auction.
+  const latestPromptId = useChatStore((s) => {
+    if (!inline) return null
+    for (let i = s.messages.length - 1; i >= 0; i--) {
+      const m = s.messages[i]!
+      if (isPromptMessage(m)) return m.id
     }
-    return count
+    return null
   })
 
-  // Anchor a new ad below completed assistant answers per the pacing knobs,
-  // drawing from the same rotation cache the slot ad cycles through. Placement is
-  // append-only and idempotent (an anchor is filled once, never moved or
-  // re-drawn), so ads stay put in scrollback. Re-runs on `ads` retry any anchor
-  // that couldn't be filled while the cache was still empty.
+  // Auction a batch of ADS_PER_PROMPT ads for every user prompt (one API call
+  // returning all inline placements). If the provider under-fills, top the
+  // batch up with unused ads from the rotation cache so the prompt slot still
+  // shows something. Each prompt is fetched at most once.
   useEffect(() => {
-    if (!inline || shouldHideAds || !getAdsEnabled()) return
+    if (!inline || shouldHideAds || !getAdsEnabled() || !latestPromptId) return
+    const ctrl = ctrlRef.current
+    if (ctrl.batchPromptIds.has(latestPromptId)) return
+    ctrl.batchPromptIds.add(latestPromptId)
 
-    const completedAnswerIds = useChatStore
-      .getState()
-      .messages.filter(isCompletedAnswer)
-      .map((m) => m.id)
+    // A prompt whose answer has already settled was restored from a previous
+    // session (a live prompt is seen here before its answer completes). Don't
+    // retroactively auction ads into settled history.
+    const messages = useChatStore.getState().messages
+    const promptIndex = messages.findIndex((m) => m.id === latestPromptId)
+    const alreadyAnswered = messages
+      .slice(promptIndex + 1)
+      .some((m) => isAnswerMessage(m) && m.isComplete)
+    if (alreadyAnswered) return
 
-    const additions = computeInlineAdAdditions({
-      completedAnswerIds,
-      placedAds,
-      drawAd: () => nextFromChoiceCache(ctrlRef.current)?.[0] ?? null,
+    void (async () => {
+      const result = await fetchAd()
+      const batchAds = (result?.ads ?? []).filter(
+        (ad) => !ctrl.batchImpUrls.has(ad.impUrl),
+      )
+      const usedImpUrls = new Set([
+        ...ctrl.batchImpUrls,
+        ...batchAds.map((ad) => ad.impUrl),
+      ])
+      while (batchAds.length < ADS_PER_PROMPT) {
+        const ad = drawUnusedAd(
+          () => nextFromChoiceCache(ctrl)?.[0] ?? null,
+          usedImpUrls,
+        )
+        if (!ad) break
+        batchAds.push(ad)
+        usedImpUrls.add(ad.impUrl)
+      }
+      if (batchAds.length === 0) return
+      for (const ad of batchAds) ctrl.batchImpUrls.add(ad.impUrl)
+      setAdBatches((prev) => [
+        ...prev,
+        { promptMessageId: latestPromptId, ads: batchAds },
+      ])
+    })()
+  }, [inline, shouldHideAds, latestPromptId])
+
+  // Transcript shape signature: which top-level messages exist and what kind
+  // they are. Changes when a message is added — not on streamed content — so
+  // placement recomputes exactly when a new anchor could appear.
+  const transcriptSignature = useChatStore((s) => {
+    if (!inline) return ''
+    let sig = ''
+    for (const m of s.messages) {
+      if (m.parentId) continue
+      sig += `${m.id}:${m.variant};`
+    }
+    return sig
+  })
+
+  // Recomputes when the transcript shape or the batches change; reads the full
+  // messages at that moment (their streamed content doesn't affect placement).
+  const responseAds = useMemo(() => {
+    if (!inline) return {}
+    return computeResponseAds({
+      messages: useChatStore.getState().messages,
+      batches: adBatches,
     })
-
-    if (additions.length > 0) setPlacedAds((prev) => [...prev, ...additions])
-  }, [inline, shouldHideAds, completedAnswerCount, ads, placedAds])
+  }, [inline, transcriptSignature, adBatches])
 
   // Don't return ads when ads should be hidden
   const visible = shouldStart && !shouldHideAds
   return {
     ads: visible ? ads : null,
-    placedAds: visible ? placedAds : [],
+    responseAds: visible ? responseAds : {},
     isLoading,
     recordClick,
     recordImpression: recordImpressionOnce,

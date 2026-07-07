@@ -1,4 +1,5 @@
 import React, { memo, useMemo, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { AgentBlockGrid } from './agent-block-grid'
 import { AgentBranchWrapper } from './agent-branch-wrapper'
@@ -7,10 +8,21 @@ import { ImplementorGroup } from './implementor-row'
 import { SingleBlock } from './single-block'
 import { ThinkingBlock } from './thinking-block'
 import { ToolBlockGroup } from './tool-block-group'
+import { AdCard } from '../ad-banner'
+import { useMessageBlockStore } from '../../state/message-block-store'
 import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
+import { responseAdNodePositions } from '../../utils/response-ad-positions'
 
+import type { ReactNode } from 'react'
 import type { ContentBlock } from '../../types/chat'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
+
+// `availableWidth` is terminalWidth - 2, but message content is clipped
+// tighter: the transcript scrollbox pads its content (1 left + 2 right) and
+// the message adds a 1-col side gutter each side, for a net 3 columns less.
+// Size interspersed ad cards to the clipped interior so their right border
+// stays visible.
+const RESPONSE_AD_WIDTH_INSET = 3
 
 interface BlocksRendererProps {
   sourceBlocks: ContentBlock[]
@@ -204,6 +216,51 @@ export const BlocksRenderer = memo(
       [], // Empty deps - handlers read from propsRef.current
     )
 
-    return <>{processBlocks(sourceBlocks, handlers)}</>
+    // Ads assigned to this assistant response by the ads hook (via chat.tsx).
+    // Only top-level streamed answers ever get an entry, so this is undefined
+    // for user messages, agent branches, and system notices.
+    const responseAds = useMessageBlockStore(
+      (state) => state.context.responseAds[messageId],
+    )
+    const { onAdClick, onAdImpression } = useMessageBlockStore(
+      useShallow((state) => ({
+        onAdClick: state.callbacks.onAdClick,
+        onAdImpression: state.callbacks.onAdImpression,
+      })),
+    )
+
+    const nodes = processBlocks(sourceBlocks, handlers)
+
+    if (!responseAds || responseAds.length === 0) {
+      return <>{nodes}</>
+    }
+
+    // Intersperse ads between rendered nodes. Positions depend only on the
+    // node count (nodes are append-only while streaming), so each ad stays put
+    // once its slot has a following node.
+    const positions = responseAdNodePositions({
+      nodeCount: nodes.length,
+      adCount: responseAds.length,
+    })
+    const children: ReactNode[] = []
+    let nextAd = 0
+    nodes.forEach((node, i) => {
+      children.push(node)
+      if (nextAd < positions.length && positions[nextAd] === i) {
+        const ad = responseAds[nextAd]!
+        children.push(
+          <AdCard
+            key={`response-ad-${ad.impUrl}`}
+            ad={ad}
+            width={Math.max(20, availableWidth - RESPONSE_AD_WIDTH_INSET)}
+            onClick={onAdClick}
+            onImpression={onAdImpression}
+          />,
+        )
+        nextAd++
+      }
+    })
+
+    return <>{children}</>
   },
 )

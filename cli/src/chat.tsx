@@ -2,7 +2,6 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 import { safeOpen } from './utils/open-url'
 import {
-  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -14,7 +13,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { InlineAdBanner } from './components/ad-banner'
+import { SingleAdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
@@ -191,21 +190,22 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { placedAds, recordClick, recordImpression } = useGravityAd({
+  const { ads, responseAds, recordClick, recordImpression } = useGravityAd({
     enabled: IS_FREEBUFF || !hasSubscription,
     provider: 'gravity',
     inline: true,
     surface: 'cli_chat',
+    // The rotating above-input slot auctions separately from the
+    // per-prompt inline batch. Keeps the legacy placement id from when the
+    // chat surface was a single rotating ad, for reporting continuity.
+    slotPlacementId: 'Single-Ad-Unit-1',
   })
-
-  // Index placed ads by the message they're anchored below, so the transcript
-  // render can drop each ad in right after its anchor message.
-  const adByAnchor = useMemo(() => {
-    const map = new Map<string, (typeof placedAds)[number]>()
-    for (const placed of placedAds) map.set(placed.afterMessageId, placed)
-    return map
-  }, [placedAds])
   const showInlineAds = IS_FREEBUFF || getAdsEnabled()
+
+  // Stable identities so the message-block callbacks (set once) always call
+  // the latest recorder from the hook.
+  const handleAdClick = useEvent(recordClick)
+  const handleAdImpression = useEvent(recordImpression)
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -1298,6 +1298,7 @@ export const Chat = ({
       isWaitingForResponse,
       timerStartTime,
       availableWidth: messageAvailableWidth,
+      responseAds: showInlineAds ? responseAds : {},
     })
   }, [
     theme,
@@ -1306,6 +1307,8 @@ export const Chat = ({
     isWaitingForResponse,
     timerStartTime,
     messageAvailableWidth,
+    responseAds,
+    showInlineAds,
     setMessageBlockContext,
   ])
 
@@ -1318,6 +1321,8 @@ export const Chat = ({
       onBuildLite: handleBuildLite,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
+      onAdClick: handleAdClick,
+      onAdImpression: handleAdImpression,
     })
   }, [
     handleCollapseToggle,
@@ -1326,6 +1331,8 @@ export const Chat = ({
     handleBuildLite,
     handleMessageFeedback,
     handleCloseFeedback,
+    handleAdClick,
+    handleAdImpression,
     setMessageBlockCallbacks,
   ])
 
@@ -1524,27 +1531,15 @@ export const Chat = ({
             onLoadMore={handleLoadPreviousMessages}
           />
         )}
-        {visibleTopLevelMessages.map((message, idx) => {
-          const isLast = idx === visibleTopLevelMessages.length - 1
-          const anchoredAd = adByAnchor.get(message.id)
-          return (
-            <Fragment key={message.id}>
-              <MessageWithAgents
-                message={message}
-                depth={0}
-                isLastMessage={isLast}
-                availableWidth={messageAvailableWidth}
-              />
-              {showInlineAds && anchoredAd && (
-                <InlineAdBanner
-                  ad={anchoredAd.ad}
-                  onClick={recordClick}
-                  onImpression={recordImpression}
-                />
-              )}
-            </Fragment>
-          )
-        })}
+        {visibleTopLevelMessages.map((message, idx) => (
+          <MessageWithAgents
+            key={message.id}
+            message={message}
+            depth={0}
+            isLastMessage={idx === visibleTopLevelMessages.length - 1}
+            availableWidth={messageAvailableWidth}
+          />
+        ))}
         {/* Pending bash messages as ghost messages (only show those not already in history) */}
         {pendingBashMessages
           .filter((msg) => !msg.addedToHistory)
@@ -1581,6 +1576,14 @@ export const Chat = ({
               returnToFreebuffLanding({ resetChat: true }).catch(() => {})
             }}
             freebuffSession={freebuffSession}
+          />
+        )}
+
+        {ads?.[0] && showInlineAds && (
+          <SingleAdBanner
+            ad={ads[0]}
+            onClick={recordClick}
+            onImpression={recordImpression}
           />
         )}
 

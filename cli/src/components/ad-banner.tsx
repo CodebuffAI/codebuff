@@ -63,17 +63,25 @@ function columnWidths(count: number, availableWidth: number): number[] {
 }
 
 /**
- * A single ad card. Used full-width by {@link SingleAdBanner} (chat) and in a
- * row of columns by {@link ChoiceAdBanner} (landing screen). Manages its own
- * hover state so each card highlights independently.
+ * A single ad card: full-width above the input ({@link SingleAdBanner}),
+ * content-width when interspersed inside an assistant response
+ * (BlocksRenderer), and in a row of columns on the landing screen
+ * ({@link ChoiceAdBanner}). Manages its own hover state and
+ * fires its impression on mount and on ad rotation (deduped per impUrl in the
+ * ads hook, so remounts and scroll churn don't double-count).
  */
-const AdCard: React.FC<{
+export const AdCard: React.FC<{
   ad: AdResponse
   width: number
   onClick?: (ad: AdResponse) => void
-}> = ({ ad, width, onClick }) => {
+  onImpression?: (ad: AdResponse) => void
+}> = ({ ad, width, onClick, onImpression }) => {
   const theme = useTheme()
   const [isHovered, setIsHovered] = useState(false)
+
+  useEffect(() => {
+    onImpression?.(ad)
+  }, [ad, onImpression])
 
   const ctaText = ad.cta || ad.title || 'Learn more'
   const label = getAdDisplayLabel(ad)
@@ -136,9 +144,8 @@ const AdCard: React.FC<{
 }
 
 /**
- * Single ad shown below the chat response. The ad-placement experiment found
- * one ad outperformed the multi-ad "choice" format, so the chat surface always
- * renders exactly one ad spanning the full width.
+ * The rotating ad pinned above the chat input box. Rerenders (and fires a new
+ * impression) each time the hook rotates `ads[0]`.
  */
 export const SingleAdBanner: React.FC<{
   ad: AdResponse
@@ -147,43 +154,9 @@ export const SingleAdBanner: React.FC<{
 }> = ({ ad, onClick, onImpression }) => {
   const { terminalWidth } = useTerminalDimensions()
 
-  // Full width minus left/right margin of 1 each.
-  const width = terminalWidth - 2
-
-  useEffect(() => {
-    onImpression?.(ad)
-  }, [ad, onImpression])
-
   return (
     <box style={{ marginLeft: 1, marginRight: 1 }}>
-      <AdCard ad={ad} width={width} onClick={onClick} />
-    </box>
-  )
-}
-
-/**
- * A single ad embedded inside the chat transcript, anchored below a message so
- * it stays in scrollback. Same card as {@link SingleAdBanner} but with a bottom
- * spacer so it reads as its own block between messages; fires its impression on
- * mount (deduped per impUrl in the hook, so scroll churn won't double-count).
- */
-export const InlineAdBanner: React.FC<{
-  ad: AdResponse
-  onClick?: (ad: AdResponse) => void
-  onImpression?: (ad: AdResponse) => void
-}> = ({ ad, onClick, onImpression }) => {
-  const { terminalWidth } = useTerminalDimensions()
-
-  // Full width minus left/right margin of 1 each.
-  const width = terminalWidth - 2
-
-  useEffect(() => {
-    onImpression?.(ad)
-  }, [ad, onImpression])
-
-  return (
-    <box style={{ marginLeft: 1, marginRight: 1, paddingBottom: 1 }}>
-      <AdCard ad={ad} width={width} onClick={onClick} />
+      <AdCard ad={ad} width={terminalWidth - 2} onClick={onClick} onImpression={onImpression} />
     </box>
   )
 }
@@ -211,15 +184,6 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
 
   const widths = useMemo(() => columnWidths(visibleAds.length, colAvail), [visibleAds.length, colAvail])
 
-  // Fire impressions only for visible ads
-  useEffect(() => {
-    if (onImpression) {
-      for (const ad of visibleAds) {
-        onImpression(ad)
-      }
-    }
-  }, [visibleAds, onImpression])
-
   return (
     <box
       style={{
@@ -236,7 +200,13 @@ export const ChoiceAdBanner: React.FC<ChoiceAdBannerProps> = ({
         }}
       >
         {visibleAds.map((ad, i) => (
-          <AdCard key={ad.impUrl} ad={ad} width={widths[i]} onClick={onClick} />
+          <AdCard
+            key={ad.impUrl}
+            ad={ad}
+            width={widths[i]}
+            onClick={onClick}
+            onImpression={onImpression}
+          />
         ))}
       </box>
     </box>
