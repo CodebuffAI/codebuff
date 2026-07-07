@@ -472,6 +472,8 @@ export const AgentBranchWrapper = memo(
       onToggleCollapsed(agentBlock.agentId)
     }, [onToggleCollapsed, agentBlock.agentId])
 
+    const agentBodyAvailableWidth = Math.max(10, availableWidth - 4)
+
     return (
       <box
         key={keyPrefix}
@@ -500,7 +502,7 @@ export const AgentBranchWrapper = memo(
             agentBlock={agentBlock}
             keyPrefix={keyPrefix}
             parentIsStreaming={isStreaming}
-            availableWidth={availableWidth}
+            availableWidth={agentBodyAvailableWidth}
             markdownPalette={markdownPalette}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}

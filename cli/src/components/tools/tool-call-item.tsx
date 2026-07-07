@@ -21,6 +21,13 @@ interface ToolCallItemProps {
   availableWidth?: number
 }
 
+const boundedColumnStyle = {
+  flexDirection: 'column' as const,
+  flexGrow: 1,
+  flexShrink: 1,
+  minWidth: 0,
+}
+
 const isTextRenderable = (value: ReactNode): boolean => {
   if (value === null || value === undefined || typeof value === 'boolean') {
     return false
@@ -92,10 +99,7 @@ const renderExpandedContent = (
   if (React.isValidElement(value)) {
     if (value.key === null || value.key === undefined) {
       return (
-        <box
-          key="tool-expanded-node"
-          style={{ flexDirection: 'column', gap: 0, width: '100%' }}
-        >
+        <box key="tool-expanded-node" style={{ ...boundedColumnStyle, gap: 0 }}>
           {value}
         </box>
       )
@@ -105,14 +109,11 @@ const renderExpandedContent = (
 
   if (Array.isArray(value)) {
     return (
-      <box
-        key="tool-expanded-array"
-        style={{ flexDirection: 'column', gap: 0 }}
-      >
+      <box key="tool-expanded-array" style={{ ...boundedColumnStyle, gap: 0 }}>
         {value.map((child, idx) => (
           <box
             key={`tool-expanded-array-${idx}`}
-            style={{ flexDirection: 'column', gap: 0, width: '100%' }}
+            style={{ ...boundedColumnStyle, gap: 0 }}
           >
             {child}
           </box>
@@ -122,10 +123,7 @@ const renderExpandedContent = (
   }
 
   return (
-    <box
-      key="tool-expanded-unknown"
-      style={{ flexDirection: 'column', gap: 0 }}
-    >
+    <box key="tool-expanded-unknown" style={{ ...boundedColumnStyle, gap: 0 }}>
       {value}
     </box>
   )
@@ -147,7 +145,15 @@ export const SimpleToolCallItem = ({
   const bulletChar = '• '
 
   return (
-    <box style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+    <box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexGrow: 1,
+        flexShrink: 1,
+        minWidth: 0,
+      }}
+    >
       <text style={{ wrapMode: 'word' }}>
         <span fg={theme.foreground}>{bulletChar}</span>
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
@@ -207,16 +213,15 @@ export const ToolCallItem = ({
   const showCollapsedPreview = rawCollapsedPreviewText.length > 0
 
   return (
-    <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+    <box style={{ ...boundedColumnStyle, gap: 0 }}>
       <box
         style={{
-          flexDirection: 'column',
+          ...boundedColumnStyle,
           gap: 0,
           paddingLeft: 0,
           paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
-          width: '100%',
         }}
       >
         <Button
@@ -227,7 +232,9 @@ export const ToolCallItem = ({
             paddingRight: 0,
             paddingTop: 0,
             paddingBottom: 0,
-            width: '100%',
+            flexGrow: 1,
+            flexShrink: 1,
+            minWidth: 0,
           }}
           onClick={onToggle}
         >
@@ -262,7 +269,9 @@ export const ToolCallItem = ({
                 paddingRight: 0,
                 paddingTop: 0,
                 paddingBottom: 0,
-                width: '100%',
+                flexGrow: 1,
+                flexShrink: 1,
+                minWidth: 0,
               }}
             >
               <text
@@ -284,7 +293,9 @@ export const ToolCallItem = ({
               paddingRight: dense ? 0 : toggleIndent,
               paddingTop: 0,
               paddingBottom: 0,
-              width: '100%',
+              flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 0,
             }}
           >
             {renderExpandedContent(

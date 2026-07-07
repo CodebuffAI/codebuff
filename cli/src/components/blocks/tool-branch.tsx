@@ -150,7 +150,15 @@ export const ToolBranch = memo(
     }, [onToggleCollapsed, toolBlock.toolCallId])
 
     return (
-      <box key={keyPrefix}>
+      <box
+        key={keyPrefix}
+        style={{
+          flexDirection: 'column',
+          flexGrow: 1,
+          flexShrink: 1,
+          minWidth: 0,
+        }}
+      >
         {toolRenderConfig ? (
           toolRenderConfig.content
         ) : (

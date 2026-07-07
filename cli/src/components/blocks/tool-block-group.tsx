@@ -48,6 +48,9 @@ export const ToolBlockGroup = memo(
         style={{
           flexDirection: 'column',
           gap: 0,
+          flexGrow: 1,
+          flexShrink: 1,
+          minWidth: 0,
         }}
       >
         {groupNodes}

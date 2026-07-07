@@ -124,6 +124,13 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     return false
   }
 
+  const boundedColumnStyle = {
+    flexDirection: 'column' as const,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  }
+
   const renderExpandedContent = (value: ReactNode): ReactNode => {
     if (
       value === null ||
@@ -154,7 +161,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     if (React.isValidElement(value)) {
       if (value.key === null || value.key === undefined) {
         return (
-          <box key="expanded-node" style={{ flexDirection: 'column', gap: 1 }}>
+          <box key="expanded-node" style={{ ...boundedColumnStyle, gap: 1 }}>
             {value}
           </box>
         )
@@ -164,11 +171,11 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
 
     if (Array.isArray(value)) {
       return (
-        <box key="expanded-array" style={{ flexDirection: 'column', gap: 1 }}>
+        <box key="expanded-array" style={{ ...boundedColumnStyle, gap: 1 }}>
           {value.map((child, idx) => (
             <box
               key={`expanded-array-${idx}`}
-              style={{ flexDirection: 'column', gap: 0 }}
+              style={{ ...boundedColumnStyle, gap: 0 }}
             >
               {child}
             </box>
@@ -178,7 +185,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     }
 
     return (
-      <box key="expanded-unknown" style={{ flexDirection: 'column', gap: 1 }}>
+      <box key="expanded-unknown" style={{ ...boundedColumnStyle, gap: 1 }}>
         {value}
       </box>
     )
@@ -193,7 +200,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
         marginTop: 0,
         marginBottom: 0,
         paddingBottom: 0,
-        width: '100%',
+        flexGrow: 1,
         minWidth: 0,
       }}
     >
@@ -209,7 +216,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
           paddingRight: 0,
           paddingTop: 0,
           paddingBottom: 0,
-          width: '100%',
+          flexGrow: 1,
           minWidth: 0,
           flexShrink: 1,
         }}
@@ -222,7 +229,9 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             paddingRight: 1,
             paddingTop: 0,
             paddingBottom: 0,
-            width: '100%',
+            flexGrow: 1,
+            flexShrink: 1,
+            minWidth: 0,
           }}
           onClick={onToggle}
         >
@@ -258,7 +267,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                 paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
-                width: '100%',
+                flexGrow: 1,
                 minWidth: 0,
               }}
               onClick={onToggle}
@@ -275,7 +284,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
         ) : (
           <box
             style={{
-              flexDirection: 'column',
+              ...boundedColumnStyle,
               gap: 0,
               paddingLeft: 1,
               paddingRight: 1,
@@ -288,6 +297,9 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                 style={{
                   flexDirection: 'row',
                   gap: 0,
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  minWidth: 0,
                   alignItems: 'stretch',
                   marginBottom: children ? 1 : 0,
                 }}
@@ -327,6 +339,9 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             style={{
               paddingLeft: 1,
               paddingBottom: 0,
+              flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 0,
             }}
           >
             <text>

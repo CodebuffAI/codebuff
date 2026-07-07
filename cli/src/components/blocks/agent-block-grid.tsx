@@ -42,7 +42,15 @@ export const AgentBlockGrid = memo(
     if (agentBlocks.length === 0) return null
 
     return (
-      <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+      <box
+        style={{
+          flexDirection: 'column',
+          gap: 0,
+          flexGrow: 1,
+          flexShrink: 1,
+          minWidth: 0,
+        }}
+      >
         {subGroups.map((group) => (
           <GridLayout
             key={getItemKey(group[0])}

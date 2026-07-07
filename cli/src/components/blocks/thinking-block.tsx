@@ -4,9 +4,9 @@ import { Thinking } from '../thinking'
 
 import type { ContentBlock } from '../../types/chat'
 
-// Nested thinking blocks need more offset to account for the subagent's border and padding
-const WIDTH_OFFSET = 6
-const NESTED_WIDTH_OFFSET = 10
+// Parent components pass the exact content width available to the Thinking UI.
+const WIDTH_OFFSET = 0
+const NESTED_WIDTH_OFFSET = 0
 
 interface ThinkingBlockProps {
   blocks: Extract<ContentBlock, { type: 'text' }>[]
@@ -53,7 +53,14 @@ export const ThinkingBlock = memo(
     }
 
     return (
-      <box>
+      <box
+        style={{
+          flexDirection: 'column',
+          flexGrow: 1,
+          flexShrink: 1,
+          minWidth: 0,
+        }}
+      >
         <Thinking
           content={combinedContent}
           thinkingCollapseState={thinkingCollapseState}

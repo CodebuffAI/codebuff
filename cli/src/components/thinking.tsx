@@ -4,7 +4,7 @@ import React, { memo, type ReactNode } from 'react'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
-import { getLastNVisualLines } from '../utils/text-layout'
+import { getLastNVisualLines, wrapTextPreservingNewlines } from '../utils/text-layout'
 
 import type { ThinkingCollapseState } from '../types/chat'
 
@@ -39,17 +39,22 @@ export const Thinking = memo(
     }
 
     const width = Math.max(10, availableWidth ?? contentMaxWidth)
+    // Child rows are indented by two cells, and preview rows may also carry
+    // the ellipsis prefix, so wrap text to the space the renderer actually has.
+    const previewWidth = Math.max(10, width - 2 - 3)
+    const expandedWidth = Math.max(10, width - 2)
     // Normalize content to single line for consistent preview (but preserve in expanded mode)
     const normalizedContent = content.replace(/\n+/g, ' ').trim()
-    // Account for "..." prefix (3 chars) when calculating line widths
-    const effectiveWidth = width - 3
     const { lines, hasMore } = getLastNVisualLines(
       normalizedContent,
-      effectiveWidth,
+      previewWidth,
       PREVIEW_LINE_COUNT,
     )
-    // In expanded mode, preserve original line breaks for proper markdown rendering
-    const expandedContent = content.replace(/\n\n+/g, '\n\n').trim()
+    // In expanded mode, preserve original line breaks while hard-wrapping long tokens.
+    const expandedContent = wrapTextPreservingNewlines(
+      content.replace(/\n\n+/g, '\n\n').trim(),
+      expandedWidth,
+    )
 
     const showFull = thinkingCollapseState === 'expanded'
     const showPreview = thinkingCollapseState === 'preview' && lines.length > 0
@@ -65,6 +70,9 @@ export const Thinking = memo(
         style={{
           flexDirection: 'column',
           gap: 0,
+          flexGrow: 1,
+          flexShrink: 1,
+          minWidth: 0,
         }}
         onClick={onToggle}
       >
@@ -73,7 +81,14 @@ export const Thinking = memo(
           <span attributes={TextAttributes.BOLD}>Thinking</span>
         </text>
         {showPreview && (
-          <box style={{ paddingLeft: 2 }}>
+          <box
+            style={{
+              paddingLeft: 2,
+              flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 0,
+            }}
+          >
             <text
               style={{
                 wrapMode: 'none',
@@ -86,10 +101,17 @@ export const Thinking = memo(
           </box>
         )}
         {showFull && (
-          <box style={{ paddingLeft: 2 }}>
+          <box
+            style={{
+              paddingLeft: 2,
+              flexGrow: 1,
+              flexShrink: 1,
+              minWidth: 0,
+            }}
+          >
             <text
               style={{
-                wrapMode: 'word',
+                wrapMode: 'none',
                 fg: theme.muted,
               }}
               attributes={TextAttributes.ITALIC}
