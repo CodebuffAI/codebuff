@@ -11,6 +11,7 @@ import {
   FREEBUFF_HY3_ATLAS_MODEL_ID,
   FREEBUFF_HY3_MODEL_ID,
   FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID,
+  FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_KIMI_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_IDS,
@@ -151,7 +152,7 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_KIMI_MODEL_ID)
   })
 
-  test('HY3 OpenRouter free is available only in the Freebuff Web model set for now', () => {
+  test('HY3 OpenRouter trial is available only as a Freebuff Web premium model for now', () => {
     expect(FREEBUFF_HY3_MODEL_ID).toBe(FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID)
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
       FREEBUFF_HY3_MODEL_ID,
@@ -164,7 +165,7 @@ describe('freebuff model availability', () => {
     )
 
     expect(isFreebuffWebModelId(FREEBUFF_HY3_MODEL_ID)).toBe(true)
-    expect(isFreebuffWebPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
+    expect(isFreebuffWebPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(true)
     expect(isFreebuffPremiumModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
     expect(isFreebuffModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
     expect(isSupportedFreebuffModelId(FREEBUFF_HY3_MODEL_ID)).toBe(false)
@@ -172,6 +173,9 @@ describe('freebuff model availability', () => {
       FREEBUFF_HY3_MODEL_ID,
     )
     expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).displayName).toBe('HY3')
+    expect(getFreebuffWebModel(FREEBUFF_HY3_MODEL_ID).tagline).toBe(
+      'Trialing its performance',
+    )
   })
 
   test('HY3 Atlas is a god-only Freebuff Web premium model', () => {
@@ -200,6 +204,35 @@ describe('freebuff model availability', () => {
     expect(getFreebuffWebModel(FREEBUFF_HY3_ATLAS_MODEL_ID).displayName).toBe(
       'HY3 Atlas',
     )
+  })
+
+  test('KAT Coder Pro V2 is a Freebuff Web premium test model', () => {
+    expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(
+      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+    )
+    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+    )
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
+      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+    )
+
+    expect(isFreebuffWebModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID)).toBe(true)
+    expect(
+      isFreebuffWebPremiumModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID),
+    ).toBe(true)
+    expect(isFreebuffPremiumModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID)).toBe(
+      false,
+    )
+    expect(
+      isFreebuffWebGodOnlyModelId(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID),
+    ).toBe(false)
+    expect(resolveFreebuffWebModel(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID)).toBe(
+      FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+    )
+    expect(
+      getFreebuffWebModel(FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID).displayName,
+    ).toBe('KAT Coder Pro V2')
   })
 
   test('MiniMax M2.7 support is fully removed', () => {

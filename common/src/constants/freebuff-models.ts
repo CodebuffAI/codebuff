@@ -61,6 +61,8 @@ export const FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID =
   openrouterModels.openrouter_tencent_hy3_free
 export const FREEBUFF_HY3_ATLAS_MODEL_ID = atlasCloudModels.tencentHy3
 export const FREEBUFF_HY3_MODEL_ID = FREEBUFF_HY3_OPENROUTER_FREE_MODEL_ID
+export const FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID =
+  openrouterModels.openrouter_kwaipilot_kat_coder_pro_v2
 export const FREEBUFF_MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
 export const FREEBUFF_MIMO_V25_PRO_MODEL_ID = mimoModels.mimoV25Pro
@@ -204,9 +206,9 @@ const KIMI_MODEL = {
 const HY3_MODEL = {
   id: FREEBUFF_HY3_MODEL_ID,
   displayName: 'HY3',
-  tagline: 'Free via OpenRouter',
+  tagline: 'Trialing its performance',
   availability: 'always',
-  premium: false,
+  premium: true,
   multimodal: false,
 } as const satisfies FreebuffModelOption
 
@@ -214,6 +216,15 @@ const HY3_ATLAS_MODEL = {
   id: FREEBUFF_HY3_ATLAS_MODEL_ID,
   displayName: 'HY3 Atlas',
   tagline: 'Direct via Atlas Cloud',
+  availability: 'always',
+  premium: true,
+  multimodal: false,
+} as const satisfies FreebuffModelOption
+
+const KAT_CODER_PRO_V2_MODEL = {
+  id: FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
+  displayName: 'KAT Coder Pro V2',
+  tagline: 'Coding test model',
   availability: 'always',
   premium: true,
   multimodal: false,
@@ -296,6 +307,7 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
  *  surfaces do not pick it up during the initial web rollout. */
 export const FREEBUFF_WEB_MODELS = [
   HY3_MODEL,
+  KAT_CODER_PRO_V2_MODEL,
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -314,6 +326,8 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = [
 
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   ...FREEBUFF_PREMIUM_MODEL_IDS,
+  FREEBUFF_HY3_MODEL_ID,
+  FREEBUFF_KAT_CODER_PRO_V2_MODEL_ID,
   FREEBUFF_HY3_ATLAS_MODEL_ID,
 ] as const
 
