@@ -39,8 +39,12 @@
  * - We hold no handle to the grandchild, so clean shutdown can't kill it.
  *   Instead stopTerminalWatchdog() synchronously drops a disarm file; the
  *   watchdog checks it after Wait-Process and exits silently when present.
- * - Windows PowerShell 5.1 always exists; scripts go through -EncodedCommand
- *   (base64 UTF-16LE) so no command-line quoting can break them.
+ * - Windows PowerShell 5.1 always exists and is invoked by absolute path.
+ *   Scripts are passed as plain -Command text so the command lines stay
+ *   human-readable in process listings (encoded PowerShell spawned by a CLI
+ *   is a classic EDR/AV malware heuristic). They are deliberately built
+ *   without double quotes, which makes that quoting-safe — see
+ *   spawnWindowsWatchdog.
  * - Arming takes a few hundred ms (PowerShell boot); deaths inside that
  *   window fall back to the pre-existing behavior (npm wrapper or nothing).
  */
@@ -78,19 +82,17 @@ function psQuote(value: string): string {
   return `'${value.replace(/'/g, "''")}'`
 }
 
-function encodePsCommand(script: string): string {
-  return Buffer.from(script, 'utf16le').toString('base64')
-}
-
 function spawnWindowsWatchdog(options: {
   ttyPath?: string
   disarmPath: string
 }): ChildProcess {
-  // `${e}` (explicit-brace variable expansion) keeps the sequences literal in
-  // the PowerShell double-quoted string; none of them contain `"`, backticks,
-  // or `$`. Raw ASCII bytes avoid any Console.Out encoding translation, so
-  // the reset payload arrives byte-exact.
-  const payload = TERMINAL_RESET_SEQUENCES.replace(/\x1b/g, '${e}')
+  // The payload rides as a numeric byte array, which keeps the script free of
+  // double quotes and string interpolation (the no-`"` invariant the quoting
+  // below relies on) and avoids any Console.Out encoding translation, so the
+  // reset payload arrives byte-exact.
+  const payloadBytes = Array.from(
+    Buffer.from(TERMINAL_RESET_SEQUENCES, 'ascii'),
+  ).join(',')
   // Tests observe a file instead of the console; production writes to the
   // watchdog's stdout, which is the console (Start-Process -NoNewWindow
   // without redirection leaves the grandchild on our console's handles).
@@ -108,8 +110,7 @@ function spawnWindowsWatchdog(options: {
     `if (Test-Path -LiteralPath ${psQuote(options.disarmPath)}) { ` +
     `Remove-Item -LiteralPath ${psQuote(options.disarmPath)} -Force -ErrorAction SilentlyContinue ` +
     `} else { ` +
-    `$e=[char]27; ` +
-    `$b=[System.Text.Encoding]::ASCII.GetBytes("${payload}"); ` +
+    `$b=[byte[]](${payloadBytes}); ` +
     `${writeResets} }`
 
   // Windows PowerShell 5.1 ships with every supported Windows; use the
@@ -123,19 +124,22 @@ function spawnWindowsWatchdog(options: {
     'powershell.exe',
   )
 
+  // Plain -Command (not -EncodedCommand) so the command lines are auditable
+  // in process listings — encoded PowerShell trips EDR/AV heuristics. This is
+  // quoting-safe because the watchdog script contains no `"` (paths are
+  // single-quoted, the payload is numeric): it survives as the one
+  // double-quoted region of the grandchild's argument string, which
+  // Start-Process passes verbatim (single pre-built -ArgumentList string). On
+  // the bootstrap's own command line those `"` are escaped as \" by spawn,
+  // which powershell.exe's argv tokenizer unescapes.
+  const watchdogArgs = `-NoProfile -NonInteractive -Command "${watchdogScript}"`
   const bootstrapScript =
     `Start-Process -FilePath ${psQuote(powershell)} ` +
-    `-ArgumentList '-NoProfile','-NonInteractive','-EncodedCommand',` +
-    `${psQuote(encodePsCommand(watchdogScript))} -NoNewWindow`
+    `-ArgumentList ${psQuote(watchdogArgs)} -NoNewWindow`
 
   return spawn(
     powershell,
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-EncodedCommand',
-      encodePsCommand(bootstrapScript),
-    ],
+    ['-NoProfile', '-NonInteractive', '-Command', bootstrapScript],
     {
       stdio: ['ignore', 'ignore', 'ignore'],
     },
@@ -174,6 +178,9 @@ export function startTerminalWatchdog(options?: { ttyPath?: string }): void {
     }
     child.on('error', () => {
       watchdog = null
+      // A watchdog that never spawned will never consume the disarm file;
+      // don't leave stopTerminalWatchdog() writing one nothing will delete.
+      disarmFilePath = null
     })
     // Don't let the watchdog (or our write end of its pipe) hold the event
     // loop open — the CLI must still be able to exit naturally. stdin is a

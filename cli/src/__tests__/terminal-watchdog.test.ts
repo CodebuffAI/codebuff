@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -51,6 +51,16 @@ function readTty(ttyPath: string): string {
   }
 }
 
+/**
+ * Disarm files the fixture left in the temp dir (Windows watchdog only;
+ * POSIX never creates one). Named codebuff-watchdog-disarm-<pid>-<random>.
+ */
+function findDisarmFiles(pid: number | undefined): string[] {
+  return readdirSync(tmpdir()).filter((name) =>
+    name.startsWith(`codebuff-watchdog-disarm-${pid}-`),
+  )
+}
+
 async function pollForContent(ttyPath: string, timeoutMs: number): Promise<string> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -89,5 +99,13 @@ describe('terminal watchdog', () => {
       setTimeout(r, process.platform === 'win32' ? 3_000 : 500),
     )
     expect(readTty(ttyPath)).toBe('')
+
+    // The watchdog consumes (deletes) the disarm file when it wakes, so
+    // clean exits must not litter the temp dir.
+    const deadline = Date.now() + 10_000
+    while (Date.now() < deadline && findDisarmFiles(child.pid).length > 0) {
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    expect(findDisarmFiles(child.pid)).toEqual([])
   }, 60_000)
 })
