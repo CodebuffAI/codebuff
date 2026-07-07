@@ -780,6 +780,10 @@ export function jsonToolResult<T extends JSONValue>(
       value: T
     },
   ] {
+  // The ai SDK's `modelMessageSchema` accepts bare-array tool-result values,
+  // so we sanitize directly without any top-level envelope. Recursion through
+  // `sanitizeJsonToolResultValue` preserves nested arrays and drops
+  // non-JSON-safe values (undefined, functions, symbols, non-finite numbers).
   return [
     {
       type: 'json',

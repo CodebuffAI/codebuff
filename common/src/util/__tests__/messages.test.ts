@@ -239,6 +239,55 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
+    it('should pass a bare-array json tool-result value through unchanged (schema accepts arrays)', () => {
+      const messages: Message[] = [
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_123',
+          toolName: 'test_tool',
+          input: {},
+        }),
+        {
+          role: 'tool',
+          toolName: 'test_tool',
+          toolCallId: 'call_123',
+          content: jsonToolResult([{ path: 'src/file.ts', content: 'content' }]),
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: [
+            expect.objectContaining({
+              type: 'tool-call',
+              toolCallId: 'call_123',
+              toolName: 'test_tool',
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          role: 'tool',
+          content: [
+            expect.objectContaining({
+              type: 'tool-result',
+              toolCallId: 'call_123',
+              toolName: 'test_tool',
+              output: {
+                type: 'json',
+                value: [{ path: 'src/file.ts', content: 'content' }],
+              },
+            } satisfies ToolResultPart),
+          ],
+        }),
+      ])
+    })
+
     it('should drop JSON tool messages without a matching assistant tool call', () => {
       const messages: Message[] = [
         userMessage('Before orphan tool result'),
@@ -1270,5 +1319,83 @@ describe('convertCbToModelMessages', () => {
 
       expect(originalMessages).toEqual(messagesCopy)
     })
+  })
+})
+
+describe('jsonToolResult', () => {
+  it('should pass a scalar object value through unchanged', () => {
+    const result = jsonToolResult({ result: 'success', count: 3 })
+
+    expect(result).toEqual([
+      { type: 'json', value: { result: 'success', count: 3 } },
+    ])
+  })
+
+  it('should pass a primitive string value through unchanged', () => {
+    const result = jsonToolResult('terminal output')
+
+    expect(result).toEqual([{ type: 'json', value: 'terminal output' }])
+  })
+
+  it('should pass a bare top-level array through unchanged', () => {
+    const result = jsonToolResult([
+      { path: 'src/file.ts', content: 'a' },
+      { path: 'src/other.ts', content: 'b' },
+    ])
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: [
+          { path: 'src/file.ts', content: 'a' },
+          { path: 'src/other.ts', content: 'b' },
+        ],
+      },
+    ])
+  })
+
+  it('should pass an empty top-level array through unchanged', () => {
+    const result = jsonToolResult([])
+
+    expect(result).toEqual([{ type: 'json', value: [] }])
+  })
+
+  it('should preserve nested arrays inside an object value', () => {
+    const result = jsonToolResult({
+      files: ['a.ts', 'b.ts'],
+      nested: { items: [{ id: 1 }] },
+    })
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: {
+          files: ['a.ts', 'b.ts'],
+          nested: { items: [{ id: 1 }] },
+        },
+      },
+    ])
+  })
+
+  it('should sanitize undefined values from a top-level array', () => {
+    const result = jsonToolResult([
+      { path: 'a.ts', content: undefined },
+      { path: 'b.ts', missing: undefined },
+    ] as unknown as Parameters<typeof jsonToolResult>[0])
+
+    expect(result).toEqual([
+      {
+        type: 'json',
+        value: [{ path: 'a.ts' }, { path: 'b.ts' }],
+      },
+    ])
+  })
+
+  it('should not mutate the caller\'s array', () => {
+    const value = [{ path: 'src/file.ts', content: 'content' }]
+    const snapshot = cloneDeep(value)
+    jsonToolResult(value)
+
+    expect(value).toEqual(snapshot)
   })
 })

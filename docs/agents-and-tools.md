@@ -68,6 +68,54 @@ Several shipped agents share prompt text through centralized sections rather tha
     ```
 - The `editor` prompt includes Code Craftsmanship plus the conditional language and frontend placeholders, so implementation agents get the same style guidance as the orchestrator without inheriting the parent system prompt.
 
+### Test-writer agent contract
+
+The shipped `test-writer` agent is the coverage specialist used by the
+orchestrator and by explicit subagent calls. Its input schema accepts an
+optional `params.target_files` array and an optional `params.test_command`.
+When `target_files` is present, the agent reads those source files before
+writing tests so it can match the changed public surface and edge cases.
+It is intentionally read/write-only for files plus search/outline tools:
+it does **not** run terminal commands itself. If `test_command` is
+provided, the agent reports that command back for the parent or `basher`
+to run during validation.
+
+The agent's prompt contract is narrow: read the changed source, find an
+existing test in the same package, mimic that harness and assertion style,
+write focused behavior-oriented tests, and stop rather than modifying the
+source under test if it discovers a product bug. Its final response should
+name the test files changed and state whether validation is parent-owned,
+not run by `test-writer`, or skipped because no command was supplied.
+
+### CLI Agent/Tool Block Rendering
+
+The CLI renders nested agent activity as a hierarchy of content blocks:
+`AgentBranchWrapper` owns each agent card, `AgentBlockGrid` lays sibling
+agents into responsive groups, and `AgentBranchItem` provides the
+collapsible bordered card with status, prompt, preview text, and expanded
+children. Agent cards compute their own streaming state from the chat
+store, wrap prompts/previews to the available column width, and pass a
+reduced body width to nested markdown, tool, thinking, and child-agent
+renderers so long paths and command output stay inside the card.
+
+Inside an agent card, `processBlocks` routes grouped content to specialized
+renderers: `ThinkingBlock` collapses reasoning text through the shared
+`Thinking` component, `ToolBlockGroup` renders consecutive tool calls,
+and nested agent groups recurse through `AgentBlockGrid`. Tool rendering
+uses `ToolBranch`: hidden tools such as `end_turn`, `ask_user`, and blocks
+with `includeToolCall === false` are skipped; registered tool components
+render their custom content; unregistered tools fall back to `ToolCallItem`
+with JSON input, optional result output, streaming previews, finished
+previews, and default collapsed state.
+
+`Thinking` normalizes reasoning text for compact previews, shows the last
+few visual lines while collapsed, preserves original line breaks in the
+expanded view, and uses explicit available-width calculations instead of
+terminal-wide defaults when embedded inside an agent card. `ToolCallItem`
+uses display-cell widths for toggle indentation and wraps collapsed and
+expanded content separately, so bullets, disclosure arrows, dense mode,
+and nested code blocks align predictably in narrow terminal layouts.
+
 ### Shell Shims
 
 You can run individual specialized agents as direct terminal commands without the `openbuff` prefix. This is handled by shell shims:
@@ -353,6 +401,49 @@ Example:
 }
 ```
 
+### Direct subagent tool calls
+
+Spawnable agents are also exposed to the model as direct tool aliases. The
+runtime derives each alias from the agent id's short name by replacing
+hyphens with underscores; for example, `openbuff/file-picker@1.0.0`
+becomes the `file_picker` tool. The direct call is transformed into a
+single-entry `spawn_agents` call before execution, so normal spawn
+permissions and agent-template validation still apply.
+
+Input fields:
+
+- `prompt` (string, optional) — the prompt forwarded to the child agent.
+- `params` (object, optional) — parameters object for the child agent.
+  Direct agent schemas also accept a stringified JSON object for `params`
+  and parse it before validation; malformed JSON, arrays, and objects that
+  do not match the child agent's schema still fail validation.
+- `handoff` (object, optional) — structured handoff payload forwarded to
+  the child spawn entry.
+
+Example:
+
+```json
+{
+  "prompt": "Run pwd",
+  "params": { "command": "pwd" }
+}
+```
+
+Equivalent tolerated form when a provider serializes nested params as a
+string:
+
+```json
+{
+  "prompt": "Run pwd",
+  "params": "{\"command\":\"pwd\"}"
+}
+```
+
+Gotchas: the alias name is only for the provider-facing tool call; the
+spawn entry keeps the original agent id. Explicit `params` values are
+preserved and validated downstream, including invalid primitive values,
+so this compatibility layer does not weaken required agent parameters.
+
 ### `spawn_agent_inline`
 
 `spawn_agent_inline` is an orchestrator-internal tool that spawns a single
@@ -422,6 +513,116 @@ forwarded chunks (including the child's `subagent_start` /
 `subagent_finish` emitted by `executeSubagent`), so the pruner runs
 silently and produces no TUI output. This is the existing behavior; the
 `TODO` in source notes a future option may make this configurable.
+
+### Tool-result message builders
+
+Tool handlers build structured tool results and convert the internal
+`Message[]` history into the shape the AI SDK sends to providers. The
+public contract lives in `common/src/util/messages.ts` and is consumed by
+every tool handler in `packages/agent-runtime/src/tools/handlers/tool/`.
+
+#### `jsonToolResult`
+
+`jsonToolResult<T>(value: T)` returns a one-element tuple shaped as the
+`json` variant of `ToolResultOutput` for a `tool`-role message's `content`
+array. It is the single constructor tool handlers use to produce JSON
+results (e.g. `read_files`, `read_subtree`, `spawn_agents`,
+`web-search`).
+
+```ts
+import { jsonToolResult } from '@codebuff/common/src/util/messages'
+
+// Object value — passes through unchanged.
+return { output: jsonToolResult({ result: 'success', count: 3 }) }
+
+// Primitive value — passes through unchanged.
+return { output: jsonToolResult('terminal output') }
+```
+
+The value is run through `sanitizeJsonToolResultValue` before being
+wrapped in the `{ type: 'json', value }` tuple. Sanitization rules
+applied to every value (top-level and nested):
+
+- `null`, `string`, `boolean`, finite `number` pass through.
+- `bigint` is stringified; `function`, `symbol`, and `undefined` are
+  dropped (and `undefined` object keys are omitted).
+- Circular references become the string `"[Circular]"`.
+- Values with a custom `toJSON()` are invoked and the result is
+  sanitized recursively.
+
+**Top-level arrays pass through unchanged.** The AI SDK's
+`modelMessageSchema` accepts bare-array tool-result values, so
+`jsonToolResult` does **not** wrap a top-level array in an envelope. A
+handler that returns `jsonToolResult(reports)` where `reports` is an
+array will appear to the model as the bare array. Nested arrays (arrays
+that live inside an object value) are also preserved as arrays.
+
+```ts
+// Top-level array — passes through unchanged.
+jsonToolResult([{ path: 'a.ts' }, { path: 'b.ts' }])
+// → [{ type: 'json', value: [{ path: 'a.ts' }, { path: 'b.ts' }] }]
+
+// Nested array inside an object — preserved as-is.
+jsonToolResult({ files: ['a.ts', 'b.ts'] })
+// → [{ type: 'json', value: { files: ['a.ts', 'b.ts'] } }]
+```
+
+This contract is regression-tested in
+`common/src/util/__tests__/messages.test.ts` (unit tests on
+`jsonToolResult` plus an integration test through
+`convertCbToModelMessages`).
+
+#### `mediaToolResult`
+
+`mediaToolResult({ data, mediaType })` returns the `media` variant of
+`ToolResultOutput`, used by tool handlers that return image or file
+binary content. The `data` is a base64 string and `mediaType` is the
+MIME type (e.g. `image/png`).
+
+#### `convertCbToModelMessages`
+
+`convertCbToModelMessages({ messages, includeCacheControl?, logger? })`
+is the boundary that shapes the internal `Message[]` history into the AI
+SDK's `ModelMessage[]` for a provider request. It is the sole caller of
+`jsonToolResult`'s schema-validation path and is invoked by
+`sdk/src/impl/llm.ts` before each model call.
+
+Behavior:
+
+- Converts each role: `system` flattens its text parts, `user` and
+  `assistant` pass through (string assistant content is wrapped in a
+  text part), and `tool` is split into `tool-result` parts (or `file`
+  parts for media results).
+- Filters **orphan tool results** — `tool`-role messages whose
+  `toolCallId` has no preceding `assistant` tool-call with the same id
+  are dropped before validation, with a debug log when a `logger` is
+  supplied. This prevents persisted history from carrying stale tool
+  results that would fail the SDK schema.
+- Aggregates consecutive same-role messages (system/user/assistant) only
+  when their `timeToLive`, `providerOptions`, and `tags` are equal, so
+  tag-bearing prompt boundaries are never merged together.
+- When `includeCacheControl` is `true` (default), applies up to 3
+  Anthropic prompt-cache breakpoints on stable prefix boundaries:
+  system message, last message before the earliest live-prompt tag
+  (`USER_PROMPT` / `STEP_PROMPT`), and the tail message. Set-dedup
+  keeps the count within Anthropic's 4-breakpoint limit.
+- Runs every aggregated message through `modelMessageSchema.safeParse`
+  and throws `convertCbToModelMessages: Message at index N failed
+  schema validation.` on failure, with the full message, aggregated
+  array, and zod error logged when a `logger` is supplied.
+
+#### `getCacheAnchorSummary`
+
+`getCacheAnchorSummary(messages: Message[])` is the crash-safe telemetry
+egress for the cache-control strategy above. It returns the anchor
+metadata (type, index, djb2 content hash, reason) that
+`convertCbToModelMessages` would apply, without mutating the messages.
+It is used by the cache-debug snapshots in
+`packages/agent-runtime/src/util/cache-debug.ts` so developers can diff
+which message indices received cache control and whether they stay
+stable across requests (cache hits) or churn every turn (cache misses).
+On any internal conversion error it returns `[]`, so telemetry never
+breaks the request flow.
 
 ## Slash Commands
 
